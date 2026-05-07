@@ -141,29 +141,14 @@
     <ClCompile Include="engin\game\cpp\Game.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
-    <ClCompile Include="engin\game\cpp\Enemy.cpp">
-      <Filter>ソースファイル\Game\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\EnemyManager.cpp">
-      <Filter>ソースファイル\Game\Enemy</Filter>
-    </ClCompile>
     <ClCompile Include="engin\game\cpp\hoge.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\Player.cpp">
-      <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
     <ClCompile Include="engin\game\cpp\GamePlayScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <ClCompile Include="engin\game\cpp\TitleScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\Bullet.cpp">
-      <Filter>ソースファイル\Game\Bullet</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\PlayerManager.cpp">
-      <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
     <ClCompile Include="engin\game\cpp\Animation.cpp">
       <Filter>ソースファイル\Engine\Animation</Filter>
@@ -198,17 +183,8 @@
     <ClCompile Include="engin\game\cpp\PauseScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="engin\game\cpp\bulletHitEffect.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\ConditionUpEffect.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
-    </ClCompile>
     <ClCompile Include="engin\game\cpp\LoadingScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\HitStarEmitter.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
     </ClCompile>
     <ClCompile Include="engin\graphics\cpp\Cylinder.cpp">
       <Filter>ソースファイル\Game\Particle</Filter>
@@ -350,15 +326,6 @@
     <ClInclude Include="engin\game\h\Game.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
-    <ClInclude Include="engin\game\h\Player.h">
-      <Filter>ヘッダーファイル\Game\Player</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\Enemy.h">
-      <Filter>ヘッダーファイル\Game\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\EnemyManager.h">
-      <Filter>ヘッダーファイル\Game\Enemy</Filter>
-    </ClInclude>
     <ClInclude Include="engin\game\h\GamePlayScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
@@ -376,12 +343,6 @@
     </ClInclude>
     <ClInclude Include="engin\game\h\hoge.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\Bullet.h">
-      <Filter>ヘッダーファイル\Game\Bullet</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\PlayerManager.h">
-      <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
     <ClInclude Include="engin\game\h\Animation.h">
       <Filter>ヘッダーファイル\Engine\Animation</Filter>
@@ -401,9 +362,6 @@
     <ClInclude Include="engin\game\h\ScoreManager.h">
       <Filter>ヘッダーファイル\Game\UI\score</Filter>
     </ClInclude>
-    <ClInclude Include="engin\game\h\EnemyDeathEffect.h">
-      <Filter>ヘッダーファイル\Game\Enemy</Filter>
-    </ClInclude>
     <ClInclude Include="engin\game\h\ScoreDisplay.h">
       <Filter>ヘッダーファイル\Game\UI\score</Filter>
     </ClInclude>
@@ -416,17 +374,8 @@
     <ClInclude Include="engin\game\h\GameOverScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="engin\game\h\bulletHitEffect.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\ConditionUpEffect.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
-    </ClInclude>
     <ClInclude Include="engin\game\h\LoadingScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="engin\game\h\HitStarEmitter.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\Cylinder.h">
       <Filter>ヘッダーファイル\Game\Particle</Filter>
@@ -525,20 +474,11 @@
     <Filter Include="ヘッダーファイル\Game\Core">
       <UniqueIdentifier>{8b1fca2c-b832-4cd6-886e-6c295411d818}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダーファイル\Game\Player">
-      <UniqueIdentifier>{1505dab3-a622-48a2-8396-ad4090aee723}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ヘッダーファイル\Game\Enemy">
-      <UniqueIdentifier>{63cf37ff-9a55-49e4-a806-28f0aaae97d5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ヘッダーファイル\Game\Scene">
       <UniqueIdentifier>{e91a1d3a-6e84-49ed-af06-318f14e11620}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Game\MapChip">
       <UniqueIdentifier>{636bc646-d541-4c39-ad37-196dbeab8c82}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ヘッダーファイル\Game\Bullet">
-      <UniqueIdentifier>{545054a3-4535-472d-adef-3f93593bdc2e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shader">
       <UniqueIdentifier>{5d7f0c2e-2503-48b0-960f-497607245bdf}</UniqueIdentifier>
@@ -600,17 +540,11 @@
     <Filter Include="ソースファイル\Game\Enemy">
       <UniqueIdentifier>{2aa32735-9de8-4149-bbfd-e3af46dd1fda}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソースファイル\Game\Player">
-      <UniqueIdentifier>{a02a70aa-0ed8-4500-9d12-8e0132db49d7}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソースファイル\Game\Scene">
       <UniqueIdentifier>{7a55b995-e6ae-4d77-aae7-b2be38d96b58}</UniqueIdentifier>
     </Filter>
     <Filter Include="ソースファイル\Game\MapChip">
       <UniqueIdentifier>{7917808e-7c3d-46d1-b169-06fd0ad30d76}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ソースファイル\Game\Bullet">
-      <UniqueIdentifier>{e3e5a56b-77a2-4217-9b41-f4330a256c2e}</UniqueIdentifier>
     </Filter>
     <Filter Include="ソースファイル\Game\UI">
       <UniqueIdentifier>{78452b25-04a6-43d9-a478-cdcea1e2bd58}</UniqueIdentifier>
