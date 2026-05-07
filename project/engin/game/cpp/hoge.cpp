@@ -14,24 +14,50 @@ Hoge::~Hoge()
 }
 
 // 初期化処理
-void Hoge::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
+void Hoge::Initialize(ModelCommon* modelCommon, DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    // 引数で受け取ったポインタをメンバ変数に保存する
     dxCommon_ = dxCommon;
-    input_ = input;
-    audio_ = audio;
+    input_    = input;
+    audio_    = audio;
+
+    model_ = std::make_unique<Model>();
+    model_->Initialize(modelCommon,
+        "Resources/AnimatedCube/AnimatedCube.gltf",
+        "Resources/AnimatedCube/AnimatedCube_BaseColor.png");
+
+    animation_ = LoadAnimationFile("Resources/AnimatedCube", "AnimatedCube.gltf");
+
+    object_ = std::make_unique<Object3d>();
+    object_->Initialize(modelCommon);
+    object_->SetModel(model_.get());
 }
 
 // 更新処理
 void Hoge::Update()
 {
+    if (!object_ || animation_.nodeAnimations.empty()) {
+        return;
+    }
 
+    animTime_ = std::fmod(animTime_ + animSpeed_ / 60.0f, animation_.duration);
+
+    auto& nodeAnim = animation_.nodeAnimations.begin()->second;
+    Vector3    t = CalculateValue(nodeAnim.translate, animTime_);
+    Quaternion r = CalculateValue(nodeAnim.rotate,    animTime_);
+    Vector3    s = CalculateValue(nodeAnim.scale,     animTime_);
+
+    t = t + worldOffset_;
+
+    object_->SetLocalMatrix(MakeAffineMatrix(s, r, t));
+    object_->Update();
 }
 
 // 描画処理
 void Hoge::Draw()
 {
-
+    if (object_) {
+        object_->Draw();
+    }
 }
 
 // 終了処理
