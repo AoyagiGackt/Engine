@@ -96,6 +96,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     human_->SetAnimation(std::move(humanAnimation));
     human_->SetPosition(humanPosition_);
     SkinnedObject3d::SetCommonCamera(camera_.get());
+    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
+    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     // ----- エフェクト・進行管理 -----
     ParticleManager::GetInstance()->SetModel(modelBullet_.get());

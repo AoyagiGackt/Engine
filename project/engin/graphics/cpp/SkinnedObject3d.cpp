@@ -1,16 +1,24 @@
 #include "SkinnedObject3d.h"
 #include "Camera.h"
 #include "LightManager.h"
+#include "Object3dCommon.h"
+#include "ShadowManager.h"
+#include "SrvManager.h"
+#include "TextureManager.h"
 #include <algorithm>
 #include <cmath>
 
 using namespace Microsoft::WRL;
 
-Camera*   SkinnedObject3d::commonCamera_  = nullptr;
-Matrix4x4 SkinnedObject3d::commonLightVP_ = MakeIdentity4x4();
+Camera*         SkinnedObject3d::commonCamera_        = nullptr;
+Matrix4x4       SkinnedObject3d::commonLightVP_       = MakeIdentity4x4();
+Object3dCommon* SkinnedObject3d::commonObjectCommon_  = nullptr;
+ShadowManager*  SkinnedObject3d::commonShadowManager_ = nullptr;
 
-void SkinnedObject3d::SetCommonCamera(Camera* camera)          { commonCamera_  = camera; }
-void SkinnedObject3d::SetLightViewProjection(const Matrix4x4& lvp) { commonLightVP_ = lvp; }
+void SkinnedObject3d::SetCommonCamera(Camera* camera)              { commonCamera_        = camera; }
+void SkinnedObject3d::SetLightViewProjection(const Matrix4x4& lvp) { commonLightVP_       = lvp; }
+void SkinnedObject3d::SetCommonObjectCommon(Object3dCommon* oc)    { commonObjectCommon_  = oc; }
+void SkinnedObject3d::SetCommonShadowManager(ShadowManager* sm)    { commonShadowManager_ = sm; }
 
 void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
 {
@@ -121,8 +129,31 @@ void SkinnedObject3d::Draw()
 {
     if (!model_) return;
     ID3D12GraphicsCommandList* cmd = skinCommon_->GetDxCommon()->GetCommandList();
+
     cmd->SetGraphicsRootConstantBufferView(0, materialCB_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootConstantBufferView(1, transformCB_->GetGPUVirtualAddress());
+
+    // スロット3 (b1): ライト情報
+    if (commonObjectCommon_) {
+        commonObjectCommon_->SetDefaultLight(cmd);
+    }
+
+    // スロット4 (t1): シャドウマップ
+    if (commonShadowManager_) {
+        commonShadowManager_->SetShadowMap(cmd, SrvManager::GetInstance());
+    }
+
+    // スロット5 (t2): 環境マップ（未設定時は通常テクスチャをフォールバック）
+    if (!envCubemapFilePath_.empty()) {
+        D3D12_GPU_DESCRIPTOR_HANDLE cubeHandle =
+            TextureManager::GetInstance()->GetSrvHandleGPU(envCubemapFilePath_);
+        cmd->SetGraphicsRootDescriptorTable(5, cubeHandle);
+    } else {
+        D3D12_GPU_DESCRIPTOR_HANDLE texHandle =
+            TextureManager::GetInstance()->GetSrvHandleGPU(model_->GetTextureFilePath());
+        cmd->SetGraphicsRootDescriptorTable(5, texHandle);
+    }
+
     cmd->SetGraphicsRootConstantBufferView(6, paletteCB_->GetGPUVirtualAddress());
     model_->Draw(cmd);
 }

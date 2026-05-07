@@ -69,7 +69,7 @@ void SkinnedModel::Draw(ID3D12GraphicsCommandList* cmd)
     D3D12_GPU_DESCRIPTOR_HANDLE texHandle =
         TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     cmd->SetGraphicsRootDescriptorTable(2, texHandle);
-    cmd->SetGraphicsRootDescriptorTable(5, texHandle);
+    // スロット5(t2)は SkinnedObject3d::Draw が環境マップまたはフォールバックをバインドする
 
     cmd->DrawInstanced(static_cast<UINT>(vertices_.size()), 1, 0, 0);
 }

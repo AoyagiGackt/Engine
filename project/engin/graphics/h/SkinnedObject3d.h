@@ -4,6 +4,7 @@
 #include "Skeleton.h"
 #include "SkinnedModel.h"
 #include "SkinCommon.h"
+#include <string>
 #include <wrl/client.h>
 
 #ifdef USE_IMGUI
@@ -12,6 +13,8 @@
 #endif
 
 class Camera;
+class Object3dCommon;
+class ShadowManager;
 
 // スキニング（ボーンアニメーション）付き 3D オブジェクト。
 // SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する。
@@ -19,12 +22,15 @@ class SkinnedObject3d {
 public:
     static void SetCommonCamera(Camera* camera);
     static void SetLightViewProjection(const Matrix4x4& lvp);
+    static void SetCommonObjectCommon(Object3dCommon* objectCommon);
+    static void SetCommonShadowManager(ShadowManager* shadowManager);
 
     void Initialize(SkinCommon* skinCommon);
 
-    void SetModel(SkinnedModel* model)   { model_ = model; }
-    void SetAnimation(Animation anim)    { animation_ = std::move(anim); }
-    void SetSkeleton(Skeleton skeleton)  { skeleton_  = std::move(skeleton); }
+    void SetModel(SkinnedModel* model)        { model_ = model; }
+    void SetAnimation(Animation anim)         { animation_ = std::move(anim); }
+    void SetSkeleton(Skeleton skeleton)       { skeleton_  = std::move(skeleton); }
+    void SetEnvCubemapFilePath(const std::string& path) { envCubemapFilePath_ = path; }
 
     void SetPosition(const Vector3& pos) { transform_.translate = pos; }
     void SetRotation(const Vector3& rot) { transform_.rotate    = rot; }
@@ -62,11 +68,15 @@ private:
         float     envMapIntensity;
     };
 
-    static Camera*   commonCamera_;
-    static Matrix4x4 commonLightVP_;
+    static Camera*         commonCamera_;
+    static Matrix4x4       commonLightVP_;
+    static Object3dCommon* commonObjectCommon_;
+    static ShadowManager*  commonShadowManager_;
 
     SkinCommon*   skinCommon_ = nullptr;
     SkinnedModel* model_      = nullptr;
+
+    std::string envCubemapFilePath_;
 
     Skeleton  skeleton_;
     Animation animation_;
