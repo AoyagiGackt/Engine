@@ -9,6 +9,11 @@
 #include "DirectXCommon.h"
 #include "Input.h"
 #include "GameObject.h"
+#include "Animation.h"
+#include "Model.h"
+#include "ModelCommon.h"
+#include "Object3d.h"
+#include <memory>
 
 /**
  * @brief サンプルオブジェクトクラス
@@ -35,7 +40,7 @@ public:
      * @param audio 音響管理のポインタ
      * @note メンバ変数の初期化や、使用するモデル・テクスチャのロードなどを行います
      */
-    void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio);
+    void Initialize(ModelCommon* modelCommon, DirectXCommon* dxCommon, Input* input, Audio* audio);
 
     /**
      * @brief 更新処理
@@ -55,6 +60,11 @@ public:
      */
     void Finalize();
 
+    void SetWorldOffset(const Vector3& offset) { worldOffset_ = offset; }
+    void SetAnimSpeed(float speed)             { animSpeed_   = speed;  }
+    Vector3 GetWorldOffset() const             { return worldOffset_;   }
+    float   GetAnimSpeed()   const             { return animSpeed_;     }
+
 private:
    
     // --- 外部から提供される基盤システム（借りてくるもの） ---
@@ -69,4 +79,11 @@ private:
     Audio* audio_ = nullptr;
 
     // --- メンバ変数 ---
+
+    std::unique_ptr<Model>    model_;
+    std::unique_ptr<Object3d> object_;
+    Animation                 animation_;
+    float                     animTime_    = 0.0f;
+    float                     animSpeed_   = 1.0f;
+    Vector3                   worldOffset_ = { 10.0f, 2.0f, 0.0f };
 };

@@ -72,7 +72,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     player->SetEnemyManager(enemyManager_.get());
 
     auto hoge = std::make_unique<Hoge>();
-    hoge->Initialize(dxCommon, input, audio);
+    hoge->Initialize(modelCommon_.get(), dxCommon, input, audio);
+    animCube_ = hoge.get();
     gameObjects_.push_back(std::move(hoge));
 
     // ----- エフェクト・進行管理 -----
@@ -294,6 +295,10 @@ void GamePlayScene::UpdateDebugUI()
     }
     if (ImGui::Selectable("Skydome", editorSelectedType_ == SelectedType::Skydome)) {
         editorSelectedType_ = SelectedType::Skydome;
+        editorSelectedIndex_ = -1;
+    }
+    if (ImGui::Selectable("AnimatedCube", editorSelectedType_ == SelectedType::AnimatedCube)) {
+        editorSelectedType_ = SelectedType::AnimatedCube;
         editorSelectedIndex_ = -1;
     }
     if (ImGui::Selectable("HitStar Emitter", editorSelectedType_ == SelectedType::HitStar)) {
@@ -766,6 +771,31 @@ void GamePlayScene::UpdateDebugUI()
             if (ImGui::Button("Load##inspUI")) {
                 LoadUILayout();
             }
+        }
+
+        break;
+    }
+
+    case SelectedType::AnimatedCube: {
+        ImGui::TextColored(ImVec4(0.6f, 1.0f, 0.6f, 1), "[AnimatedCube]");
+        ImGui::Separator();
+
+        if (ImGui::DragFloat3("Position", &animCubePosition_.x, 0.1f)) {
+            if (animCube_) { animCube_->SetWorldOffset(animCubePosition_); }
+        }
+
+        if (ImGui::SliderFloat("Anim Speed", &animCubeSpeed_, 0.0f, 5.0f)) {
+            if (animCube_) { animCube_->SetAnimSpeed(animCubeSpeed_); }
+        }
+
+        if (ImGui::Button("Reset Position")) {
+            animCubePosition_ = { 10.0f, 2.0f, 0.0f };
+            if (animCube_) { animCube_->SetWorldOffset(animCubePosition_); }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reset Speed")) {
+            animCubeSpeed_ = 1.0f;
+            if (animCube_) { animCube_->SetAnimSpeed(animCubeSpeed_); }
         }
 
         break;
@@ -1247,6 +1277,10 @@ void GamePlayScene::Draw()
     skydome_->Draw();
 
     enemyManager_->Draw();
+
+    for (auto& obj : gameObjects_) {
+        obj->Draw();
+    }
 
     for (const auto& bullet : bullets_) {
         bullet->Draw();

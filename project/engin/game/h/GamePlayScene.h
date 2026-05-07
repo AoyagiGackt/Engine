@@ -141,6 +141,11 @@ private:
 	float   cylinderHeight_       = 3.0f;
 	float   cylinderAlphaRef_     = 0.0f;
 
+	// --- AnimatedCube ---
+	Hoge*   animCube_          = nullptr;
+	Vector3 animCubePosition_  = { 10.0f, 2.0f, 0.0f };
+	float   animCubeSpeed_     = 1.0f;
+
 	// --- Skydome パラメータ ---
 	Vector4 skyColor_       = { 1.0f, 1.0f, 1.0f, 1.0f };
 	float   skyRotOffsetY_  = 0.0f;
@@ -155,7 +160,7 @@ private:
 	std::string enemyObjPath_ = "Resources/boss/boss.obj";
 	std::string enemyTexPath_ = "Resources/boss/boss.png";
 
-	enum class SelectedType{ None,Player,Enemy,Camera,EnemySettings,UIElement,HitStar,Ring,Cylinder,Skydome };
+	enum class SelectedType{ None,Player,Enemy,Camera,EnemySettings,UIElement,HitStar,Ring,Cylinder,Skydome,AnimatedCube };
 	SelectedType editorSelectedType_ = SelectedType::None;
 	int editorSelectedIndex_ = -1;
 
