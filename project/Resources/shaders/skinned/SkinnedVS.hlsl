@@ -6,7 +6,10 @@ struct TransformationMatrix
     float4x4 World;
     float4x4 LightVP;
 };
-ConstantBuffer<TransformationMatrix> gTransformationMatrix : register(b0);
+cbuffer gTransformationMatrixCB : register(b0)
+{
+    TransformationMatrix gTransformationMatrix;
+};
 
 #define MAX_JOINTS 128
 cbuffer SkinningPalette : register(b1)

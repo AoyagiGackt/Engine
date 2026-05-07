@@ -11,7 +11,8 @@ class Ring
 {
 public:
     void Initialize(DirectXCommon* dxCommon,
-                    const std::string& textureFilePath = "Resources/gradationLine.png");
+                    const std::string& textureFilePath = "Resources/gradationLine.png",
+                    int divisions = 32);
     void Update(Camera* camera);
     void Draw();
 
@@ -39,8 +40,8 @@ private:
         Vector4   color;
     };
 
-    static constexpr int kDivisions   = 32;
-    static constexpr int kVertexCount = kDivisions * 6;
+    int divisions_   = 32;
+    int vertexCount_ = 0;
 
     DirectXCommon*  dxCommon_         = nullptr;
     std::string     textureFilePath_;
