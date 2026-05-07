@@ -8,11 +8,14 @@
 
 using namespace Microsoft::WRL;
 
-void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath)
+void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
 {
     assert(dxCommon);
+    assert(divisions >= 3);
     dxCommon_        = dxCommon;
     textureFilePath_ = textureFilePath;
+    divisions_       = divisions;
+    vertexCount_     = divisions_ * 6;
 
     TextureManager::GetInstance()->LoadTexture(textureFilePath_);
 
@@ -22,10 +25,10 @@ void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFil
     materialData_->color          = { 1.0f, 1.0f, 1.0f, 1.0f };
     materialData_->alphaReference = 0.0f;
 
-    vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * kVertexCount);
+    vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * vertexCount_);
     vertexBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
     vbv_.BufferLocation = vertexBuffer_->GetGPUVirtualAddress();
-    vbv_.SizeInBytes    = static_cast<UINT>(sizeof(VertexData) * kVertexCount);
+    vbv_.SizeInBytes    = static_cast<UINT>(sizeof(VertexData) * vertexCount_);
     vbv_.StrideInBytes  = sizeof(VertexData);
 
     RebuildVertices();
@@ -36,15 +39,15 @@ void Cylinder::RebuildVertices()
 {
     if (!vertexData_) { return; }
 
-    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(kDivisions);
+    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(divisions_);
 
-    for (int index = 0; index < kDivisions; ++index) {
+    for (int index = 0; index < divisions_; ++index) {
         float s     = std::sin(float(index)     * radianPerDivide);
         float c     = std::cos(float(index)     * radianPerDivide);
         float sNext = std::sin(float(index + 1) * radianPerDivide);
         float cNext = std::cos(float(index + 1) * radianPerDivide);
-        float u     = float(index)     / float(kDivisions);
-        float uNext = float(index + 1) / float(kDivisions);
+        float u     = float(index)     / float(divisions_);
+        float uNext = float(index + 1) / float(divisions_);
 
         // -sinでX方向を時計回り、側面法線はXZ平面外向き
         Vector4 topCur  = { -s    * topRadius_,    height_, c    * topRadius_,    1.0f };
@@ -89,7 +92,7 @@ void Cylinder::Draw()
         TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     cmd->SetGraphicsRootDescriptorTable(1, texHandle);
 
-    cmd->DrawInstanced(kVertexCount, 1, 0, 0);
+    cmd->DrawInstanced(vertexCount_, 1, 0, 0);
 }
 
 void Cylinder::CreatePipeline()

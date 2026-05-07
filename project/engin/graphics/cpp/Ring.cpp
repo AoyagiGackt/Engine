@@ -8,11 +8,14 @@
 
 using namespace Microsoft::WRL;
 
-void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath)
+void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
 {
     assert(dxCommon);
+    assert(divisions >= 3);
     dxCommon_        = dxCommon;
     textureFilePath_ = textureFilePath;
+    divisions_       = divisions;
+    vertexCount_     = divisions_ * 6;
 
     TextureManager::GetInstance()->LoadTexture(textureFilePath_);
 
@@ -21,10 +24,10 @@ void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePat
     materialData_->WVP   = MakeIdentity4x4();
     materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * kVertexCount);
+    vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * vertexCount_);
     vertexBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
     vbv_.BufferLocation = vertexBuffer_->GetGPUVirtualAddress();
-    vbv_.SizeInBytes    = static_cast<UINT>(sizeof(VertexData) * kVertexCount);
+    vbv_.SizeInBytes    = static_cast<UINT>(sizeof(VertexData) * vertexCount_);
     vbv_.StrideInBytes  = sizeof(VertexData);
 
     RebuildVertices();
@@ -35,16 +38,16 @@ void Ring::RebuildVertices()
 {
     if (!vertexData_) { return; }
 
-    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(kDivisions);
-    const Vector3 normal = { 0.0f, 0.0f, -1.0f }; // XY平面、+Z向き
+    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(divisions_);
+    const Vector3 normal = { 0.0f, 0.0f, -1.0f }; // XY平面の面法線
 
-    for (int index = 0; index < kDivisions; ++index) {
+    for (int index = 0; index < divisions_; ++index) {
         float s     = std::sin(float(index)     * radianPerDivide);
         float c     = std::cos(float(index)     * radianPerDivide);
         float sNext = std::sin(float(index + 1) * radianPerDivide);
         float cNext = std::cos(float(index + 1) * radianPerDivide);
-        float u     = float(index)     / float(kDivisions);
-        float uNext = float(index + 1) / float(kDivisions);
+        float u     = float(index)     / float(divisions_);
+        float uNext = float(index + 1) / float(divisions_);
 
         // XY平面上（Z=0）、-sinでX方向を時計回りに
         Vector4 outerCur  = { -s     * outerRadius_, c     * outerRadius_, 0.0f, 1.0f };
@@ -89,7 +92,7 @@ void Ring::Draw()
         TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     cmd->SetGraphicsRootDescriptorTable(1, texHandle);
 
-    cmd->DrawInstanced(kVertexCount, 1, 0, 0);
+    cmd->DrawInstanced(vertexCount_, 1, 0, 0);
 }
 
 void Ring::CreatePipeline()

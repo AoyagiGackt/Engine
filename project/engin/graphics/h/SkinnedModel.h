@@ -24,6 +24,7 @@ public:
     // スロット 2 (テクスチャ) と 5 (キューブマップ枠) を書き込む
     void Draw(ID3D12GraphicsCommandList* cmd);
 
+    const std::string&               GetTextureFilePath()     const { return textureFilePath_; }
     const std::vector<Matrix4x4>&   GetInverseBindMatrices() const { return inverseBindMatrices_; }
     const std::vector<std::string>& GetBoneNames()           const { return boneNames_; }
 
