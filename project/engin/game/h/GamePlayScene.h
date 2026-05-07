@@ -5,7 +5,6 @@
 #pragma once
 
  // --- 標準ライブラリ ---
-#include <list>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,7 +13,6 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "Camera.h"
-#include "CollisionManager.h"
 #include "DirectXCommon.h"
 #include "GameObject.h"
 #include "ImGuiManager.h"
@@ -29,15 +27,10 @@
 
 // --- ゲームロジック・オブジェクト ---
 #include "Object3d.h"
-#include "Bullet.h"
-#include "EnemyManager.h"
 #include "GameTime.h"
 #include "MapChipField.h"
-#include "Player.h"
-#include "PlayerManager.h"
 #include "Skydome.h"
 #include "hoge.h"
-#include "HitStarEmitter.h"
 #include "Ring.h"
 #include "Cylinder.h"
 #include "SkinCommon.h"
@@ -68,8 +61,6 @@ private:
 	// --- データセーブ・ロード関数 ---
 	void SaveCameraParams();
 	void LoadCameraParams();
-	void SaveEnemyParams();
-	void LoadEnemyParams();
 	void SaveModelPaths();
 	void LoadModelPaths();
 	void SaveUILayout();
@@ -91,17 +82,8 @@ private:
 	std::unique_ptr<Object3dCommon> objectCommon_;
 	std::unique_ptr<ShadowManager> shadowManager_;
 	std::unique_ptr<Camera> camera_;
-	std::unique_ptr<CollisionManager> collisionManager_;
-
-	// --- マネージャクラス ---
-	std::unique_ptr<PlayerManager> playerManager_;
-	std::unique_ptr<EnemyManager> enemyManager_;
 
 	// --- 3Dモデル群 ---
-	std::unique_ptr<Model> modelPlayer_;
-	std::unique_ptr<Model> modelEnemy_;
-	std::unique_ptr<Model> modelBullet_;
-	std::unique_ptr<Model> modelBeam_;
 	std::unique_ptr<Model> modelSkydome_;
 
 	// --- 天球 ---
@@ -114,7 +96,6 @@ private:
 
 	// --- ゲームオブジェクト群 ---
 	std::vector<std::unique_ptr<GameObject>> gameObjects_;
-	std::list<std::unique_ptr<Bullet>> bullets_;
 	std::unique_ptr<MapChipField> mapField_;
 
 	// --- 進行・状態管理 ---
@@ -124,12 +105,6 @@ private:
 	float ellipseParticleTimer_ = 0.0f;
 	static constexpr float kEllipseEmitInterval = 0.05f;
 	float ringOrbitAngle_ = 0.0f; ///< パーティクル放出角度（リングを周回）
-
-	// --- 星型ヒットエフェクト（常時発生） ---
-	std::unique_ptr<HitStarEmitter> hitStarEmitter_;
-	Vector3 hitStarPosition_ = { 12.0f, 2.0f, 0.0f };
-	Vector4 hitStarColor_    = { 1.0f, 0.95f, 0.8f, 1.0f };
-	float   hitStarFreq_     = 0.05f;
 
 	// --- Ring ---
 	std::unique_ptr<Ring> ring_;
@@ -168,16 +143,9 @@ private:
 	float   skyRotOffsetY_  = 0.0f;
 
 	// --- デバッグ・エディタ関連 ---
-	bool debugScrollPaused_ = false;
-	bool debugSpawnDisabled_ = false;
 	bool debugEditMode_ = false;
 
-	std::string playerObjPath_ = "Resources/player/player.obj";
-	std::string playerTexPath_ = "Resources/player/player.png";
-	std::string enemyObjPath_ = "Resources/boss/boss.obj";
-	std::string enemyTexPath_ = "Resources/boss/boss.png";
-
-	enum class SelectedType{ None,Player,Enemy,Camera,EnemySettings,UIElement,HitStar,Ring,Cylinder,Skydome,AnimatedCube,Human };
+	enum class SelectedType{ None,Camera,UIElement,Ring,Cylinder,Skydome,AnimatedCube,Human };
 	SelectedType editorSelectedType_ = SelectedType::None;
 	int editorSelectedIndex_ = -1;
 

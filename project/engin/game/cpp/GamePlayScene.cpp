@@ -5,13 +5,11 @@
 #include <fstream>
 #include <sstream>
 #pragma comment(lib, "comdlg32.lib")
-#include "EnemyDeathEffect.h"
 #include "ImguiManager.h"
 #include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "TextureManager.h"
-#include "bulletHitEffect.h"
 
 // =====================================================
 // 初期化
@@ -36,40 +34,17 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     shadowManager_ = std::make_unique<ShadowManager>();
     shadowManager_->Initialize(dxCommon_, SrvManager::GetInstance());
 
-    collisionManager_ = std::make_unique<CollisionManager>();
-
     // ----- カメラ -----
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 14.5f, 6.0f, -30.0f });
     Object3d::SetCommonCamera(camera_.get());
 
     // ----- キャラクター・オブジェクト -----
-    modelPlayer_ = std::make_unique<Model>();
-    modelPlayer_->Initialize(modelCommon_.get(), "Resources/player/player.obj", "Resources/player/player.png");
-
-    modelEnemy_ = std::make_unique<Model>();
-    modelEnemy_->Initialize(modelCommon_.get(), "Resources/boss/boss.obj", "Resources/boss/boss.png");
-
-    modelBullet_ = std::make_unique<Model>();
-    modelBullet_->Initialize(modelCommon_.get(), "Resources/plane/plane.obj", "Resources/white.png");
-
-    modelBeam_ = std::make_unique<Model>();
-    modelBeam_->Initialize(modelCommon_.get(), "Resources/beam/beam.obj", "Resources/beam/beam.png");
-
     modelSkydome_ = std::make_unique<Model>();
     modelSkydome_->Initialize(modelCommon_.get(), "Resources/SkyDome/SkyDome.obj", "Resources/rostock_laage_airport_4k.dds");
 
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
-
-    playerManager_ = std::make_unique<PlayerManager>();
-    playerManager_->Initialize(modelCommon_.get(), modelPlayer_.get(), input_, mapField_.get(), camera_.get());
-
-    enemyManager_ = std::make_unique<EnemyManager>();
-    enemyManager_->Initialize(modelCommon_.get(), modelEnemy_.get(), input_, modelBullet_.get(), mapField_.get());
-
-    Player* player = playerManager_->GetPlayer();
-    player->SetEnemyManager(enemyManager_.get());
 
     auto hoge = std::make_unique<Hoge>();
     hoge->Initialize(modelCommon_.get(), dxCommon, input, audio);
@@ -100,18 +75,11 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     // ----- エフェクト・進行管理 -----
-    ParticleManager::GetInstance()->SetModel(modelBullet_.get());
-
     // 楕円パーティクルグループ（circle2.png を使用）
     ParticleManager::GetInstance()->CreateParticleGroup("ellipse", "Resources/circle2.png");
 
     // 斬撃パーティクルグループ（gradationLine.png を使用）
     ParticleManager::GetInstance()->CreateParticleGroup("slash", "Resources/gradationLine.png");
-
-    EnemyDeathEffect::CreateGroup();
-    BulletHitEffect::CreateGroup();
-    HitStarEmitter::CreateGroup();
-    hitStarEmitter_ = std::make_unique<HitStarEmitter>(hitStarPosition_, hitStarColor_);
 
     // Ring（gradationLine.png、AddressV=CLAMP）
     ring_ = std::make_unique<Ring>();
@@ -134,7 +102,6 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ----- デバッグパラメータ読み込み -----
     LoadCameraParams();
-    LoadEnemyParams();
     LoadModelPaths();
     LoadUILayout();
 }
@@ -149,10 +116,6 @@ void GamePlayScene::Update()
     gameTime_.Update(1.0f);
 
     float timeRatio = gameTime_.GetElapsedMinutes() / GameTime::kTotalGameMinutes;
-    float scrollMultiplier = 0.0f; // スクロール無効化
-
-    enemyManager_->SetDebugSpawnDisabled(true); // 敵出現無効化
-    float cameraPosX = camera_->GetTranslate().x;
 
     // 天球の更新
     skydome_->Update(camera_.get(), timeRatio);
@@ -161,58 +124,6 @@ void GamePlayScene::Update()
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     SkinnedObject3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-
-    // 各オブジェクトの更新
-    playerManager_->Update(cameraPosX);
-
-    enemyManager_->Update(camera_.get(), bullets_, playerManager_->GetPlayer(), scrollMultiplier);
-
-    // 弾の発射処理
-    auto fireBullets = [&](float baseVelX) {
-        auto bullet = Bullet::Create(modelCommon_.get(), modelBullet_.get(),
-            playerManager_->GetPlayer()->GetPosition(), { baseVelX, 0.0f, 0.0f });
-
-        bullet->SetOwner(BulletOwner::Player);
-        bullet->SetBulletScale(0.5f);
-        bullets_.push_back(std::move(bullet));
-    };
-
-    bool trigRight = input_->TriggerMouseButton(0) || input_->TriggerButton(XINPUT_GAMEPAD_B);
-    bool trigLeft = input_->TriggerMouseButton(1) || input_->TriggerButton(XINPUT_GAMEPAD_X);
-
-    if (trigRight) {
-        fireBullets(0.3f);
-    }
-    if (trigLeft) {
-        fireBullets(-0.3f);
-    }
-
-    // 弾の更新・削除
-    for (auto it = bullets_.begin(); it != bullets_.end();) {
-        (*it)->Update();
-        if ((*it)->IsDead()) {
-            it = bullets_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    // キャラクターの衝突判定
-    collisionManager_->ClearPairs();
-
-    playerManager_->GetPlayer()->CheckBulletHit(bullets_);
-    for (auto& enemy : enemyManager_->GetEnemies()) {
-        playerManager_->GetPlayer()->CheckBulletHit(enemy->GetBullets());
-    }
-
-    collisionManager_->UpdateAllCollisions();
-    playerManager_->GetPlayer()->OnCollision();
-
-    // プレイヤー死亡チェック（シーン切り替えは無効化中）
-    // if(playerManager_->GetPlayer()->IsDead()){
-    //     SceneManager::GetInstance()->ChangeScene("GAMEOVER");
-    //     return;
-    // }
 
     // ゲームオブジェクトの更新
     for (auto& obj : gameObjects_) {
@@ -223,9 +134,6 @@ void GamePlayScene::Update()
 
     // UIと描画関連の更新
     UpdateDebugUI();
-
-    // 星型ヒットエフェクトを常時放出
-    hitStarEmitter_->Update();
 
     // 楕円パーティクルをリング周回軌道で放出
     static constexpr float kOrbitSpeed = 3.14159265f * 2.0f / 3.0f; // 1周/3秒
@@ -302,8 +210,6 @@ void GamePlayScene::UpdateDebugUI()
         return;
     }
 
-    const auto& enemies = enemyManager_->GetEnemies();
-
     // =====================================================
     // Hierarchy（左パネル）
     // =====================================================
@@ -313,10 +219,6 @@ void GamePlayScene::UpdateDebugUI()
 
     if (ImGui::Selectable("Camera", editorSelectedType_ == SelectedType::Camera)) {
         editorSelectedType_ = SelectedType::Camera;
-        editorSelectedIndex_ = -1;
-    }
-    if (ImGui::Selectable("Player", editorSelectedType_ == SelectedType::Player)) {
-        editorSelectedType_ = SelectedType::Player;
         editorSelectedIndex_ = -1;
     }
     if (ImGui::Selectable("Skydome", editorSelectedType_ == SelectedType::Skydome)) {
@@ -331,10 +233,6 @@ void GamePlayScene::UpdateDebugUI()
         editorSelectedType_ = SelectedType::Human;
         editorSelectedIndex_ = -1;
     }
-    if (ImGui::Selectable("HitStar Emitter", editorSelectedType_ == SelectedType::HitStar)) {
-        editorSelectedType_ = SelectedType::HitStar;
-        editorSelectedIndex_ = -1;
-    }
     if (ImGui::Selectable("Ring", editorSelectedType_ == SelectedType::Ring)) {
         editorSelectedType_ = SelectedType::Ring;
         editorSelectedIndex_ = -1;
@@ -342,25 +240,6 @@ void GamePlayScene::UpdateDebugUI()
     if (ImGui::Selectable("Cylinder", editorSelectedType_ == SelectedType::Cylinder)) {
         editorSelectedType_ = SelectedType::Cylinder;
         editorSelectedIndex_ = -1;
-    }
-    if (ImGui::Selectable("Enemy Settings", editorSelectedType_ == SelectedType::EnemySettings)) {
-        editorSelectedType_ = SelectedType::EnemySettings;
-        editorSelectedIndex_ = -1;
-    }
-
-    char enemyHeader[32];
-    snprintf(enemyHeader, sizeof(enemyHeader), "Enemies (%d)", (int)enemies.size());
-    if (ImGui::TreeNodeEx(enemyHeader, ImGuiTreeNodeFlags_DefaultOpen)) {
-        for (int i = 0; i < (int)enemies.size(); i++) {
-            bool sel = (editorSelectedType_ == SelectedType::Enemy && editorSelectedIndex_ == i);
-            char label[48];
-            snprintf(label, sizeof(label), "  Enemy[%d] HP:%d", i, enemies[i]->GetHP());
-            if (ImGui::Selectable(label, sel)) {
-                editorSelectedType_ = SelectedType::Enemy;
-                editorSelectedIndex_ = i;
-            }
-        }
-        ImGui::TreePop();
     }
 
     // ----- UI Elements -----
@@ -371,7 +250,7 @@ void GamePlayScene::UpdateDebugUI()
     if (ImGui::SmallButton("+##addUI")) {
         UIEntry entry;
         entry.name = "UI Element " + std::to_string(uiElements_.size() + 1);
-        entry.texPath = playerTexPath_;
+        entry.texPath = "";
         entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(spriteCommon_.get(), entry.texPath);
         entry.sprite->SetPosition({ 640.0f, 360.0f });
@@ -404,18 +283,6 @@ void GamePlayScene::UpdateDebugUI()
                 SaveCameraParams();
                 savedTimer = 1.5f;
                 break;
-            case SelectedType::Player:
-                SaveModelPaths();
-                savedTimer = 1.5f;
-                break;
-            case SelectedType::EnemySettings:
-                SaveEnemyParams();
-                savedTimer = 1.5f;
-                break;
-            case SelectedType::Enemy:
-                SaveModelPaths();
-                savedTimer = 1.5f;
-                break;
             case SelectedType::UIElement:
                 SaveUILayout();
                 savedTimer = 1.5f;
@@ -436,9 +303,6 @@ void GamePlayScene::UpdateDebugUI()
     ImGui::Begin("Inspector");
 
     // 選択インデックスが範囲外になった場合にリセット
-    if (editorSelectedType_ == SelectedType::Enemy && (editorSelectedIndex_ < 0 || editorSelectedIndex_ >= (int)enemies.size())) {
-        editorSelectedType_ = SelectedType::None;
-    }
     if (editorSelectedType_ == SelectedType::UIElement && (editorSelectedIndex_ < 0 || editorSelectedIndex_ >= (int)uiElements_.size())) {
         editorSelectedType_ = SelectedType::None;
     }
@@ -463,129 +327,6 @@ void GamePlayScene::UpdateDebugUI()
         
         if (ImGui::Button("Save##inspCam")) {
             SaveCameraParams();
-        }
-
-        break;
-    }
-
-    case SelectedType::Player: {
-        ImGui::TextColored(ImVec4(0.2f, 1, 0.4f, 1), "[Player]");
-        ImGui::Separator();
-        Vector3 pos = playerManager_->GetPlayer()->GetPosition();
-        
-        if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) {
-            playerManager_->GetPlayer()->SetPosition(pos);
-        }
-
-        float hp = playerManager_->GetPlayer()->GetHP();
-        
-        if (ImGui::SliderFloat("HP", &hp, 0.0f, 1000.0f)) {
-            playerManager_->GetPlayer()->SetHP(hp);
-        }
-
-        bool inv = playerManager_->GetPlayer()->IsInvincible();
-        
-        if (ImGui::Checkbox("Invincible", &inv)) {
-            playerManager_->GetPlayer()->SetInvincible(inv);
-        }
-
-        ImGui::Separator();
-        ImGui::TextDisabled("Model");
-        ImGui::TextDisabled("OBJ : %.30s", playerObjPath_.c_str());
-        ImGui::TextDisabled("TEX : %.30s", playerTexPath_.c_str());
-        
-        if (ImGui::Button("Browse OBJ##pl")) {
-            std::string p = OpenFileDialog("OBJ Files\0*.obj\0All Files\0*.*\0\0", "Resources");
-            
-            if (!p.empty()) {
-                playerObjPath_ = p;
-                modelPlayer_->Initialize(modelCommon_.get(), playerObjPath_, playerTexPath_);
-            }
-        }
-        
-        ImGui::SameLine();
-        
-        if (ImGui::Button("Browse Tex##pl")) {
-            std::string p = OpenFileDialog("PNG Files\0*.png\0All Files\0*.*\0\0", "Resources");
-            
-            if (!p.empty()) {
-                playerTexPath_ = p;
-                modelPlayer_->Initialize(modelCommon_.get(), playerObjPath_, playerTexPath_);
-            }
-        }
-
-        ImGui::SameLine();
-        
-        if (ImGui::Button("Save##inspPl")) {
-            SaveModelPaths();
-        }
-
-        break;
-    }
-
-    case SelectedType::Enemy: {
-        Enemy* e = enemies[editorSelectedIndex_].get();
-        ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "[Enemy %d]", editorSelectedIndex_);
-        ImGui::Separator();
-        Vector3 pos = e->GetPosition();
-        
-        if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) {
-            e->SetPosition(pos);
-        }
-
-        ImGui::Text("HP            : %d", e->GetHP());
-        ImGui::Text("State         : %s", e->GetStateName());
-        ImGui::Text("MoveSpeed x   : %.2f", e->GetMoveSpeedMultiplier());
-        ImGui::Text("ShootInterval : %d", e->GetShootInterval());
-        
-        if (ImGui::Button("Kill")) {
-            e->Damage(9999);
-        }
-
-        ImGui::Separator();
-        ImGui::TextDisabled("Model (全敵に反映)");
-        
-        if (ImGui::Button("Browse OBJ##en")) {
-            std::string p = OpenFileDialog("OBJ Files\0*.obj\0All Files\0*.*\0\0", "Resources");
-            if (!p.empty()) {
-                enemyObjPath_ = p;
-                modelEnemy_->Initialize(modelCommon_.get(), enemyObjPath_, enemyTexPath_);
-            }
-        }
-
-        ImGui::SameLine();
-        
-        if (ImGui::Button("Browse Tex##en")) {
-            std::string p = OpenFileDialog("PNG Files\0*.png\0All Files\0*.*\0\0", "Resources");
-            if (!p.empty()) {
-                enemyTexPath_ = p;
-                modelEnemy_->Initialize(modelCommon_.get(), enemyObjPath_, enemyTexPath_);
-            }
-        }
-
-        ImGui::SameLine();
-        
-        if (ImGui::Button("Save##inspEn")) {
-            SaveModelPaths();
-        }
-
-        break;
-    }
-
-    case SelectedType::HitStar: {
-        ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1), "[HitStar Emitter]");
-        ImGui::Separator();
-
-        if (ImGui::DragFloat3("Position", &hitStarPosition_.x, 0.1f)) {
-            hitStarEmitter_->SetPosition(hitStarPosition_);
-        }
-
-        if (ImGui::ColorEdit4("Color", &hitStarColor_.x)) {
-            hitStarEmitter_->SetColor(hitStarColor_);
-        }
-
-        if (ImGui::SliderFloat("Frequency", &hitStarFreq_, 0.01f, 0.5f)) {
-            hitStarEmitter_->SetFrequency(hitStarFreq_);
         }
 
         break;
@@ -681,38 +422,6 @@ void GamePlayScene::UpdateDebugUI()
         if (ImGui::Button("Reset Offset")) {
             skyRotOffsetY_ = 0.0f;
             skydome_->SetRotationOffsetY(0.0f);
-        }
-
-        break;
-    }
-
-    case SelectedType::EnemySettings: {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "[Enemy Settings]");
-        ImGui::Separator();
-        int spawnInterval = enemyManager_->GetSpawnInterval();
-        
-        if (ImGui::SliderInt("Spawn Interval(f)", &spawnInterval, 30, 600)) {
-            enemyManager_->SetSpawnInterval(spawnInterval);
-        }
-
-        ImGui::SameLine();
-        ImGui::TextDisabled("%.1fs", spawnInterval / 60.0f);
-        int maxEnemy = enemyManager_->GetMaxEnemy();
-        
-        if (ImGui::SliderInt("Max Enemy", &maxEnemy, 1, 30)) {
-            enemyManager_->SetMaxEnemy(maxEnemy);
-        }
-
-        ImGui::Separator();
-        
-        if (ImGui::Button("Save##inspES")) {
-            SaveEnemyParams();
-        }
-
-        ImGui::SameLine();
-        
-        if (ImGui::Button("Load##inspES")) {
-            LoadEnemyParams();
         }
 
         break;
@@ -915,61 +624,16 @@ void GamePlayScene::UpdateDebugUI()
         }
     }
 
-    // スポーン
-    if (ImGui::CollapsingHeader("Spawn")) {
-        static float spawnX = 15.0f, spawnY = 5.0f;
-        ImGui::SetNextItemWidth(90);
-        ImGui::DragFloat("X##sp", &spawnX, 0.1f);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(90);
-        ImGui::DragFloat("Y##sp", &spawnY, 0.1f);
-        
-        if (ImGui::Button("Spawn Enemy")) {
-            enemyManager_->SpawnEnemy({ spawnX, spawnY, 0.0f });
-        }
-    }
-
     // アクション
     if (ImGui::CollapsingHeader("Actions")) {
-        if (ImGui::Button("Kill All Enemies")) {
-            for (auto& e : enemies) {
-                e->Damage(9999);
-            }
-        }
-
         if (ImGui::Button("Game Clear")) {
             SceneManager::GetInstance()->ChangeScene("CLEAR");
         }
 
         ImGui::SameLine();
-        
+
         if (ImGui::Button("Game Over")) {
             SceneManager::GetInstance()->ChangeScene("GAMEOVER");
-        }
-    }
-
-    // デバッグコントロール
-    if (ImGui::CollapsingHeader("Debug Controls")) {
-        // スクロール停止
-        ImGui::Checkbox("Scroll Pause", &debugScrollPaused_);
-
-        // 敵出現停止（スクロール停止とは独立）
-        ImGui::Checkbox("Spawn Disable", &debugSpawnDisabled_);
-
-        ImGui::Separator();
-
-        Player* player = playerManager_->GetPlayer();
-        ImGui::Separator();
-
-        // スワイプストック
-        ImGui::Text("SwipeReady : %s", player->IsSwipeReady() ? "YES" : "NO");
-        ImGui::Text("Stock      : %d", player->GetSwipeStock());
-        ImGui::Text("SwipeCount : %d / 3", player->GetSwipeSuccessCount());
-        
-        if (ImGui::Button("Add Stock x3")) {
-            player->OnEnemyDefeated();
-            player->OnEnemyDefeated();
-            player->OnEnemyDefeated();
         }
     }
 
@@ -989,16 +653,12 @@ void GamePlayScene::UpdateDebugUI()
         
         if (ImGui::Button("EDIT MODE ON", ImVec2(-1, 0))) {
             debugEditMode_ = false;
-            debugScrollPaused_ = false;
-            debugSpawnDisabled_ = false;
         }
 
         ImGui::PopStyleColor(3);
     } else {
         if (ImGui::Button("EDIT MODE OFF", ImVec2(-1, 0))) {
             debugEditMode_ = true;
-            debugScrollPaused_ = true;
-            debugSpawnDisabled_ = true;
         }
     }
 
@@ -1157,82 +817,13 @@ void GamePlayScene::LoadCameraParams()
     camera_->SetRotate(cr);
 }
 
-// ---- 敵設定 ----
-void GamePlayScene::SaveEnemyParams()
-{
-    std::ofstream f("Resources/debug_enemy.json");
-    
-    if (!f) {
-        return;
-    }
-
-    f << "{\n";
-    f << "  \"spawn_interval\": " << enemyManager_->GetSpawnInterval() << ",\n";
-    f << "  \"max_enemy\": " << enemyManager_->GetMaxEnemy() << "\n";
-    f << "}\n";
-}
-
-void GamePlayScene::LoadEnemyParams()
-{
-    std::ifstream f("Resources/debug_enemy.json");
-    
-    if (!f) {
-        return;
-    }
-
-    std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    enemyManager_->SetSpawnInterval(ReadJsonInt(src, "spawn_interval", enemyManager_->GetSpawnInterval()));
-    enemyManager_->SetMaxEnemy(ReadJsonInt(src, "max_enemy", enemyManager_->GetMaxEnemy()));
-}
-
 // ---- モデルパス ----
 void GamePlayScene::SaveModelPaths()
 {
-    std::ofstream f("Resources/debug_models.json");
-    
-    if (!f) {
-        return;
-    }
-
-    f << "{\n";
-    f << "  \"player_obj\": \"" << playerObjPath_ << "\",\n";
-    f << "  \"player_tex\": \"" << playerTexPath_ << "\",\n";
-    f << "  \"enemy_obj\":  \"" << enemyObjPath_ << "\",\n";
-    f << "  \"enemy_tex\":  \"" << enemyTexPath_ << "\"\n";
-    f << "}\n";
 }
 
 void GamePlayScene::LoadModelPaths()
 {
-    std::ifstream f("Resources/debug_models.json");
-    
-    if (!f) {
-        return;
-    }
-
-    std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-    // 文字列値を読む
-    auto readStr = [&](const std::string& key, const std::string& def) -> std::string {
-        std::string needle = "\"" + key + "\": \"";
-        auto pos = src.find(needle);
-        
-        if (pos == std::string::npos) {
-            return def;
-        }
-
-        pos += needle.size();
-        auto end = src.find('"', pos);
-        return (end == std::string::npos) ? def : src.substr(pos, end - pos);
-    };
-
-    playerObjPath_ = readStr("player_obj", playerObjPath_);
-    playerTexPath_ = readStr("player_tex", playerTexPath_);
-    enemyObjPath_ = readStr("enemy_obj", enemyObjPath_);
-    enemyTexPath_ = readStr("enemy_tex", enemyTexPath_);
-
-    modelPlayer_->Initialize(modelCommon_.get(), playerObjPath_, playerTexPath_);
-    modelEnemy_->Initialize(modelCommon_.get(), enemyObjPath_, enemyTexPath_);
 }
 
 // ---- UI レイアウト ----
@@ -1291,7 +882,7 @@ void GamePlayScene::LoadUILayout()
 
         UIEntry entry;
         entry.name = ReadJsonString(src, mk("_name"), "UI Element");
-        entry.texPath = ReadJsonString(src, mk("_tex"), playerTexPath_);
+        entry.texPath = ReadJsonString(src, mk("_tex"), "");
         entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(spriteCommon_.get(), entry.texPath);
         entry.sprite->SetPosition({ ReadJsonFloat(src, mk("_pos_x"), 640.0f),
@@ -1317,13 +908,6 @@ void GamePlayScene::DrawShadowPass()
     shadowManager_->BeginShadowPass(commandList);
     modelCommon_->BeginShadowPass();
 
-    playerManager_->DrawShadow();
-    enemyManager_->DrawShadow();
-    
-    for (const auto& bullet : bullets_) {
-        bullet->DrawShadow();
-    }
-
     shadowManager_->EndShadowPass(commandList);
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
@@ -1347,17 +931,9 @@ void GamePlayScene::Draw()
     // 天球（最初に描画して他のオブジェクトの背景とする）
     skydome_->Draw();
 
-    enemyManager_->Draw();
-
     for (auto& obj : gameObjects_) {
         obj->Draw();
     }
-
-    for (const auto& bullet : bullets_) {
-        bullet->Draw();
-    }
-
-    enemyManager_->DrawBullets();
 
     // スキンメッシュ描画（PSO 切り替え後にライト・シャドウを再バインド）
     skinCommon_->CommonDrawSettings();
