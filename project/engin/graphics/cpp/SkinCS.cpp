@@ -16,31 +16,38 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
 
     // =====================================================
     // Compute Root Signature
-    //   Slot 0 (t0): 入力頂点バッファ (SRV)
-    //   Slot 1 (b0): スキニングパレット (CBV)
-    //   Slot 2 (u0): 出力頂点バッファ (UAV)
+    //   Slot 0 (b1): 頂点数 (32bit root constant)
+    //   Slot 1 (t0): 入力頂点バッファ (SRV)
+    //   Slot 2 (b0): スキニングパレット (CBV)
+    //   Slot 3 (u0): 出力頂点バッファ (UAV)
     // =====================================================
-    D3D12_ROOT_PARAMETER params[3]{};
+    D3D12_ROOT_PARAMETER params[4]{};
 
-    params[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_SRV;
-    params[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
-    params[0].Descriptor.ShaderRegister = 0; // t0
-    params[0].Descriptor.RegisterSpace  = 0;
+    params[0].ParameterType            = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[0].ShaderVisibility         = D3D12_SHADER_VISIBILITY_ALL;
+    params[0].Constants.ShaderRegister = 1; // b1
+    params[0].Constants.RegisterSpace  = 0;
+    params[0].Constants.Num32BitValues = 1;
 
-    params[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_SRV;
     params[1].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
-    params[1].Descriptor.ShaderRegister = 0; // b0
+    params[1].Descriptor.ShaderRegister = 0; // t0
     params[1].Descriptor.RegisterSpace  = 0;
 
-    params[2].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    params[2].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[2].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
-    params[2].Descriptor.ShaderRegister = 0; // u0
+    params[2].Descriptor.ShaderRegister = 0; // b0
     params[2].Descriptor.RegisterSpace  = 0;
+
+    params[3].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    params[3].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
+    params[3].Descriptor.ShaderRegister = 0; // u0
+    params[3].Descriptor.RegisterSpace  = 0;
 
     D3D12_ROOT_SIGNATURE_DESC rsDesc{};
     rsDesc.Flags         = D3D12_ROOT_SIGNATURE_FLAG_NONE;
     rsDesc.pParameters   = params;
-    rsDesc.NumParameters = _countof(params);
+    rsDesc.NumParameters = 4;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(
@@ -105,12 +112,14 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     cmd->SetComputeRootSignature(csRootSig_.Get());
     cmd->SetPipelineState(csPSO_.Get());
 
-    // Slot 0: 入力頂点バッファ (SRV, t0)
-    cmd->SetComputeRootShaderResourceView(0, inputGpuVA_);
-    // Slot 1: スキニングパレット (CBV, b0)
-    cmd->SetComputeRootConstantBufferView(1, paletteCBAddress);
-    // Slot 2: 出力頂点バッファ (UAV, u0)
-    cmd->SetComputeRootUnorderedAccessView(2, outputBuffer_->GetGPUVirtualAddress());
+    // Slot 0: 頂点数 (32bit root constant, b1)
+    cmd->SetComputeRoot32BitConstant(0, vertexCount_, 0);
+    // Slot 1: 入力頂点バッファ (SRV, t0)
+    cmd->SetComputeRootShaderResourceView(1, inputGpuVA_);
+    // Slot 2: スキニングパレット (CBV, b0)
+    cmd->SetComputeRootConstantBufferView(2, paletteCBAddress);
+    // Slot 3: 出力頂点バッファ (UAV, u0)
+    cmd->SetComputeRootUnorderedAccessView(3, outputBuffer_->GetGPUVirtualAddress());
 
     UINT threadGroups = (vertexCount_ + 63) / 64;
     cmd->Dispatch(threadGroups, 1, 1);

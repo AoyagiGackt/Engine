@@ -26,15 +26,20 @@ cbuffer SkinningPalette : register(b0)
     float4x4 gMatrixPalette[MAX_JOINTS];
 };
 
+// インラインルートSRV では GetDimensions が未定義動作になるため、
+// 頂点数はルート32bitコンスタント (b1) で受け取る
+cbuffer DispatchParams : register(b1)
+{
+    uint gNumVertices;
+};
+
 StructuredBuffer<InputVertex>    gInput  : register(t0);
 RWStructuredBuffer<OutputVertex> gOutput : register(u0);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-    uint vertexCount, stride;
-    gInput.GetDimensions(vertexCount, stride);
-    if (dtid.x >= vertexCount)
+    if (dtid.x >= gNumVertices)
         return;
 
     InputVertex input = gInput[dtid.x];

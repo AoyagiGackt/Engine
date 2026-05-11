@@ -204,6 +204,9 @@
     <ClCompile Include="engin\graphics\cpp\SkeletonDebugRenderer.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\SkinCS.cpp">
+      <Filter>ソースファイル\Engine\Skeleton</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engin\graphics\h\D3DResourceLeakChecker.h">
@@ -393,6 +396,9 @@
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\SkeletonDebugRenderer.h">
+      <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\SkinCS.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
   </ItemGroup>
@@ -735,9 +741,6 @@
     </ClCompile>
     <ClCompile Include="engin\game\cpp\PauseScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="engin\game\cpp\EnemyDeathEffect.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

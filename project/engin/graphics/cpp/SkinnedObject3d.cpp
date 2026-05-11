@@ -142,12 +142,6 @@ void SkinnedObject3d::Update()
     transformData_->LightVP = commonLightVP_;
 
     materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
-
-    // スキニングパレットが確定したら Compute Shader でスキニングを実行する
-    if (skinCSReady_) {
-        ID3D12GraphicsCommandList* cmd = skinCommon_->GetDxCommon()->GetCommandList();
-        skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
-    }
 }
 
 void SkinnedObject3d::DebugDraw()
@@ -166,6 +160,9 @@ void SkinnedObject3d::Draw()
 
     if (skinCSReady_ && commonModelCommon_) {
         // CS スキニング済みパス:
+        // Draw() 内で Dispatch することでコマンドリストが確実に開いている状態で実行される
+        skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
+
         // 計算済み頂点バッファ (position/texcoord/normal のみ) を使い、
         // ModelCommon の標準 PSO (Object3dVS + Object3dPS) で描画する。
         commonModelCommon_->CommonDrawSettings();
