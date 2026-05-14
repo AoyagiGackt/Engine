@@ -1051,9 +1051,6 @@
     <Filter Include="ソースファイル\Game\Core">
       <UniqueIdentifier>{3aeeb8f2-f15f-4764-bca1-c570fab61855}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソースファイル\Game\Enemy">
-      <UniqueIdentifier>{2aa32735-9de8-4149-bbfd-e3af46dd1fda}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソースファイル\Game\Scene">
       <UniqueIdentifier>{7a55b995-e6ae-4d77-aae7-b2be38d96b58}</UniqueIdentifier>
     </Filter>
