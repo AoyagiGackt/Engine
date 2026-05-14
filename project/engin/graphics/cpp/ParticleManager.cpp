@@ -31,6 +31,8 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon)
     // CS 定数バッファ (UPLOAD heap, 256 bytes, 常時マップ)
     csConstantsBuffer_ = dxCommon_->CreateBufferResource(256);
     csConstantsBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&csConstantsData_));
+
+    CreateQuadGeometry();
 }
 
 void ParticleManager::Finalize()
@@ -42,8 +44,11 @@ void ParticleManager::Finalize()
         csConstantsData_ = nullptr;
     }
 
+    quadIndexBuffer_.Reset();
+    quadVertexBuffer_.Reset();
     csPipelineState_.Reset();
     csRootSignature_.Reset();
+    graphicsPipelineStateAlpha_.Reset();
     graphicsPipelineState_.Reset();
     rootSignature_.Reset();
     dxCommon_ = nullptr;
@@ -274,6 +279,39 @@ void ParticleManager::EmitSlash(const std::string& name,
     }
 }
 
+void ParticleManager::EmitBurst(const std::string& name,
+                                const Vector3& position,
+                                const Vector4& color,
+                                uint32_t count,
+                                float lifeTime,
+                                float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+
+    count = (std::min)(count, ParticleGroup::kNumMaxInstance);
+
+    // 全スロットをリセット（re-emit 時に前の状態を消す）
+    memset(group.particleUploadData, 0,
+        sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
+    group.slotExpiry.fill(0.0f);
+
+    for (uint32_t i = 0; i < count; ++i) {
+        GPUParticleState& p = group.particleUploadData[i];
+        p.position    = position;
+        p.lifeTime    = lifeTime;
+        p.velocity    = { 0.0f, 0.0f, 0.0f };
+        p.currentTime = 0.0f;
+        p.color       = color;
+        p.scale       = { scale, scale, scale };
+        p.rotateZ     = 0.0f;
+        p.alive       = 1;
+        p.curveFlag   = 0;
+        group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+    }
+    group.needsInit = true;
+}
+
 void ParticleManager::EmitHitStar(const std::string& name,
                                   const Vector3& position,
                                   const Vector4& color)
@@ -433,25 +471,18 @@ void ParticleManager::Update(Camera* camera)
 
 void ParticleManager::Draw(Camera* camera)
 {
-    if (!model_) {
-        return;
-    }
-
     (void)camera;
 
     auto* cmd = dxCommon_->GetCommandList();
 
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(graphicsPipelineState_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    D3D12_VERTEX_BUFFER_VIEW vbv = model_->GetVertexBufferView();
-    cmd->IASetVertexBuffers(0, 1, &vbv);
-
-    D3D12_INDEX_BUFFER_VIEW ibv = model_->GetIndexBufferView();
-    cmd->IASetIndexBuffer(&ibv);
+    cmd->IASetVertexBuffers(0, 1, &quadVBV_);
+    cmd->IASetIndexBuffer(&quadIBV_);
 
     SrvManager::GetInstance()->PreDraw();
+
+    ID3D12PipelineState* activePSO = nullptr;
 
     for (auto& [name, group] : particleGroups_) {
         bool hasAlive = false;
@@ -467,6 +498,14 @@ void ParticleManager::Draw(Camera* camera)
             continue;
         }
 
+        ID3D12PipelineState* pso = group.additiveBlend
+            ? graphicsPipelineState_.Get()
+            : graphicsPipelineStateAlpha_.Get();
+        if (pso != activePSO) {
+            cmd->SetPipelineState(pso);
+            activePSO = pso;
+        }
+
         cmd->SetGraphicsRootDescriptorTable(
             2, SrvManager::GetInstance()->GetGPUDescriptorHandle(group.srvIndex));
 
@@ -474,10 +513,7 @@ void ParticleManager::Draw(Camera* camera)
             TextureManager::GetInstance()->GetSrvHandleGPU(group.textureFilePath);
         cmd->SetGraphicsRootDescriptorTable(4, texH);
 
-        cmd->DrawIndexedInstanced(
-            static_cast<UINT>(model_->GetIndexCount()),
-            ParticleGroup::kNumMaxInstance,
-            0, 0, 0);
+        cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
 }
 
@@ -495,6 +531,13 @@ void ParticleManager::SetTexture(const std::string& groupName,
     ParticleGroup& group  = particleGroups_[groupName];
     group.textureFilePath = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
+}
+
+void ParticleManager::SetAdditiveBlend(const std::string& name, bool additive)
+{
+    if (particleGroups_.contains(name)) {
+        particleGroups_[name].additiveBlend = additive;
+    }
 }
 
 // ============================================================
@@ -604,6 +647,42 @@ void ParticleManager::CreateCSRootSignature()
 //  CS パイプラインステート
 // ============================================================
 
+void ParticleManager::CreateQuadGeometry()
+{
+    struct Vertex {
+        float pos[4];
+        float uv[2];
+        float nrm[3];
+    };
+
+    Vertex verts[4] = {
+        { {-0.5f,  0.5f, 0.f, 1.f}, {0.f, 0.f}, {0.f, 0.f, -1.f} },
+        { { 0.5f,  0.5f, 0.f, 1.f}, {1.f, 0.f}, {0.f, 0.f, -1.f} },
+        { { 0.5f, -0.5f, 0.f, 1.f}, {1.f, 1.f}, {0.f, 0.f, -1.f} },
+        { {-0.5f, -0.5f, 0.f, 1.f}, {0.f, 1.f}, {0.f, 0.f, -1.f} },
+    };
+    uint32_t indices[6] = { 0, 1, 2, 0, 2, 3 };
+
+    quadVertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(verts));
+    void* mapped = nullptr;
+    quadVertexBuffer_->Map(0, nullptr, &mapped);
+    memcpy(mapped, verts, sizeof(verts));
+    quadVertexBuffer_->Unmap(0, nullptr);
+
+    quadVBV_.BufferLocation = quadVertexBuffer_->GetGPUVirtualAddress();
+    quadVBV_.SizeInBytes    = sizeof(verts);
+    quadVBV_.StrideInBytes  = sizeof(Vertex);
+
+    quadIndexBuffer_ = dxCommon_->CreateBufferResource(sizeof(indices));
+    quadIndexBuffer_->Map(0, nullptr, &mapped);
+    memcpy(mapped, indices, sizeof(indices));
+    quadIndexBuffer_->Unmap(0, nullptr);
+
+    quadIBV_.BufferLocation = quadIndexBuffer_->GetGPUVirtualAddress();
+    quadIBV_.SizeInBytes    = sizeof(indices);
+    quadIBV_.Format         = DXGI_FORMAT_R32_UINT;
+}
+
 void ParticleManager::CreateCSPipelineState()
 {
     IDxcBlob* csBlob = dxCommon_->CompileShader(
@@ -627,9 +706,9 @@ void ParticleManager::CreatePipelineState()
     ID3D12Device* device = dxCommon_->GetDevice();
 
     IDxcBlob* vsBlob = dxCommon_->CompileShader(
-        L"Resources/shaders//Particle/Particle.VS.hlsl", L"vs_6_0");
+        L"Resources/shaders/Particle/Particle.VS.hlsl", L"vs_6_0");
     IDxcBlob* psBlob = dxCommon_->CompileShader(
-        L"Resources/shaders//Particle/Particle.PS.hlsl", L"ps_6_0");
+        L"Resources/shaders/Particle/Particle.PS.hlsl", L"ps_6_0");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
@@ -670,5 +749,10 @@ void ParticleManager::CreatePipelineState()
     psoDesc.SampleDesc.Count      = 1;
 
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineState_));
+    assert(SUCCEEDED(hr));
+
+    // Alpha blend variant: DestBlend を INV_SRC_ALPHA に変えるだけ
+    psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineStateAlpha_));
     assert(SUCCEEDED(hr));
 }

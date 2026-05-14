@@ -80,6 +80,7 @@ struct ParticleGroup {
     // instancingResource の現在状態
     bool instancingInSRV = false;   // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
     bool needsInit       = true;    // 初回 Update で全スロットをゼロ初期化する
+    bool additiveBlend   = true;    // false = alpha blend (SRC_ALPHA / INV_SRC_ALPHA)
 };
 
 /**
@@ -105,11 +106,14 @@ public:
     void EmitSlash(const std::string& name, const Vector3& position,
         float angle, const Vector4& color, float radius = 1.0f);
     void EmitHitStar(const std::string& name, const Vector3& position, const Vector4& color);
+    void EmitBurst(const std::string& name, const Vector3& position, const Vector4& color,
+        uint32_t count = ParticleGroup::kNumMaxInstance,
+        float lifeTime = 100000.0f, float scale = 1.0f);
 
     void SetTexture(const std::string& groupName, const std::string& textureFilePath);
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);
-    void SetModel(Model* model) { model_ = model; }
     void ClearAllGroups()       { particleGroups_.clear(); }
+    void SetAdditiveBlend(const std::string& name, bool additive);
 
 private:
     ParticleManager() = default;
@@ -121,17 +125,24 @@ private:
     void CreatePipelineState();
     void CreateCSRootSignature();
     void CreateCSPipelineState();
+    void CreateQuadGeometry();
 
     // 空きスロットを返す。なければ UINT32_MAX
     uint32_t AllocateSlot(ParticleGroup& group);
 
 private:
     DirectXCommon* dxCommon_ = nullptr;
-    Model*         model_    = nullptr;
+
+    // quad ジオメトリ（全グループ共有）
+    Microsoft::WRL::ComPtr<ID3D12Resource> quadVertexBuffer_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> quadIndexBuffer_;
+    D3D12_VERTEX_BUFFER_VIEW quadVBV_{};
+    D3D12_INDEX_BUFFER_VIEW  quadIBV_{};
 
     // グラフィックスパイプライン
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;        // additive blend
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStateAlpha_;   // alpha blend
 
     // Compute パイプライン
     Microsoft::WRL::ComPtr<ID3D12RootSignature> csRootSignature_;

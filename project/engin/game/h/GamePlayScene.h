@@ -101,6 +101,12 @@ private:
 	// --- 進行・状態管理 ---
 	GameTime gameTime_;
 
+	// --- 白パーティクル（1024個静的配置） ---
+	Vector3  whiteParticlePos_   = { 14.5f, 3.0f, 0.0f };
+	Vector4  whiteParticleColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float    whiteParticleScale_ = 0.5f;
+	int      whiteParticleCount_ = 1024;
+
 	// --- 楕円パーティクル（Ring 周回） ---
 	float ellipseParticleTimer_ = 0.0f;
 	static constexpr float kEllipseEmitInterval = 0.05f;
@@ -145,7 +151,7 @@ private:
 	// --- デバッグ・エディタ関連 ---
 	bool debugEditMode_ = false;
 
-	enum class SelectedType{ None,Camera,UIElement,Ring,Cylinder,Skydome,AnimatedCube,Human };
+	enum class SelectedType{ None,Camera,UIElement,Ring,Cylinder,Skydome,AnimatedCube,Human,WhiteParticles };
 	SelectedType editorSelectedType_ = SelectedType::None;
 	int editorSelectedIndex_ = -1;
 

@@ -1,6 +1,7 @@
 #include "GamePlayScene.h"
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <commdlg.h>
 #include <fstream>
 #include <sstream>
@@ -76,6 +77,25 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     SkinnedObject3d::SetCommonModelCommon(modelCommon_.get());
 
     // ----- エフェクト・進行管理 -----
+    // 白パーティクル（1024個をランダムに散布）
+    ParticleManager::GetInstance()->CreateParticleGroup("white", "Resources/circle2.png");
+    ParticleManager::GetInstance()->SetAdditiveBlend("white", false);
+    {
+        std::mt19937 rng{ std::random_device{}() };
+        std::uniform_real_distribution<float> distXZ(-20.0f, 20.0f);
+        std::uniform_real_distribution<float> distY(0.0f, 12.0f);
+        for (int i = 0; i < whiteParticleCount_; ++i) {
+            Vector3 pos = {
+                whiteParticlePos_.x + distXZ(rng),
+                whiteParticlePos_.y + distY(rng),
+                whiteParticlePos_.z + distXZ(rng)
+            };
+            ParticleManager::GetInstance()->EmitWithColor(
+                "white", pos, { 0.0f, 0.0f, 0.0f },
+                whiteParticleColor_, 100000.0f, whiteParticleScale_);
+        }
+    }
+
     // 楕円パーティクルグループ（circle2.png を使用）
     ParticleManager::GetInstance()->CreateParticleGroup("ellipse", "Resources/circle2.png");
 
@@ -172,7 +192,6 @@ void GamePlayScene::Update()
 
     ring_->Update(camera_.get());
     cylinder_->Update(camera_.get());
-    ParticleManager::GetInstance()->Update(camera_.get());
 }
 
 // =====================================================
@@ -240,6 +259,10 @@ void GamePlayScene::UpdateDebugUI()
     }
     if (ImGui::Selectable("Cylinder", editorSelectedType_ == SelectedType::Cylinder)) {
         editorSelectedType_ = SelectedType::Cylinder;
+        editorSelectedIndex_ = -1;
+    }
+    if (ImGui::Selectable("White Particles", editorSelectedType_ == SelectedType::WhiteParticles)) {
+        editorSelectedType_ = SelectedType::WhiteParticles;
         editorSelectedIndex_ = -1;
     }
 
@@ -579,6 +602,25 @@ void GamePlayScene::UpdateDebugUI()
         ImGui::Separator();
         ImGui::Checkbox("Show Skeleton", &showSkeletonDebug_);
 
+        break;
+    }
+
+    case SelectedType::WhiteParticles: {
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1), "[White Particles]");
+        ImGui::Separator();
+
+        ImGui::DragFloat3("Position", &whiteParticlePos_.x, 0.1f);
+        ImGui::ColorEdit4("Color",    &whiteParticleColor_.x);
+        ImGui::DragFloat("Scale",     &whiteParticleScale_, 0.01f, 0.01f, 10.0f);
+        ImGui::SliderInt("Count",     &whiteParticleCount_, 1, 1024);
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
+            ParticleManager::GetInstance()->EmitBurst(
+                "white", whiteParticlePos_, whiteParticleColor_,
+                static_cast<uint32_t>(whiteParticleCount_), 100000.0f, whiteParticleScale_);
+        }
         break;
     }
 
@@ -954,6 +996,7 @@ void GamePlayScene::Draw()
     objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), SrvManager::GetInstance());
 
+    ParticleManager::GetInstance()->Update(camera_.get());
     ParticleManager::GetInstance()->Draw(camera_.get());
     ring_->Draw();
     cylinder_->Draw();
