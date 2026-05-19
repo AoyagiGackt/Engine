@@ -106,6 +106,19 @@ struct ParticleGroup {
     // GPU エミッター (EmitParticle.CS)
     Microsoft::WRL::ComPtr<ID3D12Resource> emitterBuffer;
     Emitter* emitterData = nullptr;
+
+    // CPU 自動再配置（EmitScatterLoop 用）
+    struct RespawnConfig {
+        Vector3  center      = {};
+        float    radius      = 0.0f;
+        float    lifeTimeMin = 1.0f;
+        float    lifeTimeMax = 1.0f;
+        Vector4  color       = { 1.0f, 1.0f, 1.0f, 1.0f };
+        float    scale       = 1.0f;
+        uint32_t count       = 0;
+    };
+    bool          autoRespawn  = false;
+    RespawnConfig respawnConfig;
 };
 
 /**
@@ -134,6 +147,9 @@ public:
     void EmitBurst(const std::string& name, const Vector3& position, const Vector4& color,
         uint32_t count = ParticleGroup::kNumMaxInstance,
         float lifeTime = 100000.0f, float scale = 1.0f, bool flicker = false);
+    void EmitScatterLoop(const std::string& name, const Vector3& center, float radius,
+        uint32_t count, const Vector4& color,
+        float lifeTimeMin, float lifeTimeMax, float scale);
 
     void SetTexture(const std::string& groupName, const std::string& textureFilePath);
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);

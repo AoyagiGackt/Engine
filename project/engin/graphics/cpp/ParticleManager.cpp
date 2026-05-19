@@ -290,6 +290,51 @@ void ParticleManager::EmitSlash(const std::string& name,
     }
 }
 
+void ParticleManager::EmitScatterLoop(const std::string& name,
+                                      const Vector3& center, float radius,
+                                      uint32_t count, const Vector4& color,
+                                      float lifeTimeMin, float lifeTimeMax, float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+    count = (std::min)(count, ParticleGroup::kNumMaxInstance);
+
+    static std::mt19937 rng{ std::random_device{}() };
+    std::uniform_real_distribution<float> xzDist(-radius, radius);
+    std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
+    std::uniform_real_distribution<float> lifeDist(lifeTimeMin, lifeTimeMax);
+    std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
+    std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
+
+    memset(group.particleUploadData, 0, sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
+    group.slotExpiry.fill(0.0f);
+    group.pendingSlots.clear();
+
+    for (uint32_t i = 0; i < count; ++i) {
+        float lifeTime = lifeDist(rng);
+        std::uniform_real_distribution<float> timeDist(0.0f, lifeTime);
+        float currentTime = timeDist(rng);
+
+        GPUParticleState& p = group.particleUploadData[i];
+        p.position    = { center.x + xzDist(rng), center.y + yDist(rng), center.z + xzDist(rng) };
+        p.lifeTime    = lifeTime;
+        p.velocity    = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
+        p.currentTime = currentTime;
+        p.color       = color;
+        p.scale       = { scale, scale, scale };
+        p.rotateZ     = 0.0f;
+        p.alive       = 1;
+        p.curveFlag   = 0;
+
+        group.slotExpiry[i] = group.groupTime + (lifeTime - currentTime) + 0.1f;
+    }
+
+    group.needsInit = true;
+
+    group.autoRespawn       = true;
+    group.respawnConfig     = { center, radius, lifeTimeMin, lifeTimeMax, color, scale, count };
+}
+
 void ParticleManager::EmitBurst(const std::string& name,
                                 const Vector3& position,
                                 const Vector4& color,
@@ -426,6 +471,37 @@ void ParticleManager::Update(Camera* camera)
             group.instancingInSRV = false;
         }
 
+        // ---- 自動再配置: 期限切れスロットを一つずつ再配置 ----
+        if (group.autoRespawn) {
+            static std::mt19937 rng{ std::random_device{}() };
+            const ParticleGroup::RespawnConfig& cfg = group.respawnConfig;
+            std::uniform_real_distribution<float> xzDist(-cfg.radius, cfg.radius);
+            std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
+            std::uniform_real_distribution<float> lifeDist(cfg.lifeTimeMin, cfg.lifeTimeMax);
+            std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
+            std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
+
+            for (uint32_t i = 0; i < cfg.count; ++i) {
+                if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
+                    float lifeTime = lifeDist(rng);
+                    GPUParticleState& p = group.particleUploadData[i];
+                    p.position    = { cfg.center.x + xzDist(rng),
+                                      cfg.center.y + yDist(rng),
+                                      cfg.center.z + xzDist(rng) };
+                    p.lifeTime    = lifeTime;
+                    p.velocity    = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
+                    p.currentTime = 0.0f;
+                    p.color       = cfg.color;
+                    p.scale       = { cfg.scale, cfg.scale, cfg.scale };
+                    p.rotateZ     = 0.0f;
+                    p.alive       = 1;
+                    p.curveFlag   = 0;
+                    group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+                    group.pendingSlots.push_back(i);
+                }
+            }
+        }
+
         // ---- 新パーティクルを GPU ステートバッファへコピー ----
         if (group.needsInit || !group.pendingSlots.empty()) {
             D3D12_RESOURCE_BARRIER cb{};
@@ -533,11 +609,14 @@ void ParticleManager::Update(Camera* camera)
         UINT threadGroups = (ParticleGroup::kNumMaxInstance + 63) / 64;
         cmd->Dispatch(threadGroups, 1, 1);
 
-        // UAV バリア: CS 書き込み完了を保証
-        D3D12_RESOURCE_BARRIER uavB{};
-        uavB.Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        uavB.UAV.pResource = group.instancingResource.Get();
-        cmd->ResourceBarrier(1, &uavB);
+        // UAV バリア: particleStateBuffer（次フレームの CS 読み込み前に書き込み完了を保証）
+        //            instancingResource（VS が SRV として読む前に書き込み完了を保証）
+        D3D12_RESOURCE_BARRIER uavBs[2]{};
+        uavBs[0].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        uavBs[0].UAV.pResource = group.particleStateBuffer.Get();
+        uavBs[1].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        uavBs[1].UAV.pResource = group.instancingResource.Get();
+        cmd->ResourceBarrier(2, uavBs);
 
         // instancingResource: UAV → NON_PIXEL_SHADER_RESOURCE (VS が SRV として読む)
         D3D12_RESOURCE_BARRIER srvB{};
