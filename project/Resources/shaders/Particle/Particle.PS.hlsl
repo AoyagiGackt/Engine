@@ -11,15 +11,19 @@ struct PixelShaderOutput
 PixelShaderOutput main(VertexShaderOutput input)
 {
     PixelShaderOutput output;
-	
-    float4 textureColor = gTexture.Sample(gSampler, input.texcoord);
 
+    // UV 中心 (0.5, 0.5) からの距離で円形マスク
+    float2 uv = input.texcoord - float2(0.5f, 0.5f);
+    float dist = length(uv) * 2.0f; // 0=中心, 1=エッジ
+    if (dist > 1.0f) discard;
+
+    float4 textureColor = gTexture.Sample(gSampler, input.texcoord);
     output.color = input.color * textureColor;
-	
-    if (output.color.a == 0.0f)
-    {
-        discard;
-    }
-	
+
+    // エッジをソフトにフェード
+    output.color.a *= 1.0f - smoothstep(0.6f, 1.0f, dist);
+
+    if (output.color.a == 0.0f) discard;
+
     return output;
 }

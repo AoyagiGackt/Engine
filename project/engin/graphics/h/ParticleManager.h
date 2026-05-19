@@ -52,6 +52,24 @@ struct CSConstants {
 };
 
 /**
+ * @brief EmitParticle.CS に渡すエミッター定数バッファ（UPLOAD heap 256 bytes に格納）
+ *        CPU 側で frequencyTime / emit を毎フレーム更新する
+ */
+struct Emitter {
+    Vector3  translate;     // 12
+    float    radius;        //  4 -> 16
+    uint32_t count;         //  4
+    float    frequency;     //  4
+    float    frequencyTime; //  4
+    uint32_t emit;          //  4 -> 32
+    float    lifeTime;      //  4
+    uint32_t seed;          //  4
+    uint32_t time;          //  4  (groupTime の float ビット列、Update が自動設定)
+    float    pad;           //  4 -> 48
+    Vector4  color;         // 16 -> 64
+};
+
+/**
  * @brief 同じテクスチャを共有するパーティクルの集まり（グループ）
  */
 struct ParticleGroup {
@@ -81,6 +99,13 @@ struct ParticleGroup {
     bool instancingInSRV = false;   // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
     bool needsInit       = true;    // 初回 Update で全スロットをゼロ初期化する
     bool additiveBlend   = true;    // false = alpha blend (SRC_ALPHA / INV_SRC_ALPHA)
+
+    // デフォルト寿命（EmitBurst で設定される）
+    float defaultLifeTime = 1.0f;
+
+    // GPU エミッター (EmitParticle.CS)
+    Microsoft::WRL::ComPtr<ID3D12Resource> emitterBuffer;
+    Emitter* emitterData = nullptr;
 };
 
 /**
@@ -99,7 +124,7 @@ public:
     void Emit(const std::string& name, const Vector3& position, const Vector3& velocity);
     void EmitWithColor(const std::string& name, const Vector3& position,
         const Vector3& velocity, const Vector4& color,
-        float lifeTime = 1.0f, float scale = 1.0f);
+        float lifeTime = 1.0f, float scale = 1.0f, bool flicker = false);
     void EmitEllipse(const std::string& name, const Vector3& position,
         const Vector3& velocity, const Vector4& color,
         float lifeTime = 1.0f, float scaleX = 2.0f, float scaleY = 1.0f);
@@ -108,12 +133,18 @@ public:
     void EmitHitStar(const std::string& name, const Vector3& position, const Vector4& color);
     void EmitBurst(const std::string& name, const Vector3& position, const Vector4& color,
         uint32_t count = ParticleGroup::kNumMaxInstance,
-        float lifeTime = 100000.0f, float scale = 1.0f);
+        float lifeTime = 100000.0f, float scale = 1.0f, bool flicker = false);
 
     void SetTexture(const std::string& groupName, const std::string& textureFilePath);
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);
     void ClearAllGroups()       { particleGroups_.clear(); }
     void SetAdditiveBlend(const std::string& name, bool additive);
+
+    // 指定グループに生存中のパーティクルがあるかを返す
+    bool IsGroupAlive(const std::string& name) const;
+
+    // エミッターのポインタを返す。game 側で translate/radius/count/frequency/lifeTime を設定する
+    Emitter* GetEmitter(const std::string& name);
 
 private:
     ParticleManager() = default;
@@ -125,6 +156,8 @@ private:
     void CreatePipelineState();
     void CreateCSRootSignature();
     void CreateCSPipelineState();
+    void CreateCSEmitRootSignature();
+    void CreateCSEmitPipelineState();
     void CreateQuadGeometry();
 
     // 空きスロットを返す。なければ UINT32_MAX
@@ -144,9 +177,13 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;        // additive blend
     Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStateAlpha_;   // alpha blend
 
-    // Compute パイプライン
+    // Compute パイプライン (Update)
     Microsoft::WRL::ComPtr<ID3D12RootSignature> csRootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> csPipelineState_;
+
+    // Compute パイプライン (Emit)
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> csEmitRootSignature_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> csEmitPipelineState_;
 
     // フレームごとの CS 定数バッファ (UPLOAD heap, 常時マップ済み)
     Microsoft::WRL::ComPtr<ID3D12Resource> csConstantsBuffer_;
