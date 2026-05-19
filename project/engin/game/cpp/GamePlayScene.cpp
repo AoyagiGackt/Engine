@@ -77,24 +77,15 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     SkinnedObject3d::SetCommonModelCommon(modelCommon_.get());
 
     // ----- エフェクト・進行管理 -----
-    // 白パーティクル（1024個をランダムに散布）
+    // 白パーティクル（1024個を個別ライフタイムで散布・自動再配置）
     ParticleManager::GetInstance()->CreateParticleGroup("white", "Resources/white.png");
     ParticleManager::GetInstance()->SetAdditiveBlend("white", false);
-    {
-        std::mt19937 rng{ std::random_device{}() };
-        std::uniform_real_distribution<float> distXZ(-20.0f, 20.0f);
-        std::uniform_real_distribution<float> distY(0.0f, 12.0f);
-        for (int i = 0; i < whiteParticleCount_; ++i) {
-            Vector3 pos = {
-                whiteParticlePos_.x + distXZ(rng),
-                whiteParticlePos_.y + distY(rng),
-                whiteParticlePos_.z + distXZ(rng)
-            };
-            ParticleManager::GetInstance()->EmitWithColor(
-                "white", pos, { 0.0f, 0.0f, 0.0f },
-                whiteParticleColor_, 100000.0f, whiteParticleScale_, true);
-        }
-    }
+    ParticleManager::GetInstance()->EmitScatterLoop(
+        "white", whiteParticlePos_, 20.0f,
+        static_cast<uint32_t>(whiteParticleCount_),
+        whiteParticleColor_,
+        2.0f, 5.0f,
+        whiteParticleScale_);
 
     // 楕円パーティクルグループ（circle2.png を使用）
     ParticleManager::GetInstance()->CreateParticleGroup("ellipse", "Resources/circle2.png");
@@ -617,9 +608,12 @@ void GamePlayScene::UpdateDebugUI()
         ImGui::Separator();
 
         if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
-            ParticleManager::GetInstance()->EmitBurst(
-                "white", whiteParticlePos_, whiteParticleColor_,
-                static_cast<uint32_t>(whiteParticleCount_), 100000.0f, whiteParticleScale_, true);
+            ParticleManager::GetInstance()->EmitScatterLoop(
+                "white", whiteParticlePos_, 20.0f,
+                static_cast<uint32_t>(whiteParticleCount_),
+                whiteParticleColor_,
+                2.0f, 5.0f,
+                whiteParticleScale_);
         }
         break;
     }
