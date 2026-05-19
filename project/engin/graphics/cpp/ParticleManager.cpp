@@ -27,6 +27,8 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon)
     CreatePipelineState();
     CreateCSRootSignature();
     CreateCSPipelineState();
+    CreateCSEmitRootSignature();
+    CreateCSEmitPipelineState();
 
     // CS 定数バッファ (UPLOAD heap, 256 bytes, 常時マップ)
     csConstantsBuffer_ = dxCommon_->CreateBufferResource(256);
@@ -46,6 +48,8 @@ void ParticleManager::Finalize()
 
     quadIndexBuffer_.Reset();
     quadVertexBuffer_.Reset();
+    csEmitPipelineState_.Reset();
+    csEmitRootSignature_.Reset();
     csPipelineState_.Reset();
     csRootSignature_.Reset();
     graphicsPipelineStateAlpha_.Reset();
@@ -142,6 +146,12 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
     group.groupTime      = 0.0f;
     group.needsInit      = true;
     group.instancingInSRV = false;
+
+    // ---- エミッターバッファ (UPLOAD heap, 256 bytes, 常時マップ) ----
+    group.emitterBuffer = dxCommon_->CreateBufferResource(256);
+    group.emitterBuffer->Map(0, nullptr, reinterpret_cast<void**>(&group.emitterData));
+    memset(group.emitterData, 0, sizeof(Emitter));
+    group.emitterData->lifeTime = 1.0f; // デフォルト 1 秒
 }
 
 // ============================================================
@@ -175,7 +185,8 @@ void ParticleManager::EmitWithColor(const std::string& name,
                                     const Vector3& velocity,
                                     const Vector4& color,
                                     float lifeTime,
-                                    float scale)
+                                    float scale,
+                                    bool flicker)
 {
     assert(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
@@ -195,7 +206,7 @@ void ParticleManager::EmitWithColor(const std::string& name,
     p.scale       = { scale, scale, scale };
     p.rotateZ     = 0.0f;
     p.alive       = 1;
-    p.curveFlag   = 0;
+    p.curveFlag   = flicker ? 2u : 0u;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
     group.pendingSlots.push_back(slot);
@@ -284,7 +295,8 @@ void ParticleManager::EmitBurst(const std::string& name,
                                 const Vector4& color,
                                 uint32_t count,
                                 float lifeTime,
-                                float scale)
+                                float scale,
+                                bool flicker)
 {
     assert(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
@@ -298,7 +310,13 @@ void ParticleManager::EmitBurst(const std::string& name,
 
     for (uint32_t i = 0; i < count; ++i) {
         GPUParticleState& p = group.particleUploadData[i];
-        p.position    = position;
+        // ランダムにばら撒く（初期化時と同様の範囲）
+        static std::mt19937 rng{ std::random_device{}() };
+        std::uniform_real_distribution<float> distXZ(-20.0f, 20.0f);
+        std::uniform_real_distribution<float> distY(0.0f, 12.0f);
+        Vector3 randOffset = { distXZ(rng), distY(rng), distXZ(rng) };
+
+        p.position    = { position.x + randOffset.x, position.y + randOffset.y, position.z + randOffset.z };
         p.lifeTime    = lifeTime;
         p.velocity    = { 0.0f, 0.0f, 0.0f };
         p.currentTime = 0.0f;
@@ -306,10 +324,15 @@ void ParticleManager::EmitBurst(const std::string& name,
         p.scale       = { scale, scale, scale };
         p.rotateZ     = 0.0f;
         p.alive       = 1;
-        p.curveFlag   = 0;
+        p.curveFlag   = flicker ? 2u : 0u;
         group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
     }
+
     group.needsInit = true;
+    group.pendingSlots.clear();
+    for (uint32_t i = 0; i < count; ++i) {
+        group.pendingSlots.push_back(i);
+    }
 }
 
 void ParticleManager::EmitHitStar(const std::string& name,
@@ -437,6 +460,69 @@ void ParticleManager::Update(Camera* camera)
             cmd->ResourceBarrier(1, &cb);
         }
 
+        // ---- エミッター: frequency 更新 → emit フラグ管理 ----
+        {
+            Emitter* e = group.emitterData;
+            e->time = *reinterpret_cast<uint32_t*>(&group.groupTime); // float ビット列をそのまま uint で渡す
+            e->seed++;
+            if (e->frequency > 0.0f) {
+                e->frequencyTime += dt;
+                if (e->frequency <= e->frequencyTime) {
+                    e->frequencyTime -= e->frequency;
+                    e->emit = 1;
+                } else {
+                    e->emit = 0;
+                }
+            }
+
+            if (e->emit != 0) {
+                uint32_t count = (std::min)(e->count, ParticleGroup::kNumMaxInstance);
+                float maxExpiry = group.groupTime + e->lifeTime + 0.1f;
+                for (uint32_t i = 0; i < count; ++i) {
+                    group.slotExpiry[i] = maxExpiry;
+                }
+
+                // 発射のたびにステートバッファをゼロ初期化してキャッシュをフラッシュ
+                {
+                    D3D12_RESOURCE_BARRIER bIn{};
+                    bIn.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                    bIn.Transition.pResource   = group.particleStateBuffer.Get();
+                    bIn.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                    bIn.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+                    bIn.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    cmd->ResourceBarrier(1, &bIn);
+
+                    UINT64 fullSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
+                    cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
+                                         group.particleUploadBuffer.Get(), 0, fullSize);
+
+                    D3D12_RESOURCE_BARRIER bOut{};
+                    bOut.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                    bOut.Transition.pResource   = group.particleStateBuffer.Get();
+                    bOut.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+                    bOut.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                    bOut.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    cmd->ResourceBarrier(1, &bOut);
+                }
+
+                cmd->SetComputeRootSignature(csEmitRootSignature_.Get());
+                cmd->SetPipelineState(csEmitPipelineState_.Get());
+                cmd->SetComputeRootConstantBufferView(0, group.emitterBuffer->GetGPUVirtualAddress());
+                cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
+                cmd->Dispatch(1, 1, 1);
+
+                D3D12_RESOURCE_BARRIER emitUavB{};
+                emitUavB.Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                emitUavB.UAV.pResource = group.particleStateBuffer.Get();
+                cmd->ResourceBarrier(1, &emitUavB);
+
+                // one-shot (frequency == 0) はディスパッチ後にリセット
+                if (e->frequency == 0.0f) {
+                    e->emit = 0;
+                }
+            }
+        }
+
         // ---- CS ディスパッチ ----
         cmd->SetComputeRootSignature(csRootSignature_.Get());
         cmd->SetPipelineState(csPipelineState_.Get());
@@ -538,6 +624,17 @@ void ParticleManager::SetAdditiveBlend(const std::string& name, bool additive)
     if (particleGroups_.contains(name)) {
         particleGroups_[name].additiveBlend = additive;
     }
+}
+
+bool ParticleManager::IsGroupAlive(const std::string& name) const
+{
+    auto it = particleGroups_.find(name);
+    if (it == particleGroups_.end()) return false;
+    const ParticleGroup& group = it->second;
+    for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
+        if (group.groupTime < group.slotExpiry[i]) return true;
+    }
+    return false;
 }
 
 // ============================================================
@@ -698,6 +795,59 @@ void ParticleManager::CreateCSPipelineState()
 }
 
 // ============================================================
+//  EmitParticle CS ルートシグネチャ / パイプライン
+// ============================================================
+
+void ParticleManager::CreateCSEmitRootSignature()
+{
+    ID3D12Device* device = dxCommon_->GetDevice();
+
+    D3D12_ROOT_PARAMETER params[2]{};
+    params[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
+    params[0].Descriptor.ShaderRegister = 0; // b0 : EmitConstants
+    params[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    params[1].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
+    params[1].Descriptor.ShaderRegister = 0; // u0 : gParticles
+
+    D3D12_ROOT_SIGNATURE_DESC desc{};
+    desc.Flags         = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+    desc.pParameters   = params;
+    desc.NumParameters = _countof(params);
+
+    ComPtr<ID3DBlob> sigBlob, errBlob;
+    HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
+                                             &sigBlob, &errBlob);
+    assert(SUCCEEDED(hr));
+    device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
+                                sigBlob->GetBufferSize(), IID_PPV_ARGS(&csEmitRootSignature_));
+}
+
+void ParticleManager::CreateCSEmitPipelineState()
+{
+    IDxcBlob* csBlob = dxCommon_->CompileShader(
+        L"Resources/shaders/Particle/EmitParticle.CS.hlsl", L"cs_6_0");
+    assert(csBlob);
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
+    psoDesc.pRootSignature = csEmitRootSignature_.Get();
+    psoDesc.CS             = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
+    HRESULT hr = dxCommon_->GetDevice()->CreateComputePipelineState(
+        &psoDesc, IID_PPV_ARGS(&csEmitPipelineState_));
+    assert(SUCCEEDED(hr));
+}
+
+// ============================================================
+//  GetEmitter
+// ============================================================
+
+Emitter* ParticleManager::GetEmitter(const std::string& name)
+{
+    assert(particleGroups_.contains(name));
+    return particleGroups_[name].emitterData;
+}
+
+// ============================================================
 //  グラフィックスパイプラインステート
 // ============================================================
 
@@ -730,8 +880,9 @@ void ParticleManager::CreatePipelineState()
     psoDesc.BlendState.RenderTarget[0].SrcBlend              = D3D12_BLEND_SRC_ALPHA;
     psoDesc.BlendState.RenderTarget[0].DestBlend             = D3D12_BLEND_ONE;
     psoDesc.BlendState.RenderTarget[0].BlendOp               = D3D12_BLEND_OP_ADD;
-    psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha         = D3D12_BLEND_ONE;
-    psoDesc.BlendState.RenderTarget[0].DestBlendAlpha        = D3D12_BLEND_ZERO;
+    // RT のアルファをパーティクルのフェードアウトで上書きしない（黒くなる原因の修正）
+    psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha         = D3D12_BLEND_ZERO;
+    psoDesc.BlendState.RenderTarget[0].DestBlendAlpha        = D3D12_BLEND_ONE;
     psoDesc.BlendState.RenderTarget[0].BlendOpAlpha          = D3D12_BLEND_OP_ADD;
 
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;

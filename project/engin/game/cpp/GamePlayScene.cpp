@@ -78,7 +78,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ----- エフェクト・進行管理 -----
     // 白パーティクル（1024個をランダムに散布）
-    ParticleManager::GetInstance()->CreateParticleGroup("white", "Resources/circle2.png");
+    ParticleManager::GetInstance()->CreateParticleGroup("white", "Resources/white.png");
     ParticleManager::GetInstance()->SetAdditiveBlend("white", false);
     {
         std::mt19937 rng{ std::random_device{}() };
@@ -92,7 +92,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
             };
             ParticleManager::GetInstance()->EmitWithColor(
                 "white", pos, { 0.0f, 0.0f, 0.0f },
-                whiteParticleColor_, 100000.0f, whiteParticleScale_);
+                whiteParticleColor_, 100000.0f, whiteParticleScale_, true);
         }
     }
 
@@ -619,7 +619,7 @@ void GamePlayScene::UpdateDebugUI()
         if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
             ParticleManager::GetInstance()->EmitBurst(
                 "white", whiteParticlePos_, whiteParticleColor_,
-                static_cast<uint32_t>(whiteParticleCount_), 100000.0f, whiteParticleScale_);
+                static_cast<uint32_t>(whiteParticleCount_), 100000.0f, whiteParticleScale_, true);
         }
         break;
     }
