@@ -92,6 +92,9 @@ struct ParticleGroup {
     std::array<float, kNumMaxInstance> slotExpiry = {};
     float groupTime = 0.0f;
 
+    // 空きスロットのスタック（O(1) Allocate）
+    std::vector<uint32_t> freeList;
+
     // このフレームに新規発生したスロット一覧 (次の Update で GPU にコピーする)
     std::vector<uint32_t> pendingSlots;
 

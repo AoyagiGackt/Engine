@@ -147,6 +147,11 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
     group.needsInit      = true;
     group.instancingInSRV = false;
 
+    group.freeList.clear();
+    group.freeList.reserve(ParticleGroup::kNumMaxInstance);
+    for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > 0; )
+        group.freeList.push_back(i);
+
     // ---- エミッターバッファ (UPLOAD heap, 256 bytes, 常時マップ) ----
     group.emitterBuffer = dxCommon_->CreateBufferResource(256);
     group.emitterBuffer->Map(0, nullptr, reinterpret_cast<void**>(&group.emitterData));
@@ -160,13 +165,10 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
 
 uint32_t ParticleManager::AllocateSlot(ParticleGroup& group)
 {
-    for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
-        if (group.groupTime >= group.slotExpiry[i]) {
-            return i;
-        }
-    }
-
-    return UINT32_MAX;
+    if (group.freeList.empty()) return UINT32_MAX;
+    uint32_t slot = group.freeList.back();
+    group.freeList.pop_back();
+    return slot;
 }
 
 // ============================================================
@@ -308,6 +310,9 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
 
     memset(group.particleUploadData, 0, sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.freeList.clear();
+    for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
+        group.freeList.push_back(i);
     group.pendingSlots.clear();
 
     for (uint32_t i = 0; i < count; ++i) {
@@ -352,6 +357,9 @@ void ParticleManager::EmitBurst(const std::string& name,
     memset(group.particleUploadData, 0,
         sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.freeList.clear();
+    for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
+        group.freeList.push_back(i);
 
     for (uint32_t i = 0; i < count; ++i) {
         GPUParticleState& p = group.particleUploadData[i];
@@ -469,6 +477,16 @@ void ParticleManager::Update(Camera* camera)
             b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cmd->ResourceBarrier(1, &b);
             group.instancingInSRV = false;
+        }
+
+        // ---- 期限切れスロットを freeList へ返却 ----
+        if (!group.autoRespawn) {
+            for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
+                if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
+                    group.freeList.push_back(i);
+                    group.slotExpiry[i] = 0.0f;
+                }
+            }
         }
 
         // ---- 自動再配置: 期限切れスロットを一つずつ再配置 ----
