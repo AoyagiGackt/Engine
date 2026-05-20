@@ -980,6 +980,12 @@ void GamePlayScene::Draw()
 
     DrawShadowPass();
 
+    // ----- 背景としてレンダーテクスチャを描画 -----
+    spriteCommon_->CommonDrawSettings();
+    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), SrvManager::GetInstance());
+    renderTextureSprite_->Update();
+    renderTextureSprite_->Draw();
+
     // 3Dオブジェクト
     modelCommon_->CommonDrawSettings();
     objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
@@ -1019,10 +1025,6 @@ void GamePlayScene::Draw()
     // 2D UI（ImGuiで追加したスプライト要素）
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), SrvManager::GetInstance());
-
-    // レンダーテクスチャを画面に表示
-    renderTextureSprite_->Update();
-    renderTextureSprite_->Draw();
 
     for (auto& e : uiElements_) {
         e.sprite->Update();
@@ -1182,7 +1184,7 @@ void GamePlayScene::Draw()
 	fade_.Draw();
 }
 
-#endif // end of removed Draw code
+#endif
 
 // =====================================================
 // 終了
