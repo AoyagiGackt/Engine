@@ -56,6 +56,8 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     materialData_->enableLighting = false;
     materialData_->shadingType = 0;
+    materialData_->useCubemap = 0;
+    materialData_->useTexture = 1;
     materialData_->uvTransform = MakeIdentity4x4();
 
     // WVP作成

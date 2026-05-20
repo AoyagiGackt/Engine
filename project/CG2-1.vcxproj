@@ -213,6 +213,7 @@
     <ClCompile Include="engin\graphics\cpp\ParticleEmitter.cpp" />
     <ClCompile Include="engin\graphics\cpp\Cylinder.cpp" />
     <ClCompile Include="engin\graphics\cpp\Ring.cpp" />
+    <ClCompile Include="engin\graphics\cpp\RenderTexture.cpp" />
     <ClCompile Include="engin\graphics\cpp\VideoPlayer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -359,6 +360,7 @@
     <ClInclude Include="engin\graphics\h\ParticleEmitter.h" />
     <ClInclude Include="engin\graphics\h\Cylinder.h" />
     <ClInclude Include="engin\graphics\h\Ring.h" />
+    <ClInclude Include="engin\graphics\h\RenderTexture.h" />
     <ClInclude Include="engin\graphics\h\ImguiControl.h" />
   </ItemGroup>
   <ItemGroup>

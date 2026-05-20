@@ -38,6 +38,7 @@
 #include "SkinnedObject3d.h"
 #include "Skeleton.h"
 #include "Animation.h"
+#include "RenderTexture.h"
 
 /**
  * @brief ゲームプレイ本編のシーンクラス
@@ -147,6 +148,10 @@ private:
 	// --- Skydome パラメータ ---
 	Vector4 skyColor_       = { 1.0f, 1.0f, 1.0f, 1.0f };
 	float   skyRotOffsetY_  = 0.0f;
+
+	// --- オフスクリーンレンダリング ---
+	std::unique_ptr<RenderTexture> renderTexture_;
+	std::unique_ptr<Sprite>        renderTextureSprite_;
 
 	// --- デバッグ・エディタ関連 ---
 	bool debugEditMode_ = false;
