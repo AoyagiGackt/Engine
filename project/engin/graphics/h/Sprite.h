@@ -23,7 +23,8 @@ struct MaterialSprite {
     Vector4 color; /// スプライトの色・透明度（RGBA）
     int enableLighting; /// ライティングを有効にするか（1:有効, 0:無効）
     int shadingType; /// シェーディングの種類
-    float padding[2]; /// 16バイトアライメント用のパディング
+    int useCubemap; /// キューブマップを使用するか（スプライトは常に0）
+    int useTexture; /// テクスチャをサンプリングするか（1:有効, 0:白固定）
     Matrix4x4 uvTransform; /// UVアニメーション用の変換行列
 };
 

@@ -113,6 +113,16 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     ScoreManager::GetInstance()->ResetCurrentScore();
     gameTime_.Initialize();
 
+    // ----- オフスクリーンレンダリング -----
+    renderTexture_ = std::make_unique<RenderTexture>();
+    renderTexture_->Initialize(dxCommon_, SrvManager::GetInstance(), 1280, 720);
+
+    renderTextureSprite_ = std::make_unique<Sprite>();
+    renderTextureSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    renderTextureSprite_->SetExternalTexture(renderTexture_->GetSrvIndex());
+    renderTextureSprite_->SetPosition({ 0.0f, 0.0f });
+    renderTextureSprite_->SetSize({ 1280.0f, 720.0f });
+
     // ----- デバッグパラメータ読み込み -----
     LoadCameraParams();
     LoadModelPaths();
@@ -964,6 +974,10 @@ void GamePlayScene::DrawShadowPass()
 
 void GamePlayScene::Draw()
 {
+    // ----- オフスクリーンパス（赤でクリアしてSRVに遷移）-----
+    renderTexture_->BeginRendering();
+    renderTexture_->EndRendering();
+
     DrawShadowPass();
 
     // 3Dオブジェクト
@@ -1005,6 +1019,10 @@ void GamePlayScene::Draw()
     // 2D UI（ImGuiで追加したスプライト要素）
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), SrvManager::GetInstance());
+
+    // レンダーテクスチャを画面に表示
+    renderTextureSprite_->Update();
+    renderTextureSprite_->Draw();
 
     for (auto& e : uiElements_) {
         e.sprite->Update();
