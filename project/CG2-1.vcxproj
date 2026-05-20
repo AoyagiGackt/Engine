@@ -184,6 +184,7 @@
     <ClCompile Include="engin\game\cpp\WinApp.cpp" />
     <ClCompile Include="engin\game\cpp\StringUtlity.cpp" />
     <ClCompile Include="engin\graphics\cpp\Fade.cpp" />
+    <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp" />
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp" />
     <ClCompile Include="engin\graphics\cpp\LightManager.cpp" />
     <ClCompile Include="engin\graphics\cpp\MapChipField.cpp" />
@@ -360,6 +361,7 @@
     <ClInclude Include="engin\graphics\h\ParticleEmitter.h" />
     <ClInclude Include="engin\graphics\h\Cylinder.h" />
     <ClInclude Include="engin\graphics\h\Ring.h" />
+    <ClInclude Include="engin\graphics\h\GrayscaleEffect.h" />
     <ClInclude Include="engin\graphics\h\RenderTexture.h" />
     <ClInclude Include="engin\graphics\h\ImguiControl.h" />
   </ItemGroup>
@@ -367,6 +369,8 @@
     <None Include="Resources\shaders\lighting\LightingMode.hlsli" />
     <None Include="Resources\shaders\object3d\Object3d.hlsli" />
     <None Include="Resources\shaders\Particle\Particle.hlsli" />
+    <None Include="Resources\shaders\postprocess\FullscreenVS.hlsl" />
+    <None Include="Resources\shaders\postprocess\GrayscalePS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

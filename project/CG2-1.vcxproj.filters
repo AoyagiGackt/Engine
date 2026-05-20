@@ -129,6 +129,9 @@
     <ClCompile Include="engin\game\cpp\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
@@ -358,6 +361,9 @@
     </ClInclude>
     <ClInclude Include="engin\game\h\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
@@ -703,6 +709,9 @@
     <ClCompile Include="engin\game\cpp\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
@@ -902,6 +911,9 @@
     </ClInclude>
     <ClInclude Include="engin\game\h\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>

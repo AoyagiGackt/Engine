@@ -4,6 +4,7 @@
 #include "MaterialManager.h"
 #include "MeshManager.h"
 #include "LightManager.h"
+#include "GrayscaleEffect.h"
 
 void ShowControls()
 {
@@ -52,6 +53,23 @@ void ShowControls()
         // ImGuiで値が変更されたら、マネージャーにセットし直す
         if (ImGui::Combo("Lighting Mode", &currentMode, lightItems, IM_ARRAYSIZE(lightItems))) {
             LightManager::GetInstance()->SetLightingMode(currentMode);
+        }
+    }
+
+    // グレースケール ポストエフェクト
+    if (ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
+        auto* gs = GrayscaleEffect::GetInstance();
+
+        bool enabled = gs->IsEnabled();
+        if (ImGui::Checkbox("Grayscale", &enabled)) {
+            gs->SetEnabled(enabled);
+        }
+
+        if (enabled) {
+            float amount = gs->GetAmount();
+            if (ImGui::SliderFloat("Amount", &amount, 0.0f, 1.0f)) {
+                gs->SetAmount(amount);
+            }
         }
     }
 
