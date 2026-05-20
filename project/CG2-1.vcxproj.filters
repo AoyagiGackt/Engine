@@ -192,6 +192,9 @@
     <ClCompile Include="engin\graphics\cpp\Ring.cpp">
       <Filter>ソースファイル\Game\Particle</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\RenderTexture.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
     <ClCompile Include="engin\graphics\cpp\Skeleton.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
@@ -386,6 +389,9 @@
     <ClInclude Include="engin\graphics\h\Ring.h">
       <Filter>ヘッダーファイル\Game\Particle</Filter>
     </ClInclude>
+    <ClInclude Include="engin\graphics\h\RenderTexture.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
     <ClInclude Include="engin\graphics\h\Skeleton.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
@@ -578,6 +584,12 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\Skeleton">
       <UniqueIdentifier>{47c68c08-6ded-4851-b605-c8f8a73b2e94}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソースファイル\Engine\Offscreen">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Engine\Offscreen">
+      <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
