@@ -4,10 +4,13 @@
 #include "MaterialManager.h"
 #include "MeshManager.h"
 #include "LightManager.h"
+#include "GrayscaleEffect.h"
 
 void ShowControls()
 {
 #ifdef USE_IMGUI
+
+    ImGui::Begin("Controls");
 
     if (ImGui::CollapsingHeader("Mesh Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* meshItems[] = { "Sphere", "Cube", "Plane" };
@@ -54,6 +57,25 @@ void ShowControls()
             LightManager::GetInstance()->SetLightingMode(currentMode);
         }
     }
+
+    // グレースケール ポストエフェクト
+    if (ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
+        auto* gs = GrayscaleEffect::GetInstance();
+
+        bool enabled = gs->IsEnabled();
+        if (ImGui::Checkbox("Grayscale", &enabled)) {
+            gs->SetEnabled(enabled);
+        }
+
+        if (enabled) {
+            float amount = gs->GetAmount();
+            if (ImGui::SliderFloat("Amount", &amount, 0.0f, 1.0f)) {
+                gs->SetAmount(amount);
+            }
+        }
+    }
+
+    ImGui::End();
 
 #endif
 }

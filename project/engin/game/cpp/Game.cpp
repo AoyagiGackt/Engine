@@ -4,6 +4,8 @@
 #include "SceneFactory.h"
 #include "TitleScene.h"
 #include <SrvManager.h>
+#include "GrayscaleEffect.h"
+#include "ImguiControl.h"
 
 void MyGame::Initialize()
 {
@@ -33,6 +35,8 @@ void MyGame::Update()
     // シーンマネージャー更新
     SceneManager::GetInstance()->Update();
 
+    ShowControls();
+
     // ImGui終了処理
     imguiManager_->End();
 }
@@ -42,8 +46,18 @@ void MyGame::Draw()
     dxCommon_->PreDraw();
     SrvManager::GetInstance()->PreDraw();
 
+    auto* gs = GrayscaleEffect::GetInstance();
+    if (gs->IsEnabled()) {
+        gs->BeginScene();
+    }
+
     // 現在のシーンの描画
     SceneManager::GetInstance()->Draw();
+
+    if (gs->IsEnabled()) {
+        gs->EndScene();
+        gs->Apply(SrvManager::GetInstance());
+    }
 
     imguiManager_->Draw(dxCommon_.get());
 

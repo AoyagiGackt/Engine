@@ -34,6 +34,24 @@
     <FxCompile Include="Resources\shaders\Particle\EmitParticle.CS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\FullscreenVS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\GrayscalePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\Particle\ParticleUpdate.CS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\debug\SkeletonDebugPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\debug\SkeletonDebugVS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\skinned\SkinningCS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="engin\base\main.cpp">
@@ -127,6 +145,9 @@
       <Filter>ソースファイル\Engine\Scene</Filter>
     </ClCompile>
     <ClCompile Include="engin\game\cpp\GameObject.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
@@ -358,6 +379,9 @@
     </ClInclude>
     <ClInclude Include="engin\game\h\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
@@ -703,6 +727,9 @@
     <ClCompile Include="engin\game\cpp\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
@@ -902,6 +929,9 @@
     </ClInclude>
     <ClInclude Include="engin\game\h\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
