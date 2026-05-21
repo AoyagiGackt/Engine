@@ -9,6 +9,7 @@
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
+#include "HsvFilter.h"
 
 void Framework::Run()
 {
@@ -38,6 +39,7 @@ void Framework::Initialize()
     GrayscaleEffect::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
     ImageFilter::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
     VignetteEffect::GetInstance()->Initialize(dxCommon_.get());
+    HsvFilter::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
     TextureManager::GetInstance()->Initialize(dxCommon_.get());
     ParticleManager::GetInstance()->Initialize(dxCommon_.get());
 
@@ -74,6 +76,7 @@ void Framework::Finalize()
     }
 
     // 各種マネージャーのGPUリソースを解放する
+    HsvFilter::GetInstance()->Finalize();
     VignetteEffect::GetInstance()->Finalize();
     ImageFilter::GetInstance()->Finalize();
     GrayscaleEffect::GetInstance()->Finalize();

@@ -7,6 +7,7 @@
 #include <sstream>
 #pragma comment(lib, "comdlg32.lib")
 #include "GrayscaleEffect.h"
+#include "HsvFilter.h"
 #include "ImguiManager.h"
 #include "ParticleManager.h"
 #include "SceneManager.h"
@@ -998,11 +999,14 @@ void GamePlayScene::DrawShadowPass()
 
     auto* gs        = GrayscaleEffect::GetInstance();
     auto* imgFilter = ImageFilter::GetInstance();
+    auto* hsv       = HsvFilter::GetInstance();
     D3D12_CPU_DESCRIPTOR_HANDLE rtv;
     if (imgFilter->IsEnabled()) {
         rtv = imgFilter->GetSceneRTVHandle();
     } else if (gs->IsEnabled()) {
         rtv = gs->GetSceneRTVHandle();
+    } else if (hsv->IsEnabled()) {
+        rtv = hsv->GetSceneRTVHandle();
     } else {
         rtv = dxCommon_->GetCurrentBackBufferHandle();
     }
