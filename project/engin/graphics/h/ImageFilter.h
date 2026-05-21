@@ -5,7 +5,7 @@
 
 class ImageFilter {
 public:
-    enum class Mode { Box, Gaussian, PrewittEdge, DepthOutline, RadialBlur };
+    enum class Mode { Box, Gaussian, PrewittEdge, DepthOutline, RadialBlur, Dissolve };
 
     static ImageFilter* GetInstance()
     {
@@ -63,6 +63,24 @@ public:
     void  SetRadialSampleCount(int n) { if (radialBlurCb_) radialBlurCb_->sampleCount = n; }
     int   GetRadialSampleCount() const { return radialBlurCb_ ? radialBlurCb_->sampleCount : 16; }
 
+    // ディゾルブパラメータ
+    void  SetDissolveThreshold(float t) { if (dissolveCb_) dissolveCb_->threshold = t; }
+    float GetDissolveThreshold() const  { return dissolveCb_ ? dissolveCb_->threshold : 0.0f; }
+    void  SetDissolveEdgeWidth(float w) { if (dissolveCb_) dissolveCb_->edgeWidth = w; }
+    float GetDissolveEdgeWidth() const  { return dissolveCb_ ? dissolveCb_->edgeWidth : 0.05f; }
+    void  SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f) {
+        if (!dissolveCb_) return;
+        dissolveCb_->edgeR = r; dissolveCb_->edgeG = g;
+        dissolveCb_->edgeB = b; dissolveCb_->edgeA = a;
+    }
+    void  GetDissolveEdgeColor(float out[4]) const {
+        if (!dissolveCb_) { out[0]=1.f; out[1]=0.5f; out[2]=0.f; out[3]=1.f; return; }
+        out[0]=dissolveCb_->edgeR; out[1]=dissolveCb_->edgeG;
+        out[2]=dissolveCb_->edgeB; out[3]=dissolveCb_->edgeA;
+    }
+    void  SetDissolveMaskIndex(int i) { dissolveMaskIndex_ = (i == 0) ? 0 : 1; }
+    int   GetDissolveMaskIndex() const { return dissolveMaskIndex_; }
+
     D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
 
 private:
@@ -91,6 +109,17 @@ private:
         float centerY;     // 4  ブラー中心 Y（UV空間）
         float strength;    // 8  ブラー強度
         int   sampleCount; // 12 サンプリング回数
+    };
+
+    // ディゾルブ用 CBuffer（1スロット）
+    struct DissolveParams {
+        float threshold; // 0  溶解進行度（0=なし, 1=完全消滅）
+        float edgeWidth; // 4  エッジ帯幅
+        float pad0[2];   // 8
+        float edgeR;     // 16
+        float edgeG;     // 20
+        float edgeB;     // 24
+        float edgeA;     // 28
     };
 
     // アウトライン用 CBuffer（1スロット）
@@ -133,6 +162,7 @@ private:
     // 深度アウトライン用 PSO / Root Signature（t0+t1の2テクスチャ）
     Microsoft::WRL::ComPtr<ID3D12RootSignature> outlineRootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> depthOutlinePso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> dissolvePso_;
 
     // ブラー用定数バッファ（H/V 2スロット = 512 bytes）
     Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
@@ -147,8 +177,16 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> radialBlurCbResource_;
     RadialBlurParams* radialBlurCb_ = nullptr;
 
+    // ディゾルブ用定数バッファ（1スロット = 256 bytes）
+    Microsoft::WRL::ComPtr<ID3D12Resource> dissolveCbResource_;
+    DissolveParams* dissolveCb_ = nullptr;
+
     // 深度バッファ SRV
     uint32_t depthSrvIndex_ = UINT32_MAX;
+
+    // ノイズマスク SRV（noise0.png, noise1.png）
+    uint32_t noiseSrvIndex_[2] = { UINT32_MAX, UINT32_MAX };
+    int      dissolveMaskIndex_ = 0;
 
     Mode  mode_          = Mode::Box;
     int   boxRadius_     = 2;

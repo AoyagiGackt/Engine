@@ -124,12 +124,8 @@ void TextureManager::LoadTexture(const std::string& filePath)
 
 uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
 {
-    if (textureDatas_.contains(filePath)) {
-        return 0;
-    }
-
-    assert(0);
-    return 0;
+    assert(textureDatas_.contains(filePath));
+    return textureDatas_[filePath].srvIndex;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath)

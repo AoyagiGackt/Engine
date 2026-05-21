@@ -7,6 +7,7 @@
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
+#include "TextureManager.h"
 
 void ShowControls()
 {
@@ -83,7 +84,7 @@ void ShowControls()
         }
 
         if (filterEnabled) {
-            const char* modeItems[] = { "Box", "Linear (Gaussian)", "Prewitt エッジ", "深度アウトライン", "ラジアルブラー" };
+            const char* modeItems[] = { "Box", "Linear (Gaussian)", "Prewitt エッジ", "深度アウトライン", "ラジアルブラー", "ディゾルブ" };
             int currentMode = (int)imgFilter->GetMode();
             if (ImGui::Combo("フィルターモード", &currentMode, modeItems, IM_ARRAYSIZE(modeItems))) {
                 imgFilter->SetMode((ImageFilter::Mode)currentMode);
@@ -236,6 +237,53 @@ void ShowControls()
             ImGui::SameLine(); ImGui::TextDisabled("(?)");
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("多いほど滑らかになるが処理負荷が上がる。");
+            }
+        }
+
+        ImGui::End();
+    }
+
+    // ----- ディゾルブ設定ウィンドウ -----
+    {
+        auto* imgFilter  = ImageFilter::GetInstance();
+        bool  isDissolve = (imgFilter->GetMode() == ImageFilter::Mode::Dissolve);
+
+        ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Once);
+        ImGui::Begin("ディゾルブ設定");
+
+        if (!imgFilter->IsEnabled() || !isDissolve) {
+            ImGui::TextDisabled("イメージフィルターで\n「ディゾルブ」を選択してください");
+        } else {
+            ImGui::TextDisabled("ノイズマスクで画面を溶かします");
+            ImGui::Separator();
+
+            // マスク選択
+            const char* maskItems[] = { "noise0.png", "noise1.png" };
+            int maskIdx = imgFilter->GetDissolveMaskIndex();
+            if (ImGui::Combo("マスク", &maskIdx, maskItems, IM_ARRAYSIZE(maskItems))) {
+                imgFilter->SetDissolveMaskIndex(maskIdx);
+            }
+
+            ImGui::Separator();
+
+            float threshold = imgFilter->GetDissolveThreshold();
+            if (ImGui::SliderFloat("進行度", &threshold, 0.0f, 1.0f, "%.3f")) {
+                imgFilter->SetDissolveThreshold(threshold);
+            }
+            ImGui::SameLine(); ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("0=なし / 1=完全消滅");
+            }
+
+            float edgeWidth = imgFilter->GetDissolveEdgeWidth();
+            if (ImGui::SliderFloat("エッジ幅", &edgeWidth, 0.0f, 0.3f, "%.3f")) {
+                imgFilter->SetDissolveEdgeWidth(edgeWidth);
+            }
+
+            float edgeCol[4];
+            imgFilter->GetDissolveEdgeColor(edgeCol);
+            if (ImGui::ColorEdit4("エッジ色", edgeCol)) {
+                imgFilter->SetDissolveEdgeColor(edgeCol[0], edgeCol[1], edgeCol[2], edgeCol[3]);
             }
         }
 
