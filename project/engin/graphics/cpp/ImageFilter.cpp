@@ -1,4 +1,5 @@
 #include "ImageFilter.h"
+#include "TextureManager.h"
 #include "WinApp.h"
 #include <cassert>
 #include <cmath>
@@ -143,6 +144,20 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     radialBlurCb_->strength    = 0.1f;
     radialBlurCb_->sampleCount = 16;
 
+    // ディゾルブ用定数バッファ（1 スロット × 256 バイト）
+    dissolveCbResource_ = dxCommon->CreateBufferResource(256);
+    void* dissolveMapped = nullptr;
+    dissolveCbResource_->Map(0, nullptr, &dissolveMapped);
+    dissolveCb_ = reinterpret_cast<DissolveParams*>(dissolveMapped);
+    dissolveCb_->threshold = 0.0f;
+    dissolveCb_->edgeWidth = 0.05f;
+    dissolveCb_->edgeR     = 1.0f;
+    dissolveCb_->edgeG     = 0.5f;
+    dissolveCb_->edgeB     = 0.0f;
+    dissolveCb_->edgeA     = 1.0f;
+
+    // ノイズマスクは Apply() の初回 Dissolve 呼び出し時に遅延ロードする
+
     // ----- ブラー用 Root Signature（b0 + t0）-----
     D3D12_DESCRIPTOR_RANGE srvRange0 = {};
     srvRange0.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
@@ -223,6 +238,7 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     IDxcBlob* prewittPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/PrewittEdgePS.hlsl",    L"ps_6_0");
     IDxcBlob* depthOlPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/DepthOutlinePS.hlsl",   L"ps_6_0");
     IDxcBlob* radialBlurPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/RadialBlurPS.hlsl",     L"ps_6_0");
+    IDxcBlob* dissolvePsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/DissolvePS.hlsl",       L"ps_6_0");
 
     // ----- 共通 PSO ベース設定 -----
     D3D12_BLEND_DESC blendDesc = {};
@@ -272,6 +288,12 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&radialBlurPso_));
     assert(SUCCEEDED(hr));
 
+    // ディゾルブ用 PSO（outlineRootSignature_: b0+t0+t1）
+    psoDesc.pRootSignature = outlineRootSignature_.Get();
+    psoDesc.PS = { dissolvePsBlob->GetBufferPointer(), dissolvePsBlob->GetBufferSize() };
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&dissolvePso_));
+    assert(SUCCEEDED(hr));
+
     RebuildKernel();
 }
 
@@ -281,6 +303,13 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 void ImageFilter::Finalize()
 {
+    if (dissolveCb_) {
+        dissolveCbResource_->Unmap(0, nullptr);
+        dissolveCb_ = nullptr;
+    }
+    dissolveCbResource_.Reset();
+    dissolvePso_.Reset();
+
     if (radialBlurCb_) {
         radialBlurCbResource_->Unmap(0, nullptr);
         radialBlurCb_ = nullptr;
@@ -407,6 +436,29 @@ void ImageFilter::Apply(SrvManager* srvManager)
         return;
     }
 
+    // ----- ディゾルブ: シングルパス、ノイズマスクを t1 にバインド -----
+    if (mode_ == Mode::Dissolve) {
+        // TextureManager が初期化済みになってから初回ロード
+        if (noiseSrvIndex_[0] == UINT32_MAX) {
+            auto* texMgr = TextureManager::GetInstance();
+            texMgr->LoadTexture("Resources/noise0.png");
+            texMgr->LoadTexture("Resources/noise1.png");
+            noiseSrvIndex_[0] = texMgr->GetTextureIndexByFilePath("Resources/noise0.png");
+            noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/noise1.png");
+        }
+        uint32_t maskSrv = noiseSrvIndex_[dissolveMaskIndex_];
+        cmd->SetGraphicsRootSignature(outlineRootSignature_.Get());
+        cmd->SetPipelineState(dissolvePso_.Get());
+        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+        cmd->RSSetViewports(1, &vp);
+        cmd->RSSetScissorRects(1, &scissor);
+        cmd->SetGraphicsRootConstantBufferView(0, dissolveCbResource_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
+        cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(maskSrv));
+        cmd->DrawInstanced(3, 1, 0, 0);
+        return;
+    }
+
     // ----- Box / Gaussian: 水平→垂直の 2 パス -----
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
     cmd->SetPipelineState(mode_ == Mode::Box ? boxPso_.Get() : gaussianPso_.Get());
@@ -446,7 +498,8 @@ void ImageFilter::Apply(SrvManager* srvManager)
 void ImageFilter::RebuildKernel()
 {
     if (!cbH_) return;
-    if (mode_ == Mode::PrewittEdge || mode_ == Mode::DepthOutline || mode_ == Mode::RadialBlur) return;
+    if (mode_ == Mode::PrewittEdge || mode_ == Mode::DepthOutline ||
+        mode_ == Mode::RadialBlur  || mode_ == Mode::Dissolve) return;
 
     int   r        = 1;
     float weights[17] = {};
