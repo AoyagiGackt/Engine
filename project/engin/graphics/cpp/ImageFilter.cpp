@@ -151,8 +151,9 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
     assert(SUCCEEDED(hr));
 
-    IDxcBlob* vsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",   L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl", L"ps_6_0");
+    IDxcBlob* vsBlob         = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",    L"vs_6_0");
+    IDxcBlob* boxPsBlob      = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",  L"ps_6_0");
+    IDxcBlob* gaussianPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
 
     D3D12_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
@@ -165,7 +166,6 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc   = {};
     psoDesc.pRootSignature                        = rootSignature_.Get();
     psoDesc.VS                                    = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.PS                                    = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
     psoDesc.BlendState                            = blendDesc;
     psoDesc.RasterizerState                       = rastDesc;
     psoDesc.DepthStencilState                     = depthDesc;
@@ -174,7 +174,13 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     psoDesc.NumRenderTargets                      = 1;
     psoDesc.RTVFormats[0]                         = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     psoDesc.SampleDesc.Count                      = 1;
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso_));
+
+    psoDesc.PS = { boxPsBlob->GetBufferPointer(), boxPsBlob->GetBufferSize() };
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&boxPso_));
+    assert(SUCCEEDED(hr));
+
+    psoDesc.PS = { gaussianPsBlob->GetBufferPointer(), gaussianPsBlob->GetBufferSize() };
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&gaussianPso_));
     assert(SUCCEEDED(hr));
 
     // 初期カーネルを計算
@@ -192,7 +198,8 @@ void ImageFilter::Finalize()
         cbH_ = cbV_ = nullptr;
     }
     cbResource_.Reset();
-    pso_.Reset();
+    gaussianPso_.Reset();
+    boxPso_.Reset();
     rootSignature_.Reset();
     intermediateRtvHeap_.Reset();
     intermediateTexture_.Reset();
@@ -244,7 +251,7 @@ void ImageFilter::Apply(SrvManager* srvManager)
     D3D12_RECT     scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
 
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(pso_.Get());
+    cmd->SetPipelineState(mode_ == Mode::Box ? boxPso_.Get() : gaussianPso_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // ----- Pass 1: 水平（sceneTexture → intermediateTexture）-----
