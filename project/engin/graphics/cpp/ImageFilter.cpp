@@ -7,7 +7,7 @@
 using namespace Microsoft::WRL;
 
 // =====================================================
-// ヘルパー: テクスチャ + RTV + SRV を作成
+// ヘルパー: カラーテクスチャ + RTV + SRV を作成
 // =====================================================
 
 static void CreateOffscreenTexture(
@@ -19,28 +19,28 @@ static void CreateOffscreenTexture(
     D3D12_CPU_DESCRIPTOR_HANDLE&                  outRtvHandle,
     uint32_t&                                     outSrvIndex)
 {
-    constexpr DXGI_FORMAT kResourceFmt  = DXGI_FORMAT_R8G8B8A8_TYPELESS;
-    constexpr DXGI_FORMAT kRtvFmt       = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    constexpr DXGI_FORMAT kSrvFmt       = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    constexpr float       kClear[4]     = { 0.1f, 0.25f, 0.5f, 1.0f };
+    constexpr DXGI_FORMAT kResourceFmt = DXGI_FORMAT_R8G8B8A8_TYPELESS;
+    constexpr DXGI_FORMAT kRtvFmt      = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    constexpr DXGI_FORMAT kSrvFmt      = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    constexpr float       kClear[4]    = { 0.1f, 0.25f, 0.5f, 1.0f };
 
     D3D12_HEAP_PROPERTIES heapProps = {};
     heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
     D3D12_CLEAR_VALUE clearValue = {};
-    clearValue.Format            = kRtvFmt;
-    clearValue.Color[0] = kClear[0]; clearValue.Color[1] = kClear[1];
-    clearValue.Color[2] = kClear[2]; clearValue.Color[3] = kClear[3];
+    clearValue.Format    = kRtvFmt;
+    clearValue.Color[0]  = kClear[0]; clearValue.Color[1] = kClear[1];
+    clearValue.Color[2]  = kClear[2]; clearValue.Color[3] = kClear[3];
 
-    D3D12_RESOURCE_DESC desc  = {};
-    desc.Dimension            = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width                = width;
-    desc.Height               = height;
-    desc.DepthOrArraySize     = 1;
-    desc.MipLevels            = 1;
-    desc.Format               = kResourceFmt;
-    desc.SampleDesc.Count     = 1;
-    desc.Flags                = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width               = width;
+    desc.Height              = height;
+    desc.DepthOrArraySize    = 1;
+    desc.MipLevels           = 1;
+    desc.Format              = kResourceFmt;
+    desc.SampleDesc.Count    = 1;
+    desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
     HRESULT hr = device->CreateCommittedResource(
         &heapProps, D3D12_HEAP_FLAG_NONE,
@@ -71,11 +71,11 @@ static void CreateOffscreenTexture(
 static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
     D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
-    D3D12_RESOURCE_BARRIER b      = {};
-    b.Type                        = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    b.Transition.pResource        = res;
-    b.Transition.StateBefore      = before;
-    b.Transition.StateAfter       = after;
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Transition.pResource   = res;
+    b.Transition.StateBefore = before;
+    b.Transition.StateAfter  = after;
     cmd->ResourceBarrier(1, &b);
 }
 
@@ -86,9 +86,9 @@ static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
 void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     dxCommon_ = dxCommon;
-    ID3D12Device* device = dxCommon->GetDevice();
-    const uint32_t width  = WinApp::kClientWidth;
-    const uint32_t height = WinApp::kClientHeight;
+    ID3D12Device* device   = dxCommon->GetDevice();
+    const uint32_t width   = WinApp::kClientWidth;
+    const uint32_t height  = WinApp::kClientHeight;
 
     // シーンキャプチャ用テクスチャ
     CreateOffscreenTexture(device, srvManager, width, height,
@@ -98,7 +98,11 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     CreateOffscreenTexture(device, srvManager, width, height,
         intermediateTexture_, intermediateRtvHeap_, intermediateRtvHandle_, intermediateSrvIndex_);
 
-    // 定数バッファ（H と V の 2 スロット × 256 バイト）
+    // 深度バッファ SRV（R24G8_TYPELESS → R24_UNORM_X8_TYPELESS で深度チャンネルを読む）
+    depthSrvIndex_ = srvManager->Allocate();
+    srvManager->CreateSRVforDepthTexture(depthSrvIndex_, dxCommon->GetDepthStencilResource());
+
+    // ブラー用定数バッファ（H と V の 2 スロット × 256 バイト）
     cbResource_ = dxCommon->CreateBufferResource(512);
     void* mapped = nullptr;
     cbResource_->Map(0, nullptr, &mapped);
@@ -113,21 +117,37 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     cbV_->texelSizeY = 1.0f / float(height);
     cbV_->dirX = 0.0f; cbV_->dirY = 1.0f;
 
-    // Root Signature（CBV b0 + SRV t0 テーブル）
-    D3D12_DESCRIPTOR_RANGE srvRange                    = {};
-    srvRange.RangeType                                 = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors                            = 1;
-    srvRange.BaseShaderRegister                        = 0;
-    srvRange.OffsetInDescriptorsFromTableStart         = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+    // アウトライン用定数バッファ（1 スロット × 256 バイト）
+    outlineCbResource_ = dxCommon->CreateBufferResource(256);
+    void* outlineMapped = nullptr;
+    outlineCbResource_->Map(0, nullptr, &outlineMapped);
+    outlineCb_ = reinterpret_cast<OutlineParams*>(outlineMapped);
 
-    D3D12_ROOT_PARAMETER rootParams[2]                 = {};
-    rootParams[0].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParams[0].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParams[0].Descriptor.ShaderRegister            = 0;
-    rootParams[1].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    rootParams[1].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParams[1].DescriptorTable.pDescriptorRanges    = &srvRange;
-    rootParams[1].DescriptorTable.NumDescriptorRanges  = 1;
+    outlineCb_->texelSizeX  = 1.0f / float(width);
+    outlineCb_->texelSizeY  = 1.0f / float(height);
+    outlineCb_->threshold   = 0.05f;
+    outlineCb_->edgeStrength = 5.0f;
+    outlineCb_->outlineR    = 0.0f;
+    outlineCb_->outlineG    = 0.0f;
+    outlineCb_->outlineB    = 0.0f;
+    outlineCb_->outlineA    = 1.0f;
+    outlineCb_->depthScale  = 100.0f;
+
+    // ----- ブラー用 Root Signature（b0 + t0）-----
+    D3D12_DESCRIPTOR_RANGE srvRange0 = {};
+    srvRange0.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    srvRange0.NumDescriptors                    = 1;
+    srvRange0.BaseShaderRegister                = 0;
+    srvRange0.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER blurParams[2] = {};
+    blurParams[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    blurParams[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    blurParams[0].Descriptor.ShaderRegister = 0;
+    blurParams[1].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    blurParams[1].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+    blurParams[1].DescriptorTable.pDescriptorRanges   = &srvRange0;
+    blurParams[1].DescriptorTable.NumDescriptorRanges = 1;
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -138,23 +158,62 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     sampler.MaxLOD           = D3D12_FLOAT32_MAX;
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-    D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters             = 2;
-    rootSigDesc.pParameters               = rootParams;
-    rootSigDesc.NumStaticSamplers         = 1;
-    rootSigDesc.pStaticSamplers           = &sampler;
-    rootSigDesc.Flags                     = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+    D3D12_ROOT_SIGNATURE_DESC blurSigDesc = {};
+    blurSigDesc.NumParameters    = 2;
+    blurSigDesc.pParameters      = blurParams;
+    blurSigDesc.NumStaticSamplers = 1;
+    blurSigDesc.pStaticSamplers  = &sampler;
+    blurSigDesc.Flags            = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
-    HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
+    HRESULT hr = D3D12SerializeRootSignature(&blurSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
     assert(SUCCEEDED(hr));
-    hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
+    hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
+        IID_PPV_ARGS(&rootSignature_));
     assert(SUCCEEDED(hr));
 
-    IDxcBlob* vsBlob         = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",    L"vs_6_0");
-    IDxcBlob* boxPsBlob      = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",  L"ps_6_0");
-    IDxcBlob* gaussianPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
+    // ----- 深度アウトライン用 Root Signature（b0 + t0 + t1）-----
+    D3D12_DESCRIPTOR_RANGE srvRange1 = {};
+    srvRange1.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    srvRange1.NumDescriptors                    = 1;
+    srvRange1.BaseShaderRegister                = 1;  // t1
+    srvRange1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+    D3D12_ROOT_PARAMETER outlineParams[3] = {};
+    outlineParams[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    outlineParams[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    outlineParams[0].Descriptor.ShaderRegister = 0;
+    outlineParams[1].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    outlineParams[1].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+    outlineParams[1].DescriptorTable.pDescriptorRanges   = &srvRange0;
+    outlineParams[1].DescriptorTable.NumDescriptorRanges = 1;
+    outlineParams[2].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    outlineParams[2].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+    outlineParams[2].DescriptorTable.pDescriptorRanges   = &srvRange1;
+    outlineParams[2].DescriptorTable.NumDescriptorRanges = 1;
+
+    D3D12_ROOT_SIGNATURE_DESC outlineSigDesc = {};
+    outlineSigDesc.NumParameters     = 3;
+    outlineSigDesc.pParameters       = outlineParams;
+    outlineSigDesc.NumStaticSamplers = 1;
+    outlineSigDesc.pStaticSamplers   = &sampler;
+    outlineSigDesc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+    ComPtr<ID3DBlob> outlineSigBlob, outlineErrBlob;
+    hr = D3D12SerializeRootSignature(&outlineSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &outlineSigBlob, &outlineErrBlob);
+    assert(SUCCEEDED(hr));
+    hr = device->CreateRootSignature(0, outlineSigBlob->GetBufferPointer(), outlineSigBlob->GetBufferSize(),
+        IID_PPV_ARGS(&outlineRootSignature_));
+    assert(SUCCEEDED(hr));
+
+    // ----- シェーダーコンパイル -----
+    IDxcBlob* vsBlob           = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",     L"vs_6_0");
+    IDxcBlob* boxPsBlob        = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",   L"ps_6_0");
+    IDxcBlob* gaussianPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
+    IDxcBlob* prewittPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/PrewittEdgePS.hlsl",    L"ps_6_0");
+    IDxcBlob* depthOlPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/DepthOutlinePS.hlsl",   L"ps_6_0");
+
+    // ----- 共通 PSO ベース設定 -----
     D3D12_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     D3D12_RASTERIZER_DESC rastDesc = {};
@@ -163,27 +222,39 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     D3D12_DEPTH_STENCIL_DESC depthDesc = {};
     depthDesc.DepthEnable = FALSE;
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc   = {};
-    psoDesc.pRootSignature                        = rootSignature_.Get();
-    psoDesc.VS                                    = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.BlendState                            = blendDesc;
-    psoDesc.RasterizerState                       = rastDesc;
-    psoDesc.DepthStencilState                     = depthDesc;
-    psoDesc.SampleMask                            = D3D12_DEFAULT_SAMPLE_MASK;
-    psoDesc.PrimitiveTopologyType                 = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets                      = 1;
-    psoDesc.RTVFormats[0]                         = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    psoDesc.SampleDesc.Count                      = 1;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+    psoDesc.VS                  = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
+    psoDesc.BlendState          = blendDesc;
+    psoDesc.RasterizerState     = rastDesc;
+    psoDesc.DepthStencilState   = depthDesc;
+    psoDesc.SampleMask          = D3D12_DEFAULT_SAMPLE_MASK;
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.NumRenderTargets    = 1;
+    psoDesc.RTVFormats[0]       = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.SampleDesc.Count    = 1;
 
+    // Box 用 PSO
+    psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.PS = { boxPsBlob->GetBufferPointer(), boxPsBlob->GetBufferSize() };
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&boxPso_));
     assert(SUCCEEDED(hr));
 
+    // Gaussian 用 PSO
     psoDesc.PS = { gaussianPsBlob->GetBufferPointer(), gaussianPsBlob->GetBufferSize() };
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&gaussianPso_));
     assert(SUCCEEDED(hr));
 
-    // 初期カーネルを計算
+    // Prewitt 用 PSO（rootSignature_ と同じ b0+t0 ルートシグネチャを使用）
+    psoDesc.PS = { prewittPsBlob->GetBufferPointer(), prewittPsBlob->GetBufferSize() };
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&prewittPso_));
+    assert(SUCCEEDED(hr));
+
+    // 深度アウトライン用 PSO（outlineRootSignature_: b0+t0+t1）
+    psoDesc.pRootSignature = outlineRootSignature_.Get();
+    psoDesc.PS = { depthOlPsBlob->GetBufferPointer(), depthOlPsBlob->GetBufferSize() };
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&depthOutlinePso_));
+    assert(SUCCEEDED(hr));
+
     RebuildKernel();
 }
 
@@ -193,11 +264,21 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 void ImageFilter::Finalize()
 {
+    if (outlineCb_) {
+        outlineCbResource_->Unmap(0, nullptr);
+        outlineCb_ = nullptr;
+    }
+    outlineCbResource_.Reset();
+
     if (cbH_) {
         cbResource_->Unmap(0, nullptr);
         cbH_ = cbV_ = nullptr;
     }
     cbResource_.Reset();
+
+    depthOutlinePso_.Reset();
+    outlineRootSignature_.Reset();
+    prewittPso_.Reset();
     gaussianPso_.Reset();
     boxPso_.Reset();
     rootSignature_.Reset();
@@ -226,7 +307,7 @@ void ImageFilter::BeginScene()
     constexpr float kClear[4] = { 0.1f, 0.25f, 0.5f, 1.0f };
     cmd->ClearRenderTargetView(sceneRtvHandle_, kClear, 0, nullptr);
 
-    D3D12_VIEWPORT vp     = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
+    D3D12_VIEWPORT vp      = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
     D3D12_RECT     scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
@@ -240,21 +321,60 @@ void ImageFilter::EndScene()
 }
 
 // =====================================================
-// Apply（水平パス → 垂直パス の 2 パス）
+// Apply
 // =====================================================
 
 void ImageFilter::Apply(SrvManager* srvManager)
 {
     auto* cmd = dxCommon_->GetCommandList();
 
-    D3D12_VIEWPORT vp     = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
+    D3D12_VIEWPORT vp      = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
     D3D12_RECT     scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
+    D3D12_CPU_DESCRIPTOR_HANDLE backRtv = dxCommon_->GetCurrentBackBufferHandle();
 
-    cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(mode_ == Mode::Box ? boxPso_.Get() : gaussianPso_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // ----- Pass 1: 水平（sceneTexture → intermediateTexture）-----
+    // ----- Prewitt エッジ検出（輝度ベース）: シングルパス -----
+    if (mode_ == Mode::PrewittEdge) {
+        cmd->SetGraphicsRootSignature(rootSignature_.Get());
+        cmd->SetPipelineState(prewittPso_.Get());
+        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+        cmd->RSSetViewports(1, &vp);
+        cmd->RSSetScissorRects(1, &scissor);
+        cmd->SetGraphicsRootConstantBufferView(0, outlineCbResource_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
+        cmd->DrawInstanced(3, 1, 0, 0);
+        return;
+    }
+
+    // ----- 深度ベースアウトライン: シングルパス、深度バリア付き -----
+    if (mode_ == Mode::DepthOutline) {
+        auto* depthRes = dxCommon_->GetDepthStencilResource();
+        Barrier(cmd, depthRes,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+        cmd->SetGraphicsRootSignature(outlineRootSignature_.Get());
+        cmd->SetPipelineState(depthOutlinePso_.Get());
+        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+        cmd->RSSetViewports(1, &vp);
+        cmd->RSSetScissorRects(1, &scissor);
+        cmd->SetGraphicsRootConstantBufferView(0, outlineCbResource_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
+        cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(depthSrvIndex_));
+        cmd->DrawInstanced(3, 1, 0, 0);
+
+        Barrier(cmd, depthRes,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        return;
+    }
+
+    // ----- Box / Gaussian: 水平→垂直の 2 パス -----
+    cmd->SetGraphicsRootSignature(rootSignature_.Get());
+    cmd->SetPipelineState(mode_ == Mode::Box ? boxPso_.Get() : gaussianPso_.Get());
+
+    // Pass 1: 水平（sceneTexture → intermediateTexture）
     if (!isIntermediateFirstFrame_) {
         Barrier(cmd, intermediateTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -265,7 +385,7 @@ void ImageFilter::Apply(SrvManager* srvManager)
     cmd->OMSetRenderTargets(1, &intermediateRtvHandle_, FALSE, nullptr);
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
-    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress()); // H slot
+    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
 
@@ -273,25 +393,25 @@ void ImageFilter::Apply(SrvManager* srvManager)
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    // ----- Pass 2: 垂直（intermediateTexture → backbuffer）-----
-    D3D12_CPU_DESCRIPTOR_HANDLE backRtv = dxCommon_->GetCurrentBackBufferHandle();
+    // Pass 2: 垂直（intermediateTexture → backbuffer）
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
-    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress() + 256); // V slot
+    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress() + 256);
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(intermediateSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
 }
 
 // =====================================================
-// カーネル重みの計算（CPU 側）
+// カーネル重みの計算（Box / Gaussian のみ）
 // =====================================================
 
 void ImageFilter::RebuildKernel()
 {
     if (!cbH_) return;
+    if (mode_ == Mode::PrewittEdge || mode_ == Mode::DepthOutline) return;
 
-    int   r      = 1;
+    int   r        = 1;
     float weights[17] = {};
 
     if (mode_ == Mode::Box) {
@@ -329,5 +449,5 @@ void ImageFilter::SetRadius(int r)
 void ImageFilter::SetSigma(float s)
 {
     gaussianSigma_ = s;
-    if (mode_ == Mode::Linear) RebuildKernel();
+    if (mode_ == Mode::Gaussian) RebuildKernel();
 }

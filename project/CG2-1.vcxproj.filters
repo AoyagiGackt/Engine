@@ -61,6 +61,12 @@
     <FxCompile Include="Resources\shaders\postprocess\GaussianFilterPS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\PrewittEdgePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\DepthOutlinePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="engin\base\main.cpp">

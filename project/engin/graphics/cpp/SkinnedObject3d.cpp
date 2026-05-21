@@ -61,7 +61,8 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
         return res;
     };
 
-    transformCB_ = makeBuffer(sizeof(TransformationMatrix));
+    // CBV は 256 バイトアライン必須なので切り上げる
+    transformCB_ = makeBuffer((sizeof(TransformationMatrix) + 255) & ~255u);
     transformCB_->Map(0, nullptr, reinterpret_cast<void**>(&transformData_));
 
     materialCB_ = makeBuffer(sizeof(Material));

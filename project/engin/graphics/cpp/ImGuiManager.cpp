@@ -10,6 +10,16 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
+    // 日本語フォント読み込み（Windows 標準の游ゴシック）
+    // ※ Win32Init より前に登録しないとアトラスに反映されない
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->AddFontFromFileTTF(
+        "C:/Windows/Fonts/YuGothM.ttc",
+        16.0f,
+        nullptr,
+        io.Fonts->GetGlyphRangesJapanese()
+    );
+
     // Win32初期化
     ImGui_ImplWin32_Init(winApp->GetHwnd());
 
@@ -27,7 +37,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 
     unsigned char* pixels;
     int width, height;
-    ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
 #endif
 }

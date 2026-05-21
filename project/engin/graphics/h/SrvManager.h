@@ -57,6 +57,13 @@ public:
     void CreateSRVforTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels);
 
     /**
+     * @brief 深度テクスチャ（R24G8_TYPELESS）用のSRVを生成する
+     * @param srvIndex Allocate()で確保したインデックス
+     * @param pResource 深度ステンシルリソース（TYPELESS形式で作成済みのもの）
+     */
+    void CreateSRVforDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource);
+
+    /**
      * @brief マネージャーの終了処理。デスクリプタヒープを解放する
      */
     void Finalize();
