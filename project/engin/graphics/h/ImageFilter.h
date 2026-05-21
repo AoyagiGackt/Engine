@@ -70,7 +70,8 @@ private:
 
     // ----- PSO / Root Signature -----
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> boxPso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> gaussianPso_;
 
     // ----- 定数バッファ（H/V 2スロット）-----
     Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
