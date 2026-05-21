@@ -7,6 +7,7 @@
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
+#include "HsvFilter.h"
 #include "TextureManager.h"
 
 void ShowControls()
@@ -132,6 +133,44 @@ void ShowControls()
             if (ImGui::SliderFloat("ソフトネス", &softness, 0.0f, 1.0f)) {
                 vg->SetSoftness(softness);
             }
+        }
+
+        ImGui::Separator();
+
+        // ----- HSV フィルター -----
+        auto* hsv = HsvFilter::GetInstance();
+
+        bool hsvEnabled = hsv->IsEnabled();
+        if (ImGui::Checkbox("HSV フィルター", &hsvEnabled)) {
+            hsv->SetEnabled(hsvEnabled);
+        }
+
+        if (hsvEnabled) {
+            float hueShift = hsv->GetHueShift();
+            if (ImGui::SliderFloat("色相シフト", &hueShift, -180.0f, 180.0f, "%.1f°")) {
+                hsv->SetHueShift(hueShift);
+            }
+            if (ImGui::Button("色相リセット")) {
+                hsv->SetHueShift(0.0f);
+            }
+
+            float sat = hsv->GetSaturation();
+            if (ImGui::SliderFloat("彩度", &sat, 0.0f, 2.0f, "%.2f")) {
+                hsv->SetSaturation(sat);
+            }
+
+            float val = hsv->GetValue();
+            if (ImGui::SliderFloat("明度", &val, 0.0f, 2.0f, "%.2f")) {
+                hsv->SetValue(val);
+            }
+
+            if (ImGui::Button("全パラメーターリセット")) {
+                hsv->SetHueShift(0.0f);
+                hsv->SetSaturation(1.0f);
+                hsv->SetValue(1.0f);
+            }
+
+            ImGui::TextDisabled("※ イメージフィルター・グレースケールと同時使用不可");
         }
     }
 

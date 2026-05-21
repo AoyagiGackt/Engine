@@ -7,6 +7,7 @@
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
+#include "HsvFilter.h"
 #include "ImguiControl.h"
 
 void MyGame::Initialize()
@@ -50,12 +51,15 @@ void MyGame::Draw()
 
     auto* gs        = GrayscaleEffect::GetInstance();
     auto* imgFilter = ImageFilter::GetInstance();
+    auto* hsv       = HsvFilter::GetInstance();
 
-    // ImageFilter が有効なときはシーンをその RTV へ、次点で GrayscaleEffect
+    // 有効なシーンキャプチャフィルターへ描画先を切り替える（優先順位: ImageFilter > Grayscale > HSV）
     if (imgFilter->IsEnabled()) {
         imgFilter->BeginScene();
     } else if (gs->IsEnabled()) {
         gs->BeginScene();
+    } else if (hsv->IsEnabled()) {
+        hsv->BeginScene();
     }
 
     // 現在のシーンの描画
@@ -67,6 +71,9 @@ void MyGame::Draw()
     } else if (gs->IsEnabled()) {
         gs->EndScene();
         gs->Apply(SrvManager::GetInstance());
+    } else if (hsv->IsEnabled()) {
+        hsv->EndScene();
+        hsv->Apply(SrvManager::GetInstance());
     }
 
     VignetteEffect::GetInstance()->Apply();

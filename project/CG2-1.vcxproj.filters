@@ -40,6 +40,9 @@
     <FxCompile Include="Resources\shaders\postprocess\GrayscalePS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\HsvFilterPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
     <FxCompile Include="Resources\shaders\Particle\ParticleUpdate.CS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
@@ -172,6 +175,9 @@
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
     <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\HsvFilter.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
@@ -411,6 +417,9 @@
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\HsvFilter.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
@@ -766,6 +775,9 @@
     <ClCompile Include="engin\graphics\cpp\GrayscaleEffect.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
+    <ClCompile Include="engin\graphics\cpp\HsvFilter.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
     <ClCompile Include="engin\graphics\cpp\ImguiControl.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
@@ -967,6 +979,9 @@
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="engin\graphics\h\HsvFilter.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <ClInclude Include="engin\graphics\h\ImguiControl.h">
