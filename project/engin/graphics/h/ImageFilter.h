@@ -5,7 +5,7 @@
 
 class ImageFilter {
 public:
-    enum class Mode { Box, Linear };
+    enum class Mode { Box, Gaussian, PrewittEdge, DepthOutline };
 
     static ImageFilter* GetInstance()
     {
@@ -16,18 +16,40 @@ public:
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
     void Finalize();
 
-    void BeginScene();  // シーン描画前に呼ぶ（RTV をオフスクリーンへ切り替え）
-    void EndScene();    // シーン描画後に呼ぶ（SRV に遷移）
-    void Apply(SrvManager* srvManager); // 水平→垂直の2パスでバックバッファへ適用
+    void BeginScene();
+    void EndScene();
+    void Apply(SrvManager* srvManager);
 
     void  SetEnabled(bool v) { enabled_ = v; }
     bool  IsEnabled()  const { return enabled_; }
     void  SetMode(Mode mode) { mode_ = mode; RebuildKernel(); }
     Mode  GetMode()    const { return mode_; }
+
+    // Box / Gaussian パラメータ
     void  SetRadius(int r);
     int   GetRadius()  const { return boxRadius_; }
     void  SetSigma(float s);
     float GetSigma()   const { return gaussianSigma_; }
+
+    // アウトライン共通パラメータ
+    void  SetOutlineThreshold(float t) { if (outlineCb_) outlineCb_->threshold    = t; }
+    float GetOutlineThreshold() const  { return outlineCb_ ? outlineCb_->threshold    : 0.05f; }
+    void  SetOutlineStrength(float s)  { if (outlineCb_) outlineCb_->edgeStrength = s; }
+    float GetOutlineStrength() const   { return outlineCb_ ? outlineCb_->edgeStrength : 5.0f; }
+    void  SetOutlineColor(float r, float g, float b, float a = 1.0f) {
+        if (!outlineCb_) return;
+        outlineCb_->outlineR = r; outlineCb_->outlineG = g;
+        outlineCb_->outlineB = b; outlineCb_->outlineA = a;
+    }
+    void  GetOutlineColor(float out[4]) const {
+        if (!outlineCb_) { out[0]=out[1]=out[2]=0.f; out[3]=1.f; return; }
+        out[0]=outlineCb_->outlineR; out[1]=outlineCb_->outlineG;
+        out[2]=outlineCb_->outlineB; out[3]=outlineCb_->outlineA;
+    }
+
+    // 深度アウトライン専用
+    void  SetDepthScale(float s) { if (outlineCb_) outlineCb_->depthScale = s; }
+    float GetDepthScale() const  { return outlineCb_ ? outlineCb_->depthScale : 100.0f; }
 
     D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
 
@@ -37,46 +59,71 @@ private:
     ImageFilter(const ImageFilter&) = delete;
     ImageFilter& operator=(const ImageFilter&) = delete;
 
-    void RebuildKernel(); // CPU側でカーネル重みを計算してCBufferへ書き込む
+    void RebuildKernel();
 
-    // H/V で共通のCBuffer構造体（256バイトアライン2スロット分確保）
+    // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
     struct FilterParams {
+        float texelSizeX;
+        float texelSizeY;
+        int   radius;
+        float pad0;
+        float kernel[20];  // float4[5] = 80 bytes
+        float dirX;
+        float dirY;
+        float pad1[2];
+    };
+
+    // アウトライン用 CBuffer（1スロット）
+    struct OutlineParams {
         float texelSizeX;   // 0
         float texelSizeY;   // 4
-        int   radius;       // 8
-        float pad0;         // 12
-        float kernel[20];   // 16  (float4[5] = 80 bytes, 最大17タップ使用)
-        float dirX;         // 96
-        float dirY;         // 100
-        float pad1[2];      // 104
-        // 108 bytes → 256バイトスロットに収まる
+        float threshold;    // 8
+        float edgeStrength; // 12
+        float outlineR;     // 16
+        float outlineG;     // 20
+        float outlineB;     // 24
+        float outlineA;     // 28
+        float depthScale;   // 32
+        float pad[3];       // 36
     };
 
     DirectXCommon* dxCommon_ = nullptr;
 
-    // ----- シーンキャプチャ用テクスチャ -----
+    // シーンキャプチャ用テクスチャ
     Microsoft::WRL::ComPtr<ID3D12Resource>       sceneTexture_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> sceneRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE                  sceneRtvHandle_ = {};
     uint32_t                                     sceneSrvIndex_  = UINT32_MAX;
     bool                                         isSceneFirstFrame_ = true;
 
-    // ----- 水平パス出力用中間テクスチャ -----
+    // 水平パス出力用中間テクスチャ
     Microsoft::WRL::ComPtr<ID3D12Resource>       intermediateTexture_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> intermediateRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE                  intermediateRtvHandle_ = {};
     uint32_t                                     intermediateSrvIndex_  = UINT32_MAX;
     bool                                         isIntermediateFirstFrame_ = true;
 
-    // ----- PSO / Root Signature -----
+    // ブラー用 PSO / Root Signature
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> boxPso_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> gaussianPso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> prewittPso_;
 
-    // ----- 定数バッファ（H/V 2スロット）-----
+    // 深度アウトライン用 PSO / Root Signature（t0+t1の2テクスチャ）
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> outlineRootSignature_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> depthOutlinePso_;
+
+    // ブラー用定数バッファ（H/V 2スロット = 512 bytes）
     Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
-    FilterParams* cbH_ = nullptr; // offset   0: 水平パス用
-    FilterParams* cbV_ = nullptr; // offset 256: 垂直パス用
+    FilterParams* cbH_ = nullptr;
+    FilterParams* cbV_ = nullptr;
+
+    // アウトライン用定数バッファ（1スロット = 256 bytes）
+    Microsoft::WRL::ComPtr<ID3D12Resource> outlineCbResource_;
+    OutlineParams* outlineCb_ = nullptr;
+
+    // 深度バッファ SRV
+    uint32_t depthSrvIndex_ = UINT32_MAX;
 
     Mode  mode_          = Mode::Box;
     int   boxRadius_     = 2;

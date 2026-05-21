@@ -29,7 +29,8 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
     D3D12_RESOURCE_DESC resDesc {};
     resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resDesc.Width = sizeof(TransformationMatrix);
+    // CBV は 256 バイトアライン必須なので切り上げる
+    resDesc.Width = (sizeof(TransformationMatrix) + 255) & ~255u;
     resDesc.Height = 1;
     resDesc.DepthOrArraySize = 1;
     resDesc.MipLevels = 1;
@@ -39,7 +40,7 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&transformationMatrixResource_));
     transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
-    *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4() };
+    *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 
     // Material用リソース作成
     resDesc.Width = sizeof(Material);

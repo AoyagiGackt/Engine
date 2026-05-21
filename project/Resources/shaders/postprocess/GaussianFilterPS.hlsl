@@ -4,8 +4,8 @@ struct PSInput {
 };
 
 cbuffer FilterParams : register(b0) {
-    float2 texelSize;   // (1/width, 1/height)
-    int    radius;      // 1D kernel radius
+    float2 texelSize;   // テクセルサイズ（1/横幅, 1/縦幅）
+    int    radius;      // カーネル半径（タップ数 = 2*radius+1）
     float  pad0;
     float4 kernel[5];  // CPU 側で事前計算した Gaussian 重み（最大 17 タップ）
     float2 direction;  // (1,0)=水平パス, (0,1)=垂直パス
