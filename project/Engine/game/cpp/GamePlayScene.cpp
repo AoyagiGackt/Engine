@@ -30,7 +30,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     objectCommon_->Initialize(dxCommon_);
 
     // ----- シングルトンをキャッシュ（以降はポインタ経由でアクセス）-----
-    srvManager_      = srvManager_;
+    srvManager_      = SrvManager::GetInstance();
     particleManager_ = ParticleManager::GetInstance();
     scoreManager_    = ScoreManager::GetInstance();
     grayscaleEffect_ = GrayscaleEffect::GetInstance();
@@ -44,14 +44,6 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 14.5f, 6.0f, -30.0f });
     Object3d::SetCommonCamera(camera_.get());
-
-    // ----- キャラクター・オブジェクト -----
-    // Skydome: 一時的に画面から消すためコメントアウト
-    //modelSkydome_ = std::make_unique<Model>();
-    //modelSkydome_->Initialize(modelCommon_.get(), "Resources/SkyDome/SkyDome.obj", "Resources/rostock_laage_airport_4k.dds");
-
-    //skydome_ = std::make_unique<Skydome>();
-    //skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
 
     // ----- スキンメッシュ（human）-----
     skinCommon_ = std::make_unique<SkinCommon>();
@@ -191,33 +183,35 @@ SceneEditor::EditContext GamePlayScene::BuildEditContext()
 // 更新処理
 // =====================================================
 
+void GamePlayScene::UpdateCameraSmoothing()
+{
+    cameraPosHistory_.push_back(cameraTargetPos_);
+    cameraRotHistory_.push_back(cameraTargetRot_);
+    while ((int)cameraPosHistory_.size() > cameraSmoothFrames_) {
+        cameraPosHistory_.pop_front();
+        cameraRotHistory_.pop_front();
+    }
+    Vector3 avgPos = {};
+    Vector3 avgRot = {};
+    for (const auto& p : cameraPosHistory_) {
+        avgPos.x += p.x; avgPos.y += p.y; avgPos.z += p.z;
+    }
+    for (const auto& r : cameraRotHistory_) {
+        avgRot.x += r.x; avgRot.y += r.y; avgRot.z += r.z;
+    }
+    float n = static_cast<float>(cameraPosHistory_.size());
+    camera_->SetTranslate({ avgPos.x / n, avgPos.y / n, avgPos.z / n });
+    camera_->SetRotate({ avgRot.x / n, avgRot.y / n, avgRot.z / n });
+}
+
+// =====================================================
+// 更新処理
+// =====================================================
+
 void GamePlayScene::Update()
 {
-    // ゲーム内時刻の更新
     gameTime_.Update(1.0f);
-
-    float timeRatio = gameTime_.GetElapsedMinutes() / GameTime::kTotalGameMinutes;
-
-    // Camera Box Filter Smoothing
-    {
-        cameraPosHistory_.push_back(cameraTargetPos_);
-        cameraRotHistory_.push_back(cameraTargetRot_);
-        while ((int)cameraPosHistory_.size() > cameraSmoothFrames_) {
-            cameraPosHistory_.pop_front();
-            cameraRotHistory_.pop_front();
-        }
-        Vector3 avgPos = { 0.0f, 0.0f, 0.0f };
-        Vector3 avgRot = { 0.0f, 0.0f, 0.0f };
-        for (const auto& p : cameraPosHistory_) { avgPos.x += p.x; avgPos.y += p.y; avgPos.z += p.z; }
-        for (const auto& r : cameraRotHistory_) { avgRot.x += r.x; avgRot.y += r.y; avgRot.z += r.z; }
-        float n = static_cast<float>(cameraPosHistory_.size());
-        camera_->SetTranslate({ avgPos.x / n, avgPos.y / n, avgPos.z / n });
-        camera_->SetRotate({ avgRot.x / n, avgRot.y / n, avgRot.z / n });
-    }
-
-    // 天球の更新
-    // Skydome を画面から消すため Update 呼び出しをコメントアウト
-    //if (skydome_) skydome_->Update(camera_.get(), timeRatio);
+    UpdateCameraSmoothing();
 
     // シャドウの更新
     shadowManager_->Update(objectCommon_->GetLightDirection());
@@ -237,7 +231,9 @@ void GamePlayScene::Update()
     // 楕円パーティクルをリング周回軌道で放出
     static constexpr float kOrbitSpeed = GameConstants::kTwoPi / GameConstants::kOrbitPeriodSeconds;
     ringOrbitAngle_ += kOrbitSpeed * GameConstants::kFrameDeltaTime;
-    if (ringOrbitAngle_ > GameConstants::kTwoPi) ringOrbitAngle_ -= GameConstants::kTwoPi;
+    if (ringOrbitAngle_ > GameConstants::kTwoPi) {
+        ringOrbitAngle_ -= GameConstants::kTwoPi;
+    }
 
     ellipseParticleTimer_ += GameConstants::kFrameDeltaTime;
     while (ellipseParticleTimer_ >= kEllipseEmitInterval) {
@@ -321,10 +317,6 @@ void GamePlayScene::Draw()
     modelCommon_->CommonDrawSettings();
     objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
-
-    // 天球（最初に描画して他のオブジェクトの背景とする）
-    // Skydome を画面から消すため Draw 呼び出しをコメントアウト
-    //if (skydome_) skydome_->Draw();
 
     for (auto& obj : gameObjects_) {
         obj->Draw();

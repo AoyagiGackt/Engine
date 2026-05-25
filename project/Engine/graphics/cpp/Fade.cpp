@@ -21,8 +21,9 @@ void Fade::Start(Status status, float duration)
     counter_ = 0.0f;
 }
 
-void Fade::Update(){
-    if(status_ == Status::None){
+void Fade::Update()
+{
+    if (status_ == Status::None) {
         return;
     }
 
@@ -31,25 +32,23 @@ void Fade::Update(){
 
     // 進捗率 (0.0f ～ 1.0f)
     float progress = counter_ / duration_;
-    
-    if(progress > 1.0f){ 
+    if (progress > 1.0f) {
         progress = 1.0f;
     }
 
     float alpha = 0.0f;
-    
-    if(status_ == Status::FadeIn){
+    if (status_ == Status::FadeIn) {
         alpha = 1.0f - progress; // 1.0(黒) -> 0.0(透明)
-    } else if(status_ == Status::FadeOut){
+    } else if (status_ == Status::FadeOut) {
         alpha = progress;        // 0.0(透明) -> 1.0(黒)
     }
 
     // スプライトに色を反映
-    sprite_->SetColor({0.0f, 0.0f, 0.0f, alpha});
+    sprite_->SetColor({ 0.0f, 0.0f, 0.0f, alpha });
     sprite_->Update();
 
-    // 進捗が1.0を超えたら終了状態にする（色の反映が終わった後に判定）
-    if(progress >= 1.0f){
+    // 進捗が 1.0 に達したら終了（色反映の後に判定）
+    if (progress >= 1.0f) {
         status_ = Status::None;
     }
 }

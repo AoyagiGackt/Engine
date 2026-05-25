@@ -66,6 +66,7 @@ public:
 private:
 	// --- 内部処理関数 ---
 	void DrawShadowPass();
+	void UpdateCameraSmoothing();
 	SceneEditor::EditContext BuildEditContext();
 
 	// =================================================
@@ -93,10 +94,7 @@ private:
 	std::unique_ptr<ShadowManager> shadowManager_;
 	std::unique_ptr<Camera> camera_;
 
-	// --- 3Dモデル群 ---
-	std::unique_ptr<Model> modelSkydome_;
-
-	// --- 天球 ---
+	// --- 天球（無効時は nullptr）---
 	std::unique_ptr<Skydome> skydome_;
 
 	// --- スキンメッシュ（human） ---

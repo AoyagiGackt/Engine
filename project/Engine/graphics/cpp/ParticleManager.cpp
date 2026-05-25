@@ -166,7 +166,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
 
 uint32_t ParticleManager::AllocateSlot(ParticleGroup& group)
 {
-    if (group.freeList.empty()) return UINT32_MAX;
+    if (group.freeList.empty()) { return UINT32_MAX; }
     uint32_t slot = group.freeList.back();
     group.freeList.pop_back();
     return slot;
@@ -727,10 +727,10 @@ void ParticleManager::SetAdditiveBlend(const std::string& name, bool additive)
 bool ParticleManager::IsGroupAlive(const std::string& name) const
 {
     auto it = particleGroups_.find(name);
-    if (it == particleGroups_.end()) return false;
+    if (it == particleGroups_.end()) { return false; }
     const ParticleGroup& group = it->second;
     for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
-        if (group.groupTime < group.slotExpiry[i]) return true;
+        if (group.groupTime < group.slotExpiry[i]) { return true; }
     }
     return false;
 }
