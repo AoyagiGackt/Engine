@@ -1,7 +1,9 @@
 ﻿#include "Sprite.h"
-#include "TextureManager.h"
+#include "GameConstants.h"
 #include "Logger.h"
+#include "TextureManager.h"
 #include <SrvManager.h>
+#include "WinApp.h"
 
 using namespace Microsoft::WRL;
 
@@ -126,8 +128,10 @@ void Sprite::Update()
 
     // ビュー・プロジェクション
     Matrix4x4 viewMatrix = MakeIdentity4x4();
-    // 画面サイズ 1280x720 の正射影行列 (左上原点)
-    Matrix4x4 projectionMatrix = MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 100.0f);
+    Matrix4x4 projectionMatrix = MakeOrthographicMatrix(
+        0.0f, 0.0f,
+        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
+        0.0f, 100.0f);
 
     Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 

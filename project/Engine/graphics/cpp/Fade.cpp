@@ -1,4 +1,6 @@
 ﻿#include "Fade.h"
+#include "GameConstants.h"
+#include "WinApp.h"
 
 void Fade::Initialize(SpriteCommon* spriteCommon)
 {
@@ -8,7 +10,7 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
     sprite_->Initialize(spriteCommon, "Resources/uvChecker.png");
 
     sprite_->SetPosition({ 0.0f, 0.0f });
-    sprite_->SetSize({ 1280.0f, 720.0f }); // 画面解像度に合わせる
+    sprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) });
     sprite_->SetColor({ 0.0f, 0.0f, 0.0f, 0.0f }); // 最初は透明な黒
 }
 
@@ -25,7 +27,7 @@ void Fade::Update(){
     }
 
     // タイマーを進める
-    counter_ += 1.0f / 60.0f;
+    counter_ += GameConstants::kFrameDeltaTime;
 
     // 進捗率 (0.0f ～ 1.0f)
     float progress = counter_ / duration_;

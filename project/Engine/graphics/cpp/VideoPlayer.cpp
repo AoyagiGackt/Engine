@@ -1,7 +1,8 @@
 ﻿#include "VideoPlayer.h"
+#include "GameConstants.h"
 #include "Logger.h"
 #include "SrvManager.h"
-#include "StringUtlity.h"
+#include "StringUtility.h"
 #include <cassert>
 
 using namespace Microsoft::WRL;
@@ -118,7 +119,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 void VideoPlayer::Update()
 {
     // 60FPS環境での簡易フレームスキップ
-    timeCount_ += 1.0f / 60.0f;
+    timeCount_ += GameConstants::kFrameDeltaTime;
     
     if (timeCount_ < frameDuration_) {
         if (sprite_) {

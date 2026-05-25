@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file GamePlayScene.h
  * @brief ゲームプレイ本編のシーンロジックを管理するファイル
  */
@@ -31,7 +31,6 @@
 #include "GameTime.h"
 #include "MapChipField.h"
 #include "Skydome.h"
-#include "hoge.h"
 #include "Ring.h"
 #include "Cylinder.h"
 #include "SkinCommon.h"
@@ -41,6 +40,14 @@
 #include "Animation.h"
 #include "ImageFilter.h"
 #include "RenderTexture.h"
+#include "SceneEditor.h"
+
+// Initialize で一度取得してキャッシュするシステムポインタ（実体はシングルトンが管理）
+class GrayscaleEffect;
+class HsvFilter;
+class ImageFilter;
+class ParticleManager;
+class ScoreManager;
 
 /**
  * @brief ゲームプレイ本編のシーンクラス
@@ -58,26 +65,26 @@ public:
 
 private:
 	// --- 内部処理関数 ---
-	void UpdateDebugUI();
 	void DrawShadowPass();
-
-	// --- データセーブ・ロード関数 ---
-	void SaveCameraParams();
-	void LoadCameraParams();
-	void SaveModelPaths();
-	void LoadModelPaths();
-	void SaveUILayout();
-	void LoadUILayout();
+	SceneEditor::EditContext BuildEditContext();
 
 	// =================================================
 	// メンバ変数
 	// =================================================
 
-	// --- 外部システムポインタ ---
-	DirectXCommon* dxCommon_ = nullptr;
-	Input* input_ = nullptr;
-	Audio* audio_ = nullptr;
-	ImGuiManager* imguiManager_ = nullptr;
+	// --- 外部システムポインタ（注入済み）---
+	DirectXCommon* dxCommon_    = nullptr;
+	Input*         input_       = nullptr;
+	Audio*         audio_       = nullptr;
+	ImGuiManager*  imguiManager_ = nullptr;
+
+	// --- キャッシュ済みシステムポインタ（Initialize で取得、生存期間はシステムが保証）---
+	ParticleManager* particleManager_ = nullptr;
+	ScoreManager*    scoreManager_    = nullptr;
+	SrvManager*      srvManager_      = nullptr;
+	GrayscaleEffect* grayscaleEffect_ = nullptr;
+	ImageFilter*     imageFilter_     = nullptr;
+	HsvFilter*       hsvFilter_       = nullptr;
 
 	// --- 描画・共通基盤リソース ---
 	std::unique_ptr<SpriteCommon> spriteCommon_;
@@ -113,7 +120,7 @@ private:
 	// --- 楕円パーティクル（Ring 周回） ---
 	float ellipseParticleTimer_ = 0.0f;
 	static constexpr float kEllipseEmitInterval = 0.05f;
-	float ringOrbitAngle_ = 0.0f; ///< パーティクル放出角度（リングを周回）
+	float ringOrbitAngle_ = 0.0f;
 
 	// --- Ring ---
 	std::unique_ptr<Ring> ring_;
@@ -135,21 +142,16 @@ private:
 	float   cylinderHeight_       = 3.0f;
 	float   cylinderAlphaRef_     = 0.0f;
 
-	// --- AnimatedCube ---
-	Hoge*   animCube_          = nullptr;
-	Vector3 animCubePosition_  = { 10.0f, 2.0f, 0.0f };
-	float   animCubeSpeed_     = 1.0f;
-
 	// --- Human パラメータ ---
-	Vector3 humanPosition_      = { 5.0f, 0.0f, 0.0f };
-	Vector3 humanRotation_      = { 0.0f, 0.0f, 0.0f };
-	Vector3 humanScale_         = { 1.0f, 1.0f, 1.0f };
-	float   humanAnimSpeed_     = 1.0f;
-	bool    showSkeletonDebug_  = false;
+	Vector3 humanPosition_     = { 5.0f, 0.0f, 0.0f };
+	Vector3 humanRotation_     = { 0.0f, 0.0f, 0.0f };
+	Vector3 humanScale_        = { 1.0f, 1.0f, 1.0f };
+	float   humanAnimSpeed_    = 1.0f;
+	bool    showSkeletonDebug_ = false;
 
 	// --- Skydome パラメータ ---
-	Vector4 skyColor_       = { 1.0f, 1.0f, 1.0f, 1.0f };
-	float   skyRotOffsetY_  = 0.0f;
+	Vector4 skyColor_      = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float   skyRotOffsetY_ = 0.0f;
 
 	// --- オフスクリーンレンダリング ---
 	std::unique_ptr<RenderTexture> renderTexture_;
@@ -160,19 +162,8 @@ private:
 	Vector3 cameraTargetRot_ = { 0.0f, 0.0f, 0.0f };
 	std::deque<Vector3> cameraPosHistory_;
 	std::deque<Vector3> cameraRotHistory_;
-	int cameraSmoothFrames_ = 1; // 1=即時, N=過去Nフレーム平均
+	int cameraSmoothFrames_ = 1;
 
-	// --- デバッグ・エディタ関連 ---
-	bool debugEditMode_ = false;
-
-	enum class SelectedType{ None,Camera,UIElement,Ring,Cylinder,Skydome,AnimatedCube,Human,WhiteParticles };
-	SelectedType editorSelectedType_ = SelectedType::None;
-	int editorSelectedIndex_ = -1;
-
-	struct UIEntry{
-		std::string name;
-		std::unique_ptr<Sprite> sprite;
-		std::string texPath;
-	};
-	std::vector<UIEntry> uiElements_;
+	// --- デバッグ・エディタ ---
+	SceneEditor sceneEditor_;
 };
