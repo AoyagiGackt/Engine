@@ -96,6 +96,10 @@ public:
         // ゲーム内時刻（読み取り専用の値コピー。表示目的）
         int gameHour   = 0;
         int gameMinute = 0;
+
+        // ImGui の "Game Clear" ボタン用リクエストフラグ
+        // true にすると GamePlayScene 側でガラス割れ演出を経由してシーン遷移する
+        bool* requestClear = nullptr;
     };
 
     // ---- Hierarchy に追加した UI スプライト1つ分のデータ ----

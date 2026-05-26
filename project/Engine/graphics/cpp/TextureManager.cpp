@@ -87,16 +87,21 @@ void TextureManager::LoadTexture(const std::string& filePath)
         IID_PPV_ARGS(&resource));
     assert(SUCCEEDED(hr));
 
-    // アップロードバッファのサイズを算出して作成
+    // GetCopyableFootprints でサブリソースごとのレイアウトと合計サイズを取得
     const UINT subresourceCount = UINT(metadata.mipLevels * metadata.arraySize);
-    const UINT64 uploadSize = GetRequiredIntermediateSize(resource.Get(), 0, subresourceCount);
+    std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints(subresourceCount);
+    std::vector<UINT> numRows(subresourceCount);
+    std::vector<UINT64> rowSizes(subresourceCount);
+    UINT64 totalSize = 0;
+    device->GetCopyableFootprints(&resourceDesc, 0, subresourceCount, 0,
+        footprints.data(), numRows.data(), rowSizes.data(), &totalSize);
 
     D3D12_HEAP_PROPERTIES uploadHeap {};
     uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
 
     D3D12_RESOURCE_DESC uploadDesc {};
     uploadDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-    uploadDesc.Width            = uploadSize;
+    uploadDesc.Width            = totalSize;
     uploadDesc.Height           = 1;
     uploadDesc.DepthOrArraySize = 1;
     uploadDesc.MipLevels        = 1;
@@ -113,19 +118,26 @@ void TextureManager::LoadTexture(const std::string& filePath)
         IID_PPV_ARGS(&uploadBuffer));
     assert(SUCCEEDED(hr));
 
-    // サブリソースデータを構築（mip×array の全スライス）
-    std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-    subresources.reserve(subresourceCount);
+    // アップロードバッファをマップして全サブリソースを1行ずつ書き込む
+    BYTE* pMappedData = nullptr;
+    hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMappedData));
+    assert(SUCCEEDED(hr));
+
     for (size_t arrayIndex = 0; arrayIndex < metadata.arraySize; ++arrayIndex) {
         for (size_t mipLevel = 0; mipLevel < metadata.mipLevels; ++mipLevel) {
+            const UINT subresource = UINT(mipLevel + arrayIndex * metadata.mipLevels);
             const DirectX::Image* img = finalImage.GetImage(mipLevel, arrayIndex, 0);
-            D3D12_SUBRESOURCE_DATA sub {};
-            sub.pData      = img->pixels;
-            sub.RowPitch   = LONG_PTR(img->rowPitch);
-            sub.SlicePitch = LONG_PTR(img->slicePitch);
-            subresources.push_back(sub);
+            const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& fp = footprints[subresource];
+            for (UINT row = 0; row < numRows[subresource]; ++row) {
+                memcpy(
+                    pMappedData + fp.Offset + static_cast<UINT64>(row) * fp.Footprint.RowPitch,
+                    img->pixels + static_cast<UINT64>(row) * img->rowPitch,
+                    rowSizes[subresource]);
+            }
         }
     }
+
+    uploadBuffer->Unmap(0, nullptr);
 
     // 転送専用コマンドリストを作成して記録
     ComPtr<ID3D12CommandAllocator> uploadAlloc;
@@ -135,9 +147,20 @@ void TextureManager::LoadTexture(const std::string& filePath)
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, uploadAlloc.Get(), nullptr, IID_PPV_ARGS(&uploadCmdList));
     assert(SUCCEEDED(hr));
 
-    // アップロードバッファ → VRAM へコピーコマンドを積む
-    UpdateSubresources(uploadCmdList.Get(), resource.Get(), uploadBuffer.Get(),
-        0, 0, subresourceCount, subresources.data());
+    // サブリソースごとに CopyTextureRegion で転送コマンドを積む
+    for (UINT subresource = 0; subresource < subresourceCount; ++subresource) {
+        D3D12_TEXTURE_COPY_LOCATION dst {};
+        dst.pResource        = resource.Get();
+        dst.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dst.SubresourceIndex = subresource;
+
+        D3D12_TEXTURE_COPY_LOCATION src {};
+        src.pResource       = uploadBuffer.Get();
+        src.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src.PlacedFootprint = footprints[subresource];
+
+        uploadCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+    }
 
     // バリア: COPY_DEST → PIXEL_SHADER_RESOURCE（全サブリソース＝全ミップレベルを一括遷移）
     D3D12_RESOURCE_BARRIER barrier {};

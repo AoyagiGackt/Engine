@@ -140,6 +140,15 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     renderTextureSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
                                     static_cast<float>(WinApp::kClientHeight) });
 
+    // ----- クリア演出の背景スプライト（白背景のみ）-----
+    // ガラスが割れている間、青いクリアカラーの代わりに白を表示する
+    // スコア・ランキングは ClearScene で初めて出す（二重表示防止）
+    clearBgSprite_ = std::make_unique<Sprite>();
+    clearBgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    clearBgSprite_->SetPosition({ 0.0f, 0.0f });
+    clearBgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
+                               static_cast<float>(WinApp::kClientHeight) });
+
     // ----- デバッグパラメータ読み込み -----
     // 前回エディタで保存したカメラ位置・UIレイアウトなどを JSON から復元する
     sceneEditor_.LoadAll(BuildEditContext());
@@ -147,6 +156,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     // カメラスムージング用の初期目標値を現在のカメラ位置から取る
     cameraTargetPos_ = camera_->GetTranslate();
     cameraTargetRot_ = camera_->GetRotate();
+
+    glassShatter_.Initialize(dxCommon_, srvManager_);
 }
 
 // =====================================================
@@ -212,6 +223,8 @@ SceneEditor::EditContext GamePlayScene::BuildEditContext()
     // ゲーム内時刻（表示用の値コピー）
     ctx.gameHour   = gameTime_.GetHour();
     ctx.gameMinute = gameTime_.GetMinute();
+
+    ctx.requestClear = &requestClear_;
     return ctx;
 }
 
@@ -256,6 +269,15 @@ void GamePlayScene::UpdateCameraSmoothing()
 
 void GamePlayScene::Update()
 {
+    // ---- クリア演出中はシーン遷移待ちのみ行う ----
+    if (clearTriggered_) {
+        glassShatter_.Update(1.0f / 60.0f);
+        if (glassShatter_.IsFinished()) {
+            SceneManager::GetInstance()->ChangeScene("CLEAR");
+        }
+        return;
+    }
+
     // ゲーム内時刻を1フレーム分進める（引数は時刻の進み速度。1.0f = リアルタイムと同じ速度）
     gameTime_.Update(1.0f);
 
@@ -330,6 +352,14 @@ void GamePlayScene::Update()
     // Ring・Cylinder は毎フレーム、カメラとの距離に応じた処理（ビルボードなど）を行う
     ring_->Update(camera_.get());
     cylinder_->Update(camera_.get());
+
+    // ---- クリア条件チェック ----
+    // ImGui ボタン or タイマー満了のどちらかでクリア演出を起動する
+    if (requestClear_ || gameTime_.IsCleared()) {
+        requestClear_   = false;
+        clearTriggered_ = true;
+        glassShatter_.Start();
+    }
 }
 
 // =====================================================
@@ -378,6 +408,18 @@ void GamePlayScene::DrawShadowPass()
 
 void GamePlayScene::Draw()
 {
+    // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
+    // キャプチャが必要なフレーム（Start() 直後）はシーンを描いてからキャプチャする
+    if (clearTriggered_ && !glassShatter_.NeedCapture()) {
+        // ガラスのシャードが飛び去った後ろに白背景を表示する
+        // （青いクリアカラーが透けないようにするだけ。スコアは ClearScene で表示）
+        spriteCommon_->CommonDrawSettings();
+        clearBgSprite_->Update();
+        clearBgSprite_->Draw();
+        glassShatter_.Apply();
+        return;
+    }
+
     // ----- オフスクリーンパス（赤でクリアしてSRVに遷移）-----
     // 一旦テクスチャに描画してからスプライトとして貼ることで、ポストエフェクトをかけられる
     renderTexture_->BeginRendering();
@@ -437,6 +479,23 @@ void GamePlayScene::Draw()
         e.sprite->Update();
         e.sprite->Draw();
     }
+
+    // ----- フィルター適用 -----
+    if (imageFilter_->IsEnabled()) {
+        imageFilter_->Apply(srvManager_);
+    } else if (grayscaleEffect_->IsEnabled()) {
+        grayscaleEffect_->Apply(srvManager_);
+    } else if (hsvFilter_->IsEnabled()) {
+        hsvFilter_->Apply(srvManager_);
+    }
+
+    // ---- ガラス割れエフェクト（クリア演出時のみ）----
+    if (clearTriggered_) {
+        if (glassShatter_.NeedCapture()) {
+            glassShatter_.CaptureFrame();
+        }
+        glassShatter_.Apply();
+    }
 }
 
 // =====================================================
@@ -445,6 +504,8 @@ void GamePlayScene::Draw()
 
 void GamePlayScene::Finalize()
 {
+    glassShatter_.Finalize();
+
     // 音を全部止める（BGM・SE どちらも）
     if (audio_) {
         audio_->StopBGM();
