@@ -273,6 +273,9 @@
     <ClCompile Include="Engine\graphics\cpp\ImageFilter.cpp">
       <Filter>ソースファイル\Game\Particle</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\GlassShatterEffect.cpp">
+      <Filter>ソースファイル\Game\Particle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\graphics\h\D3DResourceLeakChecker.h">
@@ -487,6 +490,9 @@
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\ImageFilter.h">
       <Filter>ヘッダーファイル\Engine\Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\GlassShatterEffect.h">
+      <Filter>ヘッダーファイル\Game\Particle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -186,6 +186,7 @@
     <ClCompile Include="Engine\game\cpp\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\StringUtility.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Fade.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\GlassShatterEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\GrayscaleEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\HsvFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImageFilter.cpp" />
@@ -483,6 +484,7 @@
     <ClInclude Include="Engine\graphics\h\ParticleEmitter.h" />
     <ClInclude Include="Engine\graphics\h\Cylinder.h" />
     <ClInclude Include="Engine\graphics\h\Ring.h" />
+    <ClInclude Include="Engine\graphics\h\GlassShatterEffect.h" />
     <ClInclude Include="Engine\graphics\h\GrayscaleEffect.h" />
     <ClInclude Include="Engine\graphics\h\HsvFilter.h" />
     <ClInclude Include="Engine\graphics\h\ImageFilter.h" />

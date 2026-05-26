@@ -87,7 +87,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
 
     device->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &rd,
-        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
+        D3D12_RESOURCE_STATE_COMMON, nullptr,
         IID_PPV_ARGS(&outputBuffer_));
 
     outputVBV_.BufferLocation = outputBuffer_->GetGPUVirtualAddress();
