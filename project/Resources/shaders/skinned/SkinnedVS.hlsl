@@ -4,7 +4,6 @@ struct TransformationMatrix
 {
     float4x4 WVP;
     float4x4 World;
-    float4x4 WorldInverseTranspose; // 非均一スケール対応（法線変換用）
     float4x4 LightVP;
 };
 cbuffer gTransformationMatrixCB : register(b0)
@@ -34,12 +33,11 @@ VertexShaderOutput main(VertexShaderInput input)
                         input.boneWeights.z + input.boneWeights.w;
     float4 weights = (totalWeight > 0.0f) ? input.boneWeights / totalWeight : float4(1, 0, 0, 0);
 
-    float w0 = weights.x, w1 = weights.y, w2 = weights.z, w3 = weights.w;
     float4x4 skinMatrix =
-        w0 * gMatrixPalette[input.boneIndices.x] +
-        w1 * gMatrixPalette[input.boneIndices.y] +
-        w2 * gMatrixPalette[input.boneIndices.z] +
-        w3 * gMatrixPalette[input.boneIndices.w];
+        weights.x * gMatrixPalette[input.boneIndices.x] +
+        weights.y * gMatrixPalette[input.boneIndices.y] +
+        weights.z * gMatrixPalette[input.boneIndices.z] +
+        weights.w * gMatrixPalette[input.boneIndices.w];
 
     float4 skinnedPos    = mul(input.position, skinMatrix);
     float3 skinnedNormal = mul(input.normal, (float3x3)skinMatrix);
@@ -47,7 +45,7 @@ VertexShaderOutput main(VertexShaderInput input)
     VertexShaderOutput output;
     output.position      = mul(skinnedPos, gTransformationMatrix.WVP);
     output.texcoord      = input.texcoord;
-    output.normal        = normalize(mul(skinnedNormal, (float3x3)gTransformationMatrix.WorldInverseTranspose));
+    output.normal        = normalize(mul(skinnedNormal, (float3x3)gTransformationMatrix.World));
     output.worldPos      = mul(skinnedPos, gTransformationMatrix.World).xyz;
     output.lightSpacePos = mul(skinnedPos, gTransformationMatrix.LightVP);
     return output;
