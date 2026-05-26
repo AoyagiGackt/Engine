@@ -89,7 +89,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
         rd.Flags            = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         HRESULT hr = device->CreateCommittedResource(
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
-            D3D12_RESOURCE_STATE_COMMON, nullptr,
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
             IID_PPV_ARGS(&group.particleStateBuffer));
         assert(SUCCEEDED(hr));
     }
@@ -125,7 +125,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
         rd.Flags            = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         HRESULT hr = device->CreateCommittedResource(
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
-            D3D12_RESOURCE_STATE_COMMON, nullptr,
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
             IID_PPV_ARGS(&group.instancingResource));
         assert(SUCCEEDED(hr));
     }
@@ -691,11 +691,11 @@ void ParticleManager::Draw(Camera* camera)
         }
 
         cmd->SetGraphicsRootDescriptorTable(
-            2, SrvManager::GetInstance()->GetGPUDescriptorHandle(group.srvIndex));
+            0, SrvManager::GetInstance()->GetGPUDescriptorHandle(group.srvIndex));
 
         D3D12_GPU_DESCRIPTOR_HANDLE texH =
             TextureManager::GetInstance()->GetSrvHandleGPU(group.textureFilePath);
-        cmd->SetGraphicsRootDescriptorTable(4, texH);
+        cmd->SetGraphicsRootDescriptorTable(1, texH);
 
         cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
@@ -755,55 +755,41 @@ void ParticleManager::CreateRootSignature()
     rangeT1[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     rangeT1[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParameters[5]{};
-    rootParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParameters[0].ShaderVisibility           = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParameters[0].Descriptor.ShaderRegister  = 0;
-    rootParameters[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParameters[1].ShaderVisibility           = D3D12_SHADER_VISIBILITY_VERTEX;
-    rootParameters[1].Descriptor.ShaderRegister  = 0;
-    rootParameters[2].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    rootParameters[2].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_ALL;
-    rootParameters[2].DescriptorTable.pDescriptorRanges   = rangeT0;
-    rootParameters[2].DescriptorTable.NumDescriptorRanges = 1;
-    rootParameters[3].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParameters[3].ShaderVisibility           = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParameters[3].Descriptor.ShaderRegister  = 1;
-    rootParameters[4].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    rootParameters[4].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParameters[4].DescriptorTable.pDescriptorRanges   = rangeT1;
-    rootParameters[4].DescriptorTable.NumDescriptorRanges = 1;
+    // slot 0: t0 (VS が読む instancing StructuredBuffer)
+    // slot 1: t1 (PS が読む Texture2D)
+    // 未使用の CBV スロット (b0/b1) は宣言しない - GBV が null アドレスを検出してクラッシュするため
+    D3D12_ROOT_PARAMETER rootParameters[2]{};
+    rootParameters[0].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[0].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_VERTEX;
+    rootParameters[0].DescriptorTable.pDescriptorRanges   = rangeT0;
+    rootParameters[0].DescriptorTable.NumDescriptorRanges = 1;
+    rootParameters[1].ParameterType                        = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[1].ShaderVisibility                     = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[1].DescriptorTable.pDescriptorRanges   = rangeT1;
+    rootParameters[1].DescriptorTable.NumDescriptorRanges = 1;
 
-    D3D12_STATIC_SAMPLER_DESC samplers[2]{};
-    samplers[0].Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    samplers[0].AddressU = samplers[0].AddressV = samplers[0].AddressW
-                         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplers[0].ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
-    samplers[0].MaxLOD           = D3D12_FLOAT32_MAX;
-    samplers[0].ShaderRegister   = 0;
-    samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    samplers[1].Filter           = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-    samplers[1].AddressU = samplers[1].AddressV = samplers[1].AddressW
-                         = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    samplers[1].BorderColor      = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
-    samplers[1].ComparisonFunc   = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    samplers[1].MaxLOD           = D3D12_FLOAT32_MAX;
-    samplers[1].ShaderRegister   = 1;
-    samplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_STATIC_SAMPLER_DESC sampler{};
+    sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
+    sampler.MaxLOD           = D3D12_FLOAT32_MAX;
+    sampler.ShaderRegister   = 0;
+    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_ROOT_SIGNATURE_DESC desc{};
     desc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     desc.pParameters       = rootParameters;
     desc.NumParameters     = _countof(rootParameters);
-    desc.pStaticSamplers   = samplers;
-    desc.NumStaticSamplers = _countof(samplers);
+    desc.pStaticSamplers   = &sampler;
+    desc.NumStaticSamplers = 1;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
     assert(SUCCEEDED(hr));
-    device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
-                                sigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
+    hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
+                                     sigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
+    assert(SUCCEEDED(hr));
 }
 
 // ============================================================

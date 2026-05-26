@@ -140,6 +140,15 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     renderTextureSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
                                     static_cast<float>(WinApp::kClientHeight) });
 
+    // ----- クリア演出の背景スプライト（白背景のみ）-----
+    // ガラスが割れている間、青いクリアカラーの代わりに白を表示する
+    // スコア・ランキングは ClearScene で初めて出す（二重表示防止）
+    clearBgSprite_ = std::make_unique<Sprite>();
+    clearBgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    clearBgSprite_->SetPosition({ 0.0f, 0.0f });
+    clearBgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
+                               static_cast<float>(WinApp::kClientHeight) });
+
     // ----- デバッグパラメータ読み込み -----
     // 前回エディタで保存したカメラ位置・UIレイアウトなどを JSON から復元する
     sceneEditor_.LoadAll(BuildEditContext());
@@ -402,6 +411,11 @@ void GamePlayScene::Draw()
     // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
     // キャプチャが必要なフレーム（Start() 直後）はシーンを描いてからキャプチャする
     if (clearTriggered_ && !glassShatter_.NeedCapture()) {
+        // ガラスのシャードが飛び去った後ろに白背景を表示する
+        // （青いクリアカラーが透けないようにするだけ。スコアは ClearScene で表示）
+        spriteCommon_->CommonDrawSettings();
+        clearBgSprite_->Update();
+        clearBgSprite_->Draw();
         glassShatter_.Apply();
         return;
     }

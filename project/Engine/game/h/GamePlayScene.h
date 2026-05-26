@@ -207,4 +207,7 @@ private:
     GlassShatterEffect glassShatter_;
     bool clearTriggered_ = false; // ガラス割れ開始済みフラグ（二重起動防止）
     bool requestClear_   = false; // ImGui ボタンからのクリアリクエスト
+
+    // ガラスが割れている間（約1.6秒）に背後へ表示する白背景
+    std::unique_ptr<Sprite> clearBgSprite_;
 };
