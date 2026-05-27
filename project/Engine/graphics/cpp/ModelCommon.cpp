@@ -20,6 +20,8 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 2 (PS, t0) : テクスチャ SRV
     // スロット 3 (PS, b1) : 平行光源
     // スロット 4 (PS, t1) : シャドウマップ SRV
+    // スロット 5 (PS, t2) : キューブマップ SRV
+    // スロット 6 (PS, b2) : ポイントライト配列   ← 追加
     // =====================================================
     D3D12_DESCRIPTOR_RANGE texRange[1] = {};
     texRange[0].BaseShaderRegister                = 0; // t0
@@ -39,7 +41,7 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParameters[6] = {};
+    D3D12_ROOT_PARAMETER rootParameters[7] = {};
     // 0: マテリアル (PS, b0)
     rootParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -67,6 +69,10 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[5].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[5].DescriptorTable.pDescriptorRanges   = cubemapRange;
     rootParameters[5].DescriptorTable.NumDescriptorRanges = 1;
+    // 6: ポイントライト配列 (PS, b2)
+    rootParameters[6].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParameters[6].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[6].Descriptor.ShaderRegister = 2;
 
     // 静的サンプラー（s0: 通常テクスチャ、s1: シャドウマップ比較用）
     D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
@@ -91,7 +97,7 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     D3D12_ROOT_SIGNATURE_DESC rsDesc {};
     rsDesc.Flags           = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rsDesc.pParameters     = rootParameters;
-    rsDesc.NumParameters   = 6;
+    rsDesc.NumParameters   = 7; // スロット 0〜6
     rsDesc.pStaticSamplers = staticSamplers;
     rsDesc.NumStaticSamplers = _countof(staticSamplers);
 

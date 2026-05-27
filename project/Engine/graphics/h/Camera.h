@@ -58,6 +58,16 @@ public:
         return projectionMatrix_;
     }
 
+    /**
+     * @brief View × Projection の合成行列を返す
+     * @note Frustum カリングや DebugDraw のワールド→スクリーン変換に使用します
+     *   例: Frustum f; f.ExtractFromMatrix(camera->GetViewProjectionMatrix());
+     */
+    Matrix4x4 GetViewProjectionMatrix() const {
+        if (isDirty_) { RecalcMatrices(); }
+        return Multiply(viewMatrix_, projectionMatrix_);
+    }
+
     // 直接変更したい場合用の非 const 参照ゲッター
     Vector3& GetRotate()    { isDirty_ = true; return transform_.rotate; }
     Vector3& GetTranslate() { isDirty_ = true; return transform_.translate; }

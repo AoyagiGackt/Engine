@@ -5,13 +5,7 @@
 #pragma once
 #include "CollisionConfig.h"
 
-/**
- * @brief 当たり判定の情報をまとめた構造体
- */
-struct Collider {
-    AABB aabb; ///< 判定用の箱
-    bool isHit; ///< 今当たっているかどうかの結果
-};
+// Collider / AABB / Sphere / Capsule / ColliderShape は CollisionConfig.h で定義
 
 /**
  * @brief すべてのゲーム内オブジェクトの抽象基底クラス

@@ -9,14 +9,15 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // =====================================================
-    // Root Signature (ModelCommon と同一 + スロット 6 = SkinningPalette)
+    // Root Signature (ModelCommon と同一 + スロット 6, 7 追加)
     // スロット 0 (PS, b0) : マテリアル
     // スロット 1 (VS, b0) : 変換行列
     // スロット 2 (PS, t0) : テクスチャ SRV
     // スロット 3 (PS, b1) : 平行光源
     // スロット 4 (PS, t1) : シャドウマップ SRV
     // スロット 5 (PS, t2) : キューブマップテクスチャ SRV
-    // スロット 6 (VS, b1) : スキニングパレット CBV  ← スキニング専用追加
+    // スロット 6 (VS, b1) : スキニングパレット CBV
+    // スロット 7 (PS, b2) : ポイントライト配列       ← 追加
     // =====================================================
     D3D12_DESCRIPTOR_RANGE texRange[1]{};
     texRange[0].BaseShaderRegister                = 0; // t0
@@ -36,7 +37,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParameters[7]{};
+    D3D12_ROOT_PARAMETER rootParameters[8]{};
     // 0: マテリアル (PS, b0)
     rootParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -68,6 +69,10 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[6].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[6].ShaderVisibility          = D3D12_SHADER_VISIBILITY_VERTEX;
     rootParameters[6].Descriptor.ShaderRegister = 1;
+    // 7: ポイントライト配列 (PS, b2)
+    rootParameters[7].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParameters[7].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[7].Descriptor.ShaderRegister = 2;
 
     D3D12_STATIC_SAMPLER_DESC staticSamplers[2]{};
     staticSamplers[0].Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -89,7 +94,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     D3D12_ROOT_SIGNATURE_DESC rsDesc{};
     rsDesc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rsDesc.pParameters       = rootParameters;
-    rsDesc.NumParameters     = 7;
+    rsDesc.NumParameters     = 8; // スロット 0〜7
     rsDesc.pStaticSamplers   = staticSamplers;
     rsDesc.NumStaticSamplers = _countof(staticSamplers);
 

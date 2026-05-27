@@ -1,41 +1,61 @@
 #include "Object3d.hlsli"
 
-Texture2D<float4>   gTexture   : register(t0);
-Texture2D<float>    gShadowMap : register(t1); // シャドウマップ（深度テクスチャ）
-TextureCube<float4> gCubemap   : register(t2); // キューブマップ（天球用）
-SamplerState               gSampler       : register(s0);
-SamplerComparisonState     gShadowSampler : register(s1); // 比較サンプラー（PCF用）
+Texture2D<float4> gTexture : register(t0);
+Texture2D<float> gShadowMap : register(t1); // シャドウマップ（深度テクスチャ）
+TextureCube<float4> gCubemap : register(t2); // キューブマップ（天球用）
+SamplerState gSampler : register(s0);
+SamplerComparisonState gShadowSampler : register(s1); // 比較サンプラー（PCF用）
 
 // =====================================================
 // Material
 // =====================================================
 struct Material
 {
-    float4   color;
-    int      enableLighting;
-    int      shadingType;    // 0:Lambert  1:HalfLambert
-    int      useCubemap;     // 1:キューブマップサンプリング（天球用）
-    int      useTexture;     // 0:テクスチャ色なし（白=1,1,1,1 として扱う）
+    float4 color;
+    int enableLighting;
+    int shadingType; // 0:Lambert  1:HalfLambert
+    int useCubemap; // 1:キューブマップサンプリング（天球用）
+    int useTexture; // 0:テクスチャ色なし（白=1,1,1,1 として扱う）
     float4x4 uvTransform;
-    float3   specularColor;
-    float    shininess;
-    float3   cameraWorldPos;
-    float    envMapIntensity; // 環境マップ反射強度（0=なし, 1=フル反射）
+    float3 specularColor;
+    float shininess;
+    float3 cameraWorldPos;
+    float envMapIntensity; // 環境マップ反射強度（0=なし, 1=フル反射）
 };
 ConstantBuffer<Material> gMaterial : register(b0);
 
 // =====================================================
-// DirectionalLight
+// DirectionalLight  (register b1)
 // =====================================================
 struct DirectionalLight
 {
     float4 color;
     float3 direction;
-    float  intensity;
+    float intensity;
     float3 ambientColor;
-    float  ambientIntensity;
+    float ambientIntensity;
 };
 ConstantBuffer<DirectionalLight> gDirectionalLight : register(b1);
+
+// =====================================================
+// PointLight  (register b2)
+// =====================================================
+struct PointLight
+{
+    float3 position; // ワールド座標
+    float radius; // 減衰距離
+    float4 color; // 光の色（α未使用）
+    float intensity; // 明るさ倍率
+    float3 pad; // 16バイトアライン用
+};
+
+struct PointLightBuffer
+{
+    uint count; // 有効なライト数（0 なら処理なし）
+    float3 pad;
+    PointLight lights[8]; // 最大 Object3dCommon::kMaxPointLights 個
+};
+ConstantBuffer<PointLightBuffer> gPointLights : register(b2);
 
 // =====================================================
 // 出力
@@ -49,8 +69,8 @@ struct PixelShaderOutput
 // PCF シャドウ（3×3 カーネル）
 // 戻り値: 0.0=完全に影, 1.0=完全に照らされている
 // =====================================================
-static const float kShadowMapSize  = 2048.0f;
-static const float kShadowBias     = 0.002f;
+static const float kShadowMapSize = 2048.0f;
+static const float kShadowBias = 0.002f;
 
 float GetShadowFactor(float4 lightSpacePos)
 {
@@ -58,7 +78,7 @@ float GetShadowFactor(float4 lightSpacePos)
     float3 proj = lightSpacePos.xyz / lightSpacePos.w;
 
     // NDC → UV 変換（DirectX は Y 反転）
-    proj.x =  proj.x * 0.5f + 0.5f;
+    proj.x = proj.x * 0.5f + 0.5f;
     proj.y = -proj.y * 0.5f + 0.5f;
 
     // シャドウマップ範囲外なら照らされている
@@ -70,13 +90,15 @@ float GetShadowFactor(float4 lightSpacePos)
     }
 
     float compareDepth = proj.z - kShadowBias;
-    float texelSize    = 1.0f / kShadowMapSize;
+    float texelSize = 1.0f / kShadowMapSize;
 
     // PCF 3×3
     float shadow = 0.0f;
-    [unroll] for (int x = -1; x <= 1; x++)
+    [unroll]
+    for (int x = -1; x <= 1; x++)
     {
-        [unroll] for (int y = -1; y <= 1; y++)
+        [unroll]
+        for (int y = -1; y <= 1; y++)
         {
             shadow += gShadowMap.SampleCmpLevelZero(
                 gShadowSampler,
@@ -137,9 +159,9 @@ PixelShaderOutput main(VertexShaderOutput input)
             gDirectionalLight.color.rgb * diffuse * gDirectionalLight.intensity;
 
         // ----- 鏡面反射（Specular / Blinn-Phong）-----
-        float3 H     = normalize(V + L);
-        float  NdotH = max(dot(N, H), 0.0f);
-        float  spec  = pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL);
+        float3 H = normalize(V + L);
+        float NdotH = max(dot(N, H), 0.0f);
+        float spec = pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL);
         float3 specularColor =
             gMaterial.specularColor *
             gDirectionalLight.color.rgb * spec * gDirectionalLight.intensity;
@@ -153,21 +175,18 @@ PixelShaderOutput main(VertexShaderOutput input)
         float shadowFactor = GetShadowFactor(input.lightSpacePos);
 
         // ----- 環境マップ反射（金属感）-----
-        // envMapIntensity=0 → 通常 Blinn-Phong
-        // envMapIntensity=1 → diffuse を env 反射で完全置換（金属）
         float3 litColor;
         if (gMaterial.envMapIntensity > 0.0f)
         {
-            float3 R        = reflect(-V, N);
+            float3 R = reflect(-V, N);
             float3 envColor = gCubemap.Sample(gSampler, R).rgb;
             envColor = envColor / (envColor + 1.0f); // Reinhard トーンマッピング
 
-            // 金属: env 反射をマテリアル色でティント、diffuse なし
             float3 metalDiffuse = envColor * gMaterial.color.rgb;
             float3 metalAmbient = gMaterial.color.rgb * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
 
             float3 normalLit = (diffuseColor + specularColor) * shadowFactor + ambient;
-            float3 metalLit  = (metalDiffuse  + specularColor) * shadowFactor + metalAmbient;
+            float3 metalLit = (metalDiffuse + specularColor) * shadowFactor + metalAmbient;
 
             litColor = lerp(normalLit, metalLit, gMaterial.envMapIntensity);
         }
@@ -176,8 +195,55 @@ PixelShaderOutput main(VertexShaderOutput input)
             litColor = (diffuseColor + specularColor) * shadowFactor + ambient;
         }
 
+        // =====================================================
+        // ポイントライト（距離減衰 + Blinn-Phong）
+        // count == 0 のときはループしないのでコスト無し
+        // =====================================================
+        float3 pointContrib = float3(0.0f, 0.0f, 0.0f);
+        for (uint i = 0; i < gPointLights.count; i++)
+        {
+            PointLight pl = gPointLights.lights[i];
+            float3 toLight = pl.position - input.worldPos;
+            float dist = length(toLight);
+            if (dist >= pl.radius)
+            {
+                continue;
+            }
+
+            float3 L_pt = toLight / dist;
+
+            // 二乗減衰（radius の端でゼロになる smooth fall-off）
+            float t = dist / pl.radius;
+            float atten = (1.0f - t) * (1.0f - t);
+
+            // 拡散反射
+            float NdotL_pt = dot(N, L_pt);
+            float diffPt;
+            if (gMaterial.shadingType == 0)
+            {
+                diffPt = max(NdotL_pt, 0.0f);
+            }
+            else
+            {
+                diffPt = NdotL_pt * 0.5f + 0.5f;
+            }
+
+            // 鏡面反射（Blinn-Phong）
+            float3 H_pt = normalize(V + L_pt);
+            float NdotH_pt = max(dot(N, H_pt), 0.0f);
+            float specPt = pow(NdotH_pt, max(gMaterial.shininess, 1.0f))
+                             * step(0.0f, NdotL_pt);
+
+            pointContrib +=
+                (gMaterial.color.rgb * textureColor.rgb * pl.color.rgb * diffPt
+               + gMaterial.specularColor * pl.color.rgb * specPt)
+                * pl.intensity * atten;
+        }
+        
+        litColor += pointContrib;
+
         output.color.rgb = litColor;
-        output.color.a   = gMaterial.color.a * textureColor.a;
+        output.color.a = gMaterial.color.a * textureColor.a;
     }
     else
     {
