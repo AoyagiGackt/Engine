@@ -34,8 +34,8 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    // 6つ（Object3dPS.hlsl のバインディングに合わせる）
-    D3D12_ROOT_PARAMETER rootParameters[6] = {};
+    // 7つ（Object3dPS.hlsl のバインディングに合わせる）
+    D3D12_ROOT_PARAMETER rootParameters[7] = {};
 
     // マテリアル
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -69,6 +69,11 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[5].DescriptorTable.pDescriptorRanges = cubemapRange;
     rootParameters[5].DescriptorTable.NumDescriptorRanges = 1;
+
+    // ポイントライトバッファ (b2) — Object3dPS.hlsl が要求。スプライトは count=0 なので実際には使用しない
+    rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[6].Descriptor.ShaderRegister = 2; // b2
 
     descriptionRootSignature.pParameters = rootParameters;
     descriptionRootSignature.NumParameters = _countof(rootParameters);
@@ -170,7 +175,12 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&graphicsPipelineState_));
     assert(SUCCEEDED(hr));
 
-   defaultLightResource_ = dxCommon_->CreateBufferResource(256);
+    defaultLightResource_ = dxCommon_->CreateBufferResource(256);
+
+    // PointLightBuffer (b2) 用ダミーバッファ
+    // struct サイズ: uint count(4) + float3 pad(12) + PointLight[8]*48 = 400 → 256 アライン → 512 bytes
+    // count=0 でゼロ初期化するので GPU はライト配列を読まない
+    defaultPointLightResource_ = dxCommon_->CreateBufferResource(512);
 }
 
 void SpriteCommon::CommonDrawSettings()
@@ -185,4 +195,9 @@ void SpriteCommon::CommonDrawSettings()
     // ルートシグネチャ切り替え時に全パラメータがリセットされるため、
     // スプライトが enableLighting=false であっても有効なアドレスを渡す必要がある。
     commandList->SetGraphicsRootConstantBufferView(3, defaultLightResource_->GetGPUVirtualAddress());
+
+    // ルートパラメータ6（PointLightBuffer CBV b2）にダミーバッファをバインドする。
+    // スプライトはポイントライトを使用しないが、Object3dPS.hlsl が b2 を宣言しているため
+    // Root Signature と整合させるために有効なアドレスが必要。
+    commandList->SetGraphicsRootConstantBufferView(6, defaultPointLightResource_->GetGPUVirtualAddress());
 }

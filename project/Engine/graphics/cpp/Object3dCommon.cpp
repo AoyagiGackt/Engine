@@ -38,6 +38,16 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
     lightData_->intensity        = 1.0f;
     lightData_->ambientColor     = { 1.0f, 1.0f, 1.0f };
     lightData_->ambientIntensity = 0.3f;
+
+    // --- ポイントライト定数バッファ ---
+    // CBV は 256 バイトアライン必須なので切り上げる
+    resDesc.Width = (sizeof(PointLightBuffer) + 255) & ~255u;
+    device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pointLightResource_));
+    pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
+    // ライト数 0 で初期化（シェーダーはループしない）
+    pointLightData_->count = 0;
+    pointLightData_->pad[0] = pointLightData_->pad[1] = pointLightData_->pad[2] = 0.0f;
 }
 
 // =====================================================
@@ -129,6 +139,19 @@ Vector3 Object3dCommon::GetLightDirection() const
 
 void Object3dCommon::SetDefaultLight(ID3D12GraphicsCommandList* commandList)
 {
+    // スロット 3: 平行光源（DirectionalLight）
     commandList->SetGraphicsRootConstantBufferView(3, lightResource_->GetGPUVirtualAddress());
+    // スロット 6: ポイントライト群（ModelCommon パイプライン用）
+    // SkinCommon パイプラインではスロット 6 がスキニングパレットになるため、
+    // SkinnedObject3d::Draw 内で SetPointLights(cmd, 7) を別途呼び直す
+    SetPointLights(commandList, 6);
+}
+
+void Object3dCommon::SetPointLights(ID3D12GraphicsCommandList* commandList, UINT rootParamSlot)
+{
+    if (!pointLightData_) { return; }
+    pointLightData_->count = pointLightCount_;
+    commandList->SetGraphicsRootConstantBufferView(rootParamSlot,
+        pointLightResource_->GetGPUVirtualAddress());
 }
 

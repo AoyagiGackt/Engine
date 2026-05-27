@@ -448,6 +448,8 @@
     <ClInclude Include="Engine\game\h\WorldTransform.h" />
     <ClInclude Include="Engine\graphics\h\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera.h" />
+    <ClInclude Include="Engine\graphics\h\Frustum.h" />
+    <ClInclude Include="Engine\game\h\DebugDraw.h" />
     <ClInclude Include="Engine\graphics\h\D3DResourceLeakChecker.h" />
     <ClInclude Include="Engine\game\h\DirectXCommon.h" />
     <ClInclude Include="Engine\game\h\WinApp.h" />
