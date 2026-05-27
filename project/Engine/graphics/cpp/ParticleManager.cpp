@@ -89,7 +89,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
         rd.Flags            = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         HRESULT hr = device->CreateCommittedResource(
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
-            D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
+            D3D12_RESOURCE_STATE_COMMON, nullptr,  // バッファは常に COMMON で作成される (#1328 対策)
             IID_PPV_ARGS(&group.particleStateBuffer));
         assert(SUCCEEDED(hr));
     }
@@ -125,7 +125,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
         rd.Flags            = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         HRESULT hr = device->CreateCommittedResource(
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
-            D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
+            D3D12_RESOURCE_STATE_COMMON, nullptr,  // バッファは常に COMMON で作成される (#1328 対策)
             IID_PPV_ARGS(&group.instancingResource));
         assert(SUCCEEDED(hr));
     }
@@ -526,9 +526,13 @@ void ParticleManager::Update(Camera* camera)
             D3D12_RESOURCE_BARRIER cb{};
             cb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
             cb.Transition.pResource   = group.particleStateBuffer.Get();
-            cb.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            // 作成直後は COMMON 状態（エミット処理で既に遷移済みなら UAV）
+            cb.Transition.StateBefore = group.particleStateFresh
+                ? D3D12_RESOURCE_STATE_COMMON
+                : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
             cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
             cb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            group.particleStateFresh = false;
             cmd->ResourceBarrier(1, &cb);
 
             if (group.needsInit) {
@@ -582,9 +586,13 @@ void ParticleManager::Update(Camera* camera)
                     D3D12_RESOURCE_BARRIER bIn{};
                     bIn.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
                     bIn.Transition.pResource   = group.particleStateBuffer.Get();
-                    bIn.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                    // 作成直後は COMMON 状態（UAV 指定は無視される #1328）
+                    bIn.Transition.StateBefore = group.particleStateFresh
+                        ? D3D12_RESOURCE_STATE_COMMON
+                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
                     bIn.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
                     bIn.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    group.particleStateFresh = false;
                     cmd->ResourceBarrier(1, &bIn);
 
                     UINT64 fullSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;

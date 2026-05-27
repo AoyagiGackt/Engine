@@ -56,6 +56,9 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 
 void Object3dCommon::UpdateLight(float timeRatio)
 {
+    // 手動オーバーライード中は時刻に基づく自動更新をスキップする
+    if (manualLightOverride_) { return; }
+
     // ------ ライト方向アニメーション ------
     // timeRatio 0.0 = 18:00（夕方）、0.5 = 0:00（真夜中）、1.0 = 6:00（朝方）
     // X 成分: 夕方は右から(+)、朝は左から(-)

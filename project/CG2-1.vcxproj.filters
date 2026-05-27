@@ -79,6 +79,15 @@
     <FxCompile Include="Resources\shaders\postprocess\NoisePS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\BloomBrightPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\BloomBlurPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\BloomCombinePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\base\main.cpp">
@@ -275,6 +284,12 @@
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\GlassShatterEffect.cpp">
       <Filter>ソースファイル\Game\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\BloomEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\AnimationStateMachine.cpp">
+      <Filter>ソースファイル\Engine\Animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -494,6 +509,18 @@
     <ClInclude Include="Engine\graphics\h\GlassShatterEffect.h">
       <Filter>ヘッダーファイル\Game\Particle</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\BloomEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\AnimationStateMachine.h">
+      <Filter>ヘッダーファイル\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\DebugDraw.h">
+      <Filter>ヘッダーファイル\Game\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Frustum.h">
+      <Filter>ヘッダーファイル\Engine\Collision</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\object3d\Object3d.hlsli">
@@ -674,6 +701,9 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\Offscreen">
       <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Game\Debug">
+      <UniqueIdentifier>{fbf8ce65-5b7f-4440-a28e-d934b518c413}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

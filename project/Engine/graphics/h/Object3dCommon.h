@@ -70,6 +70,40 @@ public:
     Vector3 GetLightDirection() const;
 
     // =============================================
+    // 手動ライトオーバーライド（ImGui デバッグ用）
+    // =============================================
+
+    /**
+     * @brief 手動オーバーライドを有効/無効にする
+     * @note true にすると UpdateLight() が内部処理をスキップするため、
+     *       Set*** で設定した値が固定される。
+     */
+    void SetManualLightOverride(bool enable) { manualLightOverride_ = enable; }
+    bool GetManualLightOverride()      const { return manualLightOverride_; }
+
+    /** @brief ライト方向を手動設定（正規化済みベクトルを渡すこと） */
+    void SetLightDirection(const Vector3& dir)  { if (lightData_) lightData_->direction        = dir; }
+
+    /** @brief 平行光源の色を設定 */
+    void SetLightColor(const Vector4& color)    { if (lightData_) lightData_->color            = color; }
+
+    /** @brief 平行光源の強度を設定 */
+    void SetLightIntensity(float intensity)     { if (lightData_) lightData_->intensity        = intensity; }
+
+    /** @brief アンビエント光の色を設定 */
+    void SetAmbientColor(const Vector3& color)  { if (lightData_) lightData_->ambientColor     = color; }
+
+    /** @brief アンビエント光の強度を設定 */
+    void SetAmbientIntensity(float intensity)   { if (lightData_) lightData_->ambientIntensity = intensity; }
+
+    // ゲッター
+    Vector3 GetLightDirectionRaw()const { return lightData_ ? lightData_->direction        : Vector3{0,-1,0}; }
+    Vector4 GetLightColor()       const { return lightData_ ? lightData_->color            : Vector4{1,1,1,1}; }
+    float   GetLightIntensity()   const { return lightData_ ? lightData_->intensity        : 1.0f; }
+    Vector3 GetAmbientColor()     const { return lightData_ ? lightData_->ambientColor     : Vector3{1,1,1}; }
+    float   GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : 0.3f; }
+
+    // =============================================
     // ポイントライト管理
     // =============================================
 
@@ -118,5 +152,7 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource_;
     PointLightBuffer* pointLightData_  = nullptr; ///< Map 済みポインタ
+
+    bool manualLightOverride_ = false; ///< true のとき UpdateLight() をスキップする
     UINT              pointLightCount_ = 0;        ///< AddPointLight で増える現在のライト数
 };

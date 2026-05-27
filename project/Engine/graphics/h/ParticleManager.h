@@ -99,8 +99,10 @@ struct ParticleGroup {
     std::vector<uint32_t> pendingSlots;
 
     // instancingResource の現在状態
-    bool instancingInSRV = false;   // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
-    bool needsInit       = true;    // 初回 Update で全スロットをゼロ初期化する
+    bool instancingInSRV      = false; // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
+    bool needsInit            = true;  // 初回 Update で全スロットをゼロ初期化する
+    bool particleStateFresh   = true;  // particleStateBuffer が作成直後の COMMON 状態か
+                                       // 最初の UAV→X バリアで false にセット
     bool additiveBlend   = true;    // false = alpha blend (SRC_ALPHA / INV_SRC_ALPHA)
 
     // デフォルト寿命（EmitBurst で設定される）
