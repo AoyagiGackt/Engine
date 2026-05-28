@@ -13,7 +13,7 @@ struct Material
 {
     float4 color;
     int enableLighting;
-    int shadingType; // 0:Lambert  1:HalfLambert
+    int shadingType; // 1:Lambert  2:HalfLambert  3:Lambert+Phong  4:HalfLambert+Phong
     int useCubemap; // 1:キューブマップサンプリング（天球用）
     int useTexture; // 0:テクスチャ色なし（白=1,1,1,1 として扱う）
     float4x4 uvTransform;
@@ -144,27 +144,33 @@ PixelShaderOutput main(VertexShaderOutput input)
         float3 V = normalize(gMaterial.cameraWorldPos - input.worldPos);
 
         // ----- 拡散反射（Diffuse）-----
+        // LightingMode: 1=Lambert, 2=HalfLambert, 3=Lambert+Phong, 4=HalfLambert+Phong
         float NdotL = dot(N, L);
+        bool useHalfLambert = (gMaterial.shadingType == 2 || gMaterial.shadingType == 4);
+        bool useSpecular    = (gMaterial.shadingType == 3 || gMaterial.shadingType == 4);
+
         float diffuse;
-        if (gMaterial.shadingType == 0)
+        if (useHalfLambert)
         {
-            diffuse = max(NdotL, 0.0f);
+            diffuse = NdotL * 0.5f + 0.5f;
         }
         else
         {
-            diffuse = NdotL * 0.5f + 0.5f;
+            diffuse = max(NdotL, 0.0f); // Lambert（mode 1, 3, またはデフォルト）
         }
         float3 diffuseColor =
             gMaterial.color.rgb * textureColor.rgb *
             gDirectionalLight.color.rgb * diffuse * gDirectionalLight.intensity;
 
-        // ----- 鏡面反射（Specular / Blinn-Phong）-----
+        // ----- 鏡面反射（Specular / Blinn-Phong）Phong モード時のみ -----
         float3 H = normalize(V + L);
         float NdotH = max(dot(N, H), 0.0f);
-        float spec = pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL);
-        float3 specularColor =
-            gMaterial.specularColor *
-            gDirectionalLight.color.rgb * spec * gDirectionalLight.intensity;
+        float spec = useSpecular
+            ? pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL)
+            : 0.0f;
+        float3 specularColor = useSpecular
+            ? gMaterial.specularColor * gDirectionalLight.color.rgb * spec * gDirectionalLight.intensity
+            : float3(0.0f, 0.0f, 0.0f);
 
         // ----- 環境光（Ambient）-----
         float3 ambient =
@@ -219,20 +225,21 @@ PixelShaderOutput main(VertexShaderOutput input)
             // 拡散反射
             float NdotL_pt = dot(N, L_pt);
             float diffPt;
-            if (gMaterial.shadingType == 0)
-            {
-                diffPt = max(NdotL_pt, 0.0f);
-            }
-            else
+            if (useHalfLambert)
             {
                 diffPt = NdotL_pt * 0.5f + 0.5f;
             }
+            else
+            {
+                diffPt = max(NdotL_pt, 0.0f);
+            }
 
-            // 鏡面反射（Blinn-Phong）
+            // 鏡面反射（Blinn-Phong）Phong モード時のみ
             float3 H_pt = normalize(V + L_pt);
             float NdotH_pt = max(dot(N, H_pt), 0.0f);
-            float specPt = pow(NdotH_pt, max(gMaterial.shininess, 1.0f))
-                             * step(0.0f, NdotL_pt);
+            float specPt = useSpecular
+                ? pow(NdotH_pt, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL_pt)
+                : 0.0f;
 
             pointContrib +=
                 (gMaterial.color.rgb * textureColor.rgb * pl.color.rgb * diffPt
