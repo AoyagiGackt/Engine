@@ -8,6 +8,7 @@
 #include <d3d12.h>
 #include <map>
 #include <string>
+#include <vector>
 #include <wrl.h>
 
 /**
@@ -40,6 +41,13 @@ public:
      * @note すでに読み込み済みのパスが指定された場合は、新たにロードせず既存のデータを参照します
      */
     void LoadTexture(const std::string& filePath);
+
+    /**
+     * @brief 保留中のテクスチャ転送を一括実行し、GPUとの同期を1回だけ行う
+     * @note LoadTexture() を複数回呼んだ後、描画開始前に必ず呼び出すこと。
+     * 内部でコピーキューへの一括Executeと状態遷移（COMMON→PIXEL_SHADER_RESOURCE）を行う
+     */
+    void FlushUploads();
 
     /**
      * @brief 指定したファイルパスに対応するSRVインデックスを取得する
@@ -76,8 +84,37 @@ private:
     /** @brief DirectX基盤のポインタ */
     DirectXCommon* dxCommon_ = nullptr;
 
-    /** * @brief 読み込み済みテクスチャの管理用マップ
-     * @note キー：ファイルパス（std::string）、値：テクスチャデータ（TextureData）
-     */
+    /** @brief 読み込み済みテクスチャの管理用マップ（キー：ファイルパス） */
     std::map<std::string, TextureData> textureDatas_;
+
+    // -------------------------------------------------------
+    // コピーキュー関連（初期化時に作成し再利用する）
+    // -------------------------------------------------------
+
+    /** @brief テクスチャ転送専用のコピーコマンドキュー */
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue>          copyQueue_;
+    /** @brief コピーキュー用コマンドアロケータ（再利用） */
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      copyAllocator_;
+    /** @brief コピーキュー用コマンドリスト（Open 状態を維持し LoadTexture で記録） */
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   copyCmdList_;
+    /** @brief コピーキュー完了待機用フェンス（再利用） */
+    Microsoft::WRL::ComPtr<ID3D12Fence>                 copyFence_;
+    UINT64                                              copyFenceValue_ = 0;
+    HANDLE                                              copyFenceEvent_ = nullptr;
+
+    // -------------------------------------------------------
+    // バリア遷移用（COMMON → PIXEL_SHADER_RESOURCE、グラフィックスキュー）
+    // -------------------------------------------------------
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      transAllocator_;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   transCmdList_;
+
+    // -------------------------------------------------------
+    // バッチ転送の保留リスト
+    // -------------------------------------------------------
+    /** @brief GPU がコピーを終えるまで保持するアップロードバッファ */
+    std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> pendingUploadBuffers_;
+    /** @brief COMMON → PIXEL_SHADER_RESOURCE 遷移待ちのリソース */
+    std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> pendingResources_;
+    /** @brief FlushUploads() が必要かを示すフラグ */
+    bool hasPendingCopies_ = false;
 };

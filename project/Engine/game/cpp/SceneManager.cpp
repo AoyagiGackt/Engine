@@ -3,6 +3,7 @@
 #include "GameOverScene.h"
 #include "GamePlayScene.h"
 #include "TitleScene.h"
+#include "TextureManager.h"
 
 SceneManager* SceneManager::GetInstance()
 {
@@ -20,6 +21,8 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     // 最初のシーン（ゲームプレイシーンから開始）
     currentScene_ = std::make_unique<GamePlayScene>();
     currentScene_->Initialize(dxCommon_, input_, audio_);
+    // シーン初期化中にロードされたテクスチャを一括転送・同期する
+    TextureManager::GetInstance()->FlushUploads();
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
     spriteCommon_->Initialize(dxCommon_);
@@ -51,6 +54,8 @@ void SceneManager::Update()
         // 工場を使って新しいシーンを作成・初期化
         currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
         currentScene_->Initialize(dxCommon_, input_, audio_);
+        // シーン切り替え時にロードされたテクスチャを一括転送・同期する
+        TextureManager::GetInstance()->FlushUploads();
 
         // ImGuiのセット
         auto gameplayScene = dynamic_cast<GamePlayScene*>(currentScene_.get());

@@ -19,6 +19,39 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
     textureDatas_.clear();
+
+    ID3D12Device* device = dxCommon_->GetDevice();
+    HRESULT hr;
+
+    // コピーキューを作成（グラフィックスキューと独立して動作する）
+    D3D12_COMMAND_QUEUE_DESC copyQueueDesc{};
+    copyQueueDesc.Type     = D3D12_COMMAND_LIST_TYPE_COPY;
+    copyQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    copyQueueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    hr = device->CreateCommandQueue(&copyQueueDesc, IID_PPV_ARGS(&copyQueue_));
+    assert(SUCCEEDED(hr));
+
+    // コピーキュー用アロケータ・コマンドリストを作成（再利用するため永続化）
+    hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&copyAllocator_));
+    assert(SUCCEEDED(hr));
+    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY,
+        copyAllocator_.Get(), nullptr, IID_PPV_ARGS(&copyCmdList_));
+    assert(SUCCEEDED(hr));
+    // LoadTexture() がいつでも記録できるよう Open 状態のままにしておく
+
+    // コピーフェンスとイベントを作成（再利用するため永続化）
+    hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&copyFence_));
+    assert(SUCCEEDED(hr));
+    copyFenceEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    assert(copyFenceEvent_ != nullptr);
+
+    // バリア遷移用（グラフィックスキュー）アロケータ・コマンドリストを作成（再利用するため永続化）
+    hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&transAllocator_));
+    assert(SUCCEEDED(hr));
+    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+        transAllocator_.Get(), nullptr, IID_PPV_ARGS(&transCmdList_));
+    assert(SUCCEEDED(hr));
+    transCmdList_->Close(); // FlushUploads() で Reset して使うため最初は閉じておく
 }
 
 void TextureManager::LoadTexture(const std::string& filePath)
@@ -74,6 +107,8 @@ void TextureManager::LoadTexture(const std::string& filePath)
     resourceDesc.Dimension        = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
     // VRAM（DEFAULT heap）にテクスチャリソースを作成
+    // COMMON 状態で作成することで、コピーキューが COPY_DEST へ自動昇格し、
+    // ExecuteCommandLists 後に COMMON へ自動復帰する（implicit promotion / decay）
     D3D12_HEAP_PROPERTIES defaultHeap {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -82,7 +117,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
         &defaultHeap,
         D3D12_HEAP_FLAG_NONE,
         &resourceDesc,
-        D3D12_RESOURCE_STATE_COPY_DEST, // 転送先として開始
+        D3D12_RESOURCE_STATE_COMMON,
         nullptr,
         IID_PPV_ARGS(&resource));
     assert(SUCCEEDED(hr));
@@ -139,15 +174,8 @@ void TextureManager::LoadTexture(const std::string& filePath)
 
     uploadBuffer->Unmap(0, nullptr);
 
-    // 転送専用コマンドリストを作成して記録
-    ComPtr<ID3D12CommandAllocator> uploadAlloc;
-    ComPtr<ID3D12GraphicsCommandList> uploadCmdList;
-    hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&uploadAlloc));
-    assert(SUCCEEDED(hr));
-    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, uploadAlloc.Get(), nullptr, IID_PPV_ARGS(&uploadCmdList));
-    assert(SUCCEEDED(hr));
-
-    // サブリソースごとに CopyTextureRegion で転送コマンドを積む
+    // 永続コピーコマンドリストにサブリソースごとの転送コマンドを記録する
+    // （実行は FlushUploads() で一括して行う）
     for (UINT subresource = 0; subresource < subresourceCount; ++subresource) {
         D3D12_TEXTURE_COPY_LOCATION dst {};
         dst.pResource        = resource.Get();
@@ -159,39 +187,15 @@ void TextureManager::LoadTexture(const std::string& filePath)
         src.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         src.PlacedFootprint = footprints[subresource];
 
-        uploadCmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+        copyCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
     }
 
-    // バリア: COPY_DEST → PIXEL_SHADER_RESOURCE（全サブリソース＝全ミップレベルを一括遷移）
-    D3D12_RESOURCE_BARRIER barrier {};
-    barrier.Type                        = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource        = resource.Get();
-    barrier.Transition.Subresource      = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore      = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter       = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    uploadCmdList->ResourceBarrier(1, &barrier);
+    // GPU完了まで uploadBuffer と resource を保持する（FlushUploads() で解放）
+    pendingUploadBuffers_.push_back(uploadBuffer);
+    pendingResources_.push_back(resource);
+    hasPendingCopies_ = true;
 
-    // コマンドリストを閉じてキューに投入
-    hr = uploadCmdList->Close();
-    assert(SUCCEEDED(hr));
-    ID3D12CommandList* cmdLists[] = { uploadCmdList.Get() };
-    dxCommon_->GetCommandQueue()->ExecuteCommandLists(1, cmdLists);
-
-    // GPU完了を待つ（一時フェンス）
-    ComPtr<ID3D12Fence> uploadFence;
-    hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&uploadFence));
-    assert(SUCCEEDED(hr));
-    dxCommon_->GetCommandQueue()->Signal(uploadFence.Get(), 1);
-    if (uploadFence->GetCompletedValue() < 1) {
-        HANDLE evt = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-        assert(evt != nullptr);
-        uploadFence->SetEventOnCompletion(1, evt);
-        WaitForSingleObject(evt, INFINITE);
-        CloseHandle(evt);
-    }
-    // uploadBuffer はここでスコープ外になり自動解放される
-
-    // SRV作成（キューブマップか2Dテクスチャかで種別を分ける）
+    // SRV作成はCPUのみの操作なので GPU完了前でも安全
     uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
 
     if (metadata.IsCubemap()) {
@@ -227,7 +231,93 @@ const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& fileP
     return textureDatas_[filePath].metadata;
 }
 
+void TextureManager::FlushUploads()
+{
+    if (!hasPendingCopies_) {
+        return;
+    }
+    hasPendingCopies_ = false;
+
+    HRESULT hr;
+
+    // -------------------------------------------------------
+    // 1. コピーコマンドリストを閉じてコピーキューで一括実行
+    // -------------------------------------------------------
+    hr = copyCmdList_->Close();
+    assert(SUCCEEDED(hr));
+    ID3D12CommandList* copyCmds[] = { copyCmdList_.Get() };
+    copyQueue_->ExecuteCommandLists(1, copyCmds);
+
+    // -------------------------------------------------------
+    // 2. コピーキュー完了を待機（全テクスチャを通じて1回のみ）
+    // -------------------------------------------------------
+    ++copyFenceValue_;
+    hr = copyQueue_->Signal(copyFence_.Get(), copyFenceValue_);
+    assert(SUCCEEDED(hr));
+    if (copyFence_->GetCompletedValue() < copyFenceValue_) {
+        copyFence_->SetEventOnCompletion(copyFenceValue_, copyFenceEvent_);
+        WaitForSingleObject(copyFenceEvent_, INFINITE);
+    }
+    // コピー完了後にアップロードバッファを解放する
+    pendingUploadBuffers_.clear();
+
+    // -------------------------------------------------------
+    // 3. COMMON → PIXEL_SHADER_RESOURCE バリアをグラフィックスキューで一括処理
+    //    （コピーキューの ExecuteCommandLists 後、リソースは COMMON 状態に復帰している）
+    // -------------------------------------------------------
+    hr = transAllocator_->Reset();
+    assert(SUCCEEDED(hr));
+    hr = transCmdList_->Reset(transAllocator_.Get(), nullptr);
+    assert(SUCCEEDED(hr));
+
+    std::vector<D3D12_RESOURCE_BARRIER> barriers;
+    barriers.reserve(pendingResources_.size());
+    for (auto& res : pendingResources_) {
+        D3D12_RESOURCE_BARRIER b{};
+        b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        b.Transition.pResource   = res.Get();
+        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        b.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+        b.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        barriers.push_back(b);
+    }
+    if (!barriers.empty()) {
+        transCmdList_->ResourceBarrier(UINT(barriers.size()), barriers.data());
+    }
+    hr = transCmdList_->Close();
+    assert(SUCCEEDED(hr));
+    ID3D12CommandList* transCmds[] = { transCmdList_.Get() };
+    dxCommon_->GetCommandQueue()->ExecuteCommandLists(1, transCmds);
+
+    // グラフィックスキューの完了待機（DirectXCommon の永続フェンスを再利用）
+    auto* gfxFence = dxCommon_->GetFence();
+    dxCommon_->IncrementFenceValue();
+    UINT64 gfxFenceVal = dxCommon_->GetFenceValue();
+    hr = dxCommon_->GetCommandQueue()->Signal(gfxFence, gfxFenceVal);
+    assert(SUCCEEDED(hr));
+    if (gfxFence->GetCompletedValue() < gfxFenceVal) {
+        gfxFence->SetEventOnCompletion(gfxFenceVal, dxCommon_->GetFenceEvent());
+        WaitForSingleObject(dxCommon_->GetFenceEvent(), INFINITE);
+    }
+    pendingResources_.clear();
+
+    // -------------------------------------------------------
+    // 4. コピーアロケータとコマンドリストをリセットして次のバッチに備える
+    // -------------------------------------------------------
+    hr = copyAllocator_->Reset();
+    assert(SUCCEEDED(hr));
+    hr = copyCmdList_->Reset(copyAllocator_.Get(), nullptr);
+    assert(SUCCEEDED(hr));
+}
+
 void TextureManager::Finalize()
 {
+    // 保留中の転送があれば完了させてからリソースを解放する
+    FlushUploads();
+
+    if (copyFenceEvent_) {
+        CloseHandle(copyFenceEvent_);
+        copyFenceEvent_ = nullptr;
+    }
     textureDatas_.clear();
 }
