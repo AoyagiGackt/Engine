@@ -4,7 +4,6 @@
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
-#include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "TextureManager.h"
@@ -34,10 +33,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     objectCommon_->Initialize(dxCommon_);
 
     // ----- シングルトンをキャッシュ（以降はポインタ経由でアクセス）-----
-    // シングルトン = ゲーム中に1つだけ存在するシステム管理クラス
-    // 毎フレーム GetInstance() を呼ぶとオーバーヘッドが生じるので、起動時に1度だけ取得して変数に保存する
     srvManager_      = SrvManager::GetInstance();
-    particleManager_ = ParticleManager::GetInstance();
     scoreManager_    = ScoreManager::GetInstance();
     grayscaleEffect_ = GrayscaleEffect::GetInstance();
     imageFilter_     = ImageFilter::GetInstance();
@@ -53,70 +49,66 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     camera_->SetTranslate({ 14.5f, 6.0f, -30.0f }); // 初期位置（少し高く、手前から見下ろす角度）
     Object3d::SetCommonCamera(camera_.get()); // 全 3D オブジェクトがこのカメラを使うよう設定
 
-    // ----- スキンメッシュ（human）-----
-    // スキンメッシュ = ボーン（骨格）でポリゴンを動かすアニメーション付き3Dモデル
-    skinCommon_ = std::make_unique<SkinCommon>();
-    skinCommon_->Initialize(dxCommon_);
+    // ----- 天球（Skydome）-----
+    modelSkydome_ = std::make_unique<Model>();
+    modelSkydome_->Initialize(modelCommon_.get(),
+        "Resources/SkyDome/SkyDome.obj",
+        "Resources/SkyDome/skySphere.png");
 
-    // gltf ファイルからモデルデータ（頂点・マテリアル）を読み込む
-    modelHuman_ = std::make_unique<SkinnedModel>();
-    modelHuman_->Initialize(dxCommon_,
-        "Resources/human/sneakWalk.gltf",
-        "Resources/human/white.png");
+    skydome_ = std::make_unique<Skydome>();
+    skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
 
-    // 同じ gltf からボーン階層（NodeHierarchy）とアニメーションデータを読み込む
-    Node humanRootNode = LoadNodeHierarchyFromFile("Resources/human", "sneakWalk.gltf");
-    Skeleton humanSkeleton = Skeleton::Create(humanRootNode);
-    Animation humanAnimation = LoadAnimationFile("Resources/human", "sneakWalk.gltf");
+    // ----- 画面を囲むブロック -----
+    modelBlock_ = std::make_unique<Model>();
+    modelBlock_->Initialize(modelCommon_.get(),
+        "Resources/block/block.obj",
+        "Resources/block/block.png");
 
-    // ワールドに配置するインスタンスを作り、モデル・スケルトン・アニメーションを紐付ける
-    human_ = std::make_unique<SkinnedObject3d>();
-    human_->Initialize(skinCommon_.get());
-    human_->SetModel(modelHuman_.get());
-    human_->SetSkeleton(std::move(humanSkeleton));
-    human_->SetAnimation(std::move(humanAnimation));
-    human_->SetPosition(humanPosition_);
+    // カメラ (14.5, 6, -30), fovY=0.45rad で Z=0 面の可視範囲:
+    //   X: 約 2〜27、Y: 約 -1〜13
+    // ブロックを X=0〜28、Y=-1〜13 の矩形フレームに配置する
+    auto addBlock = [&](float x, float y, float z) {
+        auto block = std::make_unique<Object3d>();
+        block->Initialize(modelCommon_.get());
+        block->SetModel(modelBlock_.get());
+        block->SetEnableLighting(false);
+        block->SetPosition({ x, y, z });
+        block->Update();
+        borderBlocks_.push_back(std::move(block));
+    };
 
-    // SkinnedObject3d の「クラス全体で共有する設定」を一括でセットする
-    SkinnedObject3d::SetCommonCamera(camera_.get());
-    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
-    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
-    SkinnedObject3d::SetCommonModelCommon(modelCommon_.get());
+    // 下段（床）: Y=-0.6
+    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), -0.6f,  0.0f); }
+    // 上段（天井）: Y=13
+    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
+    // 左列: Y=0〜12（Y=0 で床ブロックと重なり、隙間を埋める）
+    for (int y = 0; y <= 12; ++y) { addBlock(2.0f,  static_cast<float>(y), 0.0f); }
+    // 右列: Y=0〜12
+    for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
 
-    // ----- エフェクト・進行管理 -----
+    // ----- プレイヤー -----
+    modelPlayer_ = std::make_unique<Model>();
+    modelPlayer_->Initialize(modelCommon_.get(),
+        "Resources/player/player.obj",
+        "Resources/player/player.png");
+    player_ = std::make_unique<Object3d>();
+    player_->Initialize(modelCommon_.get());
+    player_->SetModel(modelPlayer_.get());
+    player_->SetEnableLighting(false);
+    player_->SetPosition(playerPos_);
+    player_->Update();
 
-    // 白パーティクル（1024個を個別ライフタイムで散布・自動再配置）
-    // 一度に大量に生成して画面全体にふわふわ漂わせる演出
-    particleManager_->CreateParticleGroup("white", "Resources/white.png");
-    particleManager_->SetAdditiveBlend("white", false); // 加算合成オフ（通常のアルファ合成）
-    particleManager_->EmitScatterLoop(
-        "white", whiteParticlePos_, GameConstants::kWhiteParticleScatterRadius,
-        static_cast<uint32_t>(whiteParticleCount_),
-        whiteParticleColor_,
-        GameConstants::kWhiteParticleLifetimeMin, GameConstants::kWhiteParticleLifetimeMax,
-        whiteParticleScale_);
-
-    // 楕円パーティクルグループ（circle2.png を使用）
-    // リング周回用の水色の粒。Update() で毎フレーム少しずつ放出する
-    particleManager_->CreateParticleGroup("ellipse", "Resources/circle2.png");
-
-    // 斬撃パーティクルグループ（gradationLine.png を使用）
-    particleManager_->CreateParticleGroup("slash", "Resources/gradationLine.png");
-
-    // Ring（ドーナツ型メッシュ）を生成して初期パラメータをセット
-    ring_ = std::make_unique<Ring>();
-    ring_->Initialize(dxCommon_);
-    ring_->SetPosition(ringPosition_);
-    ring_->SetInnerRadius(ringInnerRadius_);
-    ring_->SetOuterRadius(ringOuterRadius_);
-
-    // Cylinder（円柱メッシュ）を生成して初期パラメータをセット
-    cylinder_ = std::make_unique<Cylinder>();
-    cylinder_->Initialize(dxCommon_);
-    cylinder_->SetPosition(cylinderPosition_);
-    cylinder_->SetTopRadius(cylinderTopRadius_);
-    cylinder_->SetBottomRadius(cylinderBottomRadius_);
-    cylinder_->SetHeight(cylinderHeight_);
+    // ----- 敵（静止）-----
+    modelEnemy_ = std::make_unique<Model>();
+    modelEnemy_->Initialize(modelCommon_.get(),
+        "Resources/block/block.obj",
+        "Resources/monsterBall.png");
+    enemy_ = std::make_unique<Object3d>();
+    enemy_->Initialize(modelCommon_.get());
+    enemy_->SetModel(modelEnemy_.get());
+    enemy_->SetEnableLighting(false);
+    enemy_->SetPosition(enemyPos_);
+    enemy_->Update();
 
     // スコアをファイルから読み込み、今回プレイのスコアをリセットする
     scoreManager_->LoadScores();
@@ -170,12 +162,8 @@ SceneEditor::EditContext GamePlayScene::BuildEditContext()
 {
     SceneEditor::EditContext ctx;
 
-    // オブジェクト本体へのポインタ（エディタが直接メソッドを呼ぶために必要）
     ctx.camera       = camera_.get();
-    ctx.ring         = ring_.get();
-    ctx.cylinder     = cylinder_.get();
-    ctx.skydome      = skydome_.get(); // 現在 nullptr（無効）
-    ctx.human        = human_.get();
+    ctx.skydome      = skydome_.get();
     ctx.spriteCommon = spriteCommon_.get();
 
     // カメラ制御パラメータへのポインタ
@@ -185,40 +173,9 @@ SceneEditor::EditContext GamePlayScene::BuildEditContext()
     ctx.cameraPosHistory   = &cameraPosHistory_;
     ctx.cameraRotHistory   = &cameraRotHistory_;
 
-    // Ring パラメータへのポインタ
-    ctx.ringPosition    = &ringPosition_;
-    ctx.ringRotation    = &ringRotation_;
-    ctx.ringColor       = &ringColor_;
-    ctx.ringScale       = &ringScale_;
-    ctx.ringInnerRadius = &ringInnerRadius_;
-    ctx.ringOuterRadius = &ringOuterRadius_;
-
-    // Cylinder パラメータへのポインタ
-    ctx.cylinderPosition     = &cylinderPosition_;
-    ctx.cylinderRotation     = &cylinderRotation_;
-    ctx.cylinderColor        = &cylinderColor_;
-    ctx.cylinderScale        = &cylinderScale_;
-    ctx.cylinderTopRadius    = &cylinderTopRadius_;
-    ctx.cylinderBottomRadius = &cylinderBottomRadius_;
-    ctx.cylinderHeight       = &cylinderHeight_;
-    ctx.cylinderAlphaRef     = &cylinderAlphaRef_;
-
     // Skydome パラメータへのポインタ
     ctx.skyColor      = &skyColor_;
     ctx.skyRotOffsetY = &skyRotOffsetY_;
-
-    // Human パラメータへのポインタ
-    ctx.humanPosition  = &humanPosition_;
-    ctx.humanRotation  = &humanRotation_;
-    ctx.humanScale     = &humanScale_;
-    ctx.humanAnimSpeed = &humanAnimSpeed_;
-    ctx.showSkeleton   = &showSkeletonDebug_;
-
-    // 白パーティクルパラメータへのポインタ
-    ctx.whiteParticlePos   = &whiteParticlePos_;
-    ctx.whiteParticleColor = &whiteParticleColor_;
-    ctx.whiteParticleScale = &whiteParticleScale_;
-    ctx.whiteParticleCount = &whiteParticleCount_;
 
     // ゲーム内時刻（表示用の値コピー）
     ctx.gameHour   = gameTime_.GetHour();
@@ -281,6 +238,59 @@ void GamePlayScene::Update()
     // ゲーム内時刻を1フレーム分進める（引数は時刻の進み速度。1.0f = リアルタイムと同じ速度）
     gameTime_.Update(1.0f);
 
+    // ----- プレイヤー操作（A/D: 横移動、W/Space: ジャンプ、重力あり）-----
+    {
+        // 横移動
+        if (input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT))  { playerPos_.x -= playerSpeed_; }
+        if (input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT)) { playerPos_.x += playerSpeed_; }
+
+        // ジャンプ（地面にいるときだけ）
+        if (playerOnGround_) {
+            if (input_->TriggerKey(DIK_W)     ||
+                input_->TriggerKey(DIK_UP)    ||
+                input_->TriggerKey(DIK_SPACE)) {
+                playerVelocityY_ = kJumpPower_;
+                playerOnGround_  = false;
+            }
+        }
+
+        // 重力・落下
+        playerVelocityY_ -= kGravity_;
+        playerPos_.y     += playerVelocityY_;
+
+        // 着地判定（床クランプ）
+        if (playerPos_.y <= kGroundY_) {
+            playerPos_.y     = kGroundY_;
+            playerVelocityY_ = 0.0f;
+            playerOnGround_  = true;
+        }
+
+        // 天井クランプ（頭をぶつけたら速度をゼロに）
+        if (playerPos_.y > 12.0f) {
+            playerPos_.y     = 12.0f;
+            playerVelocityY_ = 0.0f;
+        }
+        // 左右クランプ
+        playerPos_.x = std::clamp(playerPos_.x, 3.0f, 27.0f);
+
+        player_->SetPosition(playerPos_);
+        player_->Update();
+    }
+
+    // ----- カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）-----
+    // fovY=0.45rad, dist=30 のとき Z=0 面の可視半幅≈12.25、可視半高≈6.89
+    // 左壁X=2, 右壁X=28, 床Y=-0.6, 天井Y=13（ブロック中心値）
+    {
+        constexpr float kHalfW = 12.25f;
+        constexpr float kHalfH =  6.89f;
+        constexpr float kBlkR  =  0.5f;  // ブロック半径
+        cameraTargetPos_ = {
+            std::clamp(playerPos_.x,       2.0f - kBlkR + kHalfW,  28.0f + kBlkR - kHalfW),
+            std::clamp(playerPos_.y + 6.0f, -0.6f - kBlkR + kHalfH, 13.0f + kBlkR - kHalfH),
+            -30.0f
+        };
+    }
+
     // カメラのスムージング（ぬるぬる補間）を更新する
     UpdateCameraSmoothing();
 
@@ -288,70 +298,28 @@ void GamePlayScene::Update()
     // 光源方向が変わったときに影用の視錐台（光が届く範囲）を更新する
     shadowManager_->Update(objectCommon_->GetLightDirection());
 
-    // 3Dオブジェクトとスキンメッシュに、最新の「影行列」を渡す（シャドウマップ参照に使う）
+    // 3Dオブジェクトに最新の「影行列」を渡す（シャドウマップ参照に使う）
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-    SkinnedObject3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
 
     // ----- ゲームオブジェクトの更新 -----
     for (auto& obj : gameObjects_) {
         obj->Update();
     }
 
-    // human のアニメーション・トランスフォームを更新する
-    human_->Update();
+    // ----- 敵（静止、カメラ変化に合わせて WVP を更新するだけ）-----
+    enemy_->Update();
+
+    // ----- 天球の更新（カメラに追従し、ゲーム内時刻に合わせて回転）-----
+    float timeRatio = gameTime_.GetElapsedMinutes() / GameTime::kTotalGameMinutes;
+    skydome_->Update(camera_.get(), timeRatio);
+
+    // ----- 境界ブロックの更新（カメラが動くたびに WVP 行列を再計算）-----
+    for (auto& block : borderBlocks_) {
+        block->Update();
+    }
 
     // ----- デバッグ UI 更新 -----
-    // ImGui パネルを描画し、エディタで変更した値をゲームに反映する
     sceneEditor_.Update(BuildEditContext());
-
-    // ----- 楕円パーティクル（リング周回軌道）の放出 -----
-    // kOrbitSpeed = 1周（2π ラジアン）にかかるフレーム数から逆算した1フレームあたりの角速度
-    static constexpr float kOrbitSpeed = GameConstants::kTwoPi / GameConstants::kOrbitPeriodSeconds;
-
-    // 軌道角度を1フレーム分進める
-    ringOrbitAngle_ += kOrbitSpeed * GameConstants::kFrameDeltaTime;
-
-    // 360度（2π ラジアン）を超えたら0に戻す（無限に増え続けないようにするため）
-    if (ringOrbitAngle_ > GameConstants::kTwoPi) {
-        ringOrbitAngle_ -= GameConstants::kTwoPi;
-    }
-
-    // タイマーを1フレーム分進めて、放出間隔に達したらパーティクルを出す
-    ellipseParticleTimer_ += GameConstants::kFrameDeltaTime;
-    while (ellipseParticleTimer_ >= kEllipseEmitInterval) {
-        ellipseParticleTimer_ -= kEllipseEmitInterval;
-
-        // リングの中間半径の位置（円軌道上）を放出座標として計算する
-        float r = (ringInnerRadius_ + ringOuterRadius_) * 0.5f;
-        Vector3 emitPos = {
-            ringPosition_.x + std::cos(ringOrbitAngle_) * r, // X: cos で横方向の位置
-            ringPosition_.y,
-            ringPosition_.z + std::sin(ringOrbitAngle_) * r  // Z: sin で奥行き方向の位置
-        };
-
-        // 接線方向（円の接線 = 進行方向）に速度ベクトルを計算する
-        // sin/cos を使って軌道の接線（90度ずれた方向）を出す
-        Vector3 vel = {
-            -std::sin(ringOrbitAngle_) * GameConstants::kEllipseTangentSpeed,
-             GameConstants::kEllipseYVelocity, // 少し上方向にも動かす
-             std::cos(ringOrbitAngle_) * GameConstants::kEllipseTangentSpeed
-        };
-
-        // 水色（R=0.6, G=0.85, B=1.0, A=1.0）で楕円パーティクルを1粒放出する
-        particleManager_->EmitEllipse(
-            "ellipse",
-            emitPos,
-            vel,
-            { 0.6f, 0.85f, 1.0f, 1.0f },
-            GameConstants::kEllipseLifetime,
-            GameConstants::kEllipseBaseScale,
-            GameConstants::kEllipseScaleRandom
-        );
-    }
-
-    // Ring・Cylinder は毎フレーム、カメラとの距離に応じた処理（ビルボードなど）を行う
-    ring_->Update(camera_.get());
-    cylinder_->Update(camera_.get());
 
     // ---- クリア条件チェック ----
     // ImGui ボタン or タイマー満了のどちらかでクリア演出を起動する
@@ -435,40 +403,29 @@ void GamePlayScene::Draw()
     renderTextureSprite_->Update();
     renderTextureSprite_->Draw();
 
+    // ----- 天球を描画（他の3Dオブジェクトより前に描く）-----
+    modelCommon_->CommonDrawSettings();
+    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
+    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
+    skydome_->Draw();
+
     // ----- 3Dオブジェクトを描画 -----
     modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList()); // ライト情報を GPU に送る
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_); // シャドウマップをバインド
+    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
+    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
 
     for (auto& obj : gameObjects_) {
         obj->Draw();
     }
 
-    // ----- スキンメッシュ描画 -----
-    // PSO（パイプラインステートオブジェクト）をスキンメッシュ用に切り替えてから描画する
-    // PSO 切り替え後はライト・シャドウの再バインドが必要
-    skinCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
-    human_->Draw();
-
-    // スケルトンのデバッグ表示（USE_IMGUI ビルド + フラグが ON の場合のみ）
-#ifdef USE_IMGUI
-    if (showSkeletonDebug_ && human_) {
-        human_->DebugDraw(); // ボーンをワイヤーフレームで描画する
+    // ----- 境界ブロックを描画 -----
+    for (auto& block : borderBlocks_) {
+        block->Draw();
     }
-#endif
 
-    // PSO を通常の 3D 描画用に戻す
-    modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
-
-    // パーティクル・Ring・Cylinder を描画する
-    particleManager_->Update(camera_.get()); // GPU コンピュートで粒の位置を更新
-    particleManager_->Draw(camera_.get());   // 更新後のパーティクルを描画
-    ring_->Draw();
-    cylinder_->Draw();
+    // ----- プレイヤー・敵を描画 -----
+    player_->Draw();
+    enemy_->Draw();
 
     // ----- 2D UI（ImGuiで追加したスプライト要素）-----
     // SceneEditor で追加したスプライト UI をすべて描画する
@@ -511,7 +468,4 @@ void GamePlayScene::Finalize()
         audio_->StopBGM();
         audio_->StopAllSE();
     }
-
-    // パーティクルを全グループ削除する（メモリリーク防止）
-    if (particleManager_) { particleManager_->ClearAllGroups(); }
 }

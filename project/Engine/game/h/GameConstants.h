@@ -41,39 +41,4 @@ namespace GameConstants {
 
     // 2π（= 360度）。1周分の角度をラジアンで表したもの
     inline constexpr float kTwoPi = kPi * 2.0f;
-
-    // -------------------------------------------------------
-    // 楕円パーティクル（リングの周りをぐるぐる回る光の粒）
-    // -------------------------------------------------------
-
-    // リングを1周するのにかかる秒数
-    inline constexpr float kOrbitPeriodSeconds  = 3.0f;
-
-    // 円周方向への移動速度（大きいほど速く飛ぶ）
-    inline constexpr float kEllipseTangentSpeed = 0.03f;
-
-    // 上方向への浮き上がり速度（大きいほど高く上がる）
-    inline constexpr float kEllipseYVelocity    = 0.04f;
-
-    // パーティクルが消えるまでの時間（秒）
-    inline constexpr float kEllipseLifetime     = 1.5f;
-
-    // パーティクルの基本の大きさ
-    inline constexpr float kEllipseBaseScale    = 0.4f;
-
-    // 大きさのランダムなばらつき幅（kEllipseBaseScale ± この値）
-    inline constexpr float kEllipseScaleRandom  = 0.2f;
-
-    // -------------------------------------------------------
-    // 白パーティクル（画面全体にふわふわ漂う白い粒）
-    // -------------------------------------------------------
-
-    // パーティクルをばら撒く範囲の半径（単位はワールド座標）
-    inline constexpr float kWhiteParticleScatterRadius = 20.0f;
-
-    // パーティクルが消えるまでの最短時間（秒）
-    inline constexpr float kWhiteParticleLifetimeMin   = 2.0f;
-
-    // パーティクルが消えるまでの最長時間（秒）
-    inline constexpr float kWhiteParticleLifetimeMax   = 5.0f;
 }

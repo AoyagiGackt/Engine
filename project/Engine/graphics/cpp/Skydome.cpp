@@ -11,7 +11,7 @@ void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
     object_->SetScale({ 0.19f, 0.19f, 0.19f });
 
     object_->SetEnableLighting(false);
-    object_->SetUseCubemap(true);
+    object_->SetUseCubemap(false);
 }
 
 void Skydome::Update(Camera* camera, float timeRatio)
