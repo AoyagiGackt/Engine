@@ -228,7 +228,7 @@ void GamePlayScene::Update()
 {
     // ---- クリア演出中はシーン遷移待ちのみ行う ----
     if (clearTriggered_) {
-        glassShatter_.Update(1.0f / 60.0f);
+        glassShatter_.Update(GameConstants::kFrameDeltaTime);
         if (glassShatter_.IsFinished()) {
             SceneManager::GetInstance()->ChangeScene("CLEAR");
         }
@@ -266,12 +266,12 @@ void GamePlayScene::Update()
         }
 
         // 天井クランプ（頭をぶつけたら速度をゼロに）
-        if (playerPos_.y > 12.0f) {
-            playerPos_.y     = 12.0f;
+        if (playerPos_.y > kCeilingY_) {
+            playerPos_.y     = kCeilingY_;
             playerVelocityY_ = 0.0f;
         }
         // 左右クランプ
-        playerPos_.x = std::clamp(playerPos_.x, 3.0f, 27.0f);
+        playerPos_.x = std::clamp(playerPos_.x, kPlayerMinX_, kPlayerMaxX_);
 
         player_->SetPosition(playerPos_);
         player_->Update();
@@ -331,11 +331,48 @@ void GamePlayScene::Update()
 }
 
 // =====================================================
-// 描画（毎フレーム呼ばれる）
+// 描画ヘルパー
 // =====================================================
 
-// シャドウマップパスを実行する（影用の深度テクスチャを生成する）。
-// この後の通常描画パスでこの深度テクスチャを参照して影を描く。
+D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
+{
+    if (imageFilter_->IsEnabled())     { return imageFilter_->GetSceneRTVHandle(); }
+    if (grayscaleEffect_->IsEnabled()) { return grayscaleEffect_->GetSceneRTVHandle(); }
+    if (hsvFilter_->IsEnabled())       { return hsvFilter_->GetSceneRTVHandle(); }
+    return dxCommon_->GetCurrentBackBufferHandle();
+}
+
+void GamePlayScene::ApplyActiveFilter()
+{
+    if (imageFilter_->IsEnabled()) {
+        imageFilter_->Apply(srvManager_);
+    } else if (grayscaleEffect_->IsEnabled()) {
+        grayscaleEffect_->Apply(srvManager_);
+    } else if (hsvFilter_->IsEnabled()) {
+        hsvFilter_->Apply(srvManager_);
+    }
+}
+
+// =====================================================
+// メイン RTV セットアップ
+// =====================================================
+
+void GamePlayScene::SetupMainRenderTarget()
+{
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = GetActiveRTVHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
+
+    commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+    D3D12_VIEWPORT vp = { 0, 0,
+        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
+        0.0f, 1.0f };
+    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
+    commandList->RSSetViewports(1, &vp);
+    commandList->RSSetScissorRects(1, &scissor);
+}
+
 void GamePlayScene::DrawShadowPass()
 {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
@@ -346,32 +383,6 @@ void GamePlayScene::DrawShadowPass()
     // ※ ここでシャドウキャスター（影を落とすオブジェクト）の Draw を呼ぶ場所
 
     shadowManager_->EndShadowPass(commandList);
-
-    // ----- レンダーターゲットをメイン描画先に切り替える -----
-    // ポストエフェクトが有効なら専用 RTV（レンダーターゲットビュー）へ、
-    // そうでなければ通常のバックバッファへ描画先を設定する
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv;
-    if (imageFilter_->IsEnabled()) {
-        rtv = imageFilter_->GetSceneRTVHandle();
-    } else if (grayscaleEffect_->IsEnabled()) {
-        rtv = grayscaleEffect_->GetSceneRTVHandle();
-    } else if (hsvFilter_->IsEnabled()) {
-        rtv = hsvFilter_->GetSceneRTVHandle();
-    } else {
-        rtv = dxCommon_->GetCurrentBackBufferHandle();
-    }
-
-    // 深度ステンシルビュー（奥行き判定に使うバッファ）
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
-
-    // 描画先（RTV + DSV）と、描画範囲（ビューポート・シザー矩形）を GPU にセットする
-    commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-    D3D12_VIEWPORT vp = { 0, 0,
-        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
-        0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
-    commandList->RSSetViewports(1, &vp);
-    commandList->RSSetScissorRects(1, &scissor);
 }
 
 void GamePlayScene::Draw()
@@ -393,8 +404,10 @@ void GamePlayScene::Draw()
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 
-    // シャドウマップの生成 + レンダーターゲットの切り替え
+    // シャドウマップの生成
     DrawShadowPass();
+    // メインの描画先 RTV・ビューポートをセットアップ
+    SetupMainRenderTarget();
 
     // ----- 背景としてレンダーテクスチャを描画 -----
     // 2D描画モードに切り替えてから、オフスクリーンで作ったテクスチャを画面いっぱいに貼る
@@ -438,13 +451,7 @@ void GamePlayScene::Draw()
     }
 
     // ----- フィルター適用 -----
-    if (imageFilter_->IsEnabled()) {
-        imageFilter_->Apply(srvManager_);
-    } else if (grayscaleEffect_->IsEnabled()) {
-        grayscaleEffect_->Apply(srvManager_);
-    } else if (hsvFilter_->IsEnabled()) {
-        hsvFilter_->Apply(srvManager_);
-    }
+    ApplyActiveFilter();
 
     // ---- ガラス割れエフェクト（クリア演出時のみ）----
     if (clearTriggered_) {

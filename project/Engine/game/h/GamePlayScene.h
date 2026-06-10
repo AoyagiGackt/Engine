@@ -75,8 +75,17 @@ public:
 private:
     // --- 内部処理関数 ---
 
-    // シャドウマップ（影の元になる深度画像）の描画パスを実行する
+    // シャドウマップ（影の元になる深度画像）の描画パスのみを実行する
     void DrawShadowPass();
+
+    // アクティブなポストエフェクトの描画先 RTV を返す（なければバックバッファ）
+    D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
+
+    // アクティブなポストエフェクトを適用する
+    void ApplyActiveFilter();
+
+    // メインの描画先 RTV・ビューポート・シザーをセットアップする
+    void SetupMainRenderTarget();
 
     // カメラ位置の「ぬるぬる補間」を毎フレーム処理する
     // 過去数フレームの位置の平均をとることで、急な動きを滑らかにする（ボックスフィルタ）
@@ -132,7 +141,10 @@ private:
     float   playerVelocityY_  = 0.0f;
     bool    playerOnGround_   = true;
 
-    static constexpr float kGroundY_   = 0.4f;   // 床ブロック上面 + プレイヤー半径
+    static constexpr float kGroundY_    = 0.4f;   // 床ブロック上面 + プレイヤー半径
+    static constexpr float kCeilingY_  = 12.0f;  // 天井クランプ上限
+    static constexpr float kPlayerMinX_ = 3.0f;  // 左端クランプ
+    static constexpr float kPlayerMaxX_ = 27.0f; // 右端クランプ
     static constexpr float kGravity_   = 0.012f;  // 毎フレームの重力加速度
     static constexpr float kJumpPower_ = 0.4f;    // ジャンプ初速
 
