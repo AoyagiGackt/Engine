@@ -440,12 +440,14 @@ void SceneEditor::RingState::RenderInspector(const EditContext& ctx, SceneEditor
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.8f, 1), "[Ring]");
     ImGui::Separator();
-    // 値を変更した瞬間に Set～ メソッドを呼んでゲームに即時反映する
+    if (!ctx.ring || !ctx.ringPosition) {
+        ImGui::TextDisabled("Ring is disabled.");
+        return;
+    }
     if (ImGui::DragFloat3("Position", &ctx.ringPosition->x, 0.1f))  { ctx.ring->SetPosition(*ctx.ringPosition); }
     if (ImGui::DragFloat3("Rotation", &ctx.ringRotation->x, 0.01f)) { ctx.ring->SetRotation(*ctx.ringRotation); }
     if (ImGui::DragFloat("Scale", ctx.ringScale, 0.01f, 0.01f, 20.0f)) { ctx.ring->SetScale(*ctx.ringScale); }
     ImGui::Separator();
-    // 内径は外径より必ず小さく、外径は内径より必ず大きくなるよう上限・下限を設ける
     if (ImGui::DragFloat("Inner Radius", ctx.ringInnerRadius, 0.05f, 0.01f, *ctx.ringOuterRadius - 0.01f)) {
         ctx.ring->SetInnerRadius(*ctx.ringInnerRadius);
     }
@@ -463,6 +465,10 @@ void SceneEditor::CylinderState::RenderInspector(const EditContext& ctx, SceneEd
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(0.8f, 0.6f, 1.0f, 1), "[Cylinder]");
     ImGui::Separator();
+    if (!ctx.cylinder || !ctx.cylinderPosition) {
+        ImGui::TextDisabled("Cylinder is disabled.");
+        return;
+    }
     if (ImGui::DragFloat3("Position", &ctx.cylinderPosition->x, 0.1f))  { ctx.cylinder->SetPosition(*ctx.cylinderPosition); }
     if (ImGui::DragFloat3("Rotation", &ctx.cylinderRotation->x, 0.01f)) { ctx.cylinder->SetRotation(*ctx.cylinderRotation); }
     if (ImGui::DragFloat("Scale", ctx.cylinderScale, 0.01f, 0.01f, 20.0f)) { ctx.cylinder->SetScale(*ctx.cylinderScale); }
@@ -472,7 +478,6 @@ void SceneEditor::CylinderState::RenderInspector(const EditContext& ctx, SceneEd
     if (ImGui::DragFloat("Height",        ctx.cylinderHeight,       0.05f, 0.01f, 50.0f)) { ctx.cylinder->SetHeight(*ctx.cylinderHeight); }
     ImGui::Separator();
     if (ImGui::ColorEdit4("Color", &ctx.cylinderColor->x)) { ctx.cylinder->SetColor(*ctx.cylinderColor); }
-    // AlphaReference = この値以下のピクセルを透明として描画しない（穴あきエフェクトなどに使う）
     if (ImGui::SliderFloat("Alpha Reference", ctx.cylinderAlphaRef, 0.0f, 1.0f)) { ctx.cylinder->SetAlphaReference(*ctx.cylinderAlphaRef); }
 #endif
 }
@@ -505,14 +510,16 @@ void SceneEditor::HumanState::RenderInspector(const EditContext& ctx, SceneEdito
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1), "[Human]");
     ImGui::Separator();
+    if (!ctx.human || !ctx.humanPosition) {
+        ImGui::TextDisabled("Human is disabled.");
+        return;
+    }
     if (ImGui::DragFloat3("Position", &ctx.humanPosition->x, 0.05f)) { ctx.human->SetPosition(*ctx.humanPosition); }
     if (ImGui::DragFloat3("Rotation", &ctx.humanRotation->x, 0.01f)) { ctx.human->SetRotation(*ctx.humanRotation); }
     if (ImGui::DragFloat3("Scale",    &ctx.humanScale->x, 0.01f, 0.001f, 100.0f)) { ctx.human->SetScale(*ctx.humanScale); }
     ImGui::Separator();
-    // アニメーション速度。0.0f で一時停止、2.0f で2倍速になる
     if (ImGui::SliderFloat("Anim Speed", ctx.humanAnimSpeed, 0.0f, 5.0f)) { ctx.human->SetAnimSpeed(*ctx.humanAnimSpeed); }
     ImGui::Separator();
-    // Reset ボタンで初期値に戻す
     if (ImGui::Button("Reset")) {
         *ctx.humanPosition  = { 5.0f, 0.0f, 0.0f };
         *ctx.humanRotation  = {};
@@ -524,7 +531,6 @@ void SceneEditor::HumanState::RenderInspector(const EditContext& ctx, SceneEdito
         ctx.human->SetAnimSpeed(*ctx.humanAnimSpeed);
     }
     ImGui::Separator();
-    // ボーン（骨格）のデバッグ表示フラグ
     ImGui::Checkbox("Show Skeleton", ctx.showSkeleton);
 #endif
 }
@@ -535,12 +541,15 @@ void SceneEditor::ParticlesState::RenderInspector(const EditContext& ctx, SceneE
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1), "[White Particles]");
     ImGui::Separator();
+    if (!ctx.whiteParticlePos) {
+        ImGui::TextDisabled("White Particles are disabled.");
+        return;
+    }
     ImGui::DragFloat3("Position", &ctx.whiteParticlePos->x, 0.1f);
     ImGui::ColorEdit4("Color",    &ctx.whiteParticleColor->x);
     ImGui::DragFloat("Scale",     ctx.whiteParticleScale, 0.01f, 0.01f, 10.0f);
     ImGui::SliderInt("Count",     ctx.whiteParticleCount, 1, 1024);
     ImGui::Separator();
-    // Re-emit = 現在のパラメータで白パーティクルを撒き直す
     if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
         ParticleManager::GetInstance()->EmitScatterLoop(
             "white", *ctx.whiteParticlePos, 20.0f,

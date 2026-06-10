@@ -1,4 +1,5 @@
 #include "GameTime.h"
+#include "GameConstants.h"
 
 void GameTime::Initialize()
 {
@@ -11,8 +12,7 @@ void GameTime::Update(float minutesPerSecond)
         return;
     }
 
-    // 1フレーム（60fps前提）あたりに進めるゲーム分数
-    float minutesPerFrame = minutesPerSecond / 60.0f;
+    float minutesPerFrame = minutesPerSecond / GameConstants::kTargetFps;
     elapsedMinutes_ += minutesPerFrame;
 
     // 終了時刻を超えたらクランプ

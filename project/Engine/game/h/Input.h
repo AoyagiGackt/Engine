@@ -6,7 +6,6 @@
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
-#include <array>
 #include <windows.h>
 #include <XInput.h>
 
@@ -88,12 +87,6 @@ private:
     /** @brief キーボードデバイスのポインタ */
     ComPtr<IDirectInputDevice8> keyboard_;
 
-    /** @brief インスタンスハンドル */
-    HINSTANCE hInstance_ = nullptr;
-
-    /** @brief ウィンドウハンドル */
-    HWND hwnd_ = nullptr;
-
     // --- キー状態管理用バッファ ---
 
     /** @brief 最新のキー状態（256個のキー分） */
@@ -101,12 +94,6 @@ private:
 
     /** @brief 1フレーム前のキー状態（256個のキー分） */
     BYTE keyPre[256] = {};
-
-    /** @brief 最新のキー状態（std::array版） */
-    std::array<BYTE, 256> keyStates_ {};
-
-    /** @brief 1フレーム前のキー状態（std::array版） */
-    std::array<BYTE, 256> prevKeyStates_ {};
 
     /** @brief ウィンドウ管理のポインタ */
     WinApp* winApp_ = nullptr;

@@ -35,13 +35,6 @@
 #include "GameTime.h"
 #include "MapChipField.h"
 #include "Skydome.h"
-#include "Ring.h"
-#include "Cylinder.h"
-#include "SkinCommon.h"
-#include "SkinnedModel.h"
-#include "SkinnedObject3d.h"
-#include "Skeleton.h"
-#include "Animation.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
 #include "RenderTexture.h"
@@ -52,7 +45,6 @@
 class GrayscaleEffect;
 class HsvFilter;
 class ImageFilter;
-class ParticleManager;
 class ScoreManager;
 
 /**
@@ -83,8 +75,17 @@ public:
 private:
     // --- 内部処理関数 ---
 
-    // シャドウマップ（影の元になる深度画像）の描画パスを実行する
+    // シャドウマップ（影の元になる深度画像）の描画パスのみを実行する
     void DrawShadowPass();
+
+    // アクティブなポストエフェクトの描画先 RTV を返す（なければバックバッファ）
+    D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
+
+    // アクティブなポストエフェクトを適用する
+    void ApplyActiveFilter();
+
+    // メインの描画先 RTV・ビューポート・シザーをセットアップする
+    void SetupMainRenderTarget();
 
     // カメラ位置の「ぬるぬる補間」を毎フレーム処理する
     // 過去数フレームの位置の平均をとることで、急な動きを滑らかにする（ボックスフィルタ）
@@ -106,7 +107,6 @@ private:
 
     // --- キャッシュ済みシステムポインタ（Initialize で取得、生存期間はシステムが保証）---
     // 毎フレーム GetInstance() を呼ぶとコストがかかるので、起動時に1度だけ取得して保存しておく
-    ParticleManager* particleManager_ = nullptr; // パーティクル（炎・光の粒など）の管理
     ScoreManager*    scoreManager_    = nullptr; // スコアの計算・保存
     SrvManager*      srvManager_      = nullptr; // GPU のテクスチャ用メモリ（ディスクリプタヒープ）管理
     GrayscaleEffect* grayscaleEffect_ = nullptr; // 画面をグレースケールにするポストエフェクト
@@ -121,65 +121,40 @@ private:
     std::unique_ptr<ShadowManager>  shadowManager_; // 影描画の管理（シャドウマップ方式）
     std::unique_ptr<Camera>         camera_;        // 視点となるカメラ
 
-    // --- 天球（無効時は nullptr）---
-    // ゲームの背景を覆う大きな球。現在は使用していないため nullptr のまま
+    // --- 天球 ---
     std::unique_ptr<Skydome> skydome_;
-
-    // --- スキンメッシュ（human） ---
-    // スキンメッシュ = ボーン（骨格）に沿ってポリゴンが動く、関節を曲げられる3Dモデル
-    std::unique_ptr<SkinCommon>      skinCommon_;  // スキンメッシュ描画に共通する設定
-    std::unique_ptr<SkinnedModel>    modelHuman_;  // human の3Dモデルデータ（頂点・マテリアル）
-    std::unique_ptr<SkinnedObject3d> human_;       // ワールドに配置されている human インスタンス
+    std::unique_ptr<Model>   modelSkydome_;
 
     // --- ゲームオブジェクト群 ---
     std::vector<std::unique_ptr<GameObject>> gameObjects_; // 汎用ゲームオブジェクトのリスト
     std::unique_ptr<MapChipField> mapField_;               // マップチップ（タイル）フィールド
 
+    // --- 画面を囲むブロック ---
+    std::unique_ptr<Model>                   modelBlock_;
+    std::vector<std::unique_ptr<Object3d>>   borderBlocks_;
+
+    // --- プレイヤー ---
+    std::unique_ptr<Model>    modelPlayer_;
+    std::unique_ptr<Object3d> player_;
+    Vector3 playerPos_        = { 8.0f, 0.4f, 0.0f };
+    float   playerSpeed_      = 0.15f;
+    float   playerVelocityY_  = 0.0f;
+    bool    playerOnGround_   = true;
+
+    static constexpr float kGroundY_    = 0.4f;   // 床ブロック上面 + プレイヤー半径
+    static constexpr float kCeilingY_  = 12.0f;  // 天井クランプ上限
+    static constexpr float kPlayerMinX_ = 3.0f;  // 左端クランプ
+    static constexpr float kPlayerMaxX_ = 27.0f; // 右端クランプ
+    static constexpr float kGravity_   = 0.012f;  // 毎フレームの重力加速度
+    static constexpr float kJumpPower_ = 0.4f;    // ジャンプ初速
+
+    // --- 敵 ---
+    std::unique_ptr<Model>    modelEnemy_;
+    std::unique_ptr<Object3d> enemy_;
+    Vector3 enemyPos_ = { 22.0f, 0.4f, 0.0f };
+
     // --- 進行・状態管理 ---
     GameTime gameTime_; // ゲーム内時刻（時・分）を管理する
-
-    // --- 白パーティクル（1024個静的配置） ---
-    // 画面全体にふわふわ漂う白い光の粒の設定値
-    Vector3  whiteParticlePos_   = { 14.5f, 3.0f, 0.0f };    // 散布の中心座標
-    Vector4  whiteParticleColor_ = { 1.0f, 1.0f, 1.0f, 1.0f }; // 色（RGBA）
-    float    whiteParticleScale_ = 0.5f;                        // 粒の大きさ
-    int      whiteParticleCount_ = 1024;                        // 粒の個数
-
-    // --- 楕円パーティクル（Ring 周回） ---
-    // リングの周りを円軌道で飛び続ける水色の光の粒
-    float ellipseParticleTimer_ = 0.0f;                           // 次の放出までの残り時間
-    static constexpr float kEllipseEmitInterval = 0.05f;          // 放出間隔（秒）
-    float ringOrbitAngle_ = 0.0f;                                  // 現在の軌道角度（ラジアン）
-
-    // --- Ring ---
-    // リング形状のメッシュオブジェクト（ドーナツ型）
-    std::unique_ptr<Ring> ring_;
-    Vector3 ringPosition_    = { 14.5f, 0.0f, 0.0f }; // ワールド座標
-    Vector3 ringRotation_    = {};                      // 回転角度（XYZ）
-    Vector4 ringColor_       = { 1.0f, 1.0f, 1.0f, 1.0f }; // 色（RGBA）
-    float   ringScale_       = 1.0f;     // 全体のスケール
-    float   ringInnerRadius_ = 1.5f;     // リングの内側の半径（穴の大きさ）
-    float   ringOuterRadius_ = 2.5f;     // リングの外側の半径
-
-    // --- Cylinder ---
-    // 円柱形状のメッシュオブジェクト
-    std::unique_ptr<Cylinder> cylinder_;
-    Vector3 cylinderPosition_     = { 17.0f, 0.0f, 0.0f }; // ワールド座標
-    Vector3 cylinderRotation_     = {};                      // 回転角度（XYZ）
-    Vector4 cylinderColor_        = { 1.0f, 1.0f, 1.0f, 1.0f }; // 色（RGBA）
-    float   cylinderScale_        = 1.0f;  // 全体のスケール
-    float   cylinderTopRadius_    = 1.0f;  // 円柱の上面の半径
-    float   cylinderBottomRadius_ = 1.0f;  // 円柱の下面の半径
-    float   cylinderHeight_       = 3.0f;  // 円柱の高さ
-    float   cylinderAlphaRef_     = 0.0f;  // アルファ参照値（透明度の閾値）
-
-    // --- Human パラメータ ---
-    // スキンメッシュキャラクターの初期設定値
-    Vector3 humanPosition_     = { 5.0f, 0.0f, 0.0f }; // ワールド座標
-    Vector3 humanRotation_     = { 0.0f, 0.0f, 0.0f }; // 回転角度（XYZ）
-    Vector3 humanScale_        = { 1.0f, 1.0f, 1.0f }; // スケール（1.0 = 等倍）
-    float   humanAnimSpeed_    = 1.0f;                  // アニメーション再生速度（1.0 = 等速）
-    bool    showSkeletonDebug_ = false;                 // ボーン（骨格）のデバッグ表示をするか
 
     // --- Skydome パラメータ ---
     Vector4 skyColor_      = { 1.0f, 1.0f, 1.0f, 1.0f }; // 天球の色（RGBA）

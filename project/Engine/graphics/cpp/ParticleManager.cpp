@@ -108,8 +108,9 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
             IID_PPV_ARGS(&group.particleUploadBuffer));
         assert(SUCCEEDED(hr));
-        group.particleUploadBuffer->Map(0, nullptr,
+        hr = group.particleUploadBuffer->Map(0, nullptr,
             reinterpret_cast<void**>(&group.particleUploadData));
+        assert(SUCCEEDED(hr));
         memset(group.particleUploadData, 0, static_cast<size_t>(stateSize));
     }
 

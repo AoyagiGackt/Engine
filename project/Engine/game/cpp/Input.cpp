@@ -1,5 +1,6 @@
 #include "Input.h"
 #include <cassert>
+#include <cmath>
 #include <dinput.h>
 
 #pragma comment(lib, "dinput8.lib")
@@ -37,24 +38,26 @@ void Input::Initialize(WinApp* winApp)
 }
 
 void Input::Update() {
-    HRESULT result;
-
     // ゲームコントローラー更新
     UpdateGamepad();
 
     // 前回のキー入力を保存
     memcpy(keyPre, key, sizeof(key));
     // キーボード情報の取得開始
-    result = keyboard_->Acquire();
-    // 全キーの入力情報を取得する
-    result = keyboard_->GetDeviceState(sizeof(key), key);
+    keyboard_->Acquire();
+    // 全キーの入力情報を取得する。フォーカス喪失などで失敗したらバッファをクリアして刺さり防止
+    if (FAILED(keyboard_->GetDeviceState(sizeof(key), key))) {
+        ZeroMemory(key, sizeof(key));
+    }
 
     // 前回のマウス入力を保存
     mouseStatePre_ = mouseState_;
     // マウス情報の取得開始
     mouse_->Acquire();
-    // 全マウスの入力情報を取得する
-    mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_);
+    // 全マウスの入力情報を取得する。失敗時はクリア
+    if (FAILED(mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_))) {
+        ZeroMemory(&mouseState_, sizeof(DIMOUSESTATE2));
+    }
 }
 
 bool Input::PushKey(BYTE keyNumber)
@@ -70,14 +73,7 @@ bool Input::PushKey(BYTE keyNumber)
 
 bool Input::TriggerKey(BYTE keyNumber)
 {
-    // 前回は押してなくて今回は押している
-    if (key[keyNumber] && !keyPre[keyNumber]) {
-        return true;
-    }
-
-    // そうでなければfalseを返す
-    prevKeyStates_[keyNumber] = key[keyNumber];
-    return false;
+    return key[keyNumber] && !keyPre[keyNumber];
 }
 
 /**

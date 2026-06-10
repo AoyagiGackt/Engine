@@ -151,13 +151,12 @@ private:
 
     // ---- 遷移ルール ----
     struct Transition {
-        std::string from;
         std::string to;
         std::string trigger;
     };
 
-    std::unordered_map<std::string, State> states_;
-    std::vector<Transition>                transitions_;
+    std::unordered_map<std::string, State>                    states_;
+    std::unordered_map<std::string, std::vector<Transition>>  transitions_; // from → 遷移リスト（O(1)ルックアップ）
 
     std::string currentState_;
     float       currentTime_ = 0.0f;

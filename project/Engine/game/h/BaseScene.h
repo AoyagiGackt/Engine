@@ -5,6 +5,7 @@
 #pragma once
 #include "Audio.h"
 #include "DirectXCommon.h"
+#include "ImGuiManager.h"
 #include "Input.h"
 
 /**
@@ -62,4 +63,7 @@ public:
      * @note この関数が true を返すと、SceneManager は次のシーンへの遷移処理を開始します
      */
     virtual bool IsFinished() const { return false; }
+
+    /** @brief ImGuiManagerを受け取る（デバッグUIが必要なシーンのみオーバーライド） */
+    virtual void SetImGuiManager(ImGuiManager*) {}
 };

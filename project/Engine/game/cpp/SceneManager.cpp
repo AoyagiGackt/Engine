@@ -1,8 +1,5 @@
 ﻿#include "SceneManager.h"
-#include "ClearScene.h"
-#include "GameOverScene.h"
 #include "GamePlayScene.h"
-#include "TitleScene.h"
 #include "TextureManager.h"
 
 SceneManager* SceneManager::GetInstance()
@@ -30,11 +27,7 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     // フェードの初期化
     fade_.Initialize(spriteCommon_.get());
 
-    auto gameplayScene = dynamic_cast<GamePlayScene*>(currentScene_.get());
-    
-    if (gameplayScene) {
-        gameplayScene->SetImGuiManager(imguiManager_);
-    }
+    currentScene_->SetImGuiManager(imguiManager_);
 }
 
 void SceneManager::Update()
@@ -58,23 +51,7 @@ void SceneManager::Update()
         TextureManager::GetInstance()->FlushUploads();
 
         // ImGuiのセット
-        auto gameplayScene = dynamic_cast<GamePlayScene*>(currentScene_.get());
-        
-        if (gameplayScene) {
-            gameplayScene->SetImGuiManager(imguiManager_);
-        }
-
-        auto clearScene = dynamic_cast<ClearScene*>(currentScene_.get());
-        
-        if (clearScene) {
-            clearScene->SetImGuiManager(imguiManager_);
-        }
-
-        auto gameOverScene = dynamic_cast<GameOverScene*>(currentScene_.get());
-        
-        if (gameOverScene) {
-            gameOverScene->SetImGuiManager(imguiManager_);
-        }
+        currentScene_->SetImGuiManager(imguiManager_);
 
         // シーンが切り替わったので、画面を明るくし始める
         fade_.Start(Fade::Status::FadeIn, 1.0f);
