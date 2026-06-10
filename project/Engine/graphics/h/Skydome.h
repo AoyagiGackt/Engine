@@ -25,9 +25,8 @@ public:
     /**
      * @brief カメラの位置を取得し、天球をその場所に移動させる
      * @param camera 追従対象のカメラポインタ
-     * @param timeRatio ゲーム内時刻の進行率（0.0=18:00 〜 1.0=翌6:00）。Y軸回転でテクスチャをスクロール
      */
-    void Update(Camera* camera, float timeRatio = 0.0f);
+    void Update(Camera* camera);
 
     /**
      * @brief 天球を描画

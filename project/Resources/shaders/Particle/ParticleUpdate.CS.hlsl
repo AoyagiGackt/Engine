@@ -150,12 +150,27 @@ void main(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID)
         p.rotateZ   += 12.0f * gDeltaTime;
     }
 
+    // curveFlag == 3: 重力落下
+    if (p.curveFlag == 3)
+    {
+        p.velocity.y -= 15.0f * gDeltaTime;
+        p.rotateZ    += 8.0f * gDeltaTime;
+    }
+
     p.position    += p.velocity * gDeltaTime;
     p.currentTime += gDeltaTime;
     gParticles[idx] = p;
 
+    // curveFlag == 4: 残像縮小 — 時間とともにスケールを縮める
+    float3 renderScale = p.scale;
+    if (p.curveFlag == 4)
+    {
+        float shrink = 1.0f - saturate(p.currentTime / p.lifeTime);
+        renderScale *= shrink;
+    }
+
     // ワールド行列: scale * rotateZ * billboard、row3 に平行移動を直接書く
-    float4x4 world = mul(mul(MakeScale(p.scale), MakeRotateZ(p.rotateZ)), gBillboard);
+    float4x4 world = mul(mul(MakeScale(renderScale), MakeRotateZ(p.rotateZ)), gBillboard);
     world._m30 = p.position.x;
     world._m31 = p.position.y;
     world._m32 = p.position.z;

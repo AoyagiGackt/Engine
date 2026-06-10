@@ -436,6 +436,87 @@ void ParticleManager::EmitHitStar(const std::string& name,
     }
 }
 
+void ParticleManager::EmitGravity(const std::string& name, const Vector3& position,
+                                  const Vector3& velocity, const Vector4& color,
+                                  float lifeTime, float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+
+    uint32_t slot = AllocateSlot(group);
+    if (slot == UINT32_MAX) return;
+
+    GPUParticleState& p = group.particleUploadData[slot];
+    p.position    = position;
+    p.lifeTime    = lifeTime;
+    p.velocity    = velocity;
+    p.currentTime = 0.0f;
+    p.color       = color;
+    p.scale       = { scale, scale, scale };
+    p.rotateZ     = 0.0f;
+    p.alive       = 1;
+    p.curveFlag   = 3;
+
+    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.pendingSlots.push_back(slot);
+}
+
+void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
+                               float speed, const Vector4& color,
+                               uint32_t count, float lifeTime, float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+    count = (std::min)(count, ParticleGroup::kNumMaxInstance);
+
+    const float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t slot = AllocateSlot(group);
+        if (slot == UINT32_MAX) break;
+
+        float angle = kTwoPi * static_cast<float>(i) / static_cast<float>(count);
+
+        GPUParticleState& p = group.particleUploadData[slot];
+        p.position    = position;
+        p.lifeTime    = lifeTime;
+        p.velocity    = { std::cos(angle) * speed, std::sin(angle) * speed, 0.0f };
+        p.currentTime = 0.0f;
+        p.color       = color;
+        p.scale       = { scale, scale, scale };
+        p.rotateZ     = 0.0f;
+        p.alive       = 1;
+        p.curveFlag   = 0;
+
+        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+        group.pendingSlots.push_back(slot);
+    }
+}
+
+void ParticleManager::EmitTrail(const std::string& name, const Vector3& position,
+                                const Vector4& color, float scale, float lifeTime)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+
+    uint32_t slot = AllocateSlot(group);
+    if (slot == UINT32_MAX) return;
+
+    GPUParticleState& p = group.particleUploadData[slot];
+    p.position    = position;
+    p.lifeTime    = lifeTime;
+    p.velocity    = { 0.0f, 0.0f, 0.0f };
+    p.currentTime = 0.0f;
+    p.color       = color;
+    p.scale       = { scale, scale, scale };
+    p.rotateZ     = 0.0f;
+    p.alive       = 1;
+    p.curveFlag   = 4; // スケール縮小フェードアウト
+
+    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.pendingSlots.push_back(slot);
+}
+
 // ============================================================
 //  Update: CS ディスパッチ
 // ============================================================

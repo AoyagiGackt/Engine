@@ -155,6 +155,17 @@ public:
     void EmitScatterLoop(const std::string& name, const Vector3& center, float radius,
         uint32_t count, const Vector4& color,
         float lifeTimeMin, float lifeTimeMax, float scale);
+    // 初速を与えて重力落下するパーティクル（curveFlag=3）
+    void EmitGravity(const std::string& name, const Vector3& position,
+        const Vector3& velocity, const Vector4& color,
+        float lifeTime = 0.6f, float scale = 0.2f);
+    // 均等角度放射リング（当たり判定エフェクト等）
+    void EmitRing(const std::string& name, const Vector3& position,
+        float speed, const Vector4& color,
+        uint32_t count = 16, float lifeTime = 0.4f, float scale = 0.3f);
+    // 残像1粒（毎フレーム呼ぶことでトレイルを形成）
+    void EmitTrail(const std::string& name, const Vector3& position,
+        const Vector4& color, float scale = 0.5f, float lifeTime = 0.15f);
 
     void SetTexture(const std::string& groupName, const std::string& textureFilePath);
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);

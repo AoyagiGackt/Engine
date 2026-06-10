@@ -1,5 +1,4 @@
 ﻿#include "Skydome.h"
-#include <numbers>
 
 void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
 {
@@ -14,20 +13,14 @@ void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
     object_->SetUseCubemap(false);
 }
 
-void Skydome::Update(Camera* camera, float timeRatio)
+void Skydome::Update(Camera* camera)
 {
     if (camera != nullptr) {
         Vector3 camPos = camera->GetTransform().translate;
-
         object_->SetPosition(camPos);
     }
 
-    // 時間に合わせてY軸回転（0.0=18:00 → 1.0=翌6:00 → 半周π）
-    // ゲームは12時間分(18:00→6:00)なので、24時間テクスチャの半周分だけ回す
-    float rotY = timeRatio * std::numbers::pi_v<float>;
-    object_->SetRotation({ 0.0f, -rotY + rotationOffsetY_, 0.0f });
-
-    // 行列の更新
+    object_->SetRotation({ 0.0f, rotationOffsetY_, 0.0f });
     object_->Update();
 }
 

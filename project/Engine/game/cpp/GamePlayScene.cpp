@@ -1,9 +1,11 @@
 #include "GamePlayScene.h"
 #include <cmath>
+#include <random>
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
+#include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "TextureManager.h"
@@ -87,16 +89,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
 
     // ----- プレイヤー -----
-    modelPlayer_ = std::make_unique<Model>();
-    modelPlayer_->Initialize(modelCommon_.get(),
-        "Resources/player/player.obj",
-        "Resources/player/player.png");
-    player_ = std::make_unique<Object3d>();
+    player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
-    player_->SetModel(modelPlayer_.get());
-    player_->SetEnableLighting(false);
-    player_->SetPosition(playerPos_);
-    player_->Update();
 
     // ----- 敵（静止）-----
     modelEnemy_ = std::make_unique<Model>();
@@ -140,6 +134,19 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     clearBgSprite_->SetPosition({ 0.0f, 0.0f });
     clearBgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
                                static_cast<float>(WinApp::kClientHeight) });
+
+    // ----- パーティクルグループ登録 -----
+    pm_ = ParticleManager::GetInstance();
+    pm_->CreateParticleGroup("trail",      "Resources/circle2.png");
+    pm_->CreateParticleGroup("hit_ring",  "Resources/circle2.png");
+    pm_->CreateParticleGroup("hit_spark", "Resources/circle2.png");
+    pm_->CreateParticleGroup("land_dust", "Resources/circle2.png");
+    pm_->CreateParticleGroup("jump_smoke","Resources/circle2.png");
+    pm_->SetAdditiveBlend("trail",      false);
+    pm_->SetAdditiveBlend("hit_ring",   true);
+    pm_->SetAdditiveBlend("hit_spark",  true);
+    pm_->SetAdditiveBlend("land_dust",  false);
+    pm_->SetAdditiveBlend("jump_smoke", false);
 
     // ----- デバッグパラメータ読み込み -----
     // 前回エディタで保存したカメラ位置・UIレイアウトなどを JSON から復元する
@@ -238,44 +245,8 @@ void GamePlayScene::Update()
     // ゲーム内時刻を1フレーム分進める（引数は時刻の進み速度。1.0f = リアルタイムと同じ速度）
     gameTime_.Update(1.0f);
 
-    // ----- プレイヤー操作（A/D: 横移動、W/Space: ジャンプ、重力あり）-----
-    {
-        // 横移動
-        if (input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT))  { playerPos_.x -= playerSpeed_; }
-        if (input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT)) { playerPos_.x += playerSpeed_; }
-
-        // ジャンプ（地面にいるときだけ）
-        if (playerOnGround_) {
-            if (input_->TriggerKey(DIK_W)     ||
-                input_->TriggerKey(DIK_UP)    ||
-                input_->TriggerKey(DIK_SPACE)) {
-                playerVelocityY_ = kJumpPower_;
-                playerOnGround_  = false;
-            }
-        }
-
-        // 重力・落下
-        playerVelocityY_ -= kGravity_;
-        playerPos_.y     += playerVelocityY_;
-
-        // 着地判定（床クランプ）
-        if (playerPos_.y <= kGroundY_) {
-            playerPos_.y     = kGroundY_;
-            playerVelocityY_ = 0.0f;
-            playerOnGround_  = true;
-        }
-
-        // 天井クランプ（頭をぶつけたら速度をゼロに）
-        if (playerPos_.y > kCeilingY_) {
-            playerPos_.y     = kCeilingY_;
-            playerVelocityY_ = 0.0f;
-        }
-        // 左右クランプ
-        playerPos_.x = std::clamp(playerPos_.x, kPlayerMinX_, kPlayerMaxX_);
-
-        player_->SetPosition(playerPos_);
-        player_->Update();
-    }
+    // ----- プレイヤー更新 -----
+    player_->Update(input_);
 
     // ----- カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）-----
     // fovY=0.45rad, dist=30 のとき Z=0 面の可視半幅≈12.25、可視半高≈6.89
@@ -283,10 +254,11 @@ void GamePlayScene::Update()
     {
         constexpr float kHalfW = 12.25f;
         constexpr float kHalfH =  6.89f;
-        constexpr float kBlkR  =  0.5f;  // ブロック半径
+        constexpr float kBlkR  =  0.5f;
+        const Vector3& ppos = player_->GetPosition();
         cameraTargetPos_ = {
-            std::clamp(playerPos_.x,       2.0f - kBlkR + kHalfW,  28.0f + kBlkR - kHalfW),
-            std::clamp(playerPos_.y + 6.0f, -0.6f - kBlkR + kHalfH, 13.0f + kBlkR - kHalfH),
+            std::clamp(ppos.x,       2.0f - kBlkR + kHalfW,  28.0f + kBlkR - kHalfW),
+            std::clamp(ppos.y + 6.0f, -0.6f - kBlkR + kHalfH, 13.0f + kBlkR - kHalfH),
             -30.0f
         };
     }
@@ -310,8 +282,7 @@ void GamePlayScene::Update()
     enemy_->Update();
 
     // ----- 天球の更新（カメラに追従し、ゲーム内時刻に合わせて回転）-----
-    float timeRatio = gameTime_.GetElapsedMinutes() / GameTime::kTotalGameMinutes;
-    skydome_->Update(camera_.get(), timeRatio);
+    skydome_->Update(camera_.get());
 
     // ----- 境界ブロックの更新（カメラが動くたびに WVP 行列を再計算）-----
     for (auto& block : borderBlocks_) {
@@ -320,6 +291,56 @@ void GamePlayScene::Update()
 
     // ----- デバッグ UI 更新 -----
     sceneEditor_.Update(BuildEditContext());
+
+    // ----- パーティクル発生 -----
+    {
+        const Vector3& ppos = player_->GetPosition();
+
+        // 着地ほこり
+        if (player_->JustLanded()) {
+            static std::mt19937 dustRng{ std::random_device{}() };
+            std::uniform_real_distribution<float> vxL(-3.5f, -1.2f);
+            std::uniform_real_distribution<float> vxR( 1.2f,  3.5f);
+            std::uniform_real_distribution<float> vyD( 0.8f,  2.2f);
+            for (int i = 0; i < 4; ++i) {
+                pm_->EmitGravity("land_dust", ppos, { vxL(dustRng), vyD(dustRng), 0.0f },
+                    { 0.85f, 0.78f, 0.65f, 0.7f }, 0.4f, 0.22f);
+                pm_->EmitGravity("land_dust", ppos, { vxR(dustRng), vyD(dustRng), 0.0f },
+                    { 0.85f, 0.78f, 0.65f, 0.7f }, 0.4f, 0.22f);
+            }
+        }
+
+        // ジャンプ煙
+        if (player_->JustJumped()) {
+            pm_->EmitRing("jump_smoke", ppos, 1.8f, { 0.9f, 0.9f, 0.9f, 0.45f }, 7, 0.22f, 0.28f);
+        }
+
+        // 残像: 横移動 or 空中
+        bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
+                    || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
+        if (movingX || !player_->IsOnGround()) {
+            pm_->EmitTrail("trail", ppos, { 0.4f, 0.75f, 1.0f, 0.55f }, 0.35f, 0.14f);
+        }
+
+        // 敵との当たり判定（簡易 AABB: 1辺 1.0 の正方形）
+        hitCooldown_ -= GameConstants::kFrameDeltaTime;
+        float dx = std::abs(ppos.x - enemyPos_.x);
+        float dy = std::abs(ppos.y - enemyPos_.y);
+        if (dx < 1.0f && dy < 1.0f && hitCooldown_ <= 0.0f) {
+            hitCooldown_ = 0.5f;
+            Vector3 hitPos = { (ppos.x + enemyPos_.x) * 0.5f,
+                               (ppos.y + enemyPos_.y) * 0.5f, 0.0f };
+            pm_->EmitRing("hit_ring", hitPos, 4.0f, { 1.0f, 0.85f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
+            static std::mt19937 rng{ std::random_device{}() };
+            std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
+            std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
+            for (int i = 0; i < 8; ++i) {
+                pm_->EmitGravity("hit_spark", hitPos,
+                    { vxD(rng), vyD(rng), 0.0f },
+                    { 1.0f, 0.55f, 0.1f, 1.0f }, 0.7f, 0.15f);
+            }
+        }
+    }
 
     // ---- クリア条件チェック ----
     // ImGui ボタン or タイマー満了のどちらかでクリア演出を起動する
@@ -440,6 +461,11 @@ void GamePlayScene::Draw()
     player_->Draw();
     enemy_->Draw();
 
+    // ----- パーティクル更新（CS ディスパッチ）＆描画 -----
+    // ※ PreDraw() がコマンドリストをリセットするため、pm_->Update は必ず Draw() 内で呼ぶ
+    pm_->Update(camera_.get());
+    pm_->Draw(camera_.get());
+
     // ----- 2D UI（ImGuiで追加したスプライト要素）-----
     // SceneEditor で追加したスプライト UI をすべて描画する
     spriteCommon_->CommonDrawSettings();
@@ -468,6 +494,7 @@ void GamePlayScene::Draw()
 
 void GamePlayScene::Finalize()
 {
+    pm_->ClearAllGroups();
     glassShatter_.Finalize();
 
     // 音を全部止める（BGM・SE どちらも）

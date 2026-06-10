@@ -32,6 +32,7 @@
 
 // --- ゲームロジック・オブジェクト ---
 #include "Object3d.h"
+#include "Player.h"
 #include "GameTime.h"
 #include "MapChipField.h"
 #include "Skydome.h"
@@ -45,6 +46,7 @@
 class GrayscaleEffect;
 class HsvFilter;
 class ImageFilter;
+class ParticleManager;
 class ScoreManager;
 
 /**
@@ -112,6 +114,7 @@ private:
     GrayscaleEffect* grayscaleEffect_ = nullptr; // 画面をグレースケールにするポストエフェクト
     ImageFilter*     imageFilter_     = nullptr; // 画像フィルタ全般のポストエフェクト
     HsvFilter*       hsvFilter_       = nullptr; // 色相・彩度・明度を調整するポストエフェクト
+    ParticleManager* pm_              = nullptr; // パーティクル管理
 
     // --- 描画・共通基盤リソース ---
     // unique_ptr = 「このクラスだけが所有者」という意味。delete も自動でやってくれる
@@ -134,19 +137,7 @@ private:
     std::vector<std::unique_ptr<Object3d>>   borderBlocks_;
 
     // --- プレイヤー ---
-    std::unique_ptr<Model>    modelPlayer_;
-    std::unique_ptr<Object3d> player_;
-    Vector3 playerPos_        = { 8.0f, 0.4f, 0.0f };
-    float   playerSpeed_      = 0.15f;
-    float   playerVelocityY_  = 0.0f;
-    bool    playerOnGround_   = true;
-
-    static constexpr float kGroundY_    = 0.4f;   // 床ブロック上面 + プレイヤー半径
-    static constexpr float kCeilingY_  = 12.0f;  // 天井クランプ上限
-    static constexpr float kPlayerMinX_ = 3.0f;  // 左端クランプ
-    static constexpr float kPlayerMaxX_ = 27.0f; // 右端クランプ
-    static constexpr float kGravity_   = 0.012f;  // 毎フレームの重力加速度
-    static constexpr float kJumpPower_ = 0.4f;    // ジャンプ初速
+    std::unique_ptr<Player> player_;
 
     // --- 敵 ---
     std::unique_ptr<Model>    modelEnemy_;
@@ -177,6 +168,9 @@ private:
     // --- デバッグ・エディタ ---
     // ImGui を使ってゲーム実行中にパラメータをリアルタイムで調整できるエディタ
     SceneEditor sceneEditor_;
+
+    // --- パーティクル ---
+    float hitCooldown_ = 0.0f; // 敵ヒット時のエフェクト連発防止タイマー
 
     // --- クリア演出 ---
     GlassShatterEffect glassShatter_;
