@@ -1,5 +1,6 @@
 #include "Input.h"
 #include <cassert>
+#include <cmath>
 #include <dinput.h>
 
 #pragma comment(lib, "dinput8.lib")
@@ -37,8 +38,6 @@ void Input::Initialize(WinApp* winApp)
 }
 
 void Input::Update() {
-    HRESULT result;
-
     // ゲームコントローラー更新
     UpdateGamepad();
 
