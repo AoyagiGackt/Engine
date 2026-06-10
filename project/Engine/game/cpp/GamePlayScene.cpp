@@ -399,8 +399,8 @@ void GamePlayScene::Draw()
         return;
     }
 
-    // ----- オフスクリーンパス（赤でクリアしてSRVに遷移）-----
-    // 一旦テクスチャに描画してからスプライトとして貼ることで、ポストエフェクトをかけられる
+    // renderTextureSprite_ を後段で SRV として使うために PIXEL_SHADER_RESOURCE 状態へ遷移する
+    // （中身は赤でクリアされるが、すぐ上から renderTextureSprite_ で上書きされるので見えない）
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 

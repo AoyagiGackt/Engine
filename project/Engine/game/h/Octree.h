@@ -1,8 +1,9 @@
 #pragma once
 #include "CollisionConfig.h"
 #include "GameObject.h"
-#include <vector>
+#include <algorithm>
 #include <utility>
+#include <vector>
 
 /**
  * @file Octree.h
@@ -27,26 +28,35 @@ public:
      * @param objects     判定対象のオブジェクト一覧
      */
     void Build(const AABB& worldBounds, const std::vector<GameObject*>& objects) {
-        objects_ = objects;                 // コピー（毎フレーム差し替え可）
+        objects_ = &objects;                // ポインタ保持（Build〜GetPotentialPairs 間は呼び出し元が生存を保証）
         nodes_.clear();
         nodes_.reserve(objects.size() * 4 + 16); // 再アロケーションを抑制
 
         AllocNode(worldBounds);             // index 0 = ルートノード
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+        for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
             Insert(0, i, 0);
         }
     }
 
     /**
-     * @brief 衝突可能性があるオブジェクトペアを列挙する
+     * @brief 衝突可能性があるオブジェクトペアを列挙する（重複なし）
      * @param[out] outPairs 候補ペアを追記するベクタ（クリアはしない）
-     *
-     * @note 同じペアが複数回出力されることがあります（重複チェックはナロー側で行ってください）。
      */
     void GetPotentialPairs(std::vector<std::pair<GameObject*, GameObject*>>& outPairs) const {
         if (nodes_.empty()) { return; }
+
+        std::vector<std::pair<GameObject*, GameObject*>> raw;
         std::vector<int> ancestors;
-        CollectPairs(0, ancestors, outPairs);
+        CollectPairs(0, ancestors, raw);
+
+        // ポインタ値で正規化（小さい方を first に統一）してからソート＋重複除去
+        for (auto& p : raw) {
+            if (p.first > p.second) { std::swap(p.first, p.second); }
+        }
+        std::sort(raw.begin(), raw.end());
+        raw.erase(std::unique(raw.begin(), raw.end()), raw.end());
+
+        outPairs.insert(outPairs.end(), raw.begin(), raw.end());
     }
 
 private:
@@ -60,8 +70,8 @@ private:
         explicit Node(const AABB& b) : bounds(b) {}
     };
 
-    std::vector<Node>        nodes_;
-    std::vector<GameObject*> objects_; ///< Build 時のオブジェクト一覧コピー
+    std::vector<Node>               nodes_;
+    const std::vector<GameObject*>* objects_ = nullptr; ///< Build() で渡されたオブジェクトリストへのポインタ
 
     // -------- ヘルパー --------
 
@@ -94,7 +104,7 @@ private:
     // -------- 挿入（再帰） --------
 
     void Insert(int nodeIdx, int objIdx, int depth) {
-        AABB objBounds = objects_[objIdx]->GetCollider().GetBroadAABB();
+        AABB objBounds = (*objects_)[objIdx]->GetCollider().GetBroadAABB();
         if (!AABBOverlap(nodes_[nodeIdx].bounds, objBounds)) { return; }
 
         // 葉ノードで余裕があれば直接格納
@@ -155,15 +165,15 @@ private:
         // このノードのオブジェクト同士
         for (int i = 0; i < static_cast<int>(node.objIndices.size()); ++i) {
             for (int j = i + 1; j < static_cast<int>(node.objIndices.size()); ++j) {
-                pairs.emplace_back(objects_[node.objIndices[i]],
-                                   objects_[node.objIndices[j]]);
+                pairs.emplace_back((*objects_)[node.objIndices[i]],
+                                   (*objects_)[node.objIndices[j]]);
             }
         }
 
         // 祖先ノードのオブジェクト × このノードのオブジェクト
         for (int ai : ancestors) {
             for (int bi : node.objIndices) {
-                pairs.emplace_back(objects_[ai], objects_[bi]);
+                pairs.emplace_back((*objects_)[ai], (*objects_)[bi]);
             }
         }
 

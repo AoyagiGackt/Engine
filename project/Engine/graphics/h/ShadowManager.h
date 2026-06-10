@@ -15,7 +15,15 @@ class SrvManager;
 
 class ShadowManager {
 public:
-    static const UINT kShadowMapSize = 2048; ///< シャドウマップ解像度
+    static const UINT  kShadowMapSize    = 2048;          ///< シャドウマップ解像度
+    static constexpr float kSceneCenterX = 15.0f;         ///< シャドウ計算用シーン中心 X
+    static constexpr float kSceneCenterY =  5.0f;         ///< シャドウ計算用シーン中心 Y
+    static constexpr float kSceneCenterZ =  0.0f;         ///< シャドウ計算用シーン中心 Z
+    static constexpr float kLightDistance = 40.0f;        ///< ライト位置をシーン中心から引く距離
+    static constexpr float kShadowViewWidth  = 40.0f;     ///< 平行投影の幅
+    static constexpr float kShadowViewHeight = 25.0f;     ///< 平行投影の高さ
+    static constexpr float kShadowNearZ =  0.1f;          ///< シャドウ Near 面
+    static constexpr float kShadowFarZ  = 80.0f;          ///< シャドウ Far 面
 
     /**
      * @brief 初期化（シャドウマップリソース・DSV・SRV を作成）

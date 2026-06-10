@@ -84,7 +84,9 @@ public:
 
     /**
      * @brief アニメーション用のローカル行列を直接セットする
-     * @note セットすると Update() 内の通常のアフィン行列計算より優先される
+     * @note セットすると Update() 内の通常のアフィン行列計算より優先される。
+     *       SetLocalMatrix() 使用中は SetPosition() / SetRotation() / SetScale() の値は無視される。
+     *       通常のトランスフォーム制御に戻すには ClearLocalMatrix() を呼ぶこと。
      */
     void SetLocalMatrix(const Matrix4x4& mat)
     {

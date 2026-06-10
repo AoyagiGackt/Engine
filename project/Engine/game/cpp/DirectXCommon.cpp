@@ -114,8 +114,8 @@ void DirectXCommon::PreDraw()
 
     // ビューポートとシザー矩形の設定
     D3D12_VIEWPORT viewport = {};
-    viewport.Width = (float)winApp_->kClientWidth;
-    viewport.Height = (float)winApp_->kClientHeight;
+    viewport.Width    = static_cast<float>(winApp_->kClientWidth);
+    viewport.Height   = static_cast<float>(winApp_->kClientHeight);
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
     viewport.MinDepth = 0.0f;
@@ -123,10 +123,10 @@ void DirectXCommon::PreDraw()
     commandList_->RSSetViewports(1, &viewport);
 
     D3D12_RECT scissorRect = {};
-    scissorRect.left = 0;
-    scissorRect.right = winApp_->kClientWidth;
-    scissorRect.top = 0;
-    scissorRect.bottom = winApp_->kClientHeight;
+    scissorRect.left   = 0;
+    scissorRect.right  = static_cast<LONG>(winApp_->kClientWidth);
+    scissorRect.top    = 0;
+    scissorRect.bottom = static_cast<LONG>(winApp_->kClientHeight);
     commandList_->RSSetScissorRects(1, &scissorRect);
 }
 
@@ -148,16 +148,16 @@ void DirectXCommon::PostDraw()
     hr = commandList_->Close();
     assert(SUCCEEDED(hr));
 
-    // FPS固定
-    UpdateFixFPS();
-
-    // GPUコマンド実行
+    // GPUコマンド実行（FPS待機より先に投入してGPUを遊ばせない）
     ID3D12CommandList* commandLists[] = { commandList_.Get() };
     commandQueue_->ExecuteCommandLists(1, commandLists);
 
     // フリップ (画面更新)
     hr = swapChain_->Present(1, 0);
     assert(SUCCEEDED(hr));
+
+    // FPS固定（GPU が動いている間に CPU 側で余った時間を使って待機）
+    UpdateFixFPS();
 
     // フェンス同期
     fenceValue_++;

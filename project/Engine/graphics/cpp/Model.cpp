@@ -23,7 +23,9 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     isCubemap_ = TextureManager::GetInstance()->GetMetaData(textureFilePath).IsCubemap();
 
     // 拡張子で読み込み関数を切り替える
-    std::string ext = modelFilePath.substr(modelFilePath.find_last_of('.') + 1);
+    auto dotPos = modelFilePath.find_last_of('.');
+    assert(dotPos != std::string::npos && "モデルファイルパスに拡張子がありません");
+    std::string ext = modelFilePath.substr(dotPos + 1);
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
     
     if (ext == "obj") {
@@ -46,12 +48,14 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
+    HRESULT hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
         &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&vertexResource_));
+    assert(SUCCEEDED(hr));
 
     VertexData* data = nullptr;
-    vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&data));
+    hr = vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&data));
+    assert(SUCCEEDED(hr));
     std::copy(vertices_.begin(), vertices_.end(), data);
     vertexResource_->Unmap(0, nullptr);
 
@@ -71,12 +75,14 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     indexResourceDesc.SampleDesc.Count = 1;
     indexResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
+    hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
         &indexResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&indexResource_));
+    assert(SUCCEEDED(hr));
 
     uint32_t* indexData = nullptr;
-    indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+    hr = indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+    assert(SUCCEEDED(hr));
     std::copy(indices_.begin(), indices_.end(), indexData);
     indexResource_->Unmap(0, nullptr);
 

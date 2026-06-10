@@ -69,7 +69,9 @@ struct PixelShaderOutput
 // PCF シャドウ（3×3 カーネル）
 // 戻り値: 0.0=完全に影, 1.0=完全に照らされている
 // =====================================================
+// ShadowManager::kShadowMapSize (C++) と値を一致させること
 static const float kShadowMapSize = 2048.0f;
+// 深度アクネを防ぐオフセット。シャドウの縞模様が出たら増やし、影の浮きが出たら減らす
 static const float kShadowBias = 0.002f;
 
 float GetShadowFactor(float4 lightSpacePos)

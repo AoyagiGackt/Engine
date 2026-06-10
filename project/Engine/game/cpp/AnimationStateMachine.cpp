@@ -27,11 +27,7 @@ void AnimationStateMachine::AddTransition(const std::string& from,
                                           const std::string& to,
                                           const std::string& trigger)
 {
-    Transition t;
-    t.from    = from;
-    t.to      = to;
-    t.trigger = trigger;
-    transitions_.push_back(t);
+    transitions_[from].push_back({ to, trigger });
 }
 
 void AnimationStateMachine::AddAutoTransition(const std::string& from,
@@ -41,8 +37,6 @@ void AnimationStateMachine::AddAutoTransition(const std::string& from,
     if (it != states_.end()) {
         it->second.autoTransitionTo = to;
     }
-    // from が未登録でも後から AddState → autoTransitionTo を上書きできるよう
-    // Transition に積んでおく（UpdateでAutoTransition を検索するのと二重管理だが安全）
 }
 
 // ============================================================
@@ -60,13 +54,14 @@ void AnimationStateMachine::SetState(const std::string& name)
 
 void AnimationStateMachine::Trigger(const std::string& triggerName)
 {
-    for (const auto& t : transitions_) {
-        if (t.from == currentState_ && t.trigger == triggerName) {
+    auto it = transitions_.find(currentState_);
+    if (it == transitions_.end()) { return; }
+    for (const auto& t : it->second) {
+        if (t.trigger == triggerName) {
             TransitionTo(t.to);
             return; // 最初にヒットした遷移のみ実行
         }
     }
-    // 対応する遷移がなければ何もしない
 }
 
 // ============================================================

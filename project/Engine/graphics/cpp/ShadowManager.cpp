@@ -67,11 +67,11 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 void ShadowManager::Update(const Vector3& lightDir)
 {
-    Vector3 sceneCenter = { 15.0f, 5.0f, 0.0f };
+    Vector3 sceneCenter = { kSceneCenterX, kSceneCenterY, kSceneCenterZ };
     Vector3 lightEye = {
-        sceneCenter.x - lightDir.x * 40.0f,
-        sceneCenter.y - lightDir.y * 40.0f,
-        sceneCenter.z - lightDir.z * 40.0f,
+        sceneCenter.x - lightDir.x * kLightDistance,
+        sceneCenter.y - lightDir.y * kLightDistance,
+        sceneCenter.z - lightDir.z * kLightDistance,
     };
 
     // LookAt 行列（ライト視点）
@@ -82,6 +82,7 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float fwdLen = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
+    if (fwdLen < 1e-6f) { return; } // ライトがシーン中心と重なる場合は更新しない
     fwd = { fwd.x / fwdLen, fwd.y / fwdLen, fwd.z / fwdLen };
 
     Vector3 up = { 0.0f, 1.0f, 0.0f };
@@ -98,6 +99,7 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float rightLen = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
+    if (rightLen < 1e-6f) { return; } // 縮退ケース防止
     right = { right.x / rightLen, right.y / rightLen, right.z / rightLen };
 
     // realUp = fwd × right
@@ -131,10 +133,10 @@ void ShadowManager::Update(const Vector3& lightDir)
     view.m[3][3] = 1;
 
     // 平行投影行列（DirectX 深度 0-1）
-    float w = 40.0f;
-    float h = 25.0f;
-    float nearZ = 0.1f;
-    float farZ = 80.0f;
+    const float w     = kShadowViewWidth;
+    const float h     = kShadowViewHeight;
+    const float nearZ = kShadowNearZ;
+    const float farZ  = kShadowFarZ;
 
     Matrix4x4 proj = {};
     proj.m[0][0] = 2.0f / w;
@@ -168,8 +170,8 @@ void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
     commandList->OMSetRenderTargets(0, nullptr, FALSE, &dsv);
     commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-    D3D12_VIEWPORT vp = { 0, 0, (float)kShadowMapSize, (float)kShadowMapSize, 0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, (LONG)kShadowMapSize, (LONG)kShadowMapSize };
+    D3D12_VIEWPORT vp = { 0, 0, static_cast<float>(kShadowMapSize), static_cast<float>(kShadowMapSize), 0.0f, 1.0f };
+    D3D12_RECT scissor = { 0, 0, static_cast<LONG>(kShadowMapSize), static_cast<LONG>(kShadowMapSize) };
     commandList->RSSetViewports(1, &vp);
     commandList->RSSetScissorRects(1, &scissor);
 }
