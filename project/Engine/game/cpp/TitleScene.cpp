@@ -28,7 +28,7 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 void TitleScene::Update()
 {
     if (input_->TriggerKey(DIK_SPACE)) {
-        SceneManager::GetInstance()->ChangeSceneWithLoading("GAMEPLAY");
+        SceneManager::GetInstance()->ChangeScene("TRAINING");
     }
 
     titleSprite_->Update();

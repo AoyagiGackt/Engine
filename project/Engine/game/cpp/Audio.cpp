@@ -284,3 +284,28 @@ void Audio::StopAllSE()
     }
     seVoices_.clear();
 }
+
+// =====================================================
+// BGM フェード
+// =====================================================
+
+void Audio::FadeVolumeTo(float targetVolume, float duration)
+{
+    if (!bgmVoice_) { return; }
+    bgmFadeStartVolume_ = bgmCurrentVolume_;
+    bgmTargetVolume_    = std::clamp(targetVolume, 0.0f, 1.0f);
+    bgmFadeDuration_    = (duration > 0.0f) ? duration : 0.0f;
+    bgmFadeTimer_       = 0.0f;
+}
+
+void Audio::Update(float dt)
+{
+    if (!bgmVoice_ || bgmFadeDuration_ <= 0.0f) { return; }
+
+    bgmFadeTimer_ += dt;
+    float t = std::clamp(bgmFadeTimer_ / bgmFadeDuration_, 0.0f, 1.0f);
+    bgmCurrentVolume_ = bgmFadeStartVolume_ + (bgmTargetVolume_ - bgmFadeStartVolume_) * t;
+    bgmVoice_->SetVolume(bgmCurrentVolume_);
+
+    if (t >= 1.0f) { bgmFadeDuration_ = 0.0f; }
+}

@@ -103,6 +103,24 @@ public:
     void StopAllSE();
 
     // =====================================================
+    // BGM フェード
+    // =====================================================
+
+    /**
+     * @brief BGM の音量を duration 秒かけて targetVolume へフェードする
+     * @param targetVolume 目標音量（0.0f〜1.0f）
+     * @param duration     フェードにかかる秒数
+     */
+    void FadeVolumeTo(float targetVolume, float duration);
+
+    // =====================================================
+    // 毎フレーム更新（Framework::Update から呼ぶ）
+    // =====================================================
+
+    /** @brief フェードアニメーションを進める。dt = 経過秒数（1/60 など）*/
+    void Update(float dt);
+
+    // =====================================================
     // 後方互換 API（PlayWave / StopWave）
     // =====================================================
 
@@ -130,4 +148,11 @@ private:
 
     /** @brief SE チャンネル（複数同時再生） */
     std::vector<IXAudio2SourceVoice*> seVoices_;
+
+    // --- BGM フェード状態 ---
+    float bgmCurrentVolume_   = 1.0f;
+    float bgmTargetVolume_    = 1.0f;
+    float bgmFadeStartVolume_ = 1.0f;
+    float bgmFadeDuration_    = 0.0f;
+    float bgmFadeTimer_       = 0.0f;
 };

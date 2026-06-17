@@ -31,8 +31,13 @@
 #include "SrvManager.h"
 
 // --- ゲームロジック・オブジェクト ---
+#include "CameraShaker.h"
+#include "Collision.h"
+#include "FontRenderer.h"
 #include "Object3d.h"
 #include "Player.h"
+#include "TimeManager.h"
+#include "WaterPool.h"
 #include "GameTime.h"
 #include "MapChipField.h"
 #include "Skydome.h"
@@ -79,6 +84,9 @@ private:
 
     // シャドウマップ（影の元になる深度画像）の描画パスのみを実行する
     void DrawShadowPass();
+
+    // スタイル&コマンドUI（ImGui）を描画する
+    void DrawStyleUI();
 
     // アクティブなポストエフェクトの描画先 RTV を返す（なければバックバッファ）
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
@@ -172,6 +180,24 @@ private:
     // --- パーティクル ---
     float hitCooldown_ = 0.0f; // 敵ヒット時のエフェクト連発防止タイマー
 
+    // --- 残像（モデルゴースト）---
+    struct GhostEntry { Vector3 pos; float age; };
+    std::deque<GhostEntry>     ghostTrail_;
+    std::unique_ptr<Object3d>  ghostObject_;
+    float                      ghostSpawnTimer_ = 0.0f;
+
+    // --- 覚醒オーラ（連続エミット用タイマー）---
+    float auraTimer_ = 0.0f;
+
+    // --- スタイルメーター（コンボランク算出用）---
+    float styleMeter_ = 0.0f;
+
+    // --- ゲームプレイ UI テキスト描画 ---
+    FontRenderer fontRenderer_;
+
+    // --- カメラシェイク ---
+    CameraShaker cameraShaker_;
+
     // --- クリア演出 ---
     GlassShatterEffect glassShatter_;
     bool clearTriggered_ = false; // ガラス割れ開始済みフラグ（二重起動防止）
@@ -179,4 +205,7 @@ private:
 
     // ガラスが割れている間（約1.6秒）に背後へ表示する白背景
     std::unique_ptr<Sprite> clearBgSprite_;
+
+    // --- 水面エフェクト ---
+    std::unique_ptr<WaterPool> waterPool_;
 };

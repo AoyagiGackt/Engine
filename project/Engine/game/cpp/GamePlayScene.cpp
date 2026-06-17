@@ -1,5 +1,7 @@
 #include "GamePlayScene.h"
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <random>
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
@@ -9,6 +11,7 @@
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "TextureManager.h"
+#include "WeaponManager.h"
 
 // =====================================================
 // 初期化
@@ -137,16 +140,33 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ----- パーティクルグループ登録 -----
     pm_ = ParticleManager::GetInstance();
-    pm_->CreateParticleGroup("trail",      "Resources/circle2.png");
-    pm_->CreateParticleGroup("hit_ring",  "Resources/circle2.png");
-    pm_->CreateParticleGroup("hit_spark", "Resources/circle2.png");
-    pm_->CreateParticleGroup("land_dust", "Resources/circle2.png");
-    pm_->CreateParticleGroup("jump_smoke","Resources/circle2.png");
-    pm_->SetAdditiveBlend("trail",      false);
-    pm_->SetAdditiveBlend("hit_ring",   true);
-    pm_->SetAdditiveBlend("hit_spark",  true);
-    pm_->SetAdditiveBlend("land_dust",  false);
-    pm_->SetAdditiveBlend("jump_smoke", false);
+    pm_->CreateParticleGroup("hit_ring",    "Resources/circle2.png");
+    pm_->CreateParticleGroup("hit_spark",   "Resources/circle2.png");
+    pm_->CreateParticleGroup("land_dust",   "Resources/circle2.png");
+    pm_->CreateParticleGroup("jump_smoke",  "Resources/circle2.png");
+    pm_->CreateParticleGroup("sword_slash", "Resources/circle2.png");
+    pm_->CreateParticleGroup("gun_shot",    "Resources/circle2.png");
+    pm_->CreateParticleGroup("blink_trail", "Resources/circle2.png");
+    pm_->CreateParticleGroup("awaken_aura", "Resources/circle2.png");
+    pm_->SetAdditiveBlend("hit_ring",    true);
+    pm_->SetAdditiveBlend("hit_spark",   true);
+    pm_->SetAdditiveBlend("land_dust",   false);
+    pm_->SetAdditiveBlend("jump_smoke",  false);
+    pm_->SetAdditiveBlend("sword_slash", true);
+    pm_->SetAdditiveBlend("gun_shot",    true);
+    pm_->SetAdditiveBlend("blink_trail", true);
+    pm_->SetAdditiveBlend("awaken_aura", true);
+
+    waterPool_ = std::make_unique<WaterPool>();
+    waterPool_->Initialize(spriteCommon_.get());
+
+    fontRenderer_.Initialize(spriteCommon_.get());
+
+    // ----- 残像用ゴーストオブジェクト -----
+    ghostObject_ = std::make_unique<Object3d>();
+    ghostObject_->Initialize(modelCommon_.get());
+    ghostObject_->SetModel(player_->GetModel());
+    ghostObject_->SetEnableLighting(false);
 
     // ----- デバッグパラメータ読み込み -----
     // 前回エディタで保存したカメラ位置・UIレイアウトなどを JSON から復元する
@@ -242,15 +262,23 @@ void GamePlayScene::Update()
         return;
     }
 
-    // ゲーム内時刻を1フレーム分進める（引数は時刻の進み速度。1.0f = リアルタイムと同じ速度）
+    auto* tm        = TimeManager::GetInstance();
+    const float dt  = tm->GetDeltaTime(); // ヒットストップ中 = 0、スロー時は比例値
+
+    // ゲーム内時刻を1フレーム分進める
     gameTime_.Update(1.0f);
 
-    // ----- プレイヤー更新 -----
-    player_->Update(input_);
+    // ----- ヒットストップ中はプレイヤー・オブジェクト物理をスキップ -----
+    if (!tm->IsHitStopped()) {
+        player_->Update(input_);
+
+        for (auto& obj : gameObjects_) { obj->Update(); }
+        enemy_->Update();
+        skydome_->Update(camera_.get());
+        for (auto& block : borderBlocks_) { block->Update(); }
+    }
 
     // ----- カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）-----
-    // fovY=0.45rad, dist=30 のとき Z=0 面の可視半幅≈12.25、可視半高≈6.89
-    // 左壁X=2, 右壁X=28, 床Y=-0.6, 天井Y=13（ブロック中心値）
     {
         constexpr float kHalfW = 12.25f;
         constexpr float kHalfH =  6.89f;
@@ -266,31 +294,35 @@ void GamePlayScene::Update()
     // カメラのスムージング（ぬるぬる補間）を更新する
     UpdateCameraSmoothing();
 
+    // カメラシェイク（スムージングの後に直接カメラ座標へ加算）
+    {
+        Vector3 shake = cameraShaker_.Update(GameConstants::kFrameDeltaTime);
+        if (shake.x != 0.0f || shake.y != 0.0f) {
+            Vector3 cam = camera_->GetTranslate();
+            camera_->SetTranslate({ cam.x + shake.x, cam.y + shake.y, cam.z });
+        }
+    }
+
     // ----- 影の更新 -----
-    // 光源方向が変わったときに影用の視錐台（光が届く範囲）を更新する
     shadowManager_->Update(objectCommon_->GetLightDirection());
-
-    // 3Dオブジェクトに最新の「影行列」を渡す（シャドウマップ参照に使う）
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-
-    // ----- ゲームオブジェクトの更新 -----
-    for (auto& obj : gameObjects_) {
-        obj->Update();
-    }
-
-    // ----- 敵（静止、カメラ変化に合わせて WVP を更新するだけ）-----
-    enemy_->Update();
-
-    // ----- 天球の更新（カメラに追従し、ゲーム内時刻に合わせて回転）-----
-    skydome_->Update(camera_.get());
-
-    // ----- 境界ブロックの更新（カメラが動くたびに WVP 行列を再計算）-----
-    for (auto& block : borderBlocks_) {
-        block->Update();
-    }
 
     // ----- デバッグ UI 更新 -----
     sceneEditor_.Update(BuildEditContext());
+
+    // ── スタイルメーター更新（dt=0 のときは自然に止まる）──
+    if (player_->JustComboHit()) {
+        styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
+    }
+    if (player_->JustFired()) {
+        styleMeter_ = std::clamp(styleMeter_ + 0.05f, 0.0f, 1.0f);
+    }
+    if (player_->JustBlinked()) {
+        styleMeter_ = std::clamp(styleMeter_ + 0.10f, 0.0f, 1.0f);
+    }
+    styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt, 0.0f, 1.0f);
+
+    DrawStyleUI();
 
     // ----- パーティクル発生 -----
     {
@@ -315,35 +347,109 @@ void GamePlayScene::Update()
             pm_->EmitRing("jump_smoke", ppos, 1.8f, { 0.9f, 0.9f, 0.9f, 0.45f }, 7, 0.22f, 0.28f);
         }
 
-        // 残像: 横移動 or 空中
+        // 残像: 横移動 or 空中 → プレイヤーモデルのゴーストを一定間隔でスポーン
         bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
                     || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
         if (movingX || !player_->IsOnGround()) {
-            pm_->EmitTrail("trail", ppos, { 0.4f, 0.75f, 1.0f, 0.55f }, 0.35f, 0.14f);
+            ghostSpawnTimer_ -= dt;
+            if (ghostSpawnTimer_ <= 0.0f) {
+                ghostSpawnTimer_ = 0.05f;
+                ghostTrail_.push_back({ ppos, 0.0f });
+            }
+        } else {
+            ghostSpawnTimer_ = 0.0f;
+        }
+        constexpr float kGhostLifetime = 0.3f;
+        for (auto& g : ghostTrail_) { g.age += dt; }
+        while (!ghostTrail_.empty() && ghostTrail_.front().age >= kGhostLifetime) {
+            ghostTrail_.pop_front();
         }
 
-        // 敵との当たり判定（簡易 AABB: 1辺 1.0 の正方形）
-        hitCooldown_ -= GameConstants::kFrameDeltaTime;
-        float dx = std::abs(ppos.x - enemyPos_.x);
-        float dy = std::abs(ppos.y - enemyPos_.y);
-        if (dx < 1.0f && dy < 1.0f && hitCooldown_ <= 0.0f) {
-            hitCooldown_ = 0.5f;
-            Vector3 hitPos = { (ppos.x + enemyPos_.x) * 0.5f,
-                               (ppos.y + enemyPos_.y) * 0.5f, 0.0f };
-            pm_->EmitRing("hit_ring", hitPos, 4.0f, { 1.0f, 0.85f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
-            static std::mt19937 rng{ std::random_device{}() };
-            std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
-            std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
-            for (int i = 0; i < 8; ++i) {
-                pm_->EmitGravity("hit_spark", hitPos,
-                    { vxD(rng), vyD(rng), 0.0f },
-                    { 1.0f, 0.55f, 0.1f, 1.0f }, 0.7f, 0.15f);
+        // 敵との当たり判定（Collision::CheckCollision を使用）
+        hitCooldown_ -= dt;
+        {
+            Collider playerCol = player_->GetCollider();
+            AABB enemyAABB = { { enemyPos_.x - 0.5f, enemyPos_.y - 0.5f, -0.5f },
+                               { enemyPos_.x + 0.5f, enemyPos_.y + 0.5f,  0.5f } };
+            if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
+                hitCooldown_ = 0.5f;
+
+                // ヒットストップ＋カメラシェイク
+                tm->RequestHitStop(5);
+                cameraShaker_.Request(0.18f, 0.15f);
+
+                Vector3 hitPos = { (ppos.x + enemyPos_.x) * 0.5f,
+                                   (ppos.y + enemyPos_.y) * 0.5f, 0.0f };
+                pm_->EmitRing("hit_ring", hitPos, 4.0f, { 1.0f, 0.85f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
+                static std::mt19937 rng{ std::random_device{}() };
+                std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
+                std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
+                for (int i = 0; i < 8; ++i) {
+                    pm_->EmitGravity("hit_spark", hitPos,
+                        { vxD(rng), vyD(rng), 0.0f },
+                        { 1.0f, 0.55f, 0.1f, 1.0f }, 0.7f, 0.15f);
+                }
             }
+        }
+
+        // ── スタイル技エフェクト ───────────────────────────────────
+        auto* wm = WeaponManager::GetInstance();
+        const auto& styles = wm->GetList();
+
+        if (player_->JustComboHit()) {
+            int   step = player_->GetComboStep();
+            float dir  = player_->GetLastDirX();
+            float ang  = (dir > 0.0f) ? 0.0f : GameConstants::kPi;
+            const auto& sc = styles[wm->GetIndex()].styleColor;
+            Vector4 col = { sc[0], sc[1], sc[2], sc[3] };
+            float   rad = 0.8f + (step - 1) * 0.45f;
+            pm_->EmitSlash("sword_slash", ppos, ang, col, rad);
+            if (step == 3) {
+                pm_->EmitRing("sword_slash", ppos, 3.5f, col, 10, 0.3f, 0.22f);
+            }
+            // コンボヒット時にヒットストップ＋軽い揺れ
+            tm->RequestHitStop(3);
+            cameraShaker_.Request(0.10f * step, 0.10f);
+        }
+
+        if (player_->JustFired()) {
+            float dir = player_->GetLastDirX();
+            const auto& sc = styles[wm->GetIndex()].styleColor;
+            Vector4 col = { sc[0], sc[1], sc[2], sc[3] };
+            for (int i = 0; i < 4; ++i) {
+                float spread = (i - 1.5f) * 0.12f;
+                pm_->EmitWithColor("gun_shot", ppos,
+                    { dir * (7.0f + i * 1.5f), spread, 0.0f },
+                    col, 0.35f, 0.14f);
+            }
+        }
+
+        if (player_->JustBlinked()) {
+            const auto& sc = styles[2].styleColor;
+            Vector4 col = { sc[0], sc[1], sc[2], 0.75f };
+            pm_->EmitRing("blink_trail", ppos, 2.8f, col, 10, 0.28f, 0.17f);
+        }
+
+        if (player_->JustChargedGauge()) {
+            Vector4 col = { 0.75f, 0.25f, 1.0f, 0.9f };
+            pm_->EmitRing("awaken_aura", ppos, 1.6f, col, 8, 0.38f, 0.2f);
+        }
+
+        // 覚醒中オーラ（連続）
+        if (player_->IsAwakened()) {
+            auraTimer_ += dt;
+            if (auraTimer_ >= 0.07f) {
+                auraTimer_ = 0.0f;
+                pm_->EmitWithColor("awaken_aura", ppos,
+                    { 0.0f, 0.4f, 0.0f },
+                    { 1.0f, 0.88f, 0.25f, 0.45f }, 0.45f, 0.28f, true);
+            }
+        } else {
+            auraTimer_ = 0.0f;
         }
     }
 
     // ---- クリア条件チェック ----
-    // ImGui ボタン or タイマー満了のどちらかでクリア演出を起動する
     if (requestClear_ || gameTime_.IsCleared()) {
         requestClear_   = false;
         clearTriggered_ = true;
@@ -457,6 +563,21 @@ void GamePlayScene::Draw()
         block->Draw();
     }
 
+    // ----- 残像ゴーストを描画（プレイヤーより先に描くことでプレイヤーが前面に来る）-----
+    if (!ghostTrail_.empty()) {
+        constexpr float kGhostLifetime = 0.3f;
+        modelCommon_->CommonDrawSettings();
+        objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
+        shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
+        for (const auto& g : ghostTrail_) {
+            float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
+            ghostObject_->SetPosition(g.pos);
+            ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
+            ghostObject_->Update();
+            ghostObject_->Draw();
+        }
+    }
+
     // ----- プレイヤー・敵を描画 -----
     player_->Draw();
     enemy_->Draw();
@@ -476,6 +597,9 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
+    // ----- ゲームプレイ UI テキスト -----
+    fontRenderer_.Draw();
+
     // ----- フィルター適用 -----
     ApplyActiveFilter();
 
@@ -485,6 +609,124 @@ void GamePlayScene::Draw()
             glassShatter_.CaptureFrame();
         }
         glassShatter_.Apply();
+    }
+}
+
+// =====================================================
+// スタイル＆コマンド UI（FontRenderer）
+// =====================================================
+
+void GamePlayScene::DrawStyleUI()
+{
+    auto* wm = WeaponManager::GetInstance();
+    const WeaponData& style = wm->GetCurrent();
+    const int         idx   = wm->GetIndex();
+    const int         total = wm->GetCount();
+
+    const float gauge    = player_->GetAwakenGauge();
+    const bool  awakened = player_->IsAwakened();
+    const int   combo    = player_->GetComboStep();
+
+    constexpr float kScale = 1.5f;
+    constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f; // ~28px
+
+    fontRenderer_.Reset();
+
+    // ══════════════════════════════════════════════════════
+    // 右上：コンボランク ＋ 覚醒ゲージ
+    // ══════════════════════════════════════════════════════
+    {
+        // ランク算出
+        struct RankInfo { const char* label; Vector4 color; };
+        RankInfo ri;
+        if      (styleMeter_ >= 0.90f) ri = { "SSS", { 1.0f, 0.15f, 0.15f, 1.0f } };
+        else if (styleMeter_ >= 0.70f) ri = { "SS",  { 1.0f, 0.85f, 0.00f, 1.0f } };
+        else if (styleMeter_ >= 0.50f) ri = { "S",   { 0.2f, 0.85f, 1.00f, 1.0f } };
+        else if (styleMeter_ >= 0.30f) ri = { "A",   { 0.95f,0.55f, 0.15f, 1.0f } };
+        else if (styleMeter_ >= 0.15f) ri = { "B",   { 0.85f,0.85f, 0.20f, 1.0f } };
+        else if (styleMeter_ >= 0.05f) ri = { "C",   { 0.85f,0.85f, 0.85f, 1.0f } };
+        else                           ri = { "D",   { 0.45f,0.45f, 0.45f, 1.0f } };
+
+        // ランク文字（大きく右揃え）
+        constexpr float kRankScale = 4.0f;
+        int   rankLen = static_cast<int>(strlen(ri.label));
+        float rankX   = 1260.0f - rankLen * FontRenderer::kCharW * kRankScale;
+        fontRenderer_.DrawString(ri.label, rankX, 20.0f, kRankScale, ri.color);
+
+        // 覚醒ゲージ（ランクの下）
+        float gy = 20.0f + FontRenderer::kCharH * kRankScale + 6.0f; // ~102px
+
+        if (awakened) {
+            fontRenderer_.DrawStringW(L"★ 覚醒中!", 1030.0f, gy, kScale,
+                { 1.0f, 0.88f, 0.15f, 1.0f });
+        }
+        gy += kLineH;
+
+        {
+            bool ready = (gauge >= 0.3f);
+            Vector4 col = ready ? Vector4{ 0.85f,0.5f,1.0f,1.0f }
+                                : Vector4{ 0.45f,0.45f,0.45f,1.0f };
+            fontRenderer_.DrawStringW(ready ? L"覚醒ゲージ [R]で発動" : L"覚醒ゲージ",
+                1030.0f, gy, kScale, col);
+        }
+        gy += kLineH;
+
+        {
+            int filled = std::clamp(static_cast<int>(gauge * 16.0f), 0, 16);
+            std::string bar = "[";
+            for (int i = 0; i < 16; ++i) bar += (i < filled ? '#' : ' ');
+            bar += "] ";
+            bar += std::to_string(static_cast<int>(gauge * 100.0f)) + "%";
+            Vector4 col = awakened ? Vector4{ 1.0f,0.85f,0.0f,1.0f }
+                                   : Vector4{ 0.55f,0.15f,0.9f,1.0f };
+            fontRenderer_.DrawString(bar, 1030.0f, gy, kScale, col);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 右側：スタイルコマンド UI
+    // ══════════════════════════════════════════════════════
+    constexpr float kX = 780.0f;
+    float y = 448.0f;
+
+    // スタイルインジケーター [1][2][3][4]
+    float bx = kX;
+    for (int i = 0; i < total; ++i) {
+        const auto& w = wm->GetList()[i];
+        Vector4 col = (i == idx)
+            ? Vector4{ w.styleColor[0], w.styleColor[1], w.styleColor[2], w.styleColor[3] }
+            : Vector4{ 0.45f, 0.45f, 0.45f, 1.0f };
+        std::string btn = "[" + std::to_string(i + 1) + "]";
+        fontRenderer_.DrawString(btn, bx, y, kScale, col);
+        bx += static_cast<float>(btn.size()) * FontRenderer::kCharW * kScale + 2.0f;
+    }
+    y += kLineH;
+
+    // スタイル名（日本語）
+    Vector4 styleCol{ style.styleColor[0], style.styleColor[1],
+                      style.styleColor[2], style.styleColor[3] };
+    fontRenderer_.DrawStringW(style.styleNameJp, kX, y, kScale, styleCol);
+    y += kLineH;
+
+    fontRenderer_.DrawString("--------------------", kX, y, kScale,
+        { 0.35f, 0.35f, 0.35f, 1.0f });
+    y += kLineH;
+
+    // コマンド一覧（キーはASCII、説明は日本語）
+    for (const auto& cmd : style.commands) {
+        std::wstring line = L"[" + std::wstring(cmd.key.begin(), cmd.key.end()) + L"] " + cmd.desc;
+        fontRenderer_.DrawStringW(line, kX, y, kScale, { 0.85f, 0.85f, 0.85f, 1.0f });
+        y += kLineH;
+    }
+
+    // 格闘コンボのステップ表示（全スタイル、コンボ中のみ）
+    if (combo > 0) {
+        std::wstring dots = L"コンボ: ";
+        int maxCombo = player_->GetComboMax();
+        for (int i = 1; i <= maxCombo; ++i) {
+            dots += (i <= combo) ? L"[*]" : L"[ ]";
+        }
+        fontRenderer_.DrawStringW(dots, kX, y, kScale, styleCol);
     }
 }
 

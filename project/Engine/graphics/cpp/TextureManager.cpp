@@ -310,6 +310,113 @@ void TextureManager::FlushUploads()
     assert(SUCCEEDED(hr));
 }
 
+void TextureManager::LoadFromRawRGBA8(const std::string& name,
+    const uint8_t* rgbaData, uint32_t width, uint32_t height)
+{
+    if (textureDatas_.contains(name)) { return; }
+
+    ID3D12Device* device = dxCommon_->GetDevice();
+    HRESULT hr;
+
+    // テクスチャリソース（DEFAULT heap）
+    D3D12_RESOURCE_DESC resourceDesc{};
+    resourceDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    resourceDesc.Width            = width;
+    resourceDesc.Height           = height;
+    resourceDesc.DepthOrArraySize = 1;
+    resourceDesc.MipLevels        = 1;
+    resourceDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+    resourceDesc.SampleDesc.Count = 1;
+    resourceDesc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+    D3D12_HEAP_PROPERTIES defaultHeap{};
+    defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    ComPtr<ID3D12Resource> resource;
+    hr = device->CreateCommittedResource(
+        &defaultHeap, D3D12_HEAP_FLAG_NONE,
+        &resourceDesc, D3D12_RESOURCE_STATE_COMMON,
+        nullptr, IID_PPV_ARGS(&resource));
+    assert(SUCCEEDED(hr));
+
+    // アップロードバッファ（行ピッチアライメントを考慮）
+    const UINT64 rowPitch =
+        ((static_cast<UINT64>(width) * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) /
+          D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) *
+         D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+    const UINT64 uploadSize = rowPitch * height;
+
+    D3D12_RESOURCE_DESC uploadDesc{};
+    uploadDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+    uploadDesc.Width            = uploadSize;
+    uploadDesc.Height           = 1;
+    uploadDesc.DepthOrArraySize = 1;
+    uploadDesc.MipLevels        = 1;
+    uploadDesc.SampleDesc.Count = 1;
+    uploadDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    uploadDesc.Format           = DXGI_FORMAT_UNKNOWN;
+
+    D3D12_HEAP_PROPERTIES uploadHeap{};
+    uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+    ComPtr<ID3D12Resource> uploadBuffer;
+    hr = device->CreateCommittedResource(
+        &uploadHeap, D3D12_HEAP_FLAG_NONE,
+        &uploadDesc, D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr, IID_PPV_ARGS(&uploadBuffer));
+    assert(SUCCEEDED(hr));
+
+    // ピクセルデータを行ごとにコピー（RowPitch のパディングに対応）
+    BYTE* pMapped = nullptr;
+    hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMapped));
+    assert(SUCCEEDED(hr));
+    for (uint32_t row = 0; row < height; ++row) {
+        memcpy(pMapped + row * rowPitch,
+               rgbaData + static_cast<UINT64>(row) * width * 4,
+               static_cast<size_t>(width) * 4);
+    }
+    uploadBuffer->Unmap(0, nullptr);
+
+    // コピーコマンドを積む
+    D3D12_TEXTURE_COPY_LOCATION dst{};
+    dst.pResource        = resource.Get();
+    dst.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dst.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION src{};
+    src.pResource                            = uploadBuffer.Get();
+    src.Type                                 = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint.Offset               = 0;
+    src.PlacedFootprint.Footprint.Format     = DXGI_FORMAT_R8G8B8A8_UNORM;
+    src.PlacedFootprint.Footprint.Width      = width;
+    src.PlacedFootprint.Footprint.Height     = height;
+    src.PlacedFootprint.Footprint.Depth      = 1;
+    src.PlacedFootprint.Footprint.RowPitch   = static_cast<UINT>(rowPitch);
+
+    copyCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+    pendingUploadBuffers_.push_back(uploadBuffer);
+    pendingResources_.push_back(resource);
+    hasPendingCopies_ = true;
+
+    // SRV 作成
+    uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
+    SrvManager::GetInstance()->CreateSRVforTexture2D(
+        srvIndex, resource.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, 1);
+
+    TextureData& data    = textureDatas_[name];
+    data.resource        = resource;
+    data.srvIndex        = srvIndex;
+    data.metadata        = {};
+    data.metadata.width  = width;
+    data.metadata.height = height;
+    data.metadata.depth  = 1;
+    data.metadata.arraySize = 1;
+    data.metadata.mipLevels = 1;
+    data.metadata.format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+    data.metadata.dimension = DirectX::TEX_DIMENSION_TEXTURE2D;
+}
+
 void TextureManager::Finalize()
 {
     // 保留中の転送があれば完了させてからリソースを解放する

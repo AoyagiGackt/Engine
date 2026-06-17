@@ -1,6 +1,6 @@
 ﻿#include "SceneManager.h"
-#include "GamePlayScene.h"
 #include "TextureManager.h"
+#include "TitleScene.h"
 
 SceneManager* SceneManager::GetInstance()
 {
@@ -15,8 +15,8 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     audio_ = audio;
     imguiManager_ = imgui;
 
-    // 最初のシーン（ゲームプレイシーンから開始）
-    currentScene_ = std::make_unique<GamePlayScene>();
+    // 最初のシーン
+    currentScene_ = std::make_unique<TitleScene>();
     currentScene_->Initialize(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();
