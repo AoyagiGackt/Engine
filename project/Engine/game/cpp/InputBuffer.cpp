@@ -13,7 +13,7 @@ void InputBuffer::Update(Input* input)
     // head_ を 1 つ進めてリングバッファの最新スロットへ移動
     head_  = (head_ + 1) % kHistorySize;
     // 有効フレーム数をインクリメント（最大 kHistorySize でクランプ）
-    count_ = std::min(count_ + 1, kHistorySize);
+    count_ = (std::min)(count_ + 1, kHistorySize);
 
     FrameState& frame = history_[head_];
     frame.valid = true;
@@ -52,7 +52,7 @@ void InputBuffer::Update(Input* input)
 bool InputBuffer::WasKeyPressed(BYTE keyCode, int withinFrames) const
 {
     // 実際に保持しているフレーム数を超えて調べることはできない
-    withinFrames = std::min(withinFrames, count_);
+    withinFrames = (std::min)(withinFrames, count_);
 
     // head_ から過去に向かって withinFrames 個のスロットを調べる
     for (int i = 0; i < withinFrames; ++i) {
@@ -67,7 +67,7 @@ bool InputBuffer::WasKeyPressed(BYTE keyCode, int withinFrames) const
 
 bool InputBuffer::WasButtonPressed(WORD button, int withinFrames) const
 {
-    withinFrames = std::min(withinFrames, count_);
+    withinFrames = (std::min)(withinFrames, count_);
 
     for (int i = 0; i < withinFrames; ++i) {
         int idx = (head_ - i + kHistorySize) % kHistorySize;

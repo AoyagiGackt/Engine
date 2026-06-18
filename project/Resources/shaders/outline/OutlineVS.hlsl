@@ -15,6 +15,9 @@
  *   ただし pos.w を乗算して透視除算の影響を補正する必要がある。
  */
 
+// =====================================================
+// 定数バッファ
+// =====================================================
 // アウトラインのパラメータ（PS と共有、register b0）
 struct OutlineParams {
     float4 color; ///< アウトラインの色（RGBA）
@@ -23,6 +26,7 @@ struct OutlineParams {
 };
 ConstantBuffer<OutlineParams> gOutline : register(b0);
 
+// ---- 変換行列 (b1) ----
 // ワールド・ビュー・プロジェクション行列（register b1）
 // Object3d の TransformationMatrix と同じレイアウト
 struct TransformationMatrix {
@@ -33,6 +37,9 @@ struct TransformationMatrix {
 };
 ConstantBuffer<TransformationMatrix> gTransform : register(b1);
 
+// =====================================================
+// 頂点入力構造体
+// =====================================================
 // 頂点入力（Model::VertexData と一致させること）
 struct VertexData {
     float4 position : POSITION; ///< ローカル空間の頂点座標（W=1.0）
@@ -40,6 +47,9 @@ struct VertexData {
     float3 normal   : NORMAL;   ///< ローカル空間の法線ベクトル
 };
 
+// =====================================================
+// 頂点シェーダー
+// =====================================================
 float4 main(VertexData input) : SV_POSITION
 {
     // 頂点をクリップ空間へ変換

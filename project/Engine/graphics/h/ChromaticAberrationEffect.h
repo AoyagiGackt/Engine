@@ -40,6 +40,7 @@ public:
         return &instance;
     }
 
+    // ---- 初期化 / 破棄 ----
     /**
      * @brief 初期化。オフスクリーンテクスチャ・ルートシグネチャ・PSO を生成する
      * @param dxCommon DirectX 共通クラスのポインタ
@@ -50,6 +51,7 @@ public:
     /// @brief GPU リソースを解放する
     void Finalize();
 
+    // ---- 描画パイプライン ----
     /**
      * @brief シーンの描画先をオフスクリーンテクスチャへ切り替える
      * @note SceneManager::Draw() の直前に呼ぶこと
@@ -69,6 +71,7 @@ public:
      */
     void Apply(SrvManager* srvManager);
 
+    // ---- パラメータ ----
     /**
      * @brief 色収差の強度を設定する
      * @param strength 0.0=効果なし, 0.01〜0.05=自然な収差, 0.1=強め

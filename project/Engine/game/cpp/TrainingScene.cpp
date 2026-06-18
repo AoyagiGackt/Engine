@@ -242,7 +242,7 @@ void TrainingScene::Update()
         fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
         iy += kILineH + 2.0f;
 
-        auto row = [&](const char* key, const wchar_t* desc) {
+                auto row = [&](const char* key, const wchar_t* desc) {
             std::wstring line(key, key + std::strlen(key));
             line += desc;
             fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
@@ -255,9 +255,9 @@ void TrainingScene::Update()
         row("SPACE  ", L": スピン連射");
         row("(空中) ", L": スピン＋散弾");
         row("Q / E  ", L": 武器切替");
-        row("1-4",     ": Weapon Select");
-        row("ENTER",   ": Warp (portal)");
-        row("R",       ": Awaken (30%+)");
+        row("1-4", L": Weapon Select");
+        row("ENTER", L": Warp (portal)");
+        row("R", L": Awaken (30%+)");
     }
 
     // ── 覚醒ゲージ UI ────────────────────────────────────────────────

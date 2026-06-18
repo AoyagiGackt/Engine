@@ -39,6 +39,7 @@ public:
         return &instance;
     }
 
+    // ---- 初期化 / 破棄 ----
     /**
      * @brief 初期化。アウトライン用ルートシグネチャ・PSO・定数バッファを生成する
      * @param dxCommon DirectX 共通クラスのポインタ
@@ -48,6 +49,7 @@ public:
     /// @brief GPU リソースを解放する
     void Finalize();
 
+    // ---- 描画パイプライン ----
     /**
      * @brief アウトライン描画パスを開始する
      *        内部でアウトライン用 PSO と root signature をコマンドリストにセットする
@@ -55,6 +57,7 @@ public:
      */
     void BeginOutlinePass();
 
+    // ---- パラメータ ----
     /**
      * @brief アウトラインの色を設定する
      * @param color RGBA（アルファで半透明アウトラインも可能）

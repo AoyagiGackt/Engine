@@ -345,7 +345,7 @@ void BattleTestScene::Update()
         d.knockVelY *= 0.88f;
 
         // HP バー表示値を回復（被弾後 0.8 秒で満タンに戻る）
-        d.hpDisplay_ = std::min(d.hpDisplay_ + GameConstants::kFrameDeltaTime / 0.8f, 1.0f);
+        d.hpDisplay_ = (std::min)(d.hpDisplay_ + GameConstants::kFrameDeltaTime / 0.8f, 1.0f);
 
         // 帰還タイマー（被弾から 1.5 秒後に中央へ戻る）
         d.returnTimer -= GameConstants::kFrameDeltaTime;

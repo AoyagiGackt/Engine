@@ -26,9 +26,11 @@
 #include <cmath>
 
 struct UVScroller {
+    // ---- メンバ変数 ----
     Vector2 speed  = {};  ///< スクロール速度（UV 座標単位 / 秒）
     Vector2 offset = {};  ///< 現在の累積オフセット（[0, 1) 内に正規化される）
 
+    // ---- メンバ関数 ----
     /**
      * @brief 毎フレーム呼び出してオフセットを更新する
      * @param dt デルタタイム（秒）

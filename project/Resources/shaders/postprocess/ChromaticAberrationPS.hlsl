@@ -13,21 +13,29 @@
  *   派手にするなら 0.1 くらいまで上げてもよい。
  */
 
+// =====================================================
+// 入力構造体
+// =====================================================
 // FullscreenVS.hlsl から渡される入力構造体
 struct PSInput {
     float4 position : SV_POSITION; ///< クリップ座標（PS では不使用）
     float2 uv       : TEXCOORD;    ///< [0,1] 範囲の UV 座標
 };
 
+// ---- 定数バッファ (b0) ----
 // 定数バッファ（b0）: 色収差の強さ
 cbuffer ChromaticParams : register(b0) {
     float  strength; ///< ズレの強さ（0=なし, 推奨 0.01〜0.05）
     float3 pad;      ///< 16 バイトアライン用パディング
 };
 
+// ---- テクスチャ / サンプラー ----
 Texture2D<float4> gTexture : register(t0); ///< オフスクリーンに描いたシーンのテクスチャ
 SamplerState      gSampler : register(s0); ///< クランプサンプラー
 
+// =====================================================
+// ピクセルシェーダー
+// =====================================================
 float4 main(PSInput input) : SV_TARGET
 {
     float2 uv = input.uv;
