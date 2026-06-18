@@ -8,8 +8,6 @@
 
 static constexpr float kWarpX        = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
-static constexpr float kHalfW        = 12.25f;
-static constexpr float kHalfH        =  6.888f;
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -96,7 +94,11 @@ void TrainingScene::Update()
         }
     }
 
-    player_->Update(input_);
+    // 乱舞用ダミーターゲット（正面 8 ユニット先）
+    {
+        const Vector3& pp = player_->GetPosition();
+        player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
+    }
 
     // ── コンボランク追跡 ─────────────────────────────────────────────
     {
@@ -122,8 +124,8 @@ void TrainingScene::Update()
         constexpr float kBlkR = 0.5f;
         const Vector3& pp = player_->GetPosition();
         camera_->SetTranslate({
-            std::clamp(pp.x,       2.0f  - kBlkR + kHalfW,  28.0f + kBlkR - kHalfW),
-            std::clamp(pp.y + 6.0f, -0.6f - kBlkR + kHalfH,  13.0f + kBlkR - kHalfH),
+            std::clamp(pp.x,       2.0f  - kBlkR + GameConstants::kCameraHalfW,  28.0f + kBlkR - GameConstants::kCameraHalfW),
+            std::clamp(pp.y + 6.0f, -0.6f - kBlkR + GameConstants::kCameraHalfH,  13.0f + kBlkR - GameConstants::kCameraHalfH),
             -30.0f
         });
     }
@@ -158,9 +160,9 @@ void TrainingScene::Update()
     float px = 12.0f;
     float py = 12.0f;
 
-    fontRenderer_.DrawString("Training Room", px, py, kScale, kColorHeader);
+    fontRenderer_.DrawStringW(L"トレーニングルーム", px, py, kScale, kColorHeader);
     py += kLineH + 2.0f;
-    fontRenderer_.DrawString("-- Weapon Select --", px, py, kScale, kColorNormal);
+    fontRenderer_.DrawStringW(L"-- 武器選択 --", px, py, kScale, kColorNormal);
     py += kLineH + 2.0f;
 
     const auto& list = weaponManager_->GetList();
@@ -178,8 +180,8 @@ void TrainingScene::Update()
 
     // ワープラベル（ポータルの上）
     if (nearWarp) {
-        float sx = (kWarpX - cam.x) / kHalfW * 640.0f + 640.0f;
-        float sy = -(5.0f  - cam.y) / kHalfH * 360.0f + 360.0f;
+        float sx = (kWarpX - cam.x) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
+        float sy = -(5.0f  - cam.y) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
         constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Warp", sx - 84.0f, sy - 36.0f, kScale, kColorWarp);
     }
@@ -237,22 +239,22 @@ void TrainingScene::Update()
         constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
         float iy = 12.0f;
 
-        fontRenderer_.DrawString("-- Controls --", kIx, iy, kIS, kCH);
+        fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
         iy += kILineH + 2.0f;
 
-        auto row = [&](const char* key, const char* desc) {
-            char buf[48];
-            std::snprintf(buf, sizeof(buf), "%-9s%s", key, desc);
-            fontRenderer_.DrawString(buf, kIx, iy, kIS, kCD);
+        auto row = [&](const char* key, const wchar_t* desc) {
+            std::wstring line(key, key + std::strlen(key));
+            line += desc;
+            fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
             iy += kILineH;
         };
-        row("A / D",   ": Move");
-        row("W",       ": Jump");
-        row("L",       ": Combo (x3)");
-        row("K",       ": Shot");
-        row("SPACE",   ": Spin Fire");
-        row("(Air)",   "  Spin+Scatter");
-        row("Q / E",   ": Weapon");
+        row("A / D  ", L": 移動");
+        row("W      ", L": ジャンプ");
+        row("L      ", L": コンボ (x3)");
+        row("K      ", L": 射撃");
+        row("SPACE  ", L": スピン連射");
+        row("(空中) ", L": スピン＋散弾");
+        row("Q / E  ", L": 武器切替");
         row("1-4",     ": Weapon Select");
         row("ENTER",   ": Warp (portal)");
         row("R",       ": Awaken (30%+)");

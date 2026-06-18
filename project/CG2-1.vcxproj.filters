@@ -370,6 +370,12 @@
     <ClCompile Include="Engine\game\cpp\BattleTestScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\BulletPool.cpp">
+      <Filter>ソースファイル\Game\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\EnemyEntity.cpp">
+      <Filter>ソースファイル\Game\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\GamePlayScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
@@ -395,6 +401,9 @@
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <!-- Game\Player -->
+    <ClCompile Include="Engine\game\cpp\AfterImageRenderer.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player.cpp">
       <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
@@ -424,6 +433,24 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Tweener.cpp">
       <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\EventBus.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Sequencer.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ChromaticAberrationEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\OutlineEffect.cpp">
+      <Filter>ソースファイル\Engine\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\InputBuffer.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\FloatingText.cpp">
+      <Filter>ソースファイル\Game\UI</Filter>
     </ClCompile>
     <!-- Game\MapChip -->
     <ClCompile Include="Engine\graphics\cpp\MapChipField.cpp">
@@ -562,6 +589,9 @@
     <ClInclude Include="Engine\game\h\Collision.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Octree.h">
+      <Filter>ヘッダーファイル\Engine\Collision</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\CollisionConfig.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
@@ -661,6 +691,12 @@
     <ClInclude Include="Engine\game\h\BattleTestScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\BulletPool.h">
+      <Filter>ヘッダーファイル\Game\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\EnemyEntity.h">
+      <Filter>ヘッダーファイル\Game\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\GamePlayScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
@@ -686,6 +722,9 @@
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <!-- Game\Player -->
+    <ClInclude Include="Engine\game\h\AfterImageRenderer.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player.h">
       <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
@@ -724,6 +763,33 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\ObjectPool.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\EventBus.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\StateMachine.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Sequencer.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ChromaticAberrationEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\OutlineEffect.h">
+      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UVScroller.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\BezierSpline.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\InputBuffer.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\FloatingText.h">
+      <Filter>ヘッダーファイル\Game\UI</Filter>
     </ClInclude>
     <!-- Game\MapChip -->
     <ClInclude Include="Engine\graphics\h\MapChipField.h">

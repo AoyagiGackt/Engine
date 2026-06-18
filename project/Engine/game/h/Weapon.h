@@ -18,7 +18,8 @@ struct WeaponData {
     float        range;
     float        attackInterval;
     std::string  description;
-    float        styleColor[4]; // RGBA 0.0~1.0
+    float        styleColor[4];   // RGBA 0.0~1.0
+    float        knockbackMult = 1.0f; // ノックバック倍率（武器ごとの差別化）
     std::vector<WeaponCommand> commands;
 };
 

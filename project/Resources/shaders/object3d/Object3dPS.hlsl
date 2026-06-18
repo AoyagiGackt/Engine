@@ -21,6 +21,12 @@ struct Material
     float shininess;
     float3 cameraWorldPos;
     float envMapIntensity; // 環境マップ反射強度（0=なし, 1=フル反射）
+    // ---- リムライト ----
+    float3 rimColor;      // リムライトの色
+    float  rimPower;      // 鋭さ（大きいほど細いリム、推奨 2〜6）
+    float  rimIntensity;  // 強さ（0=無効、1=通常、2以上=強調）
+    int    enableRim;     // 1=有効、0=無効
+    float2 _rimPad;       // 16 バイトアライン用パディング
 };
 ConstantBuffer<Material> gMaterial : register(b0);
 
@@ -250,6 +256,23 @@ PixelShaderOutput main(VertexShaderOutput input)
         }
         
         litColor += pointContrib;
+
+        // =====================================================
+        // リムライト（輪郭光）
+        // =====================================================
+        // 【原理】
+        //   カメラから見て視線方向と法線が直交するほど（横顔・輪郭部分）
+        //   dot(N, V) が 0 に近づく。それを反転して輪郭だけを明るくする。
+        //   pow で急峻にすると細い光の縁取り、小さくすると広い発光になる。
+        if (gMaterial.enableRim != 0)
+        {
+            // 法線と視線の内積を反転（輪郭ほど値が大きくなる）
+            float rim = 1.0f - saturate(dot(N, V));
+            // rimPower で輪郭の細さを調整（pow が大きいほど細い）
+            rim = pow(rim, max(gMaterial.rimPower, 0.001f));
+            // rimColor と rimIntensity でリムの色と強さを適用して加算
+            litColor += gMaterial.rimColor * rim * gMaterial.rimIntensity;
+        }
 
         output.color.rgb = litColor;
         output.color.a = gMaterial.color.a * textureColor.a;

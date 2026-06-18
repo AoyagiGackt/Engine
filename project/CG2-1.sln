@@ -7,6 +7,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CG2-1", "CG2-1.vcxproj", "{
 	ProjectSection(ProjectDependencies) = postProject
 		{68E2707E-352E-4FBF-BCD6-D7839A8120C8} = {68E2707E-352E-4FBF-BCD6-D7839A8120C8}
 		{371B9FA9-4C90-4AC6-A123-ACED756D6C77} = {371B9FA9-4C90-4AC6-A123-ACED756D6C77}
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52} = {88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ソリューション項目", "ソリューション項目", "{2022CB0F-8BAF-F49E-0C48-8EF4C96EC109}"
@@ -17,6 +18,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imgui", "..\externals\imgui\imgui.vcxproj", "{68E2707E-352E-4FBF-BCD6-D7839A8120C8}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTex", "..\externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj", "{371B9FA9-4C90-4AC6-A123-ACED756D6C77}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "json", "..\externals\json\json.vcxproj", "{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,6 +46,12 @@ Global
 		{371B9FA9-4C90-4AC6-A123-ACED756D6C77}.Development|x64.Build.0 = Development|x64
 		{371B9FA9-4C90-4AC6-A123-ACED756D6C77}.Release|x64.ActiveCfg = Release|x64
 		{371B9FA9-4C90-4AC6-A123-ACED756D6C77}.Release|x64.Build.0 = Release|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Debug|x64.ActiveCfg = Debug|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Debug|x64.Build.0 = Debug|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Development|x64.ActiveCfg = Development|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Development|x64.Build.0 = Development|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Release|x64.ActiveCfg = Release|x64
+		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

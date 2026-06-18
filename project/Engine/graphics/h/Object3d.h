@@ -11,6 +11,7 @@
 
 class ModelCommon;
 class Camera;
+class OutlineEffect;
 
 /**
  * @brief 3D空間に配置されるオブジェクトを表すクラス
@@ -55,6 +56,8 @@ public:
      */
     void DrawShadow();
 
+    // アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
+    void DrawOutline(OutlineEffect* effect);
 
     Model* GetModel() const{ return model_; }
 
@@ -166,6 +169,12 @@ public:
         if (materialData_) { materialData_->envMapIntensity = intensity; }
     }
 
+    void SetRimColor(const Vector3& color)    { if (materialData_) materialData_->rimColor = color; }
+    void SetRimPower(float power)             { if (materialData_) materialData_->rimPower = power; }
+    void SetRimIntensity(float intensity)     { if (materialData_) materialData_->rimIntensity = intensity; }
+    void SetEnableRim(bool enable)            { if (materialData_) materialData_->enableRim = enable ? 1 : 0; }
+    void SetUVTransform(const Matrix4x4& m)  { if (materialData_) materialData_->uvTransform = m; }
+
 private:
     /**
      * @brief GPUに送るための座標変換行列データ
@@ -192,6 +201,11 @@ private:
         float      shininess;      ///< 光沢度（大きいほどシャープ）
         Vector3    cameraWorldPos;    ///< カメラのワールド座標（Update()で自動書き込み）
         float      envMapIntensity;  ///< 環境マップ反射強度（0=なし, 1=フル反射）
+        Vector3    rimColor;         ///< リムライトの色
+        float      rimPower;         ///< リムライトの鋭さ（大きいほど細い）
+        float      rimIntensity;     ///< リムライトの強さ（0=無効）
+        int        enableRim;        ///< リムライト有効フラグ
+        float      _rimPad[2];       ///< 16バイトアライン用パディング
     };
 
     /** @brief 全オブジェクトで共通して使うカメラのポインタ */

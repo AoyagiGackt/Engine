@@ -1,9 +1,11 @@
 #include "Player.h"
+#include "EventBus.h"
 #include "GameConstants.h"
 #include "Input.h"
 #include "ModelCommon.h"
 #include "WeaponManager.h"
 #include <algorithm>
+#include <cmath>
 
 void Player::Initialize(ModelCommon* modelCommon)
 {
@@ -19,25 +21,23 @@ void Player::Initialize(ModelCommon* modelCommon)
     object_->SetPosition(pos_);
     object_->Update();
 
-    afterImageObj_ = std::make_unique<Object3d>();
-    afterImageObj_->Initialize(modelCommon);
-    afterImageObj_->SetModel(model_.get());
-    afterImageObj_->SetEnableLighting(false);
-    afterImageObj_->Update();
+    afterImageRenderer_.Initialize(modelCommon, model_.get());
 }
 
-void Player::Update(Input* input)
+void Player::Update(Input* input, const Vector3& enemyPos)
 {
-    justJumped_       = false;
-    justLanded_       = false;
-    justEnteredWater_ = false;
-    justExitedWater_  = false;
-    justComboHit_     = false;
-    justFired_        = false;
-    justBlinked_      = false;
-    justChargedGauge_ = false;
-    justSpinShot_     = false;
-    justRampageHit_   = false;
+    justJumped_        = false;
+    justLanded_        = false;
+    justEnteredWater_  = false;
+    justExitedWater_   = false;
+    justComboHit_      = false;
+    justFired_         = false;
+    justBlinked_       = false;
+    justChargedGauge_  = false;
+    justSpinShot_      = false;
+    justLaunched_      = false;
+    justRampageHit_    = false;
+    justRampageFinish_ = false;
     prevOnGround_     = onGround_;
     prevInWater_      = inWater_;
 
@@ -83,7 +83,7 @@ void Player::Update(Input* input)
         }
     } else {
         // ========== 通常物理（水上）==========
-        if (!isRampaging_) {
+        if (rampagePhase_ == RampagePhase::Inactive) {
             if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { pos_.x -= kSpeed_ * speedMult; lastDirX_ = -1.0f; }
             if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { pos_.x += kSpeed_ * speedMult; lastDirX_ =  1.0f; }
         }
@@ -93,6 +93,7 @@ void Player::Update(Input* input)
                 velocityY_  = kJumpPower_ * jumpMult;
                 onGround_   = false;
                 justJumped_ = true;
+                EventBus::GetInstance()->Emit("player_jumped");
             }
         }
 
@@ -110,6 +111,7 @@ void Player::Update(Input* input)
         }
 
         justLanded_ = !prevOnGround_ && onGround_;
+        if (justLanded_) { EventBus::GetInstance()->Emit("player_landed"); }
     }
 
     pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
@@ -117,21 +119,47 @@ void Player::Update(Input* input)
     // ── 射撃（K キー、水上のみ）─────────────────────────────────────
     if (!inWater_ && input->TriggerKey(DIK_K)) {
         justFired_ = true;
+        EventBus::GetInstance()->Emit("player_fired");
     }
 
-    // ── 格闘コンボ（L キー、水上のみ）───────────────────────────────
-    if (!inWater_ && !isRampaging_ && input->TriggerKey(DIK_L)) {
-        // Sword + 覚醒中 → 乱舞発動
-        if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
-            isRampaging_    = true;
-            rampageTimer_   = kRampageHitInterval_ * kRampageMaxHits_ + 0.3f;
-            rampageHitCount_ = 0;
-            rampageHitCool_ = 0.0f;
-        } else {
+    // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
+    if (!inWater_ && input->TriggerKey(DIK_L)) {
+        if (rampagePhase_ == RampagePhase::Inactive &&
+            wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
+            // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
+            rampagePhase_     = RampagePhase::Launch;
+            juggleSlashCount_ = 0;
+            juggleAngleIdx_   = 0;
+
+        } else if (rampagePhase_ == RampagePhase::Juggle &&
+                   juggleSlashCount_ < kJuggleMaxSlashes_) {
+            // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
+            float angle = juggleAngleIdx_ * (6.28318530f / kJuggleMaxSlashes_);
+            float dx = std::cos(angle) * kJuggleRadius_;
+            float dy = std::sin(angle) * kJuggleRadius_;
+            pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
+            pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
+            velocityY_ = 0.0f;
+            lastDirX_  = (enemyPos.x >= pos_.x) ? 1.0f : -1.0f;
+            juggleAngleIdx_   = (juggleAngleIdx_ + 1) % kJuggleMaxSlashes_;
+            juggleSlashCount_++;
+
+            bool isLast = (juggleSlashCount_ >= kJuggleMaxSlashes_);
+            justRampageHit_    = true;
+            justRampageFinish_ = isLast;
+            EventBus::GetInstance()->Emit("player_rampage_hit");
+            if (isLast) {
+                rampagePhase_ = RampagePhase::Inactive;
+                EventBus::GetInstance()->Emit("player_rampage_finish");
+            }
+
+        } else if (rampagePhase_ == RampagePhase::Inactive) {
+            // 通常コンボ
             if (comboStep_ == 0 || comboTimer_ > 0.0f) {
                 comboStep_    = comboStep_ % kComboMax_ + 1;
                 comboTimer_   = kComboWindow_;
                 justComboHit_ = true;
+                EventBus::GetInstance()->Emit("player_combo_hit");
             }
         }
     }
@@ -162,8 +190,8 @@ void Player::Update(Input* input)
             break;
 
         case WeaponType::Hammer:
-            // ゲージチャージ（長押し約3秒で満タン）
-            if (input->PushKey(DIK_SPACE)) {
+            // ゲージチャージ（長押し約3秒で満タン）。覚醒中は蓄積しない
+            if (!isAwakened_ && input->PushKey(DIK_SPACE)) {
                 justChargedGauge_ = true;
                 awakenGauge_ = (std::min)(
                     awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime, 1.0f);
@@ -193,30 +221,35 @@ void Player::Update(Input* input)
         isUpsideDown_ = (spinAngle_ > 90.0f && spinAngle_ < 270.0f);
     }
 
-    // ── 乱舞更新 ─────────────────────────────────────────────────
-    if (isRampaging_) {
-        rampageTimer_ -= GameConstants::kFrameDeltaTime;
-        if (rampageTimer_ <= 0.0f || rampageHitCount_ >= kRampageMaxHits_) {
-            isRampaging_ = false;
-        } else {
-            // 前方に自動突進（重力一時無効）
-            pos_.x  += lastDirX_ * kRampageSpeed_;
-            pos_.x   = std::clamp(pos_.x, kMinX_, kMaxX_);
-            velocityY_ = 0.0f;
-            // 一定間隔でヒット判定を発行
-            rampageHitCool_ -= GameConstants::kFrameDeltaTime;
-            if (rampageHitCool_ <= 0.0f) {
-                justRampageHit_ = true;
-                rampageHitCount_++;
-                rampageHitCool_ = kRampageHitInterval_;
-            }
+    // ── 乱舞フェーズ更新 ──────────────────────────────────────────
+    if (rampagePhase_ == RampagePhase::Launch) {
+        // 敵X座標へ向かって突進（重力無効）
+        // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
+        float targetX = std::clamp(enemyPos.x, kMinX_ + 0.5f, kMaxX_ - 0.5f);
+        float dx  = targetX - pos_.x;
+        float dir = (dx > 0.0f) ? 1.0f : -1.0f;
+        lastDirX_  = dir;
+        velocityY_ = 0.0f;
+        pos_.x += dir * kRampageSpeed_;
+        pos_.x  = std::clamp(pos_.x, kMinX_, kMaxX_);
+
+        // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
+        if (std::abs(dx) < 1.0f) {
+            justLaunched_ = true;
+            velocityY_    = 0.25f;
+            rampagePhase_ = RampagePhase::Juggle;
+            EventBus::GetInstance()->Emit("player_launched");
         }
+    } else if (rampagePhase_ == RampagePhase::Juggle) {
+        // ジャグル中は重力無効でホバリング
+        velocityY_ = 0.0f;
     }
 
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
         isAwakened_  = true;
         awakenTimer_ = kAwakenDuration_;
+        EventBus::GetInstance()->Emit("player_awakened");
     }
 
     // ── コンボタイマー ────────────────────────────────────────────
@@ -254,28 +287,12 @@ void Player::Update(Input* input)
     float yaw = (lastDirX_ >= 0.0f) ? (kHalfPi) : (-kHalfPi);
 
     // ── 覚醒残像スポーン＆フェード ──
-    for (auto& ai : afterImages_) {
-        if (ai.alpha > 0.0f) {
-            ai.alpha -= GameConstants::kFrameDeltaTime * 4.0f;
-            if (ai.alpha < 0.0f) ai.alpha = 0.0f;
-        }
-    }
-    if (isAwakened_ || isRampaging_) {
-        afterImageTimer_ -= GameConstants::kFrameDeltaTime;
-        if (afterImageTimer_ <= 0.0f) {
-            afterImageTimer_ = isRampaging_ ? 0.03f : 0.05f; // 乱舞中は高頻度
-            auto& ai = afterImages_[afterImageIdx_];
-            ai.pos   = pos_;
-            ai.yaw   = yaw;
-            ai.spinZ = spinAngle_;
-            ai.alpha = isRampaging_ ? 0.75f : 0.55f;
-            afterImageIdx_ = (afterImageIdx_ + 1) % kMaxAfterImages;
-        }
-    }
+    bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
+    afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, pos_, yaw, spinAngle_);
 
     // ── プレイヤー色 ──
-    if (isRampaging_) {
-        float t = std::sin(rampageTimer_ * 25.0f) * 0.5f + 0.5f;
+    if (rampagePhase_ != RampagePhase::Inactive) {
+        float t = std::sin(juggleSlashCount_ * 3.0f) * 0.5f + 0.5f;
         object_->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
     } else if (justChargedGauge_) {
         object_->SetColor({ 1.0f, 0.85f, 0.0f, 1.0f }); // 黄（ハンマーチャージ）
@@ -294,14 +311,6 @@ void Player::Update(Input* input)
 void Player::Draw()
 {
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
-    constexpr float kDeg = 3.14159265f / 180.0f;
-    for (const auto& ai : afterImages_) {
-        if (ai.alpha <= 0.0f) continue;
-        afterImageObj_->SetPosition(ai.pos);
-        afterImageObj_->SetRotation({ 0.0f, ai.yaw, ai.spinZ * kDeg });
-        afterImageObj_->SetColor({ 0.05f, 0.35f, 1.0f, ai.alpha * 0.65f });
-        afterImageObj_->Update();
-        afterImageObj_->Draw();
-    }
+    afterImageRenderer_.Draw();
     object_->Draw();
 }

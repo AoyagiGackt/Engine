@@ -1,6 +1,7 @@
 ﻿#include "Game.h"
 #include "DelayTimer.h"
 #include "GameConstants.h"
+#include "Sequencer.h"
 #include "GamePlayScene.h"
 #include "GameSettings.h"
 #include "SceneManager.h"
@@ -53,9 +54,10 @@ void MyGame::Update()
     TimeManager::GetInstance()->Update();
     audio_->Update(GameConstants::kFrameDeltaTime);
 
-    // 遅延コールバック・Tweener・スクリーンフラッシュを毎フレーム更新
+    // 遅延コールバック・Tweener・Sequencer・スクリーンフラッシュを毎フレーム更新
     DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
     Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
+    Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
     ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
     // シーンマネージャー更新

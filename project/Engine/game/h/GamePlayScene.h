@@ -11,6 +11,7 @@
  // --- 標準ライブラリ ---
 #include <deque>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -33,13 +34,13 @@
 // --- ゲームロジック・オブジェクト ---
 #include "CameraShaker.h"
 #include "Collision.h"
+#include "EnemyEntity.h"
 #include "FontRenderer.h"
 #include "Object3d.h"
 #include "Player.h"
 #include "TimeManager.h"
 #include "WaterPool.h"
 #include "GameTime.h"
-#include "MapChipField.h"
 #include "Skydome.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
@@ -138,7 +139,6 @@ private:
 
     // --- ゲームオブジェクト群 ---
     std::vector<std::unique_ptr<GameObject>> gameObjects_; // 汎用ゲームオブジェクトのリスト
-    std::unique_ptr<MapChipField> mapField_;               // マップチップ（タイル）フィールド
 
     // --- 画面を囲むブロック ---
     std::unique_ptr<Model>                   modelBlock_;
@@ -148,9 +148,7 @@ private:
     std::unique_ptr<Player> player_;
 
     // --- 敵 ---
-    std::unique_ptr<Model>    modelEnemy_;
-    std::unique_ptr<Object3d> enemy_;
-    Vector3 enemyPos_ = { 22.0f, 0.4f, 0.0f };
+    std::unique_ptr<EnemyEntity> enemy_;
 
     // --- 進行・状態管理 ---
     GameTime gameTime_; // ゲーム内時刻（時・分）を管理する
@@ -179,6 +177,7 @@ private:
 
     // --- パーティクル ---
     float hitCooldown_ = 0.0f; // 敵ヒット時のエフェクト連発防止タイマー
+    std::mt19937 rng_{ std::random_device{}() }; // シーン共通乱数生成器
 
     // --- 残像（モデルゴースト）---
     struct GhostEntry { Vector3 pos; float age; };

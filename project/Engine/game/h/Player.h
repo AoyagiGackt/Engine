@@ -1,8 +1,8 @@
 #pragma once
+#include "AfterImageRenderer.h"
 #include "CollisionConfig.h"
 #include "Model.h"
 #include "Object3d.h"
-#include <array>
 #include <memory>
 
 class Input;
@@ -10,9 +10,13 @@ class ModelCommon;
 
 class Player {
 public:
+    // 乱舞フェーズ
+    enum class RampagePhase { Inactive, Launch, Juggle };
+
     void Initialize(ModelCommon* modelCommon);
-    void Update(Input* input);
+    void Update(Input* input, const Vector3& enemyPos = {});
     void Draw();
+    void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) rampagePhase_ = RampagePhase::Inactive; }
 
     const Vector3& GetPosition() const { return pos_; }
     Model* GetModel() const { return model_.get(); }
@@ -50,21 +54,25 @@ public:
     float GetSpinAngle()      const { return spinAngle_; }
 
     // 覚醒乱舞（Sword + 覚醒 + L）
-    bool  IsRampaging()        const { return isRampaging_; }
+    bool  IsRampaging()        const { return rampagePhase_ != RampagePhase::Inactive; }
+    bool  JustLaunched()       const { return justLaunched_; }
     bool  JustRampageHit()     const { return justRampageHit_; }
-    int   GetRampageHitCount() const { return rampageHitCount_; }
+    bool  JustRampageFinish()  const { return justRampageFinish_; }
+    int   GetJuggleCount()     const { return juggleSlashCount_; }
+    int   GetJuggleMax()       const { return kJuggleMaxSlashes_; }
 
 private:
     // 通常物理
     static constexpr float kGroundY_   =  0.4f;
     static constexpr float kCeilingY_  = 12.0f;
     static constexpr float kMinX_      =  3.0f;
-    static constexpr float kMaxX_      = 27.0f;
+    static constexpr float kMaxX_      = 35.0f;
     static constexpr float kGravity_   =  0.012f;
     static constexpr float kJumpPower_ =  0.4f;
     static constexpr float kSpeed_     =  0.15f;
 
     // 水中物理（水なしステージでは -1.0f にして水中判定を無効化）
+    // 水ありステージでは WaterPool::kPoolTop（3.0f）に合わせること
     static constexpr float kWaterLevel_  = -1.0f;
     static constexpr float kWaterGravity_=  0.003f;  // 浮力で弱い沈下加速度
     static constexpr float kWaterSpeed_  =  0.10f;   // 水中横移動速度
@@ -115,23 +123,19 @@ private:
     static constexpr float kSpinSpeed_     = 5.0f;  // 空中回転速度（度/フレーム）
 
     // 覚醒乱舞（Sword + 覚醒 + L）
-    bool  isRampaging_     = false;
-    bool  justRampageHit_  = false;
-    float rampageTimer_    = 0.0f;
-    int   rampageHitCount_ = 0;
-    float rampageHitCool_  = 0.0f;
-    static constexpr float kRampageSpeed_       = 0.18f;
-    static constexpr float kRampageHitInterval_ = 0.14f;
-    static constexpr int   kRampageMaxHits_     = 7;
+    RampagePhase rampagePhase_     = RampagePhase::Inactive;
+    bool  justLaunched_            = false;
+    bool  justRampageHit_          = false;
+    bool  justRampageFinish_       = false;
+    int   juggleSlashCount_        = 0;  // 今回の乱舞で何回切ったか
+    int   juggleAngleIdx_          = 0;  // 次のスラッシュ角度インデックス
+    static constexpr float kRampageSpeed_      = 0.45f; // 打ち上げ突進速度
+    static constexpr float kJuggleRadius_      = 2.5f;  // 敵からのスラッシュ距離
+    static constexpr int   kJuggleMaxSlashes_  = 8;     // 乱舞の最大回数
 
     // 覚醒残像
-    struct AfterImage { Vector3 pos; float yaw; float spinZ; float alpha; };
-    static constexpr int kMaxAfterImages = 10;
-    std::array<AfterImage, kMaxAfterImages> afterImages_{};
-    int   afterImageIdx_   = 0;
-    float afterImageTimer_ = 0.0f;
+    AfterImageRenderer afterImageRenderer_;
 
     std::unique_ptr<Model>    model_;
     std::unique_ptr<Object3d> object_;
-    std::unique_ptr<Object3d> afterImageObj_; // 残像描画用（共用）
 };

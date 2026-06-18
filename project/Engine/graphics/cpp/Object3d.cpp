@@ -3,6 +3,7 @@
 #include "LightManager.h"
 #include "ModelCommon.h"
 #include "ModelManager.h"
+#include "OutlineEffect.h"
 #include <cmath>
 
 using namespace Microsoft::WRL;
@@ -56,8 +57,12 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     materialData_->uvTransform    = MakeIdentity4x4();
     materialData_->specularColor  = { 1.0f, 1.0f, 1.0f }; // 白いハイライト
     materialData_->shininess      = 32.0f;                  // ほどよい光沢
-    materialData_->cameraWorldPos = { 0.0f, 0.0f, 0.0f };
+    materialData_->cameraWorldPos  = { 0.0f, 0.0f, 0.0f };
     materialData_->envMapIntensity = 0.0f;
+    materialData_->rimColor        = { 1.0f, 1.0f, 1.0f };
+    materialData_->rimPower        = 3.0f;
+    materialData_->rimIntensity    = 0.0f;
+    materialData_->enableRim       = 0;
 }
 
 void Object3d::Update()
@@ -104,6 +109,15 @@ void Object3d::DrawShadow()
     ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
     // シャドウパス用ルートシグネチャはスロット 0 に TransformationMatrix を期待する
     commandList->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
+    model_->DrawGeometryOnly(modelCommon_);
+}
+
+void Object3d::DrawOutline(OutlineEffect* effect)
+{
+    if (!model_ || !effect) { return; }
+    ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
+    // slot 1 = TransformationMatrix (VS b1)
+    commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
     model_->DrawGeometryOnly(modelCommon_);
 }
 

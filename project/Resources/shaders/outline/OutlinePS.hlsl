@@ -1,0 +1,23 @@
+/**
+ * @file OutlinePS.hlsl
+ * @brief 2パスアウトライン描画の第2パス用 ピクセルシェーダー
+ *
+ * このシェーダーは OutlineVS.hlsl で法線方向に押し出された頂点を
+ * 単一色（アウトライン色）で塗りつぶすだけ。
+ * 前面カリングで描画されるため、元のモデルを突き抜けてはみ出た
+ * 背面部分だけが画面に映り、それがアウトラインとして見える。
+ */
+
+// アウトラインのパラメータ（VS と同じ b0 を参照）
+struct OutlineParams {
+    float4 color; ///< アウトラインの色（RGBA）
+    float  width; ///< 幅（PS では使わないが構造体を VS と揃えるため保持）
+    float3 pad;   ///< 16 バイトアライン用パディング
+};
+ConstantBuffer<OutlineParams> gOutline : register(b0);
+
+float4 main() : SV_TARGET
+{
+    // アウトライン部分はすべて単一色で塗りつぶす
+    return gOutline.color;
+}

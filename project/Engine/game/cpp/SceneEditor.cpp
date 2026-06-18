@@ -4,8 +4,6 @@
 #include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
-#include <fstream>
-#include <sstream>
 #include <string>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -267,52 +265,34 @@ void SceneEditor::RenderCameraControl(const EditContext& ctx)
 // ============================================================
 
 // カメラの位置・角度・スムージングフレーム数を JSON ファイルに書き出す。
-// "Resources/debug_camera.json" に保存されるので、次回起動時に LoadCameraParams で復元できる。
 void SceneEditor::SaveCameraParams(const EditContext& ctx)
 {
-    std::ofstream f("Resources/debug_camera.json");
-    if (!f) { return; } // ファイルを開けなければ何もしない
     const Vector3& pos = *ctx.cameraTargetPos;
     const Vector3& rot = *ctx.cameraTargetRot;
-    // JSON 形式で書き出す（手書きで組み立てている簡易実装）
-    f << "{\n"
-      << "  \"camera_pos_x\": " << pos.x << ",\n"
-      << "  \"camera_pos_y\": " << pos.y << ",\n"
-      << "  \"camera_pos_z\": " << pos.z << ",\n"
-      << "  \"camera_rot_x\": " << rot.x << ",\n"
-      << "  \"camera_rot_y\": " << rot.y << ",\n"
-      << "  \"camera_rot_z\": " << rot.z << ",\n"
-      << "  \"camera_smooth_frames\": " << *ctx.cameraSmoothFrames << "\n"
-      << "}\n";
+    nlohmann::json j;
+    j["camera_pos"]           = { pos.x, pos.y, pos.z };
+    j["camera_rot"]           = { rot.x, rot.y, rot.z };
+    j["camera_smooth_frames"] = *ctx.cameraSmoothFrames;
+    JsonHelper::Save("Resources/debug_camera.json", j);
 }
 
 // カメラの位置・角度・スムージングフレーム数を JSON ファイルから読み込む。
-// キーが見つからなければ現在の値をそのまま使う（JsonHelper の第3引数 = デフォルト値）。
 void SceneEditor::LoadCameraParams(const EditContext& ctx)
 {
-    std::ifstream f("Resources/debug_camera.json");
-    if (!f) { return; } // ファイルがなければ何もしない（初回起動時など）
-
-    // ファイル全体を文字列として読み込む
-    std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    auto j = JsonHelper::Load("Resources/debug_camera.json");
+    if (j.empty()) { return; }
 
     Vector3& pos = *ctx.cameraTargetPos;
     Vector3& rot = *ctx.cameraTargetRot;
 
-    // JSON から各値を取り出して変数に代入する
-    pos = {
-        JsonHelper::ReadFloat(src, "camera_pos_x", pos.x),
-        JsonHelper::ReadFloat(src, "camera_pos_y", pos.y),
-        JsonHelper::ReadFloat(src, "camera_pos_z", pos.z),
-    };
-    rot = {
-        JsonHelper::ReadFloat(src, "camera_rot_x", rot.x),
-        JsonHelper::ReadFloat(src, "camera_rot_y", rot.y),
-        JsonHelper::ReadFloat(src, "camera_rot_z", rot.z),
-    };
-    *ctx.cameraSmoothFrames = JsonHelper::ReadInt(src, "camera_smooth_frames", *ctx.cameraSmoothFrames);
+    if (j.contains("camera_pos") && j["camera_pos"].is_array()) {
+        pos = { j["camera_pos"][0], j["camera_pos"][1], j["camera_pos"][2] };
+    }
+    if (j.contains("camera_rot") && j["camera_rot"].is_array()) {
+        rot = { j["camera_rot"][0], j["camera_rot"][1], j["camera_rot"][2] };
+    }
+    *ctx.cameraSmoothFrames = j.value("camera_smooth_frames", *ctx.cameraSmoothFrames);
 
-    // 読み込んだ値を実際のカメラに即時反映し、スムージング履歴もリセットする
     ctx.camera->SetTranslate(pos);
     ctx.camera->SetRotate(rot);
     ctx.cameraPosHistory->clear();
@@ -322,37 +302,23 @@ void SceneEditor::LoadCameraParams(const EditContext& ctx)
 // UI スプライトのレイアウト（位置・サイズ・色・テクスチャパスなど）を JSON に書き出す。
 void SceneEditor::SaveUILayout()
 {
-    std::ofstream f("Resources/debug_ui.json");
-    if (!f) { return; }
-
-    // UI スプライトの個数を最初に書いておく（読み込み時にループ回数として使う）
-    f << "{\n  \"count\": " << uiElements_.size();
-
-    for (int i = 0; i < (int)uiElements_.size(); ++i) {
-        const UIEntry& e  = uiElements_[i];
-        Sprite*        sp = e.sprite.get();
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& e : uiElements_) {
+        Sprite* sp = e.sprite.get();
         Vector2 pos = sp->GetPosition();
         Vector2 sz  = sp->GetSize();
         Vector4 col = sp->GetColor();
         float   rot = sp->GetRotation();
-
-        // キー名に連番を付けてユニークにする。例: "ui_0_pos_x", "ui_1_tex" など
-        auto mk = [&](const char* field) { return "ui_" + std::to_string(i) + field; };
-
-        f << ",\n"
-          << "  \"" << mk("_name")  << "\": \"" << e.name     << "\",\n"
-          << "  \"" << mk("_tex")   << "\": \"" << e.texPath  << "\",\n"
-          << "  \"" << mk("_pos_x") << "\": " << pos.x << ",\n"
-          << "  \"" << mk("_pos_y") << "\": " << pos.y << ",\n"
-          << "  \"" << mk("_sz_x")  << "\": " << sz.x  << ",\n"
-          << "  \"" << mk("_sz_y")  << "\": " << sz.y  << ",\n"
-          << "  \"" << mk("_rot")   << "\": " << rot   << ",\n"
-          << "  \"" << mk("_col_r") << "\": " << col.x << ",\n"
-          << "  \"" << mk("_col_g") << "\": " << col.y << ",\n"
-          << "  \"" << mk("_col_b") << "\": " << col.z << ",\n"
-          << "  \"" << mk("_col_a") << "\": " << col.w;
+        arr.push_back({
+            { "name",  e.name },
+            { "tex",   e.texPath },
+            { "pos",   { pos.x, pos.y } },
+            { "size",  { sz.x,  sz.y  } },
+            { "rot",   rot },
+            { "color", { col.x, col.y, col.z, col.w } }
+        });
     }
-    f << "\n}\n";
+    JsonHelper::Save("Resources/debug_ui.json", arr);
 }
 
 // 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む。
@@ -365,38 +331,31 @@ void SceneEditor::LoadAll(const EditContext& ctx)
 // UI スプライトのレイアウトを JSON ファイルから復元する。
 void SceneEditor::LoadUILayout(const EditContext& ctx)
 {
-    std::ifstream f("Resources/debug_ui.json");
-    if (!f) { return; } // ファイルがなければ何もしない
+    auto j = JsonHelper::Load("Resources/debug_ui.json");
+    if (!j.is_array()) { return; }
 
-    std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-    // "count" キーから UI スプライトの個数を取得してループ回数にする
-    int count = JsonHelper::ReadInt(src, "count", 0);
     uiElements_.clear();
     ChangeState(Selection::None);
 
-    for (int i = 0; i < count; ++i) {
-        auto mk = [&](const char* field) { return "ui_" + std::to_string(i) + field; };
+    for (const auto& item : j) {
         UIEntry entry;
-        entry.name    = JsonHelper::ReadString(src, mk("_name"), "UI Element");
-        entry.texPath = JsonHelper::ReadString(src, mk("_tex"),  "");
+        entry.name    = item.value("name", std::string("UI Element"));
+        entry.texPath = item.value("tex",  std::string(""));
 
         entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(ctx.spriteCommon, entry.texPath);
 
-        // 各プロパティを JSON から復元する（キーがなければデフォルト値を使う）
-        entry.sprite->SetPosition({
-            JsonHelper::ReadFloat(src, mk("_pos_x"), GameConstants::kScreenCenterX),
-            JsonHelper::ReadFloat(src, mk("_pos_y"), GameConstants::kScreenCenterY) });
-        entry.sprite->SetSize({
-            JsonHelper::ReadFloat(src, mk("_sz_x"), 100.0f),
-            JsonHelper::ReadFloat(src, mk("_sz_y"), 100.0f) });
-        entry.sprite->SetRotation(JsonHelper::ReadFloat(src, mk("_rot"), 0.0f));
-        entry.sprite->SetColor({
-            JsonHelper::ReadFloat(src, mk("_col_r"), 1.0f),
-            JsonHelper::ReadFloat(src, mk("_col_g"), 1.0f),
-            JsonHelper::ReadFloat(src, mk("_col_b"), 1.0f),
-            JsonHelper::ReadFloat(src, mk("_col_a"), 1.0f) });
+        if (item.contains("pos") && item["pos"].is_array()) {
+            entry.sprite->SetPosition({ item["pos"][0], item["pos"][1] });
+        }
+        if (item.contains("size") && item["size"].is_array()) {
+            entry.sprite->SetSize({ item["size"][0], item["size"][1] });
+        }
+        entry.sprite->SetRotation(item.value("rot", 0.0f));
+        if (item.contains("color") && item["color"].is_array()) {
+            const auto& c = item["color"];
+            entry.sprite->SetColor({ c[0], c[1], c[2], c[3] });
+        }
 
         uiElements_.push_back(std::move(entry));
     }

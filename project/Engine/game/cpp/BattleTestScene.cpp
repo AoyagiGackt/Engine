@@ -4,6 +4,7 @@
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "TimeManager.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <random>
@@ -12,14 +13,12 @@
 static constexpr float kWarpRetX   =  3.0f;
 static constexpr float kReturnProx =  3.0f;
 static constexpr float kDummyMaxHp = 100.0f;
-static constexpr float kHalfW      = 12.25f;
-static constexpr float kHalfH      =  6.888f;
 
 static void WorldToScreen(float wx, float wy, float cx, float cy,
     float& sx, float& sy)
 {
-    sx = (wx - cx) / kHalfW * 640.0f + 640.0f;
-    sy = -(wy - cy) / kHalfH * 360.0f + 360.0f;
+    sx = (wx - cx) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
+    sy = -(wy - cy) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
 }
 
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
@@ -117,17 +116,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
 
-    // 弾丸スロットを事前初期化
-    for (auto& s : bulletSlots_) {
-        s.obj = std::make_unique<Object3d>();
-        s.obj->Initialize(modelCommon_.get());
-        s.obj->SetModel(modelBlock_.get());
-        s.obj->SetEnableLighting(false);
-        s.obj->SetScale({ 0.35f, 0.35f, 0.35f });
-        s.obj->SetColor({ 1.0f, 0.85f, 0.1f, 1.0f }); // 金色
-        s.obj->SetPosition({ 0.0f, -999.0f, 0.0f }); // 画面外に隠す
-        s.obj->Update(); // GPU バッファを初期化しておく
-    }
+    bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
@@ -152,17 +141,6 @@ void BattleTestScene::SpawnHitEffect(const Vector3& pos)
     }
 }
 
-void BattleTestScene::SpawnBullet(const Vector3& pos, const Vector3& vel) {
-    for (auto& s : bulletSlots_) {
-        if (!s.data.active) {
-            s.data = { pos, vel, 90.0f, true };
-            // GPU バッファに初期座標を書き込んでおく（初フレームから正しく描画される）
-            s.obj->SetPosition(pos);
-            s.obj->Update();
-            return;
-        }
-    }
-}
 
 void BattleTestScene::UpdateHpBars()
 {
@@ -175,8 +153,8 @@ void BattleTestScene::UpdateHpBars()
         float sx, sy;
         WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
 
-        float ratio = (std::max)(d.hp / d.maxHp, 0.0f);
-        d.hpBarFg->SetColor({ 1.0f - ratio, ratio, 0.0f, 0.9f });
+        float ratio = d.hpDisplay_;
+        d.hpBarFg->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.9f });
 
         d.hpBarBg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
         d.hpBarBg->SetSize({ kBarW, kBarH });
@@ -192,14 +170,24 @@ void BattleTestScene::Update()
 {
     fontRenderer_.Reset();
 
-    player_->Update(input_);
+    // 乱舞のターゲット：最も近いダミーを選ぶ
+    {
+        const Vector3& pp = player_->GetPosition();
+        Vector3 rampTarget = { pp.x + player_->GetLastDirX() * 6.0f, pp.y, 0.0f };
+        float minDist = FLT_MAX;
+        for (const auto& d : dummies_) {
+            float dist = std::abs(d.pos.x - pp.x);
+            if (dist < minDist) { minDist = dist; rampTarget = d.pos; }
+        }
+        player_->Update(input_, rampTarget);
+    }
 
     {
         constexpr float kBR = 0.5f;
         const Vector3& pp = player_->GetPosition();
         camera_->SetTranslate({
-            std::clamp(pp.x,        2.0f  - kBR + kHalfW,  28.0f + kBR - kHalfW),
-            std::clamp(pp.y + 6.0f, -0.6f - kBR + kHalfH,  13.0f + kBR - kHalfH),
+            std::clamp(pp.x,        2.0f  - kBR + GameConstants::kCameraHalfW,  28.0f + kBR - GameConstants::kCameraHalfW),
+            std::clamp(pp.y + 6.0f, -0.6f - kBR + GameConstants::kCameraHalfH,  13.0f + kBR - GameConstants::kCameraHalfH),
             -30.0f
         });
     }
@@ -237,12 +225,13 @@ void BattleTestScene::Update()
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) { continue; }
             if (Collision::CheckCollision(meleeRange, dummyAABB(d))) {
-                d.hp         = d.maxHp; // 不死身（常に満タン）
-                d.hitFlash   = 0.14f;
+                d.hp          = d.maxHp;
+                d.hitFlash    = 0.14f;
+                d.hpDisplay_  = 0.0f;
                 d.returnTimer = 1.5f;
-                // コンボステップに応じたノックバック強度
+                // コンボステップに応じたノックバック強度（武器ごとの knockbackMult を反映）
                 float kbMult = ((player_->GetComboStep() == 3) ? 1.5f :
-                               (player_->GetComboStep() == 2) ? 1.1f : 0.8f) * atkMult;
+                               (player_->GetComboStep() == 2) ? 1.1f : 0.8f) * atkMult * weapon.knockbackMult;
                 d.knockVelX += player_->GetLastDirX() * 0.22f * kbMult;
                 d.knockVelY += 0.08f * kbMult;
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
@@ -262,6 +251,7 @@ void BattleTestScene::Update()
             if (Collision::CheckCollision(shotRange, dummyAABB(d))) {
                 d.hp          = d.maxHp;
                 d.hitFlash    = 0.10f;
+                d.hpDisplay_  = 0.0f;
                 d.returnTimer = 1.5f;
                 d.knockVelX  += player_->GetLastDirX() * 0.12f * atkMult;
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
@@ -272,7 +262,7 @@ void BattleTestScene::Update()
 
     // ── 覚醒乱舞ヒット ───────────────────────────────────────────────
     if (player_->JustRampageHit()) {
-        const bool isFinisher = (player_->GetRampageHitCount() >= 7); // 最終ヒット
+        const bool isFinisher = player_->JustRampageFinish();
         AABB rushRange = {
             { pp.x - 2.5f, pp.y - 1.5f, -0.5f },
             { pp.x + 2.5f, pp.y + 1.5f,  0.5f }
@@ -281,10 +271,11 @@ void BattleTestScene::Update()
             if (Collision::CheckCollision(rushRange, dummyAABB(d))) {
                 d.hp          = d.maxHp;
                 d.hitFlash    = isFinisher ? 0.20f : 0.08f;
+                d.hpDisplay_  = 0.0f;
                 d.returnTimer = 1.5f;
-                float kb = isFinisher ? 0.45f : 0.12f;
+                float kb = (isFinisher ? 0.45f : 0.12f) * weapon.knockbackMult;
                 d.knockVelX += player_->GetLastDirX() * kb * atkMult;
-                d.knockVelY += isFinisher ? 0.18f * atkMult : 0.03f;
+                d.knockVelY += (isFinisher ? 0.18f : 0.03f) * atkMult * weapon.knockbackMult;
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
                 tm->RequestHitStop(isFinisher ? 6 : 2);
             }
@@ -302,59 +293,43 @@ void BattleTestScene::Update()
             constexpr float kSpread    =  30.0f * (3.14159265f / 180.0f); // 30°間隔
             for (int i = -2; i <= 2; ++i) {
                 float angle = kBaseAngle + i * kSpread;
-                SpawnBullet(firePos, { std::cos(angle) * kBulletSpeed,
-                                       std::sin(angle) * kBulletSpeed, 0.0f });
+                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed,
+                                             std::sin(angle) * kBulletSpeed, 0.0f });
             }
             tm->RequestHitStop(3);
             ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
         } else {
             // 通常: 向いている方向に 1 発
-            SpawnBullet(firePos, { player_->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
+            bulletPool_.Spawn(firePos, { player_->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
         }
     }
 
     // ── 弾丸の移動・衝突判定 ────────────────────────────────────────
-    for (auto& s : bulletSlots_) {
-        if (!s.data.active) { continue; }
-
-        s.data.pos.x += s.data.vel.x;
-        s.data.pos.y += s.data.vel.y;
-        s.data.life  -= 1.0f;
-
-        // 画面外または寿命切れ
-        if (s.data.pos.x < 2.0f || s.data.pos.x > 28.0f ||
-            s.data.pos.y < -1.0f || s.data.pos.y > 14.0f ||
-            s.data.life <= 0.0f) {
-            s.data.active = false;
-            continue;
-        }
-
-        // ダミーとの衝突
-        AABB bulletAABB = { { s.data.pos.x - 0.12f, s.data.pos.y - 0.12f, -0.5f },
-                            { s.data.pos.x + 0.12f, s.data.pos.y + 0.12f,  0.5f } };
-        bool hit = false;
+    bulletPool_.Update();
+    for (int bi = 0; bi < BulletPool::kMaxBullets; ++bi) {
+        if (!bulletPool_.IsActive(bi)) { continue; }
+        const Vector3& bpos = bulletPool_.GetPos(bi);
+        const Vector3& bvel = bulletPool_.GetVel(bi);
+        AABB bulletAABB = { { bpos.x - 0.12f, bpos.y - 0.12f, -0.5f },
+                            { bpos.x + 0.12f, bpos.y + 0.12f,  0.5f } };
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) { continue; }
             if (Collision::CheckCollision(bulletAABB, dummyAABB(d))) {
                 d.hp          = d.maxHp;
                 d.hitFlash    = 0.08f;
+                d.hpDisplay_  = 0.0f;
                 d.returnTimer = 1.5f;
-                // 弾の進行方向にノックバック
-                float bspd = std::sqrt(s.data.vel.x * s.data.vel.x + s.data.vel.y * s.data.vel.y);
+                float bspd = std::sqrt(bvel.x * bvel.x + bvel.y * bvel.y);
                 if (bspd > 0.001f) {
-                    d.knockVelX += s.data.vel.x / bspd * 0.09f;
-                    d.knockVelY += s.data.vel.y / bspd * 0.04f;
+                    d.knockVelX += bvel.x / bspd * 0.09f * weapon.knockbackMult;
+                    d.knockVelY += bvel.y / bspd * 0.04f * weapon.knockbackMult;
                 }
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
                 tm->RequestHitStop(2);
-                hit = true;
+                bulletPool_.Kill(bi);
                 break;
             }
         }
-        if (hit) { s.data.active = false; continue; }
-
-        s.obj->SetPosition(s.data.pos);
-        s.obj->Update();
     }
 
     for (auto& d : dummies_) {
@@ -368,6 +343,9 @@ void BattleTestScene::Update()
         if (d.pos.x <= 3.01f || d.pos.x >= 26.99f) { d.knockVelX = 0.0f; }
         d.knockVelX *= 0.84f;
         d.knockVelY *= 0.88f;
+
+        // HP バー表示値を回復（被弾後 0.8 秒で満タンに戻る）
+        d.hpDisplay_ = std::min(d.hpDisplay_ + GameConstants::kFrameDeltaTime / 0.8f, 1.0f);
 
         // 帰還タイマー（被弾から 1.5 秒後に中央へ戻る）
         d.returnTimer -= GameConstants::kFrameDeltaTime;
@@ -404,11 +382,11 @@ void BattleTestScene::Update()
     float px = 12.0f;
     float py = 12.0f;
 
-    fontRenderer_.DrawString("Test Stage", px, py, kScale, kColorHeader);
+    fontRenderer_.DrawStringW(L"テストステージ", px, py, kScale, kColorHeader);
     py += kLineH + 2.0f;
 
     char buf[80];
-    std::snprintf(buf, sizeof(buf), "Weapon: %s", weapon.name.c_str());
+    std::snprintf(buf, sizeof(buf), "武器: %s", weapon.name.c_str());
     fontRenderer_.DrawString(buf, px, py, kScale, kColorNormal);
     py += kLineH;
 
@@ -417,7 +395,7 @@ void BattleTestScene::Update()
     fontRenderer_.DrawString(buf, px, py, kScale, kColorNormal);
     py += kLineH + 2.0f;
 
-    fontRenderer_.DrawStringW(L"[L] 格闘  [K] 射撃", px, py, kScale, kColorHint);
+    fontRenderer_.DrawStringW(L"[L] 格闘  [K] 射撃  [R] 覚醒", px, py, kScale, kColorHint);
 
     // 戻りポータルのラベル
     if (nearReturn) {
@@ -485,7 +463,7 @@ void BattleTestScene::Draw()
     for (auto& b : borderBlocks_)     { b->Draw(); }
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
     for (auto& d : dummies_)          { d.object->Draw(); }
-    for (auto& s : bulletSlots_)      { if (s.data.active) { s.obj->Draw(); } }
+    bulletPool_.Draw();
     player_->Draw();
 
     // パーティクル（PreDraw でコマンドリストがリセットされるため Draw() 内で呼ぶ）

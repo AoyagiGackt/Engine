@@ -51,7 +51,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ----- カメラ -----
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 14.5f, 6.0f, -30.0f }); // 初期位置（少し高く、手前から見下ろす角度）
+    camera_->SetTranslate({ 19.0f, 6.0f, -30.0f }); // 初期位置（少し高く、手前から見下ろす角度）
     Object3d::SetCommonCamera(camera_.get()); // 全 3D オブジェクトがこのカメラを使うよう設定
 
     // ----- 天球（Skydome）-----
@@ -83,29 +83,21 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     };
 
     // 下段（床）: Y=-0.6
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), -0.6f,  0.0f); }
+    for (int x = 0; x <= 36; ++x) { addBlock(static_cast<float>(x), -0.6f,  0.0f); }
     // 上段（天井）: Y=13
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
+    for (int x = 0; x <= 36; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
     // 左列: Y=0〜12（Y=0 で床ブロックと重なり、隙間を埋める）
     for (int y = 0; y <= 12; ++y) { addBlock(2.0f,  static_cast<float>(y), 0.0f); }
     // 右列: Y=0〜12
-    for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
+    for (int y = 0; y <= 12; ++y) { addBlock(36.0f, static_cast<float>(y), 0.0f); }
 
     // ----- プレイヤー -----
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
 
-    // ----- 敵（静止）-----
-    modelEnemy_ = std::make_unique<Model>();
-    modelEnemy_->Initialize(modelCommon_.get(),
-        "Resources/block/block.obj",
-        "Resources/monsterBall.png");
-    enemy_ = std::make_unique<Object3d>();
-    enemy_->Initialize(modelCommon_.get());
-    enemy_->SetModel(modelEnemy_.get());
-    enemy_->SetEnableLighting(false);
-    enemy_->SetPosition(enemyPos_);
-    enemy_->Update();
+    // ----- 敵 -----
+    enemy_ = std::make_unique<EnemyEntity>();
+    enemy_->Initialize(modelCommon_.get(), { 28.0f, 0.4f, 0.0f });
 
     // スコアをファイルから読み込み、今回プレイのスコアをリセットする
     scoreManager_->LoadScores();
@@ -270,23 +262,80 @@ void GamePlayScene::Update()
 
     // ----- ヒットストップ中はプレイヤー・オブジェクト物理をスキップ -----
     if (!tm->IsHitStopped()) {
-        player_->Update(input_);
+        player_->Update(input_, enemy_->GetPosition());
+
+        // 乱舞：打ち上げヒット
+        if (player_->JustLaunched()) {
+            enemy_->Launch(0.48f);
+            const Vector3& epos = enemy_->GetPosition();
+            tm->RequestHitStop(8);
+            cameraShaker_.Request(0.35f, 0.28f);
+            pm_->EmitRing("hit_ring",  epos, 5.5f, { 1.0f, 0.55f, 0.1f, 1.0f }, 20, 0.45f, 0.28f);
+            std::uniform_real_distribution<float> vxL(-4.0f, 4.0f);
+            std::uniform_real_distribution<float> vyL( 3.0f, 7.0f);
+            for (int i = 0; i < 10; ++i) {
+                pm_->EmitGravity("hit_spark", epos,
+                    { vxL(rng_), vyL(rng_), 0.0f },
+                    { 1.0f, 0.65f, 0.15f, 1.0f }, 0.8f, 0.18f);
+            }
+        }
+
+        // 乱舞：ジャグルスラッシュ
+        if (player_->JustRampageHit()) {
+            int   cnt      = player_->GetJuggleCount();
+            float dir      = player_->GetLastDirX();
+            float slashAng = (dir > 0.0f) ? 0.0f : GameConstants::kPi;
+            float rad      = 1.2f + cnt * 0.12f;
+            const Vector3& epos = enemy_->GetPosition();
+            pm_->EmitSlash("sword_slash", epos, slashAng,
+                { 1.0f, 1.0f - cnt * 0.06f, 1.0f - cnt * 0.09f, 1.0f }, rad);
+            pm_->EmitRing("hit_ring", epos, 2.5f + cnt * 0.2f,
+                { 1.0f, 0.9f, 0.5f, 0.8f }, 8, 0.25f, 0.15f);
+            tm->RequestHitStop(4);
+            cameraShaker_.Request(0.12f + cnt * 0.01f, 0.10f);
+        }
+
+        // 乱舞：フィニッシュ
+        if (player_->JustRampageFinish()) {
+            const Vector3& epos = enemy_->GetPosition();
+            tm->RequestHitStop(12);
+            cameraShaker_.Request(0.55f, 0.40f);
+            pm_->EmitRing("hit_ring",  epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
+            pm_->EmitRing("sword_slash", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
+            std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
+            std::uniform_real_distribution<float> vyF( 4.0f, 10.0f);
+            for (int i = 0; i < 16; ++i) {
+                pm_->EmitGravity("hit_spark", epos,
+                    { vxF(rng_), vyF(rng_), 0.0f },
+                    { 1.0f, 0.4f + i * 0.04f, 0.1f, 1.0f }, 1.0f, 0.20f);
+            }
+        }
+
+        enemy_->Update();
+        if (enemy_->JustLanded()) {
+            player_->EndRampage(); // 敵が着地したらジャグル強制終了
+        }
 
         for (auto& obj : gameObjects_) { obj->Update(); }
-        enemy_->Update();
         skydome_->Update(camera_.get());
         for (auto& block : borderBlocks_) { block->Update(); }
     }
 
+    // 水エフェクト更新（ヒットストップに関係なく毎フレーム）
+    waterPool_->Update();
+
+    // 入水・出水スプラッシュ
+    if (player_->JustEnteredWater() || player_->JustExitedWater()) {
+        waterPool_->EmitSplash(player_->GetPosition());
+    }
+
     // ----- カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）-----
     {
-        constexpr float kHalfW = 12.25f;
-        constexpr float kHalfH =  6.89f;
         constexpr float kBlkR  =  0.5f;
         const Vector3& ppos = player_->GetPosition();
         cameraTargetPos_ = {
-            std::clamp(ppos.x,       2.0f - kBlkR + kHalfW,  28.0f + kBlkR - kHalfW),
-            std::clamp(ppos.y + 6.0f, -0.6f - kBlkR + kHalfH, 13.0f + kBlkR - kHalfH),
+            std::clamp(ppos.x,       2.0f - kBlkR + GameConstants::kCameraHalfW,  36.0f + kBlkR - GameConstants::kCameraHalfW),
+            std::clamp(ppos.y + 6.0f, -0.6f - kBlkR + GameConstants::kCameraHalfH, 13.0f + kBlkR - GameConstants::kCameraHalfH),
             -30.0f
         };
     }
@@ -320,6 +369,11 @@ void GamePlayScene::Update()
     if (player_->JustBlinked()) {
         styleMeter_ = std::clamp(styleMeter_ + 0.10f, 0.0f, 1.0f);
     }
+    if (player_->JustRampageHit()) {
+        // 乱舞スラッシュ：回数が増えるほど多くゲージが溜まる
+        styleMeter_ = std::clamp(
+            styleMeter_ + 0.10f + player_->GetJuggleCount() * 0.02f, 0.0f, 1.0f);
+    }
     styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt, 0.0f, 1.0f);
 
     DrawStyleUI();
@@ -330,14 +384,13 @@ void GamePlayScene::Update()
 
         // 着地ほこり
         if (player_->JustLanded()) {
-            static std::mt19937 dustRng{ std::random_device{}() };
             std::uniform_real_distribution<float> vxL(-3.5f, -1.2f);
             std::uniform_real_distribution<float> vxR( 1.2f,  3.5f);
             std::uniform_real_distribution<float> vyD( 0.8f,  2.2f);
             for (int i = 0; i < 4; ++i) {
-                pm_->EmitGravity("land_dust", ppos, { vxL(dustRng), vyD(dustRng), 0.0f },
+                pm_->EmitGravity("land_dust", ppos, { vxL(rng_), vyD(rng_), 0.0f },
                     { 0.85f, 0.78f, 0.65f, 0.7f }, 0.4f, 0.22f);
-                pm_->EmitGravity("land_dust", ppos, { vxR(dustRng), vyD(dustRng), 0.0f },
+                pm_->EmitGravity("land_dust", ppos, { vxR(rng_), vyD(rng_), 0.0f },
                     { 0.85f, 0.78f, 0.65f, 0.7f }, 0.4f, 0.22f);
             }
         }
@@ -369,8 +422,9 @@ void GamePlayScene::Update()
         hitCooldown_ -= dt;
         {
             Collider playerCol = player_->GetCollider();
-            AABB enemyAABB = { { enemyPos_.x - 0.5f, enemyPos_.y - 0.5f, -0.5f },
-                               { enemyPos_.x + 0.5f, enemyPos_.y + 0.5f,  0.5f } };
+            const Vector3& epos = enemy_->GetPosition();
+            AABB enemyAABB = { { epos.x - 0.5f, epos.y - 0.5f, -0.5f },
+                               { epos.x + 0.5f, epos.y + 0.5f,  0.5f } };
             if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
                 hitCooldown_ = 0.5f;
 
@@ -378,15 +432,14 @@ void GamePlayScene::Update()
                 tm->RequestHitStop(5);
                 cameraShaker_.Request(0.18f, 0.15f);
 
-                Vector3 hitPos = { (ppos.x + enemyPos_.x) * 0.5f,
-                                   (ppos.y + enemyPos_.y) * 0.5f, 0.0f };
+                Vector3 hitPos = { (ppos.x + epos.x) * 0.5f,
+                                   (ppos.y + epos.y) * 0.5f, 0.0f };
                 pm_->EmitRing("hit_ring", hitPos, 4.0f, { 1.0f, 0.85f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
-                static std::mt19937 rng{ std::random_device{}() };
                 std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
                 std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
                 for (int i = 0; i < 8; ++i) {
                     pm_->EmitGravity("hit_spark", hitPos,
-                        { vxD(rng), vyD(rng), 0.0f },
+                        { vxD(rng_), vyD(rng_), 0.0f },
                         { 1.0f, 0.55f, 0.1f, 1.0f }, 0.7f, 0.15f);
                 }
             }
@@ -542,6 +595,10 @@ void GamePlayScene::Draw()
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
     renderTextureSprite_->Update();
     renderTextureSprite_->Draw();
+
+    // ----- 水エフェクトを描画（背景の直後・3Dオブジェクトの前）-----
+    spriteCommon_->CommonDrawSettings();
+    waterPool_->Draw(camera_.get());
 
     // ----- 天球を描画（他の3Dオブジェクトより前に描く）-----
     modelCommon_->CommonDrawSettings();

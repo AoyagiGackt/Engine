@@ -5,6 +5,7 @@
 
 #include "Audio.h"
 #include "BaseScene.h"
+#include "BulletPool.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
@@ -38,9 +39,10 @@ private:
         Vector3  homePos;
         float    hp;
         float    maxHp;
-        float    hitFlash;    // 被弾時の白フラッシュタイマー
-        float    knockVelX = 0.0f;
-        float    knockVelY = 0.0f;
+        float    hitFlash    = 0.0f; // 被弾時の白フラッシュタイマー
+        float    hpDisplay_  = 1.0f; // HP バー表示用（0→1 に回復する演出値）
+        float    knockVelX   = 0.0f;
+        float    knockVelY   = 0.0f;
         float    returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
 
         // HP バー用スプライト
@@ -50,7 +52,6 @@ private:
 
     void SpawnHitEffect(const Vector3& pos);
     void UpdateHpBars();
-    void SpawnBullet(const Vector3& pos, const Vector3& vel);
 
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
@@ -82,27 +83,12 @@ private:
     // 武器
     WeaponManager* weaponManager_ = nullptr;
     float attackCooldown_  = 0.0f;
-    bool  justAttacked_    = false;
 
     // 弾丸
-    static constexpr int kMaxBullets = 48;
-    struct BulletSlot {
-        struct Data {
-            Vector3 pos;
-            Vector3 vel;   // 毎フレームの移動量
-            float   life;  // 残りフレーム数
-            bool    active;
-        } data = { {}, {}, 0.0f, false };
-        std::unique_ptr<Object3d> obj;
-    };
-    std::array<BulletSlot, kMaxBullets> bulletSlots_;
+    BulletPool bulletPool_;
 
     // ワープ演出
     float warpPulseTimer_ = 0.0f;
-
-    // 画面上の HP バー配置用（3D→スクリーン変換定数）
-    static constexpr float kHalfW = 12.25f;
-    static constexpr float kHalfH =  6.888f;
 
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;

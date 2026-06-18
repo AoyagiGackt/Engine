@@ -84,7 +84,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -112,7 +112,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>MinSpace</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -140,7 +140,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -169,7 +169,10 @@
     <ClCompile Include="Engine\game\cpp\Framework.cpp" />
     <ClCompile Include="Engine\game\cpp\Game.cpp" />
     <ClCompile Include="Engine\game\cpp\GameObject.cpp" />
+    <ClCompile Include="Engine\game\cpp\AfterImageRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\BattleTestScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\BulletPool.cpp" />
+    <ClCompile Include="Engine\game\cpp\EnemyEntity.cpp" />
     <ClCompile Include="Engine\game\cpp\CameraShaker.cpp" />
     <ClCompile Include="Engine\game\cpp\GamePlayScene.cpp" />
     <ClCompile Include="Engine\game\cpp\GameSettings.cpp" />
@@ -236,6 +239,12 @@
     <ClCompile Include="Engine\graphics\cpp\VignetteEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\BloomEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\AnimationStateMachine.cpp" />
+    <ClCompile Include="Engine\game\cpp\EventBus.cpp" />
+    <ClCompile Include="Engine\game\cpp\Sequencer.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ChromaticAberrationEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\OutlineEffect.cpp" />
+    <ClCompile Include="Engine\game\cpp\InputBuffer.cpp" />
+    <ClCompile Include="Engine\game\cpp\FloatingText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">
@@ -470,7 +479,11 @@
     <ClInclude Include="Engine\game\h\Game.h" />
     <ClInclude Include="Engine\game\h\GameObject.h" />
     <ClInclude Include="Engine\game\h\GameConstants.h" />
+    <ClInclude Include="Engine\game\h\AfterImageRenderer.h" />
     <ClInclude Include="Engine\game\h\BattleTestScene.h" />
+    <ClInclude Include="Engine\game\h\Octree.h" />
+    <ClInclude Include="Engine\game\h\BulletPool.h" />
+    <ClInclude Include="Engine\game\h\EnemyEntity.h" />
     <ClInclude Include="Engine\game\h\CameraShaker.h" />
     <ClInclude Include="Engine\game\h\Easing.h" />
     <ClInclude Include="Engine\game\h\GamePlayScene.h" />
@@ -547,6 +560,15 @@
     <ClInclude Include="Engine\graphics\h\ImguiControl.h" />
     <ClInclude Include="Engine\graphics\h\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\AnimationStateMachine.h" />
+    <ClInclude Include="Engine\game\h\EventBus.h" />
+    <ClInclude Include="Engine\game\h\StateMachine.h" />
+    <ClInclude Include="Engine\game\h\Sequencer.h" />
+    <ClInclude Include="Engine\graphics\h\ChromaticAberrationEffect.h" />
+    <ClInclude Include="Engine\graphics\h\OutlineEffect.h" />
+    <ClInclude Include="Engine\game\h\UVScroller.h" />
+    <ClInclude Include="Engine\game\h\BezierSpline.h" />
+    <ClInclude Include="Engine\game\h\InputBuffer.h" />
+    <ClInclude Include="Engine\game\h\FloatingText.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\lighting\LightingMode.hlsli" />

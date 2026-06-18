@@ -41,4 +41,10 @@ namespace GameConstants {
 
     // 2π（= 360度）。1周分の角度をラジアンで表したもの
     inline constexpr float kTwoPi = kPi * 2.0f;
+
+    // -------------------------------------------------------
+    // カメラ投影半幅・半高（3D→スクリーン座標変換の基準値）
+    // -------------------------------------------------------
+    inline constexpr float kCameraHalfW = 12.25f;
+    inline constexpr float kCameraHalfH =  6.888f;
 }

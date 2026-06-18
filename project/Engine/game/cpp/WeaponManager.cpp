@@ -24,7 +24,7 @@ WeaponManager::WeaponManager() {
         {
             "Sword", "鬼神 (Swordmaster)", L"鬼神", WeaponType::Sword,
             30.0f, 2.5f, 0.50f, "バランス型の全能剣士",
-            { 0.95f, 0.35f, 0.15f, 1.0f },  // 橙赤
+            { 0.95f, 0.35f, 0.15f, 1.0f }, 1.0f,  // 橙赤
             {
                 { "L",    L"3段コンボ" },
                 { "K",    L"射撃" },
@@ -36,7 +36,7 @@ WeaponManager::WeaponManager() {
         {
             "Spear", "銃士 (Gunslinger)", L"銃士", WeaponType::Spear,
             20.0f, 4.0f, 0.70f, "遠距離射撃スタイル",
-            { 0.20f, 0.65f, 1.0f, 1.0f },   // シアン青
+            { 0.20f, 0.65f, 1.0f, 1.0f }, 0.7f,   // シアン青
             {
                 { "K",    L"射撃" },
                 { "L",    L"格闘" },
@@ -48,7 +48,7 @@ WeaponManager::WeaponManager() {
         {
             "Dagger", "奇術師 (Trickster)", L"奇術師", WeaponType::Dagger,
             15.0f, 1.5f, 0.25f, "高速機動スタイル",
-            { 0.20f, 1.0f, 0.45f, 1.0f },   // ライムグリーン
+            { 0.20f, 1.0f, 0.45f, 1.0f }, 0.6f,   // ライムグリーン
             {
                 { "Space", L"ブリンク" },
                 { "K",     L"射撃" },
@@ -61,7 +61,7 @@ WeaponManager::WeaponManager() {
         {
             "Hammer", "守護者 (Royal Guard)", L"守護者", WeaponType::Hammer,
             60.0f, 1.8f, 1.20f, "カウンター防御スタイル",
-            { 0.75f, 0.30f, 1.0f, 1.0f },   // 紫
+            { 0.75f, 0.30f, 1.0f, 1.0f }, 2.0f,   // 紫
             {
                 { "Space", L"ゲージチャージ" },
                 { "K",     L"射撃" },
@@ -74,7 +74,7 @@ WeaponManager::WeaponManager() {
         {
             "Ball", "玉術師 (BallMaster)", L"玉術師", WeaponType::Ball,
             12.0f, 3.0f, 0.30f, "玉を連射するスタイル",
-            { 1.0f, 0.45f, 0.85f, 1.0f },   // ピンク
+            { 1.0f, 0.45f, 0.85f, 1.0f }, 0.4f,   // ピンク
             {
                 { "Space",     L"スピン連射" },
                 { "Space(空中)", L"スピン＋ばらまき" },
