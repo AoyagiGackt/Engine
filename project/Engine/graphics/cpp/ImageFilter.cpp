@@ -81,7 +81,7 @@ static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
 }
 
 // =====================================================
-// Initialize
+// Initialize（分割ヘルパーを呼び出すだけ）
 // =====================================================
 
 void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
@@ -91,88 +91,97 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     const uint32_t width   = WinApp::kClientWidth;
     const uint32_t height  = WinApp::kClientHeight;
 
-    // シーンキャプチャ用テクスチャ
     CreateOffscreenTexture(device, srvManager, width, height,
         sceneTexture_, sceneRtvHeap_, sceneRtvHandle_, sceneSrvIndex_);
-
-    // 水平パス中間テクスチャ
     CreateOffscreenTexture(device, srvManager, width, height,
         intermediateTexture_, intermediateRtvHeap_, intermediateRtvHandle_, intermediateSrvIndex_);
 
-    // 深度バッファ SRV（R24G8_TYPELESS → R24_UNORM_X8_TYPELESS で深度チャンネルを読む）
     depthSrvIndex_ = srvManager->Allocate();
     srvManager->CreateSRVforDepthTexture(depthSrvIndex_, dxCommon->GetDepthStencilResource());
 
-    // ブラー用定数バッファ（H と V の 2 スロット × 256 バイト）
+    InitConstantBuffers(dxCommon, width, height);
+    InitRootSignatures(dxCommon);
+    InitPipelineStates(dxCommon);
+
+    RebuildKernel();
+}
+
+// =====================================================
+// InitConstantBuffers: 各エフェクト用 CB の作成とマップ
+// =====================================================
+
+void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height)
+{
+    const float rw = 1.0f / float(width);
+    const float rh = 1.0f / float(height);
+
+    // ブラー用 CB（H と V の 2 スロット × 256 バイト = 512 バイト）
     cbResource_ = dxCommon->CreateBufferResource(512);
     void* mapped = nullptr;
     cbResource_->Map(0, nullptr, &mapped);
     cbH_ = reinterpret_cast<FilterParams*>(mapped);
     cbV_ = reinterpret_cast<FilterParams*>(reinterpret_cast<uint8_t*>(mapped) + 256);
+    cbH_->texelSizeX = rw; cbH_->texelSizeY = rh; cbH_->dirX = 1.0f; cbH_->dirY = 0.0f;
+    cbV_->texelSizeX = rw; cbV_->texelSizeY = rh; cbV_->dirX = 0.0f; cbV_->dirY = 1.0f;
 
-    cbH_->texelSizeX = 1.0f / float(width);
-    cbH_->texelSizeY = 1.0f / float(height);
-    cbH_->dirX = 1.0f; cbH_->dirY = 0.0f;
-
-    cbV_->texelSizeX = 1.0f / float(width);
-    cbV_->texelSizeY = 1.0f / float(height);
-    cbV_->dirX = 0.0f; cbV_->dirY = 1.0f;
-
-    // アウトライン用定数バッファ（1 スロット × 256 バイト）
+    // アウトライン用 CB（1 スロット × 256 バイト）
     outlineCbResource_ = dxCommon->CreateBufferResource(256);
     void* outlineMapped = nullptr;
     outlineCbResource_->Map(0, nullptr, &outlineMapped);
     outlineCb_ = reinterpret_cast<OutlineParams*>(outlineMapped);
+    outlineCb_->texelSizeX   = rw;    outlineCb_->texelSizeY  = rh;
+    outlineCb_->threshold    = 0.05f; outlineCb_->edgeStrength = 5.0f;
+    outlineCb_->outlineR     = 0.0f;  outlineCb_->outlineG     = 0.0f;
+    outlineCb_->outlineB     = 0.0f;  outlineCb_->outlineA     = 1.0f;
+    outlineCb_->depthScale   = 100.0f;
 
-    outlineCb_->texelSizeX  = 1.0f / float(width);
-    outlineCb_->texelSizeY  = 1.0f / float(height);
-    outlineCb_->threshold   = 0.05f;
-    outlineCb_->edgeStrength = 5.0f;
-    outlineCb_->outlineR    = 0.0f;
-    outlineCb_->outlineG    = 0.0f;
-    outlineCb_->outlineB    = 0.0f;
-    outlineCb_->outlineA    = 1.0f;
-    outlineCb_->depthScale  = 100.0f;
-
-    // ラジアルブラー用定数バッファ（1 スロット × 256 バイト）
+    // ラジアルブラー用 CB（1 スロット × 256 バイト）
     radialBlurCbResource_ = dxCommon->CreateBufferResource(256);
     void* radialMapped = nullptr;
     radialBlurCbResource_->Map(0, nullptr, &radialMapped);
     radialBlurCb_ = reinterpret_cast<RadialBlurParams*>(radialMapped);
-    radialBlurCb_->centerX     = 0.5f;
-    radialBlurCb_->centerY     = 0.5f;
-    radialBlurCb_->strength    = 0.1f;
-    radialBlurCb_->sampleCount = 16;
+    radialBlurCb_->centerX = 0.5f; radialBlurCb_->centerY = 0.5f;
+    radialBlurCb_->strength = 0.1f; radialBlurCb_->sampleCount = 16;
 
-    // ディゾルブ用定数バッファ（1 スロット × 256 バイト）
+    // ディゾルブ用 CB（1 スロット × 256 バイト）
+    // ノイズマスクは Apply() の初回 Dissolve 呼び出し時に遅延ロードする
     dissolveCbResource_ = dxCommon->CreateBufferResource(256);
     void* dissolveMapped = nullptr;
     dissolveCbResource_->Map(0, nullptr, &dissolveMapped);
     dissolveCb_ = reinterpret_cast<DissolveParams*>(dissolveMapped);
-    dissolveCb_->threshold = 0.0f;
-    dissolveCb_->edgeWidth = 0.05f;
-    dissolveCb_->edgeR     = 1.0f;
-    dissolveCb_->edgeG     = 0.5f;
-    dissolveCb_->edgeB     = 0.0f;
-    dissolveCb_->edgeA     = 1.0f;
+    dissolveCb_->threshold = 0.0f;  dissolveCb_->edgeWidth = 0.05f;
+    dissolveCb_->edgeR     = 1.0f;  dissolveCb_->edgeG     = 0.5f;
+    dissolveCb_->edgeB     = 0.0f;  dissolveCb_->edgeA     = 1.0f;
 
-    // ノイズマスクは Apply() の初回 Dissolve 呼び出し時に遅延ロードする
-
-    // プロシージャルノイズ用定数バッファ（1 スロット × 256 バイト）
+    // プロシージャルノイズ用 CB（1 スロット × 256 バイト）
     noiseGenCbResource_ = dxCommon->CreateBufferResource(256);
     void* noiseGenMapped = nullptr;
     noiseGenCbResource_->Map(0, nullptr, &noiseGenMapped);
     noiseGenCb_ = reinterpret_cast<NoiseGenParams*>(noiseGenMapped);
-    noiseGenCb_->scaleX      = 4.0f;
-    noiseGenCb_->scaleY      = 4.0f;
-    noiseGenCb_->seed        = 0.0f;
-    noiseGenCb_->octaves     = 4;
-    noiseGenCb_->persistence = 0.5f;
-    noiseGenCb_->lacunarity  = 2.0f;
-    noiseGenCb_->colorMode   = 0;
-    noiseGenCb_->opacity     = 1.0f;
+    noiseGenCb_->scaleX      = 4.0f; noiseGenCb_->scaleY      = 4.0f;
+    noiseGenCb_->seed        = 0.0f; noiseGenCb_->octaves     = 4;
+    noiseGenCb_->persistence = 0.5f; noiseGenCb_->lacunarity  = 2.0f;
+    noiseGenCb_->colorMode   = 0;    noiseGenCb_->opacity      = 1.0f;
+}
 
-    // ----- ブラー用 Root Signature（b0 + t0）-----
+// =====================================================
+// InitRootSignatures: ブラー用・アウトライン用 Root Signature 作成
+// =====================================================
+
+void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
+{
+    ID3D12Device* device = dxCommon->GetDevice();
+
+    D3D12_STATIC_SAMPLER_DESC sampler = {};
+    sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_POINT;
+    sampler.AddressU         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    sampler.AddressV         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    sampler.AddressW         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    sampler.ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
+    sampler.MaxLOD           = D3D12_FLOAT32_MAX;
+    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+    // ブラー用 Root Signature（b0 + t0）
     D3D12_DESCRIPTOR_RANGE srvRange0 = {};
     srvRange0.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     srvRange0.NumDescriptors                    = 1;
@@ -188,21 +197,11 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     blurParams[1].DescriptorTable.pDescriptorRanges   = &srvRange0;
     blurParams[1].DescriptorTable.NumDescriptorRanges = 1;
 
-    D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_POINT;
-    sampler.AddressU         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.AddressV         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.AddressW         = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
-    sampler.MaxLOD           = D3D12_FLOAT32_MAX;
-    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
     D3D12_ROOT_SIGNATURE_DESC blurSigDesc = {};
-    blurSigDesc.NumParameters    = 2;
-    blurSigDesc.pParameters      = blurParams;
+    blurSigDesc.NumParameters     = 2;
+    blurSigDesc.pParameters       = blurParams;
     blurSigDesc.NumStaticSamplers = 1;
-    blurSigDesc.pStaticSamplers  = &sampler;
-    blurSigDesc.Flags            = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+    blurSigDesc.pStaticSamplers   = &sampler;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&blurSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
@@ -211,7 +210,7 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         IID_PPV_ARGS(&rootSignature_));
     assert(SUCCEEDED(hr));
 
-    // ----- 深度アウトライン用 Root Signature（b0 + t0 + t1）-----
+    // アウトライン / ディゾルブ用 Root Signature（b0 + t0 + t1）
     D3D12_DESCRIPTOR_RANGE srvRange1 = {};
     srvRange1.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     srvRange1.NumDescriptors                    = 1;
@@ -236,7 +235,6 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     outlineSigDesc.pParameters       = outlineParams;
     outlineSigDesc.NumStaticSamplers = 1;
     outlineSigDesc.pStaticSamplers   = &sampler;
-    outlineSigDesc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> outlineSigBlob, outlineErrBlob;
     hr = D3D12SerializeRootSignature(&outlineSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &outlineSigBlob, &outlineErrBlob);
@@ -244,8 +242,16 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     hr = device->CreateRootSignature(0, outlineSigBlob->GetBufferPointer(), outlineSigBlob->GetBufferSize(),
         IID_PPV_ARGS(&outlineRootSignature_));
     assert(SUCCEEDED(hr));
+}
 
-    // ----- シェーダーコンパイル -----
+// =====================================================
+// InitPipelineStates: シェーダーコンパイル + 全 PSO 作成
+// =====================================================
+
+void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
+{
+    ID3D12Device* device = dxCommon->GetDevice();
+
     IDxcBlob* vsBlob           = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",     L"vs_6_0");
     IDxcBlob* boxPsBlob        = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",   L"ps_6_0");
     IDxcBlob* gaussianPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
@@ -255,7 +261,7 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     IDxcBlob* dissolvePsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/DissolvePS.hlsl",       L"ps_6_0");
     IDxcBlob* noiseGenPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/NoisePS.hlsl",          L"ps_6_0");
 
-    // ----- 共通 PSO ベース設定 -----
+    // 共通 PSO ベース（深度なし、カリングなし、フルスクリーントライアングル）
     D3D12_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     D3D12_RASTERIZER_DESC rastDesc = {};
@@ -265,57 +271,33 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     depthDesc.DepthEnable = FALSE;
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.VS                  = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.BlendState          = blendDesc;
-    psoDesc.RasterizerState     = rastDesc;
-    psoDesc.DepthStencilState   = depthDesc;
-    psoDesc.SampleMask          = D3D12_DEFAULT_SAMPLE_MASK;
+    psoDesc.VS                    = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
+    psoDesc.BlendState            = blendDesc;
+    psoDesc.RasterizerState       = rastDesc;
+    psoDesc.DepthStencilState     = depthDesc;
+    psoDesc.SampleMask            = D3D12_DEFAULT_SAMPLE_MASK;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets    = 1;
-    psoDesc.RTVFormats[0]       = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    psoDesc.SampleDesc.Count    = 1;
+    psoDesc.NumRenderTargets      = 1;
+    psoDesc.RTVFormats[0]         = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.SampleDesc.Count      = 1;
 
-    // Box 用 PSO
-    psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.PS = { boxPsBlob->GetBufferPointer(), boxPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&boxPso_));
-    assert(SUCCEEDED(hr));
+    auto createPSO = [&](ID3D12RootSignature* sig, IDxcBlob* ps, ComPtr<ID3D12PipelineState>& out) {
+        psoDesc.pRootSignature = sig;
+        psoDesc.PS             = { ps->GetBufferPointer(), ps->GetBufferSize() };
+        HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&out));
+        assert(SUCCEEDED(hr));
+    };
 
-    // Gaussian 用 PSO
-    psoDesc.PS = { gaussianPsBlob->GetBufferPointer(), gaussianPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&gaussianPso_));
-    assert(SUCCEEDED(hr));
+    // rootSignature_（b0 + t0）を使う PSO
+    createPSO(rootSignature_.Get(),        boxPsBlob,        boxPso_);
+    createPSO(rootSignature_.Get(),        gaussianPsBlob,   gaussianPso_);
+    createPSO(rootSignature_.Get(),        prewittPsBlob,    prewittPso_);
+    createPSO(rootSignature_.Get(),        radialBlurPsBlob, radialBlurPso_);
+    createPSO(rootSignature_.Get(),        noiseGenPsBlob,   noiseGenPso_);
 
-    // Prewitt 用 PSO（rootSignature_ と同じ b0+t0 ルートシグネチャを使用）
-    psoDesc.PS = { prewittPsBlob->GetBufferPointer(), prewittPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&prewittPso_));
-    assert(SUCCEEDED(hr));
-
-    // 深度アウトライン用 PSO（outlineRootSignature_: b0+t0+t1）
-    psoDesc.pRootSignature = outlineRootSignature_.Get();
-    psoDesc.PS = { depthOlPsBlob->GetBufferPointer(), depthOlPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&depthOutlinePso_));
-    assert(SUCCEEDED(hr));
-
-    // ラジアルブラー用 PSO（rootSignature_ と同じ b0+t0）
-    psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.PS = { radialBlurPsBlob->GetBufferPointer(), radialBlurPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&radialBlurPso_));
-    assert(SUCCEEDED(hr));
-
-    // ディゾルブ用 PSO（outlineRootSignature_: b0+t0+t1）
-    psoDesc.pRootSignature = outlineRootSignature_.Get();
-    psoDesc.PS = { dissolvePsBlob->GetBufferPointer(), dissolvePsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&dissolvePso_));
-    assert(SUCCEEDED(hr));
-
-    // プロシージャルノイズ用 PSO（rootSignature_: b0+t0）
-    psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.PS = { noiseGenPsBlob->GetBufferPointer(), noiseGenPsBlob->GetBufferSize() };
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&noiseGenPso_));
-    assert(SUCCEEDED(hr));
-
-    RebuildKernel();
+    // outlineRootSignature_（b0 + t0 + t1）を使う PSO
+    createPSO(outlineRootSignature_.Get(), depthOlPsBlob,    depthOutlinePso_);
+    createPSO(outlineRootSignature_.Get(), dissolvePsBlob,   dissolvePso_);
 }
 
 // =====================================================

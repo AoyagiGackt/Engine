@@ -1,34 +1,70 @@
+/**
+ * @file ImageFilter.h
+ * @brief 画面全体にポストプロセスフィルター（ブラー・アウトライン・ディゾルブ等）を適用するファイル
+ */
 #pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"
 #include <wrl/client.h>
 
+/**
+ * @brief シーンをオフスクリーンテクスチャにキャプチャし、各種ポストプロセスをフルスクリーンクワッドで合成するシングルトンクラス
+ * @note Box/Gaussian は水平→垂直の2パス、その他モードはシングルパスで実行する
+ */
 class ImageFilter {
 public:
+    /** @brief 適用するポストプロセスの種類 */
     enum class Mode { Box, Gaussian, PrewittEdge, DepthOutline, RadialBlur, Dissolve, NoiseGen };
 
+    /**
+     * @brief ImageFilterの唯一のインスタンスを取得する
+     * @return ImageFilter* シングルトンインスタンスへのポインタ
+     */
     static ImageFilter* GetInstance()
     {
         static ImageFilter instance;
         return &instance;
     }
 
+    /**
+     * @brief オフスクリーンテクスチャ・定数バッファ・PSO を作成して初期化する
+     * @param dxCommon DirectX基盤（デバイス・コマンドリスト取得に使用）
+     * @param srvManager SRVを割り当てるマネージャー
+     */
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
+
+    /** @brief GPU リソースをすべて解放して終了する */
     void Finalize();
 
+    /** @brief オフスクリーンテクスチャをレンダーターゲットとしてバインドし、シーン描画を開始する */
     void BeginScene();
+
+    /** @brief シーン描画を終了し、オフスクリーンテクスチャを SRV 状態に遷移する */
     void EndScene();
+
+    /**
+     * @brief 現在のモードに応じたフィルターをバックバッファに適用する
+     * @param srvManager シェーダーリソースのGPUハンドル取得に使用
+     */
     void Apply(SrvManager* srvManager);
 
+    /** @brief フィルターの有効・無効を切り替える */
     void  SetEnabled(bool v) { enabled_ = v; }
+    /** @brief フィルターが有効かどうかを返す */
     bool  IsEnabled()  const { return enabled_; }
+    /** @brief 適用するフィルターモードを変更する（カーネルを自動再計算） */
     void  SetMode(Mode mode) { mode_ = mode; RebuildKernel(); }
+    /** @brief 現在のフィルターモードを返す */
     Mode  GetMode()    const { return mode_; }
 
     // Box / Gaussian パラメータ
+    /** @brief Box フィルターのカーネル半径を設定する */
     void  SetRadius(int r);
+    /** @brief Box フィルターのカーネル半径を返す */
     int   GetRadius()  const { return boxRadius_; }
+    /** @brief Gaussian フィルターの標準偏差σを設定する */
     void  SetSigma(float s);
+    /** @brief Gaussian フィルターの標準偏差σを返す */
     float GetSigma()   const { return gaussianSigma_; }
 
     // アウトライン共通パラメータ
@@ -104,6 +140,7 @@ public:
     float GetNoiseSpeed()        const { return noiseSpeed_; }
     void  ResetNoiseTime()             { noiseTime_ = 0.0f; }
 
+    /** @brief シーンキャプチャ用 RTV ハンドルを返す（ImGui 等が直接バインドする場合に使用） */
     D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
 
 private:
@@ -113,6 +150,11 @@ private:
     ImageFilter& operator=(const ImageFilter&) = delete;
 
     void RebuildKernel();
+
+    // Initialize の分割ヘルパー
+    void InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height);
+    void InitRootSignatures(DirectXCommon* dxCommon);
+    void InitPipelineStates(DirectXCommon* dxCommon);
 
     // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
     struct FilterParams {

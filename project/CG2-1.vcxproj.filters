@@ -356,6 +356,9 @@
     <ClCompile Include="Engine\graphics\cpp\RenderTexture.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\SSAOEffect.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
     <!-- Game\Core -->
     <ClCompile Include="Engine\game\cpp\Game.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
@@ -398,6 +401,12 @@
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\LoadingScene.cpp">
+      <Filter>ソースファイル\Game\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\MapScene.cpp">
+      <Filter>ソースファイル\Game\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\ShopScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <!-- Game\Player -->
@@ -674,6 +683,9 @@
     <ClInclude Include="Engine\graphics\h\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\SSAOEffect.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
     <!-- Game\Core -->
     <ClInclude Include="Engine\game\h\Game.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
@@ -719,6 +731,12 @@
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\LoadingScene.h">
+      <Filter>ヘッダーファイル\Game\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\MapScene.h">
+      <Filter>ヘッダーファイル\Game\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\ShopScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <!-- Game\Player -->
@@ -773,6 +791,12 @@
     <ClInclude Include="Engine\game\h\Sequencer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\RunData.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\GridPathfinder.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\ChromaticAberrationEffect.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
@@ -824,6 +848,9 @@
     </ClInclude>
     <!-- Game\Debug -->
     <ClInclude Include="Engine\game\h\DebugDraw.h">
+      <Filter>ヘッダーファイル\Game\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\DebugProfiler.h">
       <Filter>ヘッダーファイル\Game\Debug</Filter>
     </ClInclude>
   </ItemGroup>
@@ -913,6 +940,18 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\BloomCombinePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\NormalCapturePS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\SSAOApplyPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\SSAOBlurPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\SSAOPS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
