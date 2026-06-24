@@ -77,7 +77,7 @@ WeaponManager::WeaponManager() {
             { 1.0f, 0.45f, 0.85f, 1.0f }, 0.4f,   // ピンク
             {
                 { "Space",     L"スピン連射" },
-                { "Space(空中)", L"スピン＋ばらまき" },
+                { "Space(Air)", L"スピン+ばらまき" },
                 { "L",         L"格闘" },
                 { "K",         L"射撃" },
                 { "W/Up",      L"ジャンプ" },

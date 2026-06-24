@@ -4,6 +4,7 @@
 #include "ModelCommon.h"
 #include "ModelManager.h"
 #include "OutlineEffect.h"
+#include "TextureManager.h"
 #include <cmath>
 
 using namespace Microsoft::WRL;
@@ -63,6 +64,9 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     materialData_->rimPower        = 3.0f;
     materialData_->rimIntensity    = 0.0f;
     materialData_->enableRim       = 0;
+    materialData_->useNormalMap    = 0;
+    materialData_->metallic        = 0.0f;
+    materialData_->roughness       = 0.5f;
 }
 
 void Object3d::Update()
@@ -112,6 +116,15 @@ void Object3d::DrawShadow()
     model_->DrawGeometryOnly(modelCommon_);
 }
 
+void Object3d::DrawForNormalCapture()
+{
+    if (!model_) return;
+    ID3D12GraphicsCommandList* cmd = modelCommon_->GetDxCommon()->GetCommandList();
+    // NormalCapture RS: slot0 = VS b0 (TransformationMatrix) - DrawShadow と同じスロット配置
+    cmd->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
+    model_->DrawGeometryOnly(modelCommon_);
+}
+
 void Object3d::DrawOutline(OutlineEffect* effect)
 {
     if (!model_ || !effect) { return; }
@@ -127,6 +140,13 @@ void Object3d::SetModel(const std::string& filePath)
     model_ = ModelManager::GetInstance()->FindModel(filePath);
 }
 
+void Object3d::SetNormalMap(const std::string& filePath)
+{
+    normalMapFilePath_ = filePath;
+    TextureManager::GetInstance()->LoadTexture(filePath);
+    if (materialData_) materialData_->useNormalMap = 1;
+}
+
 void Object3d::Draw()
 {
     if (!model_) {
@@ -139,6 +159,10 @@ void Object3d::Draw()
     // マテリアルと座標変換を設定
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
+
+    // スロット7: 法線マップ（未設定時は diffuse をダミーとして流用）
+    const std::string& normalPath = normalMapFilePath_.empty() ? model_->GetTextureFilePath() : normalMapFilePath_;
+    commandList->SetGraphicsRootDescriptorTable(7, TextureManager::GetInstance()->GetSrvHandleGPU(normalPath));
 
     model_->Draw(modelCommon_);
 }

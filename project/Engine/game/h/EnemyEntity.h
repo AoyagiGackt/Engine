@@ -12,6 +12,17 @@ public:
 
     void Launch(float velY);
 
+    // HP / ダメージ
+    void TakeDamage(int dmg = 1) {
+        if (defeated_) return;
+        hp_ -= dmg;
+        if (hp_ <= 0) { hp_ = 0; defeated_ = true; }
+    }
+    void SetMaxHp(int v)   { maxHp_ = v; hp_ = v; defeated_ = false; }
+    bool IsDefeated() const { return defeated_; }
+    int  GetHp()      const { return hp_; }
+    int  GetMaxHp()   const { return maxHp_; }
+
     bool           JustLanded()  const { return justLanded_; }
     bool           IsLaunched()  const { return isLaunched_; }
     const Vector3& GetPosition() const { return pos_; }
@@ -23,6 +34,10 @@ private:
 
     std::unique_ptr<Model>    model_;
     std::unique_ptr<Object3d> object_;
+
+    int     maxHp_      = 20;
+    int     hp_         = 20;
+    bool    defeated_   = false;
 
     Vector3 pos_        = {};
     float   velY_       = 0.0f;

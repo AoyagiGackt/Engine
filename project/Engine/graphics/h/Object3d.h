@@ -59,6 +59,9 @@ public:
     // アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
     void DrawOutline(OutlineEffect* effect);
 
+    // SSAOノーマルキャプチャパス用描画（SSAOEffect::BeginNormalCapture() の後に呼ぶ）
+    void DrawForNormalCapture();
+
     Model* GetModel() const{ return model_; }
 
     /**
@@ -175,6 +178,14 @@ public:
     void SetEnableRim(bool enable)            { if (materialData_) materialData_->enableRim = enable ? 1 : 0; }
     void SetUVTransform(const Matrix4x4& m)  { if (materialData_) materialData_->uvTransform = m; }
 
+    void SetNormalMap(const std::string& filePath);
+    void SetUseNormalMap(bool enable)         { if (materialData_) materialData_->useNormalMap = enable ? 1 : 0; }
+
+    // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
+    void SetMetallic(float v)   { if (materialData_) materialData_->metallic  = v; }
+    void SetRoughness(float v)  { if (materialData_) materialData_->roughness = v; }
+    void SetShadingTypePBR()    { if (materialData_) materialData_->shadingType = 5; }
+
 private:
     /**
      * @brief GPUに送るための座標変換行列データ
@@ -205,7 +216,10 @@ private:
         float      rimPower;         ///< リムライトの鋭さ（大きいほど細い）
         float      rimIntensity;     ///< リムライトの強さ（0=無効）
         int        enableRim;        ///< リムライト有効フラグ
-        float      _rimPad[2];       ///< 16バイトアライン用パディング
+        int        useNormalMap;     ///< 法線マップ有効フラグ
+        float      metallic;         ///< PBR: メタリック度（0=非金属, 1=金属）
+        float      roughness;        ///< PBR: 粗さ（0=鏡面, 1=完全拡散）
+        float      _pbr_pad[3];      ///< 16バイトアライン用パディング
     };
 
     /** @brief 全オブジェクトで共通して使うカメラのポインタ */
@@ -243,4 +257,7 @@ private:
     /** @brief アニメーション用ローカル行列 */
     Matrix4x4 localMatrix_ = MakeIdentity4x4();
     bool useLocalMatrix_ = false;
+
+    /** @brief 法線マップのテクスチャファイルパス（空なら無効） */
+    std::string normalMapFilePath_;
 };

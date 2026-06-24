@@ -11,7 +11,16 @@ static constexpr const char* kJpAtlasKey = "__fontAtlasJp__";
 
 // ひらがな 0x3041-0x3096 (86文字), カタカナ 0x30A0-0x30FF (96文字) は範囲カバー
 // それ以外でゲームUIに使う文字を追加
-static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護者射撃段斬★";
+static const wchar_t kJpExtra[] =
+    L"覚醒中発動鬼神銃士奇術師守護者射撃段斬★"  // 既存
+    L"格闘連玉"                                    // 武器UI
+    L"武器操作説明"                                // TrainingScene
+    L"戦強敵休憩"                                  // マップノード
+    L"倒獲得報酬高多選取永続効果回復最終決全力挑択定" // マップ説明
+    L"化延長速促進疾走跳躍乱舞維持"               // スキル名
+    L"距離倍大数階増加弾度蓄積移減衰"             // スキル説明
+    L"所済次開始"                                  // ショップ・タイトル
+    L"切替散";                                     // TrainingScene追加
 static constexpr uint32_t kHiraganaStart  = 0x3041;
 static constexpr uint32_t kHiraganaEnd    = 0x3096;
 static constexpr uint32_t kKatakanaStart  = 0x30A0;

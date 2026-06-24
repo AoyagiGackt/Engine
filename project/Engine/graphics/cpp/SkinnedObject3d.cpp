@@ -232,9 +232,14 @@ void SkinnedObject3d::Draw()
 
         // スロット 6 (VS, b1): スキニングパレット
         cmd->SetGraphicsRootConstantBufferView(6, paletteCB_->GetGPUVirtualAddress());
-        // スロット 7 (PS, b2): ポイントライト（SkinCommon RS ではパレットの次のスロット）
+        // スロット 7 (PS, b2): ポイントライト
         if (commonObjectCommon_) {
             commonObjectCommon_->SetPointLights(cmd, 7);
+        }
+        // スロット 8 (PS, t3): 法線マップ（スキンドメッシュ未使用のためテクスチャで代替）
+        {
+            D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(model_->GetTextureFilePath());
+            cmd->SetGraphicsRootDescriptorTable(8, texHandle);
         }
         model_->Draw(cmd);
     }

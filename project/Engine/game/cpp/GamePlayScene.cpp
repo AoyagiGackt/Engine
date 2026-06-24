@@ -4,6 +4,7 @@
 #include <cstring>
 #include <random>
 #include "GameConstants.h"
+#include "RunData.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
@@ -95,9 +96,35 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
 
+    // ローグライトモード: スキル適用
+    {
+        auto* rd = RunData::GetInstance();
+        if (rd->isRunActive) {
+            Player::SkillMods mods;
+            if (rd->HasSkill(RunData::Skill::BlinkPlus))    mods.blinkDistMult    = 1.5f;
+            if (rd->HasSkill(RunData::Skill::ComboExtend))  mods.comboMaxBonus    = 1;
+            if (rd->HasSkill(RunData::Skill::FastFire))     mods.fireIntervalMult = 0.5f;
+            if (rd->HasSkill(RunData::Skill::AwakenBoost))  mods.gaugeChargeMult  = 1.5f;
+            if (rd->HasSkill(RunData::Skill::SpeedUp))      mods.speedMult        = 1.2f;
+            if (rd->HasSkill(RunData::Skill::HighJump))     mods.jumpMult         = 1.25f;
+            if (rd->HasSkill(RunData::Skill::JuggleExtend)) mods.juggleMaxBonus   = 4;
+            player_->ApplySkillMods(mods);
+        }
+    }
+
     // ----- 敵 -----
     enemy_ = std::make_unique<EnemyEntity>();
     enemy_->Initialize(modelCommon_.get(), { 28.0f, 0.4f, 0.0f });
+    // ローグライトモード: 敵HPをノードタイプに応じて設定
+    {
+        auto* rd = RunData::GetInstance();
+        if (rd->isRunActive) {
+            int hp = 20;
+            if (rd->currentNode == RunData::NodeType::Elite) hp = 35;
+            else if (rd->currentNode == RunData::NodeType::Boss) hp = 60;
+            enemy_->SetMaxHp(hp);
+        }
+    }
 
     // スコアをファイルから読み込み、今回プレイのスコアをリセットする
     scoreManager_->LoadScores();
@@ -247,9 +274,30 @@ void GamePlayScene::Update()
 {
     // ---- クリア演出中はシーン遷移待ちのみ行う ----
     if (clearTriggered_) {
-        glassShatter_.Update(GameConstants::kFrameDeltaTime);
-        if (glassShatter_.IsFinished()) {
-            SceneManager::GetInstance()->ChangeScene("CLEAR");
+        auto* rd = RunData::GetInstance();
+        if (rd->isRunActive) {
+            // ローグライト: 結果表示 → MAP遷移
+            if (!showResult_) {
+                showResult_  = true;
+                resultTimer_ = 2.5f;
+                lastGold_    = RunData::CalcGold(peakStyle_);
+                rd->gold    += lastGold_;
+                rd->floor++;
+            }
+            resultTimer_ -= GameConstants::kFrameDeltaTime;
+            if (resultTimer_ <= 0.0f) {
+                if (rd->floor >= 4) {
+                    SceneManager::GetInstance()->ChangeScene("CLEAR");
+                } else {
+                    SceneManager::GetInstance()->ChangeScene("MAP");
+                }
+            }
+        } else {
+            // サンドボックス: ガラス割れ → CLEAR
+            glassShatter_.Update(GameConstants::kFrameDeltaTime);
+            if (glassShatter_.IsFinished()) {
+                SceneManager::GetInstance()->ChangeScene("CLEAR");
+            }
         }
         return;
     }
@@ -362,9 +410,11 @@ void GamePlayScene::Update()
     // ── スタイルメーター更新（dt=0 のときは自然に止まる）──
     if (player_->JustComboHit()) {
         styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
+        enemy_->TakeDamage(1);
     }
     if (player_->JustFired()) {
         styleMeter_ = std::clamp(styleMeter_ + 0.05f, 0.0f, 1.0f);
+        enemy_->TakeDamage(1);
     }
     if (player_->JustBlinked()) {
         styleMeter_ = std::clamp(styleMeter_ + 0.10f, 0.0f, 1.0f);
@@ -373,8 +423,13 @@ void GamePlayScene::Update()
         // 乱舞スラッシュ：回数が増えるほど多くゲージが溜まる
         styleMeter_ = std::clamp(
             styleMeter_ + 0.10f + player_->GetJuggleCount() * 0.02f, 0.0f, 1.0f);
+        enemy_->TakeDamage(1);
     }
-    styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt, 0.0f, 1.0f);
+    {
+        float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? 0.6f : 1.0f;
+        styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt * decayMult, 0.0f, 1.0f);
+    }
+    peakStyle_ = (std::max)(peakStyle_, styleMeter_);
 
     DrawStyleUI();
 
@@ -427,6 +482,7 @@ void GamePlayScene::Update()
                                { epos.x + 0.5f, epos.y + 0.5f,  0.5f } };
             if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
                 hitCooldown_ = 0.5f;
+                enemy_->TakeDamage(1);
 
                 // ヒットストップ＋カメラシェイク
                 tm->RequestHitStop(5);
@@ -502,11 +558,18 @@ void GamePlayScene::Update()
         }
     }
 
+    // ローグライト: 敵撃破でクリア
+    if (!clearTriggered_ && enemy_->IsDefeated() && RunData::GetInstance()->isRunActive) {
+        requestClear_ = true;
+    }
+
     // ---- クリア条件チェック ----
     if (requestClear_ || gameTime_.IsCleared()) {
         requestClear_   = false;
         clearTriggered_ = true;
-        glassShatter_.Start();
+        if (!RunData::GetInstance()->isRunActive) {
+            glassShatter_.Start();
+        }
     }
 }
 
@@ -568,11 +631,27 @@ void GamePlayScene::DrawShadowPass()
 void GamePlayScene::Draw()
 {
     // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
-    // キャプチャが必要なフレーム（Start() 直後）はシーンを描いてからキャプチャする
-    if (clearTriggered_ && !glassShatter_.NeedCapture()) {
-        // ガラスのシャードが飛び去った後ろに白背景を表示する
-        // （青いクリアカラーが透けないようにするだけ。スコアは ClearScene で表示）
+    if (clearTriggered_ && RunData::GetInstance()->isRunActive && showResult_) {
+        // ローグライト: 結果オーバーレイ
         spriteCommon_->CommonDrawSettings();
+        clearBgSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 1.0f });
+        clearBgSprite_->Update();
+        clearBgSprite_->Draw();
+        const char* rank = RunData::CalcRank(peakStyle_);
+        fontRenderer_.Reset();
+        fontRenderer_.DrawString("CLEAR!",     490.0f, 200.0f, 4.0f, { 1.0f, 1.0f, 0.3f, 1.0f });
+        fontRenderer_.DrawString("Style:",     420.0f, 310.0f, 3.0f, { 0.8f, 0.8f, 0.8f, 1.0f });
+        fontRenderer_.DrawString(rank,         580.0f, 305.0f, 4.0f, { 1.0f, 0.5f, 0.1f, 1.0f });
+        char goldBuf[32];
+        snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
+        fontRenderer_.DrawString(goldBuf,      540.0f, 400.0f, 3.0f, { 0.9f, 0.85f, 0.2f, 1.0f });
+        fontRenderer_.Draw();
+        return;
+    }
+    if (clearTriggered_ && !RunData::GetInstance()->isRunActive && !glassShatter_.NeedCapture()) {
+        // サンドボックス: ガラス割れ
+        spriteCommon_->CommonDrawSettings();
+        clearBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
         clearBgSprite_->Update();
         clearBgSprite_->Draw();
         glassShatter_.Apply();
@@ -660,8 +739,8 @@ void GamePlayScene::Draw()
     // ----- フィルター適用 -----
     ApplyActiveFilter();
 
-    // ---- ガラス割れエフェクト（クリア演出時のみ）----
-    if (clearTriggered_) {
+    // ---- ガラス割れエフェクト（サンドボックスのクリア演出時のみ）----
+    if (clearTriggered_ && !RunData::GetInstance()->isRunActive) {
         if (glassShatter_.NeedCapture()) {
             glassShatter_.CaptureFrame();
         }
@@ -688,6 +767,29 @@ void GamePlayScene::DrawStyleUI()
     constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f; // ~28px
 
     fontRenderer_.Reset();
+
+    // ══════════════════════════════════════════════════════
+    // ローグライト: 敵HPバー + プレイヤーHP + ゴールド
+    // ══════════════════════════════════════════════════════
+    {
+        auto* rd = RunData::GetInstance();
+        if (rd->isRunActive) {
+            // 敵HPバー（上部中央）
+            int eHp    = enemy_->GetHp();
+            int eMaxHp = enemy_->GetMaxHp();
+            int filled = (eMaxHp > 0) ? (eHp * 20 / eMaxHp) : 0;
+            std::string hpBar = "ENEMY [";
+            for (int i = 0; i < 20; ++i) hpBar += (i < filled ? '#' : ' ');
+            hpBar += "] ";
+            hpBar += std::to_string(eHp) + "/" + std::to_string(eMaxHp);
+            fontRenderer_.DrawString(hpBar.c_str(), 280.0f, 10.0f, 1.5f, { 1.0f, 0.35f, 0.35f, 1.0f });
+
+            // プレイヤーHP + ゴールド（左上）
+            std::string info = "HP:" + std::to_string(rd->hp) + "/" + std::to_string(rd->maxHp)
+                             + "  G:" + std::to_string(rd->gold);
+            fontRenderer_.DrawString(info.c_str(), 10.0f, 10.0f, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
+        }
+    }
 
     // ══════════════════════════════════════════════════════
     // 右上：コンボランク ＋ 覚醒ゲージ

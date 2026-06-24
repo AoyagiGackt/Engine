@@ -190,6 +190,12 @@ private:
 
     // --- スタイルメーター（コンボランク算出用）---
     float styleMeter_ = 0.0f;
+    float peakStyle_  = 0.0f;  // ランデータ用ピーク値
+
+    // --- ローグライト: 戦闘結果表示 ---
+    bool  showResult_  = false;
+    float resultTimer_ = 0.0f;
+    int   lastGold_    = 0;
 
     // --- ゲームプレイ UI テキスト描画 ---
     FontRenderer fontRenderer_;

@@ -47,8 +47,8 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) { wm->SelectIndex(i); }
     }
 
-    const float speedMult = isAwakened_ ? 1.5f : 1.0f;
-    const float jumpMult  = isAwakened_ ? 1.3f : 1.0f;
+    const float speedMult = (isAwakened_ ? 1.5f : 1.0f) * skillMods_.speedMult;
+    const float jumpMult  = (isAwakened_ ? 1.3f : 1.0f) * skillMods_.jumpMult;
 
     if (inWater_) {
         // ========== 水中物理 ==========
@@ -132,19 +132,20 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             juggleAngleIdx_   = 0;
 
         } else if (rampagePhase_ == RampagePhase::Juggle &&
-                   juggleSlashCount_ < kJuggleMaxSlashes_) {
+                   juggleSlashCount_ < kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus) {
             // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
-            float angle = juggleAngleIdx_ * (6.28318530f / kJuggleMaxSlashes_);
+            const int effectiveMax = kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus;
+            float angle = juggleAngleIdx_ * (6.28318530f / effectiveMax);
             float dx = std::cos(angle) * kJuggleRadius_;
             float dy = std::sin(angle) * kJuggleRadius_;
             pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
             pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
             velocityY_ = 0.0f;
             lastDirX_  = (enemyPos.x >= pos_.x) ? 1.0f : -1.0f;
-            juggleAngleIdx_   = (juggleAngleIdx_ + 1) % kJuggleMaxSlashes_;
+            juggleAngleIdx_   = (juggleAngleIdx_ + 1) % effectiveMax;
             juggleSlashCount_++;
 
-            bool isLast = (juggleSlashCount_ >= kJuggleMaxSlashes_);
+            bool isLast = (juggleSlashCount_ >= effectiveMax);
             justRampageHit_    = true;
             justRampageFinish_ = isLast;
             EventBus::GetInstance()->Emit("player_rampage_hit");
@@ -156,7 +157,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         } else if (rampagePhase_ == RampagePhase::Inactive) {
             // 通常コンボ
             if (comboStep_ == 0 || comboTimer_ > 0.0f) {
-                comboStep_    = comboStep_ % kComboMax_ + 1;
+                comboStep_    = comboStep_ % (kComboMax_ + skillMods_.comboMaxBonus) + 1;
                 comboTimer_   = kComboWindow_;
                 justComboHit_ = true;
                 EventBus::GetInstance()->Emit("player_combo_hit");
@@ -166,9 +167,9 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
     if (!isAwakened_) {
-        if (justComboHit_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.08f, 1.0f); }
-        if (justFired_)    { awakenGauge_ = (std::min)(awakenGauge_ + 0.04f, 1.0f); }
-        if (justSpinShot_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.02f, 1.0f); }
+        if (justComboHit_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f); }
+        if (justFired_)    { awakenGauge_ = (std::min)(awakenGauge_ + 0.04f * skillMods_.gaugeChargeMult, 1.0f); }
+        if (justSpinShot_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.02f * skillMods_.gaugeChargeMult, 1.0f); }
     }
 
     // ── スペースキー（武器タイプ別）──────────────────────────────
@@ -183,7 +184,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         case WeaponType::Dagger:
             // ブリンク（瞬間移動）
             if (input->TriggerKey(DIK_SPACE)) {
-                pos_.x += lastDirX_ * kBlinkDist_;
+                pos_.x += lastDirX_ * kBlinkDist_ * skillMods_.blinkDistMult;
                 pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
                 justBlinked_ = true;
             }
@@ -194,7 +195,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             if (!isAwakened_ && input->PushKey(DIK_SPACE)) {
                 justChargedGauge_ = true;
                 awakenGauge_ = (std::min)(
-                    awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime, 1.0f);
+                    awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime * skillMods_.gaugeChargeMult, 1.0f);
             }
             break;
 
@@ -203,7 +204,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             if (input->PushKey(DIK_SPACE)) {
                 if (shootCooldown_ <= 0.0f) {
                     justSpinShot_  = true;
-                    shootCooldown_ = kShootInterval_;
+                    shootCooldown_ = kShootInterval_ * skillMods_.fireIntervalMult;
                 }
                 if (!onGround_) {
                     spinAngle_ += kSpinSpeed_;

@@ -13,7 +13,8 @@
 struct VertexDataSprite {
     Vector4 position; /// 頂点座標（2D空間）
     Vector2 texcoord; /// UV座標（テクスチャの切り出し位置）
-    Vector3 normal; /// 法線ベクトル（ライティング用）
+    Vector3 normal;   /// 法線ベクトル（ライティング用）
+    Vector3 tangent;  /// 接線ベクトル（Object3dVS.hlsl が要求）
 };
 
 /**

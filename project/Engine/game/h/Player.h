@@ -13,10 +13,22 @@ public:
     // 乱舞フェーズ
     enum class RampagePhase { Inactive, Launch, Juggle };
 
+    // ローグライト: スキル補正パラメータ
+    struct SkillMods {
+        float blinkDistMult    = 1.0f;
+        int   comboMaxBonus    = 0;
+        float fireIntervalMult = 1.0f;  // <1 = 速く
+        float gaugeChargeMult  = 1.0f;
+        float speedMult        = 1.0f;
+        float jumpMult         = 1.0f;
+        int   juggleMaxBonus   = 0;
+    };
+
     void Initialize(ModelCommon* modelCommon);
     void Update(Input* input, const Vector3& enemyPos = {});
     void Draw();
     void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) rampagePhase_ = RampagePhase::Inactive; }
+    void ApplySkillMods(const SkillMods& mods) { skillMods_ = mods; }
 
     const Vector3& GetPosition() const { return pos_; }
     Model* GetModel() const { return model_.get(); }
@@ -46,7 +58,7 @@ public:
     bool  JustBlinked()       const { return justBlinked_; }
     bool  JustChargedGauge()  const { return justChargedGauge_; }
     float GetLastDirX()       const { return lastDirX_; }
-    int   GetComboMax()       const { return kComboMax_; }
+    int   GetComboMax()       const { return kComboMax_ + skillMods_.comboMaxBonus; }
 
     // スペースキー スピン連射
     bool  JustSpinShot()      const { return justSpinShot_; }
@@ -59,7 +71,7 @@ public:
     bool  JustRampageHit()     const { return justRampageHit_; }
     bool  JustRampageFinish()  const { return justRampageFinish_; }
     int   GetJuggleCount()     const { return juggleSlashCount_; }
-    int   GetJuggleMax()       const { return kJuggleMaxSlashes_; }
+    int   GetJuggleMax()       const { return kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus; }
 
 private:
     // 通常物理
@@ -132,6 +144,9 @@ private:
     static constexpr float kRampageSpeed_      = 0.45f; // 打ち上げ突進速度
     static constexpr float kJuggleRadius_      = 2.5f;  // 敵からのスラッシュ距離
     static constexpr int   kJuggleMaxSlashes_  = 8;     // 乱舞の最大回数
+
+    // スキル補正（ローグライト）
+    SkillMods skillMods_;
 
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;

@@ -1,6 +1,8 @@
 #include "TrainingScene.h"
+#include "DebugProfiler.h"
 #include "GameConstants.h"
 #include "SceneManager.h"
+#include "SSAOEffect.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -75,11 +77,20 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
     fontRenderer_.Initialize(spriteCommon_.get());
+
+    SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
 }
 
 void TrainingScene::Update()
 {
+    DebugProfiler::GetInstance()->EndFrame();
+    DebugProfiler::GetInstance()->BeginFrame();
     fontRenderer_.Reset();
+
+    if (input_->TriggerKey(DIK_BACK)) {
+        SceneManager::GetInstance()->ChangeScene("TITLE", 0.4f, 0.4f);
+        return;
+    }
 
     // 武器切り替え（Q/E、数字キー 1〜4）
     weaponCycleTimer_ -= GameConstants::kFrameDeltaTime;
@@ -230,6 +241,17 @@ void TrainingScene::Update()
         }
     }
 
+    // ── デバッグ情報（右上隅） ──────────────────────────────────────
+#ifdef _DEBUG
+    {
+        char dbgBuf[64];
+        float fps = DebugProfiler::GetInstance()->GetFPS();
+        float ms  = DebugProfiler::GetInstance()->GetMs();
+        std::snprintf(dbgBuf, sizeof(dbgBuf), "%.0f FPS  %.2f ms", fps, ms);
+        fontRenderer_.DrawString(dbgBuf, 1140.0f, 4.0f, 1.2f, { 0.6f, 1.0f, 0.6f, 0.85f });
+    }
+#endif
+
     // ── 操作説明（右パネル） ─────────────────────────────────────────
     {
         constexpr float kIx     = 870.0f;
@@ -253,7 +275,7 @@ void TrainingScene::Update()
         row("L      ", L": コンボ (x3)");
         row("K      ", L": 射撃");
         row("SPACE  ", L": スピン連射");
-        row("(空中) ", L": スピン＋散弾");
+        row("(Air)  ", L": スピン+散弾");
         row("Q / E  ", L": 武器切替");
         row("1-4", L": Weapon Select");
         row("ENTER", L": Warp (portal)");
@@ -297,10 +319,21 @@ void TrainingScene::Update()
 
 void TrainingScene::Draw()
 {
+    // ---- シャドウパス ----
     shadowManager_->BeginShadowPass(dxCommon_->GetCommandList());
     modelCommon_->BeginShadowPass();
     shadowManager_->EndShadowPass(dxCommon_->GetCommandList());
 
+    // ---- SSAO ノーマルキャプチャパス ----
+    auto* ssao = SSAOEffect::GetInstance();
+    if (ssao->IsEnabled()) {
+        ssao->BeginNormalCapture(dxCommon_, camera_.get());
+        for (auto& b : borderBlocks_)     { b->DrawForNormalCapture(); }
+        for (auto& p : warpPortalBlocks_) { p->DrawForNormalCapture(); }
+        ssao->EndNormalCapture(dxCommon_);
+    }
+
+    // ---- メイン3D描画 ----
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
     D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
@@ -320,7 +353,15 @@ void TrainingScene::Draw()
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
     player_->Draw();
 
-    // 2D スプライト（テキスト UI）
+    // ---- SSAO 計算 → ブラー → 乗算合成 ----
+    if (ssao->IsEnabled()) {
+        ssao->Compute(dxCommon_, camera_.get());
+        ssao->Blur(dxCommon_);
+        cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv); // バックバッファに戻す
+        ssao->Apply(dxCommon_, srvManager_);
+    }
+
+    // ---- 2D スプライト（テキスト UI） ----
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(cmd, srvManager_);
     awakenGaugeBg_->Draw();

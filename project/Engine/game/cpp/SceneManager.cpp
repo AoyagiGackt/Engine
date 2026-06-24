@@ -1,6 +1,9 @@
 ﻿#include "SceneManager.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
+#ifdef _DEBUG
+#include "TrainingScene.h"
+#endif
 
 SceneManager* SceneManager::GetInstance()
 {
@@ -15,8 +18,12 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     audio_ = audio;
     imguiManager_ = imgui;
 
-    // 最初のシーン
+    // 最初のシーン（デバッグ時はトレーニングから直接開始）
+#ifdef _DEBUG
+    currentScene_ = std::make_unique<TrainingScene>();
+#else
     currentScene_ = std::make_unique<TitleScene>();
+#endif
     currentScene_->Initialize(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();
@@ -54,7 +61,7 @@ void SceneManager::Update()
         currentScene_->SetImGuiManager(imguiManager_);
 
         // シーンが切り替わったので、画面を明るくし始める
-        fade_.Start(Fade::Status::FadeIn, 1.0f);
+        fade_.Start(Fade::Status::FadeIn, fadeInDuration_);
         isChanging_ = false;
     }
 
@@ -96,16 +103,16 @@ void SceneManager::ChangeSceneWithLoading(const std::string& targetScene)
 }
 
 // シーン切り替え予約
-void SceneManager::ChangeScene(const std::string& sceneName)
+void SceneManager::ChangeScene(const std::string& sceneName, float fadeOut, float fadeIn)
 {
-
     if (isChanging_) {
         return;
     }
 
-    nextSceneName_ = sceneName;
-    isChanging_ = true;
+    nextSceneName_   = sceneName;
+    isChanging_      = true;
+    fadeInDuration_  = fadeIn;
 
     // 暗転開始
-    fade_.Start(Fade::Status::FadeOut, 1.0f);
+    fade_.Start(Fade::Status::FadeOut, fadeOut);
 }
