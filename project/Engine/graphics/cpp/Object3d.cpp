@@ -1,5 +1,6 @@
 ﻿#include "Object3d.h"
 #include "Camera.h"
+#include "LightingMode.h"
 #include "LightManager.h"
 #include "ModelCommon.h"
 #include "ModelManager.h"
@@ -97,8 +98,10 @@ void Object3d::Update()
     transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
     transformationMatrixData_->LightVP              = commonLightVP_;
 
-    // 毎フレームライティングモードをマテリアルに反映させる
-    materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
+    // 毎フレームライティングモードをマテリアルに反映させる（PBR 固定オブジェクトは除外）
+    if (materialData_->shadingType != Lighting_PBR) {
+        materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
+    }
 
     collider_.aabb.min = { transform_.translate.x - 0.5f, transform_.translate.y - 0.5f, transform_.translate.z - 0.5f };
     collider_.aabb.max = { transform_.translate.x + 0.5f, transform_.translate.y + 0.5f, transform_.translate.z + 0.5f };

@@ -59,6 +59,8 @@ void DeferredRenderer::Initialize(DirectXCommon* dxCommon, SrvManager* srvManage
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon->GetDevice();
 
+    // G-Buffer サイズは WinApp::kClientWidth/Height (1280×720) に固定。
+    // 解像度変更が必要な場合は Finalize → Initialize の再呼び出しが必要。
     UINT W = WinApp::kClientWidth;
     UINT H = WinApp::kClientHeight;
 
@@ -123,7 +125,8 @@ void DeferredRenderer::Initialize(DirectXCommon* dxCommon, SrvManager* srvManage
         rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
         ComPtr<ID3DBlob> blob, err;
-        D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+        HRESULT rsHr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+        assert(SUCCEEDED(rsHr) && blob);
         device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&gbufferRS_));
     }
 
@@ -202,7 +205,8 @@ void DeferredRenderer::Initialize(DirectXCommon* dxCommon, SrvManager* srvManage
         rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
         ComPtr<ID3DBlob> blob, err;
-        D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+        HRESULT rsHr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+        assert(SUCCEEDED(rsHr) && blob);
         device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&lightingRS_));
     }
 

@@ -92,6 +92,9 @@ struct ParticleGroup {
     std::array<float, kNumMaxInstance> slotExpiry = {};
     float groupTime = 0.0f;
 
+    // 現在生存中のスロット数（Draw の hasAlive スキャンを O(1) にする）
+    uint32_t aliveCount = 0;
+
     // 空きスロットのスタック（O(1) Allocate）
     std::vector<uint32_t> freeList;
 

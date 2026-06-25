@@ -44,34 +44,39 @@ void InstancedObject3d::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     model_ = ModelManager::GetInstance()->FindModel(modelPath);
     assert(model_ && "モデルが事前にロードされていません");
 
-    // --- インスタンスバッファ (StructuredBuffer<float4x4>) ---
+    // --- インスタンスバッファ (StructuredBuffer<float4x4>) ×2 フレーム分 ---
+    // CPU が [frameIdx_&1] に書き込み、GPU は同じ index のバッファを Draw で読む。
+    // Draw 後に frameIdx_ をインクリメントすることで、次フレームの CPU 書き込みが
+    // GPU 実行中のバッファと重ならない。
     {
         size_t bufSize = sizeof(Matrix4x4) * maxInstances_;
 
-        D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
-        D3D12_RESOURCE_DESC desc = {};
-        desc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width            = bufSize;
-        desc.Height           = 1;
-        desc.DepthOrArraySize = 1;
-        desc.MipLevels        = 1;
-        desc.SampleDesc.Count = 1;
-        desc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
-            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&instanceBuf_));
-        instanceBuf_->Map(0, nullptr, reinterpret_cast<void**>(&instanceBufData_));
+        for (UINT f = 0; f < kFrameLatency; ++f) {
+            D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
+            D3D12_RESOURCE_DESC desc = {};
+            desc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+            desc.Width            = bufSize;
+            desc.Height           = 1;
+            desc.DepthOrArraySize = 1;
+            desc.MipLevels        = 1;
+            desc.SampleDesc.Count = 1;
+            desc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+                D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&instanceBuf_[f]));
+            instanceBuf_[f]->Map(0, nullptr, reinterpret_cast<void**>(&instanceBufData_[f]));
 
-        // SRV (StructuredBuffer<float4x4>)
-        instanceSrvIndex_ = srvManager->Allocate();
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Format                            = DXGI_FORMAT_UNKNOWN;
-        srvDesc.ViewDimension                     = D3D12_SRV_DIMENSION_BUFFER;
-        srvDesc.Shader4ComponentMapping           = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Buffer.FirstElement               = 0;
-        srvDesc.Buffer.NumElements                = maxInstances_;
-        srvDesc.Buffer.StructureByteStride        = sizeof(Matrix4x4);
-        device->CreateShaderResourceView(instanceBuf_.Get(), &srvDesc,
-            srvManager->GetCPUDescriptorHandle(instanceSrvIndex_));
+            // SRV (StructuredBuffer<float4x4>)
+            instanceSrvIndex_[f] = srvManager->Allocate();
+            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+            srvDesc.Format                     = DXGI_FORMAT_UNKNOWN;
+            srvDesc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+            srvDesc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srvDesc.Buffer.FirstElement        = 0;
+            srvDesc.Buffer.NumElements         = maxInstances_;
+            srvDesc.Buffer.StructureByteStride = sizeof(Matrix4x4);
+            device->CreateShaderResourceView(instanceBuf_[f].Get(), &srvDesc,
+                srvManager->GetCPUDescriptorHandle(instanceSrvIndex_[f]));
+        }
     }
 
     // --- カメラ VP 定数バッファ ---
@@ -118,6 +123,36 @@ void InstancedObject3d::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         desc.SampleDesc.Count = 1; desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&dummyBuf_));
+    }
+
+    // --- フォールバック 1×1×6 TextureCube (slot 5 は TextureCube t2 を宣言; useCubemap=0) ---
+    // GBV は useCubemap フラグに関係なく descriptor 型をチェックするため、正しい型を提供する
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        rd.Width            = 1;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 6;   // 6 faces
+        rd.MipLevels        = 1;
+        rd.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+        rd.SampleDesc.Count = 1;
+        HRESULT hr = device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
+            IID_PPV_ARGS(&fallbackCubemap_));
+        assert(SUCCEEDED(hr));
+
+        fallbackCubemapSrvIdx_ = srvManager->Allocate();
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+        srvDesc.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURECUBE;
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.TextureCube.MipLevels   = 1;
+        device->CreateShaderResourceView(
+            fallbackCubemap_.Get(), &srvDesc,
+            srvManager->GetCPUDescriptorHandle(fallbackCubemapSrvIdx_));
     }
 
     CreateRootSignatureAndPSO();
@@ -195,7 +230,8 @@ void InstancedObject3d::CreateRootSignatureAndPSO()
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> blob, err;
-    D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+    HRESULT rsHr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+    assert(SUCCEEDED(rsHr) && blob);
     device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&rs_));
 
     // PSO
@@ -242,13 +278,13 @@ void InstancedObject3d::CreateRootSignatureAndPSO()
 void InstancedObject3d::SetInstanceTransform(uint32_t i, const Transform& t)
 {
     assert(i < maxInstances_);
-    instanceBufData_[i] = MakeAffineMatrix(t.scale, t.rotate, t.translate);
+    instanceBufData_[frameIdx_ & 1][i] = MakeAffineMatrix(t.scale, t.rotate, t.translate);
 }
 
 void InstancedObject3d::SetInstanceMatrix(uint32_t i, const Matrix4x4& world)
 {
     assert(i < maxInstances_);
-    instanceBufData_[i] = world;
+    instanceBufData_[frameIdx_ & 1][i] = world;
 }
 
 // ---- Update ----
@@ -287,18 +323,21 @@ void InstancedObject3d::Draw()
     cmd->SetGraphicsRootConstantBufferView(3, dummyBuf_->GetGPUVirtualAddress());
     // slot 4: PS t1 CSM shadow
     CascadedShadowMap::GetInstance()->SetShadowMapSRV(cmd, srvManager_);
-    // slot 5: PS t2 cubemap（テクスチャで代替）
-    cmd->SetGraphicsRootDescriptorTable(5, TextureManager::GetInstance()->GetSrvHandleGPU(model_->GetTextureFilePath()));
+    // slot 5: PS t2 cubemap — fallback 1×1×6 TextureCube (useCubemap=0 なのでサンプリングされない)
+    cmd->SetGraphicsRootDescriptorTable(5, srvManager_->GetGPUDescriptorHandle(fallbackCubemapSrvIdx_));
     // slot 6: PS b2 ポイントライト（ダミー）
     cmd->SetGraphicsRootConstantBufferView(6, dummyBuf_->GetGPUVirtualAddress());
     // slot 7: PS t3 法線マップ（テクスチャで代替）
     cmd->SetGraphicsRootDescriptorTable(7, TextureManager::GetInstance()->GetSrvHandleGPU(model_->GetTextureFilePath()));
     // slot 8: PS b3 cascade data
     CascadedShadowMap::GetInstance()->SetCascadeDataCBV(cmd, 8);
-    // slot 9: VS t0 instance world matrices
-    cmd->SetGraphicsRootDescriptorTable(9, srvManager_->GetGPUDescriptorHandle(instanceSrvIndex_));
+    // slot 9: VS t0 instance world matrices (今フレームのバッファ)
+    cmd->SetGraphicsRootDescriptorTable(9, srvManager_->GetGPUDescriptorHandle(instanceSrvIndex_[frameIdx_ & 1]));
 
     cmd->DrawIndexedInstanced(
         static_cast<UINT>(model_->GetIndexCount()),
         instanceCount_, 0, 0, 0);
+
+    // GPU がこのフレームのバッファを読んでいる間、次フレームは逆側へ書き込む
+    ++frameIdx_;
 }

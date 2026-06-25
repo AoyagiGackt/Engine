@@ -1,3 +1,7 @@
+/**
+ * @file Player.h
+ * @brief プレイヤーキャラクターの物理・アクション・スタイルシステムを定義するファイル
+ */
 #pragma once
 #include "AfterImageRenderer.h"
 #include "CollisionConfig.h"
@@ -8,69 +12,105 @@
 class Input;
 class ModelCommon;
 
+/**
+ * @brief プレイヤーキャラクターを制御するクラス
+ * @note DMC 風のスタイルアクション（コンボ・ブリンク・連射・覚醒乱舞）と
+ * ローグライト用のスキル補正（SkillMods）を統合管理する。
+ * EventBus 経由でジャンプ・着地・攻撃ヒット等のイベントをゲームに通知する
+ */
 class Player {
 public:
-    // 乱舞フェーズ
+    /** @brief 覚醒乱舞の進行フェーズ */
     enum class RampagePhase { Inactive, Launch, Juggle };
 
-    // ローグライト: スキル補正パラメータ
+    /**
+     * @brief ローグライトのスキルによる各種パラメータ補正を保持する構造体
+     * @note RunData のスキル一覧を ApplySkillMods() に渡して適用する
+     */
     struct SkillMods {
-        float blinkDistMult    = 1.0f;
-        int   comboMaxBonus    = 0;
-        float fireIntervalMult = 1.0f;  // <1 = 速く
-        float gaugeChargeMult  = 1.0f;
-        float speedMult        = 1.0f;
-        float jumpMult         = 1.0f;
-        int   juggleMaxBonus   = 0;
+        float blinkDistMult    = 1.0f; ///< ブリンク距離の倍率
+        int   comboMaxBonus    = 0;    ///< コンボ最大数への加算
+        float fireIntervalMult = 1.0f; ///< 連射間隔の倍率（<1 = 速く）
+        float gaugeChargeMult  = 1.0f; ///< 覚醒ゲージ蓄積量の倍率
+        float speedMult        = 1.0f; ///< 移動速度の倍率
+        float jumpMult         = 1.0f; ///< ジャンプ力の倍率
+        int   juggleMaxBonus   = 0;    ///< 乱舞スラッシュ数への加算
     };
 
+    /**
+     * @brief プレイヤーを初期化する
+     * @param modelCommon モデル共通設定のポインタ
+     */
     void Initialize(ModelCommon* modelCommon);
+
+    /**
+     * @brief 入力に基づいてプレイヤーの物理とアクションを毎フレーム更新する
+     * @param input    入力マネージャー
+     * @param enemyPos 乱舞スラッシュのターゲット座標（デフォルトは原点）
+     */
     void Update(Input* input, const Vector3& enemyPos = {});
+
+    /** @brief プレイヤーモデルを描画する */
     void Draw();
+
+    /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
     void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) rampagePhase_ = RampagePhase::Inactive; }
+
+    /**
+     * @brief ローグライトのスキル補正を適用する
+     * @param mods RunData のスキル一覧から計算した補正値
+     */
     void ApplySkillMods(const SkillMods& mods) { skillMods_ = mods; }
 
+    /** @brief 現在のワールド座標を返す */
     const Vector3& GetPosition() const { return pos_; }
+    /** @brief プレイヤーが使用しているモデルのポインタを返す */
     Model* GetModel() const { return model_.get(); }
 
-    // プレイヤーの現在位置から AABB コライダーを返す（当たり判定に使用）
+    /**
+     * @brief プレイヤーの現在位置から AABB コライダーを生成して返す
+     * @return 当たり判定に使用する Collider
+     */
     Collider GetCollider() const {
         Collider c;
         c.SetAsAABB({ { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },
                       { pos_.x + 0.5f, pos_.y + 0.5f,  0.5f } });
         return c;
     }
-    bool  IsOnGround()        const { return onGround_; }
-    bool  IsInWater()         const { return inWater_; }
-    bool  JustJumped()        const { return justJumped_; }
-    bool  JustLanded()        const { return justLanded_; }
-    bool  JustEnteredWater()  const { return justEnteredWater_; }
-    bool  JustExitedWater()   const { return justExitedWater_; }
+    bool  IsOnGround()        const { return onGround_; }       ///< 地面に接触中か
+    bool  IsInWater()         const { return inWater_; }        ///< 水中にいるか
+    bool  JustJumped()        const { return justJumped_; }     ///< このフレームにジャンプしたか
+    bool  JustLanded()        const { return justLanded_; }     ///< このフレームに着地したか
+    bool  JustEnteredWater()  const { return justEnteredWater_; } ///< このフレームに入水したか
+    bool  JustExitedWater()   const { return justExitedWater_; }  ///< このフレームに出水したか
 
-    // 覚醒ゲージ
+    /** @brief 覚醒ゲージの現在値を返す（0.0〜1.0） */
     float GetAwakenGauge()    const { return awakenGauge_; }
+    /** @brief 覚醒状態かどうかを返す */
     bool  IsAwakened()        const { return isAwakened_; }
 
     // スタイル技フラグ（その1フレームだけ true）
-    bool  JustComboHit()      const { return justComboHit_; }
-    int   GetComboStep()      const { return comboStep_; }
-    bool  JustFired()         const { return justFired_; }
-    bool  JustBlinked()       const { return justBlinked_; }
-    bool  JustChargedGauge()  const { return justChargedGauge_; }
-    float GetLastDirX()       const { return lastDirX_; }
+    bool  JustComboHit()      const { return justComboHit_; }       ///< コンボヒット発生フレーム
+    int   GetComboStep()      const { return comboStep_; }           ///< 現在のコンボステップ
+    bool  JustFired()         const { return justFired_; }           ///< 射撃発生フレーム
+    bool  JustBlinked()       const { return justBlinked_; }         ///< ブリンク発動フレーム
+    bool  JustChargedGauge()  const { return justChargedGauge_; }    ///< ゲージチャージ発生フレーム
+    float GetLastDirX()       const { return lastDirX_; }            ///< 最後に入力した横方向（+1=右, -1=左）
+    /** @brief スキル補正込みのコンボ最大数を返す */
     int   GetComboMax()       const { return kComboMax_ + skillMods_.comboMaxBonus; }
 
     // スペースキー スピン連射
-    bool  JustSpinShot()      const { return justSpinShot_; }
-    bool  IsUpsideDown()      const { return isUpsideDown_; }
-    float GetSpinAngle()      const { return spinAngle_; }
+    bool  JustSpinShot()      const { return justSpinShot_; }   ///< スピン連射発生フレーム
+    bool  IsUpsideDown()      const { return isUpsideDown_; }   ///< 逆さま状態か
+    float GetSpinAngle()      const { return spinAngle_; }      ///< スピン角度（度、0=正立, 180=逆さ）
 
     // 覚醒乱舞（Sword + 覚醒 + L）
-    bool  IsRampaging()        const { return rampagePhase_ != RampagePhase::Inactive; }
-    bool  JustLaunched()       const { return justLaunched_; }
-    bool  JustRampageHit()     const { return justRampageHit_; }
-    bool  JustRampageFinish()  const { return justRampageFinish_; }
-    int   GetJuggleCount()     const { return juggleSlashCount_; }
+    bool  IsRampaging()        const { return rampagePhase_ != RampagePhase::Inactive; } ///< 乱舞中か
+    bool  JustLaunched()       const { return justLaunched_; }       ///< 打ち上げ発生フレーム
+    bool  JustRampageHit()     const { return justRampageHit_; }     ///< 乱舞スラッシュヒットフレーム
+    bool  JustRampageFinish()  const { return justRampageFinish_; }  ///< 乱舞終了フレーム
+    int   GetJuggleCount()     const { return juggleSlashCount_; }   ///< 現在の乱舞スラッシュ回数
+    /** @brief スキル補正込みの乱舞最大スラッシュ数を返す */
     int   GetJuggleMax()       const { return kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus; }
 
 private:

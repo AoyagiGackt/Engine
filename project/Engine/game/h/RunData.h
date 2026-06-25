@@ -1,44 +1,69 @@
+/**
+ * @file RunData.h
+ * @brief ローグライトの1ランを通じて保持するゲームデータを管理するファイル
+ */
 #pragma once
 #include <vector>
 
-// ゲームの1ランを通じて保持されるデータ（シングルトン）
+/**
+ * @brief ローグライトの1ランを通じて保持するデータを管理するシングルトンクラス
+ * @note シーン遷移をまたいで HP・ゴールド・スキル・フロア番号を共有する。
+ * 新しいランを開始する際は StartNewRun() で全データをリセットすること
+ */
 class RunData {
 public:
+    /** @brief RunData の唯一のインスタンスを取得する */
     static RunData* GetInstance() {
         static RunData inst;
         return &inst;
     }
 
+    /** @brief プレイヤーが習得可能なスキルの種類 */
     enum class Skill {
-        BlinkPlus,      // ブリンク距離 x1.5
-        ComboExtend,    // コンボ最大数 +1
-        FastFire,       // 連射速度 2倍
-        AwakenBoost,    // 覚醒ゲージ蓄積 x1.5
-        SpeedUp,        // 移動速度 x1.2
-        HighJump,       // ジャンプ力 x1.25
-        JuggleExtend,   // 乱舞スラッシュ +4
-        StylePersist,   // スタイルメーター減少 x0.6
+        BlinkPlus,      ///< ブリンク距離 x1.5
+        ComboExtend,    ///< コンボ最大数 +1
+        FastFire,       ///< 連射速度 2倍
+        AwakenBoost,    ///< 覚醒ゲージ蓄積 x1.5
+        SpeedUp,        ///< 移動速度 x1.2
+        HighJump,       ///< ジャンプ力 x1.25
+        JuggleExtend,   ///< 乱舞スラッシュ +4
+        StylePersist,   ///< スタイルメーター減少 x0.6
         kCount
     };
     static constexpr int kSkillCount = static_cast<int>(Skill::kCount);
 
+    /** @brief マップ上のノードの種類 */
     enum class NodeType { Combat, Elite, Shop, Rest, Boss };
 
-    bool     isRunActive = false;
-    int      hp          = 30;
-    int      maxHp       = 30;
-    int      gold        = 0;
-    int      floor       = 0;   // 0=floor1, 1=floor2, 2=floor3, 3=boss
-    NodeType currentNode = NodeType::Combat;
+    bool     isRunActive = false;           ///< ラン進行中かどうか
+    int      hp          = 30;              ///< 現在 HP
+    int      maxHp       = 30;              ///< 最大 HP
+    int      gold        = 0;              ///< 所持ゴールド
+    int      floor       = 0;              ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
+    NodeType currentNode = NodeType::Combat; ///< 現在選択されているノード種別
 
+    /** @brief 習得済みスキルのリスト */
     std::vector<Skill> skills;
 
+    /**
+     * @brief 指定スキルを習得済みかどうかを返す
+     * @param s チェックするスキル
+     * @return 習得済みなら true
+     */
     bool HasSkill(Skill s) const {
         for (auto sk : skills) if (sk == s) return true;
         return false;
     }
+
+    /**
+     * @brief スキルを習得リストに追加する
+     * @param s 追加するスキル
+     */
     void AddSkill(Skill s) { skills.push_back(s); }
 
+    /**
+     * @brief 新しいランを開始し、全データを初期状態にリセットする
+     */
     void StartNewRun() {
         isRunActive = true;
         hp = maxHp = 30;
@@ -48,6 +73,11 @@ public:
         currentNode = NodeType::Combat;
     }
 
+    /**
+     * @brief スキルの表示名を返す
+     * @param s 名前を取得したいスキル
+     * @return スキルの表示文字列
+     */
     static const char* SkillName(Skill s) {
         switch (s) {
         case Skill::BlinkPlus:    return "BLINK+    dist x1.5";
@@ -62,7 +92,11 @@ public:
         }
     }
 
-    // スタイルランク・ゴールド計算
+    /**
+     * @brief スタイルゲージのピーク値からランク文字列を返す
+     * @param peak スタイルゲージのピーク値（0.0〜1.0）
+     * @return ランク文字列（"SSS" 〜 "D"）
+     */
     static const char* CalcRank(float peak) {
         if (peak >= 0.95f) return "SSS";
         if (peak >= 0.90f) return "SS";
@@ -72,6 +106,12 @@ public:
         if (peak >= 0.25f) return "C";
         return "D";
     }
+
+    /**
+     * @brief スタイルゲージのピーク値から獲得ゴールドを計算して返す
+     * @param peak スタイルゲージのピーク値（0.0〜1.0）
+     * @return 獲得ゴールド量
+     */
     static int CalcGold(float peak) {
         if (peak >= 0.95f) return 50;
         if (peak >= 0.90f) return 35;

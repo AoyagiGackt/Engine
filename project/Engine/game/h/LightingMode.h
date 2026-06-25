@@ -27,5 +27,8 @@ enum LightingMode {
     Lighting_Lambert_Phong = 3,
 
     /** @brief HalfLambert 拡散 + Phong 鏡面反射 */
-    Lighting_HalfLambert_Phong = 4
+    Lighting_HalfLambert_Phong = 4,
+
+    /** @brief Cook-Torrance PBR（GGX NDF + Smith-Schlick 幾何 + Fresnel-Schlick）*/
+    Lighting_PBR = 5
 };

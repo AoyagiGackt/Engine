@@ -35,7 +35,7 @@ public:
      */
     virtual void Draw() = 0;
 
-    /* *
+    /**
      * @brief 当たり判定情報を取得する
      * @return Collider& オブジェクトの当たり判定情報への参照
      * @note この関数を呼び出して、オブジェクト同士の衝突をチェックします

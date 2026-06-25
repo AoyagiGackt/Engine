@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 static constexpr float kWarpX        = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
@@ -79,6 +82,28 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     fontRenderer_.Initialize(spriteCommon_.get());
 
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
+
+    // PBR デモブロック（3 種類を画面中央付近に配置）
+    static constexpr float kPBRX[3]        = {  7.0f, 14.0f, 21.0f };
+    static constexpr Vector4 kPBRColor[3]  = {
+        { 0.80f, 0.55f, 0.45f, 1.0f },  // 非金属（テラコッタ調）
+        { 0.90f, 0.90f, 1.00f, 1.0f },  // 鏡面金属（シルバー）
+        { 0.55f, 0.65f, 0.70f, 1.0f },  // ラフ金属（ガンメタル）
+    };
+    for (int i = 0; i < 3; ++i) {
+        pbrDemoBlocks_[i] = std::make_unique<Object3d>();
+        pbrDemoBlocks_[i]->Initialize(modelCommon_.get());
+        pbrDemoBlocks_[i]->SetModel(modelBlock_.get());
+        pbrDemoBlocks_[i]->SetPosition({ kPBRX[i], 9.0f, 0.0f });
+        pbrDemoBlocks_[i]->SetScale({ 1.5f, 1.5f, 1.5f });
+        pbrDemoBlocks_[i]->SetColor(kPBRColor[i]);
+        pbrDemoBlocks_[i]->SetMetallic(pbrMetallic_[i]);
+        pbrDemoBlocks_[i]->SetRoughness(pbrRoughness_[i]);
+        pbrDemoBlocks_[i]->SetShadingTypePBR();
+        pbrDemoBlocks_[i]->Update();
+    }
+
+    GpuProfiler::GetInstance()->Initialize(dxCommon_);
 }
 
 void TrainingScene::Update()
@@ -141,9 +166,13 @@ void TrainingScene::Update()
         });
     }
 
+    GpuProfiler::GetInstance()->ReadBack();
+
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     for (auto& b : borderBlocks_) { b->Update(); }
+
+    for (int i = 0; i < 3; ++i) { pbrDemoBlocks_[i]->Update(); }
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
     float pulse = 0.6f + 0.4f * std::sin(warpPulseTimer_ * 4.0f);
@@ -252,6 +281,29 @@ void TrainingScene::Update()
     }
 #endif
 
+#ifdef USE_IMGUI
+    // ── PBR マテリアルエディタ ────────────────────────────────────────
+    ImGui::SetNextWindowSize(ImVec2(260, 165), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(10, 400), ImGuiCond_Once);
+    if (ImGui::Begin("PBR Material Demo")) {
+        static const char* kLabels[3] = { "Plastic (non-metal)", "Mirror Metal", "Rough Metal" };
+        for (int i = 0; i < 3; ++i) {
+            ImGui::PushID(i);
+            if (ImGui::CollapsingHeader(kLabels[i])) {
+                ImGui::SliderFloat("Metallic",  &pbrMetallic_[i],  0.0f, 1.0f);
+                ImGui::SliderFloat("Roughness", &pbrRoughness_[i], 0.0f, 1.0f);
+                pbrDemoBlocks_[i]->SetMetallic(pbrMetallic_[i]);
+                pbrDemoBlocks_[i]->SetRoughness(pbrRoughness_[i]);
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::End();
+
+    // ── プロファイラ ───────────────────────────────────────────────────
+    GpuProfiler::GetInstance()->DrawImGui();
+#endif
+
     // ── 操作説明（右パネル） ─────────────────────────────────────────
     {
         constexpr float kIx     = 870.0f;
@@ -319,22 +371,30 @@ void TrainingScene::Update()
 
 void TrainingScene::Draw()
 {
+    ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
+    auto* gpuProfiler = GpuProfiler::GetInstance();
+
     // ---- シャドウパス ----
-    shadowManager_->BeginShadowPass(dxCommon_->GetCommandList());
+    gpuProfiler->BeginScope(GpuProfiler::Shadow, cmd);
+    shadowManager_->BeginShadowPass(cmd);
     modelCommon_->BeginShadowPass();
-    shadowManager_->EndShadowPass(dxCommon_->GetCommandList());
+    for (int i = 0; i < 3; ++i) { pbrDemoBlocks_[i]->DrawShadow(); }
+    shadowManager_->EndShadowPass(cmd);
+    gpuProfiler->EndScope(GpuProfiler::Shadow, cmd);
 
     // ---- SSAO ノーマルキャプチャパス ----
     auto* ssao = SSAOEffect::GetInstance();
+    gpuProfiler->BeginScope(GpuProfiler::SSAO, cmd);
     if (ssao->IsEnabled()) {
         ssao->BeginNormalCapture(dxCommon_, camera_.get());
         for (auto& b : borderBlocks_)     { b->DrawForNormalCapture(); }
         for (auto& p : warpPortalBlocks_) { p->DrawForNormalCapture(); }
         ssao->EndNormalCapture(dxCommon_);
     }
+    gpuProfiler->EndScope(GpuProfiler::SSAO, cmd);
 
     // ---- メイン3D描画 ----
-    ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
+    gpuProfiler->BeginScope(GpuProfiler::Main3D, cmd);
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
     D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
     cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
@@ -351,6 +411,7 @@ void TrainingScene::Draw()
 
     for (auto& b : borderBlocks_)     { b->Draw(); }
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
+    for (int i = 0; i < 3; ++i)       { pbrDemoBlocks_[i]->Draw(); }
     player_->Draw();
 
     // ---- SSAO 計算 → ブラー → 乗算合成 ----
@@ -360,6 +421,10 @@ void TrainingScene::Draw()
         cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv); // バックバッファに戻す
         ssao->Apply(dxCommon_, srvManager_);
     }
+    gpuProfiler->EndScope(GpuProfiler::Main3D, cmd);
+
+    // ---- GPU タイムスタンプ解決（PostDraw 後の ReadBack で取得） ----
+    gpuProfiler->Resolve(cmd);
 
     // ---- 2D スプライト（テキスト UI） ----
     spriteCommon_->CommonDrawSettings();
@@ -371,4 +436,5 @@ void TrainingScene::Draw()
 
 void TrainingScene::Finalize()
 {
+    GpuProfiler::GetInstance()->Finalize();
 }

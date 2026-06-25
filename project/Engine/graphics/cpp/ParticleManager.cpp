@@ -145,6 +145,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
     device->CreateShaderResourceView(group.instancingResource.Get(), &srvDesc, cpuH);
 
     group.slotExpiry.fill(0.0f);
+    group.aliveCount     = 0;
     group.groupTime      = 0.0f;
     group.needsInit      = true;
     group.instancingInSRV = false;
@@ -213,6 +214,7 @@ void ParticleManager::EmitWithColor(const std::string& name,
     p.curveFlag   = flicker ? 2u : 0u;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -245,6 +247,7 @@ void ParticleManager::EmitEllipse(const std::string& name,
     p.curveFlag   = 0;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -290,6 +293,7 @@ void ParticleManager::EmitSlash(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[slot] = group.groupTime + kLifeTime + 0.1f;
+        group.aliveCount++;
         group.pendingSlots.push_back(slot);
     }
 }
@@ -312,6 +316,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
 
     memset(group.particleUploadData, 0, sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.aliveCount = 0;
     group.freeList.clear();
     for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
         group.freeList.push_back(i);
@@ -334,6 +339,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[i] = group.groupTime + (lifeTime - currentTime) + 0.1f;
+        group.aliveCount++;
     }
 
     group.needsInit = true;
@@ -359,6 +365,7 @@ void ParticleManager::EmitBurst(const std::string& name,
     memset(group.particleUploadData, 0,
         sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.aliveCount = 0;
     group.freeList.clear();
     for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
         group.freeList.push_back(i);
@@ -381,6 +388,7 @@ void ParticleManager::EmitBurst(const std::string& name,
         p.alive       = 1;
         p.curveFlag   = flicker ? 2u : 0u;
         group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
     }
 
     group.needsInit = true;
@@ -432,6 +440,7 @@ void ParticleManager::EmitHitStar(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
         group.pendingSlots.push_back(slot);
     }
 }
@@ -458,6 +467,7 @@ void ParticleManager::EmitGravity(const std::string& name, const Vector3& positi
     p.curveFlag   = 3;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -489,6 +499,7 @@ void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
         p.curveFlag   = 0;
 
         group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
         group.pendingSlots.push_back(slot);
     }
 }
@@ -514,6 +525,7 @@ void ParticleManager::EmitTrail(const std::string& name, const Vector3& position
     p.curveFlag   = 4; // スケール縮小フェードアウト
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -555,6 +567,7 @@ void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
             if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
                 group.freeList.push_back(i);
                 group.slotExpiry[i] = 0.0f;
+                group.aliveCount--;
             }
         }
         return;
@@ -744,16 +757,7 @@ void ParticleManager::Draw(Camera* camera)
     ID3D12PipelineState* activePSO = nullptr;
 
     for (auto& [name, group] : particleGroups_) {
-        bool hasAlive = false;
-
-        for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
-            if (group.groupTime < group.slotExpiry[i]) {
-                hasAlive = true;
-                break;
-            }
-        }
-
-        if (!hasAlive) {
+        if (group.aliveCount == 0) {
             continue;
         }
 
@@ -772,6 +776,9 @@ void ParticleManager::Draw(Camera* camera)
             TextureManager::GetInstance()->GetSrvHandleGPU(group.textureFilePath);
         cmd->SetGraphicsRootDescriptorTable(1, texH);
 
+        // instancingResource のスロットは非連続なため instance count を aliveCount に
+        // 減らすには CS 側で alive スロットを詰める変更が必要。現状は全 1024 を渡し、
+        // シェーダー側で alive=0 の instance を early-out する。
         cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
 }

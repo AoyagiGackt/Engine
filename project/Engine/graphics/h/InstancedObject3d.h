@@ -51,9 +51,12 @@ private:
     uint32_t instanceCount_  = 0;
 
     // インスタンスワールド行列バッファ (StructuredBuffer → SRV)
-    Microsoft::WRL::ComPtr<ID3D12Resource> instanceBuf_;
-    Matrix4x4*                             instanceBufData_ = nullptr;
-    uint32_t                               instanceSrvIndex_ = UINT32_MAX;
+    // ダブルバッファリング: CPU が次フレームを書き込む間 GPU が前フレームを読む
+    static constexpr UINT kFrameLatency = 2;
+    Microsoft::WRL::ComPtr<ID3D12Resource> instanceBuf_[kFrameLatency];
+    Matrix4x4*                             instanceBufData_[kFrameLatency] = {};
+    uint32_t                               instanceSrvIndex_[kFrameLatency] = { UINT32_MAX, UINT32_MAX };
+    uint32_t                               frameIdx_ = 0;
 
     // カメラ VP 定数バッファ
     Microsoft::WRL::ComPtr<ID3D12Resource> cameraVPBuf_;
@@ -65,6 +68,10 @@ private:
 
     // ダミーバッファ（使用しないスロット用）
     Microsoft::WRL::ComPtr<ID3D12Resource> dummyBuf_;
+
+    // 1×1×6 fallback TextureCube for slot 5 (shader declares TextureCube t2; useCubemap=0)
+    Microsoft::WRL::ComPtr<ID3D12Resource> fallbackCubemap_;
+    uint32_t                               fallbackCubemapSrvIdx_ = UINT32_MAX;
 
     // PSO
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rs_;

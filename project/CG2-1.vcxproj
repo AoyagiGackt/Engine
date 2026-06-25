@@ -230,6 +230,7 @@
     <ClCompile Include="Engine\graphics\cpp\ModelManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ModelCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\SrvManager.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\GpuProfiler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ParticleManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ParticleEmitter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Cylinder.cpp" />

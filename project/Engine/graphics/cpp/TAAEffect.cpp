@@ -73,6 +73,48 @@ void TAAEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         srvManager->CreateSRVforTexture2D(historySrvIndex_, historyRT_.Get(), kFmt, 1);
     }
 
+    // accumulation RT — TAA ブレンド結果を一時保存し、history と backbuffer に配布する
+    {
+        constexpr DXGI_FORMAT kFmt = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+        D3D12_CLEAR_VALUE cv = {};
+        cv.Format = kFmt;
+
+        D3D12_RESOURCE_DESC rd  = {};
+        rd.Dimension            = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        rd.Width                = W;
+        rd.Height               = H;
+        rd.DepthOrArraySize     = 1;
+        rd.MipLevels            = 1;
+        rd.Format               = kFmt;
+        rd.SampleDesc.Count     = 1;
+        rd.Flags                = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+        HRESULT hr = device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE,
+            &rd, D3D12_RESOURCE_STATE_RENDER_TARGET,
+            &cv, IID_PPV_ARGS(&accumRT_));
+        assert(SUCCEEDED(hr));
+
+        D3D12_DESCRIPTOR_HEAP_DESC rtvHD = {};
+        rtvHD.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+        rtvHD.NumDescriptors = 1;
+        hr = device->CreateDescriptorHeap(&rtvHD, IID_PPV_ARGS(&accumRtvHeap_));
+        assert(SUCCEEDED(hr));
+
+        accumRtvHandle_ = accumRtvHeap_->GetCPUDescriptorHandleForHeapStart();
+        D3D12_RENDER_TARGET_VIEW_DESC rtvV = {};
+        rtvV.Format        = kFmt;
+        rtvV.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        device->CreateRenderTargetView(accumRT_.Get(), &rtvV, accumRtvHandle_);
+
+        accumSrvIndex_ = srvManager->Allocate();
+        srvManager->CreateSRVforTexture2D(accumSrvIndex_, accumRT_.Get(), kFmt, 1);
+    }
+
     // constant buffer
     cb_ = dxCommon->CreateBufferResource((sizeof(CBLayout) + 255) & ~255u);
     cb_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
@@ -157,14 +199,20 @@ void TAAEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso_));
     assert(SUCCEEDED(hr));
+
+    // psoFloat_: accumRT_（R16G16B16A16_FLOAT）への描画用。シェーダーは同じ
+    psoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&psoFloat_));
+    assert(SUCCEEDED(hr));
 }
 
 void TAAEffect::Finalize()
 {
     if (cbData_) { cb_->Unmap(0, nullptr); cbData_ = nullptr; }
     cb_.Reset();
-    pso_.Reset(); rs_.Reset();
+    pso_.Reset(); psoFloat_.Reset(); rs_.Reset();
     historyRT_.Reset(); historyRtvHeap_.Reset();
+    accumRT_.Reset();   accumRtvHeap_.Reset();
 }
 
 static float Halton(int index, int base)
@@ -196,19 +244,20 @@ void TAAEffect::Apply(DirectXCommon* dxCommon, uint32_t currentSrvIndex)
 {
     if (!enabled_) { return; }
 
-    auto* cmd     = dxCommon->GetCommandList();
-    const UINT W  = WinApp::kClientWidth;
-    const UINT H  = WinApp::kClientHeight;
+    auto* cmd    = dxCommon->GetCommandList();
+    const UINT W = WinApp::kClientWidth;
+    const UINT H = WinApp::kClientHeight;
 
     D3D12_VIEWPORT vp = { 0.f, 0.f, (float)W, (float)H, 0.f, 1.f };
     D3D12_RECT     sc = { 0, 0, (LONG)W, (LONG)H };
 
-    auto DrawPass = [&](D3D12_CPU_DESCRIPTOR_HANDLE rtv, uint32_t t0, uint32_t t1) {
+    auto DrawPass = [&](D3D12_CPU_DESCRIPTOR_HANDLE rtv, uint32_t t0, uint32_t t1,
+                        ID3D12PipelineState* pso) {
         cmd->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
         cmd->RSSetViewports(1, &vp);
         cmd->RSSetScissorRects(1, &sc);
         cmd->SetGraphicsRootSignature(rs_.Get());
-        cmd->SetPipelineState(pso_.Get());
+        cmd->SetPipelineState(pso);
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         cmd->SetGraphicsRootConstantBufferView(0, cb_->GetGPUVirtualAddress());
         cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(t0));
@@ -218,23 +267,45 @@ void TAAEffect::Apply(DirectXCommon* dxCommon, uint32_t currentSrvIndex)
 
     D3D12_CPU_DESCRIPTOR_HANDLE backBuffer = dxCommon->GetCurrentBackBufferHandle();
 
-    // historyRT starts each Apply() call in RENDER_TARGET state.
-    // Transition to SRV, draw blended TAA to backbuffer, update history, transition back to RTV.
-
+    // Pass 1: blend(current, old_history) → accumRT_ (float16)
+    // historyRT_ starts in RENDER_TARGET; transition to SRV to read old history.
+    // accumRT_ starts in RENDER_TARGET; draw directly to it.
     Barrier(cmd, historyRT_.Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    DrawPass(accumRtvHandle_, currentSrvIndex, historySrvIndex_, psoFloat_.Get());
 
-    // blend current + history (on first frame history is black — that's fine)
-    DrawPass(backBuffer, currentSrvIndex, historySrvIndex_);
-    historyFirstFrame_ = false;
+    // Pass 2: copy accumRT_ → backbuffer (display)
+    // Transition accumRT_ to SRV; draw a passthrough quad to the SRGB backbuffer.
+    Barrier(cmd, accumRT_.Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    float savedAlpha = cbData_->blendAlpha;
+    float savedJX    = cbData_->jitterX;
+    float savedJY    = cbData_->jitterY;
+    cbData_->blendAlpha = 1.0f;  // lerp(accum, accum, 1.0) = accum (passthrough)
+    cbData_->jitterX    = 0.0f;
+    cbData_->jitterY    = 0.0f;
+    DrawPass(backBuffer, accumSrvIndex_, accumSrvIndex_, pso_.Get());
+    cbData_->blendAlpha = savedAlpha;
+    cbData_->jitterX    = savedJX;
+    cbData_->jitterY    = savedJY;
 
-    // Transition back to RTV to update history
+    // Pass 3: CopyResource accumRT_ → historyRT_ (both R16G16B16A16_FLOAT)
+    // This stores the blended result as history for the next frame.
+    Barrier(cmd, accumRT_.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
     Barrier(cmd, historyRT_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-            D3D12_RESOURCE_STATE_RENDER_TARGET);
+            D3D12_RESOURCE_STATE_COPY_DEST);
+    cmd->CopyResource(historyRT_.Get(), accumRT_.Get());
 
-    // Write current frame into history for next frame
-    DrawPass(historyRtvHandle_, currentSrvIndex, currentSrvIndex);
-    // historyRT left in RENDER_TARGET state
+    // Return both to RENDER_TARGET for the next frame's Apply()
+    Barrier(cmd, historyRT_.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+    Barrier(cmd, accumRT_.Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
 }

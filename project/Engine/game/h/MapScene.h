@@ -1,3 +1,7 @@
+/**
+ * @file MapScene.h
+ * @brief ローグライトのフロア選択マップシーンを定義するファイル
+ */
 #pragma once
 #include "Audio.h"
 #include "BaseScene.h"
@@ -11,12 +15,22 @@
 #include <memory>
 #include <vector>
 
+/**
+ * @brief スレイザスパイア式のフロア選択マップシーン
+ * @note 4フロア×最大3列のノード（FIGHT/ELITE/SHOP/REST/BOSS）を表示し、
+ * プレイヤーが次に挑むノードを選択する。選択後は対応するシーンへ遷移する
+ */
 class MapScene : public BaseScene {
 public:
+    /** @brief シーンの初期化。スプライト・フォント・マップ定義を構築する */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /** @brief リソースを解放する */
     void Finalize() override;
+    /** @brief 入力によるノード選択と遷移判定を更新する */
     void Update() override;
+    /** @brief マップノードと現在選択状態を描画する */
     void Draw() override;
+    /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:

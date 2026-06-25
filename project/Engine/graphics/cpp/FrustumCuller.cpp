@@ -13,8 +13,8 @@ void FrustumCuller::Update(const Matrix4x4& m)
     planes_[2] = { m.m[0][3] + m.m[0][1], m.m[1][3] + m.m[1][1], m.m[2][3] + m.m[2][1], m.m[3][3] + m.m[3][1] };
     // top:    row3 - row1
     planes_[3] = { m.m[0][3] - m.m[0][1], m.m[1][3] - m.m[1][1], m.m[2][3] - m.m[2][1], m.m[3][3] - m.m[3][1] };
-    // near:   row3 + row2
-    planes_[4] = { m.m[0][3] + m.m[0][2], m.m[1][3] + m.m[1][2], m.m[2][3] + m.m[2][2], m.m[3][3] + m.m[3][2] };
+    // near:   row2 only (DirectX NDC: near plane at z=0, not z=-1 as in OpenGL)
+    planes_[4] = { m.m[0][2], m.m[1][2], m.m[2][2], m.m[3][2] };
     // far:    row3 - row2
     planes_[5] = { m.m[0][3] - m.m[0][2], m.m[1][3] - m.m[1][2], m.m[2][3] - m.m[2][2], m.m[3][3] - m.m[3][2] };
 

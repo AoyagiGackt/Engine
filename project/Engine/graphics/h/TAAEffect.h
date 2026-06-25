@@ -27,12 +27,17 @@ private:
     void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
                  D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const;
 
-    // history render target
+    // history render target (R16G16B16A16_FLOAT)
     Microsoft::WRL::ComPtr<ID3D12Resource>       historyRT_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> historyRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE                  historyRtvHandle_ = {};
     uint32_t                                     historySrvIndex_  = UINT32_MAX;
-    bool                                         historyFirstFrame_ = true;
+
+    // accumulation RT — blended output before copying to history and backbuffer
+    Microsoft::WRL::ComPtr<ID3D12Resource>       accumRT_;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> accumRtvHeap_;
+    D3D12_CPU_DESCRIPTOR_HANDLE                  accumRtvHandle_   = {};
+    uint32_t                                     accumSrvIndex_    = UINT32_MAX;
 
     struct CBLayout {
         float jitterX, jitterY;
@@ -43,7 +48,8 @@ private:
     CBLayout*                              cbData_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rs_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_;       // SRGB8 output (→ backbuffer)
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> psoFloat_;  // FLOAT16 output (→ accumRT_)
 
     SrvManager*    srvManager_ = nullptr;
     DirectXCommon* dxCommon_   = nullptr;

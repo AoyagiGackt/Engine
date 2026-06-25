@@ -1,3 +1,7 @@
+/**
+ * @file TrainingScene.h
+ * @brief アクション操作を自由に練習できるトレーニングシーンを定義するファイル
+ */
 #pragma once
 #include <memory>
 #include <vector>
@@ -19,13 +23,24 @@
 #include "SpriteCommon.h"
 #include "SrvManager.h"
 #include "WeaponManager.h"
+#include "GpuProfiler.h"
 
+/**
+ * @brief アクション操作の練習用シーン
+ * @note ランデータを消費せずにプレイヤー操作を試せる。
+ * Backspace でタイトルまたはマップシーンへ戻る
+ */
 class TrainingScene : public BaseScene {
 public:
+    /** @brief シーンの初期化。プレイヤー・ステージ・UI を構築する */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /** @brief リソースを解放する */
     void Finalize() override;
+    /** @brief 入力・物理・パーティクルを毎フレーム更新する */
     void Update() override;
+    /** @brief ステージとプレイヤーを描画する */
     void Draw() override;
+    /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:
@@ -69,4 +84,9 @@ private:
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
     FontRenderer fontRenderer_;
+
+    // PBR デモブロック（3 種：非金属 / 鏡面金属 / ラフ金属）
+    std::unique_ptr<Object3d> pbrDemoBlocks_[3];
+    float pbrMetallic_[3]  = { 0.0f,  0.95f, 0.80f };
+    float pbrRoughness_[3] = { 0.90f, 0.05f, 0.60f };
 };
