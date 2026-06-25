@@ -188,7 +188,7 @@ void TrainingScene::Update()
     bool nearWarp = std::abs(pp.x - kWarpX) < kWarpProximity;
 
     if (nearWarp && input_->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeScene("BATTLETEST");
+        SceneManager::GetInstance()->ChangeSceneWithLoading("BATTLETEST");
     }
 
     // ---- UI（FontRenderer） ----
