@@ -10,7 +10,9 @@
 #include "Input.h"
 #include "AbstractSceneFactory.h"
 #include "SpriteCommon.h"
+#include <atomic>
 #include <memory>
+#include <thread>
 #include <Fade.h>
 
 /**
@@ -73,6 +75,8 @@ public:
      * @brief ロード画面が遷移すべき先のシーン名を返す
      */
     const std::string& GetLoadingTarget() const { return loadingTargetScene_; }
+
+    bool IsAsyncLoadReady() const { return asyncLoadReady_.load(); }
     
     /**
      * @brief シーン生成用工場をセットする
@@ -101,6 +105,15 @@ private:
 
     /** @brief 次のフレームで切り替える予定のシーン */
     std::unique_ptr<BaseScene> nextScene_;
+
+    /** @brief バックグラウンドで事前初期化済みのシーン */
+    std::unique_ptr<BaseScene> preloadedScene_;
+
+    /** @brief 非同期ロードスレッド */
+    std::thread loadingThread_;
+
+    /** @brief バックグラウンドロード完了フラグ */
+    std::atomic<bool> asyncLoadReady_{ false };
 
     /** @brief シーンを生成するための工場ポインタ（外部からセットされる） */
     AbstractSceneFactory* sceneFactory_ = nullptr;

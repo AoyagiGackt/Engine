@@ -51,11 +51,30 @@ void SceneManager::Update()
             currentScene_->Finalize();
         }
 
-        // 工場を使って新しいシーンを作成・初期化
-        currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
-        currentScene_->Initialize(dxCommon_, input_, audio_);
-        // シーン切り替え時にロードされたテクスチャを一括転送・同期する
-        TextureManager::GetInstance()->FlushUploads();
+        if (preloadedScene_ && nextSceneName_ == loadingTargetScene_) {
+            // バックグラウンドで Initialize 済み → FlushUploads だけ呼んでそのまま使う
+            currentScene_ = std::move(preloadedScene_);
+            TextureManager::GetInstance()->FlushUploads();
+            loadingTargetScene_.clear();
+        } else {
+            // 工場を使って新しいシーンを作成・初期化
+            currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
+            currentScene_->Initialize(dxCommon_, input_, audio_);
+            // シーン切り替え時にロードされたテクスチャを一括転送・同期する
+            TextureManager::GetInstance()->FlushUploads();
+
+            // LOADINGシーンへの切り替え時にバックグラウンドロードを開始する
+            if (nextSceneName_ == "LOADING" && !loadingTargetScene_.empty()) {
+                std::string target = loadingTargetScene_;
+                loadingThread_ = std::thread([this, target]() {
+                    auto scene = sceneFactory_->CreateScene(target);
+                    scene->Initialize(dxCommon_, input_, audio_);
+                    preloadedScene_ = std::move(scene);
+                    asyncLoadReady_.store(true);
+                });
+                loadingThread_.detach();
+            }
+        }
 
         // ImGuiのセット
         currentScene_->SetImGuiManager(imguiManager_);
@@ -99,6 +118,8 @@ void SceneManager::Finalize()
 void SceneManager::ChangeSceneWithLoading(const std::string& targetScene)
 {
     loadingTargetScene_ = targetScene;
+    asyncLoadReady_.store(false);
+    preloadedScene_.reset();
     ChangeScene("LOADING");
 }
 

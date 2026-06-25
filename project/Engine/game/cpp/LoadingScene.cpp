@@ -52,8 +52,9 @@ void LoadingScene::Update() {
     bgSprite_->Update();
     for (int i = 0; i < 3; ++i) { dotSprites_[i]->Update(); }
 
-    // 最低表示時間が過ぎたら次のシーンへ（一度だけ）
-    if (!sceneChangeRequested_ && timer_ >= kMinDisplayTime) {
+    // 最低表示時間が過ぎ、かつバックグラウンドロードが完了したら次のシーンへ（一度だけ）
+    if (!sceneChangeRequested_ && timer_ >= kMinDisplayTime
+        && SceneManager::GetInstance()->IsAsyncLoadReady()) {
         sceneChangeRequested_ = true;
         const std::string& target = SceneManager::GetInstance()->GetLoadingTarget();
         if (!target.empty()) {
