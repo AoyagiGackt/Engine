@@ -3,6 +3,7 @@
 Texture2D<float4> gTexture : register(t0);
 Texture2D<float> gShadowMap : register(t1); // シャドウマップ（深度テクスチャ）
 TextureCube<float4> gCubemap : register(t2); // キューブマップ（天球用）
+Texture2D<float4> gNormalMap : register(t3); // 法線マップ
 SamplerState gSampler : register(s0);
 SamplerComparisonState gShadowSampler : register(s1); // 比較サンプラー（PCF用）
 
@@ -21,6 +22,16 @@ struct Material
     float shininess;
     float3 cameraWorldPos;
     float envMapIntensity; // 環境マップ反射強度（0=なし, 1=フル反射）
+    // ---- リムライト ----
+    float3 rimColor;      // リムライトの色
+    float  rimPower;      // 鋭さ（大きいほど細いリム、推奨 2〜6）
+    float  rimIntensity;  // 強さ（0=無効、1=通常、2以上=強調）
+    int    enableRim;     // 1=有効、0=無効
+    int    useNormalMap;  // 1=法線マップ有効
+    // ---- PBR (shadingType==5) ----
+    float  metallic;      // メタリック度 (0=非金属, 1=金属)
+    float  roughness;     // 粗さ (0=鏡面, 1=拡散)
+    float3 _pbr_pad;      // 16 バイトアライン用パディング
 };
 ConstantBuffer<Material> gMaterial : register(b0);
 
@@ -112,11 +123,74 @@ float GetShadowFactor(float4 lightSpacePos)
 }
 
 // =====================================================
+// PBR ヘルパー関数（Cook-Torrance BRDF）
+// =====================================================
+static const float kPI = 3.14159265358979f;
+
+// GGX 法線分布関数 (NDF)
+float D_GGX(float NdotH, float roughness)
+{
+    float a  = max(roughness * roughness, 1e-4f); // roughness=0 で 0/0 を防ぐ
+    float a2 = a * a;
+    float d  = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
+    return a2 / max(kPI * d * d, 1e-6f);
+}
+
+// Smith-Schlick-GGX 幾何減衰
+float G_SchlickGGX(float NdotV, float roughness)
+{
+    float r = roughness + 1.0f;
+    float k = (r * r) / 8.0f;
+    return NdotV / (NdotV * (1.0f - k) + k);
+}
+float G_Smith(float NdotV, float NdotL, float roughness)
+{
+    return G_SchlickGGX(NdotV, roughness) * G_SchlickGGX(NdotL, roughness);
+}
+
+// Fresnel-Schlick 近似
+float3 F_Schlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0f - F0) * pow(saturate(1.0f - cosTheta), 5.0f);
+}
+
+// Cook-Torrance BRDF ライティング（1灯分）
+float3 PBR_DirectLight(float3 N, float3 V, float3 L,
+                        float3 lightColor, float lightIntensity,
+                        float3 albedo, float metallic, float roughness)
+{
+    float3 H    = normalize(V + L);
+    float NdotV = max(dot(N, V), 0.001f);
+    float NdotL = max(dot(N, L), 0.0f);
+    float NdotH = max(dot(N, H), 0.0f);
+    float VdotH = max(dot(V, H), 0.0f);
+
+    // F0: 非金属は 0.04、金属はアルベドで補間
+    float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
+
+    float  D = D_GGX(NdotH, roughness);
+    float  G = G_Smith(NdotV, NdotL, roughness);
+    float3 F = F_Schlick(VdotH, F0);
+
+    float3 specular = (D * G * F) / max(4.0f * NdotV * NdotL, 0.001f);
+
+    // エネルギー保存: 拡散は kD = (1-F)*(1-metallic)
+    float3 kD = (1.0f - F) * (1.0f - metallic);
+    float3 diffuse = kD * albedo / kPI;
+
+    return (diffuse + specular) * lightColor * lightIntensity * NdotL;
+}
+
+// =====================================================
 // メイン
 // =====================================================
 PixelShaderOutput main(VertexShaderOutput input)
 {
     PixelShaderOutput output;
+
+    // UV 変換（テクスチャ・法線マップ共通）
+    float4 transformedUV4 = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
+    float2 uv = transformedUV4.xy;
 
     float4 textureColor;
     if (gMaterial.useCubemap != 0)
@@ -130,8 +204,7 @@ PixelShaderOutput main(VertexShaderOutput input)
     }
     else if (gMaterial.useTexture != 0)
     {
-        float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
-        textureColor = gTexture.Sample(gSampler, transformedUV.xy);
+        textureColor = gTexture.Sample(gSampler, uv);
     }
     else
     {
@@ -141,115 +214,139 @@ PixelShaderOutput main(VertexShaderOutput input)
 
     if (gMaterial.enableLighting != 0)
     {
-        float3 N = normalize(input.normal);
+        // 法線マップが有効な場合は TBN でワールド空間法線に変換
+        float3 N;
+        if (gMaterial.useNormalMap != 0)
+        {
+            float3 normalSample = gNormalMap.Sample(gSampler, uv).xyz * 2.0f - 1.0f;
+            float3 T  = normalize(input.tangent);
+            float3 B  = normalize(input.bitangent);
+            float3 Nv = normalize(input.normal);
+            N = normalize(normalSample.x * T + normalSample.y * B + normalSample.z * Nv);
+        }
+        else
+        {
+            N = normalize(input.normal);
+        }
         float3 L = normalize(-gDirectionalLight.direction);
         float3 V = normalize(gMaterial.cameraWorldPos - input.worldPos);
 
-        // ----- 拡散反射（Diffuse）-----
-        // LightingMode: 1=Lambert, 2=HalfLambert, 3=Lambert+Phong, 4=HalfLambert+Phong
-        float NdotL = dot(N, L);
-        bool useHalfLambert = (gMaterial.shadingType == 2 || gMaterial.shadingType == 4);
-        bool useSpecular    = (gMaterial.shadingType == 3 || gMaterial.shadingType == 4);
-
-        float diffuse;
-        if (useHalfLambert)
-        {
-            diffuse = NdotL * 0.5f + 0.5f;
-        }
-        else
-        {
-            diffuse = max(NdotL, 0.0f); // Lambert（mode 1, 3, またはデフォルト）
-        }
-        float3 diffuseColor =
-            gMaterial.color.rgb * textureColor.rgb *
-            gDirectionalLight.color.rgb * diffuse * gDirectionalLight.intensity;
-
-        // ----- 鏡面反射（Specular / Blinn-Phong）Phong モード時のみ -----
-        float3 H = normalize(V + L);
-        float NdotH = max(dot(N, H), 0.0f);
-        float spec = useSpecular
-            ? pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL)
-            : 0.0f;
-        float3 specularColor = useSpecular
-            ? gMaterial.specularColor * gDirectionalLight.color.rgb * spec * gDirectionalLight.intensity
-            : float3(0.0f, 0.0f, 0.0f);
-
-        // ----- 環境光（Ambient）-----
-        float3 ambient =
-            gMaterial.color.rgb * textureColor.rgb *
-            gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
-
-        // ----- シャドウ係数（PCF）-----
         float shadowFactor = GetShadowFactor(input.lightSpacePos);
-
-        // ----- 環境マップ反射（金属感）-----
         float3 litColor;
-        if (gMaterial.envMapIntensity > 0.0f)
+
+        // =====================================================
+        // shadingType 5 = PBR (Cook-Torrance BRDF)
+        // =====================================================
+        if (gMaterial.shadingType == 5)
         {
-            float3 R = reflect(-V, N);
-            float3 envColor = gCubemap.Sample(gSampler, R).rgb;
-            envColor = envColor / (envColor + 1.0f); // Reinhard トーンマッピング
+            float3 albedo = gMaterial.color.rgb * textureColor.rgb;
 
-            float3 metalDiffuse = envColor * gMaterial.color.rgb;
-            float3 metalAmbient = gMaterial.color.rgb * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
+            // 平行光源
+            litColor = PBR_DirectLight(N, V, L,
+                gDirectionalLight.color.rgb, gDirectionalLight.intensity,
+                albedo, gMaterial.metallic, gMaterial.roughness) * shadowFactor;
 
-            float3 normalLit = (diffuseColor + specularColor) * shadowFactor + ambient;
-            float3 metalLit = (metalDiffuse + specularColor) * shadowFactor + metalAmbient;
+            // アンビエント（split-sum 近似）
+            // 拡散: (1-F)*(1-metallic)*albedo
+            // 鏡面: F*(1-roughness^2)  ← ラフネスが高いほど環境鏡面が弱まる
+            float3 F0    = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMaterial.metallic);
+            float  NdotV = max(dot(N, V), 0.001f);
+            float3 Famb  = F_Schlick(NdotV, F0);
+            float3 kDamb = (1.0f - Famb) * (1.0f - gMaterial.metallic);
+            float  rSq   = gMaterial.roughness * gMaterial.roughness;
+            float3 ambIBL = (kDamb * albedo + Famb * (1.0f - rSq))
+                          * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
+            litColor += ambIBL;
 
-            litColor = lerp(normalLit, metalLit, gMaterial.envMapIntensity);
+            // ポイントライト（PBR）
+            for (uint i = 0; i < gPointLights.count; i++)
+            {
+                PointLight pl = gPointLights.lights[i];
+                float3 toLight = pl.position - input.worldPos;
+                float dist = length(toLight);
+                if (dist >= pl.radius) continue;
+                float3 L_pt = toLight / dist;
+                float t = dist / pl.radius;
+                float atten = (1.0f - t) * (1.0f - t);
+                litColor += PBR_DirectLight(N, V, L_pt,
+                    pl.color.rgb, pl.intensity * atten,
+                    albedo, gMaterial.metallic, gMaterial.roughness);
+            }
         }
         else
         {
-            litColor = (diffuseColor + specularColor) * shadowFactor + ambient;
-        }
+            // =====================================================
+            // 従来シェーディング（Lambert / HalfLambert / Blinn-Phong）
+            // =====================================================
+            float NdotL = dot(N, L);
+            bool useHalfLambert = (gMaterial.shadingType == 2 || gMaterial.shadingType == 4);
+            bool useSpecular    = (gMaterial.shadingType == 3 || gMaterial.shadingType == 4);
 
-        // =====================================================
-        // ポイントライト（距離減衰 + Blinn-Phong）
-        // count == 0 のときはループしないのでコスト無し
-        // =====================================================
-        float3 pointContrib = float3(0.0f, 0.0f, 0.0f);
-        for (uint i = 0; i < gPointLights.count; i++)
-        {
-            PointLight pl = gPointLights.lights[i];
-            float3 toLight = pl.position - input.worldPos;
-            float dist = length(toLight);
-            if (dist >= pl.radius)
+            float diffuse = useHalfLambert ? NdotL * 0.5f + 0.5f : max(NdotL, 0.0f);
+            float3 diffuseColor =
+                gMaterial.color.rgb * textureColor.rgb *
+                gDirectionalLight.color.rgb * diffuse * gDirectionalLight.intensity;
+
+            float3 H = normalize(V + L);
+            float NdotH = max(dot(N, H), 0.0f);
+            float spec = useSpecular
+                ? pow(NdotH, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL) : 0.0f;
+            float3 specularColor = useSpecular
+                ? gMaterial.specularColor * gDirectionalLight.color.rgb * spec * gDirectionalLight.intensity
+                : float3(0.0f, 0.0f, 0.0f);
+
+            float3 ambient =
+                gMaterial.color.rgb * textureColor.rgb *
+                gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
+
+            if (gMaterial.envMapIntensity > 0.0f)
             {
-                continue;
-            }
-
-            float3 L_pt = toLight / dist;
-
-            // 二乗減衰（radius の端でゼロになる smooth fall-off）
-            float t = dist / pl.radius;
-            float atten = (1.0f - t) * (1.0f - t);
-
-            // 拡散反射
-            float NdotL_pt = dot(N, L_pt);
-            float diffPt;
-            if (useHalfLambert)
-            {
-                diffPt = NdotL_pt * 0.5f + 0.5f;
+                float3 R = reflect(-V, N);
+                float3 envColor = gCubemap.Sample(gSampler, R).rgb;
+                envColor = envColor / (envColor + 1.0f);
+                float3 metalDiffuse = envColor * gMaterial.color.rgb;
+                float3 metalAmbient = gMaterial.color.rgb * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
+                float3 normalLit = (diffuseColor + specularColor) * shadowFactor + ambient;
+                float3 metalLit  = (metalDiffuse + specularColor) * shadowFactor + metalAmbient;
+                litColor = lerp(normalLit, metalLit, gMaterial.envMapIntensity);
             }
             else
             {
-                diffPt = max(NdotL_pt, 0.0f);
+                litColor = (diffuseColor + specularColor) * shadowFactor + ambient;
             }
 
-            // 鏡面反射（Blinn-Phong）Phong モード時のみ
-            float3 H_pt = normalize(V + L_pt);
-            float NdotH_pt = max(dot(N, H_pt), 0.0f);
-            float specPt = useSpecular
-                ? pow(NdotH_pt, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL_pt)
-                : 0.0f;
-
-            pointContrib +=
-                (gMaterial.color.rgb * textureColor.rgb * pl.color.rgb * diffPt
-               + gMaterial.specularColor * pl.color.rgb * specPt)
-                * pl.intensity * atten;
+            // ポイントライト（Blinn-Phong）
+            for (uint i = 0; i < gPointLights.count; i++)
+            {
+                PointLight pl = gPointLights.lights[i];
+                float3 toLight = pl.position - input.worldPos;
+                float dist = length(toLight);
+                if (dist >= pl.radius) continue;
+                float3 L_pt = toLight / dist;
+                float t = dist / pl.radius;
+                float atten = (1.0f - t) * (1.0f - t);
+                float NdotL_pt = dot(N, L_pt);
+                float diffPt = useHalfLambert ? NdotL_pt * 0.5f + 0.5f : max(NdotL_pt, 0.0f);
+                float3 H_pt = normalize(V + L_pt);
+                float NdotH_pt = max(dot(N, H_pt), 0.0f);
+                float specPt = useSpecular
+                    ? pow(NdotH_pt, max(gMaterial.shininess, 1.0f)) * step(0.0f, NdotL_pt) : 0.0f;
+                litColor +=
+                    (gMaterial.color.rgb * textureColor.rgb * pl.color.rgb * diffPt
+                   + gMaterial.specularColor * pl.color.rgb * specPt)
+                    * pl.intensity * atten;
+            }
         }
-        
-        litColor += pointContrib;
+
+        // =====================================================
+        // リムライト（両シェーディング共通）
+        // =====================================================
+        if (gMaterial.enableRim != 0)
+        {
+            float rim = 1.0f - saturate(dot(N, V));
+            rim = pow(rim, max(gMaterial.rimPower, 0.001f));
+            litColor += gMaterial.rimColor * rim * gMaterial.rimIntensity;
+        }
 
         output.color.rgb = litColor;
         output.color.a = gMaterial.color.a * textureColor.a;

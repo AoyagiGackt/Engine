@@ -61,7 +61,7 @@ public:
      * @param sceneName 生成したいシーンの名前（例: "TITLE", "GAMEPLAY"）
      * @note この関数を呼ぶと、次フレームの Update() の冒頭でシーンが切り替わります
      */
-    void ChangeScene(const std::string& sceneName);
+    void ChangeScene(const std::string& sceneName, float fadeOut = 0.15f, float fadeIn = 0.15f);
 
     /**
      * @brief ロード画面を経由してシーンを切り替える
@@ -117,4 +117,7 @@ private:
     
     /** @brief 現在遷移中かどうかのフラグ **/
     bool isChanging_ = false;
+
+    /** @brief フェードイン時間（ChangeScene で設定） **/
+    float fadeInDuration_ = 0.15f;
 };

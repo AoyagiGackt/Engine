@@ -145,6 +145,7 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
     device->CreateShaderResourceView(group.instancingResource.Get(), &srvDesc, cpuH);
 
     group.slotExpiry.fill(0.0f);
+    group.aliveCount     = 0;
     group.groupTime      = 0.0f;
     group.needsInit      = true;
     group.instancingInSRV = false;
@@ -213,6 +214,7 @@ void ParticleManager::EmitWithColor(const std::string& name,
     p.curveFlag   = flicker ? 2u : 0u;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -245,6 +247,7 @@ void ParticleManager::EmitEllipse(const std::string& name,
     p.curveFlag   = 0;
 
     group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
     group.pendingSlots.push_back(slot);
 }
 
@@ -290,6 +293,7 @@ void ParticleManager::EmitSlash(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[slot] = group.groupTime + kLifeTime + 0.1f;
+        group.aliveCount++;
         group.pendingSlots.push_back(slot);
     }
 }
@@ -312,6 +316,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
 
     memset(group.particleUploadData, 0, sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.aliveCount = 0;
     group.freeList.clear();
     for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
         group.freeList.push_back(i);
@@ -334,6 +339,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[i] = group.groupTime + (lifeTime - currentTime) + 0.1f;
+        group.aliveCount++;
     }
 
     group.needsInit = true;
@@ -359,6 +365,7 @@ void ParticleManager::EmitBurst(const std::string& name,
     memset(group.particleUploadData, 0,
         sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
+    group.aliveCount = 0;
     group.freeList.clear();
     for (uint32_t i = ParticleGroup::kNumMaxInstance; i-- > count; )
         group.freeList.push_back(i);
@@ -381,6 +388,7 @@ void ParticleManager::EmitBurst(const std::string& name,
         p.alive       = 1;
         p.curveFlag   = flicker ? 2u : 0u;
         group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
     }
 
     group.needsInit = true;
@@ -432,229 +440,300 @@ void ParticleManager::EmitHitStar(const std::string& name,
         p.curveFlag   = 0;
 
         group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
         group.pendingSlots.push_back(slot);
     }
 }
 
+void ParticleManager::EmitGravity(const std::string& name, const Vector3& position,
+                                  const Vector3& velocity, const Vector4& color,
+                                  float lifeTime, float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+
+    uint32_t slot = AllocateSlot(group);
+    if (slot == UINT32_MAX) return;
+
+    GPUParticleState& p = group.particleUploadData[slot];
+    p.position    = position;
+    p.lifeTime    = lifeTime;
+    p.velocity    = velocity;
+    p.currentTime = 0.0f;
+    p.color       = color;
+    p.scale       = { scale, scale, scale };
+    p.rotateZ     = 0.0f;
+    p.alive       = 1;
+    p.curveFlag   = 3;
+
+    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
+    group.pendingSlots.push_back(slot);
+}
+
+void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
+                               float speed, const Vector4& color,
+                               uint32_t count, float lifeTime, float scale)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+    count = (std::min)(count, ParticleGroup::kNumMaxInstance);
+
+    const float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t slot = AllocateSlot(group);
+        if (slot == UINT32_MAX) break;
+
+        float angle = kTwoPi * static_cast<float>(i) / static_cast<float>(count);
+
+        GPUParticleState& p = group.particleUploadData[slot];
+        p.position    = position;
+        p.lifeTime    = lifeTime;
+        p.velocity    = { std::cos(angle) * speed, std::sin(angle) * speed, 0.0f };
+        p.currentTime = 0.0f;
+        p.color       = color;
+        p.scale       = { scale, scale, scale };
+        p.rotateZ     = 0.0f;
+        p.alive       = 1;
+        p.curveFlag   = 0;
+
+        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+        group.aliveCount++;
+        group.pendingSlots.push_back(slot);
+    }
+}
+
+void ParticleManager::EmitTrail(const std::string& name, const Vector3& position,
+                                const Vector4& color, float scale, float lifeTime)
+{
+    assert(particleGroups_.contains(name));
+    ParticleGroup& group = particleGroups_[name];
+
+    uint32_t slot = AllocateSlot(group);
+    if (slot == UINT32_MAX) return;
+
+    GPUParticleState& p = group.particleUploadData[slot];
+    p.position    = position;
+    p.lifeTime    = lifeTime;
+    p.velocity    = { 0.0f, 0.0f, 0.0f };
+    p.currentTime = 0.0f;
+    p.color       = color;
+    p.scale       = { scale, scale, scale };
+    p.rotateZ     = 0.0f;
+    p.alive       = 1;
+    p.curveFlag   = 4; // スケール縮小フェードアウト
+
+    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
+    group.aliveCount++;
+    group.pendingSlots.push_back(slot);
+}
+
 // ============================================================
-//  Update: CS ディスパッチ
+//  Update: CS ディスパッチ（フェーズ分割版）
 // ============================================================
+
+void ParticleManager::UpdateCSConstants(Camera* camera, float dt)
+{
+    Matrix4x4 billboard  = MakeIdentity4x4();
+    Matrix4x4 cameraView = camera->GetViewMatrix();
+    billboard.m[0][0] = cameraView.m[0][0]; billboard.m[0][1] = cameraView.m[1][0]; billboard.m[0][2] = cameraView.m[2][0];
+    billboard.m[1][0] = cameraView.m[0][1]; billboard.m[1][1] = cameraView.m[1][1]; billboard.m[1][2] = cameraView.m[2][1];
+    billboard.m[2][0] = cameraView.m[0][2]; billboard.m[2][1] = cameraView.m[1][2]; billboard.m[2][2] = cameraView.m[2][2];
+
+    csConstantsData_->billboard    = billboard;
+    csConstantsData_->viewProj     = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+    csConstantsData_->deltaTime    = dt;
+    csConstantsData_->maxParticles = ParticleGroup::kNumMaxInstance;
+}
+
+void ParticleManager::TransitionInstancingToUAV(ParticleGroup& group, ID3D12GraphicsCommandList* cmd)
+{
+    if (!group.instancingInSRV) { return; }
+    D3D12_RESOURCE_BARRIER b{};
+    b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Transition.pResource   = group.instancingResource.Get();
+    b.Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    b.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd->ResourceBarrier(1, &b);
+    group.instancingInSRV = false;
+}
+
+void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
+{
+    if (!group.autoRespawn) {
+        for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
+            if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
+                group.freeList.push_back(i);
+                group.slotExpiry[i] = 0.0f;
+                group.aliveCount--;
+            }
+        }
+        return;
+    }
+
+    static std::mt19937 rng{ std::random_device{}() };
+    const ParticleGroup::RespawnConfig& cfg = group.respawnConfig;
+    std::uniform_real_distribution<float> xzDist(-cfg.radius, cfg.radius);
+    std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
+    std::uniform_real_distribution<float> lifeDist(cfg.lifeTimeMin, cfg.lifeTimeMax);
+    std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
+    std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
+
+    for (uint32_t i = 0; i < cfg.count; ++i) {
+        if (group.slotExpiry[i] <= 0.0f || group.groupTime < group.slotExpiry[i]) { continue; }
+        float lifeTime = lifeDist(rng);
+        GPUParticleState& p = group.particleUploadData[i];
+        p.position    = { cfg.center.x + xzDist(rng), cfg.center.y + yDist(rng), cfg.center.z + xzDist(rng) };
+        p.lifeTime    = lifeTime;
+        p.velocity    = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
+        p.currentTime = 0.0f;
+        p.color       = cfg.color;
+        p.scale       = { cfg.scale, cfg.scale, cfg.scale };
+        p.rotateZ     = 0.0f;
+        p.alive       = 1;
+        p.curveFlag   = 0;
+        group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+        group.pendingSlots.push_back(i);
+    }
+}
+
+void ParticleManager::FlushPendingSlotsToGPU(ParticleGroup& group, ID3D12GraphicsCommandList* cmd)
+{
+    if (!group.needsInit && group.pendingSlots.empty()) { return; }
+
+    D3D12_RESOURCE_BARRIER cb{};
+    cb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    cb.Transition.pResource   = group.particleStateBuffer.Get();
+    // バッファは COMMON で作成される（D3D12 #1328 対策）
+    cb.Transition.StateBefore = group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON
+                                                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    cb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    group.particleStateFresh  = false;
+    cmd->ResourceBarrier(1, &cb);
+
+    if (group.needsInit) {
+        cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
+                              group.particleUploadBuffer.Get(), 0,
+                              sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
+        group.needsInit = false;
+    }
+    for (uint32_t slot : group.pendingSlots) {
+        UINT64 offset = static_cast<UINT64>(slot) * sizeof(GPUParticleState);
+        cmd->CopyBufferRegion(group.particleStateBuffer.Get(), offset,
+                              group.particleUploadBuffer.Get(), offset, sizeof(GPUParticleState));
+    }
+    group.pendingSlots.clear();
+
+    cb.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    cmd->ResourceBarrier(1, &cb);
+}
+
+void ParticleManager::DispatchEmitCS(ParticleGroup& group, ID3D12GraphicsCommandList* cmd, float dt)
+{
+    Emitter* e = group.emitterData;
+    e->time = *reinterpret_cast<uint32_t*>(&group.groupTime); // float ビット列を uint でそのまま渡す
+    e->seed++;
+    if (e->frequency > 0.0f) {
+        e->frequencyTime += dt;
+        if (e->frequency <= e->frequencyTime) {
+            e->frequencyTime -= e->frequency;
+            e->emit = 1;
+        } else {
+            e->emit = 0;
+        }
+    }
+    if (e->emit == 0) { return; }
+
+    // スロット有効期限を延長
+    const uint32_t count    = (std::min)(e->count, ParticleGroup::kNumMaxInstance);
+    const float    maxExpiry = group.groupTime + e->lifeTime + 0.1f;
+    for (uint32_t i = 0; i < count; ++i) { group.slotExpiry[i] = maxExpiry; }
+
+    // 発射前にステートバッファ全体をアップロード（GPU キャッシュをフラッシュ）
+    D3D12_RESOURCE_BARRIER bIn{};
+    bIn.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    bIn.Transition.pResource   = group.particleStateBuffer.Get();
+    bIn.Transition.StateBefore = group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON
+                                                          : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    bIn.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    bIn.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    group.particleStateFresh   = false;
+    cmd->ResourceBarrier(1, &bIn);
+
+    cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
+                         group.particleUploadBuffer.Get(), 0,
+                         sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
+
+    D3D12_RESOURCE_BARRIER bOut{};
+    bOut.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    bOut.Transition.pResource   = group.particleStateBuffer.Get();
+    bOut.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    bOut.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    bOut.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd->ResourceBarrier(1, &bOut);
+
+    cmd->SetComputeRootSignature(csEmitRootSignature_.Get());
+    cmd->SetPipelineState(csEmitPipelineState_.Get());
+    cmd->SetComputeRootConstantBufferView(0, group.emitterBuffer->GetGPUVirtualAddress());
+    cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
+    cmd->Dispatch(1, 1, 1);
+
+    D3D12_RESOURCE_BARRIER uavB{};
+    uavB.Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    uavB.UAV.pResource = group.particleStateBuffer.Get();
+    cmd->ResourceBarrier(1, &uavB);
+
+    // one-shot (frequency == 0) はディスパッチ後にリセット
+    if (e->frequency == 0.0f) { e->emit = 0; }
+}
+
+void ParticleManager::DispatchUpdateCS(ParticleGroup& group, ID3D12GraphicsCommandList* cmd)
+{
+    cmd->SetComputeRootSignature(csRootSignature_.Get());
+    cmd->SetPipelineState(csPipelineState_.Get());
+    cmd->SetComputeRootConstantBufferView(0, csConstantsBuffer_->GetGPUVirtualAddress());
+    cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
+    cmd->SetComputeRootUnorderedAccessView(2, group.instancingResource->GetGPUVirtualAddress());
+
+    const UINT threadGroups = (ParticleGroup::kNumMaxInstance + 63) / 64;
+    cmd->Dispatch(threadGroups, 1, 1);
+
+    // particleStateBuffer・instancingResource の書き込み完了を保証
+    D3D12_RESOURCE_BARRIER uavBs[2]{};
+    uavBs[0].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    uavBs[0].UAV.pResource = group.particleStateBuffer.Get();
+    uavBs[1].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    uavBs[1].UAV.pResource = group.instancingResource.Get();
+    cmd->ResourceBarrier(2, uavBs);
+
+    // instancingResource: UAV → NON_PIXEL_SHADER_RESOURCE（VS が SRV として読む）
+    D3D12_RESOURCE_BARRIER srvB{};
+    srvB.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    srvB.Transition.pResource   = group.instancingResource.Get();
+    srvB.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    srvB.Transition.StateAfter  = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    srvB.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd->ResourceBarrier(1, &srvB);
+    group.instancingInSRV = true;
+}
 
 void ParticleManager::Update(Camera* camera)
 {
     constexpr float dt = GameConstants::kFrameDeltaTime;
-
-    // ---- ビルボード行列とビュープロジェクション行列を計算 ----
-    Matrix4x4 billboard  = MakeIdentity4x4();
-    Matrix4x4 cameraView = camera->GetViewMatrix();
-    billboard.m[0][0] = cameraView.m[0][0];
-    billboard.m[0][1] = cameraView.m[1][0];
-    billboard.m[0][2] = cameraView.m[2][0];
-    billboard.m[1][0] = cameraView.m[0][1];
-    billboard.m[1][1] = cameraView.m[1][1];
-    billboard.m[1][2] = cameraView.m[2][1];
-    billboard.m[2][0] = cameraView.m[0][2];
-    billboard.m[2][1] = cameraView.m[1][2];
-    billboard.m[2][2] = cameraView.m[2][2];
-
-    Matrix4x4 viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-
-    csConstantsData_->billboard    = billboard;
-    csConstantsData_->viewProj     = viewProj;
-    csConstantsData_->deltaTime    = dt;
-    csConstantsData_->maxParticles = ParticleGroup::kNumMaxInstance;
+    UpdateCSConstants(camera, dt);
 
     auto* cmd = dxCommon_->GetCommandList();
-
     for (auto& [name, group] : particleGroups_) {
         group.groupTime += dt;
-
-        // ---- instancingResource: 前フレームの SRV 状態 → UAV に戻す ----
-        if (group.instancingInSRV) {
-            D3D12_RESOURCE_BARRIER b{};
-            b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            b.Transition.pResource   = group.instancingResource.Get();
-            b.Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-            b.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            cmd->ResourceBarrier(1, &b);
-            group.instancingInSRV = false;
-        }
-
-        // ---- 期限切れスロットを freeList へ返却 ----
-        if (!group.autoRespawn) {
-            for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
-                if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
-                    group.freeList.push_back(i);
-                    group.slotExpiry[i] = 0.0f;
-                }
-            }
-        }
-
-        // ---- 自動再配置: 期限切れスロットを一つずつ再配置 ----
-        if (group.autoRespawn) {
-            static std::mt19937 rng{ std::random_device{}() };
-            const ParticleGroup::RespawnConfig& cfg = group.respawnConfig;
-            std::uniform_real_distribution<float> xzDist(-cfg.radius, cfg.radius);
-            std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
-            std::uniform_real_distribution<float> lifeDist(cfg.lifeTimeMin, cfg.lifeTimeMax);
-            std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
-            std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
-
-            for (uint32_t i = 0; i < cfg.count; ++i) {
-                if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i]) {
-                    float lifeTime = lifeDist(rng);
-                    GPUParticleState& p = group.particleUploadData[i];
-                    p.position    = { cfg.center.x + xzDist(rng),
-                                      cfg.center.y + yDist(rng),
-                                      cfg.center.z + xzDist(rng) };
-                    p.lifeTime    = lifeTime;
-                    p.velocity    = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
-                    p.currentTime = 0.0f;
-                    p.color       = cfg.color;
-                    p.scale       = { cfg.scale, cfg.scale, cfg.scale };
-                    p.rotateZ     = 0.0f;
-                    p.alive       = 1;
-                    p.curveFlag   = 0;
-                    group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
-                    group.pendingSlots.push_back(i);
-                }
-            }
-        }
-
-        // ---- 新パーティクルを GPU ステートバッファへコピー ----
-        if (group.needsInit || !group.pendingSlots.empty()) {
-            D3D12_RESOURCE_BARRIER cb{};
-            cb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            cb.Transition.pResource   = group.particleStateBuffer.Get();
-            // 作成直後は COMMON 状態（エミット処理で既に遷移済みなら UAV）
-            cb.Transition.StateBefore = group.particleStateFresh
-                ? D3D12_RESOURCE_STATE_COMMON
-                : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-            cb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            group.particleStateFresh = false;
-            cmd->ResourceBarrier(1, &cb);
-
-            if (group.needsInit) {
-                UINT64 fullSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
-                cmd->CopyBufferRegion(
-                    group.particleStateBuffer.Get(), 0,
-                    group.particleUploadBuffer.Get(), 0,
-                    fullSize);
-                group.needsInit = false;
-            }
-
-            for (uint32_t slot : group.pendingSlots) {
-                UINT64 offset = static_cast<UINT64>(slot) * sizeof(GPUParticleState);
-                cmd->CopyBufferRegion(
-                    group.particleStateBuffer.Get(), offset,
-                    group.particleUploadBuffer.Get(), offset,
-                    sizeof(GPUParticleState));
-            }
-
-            group.pendingSlots.clear();
-
-            cb.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            cmd->ResourceBarrier(1, &cb);
-        }
-
-        // ---- エミッター: frequency 更新 → emit フラグ管理 ----
-        {
-            Emitter* e = group.emitterData;
-            e->time = *reinterpret_cast<uint32_t*>(&group.groupTime); // float ビット列をそのまま uint で渡す
-            e->seed++;
-            if (e->frequency > 0.0f) {
-                e->frequencyTime += dt;
-                if (e->frequency <= e->frequencyTime) {
-                    e->frequencyTime -= e->frequency;
-                    e->emit = 1;
-                } else {
-                    e->emit = 0;
-                }
-            }
-
-            if (e->emit != 0) {
-                uint32_t count = (std::min)(e->count, ParticleGroup::kNumMaxInstance);
-                float maxExpiry = group.groupTime + e->lifeTime + 0.1f;
-                for (uint32_t i = 0; i < count; ++i) {
-                    group.slotExpiry[i] = maxExpiry;
-                }
-
-                // 発射のたびにステートバッファをゼロ初期化してキャッシュをフラッシュ
-                {
-                    D3D12_RESOURCE_BARRIER bIn{};
-                    bIn.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                    bIn.Transition.pResource   = group.particleStateBuffer.Get();
-                    // 作成直後は COMMON 状態（UAV 指定は無視される #1328）
-                    bIn.Transition.StateBefore = group.particleStateFresh
-                        ? D3D12_RESOURCE_STATE_COMMON
-                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-                    bIn.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-                    bIn.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                    group.particleStateFresh = false;
-                    cmd->ResourceBarrier(1, &bIn);
-
-                    UINT64 fullSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
-                    cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
-                                         group.particleUploadBuffer.Get(), 0, fullSize);
-
-                    D3D12_RESOURCE_BARRIER bOut{};
-                    bOut.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                    bOut.Transition.pResource   = group.particleStateBuffer.Get();
-                    bOut.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-                    bOut.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-                    bOut.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                    cmd->ResourceBarrier(1, &bOut);
-                }
-
-                cmd->SetComputeRootSignature(csEmitRootSignature_.Get());
-                cmd->SetPipelineState(csEmitPipelineState_.Get());
-                cmd->SetComputeRootConstantBufferView(0, group.emitterBuffer->GetGPUVirtualAddress());
-                cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
-                cmd->Dispatch(1, 1, 1);
-
-                D3D12_RESOURCE_BARRIER emitUavB{};
-                emitUavB.Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-                emitUavB.UAV.pResource = group.particleStateBuffer.Get();
-                cmd->ResourceBarrier(1, &emitUavB);
-
-                // one-shot (frequency == 0) はディスパッチ後にリセット
-                if (e->frequency == 0.0f) {
-                    e->emit = 0;
-                }
-            }
-        }
-
-        // ---- CS ディスパッチ ----
-        cmd->SetComputeRootSignature(csRootSignature_.Get());
-        cmd->SetPipelineState(csPipelineState_.Get());
-        cmd->SetComputeRootConstantBufferView(0, csConstantsBuffer_->GetGPUVirtualAddress());
-        cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
-        cmd->SetComputeRootUnorderedAccessView(2, group.instancingResource->GetGPUVirtualAddress());
-
-        UINT threadGroups = (ParticleGroup::kNumMaxInstance + 63) / 64;
-        cmd->Dispatch(threadGroups, 1, 1);
-
-        // UAV バリア: particleStateBuffer（次フレームの CS 読み込み前に書き込み完了を保証）
-        //            instancingResource（VS が SRV として読む前に書き込み完了を保証）
-        D3D12_RESOURCE_BARRIER uavBs[2]{};
-        uavBs[0].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        uavBs[0].UAV.pResource = group.particleStateBuffer.Get();
-        uavBs[1].Type          = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        uavBs[1].UAV.pResource = group.instancingResource.Get();
-        cmd->ResourceBarrier(2, uavBs);
-
-        // instancingResource: UAV → NON_PIXEL_SHADER_RESOURCE (VS が SRV として読む)
-        D3D12_RESOURCE_BARRIER srvB{};
-        srvB.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        srvB.Transition.pResource   = group.instancingResource.Get();
-        srvB.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        srvB.Transition.StateAfter  = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        srvB.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        cmd->ResourceBarrier(1, &srvB);
-        group.instancingInSRV = true;
+        TransitionInstancingToUAV(group, cmd);
+        ExpireAndRespawnSlots(group);
+        FlushPendingSlotsToGPU(group, cmd);
+        DispatchEmitCS(group, cmd, dt);
+        DispatchUpdateCS(group, cmd);
     }
 }
 
@@ -678,16 +757,7 @@ void ParticleManager::Draw(Camera* camera)
     ID3D12PipelineState* activePSO = nullptr;
 
     for (auto& [name, group] : particleGroups_) {
-        bool hasAlive = false;
-
-        for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i) {
-            if (group.groupTime < group.slotExpiry[i]) {
-                hasAlive = true;
-                break;
-            }
-        }
-
-        if (!hasAlive) {
+        if (group.aliveCount == 0) {
             continue;
         }
 
@@ -706,6 +776,9 @@ void ParticleManager::Draw(Camera* camera)
             TextureManager::GetInstance()->GetSrvHandleGPU(group.textureFilePath);
         cmd->SetGraphicsRootDescriptorTable(1, texH);
 
+        // instancingResource のスロットは非連続なため instance count を aliveCount に
+        // 減らすには CS 側で alive スロットを詰める変更が必要。現状は全 1024 を渡し、
+        // シェーダー側で alive=0 の instance を early-out する。
         cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
 }

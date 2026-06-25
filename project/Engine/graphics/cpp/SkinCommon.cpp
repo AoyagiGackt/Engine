@@ -9,7 +9,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // =====================================================
-    // Root Signature (ModelCommon と同一 + スロット 6, 7 追加)
+    // Root Signature (ModelCommon と同一 + スロット 6, 7, 8 追加)
     // スロット 0 (PS, b0) : マテリアル
     // スロット 1 (VS, b0) : 変換行列
     // スロット 2 (PS, t0) : テクスチャ SRV
@@ -17,7 +17,8 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 4 (PS, t1) : シャドウマップ SRV
     // スロット 5 (PS, t2) : キューブマップテクスチャ SRV
     // スロット 6 (VS, b1) : スキニングパレット CBV
-    // スロット 7 (PS, b2) : ポイントライト配列       ← 追加
+    // スロット 7 (PS, b2) : ポイントライト配列
+    // スロット 8 (PS, t3) : 法線マップ SRV
     // =====================================================
     D3D12_DESCRIPTOR_RANGE texRange[1]{};
     texRange[0].BaseShaderRegister                = 0; // t0
@@ -37,7 +38,13 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParameters[8]{};
+    D3D12_DESCRIPTOR_RANGE normalMapRange[1]{};
+    normalMapRange[0].BaseShaderRegister                = 3; // t3
+    normalMapRange[0].NumDescriptors                    = 1;
+    normalMapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    normalMapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER rootParameters[9]{};
     // 0: マテリアル (PS, b0)
     rootParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -73,6 +80,11 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[7].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[7].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[7].Descriptor.ShaderRegister = 2;
+    // 8: 法線マップ (PS, t3)
+    rootParameters[8].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[8].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[8].DescriptorTable.pDescriptorRanges   = normalMapRange;
+    rootParameters[8].DescriptorTable.NumDescriptorRanges = 1;
 
     D3D12_STATIC_SAMPLER_DESC staticSamplers[2]{};
     staticSamplers[0].Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -94,7 +106,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     D3D12_ROOT_SIGNATURE_DESC rsDesc{};
     rsDesc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rsDesc.pParameters       = rootParameters;
-    rsDesc.NumParameters     = 8; // スロット 0〜7
+    rsDesc.NumParameters     = 9; // スロット 0〜8
     rsDesc.pStaticSamplers   = staticSamplers;
     rsDesc.NumStaticSamplers = _countof(staticSamplers);
 

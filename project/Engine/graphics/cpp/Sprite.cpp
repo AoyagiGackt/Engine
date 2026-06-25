@@ -34,21 +34,25 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     // 左下 (0, 1)
     vertexData[0].position = { 0.0f, 1.0f, 0.5f, 1.0f };
     vertexData[0].texcoord = { 0.0f, 1.0f };
-    vertexData[0].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[0].normal   = { 0.0f, 0.0f, -1.0f };
+    vertexData[0].tangent  = { 1.0f, 0.0f,  0.0f };
     // 左上 (0, 0)
     vertexData[1].position = { 0.0f, 0.0f, 0.5f, 1.0f };
     vertexData[1].texcoord = { 0.0f, 0.0f };
-    vertexData[1].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[1].normal   = { 0.0f, 0.0f, -1.0f };
+    vertexData[1].tangent  = { 1.0f, 0.0f,  0.0f };
     // 右下 (1, 1)
     vertexData[2].position = { 1.0f, 1.0f, 0.5f, 1.0f };
     vertexData[2].texcoord = { 1.0f, 1.0f };
-    vertexData[2].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[2].normal   = { 0.0f, 0.0f, -1.0f };
+    vertexData[2].tangent  = { 1.0f, 0.0f,  0.0f };
     // 左上
     vertexData[3] = vertexData[1];
     // 右上 (1, 0)
     vertexData[4].position = { 1.0f, 0.0f, 0.5f, 1.0f };
     vertexData[4].texcoord = { 1.0f, 0.0f };
-    vertexData[4].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[4].normal   = { 0.0f, 0.0f, -1.0f };
+    vertexData[4].tangent  = { 1.0f, 0.0f,  0.0f };
     // 右下
     vertexData[5] = vertexData[2];
 

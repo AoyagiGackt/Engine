@@ -6,6 +6,7 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
+#include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Sprite.h"
@@ -86,6 +87,8 @@ private:
 
     /** @brief タイトル文字スプライト */
     std::unique_ptr<Sprite> titleTextSprite_;
+
+    FontRenderer fontRenderer_;
 
     /** @brief シーン終了フラグ（trueになるとシーンが切り替わる） */
     bool finished_ = false;

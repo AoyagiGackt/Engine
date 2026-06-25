@@ -21,7 +21,7 @@ public:
      * @brief モデルを構成する1つの頂点データ
      */
     struct VertexData {
-        
+
         /** @brief 頂点座標（ローカル空間の X, Y, Z, W） */
         Vector4 position;
 
@@ -30,6 +30,9 @@ public:
 
         /** @brief 頂点法線ベクトル（ライティングの陰影計算に使用） */
         Vector3 normal;
+
+        /** @brief 頂点タンジェントベクトル（法線マップのTBN計算に使用） */
+        Vector3 tangent;
     };
 
     /**
@@ -81,6 +84,8 @@ public:
      * @param filePath キューブマップの DDS ファイルパス
      */
     void SetEnvCubemap(const std::string& filePath) { envCubemapFilePath_ = filePath; }
+
+    const std::string& GetTextureFilePath() const { return textureFilePath_; }
 
 private:
     

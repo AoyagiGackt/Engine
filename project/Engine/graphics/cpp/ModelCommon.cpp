@@ -21,7 +21,8 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 3 (PS, b1) : 平行光源
     // スロット 4 (PS, t1) : シャドウマップ SRV
     // スロット 5 (PS, t2) : キューブマップ SRV
-    // スロット 6 (PS, b2) : ポイントライト配列   ← 追加
+    // スロット 6 (PS, b2) : ポイントライト配列
+    // スロット 7 (PS, t3) : 法線マップ SRV
     // =====================================================
     D3D12_DESCRIPTOR_RANGE texRange[1] = {};
     texRange[0].BaseShaderRegister                = 0; // t0
@@ -41,7 +42,13 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParameters[7] = {};
+    D3D12_DESCRIPTOR_RANGE normalMapRange[1] = {};
+    normalMapRange[0].BaseShaderRegister                = 3; // t3
+    normalMapRange[0].NumDescriptors                    = 1;
+    normalMapRange[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    normalMapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER rootParameters[8] = {};
     // 0: マテリアル (PS, b0)
     rootParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -73,6 +80,11 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[6].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[6].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[6].Descriptor.ShaderRegister = 2;
+    // 7: 法線マップ (PS, t3)
+    rootParameters[7].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[7].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[7].DescriptorTable.pDescriptorRanges   = normalMapRange;
+    rootParameters[7].DescriptorTable.NumDescriptorRanges = 1;
 
     // 静的サンプラー（s0: 通常テクスチャ、s1: シャドウマップ比較用）
     D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
@@ -97,7 +109,7 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     D3D12_ROOT_SIGNATURE_DESC rsDesc {};
     rsDesc.Flags           = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rsDesc.pParameters     = rootParameters;
-    rsDesc.NumParameters   = 7; // スロット 0〜6
+    rsDesc.NumParameters   = 8; // スロット 0〜7
     rsDesc.pStaticSamplers = staticSamplers;
     rsDesc.NumStaticSamplers = _countof(staticSamplers);
 
@@ -111,6 +123,7 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
     IDxcBlob* vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");

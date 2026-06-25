@@ -1,27 +1,29 @@
-/**
- * @file JsonHelper.h
- * @brief JSON ファイルから値を読み取るための簡易ヘルパー関数群
- *
- * JSON とは「テキストで設定値を書き残すための形式」のこと。
- * 例: { "camera_pos_x": 14.5, "count": 3 }
- *
- * フルスペックの JSON ライブラリを使わず、
- * シンプルな「キー: 値」形式だけを読み取る最小実装。
- * キーが見つからなければデフォルト値を返すので、ファイルが不完全でも安全に動く。
- */
 #pragma once
 #include <string>
+#include "json.hpp"
 
+// JSON ファイルの読み書きユーティリティ
+//
+// 基本的な使い方:
+//   // 保存
+//   nlohmann::json j;
+//   j["camera_pos"] = { pos.x, pos.y, pos.z };
+//   j["bgm_volume"] = 0.7f;
+//   JsonHelper::Save("save/settings.json", j);
+//
+//   // 読み込み
+//   auto j = JsonHelper::Load("save/settings.json");
+//   float vol = j.value("bgm_volume", 0.7f); // キーがなければデフォルト値
 namespace JsonHelper {
-    // JSON 文字列 src から、キー key に対応する小数値を取り出す。
-    // キーが見つからなければ def（デフォルト値）を返す。
-    float ReadFloat(const std::string& src, const std::string& key, float def);
+    // ファイルから JSON を読み込む（ファイルが存在しない・破損の場合は空オブジェクトを返す）
+    nlohmann::json Load(const std::string& path);
 
-    // JSON 文字列 src から、キー key に対応する整数値を取り出す。
-    // キーが見つからなければ def（デフォルト値）を返す。
-    int ReadInt(const std::string& src, const std::string& key, int def);
+    // JSON をファイルへ保存する（親ディレクトリがなければ作成する）
+    void Save(const std::string& path, const nlohmann::json& j, int indent = 2);
 
-    // JSON 文字列 src から、キー key に対応する文字列を取り出す。
-    // キーが見つからなければ def（デフォルト値）を返す。
+    // --- 後方互換（既存コードはそのまま動く）---
+    // 新規コードでは Load/Save + nlohmann::json を使うこと
+    float       ReadFloat (const std::string& src, const std::string& key, float def);
+    int         ReadInt   (const std::string& src, const std::string& key, int def);
     std::string ReadString(const std::string& src, const std::string& key, const std::string& def);
 }

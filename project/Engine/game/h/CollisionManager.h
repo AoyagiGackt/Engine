@@ -1,3 +1,7 @@
+/**
+ * @file CollisionManager.h
+ * @brief ゲームオブジェクト間の当たり判定を一括管理するファイル
+ */
 #pragma once
 #include "Collision.h"
 #include "GameObject.h"

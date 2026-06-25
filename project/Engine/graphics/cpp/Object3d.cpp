@@ -1,8 +1,11 @@
 ﻿#include "Object3d.h"
 #include "Camera.h"
+#include "LightingMode.h"
 #include "LightManager.h"
 #include "ModelCommon.h"
 #include "ModelManager.h"
+#include "OutlineEffect.h"
+#include "TextureManager.h"
 #include <cmath>
 
 using namespace Microsoft::WRL;
@@ -43,7 +46,7 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 
     // Material用リソース作成
-    resDesc.Width = sizeof(Material);
+    resDesc.Width = sizeof(ObjectMaterialLayout);
     device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&materialResource_));
     materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
@@ -56,8 +59,15 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     materialData_->uvTransform    = MakeIdentity4x4();
     materialData_->specularColor  = { 1.0f, 1.0f, 1.0f }; // 白いハイライト
     materialData_->shininess      = 32.0f;                  // ほどよい光沢
-    materialData_->cameraWorldPos = { 0.0f, 0.0f, 0.0f };
+    materialData_->cameraWorldPos  = { 0.0f, 0.0f, 0.0f };
     materialData_->envMapIntensity = 0.0f;
+    materialData_->rimColor        = { 1.0f, 1.0f, 1.0f };
+    materialData_->rimPower        = 3.0f;
+    materialData_->rimIntensity    = 0.0f;
+    materialData_->enableRim       = 0;
+    materialData_->useNormalMap    = 0;
+    materialData_->metallic        = 0.0f;
+    materialData_->roughness       = 0.5f;
 }
 
 void Object3d::Update()
@@ -88,8 +98,10 @@ void Object3d::Update()
     transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
     transformationMatrixData_->LightVP              = commonLightVP_;
 
-    // 毎フレームライティングモードをマテリアルに反映させる
-    materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
+    // 毎フレームライティングモードをマテリアルに反映させる（ロック済みオブジェクトは除外）
+    if (!lockShadingType_) {
+        materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
+    }
 
     collider_.aabb.min = { transform_.translate.x - 0.5f, transform_.translate.y - 0.5f, transform_.translate.z - 0.5f };
     collider_.aabb.max = { transform_.translate.x + 0.5f, transform_.translate.y + 0.5f, transform_.translate.z + 0.5f };
@@ -107,10 +119,35 @@ void Object3d::DrawShadow()
     model_->DrawGeometryOnly(modelCommon_);
 }
 
+void Object3d::DrawForNormalCapture()
+{
+    if (!model_) return;
+    ID3D12GraphicsCommandList* cmd = modelCommon_->GetDxCommon()->GetCommandList();
+    // NormalCapture RS: slot0 = VS b0 (TransformationMatrix) - DrawShadow と同じスロット配置
+    cmd->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
+    model_->DrawGeometryOnly(modelCommon_);
+}
+
+void Object3d::DrawOutline(OutlineEffect* effect)
+{
+    if (!model_ || !effect) { return; }
+    ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
+    // slot 1 = TransformationMatrix (VS b1)
+    commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
+    model_->DrawGeometryOnly(modelCommon_);
+}
+
 void Object3d::SetModel(const std::string& filePath)
 {
     // マネージャーからモデルを検索してセット
     model_ = ModelManager::GetInstance()->FindModel(filePath);
+}
+
+void Object3d::SetNormalMap(const std::string& filePath)
+{
+    normalMapFilePath_ = filePath;
+    TextureManager::GetInstance()->LoadTexture(filePath);
+    if (materialData_) materialData_->useNormalMap = 1;
 }
 
 void Object3d::Draw()
@@ -125,6 +162,10 @@ void Object3d::Draw()
     // マテリアルと座標変換を設定
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
+
+    // スロット7: 法線マップ（未設定時は diffuse をダミーとして流用）
+    const std::string& normalPath = normalMapFilePath_.empty() ? model_->GetTextureFilePath() : normalMapFilePath_;
+    commandList->SetGraphicsRootDescriptorTable(7, TextureManager::GetInstance()->GetSrvHandleGPU(normalPath));
 
     model_->Draw(modelCommon_);
 }

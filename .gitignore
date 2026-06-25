@@ -357,3 +357,10 @@ externals/**/Release/
 # assimpのlibはCIビルドに必要なため追跡対象にする
 !externals/assimp/lib/Debug/
 !externals/assimp/lib/Release/
+
+# ログとスコアファイルの除外
+project/log.txt
+project/scores.txt
+
+# デバッグ用シェーダーの除外
+project/Resources/shaders/debug/

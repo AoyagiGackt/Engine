@@ -34,8 +34,15 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     cubemapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    // 7つ（Object3dPS.hlsl のバインディングに合わせる）
-    D3D12_ROOT_PARAMETER rootParameters[7] = {};
+    // t3: 法線マップ SRV（Object3dPS.hlsl が要求するため宣言が必要）
+    D3D12_DESCRIPTOR_RANGE normalMapRange[1] = {};
+    normalMapRange[0].BaseShaderRegister = 3; // t3
+    normalMapRange[0].NumDescriptors = 1;
+    normalMapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    normalMapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    // 8つ（Object3dPS.hlsl のバインディングに合わせる）
+    D3D12_ROOT_PARAMETER rootParameters[8] = {};
 
     // マテリアル
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -74,6 +81,12 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[6].Descriptor.ShaderRegister = 2; // b2
+
+    // 法線マップ (t3) — Object3dPS.hlsl が要求。スプライトは useNormalMap=0 なので実際にはアクセスしない
+    rootParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[7].DescriptorTable.pDescriptorRanges = normalMapRange;
+    rootParameters[7].DescriptorTable.NumDescriptorRanges = 1;
 
     descriptionRootSignature.pParameters = rootParameters;
     descriptionRootSignature.NumParameters = _countof(rootParameters);
@@ -119,7 +132,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     IDxcBlob* vertexShaderBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
     IDxcBlob* pixelShaderBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
-    D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
+    D3D12_INPUT_ELEMENT_DESC inputElementDescs[4] = {};
     inputElementDescs[0].SemanticName = "POSITION";
     inputElementDescs[0].SemanticIndex = 0;
     inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -132,6 +145,10 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     inputElementDescs[2].SemanticIndex = 0;
     inputElementDescs[2].Format = DXGI_FORMAT_R32G32B32_FLOAT;
     inputElementDescs[2].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+    inputElementDescs[3].SemanticName = "TANGENT";
+    inputElementDescs[3].SemanticIndex = 0;
+    inputElementDescs[3].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+    inputElementDescs[3].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 
     D3D12_INPUT_LAYOUT_DESC inputLayoutDesc {};
     inputLayoutDesc.pInputElementDescs = inputElementDescs;

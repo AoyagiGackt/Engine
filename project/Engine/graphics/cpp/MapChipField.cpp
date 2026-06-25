@@ -242,6 +242,7 @@ void MapChipField::GenerateColumn(float x)
     if (shapeStep_ < (int)currentShape_.size()) {
         spawnColumn(currentShape_[shapeStep_]);
         shapeStep_++;
+        
         if (shapeStep_ >= (int)currentShape_.size()) {
             coolTime_ = 4;
             currentShape_.clear();
@@ -256,6 +257,7 @@ void MapChipField::GenerateColumn(float x)
         shapeStep_ = 0;
         spawnColumn(currentShape_[shapeStep_]);
         shapeStep_++;
+        
         if (shapeStep_ >= (int)currentShape_.size()) {
             coolTime_ = 4;
             currentShape_.clear();

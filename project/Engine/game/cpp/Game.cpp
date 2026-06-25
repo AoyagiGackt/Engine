@@ -1,8 +1,15 @@
 ﻿#include "Game.h"
+#include "DelayTimer.h"
+#include "GameConstants.h"
+#include "Sequencer.h"
 #include "GamePlayScene.h"
+#include "GameSettings.h"
 #include "SceneManager.h"
 #include "SceneFactory.h"
+#include "ScreenFlash.h"
+#include "TimeManager.h"
 #include "TitleScene.h"
+#include "Tweener.h"
 #include <SrvManager.h>
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
@@ -27,6 +34,14 @@ void MyGame::Initialize()
         input_.get(),
         audio_.get(),
         imguiManager_.get());
+
+    // ゲーム設定を読み込んで音量に反映する
+    GameSettingsManager::GetInstance()->Load();
+    const GameSettings& s = GameSettingsManager::GetInstance()->Get();
+    audio_->SetBGMVolume(s.bgmVolume);
+
+    // スクリーンフラッシュ初期化
+    ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
 }
 
 
@@ -34,6 +49,16 @@ void MyGame::Update()
 {
     // 基盤の更新
     Framework::Update();
+
+    // 時間管理・オーディオフェードを毎フレーム更新
+    TimeManager::GetInstance()->Update();
+    audio_->Update(GameConstants::kFrameDeltaTime);
+
+    // 遅延コールバック・Tweener・Sequencer・スクリーンフラッシュを毎フレーム更新
+    DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+    Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
+    Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
+    ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
     // シーンマネージャー更新
     SceneManager::GetInstance()->Update();
@@ -77,6 +102,8 @@ void MyGame::Draw()
     }
 
     VignetteEffect::GetInstance()->Apply();
+
+    ScreenFlash::GetInstance()->Draw();
 
     imguiManager_->Draw(dxCommon_.get());
 

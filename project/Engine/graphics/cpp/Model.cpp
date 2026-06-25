@@ -195,6 +195,45 @@ void Model::LoadObjFile(const std::string& filePath)
             }
         }
     }
+
+    // タンジェント計算（三角形ごとに dPos/dUV から求めてアキュムレート）
+    std::vector<Vector3> tangentAccum(vertices_.size(), { 0.0f, 0.0f, 0.0f });
+    for (size_t i = 0; i + 2 < indices_.size(); i += 3) {
+        uint32_t i0 = indices_[i], i1 = indices_[i + 1], i2 = indices_[i + 2];
+        Vector3 p0 = { vertices_[i0].position.x, vertices_[i0].position.y, vertices_[i0].position.z };
+        Vector3 p1 = { vertices_[i1].position.x, vertices_[i1].position.y, vertices_[i1].position.z };
+        Vector3 p2 = { vertices_[i2].position.x, vertices_[i2].position.y, vertices_[i2].position.z };
+        Vector2 uv0 = vertices_[i0].texcoord, uv1 = vertices_[i1].texcoord, uv2 = vertices_[i2].texcoord;
+
+        Vector3 e1 = { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
+        Vector3 e2 = { p2.x - p0.x, p2.y - p0.y, p2.z - p0.z };
+        float du1 = uv1.x - uv0.x, dv1 = uv1.y - uv0.y;
+        float du2 = uv2.x - uv0.x, dv2 = uv2.y - uv0.y;
+
+        float denom = du1 * dv2 - du2 * dv1;
+        if (std::abs(denom) < 1e-6f) continue;
+        float invR = 1.0f / denom;
+        Vector3 t = {
+            (e1.x * dv2 - e2.x * dv1) * invR,
+            (e1.y * dv2 - e2.y * dv1) * invR,
+            (e1.z * dv2 - e2.z * dv1) * invR
+        };
+        for (uint32_t idx : { i0, i1, i2 }) {
+            tangentAccum[idx].x += t.x;
+            tangentAccum[idx].y += t.y;
+            tangentAccum[idx].z += t.z;
+        }
+    }
+    for (size_t i = 0; i < vertices_.size(); ++i) {
+        Vector3 n = vertices_[i].normal;
+        Vector3 t = tangentAccum[i];
+        // Gram-Schmidt 直交化
+        float dot = n.x * t.x + n.y * t.y + n.z * t.z;
+        t = { t.x - n.x * dot, t.y - n.y * dot, t.z - n.z * dot };
+        float len = std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
+        if (len > 1e-6f) { t.x /= len; t.y /= len; t.z /= len; }
+        vertices_[i].tangent = t;
+    }
 }
 
 void Model::LoadGltfFile(const std::string& filePath)
@@ -204,6 +243,7 @@ void Model::LoadGltfFile(const std::string& filePath)
         aiProcess_Triangulate |
         aiProcess_FlipUVs |
         aiProcess_GenSmoothNormals |
+        aiProcess_CalcTangentSpace |
         aiProcess_MakeLeftHanded |
         aiProcess_FlipWindingOrder);
 
@@ -233,6 +273,13 @@ void Model::LoadGltfFile(const std::string& filePath)
                 vd.texcoord = {
                     mesh->mTextureCoords[0][vIdx].x,
                     mesh->mTextureCoords[0][vIdx].y
+                };
+            }
+            if (mesh->HasTangentsAndBitangents()) {
+                vd.tangent = {
+                    mesh->mTangents[vIdx].x,
+                    mesh->mTangents[vIdx].y,
+                    mesh->mTangents[vIdx].z
                 };
             }
             vertices_.push_back(vd);

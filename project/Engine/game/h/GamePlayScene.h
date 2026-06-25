@@ -11,6 +11,7 @@
  // --- 標準ライブラリ ---
 #include <deque>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -31,9 +32,15 @@
 #include "SrvManager.h"
 
 // --- ゲームロジック・オブジェクト ---
+#include "CameraShaker.h"
+#include "Collision.h"
+#include "EnemyEntity.h"
+#include "FontRenderer.h"
 #include "Object3d.h"
+#include "Player.h"
+#include "TimeManager.h"
+#include "WaterPool.h"
 #include "GameTime.h"
-#include "MapChipField.h"
 #include "Skydome.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
@@ -45,6 +52,7 @@
 class GrayscaleEffect;
 class HsvFilter;
 class ImageFilter;
+class ParticleManager;
 class ScoreManager;
 
 /**
@@ -77,6 +85,9 @@ private:
 
     // シャドウマップ（影の元になる深度画像）の描画パスのみを実行する
     void DrawShadowPass();
+
+    // スタイル&コマンドUI（ImGui）を描画する
+    void DrawStyleUI();
 
     // アクティブなポストエフェクトの描画先 RTV を返す（なければバックバッファ）
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
@@ -112,6 +123,7 @@ private:
     GrayscaleEffect* grayscaleEffect_ = nullptr; // 画面をグレースケールにするポストエフェクト
     ImageFilter*     imageFilter_     = nullptr; // 画像フィルタ全般のポストエフェクト
     HsvFilter*       hsvFilter_       = nullptr; // 色相・彩度・明度を調整するポストエフェクト
+    ParticleManager* pm_              = nullptr; // パーティクル管理
 
     // --- 描画・共通基盤リソース ---
     // unique_ptr = 「このクラスだけが所有者」という意味。delete も自動でやってくれる
@@ -127,31 +139,16 @@ private:
 
     // --- ゲームオブジェクト群 ---
     std::vector<std::unique_ptr<GameObject>> gameObjects_; // 汎用ゲームオブジェクトのリスト
-    std::unique_ptr<MapChipField> mapField_;               // マップチップ（タイル）フィールド
 
     // --- 画面を囲むブロック ---
     std::unique_ptr<Model>                   modelBlock_;
     std::vector<std::unique_ptr<Object3d>>   borderBlocks_;
 
     // --- プレイヤー ---
-    std::unique_ptr<Model>    modelPlayer_;
-    std::unique_ptr<Object3d> player_;
-    Vector3 playerPos_        = { 8.0f, 0.4f, 0.0f };
-    float   playerSpeed_      = 0.15f;
-    float   playerVelocityY_  = 0.0f;
-    bool    playerOnGround_   = true;
-
-    static constexpr float kGroundY_    = 0.4f;   // 床ブロック上面 + プレイヤー半径
-    static constexpr float kCeilingY_  = 12.0f;  // 天井クランプ上限
-    static constexpr float kPlayerMinX_ = 3.0f;  // 左端クランプ
-    static constexpr float kPlayerMaxX_ = 27.0f; // 右端クランプ
-    static constexpr float kGravity_   = 0.012f;  // 毎フレームの重力加速度
-    static constexpr float kJumpPower_ = 0.4f;    // ジャンプ初速
+    std::unique_ptr<Player> player_;
 
     // --- 敵 ---
-    std::unique_ptr<Model>    modelEnemy_;
-    std::unique_ptr<Object3d> enemy_;
-    Vector3 enemyPos_ = { 22.0f, 0.4f, 0.0f };
+    std::unique_ptr<EnemyEntity> enemy_;
 
     // --- 進行・状態管理 ---
     GameTime gameTime_; // ゲーム内時刻（時・分）を管理する
@@ -178,6 +175,34 @@ private:
     // ImGui を使ってゲーム実行中にパラメータをリアルタイムで調整できるエディタ
     SceneEditor sceneEditor_;
 
+    // --- パーティクル ---
+    float hitCooldown_ = 0.0f; // 敵ヒット時のエフェクト連発防止タイマー
+    std::mt19937 rng_{ std::random_device{}() }; // シーン共通乱数生成器
+
+    // --- 残像（モデルゴースト）---
+    struct GhostEntry { Vector3 pos; float age; };
+    std::deque<GhostEntry>     ghostTrail_;
+    std::unique_ptr<Object3d>  ghostObject_;
+    float                      ghostSpawnTimer_ = 0.0f;
+
+    // --- 覚醒オーラ（連続エミット用タイマー）---
+    float auraTimer_ = 0.0f;
+
+    // --- スタイルメーター（コンボランク算出用）---
+    float styleMeter_ = 0.0f;
+    float peakStyle_  = 0.0f;  // ランデータ用ピーク値
+
+    // --- ローグライト: 戦闘結果表示 ---
+    bool  showResult_  = false;
+    float resultTimer_ = 0.0f;
+    int   lastGold_    = 0;
+
+    // --- ゲームプレイ UI テキスト描画 ---
+    FontRenderer fontRenderer_;
+
+    // --- カメラシェイク ---
+    CameraShaker cameraShaker_;
+
     // --- クリア演出 ---
     GlassShatterEffect glassShatter_;
     bool clearTriggered_ = false; // ガラス割れ開始済みフラグ（二重起動防止）
@@ -185,4 +210,7 @@ private:
 
     // ガラスが割れている間（約1.6秒）に背後へ表示する白背景
     std::unique_ptr<Sprite> clearBgSprite_;
+
+    // --- 水面エフェクト ---
+    std::unique_ptr<WaterPool> waterPool_;
 };

@@ -42,6 +42,14 @@ public:
      */
     void LoadTexture(const std::string& filePath);
 
+    // RGBA8 生ピクセルデータからテクスチャを作成する（フォント等のコード生成テクスチャ用）
+    void LoadFromRawRGBA8(const std::string& name,
+                          const uint8_t* rgbaData,
+                          uint32_t width, uint32_t height);
+
+    // 指定キーのテクスチャが登録済みかどうかを返す
+    bool HasTexture(const std::string& name) const { return textureDatas_.contains(name); }
+
     /**
      * @brief 保留中のテクスチャ転送を一括実行し、GPUとの同期を1回だけ行う
      * @note LoadTexture() を複数回呼んだ後、描画開始前に必ず呼び出すこと。
