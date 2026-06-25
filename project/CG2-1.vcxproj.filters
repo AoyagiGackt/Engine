@@ -492,6 +492,9 @@
     <ClCompile Include="Engine\game\cpp\TimeDisplay.cpp">
       <Filter>ソースファイル\Game\UI\Time</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\GpuProfiler.cpp">
+      <Filter>ソースファイル\Engine\Base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <!-- Engine\Base -->

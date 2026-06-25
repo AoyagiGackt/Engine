@@ -15,7 +15,9 @@ void AfterImageRenderer::Update(bool active, bool dense, const Vector3& pos, flo
     for (auto& img : images_) {
         if (img.alpha > 0.0f) {
             img.alpha -= GameConstants::kFrameDeltaTime * 4.0f;
-            if (img.alpha < 0.0f) img.alpha = 0.0f;
+            if (img.alpha < 0.0f) {
+                img.alpha = 0.0f;
+            }
         }
     }
 
