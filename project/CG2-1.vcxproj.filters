@@ -236,6 +236,9 @@
     <ClCompile Include="Engine\graphics\cpp\Camera.cpp">
       <Filter>ソースファイル\Engine\Camera</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\SmoothCamera.cpp">
+      <Filter>ソースファイル\Engine\Camera</Filter>
+    </ClCompile>
     <!-- Engine\2D -->
     <ClCompile Include="Engine\graphics\cpp\Sprite.cpp">
       <Filter>ソースファイル\Engine\2D</Filter>
@@ -250,6 +253,9 @@
     <ClCompile Include="Engine\graphics\cpp\Object3dCommon.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\InstancedObject3d.cpp">
+      <Filter>ソースファイル\Engine\3D</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Model.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
@@ -261,6 +267,9 @@
       <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\LightManager.cpp">
+      <Filter>ソースファイル\Engine\Light</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\CascadedShadowMap.cpp">
       <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
     <!-- Engine\Manager -->
@@ -288,6 +297,9 @@
     </ClCompile>
     <!-- Engine\Collision -->
     <ClCompile Include="Engine\game\cpp\Collision.cpp">
+      <Filter>ソースファイル\Engine\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\FrustumCuller.cpp">
       <Filter>ソースファイル\Engine\Collision</Filter>
     </ClCompile>
     <!-- Engine\Scene -->
@@ -357,6 +369,18 @@
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\SSAOEffect.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\DeferredRenderer.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\HDREffect.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\MotionBlurEffect.cpp">
+      <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\TAAEffect.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
     <!-- Game\Core -->
@@ -449,6 +473,9 @@
     <ClCompile Include="Engine\game\cpp\Sequencer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\AsyncLoader.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\ChromaticAberrationEffect.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
@@ -495,6 +522,12 @@
     <ClCompile Include="Engine\graphics\cpp\GpuProfiler.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\DebugDrawGpu.cpp">
+      <Filter>ソースファイル\Engine\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ShaderHotReload.cpp">
+      <Filter>ソースファイル\Engine\Base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <!-- Engine\Base -->
@@ -508,6 +541,12 @@
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\SrvManager.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\GpuProfiler.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugDrawGpu.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Framework.h">
@@ -541,6 +580,9 @@
     <ClInclude Include="Engine\graphics\h\Camera.h">
       <Filter>ヘッダーファイル\Engine\Camera</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\SmoothCamera.h">
+      <Filter>ヘッダーファイル\Engine\Camera</Filter>
+    </ClInclude>
     <!-- Engine\2D -->
     <ClInclude Include="Engine\graphics\h\Sprite.h">
       <Filter>ヘッダーファイル\Engine\2D</Filter>
@@ -555,6 +597,12 @@
     <ClInclude Include="Engine\graphics\h\Object3dCommon.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\InstancedObject3d.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ObjectMaterialLayout.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Model.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
@@ -566,6 +614,9 @@
       <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\LightManager.h">
+      <Filter>ヘッダーファイル\Engine\Light</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\CascadedShadowMap.h">
       <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
     <!-- Engine\Manager -->
@@ -611,6 +662,9 @@
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Frustum.h">
+      <Filter>ヘッダーファイル\Engine\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\FrustumCuller.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <!-- Engine\Scene -->
@@ -687,6 +741,18 @@
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\SSAOEffect.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DeferredRenderer.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\HDREffect.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\MotionBlurEffect.h">
+      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\TAAEffect.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
     <!-- Game\Core -->
@@ -794,6 +860,9 @@
     <ClInclude Include="Engine\game\h\Sequencer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\AsyncLoader.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\RunData.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
@@ -855,6 +924,9 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\DebugProfiler.h">
       <Filter>ヘッダーファイル\Game\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ShaderHotReload.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
