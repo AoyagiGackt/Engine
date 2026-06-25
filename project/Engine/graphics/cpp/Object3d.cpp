@@ -46,7 +46,7 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 
     // Material用リソース作成
-    resDesc.Width = sizeof(Material);
+    resDesc.Width = sizeof(ObjectMaterialLayout);
     device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&materialResource_));
     materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
@@ -98,8 +98,8 @@ void Object3d::Update()
     transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
     transformationMatrixData_->LightVP              = commonLightVP_;
 
-    // 毎フレームライティングモードをマテリアルに反映させる（PBR 固定オブジェクトは除外）
-    if (materialData_->shadingType != Lighting_PBR) {
+    // 毎フレームライティングモードをマテリアルに反映させる（ロック済みオブジェクトは除外）
+    if (!lockShadingType_) {
         materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
     }
 

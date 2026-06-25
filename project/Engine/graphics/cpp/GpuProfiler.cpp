@@ -46,6 +46,7 @@ void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
 }
 
 void GpuProfiler::Finalize() {
+    resolved_  = false;
     readbackBuf_.Reset();
     queryHeap_.Reset();
     dxCommon_ = nullptr;
@@ -64,9 +65,11 @@ void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd) {
         queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP,
         0, static_cast<UINT>(kTimestampCount),
         readbackBuf_.Get(), 0);
+    resolved_ = true;
 }
 
 void GpuProfiler::ReadBack() {
+    if (!resolved_ || !readbackBuf_) { return; }
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>(kTimestampCount) * sizeof(UINT64) };
     UINT64* data = nullptr;
     if (FAILED(readbackBuf_->Map(0, &readRange, reinterpret_cast<void**>(&data)))) { return; }

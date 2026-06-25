@@ -39,6 +39,7 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeap_;
     Microsoft::WRL::ComPtr<ID3D12Resource>  readbackBuf_;
-    uint64_t gpuFreq_ = 1;
+    uint64_t gpuFreq_   = 1;
+    bool     resolved_  = false;  // Resolve() が少なくとも1回実行されたか
     std::array<float, Count> results_ = {};
 };

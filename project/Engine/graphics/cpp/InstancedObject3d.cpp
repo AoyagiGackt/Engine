@@ -1,4 +1,5 @@
 #include "InstancedObject3d.h"
+#include "ObjectMaterialLayout.h"
 #include "ModelManager.h"
 #include "TextureManager.h"
 #include "Object3dCommon.h"
@@ -7,29 +8,6 @@
 #include <cmath>
 
 using namespace Microsoft::WRL;
-
-// インスタンス用マテリアル定数（Object3dPS.hlsl の Material 構造体）
-// Object3d.h からコピー ── インクルードを避けるため自己完結させる
-struct InstanceMaterial {
-    Vector4   color            = { 1,1,1,1 };
-    int       enableLighting   = 1;
-    int       shadingType      = 1; // HalfLambert
-    int       useCubemap       = 0;
-    int       useTexture       = 1;
-    Matrix4x4 uvTransform      = {};
-    Vector3   specularColor    = { 1,1,1 };
-    float     shininess        = 32.0f;
-    Vector3   cameraWorldPos   = {};
-    float     envMapIntensity  = 0.0f;
-    Vector3   rimColor         = {};
-    float     rimPower         = 3.0f;
-    float     rimIntensity     = 0.0f;
-    int       enableRim        = 0;
-    int       useNormalMap     = 0;
-    float     metallic         = 0.0f;
-    float     roughness        = 0.5f;
-    float     _pbr_pad[3]      = {};
-};
 
 // ---- Initialize ----
 
@@ -100,17 +78,17 @@ void InstancedObject3d::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC desc = {};
         desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width = (sizeof(InstanceMaterial) + 255) & ~255u;
+        desc.Width = (sizeof(ObjectMaterialLayout) + 255) & ~255u;
         desc.Height = 1; desc.DepthOrArraySize = 1; desc.MipLevels = 1;
         desc.SampleDesc.Count = 1; desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&materialBuf_));
         materialBuf_->Map(0, nullptr, &materialBufData_);
-        InstanceMaterial defaultMat;
+        ObjectMaterialLayout defaultMat;
         // uvTransform に単位行列をセット
         for (int i = 0; i < 4; ++i) for (int j = 0; j < 4; ++j)
             defaultMat.uvTransform.m[i][j] = (i == j) ? 1.0f : 0.0f;
-        memcpy(materialBufData_, &defaultMat, sizeof(InstanceMaterial));
+        memcpy(materialBufData_, &defaultMat, sizeof(ObjectMaterialLayout));
     }
 
     // --- ダミーバッファ（スロット3, 6 等のライト類） ---
@@ -300,7 +278,7 @@ void InstancedObject3d::Update(const Matrix4x4& viewProj, const Matrix4x4& light
 
 void InstancedObject3d::Draw()
 {
-    if (!model_ || instanceCount_ == 0) return;
+    if (!model_ || instanceCount_ == 0) { ++frameIdx_; return; }
 
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
 

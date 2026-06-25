@@ -166,7 +166,9 @@ void TrainingScene::Update()
         });
     }
 
+#ifdef _DEBUG
     GpuProfiler::GetInstance()->ReadBack();
+#endif
 
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());

@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "MakeAffine.h"
+#include "ObjectMaterialLayout.h"
 #include "GameObject.h"
 #include "Model.h"
 #include <string>
@@ -184,7 +185,8 @@ public:
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
     void SetMetallic(float v)   { if (materialData_) materialData_->metallic  = v; }
     void SetRoughness(float v)  { if (materialData_) materialData_->roughness = v; }
-    void SetShadingTypePBR()    { if (materialData_) materialData_->shadingType = 5; }
+    void SetShadingTypePBR()    { if (materialData_) { materialData_->shadingType = 5; lockShadingType_ = true; } }
+    void LockShadingType(bool lock = true) { lockShadingType_ = lock; }
 
 private:
     /**
@@ -195,31 +197,6 @@ private:
         Matrix4x4 World;                ///< ワールド行列
         Matrix4x4 WorldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
         Matrix4x4 LightVP;              ///< ライト空間のビュープロジェクション行列（シャドウ用）
-    };
-
-    /**
-     * @brief GPUに送るためのマテリアル（質感）データ
-     * @note HLSL の Object3dPS.hlsl 内 Material 構造体と完全一致させること
-     */
-    struct Material {
-        Vector4    color;          ///< 基本色（RGBA）
-        int        enableLighting; ///< ライティング有効フラグ（1:有効, 0:無効）
-        int        shadingType;    ///< シェーディング種類（0:Lambert, 1:HalfLambert）
-        int        useCubemap;     ///< キューブマップサンプリング（1:有効）
-        int        useTexture;     ///< テクスチャ色使用フラグ（0:白=色なし, 1:テクスチャあり）
-        Matrix4x4  uvTransform;    ///< UV変換行列
-        Vector3    specularColor;  ///< スペキュラ反射色
-        float      shininess;      ///< 光沢度（大きいほどシャープ）
-        Vector3    cameraWorldPos;    ///< カメラのワールド座標（Update()で自動書き込み）
-        float      envMapIntensity;  ///< 環境マップ反射強度（0=なし, 1=フル反射）
-        Vector3    rimColor;         ///< リムライトの色
-        float      rimPower;         ///< リムライトの鋭さ（大きいほど細い）
-        float      rimIntensity;     ///< リムライトの強さ（0=無効）
-        int        enableRim;        ///< リムライト有効フラグ
-        int        useNormalMap;     ///< 法線マップ有効フラグ
-        float      metallic;         ///< PBR: メタリック度（0=非金属, 1=金属）
-        float      roughness;        ///< PBR: 粗さ（0=鏡面, 1=完全拡散）
-        float      _pbr_pad[3];      ///< 16バイトアライン用パディング
     };
 
     /** @brief 全オブジェクトで共通して使うカメラのポインタ */
@@ -252,7 +229,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
 
     /** @brief CPU側で書き込むためのマテリアルデータのポインタ（マップ済み） */
-    Material* materialData_ = nullptr;
+    ObjectMaterialLayout* materialData_ = nullptr;
+
+    /** @brief SetShadingTypePBR() 等でロックするとLightManagerの毎フレーム上書きを防ぐ */
+    bool lockShadingType_ = false;
 
     /** @brief アニメーション用ローカル行列 */
     Matrix4x4 localMatrix_ = MakeIdentity4x4();

@@ -120,6 +120,13 @@ void TAAEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     cb_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     cbData_->blendAlpha = 0.1f;
 
+    // passthrough CB for Pass 2: always blendAlpha=1, jitter=0
+    passthroughCb_ = dxCommon->CreateBufferResource((sizeof(CBLayout) + 255) & ~255u);
+    passthroughCb_->Map(0, nullptr, reinterpret_cast<void**>(&passthroughCbData_));
+    passthroughCbData_->blendAlpha = 1.0f;
+    passthroughCbData_->jitterX    = 0.0f;
+    passthroughCbData_->jitterY    = 0.0f;
+
     // root signature: b0(CBV,PS) + t0(SRV table,PS) + t1(SRV table,PS)
     {
         D3D12_DESCRIPTOR_RANGE srvRange0 = {};
@@ -208,6 +215,8 @@ void TAAEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 void TAAEffect::Finalize()
 {
+    if (passthroughCbData_) { passthroughCb_->Unmap(0, nullptr); passthroughCbData_ = nullptr; }
+    passthroughCb_.Reset();
     if (cbData_) { cb_->Unmap(0, nullptr); cbData_ = nullptr; }
     cb_.Reset();
     pso_.Reset(); psoFloat_.Reset(); rs_.Reset();
@@ -252,14 +261,14 @@ void TAAEffect::Apply(DirectXCommon* dxCommon, uint32_t currentSrvIndex)
     D3D12_RECT     sc = { 0, 0, (LONG)W, (LONG)H };
 
     auto DrawPass = [&](D3D12_CPU_DESCRIPTOR_HANDLE rtv, uint32_t t0, uint32_t t1,
-                        ID3D12PipelineState* pso) {
+                        ID3D12PipelineState* pso, D3D12_GPU_VIRTUAL_ADDRESS cbAddr) {
         cmd->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
         cmd->RSSetViewports(1, &vp);
         cmd->RSSetScissorRects(1, &sc);
         cmd->SetGraphicsRootSignature(rs_.Get());
         cmd->SetPipelineState(pso);
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        cmd->SetGraphicsRootConstantBufferView(0, cb_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootConstantBufferView(0, cbAddr);
         cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(t0));
         cmd->SetGraphicsRootDescriptorTable(2, srvManager_->GetGPUDescriptorHandle(t1));
         cmd->DrawInstanced(3, 1, 0, 0);
@@ -273,23 +282,16 @@ void TAAEffect::Apply(DirectXCommon* dxCommon, uint32_t currentSrvIndex)
     Barrier(cmd, historyRT_.Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    DrawPass(accumRtvHandle_, currentSrvIndex, historySrvIndex_, psoFloat_.Get());
+    DrawPass(accumRtvHandle_, currentSrvIndex, historySrvIndex_, psoFloat_.Get(),
+             cb_->GetGPUVirtualAddress());
 
     // Pass 2: copy accumRT_ → backbuffer (display)
     // Transition accumRT_ to SRV; draw a passthrough quad to the SRGB backbuffer.
     Barrier(cmd, accumRT_.Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    float savedAlpha = cbData_->blendAlpha;
-    float savedJX    = cbData_->jitterX;
-    float savedJY    = cbData_->jitterY;
-    cbData_->blendAlpha = 1.0f;  // lerp(accum, accum, 1.0) = accum (passthrough)
-    cbData_->jitterX    = 0.0f;
-    cbData_->jitterY    = 0.0f;
-    DrawPass(backBuffer, accumSrvIndex_, accumSrvIndex_, pso_.Get());
-    cbData_->blendAlpha = savedAlpha;
-    cbData_->jitterX    = savedJX;
-    cbData_->jitterY    = savedJY;
+    DrawPass(backBuffer, accumSrvIndex_, accumSrvIndex_, pso_.Get(),
+             passthroughCb_->GetGPUVirtualAddress());
 
     // Pass 3: CopyResource accumRT_ → historyRT_ (both R16G16B16A16_FLOAT)
     // This stores the blended result as history for the next frame.

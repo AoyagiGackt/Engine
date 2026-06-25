@@ -47,6 +47,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> cb_;
     CBLayout*                              cbData_ = nullptr;
 
+    // Pass 2 用パススルー CB（blendAlpha=1, jitter=0 固定。毎フレーム save/restore 不要）
+    Microsoft::WRL::ComPtr<ID3D12Resource> passthroughCb_;
+    CBLayout*                              passthroughCbData_ = nullptr;
+
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rs_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_;       // SRGB8 output (→ backbuffer)
     Microsoft::WRL::ComPtr<ID3D12PipelineState> psoFloat_;  // FLOAT16 output (→ accumRT_)

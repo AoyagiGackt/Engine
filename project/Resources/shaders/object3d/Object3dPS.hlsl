@@ -130,10 +130,10 @@ static const float kPI = 3.14159265358979f;
 // GGX 法線分布関数 (NDF)
 float D_GGX(float NdotH, float roughness)
 {
-    float a  = roughness * roughness;
+    float a  = max(roughness * roughness, 1e-4f); // roughness=0 で 0/0 を防ぐ
     float a2 = a * a;
     float d  = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
-    return a2 / (kPI * d * d);
+    return a2 / max(kPI * d * d, 1e-6f);
 }
 
 // Smith-Schlick-GGX 幾何減衰
@@ -246,9 +246,15 @@ PixelShaderOutput main(VertexShaderOutput input)
                 gDirectionalLight.color.rgb, gDirectionalLight.intensity,
                 albedo, gMaterial.metallic, gMaterial.roughness) * shadowFactor;
 
-            // アンビエント（IBL 近似: 金属は反射率F0、非金属は定数）
-            float3 F0     = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMaterial.metallic);
-            float3 ambIBL = lerp(albedo, F0, gMaterial.metallic)
+            // アンビエント（split-sum 近似）
+            // 拡散: (1-F)*(1-metallic)*albedo
+            // 鏡面: F*(1-roughness^2)  ← ラフネスが高いほど環境鏡面が弱まる
+            float3 F0    = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMaterial.metallic);
+            float  NdotV = max(dot(N, V), 0.001f);
+            float3 Famb  = F_Schlick(NdotV, F0);
+            float3 kDamb = (1.0f - Famb) * (1.0f - gMaterial.metallic);
+            float  rSq   = gMaterial.roughness * gMaterial.roughness;
+            float3 ambIBL = (kDamb * albedo + Famb * (1.0f - rSq))
                           * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
             litColor += ambIBL;
 
