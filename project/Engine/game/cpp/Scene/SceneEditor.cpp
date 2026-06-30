@@ -8,11 +8,12 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #include <commdlg.h>
-using namespace engine;
-using namespace engine::graphics;
-using namespace engine::game;
 #pragma comment(lib, "comdlg32.lib")
 #endif
+using namespace engine;
+using namespace engine::graphics;
+
+namespace engine::game {
 
 // ============================================================
 // 内部ヘルパー
@@ -578,3 +579,5 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     }
 #endif
 }
+
+} // namespace engine::game

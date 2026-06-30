@@ -4,10 +4,11 @@
 #include <cassert>
 #ifdef USE_IMGUI
 #include <imgui.h>
-using namespace engine;
-using namespace engine::graphics;
 using engine::game::DebugProfiler;
 #endif
+
+namespace engine::graphics {
+using engine::DirectXCommon;
 
 GpuProfiler* GpuProfiler::GetInstance() {
     static GpuProfiler inst;
@@ -78,9 +79,9 @@ void GpuProfiler::ReadBack() {
     if (FAILED(readbackBuf_->Map(0, &readRange, reinterpret_cast<void**>(&data)))) { return; }
 
     for (int i = 0; i < static_cast<int>(Count); ++i) {
-        UINT64 begin = data[i * 2];
-        UINT64 end   = data[i * 2 + 1];
-        results_[i] = (end >= begin)
+        UINT64 begin = data[static_cast<size_t>(i) * 2];
+        UINT64 end   = data[static_cast<size_t>(i) * 2 + 1];
+        results_[static_cast<size_t>(i)] = (end >= begin)
             ? static_cast<float>((end - begin) * 1000u) / static_cast<float>(gpuFreq_)
             : 0.0f;
     }
@@ -98,7 +99,7 @@ void GpuProfiler::DrawImGui() {
         ImGui::Text("CPU  %.2f ms  (%.1f FPS)", cpu->GetMs(), cpu->GetFPS());
         ImGui::Separator();
         ImGui::Text("GPU Pass Breakdown:");
-        static const char* kNames[Count] = { "Shadow ", "SSAO   ", "Main3D " };
+        static const char* kNames[static_cast<int>(Count)] = { "Shadow ", "SSAO   ", "Main3D " };
         float total = 0.0f;
         for (int i = 0; i < static_cast<int>(Count); ++i) {
             ImGui::Text("  %s  %.3f ms", kNames[i], results_[i]);
@@ -109,3 +110,5 @@ void GpuProfiler::DrawImGui() {
     ImGui::End();
 #endif
 }
+
+} // namespace engine::graphics

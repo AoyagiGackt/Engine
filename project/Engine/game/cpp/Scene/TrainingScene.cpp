@@ -9,10 +9,10 @@
 #include <string>
 #ifdef USE_IMGUI
 #include <imgui.h>
+#endif
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
-#endif
 
 static constexpr float kWarpX        = 25.5f;
 static constexpr float kWarpProximity = 3.0f;

@@ -51,6 +51,6 @@ private:
     uint16_t*   lineIdxMapped_ = nullptr;
 };
 
-#endif // USE_IMGUI
-
 } // namespace engine::graphics
+
+#endif // USE_IMGUI

@@ -945,6 +945,7 @@
     <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Skeleton.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">

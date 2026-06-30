@@ -10,9 +10,10 @@
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
-namespace engine::graphics {
-
 #endif
+
+
+namespace engine::graphics {
 
 /**
  * @brief ImGuiの統合管理クラス
@@ -20,7 +21,7 @@ namespace engine::graphics {
  */
 class ImGuiManager {
 public:
-    
+
     /**
      * @brief ImGuiの初期化処理。コンテキストの作成やDX12・Win32への紐づけを行う
      * @param winApp ウィンドウアプリケーションのポインタ（HWND取得用）
@@ -56,3 +57,4 @@ public:
 };
 
 } // namespace engine::graphics
+

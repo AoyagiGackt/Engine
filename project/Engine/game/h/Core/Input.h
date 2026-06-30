@@ -5,8 +5,8 @@
 #pragma once
 
 #define DIRECTINPUT_VERSION 0x0800
+#include <Windows.h>
 #include <dinput.h>
-#include <windows.h>
 #include <XInput.h>
 
 #include <wrl/client.h>
