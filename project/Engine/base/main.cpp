@@ -2,6 +2,9 @@
 #include "Game.h"
 #include "D3DResourceLeakChecker.h"
 #include <memory>
+using namespace engine;
+using namespace engine::graphics;
+using namespace engine::game;
 
 // --------------------------------------------------
 // メイン関数

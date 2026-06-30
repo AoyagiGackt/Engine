@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ソースファイル">
@@ -46,6 +46,9 @@
     <Filter Include="ソースファイル\Engine\Object">
       <UniqueIdentifier>{5d1d74d7-a890-42cc-83a9-b1857d31aa6e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソースファイル\Engine\Effect">
+      <UniqueIdentifier>{c1d2e3f4-a5b6-7890-cdef-123456789abc}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ソースファイル\Engine\ImGui">
       <UniqueIdentifier>{b6469eda-b052-417e-92f4-a176e5bcbf75}</UniqueIdentifier>
     </Filter>
@@ -87,6 +90,12 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Game\System">
       <UniqueIdentifier>{f1e2d3c4-b5a6-7890-abcd-ef1234567893}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソースファイル\Game\Level">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567894}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Game\Level">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567895}</UniqueIdentifier>
     </Filter>
     <Filter Include="ソースファイル\Game\UI\score">
       <UniqueIdentifier>{aafcfbd5-163b-40b2-8696-c4b91f307f78}</UniqueIdentifier>
@@ -135,6 +144,9 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\Object">
       <UniqueIdentifier>{30945204-8af8-4972-8d4a-0ab20394e397}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Engine\Effect">
+      <UniqueIdentifier>{d2e3f4a5-b6c7-8901-def0-23456789abcd}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\ImGui">
       <UniqueIdentifier>{5d36284a-2945-48b7-9116-8327a1fce727}</UniqueIdentifier>
@@ -196,665 +208,742 @@
       <Filter>ソースファイル</Filter>
     </ClCompile>
     <!-- Engine\Base -->
-    <ClCompile Include="Engine\game\cpp\DirectXCommon.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\DirectXCommon.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\D3DResourceLeakChecker.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\D3DResourceLeakChecker.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\WinApp.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\WinApp.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Logger.cpp">
+    <ClCompile Include="Engine\game\cpp\Util\Logger.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\StringUtility.cpp">
+    <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\JsonHelper.cpp">
+    <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Framework.cpp">
+    <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp">
+      <Filter>ソースファイル\Game\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Core\Framework.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SrvManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\SrvManager.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
     <!-- Engine\Math -->
-    <ClCompile Include="Engine\game\cpp\WorldTransform.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\WorldTransform.cpp">
       <Filter>ソースファイル\Engine\Math</Filter>
     </ClCompile>
     <!-- Engine\Input -->
-    <ClCompile Include="Engine\game\cpp\Input.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Input.cpp">
       <Filter>ソースファイル\Engine\Input</Filter>
     </ClCompile>
     <!-- Engine\Audio -->
-    <ClCompile Include="Engine\game\cpp\Audio.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Audio.cpp">
       <Filter>ソースファイル\Engine\Audio</Filter>
     </ClCompile>
     <!-- Engine\Camera -->
-    <ClCompile Include="Engine\graphics\cpp\Camera.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp">
+      <Filter>ソースファイル\Engine\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Camera\SmoothCamera.cpp">
       <Filter>ソースファイル\Engine\Camera</Filter>
     </ClCompile>
     <!-- Engine\2D -->
-    <ClCompile Include="Engine\graphics\cpp\Sprite.cpp">
+    <ClCompile Include="Engine\graphics\cpp\2D\Sprite.cpp">
       <Filter>ソースファイル\Engine\2D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SpriteCommon.cpp">
+    <ClCompile Include="Engine\graphics\cpp\2D\SpriteCommon.cpp">
       <Filter>ソースファイル\Engine\2D</Filter>
     </ClCompile>
     <!-- Engine\3D -->
-    <ClCompile Include="Engine\graphics\cpp\Object3d.cpp">
+    <ClCompile Include="Engine\graphics\cpp\3D\Object3d.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Object3dCommon.cpp">
+    <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Model.cpp">
+    <ClCompile Include="Engine\graphics\cpp\3D\InstancedObject3d.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ModelCommon.cpp">
+    <ClCompile Include="Engine\graphics\cpp\3D\Model.cpp">
+      <Filter>ソースファイル\Engine\3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\3D\ModelCommon.cpp">
       <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
     <!-- Engine\Light -->
-    <ClCompile Include="Engine\game\cpp\LightingMode.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\LightingMode.cpp">
       <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\LightManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
+      <Filter>ソースファイル\Engine\Light</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp">
       <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
     <!-- Engine\Manager -->
-    <ClCompile Include="Engine\graphics\cpp\MaterialManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\MaterialManager.cpp">
       <Filter>ソースファイル\Engine\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\MeshManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp">
       <Filter>ソースファイル\Engine\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\TextureManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\TextureManager.cpp">
       <Filter>ソースファイル\Engine\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ModelManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\ModelManager.cpp">
       <Filter>ソースファイル\Engine\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ShadowManager.cpp">
-      <Filter>ソースファイル\Engine\Manager</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp">
+      <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
     <!-- Engine\Particle -->
-    <ClCompile Include="Engine\graphics\cpp\ParticleEmitter.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp">
       <Filter>ソースファイル\Engine\Particle</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ParticleManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp">
       <Filter>ソースファイル\Engine\Particle</Filter>
     </ClCompile>
     <!-- Engine\Collision -->
-    <ClCompile Include="Engine\game\cpp\Collision.cpp">
+    <ClCompile Include="Engine\game\cpp\Collision\Collision.cpp">
+      <Filter>ソースファイル\Engine\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Camera\FrustumCuller.cpp">
       <Filter>ソースファイル\Engine\Collision</Filter>
     </ClCompile>
     <!-- Engine\Scene -->
-    <ClCompile Include="Engine\game\cpp\SceneFactory.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\SceneFactory.cpp">
       <Filter>ソースファイル\Engine\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\SceneManager.cpp">
-      <Filter>ソースファイル\Engine\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Fade.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp">
       <Filter>ソースファイル\Engine\Scene</Filter>
     </ClCompile>
     <!-- Engine\Object -->
-    <ClCompile Include="Engine\game\cpp\GameObject.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\GrayscaleEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+    <!-- Engine\Effect -->
+    <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\HsvFilter.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\GrayscaleEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\VideoPlayer.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\VignetteEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\VideoPlayer.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\BloomEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\BloomEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <!-- Engine\ImGui -->
-    <ClCompile Include="Engine\graphics\cpp\ImguiControl.cpp">
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImguiControl.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ImGuiManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiManager.cpp">
       <Filter>ソースファイル\Engine\ImGui</Filter>
     </ClCompile>
     <!-- Engine\Animation -->
-    <ClCompile Include="Engine\game\cpp\Animation.cpp">
+    <ClCompile Include="Engine\game\cpp\Util\Animation.cpp">
       <Filter>ソースファイル\Engine\Animation</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\AnimationStateMachine.cpp">
+    <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp">
       <Filter>ソースファイル\Engine\Animation</Filter>
     </ClCompile>
     <!-- Engine\Skeleton -->
-    <ClCompile Include="Engine\graphics\cpp\Skeleton.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\Skeleton.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SkinnedModel.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkinnedModel.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SkinCommon.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkinCommon.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SkinnedObject3d.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkinnedObject3d.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SkeletonDebugRenderer.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkeletonDebugRenderer.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SkinCS.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkinCS.cpp">
       <Filter>ソースファイル\Engine\Skeleton</Filter>
     </ClCompile>
     <!-- Engine\Offscreen -->
-    <ClCompile Include="Engine\graphics\cpp\RenderTexture.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Offscreen\RenderTexture.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\SSAOEffect.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Offscreen\DeferredRenderer.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\HDREffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\MotionBlurEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\TAAEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <!-- Game\Core -->
-    <ClCompile Include="Engine\game\cpp\Game.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Game.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\GameTime.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\GameTime.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Skydome.cpp">
-      <Filter>ソースファイル\Game\Core</Filter>
+    <ClCompile Include="Engine\graphics\cpp\3D\Skydome.cpp">
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
     <!-- Game\Scene -->
-    <ClCompile Include="Engine\game\cpp\BattleTestScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\BulletPool.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\EnemyEntity.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\GamePlayScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\TrainingScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\SceneEditor.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\ClearScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\TitleScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\GameOverScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\ClearScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\PauseScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\GameOverScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\PauseScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\LoadingScene.cpp">
-      <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\MapScene.cpp">
-      <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\ShopScene.cpp">
+    <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <!-- Game\Player -->
-    <ClCompile Include="Engine\game\cpp\AfterImageRenderer.cpp">
+    <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp">
       <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Player.cpp">
+    <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\Player.cpp">
       <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
     <!-- Game\UI -->
-    <ClCompile Include="Engine\game\cpp\FontRenderer.cpp">
+    <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp">
       <Filter>ソースファイル\Game\UI</Filter>
     </ClCompile>
     <!-- Game\Weapon -->
-    <ClCompile Include="Engine\game\cpp\WeaponManager.cpp">
+    <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp">
       <Filter>ソースファイル\Game\Weapon</Filter>
     </ClCompile>
     <!-- Game\System -->
-    <ClCompile Include="Engine\game\cpp\TimeManager.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\TimeManager.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\CameraShaker.cpp">
+    <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\GameSettings.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\GameSettings.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\ScreenFlash.cpp">
+    <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\DelayTimer.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\DelayTimer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Tweener.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Tweener.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\EventBus.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\EventBus.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Sequencer.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Sequencer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ChromaticAberrationEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\OutlineEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\InputBuffer.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\AsyncLoader.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\FloatingText.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Effect\ChromaticAberrationEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\FloatingText.cpp">
       <Filter>ソースファイル\Game\UI</Filter>
     </ClCompile>
     <!-- Game\MapChip -->
-    <ClCompile Include="Engine\graphics\cpp\MapChipField.cpp">
+    <ClCompile Include="Engine\graphics\cpp\3D\MapChipField.cpp">
       <Filter>ソースファイル\Game\MapChip</Filter>
     </ClCompile>
-    <!-- Game\Particle -->
-    <ClCompile Include="Engine\graphics\cpp\Cylinder.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+    <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Ring.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+    <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp">
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ImageFilter.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\GlassShatterEffect.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\WaterPool.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+    <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
     <!-- Game\UI\score -->
-    <ClCompile Include="Engine\game\cpp\ScoreManager.cpp">
+    <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp">
       <Filter>ソースファイル\Game\UI\score</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\ScoreDisplay.cpp">
+    <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp">
       <Filter>ソースファイル\Game\UI\score</Filter>
     </ClCompile>
     <!-- Game\UI\Time -->
-    <ClCompile Include="Engine\game\cpp\TimeDisplay.cpp">
+    <ClCompile Include="Engine\game\cpp\UI\TimeDisplay.cpp">
       <Filter>ソースファイル\Game\UI\Time</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\GpuProfiler.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Debug\GpuProfiler.cpp">
+      <Filter>ソースファイル\Engine\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Debug\DebugDrawGpu.cpp">
+      <Filter>ソースファイル\Engine\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Debug\ShaderHotReload.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <!-- Engine\Base -->
-    <ClInclude Include="Engine\graphics\h\D3DResourceLeakChecker.h">
+    <ClInclude Include="Engine\graphics\h\Debug\D3DResourceLeakChecker.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\DirectXCommon.h">
+    <ClInclude Include="Engine\game\h\Core\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\WinApp.h">
+    <ClInclude Include="Engine\game\h\Core\WinApp.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SrvManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\SrvManager.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Framework.h">
+    <ClInclude Include="Engine\graphics\h\Debug\GpuProfiler.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\StringUtility.h">
+    <ClInclude Include="Engine\graphics\h\Debug\DebugDrawGpu.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\JsonHelper.h">
+    <ClInclude Include="Engine\game\h\Core\Framework.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Logger.h">
+    <ClInclude Include="Engine\game\h\Util\StringUtility.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\LevelLoader.h">
+      <Filter>ヘッダーファイル\Game\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\Logger.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <!-- Engine\Math -->
     <ClInclude Include="Engine\math\h\MakeAffine.h">
       <Filter>ヘッダーファイル\Engine\Math</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\WorldTransform.h">
+    <ClInclude Include="Engine\game\h\Core\WorldTransform.h">
       <Filter>ヘッダーファイル\Engine\Math</Filter>
     </ClInclude>
     <!-- Engine\Input -->
-    <ClInclude Include="Engine\game\h\Input.h">
+    <ClInclude Include="Engine\game\h\Core\Input.h">
       <Filter>ヘッダーファイル\Engine\Input</Filter>
     </ClInclude>
     <!-- Engine\Audio -->
-    <ClInclude Include="Engine\game\h\Audio.h">
+    <ClInclude Include="Engine\game\h\Core\Audio.h">
       <Filter>ヘッダーファイル\Engine\Audio</Filter>
     </ClInclude>
     <!-- Engine\Camera -->
-    <ClInclude Include="Engine\graphics\h\Camera.h">
+    <ClInclude Include="Engine\graphics\h\Camera\Camera.h">
+      <Filter>ヘッダーファイル\Engine\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Camera\SmoothCamera.h">
       <Filter>ヘッダーファイル\Engine\Camera</Filter>
     </ClInclude>
     <!-- Engine\2D -->
-    <ClInclude Include="Engine\graphics\h\Sprite.h">
+    <ClInclude Include="Engine\graphics\h\2D\Sprite.h">
       <Filter>ヘッダーファイル\Engine\2D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SpriteCommon.h">
+    <ClInclude Include="Engine\graphics\h\2D\SpriteCommon.h">
       <Filter>ヘッダーファイル\Engine\2D</Filter>
     </ClInclude>
     <!-- Engine\3D -->
-    <ClInclude Include="Engine\graphics\h\Object3d.h">
+    <ClInclude Include="Engine\graphics\h\3D\Object3d.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Object3dCommon.h">
+    <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Model.h">
+    <ClInclude Include="Engine\graphics\h\3D\InstancedObject3d.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ModelCommon.h">
+    <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\3D\Model.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\3D\ModelCommon.h">
       <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <!-- Engine\Light -->
-    <ClInclude Include="Engine\game\h\LightingMode.h">
+    <ClInclude Include="Engine\game\h\Core\LightingMode.h">
       <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\LightManager.h">
+    <ClInclude Include="Engine\graphics\h\Light\LightManager.h">
+      <Filter>ヘッダーファイル\Engine\Light</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Light\CascadedShadowMap.h">
       <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
     <!-- Engine\Manager -->
-    <ClInclude Include="Engine\graphics\h\TextureManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\TextureManager.h">
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ModelManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\ModelManager.h">
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\MaterialManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\MaterialManager.h">
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\MeshManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h">
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ResourceObject.h">
+    <ClInclude Include="Engine\graphics\h\Manager\ResourceObject.h">
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\BlendMode.h">
-      <Filter>ヘッダーファイル\Engine\Manager</Filter>
+    <ClInclude Include="Engine\graphics\h\3D\BlendMode.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ShadowManager.h">
-      <Filter>ヘッダーファイル\Engine\Manager</Filter>
+    <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h">
+      <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
     <!-- Engine\Particle -->
-    <ClInclude Include="Engine\graphics\h\ParticleEmitter.h">
+    <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h">
       <Filter>ヘッダーファイル\Engine\Particle</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ParticleManager.h">
+    <ClInclude Include="Engine\graphics\h\Particle\ParticleManager.h">
       <Filter>ヘッダーファイル\Engine\Particle</Filter>
     </ClInclude>
     <!-- Engine\Collision -->
-    <ClInclude Include="Engine\game\h\Collision.h">
+    <ClInclude Include="Engine\game\h\Collision\Collision.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Octree.h">
+    <ClInclude Include="Engine\game\h\Collision\Octree.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\CollisionConfig.h">
+    <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\CollisionManager.h">
+    <ClInclude Include="Engine\game\h\Collision\CollisionManager.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Frustum.h">
+    <ClInclude Include="Engine\graphics\h\Camera\Frustum.h">
+      <Filter>ヘッダーファイル\Engine\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Camera\FrustumCuller.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <!-- Engine\Scene -->
-    <ClInclude Include="Engine\game\h\AbstractSceneFactory.h">
+    <ClInclude Include="Engine\game\h\Scene\AbstractSceneFactory.h">
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\BaseScene.h">
+    <ClInclude Include="Engine\game\h\Scene\BaseScene.h">
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\SceneFactory.h">
+    <ClInclude Include="Engine\game\h\Scene\SceneFactory.h">
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\SceneManager.h">
-      <Filter>ヘッダーファイル\Engine\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Fade.h">
+    <ClInclude Include="Engine\game\h\Scene\SceneManager.h">
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
     <!-- Engine\Object -->
-    <ClInclude Include="Engine\game\h\GameObject.h">
+    <ClInclude Include="Engine\game\h\Core\GameObject.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\GrayscaleEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    <!-- Engine\Effect -->
+    <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\HsvFilter.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\GrayscaleEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\VignetteEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\HsvFilter.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\BloomEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\VignetteEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Engine\ImGui -->
-    <ClInclude Include="Engine\graphics\h\ImGuiManager.h">
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiManager.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ImguiControl.h">
+    <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
     </ClInclude>
-    <!-- Engine\Media -->
-    <ClInclude Include="Engine\graphics\h\VideoPlayer.h">
-      <Filter>ヘッダーファイル\Engine\Media</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\VideoPlayer.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Engine\Animation -->
-    <ClInclude Include="Engine\game\h\Animation.h">
+    <ClInclude Include="Engine\game\h\Util\Animation.h">
       <Filter>ヘッダーファイル\Engine\Animation</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\AnimationStateMachine.h">
+    <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h">
       <Filter>ヘッダーファイル\Engine\Animation</Filter>
     </ClInclude>
     <!-- Engine\Skeleton -->
-    <ClInclude Include="Engine\graphics\h\Skeleton.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SkinnedModel.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkinnedModel.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SkinCommon.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkinCommon.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SkinnedObject3d.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkinnedObject3d.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SkeletonDebugRenderer.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonDebugRenderer.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SkinCS.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkinCS.h">
       <Filter>ヘッダーファイル\Engine\Skeleton</Filter>
     </ClInclude>
     <!-- Engine\Offscreen -->
-    <ClInclude Include="Engine\graphics\h\RenderTexture.h">
+    <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\SSAOEffect.h">
+    <ClInclude Include="Engine\graphics\h\Offscreen\DeferredRenderer.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\HDREffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\MotionBlurEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\TAAEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Game\Core -->
-    <ClInclude Include="Engine\game\h\Game.h">
+    <ClInclude Include="Engine\game\h\Core\Game.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GameConstants.h">
+    <ClInclude Include="Engine\game\h\Util\GameConstants.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GameTime.h">
+    <ClInclude Include="Engine\game\h\Core\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Skydome.h">
-      <Filter>ヘッダーファイル\Game\Core</Filter>
+    <ClInclude Include="Engine\graphics\h\3D\Skydome.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <!-- Game\Scene -->
-    <ClInclude Include="Engine\game\h\BattleTestScene.h">
+    <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\BulletPool.h">
+    <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\EnemyEntity.h">
+    <ClInclude Include="Engine\game\h\Scene\TrainingScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GamePlayScene.h">
+    <ClInclude Include="Engine\game\h\Scene\SceneEditor.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\TrainingScene.h">
+    <ClInclude Include="Engine\game\h\Scene\TitleScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\SceneEditor.h">
+    <ClInclude Include="Engine\game\h\Scene\ClearScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\TitleScene.h">
+    <ClInclude Include="Engine\game\h\Scene\GameOverScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\ClearScene.h">
+    <ClInclude Include="Engine\game\h\Scene\PauseScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GameOverScene.h">
+    <ClInclude Include="Engine\game\h\Scene\LoadingScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\PauseScene.h">
+    <ClInclude Include="Engine\game\h\Scene\MapScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\LoadingScene.h">
-      <Filter>ヘッダーファイル\Game\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\MapScene.h">
-      <Filter>ヘッダーファイル\Game\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\ShopScene.h">
+    <ClInclude Include="Engine\game\h\Scene\ShopScene.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <!-- Game\Player -->
-    <ClInclude Include="Engine\game\h\AfterImageRenderer.h">
+    <ClInclude Include="Engine\game\h\Player\BulletPool.h">
       <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Player.h">
+    <ClInclude Include="Engine\game\h\Player\EnemyEntity.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\Player.h">
       <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
     <!-- Game\UI -->
-    <ClInclude Include="Engine\game\h\FontRenderer.h">
+    <ClInclude Include="Engine\game\h\UI\FontRenderer.h">
       <Filter>ヘッダーファイル\Game\UI</Filter>
     </ClInclude>
     <!-- Game\Weapon -->
-    <ClInclude Include="Engine\game\h\Weapon.h">
+    <ClInclude Include="Engine\game\h\Player\Weapon.h">
       <Filter>ヘッダーファイル\Game\Weapon</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\WeaponManager.h">
+    <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
       <Filter>ヘッダーファイル\Game\Weapon</Filter>
     </ClInclude>
     <!-- Game\System -->
-    <ClInclude Include="Engine\game\h\TimeManager.h">
+    <ClInclude Include="Engine\game\h\Core\TimeManager.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\CameraShaker.h">
+    <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GameSettings.h">
+    <ClInclude Include="Engine\game\h\Core\GameSettings.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Easing.h">
+    <ClInclude Include="Engine\game\h\Effect\Easing.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\ScreenFlash.h">
+    <ClInclude Include="Engine\game\h\UI\ScreenFlash.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\DelayTimer.h">
+    <ClInclude Include="Engine\game\h\Core\DelayTimer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Tweener.h">
+    <ClInclude Include="Engine\game\h\Core\Tweener.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\ObjectPool.h">
+    <ClInclude Include="Engine\game\h\Core\ObjectPool.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\EventBus.h">
+    <ClInclude Include="Engine\game\h\Core\EventBus.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\StateMachine.h">
+    <ClInclude Include="Engine\game\h\Core\StateMachine.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Sequencer.h">
+    <ClInclude Include="Engine\game\h\Core\Sequencer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\RunData.h">
+    <ClInclude Include="Engine\game\h\Core\AsyncLoader.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\GridPathfinder.h">
+    <ClInclude Include="Engine\game\h\Player\RunData.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ChromaticAberrationEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\OutlineEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\UVScroller.h">
+    <ClInclude Include="Engine\game\h\Collision\GridPathfinder.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\BezierSpline.h">
+    <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\UVScroller.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\InputBuffer.h">
+    <ClInclude Include="Engine\game\h\Effect\BezierSpline.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\FloatingText.h">
+    <ClInclude Include="Engine\game\h\Effect\InputBuffer.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\FloatingText.h">
       <Filter>ヘッダーファイル\Game\UI</Filter>
     </ClInclude>
     <!-- Game\MapChip -->
-    <ClInclude Include="Engine\graphics\h\MapChipField.h">
+    <ClInclude Include="Engine\graphics\h\3D\MapChipField.h">
       <Filter>ヘッダーファイル\Game\MapChip</Filter>
     </ClInclude>
-    <!-- Game\Particle -->
-    <ClInclude Include="Engine\graphics\h\Cylinder.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+    <ClInclude Include="Engine\graphics\h\3D\Cylinder.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Ring.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+    <ClInclude Include="Engine\graphics\h\3D\Ring.h">
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ImageFilter.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\ImageFilter.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\GlassShatterEffect.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\WaterPool.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+    <ClInclude Include="Engine\game\h\Player\WaterPool.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
     <!-- Game\UI\score -->
-    <ClInclude Include="Engine\game\h\ScoreManager.h">
+    <ClInclude Include="Engine\game\h\UI\ScoreManager.h">
       <Filter>ヘッダーファイル\Game\UI\score</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\ScoreDisplay.h">
+    <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h">
       <Filter>ヘッダーファイル\Game\UI\score</Filter>
     </ClInclude>
     <!-- Game\UI\Time -->
-    <ClInclude Include="Engine\game\h\TimeDisplay.h">
+    <ClInclude Include="Engine\game\h\UI\TimeDisplay.h">
       <Filter>ヘッダーファイル\Game\UI\Time</Filter>
     </ClInclude>
     <!-- Game\Debug -->
-    <ClInclude Include="Engine\game\h\DebugDraw.h">
+    <ClInclude Include="Engine\game\h\Util\DebugDraw.h">
       <Filter>ヘッダーファイル\Game\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\DebugProfiler.h">
+    <ClInclude Include="Engine\game\h\Util\DebugProfiler.h">
       <Filter>ヘッダーファイル\Game\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Debug\ShaderHotReload.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
