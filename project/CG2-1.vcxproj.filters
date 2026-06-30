@@ -534,21 +534,18 @@
     <ClCompile Include="Engine\game\cpp\UI\TimeDisplay.cpp">
       <Filter>ソースファイル\Game\UI\Time</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Debug\GpuProfiler.cpp">
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Debug\DebugDrawGpu.cpp">
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Debug\ShaderHotReload.cpp">
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <!-- Engine\Base -->
-    <ClInclude Include="Engine\graphics\h\Debug\D3DResourceLeakChecker.h">
-      <Filter>ヘッダーファイル\Engine\Base</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Core\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
@@ -556,12 +553,6 @@
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Manager\SrvManager.h">
-      <Filter>ヘッダーファイル\Engine\Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Debug\GpuProfiler.h">
-      <Filter>ヘッダーファイル\Engine\Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Debug\DebugDrawGpu.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Framework.h">
@@ -942,7 +933,16 @@
     <ClInclude Include="Engine\game\h\Util\DebugProfiler.h">
       <Filter>ヘッダーファイル\Game\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Debug\ShaderHotReload.h">
+    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h">
+      <Filter>ヘッダーファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
   </ItemGroup>
