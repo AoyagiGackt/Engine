@@ -1,0 +1,121 @@
+#include "Game.h"
+#include "DelayTimer.h"
+#include "GameConstants.h"
+#include "Sequencer.h"
+#include "GamePlayScene.h"
+#include "GameSettings.h"
+#include "SceneManager.h"
+#include "SceneFactory.h"
+#include "ScreenFlash.h"
+#include "TimeManager.h"
+#include "TitleScene.h"
+#include "Tweener.h"
+#include <SrvManager.h>
+#include "GrayscaleEffect.h"
+#include "ImageFilter.h"
+#include "VignetteEffect.h"
+#include "HsvFilter.h"
+#include "ImguiControl.h"
+using namespace engine;
+using namespace engine::graphics;
+using namespace engine::game;
+
+void MyGame::Initialize()
+{
+    // 基盤の初期化
+    Framework::Initialize();
+
+    // 工場を作る
+    sceneFactory_ = std::make_unique<SceneFactory>();
+
+    // SceneManagerに工場を教える
+    SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
+
+    // 最初のシーンを工場経由でセットする
+    SceneManager::GetInstance()->Initialize(
+        dxCommon_.get(),
+        input_.get(),
+        audio_.get(),
+        imguiManager_.get());
+
+    // ゲーム設定を読み込んで音量に反映する
+    GameSettingsManager::GetInstance()->Load();
+    const GameSettings& s = GameSettingsManager::GetInstance()->Get();
+    audio_->SetBGMVolume(s.bgmVolume);
+
+    // スクリーンフラッシュ初期化
+    ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
+}
+
+
+void MyGame::Update()
+{
+    // 基盤の更新
+    Framework::Update();
+
+    // 時間管理・オーディオフェードを毎フレーム更新
+    TimeManager::GetInstance()->Update();
+    audio_->Update(GameConstants::kFrameDeltaTime);
+
+    // 遅延コールバック・Tweener・Sequencer・スクリーンフラッシュを毎フレーム更新
+    DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+    Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
+    Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
+    ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+
+    // シーンマネージャー更新
+    SceneManager::GetInstance()->Update();
+
+    ShowControls();
+
+    // ImGui終了処理
+    imguiManager_->End();
+}
+
+void MyGame::Draw()
+{
+    dxCommon_->PreDraw();
+    SrvManager::GetInstance()->PreDraw();
+
+    auto* gs        = GrayscaleEffect::GetInstance();
+    auto* imgFilter = ImageFilter::GetInstance();
+    auto* hsv       = HsvFilter::GetInstance();
+
+    // 有効なシーンキャプチャフィルターへ描画先を切り替える（優先順位: ImageFilter > Grayscale > HSV）
+    if (imgFilter->IsEnabled()) {
+        imgFilter->BeginScene();
+    } else if (gs->IsEnabled()) {
+        gs->BeginScene();
+    } else if (hsv->IsEnabled()) {
+        hsv->BeginScene();
+    }
+
+    // 現在のシーンの描画
+    SceneManager::GetInstance()->Draw();
+
+    if (imgFilter->IsEnabled()) {
+        imgFilter->EndScene();
+        imgFilter->Apply(SrvManager::GetInstance());
+    } else if (gs->IsEnabled()) {
+        gs->EndScene();
+        gs->Apply(SrvManager::GetInstance());
+    } else if (hsv->IsEnabled()) {
+        hsv->EndScene();
+        hsv->Apply(SrvManager::GetInstance());
+    }
+
+    VignetteEffect::GetInstance()->Apply();
+
+    ScreenFlash::GetInstance()->Draw();
+
+    imguiManager_->Draw(dxCommon_.get());
+
+    dxCommon_->PostDraw();
+}
+
+void MyGame::Finalize()
+{
+    SceneManager::GetInstance()->Finalize();
+
+    Framework::Finalize();
+}
