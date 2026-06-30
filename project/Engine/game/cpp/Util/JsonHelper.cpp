@@ -1,6 +1,7 @@
 #include "JsonHelper.h"
 #include <filesystem>
 #include <fstream>
+namespace engine {
 namespace JsonHelper {
 
 nlohmann::json Load(const std::string& path)
@@ -56,3 +57,4 @@ std::string ReadString(const std::string& src, const std::string& key, const std
 }
 
 }
+} // namespace engine

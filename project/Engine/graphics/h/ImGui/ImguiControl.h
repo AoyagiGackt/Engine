@@ -1,5 +1,5 @@
 /**
- * @file ImguiControl.h
+ * @file ImGuiControl.h
  * @brief 開発・デバッグ用のImGuiコントロールパネル（UI）を表示するためのファイル
  */
 #pragma once

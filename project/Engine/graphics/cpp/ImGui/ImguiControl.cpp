@@ -1,4 +1,4 @@
-﻿#include "ImguiControl.h"
+﻿#include "ImGuiControl.h"
 #include "ImGuiManager.h"
 #include "LightingMode.h"
 #include "MaterialManager.h"

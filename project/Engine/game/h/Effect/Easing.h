@@ -4,6 +4,7 @@
 // イージング関数ライブラリ
 // t は 0.0〜1.0 の正規化済み時間。戻り値も基本 0.0〜1.0 だが Back/Elastic は範囲外になる場合あり。
 // 使い方: float v = Easing::Lerp(startVal, endVal, t, Easing::EaseOutBack);
+namespace engine {
 namespace Easing {
 
     inline float Linear(float t) { return t; }
@@ -81,3 +82,4 @@ namespace Easing {
     }
 
 } // namespace Easing
+} // namespace engine

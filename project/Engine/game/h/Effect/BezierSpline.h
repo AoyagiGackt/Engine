@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 
+namespace engine {
 namespace BezierSpline {
 
 // 2次ベジェ曲線（3制御点）
@@ -89,3 +90,4 @@ private:
 };
 
 } // namespace BezierSpline
+} // namespace engine

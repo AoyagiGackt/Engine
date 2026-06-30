@@ -46,6 +46,9 @@
     <Filter Include="ソースファイル\Engine\Object">
       <UniqueIdentifier>{5d1d74d7-a890-42cc-83a9-b1857d31aa6e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソースファイル\Engine\Effect">
+      <UniqueIdentifier>{c1d2e3f4-a5b6-7890-cdef-123456789abc}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ソースファイル\Engine\ImGui">
       <UniqueIdentifier>{b6469eda-b052-417e-92f4-a176e5bcbf75}</UniqueIdentifier>
     </Filter>
@@ -141,6 +144,9 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\Object">
       <UniqueIdentifier>{30945204-8af8-4972-8d4a-0ab20394e397}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Engine\Effect">
+      <UniqueIdentifier>{d2e3f4a5-b6c7-8901-def0-23456789abcd}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\ImGui">
       <UniqueIdentifier>{5d36284a-2945-48b7-9116-8327a1fce727}</UniqueIdentifier>
@@ -295,7 +301,7 @@
       <Filter>ソースファイル\Engine\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp">
-      <Filter>ソースファイル\Engine\Manager</Filter>
+      <Filter>ソースファイル\Engine\Light</Filter>
     </ClCompile>
     <!-- Engine\Particle -->
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp">
@@ -318,27 +324,28 @@
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp">
       <Filter>ソースファイル\Engine\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
-      <Filter>ソースファイル\Engine\Scene</Filter>
-    </ClCompile>
     <!-- Engine\Object -->
     <ClCompile Include="Engine\game\cpp\Core\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
+    <!-- Engine\Effect -->
+    <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\GrayscaleEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\VideoPlayer.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\BloomEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <!-- Engine\ImGui -->
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImguiControl.cpp">
@@ -377,20 +384,20 @@
     <ClCompile Include="Engine\graphics\cpp\Offscreen\RenderTexture.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp">
-      <Filter>ソースファイル\Engine\Offscreen</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Offscreen\DeferredRenderer.cpp">
       <Filter>ソースファイル\Engine\Offscreen</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\HDREffect.cpp">
-      <Filter>ソースファイル\Engine\Offscreen</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\MotionBlurEffect.cpp">
-      <Filter>ソースファイル\Engine\Offscreen</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\TAAEffect.cpp">
-      <Filter>ソースファイル\Engine\Offscreen</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <!-- Game\Core -->
     <ClCompile Include="Engine\game\cpp\Core\Game.cpp">
@@ -400,16 +407,10 @@
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Skydome.cpp">
-      <Filter>ソースファイル\Game\Core</Filter>
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
     <!-- Game\Scene -->
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp">
-      <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp">
-      <Filter>ソースファイル\Game\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp">
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp">
@@ -443,6 +444,12 @@
       <Filter>ソースファイル\Game\Scene</Filter>
     </ClCompile>
     <!-- Game\Player -->
+    <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp">
+      <Filter>ソースファイル\Game\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp">
       <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
@@ -486,10 +493,10 @@
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\ChromaticAberrationEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp">
-      <Filter>ソースファイル\Engine\Object</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
@@ -501,21 +508,20 @@
     <ClCompile Include="Engine\graphics\cpp\3D\MapChipField.cpp">
       <Filter>ソースファイル\Game\MapChip</Filter>
     </ClCompile>
-    <!-- Game\Particle -->
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+      <Filter>ソースファイル\Engine\3D</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+      <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp">
-      <Filter>ソースファイル\Game\Particle</Filter>
+      <Filter>ソースファイル\Game\Player</Filter>
     </ClCompile>
     <!-- Game\UI\score -->
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp">
@@ -648,10 +654,10 @@
       <Filter>ヘッダーファイル\Engine\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h">
-      <Filter>ヘッダーファイル\Engine\Manager</Filter>
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h">
-      <Filter>ヘッダーファイル\Engine\Manager</Filter>
+      <Filter>ヘッダーファイル\Engine\Light</Filter>
     </ClInclude>
     <!-- Engine\Particle -->
     <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h">
@@ -692,24 +698,25 @@
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h">
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
-      <Filter>ヘッダーファイル\Engine\Scene</Filter>
-    </ClInclude>
     <!-- Engine\Object -->
     <ClInclude Include="Engine\game\h\Core\GameObject.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
+    <!-- Engine\Effect -->
+    <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\GrayscaleEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\HsvFilter.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\VignetteEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Engine\ImGui -->
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiManager.h">
@@ -718,9 +725,8 @@
     <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h">
       <Filter>ヘッダーファイル\Engine\ImGui</Filter>
     </ClInclude>
-    <!-- Engine\Media -->
     <ClInclude Include="Engine\graphics\h\Effect\VideoPlayer.h">
-      <Filter>ヘッダーファイル\Engine\Media</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Engine\Animation -->
     <ClInclude Include="Engine\game\h\Util\Animation.h">
@@ -752,20 +758,20 @@
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
-      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Offscreen\DeferredRenderer.h">
       <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\HDREffect.h">
-      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\MotionBlurEffect.h">
-      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\TAAEffect.h">
-      <Filter>ヘッダーファイル\Engine\Offscreen</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Game\Core -->
     <ClInclude Include="Engine\game\h\Core\Game.h">
@@ -778,16 +784,10 @@
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Skydome.h">
-      <Filter>ヘッダーファイル\Game\Core</Filter>
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <!-- Game\Scene -->
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
-      <Filter>ヘッダーファイル\Game\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Player\BulletPool.h">
-      <Filter>ヘッダーファイル\Game\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Player\EnemyEntity.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h">
@@ -821,6 +821,12 @@
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <!-- Game\Player -->
+    <ClInclude Include="Engine\game\h\Player\BulletPool.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\EnemyEntity.h">
+      <Filter>ヘッダーファイル\Game\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h">
       <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
@@ -882,10 +888,10 @@
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
-      <Filter>ヘッダーファイル\Engine\Object</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\UVScroller.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
@@ -903,21 +909,20 @@
     <ClInclude Include="Engine\graphics\h\3D\MapChipField.h">
       <Filter>ヘッダーファイル\Game\MapChip</Filter>
     </ClInclude>
-    <!-- Game\Particle -->
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Ring.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+      <Filter>ヘッダーファイル\Engine\3D</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\ImageFilter.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WaterPool.h">
-      <Filter>ヘッダーファイル\Game\Particle</Filter>
+      <Filter>ヘッダーファイル\Game\Player</Filter>
     </ClInclude>
     <!-- Game\UI\score -->
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h">

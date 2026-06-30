@@ -8,16 +8,6 @@
 namespace engine::graphics {
 
 // GPU Instancing による複数オブジェクト一括描画
-//
-// 使い方:
-//   auto* io = new InstancedObject3d();
-//   io->Initialize(dxCommon, srvManager, "path/to/model.obj", maxInstances);
-//
-//   // 毎フレーム
-//   io->SetInstanceCount(activeCount);
-//   io->SetInstanceTransform(i, scale, rotate, translate);
-//   io->Update(cameraVP, lightVP, cameraPos);
-//   io->Draw();
 class InstancedObject3d {
 public:
     static const uint32_t kMaxInstances = 1024;

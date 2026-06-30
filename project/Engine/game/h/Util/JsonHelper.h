@@ -3,6 +3,7 @@
 #include "json.hpp"
 
 // JSON ファイルの読み書きユーティリティ
+namespace engine {
 namespace JsonHelper {
     // ファイルから JSON を読み込む（ファイルが存在しない・破損の場合は空オブジェクトを返す）
     nlohmann::json Load(const std::string& path);
@@ -16,3 +17,4 @@ namespace JsonHelper {
     int         ReadInt   (const std::string& src, const std::string& key, int def);
     std::string ReadString(const std::string& src, const std::string& key, const std::string& def);
 }
+} // namespace engine

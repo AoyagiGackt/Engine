@@ -1,5 +1,6 @@
 #include "StringUtility.h"
 #include <stringapiset.h> // MultiByteToWideChar / WideCharToMultiByte の宣言
+namespace engine {
 namespace StringUtility {
 
 // UTF-8 の string を wstring に変換する。
@@ -36,3 +37,4 @@ std::string ConvertString(const std::wstring& str)
 }
 
 }
+} // namespace engine

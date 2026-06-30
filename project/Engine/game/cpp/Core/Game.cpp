@@ -15,7 +15,7 @@
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
 #include "HsvFilter.h"
-#include "ImguiControl.h"
+#include "ImGuiControl.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;

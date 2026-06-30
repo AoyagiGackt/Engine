@@ -9,6 +9,7 @@
  * @namespace Logger
  * @brief ログ出力に関連するユーティリティ関数をまとめた名前空間
  */
+namespace engine {
 namespace Logger {
 
 /**
@@ -19,3 +20,4 @@ namespace Logger {
  */
 void Log(const std::string& message);
 }
+} // namespace engine
