@@ -3,10 +3,10 @@
 #include "TitleScene.h"
 #ifdef _DEBUG
 #include "TrainingScene.h"
+#endif
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
-#endif
 
 SceneManager* SceneManager::GetInstance()
 {

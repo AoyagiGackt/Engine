@@ -1,4 +1,4 @@
-﻿#include "Skeleton.h"
+﻿#include "Skeleton/Skeleton.h"
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <cassert>
@@ -6,9 +6,9 @@
 
 #ifdef USE_IMGUI
 #include "imgui.h"
-using namespace engine;
-using namespace engine::graphics;
 #endif
+
+namespace engine::graphics {
 
 // =================================================================
 // NodeHierarchy 読み込み（assimp）
@@ -233,3 +233,5 @@ void Skeleton::DebugDraw()
     ImGui::End();
 #endif // USE_IMGUI
 }
+
+} // namespace engine::graphics
