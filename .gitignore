@@ -362,5 +362,5 @@ externals/**/Release/
 project/log.txt
 project/scores.txt
 
-# デバッグ用シェーダーの除外
+# デバッグ用シェーダーの等の除外
 project/Resources/shaders/debug/

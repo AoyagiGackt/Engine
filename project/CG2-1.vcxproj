@@ -84,7 +84,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Debug;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -203,6 +203,9 @@
     <ClCompile Include="Engine\game\cpp\Util\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GrayscaleEffect.cpp" />
@@ -235,8 +238,6 @@
     <ClCompile Include="Engine\graphics\cpp\Manager\ModelManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\ModelCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\SrvManager.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Debug\GpuProfiler.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Debug\DebugDrawGpu.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp" />
@@ -260,7 +261,6 @@
     <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\FrustumCuller.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Debug\ShaderHotReload.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">
@@ -568,9 +568,12 @@
     <ClInclude Include="Engine\graphics\h\Camera\Frustum.h" />
     <ClInclude Include="Engine\graphics\h\Camera\FrustumCuller.h" />
     <ClInclude Include="Engine\game\h\Util\DebugDraw.h" />
-    <ClInclude Include="Engine\graphics\h\Debug\D3DResourceLeakChecker.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h" />
     <ClInclude Include="Engine\game\h\Core\DirectXCommon.h" />
     <ClInclude Include="Engine\game\h\Core\WinApp.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h" />
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h" />
     <ClInclude Include="Engine\graphics\h\Light\LightManager.h" />
     <ClInclude Include="Engine\graphics\h\Light\CascadedShadowMap.h" />
@@ -603,8 +606,6 @@
     <ClInclude Include="Engine\graphics\h\Manager\ModelManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\ModelCommon.h" />
     <ClInclude Include="Engine\graphics\h\Manager\SrvManager.h" />
-    <ClInclude Include="Engine\graphics\h\Debug\GpuProfiler.h" />
-    <ClInclude Include="Engine\graphics\h\Debug\DebugDrawGpu.h" />
     <ClInclude Include="Engine\graphics\h\Particle\ParticleManager.h" />
     <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h" />
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h" />
@@ -636,7 +637,6 @@
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
     <ClInclude Include="Engine\game\h\Collision\GridPathfinder.h" />
     <ClInclude Include="Engine\game\h\Util\DebugProfiler.h" />
-    <ClInclude Include="Engine\graphics\h\Debug\ShaderHotReload.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\lighting\LightingMode.hlsli" />
