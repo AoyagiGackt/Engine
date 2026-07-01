@@ -48,9 +48,6 @@ public:
 
 private:
 
-    /** @brief 現在アクティブなシーンのポインタ */
-    BaseScene* scene_ = nullptr;
-
     /** @brief シーン生成を担う抽象ファクトリのスマートポインタ */
     std::unique_ptr<AbstractSceneFactory> sceneFactory_;
 };

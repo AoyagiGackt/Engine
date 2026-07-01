@@ -1,4 +1,7 @@
-// @file GamePlayScene.h
+/**
+ * @file GamePlayScene.h
+ * @brief メインの戦闘シーン（ローグライト／サンドボックス両対応）
+ */
 #pragma once
 
  // --- 標準ライブラリ ---
@@ -81,22 +84,31 @@ public:
     void Update() override;
     void Draw() override;
     void SetImGuiManager(ImGuiManager* imgui){ imguiManager_ = imgui; }
+    bool SupportsPostEffects() const override { return true; }
+
+    /// @brief ImGuiパネルからの手動テスト再生用
+    void TriggerGlassShatterTest();
 
 private:
     void DrawShadowPass();
     void DrawStyleUI();
+    void DrawRogueliteHUD();
+    void SetupModelRenderState();
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
-    void ApplyActiveFilter();
     void SetupMainRenderTarget();
     void UpdateCameraSmoothing();
     SceneEditor::EditContext BuildEditContext();
 
     bool UpdateClearState();
     void UpdateCombat();
+    void UpdateCombatEvents();
     void UpdateCamera();
     void UpdateStyleAndUI(float dt);
     void UpdateParticles(float dt);
     void CheckClearCondition();
+
+    /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）
+    bool IsGlassShatterFlow() const;
 
     DirectXCommon* dxCommon_    = nullptr;
     Input*         input_       = nullptr;
@@ -146,6 +158,8 @@ private:
     float        hitCooldown_ = 0.0f;
     std::mt19937 rng_{ std::random_device{}() };
 
+    static constexpr float kGhostLifetime = 0.3f;
+
     struct GhostEntry { Vector3 pos; float age; };
     std::deque<GhostEntry>    ghostTrail_;
     std::unique_ptr<Object3d> ghostObject_;
@@ -163,8 +177,9 @@ private:
     CameraShaker cameraShaker_;
 
     GlassShatterEffect glassShatter_;
-    bool clearTriggered_ = false;
-    bool requestClear_   = false;
+    bool clearTriggered_        = false;
+    bool requestClear_          = false;
+    bool glassShatterDebugTest_ = false;
 
     std::unique_ptr<Sprite>   clearBgSprite_;
     std::unique_ptr<WaterPool> waterPool_;

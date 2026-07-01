@@ -251,9 +251,6 @@
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp">
       <Filter>ソースファイル\Engine\Camera</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Camera\SmoothCamera.cpp">
-      <Filter>ソースファイル\Engine\Camera</Filter>
-    </ClCompile>
     <!-- Engine\2D -->
     <ClCompile Include="Engine\graphics\cpp\2D\Sprite.cpp">
       <Filter>ソースファイル\Engine\2D</Filter>
@@ -589,9 +586,6 @@
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h">
       <Filter>ヘッダーファイル\Engine\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Camera\SmoothCamera.h">
-      <Filter>ヘッダーファイル\Engine\Camera</Filter>
-    </ClInclude>
     <!-- Engine\2D -->
     <ClInclude Include="Engine\graphics\h\2D\Sprite.h">
       <Filter>ヘッダーファイル\Engine\2D</Filter>
@@ -665,9 +659,6 @@
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h">
-      <Filter>ヘッダーファイル\Engine\Collision</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Collision\CollisionManager.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Camera\Frustum.h">
@@ -875,17 +866,11 @@
     <ClInclude Include="Engine\game\h\Player\RunData.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Collision\GridPathfinder.h">
-      <Filter>ヘッダーファイル\Game\System</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h">
       <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
       <Filter>ヘッダーファイル\Engine\Effect</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\UI\UVScroller.h">
-      <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h">
       <Filter>ヘッダーファイル\Game\System</Filter>

@@ -3,11 +3,9 @@
 using namespace engine;
 using namespace engine::game;
 
-WeaponManager* WeaponManager::instance_ = nullptr;
-
 WeaponManager* WeaponManager::GetInstance() {
-    if (!instance_) { instance_ = new WeaponManager(); }
-    return instance_;
+    static WeaponManager instance;
+    return &instance;
 }
 
 WeaponManager::WeaponManager() {

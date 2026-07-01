@@ -1,3 +1,7 @@
+/**
+ * @file BattleTestScene.h
+ * @brief 訓練マネキンを相手にコンボや武器を試せるデバッグ用バトルシーン
+ */
 #pragma once
 #include <array>
 #include <memory>
@@ -9,6 +13,8 @@
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
+#include "GlassShatterEffect.h"
+#include "ImageFilter.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Model.h"
@@ -22,10 +28,19 @@
 #include "SpriteCommon.h"
 #include "SrvManager.h"
 #include "WeaponManager.h"
+namespace engine::graphics {
+class GrayscaleEffect;
+class HsvFilter;
+}
+
 namespace engine::game {
 using engine::Audio;
 using engine::graphics::Camera;
 using engine::DirectXCommon;
+using engine::graphics::GlassShatterEffect;
+using engine::graphics::ImageFilter;
+using engine::graphics::GrayscaleEffect;
+using engine::graphics::HsvFilter;
 using engine::graphics::ImGuiManager;
 using engine::Input;
 using engine::graphics::Model;
@@ -38,6 +53,7 @@ using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
 
+/// @brief 訓練マネキン相手にコンボ・武器を試せるデバッグ用シーン
 class BattleTestScene : public BaseScene {
 public:
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
@@ -45,6 +61,10 @@ public:
     void Update() override;
     void Draw() override;
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
+    bool SupportsPostEffects() const override { return true; }
+
+    /// @brief ImGuiパネルからの手動テスト再生用
+    void TriggerGlassShatterTest();
 
 private:
     // 訓練用マネキン（動かない敵）
@@ -65,8 +85,14 @@ private:
         std::unique_ptr<Sprite> hpBarFg;
     };
 
+    /// @brief 指定座標にヒットエフェクト（パーティクル）を生成する
     void SpawnHitEffect(const Vector3& pos);
+    /// @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する
     void UpdateHpBars();
+    /// @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す
+    D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
+    /// @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する
+    void SetupMainRenderTarget();
 
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
@@ -74,6 +100,13 @@ private:
     ImGuiManager*  imguiManager_ = nullptr;
     SrvManager*    srvManager_   = nullptr;
     ParticleManager* pm_         = nullptr;
+
+    GrayscaleEffect* grayscaleEffect_ = nullptr;
+    ImageFilter*     imageFilter_     = nullptr;
+    HsvFilter*       hsvFilter_       = nullptr;
+
+    GlassShatterEffect       glassShatter_;
+    std::unique_ptr<Sprite>  glassShatterBgSprite_;
 
     std::unique_ptr<SpriteCommon>    spriteCommon_;
     std::unique_ptr<ModelCommon>     modelCommon_;
@@ -97,13 +130,20 @@ private:
 
     // 武器
     WeaponManager* weaponManager_ = nullptr;
-    float attackCooldown_  = 0.0f;
+    float attackCooldown_    = 0.0f;
+    float weaponCycleTimer_  = 0.0f;
 
     // 弾丸
     BulletPool bulletPool_;
 
     // ワープ演出
     float warpPulseTimer_ = 0.0f;
+
+    // コンボランク（実際にダミーへ命中した時だけ加算）
+    int   trComboCount_ = 0;
+    int   trMaxCombo_   = 0;
+    float trComboTimer_ = 0.0f;
+    float trRankAlpha_  = 0.0f;
 
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;

@@ -197,7 +197,6 @@
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\WorldTransform.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Camera\SmoothCamera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\DirectXCommon.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\Logger.cpp" />
@@ -522,7 +521,6 @@
     <ClInclude Include="Engine\game\h\Scene\PauseScene.h" />
     <ClInclude Include="Engine\game\h\Collision\Collision.h" />
     <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h" />
-    <ClInclude Include="Engine\game\h\Collision\CollisionManager.h" />
     <ClInclude Include="Engine\game\h\Core\Framework.h" />
     <ClInclude Include="Engine\game\h\Core\Game.h" />
     <ClInclude Include="Engine\game\h\Core\GameObject.h" />
@@ -564,7 +562,6 @@
     <ClInclude Include="Engine\game\h\Core\WorldTransform.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
-    <ClInclude Include="Engine\graphics\h\Camera\SmoothCamera.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Frustum.h" />
     <ClInclude Include="Engine\graphics\h\Camera\FrustumCuller.h" />
     <ClInclude Include="Engine\game\h\Util\DebugDraw.h" />
@@ -628,7 +625,6 @@
     <ClInclude Include="Engine\game\h\Core\Sequencer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />
-    <ClInclude Include="Engine\game\h\UI\UVScroller.h" />
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\FloatingText.h" />
@@ -636,7 +632,6 @@
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
-    <ClInclude Include="Engine\game\h\Collision\GridPathfinder.h" />
     <ClInclude Include="Engine\game\h\Util\DebugProfiler.h" />
   </ItemGroup>
   <ItemGroup>

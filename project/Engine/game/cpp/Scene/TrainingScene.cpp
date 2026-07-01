@@ -2,7 +2,9 @@
 #include "DebugProfiler.h"
 #include "GameConstants.h"
 #include "SceneManager.h"
+#include "ScreenFlash.h"
 #include "SSAOEffect.h"
+#include "TimeManager.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -75,6 +77,8 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
 
+    bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
+
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     awakenGaugeBg_->SetColor({ 0.05f, 0.05f, 0.15f, 0.75f });
@@ -139,24 +143,29 @@ void TrainingScene::Update()
         player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
     }
 
-    // ── コンボランク追跡 ─────────────────────────────────────────────
-    {
-        bool hitNow = player_->JustComboHit() || player_->JustFired()
-                   || player_->JustSpinShot() || player_->JustRampageHit();
-        if (hitNow) {
-            trComboCount_++;
-            trComboTimer_ = 1.2f;
-            trRankAlpha_  = 1.0f;
-            if (trComboCount_ > trMaxCombo_) { trMaxCombo_ = trComboCount_; }
-        }
-        trComboTimer_ -= GameConstants::kFrameDeltaTime;
-        if (trComboTimer_ <= 0.0f) {
-            trComboTimer_ = 0.0f;
-            // コンボ切れ → フェードアウト後にリセット
-            trRankAlpha_ -= GameConstants::kFrameDeltaTime * 2.0f;
-            if (trRankAlpha_ <= 0.0f) { trRankAlpha_ = 0.0f; trComboCount_ = 0; }
+    // ── スペースキー スピン連射 ──────────────────────────────────────
+    if (player_->JustSpinShot()) {
+        constexpr float kBulletSpeed = 0.30f;
+        const Vector3&  spawnPos     = player_->GetPosition();
+        Vector3 firePos = { spawnPos.x, spawnPos.y + 0.4f, 0.0f };
+
+        if (player_->IsUpsideDown()) {
+            // 逆さ: 下方向中心に 5 方向ばらまき
+            constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
+            constexpr float kSpread    =  30.0f * (3.14159265f / 180.0f); // 30°間隔
+            for (int i = -2; i <= 2; ++i) {
+                float angle = kBaseAngle + i * kSpread;
+                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed,
+                                             std::sin(angle) * kBulletSpeed, 0.0f });
+            }
+            TimeManager::GetInstance()->RequestHitStop(3);
+            ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
+        } else {
+            // 通常: 向いている方向に 1 発
+            bulletPool_.Spawn(firePos, { player_->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
         }
     }
+    bulletPool_.Update();
 
     // カメラ追従
     {
@@ -191,7 +200,7 @@ void TrainingScene::Update()
     bool nearWarp = std::abs(pp.x - kWarpX) < kWarpProximity;
 
     if (nearWarp && input_->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeSceneWithLoading("BATTLETEST");
+        SceneManager::GetInstance()->ChangeScene("BATTLETEST");
     }
 
     // ---- UI（FontRenderer） ----
@@ -229,50 +238,6 @@ void TrainingScene::Update()
         float sy = -(5.0f  - cam.y) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
         constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Warp", sx - 84.0f, sy - 36.0f, kScale, kColorWarp);
-    }
-
-    // ── コンボランク（画面中央） ──────────────────────────────────────
-    if (trComboCount_ > 0 || trRankAlpha_ > 0.0f) {
-        struct RankDef { const char* label; Vector4 color; };
-        static constexpr RankDef kRanks[] = {
-            { "D",   { 0.55f, 0.55f, 0.55f, 1.0f } },
-            { "C",   { 0.85f, 0.85f, 0.85f, 1.0f } },
-            { "B",   { 0.30f, 0.72f, 1.00f, 1.0f } },
-            { "A",   { 0.20f, 1.00f, 0.40f, 1.0f } },
-            { "S",   { 1.00f, 0.90f, 0.10f, 1.0f } },
-            { "SS",  { 1.00f, 0.55f, 0.10f, 1.0f } },
-            { "SSS", { 1.00f, 0.30f, 0.30f, 1.0f } },
-        };
-        int ri = (trComboCount_ >= 25) ? 6 :
-                 (trComboCount_ >= 18) ? 5 :
-                 (trComboCount_ >= 12) ? 4 :
-                 (trComboCount_ >=  8) ? 3 :
-                 (trComboCount_ >=  5) ? 2 :
-                 (trComboCount_ >=  3) ? 1 : 0;
-        const char* lbl = kRanks[ri].label;
-        Vector4 rc = kRanks[ri].color;
-        rc.w *= trRankAlpha_;
-
-        constexpr float kRS = 5.0f;  // ランク文字スケール
-        constexpr float kHS = 2.0f;  // ヒット数スケール
-        int   lblLen = static_cast<int>(std::strlen(lbl));
-        float rankW  = FontRenderer::kCharW * kRS * static_cast<float>(lblLen);
-        fontRenderer_.DrawString(lbl, 640.0f - rankW * 0.5f, 158.0f, kRS, rc);
-
-        char hitBuf[24];
-        std::snprintf(hitBuf, sizeof(hitBuf), "x%d HIT", trComboCount_);
-        float hw = FontRenderer::kCharW * kHS * static_cast<float>(std::strlen(hitBuf));
-        fontRenderer_.DrawString(hitBuf, 640.0f - hw * 0.5f, 240.0f, kHS,
-            { 1.0f, 1.0f, 1.0f, trRankAlpha_ });
-
-        if (trMaxCombo_ > 0) {
-            char bestBuf[24];
-            std::snprintf(bestBuf, sizeof(bestBuf), "BEST:%d", trMaxCombo_);
-            constexpr float kBS = 1.3f;
-            float bw = FontRenderer::kCharW * kBS * static_cast<float>(std::strlen(bestBuf));
-            fontRenderer_.DrawString(bestBuf, 640.0f - bw * 0.5f, 270.0f, kBS,
-                { 0.7f, 0.7f, 0.7f, trRankAlpha_ * 0.8f });
-        }
     }
 
     // ── デバッグ情報（右上隅） ──────────────────────────────────────
@@ -417,6 +382,7 @@ void TrainingScene::Draw()
     for (auto& b : borderBlocks_)     { b->Draw(); }
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
     for (int i = 0; i < 3; ++i)       { pbrDemoBlocks_[i]->Draw(); }
+    bulletPool_.Draw();
     player_->Draw();
 
     // ---- SSAO 計算 → ブラー → 乗算合成 ----

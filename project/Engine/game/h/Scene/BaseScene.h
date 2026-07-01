@@ -71,6 +71,15 @@ public:
 
     /** @brief ImGuiManagerを受け取る（デバッグUIが必要なシーンのみオーバーライド） */
     virtual void SetImGuiManager(ImGuiManager*) {}
+
+    /**
+     * @brief グレースケール／イメージフィルター／HSVフィルターのオフスクリーンRTVリダイレクトに対応しているか
+     * @note 対応シーンのみ Draw() 内で GetActiveRTVHandle() 相当の切り替えを行っている。
+     *       未対応シーンで Game.cpp 側が BeginScene/EndScene/Apply を呼ぶと、
+     *       何も描かれていないオフスクリーンテクスチャでバックバッファが上書きされ、
+     *       画面から絵が消えてしまうため、対応シーンのみ true を返すこと。
+     */
+    virtual bool SupportsPostEffects() const { return false; }
 };
 
 } // namespace engine::game

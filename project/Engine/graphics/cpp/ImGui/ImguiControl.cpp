@@ -22,22 +22,28 @@ namespace engine::graphics {
 
 static Object3dCommon*           s_obj3dCommon = nullptr;
 static std::vector<DebugPointLight> s_debugLights;
+static std::function<void()>     s_glassShatterTrigger;
 
 // =====================================================
 // 公開 API
 // =====================================================
 
-void RegisterObject3dCommon(Object3dCommon* common)
+void ImGuiControlPanel::RegisterObject3dCommon(Object3dCommon* common)
 {
     s_obj3dCommon = common;
 }
 
-const std::vector<DebugPointLight>& GetDebugPointLights()
+void ImGuiControlPanel::RegisterGlassShatterTrigger(std::function<void()> trigger)
+{
+    s_glassShatterTrigger = std::move(trigger);
+}
+
+const std::vector<DebugPointLight>& ImGuiControlPanel::GetDebugPointLights()
 {
     return s_debugLights;
 }
 
-void ShowControls()
+void ImGuiControlPanel::ShowControls()
 {
 #ifdef USE_IMGUI
 
@@ -350,15 +356,15 @@ void ShowControls()
         ImGui::TextDisabled("GlassShatterEffect");
         ImGui::Separator();
 
-        // NOTE: GlassShatterEffect はシングルトンではないためポインタ取得ができない。
-        //       シーン側から GetInstance 相当が提供されていない場合は
-        //       「シーン側で外部から Start() などを呼ぶ」設計になっている。
-        //       ここでは操作ガイドのみ表示する。
-        ImGui::TextWrapped("GlassShatterEffect はシーン側から\n"
-                           "Start() / Reset() を呼んでください。\n\n"
-                           "パラメータは Initialize() 後に\n"
-                           "SetImpactUV / SetCrackWidth /\n"
-                           "SetShardSpeed / SetDuration で設定できます。");
+        if (s_glassShatterTrigger) {
+            if (ImGui::Button("テスト再生")) {
+                s_glassShatterTrigger();
+            }
+            ImGui::TextDisabled("※ 演出中は再度押しても無視されます");
+        } else {
+            ImGui::TextWrapped("このシーンではガラス割れエフェクトの\n"
+                               "テスト再生は登録されていません。");
+        }
 
         ImGui::End();
     }

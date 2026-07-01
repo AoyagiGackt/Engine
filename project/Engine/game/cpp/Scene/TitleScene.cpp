@@ -16,12 +16,12 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     titleSprite_ = std::make_unique<Sprite>();
     titleSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     titleSprite_->SetPosition({ 0.0f, 0.0f });
-    titleSprite_->SetSize({ 1280.0f, 720.0f });
+    titleSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) });
 
     titleTextSprite_ = std::make_unique<Sprite>();
     titleTextSprite_->Initialize(spriteCommon_.get(), "Resources/title/title.png");
     titleTextSprite_->SetPosition({ 0.0f, 0.0f });
-    titleTextSprite_->SetSize({ 1280.0f, 720.0f });
+    titleTextSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) });
 
     fontRenderer_.Initialize(spriteCommon_.get());
 }

@@ -8,6 +8,7 @@
 
 #include "Audio.h"
 #include "BaseScene.h"
+#include "BulletPool.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
@@ -81,18 +82,15 @@ private:
     // プレイヤー
     std::unique_ptr<Player> player_;
 
+    // 弾丸（スピン連射）
+    BulletPool bulletPool_;
+
     // 武器選択
     WeaponManager* weaponManager_ = nullptr;
     float weaponCycleTimer_ = 0.0f;
 
     // ワープ演出タイマー（近づいたら点滅）
     float warpPulseTimer_ = 0.0f;
-
-    // コンボランク
-    int   trComboCount_ = 0;
-    int   trMaxCombo_   = 0;
-    float trComboTimer_ = 0.0f;
-    float trRankAlpha_  = 0.0f;
 
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;

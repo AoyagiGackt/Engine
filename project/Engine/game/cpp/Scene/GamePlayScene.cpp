@@ -8,6 +8,7 @@
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
+#include "ImGuiControl.h"
 #include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
@@ -155,6 +156,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     cameraTargetRot_ = camera_->GetRotate();
 
     glassShatter_.Initialize(dxCommon_, srvManager_);
+
+    ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
 }
 
 SceneEditor::EditContext GamePlayScene::BuildEditContext()
@@ -226,7 +229,7 @@ bool GamePlayScene::UpdateClearState()
     if (!clearTriggered_) { return false; }
 
     auto* rd = RunData::GetInstance();
-    if (rd->isRunActive) {
+    if (rd->isRunActive && !glassShatterDebugTest_) {
         // ローグライト: 結果表示 → MAP遷移
         if (!showResult_) {
             showResult_  = true;
@@ -253,6 +256,58 @@ bool GamePlayScene::UpdateClearState()
     return true;
 }
 
+void GamePlayScene::UpdateCombatEvents()
+{
+    auto* tm = TimeManager::GetInstance();
+
+    // 乱舞：打ち上げヒット
+    if (player_->JustLaunched()) {
+        enemy_->Launch(GameConstants::kLaunchSpeed);
+        const Vector3& epos = enemy_->GetPosition();
+        tm->RequestHitStop(GameConstants::kHitStopLaunch);
+        cameraShaker_.Request(GameConstants::kShakeLaunchAmt, GameConstants::kShakeLaunchDur);
+        pm_->EmitRing("hit_ring",  epos, 5.5f, { 1.0f, 0.55f, 0.1f, 1.0f }, 20, 0.45f, 0.28f);
+        std::uniform_real_distribution<float> vxL(-4.0f, 4.0f);
+        std::uniform_real_distribution<float> vyL( 3.0f, 7.0f);
+        for (int i = 0; i < 10; ++i) {
+            pm_->EmitGravity("hit_spark", epos,
+                { vxL(rng_), vyL(rng_), 0.0f },
+                { 1.0f, 0.65f, 0.15f, 1.0f }, 0.8f, 0.18f);
+        }
+    }
+
+    // 乱舞：ジャグルスラッシュ
+    if (player_->JustRampageHit()) {
+        int   cnt      = player_->GetJuggleCount();
+        float dir      = player_->GetLastDirX();
+        float slashAng = (dir > 0.0f) ? 0.0f : GameConstants::kPi;
+        float rad      = 1.2f + cnt * 0.12f;
+        const Vector3& epos = enemy_->GetPosition();
+        pm_->EmitSlash("sword_slash", epos, slashAng,
+            { 1.0f, 1.0f - cnt * 0.06f, 1.0f - cnt * 0.09f, 1.0f }, rad);
+        pm_->EmitRing("hit_ring", epos, 2.5f + cnt * 0.2f,
+            { 1.0f, 0.9f, 0.5f, 0.8f }, 8, 0.25f, 0.15f);
+        tm->RequestHitStop(GameConstants::kHitStopJuggle);
+        cameraShaker_.Request(0.12f + cnt * 0.01f, 0.10f);
+    }
+
+    // 乱舞：フィニッシュ
+    if (player_->JustRampageFinish()) {
+        const Vector3& epos = enemy_->GetPosition();
+        tm->RequestHitStop(GameConstants::kHitStopFinish);
+        cameraShaker_.Request(GameConstants::kShakeFinishAmt, GameConstants::kShakeFinishDur);
+        pm_->EmitRing("hit_ring",  epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
+        pm_->EmitRing("sword_slash", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
+        std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
+        std::uniform_real_distribution<float> vyF( 4.0f, 10.0f);
+        for (int i = 0; i < 16; ++i) {
+            pm_->EmitGravity("hit_spark", epos,
+                { vxF(rng_), vyF(rng_), 0.0f },
+                { 1.0f, 0.4f + i * 0.04f, 0.1f, 1.0f }, 1.0f, 0.20f);
+        }
+    }
+}
+
 void GamePlayScene::UpdateCombat()
 {
     auto* tm = TimeManager::GetInstance();
@@ -260,52 +315,7 @@ void GamePlayScene::UpdateCombat()
     if (!tm->IsHitStopped()) {
         player_->Update(input_, enemy_->GetPosition());
 
-        // 乱舞：打ち上げヒット
-        if (player_->JustLaunched()) {
-            enemy_->Launch(GameConstants::kLaunchSpeed);
-            const Vector3& epos = enemy_->GetPosition();
-            tm->RequestHitStop(GameConstants::kHitStopLaunch);
-            cameraShaker_.Request(GameConstants::kShakeLaunchAmt, GameConstants::kShakeLaunchDur);
-            pm_->EmitRing("hit_ring",  epos, 5.5f, { 1.0f, 0.55f, 0.1f, 1.0f }, 20, 0.45f, 0.28f);
-            std::uniform_real_distribution<float> vxL(-4.0f, 4.0f);
-            std::uniform_real_distribution<float> vyL( 3.0f, 7.0f);
-            for (int i = 0; i < 10; ++i) {
-                pm_->EmitGravity("hit_spark", epos,
-                    { vxL(rng_), vyL(rng_), 0.0f },
-                    { 1.0f, 0.65f, 0.15f, 1.0f }, 0.8f, 0.18f);
-            }
-        }
-
-        // 乱舞：ジャグルスラッシュ
-        if (player_->JustRampageHit()) {
-            int   cnt      = player_->GetJuggleCount();
-            float dir      = player_->GetLastDirX();
-            float slashAng = (dir > 0.0f) ? 0.0f : GameConstants::kPi;
-            float rad      = 1.2f + cnt * 0.12f;
-            const Vector3& epos = enemy_->GetPosition();
-            pm_->EmitSlash("sword_slash", epos, slashAng,
-                { 1.0f, 1.0f - cnt * 0.06f, 1.0f - cnt * 0.09f, 1.0f }, rad);
-            pm_->EmitRing("hit_ring", epos, 2.5f + cnt * 0.2f,
-                { 1.0f, 0.9f, 0.5f, 0.8f }, 8, 0.25f, 0.15f);
-            tm->RequestHitStop(GameConstants::kHitStopJuggle);
-            cameraShaker_.Request(0.12f + cnt * 0.01f, 0.10f);
-        }
-
-        // 乱舞：フィニッシュ
-        if (player_->JustRampageFinish()) {
-            const Vector3& epos = enemy_->GetPosition();
-            tm->RequestHitStop(GameConstants::kHitStopFinish);
-            cameraShaker_.Request(GameConstants::kShakeFinishAmt, GameConstants::kShakeFinishDur);
-            pm_->EmitRing("hit_ring",  epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
-            pm_->EmitRing("sword_slash", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
-            std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
-            std::uniform_real_distribution<float> vyF( 4.0f, 10.0f);
-            for (int i = 0; i < 16; ++i) {
-                pm_->EmitGravity("hit_spark", epos,
-                    { vxF(rng_), vyF(rng_), 0.0f },
-                    { 1.0f, 0.4f + i * 0.04f, 0.1f, 1.0f }, 1.0f, 0.20f);
-            }
-        }
+        UpdateCombatEvents();
 
         enemy_->Update();
         if (enemy_->JustLanded()) {
@@ -351,22 +361,41 @@ void GamePlayScene::UpdateCamera()
 
 void GamePlayScene::UpdateStyleAndUI(float dt)
 {
+    const auto*    wm     = WeaponManager::GetInstance();
+    const WeaponData& weapon = wm->GetCurrent();
+    const Vector3& ppos   = player_->GetPosition();
+    const Vector3& epos   = enemy_->GetPosition();
+    AABB enemyAABB = { { epos.x - 0.5f, epos.y - 0.5f, -0.5f },
+                       { epos.x + 0.5f, epos.y + 0.5f,  0.5f } };
+
     if (player_->JustComboHit()) {
-        styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
-        enemy_->TakeDamage(1);
+        AABB meleeRange = { { ppos.x - weapon.range, ppos.y - 1.5f, -0.5f },
+                            { ppos.x + weapon.range, ppos.y + 1.5f,  0.5f } };
+        if (Collision::CheckCollision(meleeRange, enemyAABB)) {
+            styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
+            enemy_->TakeDamage(1);
+        }
     }
     if (player_->JustFired()) {
-        styleMeter_ = std::clamp(styleMeter_ + 0.05f, 0.0f, 1.0f);
-        enemy_->TakeDamage(1);
+        AABB shotRange = { { ppos.x - weapon.range * 2.0f, ppos.y - 1.5f, -0.5f },
+                           { ppos.x + weapon.range * 2.0f, ppos.y + 1.5f,  0.5f } };
+        if (Collision::CheckCollision(shotRange, enemyAABB)) {
+            styleMeter_ = std::clamp(styleMeter_ + 0.05f, 0.0f, 1.0f);
+            enemy_->TakeDamage(1);
+        }
     }
     if (player_->JustBlinked()) {
         styleMeter_ = std::clamp(styleMeter_ + 0.10f, 0.0f, 1.0f);
     }
     if (player_->JustRampageHit()) {
-        // 乱舞スラッシュ：回数が増えるほど多くゲージが溜まる
-        styleMeter_ = std::clamp(
-            styleMeter_ + 0.10f + player_->GetJuggleCount() * 0.02f, 0.0f, 1.0f);
-        enemy_->TakeDamage(1);
+        AABB rushRange = { { ppos.x - 2.5f, ppos.y - 1.5f, -0.5f },
+                           { ppos.x + 2.5f, ppos.y + 1.5f,  0.5f } };
+        if (Collision::CheckCollision(rushRange, enemyAABB)) {
+            // 乱舞スラッシュ：回数が増えるほど多くゲージが溜まる
+            styleMeter_ = std::clamp(
+                styleMeter_ + 0.10f + player_->GetJuggleCount() * 0.02f, 0.0f, 1.0f);
+            enemy_->TakeDamage(1);
+        }
     }
 
     float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? 0.6f : 1.0f;
@@ -411,7 +440,6 @@ void GamePlayScene::UpdateParticles(float dt)
     } else {
         ghostSpawnTimer_ = 0.0f;
     }
-    constexpr float kGhostLifetime = 0.3f;
     for (auto& g : ghostTrail_) { g.age += dt; }
     while (!ghostTrail_.empty() && ghostTrail_.front().age >= kGhostLifetime) {
         ghostTrail_.pop_front();
@@ -458,6 +486,7 @@ void GamePlayScene::UpdateParticles(float dt)
         if (step == 3) {
             pm_->EmitRing("sword_slash", ppos, 3.5f, col, 10, 0.3f, 0.22f);
         }
+
         tm->RequestHitStop(3);
         cameraShaker_.Request(0.10f * step, 0.10f);
     }
@@ -522,17 +551,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
     return dxCommon_->GetCurrentBackBufferHandle();
 }
 
-void GamePlayScene::ApplyActiveFilter()
-{
-    if (imageFilter_->IsEnabled()) {
-        imageFilter_->Apply(srvManager_);
-    } else if (grayscaleEffect_->IsEnabled()) {
-        grayscaleEffect_->Apply(srvManager_);
-    } else if (hsvFilter_->IsEnabled()) {
-        hsvFilter_->Apply(srvManager_);
-    }
-}
-
 void GamePlayScene::SetupMainRenderTarget()
 {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
@@ -547,6 +565,13 @@ void GamePlayScene::SetupMainRenderTarget()
     D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
     commandList->RSSetViewports(1, &vp);
     commandList->RSSetScissorRects(1, &scissor);
+}
+
+void GamePlayScene::SetupModelRenderState()
+{
+    modelCommon_->CommonDrawSettings();
+    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
+    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
 }
 
 void GamePlayScene::DrawShadowPass()
@@ -577,7 +602,7 @@ void GamePlayScene::Draw()
         fontRenderer_.Draw();
         return;
     }
-    if (clearTriggered_ && !RunData::GetInstance()->isRunActive && !glassShatter_.NeedCapture()) {
+    if (clearTriggered_ && IsGlassShatterFlow() && !glassShatter_.NeedCapture()) {
         spriteCommon_->CommonDrawSettings();
         clearBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
         clearBgSprite_->Update();
@@ -600,23 +625,16 @@ void GamePlayScene::Draw()
     spriteCommon_->CommonDrawSettings();
     waterPool_->Draw(camera_.get());
 
-    modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
+    SetupModelRenderState();
     skydome_->Draw();
 
-    modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
+    SetupModelRenderState();
 
     for (auto& obj : gameObjects_) { obj->Draw(); }
     for (auto& block : borderBlocks_) { block->Draw(); }
 
     if (!ghostTrail_.empty()) {
-        constexpr float kGhostLifetime = 0.3f;
-        modelCommon_->CommonDrawSettings();
-        objectCommon_->SetDefaultLight(dxCommon_->GetCommandList());
-        shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
+        SetupModelRenderState();
         for (const auto& g : ghostTrail_) {
             float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
             ghostObject_->SetPosition(g.pos);
@@ -643,16 +661,34 @@ void GamePlayScene::Draw()
     // ----- ゲームプレイ UI テキスト -----
     fontRenderer_.Draw();
 
-    // ----- フィルター適用 -----
-    ApplyActiveFilter();
-
-    // ---- ガラス割れエフェクト（サンドボックスのクリア演出時のみ）----
-    if (clearTriggered_ && !RunData::GetInstance()->isRunActive) {
+    // ---- ガラス割れエフェクト（サンドボックスのクリア演出 / デバッグテスト再生時のみ）----
+    if (clearTriggered_ && IsGlassShatterFlow()) {
         if (glassShatter_.NeedCapture()) {
             glassShatter_.CaptureFrame();
         }
         glassShatter_.Apply();
     }
+}
+
+void GamePlayScene::DrawRogueliteHUD()
+{
+    auto* rd = RunData::GetInstance();
+    if (!rd->isRunActive) { return; }
+
+    // 敵HPバー（上部中央）
+    int eHp    = enemy_->GetHp();
+    int eMaxHp = enemy_->GetMaxHp();
+    int filled = (eMaxHp > 0) ? (eHp * 20 / eMaxHp) : 0;
+    std::string hpBar = "ENEMY [";
+    for (int i = 0; i < 20; ++i) { hpBar += (i < filled ? '#' : ' '); }
+    hpBar += "] ";
+    hpBar += std::to_string(eHp) + "/" + std::to_string(eMaxHp);
+    fontRenderer_.DrawString(hpBar.c_str(), 280.0f, 10.0f, 1.5f, { 1.0f, 0.35f, 0.35f, 1.0f });
+
+    // プレイヤーHP + ゴールド（左上）
+    std::string info = "HP:" + std::to_string(rd->hp) + "/" + std::to_string(rd->maxHp)
+                     + "  G:" + std::to_string(rd->gold);
+    fontRenderer_.DrawString(info.c_str(), 10.0f, 10.0f, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
 }
 
 void GamePlayScene::DrawStyleUI()
@@ -671,28 +707,7 @@ void GamePlayScene::DrawStyleUI()
 
     fontRenderer_.Reset();
 
-    // ══════════════════════════════════════════════════════
-    // ローグライト: 敵HPバー + プレイヤーHP + ゴールド
-    // ══════════════════════════════════════════════════════
-    {
-        auto* rd = RunData::GetInstance();
-        if (rd->isRunActive) {
-            // 敵HPバー（上部中央）
-            int eHp    = enemy_->GetHp();
-            int eMaxHp = enemy_->GetMaxHp();
-            int filled = (eMaxHp > 0) ? (eHp * 20 / eMaxHp) : 0;
-            std::string hpBar = "ENEMY [";
-            for (int i = 0; i < 20; ++i) { hpBar += (i < filled ? '#' : ' '); }
-            hpBar += "] ";
-            hpBar += std::to_string(eHp) + "/" + std::to_string(eMaxHp);
-            fontRenderer_.DrawString(hpBar.c_str(), 280.0f, 10.0f, 1.5f, { 1.0f, 0.35f, 0.35f, 1.0f });
-
-            // プレイヤーHP + ゴールド（左上）
-            std::string info = "HP:" + std::to_string(rd->hp) + "/" + std::to_string(rd->maxHp)
-                             + "  G:" + std::to_string(rd->gold);
-            fontRenderer_.DrawString(info.c_str(), 10.0f, 10.0f, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
-        }
-    }
+    DrawRogueliteHUD();
 
     // ══════════════════════════════════════════════════════
     // 右上：コンボランク ＋ 覚醒ゲージ
@@ -792,8 +807,22 @@ void GamePlayScene::DrawStyleUI()
     }
 }
 
+bool GamePlayScene::IsGlassShatterFlow() const
+{
+    return glassShatterDebugTest_ || !RunData::GetInstance()->isRunActive;
+}
+
+void GamePlayScene::TriggerGlassShatterTest()
+{
+    if (clearTriggered_) { return; }
+    glassShatterDebugTest_ = true;
+    clearTriggered_        = true;
+    glassShatter_.Start();
+}
+
 void GamePlayScene::Finalize()
 {
+    ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
 
