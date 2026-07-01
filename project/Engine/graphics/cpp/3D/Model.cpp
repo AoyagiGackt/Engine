@@ -125,6 +125,12 @@ void Model::DrawGeometryOnly(ModelCommon* modelCommon)
 // OBJファイル読み込み
 void Model::LoadObjFile(const std::string& filePath)
 {
+    ParseObjFile(filePath);
+    ComputeTangents();
+}
+
+void Model::ParseObjFile(const std::string& filePath)
+{
     std::ifstream file(filePath);
     assert(file.is_open());
 
@@ -197,7 +203,10 @@ void Model::LoadObjFile(const std::string& filePath)
             }
         }
     }
+}
 
+void Model::ComputeTangents()
+{
     // タンジェント計算（三角形ごとに dPos/dUV から求めてアキュムレート）
     std::vector<Vector3> tangentAccum(vertices_.size(), { 0.0f, 0.0f, 0.0f });
     for (size_t i = 0; i + 2 < indices_.size(); i += 3) {

@@ -195,6 +195,20 @@ void BattleTestScene::Update()
 
     fontRenderer_.Reset();
 
+    UpdateWeaponCycle();
+    UpdatePlayerAndCamera();
+    UpdateEnvironment();
+
+    bool hitConfirmed = UpdateCombat();
+    UpdateComboRank(hitConfirmed);
+    UpdateDummies();
+
+    bool nearReturn = UpdateReturnPortal();
+    DrawHud(nearReturn);
+}
+
+void BattleTestScene::UpdateWeaponCycle()
+{
     // 武器切り替え（Q/E、数字キー 1〜4）
     weaponCycleTimer_ -= GameConstants::kFrameDeltaTime;
     if (weaponCycleTimer_ <= 0.0f) {
@@ -207,7 +221,10 @@ void BattleTestScene::Update()
             }
         }
     }
+}
 
+void BattleTestScene::UpdatePlayerAndCamera()
+{
     // 乱舞のターゲット：最も近いダミーを選ぶ
     {
         const Vector3& pp = player_->GetPosition();
@@ -229,7 +246,10 @@ void BattleTestScene::Update()
             -30.0f
         });
     }
+}
 
+void BattleTestScene::UpdateEnvironment()
+{
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     for (auto& b : borderBlocks_) { b->Update(); }
@@ -240,7 +260,10 @@ void BattleTestScene::Update()
         p->SetColor({ 1.0f * pulse, 0.5f * pulse, 0.1f * pulse, 0.9f });
         p->Update();
     }
+}
 
+bool BattleTestScene::UpdateCombat()
+{
     auto* tm = TimeManager::GetInstance();
     attackCooldown_ -= GameConstants::kFrameDeltaTime;
     const WeaponData& weapon  = weaponManager_->GetCurrent();
@@ -377,23 +400,29 @@ void BattleTestScene::Update()
         }
     }
 
-    // ── コンボランク追跡（実際にダミーへ命中した時のみ加算） ──────────
-    {
-        if (hitConfirmed) {
-            trComboCount_++;
-            trComboTimer_ = 1.2f;
-            trRankAlpha_  = 1.0f;
-            if (trComboCount_ > trMaxCombo_) { trMaxCombo_ = trComboCount_; }
-        }
-        trComboTimer_ -= GameConstants::kFrameDeltaTime;
-        if (trComboTimer_ <= 0.0f) {
-            trComboTimer_ = 0.0f;
-            // コンボ切れ → フェードアウト後にリセット
-            trRankAlpha_ -= GameConstants::kFrameDeltaTime * 2.0f;
-            if (trRankAlpha_ <= 0.0f) { trRankAlpha_ = 0.0f; trComboCount_ = 0; }
-        }
-    }
+    return hitConfirmed;
+}
 
+void BattleTestScene::UpdateComboRank(bool hitConfirmed)
+{
+    // コンボランク追跡（実際にダミーへ命中した時のみ加算）
+    if (hitConfirmed) {
+        trComboCount_++;
+        trComboTimer_ = 1.2f;
+        trRankAlpha_  = 1.0f;
+        if (trComboCount_ > trMaxCombo_) { trMaxCombo_ = trComboCount_; }
+    }
+    trComboTimer_ -= GameConstants::kFrameDeltaTime;
+    if (trComboTimer_ <= 0.0f) {
+        trComboTimer_ = 0.0f;
+        // コンボ切れ → フェードアウト後にリセット
+        trRankAlpha_ -= GameConstants::kFrameDeltaTime * 2.0f;
+        if (trRankAlpha_ <= 0.0f) { trRankAlpha_ = 0.0f; trComboCount_ = 0; }
+    }
+}
+
+void BattleTestScene::UpdateDummies()
+{
     for (auto& d : dummies_) {
         // ノックバック物理
         d.knockVelY -= 0.012f;
@@ -426,15 +455,29 @@ void BattleTestScene::Update()
     }
 
     UpdateHpBars();
+}
 
-    const Vector3& cam = camera_->GetTranslate();
+bool BattleTestScene::UpdateReturnPortal()
+{
+    const Vector3& pp = player_->GetPosition();
     bool nearReturn = std::abs(pp.x - kWarpRetX) < kReturnProx;
 
     if (nearReturn && input_->TriggerKey(DIK_RETURN)) {
         SceneManager::GetInstance()->ChangeScene("TRAINING");
     }
+    return nearReturn;
+}
 
-    // ---- UI（FontRenderer） ----
+void BattleTestScene::DrawHud(bool nearReturnPortal)
+{
+    DrawWeaponHud(nearReturnPortal);
+    DrawControlsHud();
+    DrawComboRankHud();
+    DrawAwakenGaugeHud();
+}
+
+void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
+{
     constexpr float kScale = 1.5f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
     constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
@@ -467,118 +510,124 @@ void BattleTestScene::Update()
     fontRenderer_.DrawStringW(L"[L] 格闘  [K] 射撃  [R] 覚醒", px, py, kScale, kColorHint);
 
     // 戻りポータルのラベル
-    if (nearReturn) {
+    if (nearReturnPortal) {
+        const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         WorldToScreen(kWarpRetX, 5.0f, cam.x, cam.y, sx, sy);
         constexpr Vector4 kColorReturn = { 1.0f, 0.6f, 0.1f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Back", sx - 84.0f, sy - 36.0f, kScale, kColorReturn);
     }
+}
 
+void BattleTestScene::DrawControlsHud()
+{
     // ── 操作説明（右パネル） ─────────────────────────────────────────
-    {
-        constexpr float kIx     = 870.0f;
-        constexpr float kIS     = 1.3f;
-        constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-        constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
-        constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
-        float iy = 12.0f;
+    constexpr float kIx     = 870.0f;
+    constexpr float kIS     = 1.3f;
+    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
+    constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
+    constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
+    float iy = 12.0f;
 
-        fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
-        iy += kILineH + 2.0f;
+    fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
+    iy += kILineH + 2.0f;
 
-        auto row = [&](const char* key, const wchar_t* desc) {
-            std::wstring line(key, key + std::strlen(key));
-            line += desc;
-            fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
-            iy += kILineH;
-        };
-        row("A / D  ", L": 移動");
-        row("W      ", L": ジャンプ");
-        row("L      ", L": コンボ (x3)");
-        row("K      ", L": 射撃");
-        row("SPACE  ", L": スピン連射");
-        row("(Air)  ", L": スピン+散弾");
-        row("Q / E  ", L": 武器切替");
-        row("1-4", L": Weapon Select");
-        row("ENTER", L": Back (portal)");
-        row("R", L": Awaken (30%+)");
-    }
+    auto row = [&](const char* key, const wchar_t* desc) {
+        std::wstring line(key, key + std::strlen(key));
+        line += desc;
+        fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
+        iy += kILineH;
+    };
+    row("A / D  ", L": 移動");
+    row("W      ", L": ジャンプ");
+    row("L      ", L": コンボ (x3)");
+    row("K      ", L": 射撃");
+    row("SPACE  ", L": スピン連射");
+    row("(Air)  ", L": スピン+散弾");
+    row("Q / E  ", L": 武器切替");
+    row("1-4", L": Weapon Select");
+    row("ENTER", L": Back (portal)");
+    row("R", L": Awaken (30%+)");
+}
 
+void BattleTestScene::DrawComboRankHud()
+{
     // ── コンボランク（画面中央） ──────────────────────────────────────
-    if (trComboCount_ > 0 || trRankAlpha_ > 0.0f) {
-        struct RankDef { const char* label; Vector4 color; };
-        static constexpr RankDef kRanks[] = {
-            { "D",   { 0.55f, 0.55f, 0.55f, 1.0f } },
-            { "C",   { 0.85f, 0.85f, 0.85f, 1.0f } },
-            { "B",   { 0.30f, 0.72f, 1.00f, 1.0f } },
-            { "A",   { 0.20f, 1.00f, 0.40f, 1.0f } },
-            { "S",   { 1.00f, 0.90f, 0.10f, 1.0f } },
-            { "SS",  { 1.00f, 0.55f, 0.10f, 1.0f } },
-            { "SSS", { 1.00f, 0.30f, 0.30f, 1.0f } },
-        };
-        int ri = (trComboCount_ >= 25) ? 6 :
-                 (trComboCount_ >= 18) ? 5 :
-                 (trComboCount_ >= 12) ? 4 :
-                 (trComboCount_ >=  8) ? 3 :
-                 (trComboCount_ >=  5) ? 2 :
-                 (trComboCount_ >=  3) ? 1 : 0;
-        const char* lbl = kRanks[ri].label;
-        Vector4 rc = kRanks[ri].color;
-        rc.w *= trRankAlpha_;
+    if (trComboCount_ <= 0 && trRankAlpha_ <= 0.0f) { return; }
 
-        constexpr float kRS = 5.0f;  // ランク文字スケール
-        constexpr float kHS = 2.0f;  // ヒット数スケール
-        int   lblLen = static_cast<int>(std::strlen(lbl));
-        float rankW  = FontRenderer::kCharW * kRS * static_cast<float>(lblLen);
-        fontRenderer_.DrawString(lbl, 640.0f - rankW * 0.5f, 158.0f, kRS, rc);
+    struct RankDef { const char* label; Vector4 color; };
+    static constexpr RankDef kRanks[] = {
+        { "D",   { 0.55f, 0.55f, 0.55f, 1.0f } },
+        { "C",   { 0.85f, 0.85f, 0.85f, 1.0f } },
+        { "B",   { 0.30f, 0.72f, 1.00f, 1.0f } },
+        { "A",   { 0.20f, 1.00f, 0.40f, 1.0f } },
+        { "S",   { 1.00f, 0.90f, 0.10f, 1.0f } },
+        { "SS",  { 1.00f, 0.55f, 0.10f, 1.0f } },
+        { "SSS", { 1.00f, 0.30f, 0.30f, 1.0f } },
+    };
+    int ri = (trComboCount_ >= 25) ? 6 :
+             (trComboCount_ >= 18) ? 5 :
+             (trComboCount_ >= 12) ? 4 :
+             (trComboCount_ >=  8) ? 3 :
+             (trComboCount_ >=  5) ? 2 :
+             (trComboCount_ >=  3) ? 1 : 0;
+    const char* lbl = kRanks[ri].label;
+    Vector4 rc = kRanks[ri].color;
+    rc.w *= trRankAlpha_;
 
-        char hitBuf[24];
-        std::snprintf(hitBuf, sizeof(hitBuf), "x%d HIT", trComboCount_);
-        float hw = FontRenderer::kCharW * kHS * static_cast<float>(std::strlen(hitBuf));
-        fontRenderer_.DrawString(hitBuf, 640.0f - hw * 0.5f, 240.0f, kHS,
-            { 1.0f, 1.0f, 1.0f, trRankAlpha_ });
+    constexpr float kRS = 5.0f;  // ランク文字スケール
+    constexpr float kHS = 2.0f;  // ヒット数スケール
+    int   lblLen = static_cast<int>(std::strlen(lbl));
+    float rankW  = FontRenderer::kCharW * kRS * static_cast<float>(lblLen);
+    fontRenderer_.DrawString(lbl, 640.0f - rankW * 0.5f, 158.0f, kRS, rc);
 
-        if (trMaxCombo_ > 0) {
-            char bestBuf[24];
-            std::snprintf(bestBuf, sizeof(bestBuf), "BEST:%d", trMaxCombo_);
-            constexpr float kBS = 1.3f;
-            float bw = FontRenderer::kCharW * kBS * static_cast<float>(std::strlen(bestBuf));
-            fontRenderer_.DrawString(bestBuf, 640.0f - bw * 0.5f, 270.0f, kBS,
-                { 0.7f, 0.7f, 0.7f, trRankAlpha_ * 0.8f });
-        }
+    char hitBuf[24];
+    std::snprintf(hitBuf, sizeof(hitBuf), "x%d HIT", trComboCount_);
+    float hw = FontRenderer::kCharW * kHS * static_cast<float>(std::strlen(hitBuf));
+    fontRenderer_.DrawString(hitBuf, 640.0f - hw * 0.5f, 240.0f, kHS,
+        { 1.0f, 1.0f, 1.0f, trRankAlpha_ });
+
+    if (trMaxCombo_ > 0) {
+        char bestBuf[24];
+        std::snprintf(bestBuf, sizeof(bestBuf), "BEST:%d", trMaxCombo_);
+        constexpr float kBS = 1.3f;
+        float bw = FontRenderer::kCharW * kBS * static_cast<float>(std::strlen(bestBuf));
+        fontRenderer_.DrawString(bestBuf, 640.0f - bw * 0.5f, 270.0f, kBS,
+            { 0.7f, 0.7f, 0.7f, trRankAlpha_ * 0.8f });
     }
+}
 
-    // ── 覚醒ゲージ UI ────────────────────────────────────────────────
-    {
-        constexpr float kBarW  = 280.0f;
-        constexpr float kBarH  =  14.0f;
-        constexpr float kBarX  = 640.0f - kBarW * 0.5f;
-        constexpr float kBarY  = 700.0f;
-        float gauge = player_->GetAwakenGauge();
-        bool  awake = player_->IsAwakened();
+void BattleTestScene::DrawAwakenGaugeHud()
+{
+    constexpr float kScale = 1.5f;
+    constexpr float kBarW  = 280.0f;
+    constexpr float kBarH  =  14.0f;
+    constexpr float kBarX  = 640.0f - kBarW * 0.5f;
+    constexpr float kBarY  = 700.0f;
+    float gauge = player_->GetAwakenGauge();
+    bool  awake = player_->IsAwakened();
 
-        awakenGaugeBg_->SetPosition({ kBarX, kBarY });
-        awakenGaugeBg_->SetSize({ kBarW, kBarH });
-        awakenGaugeBg_->Update();
+    awakenGaugeBg_->SetPosition({ kBarX, kBarY });
+    awakenGaugeBg_->SetSize({ kBarW, kBarH });
+    awakenGaugeBg_->Update();
 
-        float pulse = awake ? (0.7f + 0.3f * std::sin(warpPulseTimer_ * 8.0f)) : 1.0f;
-        Vector4 fgColor = awake
-            ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
-            : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
-        awakenGaugeFg_->SetColor(fgColor);
-        awakenGaugeFg_->SetPosition({ kBarX, kBarY });
-        awakenGaugeFg_->SetSize({ kBarW * gauge, kBarH });
-        awakenGaugeFg_->Update();
+    float pulse = awake ? (0.7f + 0.3f * std::sin(warpPulseTimer_ * 8.0f)) : 1.0f;
+    Vector4 fgColor = awake
+        ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
+        : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
+    awakenGaugeFg_->SetColor(fgColor);
+    awakenGaugeFg_->SetPosition({ kBarX, kBarY });
+    awakenGaugeFg_->SetSize({ kBarW * gauge, kBarH });
+    awakenGaugeFg_->Update();
 
-        constexpr Vector4 kLabelColor = { 0.6f, 0.8f, 1.0f, 0.9f };
-        fontRenderer_.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kScale, kLabelColor);
-        if (awake) {
-            fontRenderer_.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kScale,
-                { pulse, pulse, 1.0f, 1.0f });
-        } else if (gauge >= 0.3f) {
-            fontRenderer_.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
-                kBarY - 18.0f, kScale, { 0.8f, 0.9f, 1.0f, 0.8f });
-        }
+    constexpr Vector4 kLabelColor = { 0.6f, 0.8f, 1.0f, 0.9f };
+    fontRenderer_.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kScale, kLabelColor);
+    if (awake) {
+        fontRenderer_.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kScale,
+            { pulse, pulse, 1.0f, 1.0f });
+    } else if (gauge >= 0.3f) {
+        fontRenderer_.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
+            kBarY - 18.0f, kScale, { 0.8f, 0.9f, 1.0f, 0.8f });
     }
 }
 

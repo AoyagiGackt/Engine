@@ -79,7 +79,7 @@ struct Collider {
     void SetAsCapsule(const Capsule& c) { shape = ColliderShape::Capsule; capsule = c; }
 
     /**
-     * @brief Octreeブロードフェーズ用の包含 AABB を返す
+     * @brief ブロードフェーズ判定用の包含 AABB を返す
      * どの形状でもオブジェクトを完全に包む AABB を計算します
      */
     AABB GetBroadAABB() const {

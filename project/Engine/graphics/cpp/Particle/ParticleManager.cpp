@@ -75,9 +75,15 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
 
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
+    CreateParticleStateBuffers(group);
+    CreateParticleInstancingResource(group);
+    InitParticleGroupState(group);
+}
+
+void ParticleManager::CreateParticleStateBuffers(ParticleGroup& group)
+{
     ID3D12Device* device = dxCommon_->GetDevice();
-    const UINT64 stateSize   = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
-    const UINT64 instancSize = sizeof(ParticleForGPU)   * ParticleGroup::kNumMaxInstance;
+    const UINT64 stateSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
 
     // ---- particleStateBuffer: DEFAULT heap, UAV ----
     {
@@ -115,6 +121,12 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
         assert(SUCCEEDED(hr));
         memset(group.particleUploadData, 0, static_cast<size_t>(stateSize));
     }
+}
+
+void ParticleManager::CreateParticleInstancingResource(ParticleGroup& group)
+{
+    ID3D12Device* device = dxCommon_->GetDevice();
+    const UINT64 instancSize = sizeof(ParticleForGPU) * ParticleGroup::kNumMaxInstance;
 
     // ---- instancingResource: DEFAULT heap, UAV (CS が書く) ----
     {
@@ -145,7 +157,10 @@ void ParticleManager::CreateParticleGroup(const std::string& name,
     srvDesc.Buffer.NumElements         = ParticleGroup::kNumMaxInstance;
     srvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
     device->CreateShaderResourceView(group.instancingResource.Get(), &srvDesc, cpuH);
+}
 
+void ParticleManager::InitParticleGroupState(ParticleGroup& group)
+{
     group.slotExpiry.fill(0.0f);
     group.aliveCount     = 0;
     group.groupTime      = 0.0f;

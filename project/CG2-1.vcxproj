@@ -250,7 +250,6 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BloomEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\EventBus.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Sequencer.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\ChromaticAberrationEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp" />
@@ -527,7 +526,6 @@
     <ClInclude Include="Engine\game\h\Util\GameConstants.h" />
     <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h" />
-    <ClInclude Include="Engine\game\h\Collision\Octree.h" />
     <ClInclude Include="Engine\game\h\Player\BulletPool.h" />
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
@@ -620,8 +618,6 @@
     <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
-    <ClInclude Include="Engine\game\h\Core\EventBus.h" />
-    <ClInclude Include="Engine\game\h\Core\StateMachine.h" />
     <ClInclude Include="Engine\game\h\Core\Sequencer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />

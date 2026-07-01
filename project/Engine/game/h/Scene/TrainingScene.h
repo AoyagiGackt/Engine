@@ -60,6 +60,25 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:
+    /// @brief 武器切り替え入力（Q/E、数字キー）を処理する
+    void UpdateWeaponCycle();
+    /// @brief プレイヤーとスピン連射弾を更新する
+    void UpdatePlayerAndBullets();
+    /// @brief カメラ追従、影、境界ブロック、PBRデモ、ワープポータル演出を更新する
+    void UpdateCameraAndEnvironment();
+    /// @brief ワープポータル判定（ENTERで復帰）を行う。近接中なら true を返す
+    bool UpdateWarpPortal();
+    /// @brief HUD全体（武器一覧・デバッグ情報・操作説明・覚醒ゲージ）を描画する
+    void DrawHud(bool nearWarpPortal);
+    /// @brief 武器一覧とワープポータルのラベルを描画する
+    void DrawWeaponHud(bool nearWarpPortal);
+    /// @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する
+    void DrawDebugHud();
+    /// @brief 右側の操作説明パネルを描画する
+    void DrawControlsHud();
+    /// @brief 覚醒ゲージUIを描画する
+    void DrawAwakenGaugeHud();
+
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
     Audio*         audio_        = nullptr;

@@ -693,76 +693,85 @@ void GamePlayScene::DrawRogueliteHUD()
 
 void GamePlayScene::DrawStyleUI()
 {
+    fontRenderer_.Reset();
+
+    DrawRogueliteHUD();
+    DrawRankAndAwakenGauge();
+    DrawStyleCommands();
+}
+
+void GamePlayScene::DrawRankAndAwakenGauge()
+{
+    // ══════════════════════════════════════════════════════
+    // 右上：コンボランク ＋ 覚醒ゲージ
+    // ══════════════════════════════════════════════════════
+    constexpr float kScale = 1.5f;
+    constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
+
+    const float gauge    = player_->GetAwakenGauge();
+    const bool  awakened = player_->IsAwakened();
+
+    // ランク算出
+    struct RankInfo { const char* label; Vector4 color; };
+    RankInfo ri;
+    if      (styleMeter_ >= 0.90f) { ri = { "SSS", { 1.0f, 0.15f, 0.15f, 1.0f } }; }
+    else if (styleMeter_ >= 0.70f) { ri = { "SS",  { 1.0f, 0.85f, 0.00f, 1.0f } }; }
+    else if (styleMeter_ >= 0.50f) { ri = { "S",   { 0.2f, 0.85f, 1.00f, 1.0f } }; }
+    else if (styleMeter_ >= 0.30f) { ri = { "A",   { 0.95f,0.55f, 0.15f, 1.0f } }; }
+    else if (styleMeter_ >= 0.15f) { ri = { "B",   { 0.85f,0.85f, 0.20f, 1.0f } }; }
+    else if (styleMeter_ >= 0.05f) { ri = { "C",   { 0.85f,0.85f, 0.85f, 1.0f } }; }
+    else                           { ri = { "D",   { 0.45f,0.45f, 0.45f, 1.0f } }; }
+
+    // ランク文字（大きく右揃え）
+    constexpr float kRankScale = 4.0f;
+    int   rankLen = static_cast<int>(strlen(ri.label));
+    float rankX   = 1260.0f - rankLen * FontRenderer::kCharW * kRankScale;
+    fontRenderer_.DrawString(ri.label, rankX, 20.0f, kRankScale, ri.color);
+
+    // 覚醒ゲージ（ランクの下）
+    float gy = 20.0f + FontRenderer::kCharH * kRankScale + 6.0f;
+
+    if (awakened) {
+        fontRenderer_.DrawStringW(L"★ 覚醒中!", 1030.0f, gy, kScale,
+            { 1.0f, 0.88f, 0.15f, 1.0f });
+    }
+    gy += kLineH;
+
+    {
+        bool ready = (gauge >= 0.3f);
+        Vector4 col = ready ? Vector4{ 0.85f,0.5f,1.0f,1.0f }
+                            : Vector4{ 0.45f,0.45f,0.45f,1.0f };
+        fontRenderer_.DrawStringW(ready ? L"覚醒ゲージ [R]で発動" : L"覚醒ゲージ",
+            1030.0f, gy, kScale, col);
+    }
+    gy += kLineH;
+
+    {
+        int filled = std::clamp(static_cast<int>(gauge * 16.0f), 0, 16);
+        std::string bar = "[";
+        for (int i = 0; i < 16; ++i) { bar += (i < filled ? '#' : ' '); }
+        bar += "] ";
+        bar += std::to_string(static_cast<int>(gauge * 100.0f)) + "%";
+        Vector4 col = awakened ? Vector4{ 1.0f,0.85f,0.0f,1.0f }
+                               : Vector4{ 0.55f,0.15f,0.9f,1.0f };
+        fontRenderer_.DrawString(bar, 1030.0f, gy, kScale, col);
+    }
+}
+
+void GamePlayScene::DrawStyleCommands()
+{
+    // ══════════════════════════════════════════════════════
+    // 右側：スタイルコマンド UI
+    // ══════════════════════════════════════════════════════
+    constexpr float kScale = 1.5f;
+    constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
+
     auto* wm = WeaponManager::GetInstance();
     const WeaponData& style = wm->GetCurrent();
     const int         idx   = wm->GetIndex();
     const int         total = wm->GetCount();
+    const int         combo = player_->GetComboStep();
 
-    const float gauge    = player_->GetAwakenGauge();
-    const bool  awakened = player_->IsAwakened();
-    const int   combo    = player_->GetComboStep();
-
-    constexpr float kScale = 1.5f;
-    constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
-
-    fontRenderer_.Reset();
-
-    DrawRogueliteHUD();
-
-    // ══════════════════════════════════════════════════════
-    // 右上：コンボランク ＋ 覚醒ゲージ
-    // ══════════════════════════════════════════════════════
-    {
-        // ランク算出
-        struct RankInfo { const char* label; Vector4 color; };
-        RankInfo ri;
-        if      (styleMeter_ >= 0.90f) { ri = { "SSS", { 1.0f, 0.15f, 0.15f, 1.0f } }; }
-        else if (styleMeter_ >= 0.70f) { ri = { "SS",  { 1.0f, 0.85f, 0.00f, 1.0f } }; }
-        else if (styleMeter_ >= 0.50f) { ri = { "S",   { 0.2f, 0.85f, 1.00f, 1.0f } }; }
-        else if (styleMeter_ >= 0.30f) { ri = { "A",   { 0.95f,0.55f, 0.15f, 1.0f } }; }
-        else if (styleMeter_ >= 0.15f) { ri = { "B",   { 0.85f,0.85f, 0.20f, 1.0f } }; }
-        else if (styleMeter_ >= 0.05f) { ri = { "C",   { 0.85f,0.85f, 0.85f, 1.0f } }; }
-        else                           { ri = { "D",   { 0.45f,0.45f, 0.45f, 1.0f } }; }
-
-        // ランク文字（大きく右揃え）
-        constexpr float kRankScale = 4.0f;
-        int   rankLen = static_cast<int>(strlen(ri.label));
-        float rankX   = 1260.0f - rankLen * FontRenderer::kCharW * kRankScale;
-        fontRenderer_.DrawString(ri.label, rankX, 20.0f, kRankScale, ri.color);
-
-        // 覚醒ゲージ（ランクの下）
-        float gy = 20.0f + FontRenderer::kCharH * kRankScale + 6.0f;
-
-        if (awakened) {
-            fontRenderer_.DrawStringW(L"★ 覚醒中!", 1030.0f, gy, kScale,
-                { 1.0f, 0.88f, 0.15f, 1.0f });
-        }
-        gy += kLineH;
-
-        {
-            bool ready = (gauge >= 0.3f);
-            Vector4 col = ready ? Vector4{ 0.85f,0.5f,1.0f,1.0f }
-                                : Vector4{ 0.45f,0.45f,0.45f,1.0f };
-            fontRenderer_.DrawStringW(ready ? L"覚醒ゲージ [R]で発動" : L"覚醒ゲージ",
-                1030.0f, gy, kScale, col);
-        }
-        gy += kLineH;
-
-        {
-            int filled = std::clamp(static_cast<int>(gauge * 16.0f), 0, 16);
-            std::string bar = "[";
-            for (int i = 0; i < 16; ++i) { bar += (i < filled ? '#' : ' '); }
-            bar += "] ";
-            bar += std::to_string(static_cast<int>(gauge * 100.0f)) + "%";
-            Vector4 col = awakened ? Vector4{ 1.0f,0.85f,0.0f,1.0f }
-                                   : Vector4{ 0.55f,0.15f,0.9f,1.0f };
-            fontRenderer_.DrawString(bar, 1030.0f, gy, kScale, col);
-        }
-    }
-
-    // ══════════════════════════════════════════════════════
-    // 右側：スタイルコマンド UI
-    // ══════════════════════════════════════════════════════
     constexpr float kX = 780.0f;
     float y = 448.0f;
 

@@ -284,6 +284,11 @@ private:
     // 空きスロットを返す。なければ UINT32_MAX
     uint32_t AllocateSlot(ParticleGroup& group);
 
+    // CreateParticleGroup のフェーズ分割ヘルパー
+    void CreateParticleStateBuffers(ParticleGroup& group);
+    void CreateParticleInstancingResource(ParticleGroup& group);
+    void InitParticleGroupState(ParticleGroup& group);
+
     // Update のフェーズ分割ヘルパー
     void UpdateCSConstants(Camera* camera, float dt);
     void TransitionInstancingToUAV(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);

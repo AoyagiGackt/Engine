@@ -92,6 +92,10 @@ public:
 private:
     void DrawShadowPass();
     void DrawStyleUI();
+    /// @brief 右上のコンボランク表示と覚醒ゲージを描画する
+    void DrawRankAndAwakenGauge();
+    /// @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する
+    void DrawStyleCommands();
     void DrawRogueliteHUD();
     void SetupModelRenderState();
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;

@@ -480,9 +480,6 @@
     <ClCompile Include="Engine\game\cpp\Core\Tweener.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\EventBus.cpp">
-      <Filter>ソースファイル\Game\System</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Sequencer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
@@ -653,9 +650,6 @@
     </ClInclude>
     <!-- Engine\Collision -->
     <ClInclude Include="Engine\game\h\Collision\Collision.h">
-      <Filter>ヘッダーファイル\Engine\Collision</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Collision\Octree.h">
       <Filter>ヘッダーファイル\Engine\Collision</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h">
@@ -849,12 +843,6 @@
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\ObjectPool.h">
-      <Filter>ヘッダーファイル\Game\System</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\EventBus.h">
-      <Filter>ヘッダーファイル\Game\System</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\StateMachine.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Sequencer.h">
