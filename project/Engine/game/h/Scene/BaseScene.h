@@ -14,15 +14,6 @@ using engine::graphics::ImGuiManager;
 using engine::Input;
 
 /**
- * @brief シーンの種類を定義する列挙型
- * @note 新しいシーン（リザルトやステージ選択など）を追加する場合は、ここに定数を追記
- */
-enum SceneType {
-    kTitle, ///< タイトルシーン
-    kGamePlay ///< ゲームプレイシーン
-};
-
-/**
  * @brief 全てのシーンの抽象基底クラス
  * @note 各具体的なシーン（TitleScene 等）はこのクラスを継承して実装
  * 共通のインターフェースを提供することで、SceneManager による一括管理を可能に
@@ -71,6 +62,15 @@ public:
 
     /** @brief ImGuiManagerを受け取る（デバッグUIが必要なシーンのみオーバーライド） */
     virtual void SetImGuiManager(ImGuiManager*) {}
+
+    /**
+     * @brief グレースケール／イメージフィルター／HSVフィルターのオフスクリーンRTVリダイレクトに対応しているか
+     * @note 対応シーンのみ Draw() 内で GetActiveRTVHandle() 相当の切り替えを行っている。
+     *       未対応シーンで Game.cpp 側が BeginScene/EndScene/Apply を呼ぶと、
+     *       何も描かれていないオフスクリーンテクスチャでバックバッファが上書きされ、
+     *       画面から絵が消えてしまうため、対応シーンのみ true を返すこと。
+     */
+    virtual bool SupportsPostEffects() const { return false; }
 };
 
 } // namespace engine::game

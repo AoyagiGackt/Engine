@@ -97,6 +97,15 @@ private:
     void LoadObjFile(const std::string& filePath);
 
     /**
+     * @brief OBJファイルのテキストを解析し vertices_/indices_ を構築する
+     * @param filePath 読み込むOBJファイルのパス
+     */
+    void ParseObjFile(const std::string& filePath);
+
+    /// @brief vertices_/indices_ から三角形ごとにタンジェントを計算し格納する
+    void ComputeTangents();
+
+    /**
      * @brief Assimpを使ってGLTF/FBX等のメッシュを読み込む内部関数
      * @param filePath 読み込むファイルのパス
      */

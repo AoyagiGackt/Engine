@@ -120,7 +120,7 @@ public:
      * @brief 描画するテクスチャを別の画像に変更する
      * @param textureFilePath 新しいテクスチャ画像のパス
      */
-    void SetTexture(std::string textureFilePath);
+    void SetTexture(const std::string& textureFilePath);
 
     /** @brief 外部で作成したSRVインデックスを直接指定する（動画用） */
     void SetExternalTexture(uint32_t srvIndex)

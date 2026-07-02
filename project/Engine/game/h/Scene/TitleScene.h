@@ -6,6 +6,7 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
+#include "WinApp.h"
 #include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"

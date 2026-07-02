@@ -23,7 +23,6 @@ using engine::graphics::ModelCommon;
  * @brief プレイヤーキャラクターを制御するクラス
  * @note DMC 風のスタイルアクション（コンボ・ブリンク・連射・覚醒乱舞）と
  * ローグライト用のスキル補正（SkillMods）を統合管理する。
- * EventBus 経由でジャンプ・着地・攻撃ヒット等のイベントをゲームに通知する
  */
 class Player {
 public:

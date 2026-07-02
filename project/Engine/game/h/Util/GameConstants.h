@@ -4,6 +4,7 @@
  */
 #pragma once
 
+namespace engine {
 namespace GameConstants {
 
     // フレームレート
@@ -38,3 +39,4 @@ namespace GameConstants {
     // 打ち上げ速度
     inline constexpr float kLaunchSpeed = 0.48f;
 }
+} // namespace engine

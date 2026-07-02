@@ -114,14 +114,14 @@ MeshData GeneratePlaneMesh(float width = 1.0f, float height = 1.0f)
 }
 
 MeshManager::MeshManager()
-    : currentMeshType_(MeshType_Sphere)
+    : currentMeshType_(MeshType::Sphere)
 {
     InitMeshes();
 }
 
 void MeshManager::SetCurrentMeshType(MeshType type) { currentMeshType_ = type; }
 MeshType MeshManager::GetCurrentMeshType() const { return currentMeshType_; }
-MeshData& MeshManager::GetCurrentMesh() { return meshes[(int)currentMeshType_]; }
+MeshData& MeshManager::GetCurrentMesh() { return meshes[static_cast<size_t>(currentMeshType_)]; }
 
 void MeshManager::InitMeshes()
 {

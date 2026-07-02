@@ -13,13 +13,14 @@
 #include <string>
 
 namespace engine {
-namespace StringUtility {
+class StringUtility {
+public:
     // UTF-8 の string（日本語も扱える文字列）を wstring（ワイド文字列）に変換する
     // 用途: ファイルパスを Windows API（MFCreateSourceReaderFromURL など）に渡すとき
-    std::wstring ConvertString(const std::string& str);
+    static std::wstring ConvertString(const std::string& str);
 
     // wstring（ワイド文字列）を UTF-8 の string に変換する
     // 用途: Windows API から返ってきた wstring をログ出力やデバッグ表示に使うとき
-    std::string  ConvertString(const std::wstring& str);
-}
+    static std::string  ConvertString(const std::wstring& str);
+};
 } // namespace engine

@@ -1,4 +1,7 @@
-// @file GamePlayScene.h
+/**
+ * @file GamePlayScene.h
+ * @brief メインの戦闘シーン（ローグライト／サンドボックス両対応）
+ */
 #pragma once
 
  // --- 標準ライブラリ ---
@@ -81,22 +84,50 @@ public:
     void Update() override;
     void Draw() override;
     void SetImGuiManager(ImGuiManager* imgui){ imguiManager_ = imgui; }
+    bool SupportsPostEffects() const override { return true; }
+
+    /// @brief ImGuiパネルからの手動テスト再生用
+    void TriggerGlassShatterTest();
 
 private:
+    // シャドウマップ描画パス
     void DrawShadowPass();
+    // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
+    /// @brief 右上のコンボランク表示と覚醒ゲージを描画する
+    void DrawRankAndAwakenGauge();
+    /// @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する
+    void DrawStyleCommands();
+    // ローグライトのHP/Gold/フロア情報HUD描画
+    void DrawRogueliteHUD();
+    // モデル共通描画設定（PSO/ルートシグネチャ）の適用
+    void SetupModelRenderState();
+    // ポストエフェクト適用中かで描画先RTVを切り替える
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
-    void ApplyActiveFilter();
+    // メインレンダーターゲットのセットアップ
     void SetupMainRenderTarget();
+    // カメラ位置・回転の移動平均によるスムージング
     void UpdateCameraSmoothing();
+    // SceneEditor用の編集コンテキストを構築
     SceneEditor::EditContext BuildEditContext();
 
+    // クリア演出（結果表示）の状態更新。表示中ならtrue
     bool UpdateClearState();
+    // 戦闘ロジック全体の更新
     void UpdateCombat();
+    // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
+    void UpdateCombatEvents();
+    // カメラ追従・シェイクの更新
     void UpdateCamera();
+    // スタイルメーターとUI状態の更新
     void UpdateStyleAndUI(float dt);
+    // パーティクルの更新
     void UpdateParticles(float dt);
+    // 敵撃破などのクリア条件判定
     void CheckClearCondition();
+
+    /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）
+    bool IsGlassShatterFlow() const;
 
     DirectXCommon* dxCommon_    = nullptr;
     Input*         input_       = nullptr;
@@ -146,6 +177,8 @@ private:
     float        hitCooldown_ = 0.0f;
     std::mt19937 rng_{ std::random_device{}() };
 
+    static constexpr float kGhostLifetime = 0.3f;
+
     struct GhostEntry { Vector3 pos; float age; };
     std::deque<GhostEntry>    ghostTrail_;
     std::unique_ptr<Object3d> ghostObject_;
@@ -163,8 +196,9 @@ private:
     CameraShaker cameraShaker_;
 
     GlassShatterEffect glassShatter_;
-    bool clearTriggered_ = false;
-    bool requestClear_   = false;
+    bool clearTriggered_        = false;
+    bool requestClear_          = false;
+    bool glassShatterDebugTest_ = false;
 
     std::unique_ptr<Sprite>   clearBgSprite_;
     std::unique_ptr<WaterPool> waterPool_;

@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "DelayTimer.h"
+#include "InputBuffer.h"
 #include "GameConstants.h"
 #include "Sequencer.h"
 #include "GamePlayScene.h"
@@ -53,6 +54,9 @@ void MyGame::Update()
     // 基盤の更新
     Framework::Update();
 
+    // 入力バッファ更新（Input::Update() の直後）
+    InputBuffer::GetInstance()->Update(input_.get());
+
     // 時間管理・オーディオフェードを毎フレーム更新
     TimeManager::GetInstance()->Update();
     audio_->Update(GameConstants::kFrameDeltaTime);
@@ -66,7 +70,7 @@ void MyGame::Update()
     // シーンマネージャー更新
     SceneManager::GetInstance()->Update();
 
-    ShowControls();
+    ImGuiControlPanel::ShowControls();
 
     // ImGui終了処理
     imguiManager_->End();
@@ -81,27 +85,36 @@ void MyGame::Draw()
     auto* imgFilter = ImageFilter::GetInstance();
     auto* hsv       = HsvFilter::GetInstance();
 
+    // オフスクリーンRTVリダイレクトに対応していないシーン（GamePlayScene以外）では
+    // BeginScene/EndScene/Apply を呼ばない。呼んでしまうと、シーン側が何も描き込まない
+    // オフスクリーンテクスチャでバックバッファが上書きされ、画面から絵が消えてしまう。
+    const bool postEffectsSupported = SceneManager::GetInstance()->CurrentScenePostEffectsSupported();
+
     // 有効なシーンキャプチャフィルターへ描画先を切り替える（優先順位: ImageFilter > Grayscale > HSV）
-    if (imgFilter->IsEnabled()) {
-        imgFilter->BeginScene();
-    } else if (gs->IsEnabled()) {
-        gs->BeginScene();
-    } else if (hsv->IsEnabled()) {
-        hsv->BeginScene();
+    if (postEffectsSupported) {
+        if (imgFilter->IsEnabled()) {
+            imgFilter->BeginScene();
+        } else if (gs->IsEnabled()) {
+            gs->BeginScene();
+        } else if (hsv->IsEnabled()) {
+            hsv->BeginScene();
+        }
     }
 
     // 現在のシーンの描画
     SceneManager::GetInstance()->Draw();
 
-    if (imgFilter->IsEnabled()) {
-        imgFilter->EndScene();
-        imgFilter->Apply(SrvManager::GetInstance());
-    } else if (gs->IsEnabled()) {
-        gs->EndScene();
-        gs->Apply(SrvManager::GetInstance());
-    } else if (hsv->IsEnabled()) {
-        hsv->EndScene();
-        hsv->Apply(SrvManager::GetInstance());
+    if (postEffectsSupported) {
+        if (imgFilter->IsEnabled()) {
+            imgFilter->EndScene();
+            imgFilter->Apply(SrvManager::GetInstance());
+        } else if (gs->IsEnabled()) {
+            gs->EndScene();
+            gs->Apply(SrvManager::GetInstance());
+        } else if (hsv->IsEnabled()) {
+            hsv->EndScene();
+            hsv->Apply(SrvManager::GetInstance());
+        }
     }
 
     VignetteEffect::GetInstance()->Apply();

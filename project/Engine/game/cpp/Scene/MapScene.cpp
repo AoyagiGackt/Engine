@@ -178,20 +178,34 @@ void MapScene::Draw()
 
     fontRenderer_.Reset();
 
+    DrawHeader(rd);
+    RunData::NodeType hoveredNode = DrawFloorNodes(rd->floor);
+    DrawSelectedNodeInfo(rd->floor, hoveredNode);
+    DrawRestMessage();
+    DrawSkillList(rd);
+
+    // ── 操作説明 ──
+    fontRenderer_.DrawStringW(L"A/Dキー:選択  Enterキー:決定  Tキー:トレーニング (Backspaceで戻る)",
+        20.0f, 690.0f, 1.0f, { 0.45f, 0.45f, 0.45f, 1.0f });
+
+    fontRenderer_.Draw();
+}
+
+void MapScene::DrawHeader(RunData* rd)
+{
     // ── タイトルバー ──
     fontRenderer_.DrawStringW(L"STYLE RUN", 510.0f, 12.0f, 2.2f, { 1.0f, 0.85f, 0.2f, 1.0f });
 
     // HP / ゴールド
-    {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "HP:%d/%d", rd->hp, rd->maxHp);
-        fontRenderer_.DrawString(buf, 20.0f, 18.0f, 1.6f, { 0.3f, 1.0f, 0.4f, 1.0f });
-        snprintf(buf, sizeof(buf), "Gold: %dG", rd->gold);
-        fontRenderer_.DrawString(buf, 20.0f, 44.0f, 1.6f, { 1.0f, 0.85f, 0.2f, 1.0f });
-    }
+    char buf[64];
+    snprintf(buf, sizeof(buf), "HP:%d/%d", rd->hp, rd->maxHp);
+    fontRenderer_.DrawString(buf, 20.0f, 18.0f, 1.6f, { 0.3f, 1.0f, 0.4f, 1.0f });
+    snprintf(buf, sizeof(buf), "Gold: %dG", rd->gold);
+    fontRenderer_.DrawString(buf, 20.0f, 44.0f, 1.6f, { 1.0f, 0.85f, 0.2f, 1.0f });
+}
 
-    // ── マップノード描画 ──
-    int curFloor = rd->floor;
+RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
+{
     RunData::NodeType hoveredNode = RunData::NodeType::Combat;
 
     for (int f = 0; f < static_cast<int>(floors_.size()); ++f) {
@@ -247,50 +261,54 @@ void MapScene::Draw()
         }
     }
 
+    return hoveredNode;
+}
+
+void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
+{
     // ── 選択中ノードの説明（右側）──
-    if (!waitingResult_ && curFloor < static_cast<int>(floors_.size())) {
-        const wchar_t* desc = NodeDesc(hoveredNode);
-        fontRenderer_.DrawStringW(NodeLabelW(hoveredNode), 900.0f, 370.0f, 1.8f, { 1.0f, 0.85f, 0.2f, 1.0f });
-        // 説明を2行に折り返して表示
-        std::wstring descStr(desc);
-        size_t br = descStr.find(L'　');  // 全角スペースで折り返しポイントを探す
-        if (br != std::wstring::npos && br > 10) {
-            fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(),   900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
-            fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(),  900.0f, 435.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
-        } else {
-            fontRenderer_.DrawStringW(desc, 900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
-        }
-    }
+    if (waitingResult_ || curFloor >= static_cast<int>(floors_.size())) { return; }
 
+    const wchar_t* desc = NodeDesc(hoveredNode);
+    fontRenderer_.DrawStringW(NodeLabelW(hoveredNode), 900.0f, 370.0f, 1.8f, { 1.0f, 0.85f, 0.2f, 1.0f });
+    // 説明を2行に折り返して表示
+    std::wstring descStr(desc);
+    size_t br = descStr.find(L'　');  // 全角スペースで折り返しポイントを探す
+    if (br != std::wstring::npos && br > 10) {
+        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(),   900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
+        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(),  900.0f, 435.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
+    } else {
+        fontRenderer_.DrawStringW(desc, 900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
+    }
+}
+
+void MapScene::DrawRestMessage()
+{
     // ── REST待機メッセージ ──
-    if (waitingResult_) {
-        wchar_t buf[32];
-        swprintf_s(buf, L"HP が %d 回復した!", restHealAmount_);
-        fontRenderer_.DrawStringW(buf, 440.0f, 330.0f, 2.2f, { 0.3f, 0.8f, 1.0f, 1.0f });
-    }
+    if (!waitingResult_) { return; }
 
+    wchar_t buf[32];
+    swprintf_s(buf, L"HP が %d 回復した!", restHealAmount_);
+    fontRenderer_.DrawStringW(buf, 440.0f, 330.0f, 2.2f, { 0.3f, 0.8f, 1.0f, 1.0f });
+}
+
+void MapScene::DrawSkillList(RunData* rd)
+{
     // ── スキル一覧 ──
-    {
-        fontRenderer_.DrawStringW(L"取得スキル:", 20.0f, 648.0f, 1.2f, { 0.7f, 0.9f, 1.0f, 1.0f });
-        if (rd->skills.empty()) {
-            fontRenderer_.DrawStringW(L"なし", 200.0f, 648.0f, 1.2f, { 0.5f, 0.5f, 0.5f, 1.0f });
-        } else {
-            float sx = 200.0f;
-            for (auto sk : rd->skills) {
-                const char* name = RunData::SkillName(sk);
-                // 最初の単語だけ（スペース前まで）
-                std::string n(name);
-                auto p = n.find(' ');
-                std::string short_n = (p != std::string::npos) ? n.substr(0, p) : n;
-                fontRenderer_.DrawString((short_n + "  ").c_str(), sx, 650.0f, 1.2f, { 0.9f, 0.85f, 0.3f, 1.0f });
-                sx += static_cast<float>(short_n.size() + 2) * FontRenderer::kCharW * 1.2f;
-            }
-        }
+    fontRenderer_.DrawStringW(L"取得スキル:", 20.0f, 648.0f, 1.2f, { 0.7f, 0.9f, 1.0f, 1.0f });
+    if (rd->skills.empty()) {
+        fontRenderer_.DrawStringW(L"なし", 200.0f, 648.0f, 1.2f, { 0.5f, 0.5f, 0.5f, 1.0f });
+        return;
     }
 
-    // ── 操作説明 ──
-    fontRenderer_.DrawStringW(L"A/Dキー:選択  Enterキー:決定  Tキー:トレーニング (Backspaceで戻る)",
-        20.0f, 690.0f, 1.0f, { 0.45f, 0.45f, 0.45f, 1.0f });
-
-    fontRenderer_.Draw();
+    float sx = 200.0f;
+    for (auto sk : rd->skills) {
+        const char* name = RunData::SkillName(sk);
+        // 最初の単語だけ（スペース前まで）
+        std::string n(name);
+        auto p = n.find(' ');
+        std::string short_n = (p != std::string::npos) ? n.substr(0, p) : n;
+        fontRenderer_.DrawString((short_n + "  ").c_str(), sx, 650.0f, 1.2f, { 0.9f, 0.85f, 0.3f, 1.0f });
+        sx += static_cast<float>(short_n.size() + 2) * FontRenderer::kCharW * 1.2f;
+    }
 }

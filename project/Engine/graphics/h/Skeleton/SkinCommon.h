@@ -9,7 +9,7 @@ namespace engine::graphics {
 class SkinCommon {
 public:
     void Initialize(engine::DirectXCommon* dxCommon);
-    void CommonDrawSettings(BlendMode blendMode = BlendMode_Alpha);
+    void CommonDrawSettings(BlendMode blendMode = BlendMode::Alpha);
 
     engine::DirectXCommon* GetDxCommon() const { return dxCommon_; }
 
@@ -17,7 +17,7 @@ private:
     engine::DirectXCommon* dxCommon_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[BlendMode_Count];
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::Count)];
 };
 
 } // namespace engine::graphics

@@ -97,7 +97,7 @@ void DirectXCommon::PreDraw()
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = swapChainResoures_[backBufferIndex].Get();
+    barrier.Transition.pResource = swapChainResources_[backBufferIndex].Get();
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
     commandList_->ResourceBarrier(1, &barrier);
@@ -140,7 +140,7 @@ void DirectXCommon::PostDraw()
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = swapChainResoures_[backBufferIndex].Get();
+    barrier.Transition.pResource = swapChainResources_[backBufferIndex].Get();
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     commandList_->ResourceBarrier(1, &barrier);
@@ -363,9 +363,9 @@ void DirectXCommon::CreateDepthBuffer()
 void DirectXCommon::CreateRTV()
 {
     HRESULT hr;
-    hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResoures_[0]));
+    hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResources_[0]));
     assert(SUCCEEDED(hr));
-    hr = swapChain_->GetBuffer(1, IID_PPV_ARGS(&swapChainResoures_[1]));
+    hr = swapChain_->GetBuffer(1, IID_PPV_ARGS(&swapChainResources_[1]));
     assert(SUCCEEDED(hr));
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -375,10 +375,10 @@ void DirectXCommon::CreateRTV()
     D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
 
     rtvHandles_[0] = rtvStartHandle;
-    device_->CreateRenderTargetView(swapChainResoures_[0].Get(), &rtvDesc, rtvHandles_[0]);
+    device_->CreateRenderTargetView(swapChainResources_[0].Get(), &rtvDesc, rtvHandles_[0]);
 
     rtvHandles_[1].ptr = rtvHandles_[0].ptr + device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    device_->CreateRenderTargetView(swapChainResoures_[1].Get(), &rtvDesc, rtvHandles_[1]);
+    device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
 }
 
 void DirectXCommon::CreateFence()
@@ -447,7 +447,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE DirectXCommon::GetCurrentBackBufferHandle()
 ID3D12Resource* DirectXCommon::GetCurrentBackBufferResource()
 {
     UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
-    return swapChainResoures_[backBufferIndex].Get();
+    return swapChainResources_[backBufferIndex].Get();
 }
 
 // ヘルパー関数（バッファ作成用）

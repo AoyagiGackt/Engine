@@ -1,5 +1,4 @@
 #include "Player.h"
-#include "EventBus.h"
 #include "GameConstants.h"
 #include "Input.h"
 #include "ModelCommon.h"
@@ -96,7 +95,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
                 velocityY_  = kJumpPower_ * jumpMult;
                 onGround_   = false;
                 justJumped_ = true;
-                EventBus::GetInstance()->Emit("player_jumped");
             }
         }
 
@@ -114,7 +112,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         }
 
         justLanded_ = !prevOnGround_ && onGround_;
-        if (justLanded_) { EventBus::GetInstance()->Emit("player_landed"); }
     }
 
     pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
@@ -122,7 +119,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     // ── 射撃（K キー、水上のみ）─────────────────────────────────────
     if (!inWater_ && input->TriggerKey(DIK_K)) {
         justFired_ = true;
-        EventBus::GetInstance()->Emit("player_fired");
     }
 
     // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
@@ -151,10 +147,8 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             bool isLast = (juggleSlashCount_ >= effectiveMax);
             justRampageHit_    = true;
             justRampageFinish_ = isLast;
-            EventBus::GetInstance()->Emit("player_rampage_hit");
             if (isLast) {
                 rampagePhase_ = RampagePhase::Inactive;
-                EventBus::GetInstance()->Emit("player_rampage_finish");
             }
 
         } else if (rampagePhase_ == RampagePhase::Inactive) {
@@ -163,7 +157,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
                 comboStep_    = comboStep_ % (kComboMax_ + skillMods_.comboMaxBonus) + 1;
                 comboTimer_   = kComboWindow_;
                 justComboHit_ = true;
-                EventBus::GetInstance()->Emit("player_combo_hit");
             }
         }
     }
@@ -242,7 +235,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             justLaunched_ = true;
             velocityY_    = 0.25f;
             rampagePhase_ = RampagePhase::Juggle;
-            EventBus::GetInstance()->Emit("player_launched");
         }
     } else if (rampagePhase_ == RampagePhase::Juggle) {
         // ジャグル中は重力無効でホバリング
@@ -253,7 +245,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
         isAwakened_  = true;
         awakenTimer_ = kAwakenDuration_;
-        EventBus::GetInstance()->Emit("player_awakened");
     }
 
     // ── コンボタイマー ────────────────────────────────────────────

@@ -1,8 +1,11 @@
 #include "TrainingScene.h"
+#include "BorderBlockBuilder.h"
 #include "DebugProfiler.h"
 #include "GameConstants.h"
 #include "SceneManager.h"
+#include "ScreenFlash.h"
 #include "SSAOEffect.h"
+#include "TimeManager.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -47,19 +50,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    auto addBlock = [&](float x, float y, float z) {
-        auto b = std::make_unique<Object3d>();
-        b->Initialize(modelCommon_.get());
-        b->SetModel(modelBlock_.get());
-        b->SetEnableLighting(false);
-        b->SetPosition({ x, y, z });
-        b->Update();
-        borderBlocks_.push_back(std::move(b));
-    };
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), -0.6f, 0.0f); }
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(2.0f,  static_cast<float>(y), 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
+    BuildBorderBlocks(modelCommon_.get(), modelBlock_.get(), borderBlocks_);
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -74,6 +65,8 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
+
+    bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
@@ -120,6 +113,16 @@ void TrainingScene::Update()
         return;
     }
 
+    UpdateWeaponCycle();
+    UpdatePlayerAndBullets();
+    UpdateCameraAndEnvironment();
+
+    bool nearWarp = UpdateWarpPortal();
+    DrawHud(nearWarp);
+}
+
+void TrainingScene::UpdateWeaponCycle()
+{
     // 武器切り替え（Q/E、数字キー 1〜4）
     weaponCycleTimer_ -= GameConstants::kFrameDeltaTime;
     if (weaponCycleTimer_ <= 0.0f) {
@@ -132,32 +135,43 @@ void TrainingScene::Update()
             }
         }
     }
+}
 
+void TrainingScene::UpdatePlayerAndBullets()
+{
     // 乱舞用ダミーターゲット（正面 8 ユニット先）
     {
         const Vector3& pp = player_->GetPosition();
         player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
     }
 
-    // ── コンボランク追跡 ─────────────────────────────────────────────
-    {
-        bool hitNow = player_->JustComboHit() || player_->JustFired()
-                   || player_->JustSpinShot() || player_->JustRampageHit();
-        if (hitNow) {
-            trComboCount_++;
-            trComboTimer_ = 1.2f;
-            trRankAlpha_  = 1.0f;
-            if (trComboCount_ > trMaxCombo_) { trMaxCombo_ = trComboCount_; }
-        }
-        trComboTimer_ -= GameConstants::kFrameDeltaTime;
-        if (trComboTimer_ <= 0.0f) {
-            trComboTimer_ = 0.0f;
-            // コンボ切れ → フェードアウト後にリセット
-            trRankAlpha_ -= GameConstants::kFrameDeltaTime * 2.0f;
-            if (trRankAlpha_ <= 0.0f) { trRankAlpha_ = 0.0f; trComboCount_ = 0; }
+    // ── スペースキー スピン連射 ──────────────────────────────────────
+    if (player_->JustSpinShot()) {
+        constexpr float kBulletSpeed = 0.30f;
+        const Vector3&  spawnPos     = player_->GetPosition();
+        Vector3 firePos = { spawnPos.x, spawnPos.y + 0.4f, 0.0f };
+
+        if (player_->IsUpsideDown()) {
+            // 逆さ: 下方向中心に 5 方向ばらまき
+            constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
+            constexpr float kSpread    =  30.0f * (3.14159265f / 180.0f); // 30°間隔
+            for (int i = -2; i <= 2; ++i) {
+                float angle = kBaseAngle + i * kSpread;
+                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed,
+                                             std::sin(angle) * kBulletSpeed, 0.0f });
+            }
+            TimeManager::GetInstance()->RequestHitStop(3);
+            ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
+        } else {
+            // 通常: 向いている方向に 1 発
+            bulletPool_.Spawn(firePos, { player_->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
         }
     }
+    bulletPool_.Update();
+}
 
+void TrainingScene::UpdateCameraAndEnvironment()
+{
     // カメラ追従
     {
         constexpr float kBlkR = 0.5f;
@@ -185,16 +199,29 @@ void TrainingScene::Update()
         p->SetColor({ 0.1f * pulse, 0.9f * pulse, 1.0f * pulse, 0.85f });
         p->Update();
     }
+}
 
-    const Vector3& pp  = player_->GetPosition();
-    const Vector3& cam = camera_->GetTranslate();
+bool TrainingScene::UpdateWarpPortal()
+{
+    const Vector3& pp = player_->GetPosition();
     bool nearWarp = std::abs(pp.x - kWarpX) < kWarpProximity;
 
     if (nearWarp && input_->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeSceneWithLoading("BATTLETEST");
+        SceneManager::GetInstance()->ChangeScene("BATTLETEST");
     }
+    return nearWarp;
+}
 
-    // ---- UI（FontRenderer） ----
+void TrainingScene::DrawHud(bool nearWarpPortal)
+{
+    DrawWeaponHud(nearWarpPortal);
+    DrawDebugHud();
+    DrawControlsHud();
+    DrawAwakenGaugeHud();
+}
+
+void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
+{
     constexpr float kScale = 1.5f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
     constexpr Vector4 kColorHeader  = { 1.0f, 0.85f, 0.0f, 1.0f };
@@ -224,57 +251,17 @@ void TrainingScene::Update()
     fontRenderer_.DrawString("Q/E  1-4 : Switch", px, py, kScale, kColorHint);
 
     // ワープラベル（ポータルの上）
-    if (nearWarp) {
+    if (nearWarpPortal) {
+        const Vector3& cam = camera_->GetTranslate();
         float sx = (kWarpX - cam.x) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
         float sy = -(5.0f  - cam.y) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
         constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Warp", sx - 84.0f, sy - 36.0f, kScale, kColorWarp);
     }
+}
 
-    // ── コンボランク（画面中央） ──────────────────────────────────────
-    if (trComboCount_ > 0 || trRankAlpha_ > 0.0f) {
-        struct RankDef { const char* label; Vector4 color; };
-        static constexpr RankDef kRanks[] = {
-            { "D",   { 0.55f, 0.55f, 0.55f, 1.0f } },
-            { "C",   { 0.85f, 0.85f, 0.85f, 1.0f } },
-            { "B",   { 0.30f, 0.72f, 1.00f, 1.0f } },
-            { "A",   { 0.20f, 1.00f, 0.40f, 1.0f } },
-            { "S",   { 1.00f, 0.90f, 0.10f, 1.0f } },
-            { "SS",  { 1.00f, 0.55f, 0.10f, 1.0f } },
-            { "SSS", { 1.00f, 0.30f, 0.30f, 1.0f } },
-        };
-        int ri = (trComboCount_ >= 25) ? 6 :
-                 (trComboCount_ >= 18) ? 5 :
-                 (trComboCount_ >= 12) ? 4 :
-                 (trComboCount_ >=  8) ? 3 :
-                 (trComboCount_ >=  5) ? 2 :
-                 (trComboCount_ >=  3) ? 1 : 0;
-        const char* lbl = kRanks[ri].label;
-        Vector4 rc = kRanks[ri].color;
-        rc.w *= trRankAlpha_;
-
-        constexpr float kRS = 5.0f;  // ランク文字スケール
-        constexpr float kHS = 2.0f;  // ヒット数スケール
-        int   lblLen = static_cast<int>(std::strlen(lbl));
-        float rankW  = FontRenderer::kCharW * kRS * static_cast<float>(lblLen);
-        fontRenderer_.DrawString(lbl, 640.0f - rankW * 0.5f, 158.0f, kRS, rc);
-
-        char hitBuf[24];
-        std::snprintf(hitBuf, sizeof(hitBuf), "x%d HIT", trComboCount_);
-        float hw = FontRenderer::kCharW * kHS * static_cast<float>(std::strlen(hitBuf));
-        fontRenderer_.DrawString(hitBuf, 640.0f - hw * 0.5f, 240.0f, kHS,
-            { 1.0f, 1.0f, 1.0f, trRankAlpha_ });
-
-        if (trMaxCombo_ > 0) {
-            char bestBuf[24];
-            std::snprintf(bestBuf, sizeof(bestBuf), "BEST:%d", trMaxCombo_);
-            constexpr float kBS = 1.3f;
-            float bw = FontRenderer::kCharW * kBS * static_cast<float>(std::strlen(bestBuf));
-            fontRenderer_.DrawString(bestBuf, 640.0f - bw * 0.5f, 270.0f, kBS,
-                { 0.7f, 0.7f, 0.7f, trRankAlpha_ * 0.8f });
-        }
-    }
-
+void TrainingScene::DrawDebugHud()
+{
     // ── デバッグ情報（右上隅） ──────────────────────────────────────
 #ifdef _DEBUG
     {
@@ -308,69 +295,70 @@ void TrainingScene::Update()
     // ── プロファイラ ───────────────────────────────────────────────────
     GpuProfiler::GetInstance()->DrawImGui();
 #endif
+}
 
+void TrainingScene::DrawControlsHud()
+{
     // ── 操作説明（右パネル） ─────────────────────────────────────────
-    {
-        constexpr float kIx     = 870.0f;
-        constexpr float kIS     = 1.3f;
-        constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-        constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
-        constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
-        float iy = 12.0f;
+    constexpr float kIx     = 870.0f;
+    constexpr float kIS     = 1.3f;
+    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
+    constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
+    constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
+    float iy = 12.0f;
 
-        fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
-        iy += kILineH + 2.0f;
+    fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
+    iy += kILineH + 2.0f;
 
-                auto row = [&](const char* key, const wchar_t* desc) {
-            std::wstring line(key, key + std::strlen(key));
-            line += desc;
-            fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
-            iy += kILineH;
-        };
-        row("A / D  ", L": 移動");
-        row("W      ", L": ジャンプ");
-        row("L      ", L": コンボ (x3)");
-        row("K      ", L": 射撃");
-        row("SPACE  ", L": スピン連射");
-        row("(Air)  ", L": スピン+散弾");
-        row("Q / E  ", L": 武器切替");
-        row("1-4", L": Weapon Select");
-        row("ENTER", L": Warp (portal)");
-        row("R", L": Awaken (30%+)");
-    }
+    auto row = [&](const char* key, const wchar_t* desc) {
+        std::wstring line(key, key + std::strlen(key));
+        line += desc;
+        fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
+        iy += kILineH;
+    };
+    row("A / D  ", L": 移動");
+    row("W      ", L": ジャンプ");
+    row("L      ", L": コンボ (x3)");
+    row("K      ", L": 射撃");
+    row("SPACE  ", L": スピン連射");
+    row("(Air)  ", L": スピン+散弾");
+    row("Q / E  ", L": 武器切替");
+    row("1-4", L": Weapon Select");
+    row("ENTER", L": Warp (portal)");
+    row("R", L": Awaken (30%+)");
+}
 
-    // ── 覚醒ゲージ UI ────────────────────────────────────────────────
-    {
-        constexpr float kBarW = 280.0f;
-        constexpr float kBarH =  14.0f;
-        constexpr float kBarX = 640.0f - kBarW * 0.5f;
-        constexpr float kBarY = 700.0f;
-        float gauge = player_->GetAwakenGauge();
-        bool  awake = player_->IsAwakened();
+void TrainingScene::DrawAwakenGaugeHud()
+{
+    constexpr float kBarW = 280.0f;
+    constexpr float kBarH =  14.0f;
+    constexpr float kBarX = 640.0f - kBarW * 0.5f;
+    constexpr float kBarY = 700.0f;
+    float gauge = player_->GetAwakenGauge();
+    bool  awake = player_->IsAwakened();
 
-        awakenGaugeBg_->SetPosition({ kBarX, kBarY });
-        awakenGaugeBg_->SetSize({ kBarW, kBarH });
-        awakenGaugeBg_->Update();
+    awakenGaugeBg_->SetPosition({ kBarX, kBarY });
+    awakenGaugeBg_->SetSize({ kBarW, kBarH });
+    awakenGaugeBg_->Update();
 
-        float pulse = awake ? (0.7f + 0.3f * std::sin(warpPulseTimer_ * 8.0f)) : 1.0f;
-        Vector4 fgColor = awake
-            ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
-            : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
-        awakenGaugeFg_->SetColor(fgColor);
-        awakenGaugeFg_->SetPosition({ kBarX, kBarY });
-        awakenGaugeFg_->SetSize({ kBarW * gauge, kBarH });
-        awakenGaugeFg_->Update();
+    float pulse = awake ? (0.7f + 0.3f * std::sin(warpPulseTimer_ * 8.0f)) : 1.0f;
+    Vector4 fgColor = awake
+        ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
+        : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
+    awakenGaugeFg_->SetColor(fgColor);
+    awakenGaugeFg_->SetPosition({ kBarX, kBarY });
+    awakenGaugeFg_->SetSize({ kBarW * gauge, kBarH });
+    awakenGaugeFg_->Update();
 
-        constexpr float kGS = 1.5f;
-        constexpr Vector4 kLC = { 0.6f, 0.8f, 1.0f, 0.9f };
-        fontRenderer_.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kGS, kLC);
-        if (awake) {
-            fontRenderer_.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kGS,
-                { pulse, pulse, 1.0f, 1.0f });
-        } else if (gauge >= 0.3f) {
-            fontRenderer_.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
-                kBarY - 18.0f, kGS, { 0.8f, 0.9f, 1.0f, 0.8f });
-        }
+    constexpr float kGS = 1.5f;
+    constexpr Vector4 kLC = { 0.6f, 0.8f, 1.0f, 0.9f };
+    fontRenderer_.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kGS, kLC);
+    if (awake) {
+        fontRenderer_.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kGS,
+            { pulse, pulse, 1.0f, 1.0f });
+    } else if (gauge >= 0.3f) {
+        fontRenderer_.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
+            kBarY - 18.0f, kGS, { 0.8f, 0.9f, 1.0f, 0.8f });
     }
 }
 
@@ -417,6 +405,7 @@ void TrainingScene::Draw()
     for (auto& b : borderBlocks_)     { b->Draw(); }
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
     for (int i = 0; i < 3; ++i)       { pbrDemoBlocks_[i]->Draw(); }
+    bulletPool_.Draw();
     player_->Draw();
 
     // ---- SSAO 計算 → ブラー → 乗算合成 ----

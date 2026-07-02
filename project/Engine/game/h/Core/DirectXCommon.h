@@ -159,7 +159,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_;
 
     // リソース
-    Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResoures_[2];
+    Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResources_[2];
     Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilResource_;
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
 
