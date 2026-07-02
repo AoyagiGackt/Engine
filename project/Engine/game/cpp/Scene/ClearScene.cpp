@@ -1,5 +1,7 @@
 #include "ClearScene.h"
 #include "ImGuiManager.h"
+#include "RunData.h"
+#include "SaveData.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include <string>
@@ -66,6 +68,12 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     scoreDisplay_.Initialize(spriteCommon_.get());
 
     ScoreManager::GetInstance()->SubmitAndSave();
+
+    // ローグライトのランを完走した場合のみ通算記録へ反映する（サンドボックステスト経由は対象外）
+    auto* rd = RunData::GetInstance();
+    if (rd->isRunActive) {
+        SaveDataManager::GetInstance()->RecordRunResult(true, rd->floor, rd->gold);
+    }
 }
 
 // =====================================================

@@ -5,6 +5,7 @@
 #include <random>
 #include "GameConstants.h"
 #include "RunData.h"
+#include "SaveData.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
@@ -238,6 +239,13 @@ bool GamePlayScene::UpdateClearState()
             lastGold_    = RunData::CalcGold(peakStyle_);
             rd->gold    += lastGold_;
             rd->floor++;
+
+            // フロアクリア毎に自動セーブ（ボス撃破時はコンティニュー不要なので破棄）
+            if (rd->floor >= 4) {
+                SaveDataManager::GetInstance()->ClearContinue();
+            } else {
+                SaveDataManager::GetInstance()->SaveContinue(*rd);
+            }
         }
         resultTimer_ -= GameConstants::kFrameDeltaTime;
         if (resultTimer_ <= 0.0f) {
