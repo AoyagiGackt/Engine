@@ -174,8 +174,10 @@
     <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp" />
@@ -256,6 +258,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FloatingText.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
@@ -531,9 +534,11 @@
     <ClInclude Include="Engine\game\h\Player\BulletPool.h" />
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
+    <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
     <ClInclude Include="Engine\game\h\Effect\Easing.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h" />
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h" />
+    <ClInclude Include="Engine\game\h\Core\App\SaveData.h" />
     <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h" />
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h" />
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h" />
@@ -627,6 +632,8 @@
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\FloatingText.h" />
+    <ClInclude Include="Engine\game\h\UI\UIButton.h" />
+    <ClInclude Include="Engine\game\h\UI\UIMenu.h" />
     <ClInclude Include="Engine\game\h\Player\RunData.h" />
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />

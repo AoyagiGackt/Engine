@@ -5,6 +5,7 @@
 #include "Sequencer.h"
 #include "GamePlayScene.h"
 #include "GameSettings.h"
+#include "SaveData.h"
 #include "SceneManager.h"
 #include "SceneFactory.h"
 #include "ScreenFlash.h"
@@ -43,6 +44,9 @@ void MyGame::Initialize()
     GameSettingsManager::GetInstance()->Load();
     const GameSettings& s = GameSettingsManager::GetInstance()->Get();
     audio_->SetBGMVolume(s.bgmVolume);
+
+    // コンティニューデータ・通算記録を読み込む
+    SaveDataManager::GetInstance()->Load();
 
     // スクリーンフラッシュ初期化
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());

@@ -471,7 +471,13 @@
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp">
@@ -499,6 +505,9 @@
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\FloatingText.cpp">
+      <Filter>ソースファイル\Game\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp">
       <Filter>ソースファイル\Game\UI</Filter>
     </ClCompile>
     <!-- Game\MapChip -->
@@ -839,7 +848,13 @@
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\SlashMark.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Core\App\SaveData.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\Easing.h">
@@ -879,6 +894,12 @@
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\FloatingText.h">
+      <Filter>ヘッダーファイル\Game\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\UIButton.h">
+      <Filter>ヘッダーファイル\Game\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\UIMenu.h">
       <Filter>ヘッダーファイル\Game\UI</Filter>
     </ClInclude>
     <!-- Game\MapChip -->

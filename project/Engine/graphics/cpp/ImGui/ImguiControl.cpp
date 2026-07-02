@@ -146,7 +146,7 @@ void ImGuiControlPanel::ShowControls()
             } else if (mode == ImageFilter::Mode::Gaussian) {
                 float sigma = imgFilter->GetSigma();
                 if (ImGui::SliderFloat("シグマ", &sigma, 0.5f, 8.0f, "%.2f")) { imgFilter->SetSigma(sigma); }
-                int r = (int)(sigma * 3.0f); if (r > 8) r = 8;
+                int r = (int)(sigma * 3.0f); if (r > 8) { r = 8; }
                 ImGui::TextDisabled("半径: %d, タップ数: %d x %d", r, 2*r+1, 2*r+1);
             }
         }

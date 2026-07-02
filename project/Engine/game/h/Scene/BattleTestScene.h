@@ -102,6 +102,8 @@ private:
     void UpdateEnvironment();
     /// @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する。命中があれば true を返す
     bool UpdateCombat();
+    /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する。本命ヒットの瞬間なら true を返す
+    bool UpdateFinisherSlash();
     /// @brief コンボランク表示のカウント・フェードを更新する
     void UpdateComboRank(bool hitConfirmed);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する
@@ -173,6 +175,11 @@ private:
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
+
+    // フィニッシャースラッシュ演出の進行状態
+    bool  finisherActive_    = false;
+    int   finisherLineIdx_   = 0;
+    float finisherBeatTimer_ = 0.0f;
 
     FontRenderer fontRenderer_;
 };

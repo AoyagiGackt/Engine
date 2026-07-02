@@ -175,18 +175,18 @@ public:
         if (materialData_) { materialData_->envMapIntensity = intensity; }
     }
 
-    void SetRimColor(const Vector3& color)    { if (materialData_) materialData_->rimColor = color; }
-    void SetRimPower(float power)             { if (materialData_) materialData_->rimPower = power; }
-    void SetRimIntensity(float intensity)     { if (materialData_) materialData_->rimIntensity = intensity; }
-    void SetEnableRim(bool enable)            { if (materialData_) materialData_->enableRim = enable ? 1 : 0; }
-    void SetUVTransform(const Matrix4x4& m)  { if (materialData_) materialData_->uvTransform = m; }
+    void SetRimColor(const Vector3& color)    { if (materialData_) { materialData_->rimColor = color; } }
+    void SetRimPower(float power)             { if (materialData_) { materialData_->rimPower = power; } }
+    void SetRimIntensity(float intensity)     { if (materialData_) { materialData_->rimIntensity = intensity; } }
+    void SetEnableRim(bool enable)            { if (materialData_) { materialData_->enableRim = enable ? 1 : 0; } }
+    void SetUVTransform(const Matrix4x4& m)  { if (materialData_) { materialData_->uvTransform = m; } }
 
     void SetNormalMap(const std::string& filePath);
-    void SetUseNormalMap(bool enable)         { if (materialData_) materialData_->useNormalMap = enable ? 1 : 0; }
+    void SetUseNormalMap(bool enable)         { if (materialData_) { materialData_->useNormalMap = enable ? 1 : 0; } }
 
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
-    void SetMetallic(float v)   { if (materialData_) materialData_->metallic  = v; }
-    void SetRoughness(float v)  { if (materialData_) materialData_->roughness = v; }
+    void SetMetallic(float v)   { if (materialData_) { materialData_->metallic  = v; } }
+    void SetRoughness(float v)  { if (materialData_) { materialData_->roughness = v; } }
     void SetShadingTypePBR()    { if (materialData_) { materialData_->shadingType = 5; lockShadingType_ = true; } }
     void LockShadingType(bool lock = true) { lockShadingType_ = lock; }
 

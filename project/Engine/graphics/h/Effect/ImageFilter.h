@@ -69,9 +69,9 @@ public:
     float GetSigma()   const { return gaussianSigma_; }
 
     // アウトライン共通パラメータ
-    void  SetOutlineThreshold(float t) { if (outlineCb_) outlineCb_->threshold    = t; }
+    void  SetOutlineThreshold(float t) { if (outlineCb_) { outlineCb_->threshold    = t; } }
     float GetOutlineThreshold() const  { return outlineCb_ ? outlineCb_->threshold    : 0.05f; }
-    void  SetOutlineStrength(float s)  { if (outlineCb_) outlineCb_->edgeStrength = s; }
+    void  SetOutlineStrength(float s)  { if (outlineCb_) { outlineCb_->edgeStrength = s; } }
     float GetOutlineStrength() const   { return outlineCb_ ? outlineCb_->edgeStrength : 5.0f; }
     void  SetOutlineColor(float r, float g, float b, float a = 1.0f) {
         if (!outlineCb_) { return; }
@@ -85,7 +85,7 @@ public:
     }
 
     // 深度アウトライン専用
-    void  SetDepthScale(float s) { if (outlineCb_) outlineCb_->depthScale = s; }
+    void  SetDepthScale(float s) { if (outlineCb_) { outlineCb_->depthScale = s; } }
     float GetDepthScale() const  { return outlineCb_ ? outlineCb_->depthScale : 100.0f; }
 
     // ラジアルブラーパラメータ
@@ -95,15 +95,15 @@ public:
     }
     float GetRadialCenterX()    const { return radialBlurCb_ ? radialBlurCb_->centerX    : 0.5f; }
     float GetRadialCenterY()    const { return radialBlurCb_ ? radialBlurCb_->centerY    : 0.5f; }
-    void  SetRadialStrength(float s)  { if (radialBlurCb_) radialBlurCb_->strength    = s; }
+    void  SetRadialStrength(float s)  { if (radialBlurCb_) { radialBlurCb_->strength    = s; } }
     float GetRadialStrength()   const { return radialBlurCb_ ? radialBlurCb_->strength    : 0.1f; }
-    void  SetRadialSampleCount(int n) { if (radialBlurCb_) radialBlurCb_->sampleCount = n; }
+    void  SetRadialSampleCount(int n) { if (radialBlurCb_) { radialBlurCb_->sampleCount = n; } }
     int   GetRadialSampleCount() const { return radialBlurCb_ ? radialBlurCb_->sampleCount : 16; }
 
     // ディゾルブパラメータ
-    void  SetDissolveThreshold(float t) { if (dissolveCb_) dissolveCb_->threshold = t; }
+    void  SetDissolveThreshold(float t) { if (dissolveCb_) { dissolveCb_->threshold = t; } }
     float GetDissolveThreshold() const  { return dissolveCb_ ? dissolveCb_->threshold : 0.0f; }
-    void  SetDissolveEdgeWidth(float w) { if (dissolveCb_) dissolveCb_->edgeWidth = w; }
+    void  SetDissolveEdgeWidth(float w) { if (dissolveCb_) { dissolveCb_->edgeWidth = w; } }
     float GetDissolveEdgeWidth() const  { return dissolveCb_ ? dissolveCb_->edgeWidth : 0.05f; }
     void  SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f) {
         if (!dissolveCb_) { return; }
@@ -119,21 +119,21 @@ public:
     int   GetDissolveMaskIndex() const { return dissolveMaskIndex_; }
 
     // プロシージャルノイズパラメータ
-    void  SetNoiseScale(float x, float y) { if (!noiseGenCb_) return; noiseGenCb_->scaleX = x; noiseGenCb_->scaleY = y; }
+    void  SetNoiseScale(float x, float y) { if (!noiseGenCb_) { return; } noiseGenCb_->scaleX = x; noiseGenCb_->scaleY = y; }
     float GetNoiseScaleX()       const { return noiseGenCb_ ? noiseGenCb_->scaleX      : 4.0f; }
     float GetNoiseScaleY()       const { return noiseGenCb_ ? noiseGenCb_->scaleY      : 4.0f; }
     // seed は CPU 側の manualSeed を見せる（アニメーション時も表示値は変わらない）
     void  SetNoiseSeed(float s)        { noiseManualSeed_ = s; }
     float GetNoiseSeed()         const { return noiseManualSeed_; }
-    void  SetNoiseOctaves(int n)       { if (noiseGenCb_) noiseGenCb_->octaves     = n; }
+    void  SetNoiseOctaves(int n)       { if (noiseGenCb_) { noiseGenCb_->octaves     = n; } }
     int   GetNoiseOctaves()      const { return noiseGenCb_ ? noiseGenCb_->octaves     : 4; }
-    void  SetNoisePersistence(float p) { if (noiseGenCb_) noiseGenCb_->persistence = p; }
+    void  SetNoisePersistence(float p) { if (noiseGenCb_) { noiseGenCb_->persistence = p; } }
     float GetNoisePersistence()  const { return noiseGenCb_ ? noiseGenCb_->persistence : 0.5f; }
-    void  SetNoiseLacunarity(float l)  { if (noiseGenCb_) noiseGenCb_->lacunarity  = l; }
+    void  SetNoiseLacunarity(float l)  { if (noiseGenCb_) { noiseGenCb_->lacunarity  = l; } }
     float GetNoiseLacunarity()   const { return noiseGenCb_ ? noiseGenCb_->lacunarity  : 2.0f; }
-    void  SetNoiseColorMode(int m)     { if (noiseGenCb_) noiseGenCb_->colorMode   = m; }
+    void  SetNoiseColorMode(int m)     { if (noiseGenCb_) { noiseGenCb_->colorMode   = m; } }
     int   GetNoiseColorMode()    const { return noiseGenCb_ ? noiseGenCb_->colorMode   : 0; }
-    void  SetNoiseOpacity(float o)     { if (noiseGenCb_) noiseGenCb_->opacity     = o; }
+    void  SetNoiseOpacity(float o)     { if (noiseGenCb_) { noiseGenCb_->opacity     = o; } }
     float GetNoiseOpacity()      const { return noiseGenCb_ ? noiseGenCb_->opacity     : 1.0f; }
     void  SetNoiseAnimate(bool v)      { animateNoise_ = v; }
     bool  GetNoiseAnimate()      const { return animateNoise_; }

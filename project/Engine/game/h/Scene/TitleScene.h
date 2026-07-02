@@ -12,6 +12,7 @@
 #include "Input.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
+#include "UIMenu.h"
 #include <memory>
 namespace engine::game {
 using engine::Audio;
@@ -97,6 +98,9 @@ private:
     std::unique_ptr<Sprite> titleTextSprite_;
 
     FontRenderer fontRenderer_;
+
+    /** @brief NEW GAME / CONTINUE / TRAINING を選択するメニュー */
+    UIMenu menu_;
 
     /** @brief シーン終了フラグ（trueになるとシーンが切り替わる） */
     bool finished_ = false;

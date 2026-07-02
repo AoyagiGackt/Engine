@@ -21,7 +21,7 @@ using engine::graphics::ModelCommon;
 
 /**
  * @brief プレイヤーキャラクターを制御するクラス
- * @note DMC 風のスタイルアクション（コンボ・ブリンク・連射・覚醒乱舞）と
+ * @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
  * ローグライト用のスキル補正（SkillMods）を統合管理する。
  */
 class Player {
@@ -60,7 +60,7 @@ public:
     void Draw();
 
     /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
-    void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) rampagePhase_ = RampagePhase::Inactive; }
+    void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) { rampagePhase_ = RampagePhase::Inactive; } }
 
     /**
      * @brief ローグライトのスキル補正を適用する
@@ -121,6 +121,9 @@ public:
     /** @brief スキル補正込みの乱舞最大スラッシュ数を返す */
     int   GetJuggleMax()       const { return kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus; }
 
+    // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
+    bool  JustFinisherSlash()  const { return justFinisherSlash_; } ///< フィニッシャースラッシュ発動フレーム
+
 private:
     // 通常物理
     static constexpr float kGroundY_   =  0.4f;
@@ -160,7 +163,6 @@ private:
     bool    isAwakened_       = false;
     float   awakenTimer_      = 0.0f;
     static constexpr float kAwakenDuration_ = 8.0f;
-    static constexpr float kAwakenDecay_    = 0.0003f;
 
     // スタイル技（L / K キー）
     bool    justComboHit_     = false;
@@ -192,6 +194,9 @@ private:
     static constexpr float kRampageSpeed_      = 0.45f; // 打ち上げ突進速度
     static constexpr float kJuggleRadius_      = 2.5f;  // 敵からのスラッシュ距離
     static constexpr int   kJuggleMaxSlashes_  = 8;     // 乱舞の最大回数
+
+    // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
+    bool justFinisherSlash_ = false;
 
     // スキル補正（ローグライト）
     SkillMods skillMods_;

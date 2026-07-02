@@ -40,6 +40,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     justLaunched_      = false;
     justRampageHit_    = false;
     justRampageFinish_ = false;
+    justFinisherSlash_ = false;
     prevOnGround_     = onGround_;
     prevInWater_      = inWater_;
 
@@ -161,6 +162,12 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         }
     }
 
+    // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
+    if (!inWater_ && !isAwakened_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
+        justFinisherSlash_ = true;
+        awakenGauge_       = 0.0f; // ゲージを全消費
+    }
+
     // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
     if (!isAwakened_) {
         if (justComboHit_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f); }
@@ -257,6 +264,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // ── 覚醒ゲージ管理 ────────────────────────────────────────────
+    // 覚醒中のみ消費する。未覚醒時は自然減衰させず、溜めた分を維持する
     if (isAwakened_) {
         awakenTimer_ -= GameConstants::kFrameDeltaTime;
         awakenGauge_  = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / kAwakenDuration_, 0.0f);
@@ -265,8 +273,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             awakenTimer_ = 0.0f;
             awakenGauge_ = 0.0f;
         }
-    } else {
-        awakenGauge_ = (std::max)(awakenGauge_ - kAwakenDecay_, 0.0f);
     }
 
     // 入水・出水判定（物理後の位置で確定）

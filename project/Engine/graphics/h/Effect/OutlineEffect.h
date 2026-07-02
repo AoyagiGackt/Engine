@@ -63,13 +63,13 @@ public:
      * @brief アウトラインの色を設定する
      * @param color RGBA（アルファで半透明アウトラインも可能）
      */
-    void SetColor(const Vector4& color) { if (cbData_) cbData_->color = color; }
+    void SetColor(const Vector4& color) { if (cbData_) { cbData_->color = color; } }
 
     /**
      * @brief アウトラインの太さを設定する
      * @param width クリップ空間単位（推奨 0.01〜0.05）。大きすぎると正面も塗りつぶされる
      */
-    void SetWidth(float width) { if (cbData_) cbData_->width = width; }
+    void SetWidth(float width) { if (cbData_) { cbData_->width = width; } }
 
     /// @brief 現在のアウトライン色を取得する
     Vector4 GetColor() const { return cbData_ ? cbData_->color : Vector4{0, 0, 0, 1}; }
