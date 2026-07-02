@@ -74,7 +74,7 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 }
 
-void Sprite::SetTexture(std::string textureFilePath) {
+void Sprite::SetTexture(const std::string& textureFilePath) {
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
     // UV切り出しサイズを新しいテクスチャの全体サイズにリセット

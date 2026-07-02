@@ -214,7 +214,7 @@
     <ClCompile Include="Engine\game\cpp\Core\D3DResourceLeakChecker.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\WinApp.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Util\Logger.cpp">
@@ -229,22 +229,22 @@
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp">
       <Filter>ソースファイル\Game\Level</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Framework.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\App\Framework.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Manager\SrvManager.cpp">
       <Filter>ソースファイル\Engine\Base</Filter>
     </ClCompile>
     <!-- Engine\Math -->
-    <ClCompile Include="Engine\game\cpp\Core\WorldTransform.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp">
       <Filter>ソースファイル\Engine\Math</Filter>
     </ClCompile>
     <!-- Engine\Input -->
-    <ClCompile Include="Engine\game\cpp\Core\Input.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Input\Input.cpp">
       <Filter>ソースファイル\Engine\Input</Filter>
     </ClCompile>
     <!-- Engine\Audio -->
-    <ClCompile Include="Engine\game\cpp\Core\Audio.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Audio\Audio.cpp">
       <Filter>ソースファイル\Engine\Audio</Filter>
     </ClCompile>
     <!-- Engine\Camera -->
@@ -322,7 +322,7 @@
       <Filter>ソースファイル\Engine\Scene</Filter>
     </ClCompile>
     <!-- Engine\Object -->
-    <ClCompile Include="Engine\game\cpp\Core\GameObject.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Object\GameObject.cpp">
       <Filter>ソースファイル\Engine\Object</Filter>
     </ClCompile>
     <!-- Engine\Effect -->
@@ -333,6 +333,9 @@
       <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp">
+      <Filter>ソースファイル\Engine\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\PostEffectFullscreenPass.cpp">
       <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\VideoPlayer.cpp">
@@ -397,10 +400,10 @@
       <Filter>ソースファイル\Engine\Effect</Filter>
     </ClCompile>
     <!-- Game\Core -->
-    <ClCompile Include="Engine\game\cpp\Core\Game.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\App\Game.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\GameTime.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Time\GameTime.cpp">
       <Filter>ソースファイル\Game\Core</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Skydome.cpp">
@@ -462,28 +465,28 @@
       <Filter>ソースファイル\Game\Weapon</Filter>
     </ClCompile>
     <!-- Game\System -->
-    <ClCompile Include="Engine\game\cpp\Core\TimeManager.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\GameSettings.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\DelayTimer.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Tweener.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Time\Tweener.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Sequencer.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\Time\Sequencer.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\AsyncLoader.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\App\AsyncLoader.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\ChromaticAberrationEffect.cpp">
@@ -543,13 +546,13 @@
     <ClInclude Include="Engine\game\h\Core\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\WinApp.h">
+    <ClInclude Include="Engine\game\h\Core\Window\WinApp.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Manager\SrvManager.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Framework.h">
+    <ClInclude Include="Engine\game\h\Core\App\Framework.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\StringUtility.h">
@@ -568,15 +571,15 @@
     <ClInclude Include="Engine\math\h\MakeAffine.h">
       <Filter>ヘッダーファイル\Engine\Math</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\WorldTransform.h">
+    <ClInclude Include="Engine\game\h\Core\Object\WorldTransform.h">
       <Filter>ヘッダーファイル\Engine\Math</Filter>
     </ClInclude>
     <!-- Engine\Input -->
-    <ClInclude Include="Engine\game\h\Core\Input.h">
+    <ClInclude Include="Engine\game\h\Core\Input\Input.h">
       <Filter>ヘッダーファイル\Engine\Input</Filter>
     </ClInclude>
     <!-- Engine\Audio -->
-    <ClInclude Include="Engine\game\h\Core\Audio.h">
+    <ClInclude Include="Engine\game\h\Core\Audio\Audio.h">
       <Filter>ヘッダーファイル\Engine\Audio</Filter>
     </ClInclude>
     <!-- Engine\Camera -->
@@ -675,7 +678,7 @@
       <Filter>ヘッダーファイル\Engine\Scene</Filter>
     </ClInclude>
     <!-- Engine\Object -->
-    <ClInclude Include="Engine\game\h\Core\GameObject.h">
+    <ClInclude Include="Engine\game\h\Core\Object\GameObject.h">
       <Filter>ヘッダーファイル\Engine\Object</Filter>
     </ClInclude>
     <!-- Engine\Effect -->
@@ -686,6 +689,12 @@
       <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\HsvFilter.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\PostEffectRenderTarget.h">
+      <Filter>ヘッダーファイル\Engine\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\PostEffectFullscreenPass.h">
       <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\VignetteEffect.h">
@@ -750,13 +759,13 @@
       <Filter>ヘッダーファイル\Engine\Effect</Filter>
     </ClInclude>
     <!-- Game\Core -->
-    <ClInclude Include="Engine\game\h\Core\Game.h">
+    <ClInclude Include="Engine\game\h\Core\App\Game.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\GameConstants.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\GameTime.h">
+    <ClInclude Include="Engine\game\h\Core\Time\GameTime.h">
       <Filter>ヘッダーファイル\Game\Core</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Skydome.h">
@@ -764,6 +773,9 @@
     </ClInclude>
     <!-- Game\Scene -->
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
+      <Filter>ヘッダーファイル\Game\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\BorderBlockBuilder.h">
       <Filter>ヘッダーファイル\Game\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h">
@@ -821,13 +833,13 @@
       <Filter>ヘッダーファイル\Game\Weapon</Filter>
     </ClInclude>
     <!-- Game\System -->
-    <ClInclude Include="Engine\game\h\Core\TimeManager.h">
+    <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\GameSettings.h">
+    <ClInclude Include="Engine\game\h\Core\App\GameSettings.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\Easing.h">
@@ -836,19 +848,19 @@
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\DelayTimer.h">
+    <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Tweener.h">
+    <ClInclude Include="Engine\game\h\Core\Time\Tweener.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\ObjectPool.h">
+    <ClInclude Include="Engine\game\h\Core\Object\ObjectPool.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Sequencer.h">
+    <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\AsyncLoader.h">
+    <ClInclude Include="Engine\game\h\Core\App\AsyncLoader.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\RunData.h">
@@ -918,7 +930,6 @@
     <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h">
       <Filter>ヘッダーファイル\Engine\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Skeleton.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">

@@ -1,4 +1,5 @@
 #include "TrainingScene.h"
+#include "BorderBlockBuilder.h"
 #include "DebugProfiler.h"
 #include "GameConstants.h"
 #include "SceneManager.h"
@@ -49,19 +50,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    auto addBlock = [&](float x, float y, float z) {
-        auto b = std::make_unique<Object3d>();
-        b->Initialize(modelCommon_.get());
-        b->SetModel(modelBlock_.get());
-        b->SetEnableLighting(false);
-        b->SetPosition({ x, y, z });
-        b->Update();
-        borderBlocks_.push_back(std::move(b));
-    };
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), -0.6f, 0.0f); }
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(2.0f,  static_cast<float>(y), 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
+    BuildBorderBlocks(modelCommon_.get(), modelBlock_.get(), borderBlocks_);
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();

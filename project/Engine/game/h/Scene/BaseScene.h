@@ -14,15 +14,6 @@ using engine::graphics::ImGuiManager;
 using engine::Input;
 
 /**
- * @brief シーンの種類を定義する列挙型
- * @note 新しいシーン（リザルトやステージ選択など）を追加する場合は、ここに定数を追記
- */
-enum SceneType {
-    kTitle, ///< タイトルシーン
-    kGamePlay ///< ゲームプレイシーン
-};
-
-/**
  * @brief 全てのシーンの抽象基底クラス
  * @note 各具体的なシーン（TitleScene 等）はこのクラスを継承して実装
  * 共通のインターフェースを提供することで、SceneManager による一括管理を可能に

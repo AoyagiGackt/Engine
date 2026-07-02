@@ -146,19 +146,19 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     psoDesc.SampleMask                          = D3D12_DEFAULT_SAMPLE_MASK;
     psoDesc.SampleDesc.Count                    = 1;
 
-    for (int i = 0; i < BlendMode_Count; ++i) {
+    for (int i = 0; i < static_cast<int>(BlendMode::Count); ++i) {
         D3D12_RENDER_TARGET_BLEND_DESC& b = psoDesc.BlendState.RenderTarget[0];
         b.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
         b.BlendEnable = TRUE;
         switch (i) {
-        case BlendMode_None:  b.BlendEnable = FALSE; break;
-        case BlendMode_Alpha:
+        case static_cast<int>(BlendMode::None):  b.BlendEnable = FALSE; break;
+        case static_cast<int>(BlendMode::Alpha):
             b.SrcBlend = D3D12_BLEND_SRC_ALPHA; b.DestBlend = D3D12_BLEND_INV_SRC_ALPHA; b.BlendOp = D3D12_BLEND_OP_ADD; break;
-        case BlendMode_Add:
+        case static_cast<int>(BlendMode::Add):
             b.SrcBlend = D3D12_BLEND_SRC_ALPHA; b.DestBlend = D3D12_BLEND_ONE; b.BlendOp = D3D12_BLEND_OP_ADD; break;
-        case BlendMode_Subtract:
+        case static_cast<int>(BlendMode::Subtract):
             b.SrcBlend = D3D12_BLEND_SRC_ALPHA; b.DestBlend = D3D12_BLEND_ONE; b.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT; break;
-        case BlendMode_Multiply:
+        case static_cast<int>(BlendMode::Multiply):
             b.SrcBlend = D3D12_BLEND_DEST_COLOR; b.DestBlend = D3D12_BLEND_ZERO; b.BlendOp = D3D12_BLEND_OP_ADD; break;
         }
         b.SrcBlendAlpha  = D3D12_BLEND_ONE;
@@ -172,6 +172,6 @@ void SkinCommon::CommonDrawSettings(BlendMode blendMode)
 {
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(graphicsPipelineStates_[blendMode].Get());
+    cmd->SetPipelineState(graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }

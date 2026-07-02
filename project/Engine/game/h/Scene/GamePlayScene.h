@@ -90,25 +90,40 @@ public:
     void TriggerGlassShatterTest();
 
 private:
+    // シャドウマップ描画パス
     void DrawShadowPass();
+    // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
     /// @brief 右上のコンボランク表示と覚醒ゲージを描画する
     void DrawRankAndAwakenGauge();
     /// @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する
     void DrawStyleCommands();
+    // ローグライトのHP/Gold/フロア情報HUD描画
     void DrawRogueliteHUD();
+    // モデル共通描画設定（PSO/ルートシグネチャ）の適用
     void SetupModelRenderState();
+    // ポストエフェクト適用中かで描画先RTVを切り替える
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
+    // メインレンダーターゲットのセットアップ
     void SetupMainRenderTarget();
+    // カメラ位置・回転の移動平均によるスムージング
     void UpdateCameraSmoothing();
+    // SceneEditor用の編集コンテキストを構築
     SceneEditor::EditContext BuildEditContext();
 
+    // クリア演出（結果表示）の状態更新。表示中ならtrue
     bool UpdateClearState();
+    // 戦闘ロジック全体の更新
     void UpdateCombat();
+    // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
+    // カメラ追従・シェイクの更新
     void UpdateCamera();
+    // スタイルメーターとUI状態の更新
     void UpdateStyleAndUI(float dt);
+    // パーティクルの更新
     void UpdateParticles(float dt);
+    // 敵撃破などのクリア条件判定
     void CheckClearCondition();
 
     /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）

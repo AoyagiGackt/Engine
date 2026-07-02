@@ -17,12 +17,12 @@ using namespace engine;
 namespace engine::graphics {
 
 // =====================================================
-// モジュール内スタティック
+// 静的メンバの実体
 // =====================================================
 
-static Object3dCommon*           s_obj3dCommon = nullptr;
-static std::vector<DebugPointLight> s_debugLights;
-static std::function<void()>     s_glassShatterTrigger;
+Object3dCommon*              ImGuiControlPanel::obj3dCommon_ = nullptr;
+std::vector<DebugPointLight> ImGuiControlPanel::debugLights_;
+std::function<void()>        ImGuiControlPanel::glassShatterTrigger_;
 
 // =====================================================
 // 公開 API
@@ -30,17 +30,17 @@ static std::function<void()>     s_glassShatterTrigger;
 
 void ImGuiControlPanel::RegisterObject3dCommon(Object3dCommon* common)
 {
-    s_obj3dCommon = common;
+    obj3dCommon_ = common;
 }
 
 void ImGuiControlPanel::RegisterGlassShatterTrigger(std::function<void()> trigger)
 {
-    s_glassShatterTrigger = std::move(trigger);
+    glassShatterTrigger_ = std::move(trigger);
 }
 
 const std::vector<DebugPointLight>& ImGuiControlPanel::GetDebugPointLights()
 {
-    return s_debugLights;
+    return debugLights_;
 }
 
 void ImGuiControlPanel::ShowControls()
@@ -55,14 +55,14 @@ void ImGuiControlPanel::ShowControls()
     // ---- メッシュ設定 ----
     if (ImGui::CollapsingHeader("メッシュ設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* meshItems[] = { "球体", "立方体", "平面" };
-        int currentMesh = (int)MeshManager::GetInstance()->GetCurrentMeshType();
+        int currentMesh = static_cast<int>(MeshManager::GetInstance()->GetCurrentMeshType());
 
         if (ImGui::Combo("メッシュ種類", &currentMesh, meshItems, IM_ARRAYSIZE(meshItems))) {
-            MeshManager::GetInstance()->SetCurrentMeshType((MeshType)currentMesh);
+            MeshManager::GetInstance()->SetCurrentMeshType(static_cast<MeshType>(currentMesh));
         }
 
         const char* meshNames[] = { "Sphere", "Cube", "Plane" };
-        for (int i = 0; i < MeshType_Count; ++i) {
+        for (int i = 0; i < static_cast<int>(MeshType::Count); ++i) {
             ImGui::PushID(i);
             if (ImGui::TreeNode(meshNames[i])) {
                 ImGui::DragFloat3("スケール", &MeshManager::GetInstance()->meshes[i].transform.scale.x,     0.01f);
@@ -356,9 +356,9 @@ void ImGuiControlPanel::ShowControls()
         ImGui::TextDisabled("GlassShatterEffect");
         ImGui::Separator();
 
-        if (s_glassShatterTrigger) {
+        if (glassShatterTrigger_) {
             if (ImGui::Button("テスト再生")) {
-                s_glassShatterTrigger();
+                glassShatterTrigger_();
             }
             ImGui::TextDisabled("※ 演出中は再度押しても無視されます");
         } else {
@@ -376,7 +376,7 @@ void ImGuiControlPanel::ShowControls()
         ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_Once);
         ImGui::Begin("ライト設定");
 
-        if (!s_obj3dCommon) {
+        if (!obj3dCommon_) {
             ImGui::TextColored(ImVec4(1,0.5f,0,1),
                 "RegisterObject3dCommon() が未呼出しです。\n"
                 "初期化時に RegisterObject3dCommon(obj3dCommon) を呼んでください。");
@@ -385,9 +385,9 @@ void ImGuiControlPanel::ShowControls()
             // ---- 平行光源（DirectionalLight） ----
             if (ImGui::CollapsingHeader("平行光源", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-                bool manualOverride = s_obj3dCommon->GetManualLightOverride();
+                bool manualOverride = obj3dCommon_->GetManualLightOverride();
                 if (ImGui::Checkbox("手動オーバーライド（時刻自動更新を停止）", &manualOverride)) {
-                    s_obj3dCommon->SetManualLightOverride(manualOverride);
+                    obj3dCommon_->SetManualLightOverride(manualOverride);
                 }
                 ImGui::SameLine(); ImGui::TextDisabled("(?)");
                 if (ImGui::IsItemHovered()) {
@@ -397,29 +397,29 @@ void ImGuiControlPanel::ShowControls()
 
                 if (manualOverride) {
                     // 方向
-                    Vector3 dir = s_obj3dCommon->GetLightDirectionRaw();
+                    Vector3 dir = obj3dCommon_->GetLightDirectionRaw();
                     if (ImGui::DragFloat3("方向 (XYZ)", &dir.x, 0.01f, -1.0f, 1.0f, "%.3f")) {
-                        s_obj3dCommon->SetLightDirection(dir);
+                        obj3dCommon_->SetLightDirection(dir);
                     }
                     ImGui::SameLine(); ImGui::TextDisabled("(?)");
                     if (ImGui::IsItemHovered()) { ImGui::SetTooltip("ライトが向かう方向ベクトル（負の値が多いほど上から光が当たる）"); }
 
                     // 色
-                    Vector4 col = s_obj3dCommon->GetLightColor();
-                    if (ImGui::ColorEdit3("ライト色", &col.x)) { s_obj3dCommon->SetLightColor(col); }
+                    Vector4 col = obj3dCommon_->GetLightColor();
+                    if (ImGui::ColorEdit3("ライト色", &col.x)) { obj3dCommon_->SetLightColor(col); }
 
                     // 強度
-                    float intensity = s_obj3dCommon->GetLightIntensity();
-                    if (ImGui::SliderFloat("強度##dlight", &intensity, 0.0f, 3.0f, "%.2f")) { s_obj3dCommon->SetLightIntensity(intensity); }
+                    float intensity = obj3dCommon_->GetLightIntensity();
+                    if (ImGui::SliderFloat("強度##dlight", &intensity, 0.0f, 3.0f, "%.2f")) { obj3dCommon_->SetLightIntensity(intensity); }
 
                     ImGui::Separator();
 
                     // アンビエント
-                    Vector3 ambCol = s_obj3dCommon->GetAmbientColor();
-                    if (ImGui::ColorEdit3("アンビエント色", &ambCol.x)) { s_obj3dCommon->SetAmbientColor(ambCol); }
+                    Vector3 ambCol = obj3dCommon_->GetAmbientColor();
+                    if (ImGui::ColorEdit3("アンビエント色", &ambCol.x)) { obj3dCommon_->SetAmbientColor(ambCol); }
 
-                    float ambIntensity = s_obj3dCommon->GetAmbientIntensity();
-                    if (ImGui::SliderFloat("アンビエント強度", &ambIntensity, 0.0f, 1.0f, "%.2f")) { s_obj3dCommon->SetAmbientIntensity(ambIntensity); }
+                    float ambIntensity = obj3dCommon_->GetAmbientIntensity();
+                    if (ImGui::SliderFloat("アンビエント強度", &ambIntensity, 0.0f, 1.0f, "%.2f")) { obj3dCommon_->SetAmbientIntensity(ambIntensity); }
                 } else {
                     ImGui::TextDisabled("手動オーバーライドが OFF のため\n時刻ベースで自動更新されています。");
                 }
@@ -435,19 +435,19 @@ void ImGuiControlPanel::ShowControls()
                 ImGui::Separator();
 
                 // ライト追加ボタン
-                if ((int)s_debugLights.size() < (int)Object3dCommon::kMaxPointLights) {
+                if ((int)debugLights_.size() < (int)Object3dCommon::kMaxPointLights) {
                     if (ImGui::Button("+ ライトを追加")) {
                         DebugPointLight newLight;
                         newLight.position = { 0.f, 2.f, 0.f };
-                        s_debugLights.push_back(newLight);
+                        debugLights_.push_back(newLight);
                     }
                 } else {
                     ImGui::TextDisabled("（上限 %d 個に達しています）", (int)Object3dCommon::kMaxPointLights);
                 }
 
                 // 各ライトの設定
-                for (int i = 0; i < (int)s_debugLights.size(); ) {
-                    auto& pl = s_debugLights[i];
+                for (int i = 0; i < (int)debugLights_.size(); ) {
+                    auto& pl = debugLights_[i];
                     ImGui::PushID(i);
 
                     char label[64];
@@ -470,7 +470,7 @@ void ImGuiControlPanel::ShowControls()
                     ImGui::PopID();
 
                     if (removed) {
-                        s_debugLights.erase(s_debugLights.begin() + i);
+                        debugLights_.erase(debugLights_.begin() + i);
                     } else {
                         ++i;
                     }

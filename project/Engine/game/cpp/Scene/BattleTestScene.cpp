@@ -1,9 +1,11 @@
 #include "BattleTestScene.h"
+#include "BorderBlockBuilder.h"
 #include "Collision.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
+#include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "TimeManager.h"
@@ -63,19 +65,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    auto addBlock = [&](float x, float y, float z) {
-        auto b = std::make_unique<Object3d>();
-        b->Initialize(modelCommon_.get());
-        b->SetModel(modelBlock_.get());
-        b->SetEnableLighting(false);
-        b->SetPosition({ x, y, z });
-        b->Update();
-        borderBlocks_.push_back(std::move(b));
-    };
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), -0.6f, 0.0f); }
-    for (int x = 0; x <= 28; ++x) { addBlock(static_cast<float>(x), 13.0f, 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(2.0f,  static_cast<float>(y), 0.0f); }
-    for (int y = 0; y <= 12; ++y) { addBlock(28.0f, static_cast<float>(y), 0.0f); }
+    BuildBorderBlocks(modelCommon_.get(), modelBlock_.get(), borderBlocks_);
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -701,24 +691,10 @@ void BattleTestScene::TriggerGlassShatterTest()
 
 D3D12_CPU_DESCRIPTOR_HANDLE BattleTestScene::GetActiveRTVHandle() const
 {
-    if (imageFilter_->IsEnabled())     { return imageFilter_->GetSceneRTVHandle(); }
-    if (grayscaleEffect_->IsEnabled()) { return grayscaleEffect_->GetSceneRTVHandle(); }
-    if (hsvFilter_->IsEnabled())       { return hsvFilter_->GetSceneRTVHandle(); }
-    return dxCommon_->GetCurrentBackBufferHandle();
+    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
 }
 
 void BattleTestScene::SetupMainRenderTarget()
 {
-    ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = GetActiveRTVHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
-    cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-
-    D3D12_VIEWPORT vp = { 0, 0,
-        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
-        0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
-    cmd->RSSetViewports(1, &vp);
-    cmd->RSSetScissorRects(1, &scissor);
+    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
 }

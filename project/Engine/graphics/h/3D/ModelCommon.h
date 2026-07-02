@@ -22,7 +22,7 @@ public:
      * @brief 描画コマンドにこの共通設定をセットする
      * @param blendMode 使用するブレンドモード
      */
-    void CommonDrawSettings(BlendMode blendMode = BlendMode_Alpha);
+    void CommonDrawSettings(BlendMode blendMode = BlendMode::Alpha);
 
     /**
      * @brief シャドウパス開始（シャドウ用 PSO + Root Signature をセット）
@@ -41,7 +41,7 @@ private:
 
     // ----- 通常描画用 -----
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[BlendMode_Count];
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::Count)];
 
     // ----- シャドウパス用 -----
     /** @brief シャドウパス専用ルートシグネチャ（CBV 1つ：TransformationMatrix） */

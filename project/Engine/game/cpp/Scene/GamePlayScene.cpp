@@ -10,6 +10,7 @@
 #include "ImageFilter.h"
 #include "ImGuiControl.h"
 #include "ParticleManager.h"
+#include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "TextureManager.h"
@@ -545,26 +546,12 @@ void GamePlayScene::CheckClearCondition()
 
 D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
 {
-    if (imageFilter_->IsEnabled())     { return imageFilter_->GetSceneRTVHandle(); }
-    if (grayscaleEffect_->IsEnabled()) { return grayscaleEffect_->GetSceneRTVHandle(); }
-    if (hsvFilter_->IsEnabled())       { return hsvFilter_->GetSceneRTVHandle(); }
-    return dxCommon_->GetCurrentBackBufferHandle();
+    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
 }
 
 void GamePlayScene::SetupMainRenderTarget()
 {
-    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = GetActiveRTVHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
-
-    commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-    D3D12_VIEWPORT vp = { 0, 0,
-        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
-        0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
-    commandList->RSSetViewports(1, &vp);
-    commandList->RSSetScissorRects(1, &scissor);
+    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
 }
 
 void GamePlayScene::SetupModelRenderState()

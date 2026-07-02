@@ -32,6 +32,11 @@ public:
 
     /// @brief デバッグコントロールウィンドウを描画する（ImGuiManager::Begin/Endの間に呼ぶ）
     static void ShowControls();
+
+private:
+    static Object3dCommon*              obj3dCommon_;
+    static std::vector<DebugPointLight> debugLights_;
+    static std::function<void()>        glassShatterTrigger_;
 };
 
 } // namespace engine::graphics
