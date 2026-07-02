@@ -8,6 +8,7 @@
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
+#include "SlashMark.h"
 #include "TimeManager.h"
 #include <algorithm>
 #include <cmath>
@@ -127,6 +128,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     glassShatterBgSprite_ = std::make_unique<Sprite>();
     glassShatterBgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
@@ -189,9 +191,11 @@ void BattleTestScene::Update()
     UpdatePlayerAndCamera();
     UpdateEnvironment();
 
-    bool hitConfirmed = UpdateCombat();
-    UpdateComboRank(hitConfirmed);
+    bool hitFromCombat  = UpdateCombat();
+    bool hitFromFinisher = UpdateFinisherSlash();
+    UpdateComboRank(hitFromCombat || hitFromFinisher);
     UpdateDummies();
+    SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
     bool nearReturn = UpdateReturnPortal();
     DrawHud(nearReturn);
@@ -339,6 +343,16 @@ bool BattleTestScene::UpdateCombat()
         }
     }
 
+    // ── フィニッシャースラッシュ：発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）──
+    if (player_->JustFinisherSlash()) {
+        finisherActive_    = true;
+        finisherLineIdx_   = 0;
+        finisherBeatTimer_ = 0.0f;
+        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.35f }, 0.10f);
+        SpawnHitEffect({ pp.x, pp.y + 0.5f, 0.0f });
+    }
+
     // ── スペースキー スピン連射 ──────────────────────────────────────
     if (player_->JustSpinShot()) {
         constexpr float kBulletSpeed = 0.30f;
@@ -391,6 +405,59 @@ bool BattleTestScene::UpdateCombat()
     }
 
     return hitConfirmed;
+}
+
+bool BattleTestScene::UpdateFinisherSlash()
+{
+    if (!finisherActive_) { return false; }
+
+    finisherBeatTimer_ -= GameConstants::kFrameDeltaTime;
+    if (finisherBeatTimer_ > 0.0f) { return false; }
+
+    auto*          tm = TimeManager::GetInstance();
+    const Vector3& pp = player_->GetPosition();
+
+    if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
+        // 斬撃線を1本ずつ追加していく
+        static std::mt19937 rng{ std::random_device{}() };
+        std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+        const float   ang = angleDist(rng);
+        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+
+        SlashMarkParams sm;
+        sm.start = { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
+                     pp.y - dir.y * GameConstants::kFinisherSlashRadius };
+        sm.end   = { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
+                     pp.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
+        sm.thickness = 5.0f;
+        sm.duration  = GameConstants::kFinisherImpactDelay + 0.3f;
+        SlashMark::GetInstance()->Spawn(sm);
+
+        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        ScreenFlash::GetInstance()->Request({ 0.8f, 0.95f, 1.0f, 0.15f }, 0.06f);
+
+        finisherLineIdx_++;
+        finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
+            ? GameConstants::kFinisherLineInterval
+            : GameConstants::kFinisherImpactDelay;
+        return false;
+    }
+
+    // 本命ヒット：距離を問わず全マネキンに命中
+    finisherActive_ = false;
+    for (auto& d : dummies_) {
+        d.hp          = d.maxHp;
+        d.hitFlash    = 0.22f;
+        d.hpDisplay_  = 0.0f;
+        d.returnTimer = 1.5f;
+        d.knockVelX  += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.5f;
+        d.knockVelY  += 0.20f;
+        SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
+    }
+    tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
+    ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
+    return true;
 }
 
 void BattleTestScene::UpdateComboRank(bool hitConfirmed)
@@ -538,6 +605,7 @@ void BattleTestScene::DrawControlsHud()
     row("1-4", L": Weapon Select");
     row("ENTER", L": Back (portal)");
     row("R", L": Awaken (30%+)");
+    row("F", L": Finisher (gauge MAX)");
 }
 
 void BattleTestScene::DrawComboRankHud()
@@ -665,6 +733,7 @@ void BattleTestScene::Draw()
     }
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
+    SlashMark::GetInstance()->Draw();
     fontRenderer_.Draw();
 
     // ---- ガラス割れエフェクト（テスト再生時のみ）----
@@ -681,6 +750,7 @@ void BattleTestScene::Finalize()
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
+    SlashMark::GetInstance()->Clear();
 }
 
 void BattleTestScene::TriggerGlassShatterTest()

@@ -471,6 +471,9 @@
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp">
+      <Filter>ソースファイル\Game\System</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp">
       <Filter>ソースファイル\Game\System</Filter>
     </ClCompile>
@@ -843,6 +846,9 @@
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
+      <Filter>ヘッダーファイル\Game\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\SlashMark.h">
       <Filter>ヘッダーファイル\Game\System</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h">

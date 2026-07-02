@@ -14,6 +14,7 @@
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
+#include "SlashMark.h"
 #include "TextureManager.h"
 #include "WeaponManager.h"
 using namespace engine;
@@ -145,6 +146,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     waterPool_->Initialize(spriteCommon_.get());
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     ghostObject_ = std::make_unique<Object3d>();
     ghostObject_->Initialize(modelCommon_.get());
@@ -223,6 +225,8 @@ void GamePlayScene::Update()
     sceneEditor_.Update(BuildEditContext());
     UpdateStyleAndUI(dt);
     UpdateParticles(dt);
+    UpdateFinisherSlash(dt);
+    SlashMark::GetInstance()->Update(dt);
     CheckClearCondition();
 }
 
@@ -315,6 +319,18 @@ void GamePlayScene::UpdateCombatEvents()
                 { 1.0f, 0.4f + i * 0.04f, 0.1f, 1.0f }, 1.0f, 0.20f);
         }
     }
+
+    // フィニッシャースラッシュ：発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）
+    if (player_->JustFinisherSlash()) {
+        const Vector3& epos = enemy_->GetPosition();
+        finisherActive_    = true;
+        finisherLineIdx_   = 0;
+        finisherBeatTimer_ = 0.0f;
+
+        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        cameraShaker_.Request(0.20f, 0.15f);
+        pm_->EmitRing("hit_ring", epos, 3.0f, { 0.75f, 0.95f, 1.0f, 0.7f }, 12, 0.3f, 0.25f);
+    }
 }
 
 void GamePlayScene::UpdateCombat()
@@ -406,6 +422,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
             enemy_->TakeDamage(1);
         }
     }
+    // フィニッシャースラッシュのダメージは UpdateFinisherSlash の本命ヒットで適用する
 
     float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? 0.6f : 1.0f;
     styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt * decayMult, 0.0f, 1.0f);
@@ -536,6 +553,60 @@ void GamePlayScene::UpdateParticles(float dt)
     }
 }
 
+void GamePlayScene::UpdateFinisherSlash(float dt)
+{
+    if (!finisherActive_) { return; }
+
+    finisherBeatTimer_ -= dt;
+    if (finisherBeatTimer_ > 0.0f) { return; }
+
+    auto*          tm   = TimeManager::GetInstance();
+    const Vector3& epos = enemy_->GetPosition();
+
+    if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
+        // 斬撃線を1本ずつ追加していく（1本ごとに小さな停止で「溜め」を作る）
+        std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+        const float   ang = angleDist(rng_);
+        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+
+        SlashMarkParams sm;
+        sm.start = { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
+                     epos.y - dir.y * GameConstants::kFinisherSlashRadius };
+        sm.end   = { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
+                     epos.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
+        sm.thickness = 5.0f;
+        sm.duration  = GameConstants::kFinisherImpactDelay + 0.3f; // 本命ヒットまで消えずに残す
+        SlashMark::GetInstance()->Spawn(sm);
+
+        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        cameraShaker_.Request(0.10f, 0.08f);
+        pm_->EmitRing("hit_ring", epos, 1.5f, { 0.8f, 0.95f, 1.0f, 0.6f }, 6, 0.2f, 0.15f);
+
+        finisherLineIdx_++;
+        finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
+            ? GameConstants::kFinisherLineInterval
+            : GameConstants::kFinisherImpactDelay;
+        return;
+    }
+
+    // 本命ヒット：全ての斬撃線が同時に効果を発揮する
+    finisherActive_ = false;
+    tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
+    cameraShaker_.Request(GameConstants::kShakeFinisherSlashAmt, GameConstants::kShakeFinisherSlashDur);
+    styleMeter_ = std::clamp(styleMeter_ + 0.35f, 0.0f, 1.0f);
+    enemy_->TakeDamage(GameConstants::kFinisherSlashDamage);
+
+    pm_->EmitRing("hit_ring", epos, 9.0f, { 0.7f, 0.9f, 1.0f, 1.0f }, 28, 0.55f, 0.4f);
+    std::uniform_real_distribution<float> vxJ(-7.0f, 7.0f);
+    std::uniform_real_distribution<float> vyJ( 4.0f, 11.0f);
+    for (int i = 0; i < 20; ++i) {
+        pm_->EmitGravity("hit_spark", epos,
+            { vxJ(rng_), vyJ(rng_), 0.0f },
+            { 0.75f, 0.9f, 1.0f, 1.0f }, 1.1f, 0.22f);
+    }
+}
+
 void GamePlayScene::CheckClearCondition()
 {
     // ローグライト: 敵撃破でクリア
@@ -653,6 +724,8 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
+    SlashMark::GetInstance()->Draw();
+
     // ----- ゲームプレイ UI テキスト -----
     fontRenderer_.Draw();
 
@@ -734,10 +807,14 @@ void GamePlayScene::DrawRankAndAwakenGauge()
 
     {
         bool ready = (gauge >= 0.3f);
-        Vector4 col = ready ? Vector4{ 0.85f,0.5f,1.0f,1.0f }
+        bool maxed = (gauge >= 1.0f);
+        Vector4 col = maxed ? Vector4{ 1.0f,0.95f,0.3f,1.0f }
+                    : ready ? Vector4{ 0.85f,0.5f,1.0f,1.0f }
                             : Vector4{ 0.45f,0.45f,0.45f,1.0f };
-        fontRenderer_.DrawStringW(ready ? L"覚醒ゲージ [R]で発動" : L"覚醒ゲージ",
-            1030.0f, gy, kScale, col);
+        const wchar_t* label = maxed ? L"覚醒ゲージ 満タン！[F]で発動"
+                             : ready ? L"覚醒ゲージ [R]で発動"
+                                     : L"覚醒ゲージ";
+        fontRenderer_.DrawStringW(label, 1030.0f, gy, kScale, col);
     }
     gy += kLineH;
 
@@ -829,6 +906,7 @@ void GamePlayScene::Finalize()
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
+    SlashMark::GetInstance()->Clear();
 
     // 音を全部止める（BGM・SE どちらも）
     if (audio_) {

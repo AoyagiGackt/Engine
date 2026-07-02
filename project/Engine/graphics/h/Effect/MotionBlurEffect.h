@@ -13,8 +13,8 @@ public:
     void BeginFrame(const Matrix4x4& viewProjection);
     void Apply(engine::DirectXCommon* dxCommon, uint32_t colorSrvIndex, uint32_t depthSrvIndex);
 
-    void SetStrength(float s)   { if (cbData_) cbData_->strength = s; }
-    void SetNumSamples(int n)   { if (cbData_) cbData_->numSamples = n; }
+    void SetStrength(float s)   { if (cbData_) { cbData_->strength = s; } }
+    void SetNumSamples(int n)   { if (cbData_) { cbData_->numSamples = n; } }
     bool IsEnabled()  const     { return enabled_; }
     void SetEnabled(bool e)     { enabled_ = e; }
 

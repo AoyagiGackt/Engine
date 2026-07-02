@@ -51,10 +51,10 @@ public:
     void SetEnabled(bool e)         { enabled_   = e; }
     bool IsEnabled()      const     { return enabled_; }
 
-    void  SetThreshold(float t)     { if (brightCbData_) brightCbData_->threshold = t; }
+    void  SetThreshold(float t)     { if (brightCbData_) { brightCbData_->threshold = t; } }
     float GetThreshold()  const     { return brightCbData_ ? brightCbData_->threshold : 0.7f; }
 
-    void  SetIntensity(float i)     { if (brightCbData_) brightCbData_->intensity = i; }
+    void  SetIntensity(float i)     { if (brightCbData_) { brightCbData_->intensity = i; } }
     float GetIntensity()  const     { return brightCbData_ ? brightCbData_->intensity : 1.0f; }
 
     // シーン RTV ハンドル（BeginScene 後に GrayscaleEffect などとの切り替えに使用）

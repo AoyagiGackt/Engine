@@ -77,7 +77,7 @@ public:
      * @brief 色収差の強度を設定する
      * @param strength 0.0=効果なし, 0.01〜0.05=自然な収差, 0.1=強め
      */
-    void  SetStrength(float strength) { if (cbData_) cbData_->strength = strength; }
+    void  SetStrength(float strength) { if (cbData_) { cbData_->strength = strength; } }
 
     /// @brief 現在の強度を取得する
     float GetStrength() const { return cbData_ ? cbData_->strength : 0.f; }

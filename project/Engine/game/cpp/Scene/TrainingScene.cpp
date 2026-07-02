@@ -4,11 +4,13 @@
 #include "GameConstants.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
+#include "SlashMark.h"
 #include "SSAOEffect.h"
 #include "TimeManager.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <random>
 #include <string>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -76,6 +78,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
 
@@ -168,6 +171,31 @@ void TrainingScene::UpdatePlayerAndBullets()
         }
     }
     bulletPool_.Update();
+
+    // ── フィニッシャースラッシュ（ゲージ満タン消費）───────────────────
+    if (player_->JustFinisherSlash()) {
+        const Vector3& fpos = player_->GetPosition();
+        TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopFinisherSlash);
+        ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
+
+        static std::mt19937 rng{ std::random_device{}() };
+        std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+        for (int i = 0; i < GameConstants::kFinisherSlashLines; ++i) {
+            const float   ang = angleDist(rng);
+            const Vector2 dir = { std::cos(ang), std::sin(ang) };
+
+            SlashMarkParams sm;
+            sm.start = { fpos.x - dir.x * GameConstants::kFinisherSlashRadius,
+                         fpos.y - dir.y * GameConstants::kFinisherSlashRadius };
+            sm.end   = { fpos.x + dir.x * GameConstants::kFinisherSlashRadius,
+                         fpos.y + dir.y * GameConstants::kFinisherSlashRadius };
+            sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
+            sm.thickness = 5.0f;
+            sm.duration  = 0.22f;
+            SlashMark::GetInstance()->Spawn(sm);
+        }
+    }
+    SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 }
 
 void TrainingScene::UpdateCameraAndEnvironment()
@@ -326,6 +354,7 @@ void TrainingScene::DrawControlsHud()
     row("1-4", L": Weapon Select");
     row("ENTER", L": Warp (portal)");
     row("R", L": Awaken (30%+)");
+    row("F", L": Finisher (gauge MAX)");
 }
 
 void TrainingScene::DrawAwakenGaugeHud()
@@ -425,10 +454,12 @@ void TrainingScene::Draw()
     shadowManager_->SetShadowMap(cmd, srvManager_);
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
+    SlashMark::GetInstance()->Draw();
     fontRenderer_.Draw();
 }
 
 void TrainingScene::Finalize()
 {
+    SlashMark::GetInstance()->Clear();
     GpuProfiler::GetInstance()->Finalize();
 }

@@ -168,7 +168,7 @@ void GlassShatterEffect::Update(float dt)
 
 void GlassShatterEffect::CaptureFrame()
 {
-    if (!freezeTexture_ || !captureNeeded_) return;
+    if (!freezeTexture_ || !captureNeeded_) { return; }
 
     auto* cmd      = dxCommon_->GetCommandList();
     auto* backBuf  = dxCommon_->GetCurrentBackBufferResource();

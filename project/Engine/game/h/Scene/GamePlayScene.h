@@ -123,6 +123,8 @@ private:
     void UpdateStyleAndUI(float dt);
     // パーティクルの更新
     void UpdateParticles(float dt);
+    // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
+    void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定
     void CheckClearCondition();
 
@@ -187,6 +189,11 @@ private:
     float auraTimer_  = 0.0f;
     float styleMeter_ = 0.0f;
     float peakStyle_  = 0.0f;
+
+    // フィニッシャースラッシュ演出の進行状態
+    bool  finisherActive_    = false;
+    int   finisherLineIdx_   = 0;
+    float finisherBeatTimer_ = 0.0f;
 
     bool  showResult_  = false;
     float resultTimer_ = 0.0f;

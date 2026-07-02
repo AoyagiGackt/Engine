@@ -114,11 +114,11 @@ void VignetteEffect::Apply()
     cmdList->DrawInstanced(3, 1, 0, 0);
 }
 
-void VignetteEffect::SetIntensity(float v) { if (cbData_) cbData_->intensity = v; }
+void VignetteEffect::SetIntensity(float v) { if (cbData_) { cbData_->intensity = v; } }
 float VignetteEffect::GetIntensity() const { return cbData_ ? cbData_->intensity : 0.f; }
 
-void VignetteEffect::SetRadius(float v) { if (cbData_) cbData_->radius = v; }
+void VignetteEffect::SetRadius(float v) { if (cbData_) { cbData_->radius = v; } }
 float VignetteEffect::GetRadius()    const { return cbData_ ? cbData_->radius    : 0.f; }
 
-void VignetteEffect::SetSoftness(float v) { if (cbData_) cbData_->softness = v; }
+void VignetteEffect::SetSoftness(float v) { if (cbData_) { cbData_->softness = v; } }
 float VignetteEffect::GetSoftness()  const { return cbData_ ? cbData_->softness  : 0.f; }

@@ -35,12 +35,12 @@ void ShaderHotReload::Unregister(uint32_t id)
 {
     auto it = std::find_if(entries_.begin(), entries_.end(),
         [id](const Entry& e) { return e.id == id; });
-    if (it != entries_.end()) entries_.erase(it);
+    if (it != entries_.end()) { entries_.erase(it); }
 }
 
 void ShaderHotReload::Update()
 {
-    if (!enabled_) return;
+    if (!enabled_) { return; }
 
     ++frameCount_;
 
@@ -59,10 +59,10 @@ void ShaderHotReload::Update()
         } catch (...) {
             continue;
         }
-        if (wt <= e.lastWriteTime) continue;
+        if (wt <= e.lastWriteTime) { continue; }
 
         IDxcBlob* newBlob = dxCommon_->CompileShader(e.path, e.profile);
-        if (!newBlob) continue; // コンパイルエラーは無視して古いシェーダーを使い続ける
+        if (!newBlob) { continue; } // コンパイルエラーは無視して古いシェーダーを使い続ける
 
         e.lastWriteTime = wt;
 

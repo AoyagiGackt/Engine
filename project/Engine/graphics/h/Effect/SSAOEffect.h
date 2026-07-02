@@ -48,8 +48,8 @@ public:
 
     bool  IsEnabled()     const { return enabled_; }
     void  SetEnabled(bool e)    { enabled_ = e; }
-    void  SetRadius(float r)    { if (ssaoCbData_) ssaoCbData_->radius   = r; }
-    void  SetStrength(float s)  { if (ssaoCbData_) ssaoCbData_->strength = s; }
+    void  SetRadius(float r)    { if (ssaoCbData_) { ssaoCbData_->radius   = r; } }
+    void  SetStrength(float s)  { if (ssaoCbData_) { ssaoCbData_->strength = s; } }
 
     /** @brief ノーマルキャプチャ中に Object3d から呼ぶ。per-object トランスフォームを slot 0 に設定する */
     void SetObjectTransform(ID3D12GraphicsCommandList* cmd, D3D12_GPU_VIRTUAL_ADDRESS transformAddr) const;

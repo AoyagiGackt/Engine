@@ -29,8 +29,8 @@ public:
 
     bool  IsEnabled()          const { return enabled_; }
     void  SetEnabled(bool e)         { enabled_ = e; }
-    void  SetExposure(float e)       { if (cbData_) cbData_->exposure = e; }
-    void  SetGamma(float g)          { if (cbData_) cbData_->gamma    = g; }
+    void  SetExposure(float e)       { if (cbData_) { cbData_->exposure = e; } }
+    void  SetGamma(float g)          { if (cbData_) { cbData_->gamma    = g; } }
 
     uint32_t GetHDRSrvIndex() const { return hdrSrvIndex_; }
 

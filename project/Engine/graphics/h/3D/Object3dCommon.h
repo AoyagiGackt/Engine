@@ -83,19 +83,19 @@ public:
     bool GetManualLightOverride()      const { return manualLightOverride_; }
 
     /** @brief ライト方向を手動設定（正規化済みベクトルを渡すこと） */
-    void SetLightDirection(const Vector3& dir)  { if (lightData_) lightData_->direction        = dir; }
+    void SetLightDirection(const Vector3& dir)  { if (lightData_) { lightData_->direction        = dir; } }
 
     /** @brief 平行光源の色を設定 */
-    void SetLightColor(const Vector4& color)    { if (lightData_) lightData_->color            = color; }
+    void SetLightColor(const Vector4& color)    { if (lightData_) { lightData_->color            = color; } }
 
     /** @brief 平行光源の強度を設定 */
-    void SetLightIntensity(float intensity)     { if (lightData_) lightData_->intensity        = intensity; }
+    void SetLightIntensity(float intensity)     { if (lightData_) { lightData_->intensity        = intensity; } }
 
     /** @brief アンビエント光の色を設定 */
-    void SetAmbientColor(const Vector3& color)  { if (lightData_) lightData_->ambientColor     = color; }
+    void SetAmbientColor(const Vector3& color)  { if (lightData_) { lightData_->ambientColor     = color; } }
 
     /** @brief アンビエント光の強度を設定 */
-    void SetAmbientIntensity(float intensity)   { if (lightData_) lightData_->ambientIntensity = intensity; }
+    void SetAmbientIntensity(float intensity)   { if (lightData_) { lightData_->ambientIntensity = intensity; } }
 
     // ゲッター
     Vector3 GetLightDirectionRaw()const { return lightData_ ? lightData_->direction        : Vector3{0,-1,0}; }
