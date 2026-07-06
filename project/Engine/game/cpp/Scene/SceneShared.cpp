@@ -3,6 +3,7 @@
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "Input.h"
+#include "ParticleManager.h"
 #include "SceneManager.h"
 #include "Sprite.h"
 #include "WinApp.h"
@@ -10,10 +11,23 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <random>
 using namespace engine;
 using namespace engine::graphics;
 
 namespace engine::game::SceneShared {
+
+namespace {
+// フィニッシャー演出共通の色（青白い剣閃）
+constexpr Vector4 kFinisherGlowColor  = { 0.60f, 0.85f, 1.00f, 0.95f };
+constexpr Vector4 kFinisherSparkColor = { 0.80f, 0.95f, 1.00f, 1.00f };
+
+std::mt19937& FinisherRng()
+{
+    static std::mt19937 rng{ std::random_device{}() };
+    return rng;
+}
+} // namespace
 
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 {
@@ -164,6 +178,89 @@ void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fg
         fontRenderer.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
             kBarY - 18.0f, kScale, { 0.8f, 0.9f, 1.0f, 0.8f });
     }
+}
+
+void EmitFinisherCharge(ParticleManager* pm,
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
+{
+    auto& rng = FinisherRng();
+    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    std::uniform_real_distribution<float> radiusDist(2.2f, 3.4f);
+    std::uniform_real_distribution<float> scaleDist(0.10f, 0.20f);
+
+    // 周囲から中心へ吸い込まれる光粒。溜め時間内に到達する速度を逆算する
+    constexpr int kMoteCount = 20;
+    for (int i = 0; i < kMoteCount; ++i) {
+        const float ang = angleDist(rng);
+        const float r   = radiusDist(rng);
+        Vector3 spawn = { pos.x + std::cos(ang) * r, pos.y + std::sin(ang) * r, 0.0f };
+        const float speed = r / GameConstants::kFinisherChargeDelay;
+        Vector3 vel = { -std::cos(ang) * speed, -std::sin(ang) * speed, 0.0f };
+        pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherGlowColor,
+            GameConstants::kFinisherChargeDelay, scaleDist(rng), true);
+    }
+
+    pm->EmitRing(ringGroup, pos, 2.0f, kFinisherGlowColor, 10, 0.30f, 0.22f);
+}
+
+void EmitFinisherSlashLine(ParticleManager* pm,
+    const std::string& slashGroup, const std::string& sparkGroup,
+    const Vector3& center, float angle, float halfLength)
+{
+    auto& rng = FinisherRng();
+    std::uniform_real_distribution<float> tDist(-halfLength, halfLength);
+    std::uniform_real_distribution<float> driftDist(-0.8f, 0.8f);
+    std::uniform_real_distribution<float> scaleDist(0.08f, 0.16f);
+
+    if (!slashGroup.empty()) {
+        pm->EmitSlash(slashGroup, center, angle, { 0.85f, 0.95f, 1.0f, 0.9f }, 0.9f);
+    }
+
+    // 斬線に沿って散る煌めき
+    const Vector2 dir = { std::cos(angle), std::sin(angle) };
+    constexpr int kGlintCount = 4;
+    for (int i = 0; i < kGlintCount; ++i) {
+        const float t = tDist(rng);
+        Vector3 spawn = { center.x + dir.x * t, center.y + dir.y * t, 0.0f };
+        Vector3 vel   = { driftDist(rng), driftDist(rng) + 0.5f, 0.0f };
+        pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherSparkColor, 0.25f, scaleDist(rng), true);
+    }
+
+    // 交点の閃光（細い針状の光条）
+    pm->EmitHitStar(sparkGroup, center, kFinisherSparkColor);
+}
+
+void EmitFinisherRelease(ParticleManager* pm,
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
+{
+    auto& rng = FinisherRng();
+
+    // 速度差のある二重リングで衝撃波の広がりを作る
+    pm->EmitRing(ringGroup, pos, 9.0f, { 0.70f, 0.90f, 1.0f, 1.0f }, 28, 0.55f, 0.40f);
+    pm->EmitRing(ringGroup, pos, 4.5f, kFinisherGlowColor, 18, 0.45f, 0.26f);
+
+    // 放射状に飛び散る火花
+    std::uniform_real_distribution<float> vxDist(-7.0f, 7.0f);
+    std::uniform_real_distribution<float> vyDist( 4.0f, 11.0f);
+    for (int i = 0; i < 24; ++i) {
+        pm->EmitGravity(sparkGroup, pos,
+            { vxDist(rng), vyDist(rng), 0.0f },
+            kFinisherSparkColor, 1.1f, 0.22f);
+    }
+
+    // ゆっくり立ち昇る余韻の光粒
+    std::uniform_real_distribution<float> offXDist(-1.5f, 1.5f);
+    std::uniform_real_distribution<float> riseDist(1.2f, 2.8f);
+    std::uniform_real_distribution<float> scaleDist(0.10f, 0.22f);
+    for (int i = 0; i < 12; ++i) {
+        Vector3 spawn = { pos.x + offXDist(rng), pos.y + offXDist(rng) * 0.5f, 0.0f };
+        pm->EmitWithColor(sparkGroup, spawn, { 0.0f, riseDist(rng), 0.0f },
+            kFinisherGlowColor, 0.9f, scaleDist(rng), true);
+    }
+
+    // 中心の大きな光条
+    pm->EmitHitStar(sparkGroup, pos, { 1.0f, 1.0f, 1.0f, 1.0f });
+    pm->EmitHitStar(sparkGroup, pos, kFinisherSparkColor);
 }
 
 } // namespace engine::game::SceneShared

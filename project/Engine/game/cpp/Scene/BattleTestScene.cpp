@@ -77,10 +77,12 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.obj",
         "Resources/monsterBall.png");
 
-    pm_->CreateParticleGroup("bt_hit_ring",  "Resources/circle2.png");
-    pm_->CreateParticleGroup("bt_hit_spark", "Resources/circle2.png");
-    pm_->SetAdditiveBlend("bt_hit_ring",  true);
-    pm_->SetAdditiveBlend("bt_hit_spark", true);
+    pm_->CreateParticleGroup("bt_hit_ring",    "Resources/circle2.png");
+    pm_->CreateParticleGroup("bt_hit_spark",   "Resources/circle2.png");
+    pm_->CreateParticleGroup("bt_sword_slash", "Resources/circle2.png");
+    pm_->SetAdditiveBlend("bt_hit_ring",    true);
+    pm_->SetAdditiveBlend("bt_hit_spark",   true);
+    pm_->SetAdditiveBlend("bt_sword_slash", true);
 
     {
         Dummy d;
@@ -322,6 +324,8 @@ bool BattleTestScene::UpdateCombat()
         tm->RequestHitStop(GameConstants::kHitStopJuggle);
         ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.35f }, 0.10f);
         SpawnHitEffect({ pp.x, pp.y + 0.5f, 0.0f });
+        SceneShared::EmitFinisherCharge(pm_, "bt_hit_ring", "bt_hit_spark",
+            { pp.x, pp.y + 0.5f, 0.0f });
     }
 
     // ── スペースキー スピン連射 ──────────────────────────────────────
@@ -411,6 +415,9 @@ bool BattleTestScene::UpdateFinisherSlash()
                      + GameConstants::kFinisherImpactDelay + 0.25f;
         SlashMark::GetInstance()->Spawn(sm);
 
+        SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark",
+            { center.x, center.y, 0.0f }, ang, len);
+
         tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
 
         // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
@@ -462,6 +469,8 @@ bool BattleTestScene::UpdateFinisherSlash()
 
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
     ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
+    SceneShared::EmitFinisherRelease(pm_, "bt_hit_ring", "bt_hit_spark",
+        { pp.x, pp.y + 0.5f, 0.0f });
     return true;
 }
 

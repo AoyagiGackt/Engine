@@ -6,8 +6,9 @@
 #include "MakeAffine.h"
 #include "WeaponManager.h"
 #include <memory>
+#include <string>
 namespace engine { class Input; }
-namespace engine::graphics { class Camera; class Sprite; class SpriteCommon; }
+namespace engine::graphics { class Camera; class ParticleManager; class Sprite; class SpriteCommon; }
 
 namespace engine::game {
 class FontRenderer;
@@ -16,6 +17,20 @@ namespace SceneShared {
 
 /// @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する
 std::unique_ptr<engine::graphics::Sprite> CreateFinisherOverlay(engine::graphics::SpriteCommon* spriteCommon);
+
+/// @brief フィニッシャー発動時の溜めエフェクト（周囲から中心へ収束する光粒＋小リング）を放出する
+void EmitFinisherCharge(engine::graphics::ParticleManager* pm,
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos);
+
+/// @brief 斬撃線1本ごとの煌めき（斬線に沿った光粒＋中心の閃光）を放出する
+/// @param slashGroup 斬撃の残光グループ名。空文字列なら残光はスキップする
+void EmitFinisherSlashLine(engine::graphics::ParticleManager* pm,
+    const std::string& slashGroup, const std::string& sparkGroup,
+    const Vector3& center, float angle, float halfLength);
+
+/// @brief 解放の瞬間の炸裂エフェクト（多重リング＋放射火花＋上昇する余韻）を放出する
+void EmitFinisherRelease(engine::graphics::ParticleManager* pm,
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos);
 
 /// @brief 武器切替入力（Q/E、数字キー）を処理する。weaponCycleTimer は呼び出し側が保持するクールダウン
 void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager, float& weaponCycleTimer);
