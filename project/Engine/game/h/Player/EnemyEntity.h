@@ -61,6 +61,17 @@ public:
     /** @brief 最大 HP を返す */
     int  GetMaxHp()   const { return maxHp_; }
 
+    /**
+     * @brief 本体モデルの表示/非表示を切り替える（切断演出中に非表示にする用）
+     * @param visible 表示するなら true
+     */
+    void SetVisible(bool visible) { visible_ = visible; }
+    /** @brief 本体モデルが表示中かどうか */
+    bool IsVisible() const { return visible_; }
+
+    /** @brief 切断演出などが参照するモデルを返す */
+    Model* GetModel() const { return model_.get(); }
+
     /** @brief このフレームに着地したか */
     bool           JustLanded()  const { return justLanded_; }
     /** @brief 打ち上げ中かどうか */
@@ -79,6 +90,7 @@ private:
     int     maxHp_      = 20;
     int     hp_         = 20;
     bool    defeated_   = false;
+    bool    visible_    = true;
 
     Vector3 pos_        = {};
     float   velY_       = 0.0f;

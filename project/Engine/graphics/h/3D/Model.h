@@ -81,6 +81,18 @@ public:
     size_t GetIndexCount() const { return indices_.size(); }
 
     /**
+     * @brief CPU側で保持している頂点データ配列を取得する（切断エフェクト等で使用）
+     * @return const std::vector<VertexData>& 全頂点データ
+     */
+    const std::vector<VertexData>& GetVertices() const { return vertices_; }
+
+    /**
+     * @brief CPU側で保持しているインデックス配列を取得する
+     * @return const std::vector<uint32_t>& 全インデックス
+     */
+    const std::vector<uint32_t>& GetIndices() const { return indices_; }
+
+    /**
      * @brief 環境マップ用キューブマップを設定する（事前にLoadTextureが呼ばれている必要あり）
      * @param filePath キューブマップの DDS ファイルパス
      */

@@ -39,8 +39,11 @@
 #include "WaterPool.h"
 #include "GameTime.h"
 #include "Skydome.h"
+#include "BladeFlashEffect.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
+#include "MeshSliceEffect.h"
+#include "SpaceDistortionEffect.h"
 #include "RenderTexture.h"
 #include "SceneEditor.h"
 #include "SceneShared.h"
@@ -69,8 +72,11 @@ using engine::graphics::Object3d;
 using engine::TimeManager;
 using engine::GameTime;
 using engine::graphics::Skydome;
+using engine::graphics::BladeFlashEffect;
 using engine::graphics::GlassShatterEffect;
 using engine::graphics::ImageFilter;
+using engine::graphics::MeshSliceEffect;
+using engine::graphics::SpaceDistortionEffect;
 using engine::graphics::RenderTexture;
 using engine::graphics::GrayscaleEffect;
 using engine::graphics::HsvFilter;
@@ -199,6 +205,15 @@ private:
     /** @brief 大技演出中の画面暗転オーバーレイ */
     std::unique_ptr<Sprite> finisherOverlay_;
 
+    /** @brief 解放時に敵本体を切断破片へ差し替える演出 */
+    MeshSliceEffect enemySlice_;
+
+    /** @brief 空間に走るガラス質の刃パーティクル */
+    BladeFlashEffect bladeFlash_;
+
+    /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
+    SpaceDistortionEffect spaceWarp_;
+
     bool  showResult_  = false;
     float resultTimer_ = 0.0f;
     int   lastGold_    = 0;
@@ -207,6 +222,10 @@ private:
     CameraShaker cameraShaker_;
 
     GlassShatterEffect glassShatter_;
+
+    /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
+    GlassShatterEffect finisherShatter_;
+
     bool clearTriggered_        = false;
     bool requestClear_          = false;
     bool glassShatterDebugTest_ = false;
