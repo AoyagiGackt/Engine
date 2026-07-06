@@ -14,6 +14,7 @@
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
+#include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "TextureManager.h"
 #include "WeaponManager.h"
@@ -162,6 +163,11 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     cameraTargetRot_ = camera_->GetRotate();
 
     glassShatter_.Initialize(dxCommon_, srvManager_);
+    enemySlice_.Initialize(dxCommon_);
+    bladeFlash_.Initialize(dxCommon_);
+    spaceWarp_.Initialize(dxCommon_, srvManager_);
+    finisherShatter_.Initialize(dxCommon_, srvManager_);
+    finisherShatter_.SetDuration(0.9f);
 
     ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
 }
@@ -228,6 +234,34 @@ void GamePlayScene::Update()
     UpdateStyleAndUI(dt);
     UpdateParticles(dt);
     UpdateFinisherSlash(dt);
+    enemySlice_.Update(dt, camera_.get());
+    bladeFlash_.Update(dt, camera_.get());
+
+    // 敵位置を画面UVへ投影して空間歪みの中心に設定する
+    if (spaceWarp_.IsActive() || finisherActive_) {
+        const Vector3&  epos = enemy_->GetPosition();
+        const Matrix4x4 vp   = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
+        const float cx = epos.x * vp.m[0][0] + epos.y * vp.m[1][0] + epos.z * vp.m[2][0] + vp.m[3][0];
+        const float cy = epos.x * vp.m[0][1] + epos.y * vp.m[1][1] + epos.z * vp.m[2][1] + vp.m[3][1];
+        const float cw = epos.x * vp.m[0][3] + epos.y * vp.m[1][3] + epos.z * vp.m[2][3] + vp.m[3][3];
+        if (cw > 0.0001f) {
+            spaceWarp_.SetCenterUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
+        }
+    }
+    spaceWarp_.Update(dt);
+
+    // 解放時の世界割れ（ヒットストップ中は凍結し、時が動き出すと砕け散る）
+    finisherShatter_.Update(dt);
+    if (finisherShatter_.IsFinished()) {
+        finisherShatter_.Reset();
+    }
+
+    // 切断演出が飛散に移ったら、生き残っている敵本体を再表示する
+    if (!enemy_->IsDefeated() && !enemy_->IsVisible()
+        && (enemySlice_.IsBursting() || !enemySlice_.IsActive())) {
+        enemy_->SetVisible(true);
+    }
+
     SlashMark::GetInstance()->Update(dt);
     CheckClearCondition();
 }
@@ -334,6 +368,7 @@ void GamePlayScene::UpdateCombatEvents()
         tm->RequestHitStop(GameConstants::kHitStopJuggle);
         cameraShaker_.Request(0.20f, 0.15f);
         SceneShared::EmitFinisherCharge(pm_, "hit_ring", "hit_spark", epos);
+        spaceWarp_.AddImpulse(0.4f);
     }
 }
 
@@ -568,11 +603,11 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     const Vector3& epos = enemy_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 敵の周囲のランダムな位置を高速で斬り刻む
+        // 画面全体を埋め尽くすようにランダムな位置を高速で斬り刻む
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-2.0f, 2.0f);
-        std::uniform_real_distribution<float> offYDist(-1.5f, 1.5f);
-        std::uniform_real_distribution<float> lenDist(2.5f, GameConstants::kFinisherSlashRadius);
+        std::uniform_real_distribution<float> offXDist(-7.5f, 7.5f);
+        std::uniform_real_distribution<float> offYDist(-4.0f, 4.0f);
+        std::uniform_real_distribution<float> lenDist(3.0f, 7.0f);
         std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
         const float   ang    = angleDist(rng_);
         const Vector2 dir    = { std::cos(ang), std::sin(ang) };
@@ -599,6 +634,10 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
         SceneShared::EmitFinisherSlashLine(pm_, "sword_slash", "hit_spark",
             { center.x, center.y, 0.0f }, ang, len);
 
+        // 空間にガラス質の刃を明滅させ、歪みを脈動させる
+        bladeFlash_.Emit({ center.x, center.y, epos.z }, 3, 4.0f, 1.2f, 2.8f);
+        spaceWarp_.AddImpulse(0.12f);
+
         finisherLineIdx_++;
         finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
             ? GameConstants::kFinisherLineInterval
@@ -613,6 +652,28 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     styleMeter_ = std::clamp(styleMeter_ + 0.35f, 0.0f, 1.0f);
     enemy_->TakeDamage(GameConstants::kFinisherSlashDamage);
     enemy_->Launch(GameConstants::kLaunchSpeed);
+
+    // 敵本体を切断破片に差し替える（演出が飛散に移るまで本体は非表示）
+    enemySlice_.Start(enemy_->GetModel(), epos, { 1.0f, 1.0f, 1.0f }, rng_());
+    enemy_->SetVisible(false);
+
+    // 解放の瞬間：刃の一斉放出と空間歪みの最大化
+    bladeFlash_.Emit(epos, 30, GameConstants::kFinisherSlashRadius, 2.0f, 5.0f);
+    spaceWarp_.AddImpulse(1.0f);
+
+    // 白閃光とともに「暗転+斬撃線ごと凍った画面」を敵位置から砕き、素の世界を見せる
+    ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.5f }, 0.15f);
+    {
+        const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
+        const float cx = epos.x * vp.m[0][0] + epos.y * vp.m[1][0] + epos.z * vp.m[2][0] + vp.m[3][0];
+        const float cy = epos.x * vp.m[0][1] + epos.y * vp.m[1][1] + epos.z * vp.m[2][1] + vp.m[3][1];
+        const float cw = epos.x * vp.m[0][3] + epos.y * vp.m[1][3] + epos.z * vp.m[2][3] + vp.m[3][3];
+        if (cw > 0.0001f) {
+            finisherShatter_.SetImpactUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
+        }
+    }
+    finisherShatter_.Reset();
+    finisherShatter_.Start();
 
     // 解放の瞬間、太く短い閃光の斬撃線を重ねる
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
@@ -635,8 +696,10 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
 void GamePlayScene::CheckClearCondition()
 {
-    // ローグライト: 敵撃破でクリア
-    if (!clearTriggered_ && enemy_->IsDefeated() && RunData::GetInstance()->IsRunActive()) {
+    // ローグライト: 敵撃破でクリア（大技・切断演出は見せ切ってから遷移する）
+    if (!clearTriggered_ && enemy_->IsDefeated()
+        && !finisherActive_ && !enemySlice_.IsActive()
+        && RunData::GetInstance()->IsRunActive()) {
         requestClear_ = true;
     }
 
@@ -738,9 +801,19 @@ void GamePlayScene::Draw()
 
     player_->Draw();
     enemy_->Draw();
+    enemySlice_.Draw();
 
     pm_->Update(camera_.get());
     pm_->Draw(camera_.get());
+
+    bladeFlash_.Draw();
+
+    // 空間歪み（バックバッファ直描き時のみ。UIより先に画面をキャプチャして歪ませる）
+    if (spaceWarp_.IsActive()
+        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
+        spaceWarp_.CaptureAndApply();
+        SetupMainRenderTarget(); // 歪み描画で変わったレンダーターゲット設定を戻す
+    }
 
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
@@ -750,12 +823,28 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
-    // 大技演出中は画面を暗転させてから斬撃線を重ねる
-    if (finisherActive_) {
+    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる。
+    // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
+    const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
+    if (finisherActive_ || captureFrame) {
+        finisherOverlay_->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
         finisherOverlay_->Update();
         finisherOverlay_->Draw();
     }
     SlashMark::GetInstance()->Draw();
+
+    // ---- 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）----
+    if (finisherShatter_.IsActive()
+        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
+        if (finisherShatter_.NeedCapture()) {
+            finisherShatter_.CaptureFrame();
+        }
+        finisherShatter_.Apply();
+
+        // Apply が変えたレンダーターゲットとルートシグネチャを後続のスプライト描画用に戻す
+        SetupMainRenderTarget();
+        spriteCommon_->CommonDrawSettings();
+    }
 
     // ----- ゲームプレイ UI テキスト -----
     fontRenderer_.Draw();
@@ -937,6 +1026,9 @@ void GamePlayScene::Finalize()
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
+    finisherShatter_.Finalize();
+    spaceWarp_.Finalize();
+    bladeFlash_.Clear();
     SlashMark::GetInstance()->Clear();
 
     // 音を全部止める（BGM・SE どちらも）

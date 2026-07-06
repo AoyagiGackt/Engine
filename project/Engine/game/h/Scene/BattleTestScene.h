@@ -9,6 +9,7 @@
 
 #include "Audio.h"
 #include "BaseScene.h"
+#include "BladeFlashEffect.h"
 #include "BulletPool.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -17,6 +18,7 @@
 #include "ImageFilter.h"
 #include "ImGuiManager.h"
 #include "Input.h"
+#include "MeshSliceEffect.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
@@ -25,6 +27,7 @@
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
+#include "SpaceDistortionEffect.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "SrvManager.h"
@@ -36,6 +39,7 @@ class HsvFilter;
 
 namespace engine::game {
 using engine::Audio;
+using engine::graphics::BladeFlashEffect;
 using engine::graphics::Camera;
 using engine::DirectXCommon;
 using engine::graphics::GlassShatterEffect;
@@ -44,12 +48,14 @@ using engine::graphics::GrayscaleEffect;
 using engine::graphics::HsvFilter;
 using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::MeshSliceEffect;
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
 using engine::graphics::Object3dCommon;
 using engine::graphics::ParticleManager;
 using engine::graphics::ShadowManager;
+using engine::graphics::SpaceDistortionEffect;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
@@ -80,6 +86,7 @@ private:
         float    knockVelX   = 0.0f;
         float    knockVelY   = 0.0f;
         float    returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
+        bool     sliced      = false; // 切断演出中は本体モデルを非表示にする
 
         // HP バー用スプライト
         std::unique_ptr<Sprite> hpBarBg;
@@ -127,6 +134,16 @@ private:
 
     GlassShatterEffect       glassShatter_;
     std::unique_ptr<Sprite>  glassShatterBgSprite_;
+
+    /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
+    GlassShatterEffect finisherShatter_;
+
+    /** @brief 空間に走るガラス質の刃パーティクル */
+    BladeFlashEffect bladeFlash_;
+    /** @brief プレイヤー中心の空間歪み（レンズ歪み+色収差） */
+    SpaceDistortionEffect spaceWarp_;
+    /** @brief 解放時にダミーを切断破片へ差し替える演出 */
+    MeshSliceEffect dummySlice_;
 
     std::unique_ptr<SpriteCommon>    spriteCommon_;
     std::unique_ptr<ModelCommon>     modelCommon_;

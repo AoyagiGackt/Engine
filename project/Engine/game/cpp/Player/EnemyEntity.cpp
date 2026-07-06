@@ -47,6 +47,7 @@ void EnemyEntity::Update()
 
 void EnemyEntity::Draw()
 {
+    if (!visible_) { return; }
     object_->Draw();
 }
 

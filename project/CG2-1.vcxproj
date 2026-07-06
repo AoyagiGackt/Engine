@@ -205,7 +205,10 @@
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\BladeFlashEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\MeshSliceEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\SpaceDistortionEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GrayscaleEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\PostEffectFullscreenPass.cpp" />
@@ -333,6 +336,46 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Resources\shaders\ring\Ring.PS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\bladeflash\BladeFlash.VS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Vertex</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\bladeflash\BladeFlash.PS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\SpaceDistortionPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\meshslice\MeshSlice.VS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Vertex</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\meshslice\MeshSlice.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
@@ -596,7 +639,10 @@
     <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h" />
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h" />
     <ClInclude Include="Engine\graphics\h\3D\Ring.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\BladeFlashEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\MeshSliceEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\SpaceDistortionEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GrayscaleEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\HsvFilter.h" />
     <ClInclude Include="Engine\graphics\h\Effect\ImageFilter.h" />
