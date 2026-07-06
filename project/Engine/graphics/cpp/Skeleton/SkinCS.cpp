@@ -62,7 +62,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     // =====================================================
     // コンピュートPSO
     // =====================================================
-    IDxcBlob* csBlob = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon->CompileShader(
         L"Resources/shaders/skinned/SkinningCS.hlsl", L"cs_6_0");
     assert(csBlob);
 

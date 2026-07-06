@@ -968,7 +968,7 @@ void ParticleManager::CreateQuadGeometry()
 
 void ParticleManager::CreateCSPipelineState()
 {
-    IDxcBlob* csBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/ParticleUpdate.CS.hlsl", L"cs_6_0");
     assert(csBlob);
 
@@ -1011,7 +1011,7 @@ void ParticleManager::CreateCSEmitRootSignature()
 
 void ParticleManager::CreateCSEmitPipelineState()
 {
-    IDxcBlob* csBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/EmitParticle.CS.hlsl", L"cs_6_0");
     assert(csBlob);
 
@@ -1037,9 +1037,9 @@ void ParticleManager::CreatePipelineState()
 {
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    IDxcBlob* vsBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/Particle.VS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/Particle.PS.hlsl", L"ps_6_0");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {

@@ -128,8 +128,8 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
         { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
-    IDxcBlob* vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
     // =====================================================
     // 通常描画用 PSO（ブレンドモード別）
@@ -203,7 +203,7 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     // =====================================================
     // シャドウパス用 PSO（深度のみ書き込み）
     // =====================================================
-    IDxcBlob* shadowVsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/ShadowVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> shadowVsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/ShadowVS.hlsl", L"vs_6_0");
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc {};
     shadowPsoDesc.pRootSignature        = shadowRootSignature_.Get();

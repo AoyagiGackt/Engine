@@ -76,7 +76,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
         {
             auto* rd = RunData::GetInstance();
-            if (rd->isRunActive) {
+            if (rd->IsRunActive()) {
                 Player::SkillMods mods;
                 if (rd->HasSkill(RunData::Skill::BlinkPlus))    { mods.blinkDistMult    = 1.5f; }
                 if (rd->HasSkill(RunData::Skill::ComboExtend))  { mods.comboMaxBonus    = 1; }
@@ -93,10 +93,10 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         enemy_->Initialize(modelCommon_.get(), levelData.enemySpawn);
         {
             auto* rd = RunData::GetInstance();
-            if (rd->isRunActive) {
+            if (rd->IsRunActive()) {
                 int hp = 20;
-                if (rd->currentNode == RunData::NodeType::Elite) { hp = 35; }
-                else if (rd->currentNode == RunData::NodeType::Boss) { hp = 60; }
+                if (rd->GetCurrentNode() == RunData::NodeType::Elite) { hp = 35; }
+                else if (rd->GetCurrentNode() == RunData::NodeType::Boss) { hp = 60; }
                 enemy_->SetMaxHp(hp);
             }
         }
@@ -123,6 +123,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     clearBgSprite_->SetPosition({ 0.0f, 0.0f });
     clearBgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
                                static_cast<float>(WinApp::kClientHeight) });
+
+    finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
 
     pm_ = ParticleManager::GetInstance();
     pm_->CreateParticleGroup("hit_ring",    "Resources/circle2.png");
@@ -235,17 +237,17 @@ bool GamePlayScene::UpdateClearState()
     if (!clearTriggered_) { return false; }
 
     auto* rd = RunData::GetInstance();
-    if (rd->isRunActive && !glassShatterDebugTest_) {
+    if (rd->IsRunActive() && !glassShatterDebugTest_) {
         // ローグライト: 結果表示 → MAP遷移
         if (!showResult_) {
             showResult_  = true;
             resultTimer_ = 2.5f;
             lastGold_    = RunData::CalcGold(peakStyle_);
-            rd->gold    += lastGold_;
-            rd->floor++;
+            rd->AddGold(lastGold_);
+            rd->AdvanceFloor();
 
             // フロアクリア毎に自動セーブ（ボス撃破時はコンティニュー不要なので破棄）
-            if (rd->floor >= 4) {
+            if (rd->GetFloor() >= 4) {
                 SaveDataManager::GetInstance()->ClearContinue();
             } else {
                 SaveDataManager::GetInstance()->SaveContinue(*rd);
@@ -253,7 +255,7 @@ bool GamePlayScene::UpdateClearState()
         }
         resultTimer_ -= GameConstants::kFrameDeltaTime;
         if (resultTimer_ <= 0.0f) {
-            if (rd->floor >= 4) {
+            if (rd->GetFloor() >= 4) {
                 SceneManager::GetInstance()->ChangeScene("CLEAR");
             } else {
                 SceneManager::GetInstance()->ChangeScene("MAP");
@@ -325,9 +327,11 @@ void GamePlayScene::UpdateCombatEvents()
         const Vector3& epos = enemy_->GetPosition();
         finisherActive_    = true;
         finisherLineIdx_   = 0;
-        finisherBeatTimer_ = 0.0f;
+        finisherBeatTimer_ = GameConstants::kFinisherChargeDelay;
 
-        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        // 敵を打ち上げて空中に拘束し、暗転とともに溜めを作る
+        enemy_->Launch(GameConstants::kLaunchSpeed * 0.7f);
+        tm->RequestHitStop(GameConstants::kHitStopJuggle);
         cameraShaker_.Request(0.20f, 0.15f);
         pm_->EmitRing("hit_ring", epos, 3.0f, { 0.75f, 0.95f, 1.0f, 0.7f }, 12, 0.3f, 0.25f);
     }
@@ -564,24 +568,36 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     const Vector3& epos = enemy_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 斬撃線を1本ずつ追加していく（1本ごとに小さな停止で「溜め」を作る）
+        // 敵の周囲のランダムな位置を高速で斬り刻む
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        const float   ang = angleDist(rng_);
-        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+        std::uniform_real_distribution<float> offXDist(-2.0f, 2.0f);
+        std::uniform_real_distribution<float> offYDist(-1.5f, 1.5f);
+        std::uniform_real_distribution<float> lenDist(2.5f, GameConstants::kFinisherSlashRadius);
+        std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
+        const float   ang    = angleDist(rng_);
+        const Vector2 dir    = { std::cos(ang), std::sin(ang) };
+        const Vector2 center = { epos.x + offXDist(rng_), epos.y + offYDist(rng_) };
+        const float   len    = lenDist(rng_);
 
         SlashMarkParams sm;
-        sm.start = { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y - dir.y * GameConstants::kFinisherSlashRadius };
-        sm.end   = { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.start = { center.x - dir.x * len, center.y - dir.y * len };
+        sm.end   = { center.x + dir.x * len, center.y + dir.y * len };
         sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-        sm.thickness = 5.0f;
-        sm.duration  = GameConstants::kFinisherImpactDelay + 0.3f; // 本命ヒットまで消えずに残す
+        sm.thickness = thickDist(rng_);
+        // 解放の瞬間まで全ての斬撃線を画面に残す
+        sm.duration  = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+                     + GameConstants::kFinisherImpactDelay + 0.25f;
         SlashMark::GetInstance()->Spawn(sm);
 
+        // 1本ごとに実際にヒットさせ、敵を空中に拘束し続ける
+        enemy_->TakeDamage(GameConstants::kFinisherLineDamage);
+        enemy_->Launch(0.10f);
+        styleMeter_ = std::clamp(styleMeter_ + 0.02f, 0.0f, 1.0f);
+
         tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
-        cameraShaker_.Request(0.10f, 0.08f);
-        pm_->EmitRing("hit_ring", epos, 1.5f, { 0.8f, 0.95f, 1.0f, 0.6f }, 6, 0.2f, 0.15f);
+        cameraShaker_.Request(0.06f, 0.05f);
+        pm_->EmitSlash("sword_slash", { center.x, center.y, 0.0f }, ang,
+            { 0.85f, 0.95f, 1.0f, 0.9f }, 0.9f);
 
         finisherLineIdx_++;
         finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
@@ -590,12 +606,29 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
         return;
     }
 
-    // 本命ヒット：全ての斬撃線が同時に効果を発揮する
+    // 解放：溜めた斬撃が一斉に炸裂する
     finisherActive_ = false;
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
     cameraShaker_.Request(GameConstants::kShakeFinisherSlashAmt, GameConstants::kShakeFinisherSlashDur);
     styleMeter_ = std::clamp(styleMeter_ + 0.35f, 0.0f, 1.0f);
     enemy_->TakeDamage(GameConstants::kFinisherSlashDamage);
+    enemy_->Launch(GameConstants::kLaunchSpeed);
+
+    // 解放の瞬間、太く短い閃光の斬撃線を重ねる
+    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    for (int i = 0; i < 8; ++i) {
+        const float   ang = angleDist(rng_);
+        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+        SlashMarkParams sm;
+        sm.start = { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
+                     epos.y - dir.y * GameConstants::kFinisherSlashRadius };
+        sm.end   = { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
+                     epos.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.color     = { 1.0f, 1.0f, 1.0f, 1.0f };
+        sm.thickness = 9.0f;
+        sm.duration  = 0.15f;
+        SlashMark::GetInstance()->Spawn(sm);
+    }
 
     pm_->EmitRing("hit_ring", epos, 9.0f, { 0.7f, 0.9f, 1.0f, 1.0f }, 28, 0.55f, 0.4f);
     std::uniform_real_distribution<float> vxJ(-7.0f, 7.0f);
@@ -610,14 +643,14 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 void GamePlayScene::CheckClearCondition()
 {
     // ローグライト: 敵撃破でクリア
-    if (!clearTriggered_ && enemy_->IsDefeated() && RunData::GetInstance()->isRunActive) {
+    if (!clearTriggered_ && enemy_->IsDefeated() && RunData::GetInstance()->IsRunActive()) {
         requestClear_ = true;
     }
 
     if (requestClear_ || gameTime_.IsCleared()) {
         requestClear_   = false;
         clearTriggered_ = true;
-        if (!RunData::GetInstance()->isRunActive) {
+        if (!RunData::GetInstance()->IsRunActive()) {
             glassShatter_.Start();
         }
     }
@@ -652,7 +685,7 @@ void GamePlayScene::DrawShadowPass()
 void GamePlayScene::Draw()
 {
     // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
-    if (clearTriggered_ && RunData::GetInstance()->isRunActive && showResult_) {
+    if (clearTriggered_ && RunData::GetInstance()->IsRunActive() && showResult_) {
         spriteCommon_->CommonDrawSettings();
         clearBgSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 1.0f });
         clearBgSprite_->Update();
@@ -724,6 +757,11 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
+    // 大技演出中は画面を暗転させてから斬撃線を重ねる
+    if (finisherActive_) {
+        finisherOverlay_->Update();
+        finisherOverlay_->Draw();
+    }
     SlashMark::GetInstance()->Draw();
 
     // ----- ゲームプレイ UI テキスト -----
@@ -741,7 +779,7 @@ void GamePlayScene::Draw()
 void GamePlayScene::DrawRogueliteHUD()
 {
     auto* rd = RunData::GetInstance();
-    if (!rd->isRunActive) { return; }
+    if (!rd->IsRunActive()) { return; }
 
     // 敵HPバー（上部中央）
     int eHp    = enemy_->GetHp();
@@ -754,8 +792,8 @@ void GamePlayScene::DrawRogueliteHUD()
     fontRenderer_.DrawString(hpBar.c_str(), 280.0f, 10.0f, 1.5f, { 1.0f, 0.35f, 0.35f, 1.0f });
 
     // プレイヤーHP + ゴールド（左上）
-    std::string info = "HP:" + std::to_string(rd->hp) + "/" + std::to_string(rd->maxHp)
-                     + "  G:" + std::to_string(rd->gold);
+    std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp())
+                     + "  G:" + std::to_string(rd->GetGold());
     fontRenderer_.DrawString(info.c_str(), 10.0f, 10.0f, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
 }
 
@@ -890,7 +928,7 @@ void GamePlayScene::DrawStyleCommands()
 
 bool GamePlayScene::IsGlassShatterFlow() const
 {
-    return glassShatterDebugTest_ || !RunData::GetInstance()->isRunActive;
+    return glassShatterDebugTest_ || !RunData::GetInstance()->IsRunActive();
 }
 
 void GamePlayScene::TriggerGlassShatterTest()

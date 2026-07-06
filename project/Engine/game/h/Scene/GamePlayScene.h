@@ -43,6 +43,7 @@
 #include "ImageFilter.h"
 #include "RenderTexture.h"
 #include "SceneEditor.h"
+#include "SceneShared.h"
 namespace engine::graphics {
 class GrayscaleEffect;
 class HsvFilter;
@@ -194,6 +195,9 @@ private:
     bool  finisherActive_    = false;
     int   finisherLineIdx_   = 0;
     float finisherBeatTimer_ = 0.0f;
+
+    /** @brief 大技演出中の画面暗転オーバーレイ */
+    std::unique_ptr<Sprite> finisherOverlay_;
 
     bool  showResult_  = false;
     float resultTimer_ = 0.0f;

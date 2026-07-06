@@ -2,6 +2,7 @@
 #include "GameConstants.h"
 #include "Input.h"
 #include "ModelCommon.h"
+#include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
@@ -50,70 +51,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) { wm->SelectIndex(i); }
     }
 
-    const float speedMult = (isAwakened_ ? 1.5f : 1.0f) * skillMods_.speedMult;
-    const float jumpMult  = (isAwakened_ ? 1.3f : 1.0f) * skillMods_.jumpMult;
-
-    if (inWater_) {
-        // ========== 水中物理 ==========
-        // 横移動（水の抵抗で遅い）
-        if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { pos_.x -= kWaterSpeed_ * speedMult; lastDirX_ = -1.0f; }
-        if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { pos_.x += kWaterSpeed_ * speedMult; lastDirX_ =  1.0f; }
-
-        // 浮力（弱い下向き加速）
-        velocityY_ -= kWaterGravity_;
-        velocityY_  = (std::max)(velocityY_, kSinkMaxVY_);
-
-        // ジャンプ長押し = 上昇スイム
-        if (input->PushKey(DIK_W) || input->PushKey(DIK_UP) || input->PushKey(DIK_SPACE)) {
-            velocityY_ = (std::min)(velocityY_ + kSwimAccel_, kSwimMaxVY_);
-        }
-
-        pos_.y += velocityY_;
-
-        // 床クランプ（水底でも止まる）
-        if (pos_.y <= kGroundY_) {
-            pos_.y     = kGroundY_;
-            velocityY_ = 0.0f;
-            onGround_  = true;
-        } else {
-            onGround_ = false;
-        }
-
-        // 天井クランプ
-        if (pos_.y > kCeilingY_) {
-            pos_.y     = kCeilingY_;
-            velocityY_ = 0.0f;
-        }
-    } else {
-        // ========== 通常物理（水上）==========
-        if (rampagePhase_ == RampagePhase::Inactive) {
-            if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { pos_.x -= kSpeed_ * speedMult; lastDirX_ = -1.0f; }
-            if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { pos_.x += kSpeed_ * speedMult; lastDirX_ =  1.0f; }
-        }
-
-        if (onGround_) {
-            if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
-                velocityY_  = kJumpPower_ * jumpMult;
-                onGround_   = false;
-                justJumped_ = true;
-            }
-        }
-
-        velocityY_ -= kGravity_;
-        pos_.y     += velocityY_;
-
-        if (pos_.y <= kGroundY_) {
-            pos_.y     = kGroundY_;
-            velocityY_ = 0.0f;
-            onGround_  = true;
-        }
-        if (pos_.y > kCeilingY_) {
-            pos_.y     = kCeilingY_;
-            velocityY_ = 0.0f;
-        }
-
-        justLanded_ = !prevOnGround_ && onGround_;
-    }
+    GetPhysicsState(inWater_).Update(*this, input);
 
     pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
 
@@ -124,42 +62,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
     if (!inWater_ && input->TriggerKey(DIK_L)) {
-        if (rampagePhase_ == RampagePhase::Inactive &&
-            wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
-            // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
-            rampagePhase_     = RampagePhase::Launch;
-            juggleSlashCount_ = 0;
-            juggleAngleIdx_   = 0;
-
-        } else if (rampagePhase_ == RampagePhase::Juggle &&
-                   juggleSlashCount_ < kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus) {
-            // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
-            const int effectiveMax = kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus;
-            float angle = juggleAngleIdx_ * (GameConstants::kTwoPi / effectiveMax);
-            float dx = std::cos(angle) * kJuggleRadius_;
-            float dy = std::sin(angle) * kJuggleRadius_;
-            pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
-            pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
-            velocityY_ = 0.0f;
-            lastDirX_  = (enemyPos.x >= pos_.x) ? 1.0f : -1.0f;
-            juggleAngleIdx_   = (juggleAngleIdx_ + 1) % effectiveMax;
-            juggleSlashCount_++;
-
-            bool isLast = (juggleSlashCount_ >= effectiveMax);
-            justRampageHit_    = true;
-            justRampageFinish_ = isLast;
-            if (isLast) {
-                rampagePhase_ = RampagePhase::Inactive;
-            }
-
-        } else if (rampagePhase_ == RampagePhase::Inactive) {
-            // 通常コンボ
-            if (comboStep_ == 0 || comboTimer_ > 0.0f) {
-                comboStep_    = comboStep_ % (kComboMax_ + skillMods_.comboMaxBonus) + 1;
-                comboTimer_   = kComboWindow_;
-                justComboHit_ = true;
-            }
-        }
+        GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
     }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
@@ -183,42 +86,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         shootCooldown_ -= GameConstants::kFrameDeltaTime;
         if (shootCooldown_ < 0.0f) { shootCooldown_ = 0.0f; }
 
-        switch (wtype) {
-        case WeaponType::Dagger:
-            // ブリンク（瞬間移動）
-            if (input->TriggerKey(DIK_SPACE)) {
-                pos_.x += lastDirX_ * kBlinkDist_ * skillMods_.blinkDistMult;
-                pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
-                justBlinked_ = true;
-            }
-            break;
-
-        case WeaponType::Hammer:
-            // ゲージチャージ（長押し約3秒で満タン）。覚醒中は蓄積しない
-            if (!isAwakened_ && input->PushKey(DIK_SPACE)) {
-                justChargedGauge_ = true;
-                awakenGauge_ = (std::min)(
-                    awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime * skillMods_.gaugeChargeMult, 1.0f);
-            }
-            break;
-
-        case WeaponType::Ball:
-            // スピン連射 + 空中くるくる
-            if (input->PushKey(DIK_SPACE)) {
-                if (shootCooldown_ <= 0.0f) {
-                    justSpinShot_  = true;
-                    shootCooldown_ = kShootInterval_ * skillMods_.fireIntervalMult;
-                }
-                if (!onGround_) {
-                    spinAngle_ += kSpinSpeed_;
-                    if (spinAngle_ >= 360.0f) { spinAngle_ -= 360.0f; }
-                }
-            }
-            break;
-
-        default:
-            break;
-        }
+        GetWeaponBehavior(wtype).Update(*this, input);
 
         // Ball モード以外 / 着地時はスピン角をリセット
         if (wtype != WeaponType::Ball || onGround_) { spinAngle_ = 0.0f; }
@@ -226,27 +94,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // ── 乱舞フェーズ更新 ──────────────────────────────────────────
-    if (rampagePhase_ == RampagePhase::Launch) {
-        // 敵X座標へ向かって突進（重力無効）
-        // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
-        float targetX = std::clamp(enemyPos.x, kMinX_ + 0.5f, kMaxX_ - 0.5f);
-        float dx  = targetX - pos_.x;
-        float dir = (dx > 0.0f) ? 1.0f : -1.0f;
-        lastDirX_  = dir;
-        velocityY_ = 0.0f;
-        pos_.x += dir * kRampageSpeed_;
-        pos_.x  = std::clamp(pos_.x, kMinX_, kMaxX_);
-
-        // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
-        if (std::abs(dx) < 1.0f) {
-            justLaunched_ = true;
-            velocityY_    = 0.25f;
-            rampagePhase_ = RampagePhase::Juggle;
-        }
-    } else if (rampagePhase_ == RampagePhase::Juggle) {
-        // ジャグル中は重力無効でホバリング
-        velocityY_ = 0.0f;
-    }
+    GetRampageState(rampagePhase_).UpdatePhysics(*this, enemyPos);
 
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
@@ -312,4 +160,220 @@ void Player::Draw()
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
     object_->Draw();
+}
+
+// ============================================================
+//  Physics State（水中/水上）
+// ============================================================
+
+void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
+{
+    const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
+
+    // 横移動（水の抵抗で遅い）
+    if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { player.pos_.x -= kWaterSpeed_ * speedMult; player.lastDirX_ = -1.0f; }
+    if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { player.pos_.x += kWaterSpeed_ * speedMult; player.lastDirX_ =  1.0f; }
+
+    // 浮力（弱い下向き加速）
+    player.velocityY_ -= kWaterGravity_;
+    player.velocityY_  = (std::max)(player.velocityY_, kSinkMaxVY_);
+
+    // ジャンプ長押し = 上昇スイム
+    if (input->PushKey(DIK_W) || input->PushKey(DIK_UP) || input->PushKey(DIK_SPACE)) {
+        player.velocityY_ = (std::min)(player.velocityY_ + kSwimAccel_, kSwimMaxVY_);
+    }
+
+    player.pos_.y += player.velocityY_;
+
+    // 床クランプ（水底でも止まる）
+    if (player.pos_.y <= kGroundY_) {
+        player.pos_.y     = kGroundY_;
+        player.velocityY_ = 0.0f;
+        player.onGround_  = true;
+    } else {
+        player.onGround_ = false;
+    }
+
+    // 天井クランプ
+    if (player.pos_.y > kCeilingY_) {
+        player.pos_.y     = kCeilingY_;
+        player.velocityY_ = 0.0f;
+    }
+}
+
+void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
+{
+    const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
+    const float jumpMult  = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
+
+    if (player.rampagePhase_ == RampagePhase::Inactive) {
+        if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { player.pos_.x -= kSpeed_ * speedMult; player.lastDirX_ = -1.0f; }
+        if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { player.pos_.x += kSpeed_ * speedMult; player.lastDirX_ =  1.0f; }
+    }
+
+    if (player.onGround_) {
+        if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
+            player.velocityY_  = kJumpPower_ * jumpMult;
+            player.onGround_   = false;
+            player.justJumped_ = true;
+        }
+    }
+
+    player.velocityY_ -= kGravity_;
+    player.pos_.y     += player.velocityY_;
+
+    if (player.pos_.y <= kGroundY_) {
+        player.pos_.y     = kGroundY_;
+        player.velocityY_ = 0.0f;
+        player.onGround_  = true;
+    }
+    if (player.pos_.y > kCeilingY_) {
+        player.pos_.y     = kCeilingY_;
+        player.velocityY_ = 0.0f;
+    }
+
+    player.justLanded_ = !player.prevOnGround_ && player.onGround_;
+}
+
+const Player::IPhysicsState& Player::GetPhysicsState(bool inWater)
+{
+    static GroundedPhysicsState   grounded;
+    static UnderwaterPhysicsState underwater;
+    return inWater ? static_cast<const IPhysicsState&>(underwater) : static_cast<const IPhysicsState&>(grounded);
+}
+
+// ============================================================
+//  Rampage State（覚醒乱舞の進行フェーズ）
+// ============================================================
+
+void Player::InactiveRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
+{
+    if (WeaponManager::GetInstance()->GetCurrent().type == WeaponType::Sword && player.isAwakened_) {
+        // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
+        player.rampagePhase_     = RampagePhase::Launch;
+        player.juggleSlashCount_ = 0;
+        player.juggleAngleIdx_   = 0;
+    } else {
+        // 通常コンボ
+        if (player.comboStep_ == 0 || player.comboTimer_ > 0.0f) {
+            player.comboStep_    = player.comboStep_ % (kComboMax_ + player.skillMods_.comboMaxBonus) + 1;
+            player.comboTimer_   = kComboWindow_;
+            player.justComboHit_ = true;
+        }
+    }
+}
+
+void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const
+{
+    // 敵X座標へ向かって突進（重力無効）
+    // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
+    float targetX = std::clamp(enemyPos.x, kMinX_ + 0.5f, kMaxX_ - 0.5f);
+    float dx  = targetX - player.pos_.x;
+    float dir = (dx > 0.0f) ? 1.0f : -1.0f;
+    player.lastDirX_  = dir;
+    player.velocityY_ = 0.0f;
+    player.pos_.x += dir * kRampageSpeed_;
+    player.pos_.x  = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+
+    // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
+    if (std::abs(dx) < 1.0f) {
+        player.justLaunched_ = true;
+        player.velocityY_    = 0.25f;
+        player.rampagePhase_ = RampagePhase::Juggle;
+    }
+}
+
+void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
+{
+    const int effectiveMax = kJuggleMaxSlashes_ + player.skillMods_.juggleMaxBonus;
+    if (player.juggleSlashCount_ >= effectiveMax) { return; }
+
+    // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
+    float angle = player.juggleAngleIdx_ * (GameConstants::kTwoPi / effectiveMax);
+    float dx = std::cos(angle) * kJuggleRadius_;
+    float dy = std::sin(angle) * kJuggleRadius_;
+    player.pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
+    player.pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
+    player.velocityY_ = 0.0f;
+    player.lastDirX_  = (enemyPos.x >= player.pos_.x) ? 1.0f : -1.0f;
+    player.juggleAngleIdx_   = (player.juggleAngleIdx_ + 1) % effectiveMax;
+    player.juggleSlashCount_++;
+
+    bool isLast = (player.juggleSlashCount_ >= effectiveMax);
+    player.justRampageHit_    = true;
+    player.justRampageFinish_ = isLast;
+    if (isLast) {
+        player.rampagePhase_ = RampagePhase::Inactive;
+    }
+}
+
+void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const
+{
+    // ジャグル中は重力無効でホバリング
+    player.velocityY_ = 0.0f;
+}
+
+const Player::IRampageState& Player::GetRampageState(RampagePhase phase)
+{
+    static InactiveRampageState inactive;
+    static LaunchRampageState   launch;
+    static JuggleRampageState   juggle;
+    switch (phase) {
+    case RampagePhase::Launch: return launch;
+    case RampagePhase::Juggle: return juggle;
+    default:                   return inactive;
+    }
+}
+
+// ============================================================
+//  Weapon Behavior Strategy（武器種別ごとのスペースキー挙動）
+// ============================================================
+
+void Player::DaggerBehavior::Update(Player& player, Input* input) const
+{
+    // ブリンク（瞬間移動）
+    if (input->TriggerKey(DIK_SPACE)) {
+        player.pos_.x += player.lastDirX_ * kBlinkDist_ * player.skillMods_.blinkDistMult;
+        player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+        player.justBlinked_ = true;
+    }
+}
+
+void Player::HammerBehavior::Update(Player& player, Input* input) const
+{
+    // ゲージチャージ（長押し約3秒で満タン）。覚醒中は蓄積しない
+    if (!player.isAwakened_ && input->PushKey(DIK_SPACE)) {
+        player.justChargedGauge_ = true;
+        player.awakenGauge_ = (std::min)(
+            player.awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime * player.skillMods_.gaugeChargeMult, 1.0f);
+    }
+}
+
+void Player::BallBehavior::Update(Player& player, Input* input) const
+{
+    // スピン連射 + 空中くるくる
+    if (input->PushKey(DIK_SPACE)) {
+        if (player.shootCooldown_ <= 0.0f) {
+            player.justSpinShot_  = true;
+            player.shootCooldown_ = kShootInterval_ * player.skillMods_.fireIntervalMult;
+        }
+        if (!player.onGround_) {
+            player.spinAngle_ += kSpinSpeed_;
+            if (player.spinAngle_ >= 360.0f) { player.spinAngle_ -= 360.0f; }
+        }
+    }
+}
+
+const Player::IWeaponBehavior& Player::GetWeaponBehavior(WeaponType type)
+{
+    static DaggerBehavior        dagger;
+    static HammerBehavior        hammer;
+    static BallBehavior          ball;
+    static DefaultWeaponBehavior def;
+    switch (type) {
+    case WeaponType::Dagger: return dagger;
+    case WeaponType::Hammer: return hammer;
+    case WeaponType::Ball:   return ball;
+    default:                 return def;
+    }
 }

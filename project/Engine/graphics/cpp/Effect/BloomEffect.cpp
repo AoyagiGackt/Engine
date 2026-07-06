@@ -274,23 +274,23 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         bloomInSrv_[i] = false; // 初期状態は RTV
     }
 
-    IDxcBlob* vsBlob = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    IDxcBlob* brightPS = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> brightPS = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/BloomBrightPS.hlsl",  L"ps_6_0");
-    IDxcBlob* blurPS   = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> blurPS   = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/BloomBlurPS.hlsl",    L"ps_6_0");
-    IDxcBlob* combPS   = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> combPS   = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/BloomCombinePS.hlsl", L"ps_6_0");
 
     brightRS_  = CreateRS_CB_SRV(device);
     blurRS_    = CreateRS_CB_SRV(device);
     combineRS_ = CreateRS_SRV2(device);
 
-    brightPSO_  = CreatePSO(device, brightRS_.Get(),  vsBlob, brightPS, kBloomFmt);
-    blurPSO_    = CreatePSO(device, blurRS_.Get(),    vsBlob, blurPS,   kBloomFmt);
+    brightPSO_  = CreatePSO(device, brightRS_.Get(),  vsBlob.Get(), brightPS.Get(), kBloomFmt);
+    blurPSO_    = CreatePSO(device, blurRS_.Get(),    vsBlob.Get(), blurPS.Get(),   kBloomFmt);
     // Combine は SRGB バックバッファへ書き込む
-    combinePSO_ = CreatePSO(device, combineRS_.Get(), vsBlob, combPS,
+    combinePSO_ = CreatePSO(device, combineRS_.Get(), vsBlob.Get(), combPS.Get(),
                             DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 
     brightCb_ = dxCommon->CreateBufferResource(256);

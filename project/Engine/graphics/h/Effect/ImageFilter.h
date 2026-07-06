@@ -157,6 +157,22 @@ private:
     void InitRootSignatures(engine::DirectXCommon* dxCommon);
     void InitPipelineStates(engine::DirectXCommon* dxCommon);
 
+    // ---- Filter Mode Strategy パターン ----
+    // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える。
+    class IFilterMode {
+    public:
+        virtual ~IFilterMode() = default;
+        virtual void Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+            const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const = 0;
+    };
+    class BoxGaussianFilterMode  : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    class PrewittEdgeFilterMode  : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    class DepthOutlineFilterMode : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    class RadialBlurFilterMode   : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    class DissolveFilterMode     : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    class NoiseGenFilterMode     : public IFilterMode { public: void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override; };
+    static const IFilterMode& GetFilterMode(Mode mode);
+
     // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
     struct FilterParams {
         float texelSizeX;

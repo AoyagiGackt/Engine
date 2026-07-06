@@ -30,7 +30,7 @@ namespace GameConstants {
     inline constexpr int kHitStopJuggle        = 4;   // ジャグル
     inline constexpr int kHitStopFinish        = 12;  // フィニッシュ
     inline constexpr int kHitStopFinisherSlash = 20;  // 大技：本命ヒット
-    inline constexpr int kHitStopFinisherBeat  = 3;   // 大技：斬撃線が1本出るごとの小停止
+    inline constexpr int kHitStopFinisherBeat  = 1;   // 大技：斬撃線が1本出るごとの小停止
 
     // カメラシェイク
     inline constexpr float kShakeLaunchAmt = 0.35f;
@@ -43,11 +43,14 @@ namespace GameConstants {
     // 打ち上げ速度
     inline constexpr float kLaunchSpeed = 0.48f;
 
-    // 覚醒ゲージ満タン消費の大技（溜め→斬撃線を1本ずつ表示→一斉ヒット）
-    inline constexpr int   kFinisherSlashDamage   = 8;    // 本命ヒットの固定ダメージ
-    inline constexpr int   kFinisherSlashLines    = 6;    // 斬撃線の本数
-    inline constexpr float kFinisherSlashRadius   = 4.5f; // 斬撃線が広がる半径
-    inline constexpr float kFinisherLineInterval  = 0.11f; // 斬撃線が1本出てから次が出るまでの間隔（秒）
-    inline constexpr float kFinisherImpactDelay   = 0.24f; // 最後の斬撃線から本命ヒットまでの溜め（秒）
+    // 覚醒ゲージ満タン消費の大技（溜め→高速連続斬撃で刻む→一斉解放）
+    inline constexpr int   kFinisherLineDamage    = 1;     // 斬撃線1本ごとのダメージ
+    inline constexpr int   kFinisherSlashDamage   = 8;     // 本命（解放の一撃）の固定ダメージ
+    inline constexpr int   kFinisherSlashLines    = 16;    // 斬撃線の本数
+    inline constexpr float kFinisherSlashRadius   = 4.5f;  // 斬撃線の最大半長
+    inline constexpr float kFinisherChargeDelay   = 0.30f; // 発動から最初の斬撃までの溜め（秒）
+    inline constexpr float kFinisherLineInterval  = 0.045f; // 斬撃線の出現間隔（秒）
+    inline constexpr float kFinisherImpactDelay   = 0.35f; // 最後の斬撃線から解放までの溜め（秒）
+    inline constexpr float kFinisherOverlayAlpha  = 0.45f; // 演出中の画面暗転の濃さ
 }
 } // namespace engine

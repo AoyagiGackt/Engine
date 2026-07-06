@@ -330,6 +330,7 @@ generated/
 Dumps/
 logs/
 generated/
+save/
 
 externals/DirectXTex/Bin/
 externals/DirectXTex/x64/

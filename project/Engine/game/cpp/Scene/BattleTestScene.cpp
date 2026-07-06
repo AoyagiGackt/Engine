@@ -24,13 +24,6 @@ static constexpr float kWarpRetX   =  3.0f;
 static constexpr float kReturnProx =  3.0f;
 static constexpr float kDummyMaxHp = 100.0f;
 
-static void WorldToScreen(float wx, float wy, float cx, float cy,
-    float& sx, float& sy)
-{
-    sx = (wx - cx) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
-    sy = -(wy - cy) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
-}
-
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     dxCommon_ = dxCommon;
@@ -130,6 +123,8 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
+    finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
+
     glassShatterBgSprite_ = std::make_unique<Sprite>();
     glassShatterBgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     glassShatterBgSprite_->SetPosition({ 0.0f, 0.0f });
@@ -163,7 +158,7 @@ void BattleTestScene::UpdateHpBars()
 
     for (auto& d : dummies_) {
         float sx, sy;
-        WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
+        SceneShared::WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
 
         float ratio = d.hpDisplay_;
         d.hpBarFg->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.9f });
@@ -187,7 +182,7 @@ void BattleTestScene::Update()
 
     fontRenderer_.Reset();
 
-    UpdateWeaponCycle();
+    SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndCamera();
     UpdateEnvironment();
 
@@ -197,24 +192,8 @@ void BattleTestScene::Update()
     UpdateDummies();
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
-    bool nearReturn = UpdateReturnPortal();
+    bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpRetX, kReturnProx, "TRAINING");
     DrawHud(nearReturn);
-}
-
-void BattleTestScene::UpdateWeaponCycle()
-{
-    // 武器切り替え（Q/E、数字キー 1〜4）
-    weaponCycleTimer_ -= GameConstants::kFrameDeltaTime;
-    if (weaponCycleTimer_ <= 0.0f) {
-        if (input_->TriggerKey(DIK_Q)) { weaponManager_->SelectPrev(); weaponCycleTimer_ = 0.15f; }
-        if (input_->TriggerKey(DIK_E)) { weaponManager_->SelectNext(); weaponCycleTimer_ = 0.15f; }
-        for (int i = 0; i < weaponManager_->GetCount(); ++i) {
-            if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
-                weaponManager_->SelectIndex(i);
-                weaponCycleTimer_ = 0.15f;
-            }
-        }
-    }
 }
 
 void BattleTestScene::UpdatePlayerAndCamera()
@@ -231,15 +210,7 @@ void BattleTestScene::UpdatePlayerAndCamera()
         player_->Update(input_, rampTarget);
     }
 
-    {
-        constexpr float kBR = 0.5f;
-        const Vector3& pp = player_->GetPosition();
-        camera_->SetTranslate({
-            std::clamp(pp.x,        2.0f  - kBR + GameConstants::kCameraHalfW,  28.0f + kBR - GameConstants::kCameraHalfW),
-            std::clamp(pp.y + 6.0f, -0.6f - kBR + GameConstants::kCameraHalfH,  13.0f + kBR - GameConstants::kCameraHalfH),
-            -30.0f
-        });
-    }
+    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition());
 }
 
 void BattleTestScene::UpdateEnvironment()
@@ -347,8 +318,8 @@ bool BattleTestScene::UpdateCombat()
     if (player_->JustFinisherSlash()) {
         finisherActive_    = true;
         finisherLineIdx_   = 0;
-        finisherBeatTimer_ = 0.0f;
-        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+        finisherBeatTimer_ = GameConstants::kFinisherChargeDelay;
+        tm->RequestHitStop(GameConstants::kHitStopJuggle);
         ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.35f }, 0.10f);
         SpawnHitEffect({ pp.x, pp.y + 0.5f, 0.0f });
     }
@@ -418,33 +389,49 @@ bool BattleTestScene::UpdateFinisherSlash()
     const Vector3& pp = player_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 斬撃線を1本ずつ追加していく
+        // プレイヤー周囲のランダムな位置を高速で斬り刻む
         static std::mt19937 rng{ std::random_device{}() };
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        const float   ang = angleDist(rng);
-        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+        std::uniform_real_distribution<float> offXDist(-2.0f, 2.0f);
+        std::uniform_real_distribution<float> offYDist(-1.5f, 1.5f);
+        std::uniform_real_distribution<float> lenDist(2.5f, GameConstants::kFinisherSlashRadius);
+        std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
+        const float   ang    = angleDist(rng);
+        const Vector2 dir    = { std::cos(ang), std::sin(ang) };
+        const Vector2 center = { pp.x + offXDist(rng), pp.y + offYDist(rng) };
+        const float   len    = lenDist(rng);
 
         SlashMarkParams sm;
-        sm.start = { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
-                     pp.y - dir.y * GameConstants::kFinisherSlashRadius };
-        sm.end   = { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
-                     pp.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.start = { center.x - dir.x * len, center.y - dir.y * len };
+        sm.end   = { center.x + dir.x * len, center.y + dir.y * len };
         sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-        sm.thickness = 5.0f;
-        sm.duration  = GameConstants::kFinisherImpactDelay + 0.3f;
+        sm.thickness = thickDist(rng);
+        // 解放の瞬間まで全ての斬撃線を画面に残す
+        sm.duration  = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+                     + GameConstants::kFinisherImpactDelay + 0.25f;
         SlashMark::GetInstance()->Spawn(sm);
 
         tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
-        ScreenFlash::GetInstance()->Request({ 0.8f, 0.95f, 1.0f, 0.15f }, 0.06f);
+
+        // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
+        for (auto& d : dummies_) {
+            d.hp          = d.maxHp;
+            d.hitFlash    = 0.10f;
+            d.hpDisplay_  = 0.0f;
+            d.returnTimer = 1.5f;
+            d.knockVelX  += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.06f;
+            d.knockVelY  += 0.06f;
+            SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
+        }
 
         finisherLineIdx_++;
         finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
             ? GameConstants::kFinisherLineInterval
             : GameConstants::kFinisherImpactDelay;
-        return false;
+        return true;
     }
 
-    // 本命ヒット：距離を問わず全マネキンに命中
+    // 解放：溜めた斬撃が一斉に炸裂し、距離を問わず全マネキンに命中
     finisherActive_ = false;
     for (auto& d : dummies_) {
         d.hp          = d.maxHp;
@@ -455,6 +442,24 @@ bool BattleTestScene::UpdateFinisherSlash()
         d.knockVelY  += 0.20f;
         SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
     }
+
+    // 解放の瞬間、太く短い閃光の斬撃線を重ねる
+    static std::mt19937 rngRelease{ std::random_device{}() };
+    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    for (int i = 0; i < 8; ++i) {
+        const float   ang = angleDist(rngRelease);
+        const Vector2 dir = { std::cos(ang), std::sin(ang) };
+        SlashMarkParams sm;
+        sm.start = { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
+                     pp.y - dir.y * GameConstants::kFinisherSlashRadius };
+        sm.end   = { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
+                     pp.y + dir.y * GameConstants::kFinisherSlashRadius };
+        sm.color     = { 1.0f, 1.0f, 1.0f, 1.0f };
+        sm.thickness = 9.0f;
+        sm.duration  = 0.15f;
+        SlashMark::GetInstance()->Spawn(sm);
+    }
+
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
     ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
     return true;
@@ -514,98 +519,31 @@ void BattleTestScene::UpdateDummies()
     UpdateHpBars();
 }
 
-bool BattleTestScene::UpdateReturnPortal()
-{
-    const Vector3& pp = player_->GetPosition();
-    bool nearReturn = std::abs(pp.x - kWarpRetX) < kReturnProx;
-
-    if (nearReturn && input_->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeScene("TRAINING");
-    }
-    return nearReturn;
-}
-
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
-    DrawControlsHud();
+    SceneShared::DrawControlsHud(fontRenderer_, L": Back (portal)");
     DrawComboRankHud();
-    DrawAwakenGaugeHud();
+    SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
+        player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
 }
 
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 {
     constexpr float kScale = 1.5f;
-    constexpr float kLineH = FontRenderer::kCharH * kScale;
-    constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
-    constexpr Vector4 kColorSel    = { 1.0f, 1.0f, 0.2f, 1.0f };
-    constexpr Vector4 kColorHint   = { 0.6f, 0.6f, 0.6f, 1.0f };
+    constexpr Vector4 kColorHint = { 0.6f, 0.6f, 0.6f, 1.0f };
 
-    float px = 12.0f;
-    float py = 12.0f;
-
-    fontRenderer_.DrawStringW(L"テストステージ", px, py, kScale, kColorHeader);
-    py += kLineH + 2.0f;
-    fontRenderer_.DrawStringW(L"-- 武器選択 --", px, py, kScale, kColorNormal);
-    py += kLineH + 2.0f;
-
-    const auto& weaponList = weaponManager_->GetList();
-    for (int i = 0; i < static_cast<int>(weaponList.size()); ++i) {
-        bool sel = (i == weaponManager_->GetIndex());
-        char buf[64];
-        std::snprintf(buf, sizeof(buf), "%s %d.%-8s DMG:%.0f  RNG:%.1f",
-            sel ? ">" : " ", i + 1, weaponList[i].name.c_str(), weaponList[i].damage, weaponList[i].range);
-        fontRenderer_.DrawString(buf, px, py, kScale, sel ? kColorSel : kColorNormal);
-        py += kLineH;
-    }
-
-    py += 4.0f;
-    fontRenderer_.DrawString("Q/E  1-4 : Switch", px, py, kScale, kColorHint);
-    py += kLineH;
-
-    fontRenderer_.DrawStringW(L"[L] 格闘  [K] 射撃  [R] 覚醒", px, py, kScale, kColorHint);
+    float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ");
+    fontRenderer_.DrawStringW(L"[L] 格闘  [K] 射撃  [R] 覚醒", 12.0f, py, kScale, kColorHint);
 
     // 戻りポータルのラベル
     if (nearReturnPortal) {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
-        WorldToScreen(kWarpRetX, 5.0f, cam.x, cam.y, sx, sy);
+        SceneShared::WorldToScreen(kWarpRetX, 5.0f, cam.x, cam.y, sx, sy);
         constexpr Vector4 kColorReturn = { 1.0f, 0.6f, 0.1f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Back", sx - 84.0f, sy - 36.0f, kScale, kColorReturn);
     }
-}
-
-void BattleTestScene::DrawControlsHud()
-{
-    // ── 操作説明（右パネル） ─────────────────────────────────────────
-    constexpr float kIx     = 870.0f;
-    constexpr float kIS     = 1.3f;
-    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-    constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
-    float iy = 12.0f;
-
-    fontRenderer_.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
-    iy += kILineH + 2.0f;
-
-    auto row = [&](const char* key, const wchar_t* desc) {
-        std::wstring line(key, key + std::strlen(key));
-        line += desc;
-        fontRenderer_.DrawStringW(line, kIx, iy, kIS, kCD);
-        iy += kILineH;
-    };
-    row("A / D  ", L": 移動");
-    row("W      ", L": ジャンプ");
-    row("L      ", L": コンボ (x3)");
-    row("K      ", L": 射撃");
-    row("SPACE  ", L": スピン連射");
-    row("(Air)  ", L": スピン+散弾");
-    row("Q / E  ", L": 武器切替");
-    row("1-4", L": Weapon Select");
-    row("ENTER", L": Back (portal)");
-    row("R", L": Awaken (30%+)");
-    row("F", L": Finisher (gauge MAX)");
 }
 
 void BattleTestScene::DrawComboRankHud()
@@ -655,40 +593,6 @@ void BattleTestScene::DrawComboRankHud()
     }
 }
 
-void BattleTestScene::DrawAwakenGaugeHud()
-{
-    constexpr float kScale = 1.5f;
-    constexpr float kBarW  = 280.0f;
-    constexpr float kBarH  =  14.0f;
-    constexpr float kBarX  = 640.0f - kBarW * 0.5f;
-    constexpr float kBarY  = 700.0f;
-    float gauge = player_->GetAwakenGauge();
-    bool  awake = player_->IsAwakened();
-
-    awakenGaugeBg_->SetPosition({ kBarX, kBarY });
-    awakenGaugeBg_->SetSize({ kBarW, kBarH });
-    awakenGaugeBg_->Update();
-
-    float pulse = awake ? (0.7f + 0.3f * std::sin(warpPulseTimer_ * 8.0f)) : 1.0f;
-    Vector4 fgColor = awake
-        ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
-        : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
-    awakenGaugeFg_->SetColor(fgColor);
-    awakenGaugeFg_->SetPosition({ kBarX, kBarY });
-    awakenGaugeFg_->SetSize({ kBarW * gauge, kBarH });
-    awakenGaugeFg_->Update();
-
-    constexpr Vector4 kLabelColor = { 0.6f, 0.8f, 1.0f, 0.9f };
-    fontRenderer_.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kScale, kLabelColor);
-    if (awake) {
-        fontRenderer_.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kScale,
-            { pulse, pulse, 1.0f, 1.0f });
-    } else if (gauge >= 0.3f) {
-        fontRenderer_.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
-            kBarY - 18.0f, kScale, { 0.8f, 0.9f, 1.0f, 0.8f });
-    }
-}
-
 void BattleTestScene::Draw()
 {
     // ---- ガラス割れ演出中（かつキャプチャ済み）は通常描画をスキップ ----
@@ -733,6 +637,12 @@ void BattleTestScene::Draw()
     }
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
+
+    // 大技演出中は画面を暗転させてから斬撃線を重ねる
+    if (finisherActive_) {
+        finisherOverlay_->Update();
+        finisherOverlay_->Draw();
+    }
     SlashMark::GetInstance()->Draw();
     fontRenderer_.Draw();
 

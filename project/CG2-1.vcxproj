@@ -84,7 +84,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -112,7 +112,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>MinSpace</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -140,7 +140,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\DebugSystem;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -161,9 +161,7 @@
     <ClCompile Include="Engine\game\cpp\Core\Audio\Audio.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ClearScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GameOverScene.cpp" />
-    <ClCompile Include="Engine\game\cpp\Scene\PauseScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\GameTime.cpp" />
-    <ClCompile Include="Engine\game\cpp\UI\TimeDisplay.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp" />
     <ClCompile Include="Engine\game\cpp\Collision\Collision.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\Framework.cpp" />
@@ -190,17 +188,16 @@
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\LightingMode.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\Lighting\LightingMode.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\App\AsyncLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\D3DResourceLeakChecker.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\DirectXCommon.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
@@ -245,24 +242,17 @@
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Offscreen\RenderTexture.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Offscreen\DeferredRenderer.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Effect\HDREffect.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Effect\MotionBlurEffect.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Effect\TAAEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\VideoPlayer.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BloomEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\Sequencer.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Effect\ChromaticAberrationEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp" />
-    <ClCompile Include="Engine\game\cpp\UI\FloatingText.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Camera\FrustumCuller.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">
@@ -521,7 +511,6 @@
     <ClInclude Include="Engine\game\h\Scene\BaseScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ClearScene.h" />
     <ClInclude Include="Engine\game\h\Scene\GameOverScene.h" />
-    <ClInclude Include="Engine\game\h\Scene\PauseScene.h" />
     <ClInclude Include="Engine\game\h\Collision\Collision.h" />
     <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h" />
     <ClInclude Include="Engine\game\h\Core\App\Framework.h" />
@@ -543,7 +532,6 @@
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h" />
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h" />
     <ClInclude Include="Engine\game\h\Core\Time\Tweener.h" />
-    <ClInclude Include="Engine\game\h\Core\Object\ObjectPool.h" />
     <ClInclude Include="Engine\game\h\Player\Player.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingScene.h" />
     <ClInclude Include="Engine\game\h\Player\Weapon.h" />
@@ -554,25 +542,22 @@
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
-    <ClInclude Include="Engine\game\h\UI\TimeDisplay.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
-    <ClInclude Include="Engine\game\h\Core\LightingMode.h" />
+    <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
     <ClInclude Include="Engine\game\h\Util\Logger.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h" />
+    <ClInclude Include="Engine\game\h\Scene\SceneShared.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h" />
-    <ClInclude Include="Engine\game\h\Core\App\AsyncLoader.h" />
     <ClInclude Include="Engine\game\h\Scene\LoadingScene.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h" />
     <ClInclude Include="Engine\game\h\Core\Object\WorldTransform.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
-    <ClInclude Include="Engine\graphics\h\Camera\Frustum.h" />
-    <ClInclude Include="Engine\graphics\h\Camera\FrustumCuller.h" />
     <ClInclude Include="Engine\game\h\Util\DebugDraw.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h" />
-    <ClInclude Include="Engine\game\h\Core\DirectXCommon.h" />
+    <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h" />
     <ClInclude Include="Engine\game\h\Core\Window\WinApp.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h" />
@@ -592,7 +577,6 @@
     <ClInclude Include="Engine\graphics\h\Effect\VideoPlayer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\VignetteEffect.h" />
     <ClInclude Include="Engine\math\h\MakeAffine.h" />
-    <ClInclude Include="Engine\graphics\h\Manager\ResourceObject.h" />
     <ClInclude Include="Engine\game\h\Core\Input\Input.h" />
     <ClInclude Include="Engine\game\h\Util\StringUtility.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiManager.h" />
@@ -619,19 +603,13 @@
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectRenderTarget.h" />
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectFullscreenPass.h" />
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
-    <ClInclude Include="Engine\graphics\h\Offscreen\DeferredRenderer.h" />
-    <ClInclude Include="Engine\graphics\h\Effect\HDREffect.h" />
-    <ClInclude Include="Engine\graphics\h\Effect\MotionBlurEffect.h" />
-    <ClInclude Include="Engine\graphics\h\Effect\TAAEffect.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
     <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h" />
-    <ClInclude Include="Engine\graphics\h\Effect\ChromaticAberrationEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
-    <ClInclude Include="Engine\game\h\UI\FloatingText.h" />
     <ClInclude Include="Engine\game\h\UI\UIButton.h" />
     <ClInclude Include="Engine\game\h\UI\UIMenu.h" />
     <ClInclude Include="Engine\game\h\Player\RunData.h" />

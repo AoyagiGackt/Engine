@@ -101,7 +101,7 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     waitingResult_ = false;
 
     auto* rd = RunData::GetInstance();
-    if (rd->floor >= static_cast<int>(floors_.size())) {
+    if (rd->GetFloor() >= static_cast<int>(floors_.size())) {
         SceneManager::GetInstance()->ChangeScene("CLEAR");
     }
 }
@@ -118,15 +118,15 @@ void MapScene::Update()
         waitTimer_ -= GameConstants::kFrameDeltaTime;
         if (waitTimer_ <= 0.0f) {
             waitingResult_ = false;
-            rd->floor++;
-            if (rd->floor >= static_cast<int>(floors_.size())) {
+            rd->AdvanceFloor();
+            if (rd->GetFloor() >= static_cast<int>(floors_.size())) {
                 SceneManager::GetInstance()->ChangeScene("CLEAR");
             }
         }
         return;
     }
 
-    int curFloor = rd->floor;
+    int curFloor = rd->GetFloor();
     if (curFloor >= static_cast<int>(floors_.size())) { return; }
 
     const auto& row = floors_[curFloor];
@@ -147,7 +147,7 @@ void MapScene::Update()
 
     if (input_->TriggerKey(DIK_RETURN) || input_->TriggerKey(DIK_SPACE)) {
         RunData::NodeType chosen = row[selectedCol_];
-        rd->currentNode = chosen;
+        rd->SetCurrentNode(chosen);
 
         switch (chosen) {
         case RunData::NodeType::Combat:
@@ -160,7 +160,7 @@ void MapScene::Update()
             break;
         case RunData::NodeType::Rest:
             restHealAmount_ = 10;
-            rd->hp = (std::min)(rd->hp + restHealAmount_, rd->maxHp);
+            rd->Heal(restHealAmount_);
             waitingResult_ = true;
             waitTimer_     = 1.5f;
             break;
@@ -179,8 +179,8 @@ void MapScene::Draw()
     fontRenderer_.Reset();
 
     DrawHeader(rd);
-    RunData::NodeType hoveredNode = DrawFloorNodes(rd->floor);
-    DrawSelectedNodeInfo(rd->floor, hoveredNode);
+    RunData::NodeType hoveredNode = DrawFloorNodes(rd->GetFloor());
+    DrawSelectedNodeInfo(rd->GetFloor(), hoveredNode);
     DrawRestMessage();
     DrawSkillList(rd);
 
@@ -198,9 +198,9 @@ void MapScene::DrawHeader(RunData* rd)
 
     // HP / ゴールド
     char buf[64];
-    snprintf(buf, sizeof(buf), "HP:%d/%d", rd->hp, rd->maxHp);
+    snprintf(buf, sizeof(buf), "HP:%d/%d", rd->GetHp(), rd->GetMaxHp());
     fontRenderer_.DrawString(buf, 20.0f, 18.0f, 1.6f, { 0.3f, 1.0f, 0.4f, 1.0f });
-    snprintf(buf, sizeof(buf), "Gold: %dG", rd->gold);
+    snprintf(buf, sizeof(buf), "Gold: %dG", rd->GetGold());
     fontRenderer_.DrawString(buf, 20.0f, 44.0f, 1.6f, { 1.0f, 0.85f, 0.2f, 1.0f });
 }
 
@@ -296,13 +296,13 @@ void MapScene::DrawSkillList(RunData* rd)
 {
     // ── スキル一覧 ──
     fontRenderer_.DrawStringW(L"取得スキル:", 20.0f, 648.0f, 1.2f, { 0.7f, 0.9f, 1.0f, 1.0f });
-    if (rd->skills.empty()) {
+    if (rd->GetSkills().empty()) {
         fontRenderer_.DrawStringW(L"なし", 200.0f, 648.0f, 1.2f, { 0.5f, 0.5f, 0.5f, 1.0f });
         return;
     }
 
     float sx = 200.0f;
-    for (auto sk : rd->skills) {
+    for (auto sk : rd->GetSkills()) {
         const char* name = RunData::SkillName(sk);
         // 最初の単語だけ（スペース前まで）
         std::string n(name);

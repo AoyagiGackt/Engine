@@ -51,8 +51,8 @@ void DebugDrawGpu::Initialize(DirectXCommon* dxCommon)
         assert(SUCCEEDED(hr));
     }
 
-    IDxcBlob* vsBlob = dxCommon->CompileShader(L"Resources/shaders/debug/DebugDrawVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon->CompileShader(L"Resources/shaders/debug/DebugDrawPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/debug/DebugDrawVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon->CompileShader(L"Resources/shaders/debug/DebugDrawPS.hlsl", L"ps_6_0");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,               D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },

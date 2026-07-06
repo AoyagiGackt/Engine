@@ -19,6 +19,8 @@ using engine::graphics::Object3d;
 using engine::Input;
 using engine::graphics::ModelCommon;
 
+enum class WeaponType; // Weapon.h で定義
+
 /**
  * @brief プレイヤーキャラクターを制御するクラス
  * @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
@@ -200,6 +202,56 @@ private:
 
     // スキル補正（ローグライト）
     SkillMods skillMods_;
+
+    // ---- Physics State パターン ----
+    // 水中/水上で横移動・重力・ジャンプの処理を切り替える。
+    class IPhysicsState {
+    public:
+        virtual ~IPhysicsState() = default;
+        virtual void Update(Player& player, Input* input) const = 0;
+    };
+    class GroundedPhysicsState   : public IPhysicsState { public: void Update(Player& player, Input* input) const override; };
+    class UnderwaterPhysicsState : public IPhysicsState { public: void Update(Player& player, Input* input) const override; };
+    static const IPhysicsState& GetPhysicsState(bool inWater);
+
+    // ---- Rampage State パターン ----
+    // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
+    // 毎フレームの物理更新内容を切り替える。
+    class IRampageState {
+    public:
+        virtual ~IRampageState() = default;
+        virtual void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const = 0;
+        virtual void UpdatePhysics(Player& player, const Vector3& enemyPos) const = 0;
+    };
+    class InactiveRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override {}
+    };
+    class LaunchRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override {}
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
+    };
+    class JuggleRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
+    };
+    static const IRampageState& GetRampageState(RampagePhase phase);
+
+    // ---- Weapon Behavior Strategy パターン ----
+    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える。
+    class IWeaponBehavior {
+    public:
+        virtual ~IWeaponBehavior() = default;
+        virtual void Update(Player& player, Input* input) const = 0;
+    };
+    class DaggerBehavior : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class HammerBehavior : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class BallBehavior    : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class DefaultWeaponBehavior : public IWeaponBehavior { public: void Update(Player&, Input*) const override {} };
+    static const IWeaponBehavior& GetWeaponBehavior(WeaponType type);
 
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;

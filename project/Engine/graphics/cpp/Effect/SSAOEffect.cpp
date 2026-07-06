@@ -312,12 +312,12 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     blurCbData_->pad[0] = blurCbData_->pad[1] = 0.0f;
 
     // シェーダーコンパイル
-    IDxcBlob* obj3dVS  = dxCommon->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl",         L"vs_6_0");
-    IDxcBlob* normalPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/NormalCapturePS.hlsl", L"ps_6_0");
-    IDxcBlob* fsVS     = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",    L"vs_6_0");
-    IDxcBlob* ssaoPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOPS.hlsl",          L"ps_6_0");
-    IDxcBlob* blurPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOBlurPS.hlsl",      L"ps_6_0");
-    IDxcBlob* applyPS  = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOApplyPS.hlsl",     L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> obj3dVS  = dxCommon->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl",         L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> normalPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/NormalCapturePS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> fsVS     = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",    L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> ssaoPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOPS.hlsl",          L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> blurPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOBlurPS.hlsl",      L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> applyPS  = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOApplyPS.hlsl",     L"ps_6_0");
 
     // NormalCapture PSO: Object3dVS + NormalCapturePS
     {
@@ -352,14 +352,14 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // SSAO, Blur PSO
     ssaoRS_  = CreateRS_CBV_SRV(device);
-    ssaoPSO_ = CreateFullscreenPSO(device, ssaoRS_.Get(), fsVS, ssaoPS, DXGI_FORMAT_R8_UNORM);
+    ssaoPSO_ = CreateFullscreenPSO(device, ssaoRS_.Get(), fsVS.Get(), ssaoPS.Get(), DXGI_FORMAT_R8_UNORM);
 
     blurRS_  = CreateRS_CBV_SRV(device);
-    blurPSO_ = CreateFullscreenPSO(device, blurRS_.Get(), fsVS, blurPS, DXGI_FORMAT_R8_UNORM);
+    blurPSO_ = CreateFullscreenPSO(device, blurRS_.Get(), fsVS.Get(), blurPS.Get(), DXGI_FORMAT_R8_UNORM);
 
     // Apply PSO (multiply blend → AO を乗算でシーンに合成)
     applyRS_  = CreateApplyRS(device);
-    applyPSO_ = CreateFullscreenPSO(device, applyRS_.Get(), fsVS, applyPS,
+    applyPSO_ = CreateFullscreenPSO(device, applyRS_.Get(), fsVS.Get(), applyPS.Get(),
         DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, /*multiplyBlend=*/true);
 }
 
