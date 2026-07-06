@@ -333,7 +333,7 @@ void GamePlayScene::UpdateCombatEvents()
         enemy_->Launch(GameConstants::kLaunchSpeed * 0.7f);
         tm->RequestHitStop(GameConstants::kHitStopJuggle);
         cameraShaker_.Request(0.20f, 0.15f);
-        pm_->EmitRing("hit_ring", epos, 3.0f, { 0.75f, 0.95f, 1.0f, 0.7f }, 12, 0.3f, 0.25f);
+        SceneShared::EmitFinisherCharge(pm_, "hit_ring", "hit_spark", epos);
     }
 }
 
@@ -596,8 +596,8 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
         tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
         cameraShaker_.Request(0.06f, 0.05f);
-        pm_->EmitSlash("sword_slash", { center.x, center.y, 0.0f }, ang,
-            { 0.85f, 0.95f, 1.0f, 0.9f }, 0.9f);
+        SceneShared::EmitFinisherSlashLine(pm_, "sword_slash", "hit_spark",
+            { center.x, center.y, 0.0f }, ang, len);
 
         finisherLineIdx_++;
         finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
@@ -630,14 +630,7 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
         SlashMark::GetInstance()->Spawn(sm);
     }
 
-    pm_->EmitRing("hit_ring", epos, 9.0f, { 0.7f, 0.9f, 1.0f, 1.0f }, 28, 0.55f, 0.4f);
-    std::uniform_real_distribution<float> vxJ(-7.0f, 7.0f);
-    std::uniform_real_distribution<float> vyJ( 4.0f, 11.0f);
-    for (int i = 0; i < 20; ++i) {
-        pm_->EmitGravity("hit_spark", epos,
-            { vxJ(rng_), vyJ(rng_), 0.0f },
-            { 0.75f, 0.9f, 1.0f, 1.0f }, 1.1f, 0.22f);
-    }
+    SceneShared::EmitFinisherRelease(pm_, "hit_ring", "hit_spark", epos);
 }
 
 void GamePlayScene::CheckClearCondition()
