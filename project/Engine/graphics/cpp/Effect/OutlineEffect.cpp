@@ -45,8 +45,8 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // =====================================================
     // OutlineVS: 法線方向にクリップ空間で頂点を膨らませる
     // OutlinePS: 単色で塗りつぶすだけ
-    IDxcBlob* vsBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlineVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlinePS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlineVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlinePS.hlsl", L"ps_6_0");
 
     // =====================================================
     // 頂点レイアウト（Model::VertexData と一致させること）

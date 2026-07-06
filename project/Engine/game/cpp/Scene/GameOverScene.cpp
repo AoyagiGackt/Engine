@@ -42,8 +42,8 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ローグライトのラン中に力尽きた場合のみ通算記録へ反映し、コンティニューデータを破棄する
     auto* rd = RunData::GetInstance();
-    if (rd->isRunActive) {
-        SaveDataManager::GetInstance()->RecordRunResult(false, rd->floor, rd->gold);
+    if (rd->IsRunActive()) {
+        SaveDataManager::GetInstance()->RecordRunResult(false, rd->GetFloor(), rd->GetGold());
         SaveDataManager::GetInstance()->ClearContinue();
     }
 }

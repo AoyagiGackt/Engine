@@ -60,8 +60,7 @@ public:
 
     /**
      * @brief View × Projection の合成行列を返す
-     * @note Frustum カリングや DebugDraw のワールド→スクリーン変換に使用します
-     *   例: Frustum f; f.ExtractFromMatrix(camera->GetViewProjectionMatrix());
+     * @note DebugDraw のワールド→スクリーン変換に使用します
      */
     Matrix4x4 GetViewProjectionMatrix() const {
         if (isDirty_) { RecalcMatrices(); }

@@ -91,9 +91,9 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     assert(SUCCEEDED(hr));
 
     // ---- シェーダーコンパイル ----
-    IDxcBlob* vsBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/GlassShatterPS.hlsl", L"ps_6_0");
 
     // ---- ブレンドステート: 通常アルファブレンド ----

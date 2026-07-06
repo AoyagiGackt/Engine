@@ -104,9 +104,9 @@ void* PostEffectFullscreenPass::InitializeCommon(DirectXCommon* dxCommon, SrvMan
         IID_PPV_ARGS(&rootSignature_));
     assert(SUCCEEDED(hr));
 
-    IDxcBlob* vsBlob = dxCommon->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon->CompileShader(psShaderPath, L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon->CompileShader(psShaderPath, L"ps_6_0");
 
     D3D12_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;

@@ -36,9 +36,9 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     assert(SUCCEEDED(hr));
 
     // シェーダーコンパイル
-    IDxcBlob* vsBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    IDxcBlob* psBlob = dxCommon_->CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/VignettePS.hlsl",   L"ps_6_0");
 
     // アルファブレンド: PS が出力する (0,0,0,vig) をバックバッファに重ねて周辺を暗転

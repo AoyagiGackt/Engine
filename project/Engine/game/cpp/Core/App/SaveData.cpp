@@ -66,24 +66,19 @@ void SaveDataManager::Save()
 void SaveDataManager::SaveContinue(const RunData& rd)
 {
     continue_.valid       = true;
-    continue_.hp          = rd.hp;
-    continue_.maxHp       = rd.maxHp;
-    continue_.gold        = rd.gold;
-    continue_.floor       = rd.floor;
-    continue_.currentNode = rd.currentNode;
-    continue_.skills      = rd.skills;
+    continue_.hp          = rd.GetHp();
+    continue_.maxHp       = rd.GetMaxHp();
+    continue_.gold        = rd.GetGold();
+    continue_.floor       = rd.GetFloor();
+    continue_.currentNode = rd.GetCurrentNode();
+    continue_.skills      = rd.GetSkills();
     Save();
 }
 
 void SaveDataManager::LoadContinue(RunData& rd) const
 {
-    rd.isRunActive  = true;
-    rd.hp           = continue_.hp;
-    rd.maxHp        = continue_.maxHp;
-    rd.gold         = continue_.gold;
-    rd.floor        = continue_.floor;
-    rd.currentNode  = continue_.currentNode;
-    rd.skills       = continue_.skills;
+    rd.RestoreFromSave(continue_.hp, continue_.maxHp, continue_.gold, continue_.floor,
+        continue_.currentNode, continue_.skills);
 }
 
 void SaveDataManager::ClearContinue()

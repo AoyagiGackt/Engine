@@ -50,9 +50,9 @@ public: // メンバ関数
      * @brief シェーダーファイルをコンパイルする
      * @param filePath シェーダーファイルのパス
      * @param profile コンパイルプロファイル（例: L"vs_6_0", L"ps_6_0"）
-     * @return IDxcBlob* コンパイルされたシェーダーデータ
+     * @return コンパイルされたシェーダーデータ
      */
-    IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
+    Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(const std::wstring& filePath, const wchar_t* profile);
 
     /** @brief デバイスの取得 */
     ID3D12Device* GetDevice() { return device_.Get(); }

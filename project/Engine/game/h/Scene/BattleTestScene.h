@@ -23,6 +23,7 @@
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
 #include "Player.h"
+#include "SceneShared.h"
 #include "ShadowManager.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
@@ -94,8 +95,6 @@ private:
     /// @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する
     void SetupMainRenderTarget();
 
-    /// @brief 武器切り替え入力（Q/E、数字キー）を処理する
-    void UpdateWeaponCycle();
     /// @brief プレイヤーを更新し、カメラをプレイヤーに追従させる
     void UpdatePlayerAndCamera();
     /// @brief 影・境界ブロック・ワープポータルの演出を更新する
@@ -108,18 +107,12 @@ private:
     void UpdateComboRank(bool hitConfirmed);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する
     void UpdateDummies();
-    /// @brief 戻りポータル判定（ENTERで復帰）を行う。ポータル近接中なら true を返す
-    bool UpdateReturnPortal();
     /// @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する
     void DrawHud(bool nearReturnPortal);
     /// @brief 武器一覧と戻りポータルのラベルを描画する
     void DrawWeaponHud(bool nearReturnPortal);
-    /// @brief 右側の操作説明パネルを描画する
-    void DrawControlsHud();
     /// @brief 画面中央のコンボランク表示を描画する
     void DrawComboRankHud();
-    /// @brief 覚醒ゲージUIを描画する
-    void DrawAwakenGaugeHud();
 
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
@@ -180,6 +173,9 @@ private:
     bool  finisherActive_    = false;
     int   finisherLineIdx_   = 0;
     float finisherBeatTimer_ = 0.0f;
+
+    /** @brief 大技演出中の画面暗転オーバーレイ */
+    std::unique_ptr<Sprite> finisherOverlay_;
 
     FontRenderer fontRenderer_;
 };

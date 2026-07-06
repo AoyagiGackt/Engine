@@ -34,8 +34,8 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&rootSignature_));
 
     // ---- シェーダー ----
-    IDxcBlob* vs = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugVS.hlsl", L"vs_6_0");
-    IDxcBlob* ps = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugPS.hlsl", L"ps_6_0");
 
     // ---- 入力レイアウト ----
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {

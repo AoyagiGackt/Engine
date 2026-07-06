@@ -61,7 +61,7 @@ void ShaderHotReload::Update()
         }
         if (wt <= e.lastWriteTime) { continue; }
 
-        IDxcBlob* newBlob = dxCommon_->CompileShader(e.path, e.profile);
+        Microsoft::WRL::ComPtr<IDxcBlob> newBlob = dxCommon_->CompileShader(e.path, e.profile);
         if (!newBlob) { continue; } // コンパイルエラーは無視して古いシェーダーを使い続ける
 
         e.lastWriteTime = wt;
@@ -84,6 +84,6 @@ void ShaderHotReload::Update()
                 WaitForSingleObject(dxCommon_->GetFenceEvent(), INFINITE);
             }
         }
-        e.callback(newBlob);
+        e.callback(newBlob.Get());
     }
 }

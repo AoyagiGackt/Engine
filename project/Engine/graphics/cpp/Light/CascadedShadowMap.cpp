@@ -1,4 +1,5 @@
 ﻿#include "CascadedShadowMap.h"
+#include "ShadowManager.h"
 #include "WinApp.h"
 #include <cassert>
 #include <cmath>
@@ -132,15 +133,12 @@ Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t 
     const CascadeConfig& cfg = kCascadeConfigs[cascadeIdx];
 
     // ライト位置 = シーン中心 - lightDir * distance
-    // ShadowManager のシーン中心と同一定数を使用
-    static constexpr float kCX = 15.0f, kCY = 5.0f, kCZ = 0.0f;
-    static constexpr float kDist = 45.0f;
-
-    Vector3 center = { kCX, kCY, kCZ };
+    // ShadowManager のシーン中心・ライト距離定数をそのまま使用
+    Vector3 center = { ShadowManager::kSceneCenterX, ShadowManager::kSceneCenterY, ShadowManager::kSceneCenterZ };
     Vector3 eye = {
-        center.x - lightDir.x * kDist,
-        center.y - lightDir.y * kDist,
-        center.z - lightDir.z * kDist,
+        center.x - lightDir.x * ShadowManager::kLightDistance,
+        center.y - lightDir.y * ShadowManager::kLightDistance,
+        center.z - lightDir.z * ShadowManager::kLightDistance,
     };
 
     Vector3 fwd = {

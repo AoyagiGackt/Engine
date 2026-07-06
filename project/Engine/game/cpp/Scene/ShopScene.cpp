@@ -71,7 +71,7 @@ void ShopScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
         if (!rd->HasSkill(sk)) { pool.push_back(sk); }
     }
 
-    std::mt19937 rng(static_cast<unsigned>(rd->floor * 37 + rd->skills.size() * 13 + 7));
+    std::mt19937 rng(static_cast<unsigned>(rd->GetFloor() * 37 + rd->GetSkills().size() * 13 + 7));
     std::shuffle(pool.begin(), pool.end(), rng);
 
     offerCount_ = (std::min)(3, static_cast<int>(pool.size()));
@@ -91,7 +91,7 @@ void ShopScene::Update()
     if (done_) {
         doneTimer_ -= GameConstants::kFrameDeltaTime;
         if (doneTimer_ <= 0.0f) {
-            RunData::GetInstance()->floor++;
+            RunData::GetInstance()->AdvanceFloor();
             SceneManager::GetInstance()->ChangeScene("MAP");
         }
         return;
@@ -137,9 +137,9 @@ void ShopScene::Draw()
     // HP / ゴールド
     {
         char buf[64];
-        snprintf(buf, sizeof(buf), "HP:%d/%d", rd->hp, rd->maxHp);
+        snprintf(buf, sizeof(buf), "HP:%d/%d", rd->GetHp(), rd->GetMaxHp());
         fontRenderer_.DrawString(buf, 20.0f, 28.0f, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
-        snprintf(buf, sizeof(buf), "Gold:%dG", rd->gold);
+        snprintf(buf, sizeof(buf), "Gold:%dG", rd->GetGold());
         fontRenderer_.DrawString(buf, 20.0f, 52.0f, 1.5f, { 1.0f, 0.85f, 0.2f, 1.0f });
     }
 
@@ -201,11 +201,11 @@ void ShopScene::Draw()
     // ── 所持スキル ──
     {
         fontRenderer_.DrawStringW(L"所持スキル:", 20.0f, 638.0f, 1.2f, { 0.6f, 0.85f, 1.0f, 1.0f });
-        if (rd->skills.empty()) {
+        if (rd->GetSkills().empty()) {
             fontRenderer_.DrawStringW(L"なし", 200.0f, 638.0f, 1.2f, { 0.5f, 0.5f, 0.5f, 1.0f });
         } else {
             float sx = 200.0f;
-            for (auto sk : rd->skills) {
+            for (auto sk : rd->GetSkills()) {
                 const wchar_t* jn = SkillNameJP(sk);
                 fontRenderer_.DrawStringW(jn, sx, 640.0f, 1.1f, { 0.9f, 0.85f, 0.3f, 1.0f });
                 sx += static_cast<float>(wcslen(jn) + 1) * FontRenderer::kJpCharW * 1.1f;

@@ -254,14 +254,14 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
 {
     ID3D12Device* device = dxCommon->GetDevice();
 
-    IDxcBlob* vsBlob           = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",     L"vs_6_0");
-    IDxcBlob* boxPsBlob        = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",   L"ps_6_0");
-    IDxcBlob* gaussianPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
-    IDxcBlob* prewittPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/PrewittEdgePS.hlsl",    L"ps_6_0");
-    IDxcBlob* depthOlPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/DepthOutlinePS.hlsl",   L"ps_6_0");
-    IDxcBlob* radialBlurPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/RadialBlurPS.hlsl",     L"ps_6_0");
-    IDxcBlob* dissolvePsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/DissolvePS.hlsl",       L"ps_6_0");
-    IDxcBlob* noiseGenPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/NoisePS.hlsl",          L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob           = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",     L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> boxPsBlob        = dxCommon->CompileShader(L"Resources/shaders/postprocess/KernelFilterPS.hlsl",   L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> gaussianPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/GaussianFilterPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> prewittPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/PrewittEdgePS.hlsl",    L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> depthOlPsBlob    = dxCommon->CompileShader(L"Resources/shaders/postprocess/DepthOutlinePS.hlsl",   L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> radialBlurPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/RadialBlurPS.hlsl",     L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> dissolvePsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/DissolvePS.hlsl",       L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> noiseGenPsBlob   = dxCommon->CompileShader(L"Resources/shaders/postprocess/NoisePS.hlsl",          L"ps_6_0");
 
     // 共通 PSO ベース（深度なし、カリングなし、フルスクリーントライアングル）
     D3D12_BLEND_DESC blendDesc = {};
@@ -291,15 +291,15 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
     };
 
     // rootSignature_（b0 + t0）を使う PSO
-    createPSO(rootSignature_.Get(),        boxPsBlob,        boxPso_);
-    createPSO(rootSignature_.Get(),        gaussianPsBlob,   gaussianPso_);
-    createPSO(rootSignature_.Get(),        prewittPsBlob,    prewittPso_);
-    createPSO(rootSignature_.Get(),        radialBlurPsBlob, radialBlurPso_);
-    createPSO(rootSignature_.Get(),        noiseGenPsBlob,   noiseGenPso_);
+    createPSO(rootSignature_.Get(),        boxPsBlob.Get(),        boxPso_);
+    createPSO(rootSignature_.Get(),        gaussianPsBlob.Get(),   gaussianPso_);
+    createPSO(rootSignature_.Get(),        prewittPsBlob.Get(),    prewittPso_);
+    createPSO(rootSignature_.Get(),        radialBlurPsBlob.Get(), radialBlurPso_);
+    createPSO(rootSignature_.Get(),        noiseGenPsBlob.Get(),   noiseGenPso_);
 
     // outlineRootSignature_（b0 + t0 + t1）を使う PSO
-    createPSO(outlineRootSignature_.Get(), depthOlPsBlob,    depthOutlinePso_);
-    createPSO(outlineRootSignature_.Get(), dissolvePsBlob,   dissolvePso_);
+    createPSO(outlineRootSignature_.Get(), depthOlPsBlob.Get(),    depthOutlinePso_);
+    createPSO(outlineRootSignature_.Get(), dissolvePsBlob.Get(),   dissolvePso_);
 }
 
 void ImageFilter::Finalize()
@@ -387,118 +387,133 @@ void ImageFilter::Apply(SrvManager* srvManager)
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+    GetFilterMode(mode_).Apply(*this, cmd, srvManager, vp, scissor, backRtv);
+}
+
+// =====================================================
+// Filter Mode Strategy: Mode ごとの Apply 実装
+// =====================================================
+
+void ImageFilter::PrewittEdgeFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- Prewitt エッジ検出（輝度ベース）: シングルパス -----
-    if (mode_ == Mode::PrewittEdge) {
-        cmd->SetGraphicsRootSignature(rootSignature_.Get());
-        cmd->SetPipelineState(prewittPso_.Get());
-        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &scissor);
-        cmd->SetGraphicsRootConstantBufferView(0, outlineCbResource_->GetGPUVirtualAddress());
-        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->DrawInstanced(3, 1, 0, 0);
-        return;
-    }
+    cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
+    cmd->SetPipelineState(filter.prewittPso_.Get());
+    cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &scissor);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.outlineCbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    cmd->DrawInstanced(3, 1, 0, 0);
+}
 
+void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- 深度ベースアウトライン: シングルパス、深度バリア付き -----
-    if (mode_ == Mode::DepthOutline) {
-        auto* depthRes = dxCommon_->GetDepthStencilResource();
-        Barrier(cmd, depthRes,
-            D3D12_RESOURCE_STATE_DEPTH_WRITE,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    auto* depthRes = filter.dxCommon_->GetDepthStencilResource();
+    Barrier(cmd, depthRes,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-        cmd->SetGraphicsRootSignature(outlineRootSignature_.Get());
-        cmd->SetPipelineState(depthOutlinePso_.Get());
-        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &scissor);
-        cmd->SetGraphicsRootConstantBufferView(0, outlineCbResource_->GetGPUVirtualAddress());
-        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(depthSrvIndex_));
-        cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->SetGraphicsRootSignature(filter.outlineRootSignature_.Get());
+    cmd->SetPipelineState(filter.depthOutlinePso_.Get());
+    cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &scissor);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.outlineCbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(filter.depthSrvIndex_));
+    cmd->DrawInstanced(3, 1, 0, 0);
 
-        Barrier(cmd, depthRes,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-            D3D12_RESOURCE_STATE_DEPTH_WRITE);
-        return;
-    }
+    Barrier(cmd, depthRes,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE);
+}
 
+void ImageFilter::RadialBlurFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- ラジアルブラー: シングルパス -----
-    if (mode_ == Mode::RadialBlur) {
-        cmd->SetGraphicsRootSignature(rootSignature_.Get());
-        cmd->SetPipelineState(radialBlurPso_.Get());
-        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &scissor);
-        cmd->SetGraphicsRootConstantBufferView(0, radialBlurCbResource_->GetGPUVirtualAddress());
-        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->DrawInstanced(3, 1, 0, 0);
-        return;
-    }
+    cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
+    cmd->SetPipelineState(filter.radialBlurPso_.Get());
+    cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &scissor);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.radialBlurCbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    cmd->DrawInstanced(3, 1, 0, 0);
+}
 
+void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- ディゾルブ: シングルパス、ノイズマスクを t1 にバインド -----
-    if (mode_ == Mode::Dissolve) {
-        // TextureManager が初期化済みになってから初回ロード
-        if (noiseSrvIndex_[0] == UINT32_MAX) {
-            auto* texMgr = TextureManager::GetInstance();
-            texMgr->LoadTexture("Resources/noise0.png");
-            texMgr->LoadTexture("Resources/noise1.png");
-            noiseSrvIndex_[0] = texMgr->GetTextureIndexByFilePath("Resources/noise0.png");
-            noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/noise1.png");
-        }
-        uint32_t maskSrv = noiseSrvIndex_[dissolveMaskIndex_];
-        cmd->SetGraphicsRootSignature(outlineRootSignature_.Get());
-        cmd->SetPipelineState(dissolvePso_.Get());
-        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &scissor);
-        cmd->SetGraphicsRootConstantBufferView(0, dissolveCbResource_->GetGPUVirtualAddress());
-        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(maskSrv));
-        cmd->DrawInstanced(3, 1, 0, 0);
-        return;
+    // TextureManager が初期化済みになってから初回ロード
+    if (filter.noiseSrvIndex_[0] == UINT32_MAX) {
+        auto* texMgr = TextureManager::GetInstance();
+        texMgr->LoadTexture("Resources/noise0.png");
+        texMgr->LoadTexture("Resources/noise1.png");
+        filter.noiseSrvIndex_[0] = texMgr->GetTextureIndexByFilePath("Resources/noise0.png");
+        filter.noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/noise1.png");
     }
+    uint32_t maskSrv = filter.noiseSrvIndex_[filter.dissolveMaskIndex_];
+    cmd->SetGraphicsRootSignature(filter.outlineRootSignature_.Get());
+    cmd->SetPipelineState(filter.dissolvePso_.Get());
+    cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &scissor);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.dissolveCbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(maskSrv));
+    cmd->DrawInstanced(3, 1, 0, 0);
+}
 
+void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- プロシージャルノイズ: シングルパス（シーンに重ね合わせ）-----
-    if (mode_ == Mode::NoiseGen) {
-        // アニメーション: 毎フレーム seed を加算して乱数パターンを変化させる
-        if (animateNoise_) {
-            noiseTime_ += noiseSpeed_;
-            noiseGenCb_->seed = noiseManualSeed_ + noiseTime_;
-        } else {
-            noiseGenCb_->seed = noiseManualSeed_;
-        }
-        cmd->SetGraphicsRootSignature(rootSignature_.Get());
-        cmd->SetPipelineState(noiseGenPso_.Get());
-        cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &scissor);
-        cmd->SetGraphicsRootConstantBufferView(0, noiseGenCbResource_->GetGPUVirtualAddress());
-        cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->DrawInstanced(3, 1, 0, 0);
-        return;
+    // アニメーション: 毎フレーム seed を加算して乱数パターンを変化させる
+    if (filter.animateNoise_) {
+        filter.noiseTime_ += filter.noiseSpeed_;
+        filter.noiseGenCb_->seed = filter.noiseManualSeed_ + filter.noiseTime_;
+    } else {
+        filter.noiseGenCb_->seed = filter.noiseManualSeed_;
     }
+    cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
+    cmd->SetPipelineState(filter.noiseGenPso_.Get());
+    cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &scissor);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.noiseGenCbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    cmd->DrawInstanced(3, 1, 0, 0);
+}
 
+void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
+{
     // ----- Box / Gaussian: 水平→垂直の 2 パス -----
-    cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(mode_ == Mode::Box ? boxPso_.Get() : gaussianPso_.Get());
+    cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
+    cmd->SetPipelineState(filter.mode_ == Mode::Box ? filter.boxPso_.Get() : filter.gaussianPso_.Get());
 
     // Pass 1: 水平（sceneTexture → intermediateTexture）
-    if (!isIntermediateFirstFrame_) {
-        Barrier(cmd, intermediateTexture_.Get(),
+    if (!filter.isIntermediateFirstFrame_) {
+        Barrier(cmd, filter.intermediateTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
-    isIntermediateFirstFrame_ = false;
+    filter.isIntermediateFirstFrame_ = false;
 
-    cmd->OMSetRenderTargets(1, &intermediateRtvHandle_, FALSE, nullptr);
+    cmd->OMSetRenderTargets(1, &filter.intermediateRtvHandle_, FALSE, nullptr);
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
-    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
-    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
+    cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
 
-    Barrier(cmd, intermediateTexture_.Get(),
+    Barrier(cmd, filter.intermediateTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
@@ -506,9 +521,27 @@ void ImageFilter::Apply(SrvManager* srvManager)
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
-    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress() + 256);
-    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(intermediateSrvIndex_));
+    cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress() + 256);
+    cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.intermediateSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
+}
+
+const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode)
+{
+    static BoxGaussianFilterMode  boxGaussian;
+    static PrewittEdgeFilterMode  prewittEdge;
+    static DepthOutlineFilterMode depthOutline;
+    static RadialBlurFilterMode   radialBlur;
+    static DissolveFilterMode     dissolve;
+    static NoiseGenFilterMode     noiseGen;
+    switch (mode) {
+    case Mode::PrewittEdge:  return prewittEdge;
+    case Mode::DepthOutline: return depthOutline;
+    case Mode::RadialBlur:   return radialBlur;
+    case Mode::Dissolve:     return dissolve;
+    case Mode::NoiseGen:     return noiseGen;
+    default:                 return boxGaussian; // Box / Gaussian
+    }
 }
 
 // =====================================================

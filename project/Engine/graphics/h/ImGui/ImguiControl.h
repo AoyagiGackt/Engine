@@ -34,6 +34,18 @@ public:
     static void ShowControls();
 
 private:
+    // ShowControls() から呼ばれる各ウィンドウ・セクションの描画メソッド
+    static void ShowMeshSettings();
+    static void ShowMaterialSettings();
+    static void ShowLightingSettings();
+    static void ShowPostProcessSettings();
+    static void ShowOutlineSettings();
+    static void ShowRadialBlurSettings();
+    static void ShowDissolveSettings();
+    static void ShowNoiseSettings();
+    static void ShowGlassShatterSettings();
+    static void ShowLightSettings();
+
     static Object3dCommon*              obj3dCommon_;
     static std::vector<DebugPointLight> debugLights_;
     static std::function<void()>        glassShatterTrigger_;

@@ -3,6 +3,7 @@
  * @brief ローグライトの1ランを通じて保持するゲームデータを管理するファイル
  */
 #pragma once
+#include <algorithm>
 #include <vector>
 namespace engine::game {
 /**
@@ -35,15 +36,41 @@ public:
     /** @brief マップ上のノードの種類 */
     enum class NodeType { Combat, Elite, Shop, Rest, Boss };
 
-    bool     isRunActive = false;           ///< ラン進行中かどうか
-    int      hp          = 30;              ///< 現在 HP
-    int      maxHp       = 30;              ///< 最大 HP
-    int      gold        = 0;              ///< 所持ゴールド
-    int      floor       = 0;              ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
-    NodeType currentNode = NodeType::Combat; ///< 現在選択されているノード種別
+    /** @brief ラン進行中かどうか */
+    bool IsRunActive() const { return isRunActive_; }
+
+    /** @brief 現在 HP */
+    int GetHp() const { return hp_; }
+
+    /** @brief 最大 HP */
+    int GetMaxHp() const { return maxHp_; }
+
+    /** @brief 所持ゴールド */
+    int GetGold() const { return gold_; }
+
+    /** @brief 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss） */
+    int GetFloor() const { return floor_; }
+
+    /** @brief 現在選択されているノード種別 */
+    NodeType GetCurrentNode() const { return currentNode_; }
 
     /** @brief 習得済みスキルのリスト */
-    std::vector<Skill> skills;
+    const std::vector<Skill>& GetSkills() const { return skills_; }
+
+    /** @brief 選択中のノード種別を設定する */
+    void SetCurrentNode(NodeType node) { currentNode_ = node; }
+
+    /** @brief フロアを1つ進める */
+    void AdvanceFloor() { ++floor_; }
+
+    /** @brief ゴールドを加算する */
+    void AddGold(int amount) { gold_ += amount; }
+
+    /**
+     * @brief HPを回復する（maxHpを超えない）
+     * @param amount 回復量
+     */
+    void Heal(int amount) { hp_ = (std::min)(hp_ + amount, maxHp_); }
 
     /**
      * @brief 指定スキルを習得済みかどうかを返す
@@ -51,7 +78,7 @@ public:
      * @return 習得済みなら true
      */
     bool HasSkill(Skill s) const {
-        for (auto sk : skills) {
+        for (auto sk : skills_) {
             if (sk == s) { return true; }
         }
         return false;
@@ -61,18 +88,32 @@ public:
      * @brief スキルを習得リストに追加する
      * @param s 追加するスキル
      */
-    void AddSkill(Skill s) { skills.push_back(s); }
+    void AddSkill(Skill s) { skills_.push_back(s); }
 
     /**
      * @brief 新しいランを開始し、全データを初期状態にリセットする
      */
     void StartNewRun() {
-        isRunActive = true;
-        hp = maxHp = 30;
-        gold = 0;
-        floor = 0;
-        skills.clear();
-        currentNode = NodeType::Combat;
+        isRunActive_ = true;
+        hp_ = maxHp_ = 30;
+        gold_ = 0;
+        floor_ = 0;
+        skills_.clear();
+        currentNode_ = NodeType::Combat;
+    }
+
+    /**
+     * @brief セーブデータからラン状態を復元する
+     * @note SaveDataManager::LoadContinue から呼び出される
+     */
+    void RestoreFromSave(int hp, int maxHp, int gold, int floor, NodeType node, const std::vector<Skill>& skills) {
+        isRunActive_ = true;
+        hp_          = hp;
+        maxHp_       = maxHp;
+        gold_        = gold;
+        floor_       = floor;
+        currentNode_ = node;
+        skills_      = skills;
     }
 
     /**
@@ -126,6 +167,16 @@ public:
 
 private:
     RunData() = default;
+
+    bool     isRunActive_ = false;            ///< ラン進行中かどうか
+    int      hp_          = 30;               ///< 現在 HP
+    int      maxHp_       = 30;               ///< 最大 HP
+    int      gold_        = 0;                ///< 所持ゴールド
+    int      floor_       = 0;                ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
+    NodeType currentNode_ = NodeType::Combat;  ///< 現在選択されているノード種別
+
+    /** @brief 習得済みスキルのリスト */
+    std::vector<Skill> skills_;
 };
 
 } // namespace engine::game
