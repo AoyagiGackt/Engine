@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <Windows.h>
 using namespace engine;
 
 namespace {
@@ -279,6 +280,10 @@ void TestCollisionShapes()
 
 int main()
 {
+    // ソースはUTF-8だが、コンソールの既定コードページ（日本語環境ではShift-JIS）のままだと
+    // 日本語のテスト名が文字化けするため、コンソール出力をUTF-8として解釈させる
+    SetConsoleOutputCP(CP_UTF8);
+
     RunSection("Vector3", TestVector3);
     RunSection("Matrix4x4", TestMatrix4x4);
     RunSection("Quaternion", TestQuaternion);
