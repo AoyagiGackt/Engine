@@ -12,7 +12,7 @@ namespace engine::game {
 // ファイル読み込み
 // =================================================================
 
-Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename)
+Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename, const std::string& animationName)
 {
     Animation animation;
 
@@ -22,8 +22,19 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
 
     ENGINE_ASSERT(scene->mNumAnimations != 0); // アニメーションがなければ止める
 
-    // 最初のアニメーションだけ採用
+    // 指定名（末尾一致）のアニメーションを探す見つからなければ先頭を採用
     aiAnimation* animationAssimp = scene->mAnimations[0];
+    if (!animationName.empty()) {
+        for (uint32_t i = 0; i < scene->mNumAnimations; ++i) {
+            std::string name = scene->mAnimations[i]->mName.C_Str();
+            auto barPos = name.find_last_of('|');
+            if (barPos != std::string::npos) { name = name.substr(barPos + 1); }
+            if (name == animationName) {
+                animationAssimp = scene->mAnimations[i];
+                break;
+            }
+        }
+    }
 
     // 時間単位をtick→秒に変換した尺を記録
     animation.duration = float(animationAssimp->mDuration / animationAssimp->mTicksPerSecond);

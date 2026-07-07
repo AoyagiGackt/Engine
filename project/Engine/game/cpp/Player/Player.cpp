@@ -10,21 +10,65 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr const char* kPlayerModelDir  = "Resources/AlienAnimated/FBX";
+constexpr const char* kPlayerModelFile = "Alien.fbx";
+constexpr const char* kPlayerTexture   = "Resources/white.png";
+constexpr float        kPlayerModelScale = 1.0f;
+}
+
 void Player::Initialize(ModelCommon* modelCommon)
 {
+    // 残像・分身演出用の静的モデル（ボーンなし、ボーン付きモデルと同じ見た目）
     model_ = std::make_unique<Model>();
     model_->Initialize(modelCommon,
-        "Resources/player/player.obj",
-        "Resources/player/player.png");
+        "Resources/AlienAnimated/OBJ/Alien.obj",
+        kPlayerTexture);
 
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(modelCommon);
-    object_->SetModel(model_.get());
-    object_->SetEnableLighting(false);
-    object_->SetPosition(pos_);
-    object_->Update();
+    // 本体（ボーンアニメーション付き）
+    skinCommon_ = std::make_unique<SkinCommon>();
+    skinCommon_->Initialize(modelCommon->GetDxCommon());
+
+    std::string modelPath = std::string(kPlayerModelDir) + "/" + kPlayerModelFile;
+    skinnedModel_ = std::make_unique<SkinnedModel>();
+    skinnedModel_->Initialize(modelCommon->GetDxCommon(), modelPath, kPlayerTexture);
+
+    Skeleton skeleton = Skeleton::Create(LoadNodeHierarchyFromFile(kPlayerModelDir, kPlayerModelFile));
+
+    idleAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Idle");
+    runAnim_  = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Run");
+    jumpAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Jump");
+
+    SkinnedObject3d::SetCommonModelCommon(modelCommon);
+    SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
+
+    skinnedObject_ = std::make_unique<SkinnedObject3d>();
+    skinnedObject_->Initialize(skinCommon_.get());
+    skinnedObject_->SetModel(skinnedModel_.get());
+    skinnedObject_->SetSkeleton(std::move(skeleton));
+    skinnedObject_->SetAnimation(idleAnim_);
+    skinnedObject_->SetEnableLighting(false);
+    skinnedObject_->SetScale({ kPlayerModelScale, kPlayerModelScale, kPlayerModelScale });
+    skinnedObject_->SetPosition(pos_);
+    skinnedObject_->Update();
+    animState_ = AnimState::Idle;
 
     afterImageRenderer_.Initialize(modelCommon, model_.get());
+}
+
+void Player::UpdateAnimationState(bool isMoving)
+{
+    AnimState newState = !onGround_ ? AnimState::Jump
+                        : isMoving   ? AnimState::Run
+                                     : AnimState::Idle;
+    if (newState == animState_) { return; }
+    animState_ = newState;
+
+    switch (animState_) {
+    case AnimState::Run:  skinnedObject_->SetAnimation(runAnim_);  break;
+    case AnimState::Jump: skinnedObject_->SetAnimation(jumpAnim_); break;
+    default:              skinnedObject_->SetAnimation(idleAnim_); break;
+    }
 }
 
 void Player::Update(Input* input, const Vector3& enemyPos)
@@ -137,29 +181,34 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
     afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, pos_, yaw, spinAngle_);
 
+    // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
+    bool isMovingHoriz = input->PushKey(DIK_A) || input->PushKey(DIK_D)
+                       || input->PushKey(DIK_LEFT) || input->PushKey(DIK_RIGHT);
+    UpdateAnimationState(isMovingHoriz);
+
     // ── プレイヤー色 ──
     if (rampagePhase_ != RampagePhase::Inactive) {
         float t = std::sin(juggleSlashCount_ * 3.0f) * 0.5f + 0.5f;
-        object_->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
+        skinnedObject_->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
     } else if (justChargedGauge_) {
-        object_->SetColor({ 1.0f, 0.85f, 0.0f, 1.0f }); // 黄（ハンマーチャージ）
+        skinnedObject_->SetColor({ 1.0f, 0.85f, 0.0f, 1.0f }); // 黄（ハンマーチャージ）
     } else if (isAwakened_) {
         float t = std::sin(awakenTimer_ * 6.0f) * 0.3f + 0.7f;
-        object_->SetColor({ 0.15f * t, 0.55f * t, 1.0f, 1.0f }); // 青くパルス
+        skinnedObject_->SetColor({ 0.15f * t, 0.55f * t, 1.0f, 1.0f }); // 青くパルス
     } else {
-        object_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     }
 
-    object_->SetPosition(pos_);
-    object_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
-    object_->Update();
+    skinnedObject_->SetPosition(pos_);
+    skinnedObject_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
+    skinnedObject_->Update();
 }
 
 void Player::Draw()
 {
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
-    object_->Draw();
+    skinnedObject_->Draw();
 }
 
 // ============================================================

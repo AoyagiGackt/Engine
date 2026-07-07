@@ -34,7 +34,8 @@ public:
     void Initialize(SkinCommon* skinCommon);
 
     void SetModel(SkinnedModel* model);  // SkinCS の初期化も行う
-    void SetAnimation(Animation anim)         { animation_ = std::move(anim); }
+    // アニメーションを切り替える再生時刻は先頭に巻き戻る
+    void SetAnimation(Animation anim)         { animation_ = std::move(anim); animTime_ = 0.0f; }
     void SetSkeleton(Skeleton skeleton)       { skeleton_  = std::move(skeleton); }
     void SetEnvCubemapFilePath(const std::string& path) { envCubemapFilePath_ = path; }
 
@@ -42,6 +43,9 @@ public:
     void SetRotation(const Vector3& rot) { transform_.rotate    = rot; }
     void SetScale(const Vector3& scale)  { transform_.scale     = scale; }
     void SetAnimSpeed(float s)           { animSpeed_ = s; }
+
+    void SetColor(const Vector4& color) { if (materialData_) { materialData_->color = color; } }
+    void SetEnableLighting(bool enable) { if (materialData_) { materialData_->enableLighting = enable ? 1 : 0; } }
 
     Vector3 GetPosition()  const { return transform_.translate; }
     Vector3 GetRotation()  const { return transform_.rotate; }
