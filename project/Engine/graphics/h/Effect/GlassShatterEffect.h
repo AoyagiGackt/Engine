@@ -1,30 +1,38 @@
-﻿#pragma once
+﻿/**
+ * @file GlassShatterEffect.h
+ * @brief ゲーム画面をガラスのように割り砕く演出エフェクトを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include <wrl/client.h>
 namespace engine::graphics {
 
 class SrvManager;
 
-// ガラス割れエフェクト ― ゲーム画面をキャプチャして Voronoi シャードで割り砕く。
-// clearTriggered_ になったフレームで CaptureFrame() を呼び、以降は Apply() だけで動く。
+/**
+ * @brief ゲーム画面をキャプチャし、Voronoiシャードで割り砕く演出を行うクラス
+ * @note クリア演出開始のフレームで CaptureFrame() を呼び、以降は Apply() だけで再生できる
+ */
 class GlassShatterEffect {
 public:
+    /** @brief PSO・定数バッファ等を初期化する */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
+    /** @brief GPUリソースを解放する */
     void Finalize();
 
-    // dt [秒] で内部タイマーを進める。毎フレーム呼ぶ。
+    /** @brief 内部タイマーを進める（毎フレーム呼ぶ） @param dt 経過秒 */
     void Update(float dt);
 
-    // ゲーム画面をキャプチャする。全シーン描画の直後、Apply() の前に一度だけ呼ぶ。
+    /** @brief ゲーム画面をキャプチャする（全シーン描画直後、Apply() の前に一度だけ呼ぶ） */
     void CaptureFrame();
 
-    // バックバッファ上にエフェクトを重ねて描画する。シーン描画後に呼ぶ。
+    /** @brief バックバッファ上にエフェクトを重ねて描画する（シーン描画後に呼ぶ） */
     void Apply();
 
-    // エフェクトを最初から再生する。
+    /** @brief エフェクトを最初から再生する */
     void Start();
 
-    // タイマーをリセットして非アクティブ状態に戻す。
+    /** @brief タイマーをリセットして非アクティブ状態に戻す */
     void Reset();
 
     bool IsActive()     const { return active_; }

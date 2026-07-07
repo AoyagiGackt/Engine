@@ -1,3 +1,7 @@
+/**
+ * @file WaterPool.h
+ * @brief ステージ内の水場（見た目・水面パーティクル・入水スプラッシュ）を管理するファイル
+ */
 #pragma once
 #include "Camera.h"
 #include "GameConstants.h"
@@ -13,6 +17,10 @@ using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::ParticleManager;
 
+/**
+ * @brief 固定領域の水場を描画し、波紋・きらめき・水しぶきパーティクルを管理するクラス
+ * @note 水面のY座標は GetSurfaceY() で公開し、Player::SetWaterLevel() と同期させる
+ */
 class WaterPool {
 public:
     void Initialize(SpriteCommon* spriteCommon);

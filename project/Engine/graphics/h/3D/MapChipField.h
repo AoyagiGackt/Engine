@@ -75,14 +75,16 @@ public:
         return mapData_[0].size();
     }
 
-    /* @brief 指定したマスのチップの種類を取得
+    /**
+     * @brief 指定したマスのチップの種類を取得
      * @param x マスのX座標（列番号）
      * @param y マスのY座標（行番号）
      * @return MapChipType チップの種類（None, Blockなど）
      */
     MapChipType GetMapType(uint32_t x, uint32_t y) const;
 
-    /* @brief 指定したマスのワールド座標を取得
+    /**
+     * @brief 指定したマスのワールド座標を取得
      * @param x マスのX座標（列番号）
      * @param y マスのY座標（行番号）
      * @return Vector3 ワールド空間での座標
