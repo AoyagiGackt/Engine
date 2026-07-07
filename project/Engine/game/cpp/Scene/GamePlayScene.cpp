@@ -132,7 +132,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     pm_->CreateParticleGroup("hit_spark",   "Resources/circle2.png");
     pm_->CreateParticleGroup("land_dust",   "Resources/circle2.png");
     pm_->CreateParticleGroup("jump_smoke",  "Resources/circle2.png");
-    pm_->CreateParticleGroup("sword_slash", "Resources/circle2.png");
+    pm_->CreateParticleGroup("sword_slash", "Resources/slashStreak.png");
     pm_->CreateParticleGroup("gun_shot",    "Resources/circle2.png");
     pm_->CreateParticleGroup("blink_trail", "Resources/circle2.png");
     pm_->CreateParticleGroup("awaken_aura", "Resources/circle2.png");
@@ -345,8 +345,8 @@ void GamePlayScene::UpdateCombatEvents()
         const Vector3& epos = enemy_->GetPosition();
         tm->RequestHitStop(GameConstants::kHitStopFinish);
         cameraShaker_.Request(GameConstants::kShakeFinishAmt, GameConstants::kShakeFinishDur);
-        pm_->EmitRing("hit_ring",  epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
-        pm_->EmitRing("sword_slash", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
+        pm_->EmitRing("hit_ring", epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
+        pm_->EmitRing("hit_ring", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
         std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
         std::uniform_real_distribution<float> vyF( 4.0f, 10.0f);
         for (int i = 0; i < 16; ++i) {
@@ -603,26 +603,25 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     const Vector3& epos = enemy_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 画面全体を埋め尽くすようにランダムな位置を高速で斬り刻む
+        // カメラ視界全体にランダムな位置を高速で斬り刻む
+        const Vector3& cam = camera_->GetTranslate();
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-7.5f, 7.5f);
-        std::uniform_real_distribution<float> offYDist(-4.0f, 4.0f);
-        std::uniform_real_distribution<float> lenDist(3.0f, 7.0f);
+        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
+        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
         std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
         const float   ang    = angleDist(rng_);
         const Vector2 dir    = { std::cos(ang), std::sin(ang) };
-        const Vector2 center = { epos.x + offXDist(rng_), epos.y + offYDist(rng_) };
+        const Vector2 center = { cam.x + offXDist(rng_), cam.y + offYDist(rng_) };
         const float   len    = lenDist(rng_);
 
-        SlashMarkParams sm;
-        sm.start = { center.x - dir.x * len, center.y - dir.y * len };
-        sm.end   = { center.x + dir.x * len, center.y + dir.y * len };
-        sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-        sm.thickness = thickDist(rng_);
         // 解放の瞬間まで全ての斬撃線を画面に残す
-        sm.duration  = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-                     + GameConstants::kFinisherImpactDelay + 0.25f;
-        SlashMark::GetInstance()->Spawn(sm);
+        const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+                             + GameConstants::kFinisherImpactDelay + 0.25f;
+        SceneShared::SpawnSlashMarkWorld(
+            { center.x - dir.x * len, center.y - dir.y * len },
+            { center.x + dir.x * len, center.y + dir.y * len },
+            cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng_), duration);
 
         // 1本ごとに実際にヒットさせ、敵を空中に拘束し続ける
         enemy_->TakeDamage(GameConstants::kFinisherLineDamage);
@@ -675,20 +674,19 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     finisherShatter_.Reset();
     finisherShatter_.Start();
 
-    // 解放の瞬間、太く短い閃光の斬撃線を重ねる
+    // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
+    SlashMark::GetInstance()->FlashAll({ 1.0f, 1.0f, 1.0f, 1.0f }, 0.22f);
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    const Vector3& cam = camera_->GetTranslate();
     for (int i = 0; i < 8; ++i) {
         const float   ang = angleDist(rng_);
         const Vector2 dir = { std::cos(ang), std::sin(ang) };
-        SlashMarkParams sm;
-        sm.start = { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y - dir.y * GameConstants::kFinisherSlashRadius };
-        sm.end   = { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y + dir.y * GameConstants::kFinisherSlashRadius };
-        sm.color     = { 1.0f, 1.0f, 1.0f, 1.0f };
-        sm.thickness = 9.0f;
-        sm.duration  = 0.15f;
-        SlashMark::GetInstance()->Spawn(sm);
+        SceneShared::SpawnSlashMarkWorld(
+            { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
+              epos.y - dir.y * GameConstants::kFinisherSlashRadius },
+            { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
+              epos.y + dir.y * GameConstants::kFinisherSlashRadius },
+            cam.x, cam.y, { 1.0f, 1.0f, 1.0f, 1.0f }, 9.0f, 0.15f);
     }
 
     SceneShared::EmitFinisherRelease(pm_, "hit_ring", "hit_spark", epos);

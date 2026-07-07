@@ -278,41 +278,48 @@ void ParticleManager::EmitSlash(const std::string& name,
     assert(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
-    const int   kCount    = 6;
-    const float kSpread   = 2.0f;
-    const float kSpeed    = 6.0f;
-    const float kLifeTime = 0.15f;
+    constexpr float kGlowLifeTime  = 0.30f;
+    constexpr float kCoreLifeTime  = 0.20f;
+    constexpr float kShardLifeTime = 0.25f;
+    constexpr int   kShardCount    = 4;
 
-    for (int i = 0; i < kCount; ++i) {
+    auto emitOne = [&](const Vector3& velocity, const Vector4& c, float lifeTime,
+                       float scaleX, float scaleY) {
         uint32_t slot = AllocateSlot(group);
-
-        if (slot == UINT32_MAX) {
-            break;
-        }
-
-        float t = static_cast<float>(i) / static_cast<float>(kCount - 1);
-        float a = angle - kSpread * 0.5f + kSpread * t;
-
-        float speed = kSpeed * (0.7f + 0.3f * t) * GameConstants::kFrameDeltaTime;
-        Vector3 vel = { std::cos(a) * speed, std::sin(a) * speed, 0.0f };
-
-        float bright = 1.0f - t * 0.3f;
-        Vector4 c    = { color.x, color.y, color.z, color.w * bright };
+        if (slot == UINT32_MAX) { return; }
 
         GPUParticleState& p = group.particleUploadData[slot];
         p.position    = position;
-        p.lifeTime    = kLifeTime;
-        p.velocity    = vel;
+        p.lifeTime    = lifeTime;
+        p.velocity    = velocity;
         p.currentTime = 0.0f;
         p.color       = c;
-        p.scale       = { radius * 0.5f, radius * 0.05f, 1.0f };
-        p.rotateZ     = a;
+        p.scale       = { scaleX, scaleY, 1.0f };
+        p.rotateZ     = angle;
         p.alive       = 1;
         p.curveFlag   = 0;
 
-        group.slotExpiry[slot] = group.groupTime + kLifeTime + 0.1f;
+        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
         group.aliveCount++;
         group.pendingSlots.push_back(slot);
+    };
+
+    // 残光（太く淡い層）と芯（細く白に寄せた層）を重ねる
+    Vector4 glow = { color.x, color.y, color.z, color.w * 0.35f };
+    Vector4 core = { color.x * 0.4f + 0.6f, color.y * 0.4f + 0.6f,
+                     color.z * 0.4f + 0.6f, color.w };
+    emitOne({ 0.0f, 0.0f, 0.0f }, glow, kGlowLifeTime, radius * 2.0f, radius * 0.55f);
+    emitOne({ 0.0f, 0.0f, 0.0f }, core, kCoreLifeTime, radius * 1.9f, radius * 0.18f);
+
+    // 斬線に沿って両端へ抜ける光片
+    const Vector3 dir = { std::cos(angle), std::sin(angle), 0.0f };
+    for (int i = 0; i < kShardCount; ++i) {
+        float t     = static_cast<float>(i) / static_cast<float>(kShardCount - 1);
+        float sign  = (i % 2 == 0) ? 1.0f : -1.0f;
+        float speed = radius * (3.0f + 3.0f * t) * sign;
+        Vector4 c   = { color.x, color.y, color.z, color.w * (0.8f - t * 0.3f) };
+        emitOne({ dir.x * speed, dir.y * speed, 0.0f }, c, kShardLifeTime,
+                radius * 0.6f, radius * 0.05f);
     }
 }
 

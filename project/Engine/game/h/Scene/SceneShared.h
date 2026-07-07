@@ -32,6 +32,11 @@ void EmitFinisherSlashLine(engine::graphics::ParticleManager* pm,
 void EmitFinisherRelease(engine::graphics::ParticleManager* pm,
     const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos);
 
+/// @brief ワールド座標の2点をスクリーン座標へ変換して斬撃線をスポーンする
+/// @param thickness 線の太さ（ピクセル）
+void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, float camY,
+    const Vector4& color, float thickness, float duration);
+
 /// @brief 武器切替入力（Q/E、数字キー）を処理する。weaponCycleTimer は呼び出し側が保持するクールダウン
 void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager, float& weaponCycleTimer);
 

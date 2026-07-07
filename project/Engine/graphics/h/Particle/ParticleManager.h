@@ -183,9 +183,9 @@ public:
         float lifeTime = 1.0f, float scaleX = 2.0f, float scaleY = 1.0f);
 
     /**
-     * @brief 斬撃エフェクト用に扇状に複数粒を放出する
-     * @param angle  斬撃の中心角度（ラジアン）
-     * @param radius 斬撃パーティクルの長さ
+     * @brief 斬撃の剣閃（残光＋芯＋斬線に沿って抜ける光片）を放出する
+     * @param angle  斬撃の角度（ラジアン）
+     * @param radius 斬線の半長（ワールド単位）
      */
     void EmitSlash(const std::string& name, const Vector3& position,
         float angle, const Vector4& color, float radius = 1.0f);
