@@ -31,6 +31,12 @@ public:
     static void SetCommonCamera(Camera* camera);
 
     /**
+     * @brief 全 Object3d で共通して使うデフォルトカメラを取得する
+     * @note SkinnedObject3d 等、別の描画クラスと共通カメラを共有したい場合に使う
+     */
+    static Camera* GetCommonCamera() { return commonCamera_; }
+
+    /**
      * @brief 全 Object3d で共通して使うライト空間行列を設定する（毎フレーム GamePlayScene から呼ぶ）
      * @param lvp ライトのビュー×プロジェクション行列
      */

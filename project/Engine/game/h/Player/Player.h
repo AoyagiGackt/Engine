@@ -4,9 +4,14 @@
  */
 #pragma once
 #include "AfterImageRenderer.h"
+#include "Animation.h"
 #include "CollisionConfig.h"
 #include "Model.h"
 #include "Object3d.h"
+#include "Skeleton.h"
+#include "SkinCommon.h"
+#include "SkinnedModel.h"
+#include "SkinnedObject3d.h"
 #include <memory>
 namespace engine { class Input; }
 namespace engine::graphics { class ModelCommon; }
@@ -16,6 +21,10 @@ using engine::Collider;
 using engine::AABB;
 using engine::graphics::Model;
 using engine::graphics::Object3d;
+using engine::graphics::Skeleton;
+using engine::graphics::SkinCommon;
+using engine::graphics::SkinnedModel;
+using engine::graphics::SkinnedObject3d;
 using engine::Input;
 using engine::graphics::ModelCommon;
 
@@ -79,7 +88,7 @@ public:
      * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
      */
     void SetWaterLevel(float waterLevelY) { waterLevel_ = waterLevelY; }
-    /** @brief プレイヤーが使用しているモデルのポインタを返す */
+    /** @brief 残像・分身演出用の静的モデル（ボーンなし）のポインタを返す */
     Model* GetModel() const { return model_.get(); }
 
     /**
@@ -261,8 +270,23 @@ private:
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;
 
-    std::unique_ptr<Model>    model_;
-    std::unique_ptr<Object3d> object_;
+    // 残像・分身演出用の静的モデル（ボーンなし、本体と同じ見た目のシルエット）
+    std::unique_ptr<Model> model_;
+
+    // 本体描画（ボーンアニメーション付き）
+    std::unique_ptr<SkinCommon>      skinCommon_;
+    std::unique_ptr<SkinnedModel>    skinnedModel_;
+    std::unique_ptr<SkinnedObject3d> skinnedObject_;
+
+    /** @brief 再生中のアニメーション状態 */
+    enum class AnimState { Idle, Run, Jump };
+    AnimState animState_ = AnimState::Idle;
+    Animation idleAnim_;
+    Animation runAnim_;
+    Animation jumpAnim_;
+
+    /** @brief 現在の移動・接地状況から再生すべきアニメーション状態を切り替える */
+    void UpdateAnimationState(bool isMoving);
 };
 
 } // namespace engine::game

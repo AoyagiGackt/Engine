@@ -76,12 +76,14 @@ struct Animation {
 // =================================================================
 
 /**
- * @brief assimpを使ってglTFからアニメーションデータを読み込む
+ * @brief assimpを使ってglTF/FBX等からアニメーションデータを読み込む
  * @param directoryPath ファイルが置かれているフォルダのパス
  * @param filename       ファイル名（例: "AnimatedCube.gltf"）
+ * @param animationName  読み込みたいアニメーション名（末尾一致、空文字なら先頭のアニメーションを使う）
+ * @note 1つのファイルに複数のアニメーションが入っている場合（FBXの複数Take等）に animationName で選択する
  * @return Animation     読み込まれたアニメーションデータ
  */
-Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
+Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename, const std::string& animationName = "");
 
 // =================================================================
 // 補間計算
