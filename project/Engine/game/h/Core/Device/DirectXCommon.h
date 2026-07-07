@@ -56,6 +56,13 @@ public: // メンバ関数
      */
     void OnResize(uint32_t width, uint32_t height);
 
+    /** @brief VSyncの有効/無効を設定する */
+    void SetVSyncEnabled(bool enabled) { vsyncEnabled_ = enabled; }
+    /** @brief VSyncが有効かどうかを返す */
+    bool IsVSyncEnabled() const { return vsyncEnabled_; }
+    /** @brief VSyncの有効/無効を切り替える */
+    void ToggleVSync() { vsyncEnabled_ = !vsyncEnabled_; }
+
     /**
      * @brief シェーダーファイルをコンパイルする
      * @param filePath シェーダーファイルのパス
@@ -237,6 +244,10 @@ private:
     std::chrono::steady_clock::time_point reference_;
 
     WinApp* winApp_ = nullptr;
+
+    // VSync（ティアリング許可）
+    bool vsyncEnabled_    = true;
+    bool tearingSupported_ = false;
 };
 
 } // namespace engine

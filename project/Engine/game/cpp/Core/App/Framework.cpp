@@ -3,6 +3,7 @@
 #include "MeshManager.h"
 #include "MaterialManager.h"
 #include "LightingMode.h"
+#include "Logger.h"
 #include "TextureManager.h"
 #include "ModelManager.h"
 #include "ParticleManager.h"
@@ -68,6 +69,12 @@ void Framework::Update()
     // F11 でフルスクリーン/ウィンドウ切り替え
     if (input_->TriggerKey(DIK_F11)) {
         winApp_->ToggleFullscreen();
+    }
+
+    // F10 でVSyncのON/OFF切り替え
+    if (input_->TriggerKey(DIK_F10)) {
+        dxCommon_->ToggleVSync();
+        Logger::LogInfo(dxCommon_->IsVSyncEnabled() ? "VSync: ON" : "VSync: OFF");
     }
 }
 
