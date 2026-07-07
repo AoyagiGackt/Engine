@@ -122,8 +122,21 @@ void DirectXCommon::PostDraw()
     commandQueue_->ExecuteCommandLists(1, commandLists);
 
     // フリップ (画面更新)
-    hr = swapChain_->Present(1, 0);
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    // VSyncオフ時はSyncInterval=0。ティアリング許可済みならALLOW_TEARINGを付けて真の非同期表示にする
+    const UINT syncInterval = vsyncEnabled_ ? 1 : 0;
+    const UINT presentFlags = (!vsyncEnabled_ && tearingSupported_) ? DXGI_PRESENT_ALLOW_TEARING : 0;
+    hr = swapChain_->Present(syncInterval, presentFlags);
+
+    if (FAILED(hr)) {
+        if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
+            HRESULT reason = device_->GetDeviceRemovedReason();
+            Logger::LogError(std::format(
+                "GPU device removed! Present hr=0x{:08X} reason=0x{:08X} "
+                "(ドライバクラッシュ・TDR・GPUの物理的な切断などが考えられます)",
+                static_cast<unsigned long>(hr), static_cast<unsigned long>(reason)));
+        }
+        ENGINE_ASSERT(SUCCEEDED(hr));
+    }
 
     // FPS固定（GPU が動いている間に CPU 側で余った時間を使って待機）
     UpdateFixFPS();
@@ -273,6 +286,15 @@ void DirectXCommon::CreateDescriptorHeaps()
 void DirectXCommon::CreateSwapChain()
 {
     HRESULT hr;
+
+    // VSyncオフ時にちぎれ表示（ティアリング）を許可できるかを確認する
+    // （対応していない環境ではVSyncオフでもPresent間隔0のまま=実質VSyncオンと同じ挙動になる）
+    BOOL allowTearing = FALSE;
+    if (SUCCEEDED(dxgiFactory_->CheckFeatureSupport(
+            DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing)))) {
+        tearingSupported_ = (allowTearing != FALSE);
+    }
+
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.Width = winApp_->kClientWidth;
     swapChainDesc.Height = winApp_->kClientHeight;
@@ -281,6 +303,7 @@ void DirectXCommon::CreateSwapChain()
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.BufferCount = 2; // ダブルバッファ
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapChainDesc.Flags = tearingSupported_ ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
     hr = dxgiFactory_->CreateSwapChainForHwnd(
         commandQueue_.Get(),
@@ -367,7 +390,9 @@ void DirectXCommon::OnResize(uint32_t width, uint32_t height)
     swapChainResources_[1].Reset();
 
     // フォーマットは DXGI_FORMAT_UNKNOWN を渡して既存のもの（作成時のUNORM）を維持する
-    HRESULT hr = swapChain_->ResizeBuffers(2, width, height, DXGI_FORMAT_UNKNOWN, 0);
+    // Flagsは作成時（tearingSupported_に応じたALLOW_TEARING）と同じ値にする必要がある
+    const UINT flags = tearingSupported_ ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+    HRESULT hr = swapChain_->ResizeBuffers(2, width, height, DXGI_FORMAT_UNKNOWN, flags);
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     CreateRTV();
