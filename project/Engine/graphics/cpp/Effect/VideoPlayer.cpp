@@ -57,7 +57,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     // 動画ファイルを開く
     hr = MFCreateSourceReaderFromURL(wFilePath.c_str(), attributes.Get(), &pSourceReader_);
     if (FAILED(hr)) {
-        Logger::Log("Failed to load video: " + filePath);
+        Logger::LogError("Failed to load video: " + filePath);
         assert(false);
     }
 

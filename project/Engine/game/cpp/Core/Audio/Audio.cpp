@@ -40,7 +40,7 @@ void Audio::Initialize()
     hr = xAudio2_->CreateMasteringVoice(&masteringVoice_);
     assert(SUCCEEDED(hr));
 
-    Logger::Log("Audio System Initialized.\n");
+    Logger::Log("Audio System Initialized.");
 }
 
 // 音声システムを終了する。ゲーム終了時に1度だけ呼ぶ。
@@ -85,7 +85,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
     ComPtr<IMFSourceReader> pSourceReader;
     hr = MFCreateSourceReaderFromURL(wFilename.c_str(), nullptr, &pSourceReader);
     if (FAILED(hr)) {
-        Logger::Log("Error: Failed to open audio file: " + filename + "\n");
+        Logger::LogError("Failed to open audio file: " + filename);
         assert(false);
         return soundData;
     }
@@ -98,7 +98,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
     pMediaType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
     hr = pSourceReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, nullptr, pMediaType.Get());
     if (FAILED(hr)) {
-        Logger::Log("Error: Failed to set media type for: " + filename + "\n");
+        Logger::LogError("Failed to set media type for: " + filename);
         assert(false);
         return soundData;
     }

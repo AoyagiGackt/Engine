@@ -139,7 +139,7 @@ void SkinnedObject3d::Update()
         } else {
             // ボーン名がスケルトンに存在しない場合、パレットは単位行列のまま（初期化済み）
             if (warnedBones.insert(boneNames[i]).second) {
-                Logger::Log("[SkinnedObject3d] Bone '" + boneNames[i] + "' not found in skeleton. Palette index " + std::to_string(i) + " will remain identity.\n");
+                Logger::LogWarning("Bone '" + boneNames[i] + "' not found in skeleton. Palette index " + std::to_string(i) + " will remain identity.");
             }
         }
     }

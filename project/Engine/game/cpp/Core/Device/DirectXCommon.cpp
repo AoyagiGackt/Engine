@@ -211,7 +211,7 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
     shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
 
     if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
-        Logger::Log(shaderError->GetStringPointer());
+        Logger::LogError(shaderError->GetStringPointer());
         assert(false);
     }
 
@@ -254,7 +254,7 @@ void DirectXCommon::InitializeDevice()
         assert(SUCCEEDED(hr));
 
         if (!(adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-            Logger::Log(StringUtility::ConvertString(std::format(L"USE Adapter:{}\n", adapterDesc.Description)));
+            Logger::Log(StringUtility::ConvertString(std::format(L"USE Adapter:{}", adapterDesc.Description)));
             break;
         }
 
@@ -269,7 +269,7 @@ void DirectXCommon::InitializeDevice()
         hr = D3D12CreateDevice(useAdapter.Get(), featureLevels[i], IID_PPV_ARGS(&device_));
         
         if (SUCCEEDED(hr)) {
-            Logger::Log((std::format("Feature Level: {}\n", featureLevelStrings[i])));
+            Logger::Log((std::format("Feature Level: {}", featureLevelStrings[i])));
             break;
         }
     }
