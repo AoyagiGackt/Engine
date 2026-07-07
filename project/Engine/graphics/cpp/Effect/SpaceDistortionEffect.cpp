@@ -2,7 +2,7 @@
 #include "SrvManager.h"
 #include "WinApp.h"
 #include <algorithm>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -11,8 +11,8 @@ using namespace Microsoft::WRL;
 
 void SpaceDistortionEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
-    assert(dxCommon);
-    assert(srvManager);
+    ENGINE_ASSERT(dxCommon);
+    ENGINE_ASSERT(srvManager);
     dxCommon_   = dxCommon;
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon_->GetDevice();
@@ -43,7 +43,7 @@ void SpaceDistortionEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvM
         &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
         IID_PPV_ARGS(&captureTexture_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     captureSrvIndex_ = srvManager_->Allocate();
     srvManager_->CreateSRVforTexture2D(captureSrvIndex_, captureTexture_.Get(), bbFormat, 1);
@@ -190,10 +190,10 @@ void SpaceDistortionEffect::CreatePipeline()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
                                      IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
@@ -220,5 +220,5 @@ void SpaceDistortionEffect::CreatePipeline()
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }

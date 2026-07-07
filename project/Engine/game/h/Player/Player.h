@@ -24,7 +24,7 @@ enum class WeaponType; // Weapon.h で定義
 /**
  * @brief プレイヤーキャラクターを制御するクラス
  * @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
- * ローグライト用のスキル補正（SkillMods）を統合管理する。
+ * ローグライト用のスキル補正（SkillMods）を統合管理する
  */
 class Player {
 public:
@@ -74,6 +74,11 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    /**
+     * @brief 水面のY座標を設定する（WaterPool::GetSurfaceY() の値を渡す）
+     * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
+     */
+    void SetWaterLevel(float waterLevelY) { waterLevel_ = waterLevelY; }
     /** @brief プレイヤーが使用しているモデルのポインタを返す */
     Model* GetModel() const { return model_.get(); }
 
@@ -136,9 +141,8 @@ private:
     static constexpr float kJumpPower_ =  0.4f;
     static constexpr float kSpeed_     =  0.15f;
 
-    // 水中物理（水なしステージでは -1.0f にして水中判定を無効化）
-    // 水ありステージでは WaterPool::kPoolTop（3.0f）に合わせること
-    static constexpr float kWaterLevel_  = -1.0f;
+    // 水中物理（水なしステージでは無効化された状態のままにする）
+    static constexpr float kWaterLevelDisabled_ = -1.0f;
     static constexpr float kWaterGravity_=  0.003f;  // 浮力で弱い沈下加速度
     static constexpr float kWaterSpeed_  =  0.10f;   // 水中横移動速度
     static constexpr float kSwimAccel_   =  0.025f;  // 長押しで上昇する加速度
@@ -146,6 +150,7 @@ private:
     static constexpr float kSinkMaxVY_   = -0.12f;   // 沈下最大速度
 
     Vector3 pos_          = { 8.0f, 0.4f, 0.0f };
+    float   waterLevel_   = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
     float   velocityY_    = 0.0f;
     bool    onGround_     = true;
     bool    prevOnGround_ = true;
@@ -157,7 +162,7 @@ private:
     bool    justEnteredWater_ = false;
     bool    justExitedWater_  = false;
 
-    // 向き（最後に入力した横方向。+1=右 -1=左）
+    // 向き（最後に入力した横方向+1=右 -1=左）
     float   lastDirX_         = 1.0f;
 
     // 覚醒ゲージ
@@ -181,7 +186,7 @@ private:
     // スペースキー スピン連射
     bool    justSpinShot_     = false;
     bool    isUpsideDown_     = false;
-    float   spinAngle_        = 0.0f; // 度。0=正立, 180=逆さ
+    float   spinAngle_        = 0.0f; // 度0=正立, 180=逆さ
     float   shootCooldown_    = 0.0f;
     static constexpr float kShootInterval_ = 0.12f; // 連射間隔（秒）
     static constexpr float kSpinSpeed_     = 5.0f;  // 空中回転速度（度/フレーム）
@@ -204,7 +209,7 @@ private:
     SkillMods skillMods_;
 
     // ---- Physics State パターン ----
-    // 水中/水上で横移動・重力・ジャンプの処理を切り替える。
+    // 水中/水上で横移動・重力・ジャンプの処理を切り替える
     class IPhysicsState {
     public:
         virtual ~IPhysicsState() = default;
@@ -216,7 +221,7 @@ private:
 
     // ---- Rampage State パターン ----
     // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
-    // 毎フレームの物理更新内容を切り替える。
+    // 毎フレームの物理更新内容を切り替える
     class IRampageState {
     public:
         virtual ~IRampageState() = default;
@@ -241,7 +246,7 @@ private:
     static const IRampageState& GetRampageState(RampagePhase phase);
 
     // ---- Weapon Behavior Strategy パターン ----
-    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える。
+    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
     class IWeaponBehavior {
     public:
         virtual ~IWeaponBehavior() = default;

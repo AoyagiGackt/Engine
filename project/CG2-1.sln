@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTex", "..\externals\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "json", "..\externals\json\json.vcxproj", "{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MathTests", "MathTests\MathTests.vcxproj", "{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -52,6 +54,12 @@ Global
 		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Development|x64.Build.0 = Development|x64
 		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Release|x64.ActiveCfg = Release|x64
 		{88AFB9A5-4411-43B8-AF3B-FB90D0D98E52}.Release|x64.Build.0 = Release|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Debug|x64.ActiveCfg = Debug|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Debug|x64.Build.0 = Debug|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Development|x64.ActiveCfg = Development|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Development|x64.Build.0 = Development|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Release|x64.ActiveCfg = Release|x64
+		{1E13AE8B-DA77-4A82-9BCD-1948F897ACD5}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

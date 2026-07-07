@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"
 #include "WinApp.h"
@@ -43,7 +43,7 @@ public:
     void BeginScene();
     void EndScene();
 
-    // 4パスのブルームをかけてバックバッファへ合成する。EndScene() 後に呼ぶ
+    // 4パスのブルームをかけてバックバッファへ合成するEndScene() 後に呼ぶ
     void Apply(SrvManager* srvManager);
 
     // ---- パラメータ ----

@@ -10,7 +10,7 @@ public:
     // delay 秒後に callback を1回実行する
     void After(float delay, std::function<void()> callback);
 
-    // キャンセル可能な版。返り値の ID を Cancel() に渡す
+    // キャンセル可能な版返り値の ID を Cancel() に渡す
     int AfterCancellable(float delay, std::function<void()> callback);
     void Cancel(int id);
 

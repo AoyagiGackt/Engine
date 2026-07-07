@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 #include <array>
-namespace engine::game {
+namespace engine::graphics {
 // フレームタイムとFPSをトラッキングするシングルトン
 // BeginFrame() / EndFrame() を毎フレーム呼ぶだけで使える
 class DebugProfiler {
@@ -43,4 +43,4 @@ private:
     LARGE_INTEGER frameStart_ = {};
 };
 
-} // namespace engine::game
+} // namespace engine::graphics

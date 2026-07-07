@@ -1,0 +1,5 @@
+[
+    { "name": "bt_hit_ring",    "texture": "Resources/circle2.png",     "additive": true },
+    { "name": "bt_hit_spark",   "texture": "Resources/circle2.png",     "additive": true },
+    { "name": "bt_sword_slash", "texture": "Resources/slashStreak.png", "additive": true }
+]

@@ -1,7 +1,7 @@
 ﻿#include "GlassShatterEffect.h"
 #include "SrvManager.h"
 #include "WinApp.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -39,7 +39,7 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
         &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
         IID_PPV_ARGS(&freezeTexture_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     freezeSrvIndex_ = srvManager_->Allocate();
     srvManager_->CreateSRVforTexture2D(freezeSrvIndex_, freezeTexture_.Get(), bbFormat, 1);
@@ -84,11 +84,11 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     ComPtr<ID3DBlob> sigBlob, errBlob;
     hr = D3D12SerializeRootSignature(
         &rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // ---- シェーダーコンパイル ----
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
@@ -131,7 +131,7 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 void GlassShatterEffect::Finalize()

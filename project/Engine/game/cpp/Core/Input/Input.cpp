@@ -1,5 +1,5 @@
 #include "Input.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 #include <dinput.h>
 using namespace engine;
@@ -16,26 +16,26 @@ void Input::Initialize(WinApp* winApp)
 
     // DirectInputのインスタンス生成
     result = DirectInput8Create(winApp->GetHInstance(), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&directInput_, nullptr);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
     // キーボードデバイス生成
     result = directInput_->CreateDevice(GUID_SysKeyboard, &keyboard_, NULL);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
     // 入力データ形式のセット
     result = keyboard_->SetDataFormat(&c_dfDIKeyboard);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
     // 排他制御レベルのセット
     result = keyboard_->SetCooperativeLevel(winApp->GetHwnd(), DISCL_FOREGROUND | DISCL_NONEXCLUSIVE | DISCL_NOWINKEY);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
 
     // マウスデバイス生成
     result = directInput_->CreateDevice(GUID_SysMouse, &mouse_, NULL);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
     // 入力データ形式のセット
     result = mouse_->SetDataFormat(&c_dfDIMouse2);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
     // 排他制御レベルのセット
     result = mouse_->SetCooperativeLevel(winApp->GetHwnd(), DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
-    assert(SUCCEEDED(result));
+    ENGINE_ASSERT(SUCCEEDED(result));
 }
 
 void Input::Update() {
@@ -46,7 +46,7 @@ void Input::Update() {
     memcpy(keyPre, key, sizeof(key));
     // キーボード情報の取得開始
     keyboard_->Acquire();
-    // 全キーの入力情報を取得する。フォーカス喪失などで失敗したらバッファをクリアして刺さり防止
+    // 全キーの入力情報を取得するフォーカス喪失などで失敗したらバッファをクリアして刺さり防止
     if (FAILED(keyboard_->GetDeviceState(sizeof(key), key))) {
         ZeroMemory(key, sizeof(key));
     }
@@ -55,7 +55,7 @@ void Input::Update() {
     mouseStatePre_ = mouseState_;
     // マウス情報の取得開始
     mouse_->Acquire();
-    // 全マウスの入力情報を取得する。失敗時はクリア
+    // 全マウスの入力情報を取得する失敗時はクリア
     if (FAILED(mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_))) {
         ZeroMemory(&mouseState_, sizeof(DIMOUSESTATE2));
     }

@@ -34,7 +34,7 @@ struct LevelData {
     Vector3 enemySpawn  = { 28.0f, 0.4f, 0.0f };
 };
 
-// Spawn() の戻り値。Model と Object3d の所有権を持つ
+// Spawn() の戻り値Model と Object3d の所有権を持つ
 struct LevelSpawnResult {
     std::vector<std::unique_ptr<engine::graphics::Model>>    models;
     std::vector<std::unique_ptr<engine::graphics::Object3d>> objects;

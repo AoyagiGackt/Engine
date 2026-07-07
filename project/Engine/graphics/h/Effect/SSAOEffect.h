@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SSAOEffect.h
  * @brief Screen Space Ambient Occlusion（スクリーン空間アンビエントオクルージョン）エフェクトを管理するクラス
  */
@@ -13,7 +13,7 @@ namespace engine::graphics {
 
 /**
  * @brief SSAO（スクリーン空間 AO）を実装するシングルトンクラス
- * @note ノーマルキャプチャ → AO計算 → ブラー → 適用 の4ステップで構成される。
+ * @note ノーマルキャプチャ → AO計算 → ブラー → 適用 の4ステップで構成される
  *       使い方（毎フレーム）:
  *       1. BeginNormalCapture() / DrawForNormalCapture() / EndNormalCapture()
  *       2. Compute() → Blur()
@@ -28,14 +28,14 @@ public:
     }
 
     /**
-     * @brief 初期化。レンダーターゲット・PSO・定数バッファを作成する
+     * @brief 初期化レンダーターゲット・PSO・定数バッファを作成する
      * @param dxCommon   DirectX共通基盤
      * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     void Finalize();
 
-    /** @brief ノーマルキャプチャパスを開始する。メイン描画の前に呼ぶ */
+    /** @brief ノーマルキャプチャパスを開始するメイン描画の前に呼ぶ */
     void BeginNormalCapture(engine::DirectXCommon* dxCommon, Camera* camera);
     /** @brief ノーマルキャプチャパスを終了する */
     void EndNormalCapture(engine::DirectXCommon* dxCommon);
@@ -43,7 +43,7 @@ public:
     void Compute(engine::DirectXCommon* dxCommon, Camera* camera);
     /** @brief AO テクスチャにブラーをかける */
     void Blur(engine::DirectXCommon* dxCommon);
-    /** @brief AO を乗算してシーンに適用する。メイン描画の後に呼ぶ */
+    /** @brief AO を乗算してシーンに適用するメイン描画の後に呼ぶ */
     void Apply(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
 
     bool  IsEnabled()     const { return enabled_; }
@@ -51,7 +51,7 @@ public:
     void  SetRadius(float r)    { if (ssaoCbData_) { ssaoCbData_->radius   = r; } }
     void  SetStrength(float s)  { if (ssaoCbData_) { ssaoCbData_->strength = s; } }
 
-    /** @brief ノーマルキャプチャ中に Object3d から呼ぶ。per-object トランスフォームを slot 0 に設定する */
+    /** @brief ノーマルキャプチャ中に Object3d から呼ぶper-object トランスフォームを slot 0 に設定する */
     void SetObjectTransform(ID3D12GraphicsCommandList* cmd, D3D12_GPU_VIRTUAL_ADDRESS transformAddr) const;
 
 private:

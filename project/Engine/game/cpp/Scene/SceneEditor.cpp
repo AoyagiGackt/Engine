@@ -20,7 +20,7 @@ namespace engine::game {
 // ============================================================
 
 #ifdef USE_IMGUI
-// Windows のファイル選択ダイアログを開き、ユーザーが選んだファイルのパスを返す。
+// Windows のファイル選択ダイアログを開き、ユーザーが選んだファイルのパスを返す
 // filter  = 表示するファイルの種類の説明（例: "PNG Files\0*.png\0..."）
 // initDir = ダイアログを開いたときに最初に表示するフォルダ
 static std::string OpenFileDialog(const char* filter, const char* initDir)
@@ -42,8 +42,8 @@ static std::string OpenFileDialog(const char* filter, const char* initDir)
 // State 遷移
 // ============================================================
 
-// Hierarchy でオブジェクトが選ばれたとき、対応する State クラスに切り替える。
-// こうすることで Inspector パネルに表示する内容がオブジェクト種別に応じて変わる。
+// Hierarchy でオブジェクトが選ばれたとき、対応する State クラスに切り替える
+// こうすることで Inspector パネルに表示する内容がオブジェクト種別に応じて変わる
 void SceneEditor::ChangeState(Selection sel)
 {
     selection_      = sel;
@@ -64,8 +64,8 @@ void SceneEditor::ChangeState(Selection sel)
 // メインエントリ
 // ============================================================
 
-// 毎フレーム呼ばれる。USE_IMGUI ビルドのときだけ各パネルを描画する。
-// リリースビルドでは (void)ctx; だけが実行されて何もしない。
+// 毎フレーム呼ばれるUSE_IMGUI ビルドのときだけ各パネルを描画する
+// リリースビルドでは (void)ctx; だけが実行されて何もしない
 void SceneEditor::Update(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
@@ -82,8 +82,8 @@ void SceneEditor::Update(const EditContext& ctx)
 // Hierarchy パネル（画面左）
 // ============================================================
 
-// シーン内のオブジェクト一覧を表示する。
-// クリックすると Inspector パネルの内容が切り替わる。
+// シーン内のオブジェクト一覧を表示する
+// クリックすると Inspector パネルの内容が切り替わる
 void SceneEditor::RenderHierarchy(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
@@ -155,8 +155,8 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
 // Inspector パネル（画面右）
 // ============================================================
 
-// 現在選ばれているオブジェクトの詳細プロパティを表示する。
-// 描画の実体は currentState_（各 State クラスの RenderInspector）に委譲する。
+// 現在選ばれているオブジェクトの詳細プロパティを表示する
+// 描画の実体は currentState_（各 State クラスの RenderInspector）に委譲する
 void SceneEditor::RenderInspector(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
@@ -186,7 +186,7 @@ void SceneEditor::RenderInspector(const EditContext& ctx)
 // Scene Controls パネル（画面左下）
 // ============================================================
 
-// スコアの確認・ゲーム時刻の表示・シーン切り替えボタンをまとめたパネル。
+// スコアの確認・ゲーム時刻の表示・シーン切り替えボタンをまとめたパネル
 void SceneEditor::RenderSceneControls(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
@@ -227,8 +227,8 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
 // Camera Control パネル（画面上中央）
 // ============================================================
 
-// カメラの目標位置・角度・スムージングフレーム数を素早く調整するための簡易パネル。
-// Inspector の Camera よりも手軽に操作できるよう別パネルとして用意している。
+// カメラの目標位置・角度・スムージングフレーム数を素早く調整するための簡易パネル
+// Inspector の Camera よりも手軽に操作できるよう別パネルとして用意している
 void SceneEditor::RenderCameraControl(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
@@ -268,7 +268,7 @@ void SceneEditor::RenderCameraControl(const EditContext& ctx)
 // JSON 永続化
 // ============================================================
 
-// カメラの位置・角度・スムージングフレーム数を JSON ファイルに書き出す。
+// カメラの位置・角度・スムージングフレーム数を JSON ファイルに書き出す
 void SceneEditor::SaveCameraParams(const EditContext& ctx)
 {
     const Vector3& pos = *ctx.cameraTargetPos;
@@ -280,7 +280,7 @@ void SceneEditor::SaveCameraParams(const EditContext& ctx)
     JsonHelper::Save("Resources/debug_camera.json", j);
 }
 
-// カメラの位置・角度・スムージングフレーム数を JSON ファイルから読み込む。
+// カメラの位置・角度・スムージングフレーム数を JSON ファイルから読み込む
 void SceneEditor::LoadCameraParams(const EditContext& ctx)
 {
     auto j = JsonHelper::Load("Resources/debug_camera.json");
@@ -303,7 +303,7 @@ void SceneEditor::LoadCameraParams(const EditContext& ctx)
     ctx.cameraRotHistory->clear();
 }
 
-// UI スプライトのレイアウト（位置・サイズ・色・テクスチャパスなど）を JSON に書き出す。
+// UI スプライトのレイアウト（位置・サイズ・色・テクスチャパスなど）を JSON に書き出す
 void SceneEditor::SaveUILayout()
 {
     nlohmann::json arr = nlohmann::json::array();
@@ -325,14 +325,14 @@ void SceneEditor::SaveUILayout()
     JsonHelper::Save("Resources/debug_ui.json", arr);
 }
 
-// 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む。
+// 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む
 void SceneEditor::LoadAll(const EditContext& ctx)
 {
     LoadCameraParams(ctx);
     LoadUILayout(ctx);
 }
 
-// UI スプライトのレイアウトを JSON ファイルから復元する。
+// UI スプライトのレイアウトを JSON ファイルから復元する
 void SceneEditor::LoadUILayout(const EditContext& ctx)
 {
     auto j = JsonHelper::Load("Resources/debug_ui.json");
@@ -535,7 +535,7 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     ImGui::TextColored(ImVec4(1, 0.5f, 1, 1), "[UI Element]");
     ImGui::Separator();
 
-    // 名前編集用のバッファ。選択が変わったときだけバッファを更新する
+    // 名前編集用のバッファ選択が変わったときだけバッファを更新する
     static int   lastIdx       = -2;
     static char  uiNameBuf[64] = {};
     if (lastIdx != idx) {

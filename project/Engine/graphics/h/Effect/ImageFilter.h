@@ -1,9 +1,10 @@
-﻿/**
+/**
  * @file ImageFilter.h
  * @brief 画面全体にポストプロセスフィルター（ブラー・アウトライン・ディゾルブ等）を適用するファイル
  */
 #pragma once
 #include "DirectXCommon.h"
+#include "PostEffectFullscreenPass.h" // IPostEffectSource
 #include "SrvManager.h"
 #include <wrl/client.h>
 namespace engine::graphics {
@@ -12,7 +13,7 @@ namespace engine::graphics {
  * @brief シーンをオフスクリーンテクスチャにキャプチャし、各種ポストプロセスをフルスクリーンクワッドで合成するシングルトンクラス
  * @note Box/Gaussian は水平→垂直の2パス、その他モードはシングルパスで実行する
  */
-class ImageFilter {
+class ImageFilter : public IPostEffectSource {
 public:
     /** @brief 適用するポストプロセスの種類 */
     enum class Mode { Box, Gaussian, PrewittEdge, DepthOutline, RadialBlur, Dissolve, NoiseGen };
@@ -52,7 +53,7 @@ public:
     /** @brief フィルターの有効・無効を切り替える */
     void  SetEnabled(bool v) { enabled_ = v; }
     /** @brief フィルターが有効かどうかを返す */
-    bool  IsEnabled()  const { return enabled_; }
+    bool  IsEnabled()  const override { return enabled_; }
     /** @brief 適用するフィルターモードを変更する（カーネルを自動再計算） */
     void  SetMode(Mode mode) { mode_ = mode; RebuildKernel(); }
     /** @brief 現在のフィルターモードを返す */
@@ -142,7 +143,7 @@ public:
     void  ResetNoiseTime()             { noiseTime_ = 0.0f; }
 
     /** @brief シーンキャプチャ用 RTV ハンドルを返す（ImGui 等が直接バインドする場合に使用） */
-    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const override { return sceneRtvHandle_; }
 
 private:
     ImageFilter() = default;
@@ -158,7 +159,7 @@ private:
     void InitPipelineStates(engine::DirectXCommon* dxCommon);
 
     // ---- Filter Mode Strategy パターン ----
-    // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える。
+    // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える
     class IFilterMode {
     public:
         virtual ~IFilterMode() = default;

@@ -1,4 +1,5 @@
 #include "DirectXCommon.h"
+#include "EngineAssert.h"
 #include "GameConstants.h"
 #include "Input.h"
 #include "Logger.h"
@@ -10,29 +11,12 @@ using namespace engine;
 
 using Microsoft::WRL::ComPtr;
 
-namespace {
-
-ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
-    ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible)
-{
-    ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
-    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-    descriptorHeapDesc.Type = heapType;
-    descriptorHeapDesc.NumDescriptors = numDescriptors;
-    descriptorHeapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap));
-    assert(SUCCEEDED(hr));
-    return descriptorHeap;
-}
-
-}
-
 // ---------------------------------------------------------------------------------
 // Initialize関数
 // ---------------------------------------------------------------------------------
 void DirectXCommon::Initialize(WinApp* winApp)
 {
-    assert(winApp);
+    ENGINE_ASSERT(winApp);
     winApp_ = winApp;
 
     // FPS固定初期化
@@ -88,9 +72,9 @@ void DirectXCommon::PreDraw()
 {
     // コマンドアロケータとリストをリセット
     HRESULT hr = commandAllocator_->Reset();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // リソースバリア
     UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
@@ -147,7 +131,7 @@ void DirectXCommon::PostDraw()
 
     // コマンドリストを閉じる
     hr = commandList_->Close();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // GPUコマンド実行（FPS待機より先に投入してGPUを遊ばせない）
     ID3D12CommandList* commandLists[] = { commandList_.Get() };
@@ -155,7 +139,7 @@ void DirectXCommon::PostDraw()
 
     // フリップ (画面更新)
     hr = swapChain_->Present(1, 0);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // FPS固定（GPU が動いている間に CPU 側で余った時間を使って待機）
     UpdateFixFPS();
@@ -177,7 +161,7 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
 
     IDxcBlobEncoding* shaderSource = nullptr;
     HRESULT hr = dxcUtils_->LoadFile(filePath.c_str(), nullptr, &shaderSource);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     DxcBuffer shaderSourceBuffer;
     shaderSourceBuffer.Ptr = shaderSource->GetBufferPointer();
@@ -204,21 +188,21 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
         _countof(arguments),
         includeHandler_.Get(),
         IID_PPV_ARGS(&shaderResult));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // 警告・エラー確認
     IDxcBlobUtf8* shaderError = nullptr;
     shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
 
     if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
-        Logger::Log(shaderError->GetStringPointer());
-        assert(false);
+        Logger::LogError(shaderError->GetStringPointer());
+        ENGINE_ASSERT(false);
     }
 
     // 結果を受け取る
     Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob;
     hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     Logger::Log(StringUtility::ConvertString(std::format(L"Compile Succeeded, path:{}, profile:{}", filePath, profile)));
 
@@ -245,23 +229,23 @@ void DirectXCommon::InitializeDevice()
 #endif
 
     hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<IDXGIAdapter4> useAdapter = nullptr;
     for (UINT i = 0; dxgiFactory_->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter)) != DXGI_ERROR_NOT_FOUND; ++i) {
         DXGI_ADAPTER_DESC3 adapterDesc {};
         hr = useAdapter->GetDesc3(&adapterDesc);
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
 
         if (!(adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-            Logger::Log(StringUtility::ConvertString(std::format(L"USE Adapter:{}\n", adapterDesc.Description)));
+            Logger::Log(StringUtility::ConvertString(std::format(L"USE Adapter:{}", adapterDesc.Description)));
             break;
         }
 
         useAdapter = nullptr;
     }
 
-    assert(useAdapter != nullptr);
+    ENGINE_ASSERT(useAdapter != nullptr);
 
     D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_12_2, D3D_FEATURE_LEVEL_12_1, D3D_FEATURE_LEVEL_12_0 };
     const char* featureLevelStrings[] = { "12.2", "12.1", "12.0" };
@@ -269,12 +253,12 @@ void DirectXCommon::InitializeDevice()
         hr = D3D12CreateDevice(useAdapter.Get(), featureLevels[i], IID_PPV_ARGS(&device_));
         
         if (SUCCEEDED(hr)) {
-            Logger::Log((std::format("Feature Level: {}\n", featureLevelStrings[i])));
+            Logger::Log((std::format("Feature Level: {}", featureLevelStrings[i])));
             break;
         }
     }
 
-    assert(device_ != nullptr);
+    ENGINE_ASSERT(device_ != nullptr);
 }
 
 void DirectXCommon::CreateCommand()
@@ -282,13 +266,13 @@ void DirectXCommon::CreateCommand()
     HRESULT hr;
     D3D12_COMMAND_QUEUE_DESC commandQueueDesc = {};
     hr = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr, IID_PPV_ARGS(&commandList_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     commandList_->Close();
 }
@@ -316,7 +300,7 @@ void DirectXCommon::CreateSwapChain()
         &swapChainDesc,
         nullptr, nullptr,
         reinterpret_cast<IDXGISwapChain1**>(swapChain_.GetAddressOf()));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 void DirectXCommon::CreateDepthBuffer()
@@ -345,7 +329,7 @@ void DirectXCommon::CreateDepthBuffer()
         D3D12_RESOURCE_STATE_DEPTH_WRITE,
         &depthClearValue,
         IID_PPV_ARGS(&depthStencilResource_)); // depthStencilResource_ に保存
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // DSVヒープの作成
     dsvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
@@ -364,9 +348,9 @@ void DirectXCommon::CreateRTV()
 {
     HRESULT hr;
     hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResources_[0]));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = swapChain_->GetBuffer(1, IID_PPV_ARGS(&swapChainResources_[1]));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
     rtvDesc.Format = GetBackBufferFormat();
@@ -386,10 +370,10 @@ void DirectXCommon::CreateFence()
     HRESULT hr;
     fenceValue_ = 0;
     hr = device_->CreateFence(fenceValue_, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     fenceEvent_ = CreateEvent(NULL, FALSE, FALSE, NULL);
-    assert(fenceEvent_ != nullptr);
+    ENGINE_ASSERT(fenceEvent_ != nullptr);
 }
 
 void DirectXCommon::InitializeDXC()
@@ -397,15 +381,15 @@ void DirectXCommon::InitializeDXC()
     HRESULT hr;
     // dxcUtilsの初期化
     hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // dxcCompilerの初期化
     hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // includeHandlerの初期化
     hr = dxcUtils_->CreateDefaultIncludeHandler(&includeHandler_);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 void DirectXCommon::InitializeFixFPS()
@@ -470,7 +454,21 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateBufferResource(size_
     hr = device_->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
         &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&resource));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     return resource;
+}
+
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DirectXCommon::CreateDescriptorHeap(
+    ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible)
+{
+    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+    desc.Type           = type;
+    desc.NumDescriptors = numDescriptors;
+    desc.Flags          = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap;
+    HRESULT hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap));
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    return heap;
 }

@@ -1,7 +1,7 @@
 ﻿#include "DebugDrawGpu.h"
 #include "GameConstants.h"
 #include "WinApp.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -46,9 +46,9 @@ void DebugDrawGpu::Initialize(DirectXCommon* dxCommon)
 
         ComPtr<ID3DBlob> sigBlob, errBlob;
         HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
         hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&rs_));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/debug/DebugDrawVS.hlsl", L"vs_6_0");
@@ -93,7 +93,7 @@ void DebugDrawGpu::Initialize(DirectXCommon* dxCommon)
     psoDesc.SampleDesc.Count      = 1;
 
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     pending_.reserve(4096);
 }

@@ -13,7 +13,7 @@ namespace engine::graphics {
  * @brief 3Dモデルを管理するシングルトンクラス
  * @note 同じファイルパスのモデルが複数回要求された場合でも、
  * 一度だけメモリに読み込んで共有する仕組み（Flyweightパターン）になっており、
- * メモリ使用量とロード時間を最適化します。
+ * メモリ使用量とロード時間を最適化します
  */
 class ModelManager {
 public:
@@ -24,7 +24,7 @@ public:
     static ModelManager* GetInstance();
 
     /**
-     * @brief マネージャーの初期化。モデル生成に必要な共通設定を登録する
+     * @brief マネージャーの初期化モデル生成に必要な共通設定を登録する
      * @param modelCommon モデルの共通描画設定を持つオブジェクトのポインタ
      */
     void Initialize(ModelCommon* modelCommon);
@@ -45,7 +45,7 @@ public:
     Model* FindModel(const std::string& filePath);
 
     /**
-     * @brief マネージャーの終了処理。保持しているすべてのモデルデータを破棄する
+     * @brief マネージャーの終了処理保持しているすべてのモデルデータを破棄する
      */
     void Finalize();
 

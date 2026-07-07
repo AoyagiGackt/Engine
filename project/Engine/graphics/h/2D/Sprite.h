@@ -32,7 +32,7 @@ struct MaterialSprite {
 /**
  * @brief スプライトの座標変換用データ
  * Object3dVS.hlsl が WVP/World/WorldInverseTranspose/LightVP の 4 行列すべてを読むため、
- * スプライトで不要な後半 2 行列もバッファサイズ確保のために定義する（値は単位行列固定）。
+ * スプライトで不要な後半 2 行列もバッファサイズ確保のために定義する（値は単位行列固定）
  */
 struct TransformationMatrixSprite {
     Matrix4x4 WVP;                   /// ワールド・ビュー・プロジェクション行列（2D正投影）
@@ -54,7 +54,7 @@ public:
     void Initialize(SpriteCommon* spriteCommon, std::string textureFilePath);
 
     /**
-     * @brief 毎フレームの更新処理。座標やサイズから行列を再計算する
+     * @brief 毎フレームの更新処理座標やサイズから行列を再計算する
      */
     void Update();
 

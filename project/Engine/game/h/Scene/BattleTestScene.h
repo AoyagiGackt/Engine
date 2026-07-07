@@ -106,9 +106,9 @@ private:
     void UpdatePlayerAndCamera();
     /// @brief 影・境界ブロック・ワープポータルの演出を更新する
     void UpdateEnvironment();
-    /// @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する。命中があれば true を返す
+    /// @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する命中があれば true を返す
     bool UpdateCombat();
-    /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する。本命ヒットの瞬間なら true を返す
+    /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
     bool UpdateFinisherSlash();
     /// @brief コンボランク表示のカウント・フェードを更新する
     void UpdateComboRank(bool hitConfirmed);

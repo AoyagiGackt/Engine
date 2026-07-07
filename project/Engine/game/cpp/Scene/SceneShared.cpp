@@ -3,8 +3,11 @@
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "Input.h"
+#include "JsonHelper.h"
 #include "ParticleManager.h"
+#include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
+#include "SlashMark.h"
 #include "Sprite.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -38,6 +41,28 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
                         static_cast<float>(WinApp::kClientHeight) });
     overlay->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
     return overlay;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
+    std::initializer_list<IPostEffectSource*> effects)
+{
+    return GetActiveSceneRTVHandle(dxCommon, effects);
+}
+
+void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
+    std::initializer_list<IPostEffectSource*> effects)
+{
+    SetupSceneRenderTarget(dxCommon, GetActiveSceneRTVHandle(dxCommon, effects));
+}
+
+void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPath)
+{
+    for (const auto& group : JsonHelper::Load(jsonPath)) {
+        std::string name = group.value("name", "");
+        if (name.empty()) { continue; }
+        pm->CreateParticleGroup(name, group.value("texture", ""));
+        pm->SetAdditiveBlend(name, group.value("additive", false));
+    }
 }
 
 void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weaponCycleTimer)
@@ -188,7 +213,7 @@ void EmitFinisherCharge(ParticleManager* pm,
     std::uniform_real_distribution<float> radiusDist(2.2f, 3.4f);
     std::uniform_real_distribution<float> scaleDist(0.10f, 0.20f);
 
-    // 周囲から中心へ吸い込まれる光粒。溜め時間内に到達する速度を逆算する
+    // 周囲から中心へ吸い込まれる光粒溜め時間内に到達する速度を逆算する
     constexpr int kMoteCount = 20;
     for (int i = 0; i < kMoteCount; ++i) {
         const float ang = angleDist(rng);
@@ -213,7 +238,7 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     std::uniform_real_distribution<float> scaleDist(0.08f, 0.16f);
 
     if (!slashGroup.empty()) {
-        pm->EmitSlash(slashGroup, center, angle, { 0.85f, 0.95f, 1.0f, 0.9f }, 0.9f);
+        pm->EmitSlash(slashGroup, center, angle, { 0.60f, 0.85f, 1.0f, 0.9f }, halfLength);
     }
 
     // 斬線に沿って散る煌めき
@@ -261,6 +286,18 @@ void EmitFinisherRelease(ParticleManager* pm,
     // 中心の大きな光条
     pm->EmitHitStar(sparkGroup, pos, { 1.0f, 1.0f, 1.0f, 1.0f });
     pm->EmitHitStar(sparkGroup, pos, kFinisherSparkColor);
+}
+
+void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, float camY,
+    const Vector4& color, float thickness, float duration)
+{
+    SlashMarkParams sm;
+    WorldToScreen(start.x, start.y, camX, camY, sm.start.x, sm.start.y);
+    WorldToScreen(end.x,   end.y,   camX, camY, sm.end.x,   sm.end.y);
+    sm.color     = color;
+    sm.thickness = thickness;
+    sm.duration  = duration;
+    SlashMark::GetInstance()->Spawn(sm);
 }
 
 } // namespace engine::game::SceneShared

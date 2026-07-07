@@ -1,5 +1,5 @@
 ﻿#include "SkinCS.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -9,8 +9,8 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
                         ID3D12Resource* inputBuffer,
                         UINT vertexCount)
 {
-    assert(inputBuffer);
-    assert(vertexCount > 0);
+    ENGINE_ASSERT(inputBuffer);
+    ENGINE_ASSERT(vertexCount > 0);
 
     vertexCount_  = vertexCount;
     inputGpuVA_   = inputBuffer->GetGPUVirtualAddress();
@@ -54,7 +54,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(
         &rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     device->CreateRootSignature(
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&csRootSig_));
@@ -64,7 +64,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     // =====================================================
     Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon->CompileShader(
         L"Resources/shaders/skinned/SkinningCS.hlsl", L"cs_6_0");
-    assert(csBlob);
+    ENGINE_ASSERT(csBlob);
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
     psoDesc.pRootSignature = csRootSig_.Get();

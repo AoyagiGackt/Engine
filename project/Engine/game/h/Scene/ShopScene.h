@@ -24,11 +24,11 @@ using engine::graphics::SpriteCommon;
 /**
  * @brief スキル選択ショップシーン
  * @note 未取得スキルからランダムに最大3つを提示し、
- * プレイヤーが1つを選択して RunData に追加する。スキップも可能
+ * プレイヤーが1つを選択して RunData に追加するスキップも可能
  */
 class ShopScene : public BaseScene {
 public:
-    /** @brief シーンの初期化。未取得スキルからランダム3択を構築する */
+    /** @brief シーンの初期化未取得スキルからランダム3択を構築する */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
     /** @brief リソースを解放する */
     void Finalize() override;

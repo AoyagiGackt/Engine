@@ -8,7 +8,7 @@ namespace engine::game {
 /**
  * @brief ゲーム固有のシーン生成工場クラス
  * @note このクラスは、文字列（シーン名）を受け取って対応するシーンクラスの
- * インスタンスを生成します。新しいシーンを追加した際は、このクラスの
+ * インスタンスを生成します新しいシーンを追加した際は、このクラスの
  * CreateScene 内に生成ロジックを追記すること
  */
 class SceneFactory : public AbstractSceneFactory {

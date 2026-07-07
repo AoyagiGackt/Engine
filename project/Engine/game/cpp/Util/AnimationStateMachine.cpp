@@ -1,5 +1,5 @@
 #include "AnimationStateMachine.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::game;
@@ -130,7 +130,7 @@ void AnimationStateMachine::TransitionTo(const std::string& stateName)
     if (stateName == currentState_) { return; } // 同じ状態なら何もしない
 
     // 遷移先が未登録の場合はアサート（デバッグ用）
-    assert(states_.count(stateName) > 0 &&
+    ENGINE_ASSERT(states_.count(stateName) > 0 &&
            "AnimationStateMachine: 遷移先の状態が登録されていません");
 
     currentState_ = stateName;

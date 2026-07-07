@@ -1,4 +1,5 @@
 #include "ClearScene.h"
+#include "GameConstants.h"
 #include "ImGuiManager.h"
 #include "RunData.h"
 #include "SaveData.h"
@@ -50,7 +51,7 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     clearSprite_ = std::make_unique<Sprite>();
     clearSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     clearSprite_->SetPosition({ 0.0f, 0.0f });
-    clearSprite_->SetSize({ 1280.0f, 720.0f });
+    clearSprite_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
 
     // "SCORE" ラベル
     scoreLabel_ = std::make_unique<Sprite>();
@@ -121,7 +122,7 @@ void ClearScene::Draw()
         int currentScore = ScoreManager::GetInstance()->GetCurrentScore();
         std::string s = std::to_string(currentScore < 0 ? 0 : currentScore);
         float totalW  = s.size() * (kScoreDigitSize.x + kScoreDigitGap) - kScoreDigitGap;
-        float startX  = (1280.f - totalW) * 0.5f;
+        float startX  = (GameConstants::kScreenWidth - totalW) * 0.5f;
         scoreDisplay_.DrawNumber(currentScore, { startX, kScoreY },
                                  kScoreDigitSize, kScoreDigitGap);
     }

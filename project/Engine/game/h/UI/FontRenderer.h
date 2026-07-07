@@ -1,3 +1,7 @@
+/**
+ * @file FontRenderer.h
+ * @brief ASCII・日本語（ひらがな/カタカナ/漢字）のビットマップフォント描画を行うファイル
+ */
 #pragma once
 #include "Sprite.h"
 #include "SpriteCommon.h"
@@ -7,6 +11,10 @@ namespace engine::game {
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
+/**
+ * @brief コード生成したビットマップフォントアトラスを使い、文字列をスプライトで描画するクラス
+ * @note ASCII用とJP用の2種類のアトラスを内部で生成し、DrawString/DrawStringWで描き分ける
+ */
 class FontRenderer {
 public:
     // ASCII アトラス定数

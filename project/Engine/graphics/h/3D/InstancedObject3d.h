@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿/**
+ * @file InstancedObject3d.h
+ * @brief GPUインスタンシングによる複数オブジェクトの一括描画を行うファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"
 #include "Model.h"
@@ -7,7 +11,10 @@
 #include <vector>
 namespace engine::graphics {
 
-// GPU Instancing による複数オブジェクト一括描画
+/**
+ * @brief 同一モデルを1回のドローコールでまとめて描画するクラス
+ * @note インスタンスごとのワールド行列をGPUバッファに書き込み、GPU Instancingで描画する
+ */
 class InstancedObject3d {
 public:
     static const uint32_t kMaxInstances = 1024;

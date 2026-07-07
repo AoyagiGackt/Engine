@@ -1,6 +1,6 @@
 ﻿#include "ShadowManager.h"
 #include "SrvManager.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -37,14 +37,10 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         &defaultHeap, D3D12_HEAP_FLAG_NONE, &texDesc,
         D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue,
         IID_PPV_ARGS(&shadowMapResource_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // DSV ヒープ（シャドウマップ専用）
-    D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc {};
-    dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    dsvHeapDesc.NumDescriptors = 1;
-    hr = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&shadowDsvHeap_));
-    assert(SUCCEEDED(hr));
+    shadowDsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;

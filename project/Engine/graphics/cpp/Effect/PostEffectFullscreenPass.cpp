@@ -1,6 +1,6 @@
 #include "PostEffectFullscreenPass.h"
 #include "WinApp.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -44,13 +44,9 @@ void* PostEffectFullscreenPass::InitializeCommon(DirectXCommon* dxCommon, SrvMan
         &heapProps, D3D12_HEAP_FLAG_NONE,
         &texDesc, D3D12_RESOURCE_STATE_RENDER_TARGET,
         &clearValue, IID_PPV_ARGS(&sceneTexture_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHeapDesc.NumDescriptors = 1;
-    hr = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap_));
-    assert(SUCCEEDED(hr));
+    rtvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
     rtvHandle_ = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -98,11 +94,11 @@ void* PostEffectFullscreenPass::InitializeCommon(DirectXCommon* dxCommon, SrvMan
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
@@ -133,7 +129,7 @@ void* PostEffectFullscreenPass::InitializeCommon(DirectXCommon* dxCommon, SrvMan
     // InputLayout なし: VS が SV_VertexID から頂点座標を生成する
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     return cbData_;
 }

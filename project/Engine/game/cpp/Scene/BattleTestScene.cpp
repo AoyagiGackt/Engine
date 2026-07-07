@@ -77,12 +77,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.obj",
         "Resources/monsterBall.png");
 
-    pm_->CreateParticleGroup("bt_hit_ring",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("bt_hit_spark",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("bt_sword_slash", "Resources/circle2.png");
-    pm_->SetAdditiveBlend("bt_hit_ring",    true);
-    pm_->SetAdditiveBlend("bt_hit_spark",   true);
-    pm_->SetAdditiveBlend("bt_sword_slash", true);
+    SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/battletest.json");
 
     {
         Dummy d;
@@ -427,27 +422,26 @@ bool BattleTestScene::UpdateFinisherSlash()
     const Vector3& pp = player_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 画面全体を埋め尽くすようにランダムな位置を高速で斬り刻む
+        // カメラ視界全体にランダムな位置を高速で斬り刻む
+        const Vector3& cam = camera_->GetTranslate();
         static std::mt19937 rng{ std::random_device{}() };
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-7.5f, 7.5f);
-        std::uniform_real_distribution<float> offYDist(-4.0f, 4.0f);
-        std::uniform_real_distribution<float> lenDist(3.0f, 7.0f);
+        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
+        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
         std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
         const float   ang    = angleDist(rng);
         const Vector2 dir    = { std::cos(ang), std::sin(ang) };
-        const Vector2 center = { pp.x + offXDist(rng), pp.y + offYDist(rng) };
+        const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
         const float   len    = lenDist(rng);
 
-        SlashMarkParams sm;
-        sm.start = { center.x - dir.x * len, center.y - dir.y * len };
-        sm.end   = { center.x + dir.x * len, center.y + dir.y * len };
-        sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-        sm.thickness = thickDist(rng);
         // 解放の瞬間まで全ての斬撃線を画面に残す
-        sm.duration  = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-                     + GameConstants::kFinisherImpactDelay + 0.25f;
-        SlashMark::GetInstance()->Spawn(sm);
+        const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+                             + GameConstants::kFinisherImpactDelay + 0.25f;
+        SceneShared::SpawnSlashMarkWorld(
+            { center.x - dir.x * len, center.y - dir.y * len },
+            { center.x + dir.x * len, center.y + dir.y * len },
+            cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng), duration);
 
         SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark",
             { center.x, center.y, 0.0f }, ang, len);
@@ -488,21 +482,20 @@ bool BattleTestScene::UpdateFinisherSlash()
         SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
     }
 
-    // 解放の瞬間、太く短い閃光の斬撃線を重ねる
+    // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
+    SlashMark::GetInstance()->FlashAll({ 1.0f, 1.0f, 1.0f, 1.0f }, 0.22f);
     static std::mt19937 rngRelease{ std::random_device{}() };
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    const Vector3& cam = camera_->GetTranslate();
     for (int i = 0; i < 8; ++i) {
         const float   ang = angleDist(rngRelease);
         const Vector2 dir = { std::cos(ang), std::sin(ang) };
-        SlashMarkParams sm;
-        sm.start = { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
-                     pp.y - dir.y * GameConstants::kFinisherSlashRadius };
-        sm.end   = { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
-                     pp.y + dir.y * GameConstants::kFinisherSlashRadius };
-        sm.color     = { 1.0f, 1.0f, 1.0f, 1.0f };
-        sm.thickness = 9.0f;
-        sm.duration  = 0.15f;
-        SlashMark::GetInstance()->Spawn(sm);
+        SceneShared::SpawnSlashMarkWorld(
+            { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
+              pp.y - dir.y * GameConstants::kFinisherSlashRadius },
+            { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
+              pp.y + dir.y * GameConstants::kFinisherSlashRadius },
+            cam.x, cam.y, { 1.0f, 1.0f, 1.0f, 1.0f }, 9.0f, 0.15f);
     }
 
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
@@ -706,7 +699,7 @@ void BattleTestScene::Draw()
 
     bladeFlash_.Draw();
 
-    // 空間歪み（バックバッファ直描き時のみ。UIより先に画面をキャプチャして歪ませる）
+    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         spaceWarp_.CaptureAndApply();
@@ -725,7 +718,7 @@ void BattleTestScene::Draw()
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
 
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる。
+    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
     const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
     if (finisherActive_ || captureFrame) {
@@ -778,10 +771,10 @@ void BattleTestScene::TriggerGlassShatterTest()
 
 D3D12_CPU_DESCRIPTOR_HANDLE BattleTestScene::GetActiveRTVHandle() const
 {
-    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
+    return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void BattleTestScene::SetupMainRenderTarget()
 {
-    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
+    SceneShared::SetupMainRenderTarget(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }

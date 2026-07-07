@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ModelCommon.h
  * @brief 3Dモデルを描画するための共通グラフィックスパイプライン（PSO）やルートシグネチャを管理するファイル
  */
@@ -14,7 +14,7 @@ namespace engine::graphics {
 class ModelCommon {
 public:
     /**
-     * @brief 共通描画設定の初期化。ルートシグネチャとPSOを生成する
+     * @brief 共通描画設定の初期化ルートシグネチャとPSOを生成する
      */
     void Initialize(engine::DirectXCommon* dxCommon);
 

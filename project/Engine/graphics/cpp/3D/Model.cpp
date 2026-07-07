@@ -1,6 +1,7 @@
 ﻿#include "Model.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"
+#include "EngineAssert.h"
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -26,7 +27,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
 
     // 拡張子で読み込み関数を切り替える
     auto dotPos = modelFilePath.find_last_of('.');
-    assert(dotPos != std::string::npos && "モデルファイルパスに拡張子がありません");
+    ENGINE_ASSERT(dotPos != std::string::npos && "モデルファイルパスに拡張子がありません");
     std::string ext = modelFilePath.substr(dotPos + 1);
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
     
@@ -53,11 +54,11 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     HRESULT hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
         &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&vertexResource_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     VertexData* data = nullptr;
     hr = vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&data));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     std::copy(vertices_.begin(), vertices_.end(), data);
     vertexResource_->Unmap(0, nullptr);
 
@@ -80,11 +81,11 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
         &indexResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&indexResource_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     uint32_t* indexData = nullptr;
     hr = indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     std::copy(indices_.begin(), indices_.end(), indexData);
     indexResource_->Unmap(0, nullptr);
 
@@ -132,7 +133,7 @@ void Model::LoadObjFile(const std::string& filePath)
 void Model::ParseObjFile(const std::string& filePath)
 {
     std::ifstream file(filePath);
-    assert(file.is_open());
+    ENGINE_ASSERT(file.is_open());
 
     std::vector<Vector4> positions;
     std::vector<Vector3> normals;
@@ -258,7 +259,7 @@ void Model::LoadGltfFile(const std::string& filePath)
         aiProcess_MakeLeftHanded |
         aiProcess_FlipWindingOrder);
 
-    assert(scene && scene->mNumMeshes > 0);
+    ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
     for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
         aiMesh* mesh = scene->mMeshes[meshIndex];

@@ -1,4 +1,5 @@
 #include "GameOverScene.h"
+#include "GameConstants.h"
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
@@ -23,7 +24,7 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     overlay_ = std::make_unique<Sprite>();
     overlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
     overlay_->SetPosition({ 0.0f, 0.0f });
-    overlay_->SetSize({ 1280.0f, 720.0f });
+    overlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
     overlay_->SetColor({ 0.0f, 0.0f, 0.0f, 0.85f });
 
     // 選択肢1: リスタート

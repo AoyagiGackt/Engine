@@ -54,7 +54,7 @@ void ShopScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     bgSprite_ = std::make_unique<Sprite>();
     bgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     bgSprite_->SetPosition({ 0.0f, 0.0f });
-    bgSprite_->SetSize({ 1280.0f, 720.0f });
+    bgSprite_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
     bgSprite_->SetColor({ 0.04f, 0.04f, 0.06f, 1.0f });
 
     cardSprite_ = std::make_unique<Sprite>();
@@ -169,7 +169,7 @@ void ShopScene::Draw()
     // ── スキルカード ──
     static constexpr float kCardY   = 195.0f;
     static constexpr float kCardGap = 360.0f;
-    float startX = (1280.0f - kCardGap * (offerCount_ - 1) - 340.0f) * 0.5f;
+    float startX = (GameConstants::kScreenWidth - kCardGap * (offerCount_ - 1) - 340.0f) * 0.5f;
 
     for (int i = 0; i < offerCount_; ++i) {
         float cx = startX + i * kCardGap;

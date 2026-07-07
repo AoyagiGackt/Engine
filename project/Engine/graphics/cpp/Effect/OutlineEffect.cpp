@@ -1,5 +1,5 @@
 ﻿#include "OutlineEffect.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -34,11 +34,11 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // =====================================================
     // シェーダーのコンパイル
@@ -98,7 +98,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // =====================================================
     // 定数バッファ（アウトライン色と幅）

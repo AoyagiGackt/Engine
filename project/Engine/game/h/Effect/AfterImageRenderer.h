@@ -21,7 +21,7 @@ using engine::graphics::Object3d;
 class AfterImageRenderer {
 public:
     /**
-     * @brief 初期化。描画に使うモデルを設定する
+     * @brief 初期化描画に使うモデルを設定する
      * @param modelCommon 描画共通設定
      * @param model       残像として描画するモデル（プレイヤーと同一のものを渡す）
      */

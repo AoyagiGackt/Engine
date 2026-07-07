@@ -1,9 +1,9 @@
-﻿#include "TextureManager.h"
+#include "TextureManager.h"
 #include "DirectXTex.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
 #include <vector>
-#include <cassert>
+#include "EngineAssert.h"
 #include <algorithm>
 #include <cctype>
 using namespace engine;
@@ -31,28 +31,28 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
     copyQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
     copyQueueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
     hr = device->CreateCommandQueue(&copyQueueDesc, IID_PPV_ARGS(&copyQueue_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // コピーキュー用アロケータ・コマンドリストを作成（再利用するため永続化）
     hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&copyAllocator_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY,
         copyAllocator_.Get(), nullptr, IID_PPV_ARGS(&copyCmdList_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     // LoadTexture() がいつでも記録できるよう Open 状態のままにしておく
 
     // コピーフェンスとイベントを作成（再利用するため永続化）
     hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&copyFence_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     copyFenceEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    assert(copyFenceEvent_ != nullptr);
+    ENGINE_ASSERT(copyFenceEvent_ != nullptr);
 
     // バリア遷移用（グラフィックスキュー）アロケータ・コマンドリストを作成（再利用するため永続化）
     hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&transAllocator_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
         transAllocator_.Get(), nullptr, IID_PPV_ARGS(&transCmdList_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     transCmdList_->Close(); // FlushUploads() で Reset して使うため最初は閉じておく
 }
 
@@ -63,7 +63,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
         return;
     }
 
-    assert(dxCommon_);
+    ENGINE_ASSERT(dxCommon_);
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // 画像ファイルを読み込む
@@ -80,20 +80,20 @@ void TextureManager::LoadTexture(const std::string& filePath)
     if (ext == "dds") {
         // DDSファイルはミップマップが埋め込み済みのためそのまま読み込む
         hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage);
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
     } else {
         // WICファイル（PNG/JPG等）はミップマップを生成する
         DirectX::ScratchImage image {};
         // GIFはパレット形式のためFORCE_SRGBが使えない
         DirectX::WIC_FLAGS wicFlags = (ext == "gif") ? DirectX::WIC_FLAGS_DEFAULT_SRGB : DirectX::WIC_FLAGS_FORCE_SRGB;
         hr = DirectX::LoadFromWICFile(filePathW.c_str(), wicFlags, nullptr, image);
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
 
-        // ミップマップ生成。失敗した場合（非対応フォーマット・奇数サイズ等）は元画像をミップレベル1として使用する
+        // ミップマップ生成失敗した場合（非対応フォーマット・奇数サイズ等）は元画像をミップレベル1として使用する
         hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_BOX, 0, finalImage);
         if (FAILED(hr)) {
             hr = finalImage.InitializeFromImage(*image.GetImages());
-            assert(SUCCEEDED(hr));
+            ENGINE_ASSERT(SUCCEEDED(hr));
         }
     }
 
@@ -122,7 +122,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
         D3D12_RESOURCE_STATE_COMMON,
         nullptr,
         IID_PPV_ARGS(&resource));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // GetCopyableFootprints でサブリソースごとのレイアウトと合計サイズを取得
     const UINT subresourceCount = UINT(metadata.mipLevels * metadata.arraySize);
@@ -153,12 +153,12 @@ void TextureManager::LoadTexture(const std::string& filePath)
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(&uploadBuffer));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // アップロードバッファをマップして全サブリソースを1行ずつ書き込む
     BYTE* pMappedData = nullptr;
     hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMappedData));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     for (size_t arrayIndex = 0; arrayIndex < metadata.arraySize; ++arrayIndex) {
         for (size_t mipLevel = 0; mipLevel < metadata.mipLevels; ++mipLevel) {
@@ -217,19 +217,19 @@ void TextureManager::LoadTexture(const std::string& filePath)
 
 uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
 {
-    assert(textureDatas_.contains(filePath));
+    ENGINE_ASSERT(textureDatas_.contains(filePath));
     return textureDatas_[filePath].srvIndex;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath)
 {
-    assert(textureDatas_.contains(filePath));
+    ENGINE_ASSERT(textureDatas_.contains(filePath));
     return SrvManager::GetInstance()->GetGPUDescriptorHandle(textureDatas_[filePath].srvIndex);
 }
 
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath)
 {
-    assert(textureDatas_.contains(filePath));
+    ENGINE_ASSERT(textureDatas_.contains(filePath));
     return textureDatas_[filePath].metadata;
 }
 
@@ -246,7 +246,7 @@ void TextureManager::FlushUploads()
     // 1. コピーコマンドリストを閉じてコピーキューで一括実行
     // -------------------------------------------------------
     hr = copyCmdList_->Close();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     ID3D12CommandList* copyCmds[] = { copyCmdList_.Get() };
     copyQueue_->ExecuteCommandLists(1, copyCmds);
 
@@ -255,7 +255,7 @@ void TextureManager::FlushUploads()
     // -------------------------------------------------------
     ++copyFenceValue_;
     hr = copyQueue_->Signal(copyFence_.Get(), copyFenceValue_);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     if (copyFence_->GetCompletedValue() < copyFenceValue_) {
         copyFence_->SetEventOnCompletion(copyFenceValue_, copyFenceEvent_);
         WaitForSingleObject(copyFenceEvent_, INFINITE);
@@ -268,9 +268,9 @@ void TextureManager::FlushUploads()
     //    （コピーキューの ExecuteCommandLists 後、リソースは COMMON 状態に復帰している）
     // -------------------------------------------------------
     hr = transAllocator_->Reset();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = transCmdList_->Reset(transAllocator_.Get(), nullptr);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     std::vector<D3D12_RESOURCE_BARRIER> barriers;
     barriers.reserve(pendingResources_.size());
@@ -287,7 +287,7 @@ void TextureManager::FlushUploads()
         transCmdList_->ResourceBarrier(UINT(barriers.size()), barriers.data());
     }
     hr = transCmdList_->Close();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     ID3D12CommandList* transCmds[] = { transCmdList_.Get() };
     dxCommon_->GetCommandQueue()->ExecuteCommandLists(1, transCmds);
 
@@ -296,7 +296,7 @@ void TextureManager::FlushUploads()
     dxCommon_->IncrementFenceValue();
     UINT64 gfxFenceVal = dxCommon_->GetFenceValue();
     hr = dxCommon_->GetCommandQueue()->Signal(gfxFence, gfxFenceVal);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     if (gfxFence->GetCompletedValue() < gfxFenceVal) {
         gfxFence->SetEventOnCompletion(gfxFenceVal, dxCommon_->GetFenceEvent());
         WaitForSingleObject(dxCommon_->GetFenceEvent(), INFINITE);
@@ -307,9 +307,9 @@ void TextureManager::FlushUploads()
     // 4. コピーアロケータとコマンドリストをリセットして次のバッチに備える
     // -------------------------------------------------------
     hr = copyAllocator_->Reset();
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = copyCmdList_->Reset(copyAllocator_.Get(), nullptr);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 void TextureManager::LoadFromRawRGBA8(const std::string& name,
@@ -339,7 +339,7 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
         &defaultHeap, D3D12_HEAP_FLAG_NONE,
         &resourceDesc, D3D12_RESOURCE_STATE_COMMON,
         nullptr, IID_PPV_ARGS(&resource));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // アップロードバッファ（行ピッチアライメントを考慮）
     const UINT64 rowPitch =
@@ -366,12 +366,12 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
         &uploadHeap, D3D12_HEAP_FLAG_NONE,
         &uploadDesc, D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr, IID_PPV_ARGS(&uploadBuffer));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // ピクセルデータを行ごとにコピー（RowPitch のパディングに対応）
     BYTE* pMapped = nullptr;
     hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMapped));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     for (uint32_t row = 0; row < height; ++row) {
         memcpy(pMapped + row * rowPitch,
                rgbaData + static_cast<UINT64>(row) * width * 4,

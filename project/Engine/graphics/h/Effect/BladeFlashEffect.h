@@ -15,8 +15,8 @@ class Camera;
 
 /**
  * @brief 刃型フラッシュパーティクル
- * @note 中心が白熱し先端へ透ける細長い菱形ポリゴンを一瞬だけ表示する。
- *       大技の「空間に無数の斬閃が走る」演出用。テクスチャ不要の加算描画。
+ * @note 中心が白熱し先端へ透ける細長い菱形ポリゴンを一瞬だけ表示する
+ *       大技の「空間に無数の斬閃が走る」演出用テクスチャ不要の加算描画
  */
 class BladeFlashEffect {
 public:
@@ -32,10 +32,10 @@ public:
      */
     void Emit(const Vector3& center, int count, float radius, float minLen, float maxLen);
 
-    /** @brief 寿命更新と頂点バッファの再構築。毎フレーム呼ぶ */
+    /** @brief 寿命更新と頂点バッファの再構築毎フレーム呼ぶ */
     void Update(float dt, Camera* camera);
 
-    /** @brief 全刃の描画コマンドを積む。3D描画パス内で呼ぶ */
+    /** @brief 全刃の描画コマンドを積む3D描画パス内で呼ぶ */
     void Draw();
 
     /** @brief 全刃を即座に消す（シーン切り替え時などに呼ぶ） */

@@ -118,7 +118,7 @@ private:
     // SceneEditor用の編集コンテキストを構築
     SceneEditor::EditContext BuildEditContext();
 
-    // クリア演出（結果表示）の状態更新。表示中ならtrue
+    // クリア演出（結果表示）の状態更新表示中ならtrue
     bool UpdateClearState();
     // 戦闘ロジック全体の更新
     void UpdateCombat();

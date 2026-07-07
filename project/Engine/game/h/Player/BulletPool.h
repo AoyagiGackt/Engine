@@ -1,3 +1,7 @@
+/**
+ * @file BulletPool.h
+ * @brief プレイヤーの射撃弾丸をプールして管理するファイル
+ */
 #pragma once
 #include "Model.h"
 #include "ModelCommon.h"
@@ -9,13 +13,17 @@ using engine::graphics::Model;
 using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
 
+/**
+ * @brief 弾丸オブジェクトを固定数プールし、生成・移動・破棄を管理するクラス
+ * @note 衝突判定は呼び出し側で行い、命中したら Kill() でスロットを解放する
+ */
 class BulletPool {
 public:
     static constexpr int kMaxBullets = 48;
 
     void Initialize(ModelCommon* modelCommon, Model* model);
     void Spawn(const Vector3& pos, const Vector3& vel);
-    // 移動・境界チェックのみ。衝突判定は呼び出し側で行い Kill() で無効化する
+    // 移動・境界チェックのみ衝突判定は呼び出し側で行い Kill() で無効化する
     void Update();
     void Kill(int index) { slots_[index].active = false; }
     void Draw();

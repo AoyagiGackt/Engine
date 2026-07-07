@@ -4,7 +4,7 @@
 #include "SrvManager.h"
 #include "TextureManager.h"
 #include <algorithm>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -13,7 +13,7 @@ using namespace Microsoft::WRL;
 
 void MeshSliceEffect::Initialize(DirectXCommon* dxCommon)
 {
-    assert(dxCommon);
+    ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 
     // 破片ごとの定数バッファは最大数ぶんを最初に確保しておく
@@ -145,7 +145,7 @@ void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const 
         ClipTriangle(v, d, false, outBack.tris, nullptr);
     }
 
-    // 切断面のフタ（交線の重心から扇状に張る。発光フラグ付き）
+    // 切断面のフタ（交線の重心から扇状に張る発光フラグ付き）
     if (cutPoints.size() >= 4) {
         Vector3 c = {};
         for (const auto& p : cutPoints) { c = c + p; }
@@ -400,10 +400,10 @@ void MeshSliceEffect::CreatePipeline()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
                                      IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/meshslice/MeshSlice.VS.hlsl", L"vs_6_0");
     ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/meshslice/MeshSlice.PS.hlsl", L"ps_6_0");
@@ -449,5 +449,5 @@ void MeshSliceEffect::CreatePipeline()
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }

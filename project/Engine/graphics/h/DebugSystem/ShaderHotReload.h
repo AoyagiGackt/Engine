@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 #include <d3d12.h>
 #include <dxcapi.h>
@@ -31,7 +31,7 @@ public:
 
     void Initialize(engine::DirectXCommon* dxCommon);
 
-    // シェーダーを登録。変更検知時に onRecompiled(newBlob) を呼ぶ
+    // シェーダーを登録変更検知時に onRecompiled(newBlob) を呼ぶ
     // 戻り値: 登録 ID（Unregister に使用）
     uint32_t Register(const std::wstring& path, const wchar_t* profile,
                       std::function<void(IDxcBlob*)> onRecompiled);

@@ -19,14 +19,14 @@ class OutlineEffect;
 /**
  * @brief 3D空間に配置されるオブジェクトを表すクラス
  * @note 1つの Model（形状データ）を複数の Object3d で共有し、
- * それぞれ異なる座標（Transform）やマテリアルを持たせて描画することができます。
+ * それぞれ異なる座標（Transform）やマテリアルを持たせて描画することができます
  */
 class Object3d : public GameObject {
 public:
     /**
      * @brief 全てのObject3dで共通して使用するデフォルトカメラを設定する
      * @param camera 共通カメラのポインタ
-     * @note 個別のカメラがセットされていないオブジェクトは、このカメラを使用して描画されます。
+     * @note 個別のカメラがセットされていないオブジェクトは、このカメラを使用して描画されます
      */
     static void SetCommonCamera(Camera* camera);
 
@@ -37,13 +37,13 @@ public:
     static void SetLightViewProjection(const Matrix4x4& lvp);
 
     /**
-     * @brief オブジェクトの初期化。GPUに送るための定数バッファ（WVPやマテリアル用）を生成する
+     * @brief オブジェクトの初期化GPUに送るための定数バッファ（WVPやマテリアル用）を生成する
      * @param modelCommon 共通描画設定のポインタ
      */
     void Initialize(ModelCommon* modelCommon);
 
     /**
-     * @brief 毎フレームの更新処理。トランスフォームからワールド行列とWVP行列を計算する
+     * @brief 毎フレームの更新処理トランスフォームからワールド行列とWVP行列を計算する
      */
     void Update() override;
 
@@ -93,9 +93,9 @@ public:
 
     /**
      * @brief アニメーション用のローカル行列を直接セットする
-     * @note セットすると Update() 内の通常のアフィン行列計算より優先される。
-     *       SetLocalMatrix() 使用中は SetPosition() / SetRotation() / SetScale() の値は無視される。
-     *       通常のトランスフォーム制御に戻すには ClearLocalMatrix() を呼ぶこと。
+     * @note セットすると Update() 内の通常のアフィン行列計算より優先される
+     *       SetLocalMatrix() 使用中は SetPosition() / SetRotation() / SetScale() の値は無視される
+     *       通常のトランスフォーム制御に戻すには ClearLocalMatrix() を呼ぶこと
      */
     void SetLocalMatrix(const Matrix4x4& mat)
     {

@@ -1,7 +1,7 @@
-﻿#include "ParticleManager.h"
+#include "ParticleManager.h"
 #include "GameConstants.h"
 #include "TextureManager.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 #include <numbers>
 #include <random>
@@ -23,7 +23,7 @@ ParticleManager* ParticleManager::GetInstance()
 
 void ParticleManager::Initialize(DirectXCommon* dxCommon)
 {
-    assert(dxCommon);
+    ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 
     CreateRootSignature();
@@ -68,7 +68,7 @@ void ParticleManager::Finalize()
 void ParticleManager::CreateParticleGroup(const std::string& name,
                                           const std::string& textureFilePath)
 {
-    assert(!particleGroups_.contains(name));
+    ENGINE_ASSERT(!particleGroups_.contains(name));
 
     ParticleGroup& group = particleGroups_[name];
     group.textureFilePath = textureFilePath;
@@ -99,7 +99,7 @@ void ParticleManager::CreateParticleStateBuffers(ParticleGroup& group)
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
             D3D12_RESOURCE_STATE_COMMON, nullptr,  // バッファは常に COMMON で作成される (#1328 対策)
             IID_PPV_ARGS(&group.particleStateBuffer));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
     // ---- particleUploadBuffer: UPLOAD heap, 常時マップ ----
@@ -115,10 +115,10 @@ void ParticleManager::CreateParticleStateBuffers(ParticleGroup& group)
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
             IID_PPV_ARGS(&group.particleUploadBuffer));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
         hr = group.particleUploadBuffer->Map(0, nullptr,
             reinterpret_cast<void**>(&group.particleUploadData));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
         memset(group.particleUploadData, 0, static_cast<size_t>(stateSize));
     }
 }
@@ -142,7 +142,7 @@ void ParticleManager::CreateParticleInstancingResource(ParticleGroup& group)
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
             D3D12_RESOURCE_STATE_COMMON, nullptr,  // バッファは常に COMMON で作成される (#1328 対策)
             IID_PPV_ARGS(&group.instancingResource));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
     // ---- SRV for instancingResource (VS が t0 として読む) ----
@@ -211,7 +211,7 @@ void ParticleManager::EmitWithColor(const std::string& name,
                                     float scale,
                                     bool flicker)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     uint32_t slot = AllocateSlot(group);
@@ -244,7 +244,7 @@ void ParticleManager::EmitEllipse(const std::string& name,
                                   float scaleX,
                                   float scaleY)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     uint32_t slot = AllocateSlot(group);
@@ -275,44 +275,51 @@ void ParticleManager::EmitSlash(const std::string& name,
                                 const Vector4& color,
                                 float radius)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
-    const int   kCount    = 6;
-    const float kSpread   = 2.0f;
-    const float kSpeed    = 6.0f;
-    const float kLifeTime = 0.15f;
+    constexpr float kGlowLifeTime  = 0.30f;
+    constexpr float kCoreLifeTime  = 0.20f;
+    constexpr float kShardLifeTime = 0.25f;
+    constexpr int   kShardCount    = 4;
 
-    for (int i = 0; i < kCount; ++i) {
+    auto emitOne = [&](const Vector3& velocity, const Vector4& c, float lifeTime,
+                       float scaleX, float scaleY) {
         uint32_t slot = AllocateSlot(group);
-
-        if (slot == UINT32_MAX) {
-            break;
-        }
-
-        float t = static_cast<float>(i) / static_cast<float>(kCount - 1);
-        float a = angle - kSpread * 0.5f + kSpread * t;
-
-        float speed = kSpeed * (0.7f + 0.3f * t) * GameConstants::kFrameDeltaTime;
-        Vector3 vel = { std::cos(a) * speed, std::sin(a) * speed, 0.0f };
-
-        float bright = 1.0f - t * 0.3f;
-        Vector4 c    = { color.x, color.y, color.z, color.w * bright };
+        if (slot == UINT32_MAX) { return; }
 
         GPUParticleState& p = group.particleUploadData[slot];
         p.position    = position;
-        p.lifeTime    = kLifeTime;
-        p.velocity    = vel;
+        p.lifeTime    = lifeTime;
+        p.velocity    = velocity;
         p.currentTime = 0.0f;
         p.color       = c;
-        p.scale       = { radius * 0.5f, radius * 0.05f, 1.0f };
-        p.rotateZ     = a;
+        p.scale       = { scaleX, scaleY, 1.0f };
+        p.rotateZ     = angle;
         p.alive       = 1;
         p.curveFlag   = 0;
 
-        group.slotExpiry[slot] = group.groupTime + kLifeTime + 0.1f;
+        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
         group.aliveCount++;
         group.pendingSlots.push_back(slot);
+    };
+
+    // 残光（太く淡い層）と芯（細く白に寄せた層）を重ねる
+    Vector4 glow = { color.x, color.y, color.z, color.w * 0.35f };
+    Vector4 core = { color.x * 0.4f + 0.6f, color.y * 0.4f + 0.6f,
+                     color.z * 0.4f + 0.6f, color.w };
+    emitOne({ 0.0f, 0.0f, 0.0f }, glow, kGlowLifeTime, radius * 2.0f, radius * 0.55f);
+    emitOne({ 0.0f, 0.0f, 0.0f }, core, kCoreLifeTime, radius * 1.9f, radius * 0.18f);
+
+    // 斬線に沿って両端へ抜ける光片
+    const Vector3 dir = { std::cos(angle), std::sin(angle), 0.0f };
+    for (int i = 0; i < kShardCount; ++i) {
+        float t     = static_cast<float>(i) / static_cast<float>(kShardCount - 1);
+        float sign  = (i % 2 == 0) ? 1.0f : -1.0f;
+        float speed = radius * (3.0f + 3.0f * t) * sign;
+        Vector4 c   = { color.x, color.y, color.z, color.w * (0.8f - t * 0.3f) };
+        emitOne({ dir.x * speed, dir.y * speed, 0.0f }, c, kShardLifeTime,
+                radius * 0.6f, radius * 0.05f);
     }
 }
 
@@ -321,7 +328,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
                                       uint32_t count, const Vector4& color,
                                       float lifeTimeMin, float lifeTimeMax, float scale)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
     count = (std::min)(count, ParticleGroup::kNumMaxInstance);
 
@@ -375,7 +382,7 @@ void ParticleManager::EmitBurst(const std::string& name,
                                 float scale,
                                 bool flicker)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     count = (std::min)(count, ParticleGroup::kNumMaxInstance);
@@ -422,7 +429,7 @@ void ParticleManager::EmitHitStar(const std::string& name,
                                   const Vector3& position,
                                   const Vector4& color)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     static std::default_random_engine engine{ std::random_device{}() };
@@ -469,7 +476,7 @@ void ParticleManager::EmitGravity(const std::string& name, const Vector3& positi
                                   const Vector3& velocity, const Vector4& color,
                                   float lifeTime, float scale)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     uint32_t slot = AllocateSlot(group);
@@ -495,7 +502,7 @@ void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
                                float speed, const Vector4& color,
                                uint32_t count, float lifeTime, float scale)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
     count = (std::min)(count, ParticleGroup::kNumMaxInstance);
 
@@ -527,7 +534,7 @@ void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
 void ParticleManager::EmitTrail(const std::string& name, const Vector3& position,
                                 const Vector4& color, float scale, float lifeTime)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
     uint32_t slot = AllocateSlot(group);
@@ -797,8 +804,8 @@ void ParticleManager::Draw(Camera* camera)
         cmd->SetGraphicsRootDescriptorTable(1, texH);
 
         // instancingResource のスロットは非連続なため instance count を aliveCount に
-        // 減らすには CS 側で alive スロットを詰める変更が必要。現状は全 1024 を渡し、
-        // シェーダー側で alive=0 の instance を early-out する。
+        // 減らすには CS 側で alive スロットを詰める変更が必要現状は全 1024 を渡し、
+        // シェーダー側で alive=0 の instance を early-out する
         cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
 }
@@ -888,10 +895,10 @@ void ParticleManager::CreateRootSignature()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
                                      sigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 // ============================================================
@@ -921,7 +928,7 @@ void ParticleManager::CreateCSRootSignature()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
                                 sigBlob->GetBufferSize(), IID_PPV_ARGS(&csRootSignature_));
 }
@@ -970,14 +977,14 @@ void ParticleManager::CreateCSPipelineState()
 {
     Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/ParticleUpdate.CS.hlsl", L"cs_6_0");
-    assert(csBlob);
+    ENGINE_ASSERT(csBlob);
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
     psoDesc.pRootSignature = csRootSignature_.Get();
     psoDesc.CS             = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
     HRESULT hr = dxCommon_->GetDevice()->CreateComputePipelineState(
         &psoDesc, IID_PPV_ARGS(&csPipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 // ============================================================
@@ -1004,7 +1011,7 @@ void ParticleManager::CreateCSEmitRootSignature()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     device->CreateRootSignature(0, sigBlob->GetBufferPointer(),
                                 sigBlob->GetBufferSize(), IID_PPV_ARGS(&csEmitRootSignature_));
 }
@@ -1013,19 +1020,19 @@ void ParticleManager::CreateCSEmitPipelineState()
 {
     Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon_->CompileShader(
         L"Resources/shaders/Particle/EmitParticle.CS.hlsl", L"cs_6_0");
-    assert(csBlob);
+    ENGINE_ASSERT(csBlob);
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
     psoDesc.pRootSignature = csEmitRootSignature_.Get();
     psoDesc.CS             = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
     HRESULT hr = dxCommon_->GetDevice()->CreateComputePipelineState(
         &psoDesc, IID_PPV_ARGS(&csEmitPipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 Emitter* ParticleManager::GetEmitter(const std::string& name)
 {
-    assert(particleGroups_.contains(name));
+    ENGINE_ASSERT(particleGroups_.contains(name));
     return particleGroups_[name].emitterData;
 }
 
@@ -1082,10 +1089,10 @@ void ParticleManager::CreatePipelineState()
     psoDesc.SampleDesc.Count      = 1;
 
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // Alpha blend variant: DestBlend を INV_SRC_ALPHA に変えるだけ
     psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineStateAlpha_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }

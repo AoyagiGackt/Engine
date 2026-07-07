@@ -158,25 +158,24 @@ void TrainingScene::UpdatePlayerAndBullets()
 
     // ── フィニッシャースラッシュ（ゲージ満タン消費）───────────────────
     if (player_->JustFinisherSlash()) {
-        const Vector3& fpos = player_->GetPosition();
         TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopFinisherSlash);
         ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
 
         static std::mt19937 rng{ std::random_device{}() };
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
+        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
+        const Vector3& cam = camera_->GetTranslate();
         for (int i = 0; i < GameConstants::kFinisherSlashLines; ++i) {
-            const float   ang = angleDist(rng);
-            const Vector2 dir = { std::cos(ang), std::sin(ang) };
-
-            SlashMarkParams sm;
-            sm.start = { fpos.x - dir.x * GameConstants::kFinisherSlashRadius,
-                         fpos.y - dir.y * GameConstants::kFinisherSlashRadius };
-            sm.end   = { fpos.x + dir.x * GameConstants::kFinisherSlashRadius,
-                         fpos.y + dir.y * GameConstants::kFinisherSlashRadius };
-            sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-            sm.thickness = 5.0f;
-            sm.duration  = 0.22f;
-            SlashMark::GetInstance()->Spawn(sm);
+            const float   ang    = angleDist(rng);
+            const Vector2 dir    = { std::cos(ang), std::sin(ang) };
+            const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
+            const float   len    = lenDist(rng);
+            SceneShared::SpawnSlashMarkWorld(
+                { center.x - dir.x * len, center.y - dir.y * len },
+                { center.x + dir.x * len, center.y + dir.y * len },
+                cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, 5.0f, 0.22f);
         }
     }
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);

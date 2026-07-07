@@ -14,13 +14,13 @@ using engine::graphics::Object3d;
 
 /**
  * @brief ローグライト戦闘シーンで使用する汎用の敵エンティティクラス
- * @note HP 管理・打ち上げ物理・撃破判定を提供する。
+ * @note HP 管理・打ち上げ物理・撃破判定を提供する
  * SetMaxHp() で種別（Normal/Elite/Boss）ごとの HP を設定してから使用すること
  */
 class EnemyEntity {
 public:
     /**
-     * @brief 初期化。モデル生成とワールド座標を設定する
+     * @brief 初期化モデル生成とワールド座標を設定する
      * @param modelCommon モデル共通設定
      * @param startPos    初期ワールド座標
      */
@@ -39,7 +39,7 @@ public:
     void Launch(float velY);
 
     /**
-     * @brief ダメージを与える。HP が 0 以下になると撃破状態になる
+     * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
      * @param dmg 与えるダメージ量（デフォルト 1）
      */
     void TakeDamage(int dmg = 1) {

@@ -1,27 +1,6 @@
 /**
  * @file SlashMark.h
  * @brief 画面上に一瞬だけ残る斬撃線エフェクトを描画するファイル
- *
- * 【概要】
- *   2点間を結ぶ細長い Sprite を生成し、短時間表示してからフェードアウトさせる。
- *   「敵を中心に複数本の斬撃線が走る」大技演出などに使う。
- *
- * 【使い方】
- *   // 初期化（一度だけ）
- *   SlashMark::GetInstance()->Initialize(spriteCommon_.get());
- *
- *   // 斬撃線をスポーン
- *   SlashMarkParams p;
- *   p.start = { center.x - 3.0f, center.y - 2.0f };
- *   p.end   = { center.x + 3.0f, center.y + 2.0f };
- *   SlashMark::GetInstance()->Spawn(p);
- *
- *   // 毎フレーム（Update と Draw）
- *   SlashMark::GetInstance()->Update(dt);
- *   SlashMark::GetInstance()->Draw(); // spriteCommon_->CommonDrawSettings() の後に呼ぶ
- *
- *   // シーン切り替え時に全斬撃線を削除
- *   SlashMark::GetInstance()->Clear();
  */
 #pragma once
 #include "MakeAffine.h"
@@ -33,7 +12,7 @@ namespace engine::game {
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
-/** @brief 斬撃線1本分の生成パラメータ（座標はスクリーン/ワールド共通の2D座標系） */
+/** @brief 斬撃線1本分の生成パラメータ（座標はスクリーン座標・ピクセル） */
 struct SlashMarkParams {
     Vector2 start;                                    ///< 始点座標
     Vector2 end;                                      ///< 終点座標
@@ -48,7 +27,7 @@ public:
     static SlashMark* GetInstance();
 
     /**
-     * @brief 初期化。斬撃線用Spriteの生成に使う共通設定を受け取る
+     * @brief 初期化斬撃線用Spriteの生成に使う共通設定を受け取る
      * @param spriteCommon 2D描画の共通設定オブジェクトのポインタ
      */
     void Initialize(SpriteCommon* spriteCommon);
@@ -68,6 +47,13 @@ public:
     /// @brief 全斬撃線を描画コマンドとして積む
     void Draw();
 
+    /**
+     * @brief 表示中の全斬撃線を指定色で一斉に光らせ、指定時間で消えるようにする
+     * @param color    閃光の色
+     * @param duration 閃光からフェードアウトまでの時間（秒）
+     */
+    void FlashAll(const Vector4& color, float duration);
+
     /// @brief 全斬撃線を即座に削除する（シーン切り替え時などに呼ぶ）
     void Clear();
 
@@ -81,6 +67,9 @@ private:
         float                   timer    = 0.0f;
         float                   duration = 0.18f;
     };
+
+    /// @brief 1枚分のスプライトを生成してエントリに登録する
+    void SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color);
 
     SpriteCommon*      spriteCommon_ = nullptr;
     std::vector<Entry> entries_;

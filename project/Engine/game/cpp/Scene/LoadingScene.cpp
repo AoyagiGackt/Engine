@@ -15,7 +15,7 @@ void LoadingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     bgSprite_ = std::make_unique<Sprite>();
     bgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     bgSprite_->SetPosition({ 0.0f, 0.0f });
-    bgSprite_->SetSize({ 1280.0f, 720.0f });
+    bgSprite_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
     bgSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 1.0f });
 
     // 3 つのドット（画面中央下あたり）

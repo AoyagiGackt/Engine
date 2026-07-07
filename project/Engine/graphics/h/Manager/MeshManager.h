@@ -51,15 +51,17 @@ class MeshManager {
 public:
 
     /**
-     * @brief コンストラクタ。内部で基本的なメッシュ（球、立方体、平面など）を生成・初期化する
-     */
-    MeshManager();
-
-    /**
      * @brief 現在選択されているメッシュのデータを取得する
      * @return MeshData& 現在のメッシュデータへの参照
      */
     MeshData& GetCurrentMesh();
+
+    /**
+     * @brief 指定したメッシュタイプのデータを取得する（ImGui等での直接編集用）
+     * @param type 取得したいメッシュタイプ
+     * @return MeshData& 対象メッシュデータへの参照
+     */
+    MeshData& GetMesh(MeshType type);
 
     /**
      * @brief 描画に使用するメッシュの種類を変更する
@@ -72,10 +74,7 @@ public:
      * @return MeshType 現在のメッシュタイプ
      */
     MeshType GetCurrentMeshType() const;
-    
-    /** @brief マネージャーが保持している全メッシュのリスト（インデックスは MeshType に対応） */
-    std::vector<MeshData> meshes;
-    
+
     /**
      * @brief MeshManagerの唯一のインスタンスを取得する
      * @return MeshManager* シングルトンインスタンスへのポインタ
@@ -88,9 +87,17 @@ public:
     void Finalize();
 
 private:
+    /** @brief コンストラクタ内部で基本的なメッシュ（球、立方体、平面など）を生成・初期化する */
+    MeshManager();
+    ~MeshManager() = default;
+    MeshManager(const MeshManager&) = delete;
+    MeshManager& operator=(const MeshManager&) = delete;
 
     /** @brief 現在選択されているメッシュのタイプ */
     MeshType currentMeshType_;
+
+    /** @brief マネージャーが保持している全メッシュのリスト（インデックスは MeshType に対応） */
+    std::vector<MeshData> meshes;
 
     /**
      * @brief 初期化時に各基本図形（球体、立方体、平面）の頂点データを計算してリストに登録する

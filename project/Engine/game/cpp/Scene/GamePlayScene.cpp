@@ -7,6 +7,7 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "GrayscaleEffect.h"
+#include "GpuMarker.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
 #include "ImGuiControl.h"
@@ -128,25 +129,11 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
 
     pm_ = ParticleManager::GetInstance();
-    pm_->CreateParticleGroup("hit_ring",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("hit_spark",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("land_dust",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("jump_smoke",  "Resources/circle2.png");
-    pm_->CreateParticleGroup("sword_slash", "Resources/circle2.png");
-    pm_->CreateParticleGroup("gun_shot",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("blink_trail", "Resources/circle2.png");
-    pm_->CreateParticleGroup("awaken_aura", "Resources/circle2.png");
-    pm_->SetAdditiveBlend("hit_ring",    true);
-    pm_->SetAdditiveBlend("hit_spark",   true);
-    pm_->SetAdditiveBlend("land_dust",   false);
-    pm_->SetAdditiveBlend("jump_smoke",  false);
-    pm_->SetAdditiveBlend("sword_slash", true);
-    pm_->SetAdditiveBlend("gun_shot",    true);
-    pm_->SetAdditiveBlend("blink_trail", true);
-    pm_->SetAdditiveBlend("awaken_aura", true);
+    SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/gameplay.json");
 
     waterPool_ = std::make_unique<WaterPool>();
     waterPool_->Initialize(spriteCommon_.get());
+    player_->SetWaterLevel(WaterPool::GetSurfaceY());
 
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
@@ -345,8 +332,8 @@ void GamePlayScene::UpdateCombatEvents()
         const Vector3& epos = enemy_->GetPosition();
         tm->RequestHitStop(GameConstants::kHitStopFinish);
         cameraShaker_.Request(GameConstants::kShakeFinishAmt, GameConstants::kShakeFinishDur);
-        pm_->EmitRing("hit_ring",  epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
-        pm_->EmitRing("sword_slash", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
+        pm_->EmitRing("hit_ring", epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
+        pm_->EmitRing("hit_ring", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
         std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
         std::uniform_real_distribution<float> vyF( 4.0f, 10.0f);
         for (int i = 0; i < 16; ++i) {
@@ -603,26 +590,25 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     const Vector3& epos = enemy_->GetPosition();
 
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // 画面全体を埋め尽くすようにランダムな位置を高速で斬り刻む
+        // カメラ視界全体にランダムな位置を高速で斬り刻む
+        const Vector3& cam = camera_->GetTranslate();
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-7.5f, 7.5f);
-        std::uniform_real_distribution<float> offYDist(-4.0f, 4.0f);
-        std::uniform_real_distribution<float> lenDist(3.0f, 7.0f);
+        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
+        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
         std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
         const float   ang    = angleDist(rng_);
         const Vector2 dir    = { std::cos(ang), std::sin(ang) };
-        const Vector2 center = { epos.x + offXDist(rng_), epos.y + offYDist(rng_) };
+        const Vector2 center = { cam.x + offXDist(rng_), cam.y + offYDist(rng_) };
         const float   len    = lenDist(rng_);
 
-        SlashMarkParams sm;
-        sm.start = { center.x - dir.x * len, center.y - dir.y * len };
-        sm.end   = { center.x + dir.x * len, center.y + dir.y * len };
-        sm.color     = { 0.75f, 0.95f, 1.0f, 1.0f };
-        sm.thickness = thickDist(rng_);
         // 解放の瞬間まで全ての斬撃線を画面に残す
-        sm.duration  = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-                     + GameConstants::kFinisherImpactDelay + 0.25f;
-        SlashMark::GetInstance()->Spawn(sm);
+        const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+                             + GameConstants::kFinisherImpactDelay + 0.25f;
+        SceneShared::SpawnSlashMarkWorld(
+            { center.x - dir.x * len, center.y - dir.y * len },
+            { center.x + dir.x * len, center.y + dir.y * len },
+            cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng_), duration);
 
         // 1本ごとに実際にヒットさせ、敵を空中に拘束し続ける
         enemy_->TakeDamage(GameConstants::kFinisherLineDamage);
@@ -675,20 +661,19 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     finisherShatter_.Reset();
     finisherShatter_.Start();
 
-    // 解放の瞬間、太く短い閃光の斬撃線を重ねる
+    // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
+    SlashMark::GetInstance()->FlashAll({ 1.0f, 1.0f, 1.0f, 1.0f }, 0.22f);
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    const Vector3& cam = camera_->GetTranslate();
     for (int i = 0; i < 8; ++i) {
         const float   ang = angleDist(rng_);
         const Vector2 dir = { std::cos(ang), std::sin(ang) };
-        SlashMarkParams sm;
-        sm.start = { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y - dir.y * GameConstants::kFinisherSlashRadius };
-        sm.end   = { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
-                     epos.y + dir.y * GameConstants::kFinisherSlashRadius };
-        sm.color     = { 1.0f, 1.0f, 1.0f, 1.0f };
-        sm.thickness = 9.0f;
-        sm.duration  = 0.15f;
-        SlashMark::GetInstance()->Spawn(sm);
+        SceneShared::SpawnSlashMarkWorld(
+            { epos.x - dir.x * GameConstants::kFinisherSlashRadius,
+              epos.y - dir.y * GameConstants::kFinisherSlashRadius },
+            { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
+              epos.y + dir.y * GameConstants::kFinisherSlashRadius },
+            cam.x, cam.y, { 1.0f, 1.0f, 1.0f, 1.0f }, 9.0f, 0.15f);
     }
 
     SceneShared::EmitFinisherRelease(pm_, "hit_ring", "hit_spark", epos);
@@ -714,12 +699,12 @@ void GamePlayScene::CheckClearCondition()
 
 D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
 {
-    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
+    return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void GamePlayScene::SetupMainRenderTarget()
 {
-    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
+    SceneShared::SetupMainRenderTarget(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void GamePlayScene::SetupModelRenderState()
@@ -769,7 +754,10 @@ void GamePlayScene::Draw()
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 
-    DrawShadowPass();
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "Shadow Pass");
+        DrawShadowPass();
+    }
     SetupMainRenderTarget();
 
     spriteCommon_->CommonDrawSettings();
@@ -780,35 +768,42 @@ void GamePlayScene::Draw()
     spriteCommon_->CommonDrawSettings();
     waterPool_->Draw(camera_.get());
 
-    SetupModelRenderState();
-    skydome_->Draw();
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "3D Scene");
 
-    SetupModelRenderState();
-
-    for (auto& obj : gameObjects_) { obj->Draw(); }
-    for (auto& block : borderBlocks_) { block->Draw(); }
-
-    if (!ghostTrail_.empty()) {
         SetupModelRenderState();
-        for (const auto& g : ghostTrail_) {
-            float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
-            ghostObject_->SetPosition(g.pos);
-            ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
-            ghostObject_->Update();
-            ghostObject_->Draw();
+        skydome_->Draw();
+
+        SetupModelRenderState();
+
+        for (auto& obj : gameObjects_) { obj->Draw(); }
+        for (auto& block : borderBlocks_) { block->Draw(); }
+
+        if (!ghostTrail_.empty()) {
+            SetupModelRenderState();
+            for (const auto& g : ghostTrail_) {
+                float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
+                ghostObject_->SetPosition(g.pos);
+                ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
+                ghostObject_->Update();
+                ghostObject_->Draw();
+            }
         }
+
+        player_->Draw();
+        enemy_->Draw();
+        enemySlice_.Draw();
     }
 
-    player_->Draw();
-    enemy_->Draw();
-    enemySlice_.Draw();
-
-    pm_->Update(camera_.get());
-    pm_->Draw(camera_.get());
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "Particles");
+        pm_->Update(camera_.get());
+        pm_->Draw(camera_.get());
+    }
 
     bladeFlash_.Draw();
 
-    // 空間歪み（バックバッファ直描き時のみ。UIより先に画面をキャプチャして歪ませる）
+    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         spaceWarp_.CaptureAndApply();
@@ -823,7 +818,7 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる。
+    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
     const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
     if (finisherActive_ || captureFrame) {
@@ -1024,6 +1019,7 @@ void GamePlayScene::TriggerGlassShatterTest()
 void GamePlayScene::Finalize()
 {
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
+    renderTexture_->Finalize(srvManager_);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
     finisherShatter_.Finalize();

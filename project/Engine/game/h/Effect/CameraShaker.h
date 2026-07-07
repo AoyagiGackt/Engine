@@ -6,7 +6,7 @@ class CameraShaker {
 public:
     void Request(float intensity, float duration);
 
-    // 毎フレーム呼ぶ。現在フレームの揺れオフセットを返す
+    // 毎フレーム呼ぶ現在フレームの揺れオフセットを返す
     Vector3 Update(float dt);
 
     bool IsShaking() const { return timer_ > 0.0f; }

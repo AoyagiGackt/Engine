@@ -1,7 +1,7 @@
 ﻿#include "Skeleton/Skeleton.h"
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
-#include <cassert>
+#include "EngineAssert.h"
 #include <algorithm>
 
 #ifdef USE_IMGUI
@@ -40,7 +40,7 @@ Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::stri
 {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile((directoryPath + "/" + filename).c_str(), 0);
-    assert(scene && scene->mRootNode);
+    ENGINE_ASSERT(scene && scene->mRootNode);
     return ConvertAiNode(scene->mRootNode);
 }
 
@@ -153,14 +153,16 @@ void Skeleton::DebugDraw()
         float x = joint.skeletonSpaceMatrix.m[3][0];
         float y = joint.skeletonSpaceMatrix.m[3][1];
         if (first) { minX = maxX = x; minY = maxY = y; first = false; }
-        minX = std::min(minX, x); maxX = std::max(maxX, x);
-        minY = std::min(minY, y); maxY = std::max(maxY, y);
+        minX = (std::min)(minX, x);
+        maxX = (std::max)(maxX, x);
+        minY = (std::min)(minY, y);
+        maxY = (std::max)(maxY, y);
     }
 
-    float rangeX = std::max(maxX - minX, 1.0f);
-    float rangeY = std::max(maxY - minY, 1.0f);
+    float rangeX = (std::max)(maxX - minX, 1.0f);
+    float rangeY = (std::max)(maxY - minY, 1.0f);
     float margin = 0.85f;
-    float scale  = std::min(canvasSize.x * margin / rangeX, canvasSize.y * margin / rangeY);
+    float scale  = (std::min)(canvasSize.x * margin / rangeX, canvasSize.y * margin / rangeY);
 
     // キャンバス中央にルートを合わせる原点
     float cx    = (minX + maxX) * 0.5f;

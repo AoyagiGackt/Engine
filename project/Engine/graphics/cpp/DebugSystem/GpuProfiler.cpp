@@ -1,10 +1,10 @@
 ﻿#include "GpuProfiler.h"
 #include "DebugProfiler.h"
 #include "DirectXCommon.h"
-#include <cassert>
+#include "EngineAssert.h"
+#include <cstring>
 #ifdef USE_IMGUI
 #include <imgui.h>
-using engine::game::DebugProfiler;
 #endif
 
 namespace engine::graphics {
@@ -28,7 +28,7 @@ void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
     qhDesc.Count    = static_cast<UINT>(kTimestampCount);
     qhDesc.NodeMask = 0;
     HRESULT hr = device->CreateQueryHeap(&qhDesc, IID_PPV_ARGS(&queryHeap_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     D3D12_HEAP_PROPERTIES hp = {};
     hp.Type = D3D12_HEAP_TYPE_READBACK;
@@ -44,7 +44,7 @@ void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
         &hp, D3D12_HEAP_FLAG_NONE, &rb,
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
         IID_PPV_ARGS(&readbackBuf_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     results_.fill(0.0f);
 }
@@ -57,11 +57,14 @@ void GpuProfiler::Finalize() {
 }
 
 void GpuProfiler::BeginScope(Scope s, ID3D12GraphicsCommandList* cmd) {
+    static const char* kNames[static_cast<int>(Count)] = { "Shadow", "SSAO", "Main3D" };
+    cmd->BeginEvent(0, kNames[static_cast<int>(s)], static_cast<UINT>(std::strlen(kNames[static_cast<int>(s)]) + 1));
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2);
 }
 
 void GpuProfiler::EndScope(Scope s, ID3D12GraphicsCommandList* cmd) {
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2 + 1);
+    cmd->EndEvent();
 }
 
 void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd) {

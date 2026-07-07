@@ -1,5 +1,5 @@
 ﻿#include "RenderTexture.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -35,14 +35,10 @@ void RenderTexture::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, 
         &heapProps, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_RENDER_TARGET,
         &clearValue, IID_PPV_ARGS(&resource_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // RTV ヒープ（1スロット）
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHeapDesc.NumDescriptors = 1;
-    hr = dxCommon_->GetDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap_));
-    assert(SUCCEEDED(hr));
+    rtvHeap_ = DirectXCommon::CreateDescriptorHeap(dxCommon_->GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
     // RTV 作成
     rtvHandle_ = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
@@ -54,6 +50,11 @@ void RenderTexture::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, 
     // SRV 作成（SrvManager 経由）
     srvIndex_ = srvManager->Allocate();
     srvManager->CreateSRVforTexture2D(srvIndex_, resource_.Get(), kFormat, 1);
+}
+
+void RenderTexture::Finalize(SrvManager* srvManager)
+{
+    srvManager->Free(srvIndex_);
 }
 
 void RenderTexture::BeginRendering()

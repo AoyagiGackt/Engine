@@ -90,8 +90,8 @@ void MyGame::Draw()
     auto* hsv       = HsvFilter::GetInstance();
 
     // オフスクリーンRTVリダイレクトに対応していないシーン（GamePlayScene以外）では
-    // BeginScene/EndScene/Apply を呼ばない。呼んでしまうと、シーン側が何も描き込まない
-    // オフスクリーンテクスチャでバックバッファが上書きされ、画面から絵が消えてしまう。
+    // BeginScene/EndScene/Apply を呼ばない呼んでしまうと、シーン側が何も描き込まない
+    // オフスクリーンテクスチャでバックバッファが上書きされ、画面から絵が消えてしまう
     const bool postEffectsSupported = SceneManager::GetInstance()->CurrentScenePostEffectsSupported();
 
     // 有効なシーンキャプチャフィルターへ描画先を切り替える（優先順位: ImageFilter > Grayscale > HSV）

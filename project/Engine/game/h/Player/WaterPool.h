@@ -1,3 +1,7 @@
+/**
+ * @file WaterPool.h
+ * @brief ステージ内の水場（見た目・水面パーティクル・入水スプラッシュ）を管理するファイル
+ */
 #pragma once
 #include "Camera.h"
 #include "GameConstants.h"
@@ -13,6 +17,10 @@ using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::ParticleManager;
 
+/**
+ * @brief 固定領域の水場を描画し、波紋・きらめき・水しぶきパーティクルを管理するクラス
+ * @note 水面のY座標は GetSurfaceY() で公開し、Player::SetWaterLevel() と同期させる
+ */
 class WaterPool {
 public:
     void Initialize(SpriteCommon* spriteCommon);
@@ -21,6 +29,9 @@ public:
 
     // プレイヤーの入水・出水時に呼ぶ（水面でスプラッシュ発生）
     void EmitSplash(const Vector3& position);
+
+    /** @brief 水面のY座標を返す（Player::SetWaterLevel() に渡して水中判定と同期させる） */
+    static constexpr float GetSurfaceY() { return kPoolTop; }
 
 private:
     SpriteCommon*           spriteCommon_ = nullptr;
@@ -43,7 +54,7 @@ private:
     std::mt19937 bubbleRng_;
     std::mt19937 splashRng_;
 
-    // プール領域（Player::kWaterLevel_ と kPoolTop を一致させること）
+    // プール領域
     static constexpr float kPoolX0     =  3.0f;
     static constexpr float kPoolX1     = 27.0f;
     static constexpr float kPoolTop    =  3.0f;

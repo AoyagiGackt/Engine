@@ -18,7 +18,7 @@ public:
         Builder& WaitFrames(int frames);
         // condition が true になるまで毎フレーム待つ
         Builder& WaitUntil(std::function<bool()> condition);
-        // シーケンスを登録して開始。返り値の ID で Cancel できる
+        // シーケンスを登録して開始返り値の ID で Cancel できる
         int Run();
 
     private:

@@ -1,10 +1,10 @@
-﻿#include "InstancedObject3d.h"
+#include "InstancedObject3d.h"
 #include "ObjectMaterialLayout.h"
 #include "ModelManager.h"
 #include "TextureManager.h"
 #include "Object3dCommon.h"
 #include "CascadedShadowMap.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -20,12 +20,12 @@ void InstancedObject3d::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     ID3D12Device* device = dxCommon->GetDevice();
 
     model_ = ModelManager::GetInstance()->FindModel(modelPath);
-    assert(model_ && "モデルが事前にロードされていません");
+    ENGINE_ASSERT(model_ && "モデルが事前にロードされていません");
 
     // --- インスタンスバッファ (StructuredBuffer<float4x4>) ×2 フレーム分 ---
-    // CPU が [frameIdx_&1] に書き込み、GPU は同じ index のバッファを Draw で読む。
+    // CPU が [frameIdx_&1] に書き込み、GPU は同じ index のバッファを Draw で読む
     // Draw 後に frameIdx_ をインクリメントすることで、次フレームの CPU 書き込みが
-    // GPU 実行中のバッファと重ならない。
+    // GPU 実行中のバッファと重ならない
     {
         size_t bufSize = sizeof(Matrix4x4) * maxInstances_;
 
@@ -123,7 +123,7 @@ void InstancedObject3d::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
             &hp, D3D12_HEAP_FLAG_NONE, &rd,
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
             IID_PPV_ARGS(&fallbackCubemap_));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
 
         fallbackCubemapSrvIdx_ = srvManager->Allocate();
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -211,7 +211,7 @@ void InstancedObject3d::CreateRootSignatureAndPSO()
 
     ComPtr<ID3DBlob> blob, err;
     HRESULT rsHr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
-    assert(SUCCEEDED(rsHr) && blob);
+    ENGINE_ASSERT(SUCCEEDED(rsHr) && blob);
     device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&rs_));
 
     D3D12_INPUT_ELEMENT_DESC layout[] = {
@@ -249,20 +249,20 @@ void InstancedObject3d::CreateRootSignatureAndPSO()
     psoDesc.SampleMask            = D3D12_DEFAULT_SAMPLE_MASK;
     psoDesc.SampleDesc.Count      = 1;
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 // ---- SetInstanceTransform / SetInstanceMatrix ----
 
 void InstancedObject3d::SetInstanceTransform(uint32_t i, const Transform& t)
 {
-    assert(i < maxInstances_);
+    ENGINE_ASSERT(i < maxInstances_);
     instanceBufData_[frameIdx_ & 1][i] = MakeAffineMatrix(t.scale, t.rotate, t.translate);
 }
 
 void InstancedObject3d::SetInstanceMatrix(uint32_t i, const Matrix4x4& world)
 {
-    assert(i < maxInstances_);
+    ENGINE_ASSERT(i < maxInstances_);
     instanceBufData_[frameIdx_ & 1][i] = world;
 }
 

@@ -25,11 +25,11 @@ using engine::graphics::SpriteCommon;
 /**
  * @brief スレイザスパイア式のフロア選択マップシーン
  * @note 4フロア×最大3列のノード（FIGHT/ELITE/SHOP/REST/BOSS）を表示し、
- * プレイヤーが次に挑むノードを選択する。選択後は対応するシーンへ遷移する
+ * プレイヤーが次に挑むノードを選択する選択後は対応するシーンへ遷移する
  */
 class MapScene : public BaseScene {
 public:
-    /** @brief シーンの初期化。スプライト・フォント・マップ定義を構築する */
+    /** @brief シーンの初期化スプライト・フォント・マップ定義を構築する */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
     /** @brief リソースを解放する */
     void Finalize() override;
@@ -43,7 +43,7 @@ public:
 private:
     /// @brief タイトルバーとHP/ゴールドを描画する
     void DrawHeader(RunData* rd);
-    /// @brief フロアごとのマップノードを描画する。選択中ノードの種類を返す
+    /// @brief フロアごとのマップノードを描画する選択中ノードの種類を返す
     RunData::NodeType DrawFloorNodes(int curFloor);
     /// @brief 選択中ノードの説明パネル（右側）を描画する
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);

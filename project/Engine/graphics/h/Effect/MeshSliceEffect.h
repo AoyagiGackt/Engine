@@ -19,8 +19,8 @@ class Model;
 /**
  * @brief メッシュ切断演出
  * @note Start() でモデルのCPU側頂点をランダムな平面群で切断して破片を生成し、
- *       静止 → 断面が発光しながらずれる → 一斉に飛散して消える、の順に再生する。
- *       描画は自前のPSOで行うため、対象モデル本体は演出中に非表示にすること。
+ *       静止 → 断面が発光しながらずれる → 一斉に飛散して消える、の順に再生する
+ *       描画は自前のPSOで行うため、対象モデル本体は演出中に非表示にすること
  */
 class MeshSliceEffect {
 public:
@@ -36,13 +36,13 @@ public:
     void Start(const Model* model, const Vector3& worldPos, const Vector3& scale, uint32_t seed);
 
     /**
-     * @brief タイムラインと破片の運動を進め、定数バッファを書き込む。毎フレーム呼ぶ
+     * @brief タイムラインと破片の運動を進め、定数バッファを書き込む毎フレーム呼ぶ
      * @param dt     デルタタイム（秒）
      * @param camera WVP計算に使うカメラ
      */
     void Update(float dt, Camera* camera);
 
-    /** @brief 全破片の描画コマンドを積む。3D描画パス内で呼ぶ */
+    /** @brief 全破片の描画コマンドを積む3D描画パス内で呼ぶ */
     void Draw();
 
     /** @brief 再生を打ち切って非アクティブに戻す */
@@ -111,7 +111,7 @@ private:
     static void SplitPiece(const PieceBuild& src, const Vector3& n, const Vector3& p0,
                            PieceBuild& outFront, PieceBuild& outBack);
 
-    /// @brief 平面をまたぐ三角形を片側だけ切り出す。交点は outCutPoints に追加される
+    /// @brief 平面をまたぐ三角形を片側だけ切り出す交点は outCutPoints に追加される
     static void ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
                              std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints);
 

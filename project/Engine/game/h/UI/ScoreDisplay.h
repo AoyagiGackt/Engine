@@ -17,7 +17,7 @@ public:
     static constexpr int kPoolSize = 128;
 
     /**
-     * @brief 初期化。プールスプライトと全桁テクスチャを生成する
+     * @brief 初期化プールスプライトと全桁テクスチャを生成する
      * @param spriteCommon スプライト描画の共通設定
      */
     void Initialize(SpriteCommon* spriteCommon);
@@ -44,7 +44,7 @@ public:
     /**
      * @brief ランキング一覧をスプライトで描画する
      * @param ranking      ランキングデータ（降順）
-     * @param currentScore 現在スコア（ハイライト用。一致するエントリを明るく表示）
+     * @param currentScore 現在スコア（ハイライト用一致するエントリを明るく表示）
      * @param topLeft      リスト左上座標
      * @param digitSize    1桁あたりのサイズ
      * @param rowSpacing   行の高さ（次の行までの距離）

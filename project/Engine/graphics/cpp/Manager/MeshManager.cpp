@@ -122,6 +122,7 @@ MeshManager::MeshManager()
 void MeshManager::SetCurrentMeshType(MeshType type) { currentMeshType_ = type; }
 MeshType MeshManager::GetCurrentMeshType() const { return currentMeshType_; }
 MeshData& MeshManager::GetCurrentMesh() { return meshes[static_cast<size_t>(currentMeshType_)]; }
+MeshData& MeshManager::GetMesh(MeshType type) { return meshes[static_cast<size_t>(type)]; }
 
 void MeshManager::InitMeshes()
 {

@@ -2,7 +2,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 
@@ -20,7 +20,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
     std::string filePath = directoryPath + "/" + filename;
     const aiScene* scene = importer.ReadFile(filePath.c_str(), 0);
 
-    assert(scene->mNumAnimations != 0); // アニメーションがなければ止める
+    ENGINE_ASSERT(scene->mNumAnimations != 0); // アニメーションがなければ止める
 
     // 最初のアニメーションだけ採用
     aiAnimation* animationAssimp = scene->mAnimations[0];

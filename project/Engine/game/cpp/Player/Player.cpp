@@ -112,7 +112,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // ── 覚醒ゲージ管理 ────────────────────────────────────────────
-    // 覚醒中のみ消費する。未覚醒時は自然減衰させず、溜めた分を維持する
+    // 覚醒中のみ消費する未覚醒時は自然減衰させず、溜めた分を維持する
     if (isAwakened_) {
         awakenTimer_ -= GameConstants::kFrameDeltaTime;
         awakenGauge_  = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / kAwakenDuration_, 0.0f);
@@ -124,7 +124,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // 入水・出水判定（物理後の位置で確定）
-    inWater_          = (pos_.y < kWaterLevel_);
+    inWater_          = (pos_.y < waterLevel_);
     justEnteredWater_ = !prevInWater_ && inWater_;
     justExitedWater_  = prevInWater_  && !inWater_;
 
@@ -341,7 +341,7 @@ void Player::DaggerBehavior::Update(Player& player, Input* input) const
 
 void Player::HammerBehavior::Update(Player& player, Input* input) const
 {
-    // ゲージチャージ（長押し約3秒で満タン）。覚醒中は蓄積しない
+    // ゲージチャージ（長押し約3秒で満タン）覚醒中は蓄積しない
     if (!player.isAwakened_ && input->PushKey(DIK_SPACE)) {
         player.justChargedGauge_ = true;
         player.awakenGauge_ = (std::min)(

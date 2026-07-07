@@ -1,7 +1,7 @@
 ﻿#include "ImageFilter.h"
 #include "TextureManager.h"
 #include "WinApp.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 #include <algorithm>
 using namespace engine;
@@ -49,13 +49,9 @@ static void CreateOffscreenTexture(
         &heapProps, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_RENDER_TARGET,
         &clearValue, IID_PPV_ARGS(&outTexture));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHeapDesc.NumDescriptors = 1;
-    hr = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&outRtvHeap));
-    assert(SUCCEEDED(hr));
+    outRtvHeap = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
     outRtvHandle = outRtvHeap->GetCPUDescriptorHandleForHeapStart();
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -207,10 +203,10 @@ void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&blurSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // アウトライン / ディゾルブ用 Root Signature（b0 + t0 + t1）
     D3D12_DESCRIPTOR_RANGE srvRange1 = {};
@@ -240,10 +236,10 @@ void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
 
     ComPtr<ID3DBlob> outlineSigBlob, outlineErrBlob;
     hr = D3D12SerializeRootSignature(&outlineSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &outlineSigBlob, &outlineErrBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, outlineSigBlob->GetBufferPointer(), outlineSigBlob->GetBufferSize(),
         IID_PPV_ARGS(&outlineRootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
 // =====================================================
@@ -287,7 +283,7 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
         psoDesc.pRootSignature = sig;
         psoDesc.PS             = { ps->GetBufferPointer(), ps->GetBufferSize() };
         HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&out));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
     };
 
     // rootSignature_（b0 + t0）を使う PSO

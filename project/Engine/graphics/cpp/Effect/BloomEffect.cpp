@@ -1,5 +1,5 @@
 ﻿#include "BloomEffect.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -56,14 +56,10 @@ void BloomEffect::CreateRenderTexture(ID3D12Device*          device,
         &hp, D3D12_HEAP_FLAG_NONE,
         &rd, D3D12_RESOURCE_STATE_RENDER_TARGET,
         &cv, IID_PPV_ARGS(&outRes));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // RTV ヒープ
-    D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
-    rtvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvDesc.NumDescriptors = 1;
-    hr = device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&outRtvHeap));
-    assert(SUCCEEDED(hr));
+    outRtvHeap = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
     outRtvHandle = outRtvHeap->GetCPUDescriptorHandleForHeapStart();
     D3D12_RENDER_TARGET_VIEW_DESC rtvView = {};
@@ -113,11 +109,11 @@ ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_CB_SRV(ID3D12Device* device) c
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<ID3D12RootSignature> rs;
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&rs));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     return rs;
 }
 
@@ -166,11 +162,11 @@ ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_SRV2(ID3D12Device* device) con
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<ID3D12RootSignature> rs;
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&rs));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     return rs;
 }
 
@@ -205,7 +201,7 @@ ComPtr<ID3D12PipelineState> BloomEffect::CreatePSO(ID3D12Device*        device,
 
     ComPtr<ID3D12PipelineState> pso;
     HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     return pso;
 }
 
@@ -243,13 +239,9 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
             &hp, D3D12_HEAP_FLAG_NONE,
             &rd, D3D12_RESOURCE_STATE_RENDER_TARGET,
             &cv, IID_PPV_ARGS(&sceneTexture_));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
 
-        D3D12_DESCRIPTOR_HEAP_DESC rtvHD = {};
-        rtvHD.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        rtvHD.NumDescriptors = 1;
-        hr = device->CreateDescriptorHeap(&rtvHD, IID_PPV_ARGS(&sceneRtvHeap_));
-        assert(SUCCEEDED(hr));
+        sceneRtvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
 
         sceneRtvHandle_ = sceneRtvHeap_->GetCPUDescriptorHandleForHeapStart();
         D3D12_RENDER_TARGET_VIEW_DESC rtvV = {};

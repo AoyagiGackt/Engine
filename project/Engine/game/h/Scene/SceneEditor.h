@@ -3,13 +3,13 @@
  * @brief ゲーム実行中にパラメータをリアルタイムで調整できるデバッグエディタ
  *
  * ImGui（開発者向け GUI ライブラリ）を使って、ゲームを動かしながら
- * カメラ位置・オブジェクトの色・パーティクルの数などを即座に変更できる。
- * USE_IMGUI ビルドでのみ動作し、リリースビルドでは何もしない。
+ * カメラ位置・オブジェクトの色・パーティクルの数などを即座に変更できる
+ * USE_IMGUI ビルドでのみ動作し、リリースビルドでは何もしない
  *
- * 「State パターン」を使っている。
+ * 「State パターン」を使っている
  * → Hierarchy パネルでオブジェクトをクリックすると「選択状態」が変わり、
- *   Inspector パネルに表示される内容が切り替わる。
- *   「Camera を選んだら Camera の設定画面」「Ring を選んだら Ring の設定画面」という仕組み。
+ *   Inspector パネルに表示される内容が切り替わる
+ *   「Camera を選んだら Camera の設定画面」「Ring を選んだら Ring の設定画面」という仕組み
  */
 #pragma once
 #include <deque>
@@ -48,8 +48,8 @@ public:
     };
 
     // ---- エディタが編集できるシーンデータへの参照 ----
-    // GamePlayScene から受け取る「ゲームの今の状態」をまとめた構造体。
-    // ポインタで渡しているので、エディタで値を変えると即座にゲーム側にも反映される。
+    // GamePlayScene から受け取る「ゲームの今の状態」をまとめた構造体
+    // ポインタで渡しているので、エディタで値を変えると即座にゲーム側にも反映される
     struct EditContext {
         // オブジェクト本体へのポインタ（エディタがメソッドを呼ぶのに使う）
         Camera*          camera          = nullptr;
@@ -101,7 +101,7 @@ public:
         float*   whiteParticleScale = nullptr;
         int*     whiteParticleCount = nullptr; // 粒の個数
 
-        // ゲーム内時刻（読み取り専用の値コピー。表示目的）
+        // ゲーム内時刻（読み取り専用の値コピー表示目的）
         int gameHour   = 0;
         int gameMinute = 0;
 
@@ -129,10 +129,10 @@ public:
 
     // ---- 外部から呼ぶメソッド ----
 
-    // 毎フレーム呼ぶ。ImGui パネルを描画し、変更をゲームに反映する
+    // 毎フレーム呼ぶImGui パネルを描画し、変更をゲームに反映する
     void Update(const EditContext& ctx);
 
-    // 初期化時に1度だけ呼ぶ。JSON ファイルから前回保存したパラメータを読み込む
+    // 初期化時に1度だけ呼ぶJSON ファイルから前回保存したパラメータを読み込む
     void LoadAll(const EditContext& ctx);
 
     // Hierarchy に追加した UI スプライト一覧を返す（GamePlayScene が描画のために使う）
@@ -144,8 +144,8 @@ public:
 
 private:
     // ---- State パターンの基底クラス ----
-    // 「今何を選んでいるか」によって Inspector パネルの内容を切り替える仕組み。
-    // 新しいオブジェクト種別を増やしたいときは、このクラスを継承して RenderInspector を実装する。
+    // 「今何を選んでいるか」によって Inspector パネルの内容を切り替える仕組み
+    // 新しいオブジェクト種別を増やしたいときは、このクラスを継承して RenderInspector を実装する
     class IEditorState {
     public:
         virtual ~IEditorState() = default;
