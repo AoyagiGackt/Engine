@@ -102,13 +102,8 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
 {
     // 前フレームの描画パスで VERTEX_AND_CONSTANT_BUFFER に遷移済みなら UAV に戻す
     if (needsPreTransition_) {
-        D3D12_RESOURCE_BARRIER b{};
-        b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        b.Transition.pResource   = outputBuffer_.Get();
-        b.Transition.StateBefore = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-        b.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        cmd->ResourceBarrier(1, &b);
+        DirectXCommon::TransitionBarrier(cmd, outputBuffer_.Get(),
+            D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
 
     cmd->SetComputeRootSignature(csRootSig_.Get());
@@ -133,13 +128,8 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     cmd->ResourceBarrier(1, &uavBarrier);
 
     // 描画パスで頂点バッファとして読めるよう状態を遷移
-    D3D12_RESOURCE_BARRIER vbBarrier{};
-    vbBarrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    vbBarrier.Transition.pResource   = outputBuffer_.Get();
-    vbBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    vbBarrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-    vbBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &vbBarrier);
+    DirectXCommon::TransitionBarrier(cmd, outputBuffer_.Get(),
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
     needsPreTransition_ = true;
 }

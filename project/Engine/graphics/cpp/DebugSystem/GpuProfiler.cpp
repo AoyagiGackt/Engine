@@ -2,7 +2,6 @@
 #include "DebugProfiler.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"
-#include <cstring>
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -57,14 +56,11 @@ void GpuProfiler::Finalize() {
 }
 
 void GpuProfiler::BeginScope(Scope s, ID3D12GraphicsCommandList* cmd) {
-    static const char* kNames[static_cast<int>(Count)] = { "Shadow", "SSAO", "Main3D" };
-    cmd->BeginEvent(0, kNames[static_cast<int>(s)], static_cast<UINT>(std::strlen(kNames[static_cast<int>(s)]) + 1));
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2);
 }
 
 void GpuProfiler::EndScope(Scope s, ID3D12GraphicsCommandList* cmd) {
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2 + 1);
-    cmd->EndEvent();
 }
 
 void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd) {

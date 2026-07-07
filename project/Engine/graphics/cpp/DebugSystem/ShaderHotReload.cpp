@@ -73,17 +73,7 @@ void ShaderHotReload::Update()
         e.lastBlob = newBlob;
 
         // GPU が古い PSO を参照中に破棄されないよう、コールバック前にフェンス待機
-        {
-            auto* queue   = dxCommon_->GetCommandQueue();
-            auto* fence   = dxCommon_->GetFence();
-            dxCommon_->IncrementFenceValue();
-            uint64_t waitVal = dxCommon_->GetFenceValue();
-            queue->Signal(fence, waitVal);
-            if (fence->GetCompletedValue() < waitVal) {
-                fence->SetEventOnCompletion(waitVal, dxCommon_->GetFenceEvent());
-                WaitForSingleObject(dxCommon_->GetFenceEvent(), INFINITE);
-            }
-        }
+        dxCommon_->WaitForGpu();
         e.callback(newBlob.Get());
     }
 }

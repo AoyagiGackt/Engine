@@ -1,5 +1,6 @@
 #include "TextureManager.h"
 #include "DirectXTex.h"
+#include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
 #include <vector>
@@ -56,13 +57,9 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
     transCmdList_->Close(); // FlushUploads() で Reset して使うため最初は閉じておく
 }
 
-void TextureManager::LoadTexture(const std::string& filePath)
+ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
+    const std::string& filePath, DirectX::TexMetadata& outMetadata)
 {
-    // 読み込み済みなら早期リターン
-    if (textureDatas_.contains(filePath)) {
-        return;
-    }
-
     ENGINE_ASSERT(dxCommon_);
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -99,6 +96,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
 
     // テクスチャリソース記述子
     const DirectX::TexMetadata& metadata = finalImage.GetMetadata();
+    outMetadata = metadata;
     D3D12_RESOURCE_DESC resourceDesc {};
     resourceDesc.Width            = UINT(metadata.width);
     resourceDesc.Height           = UINT(metadata.height);
@@ -197,6 +195,19 @@ void TextureManager::LoadTexture(const std::string& filePath)
     pendingResources_.push_back(resource);
     hasPendingCopies_ = true;
 
+    return resource;
+}
+
+void TextureManager::LoadTexture(const std::string& filePath)
+{
+    // 読み込み済みなら早期リターン
+    if (textureDatas_.contains(filePath)) {
+        return;
+    }
+
+    DirectX::TexMetadata metadata;
+    ComPtr<ID3D12Resource> resource = LoadAndQueueUpload(filePath, metadata);
+
     // SRV作成はCPUのみの操作なので GPU完了前でも安全
     uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
 
@@ -213,6 +224,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
     data.resource = resource;
     data.srvIndex = srvIndex; // インデックスを保存
     data.metadata = metadata;
+    try { data.lastWriteTime = std::filesystem::last_write_time(filePath); } catch (...) {}
 }
 
 uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
@@ -253,13 +265,7 @@ void TextureManager::FlushUploads()
     // -------------------------------------------------------
     // 2. コピーキュー完了を待機（全テクスチャを通じて1回のみ）
     // -------------------------------------------------------
-    ++copyFenceValue_;
-    hr = copyQueue_->Signal(copyFence_.Get(), copyFenceValue_);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    if (copyFence_->GetCompletedValue() < copyFenceValue_) {
-        copyFence_->SetEventOnCompletion(copyFenceValue_, copyFenceEvent_);
-        WaitForSingleObject(copyFenceEvent_, INFINITE);
-    }
+    DirectXCommon::WaitForFence(copyQueue_.Get(), copyFence_.Get(), copyFenceValue_, copyFenceEvent_);
     // コピー完了後にアップロードバッファを解放する
     pendingUploadBuffers_.clear();
 
@@ -275,13 +281,8 @@ void TextureManager::FlushUploads()
     std::vector<D3D12_RESOURCE_BARRIER> barriers;
     barriers.reserve(pendingResources_.size());
     for (auto& res : pendingResources_) {
-        D3D12_RESOURCE_BARRIER b{};
-        b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        b.Transition.pResource   = res.Get();
-        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        b.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-        b.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barriers.push_back(b);
+        barriers.push_back(DirectXCommon::MakeTransitionBarrier(
+            res.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
     }
     if (!barriers.empty()) {
         transCmdList_->ResourceBarrier(UINT(barriers.size()), barriers.data());
@@ -292,15 +293,7 @@ void TextureManager::FlushUploads()
     dxCommon_->GetCommandQueue()->ExecuteCommandLists(1, transCmds);
 
     // グラフィックスキューの完了待機（DirectXCommon の永続フェンスを再利用）
-    auto* gfxFence = dxCommon_->GetFence();
-    dxCommon_->IncrementFenceValue();
-    UINT64 gfxFenceVal = dxCommon_->GetFenceValue();
-    hr = dxCommon_->GetCommandQueue()->Signal(gfxFence, gfxFenceVal);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    if (gfxFence->GetCompletedValue() < gfxFenceVal) {
-        gfxFence->SetEventOnCompletion(gfxFenceVal, dxCommon_->GetFenceEvent());
-        WaitForSingleObject(dxCommon_->GetFenceEvent(), INFINITE);
-    }
+    dxCommon_->WaitForGpu();
     pendingResources_.clear();
 
     // -------------------------------------------------------
@@ -310,6 +303,52 @@ void TextureManager::FlushUploads()
     ENGINE_ASSERT(SUCCEEDED(hr));
     hr = copyCmdList_->Reset(copyAllocator_.Get(), nullptr);
     ENGINE_ASSERT(SUCCEEDED(hr));
+}
+
+void TextureManager::CheckHotReload()
+{
+    struct Reloaded {
+        std::string path;
+        ComPtr<ID3D12Resource> resource;
+        DirectX::TexMetadata metadata;
+    };
+    std::vector<Reloaded> reloaded;
+
+    for (auto& [path, data] : textureDatas_) {
+        // LoadFromRawRGBA8 生成のテクスチャ（ファイルを持たない）は対象外
+        if (data.lastWriteTime == std::filesystem::file_time_type{}) { continue; }
+
+        std::filesystem::file_time_type writeTime;
+        try { writeTime = std::filesystem::last_write_time(path); }
+        catch (...) { continue; } // ファイルが一時的に開けない等は無視して次フレームに回す
+
+        if (writeTime <= data.lastWriteTime) { continue; }
+        data.lastWriteTime = writeTime;
+
+        DirectX::TexMetadata metadata;
+        ComPtr<ID3D12Resource> resource = LoadAndQueueUpload(path, metadata);
+        reloaded.push_back({ path, resource, metadata });
+    }
+
+    if (reloaded.empty()) { return; }
+
+    // 新しいリソースへのコピーとバリア遷移をまとめて完了させる
+    // （開発中のアセット反復用途なので、同期待ちのコストは許容する）
+    FlushUploads();
+
+    for (auto& r : reloaded) {
+        TextureData& data = textureDatas_[r.path];
+        if (r.metadata.IsCubemap()) {
+            SrvManager::GetInstance()->CreateSRVforTextureCube(
+                data.srvIndex, r.resource.Get(), r.metadata.format, UINT(r.metadata.mipLevels));
+        } else {
+            SrvManager::GetInstance()->CreateSRVforTexture2D(
+                data.srvIndex, r.resource.Get(), r.metadata.format, UINT(r.metadata.mipLevels));
+        }
+        data.resource = r.resource;
+        data.metadata = r.metadata;
+        Logger::LogInfo("[TextureManager] Reloaded: " + r.path);
+    }
 }
 
 void TextureManager::LoadFromRawRGBA8(const std::string& name,

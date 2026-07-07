@@ -30,6 +30,19 @@ LRESULT CALLBACK WinApp::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         // OSに対して、アプリの終了を伝える
         PostQuitMessage(0);
         return 0;
+
+    case WM_SIZE: {
+        // 最小化中（クライアント領域が0x0になる）はリサイズ処理をスキップする
+        if (wParam == SIZE_MINIMIZED) { break; }
+
+        auto* self = reinterpret_cast<WinApp*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (self && self->resizeCallback_) {
+            const int32_t width  = static_cast<int32_t>(LOWORD(lParam));
+            const int32_t height = static_cast<int32_t>(HIWORD(lParam));
+            self->resizeCallback_(width, height);
+        }
+        break;
+    }
     }
 
     // 標準のメッセージ処理を行う
@@ -89,6 +102,9 @@ void WinApp::Initialize()
         nullptr // オプション
     );
 
+
+    // WindowProc（static関数）から自分自身を参照できるようにしておく（WM_SIZE等で使用）
+    SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
     // ウィンドウを表示する
     ShowWindow(hwnd, SW_NORMAL);

@@ -5,6 +5,7 @@
 #pragma once
 #include <Windows.h>
 #include <cstdint>
+#include <functional>
 namespace engine {
 /**
  * @brief WindowsAPIを使用したウィンドウ管理クラス
@@ -64,6 +65,15 @@ public: // メンバ関数
      */
     void ToggleFullscreen();
 
+    /** @brief ウィンドウのクライアント領域サイズが変化したときに呼ばれるコールバックの型 */
+    using ResizeCallback = std::function<void(int32_t width, int32_t height)>;
+
+    /**
+     * @brief リサイズ時に呼び出すコールバックを登録する
+     * @note WM_SIZE受信時（最小化時を除く）にクライアント領域の新しい幅・高さを渡して呼ぶ
+     */
+    void SetResizeCallback(ResizeCallback callback) { resizeCallback_ = std::move(callback); }
+
 public: // 定数
 
     /** @brief ウィンドウ領域の幅（1280px） */
@@ -80,11 +90,11 @@ private:
     /** @brief ウィンドウクラスの設定情報 */
     WNDCLASSW wc = {};
 
-    /** @brief 自クラスへのポインタ（必要に応じて使用） */
-    WinApp* winApp_ = nullptr;
-
     /** @brief 現在フルスクリーンかどうか */
     bool isFullscreen_ = false;
+
+    /** @brief リサイズ時に呼び出すコールバック（未設定ならリサイズ処理は行わない） */
+    ResizeCallback resizeCallback_;
 };
 
 } // namespace engine

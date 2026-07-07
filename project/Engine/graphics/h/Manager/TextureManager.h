@@ -6,6 +6,7 @@
 #include "DirectXCommon.h"
 #include "DirectXTex.h"
 #include <d3d12.h>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -59,6 +60,12 @@ public:
     void FlushUploads();
 
     /**
+     * @brief 読み込み済みテクスチャのファイル更新日時をチェックし、変更があれば再読み込みする
+     * @note 毎フレーム呼ぶ想定（開発中のアセット反復用）。SRVインデックスは変えずに中身だけ差し替える
+     */
+    void CheckHotReload();
+
+    /**
      * @brief 指定したファイルパスに対応するSRVインデックスを取得する
      * @param filePath 取得したいテクスチャのファイルパス
      * @return uint32_t SrvManagerで管理されているSRVのインデックス
@@ -88,7 +95,16 @@ private:
         Microsoft::WRL::ComPtr<ID3D12Resource> resource; ///< GPU上のテクスチャリソース
         uint32_t srvIndex; ///< デスクリプタヒープ上のインデックス
         DirectX::TexMetadata metadata; ///< テクスチャのメタデータ（幅、高さ、形式等）
+        /** @brief 最終更新日時（ファイルからの読み込みでない場合は既定値のまま＝ホットリロード対象外） */
+        std::filesystem::file_time_type lastWriteTime{};
     };
+
+    /**
+     * @brief 画像ファイルを読み込み、GPUリソースを作成してコピーコマンドを積む（SRVはまだ作らない）
+     * @note LoadTexture()（新規SRV確保）とCheckHotReload()（既存SRVの差し替え）の両方から使う共通処理
+     */
+    Microsoft::WRL::ComPtr<ID3D12Resource> LoadAndQueueUpload(
+        const std::string& filePath, DirectX::TexMetadata& outMetadata);
 
     /** @brief DirectX基盤のポインタ */
     engine::DirectXCommon* dxCommon_ = nullptr;

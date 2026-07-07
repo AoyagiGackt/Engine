@@ -103,7 +103,8 @@ public:
 
 private:
     SceneManager() = default;
-    ~SceneManager() = default;
+    /** @brief バックグラウンドロードスレッドが残っていれば合流させてから破棄する */
+    ~SceneManager();
     SceneManager(const SceneManager&) = delete;
     const SceneManager& operator=(const SceneManager&) = delete;
 

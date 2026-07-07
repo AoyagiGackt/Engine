@@ -15,13 +15,7 @@ constexpr CascadedShadowMap::CascadeConfig CascadedShadowMap::kCascadeConfigs[Ca
 static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
     D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
 {
-    D3D12_RESOURCE_BARRIER b = {};
-    b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    b.Transition.pResource   = res;
-    b.Transition.StateBefore = before;
-    b.Transition.StateAfter  = after;
-    b.Transition.Subresource = subresource;
-    cmd->ResourceBarrier(1, &b);
+    DirectXCommon::TransitionBarrier(cmd, res, before, after, subresource);
 }
 
 void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)

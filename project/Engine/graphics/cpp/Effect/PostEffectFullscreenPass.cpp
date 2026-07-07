@@ -152,12 +152,8 @@ void PostEffectFullscreenPass::BeginScene()
     auto* cmdList = dxCommon_->GetCommandList();
 
     if (!isFirstFrame_) {
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource   = sceneTexture_.Get();
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        cmdList->ResourceBarrier(1, &barrier);
+        DirectXCommon::TransitionBarrier(cmdList, sceneTexture_.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
     isFirstFrame_ = false;
 
@@ -178,12 +174,8 @@ void PostEffectFullscreenPass::EndScene()
 {
     auto* cmdList = dxCommon_->GetCommandList();
 
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = sceneTexture_.Get();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    cmdList->ResourceBarrier(1, &barrier);
+    DirectXCommon::TransitionBarrier(cmdList, sceneTexture_.Get(),
+        D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void PostEffectFullscreenPass::Apply(SrvManager* srvManager)

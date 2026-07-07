@@ -577,13 +577,8 @@ void ParticleManager::UpdateCSConstants(Camera* camera, float dt)
 void ParticleManager::TransitionInstancingToUAV(ParticleGroup& group, ID3D12GraphicsCommandList* cmd)
 {
     if (!group.instancingInSRV) { return; }
-    D3D12_RESOURCE_BARRIER b{};
-    b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    b.Transition.pResource   = group.instancingResource.Get();
-    b.Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    b.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &b);
+    DirectXCommon::TransitionBarrier(cmd, group.instancingResource.Get(),
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     group.instancingInSRV = false;
 }
 
@@ -630,16 +625,11 @@ void ParticleManager::FlushPendingSlotsToGPU(ParticleGroup& group, ID3D12Graphic
 {
     if (!group.needsInit && group.pendingSlots.empty()) { return; }
 
-    D3D12_RESOURCE_BARRIER cb{};
-    cb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    cb.Transition.pResource   = group.particleStateBuffer.Get();
     // バッファは COMMON で作成される（D3D12 #1328 対策）
-    cb.Transition.StateBefore = group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON
-                                                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-    cb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    group.particleStateFresh  = false;
-    cmd->ResourceBarrier(1, &cb);
+    DirectXCommon::TransitionBarrier(cmd, group.particleStateBuffer.Get(),
+        group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+        D3D12_RESOURCE_STATE_COPY_DEST);
+    group.particleStateFresh = false;
 
     if (group.needsInit) {
         cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
@@ -654,9 +644,8 @@ void ParticleManager::FlushPendingSlotsToGPU(ParticleGroup& group, ID3D12Graphic
     }
     group.pendingSlots.clear();
 
-    cb.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    cb.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    cmd->ResourceBarrier(1, &cb);
+    DirectXCommon::TransitionBarrier(cmd, group.particleStateBuffer.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 }
 
 void ParticleManager::DispatchEmitCS(ParticleGroup& group, ID3D12GraphicsCommandList* cmd, float dt)
@@ -681,27 +670,17 @@ void ParticleManager::DispatchEmitCS(ParticleGroup& group, ID3D12GraphicsCommand
     for (uint32_t i = 0; i < count; ++i) { group.slotExpiry[i] = maxExpiry; }
 
     // 発射前にステートバッファ全体をアップロード（GPU キャッシュをフラッシュ）
-    D3D12_RESOURCE_BARRIER bIn{};
-    bIn.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bIn.Transition.pResource   = group.particleStateBuffer.Get();
-    bIn.Transition.StateBefore = group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON
-                                                          : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    bIn.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-    bIn.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    group.particleStateFresh   = false;
-    cmd->ResourceBarrier(1, &bIn);
+    DirectXCommon::TransitionBarrier(cmd, group.particleStateBuffer.Get(),
+        group.particleStateFresh ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+        D3D12_RESOURCE_STATE_COPY_DEST);
+    group.particleStateFresh = false;
 
     cmd->CopyBufferRegion(group.particleStateBuffer.Get(), 0,
                          group.particleUploadBuffer.Get(), 0,
                          sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
 
-    D3D12_RESOURCE_BARRIER bOut{};
-    bOut.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bOut.Transition.pResource   = group.particleStateBuffer.Get();
-    bOut.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    bOut.Transition.StateAfter  = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    bOut.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &bOut);
+    DirectXCommon::TransitionBarrier(cmd, group.particleStateBuffer.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
     cmd->SetComputeRootSignature(csEmitRootSignature_.Get());
     cmd->SetPipelineState(csEmitPipelineState_.Get());
@@ -738,13 +717,8 @@ void ParticleManager::DispatchUpdateCS(ParticleGroup& group, ID3D12GraphicsComma
     cmd->ResourceBarrier(2, uavBs);
 
     // instancingResource: UAV → NON_PIXEL_SHADER_RESOURCE（VS が SRV として読む）
-    D3D12_RESOURCE_BARRIER srvB{};
-    srvB.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    srvB.Transition.pResource   = group.instancingResource.Get();
-    srvB.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    srvB.Transition.StateAfter  = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    srvB.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &srvB);
+    DirectXCommon::TransitionBarrier(cmd, group.instancingResource.Get(),
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     group.instancingInSRV = true;
 }
 

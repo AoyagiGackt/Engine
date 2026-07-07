@@ -174,27 +174,20 @@ void GlassShatterEffect::CaptureFrame()
     auto* backBuf  = dxCommon_->GetCurrentBackBufferResource();
 
     // バックバッファ → COPY_SOURCE、フリーズテクスチャ → COPY_DEST
-    D3D12_RESOURCE_BARRIER bars[2] = {};
-    bars[0].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bars[0].Transition.pResource   = backBuf;
-    bars[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    bars[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    bars[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    bars[1].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bars[1].Transition.pResource   = freezeTexture_.Get();
-    bars[1].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    bars[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-    bars[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(2, bars);
+    D3D12_RESOURCE_BARRIER toCopy[2] = {
+        DirectXCommon::MakeTransitionBarrier(backBuf, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
+        DirectXCommon::MakeTransitionBarrier(freezeTexture_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST),
+    };
+    cmd->ResourceBarrier(2, toCopy);
 
     cmd->CopyResource(freezeTexture_.Get(), backBuf);
 
     // 元の状態に戻す
-    bars[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    bars[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    bars[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    bars[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    cmd->ResourceBarrier(2, bars);
+    D3D12_RESOURCE_BARRIER toRestore[2] = {
+        DirectXCommon::MakeTransitionBarrier(backBuf, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET),
+        DirectXCommon::MakeTransitionBarrier(freezeTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
+    };
+    cmd->ResourceBarrier(2, toRestore);
 
     captureNeeded_ = false;
 }

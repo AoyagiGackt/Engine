@@ -47,6 +47,16 @@ public: // メンバ関数
     void PostDraw();
 
     /**
+     * @brief ウィンドウサイズ変更に合わせてスワップチェーンのバックバッファを作り直す
+     * @param width  新しいクライアント領域の幅
+     * @param height 新しいクライアント領域の高さ
+     * @note ゲーム内部の描画解像度（ビューポート・UI座標等）は WinApp::kClientWidth/Height の
+     * 固定値のまま変えない。ウィンドウが大きければ余白は黒のまま、小さければ描画がクリップされる。
+     * あくまで「リサイズしてもクラッシュ・表示崩壊しない」ことを保証するための対応
+     */
+    void OnResize(uint32_t width, uint32_t height);
+
+    /**
      * @brief シェーダーファイルをコンパイルする
      * @param filePath シェーダーファイルのパス
      * @param profile コンパイルプロファイル（例: L"vs_6_0", L"ps_6_0"）
@@ -90,6 +100,44 @@ public: // メンバ関数
      */
     static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
         ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible = false);
+
+    /**
+     * @brief コマンドキューにフェンス値を積み、GPUがそこまでの処理を完了するまでCPU側で待機する
+     * @note このDirectXCommonが持つグラフィックスキュー・フェンスに対して待機する
+     */
+    void WaitForGpu();
+
+    /**
+     * @brief 任意のコマンドキュー・フェンスに対してフェンス値を積み、GPU完了まで待機する
+     * @param queue      待機対象のコマンドキュー
+     * @param fence      待機対象のフェンス
+     * @param fenceValue 直近で使ったフェンス値（呼び出しごとにインクリメントされる）
+     * @param fenceEvent 完了通知に使うイベントハンドル
+     * @note グラフィックスキュー以外（TextureManagerのコピーキュー等）を待つ場合に使う
+     */
+    static void WaitForFence(
+        ID3D12CommandQueue* queue, ID3D12Fence* fence, UINT64& fenceValue, HANDLE fenceEvent);
+
+    /**
+     * @brief リソースの状態遷移バリア（TYPE_TRANSITION）を構築するだけで発行はしない
+     * @note 複数バリアをまとめて1回のResourceBarrier()で発行したい場合はこちらを使う
+     */
+    static D3D12_RESOURCE_BARRIER MakeTransitionBarrier(
+        ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after,
+        UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
+
+    /**
+     * @brief リソースの状態遷移バリアを構築し、その場で1つだけ発行する
+     * @param commandList 発行先のコマンドリスト
+     * @param resource    遷移させるリソース
+     * @param before      遷移前の状態
+     * @param after       遷移後の状態
+     * @param subresource 対象サブリソース（省略時は全サブリソース）
+     */
+    static void TransitionBarrier(
+        ID3D12GraphicsCommandList* commandList, ID3D12Resource* resource,
+        D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after,
+        UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
     // --- RTV関連 ---
 

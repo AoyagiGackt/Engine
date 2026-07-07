@@ -13,6 +13,7 @@
 #include "TitleScene.h"
 #include "Tweener.h"
 #include <SrvManager.h>
+#include "TextureManager.h"
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
@@ -70,6 +71,11 @@ void MyGame::Update()
     Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
     Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
     ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+
+#ifdef _DEBUG
+    // テクスチャのホットリロード（保存したら即座に反映、開発時のみ）
+    TextureManager::GetInstance()->CheckHotReload();
+#endif
 
     // シーンマネージャー更新
     SceneManager::GetInstance()->Update();
