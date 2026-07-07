@@ -39,7 +39,11 @@ void Logger::Log(const std::string& message, LogLevel level)
     auto parent = std::filesystem::path(kLogFilePath).parent_path();
     if (!parent.empty()) { std::filesystem::create_directories(parent); }
 
-    std::ofstream file(kLogFilePath, std::ios::app);
+    // このプロセスで最初の書き込み時だけファイルを空にする（前回起動分の肥大化を防ぐ）
+    static bool isFirstWrite = true;
+    std::ofstream file(kLogFilePath, isFirstWrite ? std::ios::trunc : std::ios::app);
+    isFirstWrite = false;
+
     if (file) { file << line; }
 }
 

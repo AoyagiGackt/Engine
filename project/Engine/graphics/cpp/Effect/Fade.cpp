@@ -1,8 +1,8 @@
-﻿/**
+/**
  * @file Fade.cpp
  * @brief フェードイン・フェードアウト処理
  *
- * 画面全体を覆う黒いスプライトのアルファ値（透明度）を時間に応じて変化させる。
+ * 画面全体を覆う黒いスプライトのアルファ値（透明度）を時間に応じて変化させる
  * フェードイン: 黒い画面 → 透明（ゲーム画面が見えてくる）
  * フェードアウト: 透明 → 黒い画面（画面が暗くなる）
  */
@@ -12,7 +12,7 @@
 using namespace engine;
 using namespace engine::graphics;
 
-// フェード用スプライトを初期化する。
+// フェード用スプライトを初期化する
 // spriteCommon: 2D描画の共通設定（シェーダーなど）
 void Fade::Initialize(SpriteCommon* spriteCommon)
 {
@@ -26,7 +26,7 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
     sprite_->SetColor({ 0.0f, 0.0f, 0.0f, 0.0f }); // 最初は完全に透明な黒
 }
 
-// フェードを開始する。
+// フェードを開始する
 // status: フェードの種類（FadeIn = 明るくなる、FadeOut = 暗くなる）
 // duration: フェードにかかる時間（秒）
 void Fade::Start(Status status, float duration)
@@ -36,7 +36,7 @@ void Fade::Start(Status status, float duration)
     counter_  = 0.0f; // タイマーをリセット
 }
 
-// 毎フレーム呼ぶ。フェードの進行度に応じてアルファ値を更新する。
+// 毎フレーム呼ぶフェードの進行度に応じてアルファ値を更新する
 void Fade::Update()
 {
     // フェード中でなければ何もしない
@@ -72,7 +72,7 @@ void Fade::Update()
     }
 }
 
-// フェードスプライトを描画する。
+// フェードスプライトを描画する
 void Fade::Draw()
 {
     // アルファが 0.0（完全に透明）なら描画をスキップして処理負荷を下げる

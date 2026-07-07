@@ -2,7 +2,7 @@
 #include "TextureManager.h"
 #define NOMINMAX
 #include <windows.h>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cstring>
 #include <vector>
 using namespace engine;
@@ -46,7 +46,7 @@ void FontRenderer::BuildAtlas()
 
     void* bits = nullptr;
     HBITMAP hBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    assert(hBmp && bits);
+    ENGINE_ASSERT(hBmp && bits);
 
     HDC hdcMem = CreateCompatibleDC(nullptr);
     HBITMAP hOld = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
@@ -66,7 +66,7 @@ void FontRenderer::BuildAtlas()
     strcpy_s(lf.lfFaceName, "Courier New");
 
     HFONT hFont = CreateFontIndirectA(&lf);
-    assert(hFont);
+    ENGINE_ASSERT(hFont);
     HFONT hOldFont = static_cast<HFONT>(SelectObject(hdcMem, hFont));
 
     SetBkMode(hdcMem, TRANSPARENT);
@@ -147,7 +147,7 @@ void FontRenderer::BuildJpAtlas()
 
     void*   bits = nullptr;
     HBITMAP hBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    assert(hBmp && bits);
+    ENGINE_ASSERT(hBmp && bits);
 
     HDC     hdcMem = CreateCompatibleDC(nullptr);
     HBITMAP hOld   = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
@@ -163,7 +163,7 @@ void FontRenderer::BuildJpAtlas()
     wcscpy_s(lf.lfFaceName, L"MS Gothic");
 
     HFONT hFont = CreateFontIndirectW(&lf);
-    assert(hFont);
+    ENGINE_ASSERT(hFont);
     HFONT hOldFont = static_cast<HFONT>(SelectObject(hdcMem, hFont));
 
     SetBkMode(hdcMem, TRANSPARENT);

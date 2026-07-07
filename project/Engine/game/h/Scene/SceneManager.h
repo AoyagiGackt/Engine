@@ -25,7 +25,7 @@ using engine::graphics::Fade;
 /**
  * @brief シーン運用を統括するマネージャークラス
  * @note シングルトンパターンを採用しており、どこからでも ChangeScene() を呼び出して
- * シーン遷移を予約できます。実際の切り替えは Update() の冒頭で安全に行われます
+ * シーン遷移を予約できます実際の切り替えは Update() の冒頭で安全に行われます
  */
 class SceneManager {
 public:

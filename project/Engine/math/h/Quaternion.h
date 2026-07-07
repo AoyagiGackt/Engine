@@ -5,7 +5,7 @@
 #pragma once
 #include <cmath>
 
-/** @brief クォータニオン（四元数）。回転をあらわす */
+/** @brief クォータニオン（四元数）回転をあらわす */
 struct Quaternion
 {
     float x;

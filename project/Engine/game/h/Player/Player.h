@@ -24,7 +24,7 @@ enum class WeaponType; // Weapon.h で定義
 /**
  * @brief プレイヤーキャラクターを制御するクラス
  * @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
- * ローグライト用のスキル補正（SkillMods）を統合管理する。
+ * ローグライト用のスキル補正（SkillMods）を統合管理する
  */
 class Player {
 public:
@@ -162,7 +162,7 @@ private:
     bool    justEnteredWater_ = false;
     bool    justExitedWater_  = false;
 
-    // 向き（最後に入力した横方向。+1=右 -1=左）
+    // 向き（最後に入力した横方向+1=右 -1=左）
     float   lastDirX_         = 1.0f;
 
     // 覚醒ゲージ
@@ -186,7 +186,7 @@ private:
     // スペースキー スピン連射
     bool    justSpinShot_     = false;
     bool    isUpsideDown_     = false;
-    float   spinAngle_        = 0.0f; // 度。0=正立, 180=逆さ
+    float   spinAngle_        = 0.0f; // 度0=正立, 180=逆さ
     float   shootCooldown_    = 0.0f;
     static constexpr float kShootInterval_ = 0.12f; // 連射間隔（秒）
     static constexpr float kSpinSpeed_     = 5.0f;  // 空中回転速度（度/フレーム）
@@ -209,7 +209,7 @@ private:
     SkillMods skillMods_;
 
     // ---- Physics State パターン ----
-    // 水中/水上で横移動・重力・ジャンプの処理を切り替える。
+    // 水中/水上で横移動・重力・ジャンプの処理を切り替える
     class IPhysicsState {
     public:
         virtual ~IPhysicsState() = default;
@@ -221,7 +221,7 @@ private:
 
     // ---- Rampage State パターン ----
     // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
-    // 毎フレームの物理更新内容を切り替える。
+    // 毎フレームの物理更新内容を切り替える
     class IRampageState {
     public:
         virtual ~IRampageState() = default;
@@ -246,7 +246,7 @@ private:
     static const IRampageState& GetRampageState(RampagePhase phase);
 
     // ---- Weapon Behavior Strategy パターン ----
-    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える。
+    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
     class IWeaponBehavior {
     public:
         virtual ~IWeaponBehavior() = default;

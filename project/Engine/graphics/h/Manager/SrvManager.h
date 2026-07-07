@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SrvManager.h
  * @brief SRV（シェーダーリソースビュー）用のデスクリプタヒープとそのインデックスを一括管理するファイル
  */
@@ -23,13 +23,13 @@ public:
     static SrvManager* GetInstance();
 
     /**
-     * @brief マネージャーの初期化。デスクリプタヒープの生成とサイズ設定を行う
+     * @brief マネージャーの初期化デスクリプタヒープの生成とサイズ設定を行う
      * @param dxCommon DirectX基盤のポインタ（デバイス取得などに使用）
      */
     void Initialize(engine::DirectXCommon* dxCommon);
 
     /**
-     * @brief 描画前準備。コマンドリストにデスクリプタヒープをセットする
+     * @brief 描画前準備コマンドリストにデスクリプタヒープをセットする
      * @note 毎フレームの描画処理の最初（PreDrawなど）で一度だけ呼び出すこと
      */
     void PreDraw();
@@ -37,7 +37,7 @@ public:
     /**
      * @brief 未使用のデスクリプタインデックスを1つ確保する
      * @return uint32_t 確保した場所のインデックス番号
-     * @note Free()済みのインデックスがあればそれを再利用し、無ければ新規に確保する。
+     * @note Free()済みのインデックスがあればそれを再利用し、無ければ新規に確保する
      * 確保できる最大数（kMaxSRVCount）を超えるとアサートが発生します!
      */
     uint32_t Allocate();
@@ -76,7 +76,7 @@ public:
     void CreateSRVforDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource);
 
     /**
-     * @brief マネージャーの終了処理。デスクリプタヒープを解放する
+     * @brief マネージャーの終了処理デスクリプタヒープを解放する
      */
     void Finalize();
 

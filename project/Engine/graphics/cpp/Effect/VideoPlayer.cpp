@@ -1,9 +1,9 @@
-﻿/**
+/**
  * @file VideoPlayer.cpp
  * @brief 動画ファイルをリアルタイムで再生してスプライトとして表示するクラス
  *
  * Media Foundation（Windows の音声・動画デコードライブラリ）で動画をフレームごとに読み取り、
- * DirectX 12 のテクスチャとして GPU に転送して、スプライトとして画面に表示する。
+ * DirectX 12 のテクスチャとして GPU に転送して、スプライトとして画面に表示する
  *
  * 動画の1フレームを表示するステップ:
  *   1. Media Foundation でフレームの RGB ピクセルデータを取得する
@@ -16,7 +16,7 @@
 #include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -28,7 +28,7 @@ VideoPlayer::~VideoPlayer()
     Finalize();
 }
 
-// 動画を読み込んで再生準備をする。
+// 動画を読み込んで再生準備をする
 // dxCommon: DirectX12 の中核（GPU コマンド発行に使う）
 // spriteCommon: 2D描画の共通設定
 // filePath: 再生する動画ファイルのパス（例: "Resources/movie.mp4"）
@@ -41,15 +41,15 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 
     // Media Foundation を初期化する（動画デコードの準備）
     hr = MFStartup(MF_VERSION);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // 属性オブジェクトを作成し、「ビデオ処理を有効にする」フラグを立てる
     // → これにより RGB32 形式への自動変換が有効になる
     ComPtr<IMFAttributes> attributes;
     hr = MFCreateAttributes(&attributes, 1);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = attributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // ファイルパスを string から wstring に変換する（Windows API が wstring を要求するため）
     std::wstring wFilePath = StringUtility::ConvertString(filePath);
@@ -58,7 +58,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     hr = MFCreateSourceReaderFromURL(wFilePath.c_str(), attributes.Get(), &pSourceReader_);
     if (FAILED(hr)) {
         Logger::LogError("Failed to load video: " + filePath);
-        assert(false);
+        ENGINE_ASSERT(false);
     }
 
     // デコード先のフォーマットを「RGB32」に設定する
@@ -68,12 +68,12 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     pMediaType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
     pMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
     hr = pSourceReader_->SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, nullptr, pMediaType.Get());
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // デコード後の解像度（横幅 × 縦幅）を取得する
     ComPtr<IMFMediaType> pOutputMediaType;
     hr = pSourceReader_->GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, &pOutputMediaType);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     UINT32 width = 0, height = 0;
     MFGetAttributeSize(pOutputMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
@@ -99,7 +99,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
         &defaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, // 最初はシェーダーから読める状態
         IID_PPV_ARGS(&textureResource_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // CPU 書き込み用の中間バッファ（UPLOAD ヒープ: CPU が書き込める、GPUへの転送用）
     // 毎フレームここにピクセルデータを書いて、GPU テクスチャにコピーする
@@ -123,7 +123,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
         &uploadHeapProps, D3D12_HEAP_FLAG_NONE, &uploadBufferDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, // CPU が読み書きできる状態
         IID_PPV_ARGS(&uploadBuffer_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // テクスチャを GPU のシェーダーから参照できるよう SRV（シェーダーリソースビュー）を作成する
     srvIndex_ = SrvManager::GetInstance()->Allocate();
@@ -141,7 +141,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     sprite_->SetExternalTexture(srvIndex_);
 }
 
-// 毎フレーム呼ぶ。動画の次のフレームを取り出して GPU テクスチャに転送する。
+// 毎フレーム呼ぶ動画の次のフレームを取り出して GPU テクスチャに転送する
 void VideoPlayer::Update()
 {
     // 動画のフレームレートより速く読み取らないよう、タイマーで間引きを行う
@@ -254,7 +254,7 @@ void VideoPlayer::Update()
     }
 }
 
-// 毎フレーム呼ぶ。スプライトとしてスクリーンに動画フレームを描画する。
+// 毎フレーム呼ぶスプライトとしてスクリーンに動画フレームを描画する
 void VideoPlayer::Draw()
 {
     if (isNewFrame_) {
@@ -295,7 +295,7 @@ void VideoPlayer::Draw()
     }
 }
 
-// リソースをすべて解放する。デストラクタから自動的に呼ばれる。
+// リソースをすべて解放するデストラクタから自動的に呼ばれる
 void VideoPlayer::Finalize()
 {
     pSourceReader_.Reset();    // Media Foundation のリーダーを解放

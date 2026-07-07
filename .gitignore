@@ -331,6 +331,7 @@ Dumps/
 logs/
 generated/
 save/
+log/
 
 externals/DirectXTex/Bin/
 externals/DirectXTex/x64/

@@ -16,7 +16,7 @@ struct Ray {
 /**
  * @brief レイキャストの結果
  *
- * Collision::Raycast() の戻り値として使用します。
+ * Collision::Raycast() の戻り値として使用します
  *   RaycastResult res;
  *   if (Collision::Raycast(ray, aabb, res)) {
  *       // res.distance, res.point, res.normal が有効
@@ -63,8 +63,8 @@ enum class ColliderShape {
 /**
  * @brief GameObject が持つ当たり判定データ
  *
- * shape に応じた形状データを使って判定を行います。
- * SetAsAABB / SetAsSphere / SetAsCapsule でセットしてください。
+ * shape に応じた形状データを使って判定を行います
+ * SetAsAABB / SetAsSphere / SetAsCapsule でセットしてください
  */
 struct Collider {
     ColliderShape shape   = ColliderShape::AABB;

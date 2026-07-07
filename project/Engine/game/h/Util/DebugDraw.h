@@ -2,8 +2,8 @@
  * @file DebugDraw.h
  * @brief ImGui を使った 3D ワイヤーフレームデバッグ描画 — ヘッダーオンリー実装
  *
- * USE_IMGUI が定義されている Debug / Development ビルドのみ有効。
- * Release ビルドでは全関数が空のスタブになるのでコードを残したまま出荷できます。
+ * USE_IMGUI が定義されている Debug / Development ビルドのみ有効
+ * Release ビルドでは全関数が空のスタブになるのでコードを残したまま出荷できます
  *
  * ■ 使い方（毎フレーム ImGuiManager::Begin() と End() の間）
  *
@@ -18,7 +18,7 @@
  *   DebugDraw::DrawCollider(obj->GetCollider(), DebugDraw::kColorWhite);
  *
  * ■ カラー指定
- *   IM_COL32(R, G, B, A)  または  DebugDraw::kColorGreen など定数を使用してください。
+ *   IM_COL32(R, G, B, A)  または  DebugDraw::kColorGreen など定数を使用してください
  */
 #pragma once
 #include "MakeAffine.h"
@@ -78,7 +78,7 @@ namespace _Internal {
 // ===========================================================
 
 /**
- * @brief 毎フレーム先頭で呼ぶ。使用するカメラとスクリーンサイズをセットする
+ * @brief 毎フレーム先頭で呼ぶ使用するカメラとスクリーンサイズをセットする
  * @param vp         Camera::GetViewProjectionMatrix() の戻り値
  * @param screenW    画面の幅 px（WinApp::kClientWidth）
  * @param screenH    画面の高さ px（WinApp::kClientHeight）
@@ -271,7 +271,7 @@ inline void DrawRay(const Ray& ray, float length = 10.0f, ImU32 color = kColorYe
 
 /**
  * @brief Collider を形状に応じて描画する（AABB→緑, Sphere→赤, Capsule→シアン）
- * @param color デフォルトでは形状ごとの色。任意色に上書きしたければ指定
+ * @param color デフォルトでは形状ごとの色任意色に上書きしたければ指定
  */
 inline void DrawCollider(const Collider& collider, ImU32 color = 0)
 {
@@ -309,7 +309,7 @@ inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColo
 // ===========================================================
 // USE_IMGUI が無効な場合: 全関数を空スタブにする
 // Release ビルドでも #include "DebugDraw.h" + DebugDraw::DrawXxx() を
-// 書いたままコンパイルが通る（何もしない）。
+// 書いたままコンパイルが通る（何もしない）
 // ===========================================================
 #else // !USE_IMGUI
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file TextureManager.h
  * @brief テクスチャの読み込み、GPUへの転送、およびSRV（シェーダーリソースビュー）の管理を行うファイル
  */
@@ -15,7 +15,7 @@ namespace engine::graphics {
 /**
  * @brief テクスチャを管理するシングルトンクラス
  * @note DirectXTexライブラリを使用して画像を読み込み、SrvManagerと連携して
- * 適切なディスクリプタを割り当てます。一度読み込んだパスの画像は内部でキャッシュされます
+ * 適切なディスクリプタを割り当てます一度読み込んだパスの画像は内部でキャッシュされます
  */
 class TextureManager {
 public:
@@ -32,7 +32,7 @@ public:
     void Initialize(engine::DirectXCommon* dxCommon);
 
     /**
-     * @brief マネージャーの終了処理。保持している全テクスチャリソースを解放する
+     * @brief マネージャーの終了処理保持している全テクスチャリソースを解放する
      */
     void Finalize();
 
@@ -53,7 +53,7 @@ public:
 
     /**
      * @brief 保留中のテクスチャ転送を一括実行し、GPUとの同期を1回だけ行う
-     * @note LoadTexture() を複数回呼んだ後、描画開始前に必ず呼び出すこと。
+     * @note LoadTexture() を複数回呼んだ後、描画開始前に必ず呼び出すこと
      * 内部でコピーキューへの一括Executeと状態遷移（COMMON→PIXEL_SHADER_RESOURCE）を行う
      */
     void FlushUploads();

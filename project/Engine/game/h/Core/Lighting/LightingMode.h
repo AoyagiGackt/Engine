@@ -10,16 +10,16 @@ namespace engine {
  */
 enum class LightingMode {
 
-    /** @brief ライティングなし。テクスチャの色をそのまま出力します（Unlit） */
+    /** @brief ライティングなしテクスチャの色をそのまま出力します（Unlit） */
     None = 0,
 
     /** * @brief ランバート反射（Lambert Reflection）
-     * @note 最も標準的な拡散反射モデル。光の当たらない部分は真っ暗になります
+     * @note 最も標準的な拡散反射モデル光の当たらない部分は真っ暗になります
      */
     Lambert = 1,
 
     /** * @brief ハーフランバート（Half-Lambert）
-     * @note 影の範囲を 0.5~1.0 に補正する方式。影が真っ暗にならず、柔らかい印象になります
+     * @note 影の範囲を 0.5~1.0 に補正する方式影が真っ暗にならず、柔らかい印象になります
      */
     HalfLambert = 2,
 

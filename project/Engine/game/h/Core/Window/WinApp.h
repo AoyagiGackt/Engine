@@ -42,7 +42,7 @@ public: // メンバ関数
     
     /**
      * @brief ウィンドウシステムの終了処理
-     * @note 登録したウィンドウクラスの解除（UnregisterClass）などを行います。
+     * @note 登録したウィンドウクラスの解除（UnregisterClass）などを行います
      */
     void Finalize();
     
@@ -55,7 +55,7 @@ public: // メンバ関数
     /**
      * @brief Windowsメッセージを処理する
      * @return bool 終了メッセージ(WM_QUIT)を受け取った場合は true を返す
-     * @note メインループの継続判定に使用します。内部で PeekMessage を呼び出します
+     * @note メインループの継続判定に使用します内部で PeekMessage を呼び出します
      */
     bool ProcessMessage();
 

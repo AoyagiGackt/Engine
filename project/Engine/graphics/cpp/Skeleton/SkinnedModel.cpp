@@ -1,6 +1,6 @@
-﻿#include "SkinnedModel.h"
+#include "SkinnedModel.h"
 #include "TextureManager.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <map>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -11,8 +11,8 @@ using namespace engine::graphics;
 using namespace Microsoft::WRL;
 
 // assimp の mOffsetMatrix (右手・列ベクトル規則) を
-// このプロジェクトの Matrix4x4 (左手・行ベクトル規則) に変換する。
-// Skeleton.cpp::ConvertAiNode と同じ Decompose → flip → MakeAffineMatrix の手順を踏む。
+// このプロジェクトの Matrix4x4 (左手・行ベクトル規則) に変換する
+// Skeleton.cpp::ConvertAiNode と同じ Decompose → flip → MakeAffineMatrix の手順を踏む
 static Matrix4x4 ConvertOffsetMatrix(const aiMatrix4x4& m)
 {
     aiVector3D    scale, translate;
@@ -37,7 +37,7 @@ void SkinnedModel::Initialize(DirectXCommon* dxCommon,
     LoadGltfFile(dxCommon, gltfFilePath);
 
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
-    assert(sizeInBytes > 0);
+    ENGINE_ASSERT(sizeInBytes > 0);
 
     D3D12_HEAP_PROPERTIES heapProps{ D3D12_HEAP_TYPE_UPLOAD };
     D3D12_RESOURCE_DESC   resDesc{};
@@ -79,14 +79,14 @@ void SkinnedModel::Draw(ID3D12GraphicsCommandList* cmd)
 void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& filePath)
 {
     Assimp::Importer importer;
-    // MakeLeftHanded / FlipWindingOrder は使わず手動で座標変換する。
-    // これにより Skeleton.cpp::LoadNodeHierarchyFromFile と同一の変換規則になる。
+    // MakeLeftHanded / FlipWindingOrder は使わず手動で座標変換する
+    // これにより Skeleton.cpp::LoadNodeHierarchyFromFile と同一の変換規則になる
     const aiScene* scene = importer.ReadFile(filePath,
         aiProcess_Triangulate      |
         aiProcess_FlipUVs          |
         aiProcess_GenSmoothNormals |
         aiProcess_LimitBoneWeights);
-    assert(scene && scene->mNumMeshes > 0);
+    ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
     // パス1: ボーン名 → index, inverse bind matrix を収集
     std::map<std::string, uint32_t> boneMap;
@@ -130,7 +130,7 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
 
         for (uint32_t fi = 0; fi < mesh->mNumFaces; ++fi) {
             const aiFace& face = mesh->mFaces[fi];
-            assert(face.mNumIndices == 3); // Triangulate 済み
+            ENGINE_ASSERT(face.mNumIndices == 3); // Triangulate 済み
 
             // X 軸反転後にワインディングが逆転するため、インデックス 1 と 2 を入れ替える
             const uint32_t order[3] = { face.mIndices[0], face.mIndices[2], face.mIndices[1] };

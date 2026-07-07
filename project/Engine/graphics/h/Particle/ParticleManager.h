@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ParticleManager.h
  * @brief Compute Shader でパーティクルを GPU 完結シミュレーションし、インスタンシング描画するファイル
  */
@@ -226,7 +226,7 @@ public:
         uint32_t count = 16, float lifeTime = 0.4f, float scale = 0.3f);
 
     /**
-     * @brief 残像1粒を放出する。毎フレーム呼び続けることでトレイルを形成する
+     * @brief 残像1粒を放出する毎フレーム呼び続けることでトレイルを形成する
      */
     void EmitTrail(const std::string& name, const Vector3& position,
         const Vector4& color, float scale = 0.5f, float lifeTime = 0.15f);
@@ -281,7 +281,7 @@ private:
     void CreateCSEmitPipelineState();
     void CreateQuadGeometry();
 
-    // 空きスロットを返す。なければ UINT32_MAX
+    // 空きスロットを返すなければ UINT32_MAX
     uint32_t AllocateSlot(ParticleGroup& group);
 
     // CreateParticleGroup のフェーズ分割ヘルパー

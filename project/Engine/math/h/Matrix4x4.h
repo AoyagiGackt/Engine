@@ -327,7 +327,7 @@ inline Matrix4x4 MakeRotateMatrix(const Quaternion &q)
 
 /**
  * @brief スケール・クォータニオン回転・平行移動を合成したアフィン行列を作成する
- * @note アニメーション再生時に使用。MakeAffineMatrix(Vector3 rotate版)とは別関数
+ * @note アニメーション再生時に使用MakeAffineMatrix(Vector3 rotate版)とは別関数
  */
 inline Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Quaternion &rotate, const Vector3 &translate)
 {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file OutlineEffect.h
  * @brief 2パスアウトラインエフェクト
  *
@@ -23,7 +23,7 @@
  *
  * 【注意】
  *   BeginOutlinePass() は ModelCommon の PSO を上書きするので、
- *   アウトライン描画後は必ず CommonDrawSettings() で元に戻すこと。
+ *   アウトライン描画後は必ず CommonDrawSettings() で元に戻すこと
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -42,7 +42,7 @@ public:
 
     // ---- 初期化 / 破棄 ----
     /**
-     * @brief 初期化。アウトライン用ルートシグネチャ・PSO・定数バッファを生成する
+     * @brief 初期化アウトライン用ルートシグネチャ・PSO・定数バッファを生成する
      * @param dxCommon DirectX 共通クラスのポインタ
      */
     void Initialize(engine::DirectXCommon* dxCommon);
@@ -67,7 +67,7 @@ public:
 
     /**
      * @brief アウトラインの太さを設定する
-     * @param width クリップ空間単位（推奨 0.01〜0.05）。大きすぎると正面も塗りつぶされる
+     * @param width クリップ空間単位（推奨 0.01〜0.05）大きすぎると正面も塗りつぶされる
      */
     void SetWidth(float width) { if (cbData_) { cbData_->width = width; } }
 

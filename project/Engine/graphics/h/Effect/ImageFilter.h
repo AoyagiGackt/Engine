@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ImageFilter.h
  * @brief 画面全体にポストプロセスフィルター（ブラー・アウトライン・ディゾルブ等）を適用するファイル
  */
@@ -159,7 +159,7 @@ private:
     void InitPipelineStates(engine::DirectXCommon* dxCommon);
 
     // ---- Filter Mode Strategy パターン ----
-    // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える。
+    // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える
     class IFilterMode {
     public:
         virtual ~IFilterMode() = default;

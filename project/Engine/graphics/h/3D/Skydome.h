@@ -35,7 +35,7 @@ public:
 
     /**
      * @brief 天球全体に色味を乗算する（デフォルトは白 = 無変化）
-     * @param color RGBA。夕焼けや夜空の演出などに使用
+     * @param color RGBA夕焼けや夜空の演出などに使用
      */
     void SetSkyColor(const Vector4& color);
 

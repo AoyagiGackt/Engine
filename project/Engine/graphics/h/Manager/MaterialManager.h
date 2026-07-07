@@ -33,7 +33,7 @@ class MaterialManager {
 public:
 
     /**
-     * @brief コンストラクタ。内部でデフォルトのマテリアル群を初期化する
+     * @brief コンストラクタ内部でデフォルトのマテリアル群を初期化する
      */
     MaterialManager();
 

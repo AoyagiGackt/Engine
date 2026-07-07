@@ -87,7 +87,7 @@ public:
     void Finalize();
 
 private:
-    /** @brief コンストラクタ。内部で基本的なメッシュ（球、立方体、平面など）を生成・初期化する */
+    /** @brief コンストラクタ内部で基本的なメッシュ（球、立方体、平面など）を生成・初期化する */
     MeshManager();
     ~MeshManager() = default;
     MeshManager(const MeshManager&) = delete;

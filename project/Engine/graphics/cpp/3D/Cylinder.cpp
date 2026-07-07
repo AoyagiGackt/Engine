@@ -3,7 +3,7 @@
 #include "TextureManager.h"
 #include "SrvManager.h"
 #include <numbers>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -12,8 +12,8 @@ using namespace Microsoft::WRL;
 
 void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
 {
-    assert(dxCommon);
-    assert(divisions >= 3);
+    ENGINE_ASSERT(dxCommon);
+    ENGINE_ASSERT(divisions >= 3);
     dxCommon_        = dxCommon;
     textureFilePath_ = textureFilePath;
     divisions_       = divisions;
@@ -138,10 +138,10 @@ void Cylinder::CreatePipeline()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
                                               &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
                                       IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/cylinder/Cylinder.VS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/cylinder/Cylinder.PS.hlsl", L"ps_6_0");
@@ -185,5 +185,5 @@ void Cylinder::CreatePipeline()
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }

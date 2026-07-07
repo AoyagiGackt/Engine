@@ -2,9 +2,9 @@
  * @file StringUtility.h
  * @brief 文字列の変換ユーティリティ（std::string ⇔ std::wstring）
  *
- * Windows の API やファイルパスは wstring（ワイド文字列）を要求することが多い。
- * 一方、C++ の標準的な文字列は string（UTF-8 マルチバイト）。
- * この2つを相互変換する関数を提供する。
+ * Windows の API やファイルパスは wstring（ワイド文字列）を要求することが多い
+ * 一方、C++ の標準的な文字列は string（UTF-8 マルチバイト）
+ * この2つを相互変換する関数を提供する
  *
  * 例: "Resources/audio.wav"（string）→ L"Resources/audio.wav"（wstring）
  *     → Windows API に渡せる形式になる

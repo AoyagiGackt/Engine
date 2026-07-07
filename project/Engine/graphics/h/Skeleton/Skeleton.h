@@ -32,7 +32,7 @@ struct Joint {
     Matrix4x4 localMatrix;              // ローカル行列
     Matrix4x4 skeletonSpaceMatrix;      // スケルトン空間での累積行列
     std::string name;
-    std::optional<int32_t> parent;      // 親JointのIndex。rootならnullopt
+    std::optional<int32_t> parent;      // 親JointのIndexrootならnullopt
     int32_t index;                      // joints配列内のIndex
 };
 

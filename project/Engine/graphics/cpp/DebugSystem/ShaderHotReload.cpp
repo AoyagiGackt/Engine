@@ -1,11 +1,11 @@
 ﻿#include "ShaderHotReload.h"
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
 void ShaderHotReload::Initialize(DirectXCommon* dxCommon)
 {
-    assert(dxCommon);
+    ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 }
 

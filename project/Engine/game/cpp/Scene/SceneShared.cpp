@@ -213,7 +213,7 @@ void EmitFinisherCharge(ParticleManager* pm,
     std::uniform_real_distribution<float> radiusDist(2.2f, 3.4f);
     std::uniform_real_distribution<float> scaleDist(0.10f, 0.20f);
 
-    // 周囲から中心へ吸い込まれる光粒。溜め時間内に到達する速度を逆算する
+    // 周囲から中心へ吸い込まれる光粒溜め時間内に到達する速度を逆算する
     constexpr int kMoteCount = 20;
     for (int i = 0; i < kMoteCount; ++i) {
         const float ang = angleDist(rng);

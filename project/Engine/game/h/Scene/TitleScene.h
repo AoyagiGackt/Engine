@@ -24,7 +24,7 @@ using engine::graphics::SpriteCommon;
 
 /**
  * @brief タイトル画面のシーンクラス
- * @note ゲーム起動時に最初に表示されるシーンです。
+ * @note ゲーム起動時に最初に表示されるシーンです
  * ユーザーの入力（スペースキーなど）を検知すると finished_ フラグを立て、
  * シーンマネージャーにシーン遷移を促します
  */
@@ -47,7 +47,7 @@ public:
 
     /**
      * @brief シーンの更新処理
-     * @note 入力待ちのロジックを記述します。特定のキーが押されたら finished_ を true にします
+     * @note 入力待ちのロジックを記述します特定のキーが押されたら finished_ を true にします
      */
     void Update() override;
 

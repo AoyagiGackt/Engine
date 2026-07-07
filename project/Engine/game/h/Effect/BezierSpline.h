@@ -2,7 +2,7 @@
 #pragma once
 #include "MakeAffine.h"
 #include <vector>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 
 namespace engine {
@@ -45,7 +45,7 @@ public:
     int  PointCount() const         { return (int)points_.size(); }
     Vector3 Evaluate(float t) const
     {
-        assert(points_.size() >= 4 && "Catmull-Rom スプラインは制御点が 4 つ以上必要");
+        ENGINE_ASSERT(points_.size() >= 4 && "Catmull-Rom スプラインは制御点が 4 つ以上必要");
 
         int n    = (int)points_.size() - 1;
         float ft = t * (float)(n - 2); // グローバル t をセグメントインデックスに変換
@@ -59,7 +59,7 @@ public:
 
     Vector3 EvaluateSegment(int i, float t) const
     {
-        assert(i >= 1 && i < (int)points_.size() - 1 && "セグメントインデックスが範囲外");
+        ENGINE_ASSERT(i >= 1 && i < (int)points_.size() - 1 && "セグメントインデックスが範囲外");
         return CatmullRom(points_[i - 1], points_[i], points_[i + 1], points_[i + 2], t);
     }
 

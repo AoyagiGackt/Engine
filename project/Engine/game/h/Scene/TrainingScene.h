@@ -44,12 +44,12 @@ using engine::graphics::GpuProfiler;
 
 /**
  * @brief アクション操作の練習用シーン
- * @note ランデータを消費せずにプレイヤー操作を試せる。
+ * @note ランデータを消費せずにプレイヤー操作を試せる
  * Backspace でタイトルまたはマップシーンへ戻る
  */
 class TrainingScene : public BaseScene {
 public:
-    /** @brief シーンの初期化。プレイヤー・ステージ・UI を構築する */
+    /** @brief シーンの初期化プレイヤー・ステージ・UI を構築する */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
     /** @brief リソースを解放する */
     void Finalize() override;

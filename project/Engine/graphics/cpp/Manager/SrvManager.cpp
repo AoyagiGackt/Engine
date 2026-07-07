@@ -1,6 +1,6 @@
 ﻿#include "SrvManager.h"
 #include <algorithm>
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -24,7 +24,7 @@ void SrvManager::Initialize(DirectXCommon* dxCommon)
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
     HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // デスクリプタ1個分のサイズを取得
     descriptorSize_ = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -62,7 +62,7 @@ uint32_t SrvManager::Allocate()
         return index;
     }
 
-    assert(useIndex_ < kMaxSRVCount);
+    ENGINE_ASSERT(useIndex_ < kMaxSRVCount);
     return useIndex_++;
 }
 

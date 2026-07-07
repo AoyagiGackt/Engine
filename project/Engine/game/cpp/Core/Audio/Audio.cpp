@@ -2,18 +2,18 @@
  * @file Audio.cpp
  * @brief BGM・効果音（SE）の読み込みと再生を管理するクラス
  *
- * XAudio2 を使って音声を再生する。
+ * XAudio2 を使って音声を再生する
  * Media Foundation（MF）で音声ファイルをデコードし（MP3・WAV など対応）、
- * XAudio2 の SourceVoice に渡して再生する。
+ * XAudio2 の SourceVoice に渡して再生する
  *
- * 【BGM】: 1曲だけ再生。ループ可能。Stop で停止、別のを再生するときは自動で前の曲を停止する。
- * 【SE】 : 複数同時再生可能。1つのSEが複数の SourceVoice を持てる。再生終了したものは自動削除する。
+ * 【BGM】: 1曲だけ再生ループ可能Stop で停止、別のを再生するときは自動で前の曲を停止する
+ * 【SE】 : 複数同時再生可能1つのSEが複数の SourceVoice を持てる再生終了したものは自動削除する
  */
 #include "Audio.h"
 #include "Logger.h"
 #include "StringUtility.h"
 #include <algorithm>
-#include <cassert>
+#include "EngineAssert.h"
 using namespace engine;
 
 using namespace Microsoft::WRL;
@@ -22,7 +22,7 @@ using namespace Microsoft::WRL;
 // 初期化 / 終了
 // =====================================================
 
-// 音声システムを初期化する。ゲーム起動時に1度だけ呼ぶ。
+// 音声システムを初期化するゲーム起動時に1度だけ呼ぶ
 void Audio::Initialize()
 {
     HRESULT hr;
@@ -30,20 +30,20 @@ void Audio::Initialize()
     // Media Foundation を初期化する（音声・動画のデコードに必要な Windows の仕組み）
     // MFSTARTUP_NOSOCKET = ソケット通信機能なしで起動（軽量化）
     hr = MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // XAudio2 エンジンを作成する（音声の生成・加工・出力を担う中核）
     hr = XAudio2Create(&xAudio2_, 0, XAUDIO2_DEFAULT_PROCESSOR);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // マスタリングボイスを作成する（最終的な音声出力先。スピーカーやヘッドホンにつながる）
+    // マスタリングボイスを作成する（最終的な音声出力先スピーカーやヘッドホンにつながる）
     hr = xAudio2_->CreateMasteringVoice(&masteringVoice_);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     Logger::Log("Audio System Initialized.");
 }
 
-// 音声システムを終了する。ゲーム終了時に1度だけ呼ぶ。
+// 音声システムを終了するゲーム終了時に1度だけ呼ぶ
 void Audio::Finalize()
 {
     if (!xAudio2_) {
@@ -71,8 +71,8 @@ void Audio::Finalize()
 // ロード
 // =====================================================
 
-// 音声ファイル（MP3・WAV など）を読み込んでメモリに展開する。
-// 戻り値の SoundData を PlayBGM / PlaySE に渡して再生する。
+// 音声ファイル（MP3・WAV など）を読み込んでメモリに展開する
+// 戻り値の SoundData を PlayBGM / PlaySE に渡して再生する
 SoundData Audio::LoadAudio(const std::string& filename)
 {
     HRESULT hr;
@@ -86,7 +86,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
     hr = MFCreateSourceReaderFromURL(wFilename.c_str(), nullptr, &pSourceReader);
     if (FAILED(hr)) {
         Logger::LogError("Failed to open audio file: " + filename);
-        assert(false);
+        ENGINE_ASSERT(false);
         return soundData;
     }
 
@@ -99,14 +99,14 @@ SoundData Audio::LoadAudio(const std::string& filename)
     hr = pSourceReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, nullptr, pMediaType.Get());
     if (FAILED(hr)) {
         Logger::LogError("Failed to set media type for: " + filename);
-        assert(false);
+        ENGINE_ASSERT(false);
         return soundData;
     }
 
     // デコード後のフォーマット情報（チャンネル数・サンプルレートなど）を取得する
     ComPtr<IMFMediaType> pOutputMediaType;
     hr = pSourceReader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pOutputMediaType);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // WAVEFORMATEX 構造体に音声フォーマット情報を書き込む（XAudio2 に渡す形式）
     WAVEFORMATEX* wfex = &soundData.wfex;
@@ -163,18 +163,18 @@ SoundData Audio::LoadAudio(const std::string& filename)
 // ヘルパー
 // =====================================================
 
-// SoundData の WAVEFORMATEX から XAudio2 の SourceVoice（音声出力チャンネル）を作成して返す。
-// SourceVoice = 音声1系統の出力口。同じ SE を複数同時再生するには SourceVoice を複数作る。
+// SoundData の WAVEFORMATEX から XAudio2 の SourceVoice（音声出力チャンネル）を作成して返す
+// SourceVoice = 音声1系統の出力口同じ SE を複数同時再生するには SourceVoice を複数作る
 IXAudio2SourceVoice* Audio::CreateSourceVoice(const SoundData& soundData)
 {
     IXAudio2SourceVoice* voice = nullptr;
     HRESULT hr = xAudio2_->CreateSourceVoice(&voice, &soundData.wfex);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     return voice;
 }
 
-// 再生が終わった SE の SourceVoice を削除してメモリを解放する。
-// seVoices_ には複数の SE が溜まっていくので、終わったものを定期的に掃除する必要がある。
+// 再生が終わった SE の SourceVoice を削除してメモリを解放する
+// seVoices_ には複数の SE が溜まっていくので、終わったものを定期的に掃除する必要がある
 void Audio::CleanupFinishedSE()
 {
     seVoices_.erase(
@@ -193,7 +193,7 @@ void Audio::CleanupFinishedSE()
         seVoices_.end());
 }
 
-// BGM を再生する。すでに別の BGM が再生中なら先に停止してから新しいものを再生する。
+// BGM を再生するすでに別の BGM が再生中なら先に停止してから新しいものを再生する
 // soundData: LoadAudio で読み込んだ音声データ
 // loop: true なら曲が終わったら自動的に最初から再生する
 void Audio::PlayBGM(const SoundData& soundData, bool loop)
@@ -211,12 +211,12 @@ void Audio::PlayBGM(const SoundData& soundData, bool loop)
     buffer.LoopCount  = loop ? XAUDIO2_LOOP_INFINITE : 0; // ループ回数（無限 or 0 = ループなし）
 
     HRESULT hr = bgmVoice_->SubmitSourceBuffer(&buffer);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     bgmVoice_->Start(0); // 再生開始
 }
 
-// BGM を停止して SourceVoice を解放する。
+// BGM を停止して SourceVoice を解放する
 void Audio::StopBGM()
 {
     if (bgmVoice_) {
@@ -242,7 +242,7 @@ void Audio::SetBGMSpeed(float speed)
     }
 }
 
-// SE を再生する。同じ SE を複数同時に鳴らすことができる。
+// SE を再生する同じ SE を複数同時に鳴らすことができる
 // soundData: LoadAudio で読み込んだ音声データ
 // volume: 音量（0.0f = 無音、1.0f = 標準）
 void Audio::PlaySE(const SoundData& soundData, float volume)
@@ -260,7 +260,7 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
     buffer.LoopCount  = 0; // SE はループしない
 
     HRESULT hr = voice->SubmitSourceBuffer(&buffer);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     voice->Start(0); // 再生開始
 
@@ -268,7 +268,7 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
     seVoices_.push_back(voice);
 }
 
-// 再生中のすべての SE を停止して SourceVoice を解放する。
+// 再生中のすべての SE を停止して SourceVoice を解放する
 void Audio::StopAllSE()
 {
     for (auto* v : seVoices_) {

@@ -23,7 +23,7 @@ public:
 
     void Initialize(ModelCommon* modelCommon, Model* model);
     void Spawn(const Vector3& pos, const Vector3& vel);
-    // 移動・境界チェックのみ。衝突判定は呼び出し側で行い Kill() で無効化する
+    // 移動・境界チェックのみ衝突判定は呼び出し側で行い Kill() で無効化する
     void Update();
     void Kill(int index) { slots_[index].active = false; }
     void Draw();

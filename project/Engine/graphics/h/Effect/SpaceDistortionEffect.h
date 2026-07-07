@@ -13,8 +13,8 @@ class SrvManager;
 /**
  * @brief 空間歪み演出
  * @note AddImpulse() で歪みエネルギーを加えると、画面全体が中心点へ吸い込まれるように
- *       歪んで脈動し、時間経過で減衰する。大技の「空間そのものが切り裂かれる」表現用。
- *       バックバッファ直描き時のみ有効（オフスクリーンフィルタ使用中は呼ばないこと）。
+ *       歪んで脈動し、時間経過で減衰する大技の「空間そのものが切り裂かれる」表現用
+ *       バックバッファ直描き時のみ有効（オフスクリーンフィルタ使用中は呼ばないこと）
  */
 class SpaceDistortionEffect {
 public:
@@ -30,10 +30,10 @@ public:
      */
     void AddImpulse(float amount);
 
-    /** @brief エネルギー減衰と脈動時間を進める。毎フレーム呼ぶ */
+    /** @brief エネルギー減衰と脈動時間を進める毎フレーム呼ぶ */
     void Update(float dt);
 
-    /** @brief バックバッファをキャプチャし、歪みを重ねて描画する。3D描画の後に呼ぶ */
+    /** @brief バックバッファをキャプチャし、歪みを重ねて描画する3D描画の後に呼ぶ */
     void CaptureAndApply();
 
     /** @brief エネルギーを消して非アクティブに戻す */
@@ -52,7 +52,7 @@ private:
         float strength = 0.0f;
         float time     = 0.0f;
         float aspect   = 16.0f / 9.0f;
-        float radius   = 0.2f; // 未使用（画面全体に効くためカット不要。レイアウト互換のため維持）
+        float radius   = 0.2f; // 未使用（画面全体に効くためカット不要レイアウト互換のため維持）
         float pad[2]   = {};
     };
 

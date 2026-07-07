@@ -1,7 +1,7 @@
 #include "BladeFlashEffect.h"
 #include "Camera.h"
 #include <algorithm>
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -10,7 +10,7 @@ using namespace Microsoft::WRL;
 
 void BladeFlashEffect::Initialize(DirectXCommon* dxCommon)
 {
-    assert(dxCommon);
+    ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 
     sceneCB_ = dxCommon_->CreateBufferResource(sizeof(SceneCB));
@@ -150,10 +150,10 @@ void BladeFlashEffect::CreatePipeline()
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1,
                                              &sigBlob, &errBlob);
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
     hr = device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
                                      IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/bladeflash/BladeFlash.VS.hlsl", L"vs_6_0");
     ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/bladeflash/BladeFlash.PS.hlsl", L"ps_6_0");
@@ -195,5 +195,5 @@ void BladeFlashEffect::CreatePipeline()
     psoDesc.SampleDesc.Count      = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 }

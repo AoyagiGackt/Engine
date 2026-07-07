@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SpriteCommon.h
  * @brief 2Dスプライト描画のための共通グラフィックスパイプライン（PSO）やルートシグネチャを管理するファイル
  */
@@ -18,7 +18,7 @@ class SpriteCommon {
 public:
 
     /**
-     * @brief 2D描画共通設定の初期化。PSOの生成やルートシグネチャの作成を行う
+     * @brief 2D描画共通設定の初期化PSOの生成やルートシグネチャの作成を行う
      * @param dxCommon DirectX基盤のポインタ（デバイスやコマンドリストの取得用）
      */
     void Initialize(engine::DirectXCommon* dxCommon);

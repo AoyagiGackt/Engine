@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file Object3dCommon.h
  * @brief 3Dオブジェクト共通のライティング設定を管理するファイル
  *
@@ -77,7 +77,7 @@ public:
     /**
      * @brief 手動オーバーライドを有効/無効にする
      * @note true にすると UpdateLight() が内部処理をスキップするため、
-     *       Set*** で設定した値が固定される。
+     *       Set*** で設定した値が固定される
      */
     void SetManualLightOverride(bool enable) { manualLightOverride_ = enable; }
     bool GetManualLightOverride()      const { return manualLightOverride_; }

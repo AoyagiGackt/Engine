@@ -1,7 +1,7 @@
 ﻿#include "CascadedShadowMap.h"
 #include "ShadowManager.h"
 #include "WinApp.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -50,13 +50,10 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         HRESULT hr = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
             &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &cv,
             IID_PPV_ARGS(&shadowTex_));
-        assert(SUCCEEDED(hr));
+        ENGINE_ASSERT(SUCCEEDED(hr));
 
         // DSV ヒープ（3スライス分）
-        D3D12_DESCRIPTOR_HEAP_DESC dsvDesc = {};
-        dsvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        dsvDesc.NumDescriptors = kNumCascades;
-        device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&dsvHeap_));
+        dsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, kNumCascades);
 
         UINT dsvSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         D3D12_CPU_DESCRIPTOR_HANDLE base = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
@@ -203,7 +200,7 @@ void CascadedShadowMap::Update(const Vector3& lightDir)
 
 void CascadedShadowMap::BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t cascadeIdx)
 {
-    assert(cascadeIdx < kNumCascades);
+    ENGINE_ASSERT(cascadeIdx < kNumCascades);
 
     // サブリソース = 배열スライス (mip0, arraySlice=cascadeIdx)
     UINT subresource = cascadeIdx; // D3D12CalcSubresource(0, cascadeIdx, 0, 1, kNumCascades)

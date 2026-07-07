@@ -31,12 +31,12 @@ using engine::graphics::SpriteCommon;
 /**
  * @brief 縦一列に並んだ選択肢をカーソル移動・決定で操作する汎用メニュー
  * @note W/S・↑/↓キーで enabled な項目間をクランプ移動し、
- * SPACE/RETURN で決定する。無効項目はスキップされ選択できない
+ * SPACE/RETURN で決定する無効項目はスキップされ選択できない
  */
 class UIMenu {
 public:
     /**
-     * @brief 初期化。描画に必要な共通オブジェクトを受け取る
+     * @brief 初期化描画に必要な共通オブジェクトを受け取る
      * @param spriteCommon ハイライト用Spriteの生成に使う共通設定
      * @param fontRenderer ラベル・カーソル記号の描画に使うFontRenderer
      */
@@ -58,7 +58,7 @@ public:
     void SetItems(const std::vector<UIButton>& items);
 
     /**
-     * @brief 毎フレーム更新。カーソル移動とハイライト色の更新を行う
+     * @brief 毎フレーム更新カーソル移動とハイライト色の更新を行う
      * @param input 入力管理のポインタ
      */
     void Update(Input* input);

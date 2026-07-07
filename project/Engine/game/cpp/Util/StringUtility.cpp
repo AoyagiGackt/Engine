@@ -2,9 +2,9 @@
 #include <stringapiset.h> // MultiByteToWideChar / WideCharToMultiByte の宣言
 namespace engine {
 
-// UTF-8 の string を wstring に変換する。
-// MultiByteToWideChar は Windows API で「マルチバイト文字列 → ワイド文字列」の変換を行う関数。
-// 2段階で呼ぶ理由: 1回目で「変換後に何文字必要か」を調べ、2回目で実際に変換する。
+// UTF-8 の string を wstring に変換する
+// MultiByteToWideChar は Windows API で「マルチバイト文字列 → ワイド文字列」の変換を行う関数
+// 2段階で呼ぶ理由: 1回目で「変換後に何文字必要か」を調べ、2回目で実際に変換する
 std::wstring StringUtility::ConvertString(const std::string& str)
 {
     if (str.empty()) { return {}; } // 空文字列はそのまま空で返す
@@ -19,8 +19,8 @@ std::wstring StringUtility::ConvertString(const std::string& str)
     return result;
 }
 
-// wstring を UTF-8 の string に変換する。
-// WideCharToMultiByte は「ワイド文字列 → マルチバイト文字列」の変換を行う Windows API 関数。
+// wstring を UTF-8 の string に変換する
+// WideCharToMultiByte は「ワイド文字列 → マルチバイト文字列」の変換を行う Windows API 関数
 std::string StringUtility::ConvertString(const std::wstring& str)
 {
     if (str.empty()) { return {}; }

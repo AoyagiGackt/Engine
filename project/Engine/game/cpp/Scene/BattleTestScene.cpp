@@ -699,7 +699,7 @@ void BattleTestScene::Draw()
 
     bladeFlash_.Draw();
 
-    // 空間歪み（バックバッファ直描き時のみ。UIより先に画面をキャプチャして歪ませる）
+    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         spaceWarp_.CaptureAndApply();
@@ -718,7 +718,7 @@ void BattleTestScene::Draw()
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
 
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる。
+    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
     const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
     if (finisherActive_ || captureFrame) {

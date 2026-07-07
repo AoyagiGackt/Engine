@@ -1,10 +1,10 @@
-﻿/**
+/**
  * @file ShadowManager.h
  * @brief シャドウマップの生成・管理を担当するクラス
  *
- * Object3dCommon からシャドウ関連処理を分離。
+ * Object3dCommon からシャドウ関連処理を分離
  * ライト方向を受け取り LightVP 行列を計算し、
- * シャドウパスの開始/終了/SRVセットを提供します。
+ * シャドウパスの開始/終了/SRVセットを提供します
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -17,7 +17,7 @@ class SrvManager;
 /**
  * @brief シャドウマップの生成・管理を担当するクラス
  * @note ライト方向から平行投影の LightVP 行列を計算し、
- * シャドウパスの開始/終了および SRV のセットを提供する。
+ * シャドウパスの開始/終了および SRV のセットを提供する
  * Object3dCommon からシャドウ関連処理を分離した責務単一クラス
  */
 class ShadowManager {

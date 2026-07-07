@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file VignetteEffect.h
  * @brief 画面周辺を暗くするビネットエフェクトを適用するファイル
  */
@@ -22,7 +22,7 @@ public:
     void Initialize(engine::DirectXCommon* dxCommon);
     void Finalize();
 
-    // バックバッファ上にビネットオーバーレイを描画する。シーン描画後に呼ぶ
+    // バックバッファ上にビネットオーバーレイを描画するシーン描画後に呼ぶ
     void Apply();
 
     void  SetEnabled(bool enabled) { enabled_ = enabled; }

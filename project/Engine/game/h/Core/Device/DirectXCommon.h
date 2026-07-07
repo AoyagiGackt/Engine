@@ -79,6 +79,18 @@ public: // メンバ関数
      */
     Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(size_t sizeInBytes);
 
+    /**
+     * @brief 単機能クラス専用のデスクリプタヒープ（RTV/DSV等）を生成する
+     * @param device         生成に使用するデバイス
+     * @param type           ヒープの種類（D3D12_DESCRIPTOR_HEAP_TYPE_RTV等）
+     * @param numDescriptors 確保するディスクリプタ数
+     * @param shaderVisible  シェーダーから参照する必要があるか（RTV/DSVは通常false）
+     * @return Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> 生成されたヒープ
+     * @note staticなので、DirectXCommonのインスタンスを持たずID3D12Device*しか無い箇所からも呼べる
+     */
+    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
+        ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible = false);
+
     // --- RTV関連 ---
 
     /** @brief 現在のバックバッファのRTVハンドルを取得 */

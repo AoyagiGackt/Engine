@@ -21,8 +21,8 @@ class Camera;
 class Object3dCommon;
 class ShadowManager;
 
-// スキニング（ボーンアニメーション）付き 3D オブジェクト。
-// SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する。
+// スキニング（ボーンアニメーション）付き 3D オブジェクト
+// SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する
 class SkinnedObject3d {
 public:
     static void SetCommonCamera(Camera* camera);

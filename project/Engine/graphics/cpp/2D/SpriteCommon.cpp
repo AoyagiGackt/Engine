@@ -1,5 +1,5 @@
-﻿#include "SpriteCommon.h"
-#include <cassert>
+#include "SpriteCommon.h"
+#include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -8,7 +8,7 @@ using namespace Microsoft::WRL;
 
 void SpriteCommon::Initialize(DirectXCommon* dxCommon)
 {
-    assert(dxCommon);
+    ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -79,12 +79,12 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     rootParameters[5].DescriptorTable.pDescriptorRanges = cubemapRange;
     rootParameters[5].DescriptorTable.NumDescriptorRanges = 1;
 
-    // ポイントライトバッファ (b2) — Object3dPS.hlsl が要求。スプライトは count=0 なので実際には使用しない
+    // ポイントライトバッファ (b2) — Object3dPS.hlsl が要求スプライトは count=0 なので実際には使用しない
     rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[6].Descriptor.ShaderRegister = 2; // b2
 
-    // 法線マップ (t3) — Object3dPS.hlsl が要求。スプライトは useNormalMap=0 なので実際にはアクセスしない
+    // 法線マップ (t3) — Object3dPS.hlsl が要求スプライトは useNormalMap=0 なので実際にはアクセスしない
     rootParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[7].DescriptorTable.pDescriptorRanges = normalMapRange;
@@ -122,13 +122,13 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
         D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
     
     if (FAILED(hr)) {
-        assert(false);
+        ENGINE_ASSERT(false);
     }
 
     hr = device->CreateRootSignature(0,
         signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     // 作成
     Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
@@ -192,7 +192,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
 
     hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc,
         IID_PPV_ARGS(&graphicsPipelineState_));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
     defaultLightResource_ = dxCommon_->CreateBufferResource(256);
 
@@ -210,13 +210,13 @@ void SpriteCommon::CommonDrawSettings()
     commandList->SetPipelineState(graphicsPipelineState_.Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // ルートパラメータ3（DirectionalLight CBV b1）にダミーバッファをバインドする。
+    // ルートパラメータ3（DirectionalLight CBV b1）にダミーバッファをバインドする
     // ルートシグネチャ切り替え時に全パラメータがリセットされるため、
-    // スプライトが enableLighting=false であっても有効なアドレスを渡す必要がある。
+    // スプライトが enableLighting=false であっても有効なアドレスを渡す必要がある
     commandList->SetGraphicsRootConstantBufferView(3, defaultLightResource_->GetGPUVirtualAddress());
 
-    // ルートパラメータ6（PointLightBuffer CBV b2）にダミーバッファをバインドする。
+    // ルートパラメータ6（PointLightBuffer CBV b2）にダミーバッファをバインドする
     // スプライトはポイントライトを使用しないが、Object3dPS.hlsl が b2 を宣言しているため
-    // Root Signature と整合させるために有効なアドレスが必要。
+    // Root Signature と整合させるために有効なアドレスが必要
     commandList->SetGraphicsRootConstantBufferView(6, defaultPointLightResource_->GetGPUVirtualAddress());
 }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file VideoPlayer.h
  * @brief Media Foundationを使用して動画を読み込み、テクスチャとして毎フレーム更新・描画するクラス
  */
@@ -17,7 +17,7 @@ namespace engine::graphics {
 /**
  * @brief 動画再生・描画管理クラス
  * @note Media Foundation でデコードした映像フレームを動的にテクスチャへ書き込み、
- * Sprite クラスを通じて画面に表示します。
+ * Sprite クラスを通じて画面に表示します
  */
 class VideoPlayer {
 public:
@@ -41,19 +41,19 @@ public:
 
     /**
      * @brief 毎フレームの更新処理
-     * @note 動画のコマ送りタイマーを更新し、新しいフレームがあればテクスチャへの書き込み準備を行います。
+     * @note 動画のコマ送りタイマーを更新し、新しいフレームがあればテクスチャへの書き込み準備を行います
      */
     void Update();
 
     /**
      * @brief 描画処理
-     * @note コマンドリストが開いているこのタイミングでGPUへデータを転送し、スプライトを描画します。
+     * @note コマンドリストが開いているこのタイミングでGPUへデータを転送し、スプライトを描画します
      */
     void Draw();
 
     /**
      * @brief 終了処理
-     * @note 使用していた各種リソース（Media Foundation関連、GPUバッファ）を解放します。
+     * @note 使用していた各種リソース（Media Foundation関連、GPUバッファ）を解放します
      */
     void Finalize();
 

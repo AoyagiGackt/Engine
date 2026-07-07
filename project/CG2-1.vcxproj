@@ -587,6 +587,8 @@
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuMarker.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h" />

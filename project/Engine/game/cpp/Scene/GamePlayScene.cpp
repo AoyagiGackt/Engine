@@ -7,6 +7,7 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "GrayscaleEffect.h"
+#include "GpuMarker.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
 #include "ImGuiControl.h"
@@ -753,7 +754,10 @@ void GamePlayScene::Draw()
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 
-    DrawShadowPass();
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "Shadow Pass");
+        DrawShadowPass();
+    }
     SetupMainRenderTarget();
 
     spriteCommon_->CommonDrawSettings();
@@ -764,35 +768,42 @@ void GamePlayScene::Draw()
     spriteCommon_->CommonDrawSettings();
     waterPool_->Draw(camera_.get());
 
-    SetupModelRenderState();
-    skydome_->Draw();
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "3D Scene");
 
-    SetupModelRenderState();
-
-    for (auto& obj : gameObjects_) { obj->Draw(); }
-    for (auto& block : borderBlocks_) { block->Draw(); }
-
-    if (!ghostTrail_.empty()) {
         SetupModelRenderState();
-        for (const auto& g : ghostTrail_) {
-            float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
-            ghostObject_->SetPosition(g.pos);
-            ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
-            ghostObject_->Update();
-            ghostObject_->Draw();
+        skydome_->Draw();
+
+        SetupModelRenderState();
+
+        for (auto& obj : gameObjects_) { obj->Draw(); }
+        for (auto& block : borderBlocks_) { block->Draw(); }
+
+        if (!ghostTrail_.empty()) {
+            SetupModelRenderState();
+            for (const auto& g : ghostTrail_) {
+                float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
+                ghostObject_->SetPosition(g.pos);
+                ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
+                ghostObject_->Update();
+                ghostObject_->Draw();
+            }
         }
+
+        player_->Draw();
+        enemy_->Draw();
+        enemySlice_.Draw();
     }
 
-    player_->Draw();
-    enemy_->Draw();
-    enemySlice_.Draw();
-
-    pm_->Update(camera_.get());
-    pm_->Draw(camera_.get());
+    {
+        GpuMarker marker(dxCommon_->GetCommandList(), "Particles");
+        pm_->Update(camera_.get());
+        pm_->Draw(camera_.get());
+    }
 
     bladeFlash_.Draw();
 
-    // 空間歪み（バックバッファ直描き時のみ。UIより先に画面をキャプチャして歪ませる）
+    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         spaceWarp_.CaptureAndApply();
@@ -807,7 +818,7 @@ void GamePlayScene::Draw()
         e.sprite->Draw();
     }
 
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる。
+    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
     const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
     if (finisherActive_ || captureFrame) {

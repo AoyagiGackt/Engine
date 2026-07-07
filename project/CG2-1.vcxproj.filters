@@ -629,6 +629,12 @@
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Lighting</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuMarker.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>

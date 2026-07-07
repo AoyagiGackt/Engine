@@ -1,5 +1,5 @@
 ﻿#include "SSAOEffect.h"
-#include <cassert>
+#include "EngineAssert.h"
 #include <cmath>
 #include <random>
 using namespace engine;
@@ -72,12 +72,9 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     HRESULT hr = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cv,
         IID_PPV_ARGS(&res));
-    assert(SUCCEEDED(hr));
+    ENGINE_ASSERT(SUCCEEDED(hr));
 
-    D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
-    rtvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvDesc.NumDescriptors = 1;
-    device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtvHeap));
+    rtvHeap = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
     rtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
     device->CreateRenderTargetView(res.Get(), nullptr, rtvHandle);
 
@@ -283,10 +280,7 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
             &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &cv,
             IID_PPV_ARGS(&depthTex_));
 
-        D3D12_DESCRIPTOR_HEAP_DESC dsvDesc = {};
-        dsvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        dsvDesc.NumDescriptors = 1;
-        device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&dsvHeap_));
+        dsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
         dsvHandle_ = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
         device->CreateDepthStencilView(depthTex_.Get(), nullptr, dsvHandle_);
     }

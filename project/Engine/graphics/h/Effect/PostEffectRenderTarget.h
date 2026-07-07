@@ -8,9 +8,9 @@
 #include <initializer_list>
 namespace engine::graphics {
 
-// 有効なポストエフェクトのオフスクリーンRTVを返す（優先順にチェックし、最初に有効なものを使う）。
-// どれも無効ならバックバッファを返す。新しいポストエフェクトは呼び出し側のリストに加えるだけでよく、
-// この関数自体を変更する必要はない（IPostEffectSourceによるStrategyパターン）。
+// 有効なポストエフェクトのオフスクリーンRTVを返す（優先順にチェックし、最初に有効なものを使う）
+// どれも無効ならバックバッファを返す新しいポストエフェクトは呼び出し側のリストに加えるだけでよく、
+// この関数自体を変更する必要はない（IPostEffectSourceによるStrategyパターン）
 inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
     engine::DirectXCommon* dxCommon, std::initializer_list<IPostEffectSource*> effects)
 {

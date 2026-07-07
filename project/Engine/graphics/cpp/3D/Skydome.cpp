@@ -1,4 +1,4 @@
-﻿#include "Skydome.h"
+#include "Skydome.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -8,7 +8,7 @@ void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
     object_->Initialize(modelCommon);
     object_->SetModel(model);
 
-    // SkyDome.obj の球半径は約500unit。farClip=100 内に収めるため 0.19 倍(半径≒95) にする
+    // SkyDome.obj の球半径は約500unitfarClip=100 内に収めるため 0.19 倍(半径≒95) にする
     object_->SetScale({ 0.19f, 0.19f, 0.19f });
 
     object_->SetEnableLighting(false);
