@@ -332,6 +332,7 @@ logs/
 generated/
 save/
 log/
+MY/
 
 externals/DirectXTex/Bin/
 externals/DirectXTex/x64/
