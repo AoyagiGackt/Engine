@@ -36,13 +36,7 @@ static void GenerateKernel(float* out, int count)
 void SSAOEffect::Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
     D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const
 {
-    D3D12_RESOURCE_BARRIER b = {};
-    b.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    b.Transition.pResource   = res;
-    b.Transition.StateBefore = before;
-    b.Transition.StateAfter  = after;
-    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &b);
+    DirectXCommon::TransitionBarrier(cmd, res, before, after);
 }
 
 void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,

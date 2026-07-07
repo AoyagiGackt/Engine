@@ -14,6 +14,11 @@ SceneManager* SceneManager::GetInstance()
     return &instance;
 }
 
+SceneManager::~SceneManager()
+{
+    if (loadingThread_.joinable()) { loadingThread_.join(); }
+}
+
 void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio, ImGuiManager* imgui)
 {
     dxCommon_ = dxCommon;
@@ -56,6 +61,8 @@ void SceneManager::Update()
 
         if (preloadedScene_ && nextSceneName_ == loadingTargetScene_) {
             // バックグラウンドで Initialize 済み → FlushUploads だけ呼んでそのまま使う
+            // （asyncLoadReady_ が true を返した時点でスレッドの作業は完了しているため、join は即座に返る）
+            if (loadingThread_.joinable()) { loadingThread_.join(); }
             currentScene_ = std::move(preloadedScene_);
             TextureManager::GetInstance()->FlushUploads();
             loadingTargetScene_.clear();
@@ -68,6 +75,9 @@ void SceneManager::Update()
 
             // LOADINGシーンへの切り替え時にバックグラウンドロードを開始する
             if (nextSceneName_ == "LOADING" && !loadingTargetScene_.empty()) {
+                // 前回のロードスレッドが残っていれば先に片付ける（本来は起こらないはずの安全策）
+                if (loadingThread_.joinable()) { loadingThread_.join(); }
+
                 std::string target = loadingTargetScene_;
                 loadingThread_ = std::thread([this, target]() {
                     auto scene = sceneFactory_->CreateScene(target);
@@ -75,7 +85,6 @@ void SceneManager::Update()
                     preloadedScene_ = std::move(scene);
                     asyncLoadReady_.store(true);
                 });
-                loadingThread_.detach();
             }
         }
 
@@ -104,6 +113,11 @@ void SceneManager::Draw()
 
 void SceneManager::Finalize()
 {
+    // バックグラウンドロードスレッドが dxCommon_ 等を参照し続けている間に
+    // 破棄処理へ進まないよう、終了前に必ず合流させる
+    if (loadingThread_.joinable()) { loadingThread_.join(); }
+    preloadedScene_.reset();
+
     if (currentScene_) {
         currentScene_->Finalize();
     }

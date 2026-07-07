@@ -7,7 +7,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "GrayscaleEffect.h"
-#include "GpuMarker.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
 #include "ImGuiControl.h"
@@ -754,10 +753,7 @@ void GamePlayScene::Draw()
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 
-    {
-        GpuMarker marker(dxCommon_->GetCommandList(), "Shadow Pass");
-        DrawShadowPass();
-    }
+    DrawShadowPass();
     SetupMainRenderTarget();
 
     spriteCommon_->CommonDrawSettings();
@@ -768,38 +764,31 @@ void GamePlayScene::Draw()
     spriteCommon_->CommonDrawSettings();
     waterPool_->Draw(camera_.get());
 
-    {
-        GpuMarker marker(dxCommon_->GetCommandList(), "3D Scene");
+    SetupModelRenderState();
+    skydome_->Draw();
 
+    SetupModelRenderState();
+
+    for (auto& obj : gameObjects_) { obj->Draw(); }
+    for (auto& block : borderBlocks_) { block->Draw(); }
+
+    if (!ghostTrail_.empty()) {
         SetupModelRenderState();
-        skydome_->Draw();
-
-        SetupModelRenderState();
-
-        for (auto& obj : gameObjects_) { obj->Draw(); }
-        for (auto& block : borderBlocks_) { block->Draw(); }
-
-        if (!ghostTrail_.empty()) {
-            SetupModelRenderState();
-            for (const auto& g : ghostTrail_) {
-                float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
-                ghostObject_->SetPosition(g.pos);
-                ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
-                ghostObject_->Update();
-                ghostObject_->Draw();
-            }
+        for (const auto& g : ghostTrail_) {
+            float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
+            ghostObject_->SetPosition(g.pos);
+            ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
+            ghostObject_->Update();
+            ghostObject_->Draw();
         }
-
-        player_->Draw();
-        enemy_->Draw();
-        enemySlice_.Draw();
     }
 
-    {
-        GpuMarker marker(dxCommon_->GetCommandList(), "Particles");
-        pm_->Update(camera_.get());
-        pm_->Draw(camera_.get());
-    }
+    player_->Draw();
+    enemy_->Draw();
+    enemySlice_.Draw();
+
+    pm_->Update(camera_.get());
+    pm_->Draw(camera_.get());
 
     bladeFlash_.Draw();
 

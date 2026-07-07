@@ -214,12 +214,8 @@ void VideoPlayer::Update()
             ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
             // リソースバリア: シェーダー参照可能 → コピー先に遷移
-            D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Transition.pResource   = textureResource_.Get();
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-            barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-            commandList->ResourceBarrier(1, &barrier);
+            DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
 
             // コピー先（GPU テクスチャ）と コピー元（アップロードバッファ）を指定してコピー実行
             D3D12_TEXTURE_COPY_LOCATION dst = {};
@@ -235,9 +231,8 @@ void VideoPlayer::Update()
             commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
             // リソースバリア: コピー先 → シェーダー参照可能に戻す
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-            commandList->ResourceBarrier(1, &barrier);
+            DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+                D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         }
     } else if (flags & MF_SOURCE_READERF_ENDOFSTREAM) {
         // 動画の最後まで再生したら先頭に戻してループ再生する
@@ -264,12 +259,8 @@ void VideoPlayer::Draw()
         //     実際には Update() 側でのコピーで十分）
         ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource   = textureResource_.Get();
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
-        commandList->ResourceBarrier(1, &barrier);
+        DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
 
         D3D12_TEXTURE_COPY_LOCATION dst = {};
         dst.pResource        = textureResource_.Get();
@@ -283,9 +274,8 @@ void VideoPlayer::Draw()
 
         commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        commandList->ResourceBarrier(1, &barrier);
+        DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
         isNewFrame_ = false; // フラグをリセットして次のフレームを待つ
     }

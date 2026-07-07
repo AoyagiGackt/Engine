@@ -153,13 +153,8 @@ void ShadowManager::Update(const Vector3& lightDir)
 void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
 {
     if (!shadowMapInDepthWrite_) {
-        D3D12_RESOURCE_BARRIER barrier {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource = shadowMapResource_.Get();
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        commandList->ResourceBarrier(1, &barrier);
+        DirectXCommon::TransitionBarrier(commandList, shadowMapResource_.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
     }
 
     shadowMapInDepthWrite_ = true;
@@ -176,13 +171,8 @@ void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
 
 void ShadowManager::EndShadowPass(ID3D12GraphicsCommandList* commandList)
 {
-    D3D12_RESOURCE_BARRIER barrier {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = shadowMapResource_.Get();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    commandList->ResourceBarrier(1, &barrier);
+    DirectXCommon::TransitionBarrier(commandList, shadowMapResource_.Get(),
+        D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     shadowMapInDepthWrite_ = false;
 }
 

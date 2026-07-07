@@ -37,6 +37,11 @@ void Framework::Initialize()
     dxCommon_ = std::make_unique<DirectXCommon>();
     dxCommon_->Initialize(winApp_.get());
 
+    // ウィンドウがリサイズされたらスワップチェーンを追従させる
+    winApp_->SetResizeCallback([this](int32_t width, int32_t height) {
+        dxCommon_->OnResize(width, height);
+    });
+
     SrvManager::GetInstance()->Initialize(dxCommon_.get());
     GrayscaleEffect::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
     ImageFilter::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());

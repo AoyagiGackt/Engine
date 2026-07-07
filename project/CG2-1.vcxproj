@@ -198,6 +198,7 @@
     <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
@@ -587,8 +588,8 @@
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashHandler.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h" />
-    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuMarker.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h" />

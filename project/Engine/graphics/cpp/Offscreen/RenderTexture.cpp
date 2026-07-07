@@ -63,12 +63,8 @@ void RenderTexture::BeginRendering()
 
     // 初回は RENDER_TARGET が初期状態なのでバリア不要
     if (!isFirstFrame_) {
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource   = resource_.Get();
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        cmdList->ResourceBarrier(1, &barrier);
+        DirectXCommon::TransitionBarrier(cmdList, resource_.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
     isFirstFrame_ = false;
 
@@ -89,10 +85,6 @@ void RenderTexture::EndRendering()
     auto* cmdList = dxCommon_->GetCommandList();
 
     // RENDER_TARGET → PIXEL_SHADER_RESOURCE
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = resource_.Get();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    cmdList->ResourceBarrier(1, &barrier);
+    DirectXCommon::TransitionBarrier(cmdList, resource_.Get(),
+        D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }

@@ -336,6 +336,9 @@
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
     </ClCompile>
@@ -629,10 +632,10 @@
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Lighting</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h">
+    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashHandler.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuMarker.h">
+    <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h">

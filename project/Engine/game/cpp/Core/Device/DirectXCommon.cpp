@@ -42,13 +42,7 @@ void DirectXCommon::Initialize(WinApp* winApp)
 void DirectXCommon::Finalize()
 {
     // GPU の処理がすべて終わるまで待つ
-    fenceValue_++;
-    commandQueue_->Signal(fence_.Get(), fenceValue_);
-
-    if (fence_->GetCompletedValue() < fenceValue_) {
-        fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-        WaitForSingleObject(fenceEvent_, INFINITE);
-    }
+    WaitForGpu();
 
     // スワップチェーンのフルスクリーン解除（解放前に必須）
     BOOL fullscreen = FALSE;
@@ -78,13 +72,8 @@ void DirectXCommon::PreDraw()
 
     // リソースバリア
     UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = swapChainResources_[backBufferIndex].Get();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    commandList_->ResourceBarrier(1, &barrier);
+    TransitionBarrier(commandList_.Get(), swapChainResources_[backBufferIndex].Get(),
+        D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // 描画先と深度を設定
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
@@ -121,13 +110,8 @@ void DirectXCommon::PostDraw()
 
     // リソースバリア
     UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = swapChainResources_[backBufferIndex].Get();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-    commandList_->ResourceBarrier(1, &barrier);
+    TransitionBarrier(commandList_.Get(), swapChainResources_[backBufferIndex].Get(),
+        D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
     // コマンドリストを閉じる
     hr = commandList_->Close();
@@ -145,13 +129,7 @@ void DirectXCommon::PostDraw()
     UpdateFixFPS();
 
     // フェンス同期
-    fenceValue_++;
-    commandQueue_->Signal(fence_.Get(), fenceValue_);
-
-    if (fence_->GetCompletedValue() < fenceValue_) {
-        fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-        WaitForSingleObject(fenceEvent_, INFINITE);
-    }
+    WaitForGpu();
 }
 
 Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile)
@@ -259,6 +237,16 @@ void DirectXCommon::InitializeDevice()
     }
 
     ENGINE_ASSERT(device_ != nullptr);
+
+#ifdef _DEBUG
+    // ERROR/CORRUPTIONメッセージが出た瞬間にその場でブレークさせる
+    // （出力ウィンドウに流れるだけだと見逃し、原因のドローコールから離れた場所で気づくことになるため）
+    ComPtr<ID3D12InfoQueue> infoQueue;
+    if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+    }
+#endif
 }
 
 void DirectXCommon::CreateCommand()
@@ -365,6 +353,26 @@ void DirectXCommon::CreateRTV()
     device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
 }
 
+void DirectXCommon::OnResize(uint32_t width, uint32_t height)
+{
+    if (width == 0 || height == 0 || !swapChain_) { return; } // 最小化中などは無視
+
+    DXGI_SWAP_CHAIN_DESC1 desc = {};
+    swapChain_->GetDesc1(&desc);
+    if (desc.Width == width && desc.Height == height) { return; }
+
+    // GPUがバックバッファの参照を終えるまで待ってから解放する
+    WaitForGpu();
+    swapChainResources_[0].Reset();
+    swapChainResources_[1].Reset();
+
+    // フォーマットは DXGI_FORMAT_UNKNOWN を渡して既存のもの（作成時のUNORM）を維持する
+    HRESULT hr = swapChain_->ResizeBuffers(2, width, height, DXGI_FORMAT_UNKNOWN, 0);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+
+    CreateRTV();
+}
+
 void DirectXCommon::CreateFence()
 {
     HRESULT hr;
@@ -457,6 +465,43 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateBufferResource(size_
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     return resource;
+}
+
+void DirectXCommon::WaitForFence(
+    ID3D12CommandQueue* queue, ID3D12Fence* fence, UINT64& fenceValue, HANDLE fenceEvent)
+{
+    ++fenceValue;
+    queue->Signal(fence, fenceValue);
+
+    if (fence->GetCompletedValue() < fenceValue) {
+        fence->SetEventOnCompletion(fenceValue, fenceEvent);
+        WaitForSingleObject(fenceEvent, INFINITE);
+    }
+}
+
+void DirectXCommon::WaitForGpu()
+{
+    WaitForFence(commandQueue_.Get(), fence_.Get(), fenceValue_, fenceEvent_);
+}
+
+D3D12_RESOURCE_BARRIER DirectXCommon::MakeTransitionBarrier(
+    ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource)
+{
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource   = resource;
+    barrier.Transition.StateBefore = before;
+    barrier.Transition.StateAfter  = after;
+    barrier.Transition.Subresource = subresource;
+    return barrier;
+}
+
+void DirectXCommon::TransitionBarrier(
+    ID3D12GraphicsCommandList* commandList, ID3D12Resource* resource,
+    D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource)
+{
+    D3D12_RESOURCE_BARRIER barrier = MakeTransitionBarrier(resource, before, after, subresource);
+    commandList->ResourceBarrier(1, &barrier);
 }
 
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DirectXCommon::CreateDescriptorHeap(
