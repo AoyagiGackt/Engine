@@ -198,7 +198,7 @@
     <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
-    <ClCompile Include="Engine\game\cpp\Util\Logger.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp" />
@@ -587,7 +587,7 @@
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
-    <ClInclude Include="Engine\game\h\Util\Logger.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneShared.h" />
@@ -620,6 +620,13 @@
     <ClInclude Include="Engine\graphics\h\Effect\VideoPlayer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\VignetteEffect.h" />
     <ClInclude Include="Engine\math\h\MakeAffine.h" />
+    <ClInclude Include="Engine\math\h\MathCollision.h" />
+    <ClInclude Include="Engine\math\h\Matrix4x4.h" />
+    <ClInclude Include="Engine\math\h\Quaternion.h" />
+    <ClInclude Include="Engine\math\h\Transform.h" />
+    <ClInclude Include="Engine\math\h\Vector2.h" />
+    <ClInclude Include="Engine\math\h\Vector3.h" />
+    <ClInclude Include="Engine\math\h\Vector4.h" />
     <ClInclude Include="Engine\game\h\Core\Input\Input.h" />
     <ClInclude Include="Engine\game\h\Util\StringUtility.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiManager.h" />
@@ -662,7 +669,7 @@
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
-    <ClInclude Include="Engine\game\h\Util\DebugProfiler.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugProfiler.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\lighting\LightingMode.hlsli" />

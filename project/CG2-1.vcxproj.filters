@@ -336,8 +336,8 @@
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Util\Logger.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Window</Filter>
@@ -629,8 +629,8 @@
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Lighting</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Util\Logger.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
@@ -726,6 +726,27 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\math\h\MakeAffine.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\MathCollision.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Matrix4x4.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Quaternion.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Transform.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Vector2.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Vector3.h">
+      <Filter>ヘッダーファイル\Engine\math\h</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\math\h\Vector4.h">
       <Filter>ヘッダーファイル\Engine\math\h</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Input\Input.h">
@@ -854,8 +875,8 @@
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Util\DebugProfiler.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugProfiler.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

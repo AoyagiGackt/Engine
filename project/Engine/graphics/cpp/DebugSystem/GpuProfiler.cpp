@@ -4,7 +4,6 @@
 #include <cassert>
 #ifdef USE_IMGUI
 #include <imgui.h>
-using engine::game::DebugProfiler;
 #endif
 
 namespace engine::graphics {

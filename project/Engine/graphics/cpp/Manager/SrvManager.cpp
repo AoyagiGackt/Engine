@@ -1,4 +1,5 @@
 ﻿#include "SrvManager.h"
+#include <algorithm>
 #include <cassert>
 using namespace engine;
 using namespace engine::graphics;
@@ -34,6 +35,19 @@ void SrvManager::Initialize(DirectXCommon* dxCommon)
 
 void SrvManager::PreDraw()
 {
+    ++frameCount_;
+
+    // 解放から十分なフレーム数が経過した（＝GPUが使い終わったはずの）インデックスを
+    // フリーリストへ移し、以後のAllocate()で再利用できるようにする
+    pendingFree_.erase(
+        std::remove_if(pendingFree_.begin(), pendingFree_.end(),
+            [this](const std::pair<uint64_t, uint32_t>& p) {
+                if (p.first + kFreeDelayFrames > frameCount_) { return false; }
+                freeList_.push_back(p.second);
+                return true;
+            }),
+        pendingFree_.end());
+
     // 描画フレームの最初にヒープをセットする
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap_.Get() };
@@ -42,11 +56,19 @@ void SrvManager::PreDraw()
 
 uint32_t SrvManager::Allocate()
 {
-    assert(useIndex_ < kMaxSRVCount);
+    if (!freeList_.empty()) {
+        uint32_t index = freeList_.back();
+        freeList_.pop_back();
+        return index;
+    }
 
-    int index = useIndex_;
-    useIndex_++;
-    return index;
+    assert(useIndex_ < kMaxSRVCount);
+    return useIndex_++;
+}
+
+void SrvManager::Free(uint32_t srvIndex)
+{
+    pendingFree_.push_back({ frameCount_, srvIndex });
 }
 
 void SrvManager::CreateSRVforTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels)

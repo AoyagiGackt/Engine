@@ -10,6 +10,9 @@ public:
     void BeginRendering();
     void EndRendering();
 
+    /** @brief 確保したSRVインデックスをSrvManagerへ返却する（再生成前・破棄前に呼ぶこと） */
+    void Finalize(SrvManager* srvManager);
+
     uint32_t GetSrvIndex() const { return srvIndex_; }
 
 private:

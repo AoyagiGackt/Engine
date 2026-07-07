@@ -56,6 +56,11 @@ void RenderTexture::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, 
     srvManager->CreateSRVforTexture2D(srvIndex_, resource_.Get(), kFormat, 1);
 }
 
+void RenderTexture::Finalize(SrvManager* srvManager)
+{
+    srvManager->Free(srvIndex_);
+}
+
 void RenderTexture::BeginRendering()
 {
     auto* cmdList = dxCommon_->GetCommandList();

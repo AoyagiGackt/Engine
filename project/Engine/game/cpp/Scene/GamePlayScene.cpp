@@ -1008,6 +1008,7 @@ void GamePlayScene::TriggerGlassShatterTest()
 void GamePlayScene::Finalize()
 {
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
+    renderTexture_->Finalize(srvManager_);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();
     finisherShatter_.Finalize();

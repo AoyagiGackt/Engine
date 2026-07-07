@@ -4,6 +4,8 @@
  */
 #pragma once
 #include "DirectXCommon.h"
+#include <utility>
+#include <vector>
 #include <wrl/client.h>
 namespace engine::graphics {
 
@@ -35,9 +37,18 @@ public:
     /**
      * @brief 未使用のデスクリプタインデックスを1つ確保する
      * @return uint32_t 確保した場所のインデックス番号
-     * @note 確保できる最大数（kMaxSRVCount）を超えるとアサートが発生します!
+     * @note Free()済みのインデックスがあればそれを再利用し、無ければ新規に確保する。
+     * 確保できる最大数（kMaxSRVCount）を超えるとアサートが発生します!
      */
     uint32_t Allocate();
+
+    /**
+     * @brief 使い終わったデスクリプタインデックスを解放し、以後のAllocate()で再利用可能にする
+     * @param srvIndex 解放するインデックス（Allocate()で確保したもの）
+     * @note GPUが当該フレームの描画コマンドを実行し終えるまでは再利用させないよう、
+     * 数フレーム分の遅延を挟んでからフリーリストに戻す
+     */
+    void Free(uint32_t srvIndex);
 
     /**
      * @brief 指定したインデックスの場所に、テクスチャ2D用のSRVを生成する
@@ -109,6 +120,18 @@ private:
 
     /** @brief 現在どこまでインデックスを使用しているかのカウント */
     uint32_t useIndex_ = 0;
+
+    /** @brief 遅延解放の安全マージン（このフレーム数だけ経過してから再利用を許可する） */
+    static constexpr uint64_t kFreeDelayFrames = 3;
+
+    /** @brief 即座に再利用可能なインデックスのリスト */
+    std::vector<uint32_t> freeList_;
+
+    /** @brief Free()されたが、まだ再利用不可なインデックス（解放時のフレーム番号付き） */
+    std::vector<std::pair<uint64_t, uint32_t>> pendingFree_;
+
+    /** @brief PreDraw()の呼び出し回数（フレームカウンタ代わり） */
+    uint64_t frameCount_ = 0;
 };
 
 } // namespace engine::graphics
