@@ -39,12 +39,8 @@ private:
     static void ShowMaterialSettings();
     static void ShowLightingSettings();
     static void ShowPostProcessSettings();
-    static void ShowOutlineSettings();
-    static void ShowRadialBlurSettings();
-    static void ShowDissolveSettings();
-    static void ShowNoiseSettings();
-    static void ShowGlassShatterSettings();
-    static void ShowLightSettings();
+    // アウトライン/ラジアルブラー/ディゾルブ/GPUノイズ/ガラス割れ/ライトを1ウィンドウにまとめて描画する
+    static void ShowEffectAndLightSettings();
 
     static Object3dCommon*              obj3dCommon_;
     static std::vector<DebugPointLight> debugLights_;
