@@ -77,12 +77,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.obj",
         "Resources/monsterBall.png");
 
-    pm_->CreateParticleGroup("bt_hit_ring",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("bt_hit_spark",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("bt_sword_slash", "Resources/slashStreak.png");
-    pm_->SetAdditiveBlend("bt_hit_ring",    true);
-    pm_->SetAdditiveBlend("bt_hit_spark",   true);
-    pm_->SetAdditiveBlend("bt_sword_slash", true);
+    SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/battletest.json");
 
     {
         Dummy d;
@@ -776,10 +771,10 @@ void BattleTestScene::TriggerGlassShatterTest()
 
 D3D12_CPU_DESCRIPTOR_HANDLE BattleTestScene::GetActiveRTVHandle() const
 {
-    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
+    return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void BattleTestScene::SetupMainRenderTarget()
 {
-    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
+    SceneShared::SetupMainRenderTarget(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }

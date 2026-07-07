@@ -4,10 +4,11 @@
  */
 #pragma once
 #include "MakeAffine.h"
+#include "PostEffectFullscreenPass.h" // IPostEffectSource
 #include "WeaponManager.h"
 #include <memory>
 #include <string>
-namespace engine { class Input; }
+namespace engine { class DirectXCommon; class Input; }
 namespace engine::graphics { class Camera; class ParticleManager; class Sprite; class SpriteCommon; }
 
 namespace engine::game {
@@ -17,6 +18,17 @@ namespace SceneShared {
 
 /// @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する
 std::unique_ptr<engine::graphics::Sprite> CreateFinisherOverlay(engine::graphics::SpriteCommon* spriteCommon);
+
+/// @brief JSONファイル（[{name, texture, additive}, ...]）に従ってパーティクルグループを一括登録する
+void CreateParticleGroupsFromJson(engine::graphics::ParticleManager* pm, const std::string& jsonPath);
+
+/// @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す
+D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
+    std::initializer_list<engine::graphics::IPostEffectSource*> effects);
+
+/// @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する
+void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
+    std::initializer_list<engine::graphics::IPostEffectSource*> effects);
 
 /// @brief フィニッシャー発動時の溜めエフェクト（周囲から中心へ収束する光粒＋小リング）を放出する
 void EmitFinisherCharge(engine::graphics::ParticleManager* pm,

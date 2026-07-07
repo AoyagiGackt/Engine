@@ -1,0 +1,109 @@
+{
+    "ranged": {
+        "name": "Pistol",
+        "damage": 12.0,
+        "range": 15.0,
+        "attackInterval": 0.18,
+        "description": "標準的な拳銃",
+        "commands": [
+            { "key": "F",       "desc": "射撃" },
+            { "key": "Shift+F", "desc": "連射" }
+        ]
+    },
+    "weapons": [
+        {
+            "name": "Sword",
+            "type": "Sword",
+            "styleName": "鬼神 (Swordmaster)",
+            "styleNameJp": "鬼神",
+            "damage": 30.0,
+            "range": 2.5,
+            "attackInterval": 0.50,
+            "description": "バランス型の全能剣士",
+            "styleColor": [0.95, 0.35, 0.15, 1.0],
+            "knockbackMult": 1.0,
+            "commands": [
+                { "key": "L",    "desc": "3段コンボ" },
+                { "key": "K",    "desc": "射撃" },
+                { "key": "W/Up", "desc": "ジャンプ" },
+                { "key": "R",    "desc": "覚醒" }
+            ]
+        },
+        {
+            "name": "Spear",
+            "type": "Spear",
+            "styleName": "銃士 (Gunslinger)",
+            "styleNameJp": "銃士",
+            "damage": 20.0,
+            "range": 4.0,
+            "attackInterval": 0.70,
+            "description": "遠距離射撃スタイル",
+            "styleColor": [0.20, 0.65, 1.0, 1.0],
+            "knockbackMult": 0.7,
+            "commands": [
+                { "key": "K",    "desc": "射撃" },
+                { "key": "L",    "desc": "格闘" },
+                { "key": "W/Up", "desc": "ジャンプ" },
+                { "key": "R",    "desc": "覚醒" }
+            ]
+        },
+        {
+            "name": "Dagger",
+            "type": "Dagger",
+            "styleName": "奇術師 (Trickster)",
+            "styleNameJp": "奇術師",
+            "damage": 15.0,
+            "range": 1.5,
+            "attackInterval": 0.25,
+            "description": "高速機動スタイル",
+            "styleColor": [0.20, 1.0, 0.45, 1.0],
+            "knockbackMult": 0.6,
+            "commands": [
+                { "key": "Space", "desc": "ブリンク" },
+                { "key": "K",     "desc": "射撃" },
+                { "key": "L",     "desc": "格闘" },
+                { "key": "W/Up",  "desc": "ジャンプ" },
+                { "key": "R",     "desc": "覚醒" }
+            ]
+        },
+        {
+            "name": "Hammer",
+            "type": "Hammer",
+            "styleName": "守護者 (Royal Guard)",
+            "styleNameJp": "守護者",
+            "damage": 60.0,
+            "range": 1.8,
+            "attackInterval": 1.20,
+            "description": "カウンター防御スタイル",
+            "styleColor": [0.75, 0.30, 1.0, 1.0],
+            "knockbackMult": 2.0,
+            "commands": [
+                { "key": "Space", "desc": "ゲージチャージ" },
+                { "key": "K",     "desc": "射撃" },
+                { "key": "L",     "desc": "格闘" },
+                { "key": "W/Up",  "desc": "ジャンプ" },
+                { "key": "R",     "desc": "覚醒" }
+            ]
+        },
+        {
+            "name": "Ball",
+            "type": "Ball",
+            "styleName": "玉術師 (BallMaster)",
+            "styleNameJp": "玉術師",
+            "damage": 12.0,
+            "range": 3.0,
+            "attackInterval": 0.30,
+            "description": "玉を連射するスタイル",
+            "styleColor": [1.0, 0.45, 0.85, 1.0],
+            "knockbackMult": 0.4,
+            "commands": [
+                { "key": "Space",      "desc": "スピン連射" },
+                { "key": "Space(Air)", "desc": "スピン+ばらまき" },
+                { "key": "L",          "desc": "格闘" },
+                { "key": "K",          "desc": "射撃" },
+                { "key": "W/Up",       "desc": "ジャンプ" },
+                { "key": "R",          "desc": "覚醒" }
+            ]
+        }
+    ]
+}

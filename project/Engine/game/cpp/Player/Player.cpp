@@ -124,7 +124,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // 入水・出水判定（物理後の位置で確定）
-    inWater_          = (pos_.y < kWaterLevel_);
+    inWater_          = (pos_.y < waterLevel_);
     justEnteredWater_ = !prevInWater_ && inWater_;
     justExitedWater_  = prevInWater_  && !inWater_;
 

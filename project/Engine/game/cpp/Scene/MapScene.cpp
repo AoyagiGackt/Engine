@@ -9,9 +9,6 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-static constexpr float kScreenW = 1280.0f;
-static constexpr float kScreenH = 720.0f;
-
 // フロアごとのY座標（上=boss, 下=floor0）
 static constexpr float kFloorY[4] = { 530.0f, 410.0f, 290.0f, 150.0f };
 
@@ -81,7 +78,7 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     bgSprite_ = std::make_unique<Sprite>();
     bgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     bgSprite_->SetPosition({ 0.0f, 0.0f });
-    bgSprite_->SetSize({ kScreenW, kScreenH });
+    bgSprite_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
     bgSprite_->SetColor({ 0.05f, 0.05f, 0.08f, 1.0f });
 
     nodeSprite_ = std::make_unique<Sprite>();

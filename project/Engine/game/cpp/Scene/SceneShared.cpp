@@ -3,7 +3,9 @@
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "Input.h"
+#include "JsonHelper.h"
 #include "ParticleManager.h"
+#include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "SlashMark.h"
 #include "Sprite.h"
@@ -39,6 +41,28 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
                         static_cast<float>(WinApp::kClientHeight) });
     overlay->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
     return overlay;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
+    std::initializer_list<IPostEffectSource*> effects)
+{
+    return GetActiveSceneRTVHandle(dxCommon, effects);
+}
+
+void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
+    std::initializer_list<IPostEffectSource*> effects)
+{
+    SetupSceneRenderTarget(dxCommon, GetActiveSceneRTVHandle(dxCommon, effects));
+}
+
+void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPath)
+{
+    for (const auto& group : JsonHelper::Load(jsonPath)) {
+        std::string name = group.value("name", "");
+        if (name.empty()) { continue; }
+        pm->CreateParticleGroup(name, group.value("texture", ""));
+        pm->SetAdditiveBlend(name, group.value("additive", false));
+    }
 }
 
 void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weaponCycleTimer)

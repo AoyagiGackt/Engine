@@ -11,9 +11,11 @@ namespace GameConstants {
     inline constexpr float kTargetFps      = 60.0f;
     inline constexpr float kFrameDeltaTime = 1.0f / kTargetFps;
 
-    // 画面中心（1280×720）
-    inline constexpr float kScreenCenterX = 640.0f;
-    inline constexpr float kScreenCenterY = 360.0f;
+    // 画面サイズ・画面中心
+    inline constexpr float kScreenWidth   = 1280.0f;
+    inline constexpr float kScreenHeight  = 720.0f;
+    inline constexpr float kScreenCenterX = kScreenWidth  * 0.5f;
+    inline constexpr float kScreenCenterY = kScreenHeight * 0.5f;
 
     // 数学定数
     inline constexpr float kPi      = 3.14159265358979323846f;

@@ -128,25 +128,11 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
 
     pm_ = ParticleManager::GetInstance();
-    pm_->CreateParticleGroup("hit_ring",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("hit_spark",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("land_dust",   "Resources/circle2.png");
-    pm_->CreateParticleGroup("jump_smoke",  "Resources/circle2.png");
-    pm_->CreateParticleGroup("sword_slash", "Resources/slashStreak.png");
-    pm_->CreateParticleGroup("gun_shot",    "Resources/circle2.png");
-    pm_->CreateParticleGroup("blink_trail", "Resources/circle2.png");
-    pm_->CreateParticleGroup("awaken_aura", "Resources/circle2.png");
-    pm_->SetAdditiveBlend("hit_ring",    true);
-    pm_->SetAdditiveBlend("hit_spark",   true);
-    pm_->SetAdditiveBlend("land_dust",   false);
-    pm_->SetAdditiveBlend("jump_smoke",  false);
-    pm_->SetAdditiveBlend("sword_slash", true);
-    pm_->SetAdditiveBlend("gun_shot",    true);
-    pm_->SetAdditiveBlend("blink_trail", true);
-    pm_->SetAdditiveBlend("awaken_aura", true);
+    SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/gameplay.json");
 
     waterPool_ = std::make_unique<WaterPool>();
     waterPool_->Initialize(spriteCommon_.get());
+    player_->SetWaterLevel(WaterPool::GetSurfaceY());
 
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
@@ -712,12 +698,12 @@ void GamePlayScene::CheckClearCondition()
 
 D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
 {
-    return GetActiveSceneRTVHandle(dxCommon_, imageFilter_, grayscaleEffect_, hsvFilter_);
+    return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void GamePlayScene::SetupMainRenderTarget()
 {
-    SetupSceneRenderTarget(dxCommon_, GetActiveRTVHandle());
+    SceneShared::SetupMainRenderTarget(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
 }
 
 void GamePlayScene::SetupModelRenderState()

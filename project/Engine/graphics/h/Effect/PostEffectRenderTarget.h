@@ -3,17 +3,20 @@
 #include "GrayscaleEffect.h"
 #include "ImageFilter.h"
 #include "HsvFilter.h"
+#include "PostEffectFullscreenPass.h" // IPostEffectSource
 #include "WinApp.h"
+#include <initializer_list>
 namespace engine::graphics {
 
-// 有効なポストエフェクトのオフスクリーンRTVを返す。どれも無効ならバックバッファを返す
+// 有効なポストエフェクトのオフスクリーンRTVを返す（優先順にチェックし、最初に有効なものを使う）。
+// どれも無効ならバックバッファを返す。新しいポストエフェクトは呼び出し側のリストに加えるだけでよく、
+// この関数自体を変更する必要はない（IPostEffectSourceによるStrategyパターン）。
 inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
-    engine::DirectXCommon* dxCommon, ImageFilter* imageFilter,
-    GrayscaleEffect* grayscaleEffect, HsvFilter* hsvFilter)
+    engine::DirectXCommon* dxCommon, std::initializer_list<IPostEffectSource*> effects)
 {
-    if (imageFilter->IsEnabled())     { return imageFilter->GetSceneRTVHandle(); }
-    if (grayscaleEffect->IsEnabled()) { return grayscaleEffect->GetSceneRTVHandle(); }
-    if (hsvFilter->IsEnabled())       { return hsvFilter->GetSceneRTVHandle(); }
+    for (IPostEffectSource* effect : effects) {
+        if (effect && effect->IsEnabled()) { return effect->GetSceneRTVHandle(); }
+    }
     return dxCommon->GetCurrentBackBufferHandle();
 }
 

@@ -79,9 +79,10 @@ void ImGuiControlPanel::ShowMeshSettings()
         for (int i = 0; i < static_cast<int>(MeshType::Count); ++i) {
             ImGui::PushID(i);
             if (ImGui::TreeNode(meshNames[i])) {
-                ImGui::DragFloat3("スケール", &MeshManager::GetInstance()->meshes[i].transform.scale.x,     0.01f);
-                ImGui::DragFloat3("回転",     &MeshManager::GetInstance()->meshes[i].transform.rotate.x,    0.01f);
-                ImGui::DragFloat3("移動",     &MeshManager::GetInstance()->meshes[i].transform.translate.x, 0.01f);
+                MeshData& mesh = MeshManager::GetInstance()->GetMesh(static_cast<MeshType>(i));
+                ImGui::DragFloat3("スケール", &mesh.transform.scale.x,     0.01f);
+                ImGui::DragFloat3("回転",     &mesh.transform.rotate.x,    0.01f);
+                ImGui::DragFloat3("移動",     &mesh.transform.translate.x, 0.01f);
                 ImGui::TreePop();
             }
             ImGui::PopID();

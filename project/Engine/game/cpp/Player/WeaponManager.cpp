@@ -1,7 +1,35 @@
 #include "WeaponManager.h"
+#include "JsonHelper.h"
+#include "StringUtility.h"
 #include <algorithm>
 using namespace engine;
 using namespace engine::game;
+
+namespace {
+
+constexpr const char* kWeaponDataPath = "Resources/weapons.json";
+
+WeaponType ParseWeaponType(const std::string& type) {
+    if (type == "Sword")  { return WeaponType::Sword; }
+    if (type == "Spear")  { return WeaponType::Spear; }
+    if (type == "Hammer") { return WeaponType::Hammer; }
+    if (type == "Dagger") { return WeaponType::Dagger; }
+    if (type == "Ball")   { return WeaponType::Ball; }
+    return WeaponType::Sword;
+}
+
+std::vector<WeaponCommand> ParseCommands(const nlohmann::json& arr) {
+    std::vector<WeaponCommand> commands;
+    for (const auto& c : arr) {
+        commands.push_back({
+            c.value("key", ""),
+            StringUtility::ConvertString(c.value("desc", ""))
+        });
+    }
+    return commands;
+}
+
+} // namespace
 
 WeaponManager* WeaponManager::GetInstance() {
     static WeaponManager instance;
@@ -9,82 +37,42 @@ WeaponManager* WeaponManager::GetInstance() {
 }
 
 WeaponManager::WeaponManager() {
+    nlohmann::json j = JsonHelper::Load(kWeaponDataPath);
+
     // 初期射撃武器（全スタイル共通）
+    const auto& r = j["ranged"];
     ranged_ = {
-        "Pistol", 12.0f, 15.0f, 0.18f, "標準的な拳銃",
-        {
-            { "F",       L"射撃" },
-            { "Shift+F", L"連射" },
-        }
+        r.value("name", ""),
+        r.value("damage", 0.0f),
+        r.value("range", 0.0f),
+        r.value("attackInterval", 0.0f),
+        r.value("description", ""),
+        ParseCommands(r.value("commands", nlohmann::json::array()))
     };
 
-    // 4スタイル（1〜4キー対応）
-    weapons_ = {
-        // ── Style 1: 鬼神 (Swordmaster) ──────────────────────────────
-        {
-            "Sword", "鬼神 (Swordmaster)", L"鬼神", WeaponType::Sword,
-            30.0f, 2.5f, 0.50f, "バランス型の全能剣士",
-            { 0.95f, 0.35f, 0.15f, 1.0f }, 1.0f,  // 橙赤
-            {
-                { "L",    L"3段コンボ" },
-                { "K",    L"射撃" },
-                { "W/Up", L"ジャンプ" },
-                { "R",    L"覚醒" },
-            }
-        },
-        // ── Style 2: 銃士 (Gunslinger) ───────────────────────────────
-        {
-            "Spear", "銃士 (Gunslinger)", L"銃士", WeaponType::Spear,
-            20.0f, 4.0f, 0.70f, "遠距離射撃スタイル",
-            { 0.20f, 0.65f, 1.0f, 1.0f }, 0.7f,   // シアン青
-            {
-                { "K",    L"射撃" },
-                { "L",    L"格闘" },
-                { "W/Up", L"ジャンプ" },
-                { "R",    L"覚醒" },
-            }
-        },
-        // ── Style 3: 奇術師 (Trickster) ──────────────────────────────
-        {
-            "Dagger", "奇術師 (Trickster)", L"奇術師", WeaponType::Dagger,
-            15.0f, 1.5f, 0.25f, "高速機動スタイル",
-            { 0.20f, 1.0f, 0.45f, 1.0f }, 0.6f,   // ライムグリーン
-            {
-                { "Space", L"ブリンク" },
-                { "K",     L"射撃" },
-                { "L",     L"格闘" },
-                { "W/Up",  L"ジャンプ" },
-                { "R",     L"覚醒" },
-            }
-        },
-        // ── Style 4: 守護者 (Royal Guard) ────────────────────────────
-        {
-            "Hammer", "守護者 (Royal Guard)", L"守護者", WeaponType::Hammer,
-            60.0f, 1.8f, 1.20f, "カウンター防御スタイル",
-            { 0.75f, 0.30f, 1.0f, 1.0f }, 2.0f,   // 紫
-            {
-                { "Space", L"ゲージチャージ" },
-                { "K",     L"射撃" },
-                { "L",     L"格闘" },
-                { "W/Up",  L"ジャンプ" },
-                { "R",     L"覚醒" },
-            }
-        },
-        // ── Style 5: 玉術師 (Ball Master) ────────────────────────────
-        {
-            "Ball", "玉術師 (BallMaster)", L"玉術師", WeaponType::Ball,
-            12.0f, 3.0f, 0.30f, "玉を連射するスタイル",
-            { 1.0f, 0.45f, 0.85f, 1.0f }, 0.4f,   // ピンク
-            {
-                { "Space",     L"スピン連射" },
-                { "Space(Air)", L"スピン+ばらまき" },
-                { "L",         L"格闘" },
-                { "K",         L"射撃" },
-                { "W/Up",      L"ジャンプ" },
-                { "R",         L"覚醒" },
-            }
-        },
-    };
+    // スタイル一覧（1〜5キー対応）
+    for (const auto& w : j.value("weapons", nlohmann::json::array())) {
+        WeaponData data;
+        data.name           = w.value("name", "");
+        data.styleName      = w.value("styleName", "");
+        data.styleNameJp    = StringUtility::ConvertString(w.value("styleNameJp", ""));
+        data.type           = ParseWeaponType(w.value("type", ""));
+        data.damage         = w.value("damage", 0.0f);
+        data.range          = w.value("range", 0.0f);
+        data.attackInterval = w.value("attackInterval", 0.0f);
+        data.description    = w.value("description", "");
+        data.knockbackMult  = w.value("knockbackMult", 1.0f);
+        data.commands       = ParseCommands(w.value("commands", nlohmann::json::array()));
+
+        data.styleColor[0] = data.styleColor[1] = data.styleColor[2] = 0.0f;
+        data.styleColor[3] = 1.0f;
+        auto color = w.value("styleColor", nlohmann::json::array());
+        for (size_t i = 0; i < 4 && i < color.size(); ++i) {
+            data.styleColor[i] = color[i].get<float>();
+        }
+
+        weapons_.push_back(std::move(data));
+    }
 }
 
 void WeaponManager::SelectIndex(int i) {

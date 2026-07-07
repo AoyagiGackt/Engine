@@ -22,6 +22,9 @@ public:
     // プレイヤーの入水・出水時に呼ぶ（水面でスプラッシュ発生）
     void EmitSplash(const Vector3& position);
 
+    /** @brief 水面のY座標を返す（Player::SetWaterLevel() に渡して水中判定と同期させる） */
+    static constexpr float GetSurfaceY() { return kPoolTop; }
+
 private:
     SpriteCommon*           spriteCommon_ = nullptr;
     ParticleManager*        pm_           = nullptr;
@@ -43,7 +46,7 @@ private:
     std::mt19937 bubbleRng_;
     std::mt19937 splashRng_;
 
-    // プール領域（Player::kWaterLevel_ と kPoolTop を一致させること）
+    // プール領域
     static constexpr float kPoolX0     =  3.0f;
     static constexpr float kPoolX1     = 27.0f;
     static constexpr float kPoolTop    =  3.0f;

@@ -74,6 +74,11 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    /**
+     * @brief 水面のY座標を設定する（WaterPool::GetSurfaceY() の値を渡す）
+     * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
+     */
+    void SetWaterLevel(float waterLevelY) { waterLevel_ = waterLevelY; }
     /** @brief プレイヤーが使用しているモデルのポインタを返す */
     Model* GetModel() const { return model_.get(); }
 
@@ -136,9 +141,8 @@ private:
     static constexpr float kJumpPower_ =  0.4f;
     static constexpr float kSpeed_     =  0.15f;
 
-    // 水中物理（水なしステージでは -1.0f にして水中判定を無効化）
-    // 水ありステージでは WaterPool::kPoolTop（3.0f）に合わせること
-    static constexpr float kWaterLevel_  = -1.0f;
+    // 水中物理（水なしステージでは無効化された状態のままにする）
+    static constexpr float kWaterLevelDisabled_ = -1.0f;
     static constexpr float kWaterGravity_=  0.003f;  // 浮力で弱い沈下加速度
     static constexpr float kWaterSpeed_  =  0.10f;   // 水中横移動速度
     static constexpr float kSwimAccel_   =  0.025f;  // 長押しで上昇する加速度
@@ -146,6 +150,7 @@ private:
     static constexpr float kSinkMaxVY_   = -0.12f;   // 沈下最大速度
 
     Vector3 pos_          = { 8.0f, 0.4f, 0.0f };
+    float   waterLevel_   = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
     float   velocityY_    = 0.0f;
     bool    onGround_     = true;
     bool    prevOnGround_ = true;
