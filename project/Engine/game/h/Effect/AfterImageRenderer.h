@@ -24,8 +24,9 @@ public:
      * @brief 初期化描画に使うモデルを設定する
      * @param modelCommon 描画共通設定
      * @param model       残像として描画するモデル（プレイヤーと同一のものを渡す）
+     * @param scale       描画スケール（プレイヤー本体と同じ値を渡す）
      */
-    void Initialize(ModelCommon* modelCommon, Model* model);
+    void Initialize(ModelCommon* modelCommon, Model* model, float scale = 1.0f);
 
     /**
      * @brief 毎フレーム残像を更新する

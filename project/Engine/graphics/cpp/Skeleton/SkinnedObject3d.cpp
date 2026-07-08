@@ -71,17 +71,10 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
     transformCB_ = makeBuffer((sizeof(TransformationMatrix) + 255) & ~255u);
     transformCB_->Map(0, nullptr, reinterpret_cast<void**>(&transformData_));
 
-    materialCB_ = makeBuffer(sizeof(Material));
+    materialCB_ = makeBuffer(sizeof(ObjectMaterialLayout));
     materialCB_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    materialData_->color = { 1, 1, 1, 1 };
-    materialData_->enableLighting = 1;
-    materialData_->shadingType = 1; // HalfLambert
-    materialData_->useCubemap = 0;
-    materialData_->useTexture = 1;
+    *materialData_ = ObjectMaterialLayout{}; // 既定値（ライティング有効・リム無効など）
     materialData_->uvTransform = MakeIdentity4x4();
-    materialData_->specularColor = { 1, 1, 1 };
-    materialData_->shininess = 32.0f;
-    materialData_->envMapIntensity = 0.0f;
 
     // パレット: 256 バイト境界に合わせる（128 * 64 = 8192 はすでに倍数）
     paletteCB_ = makeBuffer(sizeof(Matrix4x4) * kMaxJoints);

@@ -11,10 +11,26 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-constexpr const char* kPlayerModelDir  = "Resources/AlienAnimated/FBX";
-constexpr const char* kPlayerModelFile = "Alien.fbx";
-constexpr const char* kPlayerTexture   = "Resources/white.png";
-constexpr float        kPlayerModelScale = 1.0f;
+constexpr const char* kPlayerModelDir  = "Resources/AlienAnimated/glTF";
+constexpr const char* kPlayerModelFile = "Alien.gltf";
+// マテリアル単色を焼き込んだパレットテクスチャ（UVは変換時にブロック中心へ書き換え済み）
+constexpr const char* kPlayerTexture   = "Resources/AlienAnimated/glTF/AlienPalette.png";
+// モデル身長は約2.93。当たり判定(1x1x1 AABB)の高さに合わせる
+constexpr float kPlayerModelScale   = 0.34f;
+// モデル原点は足元、pos_ は AABB 中心なので半分下げて足元を合わせる
+constexpr float kPlayerModelOffsetY = -0.5f;
+
+// カタナ装備（右手 Palm.R にアタッチ、パレットテクスチャは変換済み）
+constexpr const char* kKatanaModelPath = "Resources/Knight/OBJ/Katana.obj";
+constexpr const char* kKatanaTexture   = "Resources/Knight/OBJ/KatanaPalette.png";
+constexpr const char* kKatanaBoneName  = "Palm.R";
+// Palm.R ローカル空間での握り調整（カタナ原点は柄と鍔の境目、刃が +Y）
+constexpr Vector3 kKatanaGripScale     = { 0.4f, 0.4f, 0.4f };
+constexpr Vector3 kKatanaGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
+constexpr Vector3 kKatanaGripTranslate = { 0.0f, 0.05f, 0.0f };
+
+// 斬撃モーションの再生速度倍率（コンボのテンポに合わせて少し速める）
+constexpr float kAttackAnimSpeed = 1.5f;
 }
 
 void Player::Initialize(ModelCommon* modelCommon)
@@ -35,9 +51,15 @@ void Player::Initialize(ModelCommon* modelCommon)
 
     Skeleton skeleton = Skeleton::Create(LoadNodeHierarchyFromFile(kPlayerModelDir, kPlayerModelFile));
 
-    idleAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Idle");
-    runAnim_  = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Run");
-    jumpAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Jump");
+    idleAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Idle");
+    runAnim_         = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Run");
+    jumpAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Jump");
+    runningJumpAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_RunningJump");
+    swimAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Swimming");
+    idleHoldAnim_    = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_IdleHold");
+    runHoldAnim_     = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_RunHold");
+    slashAnim_       = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_SwordSlash");
+    punchAnim_       = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Punch");
 
     SkinnedObject3d::SetCommonModelCommon(modelCommon);
     SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
@@ -47,28 +69,65 @@ void Player::Initialize(ModelCommon* modelCommon)
     skinnedObject_->SetModel(skinnedModel_.get());
     skinnedObject_->SetSkeleton(std::move(skeleton));
     skinnedObject_->SetAnimation(idleAnim_);
-    skinnedObject_->SetEnableLighting(false);
+    // ライティング有効 + リムライトで背景からシルエットを分離させる
+    skinnedObject_->SetEnableLighting(true);
+    skinnedObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
+    skinnedObject_->SetRimPower(2.5f);
+    skinnedObject_->SetRimIntensity(1.2f);
+    skinnedObject_->SetEnableRim(true);
     skinnedObject_->SetScale({ kPlayerModelScale, kPlayerModelScale, kPlayerModelScale });
-    skinnedObject_->SetPosition(pos_);
+    skinnedObject_->SetPosition({ pos_.x, pos_.y + kPlayerModelOffsetY, pos_.z });
     skinnedObject_->Update();
     animState_ = AnimState::Idle;
 
-    afterImageRenderer_.Initialize(modelCommon, model_.get());
+    afterImageRenderer_.Initialize(modelCommon, model_.get(), kPlayerModelScale);
+
+    // カタナ（右手ボーン追従、トランスフォームは毎フレーム SetLocalMatrix で与える）
+    katanaModel_ = std::make_unique<Model>();
+    katanaModel_->Initialize(modelCommon, kKatanaModelPath, kKatanaTexture);
+    katanaObject_ = std::make_unique<Object3d>();
+    katanaObject_->Initialize(modelCommon);
+    katanaObject_->SetModel(katanaModel_.get());
+    katanaObject_->SetEnableLighting(true);
+    katanaObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
+    katanaObject_->SetRimPower(2.5f);
+    katanaObject_->SetRimIntensity(1.2f);
+    katanaObject_->SetEnableRim(true);
 }
 
 void Player::UpdateAnimationState(bool isMoving)
 {
-    AnimState newState = !onGround_ ? AnimState::Jump
+    // 攻撃モーション中は再生し切るまで状態遷移しない
+    if (attackAnimTimer_ > 0.0f) {
+        attackAnimTimer_ -= GameConstants::kFrameDeltaTime;
+        if (attackAnimTimer_ > 0.0f) { return; }
+        skinnedObject_->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
+    }
+
+    AnimState newState = inWater_    ? AnimState::Swim
+                        : !onGround_ ? AnimState::Jump
                         : isMoving   ? AnimState::Run
                                      : AnimState::Idle;
-    if (newState == animState_) { return; }
+    // ソードスタイル中は武器持ちバリエーション（IdleHold/RunHold）を使う
+    bool hold = katanaVisible_;
+    if (newState == animState_ && hold == animHold_) { return; }
     animState_ = newState;
+    animHold_  = hold;
 
     switch (animState_) {
-    case AnimState::Run:  skinnedObject_->SetAnimation(runAnim_);  break;
-    case AnimState::Jump: skinnedObject_->SetAnimation(jumpAnim_); break;
-    default:              skinnedObject_->SetAnimation(idleAnim_); break;
+    case AnimState::Swim: skinnedObject_->SetAnimation(swimAnim_); break;
+    case AnimState::Run:  skinnedObject_->SetAnimation(hold ? runHoldAnim_ : runAnim_); break;
+    case AnimState::Jump: skinnedObject_->SetAnimation(isMoving ? runningJumpAnim_ : jumpAnim_); break;
+    default:              skinnedObject_->SetAnimation(hold ? idleHoldAnim_ : idleAnim_); break;
     }
+}
+
+void Player::PlayAttackAnim(const Animation& anim)
+{
+    skinnedObject_->SetAnimation(anim);
+    skinnedObject_->SetAnimSpeed(kAttackAnimSpeed);
+    animState_       = AnimState::Attack;
+    attackAnimTimer_ = anim.duration / kAttackAnimSpeed;
 }
 
 void Player::Update(Input* input, const Vector3& enemyPos)
@@ -107,6 +166,10 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
     if (!inWater_ && input->TriggerKey(DIK_L)) {
         GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
+
+        // 攻撃モーションを頭から再生（ソードは斬撃、他スタイルはパンチ。連打時は都度リスタート）
+        bool isSword = (wm->GetCurrent().type == WeaponType::Sword);
+        PlayAttackAnim(isSword ? slashAnim_ : punchAnim_);
     }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
@@ -139,6 +202,11 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // ── 乱舞フェーズ更新 ──────────────────────────────────────────
     GetRampageState(rampagePhase_).UpdatePhysics(*this, enemyPos);
+
+    // 乱舞中の自動スラッシュ・フィニッシャーにも斬撃モーションを合わせる
+    if (justRampageHit_ || justRampageFinish_ || justFinisherSlash_) {
+        PlayAttackAnim(slashAnim_);
+    }
 
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
@@ -178,8 +246,9 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
 
     // ── 覚醒残像スポーン＆フェード ──
+    Vector3 modelPos = { pos_.x, pos_.y + kPlayerModelOffsetY, pos_.z };
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
-    afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, pos_, yaw, spinAngle_);
+    afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, modelPos, yaw, spinAngle_);
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushKey(DIK_A) || input->PushKey(DIK_D)
@@ -199,15 +268,35 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     }
 
-    skinnedObject_->SetPosition(pos_);
+    skinnedObject_->SetPosition(modelPos);
     skinnedObject_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
     skinnedObject_->Update();
+
+    // ── カタナを右手ボーンに追従（ソードスタイル時のみ表示）──────────
+    katanaVisible_ = (wm->GetCurrent().type == WeaponType::Sword);
+    if (katanaVisible_) {
+        const Skeleton& skel = skinnedObject_->GetSkeleton();
+        auto jt = skel.jointMap.find(kKatanaBoneName);
+        if (jt != skel.jointMap.end()) {
+            // 握りローカル → ジョイントのスケルトン空間 → プレイヤーワールド の順で合成
+            Matrix4x4 grip = MakeAffineMatrix(kKatanaGripScale, kKatanaGripRotate, kKatanaGripTranslate);
+            Matrix4x4 katanaWorld = Multiply(grip,
+                Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
+            katanaObject_->SetLocalMatrix(katanaWorld);
+            katanaObject_->Update();
+        } else {
+            katanaVisible_ = false;
+        }
+    }
 }
 
 void Player::Draw()
 {
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
+    if (katanaVisible_ && katanaObject_) {
+        katanaObject_->Draw();
+    }
     skinnedObject_->Draw();
 }
 

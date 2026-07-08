@@ -278,15 +278,31 @@ private:
     std::unique_ptr<SkinnedModel>    skinnedModel_;
     std::unique_ptr<SkinnedObject3d> skinnedObject_;
 
+    // カタナ装備（右手ボーン Palm.R に毎フレーム追従、ソードスタイル時のみ表示）
+    std::unique_ptr<Model>    katanaModel_;
+    std::unique_ptr<Object3d> katanaObject_;
+    bool katanaVisible_ = true;
+
     /** @brief 再生中のアニメーション状態 */
-    enum class AnimState { Idle, Run, Jump };
+    enum class AnimState { Idle, Run, Jump, Swim, Attack };
     AnimState animState_ = AnimState::Idle;
+    bool      animHold_  = false; ///< 武器持ちバリエーション（IdleHold/RunHold）を再生中か
     Animation idleAnim_;
     Animation runAnim_;
     Animation jumpAnim_;
+    Animation runningJumpAnim_; ///< 移動しながらのジャンプ
+    Animation swimAnim_;        ///< 水中
+    Animation idleHoldAnim_;    ///< 武器持ち待機（ソードスタイル）
+    Animation runHoldAnim_;     ///< 武器持ち走り（ソードスタイル）
+    Animation slashAnim_;       ///< 斬撃（ソード攻撃・乱舞・フィニッシャー）
+    Animation punchAnim_;       ///< パンチ（ソード以外のスタイルのコンボ）
+    float     attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 
     /** @brief 現在の移動・接地状況から再生すべきアニメーション状態を切り替える */
     void UpdateAnimationState(bool isMoving);
+
+    /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
+    void PlayAttackAnim(const Animation& anim);
 };
 
 } // namespace engine::game
