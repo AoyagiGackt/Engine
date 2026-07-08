@@ -6,6 +6,7 @@
 #include "AfterImageRenderer.h"
 #include "Animation.h"
 #include "CollisionConfig.h"
+#include "MeleeCombo.h"
 #include "Model.h"
 #include "Object3d.h"
 #include "Skeleton.h"
@@ -13,6 +14,7 @@
 #include "SkinnedModel.h"
 #include "SkinnedObject3d.h"
 #include <memory>
+#include <vector>
 namespace engine { class Input; }
 namespace engine::graphics { class ModelCommon; }
 
@@ -118,13 +120,21 @@ public:
 
     // スタイル技フラグ（その1フレームだけ true）
     bool  JustComboHit()      const { return justComboHit_; }       ///< コンボヒット発生フレーム
-    int   GetComboStep()      const { return comboStep_; }           ///< 現在のコンボステップ
+    int   GetComboStep()      const { return comboStep_; }           ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool  JustFired()         const { return justFired_; }           ///< 射撃発生フレーム
     bool  JustBlinked()       const { return justBlinked_; }         ///< ブリンク発動フレーム
     bool  JustChargedGauge()  const { return justChargedGauge_; }    ///< ゲージチャージ発生フレーム
     float GetLastDirX()       const { return lastDirX_; }            ///< 最後に入力した横方向（+1=右, -1=左）
-    /** @brief スキル補正込みのコンボ最大数を返す */
-    int   GetComboMax()       const { return kComboMax_ + skillMods_.comboMaxBonus; }
+    /** @brief スキル補正込みのコンボ最大数を返す（現在の武器の地上コンボ段数基準） */
+    int   GetComboMax()       const;
+
+    /**
+     * @brief 進行中の近接攻撃の定義を返す（攻撃していなければ nullptr）
+     * @note JustComboHit() のフレームにダメージ・ノックバック・打ち上げ・技IDの参照に使う
+     */
+    const MeleeAttackDef* GetActiveMeleeAttack() const { return meleeCombo_.GetActive(); }
+    /** @brief 近接コンボのモーション中か */
+    bool  IsMeleeAttacking()  const { return meleeCombo_.IsAttacking(); }
 
     // スペースキー スピン連射
     bool  JustSpinShot()      const { return justSpinShot_; }   ///< スピン連射発生フレーム
@@ -186,14 +196,17 @@ private:
     // スタイル技（L / K キー）
     bool    justComboHit_     = false;
     int     comboStep_        = 0;
-    float   comboTimer_       = 0.0f;
     bool    justFired_        = false;
     bool    justBlinked_      = false;
     bool    justChargedGauge_ = false;
-    static constexpr float kComboWindow_ = 0.55f;
-    static constexpr int   kComboMax_    = 3;
     static constexpr float kBlinkDist_   = 5.0f;
     static constexpr float kGaugeCharge_ = 0.18f;
+
+    // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
+    MeleeComboController meleeCombo_;
+    float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
+    static constexpr float kLaunchFollowWindow_ = 0.45f;
+    static constexpr float kLaunchFollowJumpMult_ = 1.35f;
 
     // スペースキー スピン連射
     bool    justSpinShot_     = false;
@@ -285,21 +298,17 @@ private:
     std::unique_ptr<SkinnedObject3d> skinnedObject_;
 
     // 右手ボーン Palm.R に持たせる近接武器（現在のスタイルに対応する1つだけ表示）
-    std::unique_ptr<Model>    katanaModel_;
-    std::unique_ptr<Object3d> katanaObject_;
-    bool katanaVisible_ = true;
-
-    std::unique_ptr<Model>    daggerModel_;
-    std::unique_ptr<Object3d> daggerObject_;
-    bool daggerVisible_ = false;
-
-    std::unique_ptr<Model>    hammerModel_;
-    std::unique_ptr<Object3d> hammerObject_;
-    bool hammerVisible_ = false;
-
-    std::unique_ptr<Model>    spearModel_;
-    std::unique_ptr<Object3d> spearObject_;
-    bool spearVisible_ = false;
+    // 種類が多いため個別メンバーではなくテーブルで持つ（追加は Player.cpp の kHeldWeaponAssets）
+    struct HeldWeaponSlot {
+        WeaponType                type;
+        std::unique_ptr<Model>    model;
+        std::unique_ptr<Object3d> object;
+        Vector3 gripScale;
+        Vector3 gripRotate;
+        Vector3 gripTranslate;
+    };
+    std::vector<HeldWeaponSlot> heldWeapons_;
+    int activeHeldIndex_ = -1; ///< 現在表示中の heldWeapons_ インデックス（-1=非表示）
 
     /** @brief 右手ボーンに武器オブジェクトを追従させる（握りローカル行列は呼び出し側で指定） */
     void AttachHeldWeapon(Object3d* obj, const char* boneName,

@@ -33,6 +33,11 @@ constexpr float kGroundY           = 0.4f; // Dummy等と同じ地面の高さ
 
 constexpr float kAbsorbDuration = 0.5f;
 
+// 被弾ノックバック
+constexpr float kKnockbackSpeed = 0.18f; // 水平方向の初速
+constexpr float kKnockbackHop   = 0.09f; // 垂直方向の初速（ぴょんと跳ねる）
+constexpr float kKnockbackDecay = 0.85f; // 毎フレームの減衰率
+
 float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
 float EaseInQuad(float t)  { return t * t; }
 float Lerp(float a, float b, float t) { return a + (b - a) * t; }
@@ -78,11 +83,13 @@ bool KnightEnemy::IsAlive() const
         || state_ == State::Dash || state_ == State::Recover;
 }
 
-void KnightEnemy::TakeDamage(int damage)
+void KnightEnemy::TakeDamage(int damage, float knockDirX)
 {
     if (!IsAlive()) { return; }
     hp_ -= damage;
     hitFlash_ = 0.12f;
+    knockVelX_ += knockDirX * kKnockbackSpeed;
+    knockVelY_  = kKnockbackHop;
     if (hp_ <= 0) {
         state_      = State::Defeated;
         stateTimer_ = 0.0f;
@@ -110,6 +117,16 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
         UpdateAI(pm, playerPos);
     } else if (state_ == State::Absorbing) {
         UpdateAbsorb(pm, playerPos);
+    }
+
+    // 被弾ノックバック（AIの位置更新の後に上乗せし、時間で減衰させる）
+    if (knockVelX_ != 0.0f || knockVelY_ != 0.0f) {
+        pos_.x     += knockVelX_;
+        pos_.y     += knockVelY_;
+        knockVelX_ *= kKnockbackDecay;
+        knockVelY_ -= 0.02f; // 重力っぽく落ちる
+        if (pos_.y <= kGroundY) { pos_.y = kGroundY; knockVelY_ = 0.0f; }
+        if (std::abs(knockVelX_) < 0.001f) { knockVelX_ = 0.0f; }
     }
 
     ApplyTransforms();

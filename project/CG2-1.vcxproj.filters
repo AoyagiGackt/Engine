@@ -297,6 +297,9 @@
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
@@ -320,6 +323,9 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
@@ -617,6 +623,9 @@
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\MeleeCombo.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -655,6 +664,9 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneShared.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\StyleMeter.h">
+      <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>

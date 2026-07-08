@@ -10,11 +10,14 @@ namespace {
 constexpr const char* kWeaponDataPath = "Resources/weapons.json";
 
 WeaponType ParseWeaponType(const std::string& type) {
-    if (type == "Sword")  { return WeaponType::Sword; }
-    if (type == "Spear")  { return WeaponType::Spear; }
-    if (type == "Hammer") { return WeaponType::Hammer; }
-    if (type == "Dagger") { return WeaponType::Dagger; }
-    if (type == "Ball")   { return WeaponType::Ball; }
+    if (type == "Sword")      { return WeaponType::Sword; }
+    if (type == "Spear")      { return WeaponType::Spear; }
+    if (type == "Hammer")     { return WeaponType::Hammer; }
+    if (type == "Dagger")     { return WeaponType::Dagger; }
+    if (type == "Ball")       { return WeaponType::Ball; }
+    if (type == "Greatsword") { return WeaponType::Greatsword; }
+    if (type == "Scythe")     { return WeaponType::Scythe; }
+    if (type == "Axe")        { return WeaponType::Axe; }
     return WeaponType::Sword;
 }
 

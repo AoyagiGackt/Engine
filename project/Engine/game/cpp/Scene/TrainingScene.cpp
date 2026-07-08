@@ -43,6 +43,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     shadowManager_ = std::make_unique<ShadowManager>();
     shadowManager_->Initialize(dxCommon_, srvManager_);
 
+    // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
+    Object3d::SetCommonObjectCommon(objectCommon_.get());
+    Object3d::SetCommonShadowManager(shadowManager_.get());
+
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 14.5f, 6.0f, -24.0f });
     Object3d::SetCommonCamera(camera_.get());

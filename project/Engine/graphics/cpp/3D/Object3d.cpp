@@ -4,7 +4,10 @@
 #include "LightManager.h"
 #include "ModelCommon.h"
 #include "ModelManager.h"
+#include "Object3dCommon.h"
 #include "OutlineEffect.h"
+#include "ShadowManager.h"
+#include "SrvManager.h"
 #include "TextureManager.h"
 #include <cmath>
 using namespace engine;
@@ -12,8 +15,19 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-Camera*    Object3d::commonCamera_ = nullptr;
-Matrix4x4  Object3d::commonLightVP_ = MakeIdentity4x4();
+Camera*         Object3d::commonCamera_        = nullptr;
+Matrix4x4       Object3d::commonLightVP_       = MakeIdentity4x4();
+Object3dCommon* Object3d::commonObjectCommon_  = nullptr;
+ShadowManager*  Object3d::commonShadowManager_ = nullptr;
+
+void Object3d::RebindCommonLighting(ID3D12GraphicsCommandList* cmd)
+{
+    // OutlineEffect 等でルートシグネチャを切り替えた後、CommonDrawSettings() で
+    // 通常のルートシグネチャに戻しただけではライト/シャドウマップのスロットは未初期化のまま
+    // （ルートシグネチャの切り替えは全スロットの束縛を破棄するため）。ここで再バインドする
+    if (commonObjectCommon_)  { commonObjectCommon_->SetDefaultLight(cmd); }
+    if (commonShadowManager_) { commonShadowManager_->SetShadowMap(cmd, SrvManager::GetInstance()); }
+}
 
 void Object3d::SetCommonCamera(Camera* camera)
 {

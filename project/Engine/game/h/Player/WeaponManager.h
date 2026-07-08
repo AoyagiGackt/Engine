@@ -41,6 +41,9 @@ public:
      */
     bool Unlock(WeaponType type);
 
+    /** @brief 全武器を解放する（BattleTestScene で全コンボを試すためのデバッグ用） */
+    void UnlockAll() { unlocked_.assign(weapons_.size(), true); }
+
 private:
     WeaponManager();
 

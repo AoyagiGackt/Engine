@@ -15,6 +15,8 @@ using engine::GameObject;
 class ModelCommon;
 class Camera;
 class OutlineEffect;
+class Object3dCommon;
+class ShadowManager;
 
 /**
  * @brief 3D空間に配置されるオブジェクトを表すクラス
@@ -35,6 +37,20 @@ public:
      * @note SkinnedObject3d 等、別の描画クラスと共通カメラを共有したい場合に使う
      */
     static Camera* GetCommonCamera() { return commonCamera_; }
+
+    /** @brief 全 Object3d で共通して使うライトマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
+    static void SetCommonObjectCommon(Object3dCommon* objectCommon) { commonObjectCommon_ = objectCommon; }
+    /** @brief 全 Object3d で共通して使うシャドウマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
+    static void SetCommonShadowManager(ShadowManager* shadowManager) { commonShadowManager_ = shadowManager; }
+
+    /**
+     * @brief ライト・シャドウマップのルート引数を再バインドする
+     * @note OutlineEffect 等でルートシグネチャを切り替えた後、CommonDrawSettings() で通常の
+     *       ルートシグネチャに戻しただけではライト(slot3)/シャドウマップ(slot4)は未初期化のままになる
+     *       （ルートシグネチャの切り替えは全スロットの束縛を破棄するため）。
+     *       通常描画に戻す際は CommonDrawSettings() の直後にこれを呼ぶこと
+     */
+    static void RebindCommonLighting(ID3D12GraphicsCommandList* cmd);
 
     /**
      * @brief 全 Object3d で共通して使うライト空間行列を設定する（毎フレーム GamePlayScene から呼ぶ）
@@ -212,6 +228,10 @@ private:
 
     /** @brief 全オブジェクトで共通して使うライト空間行列 */
     static Matrix4x4 commonLightVP_;
+
+    /** @brief RebindCommonLighting() で使う共通ライト/シャドウマネージャー */
+    static Object3dCommon* commonObjectCommon_;
+    static ShadowManager*  commonShadowManager_;
 
     /** @brief 共通描画設定のポインタ */
     ModelCommon* modelCommon_ = nullptr;

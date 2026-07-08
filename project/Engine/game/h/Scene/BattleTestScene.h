@@ -32,6 +32,7 @@
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "SrvManager.h"
+#include "StyleMeter.h"
 #include "WeaponManager.h"
 namespace engine::graphics {
 class GrayscaleEffect;
@@ -111,8 +112,8 @@ private:
     bool UpdateCombat();
     /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
     bool UpdateFinisherSlash();
-    /// @brief コンボランク表示のカウント・フェードを更新する
-    void UpdateComboRank(bool hitConfirmed);
+    /// @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点）
+    void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する
     void UpdateDummies();
     /// @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する
@@ -129,8 +130,6 @@ private:
     void DrawHud(bool nearReturnPortal);
     /// @brief 武器一覧と戻りポータルのラベルを描画する
     void DrawWeaponHud(bool nearReturnPortal);
-    /// @brief 画面中央のコンボランク表示を描画する
-    void DrawComboRankHud();
 
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
@@ -186,7 +185,6 @@ private:
 
     // 武器
     WeaponManager* weaponManager_ = nullptr;
-    float attackCooldown_    = 0.0f;
     float weaponCycleTimer_  = 0.0f;
 
     // 弾丸
@@ -195,22 +193,19 @@ private:
     // ワープ演出
     float warpPulseTimer_ = 0.0f;
 
-    // コンボランク（実際にダミーへ命中した時だけ加算）
-    int   trComboCount_ = 0;
-    int   trMaxCombo_   = 0;
-    float trComboTimer_ = 0.0f;
-    float trRankAlpha_  = 0.0f;
+    // スタイリッシュランク（右上表示。実際に命中した時だけ加点、同じ技の連発は減衰）
+    StyleMeter styleMeter_;
 
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
-    // 武器スロットUI（画面左下、4枠。使用中の枠が光る）
+    // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
     struct WeaponSlotUI {
         std::unique_ptr<Sprite> frame; // 枠背景
         std::unique_ptr<Sprite> icon;  // スタイルカラーで塗った中身
     };
-    static constexpr int   kWeaponSlotCount    = 4;
+    static constexpr int   kWeaponSlotCount    = 7;
     static constexpr float kSlotFlashDuration  = 0.35f;
     std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount>      weaponSlotPos_;
@@ -221,8 +216,9 @@ private:
         std::unique_ptr<Model>    model;
         std::unique_ptr<Object3d> object;
         int   slotIndex = -1;  // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
-        float angle      = 0.0f;
-        float scale      = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+        float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
+        float scale      = 0.2f;  // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+        float baseYaw    = 0.0f;  // モデルの「正面」がカメラを向くよう調整する基準角度（要目視調整）
     };
     std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
 

@@ -32,8 +32,11 @@ public:
     void Update(ParticleManager* pm, const Vector3& playerPos);
     void Draw();
 
-    /** @brief ダメージを与える生存中のみ有効撃破すると凍結状態(Defeated)へ遷移する */
-    void TakeDamage(int damage);
+    /**
+     * @brief ダメージを与える生存中のみ有効撃破すると凍結状態(Defeated)へ遷移する
+     * @param knockDirX ノックバックの方向（+1/-1想定、プレイヤーの向き等）
+     */
+    void TakeDamage(int damage, float knockDirX = 0.0f);
 
     /** @brief 通常行動中（攻撃で倒せる状態）か */
     bool IsAlive() const;
@@ -76,6 +79,8 @@ private:
 
     float   swordSwing_       = 0.0f; ///< 剣の振り角（ラジアン、状態に応じてlerpで追従）
     float   hitFlash_         = 0.0f; ///< 被弾時に白く光らせる残り秒数
+    float   knockVelX_        = 0.0f; ///< 被弾ノックバックの水平速度（毎フレーム減衰）
+    float   knockVelY_        = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
     bool    justAbsorbed_     = false;
 
     std::unique_ptr<Model>    model_;

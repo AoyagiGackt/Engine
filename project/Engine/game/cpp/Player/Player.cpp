@@ -22,44 +22,47 @@ constexpr float kPlayerModelScale   = 0.34f;
 constexpr float kPlayerModelOffsetY = -0.5f;
 
 // 本体・武器の黒縁アウトライン（背景との同化と武器の視認性の低さを補う）
-constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-constexpr float   kOutlineWidth = 0.015f;
+// 幅・濃さともに控えめにし、「異常が起きているように見える」ほど主張しないようにする
+constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 0.55f };
+constexpr float   kOutlineWidth = 0.006f;
 
-// カタナ装備（右手 Palm.R にアタッチ、パレットテクスチャは変換済み）
-constexpr const char* kKatanaModelPath = "Resources/Knight/OBJ/Katana.obj";
-constexpr const char* kKatanaTexture   = "Resources/Knight/OBJ/KatanaPalette.png";
-constexpr const char* kKatanaBoneName  = "Palm.R";
-// Palm.R ローカル空間での握り調整（カタナ原点は柄と鍔の境目、刃が +Y）
-constexpr Vector3 kKatanaGripScale     = { 0.4f, 0.4f, 0.4f };
-constexpr Vector3 kKatanaGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
-constexpr Vector3 kKatanaGripTranslate = { 0.0f, 0.05f, 0.0f };
-
-// ダガー装備（右手 Palm.R、ダガースタイル時のみ表示）
-constexpr const char* kDaggerModelPath = "Resources/MedievalWeaponsPack/OBJ/Dagger.obj";
-constexpr const char* kDaggerTexture   = "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png";
-// モデル身長は約2.6、柄が根元(-Y側)、刃が+Y方向
-constexpr Vector3 kDaggerGripScale     = { 0.35f, 0.35f, 0.35f };
-constexpr Vector3 kDaggerGripRotate    = { 0.0f, 0.0f, 0.0f };
-constexpr Vector3 kDaggerGripTranslate = { 0.0f, 0.05f, 0.0f };
-
-// ハンマー装備（右手 Palm.R、ハンマースタイル時のみ表示）
-constexpr const char* kHammerModelPath = "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj";
-constexpr const char* kHammerTexture   = "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png";
-// モデル身長は約4.33、柄が根元(-Y側)
-constexpr Vector3 kHammerGripScale     = { 0.35f, 0.35f, 0.35f };
-constexpr Vector3 kHammerGripRotate    = { 0.0f, 0.0f, 0.0f };
-constexpr Vector3 kHammerGripTranslate = { 0.0f, 0.05f, 0.0f };
-
-// スピア装備（右手 Palm.R、スピアスタイル時のみ表示）
-// モデル身長は約9.7と長いため、他の近接武器よりだいぶ小さいスケールになる
-constexpr const char* kSpearModelPath = "Resources/MedievalWeaponsPack/OBJ/Spear.obj";
-constexpr const char* kSpearTexture   = "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png";
-constexpr Vector3 kSpearGripScale     = { 0.18f, 0.18f, 0.18f };
-constexpr Vector3 kSpearGripRotate    = { 0.0f, 0.0f, 0.0f };
-constexpr Vector3 kSpearGripTranslate = { 0.0f, 0.05f, 0.0f };
+// 手持ち近接武器の定義（右手 Palm.R にアタッチ、現在のスタイルの1つだけ表示）
+// パレットテクスチャは全て変換済み。スケールはモデル実寸差を吸収し、
+// 手に持った時の見た目の長さ（約1.5〜1.8）が揃うように決めている
+struct HeldWeaponAsset {
+    WeaponType  type;
+    const char* modelPath;
+    const char* texturePath;
+    Vector3     gripScale;
+    Vector3     gripRotate;    // ラジアン
+    Vector3     gripTranslate;
+};
+constexpr HeldWeaponAsset kHeldWeaponAssets[] = {
+    // カタナ: 原点は柄と鍔の境目、刃が +Y（実寸高さ約4.35）
+    { WeaponType::Sword,      "Resources/Knight/OBJ/Katana.obj",                    "Resources/Knight/OBJ/KatanaPalette.png",                    { 0.40f, 0.40f, 0.40f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // ダガー: 柄が根元(-Y側)、刃が +Y（実寸高さ約2.6）
+    { WeaponType::Dagger,     "Resources/MedievalWeaponsPack/OBJ/Dagger.obj",       "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png",       { 0.35f, 0.35f, 0.35f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // ハンマー: 柄が根元(-Y側)（実寸高さ約4.33）
+    { WeaponType::Hammer,     "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f, 0.35f, 0.35f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // スピア: 実寸高さ約9.7と長いため小さめのスケール
+    { WeaponType::Spear,      "Resources/MedievalWeaponsPack/OBJ/Spear.obj",        "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png",        { 0.18f, 0.18f, 0.18f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // クレイモア: 柄が根元付近(Y=-0.32)、刃が +Y（実寸高さ約6.6）
+    { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj",     "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png",     { 0.26f, 0.26f, 0.26f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // 鎌: 柄の中程が原点、刃が +X 側へ張り出す（実寸高さ約5.6）
+    { WeaponType::Scythe,     "Resources/MedievalWeaponsPack/OBJ/Scythe.obj",       "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png",       { 0.22f, 0.22f, 0.22f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // 両刃斧: 柄の中央が原点（Y対称、実寸高さ約6.35）
+    { WeaponType::Axe,        "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj",   "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png",   { 0.24f, 0.24f, 0.24f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+};
 
 // 近接武器共通のアタッチ先ボーン
 constexpr const char* kMeleeWeaponBoneName = "Palm.R";
+
+/** @brief 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うタイプか */
+bool UsesHoldPose(WeaponType type) {
+    return type == WeaponType::Sword  || type == WeaponType::Greatsword
+        || type == WeaponType::Scythe || type == WeaponType::Axe
+        || type == WeaponType::Spear;
+}
 
 // 拳銃装備（左手 Palm.L にアタッチ、スタイルによらず常時表示。K キー射撃と対応）
 constexpr const char* kPistolModelPath = "Resources/AnimatedFPSGuns/OBJ/Pistol.obj";
@@ -156,10 +159,16 @@ void Player::Initialize(ModelCommon* modelCommon)
     };
 
     // 右手武器（トランスフォームは毎フレーム SetLocalMatrix で与える、現在のスタイルの1つだけ表示）
-    initHeldWeapon(katanaModel_, katanaObject_, kKatanaModelPath, kKatanaTexture);
-    initHeldWeapon(daggerModel_, daggerObject_, kDaggerModelPath, kDaggerTexture);
-    initHeldWeapon(hammerModel_, hammerObject_, kHammerModelPath, kHammerTexture);
-    initHeldWeapon(spearModel_,  spearObject_,  kSpearModelPath,  kSpearTexture);
+    heldWeapons_.clear();
+    for (const auto& asset : kHeldWeaponAssets) {
+        HeldWeaponSlot slot;
+        slot.type          = asset.type;
+        slot.gripScale     = asset.gripScale;
+        slot.gripRotate    = asset.gripRotate;
+        slot.gripTranslate = asset.gripTranslate;
+        initHeldWeapon(slot.model, slot.object, asset.modelPath, asset.texturePath);
+        heldWeapons_.push_back(std::move(slot));
+    }
 
     // 拳銃（左手ボーン追従、スタイルによらず常時表示）
     initHeldWeapon(pistolModel_, pistolObject_, kPistolModelPath, kPistolTexture);
@@ -181,8 +190,8 @@ void Player::UpdateAnimationState(bool isMoving)
                         : !onGround_ ? AnimState::Jump
                         : isMoving   ? AnimState::Run
                                      : AnimState::Idle;
-    // ソードスタイル中は武器持ちバリエーション（IdleHold/RunHold）を使う
-    bool hold = katanaVisible_;
+    // 構え系の武器では武器持ちバリエーション（IdleHold/RunHold）を使う
+    bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type);
     if (newState == animState_ && hold == animHold_) { return; }
     animState_ = newState;
     animHold_  = hold;
@@ -198,6 +207,13 @@ void Player::UpdateAnimationState(bool isMoving)
 void Player::PlayStealStab()
 {
     PlayAttackAnim(slashAnim_, kStealStabAnimSpeed);
+}
+
+int Player::GetComboMax() const
+{
+    // 現在の武器の地上コンボ段数を基準にする（HUDの「x段目/最大」表示用）
+    const MeleeComboSet& set = GetMeleeComboSet(WeaponManager::GetInstance()->GetCurrent().type);
+    return set.groundCount + skillMods_.comboMaxBonus;
 }
 
 void Player::PlayAttackAnim(const Animation& anim, float speed)
@@ -245,13 +261,44 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         pistolRecoilTimer_ -= GameConstants::kFrameDeltaTime;
     }
 
-    // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
+    // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
+    // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
     if (!inWater_ && !finisherCharging_ && input->TriggerKey(DIK_L)) {
-        GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
+        if (rampagePhase_ != RampagePhase::Inactive) {
+            GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
+        } else if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
+            // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
+            meleeCombo_.Reset();
+            rampagePhase_     = RampagePhase::Launch;
+            juggleSlashCount_ = 0;
+            juggleAngleIdx_   = 0;
+        } else {
+            bool launcherInput = input->PushKey(DIK_S) || input->PushKey(DIK_DOWN);
+            meleeCombo_.TryAttack(wm->GetCurrent().type, launcherInput, !onGround_);
+        }
+    }
 
-        // 攻撃モーションを頭から再生（ソードは斬撃、他スタイルはパンチ。連打時は都度リスタート）
-        bool isSword = (wm->GetCurrent().type == WeaponType::Sword);
-        PlayAttackAnim(isSword ? slashAnim_ : punchAnim_, kAttackAnimSpeed);
+    // ── 近接コンボ進行（段の開始・ヒット発火・前進・打ち上げ追撃猶予）──
+    meleeCombo_.Update(GameConstants::kFrameDeltaTime);
+    if (const MeleeAttackDef* atk = meleeCombo_.GetActive()) {
+        if (meleeCombo_.JustStartedStep()) {
+            // 段ごとにモーションを頭から再生（速度も段の定義に従う）
+            PlayAttackAnim(atk->slashAnim ? slashAnim_ : punchAnim_, atk->animSpeed);
+        }
+        if (meleeCombo_.JustHit()) {
+            justComboHit_ = true;
+            comboStep_    = meleeCombo_.GetStep();
+            if (atk->launcher) { launchFollowTimer_ = kLaunchFollowWindow_; }
+        }
+        // 踏み込み（斬りながら前へ出ることで空振り感を減らす）
+        if (meleeCombo_.GetLungeDelta() > 0.0f) {
+            pos_.x = std::clamp(pos_.x + lastDirX_ * meleeCombo_.GetLungeDelta(), kMinX_, kMaxX_);
+        }
+        // 空中攻撃中は滞空（落下を弱めてエアコンボを繋ぎやすくする）
+        if (!onGround_ && velocityY_ < 0.0f) { velocityY_ *= 0.5f; }
+    }
+    if (launchFollowTimer_ > 0.0f) {
+        launchFollowTimer_ -= GameConstants::kFrameDeltaTime;
     }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
@@ -261,7 +308,8 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         awakenGauge_         = 0.0f; // ゲージを全消費
         finisherCharging_    = true;
         finisherChargeTimer_ = kFinisherChargeDuration;
-        skinnedObject_->SetAnimation(katanaVisible_ ? idleHoldAnim_ : idleAnim_);
+        meleeCombo_.Reset(); // 進行中のコンボは打ち切って静止に入る
+        skinnedObject_->SetAnimation(UsesHoldPose(wm->GetCurrent().type) ? idleHoldAnim_ : idleAnim_);
         skinnedObject_->SetAnimSpeed(0.0f); // 呼吸すら止めるように完全静止
     }
 
@@ -308,15 +356,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
         isAwakened_  = true;
         awakenTimer_ = kAwakenDuration_;
-    }
-
-    // ── コンボタイマー ────────────────────────────────────────────
-    if (comboTimer_ > 0.0f) {
-        comboTimer_ -= GameConstants::kFrameDeltaTime;
-        if (comboTimer_ <= 0.0f) {
-            comboTimer_ = 0.0f;
-            comboStep_  = 0;
-        }
     }
 
     // ── 覚醒ゲージ管理 ────────────────────────────────────────────
@@ -371,26 +410,26 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         ? 1.2f + (1.0f - finisherChargeTimer_ / kFinisherChargeDuration) * 3.0f
         : 1.2f;
     skinnedObject_->SetRimIntensity(rimIntensity);
-    katanaObject_->SetRimIntensity(rimIntensity);
-    daggerObject_->SetRimIntensity(rimIntensity);
-    hammerObject_->SetRimIntensity(rimIntensity);
-    spearObject_->SetRimIntensity(rimIntensity);
+    for (auto& slot : heldWeapons_) { slot.object->SetRimIntensity(rimIntensity); }
     pistolObject_->SetRimIntensity(rimIntensity);
 
     skinnedObject_->SetPosition(modelPos);
     skinnedObject_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
     skinnedObject_->Update();
 
-    // ── カタナを右手ボーンに追従（ソードスタイル時のみ表示）──────────
+    // ── 現在のスタイルに対応する武器を右手ボーンに追従 ──────────────
+    // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
+    // 共通の腕モーションでも武器ごとに違う軌道に見せる
     WeaponType meleeType = wm->GetCurrent().type;
-    katanaVisible_ = (meleeType == WeaponType::Sword);
-    daggerVisible_ = (meleeType == WeaponType::Dagger);
-    hammerVisible_ = (meleeType == WeaponType::Hammer);
-    spearVisible_  = (meleeType == WeaponType::Spear);
-    if (katanaVisible_) { AttachHeldWeapon(katanaObject_.get(), kMeleeWeaponBoneName, kKatanaGripScale, kKatanaGripRotate, kKatanaGripTranslate); }
-    if (daggerVisible_) { AttachHeldWeapon(daggerObject_.get(), kMeleeWeaponBoneName, kDaggerGripScale, kDaggerGripRotate, kDaggerGripTranslate); }
-    if (hammerVisible_) { AttachHeldWeapon(hammerObject_.get(), kMeleeWeaponBoneName, kHammerGripScale, kHammerGripRotate, kHammerGripTranslate); }
-    if (spearVisible_)  { AttachHeldWeapon(spearObject_.get(),  kMeleeWeaponBoneName, kSpearGripScale,  kSpearGripRotate,  kSpearGripTranslate); }
+    activeHeldIndex_ = -1;
+    for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
+        if (heldWeapons_[i].type == meleeType) { activeHeldIndex_ = i; break; }
+    }
+    if (activeHeldIndex_ >= 0) {
+        auto& slot = heldWeapons_[activeHeldIndex_];
+        Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
+        AttachHeldWeapon(slot.object.get(), kMeleeWeaponBoneName, slot.gripScale, rot, slot.gripTranslate);
+    }
 
     // ── 拳銃を左手ボーンに追従（スタイルによらず常時表示、発砲時は跳ね上がる）──
     {
@@ -439,19 +478,17 @@ void Player::Draw()
     outline->SetColor(kOutlineColor);
     outline->SetWidth(kOutlineWidth);
     outline->BeginOutlinePass();
-    if (katanaVisible_ && katanaObject_) { katanaObject_->DrawOutline(outline); }
-    if (daggerVisible_ && daggerObject_) { daggerObject_->DrawOutline(outline); }
-    if (hammerVisible_ && hammerObject_) { hammerObject_->DrawOutline(outline); }
-    if (spearVisible_  && spearObject_)  { spearObject_->DrawOutline(outline); }
+    if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->DrawOutline(outline); }
     if (pistolVisible_ && pistolObject_) { pistolObject_->DrawOutline(outline); }
     skinnedObject_->DrawOutline(outline);
-    if (modelCommon_) { modelCommon_->CommonDrawSettings(); }
+    if (modelCommon_) {
+        modelCommon_->CommonDrawSettings();
+        // ルートシグネチャの切り替えでライト/シャドウマップの束縛が失われているため再バインドする
+        Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
+    }
 
     // 通常描画
-    if (katanaVisible_ && katanaObject_) { katanaObject_->Draw(); }
-    if (daggerVisible_ && daggerObject_) { daggerObject_->Draw(); }
-    if (hammerVisible_ && hammerObject_) { hammerObject_->Draw(); }
-    if (spearVisible_  && spearObject_)  { spearObject_->Draw(); }
+    if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->Draw(); }
     if (pistolVisible_ && pistolObject_) {
         pistolObject_->Draw();
     }
@@ -509,7 +546,9 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
 
     if (player.onGround_ && !player.finisherCharging_) {
         if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
-            player.velocityY_  = kJumpPower_ * jumpMult;
+            // 打ち上げ直後は追撃用に高く跳べる（浮かせた敵にジャンプで追いつく）
+            float followMult = (player.launchFollowTimer_ > 0.0f) ? kLaunchFollowJumpMult_ : 1.0f;
+            player.velocityY_  = kJumpPower_ * jumpMult * followMult;
             player.onGround_   = false;
             player.justJumped_ = true;
         }
@@ -542,21 +581,10 @@ const Player::IPhysicsState& Player::GetPhysicsState(bool inWater)
 //  Rampage State（覚醒乱舞の進行フェーズ）
 // ============================================================
 
-void Player::InactiveRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
+void Player::InactiveRampageState::HandleAttackInput(Player&, Input*, const Vector3&) const
 {
-    if (WeaponManager::GetInstance()->GetCurrent().type == WeaponType::Sword && player.isAwakened_) {
-        // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
-        player.rampagePhase_     = RampagePhase::Launch;
-        player.juggleSlashCount_ = 0;
-        player.juggleAngleIdx_   = 0;
-    } else {
-        // 通常コンボ
-        if (player.comboStep_ == 0 || player.comboTimer_ > 0.0f) {
-            player.comboStep_    = player.comboStep_ % (kComboMax_ + player.skillMods_.comboMaxBonus) + 1;
-            player.comboTimer_   = kComboWindow_;
-            player.justComboHit_ = true;
-        }
-    }
+    // 通常時の攻撃入力は MeleeComboController（Player::Update 内）が担当するため何もしない
+    // （乱舞の開始判定も覚醒ソード限定なので Update 側で行う）
 }
 
 void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const
