@@ -255,7 +255,11 @@ void SkinnedObject3d::DrawOutline(OutlineEffect* effect)
 
     // アウトラインパスは Draw() より先に呼ばれる想定なので、
     // 今フレーム分のスキニング結果をここで計算しておく（Draw() 側でも再計算するが軽量なので許容）
+    // ※ Dispatch はコンピュート用 PSO にコマンドリストを切り替えるため、
+    //    このあと BeginOutlinePass() でグラフィックス用ルートシグネチャ/PSO に戻す必要がある
+    //    （通常の Draw() は直後に CommonDrawSettings() で戻しているが、こちらは戻していなかった）
     skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
+    effect->BeginOutlinePass();
 
     // slot 1 (VS b1): 座標変換行列（OutlineEffect のルートシグネチャに合わせる）
     cmd->SetGraphicsRootConstantBufferView(1, transformCB_->GetGPUVirtualAddress());
