@@ -283,6 +283,12 @@ private:
     std::unique_ptr<Object3d> katanaObject_;
     bool katanaVisible_ = true;
 
+    // 拳銃装備（左手ボーン Palm.L に毎フレーム追従、スタイルによらず常時表示）
+    std::unique_ptr<Model>    pistolModel_;
+    std::unique_ptr<Object3d> pistolObject_;
+    bool  pistolVisible_    = true;
+    float pistolRecoilTimer_ = 0.0f; ///< 発砲時の跳ね上がり演出の残り秒数
+
     /** @brief 再生中のアニメーション状態 */
     enum class AnimState { Idle, Run, Jump, Swim, Attack };
     AnimState animState_ = AnimState::Idle;
@@ -298,11 +304,15 @@ private:
     Animation punchAnim_;       ///< パンチ（ソード以外のスタイルのコンボ）
     float     attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 
+    // フィニッシャー：静止集中 → 一閃（バージルの次元斬演出の代替）
+    bool  finisherCharging_    = false; ///< 静止して溜めている最中か
+    float finisherChargeTimer_ = 0.0f;  ///< 残り溜め時間（0以下で解放＝一閃へ）
+
     /** @brief 現在の移動・接地状況から再生すべきアニメーション状態を切り替える */
     void UpdateAnimationState(bool isMoving);
 
     /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
-    void PlayAttackAnim(const Animation& anim);
+    void PlayAttackAnim(const Animation& anim, float speed);
 };
 
 } // namespace engine::game

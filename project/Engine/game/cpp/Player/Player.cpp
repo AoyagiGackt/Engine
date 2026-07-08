@@ -29,8 +29,29 @@ constexpr Vector3 kKatanaGripScale     = { 0.4f, 0.4f, 0.4f };
 constexpr Vector3 kKatanaGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
 constexpr Vector3 kKatanaGripTranslate = { 0.0f, 0.05f, 0.0f };
 
+// 拳銃装備（左手 Palm.L にアタッチ、スタイルによらず常時表示。K キー射撃と対応）
+constexpr const char* kPistolModelPath = "Resources/AnimatedFPSGuns/OBJ/Pistol.obj";
+constexpr const char* kPistolTexture   = "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png";
+constexpr const char* kPistolBoneName  = "Palm.L";
+// Palm.L ローカル空間での握り調整（モデル原点はグリップ中心、銃口が +X 方向）
+constexpr Vector3 kPistolGripScale     = { 0.035f, 0.035f, 0.035f };
+constexpr Vector3 kPistolGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
+constexpr Vector3 kPistolGripTranslate = { 0.0f, 0.0f, 0.0f };
+
+// 発砲時の跳ね上がり（反動）演出
+constexpr float kPistolRecoilDuration = 0.08f;
+constexpr float kPistolRecoilAngle    = 0.35f; // ラジアン
+
 // 斬撃モーションの再生速度倍率（コンボのテンポに合わせて少し速める）
 constexpr float kAttackAnimSpeed = 1.5f;
+
+// フィニッシャー：静止集中の長さ（GamePlayScene/BattleTestScene の斬撃線バラマキ演出と一致させる：
+// kFinisherChargeDelay → 斬撃線を kFinisherSlashLines 本 kFinisherLineInterval 間隔で出す → kFinisherImpactDelay で解放）
+// 素材にバージルの次元斬のような納刀ポーズは無いため、Idle/IdleHold を静止させて代用する
+constexpr float kFinisherChargeDuration   = GameConstants::kFinisherChargeDelay
+                                           + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
+                                           + GameConstants::kFinisherImpactDelay;
+constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも留まらぬ速さで
 }
 
 void Player::Initialize(ModelCommon* modelCommon)
@@ -93,10 +114,25 @@ void Player::Initialize(ModelCommon* modelCommon)
     katanaObject_->SetRimPower(2.5f);
     katanaObject_->SetRimIntensity(1.2f);
     katanaObject_->SetEnableRim(true);
+
+    // 拳銃（左手ボーン追従、トランスフォームは毎フレーム SetLocalMatrix で与える）
+    pistolModel_ = std::make_unique<Model>();
+    pistolModel_->Initialize(modelCommon, kPistolModelPath, kPistolTexture);
+    pistolObject_ = std::make_unique<Object3d>();
+    pistolObject_->Initialize(modelCommon);
+    pistolObject_->SetModel(pistolModel_.get());
+    pistolObject_->SetEnableLighting(true);
+    pistolObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
+    pistolObject_->SetRimPower(2.5f);
+    pistolObject_->SetRimIntensity(1.2f);
+    pistolObject_->SetEnableRim(true);
 }
 
 void Player::UpdateAnimationState(bool isMoving)
 {
+    // フィニッシャー溜め中は静止ポーズを維持（タイマー管理は Update() 側）
+    if (finisherCharging_) { return; }
+
     // 攻撃モーション中は再生し切るまで状態遷移しない
     if (attackAnimTimer_ > 0.0f) {
         attackAnimTimer_ -= GameConstants::kFrameDeltaTime;
@@ -122,12 +158,12 @@ void Player::UpdateAnimationState(bool isMoving)
     }
 }
 
-void Player::PlayAttackAnim(const Animation& anim)
+void Player::PlayAttackAnim(const Animation& anim, float speed)
 {
     skinnedObject_->SetAnimation(anim);
-    skinnedObject_->SetAnimSpeed(kAttackAnimSpeed);
+    skinnedObject_->SetAnimSpeed(speed);
     animState_       = AnimState::Attack;
-    attackAnimTimer_ = anim.duration / kAttackAnimSpeed;
+    attackAnimTimer_ = anim.duration / speed;
 }
 
 void Player::Update(Input* input, const Vector3& enemyPos)
@@ -160,22 +196,40 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // ── 射撃（K キー、水上のみ）─────────────────────────────────────
     if (!inWater_ && input->TriggerKey(DIK_K)) {
-        justFired_ = true;
+        justFired_        = true;
+        pistolRecoilTimer_ = kPistolRecoilDuration;
+    }
+    if (pistolRecoilTimer_ > 0.0f) {
+        pistolRecoilTimer_ -= GameConstants::kFrameDeltaTime;
     }
 
     // ── 格闘コンボ / 乱舞（L キー、水上のみ）────────────────────────
-    if (!inWater_ && input->TriggerKey(DIK_L)) {
+    if (!inWater_ && !finisherCharging_ && input->TriggerKey(DIK_L)) {
         GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
 
         // 攻撃モーションを頭から再生（ソードは斬撃、他スタイルはパンチ。連打時は都度リスタート）
         bool isSword = (wm->GetCurrent().type == WeaponType::Sword);
-        PlayAttackAnim(isSword ? slashAnim_ : punchAnim_);
+        PlayAttackAnim(isSword ? slashAnim_ : punchAnim_, kAttackAnimSpeed);
     }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
-    if (!inWater_ && !isAwakened_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
-        justFinisherSlash_ = true;
-        awakenGauge_       = 0.0f; // ゲージを全消費
+    // バージルの次元斬を意識し、静止して集中 → 溜め切ったら一閃、の2段構成にする
+    if (!inWater_ && !isAwakened_ && !finisherCharging_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
+        justFinisherSlash_   = true;
+        awakenGauge_         = 0.0f; // ゲージを全消費
+        finisherCharging_    = true;
+        finisherChargeTimer_ = kFinisherChargeDuration;
+        skinnedObject_->SetAnimation(katanaVisible_ ? idleHoldAnim_ : idleAnim_);
+        skinnedObject_->SetAnimSpeed(0.0f); // 呼吸すら止めるように完全静止
+    }
+
+    // ── フィニッシャー溜めの経過 → 解放（一閃）─────────────────────
+    if (finisherCharging_) {
+        finisherChargeTimer_ -= GameConstants::kFrameDeltaTime;
+        if (finisherChargeTimer_ <= 0.0f) {
+            finisherCharging_ = false;
+            PlayAttackAnim(slashAnim_, kFinisherReleaseAnimSpeed);
+        }
     }
 
     // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
@@ -186,7 +240,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // ── スペースキー（武器タイプ別）──────────────────────────────
-    if (!inWater_) {
+    if (!inWater_ && !finisherCharging_) {
         WeaponType wtype = wm->GetCurrent().type;
 
         // 連射クールダウンは常に消化（Ball モード以外でも自然に減る）
@@ -203,13 +257,13 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     // ── 乱舞フェーズ更新 ──────────────────────────────────────────
     GetRampageState(rampagePhase_).UpdatePhysics(*this, enemyPos);
 
-    // 乱舞中の自動スラッシュ・フィニッシャーにも斬撃モーションを合わせる
-    if (justRampageHit_ || justRampageFinish_ || justFinisherSlash_) {
-        PlayAttackAnim(slashAnim_);
+    // 乱舞中の自動スラッシュにも斬撃モーションを合わせる（フィニッシャーは溜め→解放側で再生する）
+    if (justRampageHit_ || justRampageFinish_) {
+        PlayAttackAnim(slashAnim_, kAttackAnimSpeed);
     }
 
     // ── 覚醒発動（R キー）────────────────────────────────────────
-    if (input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
+    if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
         isAwakened_  = true;
         awakenTimer_ = kAwakenDuration_;
     }
@@ -256,7 +310,9 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     UpdateAnimationState(isMovingHoriz);
 
     // ── プレイヤー色 ──
-    if (rampagePhase_ != RampagePhase::Inactive) {
+    if (finisherCharging_) {
+        skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f }); // 色自体は白のまま、リムの発光だけで魅せる
+    } else if (rampagePhase_ != RampagePhase::Inactive) {
         float t = std::sin(juggleSlashCount_ * 3.0f) * 0.5f + 0.5f;
         skinnedObject_->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
     } else if (justChargedGauge_) {
@@ -267,6 +323,14 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     } else {
         skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     }
+
+    // 溜めが深まるほどリムライトを強めて「集中が高まる」感じを出す（解放の瞬間が一番明るい）
+    float rimIntensity = finisherCharging_
+        ? 1.2f + (1.0f - finisherChargeTimer_ / kFinisherChargeDuration) * 3.0f
+        : 1.2f;
+    skinnedObject_->SetRimIntensity(rimIntensity);
+    katanaObject_->SetRimIntensity(rimIntensity);
+    pistolObject_->SetRimIntensity(rimIntensity);
 
     skinnedObject_->SetPosition(modelPos);
     skinnedObject_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
@@ -288,6 +352,27 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             katanaVisible_ = false;
         }
     }
+
+    // ── 拳銃を左手ボーンに追従（スタイルによらず常時表示、発砲時は跳ね上がる）──
+    {
+        const Skeleton& skel = skinnedObject_->GetSkeleton();
+        auto jt = skel.jointMap.find(kPistolBoneName);
+        pistolVisible_ = (jt != skel.jointMap.end());
+        if (pistolVisible_) {
+            // 反動: 発砲直後に上向きへ跳ね、時間経過で構え直しに戻る
+            float recoilT = (pistolRecoilTimer_ > 0.0f) ? (pistolRecoilTimer_ / kPistolRecoilDuration) : 0.0f;
+            Vector3 recoilRotate = {
+                kPistolGripRotate.x - kPistolRecoilAngle * recoilT,
+                kPistolGripRotate.y,
+                kPistolGripRotate.z
+            };
+            Matrix4x4 grip = MakeAffineMatrix(kPistolGripScale, recoilRotate, kPistolGripTranslate);
+            Matrix4x4 pistolWorld = Multiply(grip,
+                Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
+            pistolObject_->SetLocalMatrix(pistolWorld);
+            pistolObject_->Update();
+        }
+    }
 }
 
 void Player::Draw()
@@ -296,6 +381,9 @@ void Player::Draw()
     afterImageRenderer_.Draw();
     if (katanaVisible_ && katanaObject_) {
         katanaObject_->Draw();
+    }
+    if (pistolVisible_ && pistolObject_) {
+        pistolObject_->Draw();
     }
     skinnedObject_->Draw();
 }
@@ -344,12 +432,12 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
     const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
     const float jumpMult  = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
 
-    if (player.rampagePhase_ == RampagePhase::Inactive) {
+    if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_) {
         if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { player.pos_.x -= kSpeed_ * speedMult; player.lastDirX_ = -1.0f; }
         if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { player.pos_.x += kSpeed_ * speedMult; player.lastDirX_ =  1.0f; }
     }
 
-    if (player.onGround_) {
+    if (player.onGround_ && !player.finisherCharging_) {
         if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
             player.velocityY_  = kJumpPower_ * jumpMult;
             player.onGround_   = false;
