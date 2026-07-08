@@ -11,6 +11,7 @@
 #include "ImageFilter.h"
 #include "VignetteEffect.h"
 #include "HsvFilter.h"
+#include "OutlineEffect.h"
 using namespace engine;
 using namespace engine::graphics;
 
@@ -48,6 +49,7 @@ void Framework::Initialize()
     ImageFilter::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
     VignetteEffect::GetInstance()->Initialize(dxCommon_.get());
     HsvFilter::GetInstance()->Initialize(dxCommon_.get(), SrvManager::GetInstance());
+    OutlineEffect::GetInstance()->Initialize(dxCommon_.get());
     TextureManager::GetInstance()->Initialize(dxCommon_.get());
     ParticleManager::GetInstance()->Initialize(dxCommon_.get());
 

@@ -2,6 +2,7 @@
 #include "Animation.h"
 #include "MakeAffine.h"
 #include "ModelCommon.h"
+#include "ObjectMaterialLayout.h"
 #include "Skeleton.h"
 #include "SkinCS.h"
 #include "SkinnedModel.h"
@@ -20,6 +21,7 @@ using engine::game::Animation;
 class Camera;
 class Object3dCommon;
 class ShadowManager;
+class OutlineEffect;
 
 // スキニング（ボーンアニメーション）付き 3D オブジェクト
 // SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する
@@ -47,14 +49,32 @@ public:
     void SetColor(const Vector4& color) { if (materialData_) { materialData_->color = color; } }
     void SetEnableLighting(bool enable) { if (materialData_) { materialData_->enableLighting = enable ? 1 : 0; } }
 
+    // リムライト（縁取り発光enableLighting 有効時のみシェーダーで反映される）
+    void SetRimColor(const Vector3& color) { if (materialData_) { materialData_->rimColor = color; } }
+    void SetRimPower(float power)          { if (materialData_) { materialData_->rimPower = power; } }
+    void SetRimIntensity(float intensity)  { if (materialData_) { materialData_->rimIntensity = intensity; } }
+    void SetEnableRim(bool enable)         { if (materialData_) { materialData_->enableRim = enable ? 1 : 0; } }
+
     Vector3 GetPosition()  const { return transform_.translate; }
     Vector3 GetRotation()  const { return transform_.rotate; }
     Vector3 GetScale()     const { return transform_.scale; }
     float   GetAnimSpeed() const { return animSpeed_; }
 
+    // 武器アタッチ等でジョイント行列を参照するためのゲッター
+    // （skeletonSpaceMatrix は Update() 後に最新になる）
+    const Skeleton&  GetSkeleton()    const { return skeleton_; }
+    const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
+
     void Update();
     void Draw();
     void DebugDraw();
+
+    /**
+     * @brief アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
+     * @note CS スキニング（skinCSReady_）でのみ対応。Draw() より先に呼ばれる想定のため、
+     *       スキニング結果を自前で Dispatch し直す
+     */
+    void DrawOutline(OutlineEffect* effect);
 
 private:
     static const int kMaxJoints = 128;
@@ -64,19 +84,6 @@ private:
         Matrix4x4 World;
         Matrix4x4 WorldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
         Matrix4x4 LightVP;
-    };
-
-    struct Material {
-        Vector4   color;
-        int       enableLighting;
-        int       shadingType;
-        int       useCubemap;
-        int       useTexture;
-        Matrix4x4 uvTransform;
-        Vector3   specularColor;
-        float     shininess;
-        Vector3   cameraWorldPos;
-        float     envMapIntensity;
     };
 
     static Camera*         commonCamera_;
@@ -110,8 +117,9 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> transformCB_;
     TransformationMatrix* transformData_ = nullptr;
 
+    // Object3dPS.hlsl の Material 構造体と一致する共用レイアウト（Object3d と共通）
     Microsoft::WRL::ComPtr<ID3D12Resource> materialCB_;
-    Material* materialData_ = nullptr;
+    ObjectMaterialLayout* materialData_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> paletteCB_;
     Matrix4x4* paletteData_ = nullptr;

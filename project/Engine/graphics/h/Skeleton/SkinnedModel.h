@@ -40,8 +40,8 @@ private:
     D3D12_VERTEX_BUFFER_VIEW               vertexBufferView_{};
 
     std::vector<VertexData>  vertices_;
-    std::vector<Matrix4x4>   inverseBindMatrices_;  // bone index → inverse bind matrix
-    std::vector<std::string> boneNames_;             // bone index → bone name
+    std::vector<Matrix4x4>   inverseBindMatrices_;
+    std::vector<std::string> boneNames_;
 };
 
 } // namespace engine::graphics

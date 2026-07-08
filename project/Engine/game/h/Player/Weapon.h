@@ -7,7 +7,7 @@
 #include <vector>
 namespace engine::game {
 /** @brief 近接武器の種類（WeaponManagerが読み込むJSONの"type"と対応） */
-enum class WeaponType { Sword, Spear, Hammer, Dagger, Ball };
+enum class WeaponType { Sword, Spear, Hammer, Dagger, Ball, Greatsword, Scythe, Axe };
 
 /** @brief 操作説明HUDに表示する1コマンドぶんのキー表示と説明 */
 struct WeaponCommand {

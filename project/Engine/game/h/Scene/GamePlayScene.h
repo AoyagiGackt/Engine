@@ -175,7 +175,7 @@ private:
     std::unique_ptr<Sprite>        renderTextureSprite_;
 
     // カメラスムージング
-    Vector3 cameraTargetPos_ = { 14.5f, 6.0f, -30.0f };
+    Vector3 cameraTargetPos_ = { 14.5f, 6.0f, -24.0f };
     Vector3 cameraTargetRot_ = { 0.0f, 0.0f, 0.0f };
     std::deque<Vector3> cameraPosHistory_;
     std::deque<Vector3> cameraRotHistory_;

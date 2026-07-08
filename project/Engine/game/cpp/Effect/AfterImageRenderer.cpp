@@ -4,12 +4,13 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model)
+void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model, float scale)
 {
     object_ = std::make_unique<Object3d>();
     object_->Initialize(modelCommon);
     object_->SetModel(model);
     object_->SetEnableLighting(false);
+    object_->SetScale({ scale, scale, scale });
     object_->Update();
 }
 

@@ -51,8 +51,12 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     shadowManager_ = std::make_unique<ShadowManager>();
     shadowManager_->Initialize(dxCommon_, srvManager_);
 
+    // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
+    Object3d::SetCommonObjectCommon(objectCommon_.get());
+    Object3d::SetCommonShadowManager(shadowManager_.get());
+
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 19.0f, 6.0f, -30.0f });
+    camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
     Object3d::SetCommonCamera(camera_.get());
 
     modelSkydome_ = std::make_unique<Model>();
@@ -392,8 +396,8 @@ void GamePlayScene::UpdateCamera()
     const Vector3& ppos = player_->GetPosition();
     cameraTargetPos_ = {
         std::clamp(ppos.x,        2.0f  - kBlkR + GameConstants::kCameraHalfW,  36.0f + kBlkR - GameConstants::kCameraHalfW),
-        std::clamp(ppos.y + 6.0f, -0.6f - kBlkR + GameConstants::kCameraHalfH,  13.0f + kBlkR - GameConstants::kCameraHalfH),
-        -30.0f
+        std::clamp(ppos.y + 3.0f, -0.6f - kBlkR + GameConstants::kCameraHalfH,  13.0f + kBlkR - GameConstants::kCameraHalfH),
+        -24.0f
     };
 
     UpdateCameraSmoothing();

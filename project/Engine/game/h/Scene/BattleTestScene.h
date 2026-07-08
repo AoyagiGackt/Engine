@@ -18,6 +18,7 @@
 #include "ImageFilter.h"
 #include "ImGuiManager.h"
 #include "Input.h"
+#include "KnightEnemy.h"
 #include "MeshSliceEffect.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -31,6 +32,7 @@
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "SrvManager.h"
+#include "StyleMeter.h"
 #include "WeaponManager.h"
 namespace engine::graphics {
 class GrayscaleEffect;
@@ -110,16 +112,24 @@ private:
     bool UpdateCombat();
     /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
     bool UpdateFinisherSlash();
-    /// @brief コンボランク表示のカウント・フェードを更新する
-    void UpdateComboRank(bool hitConfirmed);
+    /// @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点）
+    void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する
     void UpdateDummies();
+    /// @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する
+    void UpdateKnightEnemy();
+    /// @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する
+    void UpdateTargetLock();
+    /// @brief 武器スロットUIのスプライトを初期化する
+    void InitializeWeaponSlotHud();
+    /// @brief 武器スロットUI（枠・アイコン・光る演出）を毎フレーム更新する
+    void UpdateWeaponSlotHud();
+    /// @brief 武器スロットUIを描画する
+    void DrawWeaponSlotHud();
     /// @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する
     void DrawHud(bool nearReturnPortal);
     /// @brief 武器一覧と戻りポータルのラベルを描画する
     void DrawWeaponHud(bool nearReturnPortal);
-    /// @brief 画面中央のコンボランク表示を描画する
-    void DrawComboRankHud();
 
     DirectXCommon* dxCommon_     = nullptr;
     Input*         input_        = nullptr;
@@ -165,9 +175,16 @@ private:
     std::unique_ptr<Model>   modelDummy_;
     std::vector<Dummy>       dummies_;
 
+    // 剣を持つナイト敵（撃破→凍結→武器奪取のお試し実装）
+    std::unique_ptr<KnightEnemy> knight_;
+
+    // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
+    enum class LockTargetKind { None, Dummy, Knight };
+    LockTargetKind lockedKind_       = LockTargetKind::None;
+    size_t         lockedDummyIndex_ = 0;
+
     // 武器
     WeaponManager* weaponManager_ = nullptr;
-    float attackCooldown_    = 0.0f;
     float weaponCycleTimer_  = 0.0f;
 
     // 弾丸
@@ -176,15 +193,43 @@ private:
     // ワープ演出
     float warpPulseTimer_ = 0.0f;
 
-    // コンボランク（実際にダミーへ命中した時だけ加算）
-    int   trComboCount_ = 0;
-    int   trMaxCombo_   = 0;
-    float trComboTimer_ = 0.0f;
-    float trRankAlpha_  = 0.0f;
+    // スタイリッシュランク（右上表示。実際に命中した時だけ加点、同じ技の連発は減衰）
+    StyleMeter styleMeter_;
 
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
+
+    // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
+    struct WeaponSlotUI {
+        std::unique_ptr<Sprite> frame; // 枠背景
+        std::unique_ptr<Sprite> icon;  // スタイルカラーで塗った中身
+    };
+    static constexpr int   kWeaponSlotCount    = 7;
+    static constexpr float kSlotFlashDuration  = 0.35f;
+    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<Vector2, kWeaponSlotCount>      weaponSlotPos_;
+
+    // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
+    // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
+    struct WeaponIcon3D {
+        std::unique_ptr<Model>    model;
+        std::unique_ptr<Object3d> object;
+        int   slotIndex = -1;  // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
+        float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
+        float scale      = 0.2f;  // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+        float baseYaw    = 0.0f;  // モデルの「正面」がカメラを向くよう調整する基準角度（要目視調整）
+    };
+    std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
+
+    float slotPulseTimer_ = 0.0f; // 使用中スロットの明滅位相
+    float slotFlashTimer_ = 0.0f; // 武器奪取時に全スロットをパッと光らせる残り時間
+
+    // 常時装備の拳銃アイコン（4スロットとは別枠、アイドル時にゆっくり回転する）
+    std::unique_ptr<Sprite> gunFrame_;
+    std::unique_ptr<Sprite> gunIcon_;
+    Vector2 gunPos_       = {};
+    float   gunIconAngle_ = 0.0f;
 
     // フィニッシャースラッシュ演出の進行状態
     bool  finisherActive_    = false;

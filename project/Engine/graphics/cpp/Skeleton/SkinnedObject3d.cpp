@@ -4,6 +4,7 @@
 #include "Logger.h"
 #include "ModelCommon.h"
 #include "Object3dCommon.h"
+#include "OutlineEffect.h"
 #include "ShadowManager.h"
 #include "SrvManager.h"
 #include "TextureManager.h"
@@ -71,17 +72,10 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
     transformCB_ = makeBuffer((sizeof(TransformationMatrix) + 255) & ~255u);
     transformCB_->Map(0, nullptr, reinterpret_cast<void**>(&transformData_));
 
-    materialCB_ = makeBuffer(sizeof(Material));
+    materialCB_ = makeBuffer(sizeof(ObjectMaterialLayout));
     materialCB_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    materialData_->color = { 1, 1, 1, 1 };
-    materialData_->enableLighting = 1;
-    materialData_->shadingType = 1; // HalfLambert
-    materialData_->useCubemap = 0;
-    materialData_->useTexture = 1;
+    *materialData_ = ObjectMaterialLayout{}; // 既定値（ライティング有効・リム無効など）
     materialData_->uvTransform = MakeIdentity4x4();
-    materialData_->specularColor = { 1, 1, 1 };
-    materialData_->shininess = 32.0f;
-    materialData_->envMapIntensity = 0.0f;
 
     // パレット: 256 バイト境界に合わせる（128 * 64 = 8192 はすでに倍数）
     paletteCB_ = makeBuffer(sizeof(Matrix4x4) * kMaxJoints);
@@ -247,4 +241,31 @@ void SkinnedObject3d::Draw()
         }
         model_->Draw(cmd);
     }
+}
+
+void SkinnedObject3d::DrawOutline(OutlineEffect* effect)
+{
+    // フォールバックパス（VS 内ボーン計算）は頂点レイアウトがボーンウェイト付きで
+    // OutlineVS の入力（POSITION/TEXCOORD/NORMAL のみ）と一致しないため未対応
+    if (!model_ || !effect || !skinCSReady_) {
+        return;
+    }
+
+    ID3D12GraphicsCommandList* cmd = skinCommon_->GetDxCommon()->GetCommandList();
+
+    // アウトラインパスは Draw() より先に呼ばれる想定なので、
+    // 今フレーム分のスキニング結果をここで計算しておく（Draw() 側でも再計算するが軽量なので許容）
+    // ※ Dispatch はコンピュート用 PSO にコマンドリストを切り替えるため、
+    //    このあと BeginOutlinePass() でグラフィックス用ルートシグネチャ/PSO に戻す必要がある
+    //    （通常の Draw() は直後に CommonDrawSettings() で戻しているが、こちらは戻していなかった）
+    skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
+    effect->BeginOutlinePass();
+
+    // slot 1 (VS b1): 座標変換行列（OutlineEffect のルートシグネチャに合わせる）
+    cmd->SetGraphicsRootConstantBufferView(1, transformCB_->GetGPUVirtualAddress());
+
+    const D3D12_VERTEX_BUFFER_VIEW& vbv = skinCS_.GetOutputVBV();
+    cmd->IASetVertexBuffers(0, 1, &vbv);
+    cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    cmd->DrawInstanced(model_->GetVertexCount(), 1, 0, 0);
 }

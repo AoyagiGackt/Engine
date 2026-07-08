@@ -23,9 +23,9 @@ namespace GameConstants {
     inline constexpr float kHalfPi  = kPi / 2.0f;
     inline constexpr float kDegToRad = kPi / 180.0f;
 
-    // カメラ投影半幅・半高
-    inline constexpr float kCameraHalfW = 12.25f;
-    inline constexpr float kCameraHalfH =  6.888f;
+    // カメラ投影半幅・半高（fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高）
+    inline constexpr float kCameraHalfW = 9.800f;
+    inline constexpr float kCameraHalfH = 5.510f;
 
     // ヒットストップ（フレーム数）
     inline constexpr int kHitStopLaunch        = 8;   // 打ち上げ
