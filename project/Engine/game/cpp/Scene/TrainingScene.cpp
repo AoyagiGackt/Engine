@@ -44,7 +44,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     shadowManager_->Initialize(dxCommon_, srvManager_);
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 14.5f, 6.0f, -30.0f });
+    camera_->SetTranslate({ 14.5f, 6.0f, -24.0f });
     Object3d::SetCommonCamera(camera_.get());
 
     modelBlock_ = std::make_unique<Model>();

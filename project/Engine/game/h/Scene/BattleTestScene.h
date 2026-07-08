@@ -18,6 +18,7 @@
 #include "ImageFilter.h"
 #include "ImGuiManager.h"
 #include "Input.h"
+#include "KnightEnemy.h"
 #include "MeshSliceEffect.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -114,6 +115,16 @@ private:
     void UpdateComboRank(bool hitConfirmed);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する
     void UpdateDummies();
+    /// @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する
+    void UpdateKnightEnemy();
+    /// @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する
+    void UpdateTargetLock();
+    /// @brief 武器スロットUIのスプライトを初期化する
+    void InitializeWeaponSlotHud();
+    /// @brief 武器スロットUI（枠・アイコン・光る演出）を毎フレーム更新する
+    void UpdateWeaponSlotHud();
+    /// @brief 武器スロットUIを描画する
+    void DrawWeaponSlotHud();
     /// @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する
     void DrawHud(bool nearReturnPortal);
     /// @brief 武器一覧と戻りポータルのラベルを描画する
@@ -165,6 +176,14 @@ private:
     std::unique_ptr<Model>   modelDummy_;
     std::vector<Dummy>       dummies_;
 
+    // 剣を持つナイト敵（撃破→凍結→武器奪取のお試し実装）
+    std::unique_ptr<KnightEnemy> knight_;
+
+    // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
+    enum class LockTargetKind { None, Dummy, Knight };
+    LockTargetKind lockedKind_       = LockTargetKind::None;
+    size_t         lockedDummyIndex_ = 0;
+
     // 武器
     WeaponManager* weaponManager_ = nullptr;
     float attackCooldown_    = 0.0f;
@@ -185,6 +204,36 @@ private:
     // 覚醒ゲージ UI
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
+
+    // 武器スロットUI（画面左下、4枠。使用中の枠が光る）
+    struct WeaponSlotUI {
+        std::unique_ptr<Sprite> frame; // 枠背景
+        std::unique_ptr<Sprite> icon;  // スタイルカラーで塗った中身
+    };
+    static constexpr int   kWeaponSlotCount    = 4;
+    static constexpr float kSlotFlashDuration  = 0.35f;
+    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<Vector2, kWeaponSlotCount>      weaponSlotPos_;
+
+    // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
+    // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
+    struct WeaponIcon3D {
+        std::unique_ptr<Model>    model;
+        std::unique_ptr<Object3d> object;
+        int   slotIndex = -1;  // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
+        float angle      = 0.0f;
+        float scale      = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+    };
+    std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
+
+    float slotPulseTimer_ = 0.0f; // 使用中スロットの明滅位相
+    float slotFlashTimer_ = 0.0f; // 武器奪取時に全スロットをパッと光らせる残り時間
+
+    // 常時装備の拳銃アイコン（4スロットとは別枠、アイドル時にゆっくり回転する）
+    std::unique_ptr<Sprite> gunFrame_;
+    std::unique_ptr<Sprite> gunIcon_;
+    Vector2 gunPos_       = {};
+    float   gunIconAngle_ = 0.0f;
 
     // フィニッシャースラッシュ演出の進行状態
     bool  finisherActive_    = false;

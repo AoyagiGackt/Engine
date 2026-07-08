@@ -73,6 +73,9 @@ public:
     /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
     void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) { rampagePhase_ = RampagePhase::Inactive; } }
 
+    /** @brief 武器奪取の刺突モーションを頭から再生する（外部トリガー用、既存の斬撃を流用） */
+    void PlayStealStab();
+
     /**
      * @brief ローグライトのスキル補正を適用する
      * @param mods RunData のスキル一覧から計算した補正値
@@ -270,6 +273,9 @@ private:
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;
 
+    // アウトラインパス後に通常描画 PSO へ戻すために保持（Player::Draw() で使用）
+    ModelCommon* modelCommon_ = nullptr;
+
     // 残像・分身演出用の静的モデル（ボーンなし、本体と同じ見た目のシルエット）
     std::unique_ptr<Model> model_;
 
@@ -278,10 +284,26 @@ private:
     std::unique_ptr<SkinnedModel>    skinnedModel_;
     std::unique_ptr<SkinnedObject3d> skinnedObject_;
 
-    // カタナ装備（右手ボーン Palm.R に毎フレーム追従、ソードスタイル時のみ表示）
+    // 右手ボーン Palm.R に持たせる近接武器（現在のスタイルに対応する1つだけ表示）
     std::unique_ptr<Model>    katanaModel_;
     std::unique_ptr<Object3d> katanaObject_;
     bool katanaVisible_ = true;
+
+    std::unique_ptr<Model>    daggerModel_;
+    std::unique_ptr<Object3d> daggerObject_;
+    bool daggerVisible_ = false;
+
+    std::unique_ptr<Model>    hammerModel_;
+    std::unique_ptr<Object3d> hammerObject_;
+    bool hammerVisible_ = false;
+
+    std::unique_ptr<Model>    spearModel_;
+    std::unique_ptr<Object3d> spearObject_;
+    bool spearVisible_ = false;
+
+    /** @brief 右手ボーンに武器オブジェクトを追従させる（握りローカル行列は呼び出し側で指定） */
+    void AttachHeldWeapon(Object3d* obj, const char* boneName,
+        const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate);
 
     // 拳銃装備（左手ボーン Palm.L に毎フレーム追従、スタイルによらず常時表示）
     std::unique_ptr<Model>    pistolModel_;

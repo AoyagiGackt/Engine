@@ -73,17 +73,48 @@ WeaponManager::WeaponManager() {
 
         weapons_.push_back(std::move(data));
     }
+
+    // 4スロットは倒した敵から奪って埋めていく想定なので、初期状態は全ロック。
+    // ただし何も使えないと詰むため、機動力型（奇術師/Dagger）だけ最初から解放しておく
+    unlocked_.assign(weapons_.size(), false);
+    for (size_t i = 0; i < weapons_.size(); ++i) {
+        if (weapons_[i].type == WeaponType::Dagger) {
+            unlocked_[i] = true;
+            index_       = static_cast<int>(i);
+            break;
+        }
+    }
 }
 
 void WeaponManager::SelectIndex(int i) {
-    index_ = std::clamp(i, 0, static_cast<int>(weapons_.size()) - 1);
+    int n = static_cast<int>(weapons_.size());
+    i = std::clamp(i, 0, n - 1);
+    if (IsUnlocked(i)) { index_ = i; }
 }
 
 void WeaponManager::SelectNext() {
-    SelectIndex((index_ + 1) % static_cast<int>(weapons_.size()));
+    int n = static_cast<int>(weapons_.size());
+    for (int step = 1; step <= n; ++step) {
+        int i = (index_ + step) % n;
+        if (IsUnlocked(i)) { index_ = i; return; }
+    }
 }
 
 void WeaponManager::SelectPrev() {
     int n = static_cast<int>(weapons_.size());
-    SelectIndex((index_ - 1 + n) % n);
+    for (int step = 1; step <= n; ++step) {
+        int i = ((index_ - step) % n + n) % n;
+        if (IsUnlocked(i)) { index_ = i; return; }
+    }
+}
+
+bool WeaponManager::Unlock(WeaponType type) {
+    for (size_t i = 0; i < weapons_.size(); ++i) {
+        if (weapons_[i].type != type) { continue; }
+        if (unlocked_[i]) { return false; } // 重複入手（将来: 経験値/強化素材に転用）
+        unlocked_[i] = true;
+        index_       = static_cast<int>(i); // 奪った武器をそのまま装備
+        return true;
+    }
+    return false;
 }

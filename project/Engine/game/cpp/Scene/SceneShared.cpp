@@ -92,8 +92,8 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos)
     constexpr float kBlockRadius = 0.5f;
     camera->SetTranslate({
         std::clamp(playerPos.x,          2.0f  - kBlockRadius + GameConstants::kCameraHalfW,  28.0f + kBlockRadius - GameConstants::kCameraHalfW),
-        std::clamp(playerPos.y + 6.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH,  13.0f + kBlockRadius - GameConstants::kCameraHalfH),
-        -30.0f
+        std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH,  13.0f + kBlockRadius - GameConstants::kCameraHalfH),
+        -24.0f
     });
 }
 
@@ -114,6 +114,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
     constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
     constexpr Vector4 kColorSel    = { 1.0f, 1.0f, 0.2f, 1.0f };
+    constexpr Vector4 kColorLocked = { 0.45f, 0.45f, 0.45f, 0.8f };
     constexpr Vector4 kColorHint   = { 0.6f, 0.6f, 0.6f, 1.0f };
 
     float px = 12.0f;
@@ -126,11 +127,16 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
 
     const auto& weaponList = weaponManager->GetList();
     for (int i = 0; i < static_cast<int>(weaponList.size()); ++i) {
-        bool sel = (i == weaponManager->GetIndex());
+        bool unlocked = weaponManager->IsUnlocked(i);
+        bool sel      = unlocked && (i == weaponManager->GetIndex());
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "%s %d.%-8s DMG:%.0f  RNG:%.1f",
-            sel ? ">" : " ", i + 1, weaponList[i].name.c_str(), weaponList[i].damage, weaponList[i].range);
-        fontRenderer.DrawString(buf, px, py, kScale, sel ? kColorSel : kColorNormal);
+        if (unlocked) {
+            std::snprintf(buf, sizeof(buf), "%s %d.%-8s DMG:%.0f  RNG:%.1f",
+                sel ? ">" : " ", i + 1, weaponList[i].name.c_str(), weaponList[i].damage, weaponList[i].range);
+        } else {
+            std::snprintf(buf, sizeof(buf), "  %d.???      [LOCKED]", i + 1);
+        }
+        fontRenderer.DrawString(buf, px, py, kScale, sel ? kColorSel : unlocked ? kColorNormal : kColorLocked);
         py += kLineH;
     }
 

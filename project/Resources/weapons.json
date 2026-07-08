@@ -84,26 +84,6 @@
                 { "key": "W/Up",  "desc": "ジャンプ" },
                 { "key": "R",     "desc": "覚醒" }
             ]
-        },
-        {
-            "name": "Ball",
-            "type": "Ball",
-            "styleName": "玉術師 (BallMaster)",
-            "styleNameJp": "玉術師",
-            "damage": 12.0,
-            "range": 3.0,
-            "attackInterval": 0.30,
-            "description": "玉を連射するスタイル",
-            "styleColor": [1.0, 0.45, 0.85, 1.0],
-            "knockbackMult": 0.4,
-            "commands": [
-                { "key": "Space",      "desc": "スピン連射" },
-                { "key": "Space(Air)", "desc": "スピン+ばらまき" },
-                { "key": "L",          "desc": "格闘" },
-                { "key": "K",          "desc": "射撃" },
-                { "key": "W/Up",       "desc": "ジャンプ" },
-                { "key": "R",          "desc": "覚醒" }
-            ]
         }
     ]
 }

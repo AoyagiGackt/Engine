@@ -2,6 +2,7 @@
 #include "GameConstants.h"
 #include "Input.h"
 #include "ModelCommon.h"
+#include "OutlineEffect.h"
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
@@ -20,6 +21,10 @@ constexpr float kPlayerModelScale   = 0.34f;
 // モデル原点は足元、pos_ は AABB 中心なので半分下げて足元を合わせる
 constexpr float kPlayerModelOffsetY = -0.5f;
 
+// 本体・武器の黒縁アウトライン（背景との同化と武器の視認性の低さを補う）
+constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+constexpr float   kOutlineWidth = 0.015f;
+
 // カタナ装備（右手 Palm.R にアタッチ、パレットテクスチャは変換済み）
 constexpr const char* kKatanaModelPath = "Resources/Knight/OBJ/Katana.obj";
 constexpr const char* kKatanaTexture   = "Resources/Knight/OBJ/KatanaPalette.png";
@@ -28,6 +33,33 @@ constexpr const char* kKatanaBoneName  = "Palm.R";
 constexpr Vector3 kKatanaGripScale     = { 0.4f, 0.4f, 0.4f };
 constexpr Vector3 kKatanaGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
 constexpr Vector3 kKatanaGripTranslate = { 0.0f, 0.05f, 0.0f };
+
+// ダガー装備（右手 Palm.R、ダガースタイル時のみ表示）
+constexpr const char* kDaggerModelPath = "Resources/MedievalWeaponsPack/OBJ/Dagger.obj";
+constexpr const char* kDaggerTexture   = "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png";
+// モデル身長は約2.6、柄が根元(-Y側)、刃が+Y方向
+constexpr Vector3 kDaggerGripScale     = { 0.35f, 0.35f, 0.35f };
+constexpr Vector3 kDaggerGripRotate    = { 0.0f, 0.0f, 0.0f };
+constexpr Vector3 kDaggerGripTranslate = { 0.0f, 0.05f, 0.0f };
+
+// ハンマー装備（右手 Palm.R、ハンマースタイル時のみ表示）
+constexpr const char* kHammerModelPath = "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj";
+constexpr const char* kHammerTexture   = "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png";
+// モデル身長は約4.33、柄が根元(-Y側)
+constexpr Vector3 kHammerGripScale     = { 0.35f, 0.35f, 0.35f };
+constexpr Vector3 kHammerGripRotate    = { 0.0f, 0.0f, 0.0f };
+constexpr Vector3 kHammerGripTranslate = { 0.0f, 0.05f, 0.0f };
+
+// スピア装備（右手 Palm.R、スピアスタイル時のみ表示）
+// モデル身長は約9.7と長いため、他の近接武器よりだいぶ小さいスケールになる
+constexpr const char* kSpearModelPath = "Resources/MedievalWeaponsPack/OBJ/Spear.obj";
+constexpr const char* kSpearTexture   = "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png";
+constexpr Vector3 kSpearGripScale     = { 0.18f, 0.18f, 0.18f };
+constexpr Vector3 kSpearGripRotate    = { 0.0f, 0.0f, 0.0f };
+constexpr Vector3 kSpearGripTranslate = { 0.0f, 0.05f, 0.0f };
+
+// 近接武器共通のアタッチ先ボーン
+constexpr const char* kMeleeWeaponBoneName = "Palm.R";
 
 // 拳銃装備（左手 Palm.L にアタッチ、スタイルによらず常時表示。K キー射撃と対応）
 constexpr const char* kPistolModelPath = "Resources/AnimatedFPSGuns/OBJ/Pistol.obj";
@@ -52,10 +84,15 @@ constexpr float kFinisherChargeDuration   = GameConstants::kFinisherChargeDelay
                                            + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
                                            + GameConstants::kFinisherImpactDelay;
 constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも留まらぬ速さで
+
+// 武器奪取の刺突（バージル的:ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
+constexpr float kStealStabAnimSpeed = 1.2f;
 }
 
 void Player::Initialize(ModelCommon* modelCommon)
 {
+    modelCommon_ = modelCommon;
+
     // 残像・分身演出用の静的モデル（ボーンなし、ボーン付きモデルと同じ見た目）
     model_ = std::make_unique<Model>();
     model_->Initialize(modelCommon,
@@ -103,29 +140,29 @@ void Player::Initialize(ModelCommon* modelCommon)
 
     afterImageRenderer_.Initialize(modelCommon, model_.get(), kPlayerModelScale);
 
-    // カタナ（右手ボーン追従、トランスフォームは毎フレーム SetLocalMatrix で与える）
-    katanaModel_ = std::make_unique<Model>();
-    katanaModel_->Initialize(modelCommon, kKatanaModelPath, kKatanaTexture);
-    katanaObject_ = std::make_unique<Object3d>();
-    katanaObject_->Initialize(modelCommon);
-    katanaObject_->SetModel(katanaModel_.get());
-    katanaObject_->SetEnableLighting(true);
-    katanaObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
-    katanaObject_->SetRimPower(2.5f);
-    katanaObject_->SetRimIntensity(1.2f);
-    katanaObject_->SetEnableRim(true);
+    // 手持ち武器の共通セットアップ（読み込み + リムライト設定）
+    auto initHeldWeapon = [&](std::unique_ptr<Model>& model, std::unique_ptr<Object3d>& object,
+                              const char* modelPath, const char* texturePath) {
+        model = std::make_unique<Model>();
+        model->Initialize(modelCommon, modelPath, texturePath);
+        object = std::make_unique<Object3d>();
+        object->Initialize(modelCommon);
+        object->SetModel(model.get());
+        object->SetEnableLighting(true);
+        object->SetRimColor({ 0.4f, 0.9f, 1.0f });
+        object->SetRimPower(2.5f);
+        object->SetRimIntensity(1.2f);
+        object->SetEnableRim(true);
+    };
 
-    // 拳銃（左手ボーン追従、トランスフォームは毎フレーム SetLocalMatrix で与える）
-    pistolModel_ = std::make_unique<Model>();
-    pistolModel_->Initialize(modelCommon, kPistolModelPath, kPistolTexture);
-    pistolObject_ = std::make_unique<Object3d>();
-    pistolObject_->Initialize(modelCommon);
-    pistolObject_->SetModel(pistolModel_.get());
-    pistolObject_->SetEnableLighting(true);
-    pistolObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
-    pistolObject_->SetRimPower(2.5f);
-    pistolObject_->SetRimIntensity(1.2f);
-    pistolObject_->SetEnableRim(true);
+    // 右手武器（トランスフォームは毎フレーム SetLocalMatrix で与える、現在のスタイルの1つだけ表示）
+    initHeldWeapon(katanaModel_, katanaObject_, kKatanaModelPath, kKatanaTexture);
+    initHeldWeapon(daggerModel_, daggerObject_, kDaggerModelPath, kDaggerTexture);
+    initHeldWeapon(hammerModel_, hammerObject_, kHammerModelPath, kHammerTexture);
+    initHeldWeapon(spearModel_,  spearObject_,  kSpearModelPath,  kSpearTexture);
+
+    // 拳銃（左手ボーン追従、スタイルによらず常時表示）
+    initHeldWeapon(pistolModel_, pistolObject_, kPistolModelPath, kPistolTexture);
 }
 
 void Player::UpdateAnimationState(bool isMoving)
@@ -156,6 +193,11 @@ void Player::UpdateAnimationState(bool isMoving)
     case AnimState::Jump: skinnedObject_->SetAnimation(isMoving ? runningJumpAnim_ : jumpAnim_); break;
     default:              skinnedObject_->SetAnimation(hold ? idleHoldAnim_ : idleAnim_); break;
     }
+}
+
+void Player::PlayStealStab()
+{
+    PlayAttackAnim(slashAnim_, kStealStabAnimSpeed);
 }
 
 void Player::PlayAttackAnim(const Animation& anim, float speed)
@@ -330,6 +372,9 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         : 1.2f;
     skinnedObject_->SetRimIntensity(rimIntensity);
     katanaObject_->SetRimIntensity(rimIntensity);
+    daggerObject_->SetRimIntensity(rimIntensity);
+    hammerObject_->SetRimIntensity(rimIntensity);
+    spearObject_->SetRimIntensity(rimIntensity);
     pistolObject_->SetRimIntensity(rimIntensity);
 
     skinnedObject_->SetPosition(modelPos);
@@ -337,21 +382,15 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     skinnedObject_->Update();
 
     // ── カタナを右手ボーンに追従（ソードスタイル時のみ表示）──────────
-    katanaVisible_ = (wm->GetCurrent().type == WeaponType::Sword);
-    if (katanaVisible_) {
-        const Skeleton& skel = skinnedObject_->GetSkeleton();
-        auto jt = skel.jointMap.find(kKatanaBoneName);
-        if (jt != skel.jointMap.end()) {
-            // 握りローカル → ジョイントのスケルトン空間 → プレイヤーワールド の順で合成
-            Matrix4x4 grip = MakeAffineMatrix(kKatanaGripScale, kKatanaGripRotate, kKatanaGripTranslate);
-            Matrix4x4 katanaWorld = Multiply(grip,
-                Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
-            katanaObject_->SetLocalMatrix(katanaWorld);
-            katanaObject_->Update();
-        } else {
-            katanaVisible_ = false;
-        }
-    }
+    WeaponType meleeType = wm->GetCurrent().type;
+    katanaVisible_ = (meleeType == WeaponType::Sword);
+    daggerVisible_ = (meleeType == WeaponType::Dagger);
+    hammerVisible_ = (meleeType == WeaponType::Hammer);
+    spearVisible_  = (meleeType == WeaponType::Spear);
+    if (katanaVisible_) { AttachHeldWeapon(katanaObject_.get(), kMeleeWeaponBoneName, kKatanaGripScale, kKatanaGripRotate, kKatanaGripTranslate); }
+    if (daggerVisible_) { AttachHeldWeapon(daggerObject_.get(), kMeleeWeaponBoneName, kDaggerGripScale, kDaggerGripRotate, kDaggerGripTranslate); }
+    if (hammerVisible_) { AttachHeldWeapon(hammerObject_.get(), kMeleeWeaponBoneName, kHammerGripScale, kHammerGripRotate, kHammerGripTranslate); }
+    if (spearVisible_)  { AttachHeldWeapon(spearObject_.get(),  kMeleeWeaponBoneName, kSpearGripScale,  kSpearGripRotate,  kSpearGripTranslate); }
 
     // ── 拳銃を左手ボーンに追従（スタイルによらず常時表示、発砲時は跳ね上がる）──
     {
@@ -375,13 +414,44 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 }
 
+void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
+    const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate)
+{
+    const Skeleton& skel = skinnedObject_->GetSkeleton();
+    auto jt = skel.jointMap.find(boneName);
+    if (jt == skel.jointMap.end()) { return; }
+
+    // 握りローカル → ジョイントのスケルトン空間 → プレイヤーワールド の順で合成
+    Matrix4x4 grip  = MakeAffineMatrix(gripScale, gripRotate, gripTranslate);
+    Matrix4x4 world = Multiply(grip,
+        Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
+    obj->SetLocalMatrix(world);
+    obj->Update();
+}
+
 void Player::Draw()
 {
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
-    if (katanaVisible_ && katanaObject_) {
-        katanaObject_->Draw();
-    }
+
+    // 黒縁アウトライン（本体・武器とも先に描いてから通常描画で上書きする）
+    auto* outline = OutlineEffect::GetInstance();
+    outline->SetColor(kOutlineColor);
+    outline->SetWidth(kOutlineWidth);
+    outline->BeginOutlinePass();
+    if (katanaVisible_ && katanaObject_) { katanaObject_->DrawOutline(outline); }
+    if (daggerVisible_ && daggerObject_) { daggerObject_->DrawOutline(outline); }
+    if (hammerVisible_ && hammerObject_) { hammerObject_->DrawOutline(outline); }
+    if (spearVisible_  && spearObject_)  { spearObject_->DrawOutline(outline); }
+    if (pistolVisible_ && pistolObject_) { pistolObject_->DrawOutline(outline); }
+    skinnedObject_->DrawOutline(outline);
+    if (modelCommon_) { modelCommon_->CommonDrawSettings(); }
+
+    // 通常描画
+    if (katanaVisible_ && katanaObject_) { katanaObject_->Draw(); }
+    if (daggerVisible_ && daggerObject_) { daggerObject_->Draw(); }
+    if (hammerVisible_ && hammerObject_) { hammerObject_->Draw(); }
+    if (spearVisible_  && spearObject_)  { spearObject_->Draw(); }
     if (pistolVisible_ && pistolObject_) {
         pistolObject_->Draw();
     }

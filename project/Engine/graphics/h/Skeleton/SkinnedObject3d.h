@@ -21,6 +21,7 @@ using engine::game::Animation;
 class Camera;
 class Object3dCommon;
 class ShadowManager;
+class OutlineEffect;
 
 // スキニング（ボーンアニメーション）付き 3D オブジェクト
 // SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する
@@ -67,6 +68,13 @@ public:
     void Update();
     void Draw();
     void DebugDraw();
+
+    /**
+     * @brief アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
+     * @note CS スキニング（skinCSReady_）でのみ対応。Draw() より先に呼ばれる想定のため、
+     *       スキニング結果を自前で Dispatch し直す
+     */
+    void DrawOutline(OutlineEffect* effect);
 
 private:
     static const int kMaxJoints = 128;

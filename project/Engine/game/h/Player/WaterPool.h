@@ -60,7 +60,7 @@ private:
     static constexpr float kPoolTop    =  3.0f;
     static constexpr float kPoolBottom = -0.6f;
 
-    // fovY=0.45, dist=30 のカメラで Z=0 面に映る可視半幅・半高（GameConstants と共有）
+    // fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高（GameConstants と共有）
     static constexpr float kHalfW = GameConstants::kCameraHalfW;
     static constexpr float kHalfH = GameConstants::kCameraHalfH;
 };
