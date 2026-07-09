@@ -174,6 +174,10 @@ private:
     static constexpr float kGravity_   =  0.012f;
     static constexpr float kJumpPower_ =  0.4f;
     static constexpr float kSpeed_     =  0.15f;
+    // 敵とめり込まないための最小X距離。両者のAABB半幅は0.5+0.5=1.0だが、そこまで離すと
+    // GamePlayScene の接触ダメージ判定（プレイヤーAABBと敵AABBの重なりで発生）が一切当たらなくなるため、
+    // 完全な重なり(0)は防ぎつつ接触判定用の重なりしろは残す0.75にしている
+    static constexpr float kMinEnemyDistanceX_ = 0.75f;
 
     // 水中物理（水なしステージでは無効化された状態のままにする）
     static constexpr float kWaterLevelDisabled_ = -1.0f;

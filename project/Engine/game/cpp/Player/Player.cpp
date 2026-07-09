@@ -148,8 +148,11 @@ void Player::UpdateAnimationState(bool isMoving)
                         : !onGround_ ? AnimState::Jump
                         : isMoving   ? AnimState::Run
                                      : AnimState::Idle;
-    // 構え系の武器では武器持ちバリエーション（IdleHold/RunHold）を使う
-    bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type);
+    // 構え系の近接武器、または銃を左手に構えている間は武器持ちバリエーション（IdleHold/RunHold）を使う
+    // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
+    const Skeleton& skel = rig_->object->GetSkeleton();
+    bool hasGunBone = skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end();
+    bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type) || hasGunBone;
     if (newState == animState_ && hold == animHold_) { return; }
     animState_ = newState;
     animHold_  = hold;
@@ -278,7 +281,13 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         finisherCharging_    = true;
         finisherChargeTimer_ = kFinisherChargeDuration;
         meleeCombo_.Reset(); // 進行中のコンボは打ち切って静止に入る
-        rig_->object->SetAnimation(UsesHoldPose(wm->GetCurrent().type) ? rig_->idleHoldAnim : rig_->idleAnim);
+        {
+            // 銃は常時左手に追従表示されるため、構え系近接武器と同様に扱う（UpdateAnimationStateと同じ判定）
+            const Skeleton& skel = rig_->object->GetSkeleton();
+            bool hasGunBone = skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end();
+            bool hold = UsesHoldPose(wm->GetCurrent().type) || hasGunBone;
+            rig_->object->SetAnimation(hold ? rig_->idleHoldAnim : rig_->idleAnim);
+        }
         rig_->object->SetAnimSpeed(0.0f); // 呼吸すら止めるように完全静止
     }
 
@@ -350,6 +359,15 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         attackAnimTimer_ = 0.0f;
         rig_->object->SetAnimSpeed(1.0f);
         animState_ = AnimState::Attack;
+    }
+
+    // ── 敵とのめり込み防止（乱舞の突進/ジャグルは意図的に密着させる演出なので対象外）──
+    if (rampagePhase_ == RampagePhase::Inactive) {
+        float dx = pos_.x - enemyPos.x;
+        if (std::abs(dx) < kMinEnemyDistanceX_) {
+            float dir = (dx >= 0.0f) ? 1.0f : -1.0f;
+            pos_.x = std::clamp(enemyPos.x + dir * kMinEnemyDistanceX_, kMinX_, kMaxX_);
+        }
     }
 
     // 入水・出水判定（物理後の位置で確定）
