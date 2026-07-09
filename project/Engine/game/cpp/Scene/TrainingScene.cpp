@@ -140,7 +140,7 @@ void TrainingScene::UpdatePlayerAndBullets()
     if (player_->JustSpinShot()) {
         constexpr float kBulletSpeed = 0.30f;
         const Vector3&  spawnPos     = player_->GetPosition();
-        Vector3 firePos = { spawnPos.x, spawnPos.y + 0.4f, 0.0f };
+        Vector3 firePos = { spawnPos.x, spawnPos.y, 0.0f };
 
         if (player_->IsUpsideDown()) {
             // 逆さ: 下方向中心に 5 方向ばらまき

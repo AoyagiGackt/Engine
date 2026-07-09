@@ -26,7 +26,7 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     audio_ = audio;
     imguiManager_ = imgui;
 
-    // 最初のシーン（デバッグ時はトレーニングから直接開始）
+    // 最初のシーン（デバッグ時はテストしやすいようTrainingSceneへ直行、それ以外はタイトルから）
 #ifdef _DEBUG
     currentScene_ = std::make_unique<TrainingScene>();
 #else

@@ -31,6 +31,15 @@
 #include "imgui.h"
 #include <cmath>
 
+// CollisionConfig.h の形状プリミティブは engine 名前空間内で定義されているため、
+// グローバル名前空間の DebugDraw から使えるように取り込む
+using engine::Ray;
+using engine::Sphere;
+using engine::AABB;
+using engine::Capsule;
+using engine::Collider;
+using engine::ColliderShape;
+
 namespace DebugDraw {
 
 // ---- よく使うカラー定数 (IM_COL32: ABGR バイト順) ----
@@ -90,6 +99,15 @@ inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float t
     _Internal::screenW_   = screenW;
     _Internal::screenH_   = screenH;
     _Internal::thickness_ = thickness;
+}
+
+/**
+ * @brief ワールド座標をスクリーン座標に変換する（ギズモのピッキング等、外部から使う用）
+ * @return false ならカメラ後方 → 呼び出し側は描画/判定をスキップすること
+ */
+inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen)
+{
+    return _Internal::WorldToScreen(world, outScreen);
 }
 
 /**

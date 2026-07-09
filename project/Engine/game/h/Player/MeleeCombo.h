@@ -28,6 +28,8 @@ struct MeleeAttackDef {
     bool  slashAnim;        ///< true=斬撃アニメ / false=パンチアニメ
     Vector3 swingFrom;      ///< 武器グリップ回転オフセットの振りかぶり側（ラジアン）
     Vector3 swingTo;        ///< 武器グリップ回転オフセットの振り抜き側（ラジアン）
+    Vector3 bodyLeanFrom;   ///< 体（rig_->object）の傾きオフセットの振りかぶり側（ラジアン、X=前後/Z=左右）
+    Vector3 bodyLeanTo;     ///< 体の傾きオフセットの振り抜き側（ラジアン）
 };
 
 /** @brief 1武器タイプぶんのコンボ一式（地上コンボ・空中コンボ・打ち上げ技） */
@@ -75,7 +77,13 @@ public:
     /** @brief 現在のスイング回転オフセットを返す（振りかぶり→振り抜き→構え直しの補間） */
     Vector3 GetSwingOffset() const;
 
+    /** @brief 現在の体の傾きオフセットを返す（同じ振りかぶり→振り抜き→構え直しのタイミングで補間） */
+    Vector3 GetBodyLeanOffset() const;
+
 private:
+    /** @brief GetSwingOffset/GetBodyLeanOffset共通: 振りかぶり→振り抜き→構え直しの3相でfrom/toを補間する */
+    Vector3 BlendPhase(const Vector3& from, const Vector3& to) const;
+
     void StartStep(const MeleeAttackDef* def, int tableIdx, bool airMode, bool isLauncher);
     /** @brief 現在の状態から次に出すべき段を返す（テーブル末尾は先頭へループ） */
     const MeleeAttackDef* NextStep(bool launcherInput, bool airborne, int& outIdx, bool& outLauncher) const;

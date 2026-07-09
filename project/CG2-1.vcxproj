@@ -582,6 +582,7 @@
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h" />
     <ClInclude Include="Engine\game\h\Core\Time\Tweener.h" />
     <ClInclude Include="Engine\game\h\Player\Player.h" />
+    <ClInclude Include="Engine\game\h\Player\CharacterVisuals.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingScene.h" />
     <ClInclude Include="Engine\game\h\Player\Weapon.h" />
     <ClInclude Include="Engine\game\h\Player\WaterPool.h" />

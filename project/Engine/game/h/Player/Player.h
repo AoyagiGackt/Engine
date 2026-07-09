@@ -174,6 +174,10 @@ private:
     static constexpr float kGravity_   =  0.012f;
     static constexpr float kJumpPower_ =  0.4f;
     static constexpr float kSpeed_     =  0.15f;
+    // 敵とめり込まないための最小X距離。両者のAABB半幅は0.5+0.5=1.0だが、そこまで離すと
+    // GamePlayScene の接触ダメージ判定（プレイヤーAABBと敵AABBの重なりで発生）が一切当たらなくなるため、
+    // 完全な重なり(0)は防ぎつつ接触判定用の重なりしろは残す0.75にしている
+    static constexpr float kMinEnemyDistanceX_ = 0.75f;
 
     // 水中物理（水なしステージでは無効化された状態のままにする）
     static constexpr float kWaterLevelDisabled_ = -1.0f;
@@ -308,7 +312,7 @@ private:
 
     // 見た目1体ぶんのリグ。通常時と覚醒中でモデルごと差し替えるため、
     // アニメーションや武器アタッチ先ボーン名などモデル依存の情報をセットで持つ
-    // （アセットパス・アニメ名の定義は Player.cpp の kNormalRigAsset / kAwakenedRigAsset）
+    // （アセットパス・アニメ名の定義は CharacterVisuals.h の kNormalRigVisual / kAwakenedRigVisual）
     struct CharacterRig {
         std::unique_ptr<Model>           staticModel;  ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）
         std::unique_ptr<SkinnedModel>    skinnedModel; ///< 本体描画（ボーンアニメーション付き）
@@ -332,7 +336,7 @@ private:
     CharacterRig* rig_ = &normalRig_; ///< 現在表示中のリグ（覚醒の開始/終了で切り替え）
 
     // 右手ボーンに持たせる近接武器（現在のスタイルに対応する1つだけ表示）
-    // 種類が多いため個別メンバーではなくテーブルで持つ（追加は Player.cpp の kHeldWeaponAssets）
+    // 種類が多いため個別メンバーではなくテーブルで持つ（追加は CharacterVisuals.h の kHeldWeaponVisuals）
     struct HeldWeaponSlot {
         WeaponType                type;
         std::unique_ptr<Model>    model;
@@ -349,7 +353,7 @@ private:
         const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate);
 
     // 銃装備（左手ボーンに毎フレーム追従、G キーで切り替えた1丁だけ表示）
-    // 近接の heldWeapons_ と同じテーブル方式（追加は Player.cpp の kGunAssets）
+    // 近接の heldWeapons_ と同じテーブル方式（追加は CharacterVisuals.h の kGunVisuals）
     struct GunSlot {
         GunType                   type;
         std::unique_ptr<Model>    model;
