@@ -3,6 +3,7 @@
  * @brief BattleTestScene / TrainingScene 間で共通の武器切替・カメラ追従・HUD描画処理
  */
 #pragma once
+#include "CollisionConfig.h"
 #include "MakeAffine.h"
 #include "PostEffectFullscreenPass.h" // IPostEffectSource
 #include "WeaponManager.h"
@@ -51,6 +52,12 @@ void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, f
 
 /// @brief 武器切替入力（Q/E、数字キー）を処理するweaponCycleTimer は呼び出し側が保持するクールダウン
 void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager, float& weaponCycleTimer);
+
+/**
+ * @brief 向いている方向に厚く、背後は控えめな攻撃判定AABBを作る（近接・射撃共通）
+ * @note 左右対称のAABBだと武器射程ぶん背後まで届いてしまい「明らかに遠いのに当たる」原因になる
+ */
+engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange);
 
 /// @brief ワールド座標をスクリーン座標に変換する（カメラ位置基準）
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY);

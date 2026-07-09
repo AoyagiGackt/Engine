@@ -1,15 +1,76 @@
 {
-    "ranged": {
-        "name": "Pistol",
-        "damage": 12.0,
-        "range": 15.0,
-        "attackInterval": 0.18,
-        "description": "標準的な拳銃",
-        "commands": [
-            { "key": "F",       "desc": "射撃" },
-            { "key": "Shift+F", "desc": "連射" }
-        ]
-    },
+    "rangedWeapons": [
+        {
+            "name": "Handgun",
+            "nameJp": "ハンドガン",
+            "type": "Pistol",
+            "damage": 12.0,
+            "range": 15.0,
+            "attackInterval": 0.18,
+            "description": "軽快な速射コンボの基準銃",
+            "color": [0.75, 0.75, 0.80, 1.0],
+            "commands": [
+                { "key": "K", "desc": "4段速射" },
+                { "key": "G", "desc": "銃切替" }
+            ]
+        },
+        {
+            "name": "Magnum",
+            "nameJp": "マグナム",
+            "type": "Magnum",
+            "damage": 26.0,
+            "range": 14.0,
+            "attackInterval": 0.55,
+            "description": "溜めて撃つ大口径、締めは打ち上げ",
+            "color": [0.95, 0.90, 0.70, 1.0],
+            "commands": [
+                { "key": "K", "desc": "重い2段(締めは打ち上げ)" },
+                { "key": "G", "desc": "銃切替" }
+            ]
+        },
+        {
+            "name": "SMG",
+            "nameJp": "マシンピストル",
+            "type": "SMG",
+            "damage": 6.0,
+            "range": 12.0,
+            "attackInterval": 0.11,
+            "description": "2発ずつばらまく超高速コンボ",
+            "color": [0.45, 0.60, 0.85, 1.0],
+            "commands": [
+                { "key": "K", "desc": "高速6段連射" },
+                { "key": "G", "desc": "銃切替" }
+            ]
+        },
+        {
+            "name": "Shotgun",
+            "nameJp": "ショットガン",
+            "type": "Shotgun",
+            "damage": 20.0,
+            "range": 7.0,
+            "attackInterval": 0.45,
+            "description": "近距離特化の散弾、締めはゼロ距離打ち上げ",
+            "color": [0.90, 0.50, 0.25, 1.0],
+            "commands": [
+                { "key": "K", "desc": "散弾3段(踏み込み)" },
+                { "key": "G", "desc": "銃切替" }
+            ]
+        },
+        {
+            "name": "Railgun",
+            "nameJp": "レールガン",
+            "type": "Railgun",
+            "damage": 40.0,
+            "range": 30.0,
+            "attackInterval": 0.85,
+            "description": "長い構えから貫く最長射程の一撃",
+            "color": [0.30, 0.85, 0.90, 1.0],
+            "commands": [
+                { "key": "K", "desc": "チャージ2段(貫通)" },
+                { "key": "G", "desc": "銃切替" }
+            ]
+        }
+    ],
     "weapons": [
         {
             "name": "Sword",
@@ -25,7 +86,7 @@
             "commands": [
                 { "key": "L",    "desc": "4段コンボ" },
                 { "key": "S+L",  "desc": "打ち上げ" },
-                { "key": "K",    "desc": "射撃" },
+                { "key": "K",    "desc": "銃コンボ" },
                 { "key": "R",    "desc": "覚醒" }
             ]
         },
@@ -43,7 +104,7 @@
             "commands": [
                 { "key": "L",   "desc": "突き3段" },
                 { "key": "S+L", "desc": "掬い上げ" },
-                { "key": "K",   "desc": "射撃" }
+                { "key": "K",   "desc": "銃コンボ" }
             ]
         },
         {
@@ -61,7 +122,7 @@
                 { "key": "L",     "desc": "高速5段" },
                 { "key": "S+L",   "desc": "打ち上げ" },
                 { "key": "Space", "desc": "ブリンク" },
-                { "key": "K",     "desc": "射撃" }
+                { "key": "K",     "desc": "銃コンボ" }
             ]
         },
         {
@@ -97,7 +158,7 @@
                 { "key": "L",     "desc": "剛剣3段" },
                 { "key": "S+L",   "desc": "打ち上げ" },
                 { "key": "空中L", "desc": "落下斬り" },
-                { "key": "K",     "desc": "射撃" }
+                { "key": "K",     "desc": "銃コンボ" }
             ]
         },
         {
@@ -114,7 +175,7 @@
             "commands": [
                 { "key": "L",   "desc": "刈り取り3段" },
                 { "key": "S+L", "desc": "魂刈り(最強打上)" },
-                { "key": "K",   "desc": "射撃" }
+                { "key": "K",   "desc": "銃コンボ" }
             ]
         },
         {
@@ -131,7 +192,7 @@
             "commands": [
                 { "key": "L",   "desc": "斧撃3段" },
                 { "key": "S+L", "desc": "打ち上げ" },
-                { "key": "K",   "desc": "射撃" }
+                { "key": "K",   "desc": "銃コンボ" }
             ]
         }
     ]

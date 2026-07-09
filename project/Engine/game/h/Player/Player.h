@@ -6,6 +6,7 @@
 #include "AfterImageRenderer.h"
 #include "Animation.h"
 #include "CollisionConfig.h"
+#include "GunCombo.h"
 #include "MeleeCombo.h"
 #include "Model.h"
 #include "Object3d.h"
@@ -31,6 +32,7 @@ using engine::Input;
 using engine::graphics::ModelCommon;
 
 enum class WeaponType; // Weapon.h で定義
+enum class GunType;    // Weapon.h で定義
 
 /**
  * @brief プレイヤーキャラクターを制御するクラス
@@ -93,8 +95,8 @@ public:
      * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
      */
     void SetWaterLevel(float waterLevelY) { waterLevel_ = waterLevelY; }
-    /** @brief 残像・分身演出用の静的モデル（ボーンなし）のポインタを返す */
-    Model* GetModel() const { return model_.get(); }
+    /** @brief 残像・分身演出用の静的モデル（ボーンなし、現在のフォームの見た目）のポインタを返す */
+    Model* GetModel() const { return rig_->staticModel.get(); }
 
     /**
      * @brief プレイヤーの現在位置から AABB コライダーを生成して返す
@@ -135,6 +137,16 @@ public:
     const MeleeAttackDef* GetActiveMeleeAttack() const { return meleeCombo_.GetActive(); }
     /** @brief 近接コンボのモーション中か */
     bool  IsMeleeAttacking()  const { return meleeCombo_.IsAttacking(); }
+
+    /**
+     * @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
+     * @note JustFired() のフレームに弾数・拡散・射程倍率・ノックバック・技IDの参照に使う
+     */
+    const GunShotDef* GetActiveGunShot() const { return gunCombo_.GetActive(); }
+    /** @brief 射撃コンボのモーション中か */
+    bool  IsGunShooting()     const { return gunCombo_.IsShooting(); }
+    /** @brief 現在の射撃コンボの段数を返す（1始まり） */
+    int   GetGunComboStep()   const { return gunCombo_.GetStep(); }
 
     // スペースキー スピン連射
     bool  JustSpinShot()      const { return justSpinShot_; }   ///< スピン連射発生フレーム
@@ -204,6 +216,8 @@ private:
 
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
     MeleeComboController meleeCombo_;
+    // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
+    GunComboController   gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
     static constexpr float kLaunchFollowWindow_ = 0.45f;
     static constexpr float kLaunchFollowJumpMult_ = 1.35f;
@@ -289,15 +303,35 @@ private:
     // アウトラインパス後に通常描画 PSO へ戻すために保持（Player::Draw() で使用）
     ModelCommon* modelCommon_ = nullptr;
 
-    // 残像・分身演出用の静的モデル（ボーンなし、本体と同じ見た目のシルエット）
-    std::unique_ptr<Model> model_;
+    // スキンメッシュ描画の共通設定（両フォームのリグで共有）
+    std::unique_ptr<SkinCommon> skinCommon_;
 
-    // 本体描画（ボーンアニメーション付き）
-    std::unique_ptr<SkinCommon>      skinCommon_;
-    std::unique_ptr<SkinnedModel>    skinnedModel_;
-    std::unique_ptr<SkinnedObject3d> skinnedObject_;
+    // 見た目1体ぶんのリグ。通常時と覚醒中でモデルごと差し替えるため、
+    // アニメーションや武器アタッチ先ボーン名などモデル依存の情報をセットで持つ
+    // （アセットパス・アニメ名の定義は Player.cpp の kNormalRigAsset / kAwakenedRigAsset）
+    struct CharacterRig {
+        std::unique_ptr<Model>           staticModel;  ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）
+        std::unique_ptr<SkinnedModel>    skinnedModel; ///< 本体描画（ボーンアニメーション付き）
+        std::unique_ptr<SkinnedObject3d> object;
+        float       modelScale    = 1.0f;
+        float       modelOffsetY  = 0.0f; ///< モデル原点（足元）を AABB 中心の pos_ に合わせる下げ幅
+        const char* meleeBoneName = "";   ///< 近接武器のアタッチ先ボーン
+        const char* gunBoneName   = "";   ///< 銃のアタッチ先ボーン
+        Animation idleAnim;
+        Animation runAnim;
+        Animation jumpAnim;
+        Animation runningJumpAnim; ///< 移動しながらのジャンプ
+        Animation swimAnim;        ///< 水中
+        Animation idleHoldAnim;    ///< 武器持ち待機（構え系スタイル）
+        Animation runHoldAnim;     ///< 武器持ち走り（構え系スタイル）
+        Animation slashAnim;       ///< 斬撃（ソード攻撃・乱舞・フィニッシャー）
+        Animation punchAnim;       ///< パンチ（ソード以外のスタイルのコンボ）
+    };
+    CharacterRig  normalRig_;         ///< 通常フォーム
+    CharacterRig  awakenedRig_;       ///< 覚醒フォーム（メカ）
+    CharacterRig* rig_ = &normalRig_; ///< 現在表示中のリグ（覚醒の開始/終了で切り替え）
 
-    // 右手ボーン Palm.R に持たせる近接武器（現在のスタイルに対応する1つだけ表示）
+    // 右手ボーンに持たせる近接武器（現在のスタイルに対応する1つだけ表示）
     // 種類が多いため個別メンバーではなくテーブルで持つ（追加は Player.cpp の kHeldWeaponAssets）
     struct HeldWeaponSlot {
         WeaponType                type;
@@ -314,28 +348,27 @@ private:
     void AttachHeldWeapon(Object3d* obj, const char* boneName,
         const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate);
 
-    // 拳銃装備（左手ボーン Palm.L に毎フレーム追従、スタイルによらず常時表示）
-    std::unique_ptr<Model>    pistolModel_;
-    std::unique_ptr<Object3d> pistolObject_;
-    bool  pistolVisible_    = true;
-    float pistolRecoilTimer_ = 0.0f; ///< 発砲時の跳ね上がり演出の残り秒数
+    // 銃装備（左手ボーンに毎フレーム追従、G キーで切り替えた1丁だけ表示）
+    // 近接の heldWeapons_ と同じテーブル方式（追加は Player.cpp の kGunAssets）
+    struct GunSlot {
+        GunType                   type;
+        std::unique_ptr<Model>    model;
+        std::unique_ptr<Object3d> object;
+        Vector3 gripScale;
+        Vector3 gripRotate;
+        Vector3 gripTranslate;
+    };
+    std::vector<GunSlot> guns_;
+    int  activeGunIndex_ = -1;   ///< 現在表示中の guns_ インデックス（-1=非表示）
+    bool gunVisible_     = true; ///< 銃のアタッチ先ボーンが見つかったか
 
     /** @brief 再生中のアニメーション状態 */
     enum class AnimState { Idle, Run, Jump, Swim, Attack };
     AnimState animState_ = AnimState::Idle;
     bool      animHold_  = false; ///< 武器持ちバリエーション（IdleHold/RunHold）を再生中か
-    Animation idleAnim_;
-    Animation runAnim_;
-    Animation jumpAnim_;
-    Animation runningJumpAnim_; ///< 移動しながらのジャンプ
-    Animation swimAnim_;        ///< 水中
-    Animation idleHoldAnim_;    ///< 武器持ち待機（ソードスタイル）
-    Animation runHoldAnim_;     ///< 武器持ち走り（ソードスタイル）
-    Animation slashAnim_;       ///< 斬撃（ソード攻撃・乱舞・フィニッシャー）
-    Animation punchAnim_;       ///< パンチ（ソード以外のスタイルのコンボ）
     float     attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 
-    // フィニッシャー：静止集中 → 一閃（バージルの次元斬演出の代替）
+    // フィニッシャー：静止集中 → 一閃
     bool  finisherCharging_    = false; ///< 静止して溜めている最中か
     float finisherChargeTimer_ = 0.0f;  ///< 残り溜め時間（0以下で解放＝一閃へ）
 

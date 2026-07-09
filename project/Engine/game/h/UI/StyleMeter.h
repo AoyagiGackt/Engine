@@ -1,6 +1,6 @@
 /**
  * @file StyleMeter.h
- * @brief DMC風スタイリッシュランク（D〜SSS）の採点と画面右上へのHUD描画を行うクラス
+ * @brief スタイリッシュランク（D〜SSS）の採点と画面右上へのHUD描画を行うクラス
  */
 #pragma once
 #include "Sprite.h"

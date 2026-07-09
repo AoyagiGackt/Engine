@@ -12,19 +12,17 @@ namespace {
 
 struct RankDef {
     const char* letter;
-    const char* label;
     float       threshold; ///< このポイント以上でこのランク
     Vector4     color;
 };
-// DMC式: ランク名の頭文字がランク文字と一致するとそれっぽい
 constexpr RankDef kRanks[StyleMeter::kRankCount] = {
-    { "D",   "DULL",             0.0f, { 0.55f, 0.55f, 0.55f, 1.0f } },
-    { "C",   "CRAZY!",         120.0f, { 0.85f, 0.85f, 0.85f, 1.0f } },
-    { "B",   "BADASS!!",       270.0f, { 0.30f, 0.72f, 1.00f, 1.0f } },
-    { "A",   "AMAZING!",       440.0f, { 0.20f, 1.00f, 0.40f, 1.0f } },
-    { "S",   "STYLISH!!",      620.0f, { 1.00f, 0.90f, 0.10f, 1.0f } },
-    { "SS",  "SENSATIONAL!!",  790.0f, { 1.00f, 0.55f, 0.10f, 1.0f } },
-    { "SSS", "SUPREME!!!",     940.0f, { 1.00f, 0.30f, 0.30f, 1.0f } },
+    { "D",     0.0f, { 0.55f, 0.55f, 0.55f, 1.0f } },
+    { "C",   120.0f, { 0.85f, 0.85f, 0.85f, 1.0f } },
+    { "B",   270.0f, { 0.30f, 0.72f, 1.00f, 1.0f } },
+    { "A",   440.0f, { 0.20f, 1.00f, 0.40f, 1.0f } },
+    { "S",   620.0f, { 1.00f, 0.90f, 0.10f, 1.0f } },
+    { "SS",  790.0f, { 1.00f, 0.55f, 0.10f, 1.0f } },
+    { "SSS", 940.0f, { 1.00f, 0.30f, 0.30f, 1.0f } },
 };
 
 // HUD レイアウト（右上アンカー）
@@ -127,26 +125,20 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     float rankW = FontRenderer::kCharW * scale * static_cast<float>(std::strlen(def.letter));
     font.DrawString(def.letter, kRightEdge - rankW, kRankY, scale, rc);
 
-    // ランク名ラベル
-    constexpr float kLabelScale = 1.4f;
-    float labelW = FontRenderer::kCharW * kLabelScale * static_cast<float>(std::strlen(def.label));
-    font.DrawString(def.label, kRightEdge - labelW, kRankY + 84.0f,
-        kLabelScale, { def.color.x, def.color.y, def.color.z, hudAlpha_ * 0.9f });
-
     // ヒットチェーン数（加算の瞬間だけ少し大きく）
     if (hitCount_ > 0) {
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%d HITS", hitCount_);
         float hs = 1.8f + ((hitPopTimer_ > 0.0f) ? 0.5f * (hitPopTimer_ / 0.18f) : 0.0f);
         float hw = FontRenderer::kCharW * hs * static_cast<float>(std::strlen(buf));
-        font.DrawString(buf, kRightEdge - hw, kRankY + 118.0f, hs, { 1.0f, 1.0f, 1.0f, hudAlpha_ });
+        font.DrawString(buf, kRightEdge - hw, kRankY + 100.0f, hs, { 1.0f, 1.0f, 1.0f, hudAlpha_ });
     }
     if (bestChain_ > 0) {
         char buf[32];
         std::snprintf(buf, sizeof(buf), "BEST %d", bestChain_);
         constexpr float kBS = 1.1f;
         float bw = FontRenderer::kCharW * kBS * static_cast<float>(std::strlen(buf));
-        font.DrawString(buf, kRightEdge - bw, kRankY + 152.0f, kBS, { 0.7f, 0.7f, 0.7f, hudAlpha_ * 0.8f });
+        font.DrawString(buf, kRightEdge - bw, kRankY + 130.0f, kBS, { 0.7f, 0.7f, 0.7f, hudAlpha_ * 0.8f });
     }
 
     // ランク内の進捗バー（次のランクまでの割合）
@@ -154,13 +146,13 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     float hi = (rank + 1 < kRankCount) ? kRanks[rank + 1].threshold : kMaxPoints;
     float t  = std::clamp((points_ - lo) / (std::max)(hi - lo, 1.0f), 0.0f, 1.0f);
 
-    barBg_->SetPosition({ kRightEdge - kBarW, kRankY + 104.0f });
+    barBg_->SetPosition({ kRightEdge - kBarW, kRankY + 84.0f });
     barBg_->SetSize({ kBarW, kBarH });
     Vector4 bg = { 0.08f, 0.08f, 0.12f, 0.8f * hudAlpha_ };
     barBg_->SetColor(bg);
     barBg_->Update();
 
-    barFg_->SetPosition({ kRightEdge - kBarW, kRankY + 104.0f });
+    barFg_->SetPosition({ kRightEdge - kBarW, kRankY + 84.0f });
     barFg_->SetSize({ kBarW * t, kBarH });
     barFg_->SetColor({ def.color.x, def.color.y, def.color.z, 0.95f * hudAlpha_ });
     barFg_->Update();

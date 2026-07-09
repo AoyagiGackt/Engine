@@ -22,7 +22,7 @@ using engine::graphics::ParticleManager;
  * @brief 剣を持つナイト型の敵
  * @note ボーンなしの静的メッシュ（剣も剛体アタッチ）。KnightCharacter.fbx はボーン付きだが
  *       エンジンのAssimpビルドがFBXインポーターを含まないため、色付けのみ済んだOBJ版を使う。
- *       派手なテレポート斬りのバージルではなく、抑制的で静かな立ち回りのDMC5 Vを意識した動き。
+ *       派手なテレポート斬りではなく、抑制的で静かな立ち回りを意識した動き。
  */
 class KnightEnemy {
 public:

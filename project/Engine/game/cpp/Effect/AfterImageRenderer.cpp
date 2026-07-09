@@ -14,6 +14,13 @@ void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model, floa
     object_->Update();
 }
 
+void AfterImageRenderer::SetModel(Model* model, float scale)
+{
+    object_->SetModel(model);
+    object_->SetScale({ scale, scale, scale });
+    for (auto& img : images_) { img.alpha = 0.0f; }
+}
+
 void AfterImageRenderer::Update(bool active, bool dense, const Vector3& pos, float yaw, float spinZ)
 {
     for (auto& img : images_) {
