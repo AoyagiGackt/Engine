@@ -102,6 +102,15 @@ inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float t
 }
 
 /**
+ * @brief ワールド座標をスクリーン座標に変換する（ギズモのピッキング等、外部から使う用）
+ * @return false ならカメラ後方 → 呼び出し側は描画/判定をスキップすること
+ */
+inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen)
+{
+    return _Internal::WorldToScreen(world, outScreen);
+}
+
+/**
  * @brief 3D 空間の 2 点間にラインを描く
  * @param from  始点（ワールド座標）
  * @param to    終点（ワールド座標）

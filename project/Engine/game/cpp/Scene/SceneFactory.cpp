@@ -1,5 +1,4 @@
 #include "SceneFactory.h"
-#include "AnimationEditorScene.h"
 #include "BattleTestScene.h"
 #include "ClearScene.h"
 #include "GameOverScene.h"
@@ -26,8 +25,6 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
         newScene = std::make_unique<TrainingScene>();
     } else if (sceneName == "BATTLETEST") {
         newScene = std::make_unique<BattleTestScene>();
-    } else if (sceneName == "ANIMEDIT") {
-        newScene = std::make_unique<AnimationEditorScene>();
     } else if (sceneName == "CLEAR") {
         newScene = std::make_unique<ClearScene>();
     } else if (sceneName == "GAMEOVER") {

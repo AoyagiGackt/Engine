@@ -23,7 +23,7 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     audio_ = audio;
     imguiManager_ = imgui;
 
-    // 最初のシーン（タイトルから「ANIM EDIT」等のメニューを通して各シーンへ入る）
+    // 最初のシーン（タイトルからメニューを通して各シーンへ入る）
     currentScene_ = std::make_unique<TitleScene>();
     currentScene_->Initialize(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する

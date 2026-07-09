@@ -1,6 +1,6 @@
 /**
  * @file CharacterVisuals.h
- * @brief Player.cpp / AnimationEditorScene.cpp が共有するリグ・手持ち武器の見た目定義
+ * @brief Player.cpp が使うリグ・手持ち武器の見た目定義
  * @note データそのものはここが唯一の定義元。個別シーン側でテーブルを複製しない。
  */
 #pragma once

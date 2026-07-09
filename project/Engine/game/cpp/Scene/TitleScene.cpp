@@ -33,7 +33,6 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
         { "NEW GAME" },
         { "CONTINUE", SaveDataManager::GetInstance()->HasContinue() },
         { "TRAINING" },
-        { "ANIM EDIT" },
     });
 }
 
@@ -55,9 +54,6 @@ void TitleScene::Update()
             break;
         case 2: // TRAINING
             SceneManager::GetInstance()->ChangeScene("TRAINING", 0.4f, 0.4f);
-            break;
-        case 3: // ANIM EDIT
-            SceneManager::GetInstance()->ChangeScene("ANIMEDIT", 0.4f, 0.4f);
             break;
         default:
             break;

@@ -3,7 +3,6 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include "EngineAssert.h"
-#include "JsonHelper.h"
 #include <cmath>
 using namespace engine;
 
@@ -80,90 +79,6 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
         }
     }
 
-    return animation;
-}
-
-// =================================================================
-// 独自JSON形式の保存/読込（AnimationEditorScene用）
-// =================================================================
-
-void SaveAnimationJson(const std::string& path, const Animation& anim)
-{
-    nlohmann::json j;
-    j["duration"] = anim.duration;
-
-    nlohmann::json nodes = nlohmann::json::object();
-    for (const auto& [name, na] : anim.nodeAnimations) {
-        nlohmann::json jn;
-
-        nlohmann::json translateArr = nlohmann::json::array();
-        for (const auto& k : na.translate.keyframes) {
-            translateArr.push_back({ { "time", k.time }, { "value", { k.value.x, k.value.y, k.value.z } } });
-        }
-        jn["translate"] = translateArr;
-
-        nlohmann::json rotateArr = nlohmann::json::array();
-        for (const auto& k : na.rotate.keyframes) {
-            rotateArr.push_back({ { "time", k.time }, { "value", { k.value.x, k.value.y, k.value.z, k.value.w } } });
-        }
-        jn["rotate"] = rotateArr;
-
-        nlohmann::json scaleArr = nlohmann::json::array();
-        for (const auto& k : na.scale.keyframes) {
-            scaleArr.push_back({ { "time", k.time }, { "value", { k.value.x, k.value.y, k.value.z } } });
-        }
-        jn["scale"] = scaleArr;
-
-        nodes[name] = jn;
-    }
-    j["nodeAnimations"] = nodes;
-
-    JsonHelper::Save(path, j);
-}
-
-Animation LoadAnimationJson(const std::string& path)
-{
-    Animation animation;
-    auto j = JsonHelper::Load(path);
-    if (j.empty()) { return animation; }
-
-    animation.duration = j.value("duration", 0.0f);
-
-    if (j.contains("nodeAnimations")) {
-        for (auto& [name, jn] : j["nodeAnimations"].items()) {
-            NodeAnimation na;
-
-            if (jn.contains("translate")) {
-                for (auto& jk : jn["translate"]) {
-                    KeyframeVector3 kf;
-                    kf.time = jk.value("time", 0.0f);
-                    const auto& v = jk["value"];
-                    kf.value = { v[0], v[1], v[2] };
-                    na.translate.keyframes.push_back(kf);
-                }
-            }
-            if (jn.contains("rotate")) {
-                for (auto& jk : jn["rotate"]) {
-                    KeyframeQuaternion kf;
-                    kf.time = jk.value("time", 0.0f);
-                    const auto& v = jk["value"];
-                    kf.value = { v[0], v[1], v[2], v[3] };
-                    na.rotate.keyframes.push_back(kf);
-                }
-            }
-            if (jn.contains("scale")) {
-                for (auto& jk : jn["scale"]) {
-                    KeyframeVector3 kf;
-                    kf.time = jk.value("time", 0.0f);
-                    const auto& v = jk["value"];
-                    kf.value = { v[0], v[1], v[2] };
-                    na.scale.keyframes.push_back(kf);
-                }
-            }
-
-            animation.nodeAnimations[name] = std::move(na);
-        }
-    }
     return animation;
 }
 
