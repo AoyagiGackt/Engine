@@ -31,6 +31,15 @@
 #include "imgui.h"
 #include <cmath>
 
+// CollisionConfig.h の形状プリミティブは engine 名前空間内で定義されているため、
+// グローバル名前空間の DebugDraw から使えるように取り込む
+using engine::Ray;
+using engine::Sphere;
+using engine::AABB;
+using engine::Capsule;
+using engine::Collider;
+using engine::ColliderShape;
+
 namespace DebugDraw {
 
 // ---- よく使うカラー定数 (IM_COL32: ABGR バイト順) ----

@@ -246,6 +246,9 @@
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\AnimationEditorScene.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -569,6 +572,9 @@
     <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\AnimationEditorScene.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
@@ -612,6 +618,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\Player.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\CharacterVisuals.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\TrainingScene.h">

@@ -348,7 +348,7 @@ bool BattleTestScene::UpdateCombat()
         // BulletPool の弾はダミーに当たると二重ヒットになるため、射撃コンボの弾道は視覚専用のパーティクルにする）
         if (shot != nullptr) {
             const float   dir     = player_->GetLastDirX();
-            const Vector3 firePos = { pp.x, pp.y + 0.4f, 0.0f };
+            const Vector3 firePos = { pp.x, pp.y, 0.0f }; // 銃口高さ＝手の高さ付近（頭から出ているように見えないよう低めに）
             const Vector4 col     = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
             const int     n       = (std::max)(shot->bullets, 2);
             for (int i = 0; i < n; ++i) {
@@ -401,7 +401,7 @@ bool BattleTestScene::UpdateCombat()
     // ── スペースキー スピン連射 ──────────────────────────────────────
     if (player_->JustSpinShot()) {
         constexpr float kBulletSpeed = 0.30f;
-        Vector3 firePos = { pp.x, pp.y + 0.4f, 0.0f };
+        Vector3 firePos = { pp.x, pp.y, 0.0f };
 
         if (player_->IsUpsideDown()) {
             // 逆さ: 下方向中心に 5 方向ばらまき

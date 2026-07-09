@@ -85,6 +85,17 @@ struct Animation {
  */
 Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename, const std::string& animationName = "");
 
+/**
+ * @brief AnimationEditorSceneで作成した独自JSON形式からアニメーションデータを読み込む
+ * @param path ファイルパス（存在しない/壊れている場合は空のAnimationを返す）
+ */
+Animation LoadAnimationJson(const std::string& path);
+
+/**
+ * @brief アニメーションデータを独自JSON形式で保存する（LoadAnimationJsonで読み戻せる）
+ */
+void SaveAnimationJson(const std::string& path, const Animation& anim);
+
 // =================================================================
 // 補間計算
 // =================================================================

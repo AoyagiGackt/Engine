@@ -1,9 +1,6 @@
 #include "SceneManager.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
-#ifdef _DEBUG
-#include "TrainingScene.h"
-#endif
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -26,12 +23,8 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     audio_ = audio;
     imguiManager_ = imgui;
 
-    // 最初のシーン（デバッグ時はトレーニングから直接開始）
-#ifdef _DEBUG
-    currentScene_ = std::make_unique<TrainingScene>();
-#else
+    // 最初のシーン（タイトルから「ANIM EDIT」等のメニューを通して各シーンへ入る）
     currentScene_ = std::make_unique<TitleScene>();
-#endif
     currentScene_->Initialize(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();

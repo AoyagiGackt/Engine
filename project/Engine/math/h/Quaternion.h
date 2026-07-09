@@ -3,6 +3,7 @@
  * @brief クォータニオン（回転を表す四元数）とその補間関数を定義するファイル
  */
 #pragma once
+#include "Vector3.h"
 #include <cmath>
 
 /** @brief クォータニオン（四元数）回転をあらわす */
@@ -13,6 +14,31 @@ struct Quaternion
     float z;
     float w;
 };
+
+/**
+ * @brief オイラー角（XYZ順、ラジアン）からクォータニオンを作る
+ * @note X回転→Y回転→Z回転の順に適用される合成（q = qz * qy * qx）
+ */
+inline Quaternion MakeRotateXYZQuaternion(const Vector3& eulerRadians)
+{
+    float cx = std::cos(eulerRadians.x * 0.5f), sx = std::sin(eulerRadians.x * 0.5f);
+    float cy = std::cos(eulerRadians.y * 0.5f), sy = std::sin(eulerRadians.y * 0.5f);
+    float cz = std::cos(eulerRadians.z * 0.5f), sz = std::sin(eulerRadians.z * 0.5f);
+
+    Quaternion qx{ sx, 0.0f, 0.0f, cx };
+    Quaternion qy{ 0.0f, sy, 0.0f, cy };
+    Quaternion qz{ 0.0f, 0.0f, sz, cz };
+
+    auto mul = [](const Quaternion& a, const Quaternion& b) -> Quaternion {
+        return {
+            a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+            a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+            a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
+        };
+    };
+    return mul(mul(qz, qy), qx);
+}
 
 /**
  * @brief クォータニオンの球面線形補間 (Slerp)
