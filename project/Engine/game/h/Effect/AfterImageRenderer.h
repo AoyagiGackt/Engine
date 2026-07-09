@@ -29,6 +29,14 @@ public:
     void Initialize(ModelCommon* modelCommon, Model* model, float scale = 1.0f);
 
     /**
+     * @brief 残像モデルを差し替える（覚醒フォーム切り替え用）
+     * @param model 新しく残像として描画するモデル
+     * @param scale 新モデルの描画スケール
+     * @note 旧フォームの残り残像は新モデルで描かれると不自然なため全消去する
+     */
+    void SetModel(Model* model, float scale);
+
+    /**
      * @brief 毎フレーム残像を更新する
      * @param active 残像を生成するか（false のとき新規スポーンしない）
      * @param dense  乱舞中など高頻度スポーンモード（true で kFastInterval を使用）

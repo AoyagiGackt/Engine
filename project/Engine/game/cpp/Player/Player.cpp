@@ -12,21 +12,63 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-constexpr const char* kPlayerModelDir  = "Resources/AlienAnimated/glTF";
-constexpr const char* kPlayerModelFile = "Alien.gltf";
-// マテリアル単色を焼き込んだパレットテクスチャ（UVは変換時にブロック中心へ書き換え済み）
-constexpr const char* kPlayerTexture   = "Resources/AlienAnimated/glTF/AlienPalette.png";
-// モデル身長は約2.93。当たり判定(1x1x1 AABB)の高さに合わせる
-constexpr float kPlayerModelScale   = 0.34f;
-// モデル原点は足元、pos_ は AABB 中心なので半分下げて足元を合わせる
-constexpr float kPlayerModelOffsetY = -0.5f;
+// 見た目リグ（通常/覚醒フォーム）のアセット定義
+// モデルごとにアニメーション名・手のボーン名が異なるためリグ単位でまとめて持つ
+struct RigAssetDef {
+    const char* dir;             ///< glTF のディレクトリ
+    const char* file;            ///< glTF のファイル名
+    const char* texture;
+    const char* staticModelPath; ///< 残像・分身演出用のボーンなし OBJ
+    float       scale;
+    float       offsetY;         ///< モデル原点（足元）を AABB 中心の pos_ に合わせる下げ幅
+    const char* meleeBone;       ///< 近接武器のアタッチ先ボーン
+    const char* gunBone;         ///< 銃のアタッチ先ボーン
+    // アニメーション名（素材に無いバリエーションは近いモーションで代用する）
+    const char* idle;
+    const char* run;
+    const char* jump;
+    const char* runningJump;
+    const char* swim;
+    const char* idleHold;
+    const char* runHold;
+    const char* slash;
+    const char* punch;
+};
+
+// 通常フォーム: マテリアル単色を焼き込んだパレットテクスチャ（UVは変換時にブロック中心へ書き換え済み）
+// モデル身長は約2.93。スケールは当たり判定(1x1x1 AABB)の高さに合わせる
+constexpr RigAssetDef kNormalRigAsset = {
+    "Resources/AlienAnimated/glTF", "Alien.gltf",
+    "Resources/AlienAnimated/glTF/AlienPalette.png",
+    "Resources/AlienAnimated/OBJ/Alien.obj",
+    0.34f, -0.5f,
+    "Palm.R", "Palm.L",
+    "Alien_Idle", "Alien_Run", "Alien_Jump", "Alien_RunningJump",
+    "Alien_Swimming", "Alien_IdleHold", "Alien_RunHold",
+    "Alien_SwordSlash", "Alien_Punch",
+};
+
+// 覚醒フォーム: メカ（実テクスチャ付き素材）。モデル身長は約5.35で、覚醒の迫力を出すため
+// 通常フォームよりひと回り大きく見せる（当たり判定は変えない）
+// Swim/IdleHold/RunningJump 相当のモーションが無いため Walk/Idle/Jump で代用。
+// 手のボーンは指ごとに分かれているため、人差し指の付け根（PalmI.*）に武器を握らせる
+constexpr RigAssetDef kAwakenedRigAsset = {
+    "Resources/AnimatedMechPack/Textured/glTF", "Mike.gltf",
+    "Resources/AnimatedMechPack/Textured/Textures/Mike_Texture.png",
+    "Resources/AnimatedMechPack/Textured/OBJ/Mike.obj",
+    0.22f, -0.5f,
+    "PalmI.R", "PalmI.L",
+    "Idle", "Run", "Jump", "Jump",
+    "Walk", "Idle", "Run_Holding",
+    "SwordSlash", "Punch",
+};
 
 // 本体・武器の黒縁アウトライン（背景との同化と武器の視認性の低さを補う）
 // 幅・濃さともに控えめにし、「異常が起きているように見える」ほど主張しないようにする
 constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 0.55f };
 constexpr float   kOutlineWidth = 0.006f;
 
-// 手持ち近接武器の定義（右手 Palm.R にアタッチ、現在のスタイルの1つだけ表示）
+// 手持ち近接武器の定義（右手ボーンにアタッチ、現在のスタイルの1つだけ表示）
 // パレットテクスチャは全て変換済み。スケールはモデル実寸差を吸収し、
 // 手に持った時の見た目の長さ（約1.5〜1.8）が揃うように決めている
 struct HeldWeaponAsset {
@@ -54,9 +96,6 @@ constexpr HeldWeaponAsset kHeldWeaponAssets[] = {
     { WeaponType::Axe,        "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj",   "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png",   { 0.24f, 0.24f, 0.24f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
 };
 
-// 近接武器共通のアタッチ先ボーン
-constexpr const char* kMeleeWeaponBoneName = "Palm.R";
-
 /** @brief 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うタイプか */
 bool UsesHoldPose(WeaponType type) {
     return type == WeaponType::Sword  || type == WeaponType::Greatsword
@@ -64,31 +103,44 @@ bool UsesHoldPose(WeaponType type) {
         || type == WeaponType::Spear;
 }
 
-// 拳銃装備（左手 Palm.L にアタッチ、スタイルによらず常時表示。K キー射撃と対応）
-constexpr const char* kPistolModelPath = "Resources/AnimatedFPSGuns/OBJ/Pistol.obj";
-constexpr const char* kPistolTexture   = "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png";
-constexpr const char* kPistolBoneName  = "Palm.L";
-// Palm.L ローカル空間での握り調整（モデル原点はグリップ中心、銃口が +X 方向）
-constexpr Vector3 kPistolGripScale     = { 0.035f, 0.035f, 0.035f };
-constexpr Vector3 kPistolGripRotate    = { 0.0f, 0.0f, 0.0f }; // ラジアン
-constexpr Vector3 kPistolGripTranslate = { 0.0f, 0.0f, 0.0f };
-
-// 発砲時の跳ね上がり（反動）演出
-constexpr float kPistolRecoilDuration = 0.08f;
-constexpr float kPistolRecoilAngle    = 0.35f; // ラジアン
+// 銃アセットの定義（左手ボーンにアタッチ、G キーで切り替えた1丁だけ表示。
+// K キー射撃コンボと対応。近接の kHeldWeaponAssets と同方式）
+// Pistol はモデルが X 軸沿い（銃口 -X）、他4丁は Z 軸沿い（銃口 -Z）のため
+// rotate.y = +90°で Pistol と同じ向きに揃える。translate はグリップ位置を手のひらへ寄せる調整
+struct GunAsset {
+    GunType     type;
+    const char* modelPath;
+    const char* texturePath;
+    Vector3     gripScale;
+    Vector3     gripRotate;    // ラジアン
+    Vector3     gripTranslate;
+};
+constexpr float kGunYaw90 = 3.14159265f / 2.0f;
+constexpr GunAsset kGunAssets[] = {
+    // ハンドガン: 原点はグリップ中心（実寸長さ約9.7）
+    { GunType::Pistol,  "Resources/AnimatedFPSGuns/OBJ/Pistol.obj",      "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png",      { 0.045f, 0.045f, 0.045f }, { 0.0f, 0.0f, 0.0f },      { 0.0f, 0.0f, 0.0f } },
+    // マグナム: グリップ(Wood)が +Z 側（実寸長さ約9.6）
+    { GunType::Magnum,  "Resources/AnimatedFPSGuns/OBJ/Revolver.obj",    "Resources/AnimatedFPSGuns/OBJ/RevolverPalette.png",    { 0.045f, 0.045f, 0.045f }, { 0.0f, kGunYaw90, 0.0f }, { -0.17f, 0.065f, 0.0f } },
+    // マシンピストル: ブルパップ型、グリップは中央やや前（実寸長さ約11.1）
+    { GunType::SMG,     "Resources/AnimatedFPSGuns/OBJ/P90.obj",         "Resources/AnimatedFPSGuns/OBJ/P90Palette.png",         { 0.045f, 0.045f, 0.045f }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.04f, 0.0f } },
+    // ショットガン: トリガーが中央やや前（実寸長さ約8.5）
+    { GunType::Shotgun, "Resources/AnimatedFPSGuns/OBJ/Shotgun.obj",     "Resources/AnimatedFPSGuns/OBJ/ShotgunPalette.png",     { 0.065f, 0.065f, 0.065f }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.013f, 0.0f } },
+    // レールガン: トリガーが +Z 側（実寸長さ約9.8、スナイパーライフルを流用）
+    { GunType::Railgun, "Resources/AnimatedFPSGuns/OBJ/SniperRifle.obj", "Resources/AnimatedFPSGuns/OBJ/SniperRiflePalette.png", { 0.065f, 0.065f, 0.065f }, { 0.0f, kGunYaw90, 0.0f }, { -0.16f, 0.026f, 0.0f } },
+};
 
 // 斬撃モーションの再生速度倍率（コンボのテンポに合わせて少し速める）
 constexpr float kAttackAnimSpeed = 1.5f;
 
 // フィニッシャー：静止集中の長さ（GamePlayScene/BattleTestScene の斬撃線バラマキ演出と一致させる：
 // kFinisherChargeDelay → 斬撃線を kFinisherSlashLines 本 kFinisherLineInterval 間隔で出す → kFinisherImpactDelay で解放）
-// 素材にバージルの次元斬のような納刀ポーズは無いため、Idle/IdleHold を静止させて代用する
+// 専用の納刀ポーズ素材が無いため、Idle/IdleHold を静止させて代用する
 constexpr float kFinisherChargeDuration   = GameConstants::kFinisherChargeDelay
                                            + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
                                            + GameConstants::kFinisherImpactDelay;
 constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも留まらぬ速さで
 
-// 武器奪取の刺突（バージル的:ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
+// 武器奪取の刺突（ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
 constexpr float kStealStabAnimSpeed = 1.2f;
 }
 
@@ -96,52 +148,60 @@ void Player::Initialize(ModelCommon* modelCommon)
 {
     modelCommon_ = modelCommon;
 
-    // 残像・分身演出用の静的モデル（ボーンなし、ボーン付きモデルと同じ見た目）
-    model_ = std::make_unique<Model>();
-    model_->Initialize(modelCommon,
-        "Resources/AlienAnimated/OBJ/Alien.obj",
-        kPlayerTexture);
-
-    // 本体（ボーンアニメーション付き）
+    // スキンメッシュ共通設定（両フォームのリグで共有）
     skinCommon_ = std::make_unique<SkinCommon>();
     skinCommon_->Initialize(modelCommon->GetDxCommon());
-
-    std::string modelPath = std::string(kPlayerModelDir) + "/" + kPlayerModelFile;
-    skinnedModel_ = std::make_unique<SkinnedModel>();
-    skinnedModel_->Initialize(modelCommon->GetDxCommon(), modelPath, kPlayerTexture);
-
-    Skeleton skeleton = Skeleton::Create(LoadNodeHierarchyFromFile(kPlayerModelDir, kPlayerModelFile));
-
-    idleAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Idle");
-    runAnim_         = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Run");
-    jumpAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Jump");
-    runningJumpAnim_ = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_RunningJump");
-    swimAnim_        = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Swimming");
-    idleHoldAnim_    = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_IdleHold");
-    runHoldAnim_     = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_RunHold");
-    slashAnim_       = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_SwordSlash");
-    punchAnim_       = LoadAnimationFile(kPlayerModelDir, kPlayerModelFile, "Alien_Punch");
 
     SkinnedObject3d::SetCommonModelCommon(modelCommon);
     SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
 
-    skinnedObject_ = std::make_unique<SkinnedObject3d>();
-    skinnedObject_->Initialize(skinCommon_.get());
-    skinnedObject_->SetModel(skinnedModel_.get());
-    skinnedObject_->SetSkeleton(std::move(skeleton));
-    skinnedObject_->SetAnimation(idleAnim_);
-    // ライティング有効 + リムライトで背景からシルエットを分離させる
-    skinnedObject_->SetEnableLighting(true);
-    skinnedObject_->SetRimColor({ 0.4f, 0.9f, 1.0f });
-    skinnedObject_->SetRimPower(2.5f);
-    skinnedObject_->SetRimIntensity(1.2f);
-    skinnedObject_->SetEnableRim(true);
-    skinnedObject_->SetScale({ kPlayerModelScale, kPlayerModelScale, kPlayerModelScale });
-    skinnedObject_->SetPosition({ pos_.x, pos_.y + kPlayerModelOffsetY, pos_.z });
-    skinnedObject_->Update();
+    // 見た目リグの共通セットアップ（静的モデル + スキンモデル + アニメーション一式）
+    auto initRig = [&](CharacterRig& rig, const RigAssetDef& def) {
+        // 残像・分身演出用の静的モデル（ボーンなし、ボーン付きモデルと同じ見た目）
+        rig.staticModel = std::make_unique<Model>();
+        rig.staticModel->Initialize(modelCommon, def.staticModelPath, def.texture);
+
+        // 本体（ボーンアニメーション付き）
+        std::string modelPath = std::string(def.dir) + "/" + def.file;
+        rig.skinnedModel = std::make_unique<SkinnedModel>();
+        rig.skinnedModel->Initialize(modelCommon->GetDxCommon(), modelPath, def.texture);
+
+        rig.modelScale    = def.scale;
+        rig.modelOffsetY  = def.offsetY;
+        rig.meleeBoneName = def.meleeBone;
+        rig.gunBoneName   = def.gunBone;
+
+        rig.idleAnim        = LoadAnimationFile(def.dir, def.file, def.idle);
+        rig.runAnim         = LoadAnimationFile(def.dir, def.file, def.run);
+        rig.jumpAnim        = LoadAnimationFile(def.dir, def.file, def.jump);
+        rig.runningJumpAnim = LoadAnimationFile(def.dir, def.file, def.runningJump);
+        rig.swimAnim        = LoadAnimationFile(def.dir, def.file, def.swim);
+        rig.idleHoldAnim    = LoadAnimationFile(def.dir, def.file, def.idleHold);
+        rig.runHoldAnim     = LoadAnimationFile(def.dir, def.file, def.runHold);
+        rig.slashAnim       = LoadAnimationFile(def.dir, def.file, def.slash);
+        rig.punchAnim       = LoadAnimationFile(def.dir, def.file, def.punch);
+
+        rig.object = std::make_unique<SkinnedObject3d>();
+        rig.object->Initialize(skinCommon_.get());
+        rig.object->SetModel(rig.skinnedModel.get());
+        rig.object->SetSkeleton(Skeleton::Create(LoadNodeHierarchyFromFile(def.dir, def.file)));
+        rig.object->SetAnimation(rig.idleAnim);
+        // ライティング有効 + リムライトで背景からシルエットを分離させる
+        rig.object->SetEnableLighting(true);
+        rig.object->SetRimColor({ 0.4f, 0.9f, 1.0f });
+        rig.object->SetRimPower(2.5f);
+        rig.object->SetRimIntensity(1.2f);
+        rig.object->SetEnableRim(true);
+        rig.object->SetScale({ def.scale, def.scale, def.scale });
+        rig.object->SetPosition({ pos_.x, pos_.y + def.offsetY, pos_.z });
+        rig.object->Update();
+    };
+    initRig(normalRig_,   kNormalRigAsset);
+    initRig(awakenedRig_, kAwakenedRigAsset);
+    rig_ = &normalRig_;
     animState_ = AnimState::Idle;
 
-    afterImageRenderer_.Initialize(modelCommon, model_.get(), kPlayerModelScale);
+    afterImageRenderer_.Initialize(modelCommon, rig_->staticModel.get(), rig_->modelScale);
 
     // 手持ち武器の共通セットアップ（読み込み + リムライト設定）
     auto initHeldWeapon = [&](std::unique_ptr<Model>& model, std::unique_ptr<Object3d>& object,
@@ -170,8 +230,17 @@ void Player::Initialize(ModelCommon* modelCommon)
         heldWeapons_.push_back(std::move(slot));
     }
 
-    // 拳銃（左手ボーン追従、スタイルによらず常時表示）
-    initHeldWeapon(pistolModel_, pistolObject_, kPistolModelPath, kPistolTexture);
+    // 銃（左手ボーン追従、Gキーで切り替えた1丁だけ表示）
+    guns_.clear();
+    for (const auto& asset : kGunAssets) {
+        GunSlot slot;
+        slot.type          = asset.type;
+        slot.gripScale     = asset.gripScale;
+        slot.gripRotate    = asset.gripRotate;
+        slot.gripTranslate = asset.gripTranslate;
+        initHeldWeapon(slot.model, slot.object, asset.modelPath, asset.texturePath);
+        guns_.push_back(std::move(slot));
+    }
 }
 
 void Player::UpdateAnimationState(bool isMoving)
@@ -183,7 +252,7 @@ void Player::UpdateAnimationState(bool isMoving)
     if (attackAnimTimer_ > 0.0f) {
         attackAnimTimer_ -= GameConstants::kFrameDeltaTime;
         if (attackAnimTimer_ > 0.0f) { return; }
-        skinnedObject_->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
+        rig_->object->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
     }
 
     AnimState newState = inWater_    ? AnimState::Swim
@@ -197,16 +266,16 @@ void Player::UpdateAnimationState(bool isMoving)
     animHold_  = hold;
 
     switch (animState_) {
-    case AnimState::Swim: skinnedObject_->SetAnimation(swimAnim_); break;
-    case AnimState::Run:  skinnedObject_->SetAnimation(hold ? runHoldAnim_ : runAnim_); break;
-    case AnimState::Jump: skinnedObject_->SetAnimation(isMoving ? runningJumpAnim_ : jumpAnim_); break;
-    default:              skinnedObject_->SetAnimation(hold ? idleHoldAnim_ : idleAnim_); break;
+    case AnimState::Swim: rig_->object->SetAnimation(rig_->swimAnim); break;
+    case AnimState::Run:  rig_->object->SetAnimation(hold ? rig_->runHoldAnim : rig_->runAnim); break;
+    case AnimState::Jump: rig_->object->SetAnimation(isMoving ? rig_->runningJumpAnim : rig_->jumpAnim); break;
+    default:              rig_->object->SetAnimation(hold ? rig_->idleHoldAnim : rig_->idleAnim); break;
     }
 }
 
 void Player::PlayStealStab()
 {
-    PlayAttackAnim(slashAnim_, kStealStabAnimSpeed);
+    PlayAttackAnim(rig_->slashAnim, kStealStabAnimSpeed);
 }
 
 int Player::GetComboMax() const
@@ -218,8 +287,8 @@ int Player::GetComboMax() const
 
 void Player::PlayAttackAnim(const Animation& anim, float speed)
 {
-    skinnedObject_->SetAnimation(anim);
-    skinnedObject_->SetAnimSpeed(speed);
+    rig_->object->SetAnimation(anim);
+    rig_->object->SetAnimSpeed(speed);
     animState_       = AnimState::Attack;
     attackAnimTimer_ = anim.duration / speed;
 }
@@ -252,13 +321,24 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
 
-    // ── 射撃（K キー、水上のみ）─────────────────────────────────────
-    if (!inWater_ && input->TriggerKey(DIK_K)) {
-        justFired_        = true;
-        pistolRecoilTimer_ = kPistolRecoilDuration;
+    // ── 銃切り替え（G キー、循環）────────────────────────────────────
+    if (input->TriggerKey(DIK_G)) {
+        wm->SelectNextRanged();
+        gunCombo_.Reset(); // 撃ちかけのコンボは持ち越さない
     }
-    if (pistolRecoilTimer_ > 0.0f) {
-        pistolRecoilTimer_ -= GameConstants::kFrameDeltaTime;
+
+    // ── 射撃コンボ（K キー、水上のみ）────────────────────────────────
+    // 押下の瞬間ではなく段の shotTime で発砲する。段数・弾数・リコイルは銃種別の GunShotDef が持つ
+    if (!inWater_ && !finisherCharging_ && input->TriggerKey(DIK_K)) {
+        gunCombo_.TryShoot(wm->GetRanged().type);
+    }
+    gunCombo_.Update(GameConstants::kFrameDeltaTime);
+    if (gunCombo_.JustShot()) {
+        justFired_ = true;
+    }
+    // 前後移動（踏み込み / 反動バックステップ）。空中では暴れるので地上のみ
+    if (onGround_ && gunCombo_.GetMoveDelta() != 0.0f) {
+        pos_.x = std::clamp(pos_.x + lastDirX_ * gunCombo_.GetMoveDelta(), kMinX_, kMaxX_);
     }
 
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
@@ -283,7 +363,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (const MeleeAttackDef* atk = meleeCombo_.GetActive()) {
         if (meleeCombo_.JustStartedStep()) {
             // 段ごとにモーションを頭から再生（速度も段の定義に従う）
-            PlayAttackAnim(atk->slashAnim ? slashAnim_ : punchAnim_, atk->animSpeed);
+            PlayAttackAnim(atk->slashAnim ? rig_->slashAnim : rig_->punchAnim, atk->animSpeed);
         }
         if (meleeCombo_.JustHit()) {
             justComboHit_ = true;
@@ -302,15 +382,15 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
-    // バージルの次元斬を意識し、静止して集中 → 溜め切ったら一閃、の2段構成にする
+    // 静止して集中 → 溜め切ったら一閃、の2段構成にする
     if (!inWater_ && !isAwakened_ && !finisherCharging_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
         justFinisherSlash_   = true;
         awakenGauge_         = 0.0f; // ゲージを全消費
         finisherCharging_    = true;
         finisherChargeTimer_ = kFinisherChargeDuration;
         meleeCombo_.Reset(); // 進行中のコンボは打ち切って静止に入る
-        skinnedObject_->SetAnimation(UsesHoldPose(wm->GetCurrent().type) ? idleHoldAnim_ : idleAnim_);
-        skinnedObject_->SetAnimSpeed(0.0f); // 呼吸すら止めるように完全静止
+        rig_->object->SetAnimation(UsesHoldPose(wm->GetCurrent().type) ? rig_->idleHoldAnim : rig_->idleAnim);
+        rig_->object->SetAnimSpeed(0.0f); // 呼吸すら止めるように完全静止
     }
 
     // ── フィニッシャー溜めの経過 → 解放（一閃）─────────────────────
@@ -318,7 +398,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         finisherChargeTimer_ -= GameConstants::kFrameDeltaTime;
         if (finisherChargeTimer_ <= 0.0f) {
             finisherCharging_ = false;
-            PlayAttackAnim(slashAnim_, kFinisherReleaseAnimSpeed);
+            PlayAttackAnim(rig_->slashAnim, kFinisherReleaseAnimSpeed);
         }
     }
 
@@ -349,7 +429,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // 乱舞中の自動スラッシュにも斬撃モーションを合わせる（フィニッシャーは溜め→解放側で再生する）
     if (justRampageHit_ || justRampageFinish_) {
-        PlayAttackAnim(slashAnim_, kAttackAnimSpeed);
+        PlayAttackAnim(rig_->slashAnim, kAttackAnimSpeed);
     }
 
     // ── 覚醒発動（R キー）────────────────────────────────────────
@@ -370,6 +450,19 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         }
     }
 
+    // ── 覚醒フォーム切り替え（覚醒中はメカモデルへ丸ごと差し替え）──────
+    CharacterRig* desiredRig = isAwakened_ ? &awakenedRig_ : &normalRig_;
+    if (rig_ != desiredRig) {
+        rig_ = desiredRig;
+        afterImageRenderer_.SetModel(rig_->staticModel.get(), rig_->modelScale);
+        // 旧リグで再生中の攻撃モーションは持ち越せないため打ち切り、
+        // 直後の UpdateAnimationState に新リグの通常モーションを選び直させる
+        // （animState_ は移動系と必ず不一致になる Attack を番兵にする）
+        attackAnimTimer_ = 0.0f;
+        rig_->object->SetAnimSpeed(1.0f);
+        animState_ = AnimState::Attack;
+    }
+
     // 入水・出水判定（物理後の位置で確定）
     inWater_          = (pos_.y < waterLevel_);
     justEnteredWater_ = !prevInWater_ && inWater_;
@@ -381,7 +474,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
 
     // ── 覚醒残像スポーン＆フェード ──
-    Vector3 modelPos = { pos_.x, pos_.y + kPlayerModelOffsetY, pos_.z };
+    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
     afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, modelPos, yaw, spinAngle_);
 
@@ -392,30 +485,30 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // ── プレイヤー色 ──
     if (finisherCharging_) {
-        skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f }); // 色自体は白のまま、リムの発光だけで魅せる
+        rig_->object->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f }); // 色自体は白のまま、リムの発光だけで魅せる
     } else if (rampagePhase_ != RampagePhase::Inactive) {
         float t = std::sin(juggleSlashCount_ * 3.0f) * 0.5f + 0.5f;
-        skinnedObject_->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
+        rig_->object->SetColor({ 1.0f, 1.0f - t * 0.4f, 1.0f - t * 0.6f, 1.0f }); // 白→青白点滅
     } else if (justChargedGauge_) {
-        skinnedObject_->SetColor({ 1.0f, 0.85f, 0.0f, 1.0f }); // 黄（ハンマーチャージ）
+        rig_->object->SetColor({ 1.0f, 0.85f, 0.0f, 1.0f }); // 黄（ハンマーチャージ）
     } else if (isAwakened_) {
         float t = std::sin(awakenTimer_ * 6.0f) * 0.3f + 0.7f;
-        skinnedObject_->SetColor({ 0.15f * t, 0.55f * t, 1.0f, 1.0f }); // 青くパルス
+        rig_->object->SetColor({ 0.15f * t, 0.55f * t, 1.0f, 1.0f }); // 青くパルス
     } else {
-        skinnedObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        rig_->object->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     }
 
     // 溜めが深まるほどリムライトを強めて「集中が高まる」感じを出す（解放の瞬間が一番明るい）
     float rimIntensity = finisherCharging_
         ? 1.2f + (1.0f - finisherChargeTimer_ / kFinisherChargeDuration) * 3.0f
         : 1.2f;
-    skinnedObject_->SetRimIntensity(rimIntensity);
+    rig_->object->SetRimIntensity(rimIntensity);
     for (auto& slot : heldWeapons_) { slot.object->SetRimIntensity(rimIntensity); }
-    pistolObject_->SetRimIntensity(rimIntensity);
+    for (auto& slot : guns_)        { slot.object->SetRimIntensity(rimIntensity); }
 
-    skinnedObject_->SetPosition(modelPos);
-    skinnedObject_->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
-    skinnedObject_->Update();
+    rig_->object->SetPosition(modelPos);
+    rig_->object->SetRotation({ 0.0f, yaw, spinAngle_ * GameConstants::kDegToRad });
+    rig_->object->Update();
 
     // ── 現在のスタイルに対応する武器を右手ボーンに追従 ──────────────
     // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
@@ -428,27 +521,24 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (activeHeldIndex_ >= 0) {
         auto& slot = heldWeapons_[activeHeldIndex_];
         Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
-        AttachHeldWeapon(slot.object.get(), kMeleeWeaponBoneName, slot.gripScale, rot, slot.gripTranslate);
+        AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
     }
 
-    // ── 拳銃を左手ボーンに追従（スタイルによらず常時表示、発砲時は跳ね上がる）──
+    // ── 選択中の銃を左手ボーンに追従（Gキーで切り替えた1丁だけ表示）──────
+    // 射撃コンボ中は段ごとの構え→リコイルの回転オフセットをグリップ回転へ加算し、
+    // 同じ左手ボーンでも銃ごとに違う撃ち方に見せる
     {
-        const Skeleton& skel = skinnedObject_->GetSkeleton();
-        auto jt = skel.jointMap.find(kPistolBoneName);
-        pistolVisible_ = (jt != skel.jointMap.end());
-        if (pistolVisible_) {
-            // 反動: 発砲直後に上向きへ跳ね、時間経過で構え直しに戻る
-            float recoilT = (pistolRecoilTimer_ > 0.0f) ? (pistolRecoilTimer_ / kPistolRecoilDuration) : 0.0f;
-            Vector3 recoilRotate = {
-                kPistolGripRotate.x - kPistolRecoilAngle * recoilT,
-                kPistolGripRotate.y,
-                kPistolGripRotate.z
-            };
-            Matrix4x4 grip = MakeAffineMatrix(kPistolGripScale, recoilRotate, kPistolGripTranslate);
-            Matrix4x4 pistolWorld = Multiply(grip,
-                Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
-            pistolObject_->SetLocalMatrix(pistolWorld);
-            pistolObject_->Update();
+        GunType gunType = wm->GetRanged().type;
+        activeGunIndex_ = -1;
+        for (int i = 0; i < static_cast<int>(guns_.size()); ++i) {
+            if (guns_[i].type == gunType) { activeGunIndex_ = i; break; }
+        }
+        const Skeleton& skel = rig_->object->GetSkeleton();
+        gunVisible_ = (skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end());
+        if (gunVisible_ && activeGunIndex_ >= 0) {
+            auto& slot = guns_[activeGunIndex_];
+            Vector3 rot = slot.gripRotate + gunCombo_.GetPoseOffset();
+            AttachHeldWeapon(slot.object.get(), rig_->gunBoneName, slot.gripScale, rot, slot.gripTranslate);
         }
     }
 }
@@ -456,14 +546,14 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
     const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate)
 {
-    const Skeleton& skel = skinnedObject_->GetSkeleton();
+    const Skeleton& skel = rig_->object->GetSkeleton();
     auto jt = skel.jointMap.find(boneName);
     if (jt == skel.jointMap.end()) { return; }
 
     // 握りローカル → ジョイントのスケルトン空間 → プレイヤーワールド の順で合成
     Matrix4x4 grip  = MakeAffineMatrix(gripScale, gripRotate, gripTranslate);
     Matrix4x4 world = Multiply(grip,
-        Multiply(skel.joints[jt->second].skeletonSpaceMatrix, skinnedObject_->GetWorldMatrix()));
+        Multiply(skel.joints[jt->second].skeletonSpaceMatrix, rig_->object->GetWorldMatrix()));
     obj->SetLocalMatrix(world);
     obj->Update();
 }
@@ -479,8 +569,8 @@ void Player::Draw()
     outline->SetWidth(kOutlineWidth);
     outline->BeginOutlinePass();
     if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->DrawOutline(outline); }
-    if (pistolVisible_ && pistolObject_) { pistolObject_->DrawOutline(outline); }
-    skinnedObject_->DrawOutline(outline);
+    if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->DrawOutline(outline); }
+    rig_->object->DrawOutline(outline);
     if (modelCommon_) {
         modelCommon_->CommonDrawSettings();
         // ルートシグネチャの切り替えでライト/シャドウマップの束縛が失われているため再バインドする
@@ -489,10 +579,8 @@ void Player::Draw()
 
     // 通常描画
     if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->Draw(); }
-    if (pistolVisible_ && pistolObject_) {
-        pistolObject_->Draw();
-    }
-    skinnedObject_->Draw();
+    if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->Draw(); }
+    rig_->object->Draw();
 }
 
 // ============================================================

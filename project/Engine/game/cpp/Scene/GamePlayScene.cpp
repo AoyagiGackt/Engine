@@ -16,6 +16,7 @@
 #include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
+#include "StringUtility.h"
 #include "TextureManager.h"
 #include "WeaponManager.h"
 using namespace engine;
@@ -423,18 +424,25 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
                        { epos.x + 0.5f, epos.y + 0.5f,  0.5f } };
 
     if (player_->JustComboHit()) {
-        AABB meleeRange = { { ppos.x - weapon.range, ppos.y - 1.5f, -0.5f },
-                            { ppos.x + weapon.range, ppos.y + 1.5f,  0.5f } };
+        // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
+        AABB meleeRange = SceneShared::MakeDirectionalRange(
+            ppos, player_->GetLastDirX(), weapon.range, weapon.range * 0.4f);
         if (Collision::CheckCollision(meleeRange, enemyAABB)) {
             styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
             enemy_->TakeDamage(1);
         }
     }
     if (player_->JustFired()) {
-        AABB shotRange = { { ppos.x - weapon.range * 2.0f, ppos.y - 1.5f, -0.5f },
-                           { ppos.x + weapon.range * 2.0f, ppos.y + 1.5f,  0.5f } };
+        const GunShotDef*       shot = player_->GetActiveGunShot();
+        const RangedWeaponData& gun  = wm->GetRanged();
+        const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
+        // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
+        AABB shotRange = SceneShared::MakeDirectionalRange(
+            ppos, player_->GetLastDirX(), rangeX, 0.8f);
         if (Collision::CheckCollision(shotRange, enemyAABB)) {
-            styleMeter_ = std::clamp(styleMeter_ + 0.05f, 0.0f, 1.0f);
+            // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
+            float gain = 0.04f + ((shot != nullptr) ? player_->GetGunComboStep() * 0.01f : 0.0f);
+            styleMeter_ = std::clamp(styleMeter_ + gain, 0.0f, 1.0f);
             enemy_->TakeDamage(1);
         }
     }
@@ -547,13 +555,18 @@ void GamePlayScene::UpdateParticles(float dt)
     }
 
     if (player_->JustFired()) {
+        // 弾数・拡散・色は選択中の銃と段の定義に従う（散弾は扇状に、単発は直線に飛ぶ）
+        const GunShotDef*       shot = player_->GetActiveGunShot();
+        const RangedWeaponData& gun  = wm->GetRanged();
         float dir = player_->GetLastDirX();
-        const auto& sc = styles[wm->GetIndex()].styleColor;
-        Vector4 col = { sc[0], sc[1], sc[2], sc[3] };
-        for (int i = 0; i < 4; ++i) {
-            float spread = (i - 1.5f) * 0.12f;
+        Vector4 col = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
+        int   n      = (shot != nullptr) ? (std::max)(shot->bullets, 2) : 4;
+        float spread = (shot != nullptr) ? shot->spreadDeg * GameConstants::kDegToRad : 0.15f;
+        for (int i = 0; i < n; ++i) {
+            float t     = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
+            float speed = 7.0f + i * 1.0f;
             pm_->EmitWithColor("gun_shot", ppos,
-                { dir * (7.0f + i * 1.5f), spread, 0.0f },
+                { dir * speed, speed * spread * t, 0.0f },
                 col, 0.35f, 0.14f);
         }
     }
@@ -778,6 +791,7 @@ void GamePlayScene::Draw()
 
     if (!ghostTrail_.empty()) {
         SetupModelRenderState();
+        ghostObject_->SetModel(player_->GetModel()); // 覚醒フォーム切り替えに残像の見た目を追従させる
         for (const auto& g : ghostTrail_) {
             float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
             ghostObject_->SetPosition(g.pos);
@@ -978,12 +992,21 @@ void GamePlayScene::DrawStyleCommands()
         { 0.35f, 0.35f, 0.35f, 1.0f });
     y += kLineH;
 
-    // コマンド一覧（キーはASCII、説明は日本語）
+    // コマンド一覧（キーは基本ASCIIだが「空中L」等の日本語混じりもあるためUTF-8として変換する）
     for (const auto& cmd : style.commands) {
-        std::wstring line = L"[" + std::wstring(cmd.key.begin(), cmd.key.end()) + L"] " + cmd.desc;
+        std::wstring line = L"[" + StringUtility::ConvertString(cmd.key) + L"] " + cmd.desc;
         fontRenderer_.DrawStringW(line, kX, y, kScale, { 0.85f, 0.85f, 0.85f, 1.0f });
         y += kLineH;
     }
+
+    // 選択中の銃（Gキー切替、Kキーで銃種別のコンボ）
+    const RangedWeaponData& gun = wm->GetRanged();
+    Vector4 gunCol{ gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
+    std::wstring gunLine = L"銃[G]: " + gun.nameJp
+        + L" (" + std::to_wstring(wm->GetRangedIndex() + 1) + L"/"
+        + std::to_wstring(wm->GetRangedCount()) + L")";
+    fontRenderer_.DrawStringW(gunLine, kX, y, kScale, gunCol);
+    y += kLineH;
 
     // 格闘コンボのステップ表示（全スタイル、コンボ中のみ）
     if (combo > 0) {

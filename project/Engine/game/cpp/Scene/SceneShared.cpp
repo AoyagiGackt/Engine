@@ -81,6 +81,14 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weapon
     }
 }
 
+engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
+{
+    const float left  = (dirX >= 0.0f) ? backRange  : frontRange;
+    const float right = (dirX >= 0.0f) ? frontRange : backRange;
+    return { { playerPos.x - left,  playerPos.y - 1.5f, -0.5f },
+             { playerPos.x + right, playerPos.y + 1.5f,  0.5f } };
+}
+
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
 {
     outX = (worldX - camX) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
@@ -140,8 +148,15 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         py += kLineH;
     }
 
+    // 選択中の銃（近接スタイルとは独立に G キーで循環）
+    py += 2.0f;
+    const RangedWeaponData& gun = weaponManager->GetRanged();
+    std::wstring gunLine = L"銃[G]: " + gun.nameJp;
+    fontRenderer.DrawStringW(gunLine, px, py, kScale, kColorSel);
+    py += kLineH;
+
     py += 4.0f;
-    fontRenderer.DrawString("Q/E  1-4 : Switch", px, py, kScale, kColorHint);
+    fontRenderer.DrawString("Q/E 1-4 : Melee  G : Gun", px, py, kScale, kColorHint);
     py += kLineH;
     return py;
 }
@@ -168,7 +183,8 @@ void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabe
     row("A / D  ", L": 移動");
     row("W      ", L": ジャンプ");
     row("L      ", L": コンボ (x3)");
-    row("K      ", L": 射撃");
+    row("K      ", L": 銃コンボ");
+    row("G      ", L": 銃切替");
     row("SPACE  ", L": スピン連射");
     row("(Air)  ", L": スピン+散弾");
     row("Q / E  ", L": 武器切替");

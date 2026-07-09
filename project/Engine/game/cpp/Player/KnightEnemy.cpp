@@ -165,7 +165,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
             yaw_ = (dashTarget_.x >= dashStart_.x) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
         }
         swordSwing_ = Lerp(swordSwing_, kSwordSwingFwd, 0.5f);
-        // Vを思わせる暗い靄の軌跡（バージルの派手な閃光とは対照的に）
+        // 派手な閃光とは対照的な、暗い靄の軌跡
         if (pm) {
             pm->EmitTrail("bt_knight_dash_smoke", { pos_.x, pos_.y + 0.5f, pos_.z },
                 { 0.25f, 0.15f, 0.3f, 0.5f }, 0.6f, 0.25f);
@@ -203,23 +203,40 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
     };
     Vector3 target = { playerPos.x, playerPos.y + 0.5f, playerPos.z };
 
-    Vector3 flyPos = {
+    Vector3 swordFlyPos = {
         Lerp(handPos.x, target.x, eased),
         Lerp(handPos.y, target.y, eased),
         Lerp(handPos.z, target.z, eased)
     };
 
-    // 剣が光の粒に変わりながら吸い込まれていく軌跡
+    // 体は剣より少し遅れて発進し、丸まりながら吸い込まれていく(丸呑み演出)
+    float bodyEased = EaseInQuad(std::clamp((t - 0.1f) / 0.9f, 0.0f, 1.0f));
+    Vector3 bodyFlyPos = {
+        Lerp(pos_.x, target.x, bodyEased),
+        Lerp(pos_.y, target.y, bodyEased),
+        Lerp(pos_.z, target.z, bodyEased)
+    };
+    float bodyScale = kKnightModelScale * (1.0f - bodyEased);
+
+    // 剣・体ともに光の粒に変わりながら吸い込まれていく軌跡
     Vector4 glowColor = { 0.5f + 0.5f * t, 0.85f + 0.15f * t, 1.0f, 1.0f };
     if (pm) {
-        pm->EmitTrail("bt_weapon_orb", flyPos, glowColor, Lerp(0.35f, 0.12f, t), 0.2f);
+        pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, Lerp(0.35f, 0.12f, t), 0.2f);
+        pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, Lerp(0.55f, 0.1f, bodyEased), 0.16f);
     }
 
-    swordObject_->SetPosition(flyPos);
+    swordObject_->SetPosition(swordFlyPos);
     swordObject_->SetRotation({ 0.0f, yaw_, facingSign * kSwordBaseTilt });
     swordObject_->SetScale({ kSwordScale * (1.0f - 0.6f * t), kSwordScale * (1.0f - 0.6f * t), kSwordScale * (1.0f - 0.6f * t) });
     swordObject_->SetColor(glowColor);
     swordObject_->Update();
+
+    // 体は高速回転させながら縮め、球状に丸まっていくように見せる
+    object_->SetPosition(bodyFlyPos);
+    object_->SetRotation({ bodyEased * GameConstants::kTwoPi * 3.0f, yaw_ + bodyEased * GameConstants::kTwoPi * 3.0f, 0.0f });
+    object_->SetScale({ bodyScale, bodyScale, bodyScale });
+    object_->SetColor(glowColor);
+    object_->Update();
 
     if (t >= 1.0f) {
         state_        = State::Consumed;
@@ -231,6 +248,9 @@ void KnightEnemy::ApplyTransforms()
 {
     float facingSign = (yaw_ >= 0.0f) ? 1.0f : -1.0f;
 
+    // 吸収中は体・剣を独立した軌道で飛ばすため、通常のアタッチ計算は上書きしない
+    if (state_ == State::Absorbing || state_ == State::Consumed) { return; }
+
     if (IsAlive()) {
         // 被弾直後は白く明滅させ、ヒットがはっきり伝わるようにする
         float f = hitFlash_ / 0.12f;
@@ -241,9 +261,6 @@ void KnightEnemy::ApplyTransforms()
     object_->SetRotation({ 0.0f, yaw_, 0.0f });
     object_->SetScale({ kKnightModelScale, kKnightModelScale, kKnightModelScale });
     object_->Update();
-
-    // 吸収中は剣を独立した軌道で飛ばすため、通常のアタッチ計算は上書きしない
-    if (state_ == State::Absorbing || state_ == State::Consumed) { return; }
 
     Vector3 swordPos = {
         pos_.x + facingSign * kSwordOffset.x,
@@ -258,8 +275,7 @@ void KnightEnemy::ApplyTransforms()
 
 void KnightEnemy::Draw()
 {
+    if (state_ == State::Consumed) { return; }
     object_->Draw();
-    if (state_ != State::Consumed) {
-        swordObject_->Draw();
-    }
+    swordObject_->Draw();
 }

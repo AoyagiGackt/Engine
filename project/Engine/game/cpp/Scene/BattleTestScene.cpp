@@ -301,17 +301,18 @@ bool BattleTestScene::UpdateCombat()
     // 連打間隔・段ごとの威力/リーチ/打ち上げは全て武器タイプ別の MeleeAttackDef が持つ
     if (player_->JustComboHit()) {
         const MeleeAttackDef* atk = player_->GetActiveMeleeAttack();
-        const float rangeMult = (atk != nullptr) ? atk->rangeMult : 1.0f;
-        AABB meleeRange = {
-            { pp.x - weapon.range * rangeMult, pp.y - 1.5f, -0.5f },
-            { pp.x + weapon.range * rangeMult, pp.y + 1.5f,  0.5f }
-        };
+        const float rangeMult  = (atk != nullptr) ? atk->rangeMult : 1.0f;
+        const float meleeReach = weapon.range * rangeMult;
+        const float dirX       = player_->GetLastDirX();
+        // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
+        AABB meleeRange  = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * 0.4f);
+        // ロック中は判定を1.6倍まで広げて「ロックしたのに届かない」を減らす（距離無制限ヒットはやめる）
+        AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * 1.6f, meleeReach * 0.6f);
         for (size_t di = 0; di < dummies_.size(); ++di) {
             auto& d = dummies_[di];
             if (d.hp <= 0.0f) { continue; }
-            // ロック中の対象は射程に関係なく確実にヒットさせる（「ロックしたのに攻撃が届かない」を無くす）
             bool isLocked = (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ == di);
-            bool hit = isLocked || Collision::CheckCollision(meleeRange, dummyAABB(d));
+            bool hit = Collision::CheckCollision(isLocked ? assistRange : meleeRange, dummyAABB(d));
             if (hit && atk != nullptr) {
                 hitConfirmed = true;
                 ApplyMeleeHitToDummy(d, atk, atkMult);
@@ -319,24 +320,43 @@ bool BattleTestScene::UpdateCombat()
         }
     }
 
-    // 射撃（K キー）— 射程2倍、ダメージ半減
+    // 射撃コンボ（K キー）
+    // 発砲はボタン押下の瞬間ではなく、段の shotTime で発生する（GunComboController 管理）。
+    // 弾数・射程倍率・ノックバック・打ち上げ・ヒットストップは全て銃種別の GunShotDef が持つ
     if (player_->JustFired()) {
-        AABB shotRange = {
-            { pp.x - weapon.range * 2.0f, pp.y - 1.5f, -0.5f },
-            { pp.x + weapon.range * 2.0f, pp.y + 1.5f,  0.5f }
-        };
+        const GunShotDef*       shot = player_->GetActiveGunShot();
+        const RangedWeaponData& gun  = weaponManager_->GetRanged();
+        const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
+        // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
+        AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) { continue; }
-            if (Collision::CheckCollision(shotRange, dummyAABB(d))) {
+            if (shot != nullptr && Collision::CheckCollision(shotRange, dummyAABB(d))) {
                 hitConfirmed  = true;
                 d.hp          = d.maxHp;
                 d.hitFlash    = 0.10f;
                 d.hpDisplay_  = 0.0f;
                 d.returnTimer = 1.5f;
-                d.knockVelX  += player_->GetLastDirX() * 0.12f * atkMult;
+                d.knockVelX  += player_->GetLastDirX() * shot->knockX * atkMult;
+                d.knockVelY  += shot->knockY * atkMult;
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
-                tm->RequestHitStop(2);
-                styleMeter_.RegisterHit("shot", 5.0f * atkMult);
+                tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
+                styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult * atkMult);
+            }
+        }
+        // マズルフラッシュ: 段の弾数ぶん扇状にばらまく（ダメージは上のヒットスキャンが担当。
+        // BulletPool の弾はダミーに当たると二重ヒットになるため、射撃コンボの弾道は視覚専用のパーティクルにする）
+        if (shot != nullptr) {
+            const float   dir     = player_->GetLastDirX();
+            const Vector3 firePos = { pp.x, pp.y + 0.4f, 0.0f };
+            const Vector4 col     = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
+            const int     n       = (std::max)(shot->bullets, 2);
+            for (int i = 0; i < n; ++i) {
+                float t     = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
+                float speed = 8.0f + i * 1.0f;
+                pm_->EmitWithColor("bt_gun_shot", firePos,
+                    { dir * speed, speed * shot->spreadDeg * GameConstants::kDegToRad * t, 0.0f },
+                    col, 0.35f, 0.14f);
             }
         }
     }
@@ -674,19 +694,35 @@ void BattleTestScene::UpdateKnightEnemy()
     if (knight_->IsAlive()) {
         if (player_->JustComboHit()) {
             const MeleeAttackDef* atk = player_->GetActiveMeleeAttack();
-            const float rangeMult = (atk != nullptr) ? atk->rangeMult : 1.0f;
-            AABB meleeRange = {
-                { pp.x - weapon.range * rangeMult, pp.y - 1.5f, -0.5f },
-                { pp.x + weapon.range * rangeMult, pp.y + 1.5f,  0.5f }
-            };
-            // ロック中は射程に関係なく確実にヒットさせる
+            const float rangeMult  = (atk != nullptr) ? atk->rangeMult : 1.0f;
+            const float meleeReach = weapon.range * rangeMult;
+            const float dirX       = player_->GetLastDirX();
+            // ロック中は判定を1.6倍まで広げる（ダミー側と同じ基準、距離無制限ヒットはやめる）
             bool isLocked = (lockedKind_ == LockTargetKind::Knight);
-            bool hit = isLocked || Collision::CheckCollision(meleeRange, knight_->GetAABB());
+            AABB meleeRange = isLocked
+                ? SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * 1.6f, meleeReach * 0.6f)
+                : SceneShared::MakeDirectionalRange(pp, dirX, meleeReach,        meleeReach * 0.4f);
+            bool hit = Collision::CheckCollision(meleeRange, knight_->GetAABB());
             if (hit && atk != nullptr) {
                 knight_->TakeDamage(1, player_->GetLastDirX());
                 SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
                 tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
                 styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f);
+            }
+        }
+        if (player_->JustFired()) {
+            const GunShotDef*       shot = player_->GetActiveGunShot();
+            const RangedWeaponData& gun  = weaponManager_->GetRanged();
+            if (shot != nullptr) {
+                const float rangeX = gun.range * shot->rangeMult;
+                // 銃口の向きにだけ飛ぶ（ロック中でも射程・向きは無視しない）
+                AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
+                if (Collision::CheckCollision(shotRange, knight_->GetAABB())) {
+                    knight_->TakeDamage(1, player_->GetLastDirX());
+                    SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
+                    tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
+                    styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
+                }
             }
         }
         if (player_->JustRampageHit()) {

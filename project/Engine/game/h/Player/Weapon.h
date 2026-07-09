@@ -30,13 +30,19 @@ struct WeaponData {
     std::vector<WeaponCommand> commands;
 };
 
-/** @brief 全スタイル共通の射撃武器データ */
+/** @brief 射撃武器の種類（GunComboが読み込むJSONの"type"と対応） */
+enum class GunType { Pistol, Magnum, SMG, Shotgun, Railgun };
+
+/** @brief 1丁ぶんの射撃武器データ（Gキーで切り替え、コンボは GunCombo.cpp のテーブルが持つ） */
 struct RangedWeaponData {
-    std::string name;
-    float       damage;
-    float       range;
-    float       attackInterval;
-    std::string description;
+    std::string  name;
+    std::wstring nameJp;      ///< HUD表示用の日本語名
+    GunType      type;
+    float        damage;
+    float        range;
+    float        attackInterval;
+    std::string  description;
+    float        color[4];    ///< RGBA 0.0~1.0（マズルフラッシュ・弾エフェクトの色）
     std::vector<WeaponCommand> commands;
 };
 

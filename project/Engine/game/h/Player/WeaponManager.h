@@ -15,14 +15,23 @@ public:
 
     /// @brief 選択中の近接武器データを返す
     const WeaponData&       GetCurrent() const { return weapons_[index_]; }
-    /// @brief 射撃武器データを返す
-    const RangedWeaponData& GetRanged()  const { return ranged_; }
+    /// @brief 選択中の射撃武器データを返す
+    const RangedWeaponData& GetRanged()  const { return rangedWeapons_[rangedIndex_]; }
     /// @brief 選択中スタイルのインデックスを返す（0始まり）
     int  GetIndex() const { return index_; }
     /// @brief スタイル総数を返す
     int  GetCount() const { return static_cast<int>(weapons_.size()); }
     /// @brief 全スタイルのリストを返す
     const std::vector<WeaponData>& GetList() const { return weapons_; }
+
+    /// @brief 選択中の銃のインデックスを返す（0始まり）
+    int  GetRangedIndex() const { return rangedIndex_; }
+    /// @brief 銃の総数を返す
+    int  GetRangedCount() const { return static_cast<int>(rangedWeapons_.size()); }
+    /// @brief 全銃のリストを返す
+    const std::vector<RangedWeaponData>& GetRangedList() const { return rangedWeapons_; }
+    /// @brief 次の銃へ切り替える（循環。銃は近接と違い最初から全部使える）
+    void SelectNextRanged() { rangedIndex_ = (rangedIndex_ + 1) % static_cast<int>(rangedWeapons_.size()); }
 
     /// @brief 指定インデックスのスタイルを選択する（範囲外はクランプ、未解放スロットは無視）
     void SelectIndex(int i);
@@ -47,10 +56,11 @@ public:
 private:
     WeaponManager();
 
-    std::vector<WeaponData> weapons_;
-    std::vector<bool>       unlocked_;
-    RangedWeaponData        ranged_;
-    int index_ = 0;
+    std::vector<WeaponData>       weapons_;
+    std::vector<bool>             unlocked_;
+    std::vector<RangedWeaponData> rangedWeapons_;
+    int index_       = 0;
+    int rangedIndex_ = 0;
 };
 
 } // namespace engine::game

@@ -186,6 +186,7 @@
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
@@ -586,6 +587,7 @@
     <ClInclude Include="Engine\game\h\Player\WaterPool.h" />
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h" />
+    <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
     <ClInclude Include="Engine\game\h\Core\Time\GameTime.h" />
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />

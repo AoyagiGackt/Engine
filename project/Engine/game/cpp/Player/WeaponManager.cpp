@@ -21,6 +21,14 @@ WeaponType ParseWeaponType(const std::string& type) {
     return WeaponType::Sword;
 }
 
+GunType ParseGunType(const std::string& type) {
+    if (type == "Magnum")  { return GunType::Magnum; }
+    if (type == "SMG")     { return GunType::SMG; }
+    if (type == "Shotgun") { return GunType::Shotgun; }
+    if (type == "Railgun") { return GunType::Railgun; }
+    return GunType::Pistol;
+}
+
 std::vector<WeaponCommand> ParseCommands(const nlohmann::json& arr) {
     std::vector<WeaponCommand> commands;
     for (const auto& c : arr) {
@@ -42,16 +50,32 @@ WeaponManager* WeaponManager::GetInstance() {
 WeaponManager::WeaponManager() {
     nlohmann::json j = JsonHelper::Load(kWeaponDataPath);
 
-    // 初期射撃武器（全スタイル共通）
-    const auto& r = j["ranged"];
-    ranged_ = {
-        r.value("name", ""),
-        r.value("damage", 0.0f),
-        r.value("range", 0.0f),
-        r.value("attackInterval", 0.0f),
-        r.value("description", ""),
-        ParseCommands(r.value("commands", nlohmann::json::array()))
-    };
+    // 射撃武器一覧（Gキーで循環切り替え、スタイルとは独立に選ぶ）
+    for (const auto& r : j.value("rangedWeapons", nlohmann::json::array())) {
+        RangedWeaponData data;
+        data.name           = r.value("name", "");
+        data.nameJp         = StringUtility::ConvertString(r.value("nameJp", ""));
+        data.type           = ParseGunType(r.value("type", ""));
+        data.damage         = r.value("damage", 0.0f);
+        data.range          = r.value("range", 0.0f);
+        data.attackInterval = r.value("attackInterval", 0.0f);
+        data.description    = r.value("description", "");
+        data.commands       = ParseCommands(r.value("commands", nlohmann::json::array()));
+
+        data.color[0] = data.color[1] = data.color[2] = 1.0f;
+        data.color[3] = 1.0f;
+        auto color = r.value("color", nlohmann::json::array());
+        for (size_t i = 0; i < 4 && i < color.size(); ++i) {
+            data.color[i] = color[i].get<float>();
+        }
+
+        rangedWeapons_.push_back(std::move(data));
+    }
+    // JSON が空でも GetRanged() が範囲外参照しないよう保険を入れておく
+    if (rangedWeapons_.empty()) {
+        rangedWeapons_.push_back({ "Handgun", L"ハンドガン", GunType::Pistol,
+                                   12.0f, 15.0f, 0.18f, "", { 1.0f, 1.0f, 1.0f, 1.0f }, {} });
+    }
 
     // スタイル一覧（1〜5キー対応）
     for (const auto& w : j.value("weapons", nlohmann::json::array())) {

@@ -300,6 +300,9 @@
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
@@ -624,6 +627,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\GunCombo.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
