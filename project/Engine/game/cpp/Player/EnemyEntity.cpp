@@ -1,4 +1,5 @@
 #include "EnemyEntity.h"
+#include "GravityBody.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -25,18 +26,9 @@ void EnemyEntity::Update()
     justLanded_ = false;
 
     if (isLaunched_) {
-        velY_ -= kGravity_;
-        pos_.y += velY_;
-
-        if (pos_.y <= kGroundY_) {
-            pos_.y      = kGroundY_;
-            velY_       = 0.0f;
+        if (ApplyGravityAndClampY(pos_.y, velY_, kGravity_, kGroundY_, kCeilingY_, -0.1f)) {
             isLaunched_ = false;
             justLanded_ = true;
-        }
-        if (pos_.y > kCeilingY_) {
-            pos_.y  = kCeilingY_;
-            velY_  *= -0.1f;
         }
 
         object_->SetPosition(pos_);

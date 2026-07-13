@@ -249,6 +249,7 @@
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\3D\RevolvedMeshBase.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Offscreen\RenderTexture.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\VideoPlayer.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp" />
@@ -565,6 +566,7 @@
     <ClInclude Include="Engine\game\h\Core\App\Game.h" />
     <ClInclude Include="Engine\game\h\Core\Object\GameObject.h" />
     <ClInclude Include="Engine\game\h\Util\GameConstants.h" />
+    <ClInclude Include="Engine\game\h\Util\GravityBody.h" />
     <ClInclude Include="Engine\game\h\Util\BorderBlockBuilder.h" />
     <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h" />
@@ -658,6 +660,7 @@
     <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h" />
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h" />
     <ClInclude Include="Engine\graphics\h\3D\Ring.h" />
+    <ClInclude Include="Engine\graphics\h\3D\RevolvedMeshBase.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BladeFlashEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\MeshSliceEffect.h" />

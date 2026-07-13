@@ -153,6 +153,16 @@ public:
     bool  IsUpsideDown()      const { return isUpsideDown_; }   ///< 逆さま状態か
     float GetSpinAngle()      const { return spinAngle_; }      ///< スピン角度（度、0=正立, 180=逆さ）
 
+    // 固有技（スペースキー、武器種別ごと。Dagger/Hammer/Ball は上の Just～ を使う）
+    bool  JustSwordDash()      const { return justSwordDash_; }      ///< ソード: 瞬迅斬り（ダッシュ斬り）発生フレーム
+    bool  JustSpearRetreat()   const { return justSpearRetreat_; }   ///< スピア: 間合い外し（後退突き）発生フレーム
+    bool  JustGreatswordSlam() const { return justGreatswordSlam_; } ///< グレートソード: 大地砕き発生フレーム
+    bool  JustAxeCharge()      const { return justAxeCharge_; }      ///< アックス: バーサーク突進発生フレーム
+    bool  IsAxeEnraged()       const { return axeRageTimer_ > 0.0f; } ///< アックス: 突進後の怒り強化中か
+    /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
+    float GetAxeRageMult()     const { return IsAxeEnraged() ? kAxeRageDamageMult_ : 1.0f; }
+    bool  IsScytheHovering()   const { return isScytheHovering_; }   ///< シザー: 滞空ホバー中か
+
     // 覚醒乱舞（Sword + 覚醒 + L）
     bool  IsRampaging()        const { return rampagePhase_ != RampagePhase::Inactive; } ///< 乱舞中か
     bool  JustLaunched()       const { return justLaunched_; }       ///< 打ち上げ発生フレーム
@@ -178,6 +188,10 @@ private:
     // GamePlayScene の接触ダメージ判定（プレイヤーAABBと敵AABBの重なりで発生）が一切当たらなくなるため、
     // 完全な重なり(0)は防ぎつつ接触判定用の重なりしろは残す0.75にしている
     static constexpr float kMinEnemyDistanceX_ = 0.75f;
+    // 上記のY版。ダミー/ナイトのAABBはY方向にも高さを持つため、X距離だけで判定すると
+    // ジャンプで頭上を飛び越えている最中まで押し出されてしまう（縦に無限のめり込み防止扱いになる）。
+    // ダミーのAABBは概ね±0.5なので、それより少し広い程度に留めてジャンプ回避を潰さない
+    static constexpr float kMinEnemyDistanceY_ = 0.75f;
 
     // 水中物理（水なしステージでは無効化された状態のままにする）
     static constexpr float kWaterLevelDisabled_ = -1.0f;
@@ -233,6 +247,36 @@ private:
     float   shootCooldown_    = 0.0f;
     static constexpr float kShootInterval_ = 0.12f; // 連射間隔（秒）
     static constexpr float kSpinSpeed_     = 5.0f;  // 空中回転速度（度/フレーム）
+
+    // 固有技（スペースキー、武器種別ごと）
+    // ソード: 瞬迅斬り（短距離ダッシュ斬り、全能武器らしく癖のない攻守一体の一撃）
+    bool  justSwordDash_          = false;
+    float swordSkillCooldown_     = 0.0f;
+    static constexpr float kSwordDashDist_      = 2.0f;
+    static constexpr float kSwordSkillCooldown_ = 0.55f;
+    // スピア: 間合い外し（後退しながら突く、牽制役らしいヒットアンドアウェイ）
+    bool  justSpearRetreat_       = false;
+    float spearSkillCooldown_     = 0.0f;
+    static constexpr float kSpearRetreatDist_    = 2.2f;
+    static constexpr float kSpearSkillCooldown_  = 0.75f;
+    // グレートソード: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
+    bool  justGreatswordSlam_        = false;
+    float greatswordSkillCooldown_   = 0.0f;
+    static constexpr float kGreatswordSkillCooldown_ = 1.3f;
+    // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
+    bool  isScytheHovering_       = false;
+    float scytheHoverTimer_       = kScytheHoverMax_;
+    static constexpr float kScytheHoverMax_         = 0.9f;  // 最大連続ホバー時間（秒）
+    static constexpr float kScytheHoverRecoverRate_ = 2.0f;  // 接地中の回復速度倍率
+    static constexpr float kScytheHoverVYCap_       = -0.02f; // ホバー中の落下速度の下限
+    // アックス: バーサーク突進（突進しつつ命中で一定時間ダメージ強化、狂戦士らしいリスク覚悟の一撃）
+    bool  justAxeCharge_          = false;
+    float axeSkillCooldown_       = 0.0f;
+    float axeRageTimer_           = 0.0f;
+    static constexpr float kAxeChargeDist_       = 2.3f;
+    static constexpr float kAxeSkillCooldown_    = 1.0f;
+    static constexpr float kAxeRageDuration_     = 2.5f;
+    static constexpr float kAxeRageDamageMult_   = 1.3f;
 
     // 覚醒乱舞（Sword + 覚醒 + L）
     RampagePhase rampagePhase_     = RampagePhase::Inactive;
@@ -295,9 +339,14 @@ private:
         virtual ~IWeaponBehavior() = default;
         virtual void Update(Player& player, Input* input) const = 0;
     };
-    class DaggerBehavior : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
-    class HammerBehavior : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
-    class BallBehavior    : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class DaggerBehavior     : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class HammerBehavior     : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class BallBehavior       : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class SwordBehavior      : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class SpearBehavior      : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class GreatswordBehavior : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class ScytheBehavior     : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
+    class AxeBehavior        : public IWeaponBehavior { public: void Update(Player& player, Input* input) const override; };
     class DefaultWeaponBehavior : public IWeaponBehavior { public: void Update(Player&, Input*) const override {} };
     static const IWeaponBehavior& GetWeaponBehavior(WeaponType type);
 
@@ -381,6 +430,21 @@ private:
 
     /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
     void PlayAttackAnim(const Animation& anim, float speed);
+
+    // ---- Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照） ----
+    void ResetFrameFlags();
+    void HandleStyleSwitch(Input* input);
+    void HandleRangedCombat(Input* input);
+    void HandleMeleeCombat(Input* input, const Vector3& enemyPos);
+    void HandleFinisherSlash(Input* input);
+    void UpdateAwakenGaugeFromHits();
+    void HandleWeaponSkill(Input* input);
+    void UpdateRampagePhysics(const Vector3& enemyPos);
+    void UpdateAwakenState(Input* input);
+    void ResolveEnemyOverlap(const Vector3& enemyPos);
+    void UpdateWaterState();
+    void UpdateVisualState(Input* input);
+    void AttachActiveWeapons();
 };
 
 } // namespace engine::game

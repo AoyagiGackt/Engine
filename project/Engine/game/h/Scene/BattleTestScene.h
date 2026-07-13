@@ -19,6 +19,7 @@
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "KnightEnemy.h"
+#include "LevelLoader.h"
 #include "MeshSliceEffect.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -110,6 +111,24 @@ private:
     void UpdateEnvironment();
     /// @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する命中があれば true を返す
     bool UpdateCombat();
+    /// @brief ダミー1体のAABBを返す（当たり判定用）
+    static AABB DummyBounds(const Dummy& d);
+    /// @brief 覚醒/アックス怒り状態を反映した現在の攻撃力倍率を返す
+    float ComputeAttackMult() const;
+    /// @brief 格闘コンボのヒット判定を処理する命中があれば true を返す
+    bool UpdateMeleeComboHit();
+    /// @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す
+    bool UpdateWeaponSkillHits();
+    /// @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す
+    bool UpdateGunShotHit();
+    /// @brief 覚醒乱舞のヒット判定を処理する命中があれば true を返す
+    bool UpdateRampageHit();
+    /// @brief フィニッシャースラッシュの発動演出をトリガーする
+    void TriggerFinisherSlash();
+    /// @brief スペースキー スピン連射の発射処理を行う
+    void UpdateSpinShotFire();
+    /// @brief 弾丸の移動と衝突判定を処理する命中があれば true を返す
+    bool UpdateBulletHits();
     /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
     bool UpdateFinisherSlash();
     /// @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点）
@@ -161,9 +180,10 @@ private:
     std::unique_ptr<ShadowManager>   shadowManager_;
     std::unique_ptr<Camera>          camera_;
 
-    // 境界ブロック
+    // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model>                  modelBlock_;
     std::vector<std::unique_ptr<Object3d>>  borderBlocks_;
+    LevelSpawnResult                        levelSpawn_;
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>>  warpPortalBlocks_;

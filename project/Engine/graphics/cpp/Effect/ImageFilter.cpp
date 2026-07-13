@@ -64,16 +64,6 @@ static void CreateOffscreenTexture(
 }
 
 // =====================================================
-// バリアヘルパー
-// =====================================================
-
-static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
-    D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
-{
-    DirectXCommon::TransitionBarrier(cmd, res, before, after);
-}
-
-// =====================================================
 // Initialize（分割ヘルパーを呼び出すだけ）
 // =====================================================
 
@@ -344,7 +334,7 @@ void ImageFilter::BeginScene()
 {
     auto* cmd = dxCommon_->GetCommandList();
     if (!isSceneFirstFrame_) {
-        Barrier(cmd, sceneTexture_.Get(),
+        DirectXCommon::TransitionBarrier(cmd, sceneTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
@@ -363,7 +353,7 @@ void ImageFilter::BeginScene()
 
 void ImageFilter::EndScene()
 {
-    Barrier(dxCommon_->GetCommandList(), sceneTexture_.Get(),
+    DirectXCommon::TransitionBarrier(dxCommon_->GetCommandList(), sceneTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
@@ -404,7 +394,7 @@ void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12Graph
 {
     // ----- 深度ベースアウトライン: シングルパス、深度バリア付き -----
     auto* depthRes = filter.dxCommon_->GetDepthStencilResource();
-    Barrier(cmd, depthRes,
+    DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_DEPTH_WRITE,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
@@ -418,7 +408,7 @@ void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12Graph
     cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(filter.depthSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
 
-    Barrier(cmd, depthRes,
+    DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
         D3D12_RESOURCE_STATE_DEPTH_WRITE);
 }
@@ -491,7 +481,7 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
 
     // Pass 1: 水平（sceneTexture → intermediateTexture）
     if (!filter.isIntermediateFirstFrame_) {
-        Barrier(cmd, filter.intermediateTexture_.Get(),
+        DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
@@ -504,7 +494,7 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);
 
-    Barrier(cmd, filter.intermediateTexture_.Get(),
+    DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
