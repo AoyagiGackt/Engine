@@ -10,15 +10,15 @@ MaterialManager::MaterialManager()
 
 void MaterialManager::SetCurrentMaterialIndex(size_t index) { currentMaterialIndex_ = index; }
 size_t MaterialManager::GetCurrentMaterialIndex() const { return currentMaterialIndex_; }
-Material& MaterialManager::GetCurrentMaterial() { return materials[currentMaterialIndex_]; }
+Material& MaterialManager::GetCurrentMaterial() { return materials_[currentMaterialIndex_]; }
 
 void MaterialManager::InitMaterials()
 {
     // 赤、緑、青
-    materials.push_back({ { 1, 0, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
-    materials.push_back({ { 0, 1, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
-    materials.push_back({ { 0, 0, 1, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
-    materials.push_back({ { 1, 1, 1, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
+    materials_.push_back({ { 1, 0, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
+    materials_.push_back({ { 0, 1, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
+    materials_.push_back({ { 0, 0, 1, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
+    materials_.push_back({ { 1, 1, 1, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
 }
 
 MaterialManager* MaterialManager::GetInstance()

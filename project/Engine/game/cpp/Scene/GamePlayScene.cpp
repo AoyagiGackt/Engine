@@ -377,7 +377,6 @@ void GamePlayScene::UpdateCombat()
             player_->EndRampage(); // 敵が着地したらジャグル強制終了
         }
 
-        for (auto& obj : gameObjects_) { obj->Update(); }
         skydome_->Update(camera_.get());
         for (auto& block : borderBlocks_) { block->Update(); }
     }
@@ -786,7 +785,6 @@ void GamePlayScene::Draw()
 
     SetupModelRenderState();
 
-    for (auto& obj : gameObjects_) { obj->Draw(); }
     for (auto& block : borderBlocks_) { block->Draw(); }
 
     if (!ghostTrail_.empty()) {

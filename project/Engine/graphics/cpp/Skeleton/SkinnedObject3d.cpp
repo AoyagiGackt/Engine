@@ -102,7 +102,7 @@ void SkinnedObject3d::Update()
     }
 
     // スケルトン各ジョイントにアニメーションを適用
-    for (Joint& joint : skeleton_.joints) {
+    for (Joint& joint : skeleton_.GetJoints()) {
         auto it = animation_.nodeAnimations.find(joint.name);
         if (it != animation_.nodeAnimations.end()) {
             const NodeAnimation& na = it->second;
@@ -127,9 +127,9 @@ void SkinnedObject3d::Update()
     const auto& ibms = model_->GetInverseBindMatrices();
     static std::unordered_set<std::string> warnedBones;
     for (uint32_t i = 0; i < static_cast<uint32_t>(boneNames.size()) && i < kMaxJoints; ++i) {
-        auto jt = skeleton_.jointMap.find(boneNames[i]);
-        if (jt != skeleton_.jointMap.end()) {
-            paletteData_[i] = Multiply(ibms[i], skeleton_.joints[jt->second].skeletonSpaceMatrix);
+        auto jt = skeleton_.GetJointMap().find(boneNames[i]);
+        if (jt != skeleton_.GetJointMap().end()) {
+            paletteData_[i] = Multiply(ibms[i], skeleton_.GetJoints()[jt->second].skeletonSpaceMatrix);
         } else {
             // ボーン名がスケルトンに存在しない場合、パレットは単位行列のまま（初期化済み）
             if (warnedBones.insert(boneNames[i]).second) {

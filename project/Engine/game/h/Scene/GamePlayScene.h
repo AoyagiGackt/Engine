@@ -16,7 +16,6 @@
 #include "BaseScene.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
-#include "GameObject.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Model.h"
@@ -57,7 +56,6 @@ namespace engine::game {
 using engine::Audio;
 using engine::graphics::Camera;
 using engine::DirectXCommon;
-using engine::GameObject;
 using engine::graphics::ImGuiManager;
 using engine::Input;
 using engine::graphics::Model;
@@ -159,7 +157,6 @@ private:
     std::unique_ptr<Skydome> skydome_;
     std::unique_ptr<Model>   modelSkydome_;
 
-    std::vector<std::unique_ptr<GameObject>> gameObjects_;
     LevelSpawnResult                         levelSpawn_;
     std::vector<std::unique_ptr<Object3d>>   borderBlocks_;
 

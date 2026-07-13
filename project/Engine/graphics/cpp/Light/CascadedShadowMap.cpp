@@ -10,14 +10,6 @@ using namespace Microsoft::WRL;
 
 constexpr CascadedShadowMap::CascadeConfig CascadedShadowMap::kCascadeConfigs[CascadedShadowMap::kNumCascades];
 
-// ---- ヘルパー ----
-
-static void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
-    D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES)
-{
-    DirectXCommon::TransitionBarrier(cmd, res, before, after, subresource);
-}
-
 void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     dxCommon_   = dxCommon;

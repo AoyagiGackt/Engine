@@ -84,10 +84,11 @@
             "styleColor": [0.95, 0.35, 0.15, 1.0],
             "knockbackMult": 1.0,
             "commands": [
-                { "key": "L",    "desc": "4段コンボ" },
-                { "key": "S+L",  "desc": "打ち上げ" },
-                { "key": "K",    "desc": "銃コンボ" },
-                { "key": "R",    "desc": "覚醒" }
+                { "key": "L",     "desc": "4段コンボ" },
+                { "key": "S+L",   "desc": "打ち上げ" },
+                { "key": "Space", "desc": "瞬迅斬り(ダッシュ斬り)" },
+                { "key": "K",     "desc": "銃コンボ" },
+                { "key": "R",     "desc": "覚醒" }
             ]
         },
         {
@@ -102,9 +103,10 @@
             "styleColor": [0.20, 0.65, 1.0, 1.0],
             "knockbackMult": 0.7,
             "commands": [
-                { "key": "L",   "desc": "突き3段" },
-                { "key": "S+L", "desc": "掬い上げ" },
-                { "key": "K",   "desc": "銃コンボ" }
+                { "key": "L",     "desc": "突き3段" },
+                { "key": "S+L",   "desc": "掬い上げ" },
+                { "key": "Space", "desc": "間合い外し(後退突き)" },
+                { "key": "K",     "desc": "銃コンボ" }
             ]
         },
         {
@@ -158,6 +160,7 @@
                 { "key": "L",     "desc": "剛剣3段" },
                 { "key": "S+L",   "desc": "打ち上げ" },
                 { "key": "空中L", "desc": "落下斬り" },
+                { "key": "Space", "desc": "大地砕き(叩きつけAoE)" },
                 { "key": "K",     "desc": "銃コンボ" }
             ]
         },
@@ -173,9 +176,10 @@
             "styleColor": [0.80, 0.90, 1.0, 1.0],
             "knockbackMult": 0.9,
             "commands": [
-                { "key": "L",   "desc": "刈り取り3段" },
-                { "key": "S+L", "desc": "魂刈り(最強打上)" },
-                { "key": "K",   "desc": "銃コンボ" }
+                { "key": "L",     "desc": "刈り取り3段" },
+                { "key": "S+L",   "desc": "魂刈り(最強打上)" },
+                { "key": "Space", "desc": "滞空ホバー(空中)" },
+                { "key": "K",     "desc": "銃コンボ" }
             ]
         },
         {
@@ -190,9 +194,10 @@
             "styleColor": [1.0, 0.65, 0.10, 1.0],
             "knockbackMult": 1.3,
             "commands": [
-                { "key": "L",   "desc": "斧撃3段" },
-                { "key": "S+L", "desc": "打ち上げ" },
-                { "key": "K",   "desc": "銃コンボ" }
+                { "key": "L",     "desc": "斧撃3段" },
+                { "key": "S+L",   "desc": "打ち上げ" },
+                { "key": "Space", "desc": "バーサーク突進(一定時間強化)" },
+                { "key": "K",     "desc": "銃コンボ" }
             ]
         }
     ]

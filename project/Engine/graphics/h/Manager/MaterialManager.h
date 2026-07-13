@@ -55,9 +55,6 @@ public:
      */
     size_t GetCurrentMaterialIndex() const;
 
-    /** @brief マネージャーが保持している全マテリアルのリスト */
-    std::vector<Material> materials;
-
     /**
      * @brief MaterialManagerの唯一のインスタンスを取得する
      * @return MaterialManager* シングルトンインスタンスへのポインタ
@@ -70,9 +67,12 @@ public:
     void Finalize();
 
 private:
-    
+
     /** @brief 現在選択されているマテリアルのインデックス */
     size_t currentMaterialIndex_;
+
+    /** @brief マネージャーが保持している全マテリアルのリスト */
+    std::vector<Material> materials_;
 
     /**
      * @brief 初期化時にいくつかのデフォルトマテリアル（赤、緑、青など）を生成してリストに登録する

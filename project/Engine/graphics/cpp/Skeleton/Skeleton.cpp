@@ -74,7 +74,7 @@ int32_t Skeleton::CreateJoint(
 Skeleton Skeleton::Create(const Node& rootNode)
 {
     Skeleton skeleton;
-    skeleton.root = CreateJoint(rootNode, std::nullopt, skeleton.joints, skeleton.jointMap);
+    skeleton.root_ = CreateJoint(rootNode, std::nullopt, skeleton.joints_, skeleton.jointMap_);
     return skeleton;
 }
 
@@ -84,14 +84,14 @@ Skeleton Skeleton::Create(const Node& rootNode)
 
 void Skeleton::Update()
 {
-    for (Joint& joint : joints) {
+    for (Joint& joint : joints_) {
         joint.localMatrix = MakeAffineMatrix(
             joint.transform.scale,
             joint.transform.rotate,
             joint.transform.translate);
 
         if (joint.parent) {
-            joint.skeletonSpaceMatrix = Multiply(joint.localMatrix, joints[*joint.parent].skeletonSpaceMatrix);
+            joint.skeletonSpaceMatrix = Multiply(joint.localMatrix, joints_[*joint.parent].skeletonSpaceMatrix);
         } else {
             joint.skeletonSpaceMatrix = joint.localMatrix;
         }
@@ -149,7 +149,7 @@ void Skeleton::DebugDraw()
     // ---- 全ジョイントのXY範囲を自動計算してスケールを決める ----
     float minX = 0.0f, maxX = 0.0f, minY = 0.0f, maxY = 0.0f;
     bool first = true;
-    for (const Joint& joint : joints) {
+    for (const Joint& joint : joints_) {
         float x = joint.skeletonSpaceMatrix.m[3][0];
         float y = joint.skeletonSpaceMatrix.m[3][1];
         if (first) { minX = maxX = x; minY = maxY = y; first = false; }
@@ -178,9 +178,9 @@ void Skeleton::DebugDraw()
         IM_COL32(55, 55, 55, 180), 1.0f);
 
     // 骨の線（親→子）
-    for (const Joint& joint : joints) {
+    for (const Joint& joint : joints_) {
         if (!joint.parent) { continue; }
-        const Joint& p = joints[*joint.parent];
+        const Joint& p = joints_[*joint.parent];
         ImVec2 p0 = {
             origin.x + p.skeletonSpaceMatrix.m[3][0] * scale,
             origin.y - p.skeletonSpaceMatrix.m[3][1] * scale
@@ -193,12 +193,12 @@ void Skeleton::DebugDraw()
     }
 
     // ジョイントの点
-    for (const Joint& joint : joints) {
+    for (const Joint& joint : joints_) {
         ImVec2 p = {
             origin.x + joint.skeletonSpaceMatrix.m[3][0] * scale,
             origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale
         };
-        ImU32 col = (joint.index == root)
+        ImU32 col = (joint.index == root_)
             ? IM_COL32(255, 80, 80, 255)
             : IM_COL32(255, 200, 50, 255);
         drawList->AddCircleFilled(p, 3.5f, col);
@@ -206,7 +206,7 @@ void Skeleton::DebugDraw()
 
     // マウスホバーでジョイント名ツールチップ
     ImVec2 mousePos = ImGui::GetMousePos();
-    for (const Joint& joint : joints) {
+    for (const Joint& joint : joints_) {
         ImVec2 p = {
             origin.x + joint.skeletonSpaceMatrix.m[3][0] * scale,
             origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale
@@ -226,9 +226,9 @@ void Skeleton::DebugDraw()
 
     // ---- ジョイントツリービュー ----
     ImGui::Separator();
-    ImGui::Text("Joints: %d", static_cast<int>(joints.size()));
+    ImGui::Text("Joints: %d", static_cast<int>(joints_.size()));
     if (ImGui::BeginChild("##jointTree", ImVec2(0.0f, 0.0f), false)) {
-        DrawJointTree(joints, root);
+        DrawJointTree(joints_, root_);
     }
     ImGui::EndChild();
 

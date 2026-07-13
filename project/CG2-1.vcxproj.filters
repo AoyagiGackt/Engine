@@ -486,6 +486,9 @@
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\3D\RevolvedMeshBase.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
     </ClCompile>
@@ -561,6 +564,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Core\Object</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\GameConstants.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\GravityBody.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\BorderBlockBuilder.h">
@@ -837,6 +843,9 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\Particle</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\3D\RevolvedMeshBase.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Ring.h">

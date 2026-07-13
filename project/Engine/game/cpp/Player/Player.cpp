@@ -1,6 +1,7 @@
 #include "Player.h"
 #include "CharacterVisuals.h"
 #include "GameConstants.h"
+#include "GravityBody.h"
 #include "Input.h"
 #include "ModelCommon.h"
 #include "OutlineEffect.h"
@@ -151,7 +152,7 @@ void Player::UpdateAnimationState(bool isMoving)
     // 構え系の近接武器、または銃を左手に構えている間は武器持ちバリエーション（IdleHold/RunHold）を使う
     // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
     const Skeleton& skel = rig_->object->GetSkeleton();
-    bool hasGunBone = skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end();
+    bool hasGunBone = skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end();
     bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type) || hasGunBone;
     if (newState == animState_ && hold == animHold_) { return; }
     animState_ = newState;
@@ -187,6 +188,28 @@ void Player::PlayAttackAnim(const Animation& anim, float speed)
 
 void Player::Update(Input* input, const Vector3& enemyPos)
 {
+    ResetFrameFlags();
+
+    HandleStyleSwitch(input);
+
+    GetPhysicsState(inWater_).Update(*this, input);
+    pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
+
+    HandleRangedCombat(input);
+    HandleMeleeCombat(input, enemyPos);
+    HandleFinisherSlash(input);
+    UpdateAwakenGaugeFromHits();
+    HandleWeaponSkill(input);
+    UpdateRampagePhysics(enemyPos);
+    UpdateAwakenState(input);
+    ResolveEnemyOverlap(enemyPos);
+    UpdateWaterState();
+    UpdateVisualState(input);
+    AttachActiveWeapons();
+}
+
+void Player::ResetFrameFlags()
+{
     justJumped_        = false;
     justLanded_        = false;
     justEnteredWater_  = false;
@@ -196,22 +219,30 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     justBlinked_       = false;
     justChargedGauge_  = false;
     justSpinShot_      = false;
+    justSwordDash_       = false;
+    justSpearRetreat_    = false;
+    justGreatswordSlam_  = false;
+    justAxeCharge_       = false;
     justLaunched_      = false;
     justRampageHit_    = false;
     justRampageFinish_ = false;
     justFinisherSlash_ = false;
     prevOnGround_     = onGround_;
     prevInWater_      = inWater_;
+}
 
+void Player::HandleStyleSwitch(Input* input)
+{
     // スタイルチェンジ（1〜5キー）
     auto* wm = WeaponManager::GetInstance();
     for (int i = 0; i < wm->GetCount(); ++i) {
         if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) { wm->SelectIndex(i); }
     }
+}
 
-    GetPhysicsState(inWater_).Update(*this, input);
-
-    pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
+void Player::HandleRangedCombat(Input* input)
+{
+    auto* wm = WeaponManager::GetInstance();
 
     // ── 銃切り替え（G キー、循環）────────────────────────────────────
     if (input->TriggerKey(DIK_G)) {
@@ -232,6 +263,11 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (onGround_ && gunCombo_.GetMoveDelta() != 0.0f) {
         pos_.x = std::clamp(pos_.x + lastDirX_ * gunCombo_.GetMoveDelta(), kMinX_, kMaxX_);
     }
+}
+
+void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
+{
+    auto* wm = WeaponManager::GetInstance();
 
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
     // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
@@ -272,6 +308,11 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (launchFollowTimer_ > 0.0f) {
         launchFollowTimer_ -= GameConstants::kFrameDeltaTime;
     }
+}
+
+void Player::HandleFinisherSlash(Input* input)
+{
+    auto* wm = WeaponManager::GetInstance();
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
     // 静止して集中 → 溜め切ったら一閃、の2段構成にする
@@ -284,7 +325,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         {
             // 銃は常時左手に追従表示されるため、構え系近接武器と同様に扱う（UpdateAnimationStateと同じ判定）
             const Skeleton& skel = rig_->object->GetSkeleton();
-            bool hasGunBone = skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end();
+            bool hasGunBone = skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end();
             bool hold = UsesHoldPose(wm->GetCurrent().type) || hasGunBone;
             rig_->object->SetAnimation(hold ? rig_->idleHoldAnim : rig_->idleAnim);
         }
@@ -299,13 +340,21 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             PlayAttackAnim(rig_->slashAnim, kFinisherReleaseAnimSpeed);
         }
     }
+}
 
+void Player::UpdateAwakenGaugeFromHits()
+{
     // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
     if (!isAwakened_) {
         if (justComboHit_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f); }
         if (justFired_)    { awakenGauge_ = (std::min)(awakenGauge_ + 0.04f * skillMods_.gaugeChargeMult, 1.0f); }
         if (justSpinShot_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.02f * skillMods_.gaugeChargeMult, 1.0f); }
     }
+}
+
+void Player::HandleWeaponSkill(Input* input)
+{
+    auto* wm = WeaponManager::GetInstance();
 
     // ── スペースキー（武器タイプ別）──────────────────────────────
     if (!inWater_ && !finisherCharging_) {
@@ -315,13 +364,23 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         shootCooldown_ -= GameConstants::kFrameDeltaTime;
         if (shootCooldown_ < 0.0f) { shootCooldown_ = 0.0f; }
 
+        // 固有技のクールダウン/バフも武器切替中に凍結させず常に消化する
+        swordSkillCooldown_      = (std::max)(swordSkillCooldown_      - GameConstants::kFrameDeltaTime, 0.0f);
+        spearSkillCooldown_      = (std::max)(spearSkillCooldown_      - GameConstants::kFrameDeltaTime, 0.0f);
+        greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+        axeSkillCooldown_        = (std::max)(axeSkillCooldown_        - GameConstants::kFrameDeltaTime, 0.0f);
+        axeRageTimer_            = (std::max)(axeRageTimer_            - GameConstants::kFrameDeltaTime, 0.0f);
+
         GetWeaponBehavior(wtype).Update(*this, input);
 
         // Ball モード以外 / 着地時はスピン角をリセット
         if (wtype != WeaponType::Ball || onGround_) { spinAngle_ = 0.0f; }
         isUpsideDown_ = (spinAngle_ > 90.0f && spinAngle_ < 270.0f);
     }
+}
 
+void Player::UpdateRampagePhysics(const Vector3& enemyPos)
+{
     // ── 乱舞フェーズ更新 ──────────────────────────────────────────
     GetRampageState(rampagePhase_).UpdatePhysics(*this, enemyPos);
 
@@ -329,7 +388,10 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     if (justRampageHit_ || justRampageFinish_) {
         PlayAttackAnim(rig_->slashAnim, kAttackAnimSpeed);
     }
+}
 
+void Player::UpdateAwakenState(Input* input)
+{
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
         isAwakened_  = true;
@@ -360,16 +422,24 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         rig_->object->SetAnimSpeed(1.0f);
         animState_ = AnimState::Attack;
     }
+}
 
+void Player::ResolveEnemyOverlap(const Vector3& enemyPos)
+{
     // ── 敵とのめり込み防止（乱舞の突進/ジャグルは意図的に密着させる演出なので対象外）──
+    // Y距離も見て、ジャンプで頭上を飛び越えている間は押し出さないようにする
     if (rampagePhase_ == RampagePhase::Inactive) {
         float dx = pos_.x - enemyPos.x;
-        if (std::abs(dx) < kMinEnemyDistanceX_) {
+        float dy = pos_.y - enemyPos.y;
+        if (std::abs(dx) < kMinEnemyDistanceX_ && std::abs(dy) < kMinEnemyDistanceY_) {
             float dir = (dx >= 0.0f) ? 1.0f : -1.0f;
             pos_.x = std::clamp(enemyPos.x + dir * kMinEnemyDistanceX_, kMinX_, kMaxX_);
         }
     }
+}
 
+void Player::UpdateWaterState()
+{
     // 入水・出水判定（物理後の位置で確定）
     inWater_          = (pos_.y < waterLevel_);
     justEnteredWater_ = !prevInWater_ && inWater_;
@@ -377,7 +447,10 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
     // 入水衝撃吸収（落下速度を大きく減衰）
     if (justEnteredWater_) { velocityY_ *= 0.4f; }
+}
 
+void Player::UpdateVisualState(Input* input)
+{
     float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
 
     // ── 覚醒残像スポーン＆フェード ──
@@ -419,6 +492,11 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     rig_->object->SetPosition(modelPos);
     rig_->object->SetRotation({ bodyLean.x, yaw, spinAngle_ * GameConstants::kDegToRad + bodyLean.z });
     rig_->object->Update();
+}
+
+void Player::AttachActiveWeapons()
+{
+    auto* wm = WeaponManager::GetInstance();
 
     // ── 現在のスタイルに対応する武器を右手ボーンに追従 ──────────────
     // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
@@ -444,7 +522,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
             if (guns_[i].type == gunType) { activeGunIndex_ = i; break; }
         }
         const Skeleton& skel = rig_->object->GetSkeleton();
-        gunVisible_ = (skel.jointMap.find(rig_->gunBoneName) != skel.jointMap.end());
+        gunVisible_ = (skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end());
         if (gunVisible_ && activeGunIndex_ >= 0) {
             auto& slot = guns_[activeGunIndex_];
             Vector3 rot = slot.gripRotate + gunCombo_.GetPoseOffset();
@@ -544,17 +622,8 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
         }
     }
 
-    player.velocityY_ -= kGravity_;
-    player.pos_.y     += player.velocityY_;
-
-    if (player.pos_.y <= kGroundY_) {
-        player.pos_.y     = kGroundY_;
-        player.velocityY_ = 0.0f;
-        player.onGround_  = true;
-    }
-    if (player.pos_.y > kCeilingY_) {
-        player.pos_.y     = kCeilingY_;
-        player.velocityY_ = 0.0f;
+    if (ApplyGravityAndClampY(player.pos_.y, player.velocityY_, kGravity_, kGroundY_, kCeilingY_)) {
+        player.onGround_ = true;
     }
 
     player.justLanded_ = !player.prevOnGround_ && player.onGround_;
@@ -678,16 +747,85 @@ void Player::BallBehavior::Update(Player& player, Input* input) const
     }
 }
 
+void Player::SwordBehavior::Update(Player& player, Input* input) const
+{
+    // 瞬迅斬り：短距離を踏み込みながら斬る、全能武器らしく癖のない攻守一体の一撃
+    if (input->TriggerKey(DIK_SPACE) && player.swordSkillCooldown_ <= 0.0f) {
+        player.pos_.x += player.lastDirX_ * kSwordDashDist_;
+        player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+        player.justSwordDash_      = true;
+        player.swordSkillCooldown_ = kSwordSkillCooldown_;
+    }
+}
+
+void Player::SpearBehavior::Update(Player& player, Input* input) const
+{
+    // 間合い外し：後退しながら突く、牽制役らしいヒットアンドアウェイ
+    if (input->TriggerKey(DIK_SPACE) && player.spearSkillCooldown_ <= 0.0f) {
+        player.pos_.x -= player.lastDirX_ * kSpearRetreatDist_;
+        player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+        player.justSpearRetreat_    = true;
+        player.spearSkillCooldown_  = kSpearSkillCooldown_;
+    }
+}
+
+void Player::GreatswordBehavior::Update(Player& player, Input* input) const
+{
+    // 大地砕き：その場に叩きつける設置型AoE、重量級らしく地上限定・長いクールタイム
+    if (input->TriggerKey(DIK_SPACE) && player.greatswordSkillCooldown_ <= 0.0f && player.onGround_) {
+        player.justGreatswordSlam_      = true;
+        player.greatswordSkillCooldown_ = kGreatswordSkillCooldown_;
+    }
+}
+
+void Player::ScytheBehavior::Update(Player& player, Input* input) const
+{
+    // 滞空ホバー：空中限定で降下を抑える。時間制のリソースで無限滞空を防ぎ、着地で回復する
+    player.isScytheHovering_ = false;
+    if (player.onGround_) {
+        player.scytheHoverTimer_ = (std::min)(
+            player.scytheHoverTimer_ + GameConstants::kFrameDeltaTime * kScytheHoverRecoverRate_, kScytheHoverMax_);
+        return;
+    }
+    if (input->PushKey(DIK_SPACE) && player.scytheHoverTimer_ > 0.0f) {
+        player.isScytheHovering_ = true;
+        player.velocityY_ = (std::max)(player.velocityY_, kScytheHoverVYCap_);
+        player.scytheHoverTimer_ -= GameConstants::kFrameDeltaTime;
+    }
+}
+
+void Player::AxeBehavior::Update(Player& player, Input* input) const
+{
+    // バーサーク突進：突進しつつ、命中の有無に関わらず一定時間ダメージが上がる（狂戦士らしいリスク覚悟の一撃）
+    if (input->TriggerKey(DIK_SPACE) && player.axeSkillCooldown_ <= 0.0f) {
+        player.pos_.x += player.lastDirX_ * kAxeChargeDist_;
+        player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+        player.justAxeCharge_    = true;
+        player.axeSkillCooldown_ = kAxeSkillCooldown_;
+        player.axeRageTimer_     = kAxeRageDuration_;
+    }
+}
+
 const Player::IWeaponBehavior& Player::GetWeaponBehavior(WeaponType type)
 {
     static DaggerBehavior        dagger;
     static HammerBehavior        hammer;
     static BallBehavior          ball;
+    static SwordBehavior         sword;
+    static SpearBehavior         spear;
+    static GreatswordBehavior    greatsword;
+    static ScytheBehavior        scythe;
+    static AxeBehavior           axe;
     static DefaultWeaponBehavior def;
     switch (type) {
-    case WeaponType::Dagger: return dagger;
-    case WeaponType::Hammer: return hammer;
-    case WeaponType::Ball:   return ball;
+    case WeaponType::Dagger:     return dagger;
+    case WeaponType::Hammer:     return hammer;
+    case WeaponType::Ball:       return ball;
+    case WeaponType::Sword:      return sword;
+    case WeaponType::Spear:      return spear;
+    case WeaponType::Greatsword: return greatsword;
+    case WeaponType::Scythe:     return scythe;
+    case WeaponType::Axe:        return axe;
     default:                 return def;
     }
 }

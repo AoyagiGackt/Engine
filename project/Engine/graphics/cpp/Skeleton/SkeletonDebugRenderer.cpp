@@ -169,7 +169,7 @@ void SkeletonDebugRenderer::BuildSphere()
 
 void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
 {
-    if (!camera || skeleton.joints.empty()) { return; }
+    if (!camera || skeleton.GetJoints().empty()) { return; }
 
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
     Matrix4x4 vp = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
@@ -194,10 +194,10 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
     {
         uint32_t vc = 0, ic = 0;
 
-        for (const Joint& joint : skeleton.joints) {
+        for (const Joint& joint : skeleton.GetJoints()) {
             if (!joint.parent || vc + 4 > kMaxBones * 4) { continue; }
 
-            Vector3 p0 = toWorld(skeleton.joints[*joint.parent].skeletonSpaceMatrix);
+            Vector3 p0 = toWorld(skeleton.GetJoints()[*joint.parent].skeletonSpaceMatrix);
             Vector3 p1 = toWorld(joint.skeletonSpaceMatrix);
 
             // 骨の向き
@@ -239,7 +239,7 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
         cmd->IASetVertexBuffers(0, 1, &sphereVBV_);
         cmd->IASetIndexBuffer(&sphereIBV_);
 
-        for (const Joint& joint : skeleton.joints) {
+        for (const Joint& joint : skeleton.GetJoints()) {
             Vector3   wp  = toWorld(joint.skeletonSpaceMatrix);
             Matrix4x4 wvp = Multiply(MakeTranslateMatrix(wp), vp);
             DebugCB   cb  { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
