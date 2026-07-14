@@ -676,6 +676,7 @@
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
     <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\PipelineStateGuard.h" />
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\UIButton.h" />

@@ -896,6 +896,9 @@
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\PipelineStateGuard.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\BezierSpline.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>

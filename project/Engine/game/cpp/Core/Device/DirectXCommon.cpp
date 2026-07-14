@@ -64,14 +64,23 @@ void DirectXCommon::Finalize()
 
 void DirectXCommon::PreDraw()
 {
+    UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
+
+    // このバックバッファ用のアロケータをGPUが使い終えるまで待つ（前回このインデックスを使った時のフェンス値まで）
+    // 毎フレーム無条件に全待ちする代わりに、実際に必要な時だけ止めることでCPU/GPUを並行して動かす
+    if (frameFenceValues_[backBufferIndex] != 0
+        && fence_->GetCompletedValue() < frameFenceValues_[backBufferIndex]) {
+        fence_->SetEventOnCompletion(frameFenceValues_[backBufferIndex], fenceEvent_);
+        WaitForSingleObject(fenceEvent_, INFINITE);
+    }
+
     // コマンドアロケータとリストをリセット
-    HRESULT hr = commandAllocator_->Reset();
+    HRESULT hr = commandAllocators_[backBufferIndex]->Reset();
     ENGINE_ASSERT(SUCCEEDED(hr));
-    hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+    hr = commandList_->Reset(commandAllocators_[backBufferIndex].Get(), nullptr);
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     // リソースバリア
-    UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
     TransitionBarrier(commandList_.Get(), swapChainResources_[backBufferIndex].Get(),
         D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
@@ -121,6 +130,13 @@ void DirectXCommon::PostDraw()
     ID3D12CommandList* commandLists[] = { commandList_.Get() };
     commandQueue_->ExecuteCommandLists(1, commandLists);
 
+    // このフレームで使ったアロケータの完了目印としてフェンス値を積む
+    // （ここでは待たない。実際に待つのは、次にこのバックバッファを使い回す時＝PreDraw側）
+    ++fenceValue_;
+    hr = commandQueue_->Signal(fence_.Get(), fenceValue_);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    frameFenceValues_[backBufferIndex] = fenceValue_;
+
     // フリップ (画面更新)
     // VSyncオフ時はSyncInterval=0。ティアリング許可済みならALLOW_TEARINGを付けて真の非同期表示にする
     const UINT syncInterval = vsyncEnabled_ ? 1 : 0;
@@ -140,9 +156,6 @@ void DirectXCommon::PostDraw()
 
     // FPS固定（GPU が動いている間に CPU 側で余った時間を使って待機）
     UpdateFixFPS();
-
-    // フェンス同期
-    WaitForGpu();
 }
 
 Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile)
@@ -269,10 +282,12 @@ void DirectXCommon::CreateCommand()
     hr = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    for (UINT i = 0; i < kFrameCount; ++i) {
+        hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocators_[i]));
+        ENGINE_ASSERT(SUCCEEDED(hr));
+    }
 
-    hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr, IID_PPV_ARGS(&commandList_));
+    hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocators_[0].Get(), nullptr, IID_PPV_ARGS(&commandList_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     commandList_->Close();

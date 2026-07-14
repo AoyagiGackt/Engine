@@ -109,8 +109,8 @@ private:
     /** @brief DirectX基盤のポインタ */
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    /** @brief 最大SRV確保数 */
-    static const uint32_t kMaxSRVCount = 512;
+    /** @brief 最大SRV確保数（テクスチャ/パーティクル/インスタンシング等が増えても余裕を持たせる） */
+    static const uint32_t kMaxSRVCount = 4096;
 
     /** @brief デスクリプタヒープの実体 */
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap_;

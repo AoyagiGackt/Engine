@@ -11,6 +11,7 @@
 #include "ImageFilter.h"
 #include "ImGuiControl.h"
 #include "ParticleManager.h"
+#include "PipelineStateGuard.h"
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
@@ -811,8 +812,9 @@ void GamePlayScene::Draw()
     // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
+        // スコープを抜けた瞬間に必ずレンダーターゲット設定を戻す（歪み描画がRTを変えるため）
+        PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
         spaceWarp_.CaptureAndApply();
-        SetupMainRenderTarget(); // 歪み描画で変わったレンダーターゲット設定を戻す
     }
 
     spriteCommon_->CommonDrawSettings();
@@ -839,11 +841,12 @@ void GamePlayScene::Draw()
         if (finisherShatter_.NeedCapture()) {
             finisherShatter_.CaptureFrame();
         }
+        // スコープを抜けた瞬間に、Apply が変えたレンダーターゲットとルートシグネチャを後続のスプライト描画用に戻す
+        PipelineStateGuard restoreGuard([this] {
+            SetupMainRenderTarget();
+            spriteCommon_->CommonDrawSettings();
+        });
         finisherShatter_.Apply();
-
-        // Apply が変えたレンダーターゲットとルートシグネチャを後続のスプライト描画用に戻す
-        SetupMainRenderTarget();
-        spriteCommon_->CommonDrawSettings();
     }
 
     // ----- ゲームプレイ UI テキスト -----

@@ -5,6 +5,7 @@
 #include "Input.h"
 #include "ModelCommon.h"
 #include "OutlineEffect.h"
+#include "PipelineStateGuard.h"
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
@@ -547,14 +548,19 @@ void Player::Draw()
     auto* outline = OutlineEffect::GetInstance();
     outline->SetColor(kOutlineColor);
     outline->SetWidth(kOutlineWidth);
-    outline->BeginOutlinePass();
-    if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->DrawOutline(outline); }
-    if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->DrawOutline(outline); }
-    rig_->object->DrawOutline(outline);
-    if (modelCommon_) {
-        modelCommon_->CommonDrawSettings();
-        // ルートシグネチャの切り替えでライト/シャドウマップの束縛が失われているため再バインドする
-        Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
+    {
+        // スコープを抜けた瞬間に必ず通常描画用のPSOへ復帰する（早期returnや将来のコード追加があっても復帰忘れが起きない）
+        PipelineStateGuard restoreGuard([this] {
+            if (modelCommon_) {
+                modelCommon_->CommonDrawSettings();
+                // ルートシグネチャの切り替えでライト/シャドウマップの束縛が失われているため再バインドする
+                Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
+            }
+        });
+        outline->BeginOutlinePass();
+        if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->DrawOutline(outline); }
+        if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->DrawOutline(outline); }
+        rig_->object->DrawOutline(outline);
     }
 
     // 通常描画

@@ -7,6 +7,8 @@
 #include "EngineAssert.h"
 #include <algorithm>
 #include <cctype>
+#include <future>
+#include <objbase.h>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -57,11 +59,17 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
     transCmdList_->Close(); // FlushUploads() で Reset して使うため最初は閉じておく
 }
 
-ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
-    const std::string& filePath, DirectX::TexMetadata& outMetadata)
+DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
 {
     ENGINE_ASSERT(dxCommon_);
     ID3D12Device* device = dxCommon_->GetDevice();
+
+    // WIC（PNG/JPG読み込み）はCOMを使うため、ワーカースレッドではここで初期化しておく
+    // （既にそのスレッドで初期化済みならS_FALSEが返るだけで害はない。DDSはWICを使わないので不要だが無条件に呼んでおく）
+    HRESULT coHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    bool comInitializedHere = SUCCEEDED(coHr);
+
+    DecodedTexture decoded;
 
     // 画像ファイルを読み込む
     std::wstring filePathW = StringUtility::ConvertString(filePath);
@@ -96,7 +104,7 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
 
     // テクスチャリソース記述子
     const DirectX::TexMetadata& metadata = finalImage.GetMetadata();
-    outMetadata = metadata;
+    decoded.metadata = metadata;
     D3D12_RESOURCE_DESC resourceDesc {};
     resourceDesc.Width            = UINT(metadata.width);
     resourceDesc.Height           = UINT(metadata.height);
@@ -174,28 +182,87 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
 
     uploadBuffer->Unmap(0, nullptr);
 
+    if (comInitializedHere) { CoUninitialize(); }
+
+    decoded.resource         = resource;
+    decoded.uploadBuffer     = uploadBuffer;
+    decoded.footprints       = std::move(footprints);
+    decoded.subresourceCount = subresourceCount;
+    return decoded;
+}
+
+void TextureManager::QueueUpload(const DecodedTexture& decoded)
+{
     // 永続コピーコマンドリストにサブリソースごとの転送コマンドを記録する
     // （実行は FlushUploads() で一括して行う）
-    for (UINT subresource = 0; subresource < subresourceCount; ++subresource) {
+    for (UINT subresource = 0; subresource < decoded.subresourceCount; ++subresource) {
         D3D12_TEXTURE_COPY_LOCATION dst {};
-        dst.pResource        = resource.Get();
+        dst.pResource        = decoded.resource.Get();
         dst.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
         dst.SubresourceIndex = subresource;
 
         D3D12_TEXTURE_COPY_LOCATION src {};
-        src.pResource       = uploadBuffer.Get();
+        src.pResource       = decoded.uploadBuffer.Get();
         src.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        src.PlacedFootprint = footprints[subresource];
+        src.PlacedFootprint = decoded.footprints[subresource];
 
         copyCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
     }
 
     // GPU完了まで uploadBuffer と resource を保持する（FlushUploads() で解放）
-    pendingUploadBuffers_.push_back(uploadBuffer);
-    pendingResources_.push_back(resource);
+    pendingUploadBuffers_.push_back(decoded.uploadBuffer);
+    pendingResources_.push_back(decoded.resource);
     hasPendingCopies_ = true;
+}
 
+ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
+    const std::string& filePath, DirectX::TexMetadata& outMetadata)
+{
+    DecodedTexture decoded = DecodeTexture(filePath);
+    outMetadata = decoded.metadata;
+    ComPtr<ID3D12Resource> resource = decoded.resource;
+    QueueUpload(decoded);
     return resource;
+}
+
+void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePaths)
+{
+    std::vector<std::string> toLoad;
+    toLoad.reserve(filePaths.size());
+    for (auto& path : filePaths) {
+        if (!textureDatas_.contains(path)) { toLoad.push_back(path); }
+    }
+    if (toLoad.empty()) { return; }
+
+    // デコード＋ミップ生成（GPUコマンドリストに触れない部分）だけをワーカースレッドで並列に行う
+    // ID3D12Deviceのメソッドはフリースレッドなので、CreateCommittedResource等をここで呼んでも安全
+    std::vector<std::future<DecodedTexture>> futures;
+    futures.reserve(toLoad.size());
+    for (auto& path : toLoad) {
+        futures.push_back(std::async(std::launch::async, [this, path] { return DecodeTexture(path); }));
+    }
+
+    // コピーコマンドの記録・SRV確保は共有状態（copyCmdList_ / SrvManager）を触るため呼び出しスレッドで順番に行う
+    for (size_t i = 0; i < toLoad.size(); ++i) {
+        DecodedTexture decoded = futures[i].get();
+        DirectX::TexMetadata metadata = decoded.metadata;
+        QueueUpload(decoded);
+
+        uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
+        if (metadata.IsCubemap()) {
+            SrvManager::GetInstance()->CreateSRVforTextureCube(
+                srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
+        } else {
+            SrvManager::GetInstance()->CreateSRVforTexture2D(
+                srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
+        }
+
+        TextureData& data = textureDatas_[toLoad[i]];
+        data.resource = decoded.resource;
+        data.srvIndex = srvIndex;
+        data.metadata = metadata;
+        try { data.lastWriteTime = std::filesystem::last_write_time(toLoad[i]); } catch (...) {}
+    }
 }
 
 void TextureManager::LoadTexture(const std::string& filePath)

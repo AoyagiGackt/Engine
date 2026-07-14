@@ -83,8 +83,8 @@ public: // メンバ関数
     /** @brief スワップチェーンの取得 */
     IDXGISwapChain4* GetSwapChain() { return swapChain_.Get(); }
 
-    /** @brief コマンドアロケータの取得 */
-    ID3D12CommandAllocator* GetCommandAllocator() { return commandAllocator_.Get(); }
+    /** @brief 現在のバックバッファ用コマンドアロケータの取得 */
+    ID3D12CommandAllocator* GetCommandAllocator() { return commandAllocators_[swapChain_->GetCurrentBackBufferIndex()].Get(); }
 
     /** @brief SRV用デスクリプタヒープの取得 */
     ID3D12DescriptorHeap* GetSrvDescriptorHeap() { return srvDescriptorHeap_.Get(); }
@@ -158,7 +158,7 @@ public: // メンバ関数
     DXGI_FORMAT GetBackBufferFormat() const { return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; }
 
     /** @brief スワップチェーンのバッファ数を取得（ダブルバッファリングなら2） */
-    UINT GetBufferCount() const { return 2; }
+    UINT GetBufferCount() const { return kFrameCount; }
 
     /** @brief DSV（深度バッファ）のハンドルを取得 */
     D3D12_CPU_DESCRIPTOR_HANDLE GetDsvHandle() { return dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(); }
@@ -212,11 +212,17 @@ private:
     void UpdateFixFPS(); ///< 1/60秒に満たない場合に待機する
 
 private:
+    /** @brief フレームインフライト数（スワップチェーンのバッファ数と一致させる） */
+    static constexpr UINT kFrameCount = 2;
+
     // DirectX12基盤オブジェクト
     Microsoft::WRL::ComPtr<IDXGIFactory7> dxgiFactory_;
     Microsoft::WRL::ComPtr<ID3D12Device> device_;
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue_;
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator_;
+    /** @brief バックバッファごとに1つずつ持つコマンドアロケータ
+     * @note 1つを使い回すと毎フレームGPU完了を待つ必要が生じるため、
+     * バッファ数ぶん用意してCPUとGPUを並行して動かせるようにしている */
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocators_[kFrameCount];
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList_;
     Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain_;
 
@@ -239,6 +245,10 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2];
     uint64_t fenceValue_;
     HANDLE fenceEvent_;
+    /** @brief バックバッファごとに「そのアロケータをGPUが使い終わったフェンス値」を記録する
+     * @note PreDraw() で該当インデックスのアロケータを使い回す直前にだけこの値を待つことで、
+     * 毎フレーム無条件にWaitForGpu()するのを避けている */
+    uint64_t frameFenceValues_[kFrameCount] = {};
 
     // FPS固定用
     std::chrono::steady_clock::time_point reference_;
