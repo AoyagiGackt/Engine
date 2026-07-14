@@ -5,17 +5,18 @@
  * コードを書かずに（type名を書くだけで）使えるようになる
  */
 #pragma once
+#include "GraphTypes.h"
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
-#include "GraphTypes.h"
 namespace engine::game {
 
 class GraphRuntime;
 
 /// @brief ノード実行の結果次に進めるか（Continue）、フレームをまたいで待つか（Suspend）
-enum class NodeResult { Continue, Suspend };
+enum class NodeResult { Continue,
+    Suspend };
 
 /**
  * @brief 1ノード分の実行ロジック
@@ -29,15 +30,15 @@ using NodeExecuteFn = std::function<NodeResult(GraphRuntime& rt, const GraphNode
 
 /// @brief パラメータ1個ぶんのピン情報（データ配線の型チェック・エディタでのピン色分けに使う）
 struct NodeParamSpec {
-    std::string    key;
+    std::string key;
     GraphValueType type = GraphValueType::Any;
 };
 
 /// @brief ノード種別1個ぶんのピン情報
 struct NodeTypeSpec {
-    std::vector<NodeParamSpec> params;                       // 入力データピン（パラメータ）の並び
-    bool           hasOutput  = false;                       // 出力データピンを持つか
-    GraphValueType outputType = GraphValueType::Any;         // 出力データピンの型
+    std::vector<NodeParamSpec> params; // 入力データピン（パラメータ）の並び
+    bool hasOutput = false; // 出力データピンを持つか
+    GraphValueType outputType = GraphValueType::Any; // 出力データピンの型
 };
 
 class NodeRegistry {
@@ -67,7 +68,7 @@ private:
     void RegisterBuiltins();
 
     std::map<std::string, NodeExecuteFn> executors_;
-    std::map<std::string, NodeTypeSpec>  specs_;
+    std::map<std::string, NodeTypeSpec> specs_;
 };
 
 } // namespace engine::game

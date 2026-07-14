@@ -6,8 +6,7 @@
 #include <cmath>
 
 /** @brief 3次元ベクトル */
-struct Vector3
-{
+struct Vector3 {
     float x;
     float y;
     float z;
@@ -16,7 +15,7 @@ struct Vector3
 /**
  * @brief 3次元ベクトルの長さを求める
  */
-inline float Length(const Vector3 &v)
+inline float Length(const Vector3& v)
 {
     return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
@@ -24,7 +23,7 @@ inline float Length(const Vector3 &v)
 /**
  * @brief 2点間の距離を求める
  */
-inline float Distance(const Vector3 &p1, const Vector3 &p2)
+inline float Distance(const Vector3& p1, const Vector3& p2)
 {
     Vector3 diff = { p1.x - p2.x, p1.y - p2.y, p1.z - p2.z };
     return Length(diff);
@@ -48,7 +47,7 @@ inline float Clamp(float value, float min, float max)
  * @brief ベクトルの正規化（長さを1にする）
  * @note 移動ベクトルを一定の速度にする際などに使用します
  */
-inline Vector3 Normalize(const Vector3 &v)
+inline Vector3 Normalize(const Vector3& v)
 {
     float len = Length(v);
     if (len != 0.0f) {
@@ -61,7 +60,7 @@ inline Vector3 Normalize(const Vector3 &v)
  * @brief ベクトルの内積 (Dot Product)
  * @note 2つのベクトルがどれくらい同じ方向を向いているかを判定します
  */
-inline float Dot(const Vector3 &v1, const Vector3 &v2)
+inline float Dot(const Vector3& v1, const Vector3& v2)
 {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
@@ -70,7 +69,7 @@ inline float Dot(const Vector3 &v1, const Vector3 &v2)
  * @brief ベクトルの外積 (Cross Product)
  * @note 2つのベクトルに垂直なベクトルを求めます（面の法線計算などに使用）
  */
-inline Vector3 Cross(const Vector3 &v1, const Vector3 &v2)
+inline Vector3 Cross(const Vector3& v1, const Vector3& v2)
 {
     return {
         v1.y * v2.z - v1.z * v2.y,
@@ -80,7 +79,7 @@ inline Vector3 Cross(const Vector3 &v1, const Vector3 &v2)
 }
 
 /** @brief ベクトルの引き算 (v1 - v2) */
-inline Vector3 Subtract(const Vector3 &v1, const Vector3 &v2)
+inline Vector3 Subtract(const Vector3& v1, const Vector3& v2)
 {
     return { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
 }
@@ -88,7 +87,7 @@ inline Vector3 Subtract(const Vector3 &v1, const Vector3 &v2)
 /**
  * @brief ベクトルの線形補間
  */
-inline Vector3 Lerp(const Vector3 &start, const Vector3 &end, float t)
+inline Vector3 Lerp(const Vector3& start, const Vector3& end, float t)
 {
     return { start.x + (end.x - start.x) * t,
         start.y + (end.y - start.y) * t,
@@ -96,11 +95,13 @@ inline Vector3 Lerp(const Vector3 &start, const Vector3 &end, float t)
 }
 
 /** @brief ベクトルの足し算 */
-inline Vector3 operator+(const Vector3& v1, const Vector3& v2) {
+inline Vector3 operator+(const Vector3& v1, const Vector3& v2)
+{
     return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
 }
 
 /** @brief ベクトルのスカラー倍 */
-inline Vector3 operator*(const Vector3& v, float s) {
+inline Vector3 operator*(const Vector3& v, float s)
+{
     return { v.x * s, v.y * s, v.z * s };
 }

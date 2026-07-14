@@ -14,8 +14,8 @@
 #include <cstring>
 #include <set>
 #ifdef USE_IMGUI
-#include <imgui.h>
 #include <commdlg.h>
+#include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
 #endif
 using namespace engine::game;
@@ -27,23 +27,29 @@ namespace {
 // Windows のファイル選択ダイアログを開き、ユーザーが選んだファイルのパスを返す（キャンセル時は空文字列）
 std::string OpenFileDialog(const char* filter, const char* initDir)
 {
-    char path[MAX_PATH] = {};
-    OPENFILENAMEA ofn   = {};
-    ofn.lStructSize     = sizeof(ofn);
-    ofn.lpstrFilter     = filter;
-    ofn.lpstrFile       = path;
-    ofn.nMaxFile        = MAX_PATH;
+    char path[MAX_PATH] = { };
+    OPENFILENAMEA ofn = { };
+    ofn.lStructSize = sizeof(ofn);
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = MAX_PATH;
     ofn.lpstrInitialDir = initDir;
-    ofn.Flags           = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-    if (GetOpenFileNameA(&ofn)) { return path; }
-    return {};
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    if (GetOpenFileNameA(&ofn)) {
+        return path;
+    }
+    return { };
 }
 
 // ダイアログが返す絶対パスを、JSON側の表記（"Resources/..."、区切りは/）に正規化する
 std::string ToProjectRelativePath(const std::string& absPath)
 {
     std::string p = absPath;
-    for (char& ch : p) { if (ch == '\\') { ch = '/'; } }
+    for (char& ch : p) {
+        if (ch == '\\') {
+            ch = '/';
+        }
+    }
     size_t pos = p.find("Resources/");
     return (pos != std::string::npos) ? p.substr(pos) : p;
 }
@@ -52,13 +58,13 @@ std::string ToProjectRelativePath(const std::string& absPath)
 
 void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, Camera* camera)
 {
-    levelPath_    = levelPath;
-    modelCommon_  = modelCommon;
-    camera_       = camera;
+    levelPath_ = levelPath;
+    modelCommon_ = modelCommon;
+    camera_ = camera;
 
     LevelData data = LevelLoader::Load(levelPath);
     playerSpawn_ = data.playerSpawn;
-    enemySpawn_  = data.enemySpawn;
+    enemySpawn_ = data.enemySpawn;
 
     objects_.clear();
     modelStorage_.clear();
@@ -68,7 +74,9 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
         entry.desc = std::move(desc);
         objects_.push_back(std::move(entry));
     }
-    for (auto& entry : objects_) { RegenerateInstances(entry); }
+    for (auto& entry : objects_) {
+        RegenerateInstances(entry);
+    }
 
     triggers_.clear();
     for (const auto& desc : data.triggers) {
@@ -79,10 +87,10 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
 
     EnsureUniqueNames(); // 手書きJSON等で名前が無い/重複しているエントリに自動命名する（親子参照に必要）
 
-    selKind_  = SelKind::None;
+    selKind_ = SelKind::None;
     selIndex_ = -1;
     statusMessage_ = "読み込みました: " + levelPath_;
-    statusTimer_   = 2.0f;
+    statusTimer_ = 2.0f;
 }
 
 void StageEditor::EnsureUniqueNames()
@@ -92,7 +100,9 @@ void StageEditor::EnsureUniqueNames()
         std::string& name = entry.desc.name;
         if (name.empty() || used.count(name)) {
             std::string candidate;
-            do { candidate = "obj_" + std::to_string(nextSerial_++); } while (used.count(candidate));
+            do {
+                candidate = "obj_" + std::to_string(nextSerial_++);
+            } while (used.count(candidate));
             name = candidate;
         }
         used.insert(name);
@@ -101,14 +111,19 @@ void StageEditor::EnsureUniqueNames()
 
 Vector3 StageEditor::ParentWorldPositionOf(const ObjectDesc& desc) const
 {
-    Vector3 pos = {};
+    Vector3 pos = { };
     const ObjectDesc* cur = &desc;
     for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
         const ObjectDesc* parent = nullptr;
         for (const auto& entry : objects_) {
-            if (entry.desc.name == cur->parent) { parent = &entry.desc; break; }
+            if (entry.desc.name == cur->parent) {
+                parent = &entry.desc;
+                break;
+            }
         }
-        if (!parent) { break; }
+        if (!parent) {
+            break;
+        }
         pos = pos + parent->position;
         cur = parent;
     }
@@ -125,14 +140,24 @@ bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::st
     // candidate から親を辿って self に行き着くなら子孫（親に設定すると循環する）
     const ObjectDesc* cur = nullptr;
     for (const auto& entry : objects_) {
-        if (entry.desc.name == candidateName) { cur = &entry.desc; break; }
+        if (entry.desc.name == candidateName) {
+            cur = &entry.desc;
+            break;
+        }
     }
     for (int guard = 0; guard < 16 && cur; ++guard) {
-        if (cur->parent.empty()) { return false; }
-        if (cur->parent == selfName) { return true; }
+        if (cur->parent.empty()) {
+            return false;
+        }
+        if (cur->parent == selfName) {
+            return true;
+        }
         const ObjectDesc* next = nullptr;
         for (const auto& entry : objects_) {
-            if (entry.desc.name == cur->parent) { next = &entry.desc; break; }
+            if (entry.desc.name == cur->parent) {
+                next = &entry.desc;
+                break;
+            }
         }
         cur = next;
     }
@@ -143,20 +168,26 @@ void StageEditor::Save()
 {
     LevelData data;
     data.playerSpawn = playerSpawn_;
-    data.enemySpawn  = enemySpawn_;
-    for (const auto& entry : objects_) { data.objects.push_back(entry.desc); }
-    for (const auto& trg : triggers_)  { data.triggers.push_back(trg.GetDesc()); }
+    data.enemySpawn = enemySpawn_;
+    for (const auto& entry : objects_) {
+        data.objects.push_back(entry.desc);
+    }
+    for (const auto& trg : triggers_) {
+        data.triggers.push_back(trg.GetDesc());
+    }
 
     LevelLoader::Save(levelPath_, data);
     statusMessage_ = "保存しました: " + levelPath_;
-    statusTimer_   = 2.0f;
+    statusTimer_ = 2.0f;
 }
 
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
 {
     std::string key = modelPath + '|' + texPath;
     auto it = modelCache_.find(key);
-    if (it != modelCache_.end()) { return it->second; }
+    if (it != modelCache_.end()) {
+        return it->second;
+    }
 
     auto model = std::make_unique<Model>();
     model->Initialize(modelCommon_, modelPath, texPath);
@@ -170,7 +201,9 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
 {
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
-    if (desc.model.empty()) { return; }
+    if (desc.model.empty()) {
+        return;
+    }
 
     Model* model = GetOrLoadModel(desc.model, desc.texture);
 
@@ -188,7 +221,9 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
 
     // 位置はRefreshTransforms()が毎フレーム上書きするため、ここでは個数分の生成だけが本質
     int instanceCount = (desc.type == "row") ? (std::max)(1, desc.count) : 1;
-    for (int i = 0; i < instanceCount; ++i) { spawnOne(desc.position); }
+    for (int i = 0; i < instanceCount; ++i) {
+        spawnOne(desc.position);
+    }
     RefreshTransforms(entry);
 }
 
@@ -201,9 +236,13 @@ void StageEditor::RefreshTransforms(ObjectEntry& entry)
         Vector3 pos = basePos;
         if (desc.type == "row") {
             float offset = desc.step * static_cast<float>(i);
-            if      (desc.axis == 'y') { pos.y += offset; }
-            else if (desc.axis == 'z') { pos.z += offset; }
-            else                       { pos.x += offset; }
+            if (desc.axis == 'y') {
+                pos.y += offset;
+            } else if (desc.axis == 'z') {
+                pos.z += offset;
+            } else {
+                pos.x += offset;
+            }
         }
         entry.instances[i]->SetPosition(pos);
         entry.instances[i]->SetRotation(desc.rotation);
@@ -216,7 +255,9 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
     std::vector<engine::AABB> result;
     for (const auto& entry : objects_) {
-        if (!entry.desc.solid) { continue; }
+        if (!entry.desc.solid) {
+            continue;
+        }
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
         Vector3 half = { 0.5f * desc.scale.x, 0.5f * desc.scale.y, 0.5f * desc.scale.z };
@@ -226,12 +267,16 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
             Vector3 pos = basePos;
             if (desc.type == "row") {
                 float offset = desc.step * static_cast<float>(i);
-                if      (desc.axis == 'y') { pos.y += offset; }
-                else if (desc.axis == 'z') { pos.z += offset; }
-                else                       { pos.x += offset; }
+                if (desc.axis == 'y') {
+                    pos.y += offset;
+                } else if (desc.axis == 'z') {
+                    pos.z += offset;
+                } else {
+                    pos.x += offset;
+                }
             }
             result.push_back({ { pos.x - half.x, pos.y - half.y, pos.z - half.z },
-                                { pos.x + half.x, pos.y + half.y, pos.z + half.z } });
+                { pos.x + half.x, pos.y + half.y, pos.z + half.z } });
         }
     }
     return result;
@@ -242,25 +287,33 @@ void StageEditor::UpdateObjects()
     // 親を動かしたら子も追従するよう、毎フレーム親子チェーンを解決してから反映する
     for (auto& entry : objects_) {
         RefreshTransforms(entry);
-        for (auto& obj : entry.instances) { obj->Update(); }
+        for (auto& obj : entry.instances) {
+            obj->Update();
+        }
     }
 }
 
 void StageEditor::DrawObjects()
 {
     for (auto& entry : objects_) {
-        for (auto& obj : entry.instances) { obj->Draw(); }
+        for (auto& obj : entry.instances) {
+            obj->Draw();
+        }
     }
 }
 
 void StageEditor::Update(Input* input, const Vector3& playerPos)
 {
     // トリガー判定はエディタの表示状態に関係なく常に行う（普段のプレイ中でも成立させるため）
-    for (auto& trg : triggers_) { trg.Update(playerPos); }
+    for (auto& trg : triggers_) {
+        trg.Update(playerPos);
+    }
 
 #ifdef USE_IMGUI
     bool wasVisible = visible_;
-    if (input && input->TriggerKey(DIK_F2)) { visible_ = !visible_; }
+    if (input && input->TriggerKey(DIK_F2)) {
+        visible_ = !visible_;
+    }
     if (visible_ != wasVisible) {
         if (visible_) {
             savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
@@ -269,10 +322,14 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
             TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
         }
     }
-    if (!visible_) { return; }
+    if (!visible_) {
+        return;
+    }
 
     const float realDt = ImGui::GetIO().DeltaTime;
-    if (statusTimer_ > 0.0f) { statusTimer_ -= realDt; }
+    if (statusTimer_ > 0.0f) {
+        statusTimer_ -= realDt;
+    }
 
     if (camera_) {
         DebugDraw::SetCamera(camera_->GetViewProjectionMatrix(),
@@ -294,7 +351,9 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 #ifdef USE_IMGUI
 void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
 {
-    if (depthLevel > 8) { return; } // 循環参照の安全弁
+    if (depthLevel > 8) {
+        return;
+    } // 循環参照の安全弁
 
     const ObjectDesc& desc = objects_[index].desc;
     bool sel = (selKind_ == SelKind::Object && selIndex_ == index);
@@ -304,7 +363,10 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     std::string indent(static_cast<size_t>(depthLevel) * 2, ' ');
     snprintf(label, sizeof(label), "%s%s%s##obj%d",
         indent.c_str(), (depthLevel > 0) ? "└ " : "", desc.name.c_str(), index);
-    if (ImGui::Selectable(label, sel)) { selKind_ = SelKind::Object; selIndex_ = index; }
+    if (ImGui::Selectable(label, sel)) {
+        selKind_ = SelKind::Object;
+        selIndex_ = index;
+    }
 
     // このエントリを親にしている子を直下に描く
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
@@ -335,10 +397,16 @@ void StageEditor::RenderHierarchy()
     char pathBuf[256];
     strncpy_s(pathBuf, levelPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf))) { levelPath_ = pathBuf; }
-    if (ImGui::Button("開く", ImVec2(80, 0))) { Open(levelPath_, modelCommon_, camera_); }
+    if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf))) {
+        levelPath_ = pathBuf;
+    }
+    if (ImGui::Button("開く", ImVec2(80, 0))) {
+        Open(levelPath_, modelCommon_, camera_);
+    }
     ImGui::SameLine();
-    if (ImGui::Button("保存", ImVec2(80, 0))) { Save(); }
+    if (ImGui::Button("保存", ImVec2(80, 0))) {
+        Save();
+    }
     if (statusTimer_ > 0.0f) {
         ImGui::TextDisabled("%s", statusMessage_.c_str());
     }
@@ -351,8 +419,8 @@ void StageEditor::RenderHierarchy()
     ImGui::SameLine();
     if (ImGui::SmallButton("+##addObj")) {
         ObjectEntry entry;
-        entry.desc.name  = "obj_" + std::to_string(nextSerial_++);
-        entry.desc.type  = "static";
+        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
+        entry.desc.type = "static";
         entry.desc.model = "Resources/block/block.obj";
         entry.desc.texture = "Resources/block/block.png";
         // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
@@ -367,12 +435,20 @@ void StageEditor::RenderHierarchy()
     if (objOpen) {
         // 親を持たない（または親が見つからない）ルートから再帰的にツリー表示する
         auto parentExists = [&](const std::string& parentName) {
-            if (parentName.empty()) { return false; }
-            for (const auto& e : objects_) { if (e.desc.name == parentName) { return true; } }
+            if (parentName.empty()) {
+                return false;
+            }
+            for (const auto& e : objects_) {
+                if (e.desc.name == parentName) {
+                    return true;
+                }
+            }
             return false;
         };
         for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-            if (!parentExists(objects_[i].desc.parent)) { DrawHierarchyEntry(i, 0); }
+            if (!parentExists(objects_[i].desc.parent)) {
+                DrawHierarchyEntry(i, 0);
+            }
         }
         ImGui::TreePop();
     }
@@ -383,9 +459,9 @@ void StageEditor::RenderHierarchy()
     ImGui::SameLine();
     if (ImGui::SmallButton("+##addTrg")) {
         TriggerDesc desc;
-        desc.name     = "trigger_" + std::to_string(nextSerial_++);
+        desc.name = "trigger_" + std::to_string(nextSerial_++);
         desc.position = playerSpawn_;
-        desc.flag     = desc.name;
+        desc.flag = desc.name;
         TriggerVolume trg;
         trg.Init(desc);
         triggers_.push_back(std::move(trg));
@@ -398,7 +474,10 @@ void StageEditor::RenderHierarchy()
             const TriggerDesc& d = triggers_[i].GetDesc();
             char label[96];
             snprintf(label, sizeof(label), "  %s -> %s=%s", d.name.c_str(), d.flag.c_str(), d.value ? "true" : "false");
-            if (ImGui::Selectable(label, sel)) { selKind_ = SelKind::Trigger; selIndex_ = i; }
+            if (ImGui::Selectable(label, sel)) {
+                selKind_ = SelKind::Trigger;
+                selIndex_ = i;
+            }
         }
         ImGui::TreePop();
     }
@@ -436,18 +515,21 @@ void StageEditor::RenderInspector()
 
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
         ObjectEntry& entry = objects_[selIndex_];
-        ObjectDesc&  desc  = entry.desc;
+        ObjectDesc& desc = entry.desc;
         bool structuralDirty = false;
-        bool transformDirty  = false;
+        bool transformDirty = false;
 
         // 名前（親子参照のキーなので、変更時は子の親参照も追従させる）
         {
-            char nameBuf[96]; strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
+            char nameBuf[96];
+            strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
             if (ImGui::InputText("名前", nameBuf, sizeof(nameBuf))) {
                 std::string newName = nameBuf;
                 if (newName != desc.name && !newName.empty()) {
                     for (auto& other : objects_) {
-                        if (other.desc.parent == desc.name) { other.desc.parent = newName; }
+                        if (other.desc.parent == desc.name) {
+                            other.desc.parent = newName;
+                        }
                     }
                     desc.name = newName;
                 }
@@ -467,7 +549,9 @@ void StageEditor::RenderInspector()
                 }
                 for (const auto& other : objects_) {
                     const std::string& name = other.desc.name;
-                    if (name == desc.name || IsDescendantOf(name, desc.name)) { continue; }
+                    if (name == desc.name || IsDescendantOf(name, desc.name)) {
+                        continue;
+                    }
                     if (ImGui::Selectable(name.c_str(), desc.parent == name)) {
                         if (desc.parent != name) {
                             // 付け替えても見た目の位置が変わらないよう、新しい親基準のローカル座標へ変換する
@@ -482,24 +566,36 @@ void StageEditor::RenderInspector()
             }
         }
 
-        char modelBuf[256]; strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
+        char modelBuf[256];
+        strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(180.0f);
-        if (ImGui::InputText("モデル", modelBuf, sizeof(modelBuf))) { desc.model = modelBuf; }
+        if (ImGui::InputText("モデル", modelBuf, sizeof(modelBuf))) {
+            desc.model = modelBuf;
+        }
         structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
         ImGui::SameLine();
         if (ImGui::SmallButton("参照##model")) {
             std::string p = OpenFileDialog("OBJファイル\0*.obj\0すべてのファイル\0*.*\0\0", "Resources");
-            if (!p.empty()) { desc.model = ToProjectRelativePath(p); structuralDirty = true; }
+            if (!p.empty()) {
+                desc.model = ToProjectRelativePath(p);
+                structuralDirty = true;
+            }
         }
 
-        char texBuf[256]; strncpy_s(texBuf, desc.texture.c_str(), _TRUNCATE);
+        char texBuf[256];
+        strncpy_s(texBuf, desc.texture.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(180.0f);
-        if (ImGui::InputText("テクスチャ", texBuf, sizeof(texBuf))) { desc.texture = texBuf; }
+        if (ImGui::InputText("テクスチャ", texBuf, sizeof(texBuf))) {
+            desc.texture = texBuf;
+        }
         structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
         ImGui::SameLine();
         if (ImGui::SmallButton("参照##tex")) {
             std::string p = OpenFileDialog("画像ファイル\0*.png;*.jpg;*.jpeg\0すべてのファイル\0*.*\0\0", "Resources");
-            if (!p.empty()) { desc.texture = ToProjectRelativePath(p); structuralDirty = true; }
+            if (!p.empty()) {
+                desc.texture = ToProjectRelativePath(p);
+                structuralDirty = true;
+            }
         }
 
         const char* kTypes[] = { "static", "row" };
@@ -510,7 +606,9 @@ void StageEditor::RenderInspector()
             structuralDirty = true;
         }
 
-        if (!desc.parent.empty()) { ImGui::TextDisabled("※位置は親からの相対値"); }
+        if (!desc.parent.empty()) {
+            ImGui::TextDisabled("※位置は親からの相対値");
+        }
         transformDirty |= ImGui::DragFloat3("位置", &desc.position.x, 0.1f);
         transformDirty |= ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f);
         transformDirty |= ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f);
@@ -519,22 +617,38 @@ void StageEditor::RenderInspector()
 
         if (desc.type == "row") {
             const char* kAxes[] = { "x", "y", "z" };
-            int axisIdx = (desc.axis == 'y') ? 1 : (desc.axis == 'z') ? 2 : 0;
-            if (ImGui::Combo("並べる軸", &axisIdx, kAxes, 3)) { desc.axis = kAxes[axisIdx][0]; structuralDirty = true; }
-            if (ImGui::InputInt("個数", &desc.count)) { desc.count = (std::max)(1, desc.count); structuralDirty = true; }
+            int axisIdx = (desc.axis == 'y') ? 1 : (desc.axis == 'z') ? 2
+                                                                      : 0;
+            if (ImGui::Combo("並べる軸", &axisIdx, kAxes, 3)) {
+                desc.axis = kAxes[axisIdx][0];
+                structuralDirty = true;
+            }
+            if (ImGui::InputInt("個数", &desc.count)) {
+                desc.count = (std::max)(1, desc.count);
+                structuralDirty = true;
+            }
             transformDirty |= ImGui::DragFloat("間隔", &desc.step, 0.05f);
         }
 
-        if (structuralDirty) { RegenerateInstances(entry); }
-        else if (transformDirty) { RefreshTransforms(entry); }
+        if (structuralDirty) {
+            RegenerateInstances(entry);
+        } else if (transformDirty) {
+            RefreshTransforms(entry);
+        }
     } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
         TriggerDesc& desc = triggers_[selIndex_].GetDesc();
 
-        char nameBuf[96]; strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
-        if (ImGui::InputText("名前", nameBuf, sizeof(nameBuf))) { desc.name = nameBuf; }
+        char nameBuf[96];
+        strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
+        if (ImGui::InputText("名前", nameBuf, sizeof(nameBuf))) {
+            desc.name = nameBuf;
+        }
 
-        char flagBuf[96]; strncpy_s(flagBuf, desc.flag.c_str(), _TRUNCATE);
-        if (ImGui::InputText("フラグ名", flagBuf, sizeof(flagBuf))) { desc.flag = flagBuf; }
+        char flagBuf[96];
+        strncpy_s(flagBuf, desc.flag.c_str(), _TRUNCATE);
+        if (ImGui::InputText("フラグ名", flagBuf, sizeof(flagBuf))) {
+            desc.flag = flagBuf;
+        }
 
         ImGui::DragFloat3("位置", &desc.position.x, 0.1f);
         ImGui::DragFloat("半径", &desc.radius, 0.05f, 0.1f, 50.0f);
@@ -564,9 +678,9 @@ void StageEditor::DrawGizmos()
 {
     for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
         const TriggerDesc& d = triggers_[i].GetDesc();
-        ImU32 color = triggers_[i].IsInside() ? DebugDraw::kColorGreen
-                    : (selKind_ == SelKind::Trigger && selIndex_ == i) ? DebugDraw::kColorYellow
-                    : DebugDraw::kColorCyan;
+        ImU32 color = triggers_[i].IsInside()                  ? DebugDraw::kColorGreen
+            : (selKind_ == SelKind::Trigger && selIndex_ == i) ? DebugDraw::kColorYellow
+                                                               : DebugDraw::kColorCyan;
         DebugDraw::DrawSphere({ d.position, d.radius }, color);
         DebugDraw::DrawCross(d.position, 0.3f, color);
     }
@@ -581,7 +695,8 @@ void StageEditor::DrawGizmos()
         if (d.solid) {
             Vector3 half = { 0.5f * d.scale.x, 0.5f * d.scale.y, 0.5f * d.scale.z };
             DebugDraw::DrawAABB({ { world.x - half.x, world.y - half.y, world.z - half.z },
-                                   { world.x + half.x, world.y + half.y, world.z + half.z } }, DebugDraw::kColorOrange);
+                                    { world.x + half.x, world.y + half.y, world.z + half.z } },
+                DebugDraw::kColorOrange);
         }
 
         // 親子関係を白線で可視化する（親→子）
@@ -599,23 +714,41 @@ void StageEditor::DrawGizmos()
 
 void StageEditor::UpdateFreeCamera(Input* input, float dt)
 {
-    if (!camera_ || !input) { return; }
+    if (!camera_ || !input) {
+        return;
+    }
     // ImGuiのテキスト入力欄にフォーカスがある間は、"s"等のタイプ入力がカメラ移動と衝突しないようにする
-    if (ImGui::GetIO().WantCaptureKeyboard) { return; }
+    if (ImGui::GetIO().WantCaptureKeyboard) {
+        return;
+    }
 
     constexpr float kSpeed = 8.0f;
     Vector3& pos = camera_->GetTranslate();
-    if (input->PushKey(DIK_A)) { pos.x -= kSpeed * dt; }
-    if (input->PushKey(DIK_D)) { pos.x += kSpeed * dt; }
-    if (input->PushKey(DIK_W)) { pos.y += kSpeed * dt; }
-    if (input->PushKey(DIK_S)) { pos.y -= kSpeed * dt; }
-    if (input->PushKey(DIK_Q)) { pos.z -= kSpeed * dt; }
-    if (input->PushKey(DIK_E)) { pos.z += kSpeed * dt; }
+    if (input->PushKey(DIK_A)) {
+        pos.x -= kSpeed * dt;
+    }
+    if (input->PushKey(DIK_D)) {
+        pos.x += kSpeed * dt;
+    }
+    if (input->PushKey(DIK_W)) {
+        pos.y += kSpeed * dt;
+    }
+    if (input->PushKey(DIK_S)) {
+        pos.y -= kSpeed * dt;
+    }
+    if (input->PushKey(DIK_Q)) {
+        pos.z -= kSpeed * dt;
+    }
+    if (input->PushKey(DIK_E)) {
+        pos.z += kSpeed * dt;
+    }
 }
 
 bool StageEditor::MouseToGround(float mouseX, float mouseY, Vector3& outWorld) const
 {
-    if (!camera_) { return false; }
+    if (!camera_) {
+        return false;
+    }
 
     // スクリーン座標→NDC→（逆VP行列で）ワールドのレイに戻し、ゲーム平面(z=0)との交点を取る
     Matrix4x4 inv = Inverse(camera_->GetViewProjectionMatrix());
@@ -627,17 +760,23 @@ bool StageEditor::MouseToGround(float mouseX, float mouseY, Vector3& outWorld) c
         float y = ndcX * inv.m[0][1] + ndcY * inv.m[1][1] + ndcZ * inv.m[2][1] + inv.m[3][1];
         float z = ndcX * inv.m[0][2] + ndcY * inv.m[1][2] + ndcZ * inv.m[2][2] + inv.m[3][2];
         float w = ndcX * inv.m[0][3] + ndcY * inv.m[1][3] + ndcZ * inv.m[2][3] + inv.m[3][3];
-        if (std::abs(w) < 1e-8f) { w = 1e-8f; }
+        if (std::abs(w) < 1e-8f) {
+            w = 1e-8f;
+        }
         return { x / w, y / w, z / w };
     };
 
     Vector3 nearPt = unproject(0.0f); // DirectXのNDC zは[0,1]
-    Vector3 farPt  = unproject(1.0f);
+    Vector3 farPt = unproject(1.0f);
     float dz = farPt.z - nearPt.z;
-    if (std::abs(dz) < 1e-6f) { return false; } // レイが平面と平行
+    if (std::abs(dz) < 1e-6f) {
+        return false;
+    } // レイが平面と平行
 
     float t = -nearPt.z / dz;
-    if (t < 0.0f) { return false; } // 交点がカメラ後方
+    if (t < 0.0f) {
+        return false;
+    } // 交点がカメラ後方
     outWorld = { nearPt.x + (farPt.x - nearPt.x) * t, nearPt.y + (farPt.y - nearPt.y) * t, 0.0f };
     return true;
 }
@@ -647,7 +786,9 @@ void StageEditor::UpdateViewportInteraction()
     ImGuiIO& io = ImGui::GetIO();
     // ImGuiパネル上のマウス操作はビューポート操作として扱わない
     if (io.WantCaptureMouse) {
-        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) { viewportDragging_ = false; }
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            viewportDragging_ = false;
+        }
         return;
     }
 
@@ -661,17 +802,23 @@ void StageEditor::UpdateViewportInteraction()
 
     // 左クリック: 画面上で一番近いオブジェクト/トリガーを選択（40px以内）
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        float   bestDist = 40.0f;
+        float bestDist = 40.0f;
         SelKind bestKind = SelKind::None;
-        int     bestIdx  = -1;
+        int bestIdx = -1;
 
         auto consider = [&](const Vector3& worldPos, SelKind kind, int index) {
             ImVec2 s;
-            if (!DebugDraw::WorldToScreen(worldPos, s)) { return; }
+            if (!DebugDraw::WorldToScreen(worldPos, s)) {
+                return;
+            }
             float dx = s.x - m.x;
             float dy = s.y - m.y;
             float dist = std::sqrt(dx * dx + dy * dy);
-            if (dist < bestDist) { bestDist = dist; bestKind = kind; bestIdx = index; }
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestKind = kind;
+                bestIdx = index;
+            }
         };
 
         for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
@@ -682,7 +829,7 @@ void StageEditor::UpdateViewportInteraction()
         }
 
         if (bestIdx >= 0) {
-            selKind_  = bestKind;
+            selKind_ = bestKind;
             selIndex_ = bestIdx;
             viewportDragging_ = true;
         }
@@ -705,15 +852,17 @@ void StageEditor::UpdateViewportInteraction()
         }
     }
 
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) { viewportDragging_ = false; }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        viewportDragging_ = false;
+    }
 }
 #else
-void StageEditor::RenderHierarchy() {}
-void StageEditor::RenderInspector() {}
-void StageEditor::RenderFlagsPanel() {}
-void StageEditor::DrawGizmos() {}
-void StageEditor::UpdateFreeCamera(Input*, float) {}
-void StageEditor::UpdateViewportInteraction() {}
-void StageEditor::DrawHierarchyEntry(int, int) {}
+void StageEditor::RenderHierarchy() { }
+void StageEditor::RenderInspector() { }
+void StageEditor::RenderFlagsPanel() { }
+void StageEditor::DrawGizmos() { }
+void StageEditor::UpdateFreeCamera(Input*, float) { }
+void StageEditor::UpdateViewportInteraction() { }
+void StageEditor::DrawHierarchyEntry(int, int) { }
 bool StageEditor::MouseToGround(float, float, Vector3&) const { return false; }
 #endif

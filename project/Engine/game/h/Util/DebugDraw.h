@@ -21,8 +21,8 @@
  *   IM_COL32(R, G, B, A)  または  DebugDraw::kColorGreen など定数を使用してください
  */
 #pragma once
-#include "MakeAffine.h"
 #include "CollisionConfig.h" // AABB, Sphere, Capsule, Collider, Ray
+#include "MakeAffine.h"
 
 // ===========================================================
 // USE_IMGUI が有効な場合のみ実装を提供する
@@ -33,31 +33,31 @@
 
 // CollisionConfig.h の形状プリミティブは engine 名前空間内で定義されているため、
 // グローバル名前空間の DebugDraw から使えるように取り込む
-using engine::Ray;
-using engine::Sphere;
 using engine::AABB;
 using engine::Capsule;
 using engine::Collider;
 using engine::ColliderShape;
+using engine::Ray;
+using engine::Sphere;
 
 namespace DebugDraw {
 
 // ---- よく使うカラー定数 (IM_COL32: ABGR バイト順) ----
-constexpr ImU32 kColorGreen   = IM_COL32(0,   255, 0,   255);
-constexpr ImU32 kColorRed     = IM_COL32(255, 0,   0,   255);
-constexpr ImU32 kColorBlue    = IM_COL32(0,   100, 255, 255);
-constexpr ImU32 kColorYellow  = IM_COL32(255, 255, 0,   255);
-constexpr ImU32 kColorCyan    = IM_COL32(0,   255, 255, 255);
-constexpr ImU32 kColorMagenta = IM_COL32(255, 0,   255, 255);
-constexpr ImU32 kColorWhite   = IM_COL32(255, 255, 255, 255);
-constexpr ImU32 kColorOrange  = IM_COL32(255, 150, 0,   255);
+constexpr ImU32 kColorGreen = IM_COL32(0, 255, 0, 255);
+constexpr ImU32 kColorRed = IM_COL32(255, 0, 0, 255);
+constexpr ImU32 kColorBlue = IM_COL32(0, 100, 255, 255);
+constexpr ImU32 kColorYellow = IM_COL32(255, 255, 0, 255);
+constexpr ImU32 kColorCyan = IM_COL32(0, 255, 255, 255);
+constexpr ImU32 kColorMagenta = IM_COL32(255, 0, 255, 255);
+constexpr ImU32 kColorWhite = IM_COL32(255, 255, 255, 255);
+constexpr ImU32 kColorOrange = IM_COL32(255, 150, 0, 255);
 
 // ---- 内部状態（SetCamera で初期化） ----
 namespace _Internal {
-    inline Matrix4x4 vp_       = {};
-    inline float     screenW_  = 1280.0f;
-    inline float     screenH_  = 720.0f;
-    inline float     thickness_ = 1.5f;
+    inline Matrix4x4 vp_ = { };
+    inline float screenW_ = 1280.0f;
+    inline float screenH_ = 720.0f;
+    inline float thickness_ = 1.5f;
 
     /**
      * @brief ワールド座標 → ImGui スクリーン座標に変換する
@@ -66,14 +66,16 @@ namespace _Internal {
     inline bool WorldToScreen(const Vector3& world, ImVec2& out)
     {
         // 行ベクトル規約: clip = world * VP
-        float cx = world.x*vp_.m[0][0] + world.y*vp_.m[1][0] + world.z*vp_.m[2][0] + vp_.m[3][0];
-        float cy = world.x*vp_.m[0][1] + world.y*vp_.m[1][1] + world.z*vp_.m[2][1] + vp_.m[3][1];
-        float cw = world.x*vp_.m[0][3] + world.y*vp_.m[1][3] + world.z*vp_.m[2][3] + vp_.m[3][3];
+        float cx = world.x * vp_.m[0][0] + world.y * vp_.m[1][0] + world.z * vp_.m[2][0] + vp_.m[3][0];
+        float cy = world.x * vp_.m[0][1] + world.y * vp_.m[1][1] + world.z * vp_.m[2][1] + vp_.m[3][1];
+        float cw = world.x * vp_.m[0][3] + world.y * vp_.m[1][3] + world.z * vp_.m[2][3] + vp_.m[3][3];
 
-        if (cw < 1e-4f) { return false; } // カメラ後方
+        if (cw < 1e-4f) {
+            return false;
+        } // カメラ後方
 
-        float ndcX =  cx / cw;
-        float ndcY =  cy / cw;
+        float ndcX = cx / cw;
+        float ndcY = cy / cw;
 
         // NDC [-1,1] → スクリーン [0, width/height]  (Y 反転)
         out.x = (ndcX + 1.0f) * 0.5f * screenW_;
@@ -95,9 +97,9 @@ namespace _Internal {
  */
 inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float thickness = 1.5f)
 {
-    _Internal::vp_        = vp;
-    _Internal::screenW_   = screenW;
-    _Internal::screenH_   = screenH;
+    _Internal::vp_ = vp;
+    _Internal::screenW_ = screenW;
+    _Internal::screenH_ = screenH;
     _Internal::thickness_ = thickness;
 }
 
@@ -142,11 +144,13 @@ inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen)
     };
     // 12 エッジ: bottom/top face, 4 pillars
     static const int edges[12][2] = {
-        {0,1},{1,2},{2,3},{3,0}, // near face
-        {4,5},{5,6},{6,7},{7,4}, // far face
-        {0,4},{1,5},{2,6},{3,7}  // pillars
+        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, // near face
+        { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, // far face
+        { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } // pillars
     };
-    for (auto& e : edges) { DrawLine(v[e[0]], v[e[1]], color); }
+    for (auto& e : edges) {
+        DrawLine(v[e[0]], v[e[1]], color);
+    }
 }
 
 /**
@@ -166,14 +170,14 @@ inline void DrawSphere(const Sphere& sphere, ImU32 color = kColorGreen, int segm
         float c1 = std::cos(a1), s1 = std::sin(a1);
 
         // XY plane
-        DrawLine({ c.x + r*c0, c.y + r*s0, c.z },
-                 { c.x + r*c1, c.y + r*s1, c.z }, color);
+        DrawLine({ c.x + r * c0, c.y + r * s0, c.z },
+            { c.x + r * c1, c.y + r * s1, c.z }, color);
         // XZ plane
-        DrawLine({ c.x + r*c0, c.y, c.z + r*s0 },
-                 { c.x + r*c1, c.y, c.z + r*s1 }, color);
+        DrawLine({ c.x + r * c0, c.y, c.z + r * s0 },
+            { c.x + r * c1, c.y, c.z + r * s1 }, color);
         // YZ plane
-        DrawLine({ c.x, c.y + r*c0, c.z + r*s0 },
-                 { c.x, c.y + r*c1, c.z + r*s1 }, color);
+        DrawLine({ c.x, c.y + r * c0, c.z + r * s0 },
+            { c.x, c.y + r * c1, c.z + r * s1 }, color);
     }
 }
 
@@ -188,7 +192,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
         capsule.end.y - capsule.start.y,
         capsule.end.z - capsule.start.z
     };
-    float axisLen = std::sqrt(axis.x*axis.x + axis.y*axis.y + axis.z*axis.z);
+    float axisLen = std::sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
 
     if (axisLen < 1e-6f) {
         // 退化（点）→ 球として描画
@@ -196,7 +200,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
         return;
     }
 
-    Vector3 axisN = { axis.x/axisLen, axis.y/axisLen, axis.z/axisLen };
+    Vector3 axisN = { axis.x / axisLen, axis.y / axisLen, axis.z / axisLen };
 
     // 軸に垂直な基底を 2 本作る
     Vector3 perp1;
@@ -215,13 +219,13 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
         float angle = (pi2 / 4.0f) * i;
         float ca = std::cos(angle), sa = std::sin(angle);
         Vector3 offset = {
-            (perp1.x*ca + perp2.x*sa) * r,
-            (perp1.y*ca + perp2.y*sa) * r,
-            (perp1.z*ca + perp2.z*sa) * r
+            (perp1.x * ca + perp2.x * sa) * r,
+            (perp1.y * ca + perp2.y * sa) * r,
+            (perp1.z * ca + perp2.z * sa) * r
         };
         DrawLine(
             { capsule.start.x + offset.x, capsule.start.y + offset.y, capsule.start.z + offset.z },
-            { capsule.end.x   + offset.x, capsule.end.y   + offset.y, capsule.end.z   + offset.z },
+            { capsule.end.x + offset.x, capsule.end.y + offset.y, capsule.end.z + offset.z },
             color);
     }
 
@@ -233,12 +237,12 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
             float c0 = std::cos(a0), s0 = std::sin(a0);
             float c1 = std::cos(a1), s1 = std::sin(a1);
             DrawLine(
-                { center.x + (perp1.x*c0 + perp2.x*s0)*r,
-                  center.y + (perp1.y*c0 + perp2.y*s0)*r,
-                  center.z + (perp1.z*c0 + perp2.z*s0)*r },
-                { center.x + (perp1.x*c1 + perp2.x*s1)*r,
-                  center.y + (perp1.y*c1 + perp2.y*s1)*r,
-                  center.z + (perp1.z*c1 + perp2.z*s1)*r },
+                { center.x + (perp1.x * c0 + perp2.x * s0) * r,
+                    center.y + (perp1.y * c0 + perp2.y * s0) * r,
+                    center.z + (perp1.z * c0 + perp2.z * s0) * r },
+                { center.x + (perp1.x * c1 + perp2.x * s1) * r,
+                    center.y + (perp1.y * c1 + perp2.y * s1) * r,
+                    center.z + (perp1.z * c1 + perp2.z * s1) * r },
                 color);
         }
     };
@@ -279,12 +283,8 @@ inline void DrawRay(const Ray& ray, float length = 10.0f, ImU32 color = kColorYe
         to.y - d.y * headLen,
         to.z - d.z * headLen
     };
-    DrawLine(to, { backPt.x + side.x*headLen*0.5f,
-                   backPt.y + side.y*headLen*0.5f,
-                   backPt.z + side.z*headLen*0.5f }, color);
-    DrawLine(to, { backPt.x - side.x*headLen*0.5f,
-                   backPt.y - side.y*headLen*0.5f,
-                   backPt.z - side.z*headLen*0.5f }, color);
+    DrawLine(to, { backPt.x + side.x * headLen * 0.5f, backPt.y + side.y * headLen * 0.5f, backPt.z + side.z * headLen * 0.5f }, color);
+    DrawLine(to, { backPt.x - side.x * headLen * 0.5f, backPt.y - side.y * headLen * 0.5f, backPt.z - side.z * headLen * 0.5f }, color);
 }
 
 /**
@@ -296,15 +296,15 @@ inline void DrawCollider(const Collider& collider, ImU32 color = 0)
     switch (collider.shape) {
     case ColliderShape::AABB:
         DrawAABB(collider.aabb,
-                 color ? color : kColorGreen);
+            color ? color : kColorGreen);
         break;
     case ColliderShape::Sphere:
         DrawSphere(collider.sphere,
-                   color ? color : kColorRed);
+            color ? color : kColorRed);
         break;
     case ColliderShape::Capsule:
         DrawCapsule(collider.capsule,
-                    color ? color : kColorCyan);
+            color ? color : kColorCyan);
         break;
     }
 }
@@ -317,9 +317,9 @@ inline void DrawCollider(const Collider& collider, ImU32 color = 0)
  */
 inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColorWhite)
 {
-    DrawLine({ pos.x-size, pos.y,     pos.z },     { pos.x+size, pos.y,     pos.z },     color);
-    DrawLine({ pos.x,     pos.y-size, pos.z },     { pos.x,     pos.y+size, pos.z },     color);
-    DrawLine({ pos.x,     pos.y,     pos.z-size }, { pos.x,     pos.y,     pos.z+size }, color);
+    DrawLine({ pos.x - size, pos.y, pos.z }, { pos.x + size, pos.y, pos.z }, color);
+    DrawLine({ pos.x, pos.y - size, pos.z }, { pos.x, pos.y + size, pos.z }, color);
+    DrawLine({ pos.x, pos.y, pos.z - size }, { pos.x, pos.y, pos.z + size }, color);
 }
 
 } // namespace DebugDraw
@@ -332,24 +332,24 @@ inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColo
 #else // !USE_IMGUI
 
 namespace DebugDraw {
-    // カラー定数（型は unsigned int, 値は 0 のスタブ）
-    constexpr unsigned int kColorGreen   = 0;
-    constexpr unsigned int kColorRed     = 0;
-    constexpr unsigned int kColorBlue    = 0;
-    constexpr unsigned int kColorYellow  = 0;
-    constexpr unsigned int kColorCyan    = 0;
-    constexpr unsigned int kColorMagenta = 0;
-    constexpr unsigned int kColorWhite   = 0;
-    constexpr unsigned int kColorOrange  = 0;
+// カラー定数（型は unsigned int, 値は 0 のスタブ）
+constexpr unsigned int kColorGreen = 0;
+constexpr unsigned int kColorRed = 0;
+constexpr unsigned int kColorBlue = 0;
+constexpr unsigned int kColorYellow = 0;
+constexpr unsigned int kColorCyan = 0;
+constexpr unsigned int kColorMagenta = 0;
+constexpr unsigned int kColorWhite = 0;
+constexpr unsigned int kColorOrange = 0;
 
-    inline void SetCamera   (const Matrix4x4&, float, float, float = 1.5f)        {}
-    inline void DrawLine    (const Vector3&, const Vector3&, unsigned int = 0)     {}
-    inline void DrawAABB    (const AABB&,    unsigned int = 0)                     {}
-    inline void DrawSphere  (const Sphere&,  unsigned int = 0, int = 20)           {}
-    inline void DrawCapsule (const Capsule&, unsigned int = 0, int = 16)           {}
-    inline void DrawRay     (const Ray&,     float = 10.0f, unsigned int = 0)      {}
-    inline void DrawCollider(const Collider&,unsigned int = 0)                     {}
-    inline void DrawCross   (const Vector3&, float = 0.3f,  unsigned int = 0)      {}
+inline void SetCamera(const Matrix4x4&, float, float, float = 1.5f) { }
+inline void DrawLine(const Vector3&, const Vector3&, unsigned int = 0) { }
+inline void DrawAABB(const AABB&, unsigned int = 0) { }
+inline void DrawSphere(const Sphere&, unsigned int = 0, int = 20) { }
+inline void DrawCapsule(const Capsule&, unsigned int = 0, int = 16) { }
+inline void DrawRay(const Ray&, float = 10.0f, unsigned int = 0) { }
+inline void DrawCollider(const Collider&, unsigned int = 0) { }
+inline void DrawCross(const Vector3&, float = 0.3f, unsigned int = 0) { }
 } // namespace DebugDraw
 
 #endif // USE_IMGUI

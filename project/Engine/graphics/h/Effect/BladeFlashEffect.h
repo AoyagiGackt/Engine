@@ -44,7 +44,7 @@ public:
     bool IsActive() const { return !blades_.empty(); }
 
 private:
-    static constexpr int kMaxBlades     = 256;
+    static constexpr int kMaxBlades = 256;
     static constexpr int kVertsPerBlade = 12; // 中心から4枚の三角形の扇
 
     /** @brief 頂点（HLSLの入力レイアウトと一致させること） */
@@ -60,13 +60,13 @@ private:
 
     /** @brief 刃1本分の状態 */
     struct Blade {
-        Vector3 pos       = {};
-        Vector3 drift     = {}; ///< 刃の軸方向への微小移動
-        float   angle     = 0.0f;
-        float   halfLen   = 1.0f;
-        float   halfWidth = 0.06f;
-        float   age       = 0.0f;
-        float   life      = 0.2f;
+        Vector3 pos = { };
+        Vector3 drift = { }; ///< 刃の軸方向への微小移動
+        float angle = 0.0f;
+        float halfLen = 1.0f;
+        float halfWidth = 0.06f;
+        float age = 0.0f;
+        float life = 0.2f;
         Vector4 coreColor = { 1.0f, 1.0f, 1.0f, 1.0f };
         Vector4 edgeColor = { 0.35f, 0.7f, 1.0f, 1.0f };
     };
@@ -79,15 +79,15 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer_;
-    D3D12_VERTEX_BUFFER_VIEW               vbv_{};
-    BladeVertex*                           vertexData_ = nullptr;
-    uint32_t                               vertexCount_ = 0;
+    D3D12_VERTEX_BUFFER_VIEW vbv_ { };
+    BladeVertex* vertexData_ = nullptr;
+    uint32_t vertexCount_ = 0;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> sceneCB_;
-    SceneCB*                               sceneCBData_ = nullptr;
+    SceneCB* sceneCBData_ = nullptr;
 
     std::vector<Blade> blades_;
-    std::mt19937       rng_{ std::random_device{}() };
+    std::mt19937 rng_ { std::random_device { }() };
 };
 
 } // namespace engine::graphics

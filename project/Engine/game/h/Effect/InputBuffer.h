@@ -63,14 +63,14 @@ private:
 
     /// @brief 1 フレーム分の入力状態スナップショット
     struct FrameState {
-        BYTE keys[256] = {}; ///< キーボード全キーの押下状態（1=押してる, 0=押してない）
-        WORD buttons   = 0;  ///< コントローラーボタンのビットフラグ
-        bool valid     = false; ///< このスロットに有効なデータが入っているか
+        BYTE keys[256] = { }; ///< キーボード全キーの押下状態（1=押してる, 0=押してない）
+        WORD buttons = 0; ///< コントローラーボタンのビットフラグ
+        bool valid = false; ///< このスロットに有効なデータが入っているか
     };
 
     /// @brief リングバッファ形式の入力履歴（古いフレームを上書きしながら使う）
-    std::array<FrameState, kHistorySize> history_ = {};
-    int head_  = 0; ///< 最新フレームが格納されているインデックス
+    std::array<FrameState, kHistorySize> history_ = { };
+    int head_ = 0; ///< 最新フレームが格納されているインデックス
     int count_ = 0; ///< バッファ内の有効フレーム数（最大 kHistorySize）
 };
 

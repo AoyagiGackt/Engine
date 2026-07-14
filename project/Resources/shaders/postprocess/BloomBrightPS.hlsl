@@ -8,7 +8,7 @@
 struct PSInput
 {
     float4 position : SV_POSITION;
-    float2 uv       : TEXCOORD;
+    float2 uv : TEXCOORD;
 };
 
 cbuffer BloomParams : register(b0)
@@ -18,8 +18,8 @@ cbuffer BloomParams : register(b0)
     float2 pad;
 };
 
-Texture2D<float4> gScene  : register(t0);
-SamplerState      gSampler : register(s0);
+Texture2D<float4> gScene : register(t0);
+SamplerState gSampler : register(s0);
 
 float4 main(PSInput input) : SV_TARGET
 {

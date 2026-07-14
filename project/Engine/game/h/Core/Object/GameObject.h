@@ -14,7 +14,6 @@ namespace engine {
  */
 class GameObject {
 public:
-    
     /**
      * @brief 仮想デストラクタ
      * @note 派生クラスのインスタンスが適切に破棄されることを保証するために仮想関数にしています
@@ -42,7 +41,7 @@ public:
      */
     Collider& GetCollider() { return collider_; }
 
-    protected:
+protected:
     // 継承したクラス（Hogeなど）が自分で自分の形をセットできるようにする
     Collider collider_;
 };

@@ -1,4 +1,3 @@
-// Shadow pass vertex shader
 // ライトの視点から深度値だけを書き込む（ピクセルシェーダーなし）
 
 struct TransformationMatrix
@@ -13,7 +12,7 @@ struct VSInput
 {
     float4 position : POSITION0;
     float2 texcoord : TEXCOORD0;
-    float3 normal   : NORMAL0;
+    float3 normal : NORMAL0;
 };
 
 float4 main(VSInput input) : SV_POSITION

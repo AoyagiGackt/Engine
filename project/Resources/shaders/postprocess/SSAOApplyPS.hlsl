@@ -1,7 +1,7 @@
 // SSAO Apply PS: AO テクスチャを乗算ブレンドでシーンに適用する
 // ブレンド設定: SrcBlend=DEST_COLOR, DestBlend=ZERO (multiply)
-Texture2D<float4> gAO      : register(t0);
-SamplerState      gSampler : register(s0);
+Texture2D<float4> gAO : register(t0);
+SamplerState gSampler : register(s0);
 
 struct VSOut
 {

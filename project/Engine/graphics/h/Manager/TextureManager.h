@@ -22,7 +22,7 @@ struct DecodedTexture {
     Microsoft::WRL::ComPtr<ID3D12Resource> resource; ///< VRAM上に確保したテクスチャリソース（COMMON状態）
     Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer; ///< ピクセルデータを書き込み済みのアップロードバッファ
     std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints; ///< サブリソースごとのコピー元レイアウト
-    DirectX::TexMetadata metadata{};
+    DirectX::TexMetadata metadata { };
     UINT subresourceCount = 0;
 };
 
@@ -69,8 +69,8 @@ public:
 
     // RGBA8 生ピクセルデータからテクスチャを作成する（フォント等のコード生成テクスチャ用）
     void LoadFromRawRGBA8(const std::string& name,
-                          const uint8_t* rgbaData,
-                          uint32_t width, uint32_t height);
+        const uint8_t* rgbaData,
+        uint32_t width, uint32_t height);
 
     // 指定キーのテクスチャが登録済みかどうかを返す
     bool HasTexture(const std::string& name) const { return textureDatas_.contains(name); }
@@ -119,7 +119,7 @@ private:
         uint32_t srvIndex; ///< デスクリプタヒープ上のインデックス
         DirectX::TexMetadata metadata; ///< テクスチャのメタデータ（幅、高さ、形式等）
         /** @brief 最終更新日時（ファイルからの読み込みでない場合は既定値のまま＝ホットリロード対象外） */
-        std::filesystem::file_time_type lastWriteTime{};
+        std::filesystem::file_time_type lastWriteTime { };
     };
 
     /**
@@ -153,21 +153,21 @@ private:
     // -------------------------------------------------------
 
     /** @brief テクスチャ転送専用のコピーコマンドキュー */
-    Microsoft::WRL::ComPtr<ID3D12CommandQueue>          copyQueue_;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
     /** @brief コピーキュー用コマンドアロケータ（再利用） */
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      copyAllocator_;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> copyAllocator_;
     /** @brief コピーキュー用コマンドリスト（Open 状態を維持し LoadTexture で記録） */
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   copyCmdList_;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCmdList_;
     /** @brief コピーキュー完了待機用フェンス（再利用） */
-    Microsoft::WRL::ComPtr<ID3D12Fence>                 copyFence_;
-    UINT64                                              copyFenceValue_ = 0;
-    HANDLE                                              copyFenceEvent_ = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Fence> copyFence_;
+    UINT64 copyFenceValue_ = 0;
+    HANDLE copyFenceEvent_ = nullptr;
 
     // -------------------------------------------------------
     // バリア遷移用（COMMON → PIXEL_SHADER_RESOURCE、グラフィックスキュー）
     // -------------------------------------------------------
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      transAllocator_;
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   transCmdList_;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> transAllocator_;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> transCmdList_;
 
     // -------------------------------------------------------
     // バッチ転送の保留リスト

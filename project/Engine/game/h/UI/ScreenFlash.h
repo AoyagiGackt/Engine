@@ -1,14 +1,16 @@
 #pragma once
-#include <memory>
 #include "MakeAffine.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
-namespace engine { class DirectXCommon; }
+#include <memory>
+namespace engine {
+class DirectXCommon;
+}
 
 namespace engine::game {
+using engine::DirectXCommon;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
-using engine::DirectXCommon;
 
 // 画面全体を色でフラッシュさせるエフェクト
 // Game::Initialize() で Initialize()、Update()/Draw() を毎フレーム呼ぶ
@@ -34,10 +36,10 @@ private:
     ScreenFlash() = default;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
-    std::unique_ptr<Sprite>       sprite_;
-    Vector4 baseColor_ = {};
-    float   timer_     = 0.0f;
-    float   duration_  = 0.0f;
+    std::unique_ptr<Sprite> sprite_;
+    Vector4 baseColor_ = { };
+    float timer_ = 0.0f;
+    float duration_ = 0.0f;
 };
 
 } // namespace engine::game

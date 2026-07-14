@@ -7,12 +7,14 @@
  */
 #pragma once
 #ifdef USE_IMGUI
+#include "GraphTypes.h"
+#include <imgui.h>
 #include <map>
 #include <string>
 #include <utility>
-#include <imgui.h>
-#include "GraphTypes.h"
-namespace engine { class Input; }
+namespace engine {
+class Input;
+}
 namespace engine::game {
 
 class GraphEditor {
@@ -56,33 +58,33 @@ private:
     void DrawVariablesPanel();
 
     std::string graphPath_ = "Resources/Graphs/test_graph.json";
-    GraphDesc   graph_;
+    GraphDesc graph_;
 
     // F1で表示/非表示を切り替える全画面表示中はゲーム画面が透けて動いて見えないようにする
-    bool  visible_ = false;
+    bool visible_ = false;
     float savedTimeScale_ = 1.0f; // 開いた時点のTimeManagerのタイムスケール（閉じたら復元する）
 
     float panOffsetX_ = 40.0f;
     float panOffsetY_ = 40.0f;
-    float zoom_       = 1.0f; // マウスホイールで変更（0.3〜2.5）
+    float zoom_ = 1.0f; // マウスホイールで変更（0.3〜2.5）
 
     std::string selectedNodeId_;
     std::string selectedCommentId_; // ノードとコメントは排他選択（片方を選んだらもう片方はクリア）
-    int nextCommentSerial_ = 0;     // 新規コメントID生成用（"comment_0", "comment_1", ...）
+    int nextCommentSerial_ = 0; // 新規コメントID生成用（"comment_0", "comment_1", ...）
 
     // リンク（実行フロー配線）をドラッグ中の状態
-    bool        linking_ = false;
+    bool linking_ = false;
     std::string linkFromNodeId_;
     std::string linkFromPin_; // "next" | "true" | "false"
 
     // データ配線（出力データピン→入力データピン）をドラッグ中の状態
-    bool           dataLinking_ = false;
-    std::string    dataLinkFromNodeId_;
+    bool dataLinking_ = false;
+    std::string dataLinkFromNodeId_;
     GraphValueType dataLinkFromType_ = GraphValueType::Any;
 
     // 直近フレームで描画した各データピンのスクリーン位置（DrawDataLinksと接続判定用）
     std::map<std::string, std::map<std::string, ImVec2>> dataInPins_; // ノードID → パラメータ名 → 位置
-    std::map<std::string, ImVec2>                        dataOutPins_; // ノードID → 出力ピン位置
+    std::map<std::string, ImVec2> dataOutPins_; // ノードID → 出力ピン位置
 
     // Subgraphノードの「開く」ボタン用ノード走査ループ中にOpen()を呼ぶとイテレータが壊れるため遅延させる
     std::string pendingOpenPath_;
@@ -97,7 +99,7 @@ private:
     std::map<std::string, std::pair<ImVec2, ImVec2>> nodeRects_;
 
     std::string statusMessage_; // Save後などに表示する一時メッセージ
-    float       statusTimer_ = 0.0f;
+    float statusTimer_ = 0.0f;
 };
 
 } // namespace engine::game

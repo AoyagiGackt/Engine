@@ -35,7 +35,7 @@ private:
     EventBus& operator=(const EventBus&) = delete;
 
     struct Entry {
-        int      handle;
+        int handle;
         Callback callback;
     };
 

@@ -5,7 +5,6 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-
 void SpriteCommon::Initialize(DirectXCommon* dxCommon)
 {
     ENGINE_ASSERT(dxCommon);
@@ -13,38 +12,38 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // --- ルートシグネチャの作成 ---
-    D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature {};
+    D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature { };
     descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-    D3D12_DESCRIPTOR_RANGE descriptorRanges[1] = {};
+    D3D12_DESCRIPTOR_RANGE descriptorRanges[1] = { };
     descriptorRanges[0].BaseShaderRegister = 0;
     descriptorRanges[0].NumDescriptors = 1;
     descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     descriptorRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
     // t1: シャドウマップ SRV（Object3dPS.hlsl が要求するため宣言が必要）
-    D3D12_DESCRIPTOR_RANGE shadowRange[1] = {};
+    D3D12_DESCRIPTOR_RANGE shadowRange[1] = { };
     shadowRange[0].BaseShaderRegister = 1; // t1
     shadowRange[0].NumDescriptors = 1;
     shadowRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     shadowRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
     // t2: キューブマップ SRV（Object3dPS.hlsl が要求するため宣言が必要）
-    D3D12_DESCRIPTOR_RANGE cubemapRange[1] = {};
+    D3D12_DESCRIPTOR_RANGE cubemapRange[1] = { };
     cubemapRange[0].BaseShaderRegister = 2; // t2
     cubemapRange[0].NumDescriptors = 1;
     cubemapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     cubemapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
     // t3: 法線マップ SRV（Object3dPS.hlsl が要求するため宣言が必要）
-    D3D12_DESCRIPTOR_RANGE normalMapRange[1] = {};
+    D3D12_DESCRIPTOR_RANGE normalMapRange[1] = { };
     normalMapRange[0].BaseShaderRegister = 3; // t3
     normalMapRange[0].NumDescriptors = 1;
     normalMapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     normalMapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
     // 8つ（Object3dPS.hlsl のバインディングに合わせる）
-    D3D12_ROOT_PARAMETER rootParameters[8] = {};
+    D3D12_ROOT_PARAMETER rootParameters[8] = { };
 
     // マテリアル
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -93,7 +92,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     descriptionRootSignature.pParameters = rootParameters;
     descriptionRootSignature.NumParameters = _countof(rootParameters);
 
-    D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
+    D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = { };
     // s0: 通常テクスチャ用
     staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -120,7 +119,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     ComPtr<ID3DBlob> errorBlob = nullptr;
     HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature,
         D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
-    
+
     if (FAILED(hr)) {
         ENGINE_ASSERT(false);
     }
@@ -134,7 +133,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
-    D3D12_INPUT_ELEMENT_DESC inputElementDescs[4] = {};
+    D3D12_INPUT_ELEMENT_DESC inputElementDescs[4] = { };
     inputElementDescs[0].SemanticName = "POSITION";
     inputElementDescs[0].SemanticIndex = 0;
     inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -152,11 +151,11 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     inputElementDescs[3].Format = DXGI_FORMAT_R32G32B32_FLOAT;
     inputElementDescs[3].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 
-    D3D12_INPUT_LAYOUT_DESC inputLayoutDesc {};
+    D3D12_INPUT_LAYOUT_DESC inputLayoutDesc { };
     inputLayoutDesc.pInputElementDescs = inputElementDescs;
     inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
-    D3D12_BLEND_DESC blendDesc {};
+    D3D12_BLEND_DESC blendDesc { };
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     blendDesc.RenderTarget[0].BlendEnable = TRUE;
     blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
@@ -166,11 +165,11 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
     blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
-    D3D12_RASTERIZER_DESC rasterizerDesc {};
+    D3D12_RASTERIZER_DESC rasterizerDesc { };
     rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
     rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc {};
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc { };
     graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
     graphicsPipelineStateDesc.InputLayout = inputLayoutDesc;
     graphicsPipelineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize() };
@@ -183,7 +182,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     graphicsPipelineStateDesc.SampleDesc.Count = 1;
 
-    D3D12_DEPTH_STENCIL_DESC depthStencilDesc = {};
+    D3D12_DEPTH_STENCIL_DESC depthStencilDesc = { };
     depthStencilDesc.DepthEnable = false;
     depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
     depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

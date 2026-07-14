@@ -9,8 +9,8 @@ void GraphRuntime::Start(const GraphDesc* graph)
     graph_ = graph;
     variables_.clear();
     nodeOutputs_.clear();
-    waiting_          = false;
-    waitTimer_        = 0.0f;
+    waiting_ = false;
+    waitTimer_ = 0.0f;
     waitResumeNodeId_.clear();
     child_.reset();
     childDesc_.reset();
@@ -27,7 +27,9 @@ void GraphRuntime::Update(float dt)
     // サブグラフ実行中は子を進め、子がHaltしたら親を再開する（Waitと同じresume機構を使う）
     if (child_) {
         child_->Update(dt);
-        if (child_->IsRunning()) { return; }
+        if (child_->IsRunning()) {
+            return;
+        }
         child_.reset();
         childDesc_.reset();
         if (waitResumeNodeId_.empty()) {
@@ -39,10 +41,14 @@ void GraphRuntime::Update(float dt)
         return;
     }
 
-    if (!waiting_) { return; }
+    if (!waiting_) {
+        return;
+    }
 
     waitTimer_ -= dt;
-    if (waitTimer_ > 0.0f) { return; }
+    if (waitTimer_ > 0.0f) {
+        return;
+    }
 
     waiting_ = false;
     if (waitResumeNodeId_.empty()) {
@@ -61,7 +67,7 @@ const GraphValue* GraphRuntime::GetVariable(const std::string& name) const
 
 void GraphRuntime::BeginWait(float seconds)
 {
-    waiting_   = true;
+    waiting_ = true;
     waitTimer_ = seconds;
 }
 
@@ -90,7 +96,9 @@ GraphValue GraphRuntime::ResolveParam(const GraphNode& node, const std::string& 
     auto linkIt = node.paramLinks.find(key);
     if (linkIt != node.paramLinks.end()) {
         auto outIt = nodeOutputs_.find(linkIt->second);
-        if (outIt != nodeOutputs_.end()) { return outIt->second; }
+        if (outIt != nodeOutputs_.end()) {
+            return outIt->second;
+        }
         // 供給元ノードが未実行で出力が無い場合はリテラル値へフォールバックする
     }
     auto it = node.params.find(key);

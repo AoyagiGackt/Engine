@@ -5,9 +5,9 @@
 #pragma once
 #include "Object3d.h"
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
-#include <random>
 namespace engine::graphics {
 class ModelCommon;
 class Model;
@@ -66,7 +66,7 @@ public:
     const std::vector<std::unique_ptr<Object3d>>& GetMapChips() const { return mapChips_; }
 
     size_t GetRow() const { return mapData_.size(); }
-    
+
     size_t GetCol() const
     {
         if (mapData_.empty()) {
@@ -113,7 +113,7 @@ private:
     /** @brief 1列分の障害物プロフィール（地面からのオフセットと高さ） */
     struct ColumnProfile {
         int offsetY; ///< 地面(y=1)からの追加オフセット
-        int height;  ///< 積み上げるブロック数
+        int height; ///< 積み上げるブロック数
     };
 
     /** @brief ブロックの自動生成に関する制御変数 **/

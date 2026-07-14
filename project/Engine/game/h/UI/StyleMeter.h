@@ -45,33 +45,33 @@ public:
     /** @brief ランクゲージのバースプライトを描画する（SpriteCommon 設定済みの状態で呼ぶ） */
     void DrawHud();
 
-    int GetRankIndex() const;                       ///< 0=D 〜 6=SSS
-    int GetHitCount()  const { return hitCount_; }  ///< 現在のヒットチェーン数
+    int GetRankIndex() const; ///< 0=D 〜 6=SSS
+    int GetHitCount() const { return hitCount_; } ///< 現在のヒットチェーン数
 
 private:
-    float points_ = 0.0f;    ///< スタイルポイント（0〜kMaxPoints）
+    float points_ = 0.0f; ///< スタイルポイント（0〜kMaxPoints）
     float noHitTimer_ = 0.0f; ///< 最後のヒットからの経過秒数（減衰開始の判定）
 
     // 技の使用「熱」。高いほど同じ技の加点が減る。時間で冷める
     std::unordered_map<std::string, float> moveHeat_;
     std::string lastMoveId_;
 
-    int   hitCount_   = 0;
-    int   bestChain_  = 0;
+    int hitCount_ = 0;
+    int bestChain_ = 0;
     float chainTimer_ = 0.0f; ///< ヒットチェーン維持の残り秒数
-    float hudAlpha_   = 0.0f; ///< HUD全体のフェード
+    float hudAlpha_ = 0.0f; ///< HUD全体のフェード
 
-    int   prevRank_       = 0;
+    int prevRank_ = 0;
     float rankFlashTimer_ = 0.0f; ///< ランク変動時の演出タイマー
-    float hitPopTimer_    = 0.0f; ///< ヒット加算時に文字を弾ませる
+    float hitPopTimer_ = 0.0f; ///< ヒット加算時に文字を弾ませる
 
     std::unique_ptr<Sprite> barBg_;
     std::unique_ptr<Sprite> barFg_;
 
-    static constexpr float kMaxPoints  = 1000.0f;
-    static constexpr float kChainKeep  = 3.0f;  ///< ヒットチェーンが切れるまでの秒数
-    static constexpr float kDecayGrace = 1.2f;  ///< 攻撃をやめてから減衰が始まるまでの秒数
-    static constexpr float kHeatCool   = 0.30f; ///< 技の熱が1秒あたりに冷める量
+    static constexpr float kMaxPoints = 1000.0f;
+    static constexpr float kChainKeep = 3.0f; ///< ヒットチェーンが切れるまでの秒数
+    static constexpr float kDecayGrace = 1.2f; ///< 攻撃をやめてから減衰が始まるまでの秒数
+    static constexpr float kHeatCool = 0.30f; ///< 技の熱が1秒あたりに冷める量
 };
 
 } // namespace engine::game

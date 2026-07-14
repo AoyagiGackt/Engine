@@ -15,24 +15,24 @@ using namespace engine::game;
 // =====================================================
 
 // "SCORE" ラベル
-static constexpr Vector2 kScoreLabelPos  = { 490.f, 130.f }; // 左上座標
-static constexpr Vector2 kScoreLabelSize = { 300.f,  80.f }; // 表示サイズ
+static constexpr Vector2 kScoreLabelPos = { 490.f, 130.f }; // 左上座標
+static constexpr Vector2 kScoreLabelSize = { 300.f, 80.f }; // 表示サイズ
 
 // 現在スコア数字
-static constexpr Vector2 kScoreDigitSize = {  70.f, 100.f };
-static constexpr float   kScoreDigitGap  =    5.f;
-static constexpr float   kScoreY         =  230.f;
+static constexpr Vector2 kScoreDigitSize = { 70.f, 100.f };
+static constexpr float kScoreDigitGap = 5.f;
+static constexpr float kScoreY = 230.f;
 
 // "RANKING" ラベル
-static constexpr Vector2 kRankLabelPos   = { 470.f, 345.f };
-static constexpr Vector2 kRankLabelSize  = { 340.f,  60.f };
+static constexpr Vector2 kRankLabelPos = { 470.f, 345.f };
+static constexpr Vector2 kRankLabelSize = { 340.f, 60.f };
 
 // ランキング数字
-static constexpr Vector2 kRankDigitSize  = {  36.f,  52.f };
-static constexpr float   kRankDigitGap   =    3.f;
-static constexpr float   kRankRowSpacing =   60.f;
-static constexpr float   kRankTopY       =  420.f;
-static constexpr float   kRankLeftX      =  430.f;
+static constexpr Vector2 kRankDigitSize = { 36.f, 52.f };
+static constexpr float kRankDigitGap = 3.f;
+static constexpr float kRankRowSpacing = 60.f;
+static constexpr float kRankTopY = 420.f;
+static constexpr float kRankLeftX = 430.f;
 
 // =====================================================
 // 初期化
@@ -41,8 +41,8 @@ static constexpr float   kRankLeftX      =  430.f;
 void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
+    input_ = input;
+    audio_ = audio;
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
     spriteCommon_->Initialize(dxCommon_);
@@ -121,10 +121,10 @@ void ClearScene::Draw()
     {
         int currentScore = ScoreManager::GetInstance()->GetCurrentScore();
         std::string s = std::to_string(currentScore < 0 ? 0 : currentScore);
-        float totalW  = s.size() * (kScoreDigitSize.x + kScoreDigitGap) - kScoreDigitGap;
-        float startX  = (GameConstants::kScreenWidth - totalW) * 0.5f;
+        float totalW = s.size() * (kScoreDigitSize.x + kScoreDigitGap) - kScoreDigitGap;
+        float startX = (GameConstants::kScreenWidth - totalW) * 0.5f;
         scoreDisplay_.DrawNumber(currentScore, { startX, kScoreY },
-                                 kScoreDigitSize, kScoreDigitGap);
+            kScoreDigitSize, kScoreDigitGap);
     }
 
     // "RANKING" ラベル
@@ -133,9 +133,9 @@ void ClearScene::Draw()
     // ランキング数字
     const auto& ranking = ScoreManager::GetInstance()->GetRanking();
     scoreDisplay_.DrawRanking(ranking,
-                              ScoreManager::GetInstance()->GetCurrentScore(),
-                              { kRankLeftX, kRankTopY },
-                              kRankDigitSize, kRankRowSpacing);
+        ScoreManager::GetInstance()->GetCurrentScore(),
+        { kRankLeftX, kRankTopY },
+        kRankDigitSize, kRankRowSpacing);
 }
 
 // =====================================================
@@ -145,7 +145,9 @@ void ClearScene::Draw()
 void ClearScene::DrawScoreUI()
 {
 #ifdef USE_IMGUI
-    if (!imguiManager_) { return; }
+    if (!imguiManager_) {
+        return;
+    }
 
     ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Always);
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);

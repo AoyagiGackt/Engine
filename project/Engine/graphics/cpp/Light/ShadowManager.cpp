@@ -1,6 +1,6 @@
 ﻿#include "ShadowManager.h"
-#include "SrvManager.h"
 #include "EngineAssert.h"
+#include "SrvManager.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;
@@ -18,7 +18,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // R32_TYPELESS テクスチャ（DSV: D32_FLOAT, SRV: R32_FLOAT）
     D3D12_HEAP_PROPERTIES defaultHeap { D3D12_HEAP_TYPE_DEFAULT };
-    D3D12_RESOURCE_DESC texDesc {};
+    D3D12_RESOURCE_DESC texDesc { };
     texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     texDesc.Width = kShadowMapSize;
     texDesc.Height = kShadowMapSize;
@@ -28,7 +28,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     texDesc.SampleDesc.Count = 1;
     texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-    D3D12_CLEAR_VALUE clearValue {};
+    D3D12_CLEAR_VALUE clearValue { };
     clearValue.Format = DXGI_FORMAT_D32_FLOAT;
     clearValue.DepthStencil.Depth = 1.0f;
     clearValue.DepthStencil.Stencil = 0;
@@ -42,7 +42,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     // DSV ヒープ（シャドウマップ専用）
     shadowDsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
 
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc {};
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc { };
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     device->CreateDepthStencilView(shadowMapResource_.Get(), &dsvDesc,
@@ -50,7 +50,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // SRV（PS でシャドウマップを読む用）
     shadowSrvIndex_ = srvManager->Allocate();
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc {};
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc { };
     srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -80,7 +80,9 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float fwdLen = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
-    if (fwdLen < 1e-6f) { return; } // ライトがシーン中心と重なる場合は更新しない
+    if (fwdLen < 1e-6f) {
+        return;
+    } // ライトがシーン中心と重なる場合は更新しない
     fwd = { fwd.x / fwdLen, fwd.y / fwdLen, fwd.z / fwdLen };
 
     Vector3 up = { 0.0f, 1.0f, 0.0f };
@@ -97,7 +99,9 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float rightLen = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-    if (rightLen < 1e-6f) { return; } // 縮退ケース防止
+    if (rightLen < 1e-6f) {
+        return;
+    } // 縮退ケース防止
     right = { right.x / rightLen, right.y / rightLen, right.z / rightLen };
 
     // realUp = fwd × right
@@ -112,7 +116,7 @@ void ShadowManager::Update(const Vector3& lightDir)
     float dotF = fwd.x * lightEye.x + fwd.y * lightEye.y + fwd.z * lightEye.z;
 
     // View 行列（行ベクトル形式）
-    Matrix4x4 view = {};
+    Matrix4x4 view = { };
     view.m[0][0] = right.x;
     view.m[0][1] = right.y;
     view.m[0][2] = right.z;
@@ -131,12 +135,12 @@ void ShadowManager::Update(const Vector3& lightDir)
     view.m[3][3] = 1;
 
     // 平行投影行列（DirectX 深度 0-1）
-    const float w     = kShadowViewWidth;
-    const float h     = kShadowViewHeight;
+    const float w = kShadowViewWidth;
+    const float h = kShadowViewHeight;
     const float nearZ = kShadowNearZ;
-    const float farZ  = kShadowFarZ;
+    const float farZ = kShadowFarZ;
 
-    Matrix4x4 proj = {};
+    Matrix4x4 proj = { };
     proj.m[0][0] = 2.0f / w;
     proj.m[1][1] = 2.0f / h;
     proj.m[2][2] = 1.0f / (farZ - nearZ);

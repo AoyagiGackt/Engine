@@ -31,9 +31,9 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
 // duration: フェードにかかる時間（秒）
 void Fade::Start(Status status, float duration)
 {
-    status_   = status;
+    status_ = status;
     duration_ = duration;
-    counter_  = 0.0f; // タイマーをリセット
+    counter_ = 0.0f; // タイマーをリセット
 }
 
 // 毎フレーム呼ぶフェードの進行度に応じてアルファ値を更新する

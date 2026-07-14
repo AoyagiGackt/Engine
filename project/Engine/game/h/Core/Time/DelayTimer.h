@@ -24,10 +24,10 @@ private:
     DelayTimer() = default;
 
     struct Entry {
-        int   id;
+        int id;
         float remaining;
         std::function<void()> callback;
-        bool  done;
+        bool done;
     };
 
     std::vector<Entry> timers_;

@@ -18,19 +18,33 @@ static constexpr float kColX2[2] = { 430.0f, 850.0f };
 static constexpr float kColX1[1] = { 640.0f };
 
 static constexpr float kNodeW = 130.0f;
-static constexpr float kNodeH =  44.0f;
+static constexpr float kNodeH = 44.0f;
 
 static Vector4 NodeColor(RunData::NodeType t, bool selected, bool completed)
 {
-    if (completed) { return { 0.25f, 0.25f, 0.25f, 1.0f }; }
+    if (completed) {
+        return { 0.25f, 0.25f, 0.25f, 1.0f };
+    }
     Vector4 c;
     switch (t) {
-    case RunData::NodeType::Combat: c = { 0.75f, 0.18f, 0.18f, 1.0f }; break;
-    case RunData::NodeType::Elite:  c = { 0.85f, 0.45f, 0.08f, 1.0f }; break;
-    case RunData::NodeType::Shop:   c = { 0.18f, 0.65f, 0.28f, 1.0f }; break;
-    case RunData::NodeType::Rest:   c = { 0.18f, 0.38f, 0.85f, 1.0f }; break;
-    case RunData::NodeType::Boss:   c = { 0.55f, 0.08f, 0.75f, 1.0f }; break;
-    default:                         c = { 0.5f,  0.5f,  0.5f,  1.0f }; break;
+    case RunData::NodeType::Combat:
+        c = { 0.75f, 0.18f, 0.18f, 1.0f };
+        break;
+    case RunData::NodeType::Elite:
+        c = { 0.85f, 0.45f, 0.08f, 1.0f };
+        break;
+    case RunData::NodeType::Shop:
+        c = { 0.18f, 0.65f, 0.28f, 1.0f };
+        break;
+    case RunData::NodeType::Rest:
+        c = { 0.18f, 0.38f, 0.85f, 1.0f };
+        break;
+    case RunData::NodeType::Boss:
+        c = { 0.55f, 0.08f, 0.75f, 1.0f };
+        break;
+    default:
+        c = { 0.5f, 0.5f, 0.5f, 1.0f };
+        break;
     }
     if (selected) {
         c.x = (std::min)(c.x + 0.25f, 1.0f);
@@ -44,12 +58,18 @@ static Vector4 NodeColor(RunData::NodeType t, bool selected, bool completed)
 static const wchar_t* NodeLabelW(RunData::NodeType t)
 {
     switch (t) {
-    case RunData::NodeType::Combat: return L"戦 闘";
-    case RunData::NodeType::Elite:  return L"強敵";
-    case RunData::NodeType::Shop:   return L"ショップ";
-    case RunData::NodeType::Rest:   return L"休 憩";
-    case RunData::NodeType::Boss:   return L"ボ ス";
-    default:                         return L"？？？";
+    case RunData::NodeType::Combat:
+        return L"戦 闘";
+    case RunData::NodeType::Elite:
+        return L"強敵";
+    case RunData::NodeType::Shop:
+        return L"ショップ";
+    case RunData::NodeType::Rest:
+        return L"休 憩";
+    case RunData::NodeType::Boss:
+        return L"ボ ス";
+    default:
+        return L"？？？";
     }
 }
 
@@ -57,20 +77,26 @@ static const wchar_t* NodeLabelW(RunData::NodeType t)
 static const wchar_t* NodeDesc(RunData::NodeType t)
 {
     switch (t) {
-    case RunData::NodeType::Combat: return L"敵を倒してゴールドを獲得　スタイルが高いほど報酬UP";
-    case RunData::NodeType::Elite:  return L"手強い敵　倒せば多くのゴールドを獲得できる";
-    case RunData::NodeType::Shop:   return L"スキルを1つ選んで取得できる　スキルは永続効果";
-    case RunData::NodeType::Rest:   return L"HP を10回復する　のんびり休もう";
-    case RunData::NodeType::Boss:   return L"最終決戦  倒せばクリア! 全力で挑め";
-    default:                         return L"";
+    case RunData::NodeType::Combat:
+        return L"敵を倒してゴールドを獲得　スタイルが高いほど報酬UP";
+    case RunData::NodeType::Elite:
+        return L"手強い敵　倒せば多くのゴールドを獲得できる";
+    case RunData::NodeType::Shop:
+        return L"スキルを1つ選んで取得できる　スキルは永続効果";
+    case RunData::NodeType::Rest:
+        return L"HP を10回復する　のんびり休もう";
+    case RunData::NodeType::Boss:
+        return L"最終決戦  倒せばクリア! 全力で挑め";
+    default:
+        return L"";
     }
 }
 
 void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
+    input_ = input;
+    audio_ = audio;
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
     spriteCommon_->Initialize(dxCommon_);
@@ -88,13 +114,13 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     fontRenderer_.Initialize(spriteCommon_.get());
 
     floors_ = {
-        { RunData::NodeType::Combat, RunData::NodeType::Combat, RunData::NodeType::Shop  },
-        { RunData::NodeType::Combat, RunData::NodeType::Rest,   RunData::NodeType::Combat },
-        { RunData::NodeType::Elite,  RunData::NodeType::Shop                              },
-        { RunData::NodeType::Boss                                                          },
+        { RunData::NodeType::Combat, RunData::NodeType::Combat, RunData::NodeType::Shop },
+        { RunData::NodeType::Combat, RunData::NodeType::Rest, RunData::NodeType::Combat },
+        { RunData::NodeType::Elite, RunData::NodeType::Shop },
+        { RunData::NodeType::Boss },
     };
 
-    selectedCol_   = 0;
+    selectedCol_ = 0;
     waitingResult_ = false;
 
     auto* rd = RunData::GetInstance();
@@ -124,7 +150,9 @@ void MapScene::Update()
     }
 
     int curFloor = rd->GetFloor();
-    if (curFloor >= static_cast<int>(floors_.size())) { return; }
+    if (curFloor >= static_cast<int>(floors_.size())) {
+        return;
+    }
 
     const auto& row = floors_[curFloor];
     int maxCol = static_cast<int>(row.size()) - 1;
@@ -159,7 +187,7 @@ void MapScene::Update()
             restHealAmount_ = 10;
             rd->Heal(restHealAmount_);
             waitingResult_ = true;
-            waitTimer_     = 1.5f;
+            waitTimer_ = 1.5f;
             break;
         }
     }
@@ -208,20 +236,24 @@ RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
     for (int f = 0; f < static_cast<int>(floors_.size()); ++f) {
         const auto& row = floors_[f];
         int nCols = static_cast<int>(row.size());
-        const float* colXs = (nCols == 3) ? kColX3 : (nCols == 2) ? kColX2 : kColX1;
+        const float* colXs = (nCols == 3) ? kColX3 : (nCols == 2) ? kColX2
+                                                                  : kColX1;
         float rowY = kFloorY[f];
 
-        bool isActive    = (f == curFloor) && !waitingResult_;
+        bool isActive = (f == curFloor) && !waitingResult_;
         bool isCompleted = (f < curFloor);
 
         // フロアラベル
         {
             wchar_t lbl[16];
-            if (f == 3) { swprintf_s(lbl, L"BOSS"); }
-            else        { swprintf_s(lbl, L"フロア %d", f + 1); }
-            Vector4 lblCol = isActive    ? Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }
-                           : isCompleted ? Vector4{ 0.35f, 0.35f, 0.35f, 1.0f }
-                           :               Vector4{ 0.5f, 0.5f, 0.5f, 1.0f };
+            if (f == 3) {
+                swprintf_s(lbl, L"BOSS");
+            } else {
+                swprintf_s(lbl, L"フロア %d", f + 1);
+            }
+            Vector4 lblCol = isActive ? Vector4 { 1.0f, 1.0f, 1.0f, 1.0f }
+                : isCompleted         ? Vector4 { 0.35f, 0.35f, 0.35f, 1.0f }
+                                      : Vector4 { 0.5f, 0.5f, 0.5f, 1.0f };
             fontRenderer_.DrawStringW(lbl, 30.0f, rowY + 8.0f, 1.2f, lblCol);
         }
 
@@ -230,7 +262,9 @@ RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
             float ny = rowY;
             bool selected = isActive && (c == selectedCol_);
 
-            if (selected) { hoveredNode = row[c]; }
+            if (selected) {
+                hoveredNode = row[c];
+            }
 
             Vector4 col = NodeColor(row[c], selected, isCompleted);
             nodeSprite_->SetPosition({ nx, ny });
@@ -245,9 +279,9 @@ RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
             float tx = nx + (kNodeW - textW) * 0.5f;
             float ty = ny + (kNodeH - FontRenderer::kJpCharH * 1.3f) * 0.5f;
 
-            Vector4 textCol = isCompleted ? Vector4{ 0.45f, 0.45f, 0.45f, 1.0f }
-                            : selected    ? Vector4{ 1.0f, 1.0f, 0.15f, 1.0f }
-                            :               Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+            Vector4 textCol = isCompleted ? Vector4 { 0.45f, 0.45f, 0.45f, 1.0f }
+                : selected                ? Vector4 { 1.0f, 1.0f, 0.15f, 1.0f }
+                                          : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f };
             fontRenderer_.DrawStringW(wlbl, tx, ty, 1.3f, textCol);
 
             // 選択カーソル
@@ -264,16 +298,18 @@ RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
 void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
 {
     // ── 選択中ノードの説明（右側）──
-    if (waitingResult_ || curFloor >= static_cast<int>(floors_.size())) { return; }
+    if (waitingResult_ || curFloor >= static_cast<int>(floors_.size())) {
+        return;
+    }
 
     const wchar_t* desc = NodeDesc(hoveredNode);
     fontRenderer_.DrawStringW(NodeLabelW(hoveredNode), 900.0f, 370.0f, 1.8f, { 1.0f, 0.85f, 0.2f, 1.0f });
     // 説明を2行に折り返して表示
     std::wstring descStr(desc);
-    size_t br = descStr.find(L'　');  // 全角スペースで折り返しポイントを探す
+    size_t br = descStr.find(L'　'); // 全角スペースで折り返しポイントを探す
     if (br != std::wstring::npos && br > 10) {
-        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(),   900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
-        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(),  900.0f, 435.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
+        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), 900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
+        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), 900.0f, 435.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
     } else {
         fontRenderer_.DrawStringW(desc, 900.0f, 410.0f, 1.1f, { 0.8f, 0.8f, 0.8f, 1.0f });
     }
@@ -282,7 +318,9 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
 void MapScene::DrawRestMessage()
 {
     // ── REST待機メッセージ ──
-    if (!waitingResult_) { return; }
+    if (!waitingResult_) {
+        return;
+    }
 
     wchar_t buf[32];
     swprintf_s(buf, L"HP が %d 回復した!", restHealAmount_);

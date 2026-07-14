@@ -6,11 +6,11 @@
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <Windows.h>
-#include <dinput.h>
 #include <XInput.h>
+#include <dinput.h>
 
-#include <wrl/client.h>
 #include "WinApp.h"
+#include <wrl/client.h>
 
 #pragma comment(lib, "xinput.lib")
 namespace engine {
@@ -45,7 +45,7 @@ public: // メンバ関数
      * @return bool 押されていれば true
      */
     bool PushKey(BYTE keyNumber);
-    
+
     /**
      * @brief キーが押された瞬間かチェック
      * @param keyNumber キーの番号（例: DIK_RETURN）
@@ -80,7 +80,6 @@ public: // メンバ関数
     int32_t GetWheel() const { return mouseState_.lZ; }
 
 private:
-
     /** @brief DirectInput 8 の本体ポインタ */
     ComPtr<IDirectInput8> directInput_;
 
@@ -90,19 +89,18 @@ private:
     // --- キー状態管理用バッファ ---
 
     /** @brief 最新のキー状態（256個のキー分） */
-    BYTE key[256] = {};
+    BYTE key[256] = { };
 
     /** @brief 1フレーム前のキー状態（256個のキー分） */
-    BYTE keyPre[256] = {};
+    BYTE keyPre[256] = { };
 
     /** @brief ウィンドウ管理のポインタ */
     WinApp* winApp_ = nullptr;
 
-
     // --- コントローラー状態管理用 ---
 
-    XINPUT_STATE state_ {}; /// 現在のコントローラー状態
-    XINPUT_STATE previousState_ {}; /// 前回のコントローラー状態
+    XINPUT_STATE state_ { }; /// 現在のコントローラー状態
+    XINPUT_STATE previousState_ { }; /// 前回のコントローラー状態
     const float deadzone_ = 0.2f; /// デッドゾーン
 
     // --- マウス状態管理用 ---
@@ -110,9 +108,9 @@ private:
     /** @brief マウスデバイスのポインタ */
     Microsoft::WRL::ComPtr<IDirectInputDevice8> mouse_;
     /** @brief マウスの現在の状態 */
-    DIMOUSESTATE2 mouseState_ = {};
+    DIMOUSESTATE2 mouseState_ = { };
     /** @brief マウスの前回の状態 */
-    DIMOUSESTATE2 mouseStatePre_ = {};
+    DIMOUSESTATE2 mouseStatePre_ = { };
 };
 
 } // namespace engine

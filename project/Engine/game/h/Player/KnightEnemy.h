@@ -10,7 +10,9 @@
 #include "ParticleManager.h"
 #include <memory>
 #include <vector>
-namespace engine::graphics { class ModelCommon; }
+namespace engine::graphics {
+class ModelCommon;
+}
 
 namespace engine::game {
 using engine::AABB;
@@ -69,13 +71,20 @@ public:
     bool TryBeginAbsorb();
 
     Vector3 GetPosition() const { return pos_; }
-    AABB    GetAABB()     const {
+    AABB GetAABB() const
+    {
         return { { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },
-                 { pos_.x + 0.5f, pos_.y + 1.0f,  0.5f } };
+            { pos_.x + 0.5f, pos_.y + 1.0f, 0.5f } };
     }
 
 private:
-    enum class State { Idle, Telegraph, Dash, Recover, Defeated, Absorbing, Consumed };
+    enum class State { Idle,
+        Telegraph,
+        Dash,
+        Recover,
+        Defeated,
+        Absorbing,
+        Consumed };
 
     void UpdateAI(ParticleManager* pm, const Vector3& playerPos);
     void UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos);
@@ -83,24 +92,24 @@ private:
 
     static constexpr int kMaxHp = 3;
 
-    State   state_      = State::Idle;
-    float   stateTimer_ = 0.0f;
-    int     hp_         = kMaxHp;
+    State state_ = State::Idle;
+    float stateTimer_ = 0.0f;
+    int hp_ = kMaxHp;
 
-    Vector3 pos_        = {};
-    float   yaw_        = 0.0f;
-    Vector3 dashStart_  = {};
-    Vector3 dashTarget_ = {};
+    Vector3 pos_ = { };
+    float yaw_ = 0.0f;
+    Vector3 dashStart_ = { };
+    Vector3 dashTarget_ = { };
 
-    float   swordSwing_       = 0.0f; ///< 剣の振り角（ラジアン、状態に応じてlerpで追従）
-    float   hitFlash_         = 0.0f; ///< 被弾時に白く光らせる残り秒数
-    float   knockVelX_        = 0.0f; ///< 被弾ノックバックの水平速度（毎フレーム減衰）
-    float   knockVelY_        = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
-    bool    justAbsorbed_     = false;
+    float swordSwing_ = 0.0f; ///< 剣の振り角（ラジアン、状態に応じてlerpで追従）
+    float hitFlash_ = 0.0f; ///< 被弾時に白く光らせる残り秒数
+    float knockVelX_ = 0.0f; ///< 被弾ノックバックの水平速度（毎フレーム減衰）
+    float knockVelY_ = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
+    bool justAbsorbed_ = false;
 
-    std::unique_ptr<Model>    model_;
+    std::unique_ptr<Model> model_;
     std::unique_ptr<Object3d> object_;
-    std::unique_ptr<Model>    swordModel_;
+    std::unique_ptr<Model> swordModel_;
     std::unique_ptr<Object3d> swordObject_;
 };
 

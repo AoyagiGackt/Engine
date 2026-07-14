@@ -19,8 +19,16 @@ public:
      * @param onRestore スコープを抜ける際に呼ぶ復帰処理
      * （例: SetupMainRenderTarget() + spriteCommon_->CommonDrawSettings() をまとめたラムダ）
      */
-    explicit PipelineStateGuard(std::function<void()> onRestore) : onRestore_(std::move(onRestore)) {}
-    ~PipelineStateGuard() { if (onRestore_) { onRestore_(); } }
+    explicit PipelineStateGuard(std::function<void()> onRestore)
+        : onRestore_(std::move(onRestore))
+    {
+    }
+    ~PipelineStateGuard()
+    {
+        if (onRestore_) {
+            onRestore_();
+        }
+    }
 
     PipelineStateGuard(const PipelineStateGuard&) = delete;
     PipelineStateGuard& operator=(const PipelineStateGuard&) = delete;

@@ -15,8 +15,8 @@
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::ImGuiManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
@@ -38,12 +38,12 @@ public:
 
 private:
     DirectXCommon* dxCommon_ = nullptr;
-    Input*         input_    = nullptr;
-    Audio*         audio_    = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
-    std::unique_ptr<Sprite>       clearSprite_;
+    std::unique_ptr<Sprite> clearSprite_;
 
     /** @brief "SCORE" ラベル画像 */
     std::unique_ptr<Sprite> scoreLabel_;

@@ -16,7 +16,7 @@ MeshData GenerateSphereMesh(int subdivision = 16, float radius = 1.0f)
     for (int lat = 0; lat < subdivision; ++lat) {
         float lat0 = kPi * (float(lat) / subdivision - 0.5f);
         float lat1 = kPi * (float(lat + 1) / subdivision - 0.5f);
-        
+
         for (int lon = 0; lon < subdivision; ++lon) {
             float lon0 = kTwoPi * float(lon) / subdivision;
             float lon1 = kTwoPi * float(lon + 1) / subdivision;

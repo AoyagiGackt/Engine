@@ -7,8 +7,7 @@
 #include <cmath>
 
 /** @brief クォータニオン（四元数）回転をあらわす */
-struct Quaternion
-{
+struct Quaternion {
     float x;
     float y;
     float z;
@@ -25,9 +24,9 @@ inline Quaternion MakeRotateXYZQuaternion(const Vector3& eulerRadians)
     float cy = std::cos(eulerRadians.y * 0.5f), sy = std::sin(eulerRadians.y * 0.5f);
     float cz = std::cos(eulerRadians.z * 0.5f), sz = std::sin(eulerRadians.z * 0.5f);
 
-    Quaternion qx{ sx, 0.0f, 0.0f, cx };
-    Quaternion qy{ 0.0f, sy, 0.0f, cy };
-    Quaternion qz{ 0.0f, 0.0f, sz, cz };
+    Quaternion qx { sx, 0.0f, 0.0f, cx };
+    Quaternion qy { 0.0f, sy, 0.0f, cy };
+    Quaternion qz { 0.0f, 0.0f, sz, cz };
 
     auto mul = [](const Quaternion& a, const Quaternion& b) -> Quaternion {
         return {
@@ -46,7 +45,7 @@ inline Quaternion MakeRotateXYZQuaternion(const Vector3& eulerRadians)
  * @param q2 終了クォータニオン
  * @param t  補間係数 (0.0f ~ 1.0f)
  */
-inline Quaternion Slerp(const Quaternion &q1, Quaternion q2, float t)
+inline Quaternion Slerp(const Quaternion& q1, Quaternion q2, float t)
 {
     float dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
 

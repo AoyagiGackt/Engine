@@ -19,8 +19,12 @@ static void GenerateKernel(float* out, int count)
     while (n < count) {
         float x = distF(rng), y = distF(rng), z = dist01(rng);
         float len = std::sqrt(x * x + y * y + z * z);
-        if (len < 1e-5f) { continue; }
-        x /= len; y /= len; z /= len;
+        if (len < 1e-5f) {
+            continue;
+        }
+        x /= len;
+        y /= len;
+        z /= len;
         float scale = float(n) / float(count);
         scale = 0.1f + 0.9f * scale * scale;
         out[n * 4 + 0] = x * scale;
@@ -47,20 +51,22 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     uint32_t& srvIndex,
     const float clearColor[4])
 {
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width            = w;
-    desc.Height           = h;
+    D3D12_RESOURCE_DESC desc = { };
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = w;
+    desc.Height = h;
     desc.DepthOrArraySize = 1;
-    desc.MipLevels        = 1;
-    desc.Format           = fmt;
+    desc.MipLevels = 1;
+    desc.Format = fmt;
     desc.SampleDesc.Count = 1;
-    desc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
-    D3D12_CLEAR_VALUE cv = {};
+    D3D12_CLEAR_VALUE cv = { };
     cv.Format = fmt;
-    cv.Color[0] = clearColor[0]; cv.Color[1] = clearColor[1];
-    cv.Color[2] = clearColor[2]; cv.Color[3] = clearColor[3];
+    cv.Color[0] = clearColor[0];
+    cv.Color[1] = clearColor[1];
+    cv.Color[2] = clearColor[2];
+    cv.Color[3] = clearColor[3];
 
     D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_DEFAULT };
     HRESULT hr = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
@@ -81,17 +87,17 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
 // NormalCapture RS: slot0 = CBV (VS, b0) per-object transform / slot1 = CBV (PS, b1) view matrix
 static ComPtr<ID3D12RootSignature> CreateNormalCaptureRS(ID3D12Device* device)
 {
-    D3D12_ROOT_PARAMETER params[2] = {};
-    params[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_VERTEX;
+    D3D12_ROOT_PARAMETER params[2] = { };
+    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
     params[0].Descriptor.ShaderRegister = 0; // b0 - TransformationMatrix
-    params[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[1].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     params[1].Descriptor.ShaderRegister = 1; // b1 - NormalCaptureCB
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
+    D3D12_ROOT_SIGNATURE_DESC rsDesc = { };
     rsDesc.NumParameters = 2;
-    rsDesc.pParameters   = params;
+    rsDesc.pParameters = params;
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> blob, err;
@@ -105,32 +111,32 @@ static ComPtr<ID3D12RootSignature> CreateNormalCaptureRS(ID3D12Device* device)
 // SSAO / Blur RS: slot0 = CBV (ALL, b0) / slot1 = SRV descriptor table (PS, t0)
 static ComPtr<ID3D12RootSignature> CreateRS_CBV_SRV(ID3D12Device* device)
 {
-    D3D12_DESCRIPTOR_RANGE srvRange = {};
-    srvRange.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors                    = 1;
-    srvRange.BaseShaderRegister                = 0; // t0
+    D3D12_DESCRIPTOR_RANGE srvRange = { };
+    srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    srvRange.NumDescriptors = 1;
+    srvRange.BaseShaderRegister = 0; // t0
     srvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER params[2] = {};
-    params[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_ROOT_PARAMETER params[2] = { };
+    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     params[0].Descriptor.ShaderRegister = 0; // b0
-    params[1].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
-    params[1].DescriptorTable.pDescriptorRanges   = &srvRange;
+    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[1].DescriptorTable.pDescriptorRanges = &srvRange;
     params[1].DescriptorTable.NumDescriptorRanges = 1;
 
-    D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    D3D12_STATIC_SAMPLER_DESC sampler = { };
+    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.ShaderRegister   = 0; // s0
+    sampler.ShaderRegister = 0; // s0
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
-    rsDesc.NumParameters     = 2;
-    rsDesc.pParameters       = params;
+    D3D12_ROOT_SIGNATURE_DESC rsDesc = { };
+    rsDesc.NumParameters = 2;
+    rsDesc.pParameters = params;
     rsDesc.NumStaticSamplers = 1;
-    rsDesc.pStaticSamplers   = &sampler;
+    rsDesc.pStaticSamplers = &sampler;
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> blob, err;
@@ -144,29 +150,29 @@ static ComPtr<ID3D12RootSignature> CreateRS_CBV_SRV(ID3D12Device* device)
 // Apply RS: slot0 = SRV descriptor table (PS, t0)
 static ComPtr<ID3D12RootSignature> CreateApplyRS(ID3D12Device* device)
 {
-    D3D12_DESCRIPTOR_RANGE srvRange = {};
-    srvRange.RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors                    = 1;
-    srvRange.BaseShaderRegister                = 0; // t0
+    D3D12_DESCRIPTOR_RANGE srvRange = { };
+    srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    srvRange.NumDescriptors = 1;
+    srvRange.BaseShaderRegister = 0; // t0
     srvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER param = {};
-    param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    param.ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
-    param.DescriptorTable.pDescriptorRanges   = &srvRange;
+    D3D12_ROOT_PARAMETER param = { };
+    param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    param.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    param.DescriptorTable.pDescriptorRanges = &srvRange;
     param.DescriptorTable.NumDescriptorRanges = 1;
 
-    D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    D3D12_STATIC_SAMPLER_DESC sampler = { };
+    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.ShaderRegister   = 0;
+    sampler.ShaderRegister = 0;
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
-    rsDesc.NumParameters     = 1;
-    rsDesc.pParameters       = &param;
+    D3D12_ROOT_SIGNATURE_DESC rsDesc = { };
+    rsDesc.NumParameters = 1;
+    rsDesc.pParameters = &param;
     rsDesc.NumStaticSamplers = 1;
-    rsDesc.pStaticSamplers   = &sampler;
+    rsDesc.pStaticSamplers = &sampler;
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> blob, err;
@@ -182,29 +188,29 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
     IDxcBlob* vs, IDxcBlob* ps, DXGI_FORMAT fmt,
     bool multiplyBlend = false)
 {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = { };
     desc.pRootSignature = rs;
     desc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
     desc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
-    desc.RasterizerState.CullMode  = D3D12_CULL_MODE_NONE;
-    desc.RasterizerState.FillMode  = D3D12_FILL_MODE_SOLID;
+    desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     desc.DepthStencilState.DepthEnable = FALSE;
-    desc.NumRenderTargets      = 1;
-    desc.RTVFormats[0]         = fmt;
+    desc.NumRenderTargets = 1;
+    desc.RTVFormats[0] = fmt;
     desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    desc.SampleMask            = D3D12_DEFAULT_SAMPLE_MASK;
-    desc.SampleDesc.Count      = 1;
+    desc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+    desc.SampleDesc.Count = 1;
 
     auto& b = desc.BlendState.RenderTarget[0];
     b.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     if (multiplyBlend) {
-        b.BlendEnable    = TRUE;
-        b.SrcBlend       = D3D12_BLEND_DEST_COLOR;
-        b.DestBlend      = D3D12_BLEND_ZERO;
-        b.BlendOp        = D3D12_BLEND_OP_ADD;
-        b.SrcBlendAlpha  = D3D12_BLEND_ONE;
+        b.BlendEnable = TRUE;
+        b.SrcBlend = D3D12_BLEND_DEST_COLOR;
+        b.DestBlend = D3D12_BLEND_ZERO;
+        b.BlendOp = D3D12_BLEND_OP_ADD;
+        b.SrcBlendAlpha = D3D12_BLEND_ONE;
         b.DestBlendAlpha = D3D12_BLEND_ZERO;
-        b.BlendOpAlpha   = D3D12_BLEND_OP_ADD;
+        b.BlendOpAlpha = D3D12_BLEND_OP_ADD;
     }
 
     ComPtr<ID3D12PipelineState> pso;
@@ -214,18 +220,18 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
 
 // ---- 定数バッファ生成ヘルパー ----
 
-template<typename T>
+template <typename T>
 static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* device, T** mapped)
 {
     D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-    desc.Width            = (sizeof(T) + 255) & ~255u;
-    desc.Height           = 1;
+    D3D12_RESOURCE_DESC desc = { };
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Width = (sizeof(T) + 255) & ~255u;
+    desc.Height = 1;
     desc.DepthOrArraySize = 1;
-    desc.MipLevels        = 1;
+    desc.MipLevels = 1;
     desc.SampleDesc.Count = 1;
-    desc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     ComPtr<ID3D12Resource> res;
     device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&res));
@@ -235,7 +241,7 @@ static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* devic
 
 void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
-    dxCommon_   = dxCommon;
+    dxCommon_ = dxCommon;
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon->GetDevice();
 
@@ -244,7 +250,7 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // レンダーターゲット作成
     float white[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float zero[4]  = { 0.0f, 0.0f, 0.0f, 0.0f };
+    float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
     CreateRT(device, srvManager, W, H, DXGI_FORMAT_R16G16B16A16_FLOAT,
         normalTex_, normalRtvHeap_, normalRtvHandle_, normalSrvIndex_, zero);
@@ -257,17 +263,17 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // NormalCapture 専用深度バッファ
     {
-        D3D12_RESOURCE_DESC depthDesc = {};
-        depthDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        depthDesc.Width            = W;
-        depthDesc.Height           = H;
+        D3D12_RESOURCE_DESC depthDesc = { };
+        depthDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        depthDesc.Width = W;
+        depthDesc.Height = H;
         depthDesc.DepthOrArraySize = 1;
-        depthDesc.MipLevels        = 1;
-        depthDesc.Format           = DXGI_FORMAT_D32_FLOAT;
+        depthDesc.MipLevels = 1;
+        depthDesc.Format = DXGI_FORMAT_D32_FLOAT;
         depthDesc.SampleDesc.Count = 1;
-        depthDesc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-        D3D12_CLEAR_VALUE cv = {};
-        cv.Format             = DXGI_FORMAT_D32_FLOAT;
+        depthDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+        D3D12_CLEAR_VALUE cv = { };
+        cv.Format = DXGI_FORMAT_D32_FLOAT;
         cv.DepthStencil.Depth = 1.0f;
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_DEFAULT };
         device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
@@ -282,87 +288,98 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     // 定数バッファ
     normalCb_ = CreateUploadCB<NormalCaptureCB>(device, &normalCbData_);
 
-    ssaoCb_   = CreateUploadCB<SSAOParams>(device, &ssaoCbData_);
-    ssaoCbData_->texW       = float(W);
-    ssaoCbData_->texH       = float(H);
+    ssaoCb_ = CreateUploadCB<SSAOParams>(device, &ssaoCbData_);
+    ssaoCbData_->texW = float(W);
+    ssaoCbData_->texH = float(H);
     ssaoCbData_->numSamples = 16;
     {
-        float kernel[16 * 4] = {};
+        float kernel[16 * 4] = { };
         GenerateKernel(kernel, 16);
         for (int i = 0; i < 16; ++i) {
-            ssaoCbData_->kernel[i] = { kernel[i*4], kernel[i*4+1], kernel[i*4+2], kernel[i*4+3] };
+            ssaoCbData_->kernel[i] = { kernel[i * 4], kernel[i * 4 + 1], kernel[i * 4 + 2], kernel[i * 4 + 3] };
         }
     }
 
-    blurCb_  = CreateUploadCB<BlurParams>(device, &blurCbData_);
-    blurCbData_->texW   = float(W);
-    blurCbData_->texH   = float(H);
+    blurCb_ = CreateUploadCB<BlurParams>(device, &blurCbData_);
+    blurCbData_->texW = float(W);
+    blurCbData_->texH = float(H);
     blurCbData_->pad[0] = blurCbData_->pad[1] = 0.0f;
 
     // シェーダーコンパイル
-    Microsoft::WRL::ComPtr<IDxcBlob> obj3dVS  = dxCommon->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl",         L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> obj3dVS = dxCommon->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> normalPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/NormalCapturePS.hlsl", L"ps_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> fsVS     = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl",    L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> ssaoPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOPS.hlsl",          L"ps_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> blurPS   = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOBlurPS.hlsl",      L"ps_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> applyPS  = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOApplyPS.hlsl",     L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> fsVS = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> ssaoPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> blurPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOBlurPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> applyPS = dxCommon->CompileShader(L"Resources/shaders/postprocess/SSAOApplyPS.hlsl", L"ps_6_0");
 
     // NormalCapture PSO: Object3dVS + NormalCapturePS
     {
         D3D12_INPUT_ELEMENT_DESC layout[] = {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         };
 
         normalRS_ = CreateNormalCaptureRS(device);
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature        = normalRS_.Get();
-        psoDesc.InputLayout           = { layout, _countof(layout) };
-        psoDesc.VS                    = { obj3dVS->GetBufferPointer(),  obj3dVS->GetBufferSize() };
-        psoDesc.PS                    = { normalPS->GetBufferPointer(), normalPS->GetBufferSize() };
-        psoDesc.RasterizerState.CullMode  = D3D12_CULL_MODE_NONE;
-        psoDesc.RasterizerState.FillMode  = D3D12_FILL_MODE_SOLID;
-        psoDesc.DepthStencilState.DepthEnable    = TRUE;
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = { };
+        psoDesc.pRootSignature = normalRS_.Get();
+        psoDesc.InputLayout = { layout, _countof(layout) };
+        psoDesc.VS = { obj3dVS->GetBufferPointer(), obj3dVS->GetBufferSize() };
+        psoDesc.PS = { normalPS->GetBufferPointer(), normalPS->GetBufferSize() };
+        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+        psoDesc.DepthStencilState.DepthEnable = TRUE;
         psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-        psoDesc.DepthStencilState.DepthFunc      = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-        psoDesc.DSVFormat             = DXGI_FORMAT_D32_FLOAT;
-        psoDesc.NumRenderTargets      = 1;
-        psoDesc.RTVFormats[0]         = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+        psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+        psoDesc.NumRenderTargets = 1;
+        psoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        psoDesc.SampleMask            = D3D12_DEFAULT_SAMPLE_MASK;
-        psoDesc.SampleDesc.Count      = 1;
+        psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+        psoDesc.SampleDesc.Count = 1;
         device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&normalPSO_));
     }
 
     // SSAO, Blur PSO
-    ssaoRS_  = CreateRS_CBV_SRV(device);
+    ssaoRS_ = CreateRS_CBV_SRV(device);
     ssaoPSO_ = CreateFullscreenPSO(device, ssaoRS_.Get(), fsVS.Get(), ssaoPS.Get(), DXGI_FORMAT_R8_UNORM);
 
-    blurRS_  = CreateRS_CBV_SRV(device);
+    blurRS_ = CreateRS_CBV_SRV(device);
     blurPSO_ = CreateFullscreenPSO(device, blurRS_.Get(), fsVS.Get(), blurPS.Get(), DXGI_FORMAT_R8_UNORM);
 
     // Apply PSO (multiply blend → AO を乗算でシーンに合成)
-    applyRS_  = CreateApplyRS(device);
+    applyRS_ = CreateApplyRS(device);
     applyPSO_ = CreateFullscreenPSO(device, applyRS_.Get(), fsVS.Get(), applyPS.Get(),
         DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, /*multiplyBlend=*/true);
 }
 
 void SSAOEffect::Finalize()
 {
-    if (normalCbData_) { normalCb_->Unmap(0, nullptr); normalCbData_ = nullptr; }
-    if (ssaoCbData_)   { ssaoCb_->Unmap(0, nullptr);   ssaoCbData_  = nullptr; }
-    if (blurCbData_)   { blurCb_->Unmap(0, nullptr);   blurCbData_  = nullptr; }
+    if (normalCbData_) {
+        normalCb_->Unmap(0, nullptr);
+        normalCbData_ = nullptr;
+    }
+    if (ssaoCbData_) {
+        ssaoCb_->Unmap(0, nullptr);
+        ssaoCbData_ = nullptr;
+    }
+    if (blurCbData_) {
+        blurCb_->Unmap(0, nullptr);
+        blurCbData_ = nullptr;
+    }
 }
 
 // ---- NormalCapture ----
 
 void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera)
 {
-    if (!enabled_) { return; }
+    if (!enabled_) {
+        return;
+    }
 
     ID3D12GraphicsCommandList* cmd = dxCommon->GetCommandList();
 
@@ -394,7 +411,9 @@ void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera)
 
 void SSAOEffect::EndNormalCapture(DirectXCommon* dxCommon)
 {
-    if (!enabled_ || !normalInRTV_) { return; }
+    if (!enabled_ || !normalInRTV_) {
+        return;
+    }
 
     Barrier(dxCommon->GetCommandList(), normalTex_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -412,7 +431,9 @@ void SSAOEffect::SetObjectTransform(ID3D12GraphicsCommandList* cmd,
 
 void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
 {
-    if (!enabled_) { return; }
+    if (!enabled_) {
+        return;
+    }
 
     ID3D12GraphicsCommandList* cmd = dxCommon->GetCommandList();
 
@@ -430,7 +451,7 @@ void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
 
-    ssaoCbData_->projection        = camera->GetProjectionMatrix();
+    ssaoCbData_->projection = camera->GetProjectionMatrix();
     ssaoCbData_->projectionInverse = Inverse(camera->GetProjectionMatrix());
 
     cmd->SetGraphicsRootSignature(ssaoRS_.Get());
@@ -447,7 +468,9 @@ void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
 
 void SSAOEffect::Blur(DirectXCommon* dxCommon)
 {
-    if (!enabled_) { return; }
+    if (!enabled_) {
+        return;
+    }
 
     ID3D12GraphicsCommandList* cmd = dxCommon->GetCommandList();
 
@@ -481,7 +504,9 @@ void SSAOEffect::Blur(DirectXCommon* dxCommon)
 
 void SSAOEffect::Apply(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
-    if (!enabled_) { return; }
+    if (!enabled_) {
+        return;
+    }
 
     ID3D12GraphicsCommandList* cmd = dxCommon->GetCommandList();
 

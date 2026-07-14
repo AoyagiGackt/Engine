@@ -10,12 +10,11 @@
 #include <cassert>
 #include <string>
 
-#define ENGINE_ASSERT(expr) \
-    do { \
-        bool engineAssertResult_ = static_cast<bool>(expr); \
-        if (!engineAssertResult_) { \
-            engine::Logger::LogError(std::string("Assertion failed: ") + #expr + \
-                " (" + __FILE__ + ":" + std::to_string(__LINE__) + ")"); \
-        } \
-        assert(engineAssertResult_); \
+#define ENGINE_ASSERT(expr)                                                                                                               \
+    do {                                                                                                                                  \
+        bool engineAssertResult_ = static_cast<bool>(expr);                                                                               \
+        if (!engineAssertResult_) {                                                                                                       \
+            engine::Logger::LogError(std::string("Assertion failed: ") + #expr + " (" + __FILE__ + ":" + std::to_string(__LINE__) + ")"); \
+        }                                                                                                                                 \
+        assert(engineAssertResult_);                                                                                                      \
     } while (0)

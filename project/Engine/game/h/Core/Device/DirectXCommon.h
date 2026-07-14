@@ -248,7 +248,7 @@ private:
     /** @brief バックバッファごとに「そのアロケータをGPUが使い終わったフェンス値」を記録する
      * @note PreDraw() で該当インデックスのアロケータを使い回す直前にだけこの値を待つことで、
      * 毎フレーム無条件にWaitForGpu()するのを避けている */
-    uint64_t frameFenceValues_[kFrameCount] = {};
+    uint64_t frameFenceValues_[kFrameCount] = { };
 
     // FPS固定用
     std::chrono::steady_clock::time_point reference_;
@@ -256,7 +256,7 @@ private:
     WinApp* winApp_ = nullptr;
 
     // VSync（ティアリング許可）
-    bool vsyncEnabled_    = true;
+    bool vsyncEnabled_ = true;
     bool tearingSupported_ = false;
 };
 

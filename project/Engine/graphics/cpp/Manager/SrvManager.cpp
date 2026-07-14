@@ -1,6 +1,6 @@
 ﻿#include "SrvManager.h"
-#include <algorithm>
 #include "EngineAssert.h"
+#include <algorithm>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -18,7 +18,7 @@ void SrvManager::Initialize(DirectXCommon* dxCommon)
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // デスクリプタヒープの生成
-    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
+    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = { };
     descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     descriptorHeapDesc.NumDescriptors = kMaxSRVCount;
     descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -42,7 +42,9 @@ void SrvManager::PreDraw()
     pendingFree_.erase(
         std::remove_if(pendingFree_.begin(), pendingFree_.end(),
             [this](const std::pair<uint64_t, uint32_t>& p) {
-                if (p.first + kFreeDelayFrames > frameCount_) { return false; }
+                if (p.first + kFreeDelayFrames > frameCount_) {
+                    return false;
+                }
                 freeList_.push_back(p.second);
                 return true;
             }),
@@ -73,7 +75,7 @@ void SrvManager::Free(uint32_t srvIndex)
 
 void SrvManager::CreateSRVforTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels)
 {
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
     srvDesc.Format = Format;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -85,7 +87,7 @@ void SrvManager::CreateSRVforTexture2D(uint32_t srvIndex, ID3D12Resource* pResou
 
 void SrvManager::CreateSRVforTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels)
 {
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
     srvDesc.Format = Format;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
@@ -98,11 +100,11 @@ void SrvManager::CreateSRVforTextureCube(uint32_t srvIndex, ID3D12Resource* pRes
 
 void SrvManager::CreateSRVforDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource)
 {
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format                    = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-    srvDesc.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels       = 1;
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
+    srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
 
     dxCommon_->GetDevice()->CreateShaderResourceView(pResource, &srvDesc, GetCPUDescriptorHandle(srvIndex));
 }

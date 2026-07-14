@@ -12,11 +12,11 @@ namespace {
 
 NodeResult ExecSetVariable(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string name = AsString(rt.ResolveParam(node, "name", std::string{}));
+    std::string name = AsString(rt.ResolveParam(node, "name", std::string { }));
     if (name.empty()) {
         Logger::LogError("[Graph] SetVariable node '" + node.id + "' is missing 'name' param");
     } else {
-        GraphValue value = rt.ResolveParam(node, "value", GraphValue{ 0.0f });
+        GraphValue value = rt.ResolveParam(node, "value", GraphValue { 0.0f });
         rt.SetVariable(name, value);
         rt.SetNodeOutput(node.id, std::move(value)); // 設定した値をそのまま出力ピンにも流す
     }
@@ -26,9 +26,9 @@ NodeResult ExecSetVariable(GraphRuntime& rt, const GraphNode& node, std::string&
 
 NodeResult ExecIf(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string varName = AsString(rt.ResolveParam(node, "var", std::string{}));
-    CompareOp   op       = ParseCompareOp(AsString(rt.ResolveParam(node, "op", std::string("=="))));
-    GraphValue  rhs      = rt.ResolveParam(node, "value", GraphValue{ 0.0f });
+    std::string varName = AsString(rt.ResolveParam(node, "var", std::string { }));
+    CompareOp op = ParseCompareOp(AsString(rt.ResolveParam(node, "op", std::string("=="))));
+    GraphValue rhs = rt.ResolveParam(node, "value", GraphValue { 0.0f });
 
     const GraphValue* lhs = rt.GetVariable(varName);
     bool result = lhs ? Compare(op, *lhs, rhs) : false;
@@ -42,7 +42,7 @@ NodeResult ExecIf(GraphRuntime& rt, const GraphNode& node, std::string& outNextI
 
 NodeResult ExecWait(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue{ 0.0f }));
+    float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue { 0.0f }));
     rt.BeginWait(seconds);
     outNextId = node.next; // 待機完了後にRunUntilSuspendOrHalt()側がこれをresume先として使う
     return NodeResult::Suspend;
@@ -50,7 +50,7 @@ NodeResult ExecWait(GraphRuntime& rt, const GraphNode& node, std::string& outNex
 
 NodeResult ExecEmitEvent(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string eventName = AsString(rt.ResolveParam(node, "event", std::string{}));
+    std::string eventName = AsString(rt.ResolveParam(node, "event", std::string { }));
     if (eventName.empty()) {
         Logger::LogError("[Graph] EmitEvent node '" + node.id + "' is missing 'event' param");
     } else {
@@ -64,13 +64,13 @@ NodeResult ExecEmitEvent(GraphRuntime& rt, const GraphNode& node, std::string& o
 // GameFlags本体はグラフインスタンス間・ステージ間で共有のグローバルストア（GraphRuntimeのローカル変数とは別物）
 NodeResult ExecSetFlag(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string flag = AsString(rt.ResolveParam(node, "flag", std::string{}));
+    std::string flag = AsString(rt.ResolveParam(node, "flag", std::string { }));
     if (flag.empty()) {
         Logger::LogError("[Graph] SetFlag node '" + node.id + "' is missing 'flag' param");
     } else {
-        bool value = AsBool(rt.ResolveParam(node, "value", GraphValue{ false }));
+        bool value = AsBool(rt.ResolveParam(node, "value", GraphValue { false }));
         GameFlags::GetInstance()->SetFlag(flag, value);
-        rt.SetNodeOutput(node.id, GraphValue{ value });
+        rt.SetNodeOutput(node.id, GraphValue { value });
     }
     outNextId = node.next;
     return NodeResult::Continue;
@@ -80,14 +80,16 @@ NodeResult ExecSetFlag(GraphRuntime& rt, const GraphNode& node, std::string& out
 // あわせて出力データピンにも流すので、他ノードのboolパラメータへ直接配線もできる
 NodeResult ExecGetFlag(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string flag = AsString(rt.ResolveParam(node, "flag", std::string{}));
-    std::string into = AsString(rt.ResolveParam(node, "into", std::string{}));
+    std::string flag = AsString(rt.ResolveParam(node, "flag", std::string { }));
+    std::string into = AsString(rt.ResolveParam(node, "into", std::string { }));
     if (flag.empty()) {
         Logger::LogError("[Graph] GetFlag node '" + node.id + "' is missing 'flag' param");
     } else {
         bool value = GameFlags::GetInstance()->GetFlag(flag);
-        if (!into.empty()) { rt.SetVariable(into, GraphValue{ value }); }
-        rt.SetNodeOutput(node.id, GraphValue{ value });
+        if (!into.empty()) {
+            rt.SetVariable(into, GraphValue { value });
+        }
+        rt.SetNodeOutput(node.id, GraphValue { value });
     }
     outNextId = node.next;
     return NodeResult::Continue;
@@ -96,7 +98,7 @@ NodeResult ExecGetFlag(GraphRuntime& rt, const GraphNode& node, std::string& out
 // 別ファイルのグラフを呼び出して再利用する（カプセル化）子グラフがHaltするまで親は待機する
 NodeResult ExecSubgraph(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string path = AsString(rt.ResolveParam(node, "path", std::string{}));
+    std::string path = AsString(rt.ResolveParam(node, "path", std::string { }));
     outNextId = node.next;
     if (path.empty() || !rt.BeginSubgraph(path)) {
         Logger::LogError("[Graph] Subgraph node '" + node.id + "' failed to start: " + path);
@@ -170,6 +172,8 @@ std::vector<std::string> NodeRegistry::GetRegisteredTypes() const
 {
     std::vector<std::string> types;
     types.reserve(executors_.size());
-    for (const auto& [type, fn] : executors_) { types.push_back(type); }
+    for (const auto& [type, fn] : executors_) {
+        types.push_back(type);
+    }
     return types;
 }

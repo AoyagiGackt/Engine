@@ -9,13 +9,15 @@
 #include "SpriteCommon.h"
 #include <memory>
 #include <random>
-namespace engine::graphics { class ParticleManager; }
+namespace engine::graphics {
+class ParticleManager;
+}
 
 namespace engine::game {
 using engine::graphics::Camera;
+using engine::graphics::ParticleManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
-using engine::graphics::ParticleManager;
 
 /**
  * @brief 固定領域の水場を描画し、波紋・きらめき・水しぶきパーティクルを管理するクラス
@@ -34,8 +36,8 @@ public:
     static constexpr float GetSurfaceY() { return kPoolTop; }
 
 private:
-    SpriteCommon*           spriteCommon_ = nullptr;
-    ParticleManager*        pm_           = nullptr;
+    SpriteCommon* spriteCommon_ = nullptr;
+    ParticleManager* pm_ = nullptr;
 
     // 水の本体（暗い深海色）
     std::unique_ptr<Sprite> waterSprite_;
@@ -43,10 +45,10 @@ private:
     std::unique_ptr<Sprite> waterSpriteTop_;
 
     // パーティクルタイマー
-    int rippleTimer_  = 0;
-    int glintTimer_   = 0;
+    int rippleTimer_ = 0;
+    int glintTimer_ = 0;
     int causticTimer_ = 0;
-    int bubbleTimer_  = 0;
+    int bubbleTimer_ = 0;
 
     std::mt19937 rippleRng_;
     std::mt19937 glintRng_;
@@ -55,9 +57,9 @@ private:
     std::mt19937 splashRng_;
 
     // プール領域
-    static constexpr float kPoolX0     =  3.0f;
-    static constexpr float kPoolX1     = 27.0f;
-    static constexpr float kPoolTop    =  3.0f;
+    static constexpr float kPoolX0 = 3.0f;
+    static constexpr float kPoolX1 = 27.0f;
+    static constexpr float kPoolTop = 3.0f;
     static constexpr float kPoolBottom = -0.6f;
 
     // fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高（GameConstants と共有）

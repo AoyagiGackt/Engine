@@ -21,6 +21,6 @@ public:
 
     // wstring（ワイド文字列）を UTF-8 の string に変換する
     // 用途: Windows API から返ってきた wstring をログ出力やデバッグ表示に使うとき
-    static std::string  ConvertString(const std::wstring& str);
+    static std::string ConvertString(const std::wstring& str);
 };
 } // namespace engine

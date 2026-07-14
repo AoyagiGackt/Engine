@@ -1,49 +1,51 @@
 #include "FontRenderer.h"
 #include "TextureManager.h"
 #define NOMINMAX
-#include <windows.h>
 #include "EngineAssert.h"
 #include <cstring>
 #include <vector>
+#include <windows.h>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-static constexpr const char* kAtlasKey   = "__fontAtlas__";
+static constexpr const char* kAtlasKey = "__fontAtlas__";
 static constexpr const char* kJpAtlasKey = "__fontAtlasJp__";
 
 // ひらがな 0x3041-0x3096 (86文字), カタカナ 0x30A0-0x30FF (96文字) は範囲カバー
 // それ以外でゲームUIに使う文字を追加
-static const wchar_t kJpExtra[] =
-    L"覚醒中発動鬼神銃士奇術師守護者射撃段斬★"  // 既存
-    L"格闘連玉"                                    // 武器UI
-    L"武器操作説明"                                // TrainingScene
-    L"戦強敵休憩"                                  // マップノード
-    L"倒獲得報酬高多選取永続効果回復最終決全力挑択定" // マップ説明
-    L"化延長速促進疾走跳躍乱舞維持"               // スキル名
-    L"距離倍大数階増加弾度蓄積移減衰"             // スキル説明
-    L"所済次開始"                                  // ショップ・タイトル
-    L"切替散"                                      // TrainingScene追加
-    L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧"    // 武器コマンド・スタイル名・マップ説明の不足分
-    L"締踏込貫通";                                  // 銃コンボのコマンド説明
-static constexpr uint32_t kHiraganaStart  = 0x3041;
-static constexpr uint32_t kHiraganaEnd    = 0x3096;
-static constexpr uint32_t kKatakanaStart  = 0x30A0;
-static constexpr uint32_t kKatakanaEnd    = 0x30FF;
-static constexpr int      kHiraganaCount  = static_cast<int>(kHiraganaEnd - kHiraganaStart + 1); // 86
-static constexpr int      kKatakanaCount  = static_cast<int>(kKatakanaEnd - kKatakanaStart + 1); // 96
-static constexpr int      kKanaTotal      = kHiraganaCount + kKatakanaCount;                      // 182
+static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護者射撃段斬★" // 既存
+                                  L"格闘連玉" // 武器UI
+                                  L"武器操作説明" // TrainingScene
+                                  L"戦強敵休憩" // マップノード
+                                  L"倒獲得報酬高多選取永続効果回復最終決全力挑択定" // マップ説明
+                                  L"化延長速促進疾走跳躍乱舞維持" // スキル名
+                                  L"距離倍大数階増加弾度蓄積移減衰" // スキル説明
+                                  L"所済次開始" // ショップ・タイトル
+                                  L"切替散" // TrainingScene追加
+                                  L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
+                                  L"締踏込貫通"; // 銃コンボのコマンド説明
+static constexpr uint32_t kHiraganaStart = 0x3041;
+static constexpr uint32_t kHiraganaEnd = 0x3096;
+static constexpr uint32_t kKatakanaStart = 0x30A0;
+static constexpr uint32_t kKatakanaEnd = 0x30FF;
+static constexpr int kHiraganaCount = static_cast<int>(kHiraganaEnd - kHiraganaStart + 1); // 86
+static constexpr int kKatakanaCount = static_cast<int>(kKatakanaEnd - kKatakanaStart + 1); // 96
+static constexpr int kKanaTotal = kHiraganaCount + kKatakanaCount; // 182
 
 void FontRenderer::BuildAtlas()
 {
-    if (TextureManager::GetInstance()->HasTexture(kAtlasKey)) { return; }
+    if (TextureManager::GetInstance()->HasTexture(kAtlasKey)) {
+        return;
+    }
 
     // GDI で Courier New を 32bit DIBSection に描画する
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth       = kAtlasW;
-    bmi.bmiHeader.biHeight      = -kAtlasH;    bmi.bmiHeader.biPlanes      = 1;
-    bmi.bmiHeader.biBitCount    = 32;
+    BITMAPINFO bmi { };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = kAtlasW;
+    bmi.bmiHeader.biHeight = -kAtlasH;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
     void* bits = nullptr;
@@ -57,13 +59,13 @@ void FontRenderer::BuildAtlas()
     memset(bits, 0, static_cast<size_t>(kAtlasW) * kAtlasH * 4);
 
     // フォント: Courier New, 高さ -13px（文字高さ指定）
-    LOGFONTA lf{};
-    lf.lfHeight         = -13;
-    lf.lfWeight         = FW_NORMAL;
-    lf.lfCharSet        = ANSI_CHARSET;
-    lf.lfOutPrecision   = OUT_TT_PRECIS;
-    lf.lfClipPrecision  = CLIP_DEFAULT_PRECIS;
-    lf.lfQuality        = ANTIALIASED_QUALITY;
+    LOGFONTA lf { };
+    lf.lfHeight = -13;
+    lf.lfWeight = FW_NORMAL;
+    lf.lfCharSet = ANSI_CHARSET;
+    lf.lfOutPrecision = OUT_TT_PRECIS;
+    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    lf.lfQuality = ANTIALIASED_QUALITY;
     lf.lfPitchAndFamily = FIXED_PITCH | FF_MODERN;
     strcpy_s(lf.lfFaceName, "Courier New");
 
@@ -80,7 +82,7 @@ void FontRenderer::BuildAtlas()
         int idx = c - kCharBase;
         int col = idx % kCols;
         int row = idx / kCols;
-        buf[0]  = static_cast<char>(c);
+        buf[0] = static_cast<char>(c);
         TextOutA(hdcMem, col * kCharW, row * kCharH + 1, buf, 1);
     }
 
@@ -125,42 +127,47 @@ int FontRenderer::GetJpGlyphIdx(wchar_t c) const
         return kHiraganaCount + static_cast<int>(u - kKatakanaStart);
     }
     for (int i = 0; kJpExtra[i]; ++i) {
-        if (static_cast<wchar_t>(kJpExtra[i]) == c) { return kKanaTotal + i; }
+        if (static_cast<wchar_t>(kJpExtra[i]) == c) {
+            return kKanaTotal + i;
+        }
     }
     return -1;
 }
 
 void FontRenderer::BuildJpAtlas()
 {
-    if (TextureManager::GetInstance()->HasTexture(kJpAtlasKey)) { return; }
+    if (TextureManager::GetInstance()->HasTexture(kJpAtlasKey)) {
+        return;
+    }
 
-    int extraCount  = static_cast<int>(wcslen(kJpExtra));
+    int extraCount = static_cast<int>(wcslen(kJpExtra));
     int totalGlyphs = kKanaTotal + extraCount;
-    jpAtlasRows_    = (totalGlyphs + kJpCols - 1) / kJpCols;
-    int atlasW      = kJpCols * kJpCharW;            // 256
-    int atlasH      = jpAtlasRows_ * kJpCharH;
+    jpAtlasRows_ = (totalGlyphs + kJpCols - 1) / kJpCols;
+    int atlasW = kJpCols * kJpCharW; // 256
+    int atlasH = jpAtlasRows_ * kJpCharH;
 
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth       = atlasW;
-    bmi.bmiHeader.biHeight      = -atlasH;              bmi.bmiHeader.biPlanes      = 1;
-    bmi.bmiHeader.biBitCount    = 32;
+    BITMAPINFO bmi { };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = atlasW;
+    bmi.bmiHeader.biHeight = -atlasH;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
-    void*   bits = nullptr;
+    void* bits = nullptr;
     HBITMAP hBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
     ENGINE_ASSERT(hBmp && bits);
 
-    HDC     hdcMem = CreateCompatibleDC(nullptr);
-    HBITMAP hOld   = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
+    HDC hdcMem = CreateCompatibleDC(nullptr);
+    HBITMAP hOld = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
     memset(bits, 0, static_cast<size_t>(atlasW) * atlasH * 4);
 
-    LOGFONTW lf{};
-    lf.lfHeight         = -(kJpCharH - 2);
-    lf.lfWeight         = FW_NORMAL;
-    lf.lfCharSet        = DEFAULT_CHARSET;
-    lf.lfOutPrecision   = OUT_TT_PRECIS;
-    lf.lfQuality        = ANTIALIASED_QUALITY;
+    LOGFONTW lf { };
+    lf.lfHeight = -(kJpCharH - 2);
+    lf.lfWeight = FW_NORMAL;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfOutPrecision = OUT_TT_PRECIS;
+    lf.lfQuality = ANTIALIASED_QUALITY;
     lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
     wcscpy_s(lf.lfFaceName, L"MS Gothic");
 
@@ -173,9 +180,9 @@ void FontRenderer::BuildJpAtlas()
 
     wchar_t wbuf[2] = { 0, 0 };
     auto renderAt = [&](int idx, wchar_t ch) {
-        wbuf[0]   = ch;
-        int col   = idx % kJpCols;
-        int row   = idx / kJpCols;
+        wbuf[0] = ch;
+        int col = idx % kJpCols;
+        int row = idx / kJpCols;
         TextOutW(hdcMem, col * kJpCharW, row * kJpCharH, wbuf, 1);
     };
 
@@ -219,10 +226,14 @@ void FontRenderer::Initialize(SpriteCommon* spriteCommon)
     BuildJpAtlas();
 
     sprites_.resize(kMaxChars);
-    for (auto& s : sprites_)   { s.Initialize(spriteCommon_, kAtlasKey); }
+    for (auto& s : sprites_) {
+        s.Initialize(spriteCommon_, kAtlasKey);
+    }
 
     jpSprites_.resize(kMaxChars);
-    for (auto& s : jpSprites_) { s.Initialize(spriteCommon_, kJpAtlasKey); }
+    for (auto& s : jpSprites_) {
+        s.Initialize(spriteCommon_, kJpAtlasKey);
+    }
 }
 
 void FontRenderer::DrawString(const std::string& text, float x, float y,
@@ -241,7 +252,7 @@ void FontRenderer::Reset()
 {
     cmds_.clear();
     cmdsW_.clear();
-    spriteIdx_   = 0;
+    spriteIdx_ = 0;
     jpSpriteIdx_ = 0;
 }
 
@@ -251,9 +262,14 @@ void FontRenderer::Draw()
     for (const auto& cmd : cmds_) {
         float cx = cmd.x;
         for (unsigned char c : cmd.text) {
-            if (spriteIdx_ >= kMaxChars) { return; }
+            if (spriteIdx_ >= kMaxChars) {
+                return;
+            }
             int idx = static_cast<int>(c) - kCharBase;
-            if (idx < 0 || idx >= kCols * kRows) { cx += kCharW * cmd.scale; continue; }
+            if (idx < 0 || idx >= kCols * kRows) {
+                cx += kCharW * cmd.scale;
+                continue;
+            }
             int col = idx % kCols;
             int row = idx / kCols;
             auto& s = sprites_[spriteIdx_++];

@@ -4,7 +4,7 @@
  */
 #pragma once
 
- // --- 標準ライブラリ ---
+// --- 標準ライブラリ ---
 #include <deque>
 #include <memory>
 #include <random>
@@ -27,25 +27,25 @@
 #include "SrvManager.h"
 
 // --- ゲームロジック・オブジェクト ---
+#include "BladeFlashEffect.h"
 #include "CameraShaker.h"
 #include "Collision.h"
 #include "EnemyEntity.h"
 #include "FontRenderer.h"
-#include "LevelLoader.h"
-#include "Object3d.h"
-#include "Player.h"
-#include "TimeManager.h"
-#include "WaterPool.h"
 #include "GameTime.h"
-#include "Skydome.h"
-#include "BladeFlashEffect.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
+#include "LevelLoader.h"
 #include "MeshSliceEffect.h"
-#include "SpaceDistortionEffect.h"
+#include "Object3d.h"
+#include "Player.h"
 #include "RenderTexture.h"
 #include "SceneEditor.h"
 #include "SceneShared.h"
+#include "Skydome.h"
+#include "SpaceDistortionEffect.h"
+#include "TimeManager.h"
+#include "WaterPool.h"
 namespace engine::graphics {
 class GrayscaleEffect;
 class HsvFilter;
@@ -54,41 +54,41 @@ class ParticleManager;
 
 namespace engine::game {
 using engine::Audio;
-using engine::graphics::Camera;
+using engine::Collision;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
+using engine::GameTime;
 using engine::Input;
+using engine::TimeManager;
+using engine::graphics::BladeFlashEffect;
+using engine::graphics::Camera;
+using engine::graphics::GlassShatterEffect;
+using engine::graphics::GrayscaleEffect;
+using engine::graphics::HsvFilter;
+using engine::graphics::ImageFilter;
+using engine::graphics::ImGuiManager;
+using engine::graphics::MeshSliceEffect;
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
+using engine::graphics::Object3d;
 using engine::graphics::Object3dCommon;
+using engine::graphics::ParticleManager;
+using engine::graphics::RenderTexture;
 using engine::graphics::ShadowManager;
+using engine::graphics::Skydome;
+using engine::graphics::SpaceDistortionEffect;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
-using engine::Collision;
-using engine::graphics::Object3d;
-using engine::TimeManager;
-using engine::GameTime;
-using engine::graphics::Skydome;
-using engine::graphics::BladeFlashEffect;
-using engine::graphics::GlassShatterEffect;
-using engine::graphics::ImageFilter;
-using engine::graphics::MeshSliceEffect;
-using engine::graphics::SpaceDistortionEffect;
-using engine::graphics::RenderTexture;
-using engine::graphics::GrayscaleEffect;
-using engine::graphics::HsvFilter;
-using engine::graphics::ParticleManager;
 
 class ScoreManager;
 
-class GamePlayScene : public BaseScene{
+class GamePlayScene : public BaseScene {
 public:
-    void Initialize(DirectXCommon* dxCommon,Input* input,Audio* audio) override;
+    void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
     void Finalize() override;
     void Update() override;
     void Draw() override;
-    void SetImGuiManager(ImGuiManager* imgui){ imguiManager_ = imgui; }
+    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
     bool SupportsPostEffects() const override { return true; }
 
     /// @brief ImGuiパネルからの手動テスト再生用
@@ -136,40 +136,40 @@ private:
     /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）
     bool IsGlassShatterFlow() const;
 
-    DirectXCommon* dxCommon_    = nullptr;
-    Input*         input_       = nullptr;
-    Audio*         audio_       = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
+    DirectXCommon* dxCommon_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
 
-    ScoreManager*    scoreManager_    = nullptr;
-    SrvManager*      srvManager_      = nullptr;
+    ScoreManager* scoreManager_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
     GrayscaleEffect* grayscaleEffect_ = nullptr;
-    ImageFilter*     imageFilter_     = nullptr;
-    HsvFilter*       hsvFilter_       = nullptr;
-    ParticleManager* pm_              = nullptr;
+    ImageFilter* imageFilter_ = nullptr;
+    HsvFilter* hsvFilter_ = nullptr;
+    ParticleManager* pm_ = nullptr;
 
-    std::unique_ptr<SpriteCommon>   spriteCommon_;
-    std::unique_ptr<ModelCommon>    modelCommon_;
+    std::unique_ptr<SpriteCommon> spriteCommon_;
+    std::unique_ptr<ModelCommon> modelCommon_;
     std::unique_ptr<Object3dCommon> objectCommon_;
-    std::unique_ptr<ShadowManager>  shadowManager_;
-    std::unique_ptr<Camera>         camera_;
+    std::unique_ptr<ShadowManager> shadowManager_;
+    std::unique_ptr<Camera> camera_;
 
     std::unique_ptr<Skydome> skydome_;
-    std::unique_ptr<Model>   modelSkydome_;
+    std::unique_ptr<Model> modelSkydome_;
 
-    LevelSpawnResult                         levelSpawn_;
-    std::vector<std::unique_ptr<Object3d>>   borderBlocks_;
+    LevelSpawnResult levelSpawn_;
+    std::vector<std::unique_ptr<Object3d>> borderBlocks_;
 
-    std::unique_ptr<Player>      player_;
+    std::unique_ptr<Player> player_;
     std::unique_ptr<EnemyEntity> enemy_;
 
     GameTime gameTime_;
 
-    Vector4 skyColor_      = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float   skyRotOffsetY_ = 0.0f;
+    Vector4 skyColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float skyRotOffsetY_ = 0.0f;
 
     std::unique_ptr<RenderTexture> renderTexture_;
-    std::unique_ptr<Sprite>        renderTextureSprite_;
+    std::unique_ptr<Sprite> renderTextureSprite_;
 
     // カメラスムージング
     Vector3 cameraTargetPos_ = { 14.5f, 6.0f, -24.0f };
@@ -180,23 +180,26 @@ private:
 
     SceneEditor sceneEditor_;
 
-    float        hitCooldown_ = 0.0f;
-    std::mt19937 rng_{ std::random_device{}() };
+    float hitCooldown_ = 0.0f;
+    std::mt19937 rng_ { std::random_device { }() };
 
     static constexpr float kGhostLifetime = 0.3f;
 
-    struct GhostEntry { Vector3 pos; float age; };
-    std::deque<GhostEntry>    ghostTrail_;
+    struct GhostEntry {
+        Vector3 pos;
+        float age;
+    };
+    std::deque<GhostEntry> ghostTrail_;
     std::unique_ptr<Object3d> ghostObject_;
-    float                     ghostSpawnTimer_ = 0.0f;
+    float ghostSpawnTimer_ = 0.0f;
 
-    float auraTimer_  = 0.0f;
+    float auraTimer_ = 0.0f;
     float styleMeter_ = 0.0f;
-    float peakStyle_  = 0.0f;
+    float peakStyle_ = 0.0f;
 
     // フィニッシャースラッシュ演出の進行状態
-    bool  finisherActive_    = false;
-    int   finisherLineIdx_   = 0;
+    bool finisherActive_ = false;
+    int finisherLineIdx_ = 0;
     float finisherBeatTimer_ = 0.0f;
 
     /** @brief 大技演出中の画面暗転オーバーレイ */
@@ -211,9 +214,9 @@ private:
     /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
 
-    bool  showResult_  = false;
+    bool showResult_ = false;
     float resultTimer_ = 0.0f;
-    int   lastGold_    = 0;
+    int lastGold_ = 0;
 
     FontRenderer fontRenderer_;
     CameraShaker cameraShaker_;
@@ -223,11 +226,11 @@ private:
     /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
     GlassShatterEffect finisherShatter_;
 
-    bool clearTriggered_        = false;
-    bool requestClear_          = false;
+    bool clearTriggered_ = false;
+    bool requestClear_ = false;
     bool glassShatterDebugTest_ = false;
 
-    std::unique_ptr<Sprite>   clearBgSprite_;
+    std::unique_ptr<Sprite> clearBgSprite_;
     std::unique_ptr<WaterPool> waterPool_;
 };
 

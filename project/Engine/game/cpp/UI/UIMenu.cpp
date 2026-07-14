@@ -5,9 +5,9 @@ using namespace engine::game;
 
 namespace {
 constexpr Vector4 kSelectedColor = { 0.2f, 0.8f, 0.2f, 0.9f };
-constexpr Vector4 kIdleColor     = { 0.4f, 0.4f, 0.4f, 0.7f };
+constexpr Vector4 kIdleColor = { 0.4f, 0.4f, 0.4f, 0.7f };
 constexpr Vector4 kDisabledColor = { 0.25f, 0.25f, 0.25f, 0.5f };
-constexpr Vector4 kTextColor     = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr Vector4 kTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr Vector4 kTextDisabledColor = { 0.5f, 0.5f, 0.5f, 0.8f };
 } // namespace
 
@@ -21,14 +21,14 @@ void UIMenu::SetLayout(float x, float y, float itemWidth, float itemHeight)
 {
     x_ = x;
     y_ = y;
-    itemWidth_  = itemWidth;
+    itemWidth_ = itemWidth;
     itemHeight_ = itemHeight;
     RebuildBoxes();
 }
 
 void UIMenu::SetItems(const std::vector<UIButton>& items)
 {
-    items_  = items;
+    items_ = items;
     cursor_ = 0;
     for (size_t i = 0; i < items_.size(); ++i) {
         if (items_[i].enabled) {
@@ -41,7 +41,9 @@ void UIMenu::SetItems(const std::vector<UIButton>& items)
 
 void UIMenu::RebuildBoxes()
 {
-    if (items_.empty() || itemWidth_ <= 0.0f || itemHeight_ <= 0.0f || !spriteCommon_) { return; }
+    if (items_.empty() || itemWidth_ <= 0.0f || itemHeight_ <= 0.0f || !spriteCommon_) {
+        return;
+    }
 
     boxes_.clear();
     boxes_.reserve(items_.size());
@@ -56,7 +58,9 @@ void UIMenu::RebuildBoxes()
 
 void UIMenu::Update(Input* input)
 {
-    if (items_.empty()) { return; }
+    if (items_.empty()) {
+        return;
+    }
 
     if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
         for (int i = cursor_ - 1; i >= 0; --i) {
@@ -89,7 +93,9 @@ void UIMenu::Update(Input* input)
 
 bool UIMenu::ConsumeConfirm(Input* input)
 {
-    if (items_.empty() || !items_[cursor_].enabled) { return false; }
+    if (items_.empty() || !items_[cursor_].enabled) {
+        return false;
+    }
     return input->TriggerKey(DIK_SPACE) || input->TriggerKey(DIK_RETURN);
 }
 
@@ -101,7 +107,7 @@ void UIMenu::Draw()
 
     for (size_t i = 0; i < items_.size(); ++i) {
         const Vector4 textColor = items_[i].enabled ? kTextColor : kTextDisabledColor;
-        const float   labelY    = y_ + itemHeight_ * static_cast<float>(i) + itemHeight_ * 0.3f;
+        const float labelY = y_ + itemHeight_ * static_cast<float>(i) + itemHeight_ * 0.3f;
         fontRenderer_->DrawString(items_[i].label, x_ + 24.0f, labelY, 1.5f, textColor);
 
         if (static_cast<int>(i) == cursor_) {

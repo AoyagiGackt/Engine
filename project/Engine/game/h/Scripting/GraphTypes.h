@@ -15,16 +15,24 @@ using GraphValue = std::variant<float, bool, std::string>;
 
 /// @brief データピンの型（エディタでのピン色分け・接続可否の判定に使う）
 /// Any は何にでも接続できるワイルドカード（SetVariableのvalue等、実行時に型が決まるもの）
-enum class GraphValueType { Float, Bool, String, Any };
+enum class GraphValueType { Float,
+    Bool,
+    String,
+    Any };
 
-float       AsFloat(const GraphValue& v);
-bool        AsBool(const GraphValue& v);
+float AsFloat(const GraphValue& v);
+bool AsBool(const GraphValue& v);
 std::string AsString(const GraphValue& v);
 
 /// @brief Ifノードの比較演算子
-enum class CompareOp { Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual };
-CompareOp   ParseCompareOp(const std::string& s); // "==" "!=" "<" "<=" ">" ">="
-bool        Compare(CompareOp op, const GraphValue& lhs, const GraphValue& rhs);
+enum class CompareOp { Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual };
+CompareOp ParseCompareOp(const std::string& s); // "==" "!=" "<" "<=" ">" ">="
+bool Compare(CompareOp op, const GraphValue& lhs, const GraphValue& rhs);
 
 /// @brief グラフ中の1ノード
 struct GraphNode {
@@ -38,8 +46,8 @@ struct GraphNode {
     std::map<std::string, std::string> paramLinks;
 
     // ---- 実行フロー ----
-    std::string next;      // 通常ノードの次（空文字列ならそこでHalt）
-    std::string nextTrue;  // Ifノード専用：条件が真のときの次
+    std::string next; // 通常ノードの次（空文字列ならそこでHalt）
+    std::string nextTrue; // Ifノード専用：条件が真のときの次
     std::string nextFalse; // Ifノード専用：条件が偽のときの次
 
     // ---- エディタ上のレイアウト（実行には無関係、GraphEditor用） ----
@@ -59,7 +67,7 @@ struct GraphComment {
 /// @brief 1本のグラフ（コードを書かずに組んだロジック1個ぶん）
 struct GraphDesc {
     std::string startNodeId;
-    std::map<std::string, GraphNode>    nodes;
+    std::map<std::string, GraphNode> nodes;
     std::map<std::string, GraphComment> comments;
 
     const GraphNode* FindNode(const std::string& id) const;

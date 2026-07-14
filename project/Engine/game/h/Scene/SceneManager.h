@@ -3,24 +3,24 @@
  * @brief シーンの切り替え、更新、描画を一括管理するクラスを定義するファイル
  */
 #pragma once
+#include "AbstractSceneFactory.h"
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
 #include "ImGuiManager.h"
 #include "Input.h"
-#include "AbstractSceneFactory.h"
 #include "SpriteCommon.h"
+#include <Fade.h>
 #include <atomic>
 #include <memory>
 #include <thread>
-#include <Fade.h>
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
-using engine::graphics::SpriteCommon;
 using engine::graphics::Fade;
+using engine::graphics::ImGuiManager;
+using engine::graphics::SpriteCommon;
 
 /**
  * @brief シーン運用を統括するマネージャークラス
@@ -29,7 +29,6 @@ using engine::graphics::Fade;
  */
 class SceneManager {
 public:
-    
     /**
      * @brief SceneManagerの唯一のインスタンスを取得する
      * @return SceneManager* シングルトンインスタンスへのポインタ
@@ -45,7 +44,7 @@ public:
      * @note 各シーンで共有する基盤システムのポインタを保持します
      */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio, ImGuiManager* imgui);
-    
+
     /**
      * @brief 終了処理
      * @note 実行中のシーンを破棄し、後片付けを行います
@@ -84,7 +83,7 @@ public:
     const std::string& GetLoadingTarget() const { return loadingTargetScene_; }
 
     bool IsAsyncLoadReady() const { return asyncLoadReady_.load(); }
-    
+
     /**
      * @brief シーン生成用工場をセットする
      * @param factory AbstractSceneFactoryを継承した具体的な工場のポインタ
@@ -96,10 +95,10 @@ public:
      * @brief 現在のシーンがポストエフェクト（グレースケール等）のオフスクリーンRTVリダイレクトに対応しているか
      * @note 未対応シーン中は Game.cpp 側で BeginScene/EndScene/Apply を呼ばないようにするためのガード
      */
-    bool CurrentScenePostEffectsSupported() const {
+    bool CurrentScenePostEffectsSupported() const
+    {
         return currentScene_ && currentScene_->SupportsPostEffects();
     }
-
 
 private:
     SceneManager() = default;
@@ -113,7 +112,7 @@ private:
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
     ImGuiManager* imguiManager_ = nullptr;
-    
+
     // --- シーン管理メンバ ---
 
     /** @brief 現在アクティブなシーン */
@@ -129,21 +128,21 @@ private:
     std::thread loadingThread_;
 
     /** @brief バックグラウンドロード完了フラグ */
-    std::atomic<bool> asyncLoadReady_{ false };
+    std::atomic<bool> asyncLoadReady_ { false };
 
     /** @brief シーンを生成するための工場ポインタ（外部からセットされる） */
     AbstractSceneFactory* sceneFactory_ = nullptr;
 
     /** @brief フェード管理 **/
     std::unique_ptr<SpriteCommon> spriteCommon_;
-    Fade fade_; 
+    Fade fade_;
 
     /** @brief 次に読み込むシーン名 **/
     std::string nextSceneName_;
 
     /** @brief ChangeSceneWithLoading で指定した最終遷移先シーン名 **/
     std::string loadingTargetScene_;
-    
+
     /** @brief 現在遷移中かどうかのフラグ **/
     bool isChanging_ = false;
 

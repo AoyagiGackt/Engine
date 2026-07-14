@@ -1,10 +1,10 @@
 #include "SkinnedModel.h"
-#include "TextureManager.h"
 #include "EngineAssert.h"
-#include <map>
+#include "TextureManager.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <map>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -15,21 +15,21 @@ using namespace Microsoft::WRL;
 // Skeleton.cpp::ConvertAiNode と同じ Decompose → flip → MakeAffineMatrix の手順を踏む
 static Matrix4x4 ConvertOffsetMatrix(const aiMatrix4x4& m)
 {
-    aiVector3D    scale, translate;
-    aiQuaternion  rotate;
+    aiVector3D scale, translate;
+    aiQuaternion rotate;
     m.Decompose(scale, rotate, translate);
 
     // 右手系 → 左手系（X 軸反転）：ConvertAiNode と同一の変換
-    Vector3    s = { scale.x,      scale.y,     scale.z };
-    Quaternion r = { rotate.x,    -rotate.y,   -rotate.z,  rotate.w };
-    Vector3    t = { -translate.x,  translate.y, translate.z };
+    Vector3 s = { scale.x, scale.y, scale.z };
+    Quaternion r = { rotate.x, -rotate.y, -rotate.z, rotate.w };
+    Vector3 t = { -translate.x, translate.y, translate.z };
 
     return MakeAffineMatrix(s, r, t);
 }
 
 void SkinnedModel::Initialize(DirectXCommon* dxCommon,
-                              const std::string& gltfFilePath,
-                              const std::string& textureFilePath)
+    const std::string& gltfFilePath,
+    const std::string& textureFilePath)
 {
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
@@ -39,15 +39,15 @@ void SkinnedModel::Initialize(DirectXCommon* dxCommon,
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
     ENGINE_ASSERT(sizeInBytes > 0);
 
-    D3D12_HEAP_PROPERTIES heapProps{ D3D12_HEAP_TYPE_UPLOAD };
-    D3D12_RESOURCE_DESC   resDesc{};
-    resDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resDesc.Width            = sizeInBytes;
-    resDesc.Height           = 1;
+    D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
+    D3D12_RESOURCE_DESC resDesc { };
+    resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    resDesc.Width = sizeInBytes;
+    resDesc.Height = 1;
     resDesc.DepthOrArraySize = 1;
-    resDesc.MipLevels        = 1;
+    resDesc.MipLevels = 1;
     resDesc.SampleDesc.Count = 1;
-    resDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
     dxCommon->GetDevice()->CreateCommittedResource(
         &heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
@@ -60,16 +60,15 @@ void SkinnedModel::Initialize(DirectXCommon* dxCommon,
     vertexResource_->Unmap(0, nullptr);
 
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-    vertexBufferView_.SizeInBytes    = static_cast<UINT>(sizeInBytes);
-    vertexBufferView_.StrideInBytes  = sizeof(VertexData);
+    vertexBufferView_.SizeInBytes = static_cast<UINT>(sizeInBytes);
+    vertexBufferView_.StrideInBytes = sizeof(VertexData);
 }
 
 void SkinnedModel::Draw(ID3D12GraphicsCommandList* cmd)
 {
     cmd->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
-    D3D12_GPU_DESCRIPTOR_HANDLE texHandle =
-        TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
+    D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     cmd->SetGraphicsRootDescriptorTable(2, texHandle);
     // スロット5(t2)は SkinnedObject3d::Draw が環境マップまたはフォールバックをバインドする
 
@@ -82,10 +81,7 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
     // MakeLeftHanded / FlipWindingOrder は使わず手動で座標変換する
     // これにより Skeleton.cpp::LoadNodeHierarchyFromFile と同一の変換規則になる
     const aiScene* scene = importer.ReadFile(filePath,
-        aiProcess_Triangulate      |
-        aiProcess_FlipUVs          |
-        aiProcess_GenSmoothNormals |
-        aiProcess_LimitBoneWeights);
+        aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_LimitBoneWeights);
     ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
     // パス1: ボーン名 → index, inverse bind matrix を収集
@@ -111,15 +107,15 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
         uint32_t numVerts = mesh->mNumVertices;
 
         std::vector<uint32_t> indices(numVerts * 4, 0);
-        std::vector<float>    weights(numVerts * 4, 0.0f);
+        std::vector<float> weights(numVerts * 4, 0.0f);
         std::vector<uint32_t> counts(numVerts, 0);
 
         for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi) {
-            aiBone*  bone    = mesh->mBones[bi];
+            aiBone* bone = mesh->mBones[bi];
             uint32_t boneIdx = boneMap[bone->mName.C_Str()];
             for (uint32_t wi = 0; wi < bone->mNumWeights; ++wi) {
                 uint32_t vIdx = bone->mWeights[wi].mVertexId;
-                float    w    = bone->mWeights[wi].mWeight;
+                float w = bone->mWeights[wi].mWeight;
                 if (counts[vIdx] < 4) {
                     indices[vIdx * 4 + counts[vIdx]] = boneIdx;
                     weights[vIdx * 4 + counts[vIdx]] = w;
@@ -137,20 +133,20 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
 
             for (uint32_t i = 0; i < 3; ++i) {
                 uint32_t vIdx = order[i];
-                VertexData vd{};
+                VertexData vd { };
 
                 // 右手系 → 左手系：X を反転
                 vd.position = {
                     -mesh->mVertices[vIdx].x,
-                     mesh->mVertices[vIdx].y,
-                     mesh->mVertices[vIdx].z,
-                     1.0f
+                    mesh->mVertices[vIdx].y,
+                    mesh->mVertices[vIdx].z,
+                    1.0f
                 };
                 if (mesh->HasNormals()) {
                     vd.normal = {
                         -mesh->mNormals[vIdx].x,
-                         mesh->mNormals[vIdx].y,
-                         mesh->mNormals[vIdx].z
+                        mesh->mNormals[vIdx].y,
+                        mesh->mNormals[vIdx].z
                     };
                 }
                 if (mesh->HasTextureCoords(0)) {

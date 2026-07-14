@@ -10,7 +10,7 @@ namespace engine::graphics {
  * @brief 定数バッファとしてGPUに送るマテリアルのデータを保持する構造体
  */
 struct Material {
-    
+
     /** @brief マテリアルの基本色（RGBA） */
     Vector4 color;
 
@@ -31,7 +31,6 @@ struct Material {
  */
 class MaterialManager {
 public:
-
     /**
      * @brief コンストラクタ内部でデフォルトのマテリアル群を初期化する
      */
@@ -67,7 +66,6 @@ public:
     void Finalize();
 
 private:
-
     /** @brief 現在選択されているマテリアルのインデックス */
     size_t currentMaterialIndex_;
 

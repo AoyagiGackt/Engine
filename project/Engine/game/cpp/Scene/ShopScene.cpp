@@ -14,15 +14,24 @@ using namespace engine::game;
 static const wchar_t* SkillNameJP(RunData::Skill s)
 {
     switch (s) {
-    case RunData::Skill::BlinkPlus:    return L"ブリンク強化";
-    case RunData::Skill::ComboExtend:  return L"コンボ延長";
-    case RunData::Skill::FastFire:     return L"速射";
-    case RunData::Skill::AwakenBoost:  return L"覚醒促進";
-    case RunData::Skill::SpeedUp:      return L"疾走";
-    case RunData::Skill::HighJump:     return L"跳躍強化";
-    case RunData::Skill::JuggleExtend: return L"乱舞強化";
-    case RunData::Skill::StylePersist: return L"スタイル維持";
-    default:                            return L"？？？";
+    case RunData::Skill::BlinkPlus:
+        return L"ブリンク強化";
+    case RunData::Skill::ComboExtend:
+        return L"コンボ延長";
+    case RunData::Skill::FastFire:
+        return L"速射";
+    case RunData::Skill::AwakenBoost:
+        return L"覚醒促進";
+    case RunData::Skill::SpeedUp:
+        return L"疾走";
+    case RunData::Skill::HighJump:
+        return L"跳躍強化";
+    case RunData::Skill::JuggleExtend:
+        return L"乱舞強化";
+    case RunData::Skill::StylePersist:
+        return L"スタイル維持";
+    default:
+        return L"？？？";
     }
 }
 
@@ -30,23 +39,32 @@ static const wchar_t* SkillNameJP(RunData::Skill s)
 static const wchar_t* SkillDescJP(RunData::Skill s)
 {
     switch (s) {
-    case RunData::Skill::BlinkPlus:    return L"ブリンク距離が 1.5倍になる";
-    case RunData::Skill::ComboExtend:  return L"コンボ最大数が 1段階増加";
-    case RunData::Skill::FastFire:     return L"弾の連射速度が 2倍になる";
-    case RunData::Skill::AwakenBoost:  return L"覚醒ゲージの蓄積速度が 1.5倍";
-    case RunData::Skill::SpeedUp:      return L"移動速度が 1.2倍になる";
-    case RunData::Skill::HighJump:     return L"ジャンプ力が 1.25倍になる";
-    case RunData::Skill::JuggleExtend: return L"乱舞スラッシュ回数が 4回増加";
-    case RunData::Skill::StylePersist: return L"スタイルメーターの減衰が 0.6倍";
-    default:                            return L"";
+    case RunData::Skill::BlinkPlus:
+        return L"ブリンク距離が 1.5倍になる";
+    case RunData::Skill::ComboExtend:
+        return L"コンボ最大数が 1段階増加";
+    case RunData::Skill::FastFire:
+        return L"弾の連射速度が 2倍になる";
+    case RunData::Skill::AwakenBoost:
+        return L"覚醒ゲージの蓄積速度が 1.5倍";
+    case RunData::Skill::SpeedUp:
+        return L"移動速度が 1.2倍になる";
+    case RunData::Skill::HighJump:
+        return L"ジャンプ力が 1.25倍になる";
+    case RunData::Skill::JuggleExtend:
+        return L"乱舞スラッシュ回数が 4回増加";
+    case RunData::Skill::StylePersist:
+        return L"スタイルメーターの減衰が 0.6倍";
+    default:
+        return L"";
     }
 }
 
 void ShopScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
+    input_ = input;
+    audio_ = audio;
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
     spriteCommon_->Initialize(dxCommon_);
@@ -68,18 +86,22 @@ void ShopScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     std::vector<RunData::Skill> pool;
     for (int i = 0; i < RunData::kSkillCount; ++i) {
         auto sk = static_cast<RunData::Skill>(i);
-        if (!rd->HasSkill(sk)) { pool.push_back(sk); }
+        if (!rd->HasSkill(sk)) {
+            pool.push_back(sk);
+        }
     }
 
     std::mt19937 rng(static_cast<unsigned>(rd->GetFloor() * 37 + rd->GetSkills().size() * 13 + 7));
     std::shuffle(pool.begin(), pool.end(), rng);
 
     offerCount_ = (std::min)(3, static_cast<int>(pool.size()));
-    for (int i = 0; i < offerCount_; ++i) { offered_[i] = pool[i]; }
+    for (int i = 0; i < offerCount_; ++i) {
+        offered_[i] = pool[i];
+    }
 
-    done_      = false;
+    done_ = false;
     doneTimer_ = 0.0f;
-    chosen_    = -1;
+    chosen_ = -1;
 }
 
 void ShopScene::Finalize()
@@ -98,7 +120,8 @@ void ShopScene::Update()
     }
 
     if (offerCount_ == 0) {
-        done_ = true; doneTimer_ = 1.0f;
+        done_ = true;
+        doneTimer_ = 1.0f;
         return;
     }
 
@@ -108,15 +131,15 @@ void ShopScene::Update()
         if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
             chosen_ = i;
             rd->AddSkill(offered_[i]);
-            done_      = true;
+            done_ = true;
             doneTimer_ = 1.5f;
             return;
         }
     }
 
     if (input_->TriggerKey(DIK_BACK)) {
-        chosen_    = -1;
-        done_      = true;
+        chosen_ = -1;
+        done_ = true;
         doneTimer_ = 0.5f;
     }
 }
@@ -167,7 +190,7 @@ void ShopScene::Draw()
     fontRenderer_.DrawStringW(L"スキルを1つ選んでください", 420.0f, 110.0f, 1.8f, { 0.85f, 0.85f, 0.85f, 1.0f });
 
     // ── スキルカード ──
-    static constexpr float kCardY   = 195.0f;
+    static constexpr float kCardY = 195.0f;
     static constexpr float kCardGap = 360.0f;
     float startX = (GameConstants::kScreenWidth - kCardGap * (offerCount_ - 1) - 340.0f) * 0.5f;
 

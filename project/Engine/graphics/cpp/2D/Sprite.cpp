@@ -2,8 +2,8 @@
 #include "GameConstants.h"
 #include "Logger.h"
 #include "TextureManager.h"
-#include <SrvManager.h>
 #include "WinApp.h"
+#include <SrvManager.h>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -16,7 +16,7 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
 
     // テクスチャ読み込み (TextureManagerに任せる)
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
-    
+
     // 初期サイズをテクスチャサイズに合わせる
     const auto& metadata = TextureManager::GetInstance()->GetMetaData(textureFilePath);
     size_ = { static_cast<float>(metadata.width), static_cast<float>(metadata.height) };
@@ -36,25 +36,25 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     // 左下 (0, 1)
     vertexData[0].position = { 0.0f, 1.0f, 0.5f, 1.0f };
     vertexData[0].texcoord = { 0.0f, 1.0f };
-    vertexData[0].normal   = { 0.0f, 0.0f, -1.0f };
-    vertexData[0].tangent  = { 1.0f, 0.0f,  0.0f };
+    vertexData[0].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[0].tangent = { 1.0f, 0.0f, 0.0f };
     // 左上 (0, 0)
     vertexData[1].position = { 0.0f, 0.0f, 0.5f, 1.0f };
     vertexData[1].texcoord = { 0.0f, 0.0f };
-    vertexData[1].normal   = { 0.0f, 0.0f, -1.0f };
-    vertexData[1].tangent  = { 1.0f, 0.0f,  0.0f };
+    vertexData[1].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[1].tangent = { 1.0f, 0.0f, 0.0f };
     // 右下 (1, 1)
     vertexData[2].position = { 1.0f, 1.0f, 0.5f, 1.0f };
     vertexData[2].texcoord = { 1.0f, 1.0f };
-    vertexData[2].normal   = { 0.0f, 0.0f, -1.0f };
-    vertexData[2].tangent  = { 1.0f, 0.0f,  0.0f };
+    vertexData[2].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[2].tangent = { 1.0f, 0.0f, 0.0f };
     // 左上
     vertexData[3] = vertexData[1];
     // 右上 (1, 0)
     vertexData[4].position = { 1.0f, 0.0f, 0.5f, 1.0f };
     vertexData[4].texcoord = { 1.0f, 0.0f };
-    vertexData[4].normal   = { 0.0f, 0.0f, -1.0f };
-    vertexData[4].tangent  = { 1.0f, 0.0f,  0.0f };
+    vertexData[4].normal = { 0.0f, 0.0f, -1.0f };
+    vertexData[4].tangent = { 1.0f, 0.0f, 0.0f };
     // 右下
     vertexData[5] = vertexData[2];
 
@@ -74,7 +74,8 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 }
 
-void Sprite::SetTexture(const std::string& textureFilePath) {
+void Sprite::SetTexture(const std::string& textureFilePath)
+{
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
     // UV切り出しサイズを新しいテクスチャの全体サイズにリセット
@@ -82,10 +83,11 @@ void Sprite::SetTexture(const std::string& textureFilePath) {
     textureSize_ = { static_cast<float>(metadata.width), static_cast<float>(metadata.height) };
 }
 
-void Sprite::AdjustTextureSize() {
+void Sprite::AdjustTextureSize()
+{
     // テクスチャのメタデータを取得
     const auto& metadata = TextureManager::GetInstance()->GetMetaData(textureFilePath_);
-    
+
     // UV座標空間での開始位置とサイズを計算
     Vector2 uvPos = { textureLeftTop_.x / metadata.width, textureLeftTop_.y / metadata.height };
     Vector2 uvSize = { textureSize_.x / metadata.width, textureSize_.y / metadata.height };
@@ -105,7 +107,7 @@ void Sprite::AdjustTextureSize() {
     Matrix4x4 uvMatrix = MakeIdentity4x4();
     uvMatrix = Multiply(uvMatrix, MakeScaleMatrix({ uvSize.x, uvSize.y, 1.0f }));
     uvMatrix = Multiply(uvMatrix, MakeTranslateMatrix({ uvPos.x, uvPos.y, 0.0f }));
-    
+
     materialData_->uvTransform = uvMatrix;
 }
 
@@ -155,7 +157,7 @@ void Sprite::Draw()
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
     // 座標変換
     commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
-    
+
     // テクスチャ (TextureManagerからハンドルを取得してセット)
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);

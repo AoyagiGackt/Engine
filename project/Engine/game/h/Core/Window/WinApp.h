@@ -14,7 +14,6 @@ namespace engine {
  */
 class WinApp {
 public:
-
     /**
      * @brief ウィンドウプロシージャ（静的メンバ関数）
      * @param hwnd ウィンドウハンドル
@@ -27,32 +26,31 @@ public:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 public: // メンバ関数
-    
     /**
      * @brief ウィンドウシステムの初期化
      * @note ウィンドウクラスの登録を行い、指定された解像度でウィンドウを表示します
      */
     void Initialize();
-    
+
     /**
      * @brief ウィンドウの更新処理
      * @note 本エンジンではメッセージ処理を ProcessMessage() で行っているため、
      * 拡張用の空関数として用意されています
      */
     void Update();
-    
+
     /**
      * @brief ウィンドウシステムの終了処理
      * @note 登録したウィンドウクラスの解除（UnregisterClass）などを行います
      */
     void Finalize();
-    
+
     /** @brief ウィンドウハンドルの取得 */
     HWND GetHwnd() const { return hwnd; }
 
     /** @brief インスタンスハンドルの取得 */
     HINSTANCE GetHInstance() const { return wc.hInstance; }
-    
+
     /**
      * @brief Windowsメッセージを処理する
      * @return bool 終了メッセージ(WM_QUIT)を受け取った場合は true を返す
@@ -75,7 +73,6 @@ public: // メンバ関数
     void SetResizeCallback(ResizeCallback callback) { resizeCallback_ = std::move(callback); }
 
 public: // 定数
-
     /** @brief ウィンドウ領域の幅（1280px） */
     static const int32_t kClientWidth = 1280;
 
@@ -83,12 +80,11 @@ public: // 定数
     static const int32_t kClientHeight = 720;
 
 private:
-
     /** @brief OSから発行されるウィンドウ識別用のハンドル */
     HWND hwnd = nullptr;
 
     /** @brief ウィンドウクラスの設定情報 */
-    WNDCLASSW wc = {};
+    WNDCLASSW wc = { };
 
     /** @brief 現在フルスクリーンかどうか */
     bool isFullscreen_ = false;

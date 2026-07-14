@@ -21,9 +21,9 @@ void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
 {
     for (auto& s : slots_) {
         if (!s.active) {
-            s.pos    = pos;
-            s.vel    = vel;
-            s.life   = 90.0f;
+            s.pos = pos;
+            s.vel = vel;
+            s.life = 90.0f;
             s.active = true;
             s.obj->SetPosition(pos);
             s.obj->Update();
@@ -35,15 +35,15 @@ void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
 void BulletPool::Update()
 {
     for (auto& s : slots_) {
-        if (!s.active) { continue; }
+        if (!s.active) {
+            continue;
+        }
 
         s.pos.x += s.vel.x;
         s.pos.y += s.vel.y;
-        s.life  -= 1.0f;
+        s.life -= 1.0f;
 
-        if (s.pos.x < 2.0f || s.pos.x > 28.0f ||
-            s.pos.y < -1.0f || s.pos.y > 14.0f ||
-            s.life <= 0.0f) {
+        if (s.pos.x < 2.0f || s.pos.x > 28.0f || s.pos.y < -1.0f || s.pos.y > 14.0f || s.life <= 0.0f) {
             s.active = false;
             continue;
         }
@@ -56,13 +56,17 @@ void BulletPool::Update()
 void BulletPool::RefreshVisualTransforms()
 {
     for (auto& s : slots_) {
-        if (s.active) { s.obj->Update(); }
+        if (s.active) {
+            s.obj->Update();
+        }
     }
 }
 
 void BulletPool::Draw()
 {
     for (const auto& s : slots_) {
-        if (s.active) { s.obj->Draw(); }
+        if (s.active) {
+            s.obj->Draw();
+        }
     }
 }

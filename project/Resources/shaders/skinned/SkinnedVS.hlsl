@@ -19,10 +19,10 @@ cbuffer SkinningPalette : register(b1)
 
 struct VertexShaderInput
 {
-    float4 position    : POSITION0;
-    float2 texcoord    : TEXCOORD0;
-    float3 normal      : NORMAL0;
-    uint4  boneIndices : BLENDINDICES0;
+    float4 position : POSITION0;
+    float2 texcoord : TEXCOORD0;
+    float3 normal : NORMAL0;
+    uint4 boneIndices : BLENDINDICES0;
     float4 boneWeights : BLENDWEIGHT0;
 };
 
@@ -39,14 +39,14 @@ VertexShaderOutput main(VertexShaderInput input)
         weights.z * gMatrixPalette[input.boneIndices.z] +
         weights.w * gMatrixPalette[input.boneIndices.w];
 
-    float4 skinnedPos    = mul(input.position, skinMatrix);
-    float3 skinnedNormal = mul(input.normal, (float3x3)skinMatrix);
+    float4 skinnedPos = mul(input.position, skinMatrix);
+    float3 skinnedNormal = mul(input.normal, (float3x3) skinMatrix);
 
-    VertexShaderOutput output = (VertexShaderOutput)0;
-    output.position      = mul(skinnedPos, gTransformationMatrix.WVP);
-    output.texcoord      = input.texcoord;
-    output.normal        = normalize(mul(skinnedNormal, (float3x3)gTransformationMatrix.World));
-    output.worldPos      = mul(skinnedPos, gTransformationMatrix.World).xyz;
+    VertexShaderOutput output = (VertexShaderOutput) 0;
+    output.position = mul(skinnedPos, gTransformationMatrix.WVP);
+    output.texcoord = input.texcoord;
+    output.normal = normalize(mul(skinnedNormal, (float3x3) gTransformationMatrix.World));
+    output.worldPos = mul(skinnedPos, gTransformationMatrix.World).xyz;
     output.lightSpacePos = mul(skinnedPos, gTransformationMatrix.LightVP);
     return output;
 }

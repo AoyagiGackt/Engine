@@ -1,8 +1,8 @@
-#include <Windows.h>
 #include "CrashHandler.h"
-#include "Game.h"
 #include "D3DResourceLeakChecker.h"
+#include "Game.h"
 #include "Logger.h"
+#include <Windows.h>
 #include <memory>
 using namespace engine;
 using namespace engine::graphics;

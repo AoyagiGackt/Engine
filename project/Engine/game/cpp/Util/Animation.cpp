@@ -1,8 +1,8 @@
 #include "Animation.h"
+#include "EngineAssert.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include "EngineAssert.h"
 #include <cmath>
 using namespace engine;
 
@@ -28,7 +28,9 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
         for (uint32_t i = 0; i < scene->mNumAnimations; ++i) {
             std::string name = scene->mAnimations[i]->mName.C_Str();
             auto barPos = name.find_last_of('|');
-            if (barPos != std::string::npos) { name = name.substr(barPos + 1); }
+            if (barPos != std::string::npos) {
+                name = name.substr(barPos + 1);
+            }
             if (name == animationName) {
                 animationAssimp = scene->mAnimations[i];
                 break;

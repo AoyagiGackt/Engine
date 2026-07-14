@@ -1,8 +1,8 @@
 ﻿#include "MapChipField.h"
-#include <fstream>
-#include <sstream>
-#include <random>
 #include <cmath>
+#include <fstream>
+#include <random>
+#include <sstream>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -43,7 +43,7 @@ void MapChipField::Initialize(ModelCommon* modelCommon, const std::vector<Model*
     std::random_device rd;
     gen_.seed(rd());
     distChance_ = std::uniform_int_distribution<int>(0, 99);
-    distShape_  = std::uniform_int_distribution<int>(0, 17);
+    distShape_ = std::uniform_int_distribution<int>(0, 17);
 
     coolTime_ = 0;
     currentShape_.clear();
@@ -86,10 +86,9 @@ void MapChipField::Update(float speedMultiplier, float waveStrength)
             float waveOffset = std::sinf(newX * 0.8f + waveTime_) * waveStrength_ * 0.4f;
             Vector3 wavePos = { newX, chipBaseY_[i] + waveOffset, 0.0f };
             (*it)->SetLocalMatrix(MakeAffineMatrix(
-                Vector3{ 1.0f, 1.0f, 1.0f },
-                Vector3{ 0.0f, 0.0f, 0.0f },
-                wavePos
-            ));
+                Vector3 { 1.0f, 1.0f, 1.0f },
+                Vector3 { 0.0f, 0.0f, 0.0f },
+                wavePos));
         } else {
             (*it)->ClearLocalMatrix();
         }
@@ -149,7 +148,6 @@ void MapChipField::DrawShadow()
     }
 }
 
-
 std::vector<MapChipField::ColumnProfile> MapChipField::PickRandomShape()
 {
     // 地面系（offsetY=0-1, height<=2）と浮き系（offsetY>=2）を混在させる
@@ -157,44 +155,44 @@ std::vector<MapChipField::ColumnProfile> MapChipField::PickRandomShape()
     switch (distShape_(gen_)) {
     // ===== 地面系 =====
     case 0: // 低い壁 × 1列
-        return { {0,1} };
+        return { { 0, 1 } };
     case 1: // 中壁 × 2列
-        return { {0,2}, {0,2} };
+        return { { 0, 2 }, { 0, 2 } };
     case 2: // 階段上り（低→高）
-        return { {0,1}, {0,2} };
+        return { { 0, 1 }, { 0, 2 } };
     case 3: // 階段下り（高→低）
-        return { {0,2}, {0,1} };
+        return { { 0, 2 }, { 0, 1 } };
     case 4: // ピラミッド（低・高・低）
-        return { {0,1}, {0,2}, {0,1} };
+        return { { 0, 1 }, { 0, 2 }, { 0, 1 } };
     case 5: // 凸凹（battlements）× 4列
-        return { {0,2}, {0,1}, {0,2}, {0,1} };
+        return { { 0, 2 }, { 0, 1 }, { 0, 2 }, { 0, 1 } };
     case 6: // L字風（地面壁 + 上に浮き）
-        return { {0,2}, {0,1}, {2,1} };
+        return { { 0, 2 }, { 0, 1 }, { 2, 1 } };
     case 7: // 小ブロック × 2
-        return { {0,1}, {0,1} };
+        return { { 0, 1 }, { 0, 1 } };
 
     // ===== 浮き系（offsetY>=2 → 底がy=3以上、下を走り抜けられる）=====
     case 8: // 低浮き × 3（横に長いプラットフォーム）
-        return { {2,1}, {2,1}, {2,1} };
+        return { { 2, 1 }, { 2, 1 }, { 2, 1 } };
     case 9: // 高浮き × 2
-        return { {3,2}, {3,2} };
+        return { { 3, 2 }, { 3, 2 } };
     case 10: // 浮き上り階段（低→中→高）
-        return { {2,1}, {3,1}, {4,1} };
+        return { { 2, 1 }, { 3, 1 }, { 4, 1 } };
     case 11: // 浮き下り階段（高→中→低）
-        return { {4,1}, {3,1}, {2,1} };
+        return { { 4, 1 }, { 3, 1 }, { 2, 1 } };
     case 12: // 浮き山形（低・高・低）
-        return { {2,1}, {3,1}, {2,1} };
+        return { { 2, 1 }, { 3, 1 }, { 2, 1 } };
     case 13: // 浮き千鳥（高低交互）× 4列
-        return { {2,1}, {3,1}, {2,1}, {3,1} };
+        return { { 2, 1 }, { 3, 1 }, { 2, 1 }, { 3, 1 } };
     case 14: // ワイド低浮き × 5列
-        return { {2,1}, {2,1}, {2,1}, {2,1}, {2,1} };
+        return { { 2, 1 }, { 2, 1 }, { 2, 1 }, { 2, 1 }, { 2, 1 } };
     case 15: // 二段浮き × 3列（厚みのあるプラットフォーム）
-        return { {2,2}, {2,2}, {2,2} };
+        return { { 2, 2 }, { 2, 2 }, { 2, 2 } };
     case 16: // 高低浮き交互（谷型）
-        return { {3,1}, {2,1}, {3,1} };
+        return { { 3, 1 }, { 2, 1 }, { 3, 1 } };
     case 17: // 単独高浮き（1列だけ高いところに）
     default:
-        return { {4,2} };
+        return { { 4, 2 } };
     }
 }
 
@@ -244,7 +242,7 @@ void MapChipField::GenerateColumn(float x)
     if (shapeStep_ < (int)currentShape_.size()) {
         spawnColumn(currentShape_[shapeStep_]);
         shapeStep_++;
-        
+
         if (shapeStep_ >= (int)currentShape_.size()) {
             coolTime_ = 4;
             currentShape_.clear();
@@ -259,7 +257,7 @@ void MapChipField::GenerateColumn(float x)
         shapeStep_ = 0;
         spawnColumn(currentShape_[shapeStep_]);
         shapeStep_++;
-        
+
         if (shapeStep_ >= (int)currentShape_.size()) {
             coolTime_ = 4;
             currentShape_.clear();

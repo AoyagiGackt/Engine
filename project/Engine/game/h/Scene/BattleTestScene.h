@@ -15,8 +15,8 @@
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
 #include "GlassShatterEffect.h"
-#include "ImageFilter.h"
 #include "ImGuiManager.h"
+#include "ImageFilter.h"
 #include "Input.h"
 #include "KnightEnemy.h"
 #include "MeshSliceEffect.h"
@@ -28,11 +28,11 @@
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
-#include "StageEditor.h"
 #include "SpaceDistortionEffect.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "SrvManager.h"
+#include "StageEditor.h"
 #include "StyleMeter.h"
 #include "WeaponManager.h"
 namespace engine::graphics {
@@ -42,15 +42,15 @@ class HsvFilter;
 
 namespace engine::game {
 using engine::Audio;
+using engine::DirectXCommon;
+using engine::Input;
 using engine::graphics::BladeFlashEffect;
 using engine::graphics::Camera;
-using engine::DirectXCommon;
 using engine::graphics::GlassShatterEffect;
-using engine::graphics::ImageFilter;
 using engine::graphics::GrayscaleEffect;
 using engine::graphics::HsvFilter;
+using engine::graphics::ImageFilter;
 using engine::graphics::ImGuiManager;
-using engine::Input;
 using engine::graphics::MeshSliceEffect;
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
@@ -80,16 +80,16 @@ private:
     // 訓練用マネキン（動かない敵）
     struct Dummy {
         std::unique_ptr<Object3d> object;
-        Vector3  pos;
-        Vector3  homePos;
-        float    hp;
-        float    maxHp;
-        float    hitFlash    = 0.0f; // 被弾時の白フラッシュタイマー
-        float    hpDisplay_  = 1.0f; // HP バー表示用（0→1 に回復する演出値）
-        float    knockVelX   = 0.0f;
-        float    knockVelY   = 0.0f;
-        float    returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
-        bool     sliced      = false; // 切断演出中は本体モデルを非表示にする
+        Vector3 pos;
+        Vector3 homePos;
+        float hp;
+        float maxHp;
+        float hitFlash = 0.0f; // 被弾時の白フラッシュタイマー
+        float hpDisplay_ = 1.0f; // HP バー表示用（0→1 に回復する演出値）
+        float knockVelX = 0.0f;
+        float knockVelY = 0.0f;
+        float returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
+        bool sliced = false; // 切断演出中は本体モデルを非表示にする
 
         // HP バー用スプライト
         std::unique_ptr<Sprite> hpBarBg;
@@ -150,19 +150,19 @@ private:
     /// @brief 武器一覧と戻りポータルのラベルを描画する
     void DrawWeaponHud(bool nearReturnPortal);
 
-    DirectXCommon* dxCommon_     = nullptr;
-    Input*         input_        = nullptr;
-    Audio*         audio_        = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
-    SrvManager*    srvManager_   = nullptr;
-    ParticleManager* pm_         = nullptr;
+    DirectXCommon* dxCommon_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
+    ParticleManager* pm_ = nullptr;
 
     GrayscaleEffect* grayscaleEffect_ = nullptr;
-    ImageFilter*     imageFilter_     = nullptr;
-    HsvFilter*       hsvFilter_       = nullptr;
+    ImageFilter* imageFilter_ = nullptr;
+    HsvFilter* hsvFilter_ = nullptr;
 
-    GlassShatterEffect       glassShatter_;
-    std::unique_ptr<Sprite>  glassShatterBgSprite_;
+    GlassShatterEffect glassShatter_;
+    std::unique_ptr<Sprite> glassShatterBgSprite_;
 
     /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
     GlassShatterEffect finisherShatter_;
@@ -174,39 +174,41 @@ private:
     /** @brief 解放時にダミーを切断破片へ差し替える演出 */
     MeshSliceEffect dummySlice_;
 
-    std::unique_ptr<SpriteCommon>    spriteCommon_;
-    std::unique_ptr<ModelCommon>     modelCommon_;
-    std::unique_ptr<Object3dCommon>  objectCommon_;
-    std::unique_ptr<ShadowManager>   shadowManager_;
-    std::unique_ptr<Camera>          camera_;
+    std::unique_ptr<SpriteCommon> spriteCommon_;
+    std::unique_ptr<ModelCommon> modelCommon_;
+    std::unique_ptr<Object3dCommon> objectCommon_;
+    std::unique_ptr<ShadowManager> shadowManager_;
+    std::unique_ptr<Camera> camera_;
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
-    std::unique_ptr<Model>                  modelBlock_;
+    std::unique_ptr<Model> modelBlock_;
 
     // ステージ上の配置オブジェクト・トリガーの読み込み/描画/実行時編集（F2で開く）
     StageEditor stageEditor_;
 
     // ワープポータル（トレーニングルームへ戻る）
-    std::vector<std::unique_ptr<Object3d>>  warpPortalBlocks_;
+    std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
 
     // プレイヤー
     std::unique_ptr<Player> player_;
 
     // 訓練マネキン
-    std::unique_ptr<Model>   modelDummy_;
-    std::vector<Dummy>       dummies_;
+    std::unique_ptr<Model> modelDummy_;
+    std::vector<Dummy> dummies_;
 
     // 剣を持つナイト敵（撃破→凍結→武器奪取のお試し実装）
     std::unique_ptr<KnightEnemy> knight_;
 
     // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
-    enum class LockTargetKind { None, Dummy, Knight };
-    LockTargetKind lockedKind_       = LockTargetKind::None;
-    size_t         lockedDummyIndex_ = 0;
+    enum class LockTargetKind { None,
+        Dummy,
+        Knight };
+    LockTargetKind lockedKind_ = LockTargetKind::None;
+    size_t lockedDummyIndex_ = 0;
 
     // 武器
     WeaponManager* weaponManager_ = nullptr;
-    float weaponCycleTimer_  = 0.0f;
+    float weaponCycleTimer_ = 0.0f;
 
     // 弾丸
     BulletPool bulletPool_;
@@ -224,22 +226,22 @@ private:
     // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
     struct WeaponSlotUI {
         std::unique_ptr<Sprite> frame; // 枠背景
-        std::unique_ptr<Sprite> icon;  // スタイルカラーで塗った中身
+        std::unique_ptr<Sprite> icon; // スタイルカラーで塗った中身
     };
-    static constexpr int   kWeaponSlotCount    = 7;
-    static constexpr float kSlotFlashDuration  = 0.35f;
+    static constexpr int kWeaponSlotCount = 7;
+    static constexpr float kSlotFlashDuration = 0.35f;
     std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
-    std::array<Vector2, kWeaponSlotCount>      weaponSlotPos_;
+    std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
 
     // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
     // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
     struct WeaponIcon3D {
-        std::unique_ptr<Model>    model;
+        std::unique_ptr<Model> model;
         std::unique_ptr<Object3d> object;
-        int   slotIndex = -1;  // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
+        int slotIndex = -1; // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
         float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
-        float scale      = 0.2f;  // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
-        float baseYaw    = 0.0f;  // モデルの「正面」がカメラを向くよう調整する基準角度（要目視調整）
+        float scale = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+        float baseYaw = 0.0f; // モデルの「正面」がカメラを向くよう調整する基準角度（要目視調整）
     };
     std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
 
@@ -249,12 +251,12 @@ private:
     // 常時装備の拳銃アイコン（4スロットとは別枠、アイドル時にゆっくり回転する）
     std::unique_ptr<Sprite> gunFrame_;
     std::unique_ptr<Sprite> gunIcon_;
-    Vector2 gunPos_       = {};
-    float   gunIconAngle_ = 0.0f;
+    Vector2 gunPos_ = { };
+    float gunIconAngle_ = 0.0f;
 
     // フィニッシャースラッシュ演出の進行状態
-    bool  finisherActive_    = false;
-    int   finisherLineIdx_   = 0;
+    bool finisherActive_ = false;
+    int finisherLineIdx_ = 0;
     float finisherBeatTimer_ = 0.0f;
 
     /** @brief 大技演出中の画面暗転オーバーレイ */

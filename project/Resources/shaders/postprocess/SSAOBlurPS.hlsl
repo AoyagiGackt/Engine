@@ -1,6 +1,6 @@
 // SSAO Blur PS: 4x4 ボックスブラー
-Texture2D<float4> gSSAO    : register(t0);
-SamplerState      gSampler : register(s0);
+Texture2D<float4> gSSAO : register(t0);
+SamplerState gSampler : register(s0);
 
 cbuffer BlurParams : register(b0)
 {

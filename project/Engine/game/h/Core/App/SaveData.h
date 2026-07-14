@@ -11,21 +11,21 @@ namespace engine::game {
 struct ContinueData {
     bool valid = false; ///< コンティニューデータが存在するか
 
-    int hp     = 0; ///< 保存時点のHP
-    int maxHp  = 0; ///< 保存時点の最大HP
-    int gold   = 0; ///< 保存時点のゴールド
-    int floor  = 0; ///< 保存時点のフロア番号
+    int hp = 0; ///< 保存時点のHP
+    int maxHp = 0; ///< 保存時点の最大HP
+    int gold = 0; ///< 保存時点のゴールド
+    int floor = 0; ///< 保存時点のフロア番号
 
     RunData::NodeType currentNode = RunData::NodeType::Combat; ///< 保存時点のノード種別
-    std::vector<RunData::Skill> skills;                        ///< 習得済みスキル一覧
+    std::vector<RunData::Skill> skills; ///< 習得済みスキル一覧
 };
 
 /** @brief タイトル画面等で参照する通算記録 */
 struct SaveRecords {
-    int       bestFloorReached = 0; ///< 過去最高到達フロア
-    int       totalRuns        = 0; ///< 累計プレイ回数
-    int       totalClears      = 0; ///< 累計クリア回数
-    long long totalGoldEarned  = 0; ///< 累計獲得ゴールド
+    int bestFloorReached = 0; ///< 過去最高到達フロア
+    int totalRuns = 0; ///< 累計プレイ回数
+    int totalClears = 0; ///< 累計クリア回数
+    long long totalGoldEarned = 0; ///< 累計獲得ゴールド
 };
 
 /**
@@ -73,7 +73,7 @@ private:
     SaveDataManager() = default;
 
     ContinueData continue_;
-    SaveRecords  records_;
+    SaveRecords records_;
 
     static constexpr const char* kFilePath = "save/save.json";
 };

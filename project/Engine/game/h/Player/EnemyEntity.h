@@ -42,24 +42,35 @@ public:
      * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
      * @param dmg 与えるダメージ量（デフォルト 1）
      */
-    void TakeDamage(int dmg = 1) {
-        if (defeated_) { return; }
+    void TakeDamage(int dmg = 1)
+    {
+        if (defeated_) {
+            return;
+        }
         hp_ -= dmg;
-        if (hp_ <= 0) { hp_ = 0; defeated_ = true; }
+        if (hp_ <= 0) {
+            hp_ = 0;
+            defeated_ = true;
+        }
     }
 
     /**
      * @brief 最大 HP を設定し、現在 HP をリセットする
      * @param v 設定する最大 HP 値
      */
-    void SetMaxHp(int v)   { maxHp_ = v; hp_ = v; defeated_ = false; }
+    void SetMaxHp(int v)
+    {
+        maxHp_ = v;
+        hp_ = v;
+        defeated_ = false;
+    }
 
     /** @brief 撃破済みかどうかを返す */
     bool IsDefeated() const { return defeated_; }
     /** @brief 現在の HP を返す */
-    int  GetHp()      const { return hp_; }
+    int GetHp() const { return hp_; }
     /** @brief 最大 HP を返す */
-    int  GetMaxHp()   const { return maxHp_; }
+    int GetMaxHp() const { return maxHp_; }
 
     /**
      * @brief 本体モデルの表示/非表示を切り替える（切断演出中に非表示にする用）
@@ -73,29 +84,29 @@ public:
     Model* GetModel() const { return model_.get(); }
 
     /** @brief このフレームに着地したか */
-    bool           JustLanded()  const { return justLanded_; }
+    bool JustLanded() const { return justLanded_; }
     /** @brief 打ち上げ中かどうか */
-    bool           IsLaunched()  const { return isLaunched_; }
+    bool IsLaunched() const { return isLaunched_; }
     /** @brief 現在のワールド座標を返す */
     const Vector3& GetPosition() const { return pos_; }
 
 private:
-    static constexpr float kGroundY_  = 0.4f;
+    static constexpr float kGroundY_ = 0.4f;
     static constexpr float kCeilingY_ = 12.5f;
-    static constexpr float kGravity_  = 0.015f;
+    static constexpr float kGravity_ = 0.015f;
 
-    std::unique_ptr<Model>    model_;
+    std::unique_ptr<Model> model_;
     std::unique_ptr<Object3d> object_;
 
-    int     maxHp_      = 20;
-    int     hp_         = 20;
-    bool    defeated_   = false;
-    bool    visible_    = true;
+    int maxHp_ = 20;
+    int hp_ = 20;
+    bool defeated_ = false;
+    bool visible_ = true;
 
-    Vector3 pos_        = {};
-    float   velY_       = 0.0f;
-    bool    isLaunched_ = false;
-    bool    justLanded_ = false;
+    Vector3 pos_ = { };
+    float velY_ = 0.0f;
+    bool isLaunched_ = false;
+    bool justLanded_ = false;
 };
 
 } // namespace engine::game

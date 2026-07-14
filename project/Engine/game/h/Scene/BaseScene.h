@@ -10,8 +10,8 @@
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::ImGuiManager;
 
 /**
  * @brief 全てのシーンの抽象基底クラス
@@ -20,7 +20,6 @@ using engine::Input;
  */
 class BaseScene {
 public:
-
     /**
      * @brief 仮想デストラクタ
      */
@@ -61,7 +60,7 @@ public:
     virtual bool IsFinished() const { return false; }
 
     /** @brief ImGuiManagerを受け取る（デバッグUIが必要なシーンのみオーバーライド） */
-    virtual void SetImGuiManager(ImGuiManager*) {}
+    virtual void SetImGuiManager(ImGuiManager*) { }
 
     /**
      * @brief グレースケール／イメージフィルター／HSVフィルターのオフスクリーンRTVリダイレクトに対応しているか

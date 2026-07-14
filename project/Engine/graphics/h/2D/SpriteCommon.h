@@ -16,7 +16,6 @@ namespace engine::graphics {
  */
 class SpriteCommon {
 public:
-
     /**
      * @brief 2D描画共通設定の初期化PSOの生成やルートシグネチャの作成を行う
      * @param dxCommon DirectX基盤のポインタ（デバイスやコマンドリストの取得用）
@@ -31,16 +30,16 @@ public:
 
     /** @brief DirectX基盤のポインタを取得する */
     engine::DirectXCommon* GetDxCommon() const { return dxCommon_; }
-    
+
     /** @brief DirectX12デバイスを取得する */
     ID3D12Device* GetDevice() const { return dxCommon_->GetDevice(); }
-    
+
     /** @brief 現在のグラフィックスコマンドリストを取得する */
     ID3D12GraphicsCommandList* GetCommandList() const { return dxCommon_->GetCommandList(); }
-    
+
     /** @brief 2D用のルートシグネチャを取得する */
     ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
-    
+
     /** @brief 2D用のパイプラインステートオブジェクトを取得する */
     ID3D12PipelineState* GetPipelineState() const { return graphicsPipelineState_.Get(); }
 

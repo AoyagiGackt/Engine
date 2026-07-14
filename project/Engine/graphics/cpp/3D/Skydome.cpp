@@ -28,7 +28,7 @@ void Skydome::Update(Camera* camera)
 
 void Skydome::Draw()
 {
-     if (object_) {
+    if (object_) {
         object_->Draw();
     }
 }

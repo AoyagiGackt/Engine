@@ -9,8 +9,8 @@ using namespace engine::game;
 void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
+    input_ = input;
+    audio_ = audio;
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
     spriteCommon_->Initialize(dxCommon_);

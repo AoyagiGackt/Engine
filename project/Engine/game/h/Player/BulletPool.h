@@ -31,16 +31,16 @@ public:
     /** @brief 弾を動かさず、現在のカメラで行列だけ再計算する（ステージエディタ中のカメラ移動用） */
     void RefreshVisualTransforms();
 
-    bool           IsActive(int i)  const { return slots_[i].active; }
-    const Vector3& GetPos(int i)    const { return slots_[i].pos; }
-    const Vector3& GetVel(int i)    const { return slots_[i].vel; }
+    bool IsActive(int i) const { return slots_[i].active; }
+    const Vector3& GetPos(int i) const { return slots_[i].pos; }
+    const Vector3& GetVel(int i) const { return slots_[i].vel; }
 
 private:
     struct Slot {
-        Vector3 pos    = {};
-        Vector3 vel    = {};
-        float   life   = 0.0f;
-        bool    active = false;
+        Vector3 pos = { };
+        Vector3 vel = { };
+        float life = 0.0f;
+        bool active = false;
         std::unique_ptr<Object3d> obj;
     };
 

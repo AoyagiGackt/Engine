@@ -7,9 +7,9 @@ namespace engine {
 class GameTime {
 public:
     // 開始時刻（18:00）を分に換算
-    static constexpr int kStartMinutes = 18 * 60;   // 1080
+    static constexpr int kStartMinutes = 18 * 60; // 1080
     // 終了時刻（翌 6:00）を分に換算（24時間超え表現）
-    static constexpr int kEndMinutes   = 30 * 60;   // 1800
+    static constexpr int kEndMinutes = 30 * 60; // 1800
     // ゲーム内で進める合計分数
     static constexpr float kTotalGameMinutes = float(kEndMinutes - kStartMinutes); // 720
 

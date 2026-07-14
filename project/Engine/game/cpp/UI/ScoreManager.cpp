@@ -41,7 +41,9 @@ void ScoreManager::LoadScores()
 {
     ranking_.clear();
     std::ifstream file(kSaveFile);
-    if (!file.is_open()) { return; }
+    if (!file.is_open()) {
+        return;
+    }
     int score;
     while (file >> score) {
         ranking_.push_back(score);

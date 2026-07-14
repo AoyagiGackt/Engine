@@ -12,9 +12,9 @@ public:
     void Update();
 
     // timers や物理に渡す dt（ヒットストップ中=0, 通常=1/60, スロー=比例値）
-    float GetDeltaTime()  const;
-    float GetTimeScale()  const { return timeScale_; }
-    bool  IsHitStopped()  const { return hitStopFrames_ > 0; }
+    float GetDeltaTime() const;
+    float GetTimeScale() const { return timeScale_; }
+    bool IsHitStopped() const { return hitStopFrames_ > 0; }
 
     // 0.0=完全停止 / 0.5=スロー / 1.0=通常
     void SetTimeScale(float scale);
@@ -26,8 +26,8 @@ public:
 
 private:
     TimeManager() = default;
-    float timeScale_     = 1.0f;
-    int   hitStopFrames_ = 0;
+    float timeScale_ = 1.0f;
+    int hitStopFrames_ = 0;
 };
 
 } // namespace engine

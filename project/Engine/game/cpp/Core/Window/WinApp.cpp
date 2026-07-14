@@ -15,13 +15,13 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg
 LRESULT CALLBACK WinApp::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 
-    #ifdef USE_IMGUI
+#ifdef USE_IMGUI
 
     if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam)) {
         return true;
     }
 
-    #endif
+#endif
 
     // メッセージに応じてゲーム固有の処理を行う
     switch (uMsg) {
@@ -33,11 +33,13 @@ LRESULT CALLBACK WinApp::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
     case WM_SIZE: {
         // 最小化中（クライアント領域が0x0になる）はリサイズ処理をスキップする
-        if (wParam == SIZE_MINIMIZED) { break; }
+        if (wParam == SIZE_MINIMIZED) {
+            break;
+        }
 
         auto* self = reinterpret_cast<WinApp*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (self && self->resizeCallback_) {
-            const int32_t width  = static_cast<int32_t>(LOWORD(lParam));
+            const int32_t width = static_cast<int32_t>(LOWORD(lParam));
             const int32_t height = static_cast<int32_t>(HIWORD(lParam));
             self->resizeCallback_(width, height);
         }
@@ -57,7 +59,7 @@ void WinApp::Initialize()
     HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
 
     // WNDCLASSWを使用
-    WNDCLASSW wc = {};
+    WNDCLASSW wc = { };
 
     // ウィンドクラスプロシージャ
     wc.lpfnWndProc = WindowProc;
@@ -77,15 +79,14 @@ void WinApp::Initialize()
     // メンバ変数のwcにコピーしておく
     this->wc = wc;
 
-
     // ウィンドウサイズ（クライアント領域が 1280x720）
     RECT wr = { 0, 0, kClientWidth, kClientHeight };
     AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-    int winWidth  = wr.right - wr.left;
+    int winWidth = wr.right - wr.left;
     int winHeight = wr.bottom - wr.top;
-    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int posX = (screenWidth  - winWidth)  / 2;
+    int posX = (screenWidth - winWidth) / 2;
     int posY = (screenHeight - winHeight) / 2;
 
     hwnd = CreateWindowW(
@@ -94,14 +95,13 @@ void WinApp::Initialize()
         WS_OVERLAPPEDWINDOW, // 通常ウィンドウ
         posX, // 表示x座標（画面中央）
         posY, // 表示y座標（画面中央）
-        winWidth,  // ウィンドウ横幅
+        winWidth, // ウィンドウ横幅
         winHeight, // ウィンドウ縦幅
         nullptr, // 親ウィンドウハンドル
         nullptr, // メニューハンドル
         wc.hInstance, // インスタンスハンドル
         nullptr // オプション
     );
-
 
     // WindowProc（static関数）から自分自身を参照できるようにしておく（WM_SIZE等で使用）
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
@@ -129,7 +129,7 @@ void WinApp::ToggleFullscreen()
 
     if (isFullscreen_) {
         // ボーダーレスフルスクリーンへ
-        int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
         int screenHeight = GetSystemMetrics(SM_CYSCREEN);
         SetWindowLongW(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
         SetWindowPos(hwnd, HWND_TOP, 0, 0, screenWidth, screenHeight, SWP_FRAMECHANGED | SWP_NOACTIVATE);
@@ -138,11 +138,11 @@ void WinApp::ToggleFullscreen()
         // ウィンドウモードへ（1280x720、画面中央）
         RECT wr = { 0, 0, kClientWidth, kClientHeight };
         AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-        int winWidth  = wr.right - wr.left;
+        int winWidth = wr.right - wr.left;
         int winHeight = wr.bottom - wr.top;
-        int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
         int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-        int posX = (screenWidth  - winWidth)  / 2;
+        int posX = (screenWidth - winWidth) / 2;
         int posY = (screenHeight - winHeight) / 2;
         SetWindowLongW(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
         SetWindowPos(hwnd, HWND_TOP, posX, posY, winWidth, winHeight, SWP_FRAMECHANGED | SWP_NOACTIVATE);
@@ -152,7 +152,7 @@ void WinApp::ToggleFullscreen()
 
 bool WinApp::ProcessMessage()
 {
-    MSG msg {};
+    MSG msg { };
 
     if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         TranslateMessage(&msg);

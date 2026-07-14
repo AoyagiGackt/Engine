@@ -23,20 +23,20 @@ public:
     struct OutputVertex {
         float position[4]; // 16 バイト
         float texcoord[2]; //  8 バイト
-        float normal[3];   // 12 バイト
-                           // 合計: 36 バイト
+        float normal[3]; // 12 バイト
+                         // 合計: 36 バイト
     };
 
     // inputBuffer : SkinnedModel::GetVertexResource() を渡す (GENERIC_READ 状態)
     // vertexCount : SkinnedModel::GetVertexCount()
     void Initialize(engine::DirectXCommon* dxCommon,
-                    ID3D12Resource* inputBuffer,
-                    UINT vertexCount);
+        ID3D12Resource* inputBuffer,
+        UINT vertexCount);
 
     // スキニング計算を Dispatch するDraw() より前に呼ぶこと
     // paletteCBAddress : paletteCB_->GetGPUVirtualAddress()
     void Dispatch(ID3D12GraphicsCommandList* cmd,
-                  D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress);
+        D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress);
 
     // 計算済み頂点バッファのビューを返すIASetVertexBuffers に渡す
     const D3D12_VERTEX_BUFFER_VIEW& GetOutputVBV() const { return outputVBV_; }
@@ -47,10 +47,10 @@ private:
 
     // CS 出力バッファ (DEFAULT heap, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
     Microsoft::WRL::ComPtr<ID3D12Resource> outputBuffer_;
-    D3D12_VERTEX_BUFFER_VIEW               outputVBV_{};
+    D3D12_VERTEX_BUFFER_VIEW outputVBV_ { };
 
     D3D12_GPU_VIRTUAL_ADDRESS inputGpuVA_ = 0; // 入力バッファの GPU VA
-    UINT                      vertexCount_ = 0;
+    UINT vertexCount_ = 0;
 
     // 2 フレーム目以降、Dispatch 前に VERTEX_AND_CONSTANT_BUFFER → UAV の遷移が必要
     bool needsPreTransition_ = false;

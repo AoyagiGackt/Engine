@@ -20,16 +20,16 @@ namespace engine::graphics {
  * @brief GPU 側で保持するパーティクル 1 粒のシミュレーションデータ (CS が読み書き)
  */
 struct GPUParticleState {
-    Vector3  position;    // 12
-    float    lifeTime;    //  4 -> 16
-    Vector3  velocity;    // 12
-    float    currentTime; //  4 -> 32
-    Vector4  color;       // 16 -> 48
-    Vector3  scale;       // 12
-    float    rotateZ;     //  4 -> 64
-    uint32_t alive;       //  4
-    uint32_t curveFlag;   //  4  (1 = enemyDeath 螺旋)
-    float    pad[2];      //  8 -> 80
+    Vector3 position; // 12
+    float lifeTime; //  4 -> 16
+    Vector3 velocity; // 12
+    float currentTime; //  4 -> 32
+    Vector4 color; // 16 -> 48
+    Vector3 scale; // 12
+    float rotateZ; //  4 -> 64
+    uint32_t alive; //  4
+    uint32_t curveFlag; //  4  (1 = enemyDeath 螺旋)
+    float pad[2]; //  8 -> 80
 };
 
 /**
@@ -38,18 +38,18 @@ struct GPUParticleState {
 struct ParticleForGPU {
     Matrix4x4 WVP;
     Matrix4x4 World;
-    Vector4   color;
+    Vector4 color;
 };
 
 /**
  * @brief CS に渡す定数バッファの内容
  */
 struct CSConstants {
-    Matrix4x4 billboard;    // 64
-    Matrix4x4 viewProj;     // 64
-    float     deltaTime;    //  4
-    uint32_t  maxParticles; //  4
-    float     pad[2];       //  8 -> 144
+    Matrix4x4 billboard; // 64
+    Matrix4x4 viewProj; // 64
+    float deltaTime; //  4
+    uint32_t maxParticles; //  4
+    float pad[2]; //  8 -> 144
 };
 
 /**
@@ -57,17 +57,17 @@ struct CSConstants {
  *        CPU 側で frequencyTime / emit を毎フレーム更新する
  */
 struct Emitter {
-    Vector3  translate;     // 12
-    float    radius;        //  4 -> 16
-    uint32_t count;         //  4
-    float    frequency;     //  4
-    float    frequencyTime; //  4
-    uint32_t emit;          //  4 -> 32
-    float    lifeTime;      //  4
-    uint32_t seed;          //  4
-    uint32_t time;          //  4  (groupTime の float ビット列、Update が自動設定)
-    float    pad;           //  4 -> 48
-    Vector4  color;         // 16 -> 64
+    Vector3 translate; // 12
+    float radius; //  4 -> 16
+    uint32_t count; //  4
+    float frequency; //  4
+    float frequencyTime; //  4
+    uint32_t emit; //  4 -> 32
+    float lifeTime; //  4
+    uint32_t seed; //  4
+    uint32_t time; //  4  (groupTime の float ビット列、Update が自動設定)
+    float pad; //  4 -> 48
+    Vector4 color; // 16 -> 64
 };
 
 /**
@@ -90,7 +90,7 @@ struct ParticleGroup {
     static constexpr uint32_t kNumMaxInstance = 1024;
 
     // CPU 側スロット管理 (GPU readback 不要)
-    std::array<float, kNumMaxInstance> slotExpiry = {};
+    std::array<float, kNumMaxInstance> slotExpiry = { };
     float groupTime = 0.0f;
 
     // 現在生存中のスロット数（Draw の hasAlive スキャンを O(1) にする）
@@ -103,11 +103,11 @@ struct ParticleGroup {
     std::vector<uint32_t> pendingSlots;
 
     // instancingResource の現在状態
-    bool instancingInSRV      = false; // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
-    bool needsInit            = true;  // 初回 Update で全スロットをゼロ初期化する
-    bool particleStateFresh   = true;  // particleStateBuffer が作成直後の COMMON 状態か
-                                       // 最初の UAV→X バリアで false にセット
-    bool additiveBlend   = true;    // false = alpha blend (SRC_ALPHA / INV_SRC_ALPHA)
+    bool instancingInSRV = false; // false=UAV  true=NON_PIXEL_SHADER_RESOURCE
+    bool needsInit = true; // 初回 Update で全スロットをゼロ初期化する
+    bool particleStateFresh = true; // particleStateBuffer が作成直後の COMMON 状態か
+                                    // 最初の UAV→X バリアで false にセット
+    bool additiveBlend = true; // false = alpha blend (SRC_ALPHA / INV_SRC_ALPHA)
 
     // デフォルト寿命（EmitBurst で設定される）
     float defaultLifeTime = 1.0f;
@@ -118,15 +118,15 @@ struct ParticleGroup {
 
     // CPU 自動再配置（EmitScatterLoop 用）
     struct RespawnConfig {
-        Vector3  center      = {};
-        float    radius      = 0.0f;
-        float    lifeTimeMin = 1.0f;
-        float    lifeTimeMax = 1.0f;
-        Vector4  color       = { 1.0f, 1.0f, 1.0f, 1.0f };
-        float    scale       = 1.0f;
-        uint32_t count       = 0;
+        Vector3 center = { };
+        float radius = 0.0f;
+        float lifeTimeMin = 1.0f;
+        float lifeTimeMax = 1.0f;
+        Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
+        float scale = 1.0f;
+        uint32_t count = 0;
     };
-    bool          autoRespawn  = false;
+    bool autoRespawn = false;
     RespawnConfig respawnConfig;
 };
 
@@ -246,7 +246,7 @@ public:
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);
 
     /** @brief 全パーティクルグループを破棄する */
-    void ClearAllGroups()       { particleGroups_.clear(); }
+    void ClearAllGroups() { particleGroups_.clear(); }
 
     /**
      * @brief グループの加算合成・アルファ合成を切り替える
@@ -303,13 +303,13 @@ private:
     // quad ジオメトリ（全グループ共有）
     Microsoft::WRL::ComPtr<ID3D12Resource> quadVertexBuffer_;
     Microsoft::WRL::ComPtr<ID3D12Resource> quadIndexBuffer_;
-    D3D12_VERTEX_BUFFER_VIEW quadVBV_{};
-    D3D12_INDEX_BUFFER_VIEW  quadIBV_{};
+    D3D12_VERTEX_BUFFER_VIEW quadVBV_ { };
+    D3D12_INDEX_BUFFER_VIEW quadIBV_ { };
 
     // グラフィックスパイプライン
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;        // additive blend
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStateAlpha_;   // alpha blend
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_; // additive blend
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStateAlpha_; // alpha blend
 
     // Compute パイプライン (Update)
     Microsoft::WRL::ComPtr<ID3D12RootSignature> csRootSignature_;

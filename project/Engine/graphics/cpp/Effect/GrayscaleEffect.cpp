@@ -6,7 +6,7 @@ void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 {
     cbData_ = static_cast<GrayscaleParams*>(
         InitializeCommon(dxCommon, srvManager, L"Resources/shaders/postprocess/GrayscalePS.hlsl"));
-    *cbData_ = GrayscaleParams{};
+    *cbData_ = GrayscaleParams { };
 }
 
 void GrayscaleEffect::SetAmount(float amount)

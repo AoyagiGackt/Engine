@@ -3,10 +3,10 @@
  * @brief 3D空間に配置される個々のオブジェクトを管理・描画するファイル
  */
 #pragma once
-#include "MakeAffine.h"
-#include "ObjectMaterialLayout.h"
 #include "GameObject.h"
+#include "MakeAffine.h"
 #include "Model.h"
+#include "ObjectMaterialLayout.h"
 #include <string>
 #include <wrl/client.h>
 namespace engine::graphics {
@@ -87,7 +87,7 @@ public:
     // SSAOノーマルキャプチャパス用描画（SSAOEffect::BeginNormalCapture() の後に呼ぶ）
     void DrawForNormalCapture();
 
-    Model* GetModel() const{ return model_; }
+    Model* GetModel() const { return model_; }
 
     /**
      * @brief このオブジェクトに描画させるモデルの実体をセットする
@@ -155,7 +155,8 @@ public:
      * @brief ライティングの有効/無効を設定する
      * @param enable 有効にする場合はtrue、無効にする場合はfalse
      */
-    void SetEnableLighting(bool enable) {
+    void SetEnableLighting(bool enable)
+    {
         if (materialData_) {
             materialData_->enableLighting = enable ? 1 : 0;
         }
@@ -165,51 +166,115 @@ public:
      * @brief マテリアルの基本色（RGBA）を設定する
      * @param color テクスチャ色と乗算される色（白なら変化なし）
      */
-    void SetColor(const Vector4& color) {
-        if (materialData_) { materialData_->color = color; }
+    void SetColor(const Vector4& color)
+    {
+        if (materialData_) {
+            materialData_->color = color;
+        }
     }
 
     /**
      * @brief スペキュラ（鏡面反射）の色を設定する
      * @param color 反射色（白ならハイライトが白くなる）
      */
-    void SetSpecularColor(const Vector3& color) {
-        if (materialData_) { materialData_->specularColor = color; }
+    void SetSpecularColor(const Vector3& color)
+    {
+        if (materialData_) {
+            materialData_->specularColor = color;
+        }
     }
 
     /**
      * @brief 光沢度（スペキュラの鋭さ）を設定する
      * @param shininess 大きいほどシャープな光沢（8〜256程度が目安）
      */
-    void SetShininess(float shininess) {
-        if (materialData_) { materialData_->shininess = shininess; }
+    void SetShininess(float shininess)
+    {
+        if (materialData_) {
+            materialData_->shininess = shininess;
+        }
     }
 
-    void SetUseCubemap(bool enable) {
-        if (materialData_) { materialData_->useCubemap = enable ? 1 : 0; }
+    void SetUseCubemap(bool enable)
+    {
+        if (materialData_) {
+            materialData_->useCubemap = enable ? 1 : 0;
+        }
     }
 
-    void SetUseTexture(bool enable) {
-        if (materialData_) { materialData_->useTexture = enable ? 1 : 0; }
+    void SetUseTexture(bool enable)
+    {
+        if (materialData_) {
+            materialData_->useTexture = enable ? 1 : 0;
+        }
     }
 
-    void SetEnvMapIntensity(float intensity) {
-        if (materialData_) { materialData_->envMapIntensity = intensity; }
+    void SetEnvMapIntensity(float intensity)
+    {
+        if (materialData_) {
+            materialData_->envMapIntensity = intensity;
+        }
     }
 
-    void SetRimColor(const Vector3& color)    { if (materialData_) { materialData_->rimColor = color; } }
-    void SetRimPower(float power)             { if (materialData_) { materialData_->rimPower = power; } }
-    void SetRimIntensity(float intensity)     { if (materialData_) { materialData_->rimIntensity = intensity; } }
-    void SetEnableRim(bool enable)            { if (materialData_) { materialData_->enableRim = enable ? 1 : 0; } }
-    void SetUVTransform(const Matrix4x4& m)  { if (materialData_) { materialData_->uvTransform = m; } }
+    void SetRimColor(const Vector3& color)
+    {
+        if (materialData_) {
+            materialData_->rimColor = color;
+        }
+    }
+    void SetRimPower(float power)
+    {
+        if (materialData_) {
+            materialData_->rimPower = power;
+        }
+    }
+    void SetRimIntensity(float intensity)
+    {
+        if (materialData_) {
+            materialData_->rimIntensity = intensity;
+        }
+    }
+    void SetEnableRim(bool enable)
+    {
+        if (materialData_) {
+            materialData_->enableRim = enable ? 1 : 0;
+        }
+    }
+    void SetUVTransform(const Matrix4x4& m)
+    {
+        if (materialData_) {
+            materialData_->uvTransform = m;
+        }
+    }
 
     void SetNormalMap(const std::string& filePath);
-    void SetUseNormalMap(bool enable)         { if (materialData_) { materialData_->useNormalMap = enable ? 1 : 0; } }
+    void SetUseNormalMap(bool enable)
+    {
+        if (materialData_) {
+            materialData_->useNormalMap = enable ? 1 : 0;
+        }
+    }
 
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
-    void SetMetallic(float v)   { if (materialData_) { materialData_->metallic  = v; } }
-    void SetRoughness(float v)  { if (materialData_) { materialData_->roughness = v; } }
-    void SetShadingTypePBR()    { if (materialData_) { materialData_->shadingType = 5; lockShadingType_ = true; } }
+    void SetMetallic(float v)
+    {
+        if (materialData_) {
+            materialData_->metallic = v;
+        }
+    }
+    void SetRoughness(float v)
+    {
+        if (materialData_) {
+            materialData_->roughness = v;
+        }
+    }
+    void SetShadingTypePBR()
+    {
+        if (materialData_) {
+            materialData_->shadingType = 5;
+            lockShadingType_ = true;
+        }
+    }
     void LockShadingType(bool lock = true) { lockShadingType_ = lock; }
 
 private:
@@ -217,10 +282,10 @@ private:
      * @brief GPUに送るための座標変換行列データ
      */
     struct TransformationMatrix {
-        Matrix4x4 WVP;                  ///< ワールド・ビュー・プロジェクション行列
-        Matrix4x4 World;                ///< ワールド行列
+        Matrix4x4 WVP; ///< ワールド・ビュー・プロジェクション行列
+        Matrix4x4 World; ///< ワールド行列
         Matrix4x4 WorldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
-        Matrix4x4 LightVP;              ///< ライト空間のビュープロジェクション行列（シャドウ用）
+        Matrix4x4 LightVP; ///< ライト空間のビュープロジェクション行列（シャドウ用）
     };
 
     /** @brief 全オブジェクトで共通して使うカメラのポインタ */
@@ -231,7 +296,7 @@ private:
 
     /** @brief RebindCommonLighting() で使う共通ライト/シャドウマネージャー */
     static Object3dCommon* commonObjectCommon_;
-    static ShadowManager*  commonShadowManager_;
+    static ShadowManager* commonShadowManager_;
 
     /** @brief 共通描画設定のポインタ */
     ModelCommon* modelCommon_ = nullptr;

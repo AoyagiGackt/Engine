@@ -14,7 +14,6 @@ using engine::LightingMode;
  */
 class LightManager {
 public:
-    
     /**
      * @brief LightManagerの唯一のインスタンスを取得する
      * @return LightManager* シングルトンインスタンスへのポインタ

@@ -29,9 +29,9 @@ namespace engine {
  * @brief 再生する音声データを保持する構造体
  */
 struct SoundData {
-    WAVEFORMATEX wfex;         ///< 波形フォーマット
+    WAVEFORMATEX wfex; ///< 波形フォーマット
     std::vector<byte> pBuffer; ///< 音声データ本体
-    unsigned int bufferSize;   ///< バッファのサイズ（バイト）
+    unsigned int bufferSize; ///< バッファのサイズ（バイト）
 };
 
 /**
@@ -150,11 +150,11 @@ private:
     std::vector<IXAudio2SourceVoice*> seVoices_;
 
     // --- BGM フェード状態 ---
-    float bgmCurrentVolume_   = 1.0f;
-    float bgmTargetVolume_    = 1.0f;
+    float bgmCurrentVolume_ = 1.0f;
+    float bgmTargetVolume_ = 1.0f;
     float bgmFadeStartVolume_ = 1.0f;
-    float bgmFadeDuration_    = 0.0f;
-    float bgmFadeTimer_       = 0.0f;
+    float bgmFadeDuration_ = 0.0f;
+    float bgmFadeTimer_ = 0.0f;
 };
 
 } // namespace engine

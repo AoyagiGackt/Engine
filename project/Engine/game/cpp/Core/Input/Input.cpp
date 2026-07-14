@@ -10,7 +10,7 @@ using namespace engine;
 void Input::Initialize(WinApp* winApp)
 {
     HRESULT result;
-    
+
     // 借りてきたWinAppのインスタンスを記録
     this->winApp_ = winApp;
 
@@ -38,7 +38,8 @@ void Input::Initialize(WinApp* winApp)
     ENGINE_ASSERT(SUCCEEDED(result));
 }
 
-void Input::Update() {
+void Input::Update()
+{
     // ゲームコントローラー更新
     UpdateGamepad();
 

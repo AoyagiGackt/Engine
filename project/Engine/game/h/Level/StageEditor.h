@@ -6,13 +6,13 @@
  * ロジックはノードグラフ（GraphEditor）側の役目なので、ここではトリガーの「フラグを立てる」までしかやらない
  */
 #pragma once
+#include "CollisionConfig.h"
+#include "LevelLoader.h"
+#include "TriggerVolume.h"
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include "CollisionConfig.h"
-#include "LevelLoader.h"
-#include "TriggerVolume.h"
 
 namespace engine {
 class Input;
@@ -96,31 +96,33 @@ private:
 
     std::string levelPath_;
     engine::graphics::ModelCommon* modelCommon_ = nullptr;
-    engine::graphics::Camera*      camera_      = nullptr;
+    engine::graphics::Camera* camera_ = nullptr;
 
-    std::vector<ObjectEntry>   objects_;
+    std::vector<ObjectEntry> objects_;
     std::vector<TriggerVolume> triggers_;
 
-    std::vector<std::unique_ptr<engine::graphics::Model>>  modelStorage_;
-    std::map<std::string, engine::graphics::Model*>        modelCache_;
+    std::vector<std::unique_ptr<engine::graphics::Model>> modelStorage_;
+    std::map<std::string, engine::graphics::Model*> modelCache_;
 
-    Vector3 playerSpawn_ = {};
-    Vector3 enemySpawn_  = {};
+    Vector3 playerSpawn_ = { };
+    Vector3 enemySpawn_ = { };
 
     // F2で表示/非表示（GraphEditorのF1と違い、ゲーム画面を隠さない小窓パネル構成）
-    bool  visible_        = false;
+    bool visible_ = false;
     float savedTimeScale_ = 1.0f;
 
-    enum class SelKind { None, Object, Trigger };
-    SelKind selKind_  = SelKind::None;
-    int     selIndex_ = -1;
+    enum class SelKind { None,
+        Object,
+        Trigger };
+    SelKind selKind_ = SelKind::None;
+    int selIndex_ = -1;
 
     int nextSerial_ = 0; // 新規オブジェクト/トリガーの名前生成用
 
     bool viewportDragging_ = false; // 3Dビュー上で選択物をドラッグ移動中か
 
     std::string statusMessage_;
-    float       statusTimer_ = 0.0f;
+    float statusTimer_ = 0.0f;
 };
 
 } // namespace engine::game

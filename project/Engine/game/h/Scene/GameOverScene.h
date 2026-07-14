@@ -14,8 +14,8 @@
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::ImGuiManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
@@ -34,10 +34,10 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
 private:
-    DirectXCommon* dxCommon_     = nullptr;
-    Input*         input_        = nullptr;
-    Audio*         audio_        = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
+    DirectXCommon* dxCommon_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
 

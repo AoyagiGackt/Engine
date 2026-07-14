@@ -6,19 +6,19 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
-#include "WinApp.h"
 #include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "UIMenu.h"
+#include "WinApp.h"
 #include <memory>
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::ImGuiManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
@@ -71,12 +71,11 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
 private:
-    
     // --- 外部から提供される基盤システム（借りてくるもの） ---
 
     /** @brief DirectX基盤のポインタ */
     DirectXCommon* dxCommon_ = nullptr;
-    
+
     /** @brief 入力管理のポインタ */
     Input* input_ = nullptr;
 

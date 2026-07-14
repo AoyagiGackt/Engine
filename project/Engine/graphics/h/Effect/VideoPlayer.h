@@ -166,7 +166,7 @@ private:
     bool isNewFrame_ = false;
 
     /** @brief 更新フレームのフットプリント情報 */
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT currentFootprint_ {};
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT currentFootprint_ { };
 };
 
 } // namespace engine::graphics

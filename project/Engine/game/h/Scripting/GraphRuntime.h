@@ -7,10 +7,10 @@
  * 次回以降のUpdate(dt)で残り時間を減らし、0になったら再開する
  */
 #pragma once
+#include "GraphTypes.h"
 #include <map>
 #include <memory>
 #include <string>
-#include "GraphTypes.h"
 namespace engine::game {
 
 class GraphRuntime {
@@ -68,19 +68,19 @@ private:
     void RunUntilSuspendOrHalt();
 
     const GraphDesc* graph_ = nullptr;
-    std::string      currentNodeId_;
+    std::string currentNodeId_;
     std::map<std::string, GraphValue> variables_;
     std::map<std::string, GraphValue> nodeOutputs_; // ノードID → 最後に実行されたときの出力値
 
-    bool  halted_    = true;
-    bool  waiting_   = false;
+    bool halted_ = true;
+    bool waiting_ = false;
     float waitTimer_ = 0.0f;
     std::string waitResumeNodeId_;
 
     // ---- サブグラフ実行（Subgraphノード） ----
     static constexpr int kMaxSubgraphDepth = 8; // 自己参照などによる無限ネストの安全弁
     int depth_ = 0;
-    std::unique_ptr<GraphDesc>    childDesc_;   // 子グラフ定義（child_ が参照し続けるため所有する）
+    std::unique_ptr<GraphDesc> childDesc_; // 子グラフ定義（child_ が参照し続けるため所有する）
     std::unique_ptr<GraphRuntime> child_;
 };
 

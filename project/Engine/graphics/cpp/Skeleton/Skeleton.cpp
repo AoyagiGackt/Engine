@@ -1,8 +1,8 @@
 ﻿#include "Skeleton/Skeleton.h"
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
 #include "EngineAssert.h"
 #include <algorithm>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
 
 #ifdef USE_IMGUI
 #include "imgui.h"
@@ -25,8 +25,8 @@ static Node ConvertAiNode(const aiNode* ainode)
     ainode->mTransformation.Decompose(aiScale, aiRotate, aiTranslate);
 
     // 右手系→左手系変換：X軸を反転、クォータニオンはY・Zを反転
-    node.transform.scale     = { aiScale.x,       aiScale.y,      aiScale.z };
-    node.transform.rotate    = { aiRotate.x,  -aiRotate.y, -aiRotate.z, aiRotate.w };
+    node.transform.scale = { aiScale.x, aiScale.y, aiScale.z };
+    node.transform.rotate = { aiRotate.x, -aiRotate.y, -aiRotate.z, aiRotate.w };
     node.transform.translate = { -aiTranslate.x, aiTranslate.y, aiTranslate.z };
     node.localMatrix = MakeAffineMatrix(node.transform.scale, node.transform.rotate, node.transform.translate);
 
@@ -55,12 +55,12 @@ int32_t Skeleton::CreateJoint(
     std::map<std::string, int32_t>& jointMap)
 {
     Joint joint;
-    joint.name              = node.name;
-    joint.localMatrix       = node.localMatrix;
+    joint.name = node.name;
+    joint.localMatrix = node.localMatrix;
     joint.skeletonSpaceMatrix = MakeIdentity4x4();
-    joint.transform         = node.transform;
-    joint.parent            = parent;
-    joint.index             = static_cast<int32_t>(joints.size());
+    joint.transform = node.transform;
+    joint.parent = parent;
+    joint.index = static_cast<int32_t>(joints.size());
 
     joints.push_back(joint);
     jointMap[joint.name] = joint.index;
@@ -134,8 +134,8 @@ void Skeleton::DebugDraw()
 
     // ---- キャンバスサイズと描画領域 ----
     const ImVec2 canvasSize = { 400.0f, 360.0f };
-    const ImVec2 canvasPos  = ImGui::GetCursorScreenPos();
-    ImDrawList*  drawList   = ImGui::GetWindowDrawList();
+    const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
 
     drawList->AddRectFilled(
         canvasPos,
@@ -152,7 +152,11 @@ void Skeleton::DebugDraw()
     for (const Joint& joint : joints_) {
         float x = joint.skeletonSpaceMatrix.m[3][0];
         float y = joint.skeletonSpaceMatrix.m[3][1];
-        if (first) { minX = maxX = x; minY = maxY = y; first = false; }
+        if (first) {
+            minX = maxX = x;
+            minY = maxY = y;
+            first = false;
+        }
         minX = (std::min)(minX, x);
         maxX = (std::max)(maxX, x);
         minY = (std::min)(minY, y);
@@ -162,13 +166,13 @@ void Skeleton::DebugDraw()
     float rangeX = (std::max)(maxX - minX, 1.0f);
     float rangeY = (std::max)(maxY - minY, 1.0f);
     float margin = 0.85f;
-    float scale  = (std::min)(canvasSize.x * margin / rangeX, canvasSize.y * margin / rangeY);
+    float scale = (std::min)(canvasSize.x * margin / rangeX, canvasSize.y * margin / rangeY);
 
     // キャンバス中央にルートを合わせる原点
-    float cx    = (minX + maxX) * 0.5f;
+    float cx = (minX + maxX) * 0.5f;
     ImVec2 origin = {
         canvasPos.x + canvasSize.x * 0.5f - cx * scale,
-        canvasPos.y + canvasSize.y * 0.92f - minY * scale   // 下揃え（Y=上）
+        canvasPos.y + canvasSize.y * 0.92f - minY * scale // 下揃え（Y=上）
     };
 
     // ガイドライン
@@ -179,7 +183,9 @@ void Skeleton::DebugDraw()
 
     // 骨の線（親→子）
     for (const Joint& joint : joints_) {
-        if (!joint.parent) { continue; }
+        if (!joint.parent) {
+            continue;
+        }
         const Joint& p = joints_[*joint.parent];
         ImVec2 p0 = {
             origin.x + p.skeletonSpaceMatrix.m[3][0] * scale,

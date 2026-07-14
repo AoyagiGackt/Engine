@@ -26,15 +26,18 @@ public:
         explicit Builder(Sequencer* owner);
 
         struct Step {
-            enum class Type { Action, WaitSeconds, WaitFrames, WaitUntil };
-            Type                  type      = Type::Action;
+            enum class Type { Action,
+                WaitSeconds,
+                WaitFrames,
+                WaitUntil };
+            Type type = Type::Action;
             std::function<void()> action;
-            float                 seconds   = 0.0f;
-            int                   frames    = 0;
+            float seconds = 0.0f;
+            int frames = 0;
             std::function<bool()> condition;
         };
 
-        Sequencer*        owner_;
+        Sequencer* owner_;
         std::vector<Step> steps_;
     };
 
@@ -51,15 +54,15 @@ private:
     Sequencer() = default;
 
     struct Sequence {
-        int                        id;
+        int id;
         std::vector<Builder::Step> steps;
-        int                        stepIdx    = 0;
-        float                      waitTimer  = 0.0f;
-        int                        waitFrames = 0;
-        bool                       done       = false;
+        int stepIdx = 0;
+        float waitTimer = 0.0f;
+        int waitFrames = 0;
+        bool done = false;
     };
 
-    int                   nextId_ = 0;
+    int nextId_ = 0;
     std::vector<Sequence> sequences_;
 };
 

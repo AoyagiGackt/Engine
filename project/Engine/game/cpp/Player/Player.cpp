@@ -18,7 +18,7 @@ namespace {
 // 本体・武器の黒縁アウトライン（背景との同化と武器の視認性の低さを補う）
 // 幅・濃さともに控えめにし、「異常が起きているように見える」ほど主張しないようにする
 constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 0.55f };
-constexpr float   kOutlineWidth = 0.006f;
+constexpr float kOutlineWidth = 0.006f;
 
 // 斬撃モーションの再生速度倍率（コンボのテンポに合わせて少し速める）
 constexpr float kAttackAnimSpeed = 1.5f;
@@ -26,9 +26,9 @@ constexpr float kAttackAnimSpeed = 1.5f;
 // フィニッシャー：静止集中の長さ（GamePlayScene/BattleTestScene の斬撃線バラマキ演出と一致させる：
 // kFinisherChargeDelay → 斬撃線を kFinisherSlashLines 本 kFinisherLineInterval 間隔で出す → kFinisherImpactDelay で解放）
 // 専用の納刀ポーズ素材が無いため、Idle/IdleHold を静止させて代用する
-constexpr float kFinisherChargeDuration   = GameConstants::kFinisherChargeDelay
-                                           + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
-                                           + GameConstants::kFinisherImpactDelay;
+constexpr float kFinisherChargeDuration = GameConstants::kFinisherChargeDelay
+    + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
+    + GameConstants::kFinisherImpactDelay;
 constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも留まらぬ速さで
 
 // 武器奪取の刺突（ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
@@ -57,20 +57,20 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.skinnedModel = std::make_unique<SkinnedModel>();
         rig.skinnedModel->Initialize(modelCommon->GetDxCommon(), modelPath, def.texture);
 
-        rig.modelScale    = def.scale;
-        rig.modelOffsetY  = def.offsetY;
+        rig.modelScale = def.scale;
+        rig.modelOffsetY = def.offsetY;
         rig.meleeBoneName = def.meleeBone;
-        rig.gunBoneName   = def.gunBone;
+        rig.gunBoneName = def.gunBone;
 
-        rig.idleAnim        = LoadAnimationFile(def.dir, def.file, def.idle);
-        rig.runAnim         = LoadAnimationFile(def.dir, def.file, def.run);
-        rig.jumpAnim        = LoadAnimationFile(def.dir, def.file, def.jump);
+        rig.idleAnim = LoadAnimationFile(def.dir, def.file, def.idle);
+        rig.runAnim = LoadAnimationFile(def.dir, def.file, def.run);
+        rig.jumpAnim = LoadAnimationFile(def.dir, def.file, def.jump);
         rig.runningJumpAnim = LoadAnimationFile(def.dir, def.file, def.runningJump);
-        rig.swimAnim        = LoadAnimationFile(def.dir, def.file, def.swim);
-        rig.idleHoldAnim    = LoadAnimationFile(def.dir, def.file, def.idleHold);
-        rig.runHoldAnim     = LoadAnimationFile(def.dir, def.file, def.runHold);
-        rig.slashAnim       = LoadAnimationFile(def.dir, def.file, def.slash);
-        rig.punchAnim       = LoadAnimationFile(def.dir, def.file, def.punch);
+        rig.swimAnim = LoadAnimationFile(def.dir, def.file, def.swim);
+        rig.idleHoldAnim = LoadAnimationFile(def.dir, def.file, def.idleHold);
+        rig.runHoldAnim = LoadAnimationFile(def.dir, def.file, def.runHold);
+        rig.slashAnim = LoadAnimationFile(def.dir, def.file, def.slash);
+        rig.punchAnim = LoadAnimationFile(def.dir, def.file, def.punch);
 
         rig.object = std::make_unique<SkinnedObject3d>();
         rig.object->Initialize(skinCommon_.get());
@@ -87,7 +87,7 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.object->SetPosition({ pos_.x, pos_.y + def.offsetY, pos_.z });
         rig.object->Update();
     };
-    initRig(normalRig_,   kNormalRigVisual);
+    initRig(normalRig_, kNormalRigVisual);
     initRig(awakenedRig_, kAwakenedRigVisual);
     rig_ = &normalRig_;
     animState_ = AnimState::Idle;
@@ -113,9 +113,9 @@ void Player::Initialize(ModelCommon* modelCommon)
     heldWeapons_.clear();
     for (const auto& asset : kHeldWeaponVisuals) {
         HeldWeaponSlot slot;
-        slot.type          = asset.type;
-        slot.gripScale     = asset.gripScale;
-        slot.gripRotate    = asset.gripRotate;
+        slot.type = asset.type;
+        slot.gripScale = asset.gripScale;
+        slot.gripRotate = asset.gripRotate;
         slot.gripTranslate = asset.gripTranslate;
         initHeldWeapon(slot.model, slot.object, asset.modelPath, asset.texturePath);
         heldWeapons_.push_back(std::move(slot));
@@ -125,9 +125,9 @@ void Player::Initialize(ModelCommon* modelCommon)
     guns_.clear();
     for (const auto& asset : kGunVisuals) {
         GunSlot slot;
-        slot.type          = asset.type;
-        slot.gripScale     = asset.gripScale;
-        slot.gripRotate    = asset.gripRotate;
+        slot.type = asset.type;
+        slot.gripScale = asset.gripScale;
+        slot.gripRotate = asset.gripRotate;
         slot.gripTranslate = asset.gripTranslate;
         initHeldWeapon(slot.model, slot.object, asset.modelPath, asset.texturePath);
         guns_.push_back(std::move(slot));
@@ -137,33 +137,47 @@ void Player::Initialize(ModelCommon* modelCommon)
 void Player::UpdateAnimationState(bool isMoving)
 {
     // フィニッシャー溜め中は静止ポーズを維持（タイマー管理は Update() 側）
-    if (finisherCharging_) { return; }
+    if (finisherCharging_) {
+        return;
+    }
 
     // 攻撃モーション中は再生し切るまで状態遷移しない
     if (attackAnimTimer_ > 0.0f) {
         attackAnimTimer_ -= GameConstants::kFrameDeltaTime;
-        if (attackAnimTimer_ > 0.0f) { return; }
+        if (attackAnimTimer_ > 0.0f) {
+            return;
+        }
         rig_->object->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
     }
 
-    AnimState newState = inWater_    ? AnimState::Swim
-                        : !onGround_ ? AnimState::Jump
-                        : isMoving   ? AnimState::Run
-                                     : AnimState::Idle;
+    AnimState newState = inWater_ ? AnimState::Swim
+        : !onGround_              ? AnimState::Jump
+        : isMoving                ? AnimState::Run
+                                  : AnimState::Idle;
     // 構え系の近接武器、または銃を左手に構えている間は武器持ちバリエーション（IdleHold/RunHold）を使う
     // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
     const Skeleton& skel = rig_->object->GetSkeleton();
     bool hasGunBone = skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end();
     bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type) || hasGunBone;
-    if (newState == animState_ && hold == animHold_) { return; }
+    if (newState == animState_ && hold == animHold_) {
+        return;
+    }
     animState_ = newState;
-    animHold_  = hold;
+    animHold_ = hold;
 
     switch (animState_) {
-    case AnimState::Swim: rig_->object->SetAnimation(rig_->swimAnim); break;
-    case AnimState::Run:  rig_->object->SetAnimation(hold ? rig_->runHoldAnim : rig_->runAnim); break;
-    case AnimState::Jump: rig_->object->SetAnimation(isMoving ? rig_->runningJumpAnim : rig_->jumpAnim); break;
-    default:              rig_->object->SetAnimation(hold ? rig_->idleHoldAnim : rig_->idleAnim); break;
+    case AnimState::Swim:
+        rig_->object->SetAnimation(rig_->swimAnim);
+        break;
+    case AnimState::Run:
+        rig_->object->SetAnimation(hold ? rig_->runHoldAnim : rig_->runAnim);
+        break;
+    case AnimState::Jump:
+        rig_->object->SetAnimation(isMoving ? rig_->runningJumpAnim : rig_->jumpAnim);
+        break;
+    default:
+        rig_->object->SetAnimation(hold ? rig_->idleHoldAnim : rig_->idleAnim);
+        break;
     }
 }
 
@@ -183,7 +197,7 @@ void Player::PlayAttackAnim(const Animation& anim, float speed)
 {
     rig_->object->SetAnimation(anim);
     rig_->object->SetAnimSpeed(speed);
-    animState_       = AnimState::Attack;
+    animState_ = AnimState::Attack;
     attackAnimTimer_ = anim.duration / speed;
 }
 
@@ -218,24 +232,32 @@ void Player::RefreshVisualTransforms()
     rig_->object->Update();
     rig_->object->SetAnimSpeed(savedSpeed);
 
-    for (auto& slot : heldWeapons_) { slot.object->Update(); }
-    for (auto& slot : guns_)        { slot.object->Update(); }
+    for (auto& slot : heldWeapons_) {
+        slot.object->Update();
+    }
+    for (auto& slot : guns_) {
+        slot.object->Update();
+    }
 }
 
 void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 {
-    if (blocks.empty()) { return; }
+    if (blocks.empty()) {
+        return;
+    }
 
     // プレイヤーの当たり判定はダミー等と同じ「pos_を中心とした1x1x1」規約に合わせる
     constexpr float kHalf = 0.5f;
 
     // ---- 垂直方向: 足元付近に上面があるブロックのうち一番高いものへ着地させる ----
-    float feetY   = pos_.y - kHalf;
+    float feetY = pos_.y - kHalf;
     float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
     for (const auto& b : blocks) {
         bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
-                       && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
-        if (!overlapXZ) { continue; }
+            && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+        if (!overlapXZ) {
+            continue;
+        }
 
         // 上面が「足元より少し下〜少し上」の範囲にあるものだけ着地対象にする（すり抜け・誤爆防止の許容幅）
         if (b.max.y <= feetY + 0.6f && b.max.y >= feetY - 1.0f && (b.max.y + kHalf) > bestTop) {
@@ -243,21 +265,25 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         }
     }
     if (velocityY_ <= 0.0f && pos_.y <= bestTop + 0.05f) {
-        pos_.y     = bestTop;
+        pos_.y = bestTop;
         velocityY_ = 0.0f;
-        onGround_  = true;
+        onGround_ = true;
     }
 
     // ---- 水平方向: 側面から重なっているブロックがあれば侵入量が小さい側へ押し出す ----
     for (const auto& b : blocks) {
         bool overlapY = (pos_.y + kHalf) > b.min.y + 0.05f && (pos_.y - kHalf) < b.max.y - 0.05f;
-        if (!overlapY) { continue; } // 乗っているだけの上面はここでは無視する
+        if (!overlapY) {
+            continue;
+        } // 乗っているだけの上面はここでは無視する
 
         bool overlapX = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x;
         bool overlapZ = (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
-        if (!overlapX || !overlapZ) { continue; }
+        if (!overlapX || !overlapZ) {
+            continue;
+        }
 
-        float pushLeft  = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
+        float pushLeft = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
         float pushRight = b.max.x - (pos_.x - kHalf); // 正値＝右へ押し出す量
         pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
     }
@@ -267,25 +293,25 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
 void Player::ResetFrameFlags()
 {
-    justJumped_        = false;
-    justLanded_        = false;
-    justEnteredWater_  = false;
-    justExitedWater_   = false;
-    justComboHit_      = false;
-    justFired_         = false;
-    justBlinked_       = false;
-    justChargedGauge_  = false;
-    justSpinShot_      = false;
-    justSwordDash_       = false;
-    justSpearRetreat_    = false;
-    justGreatswordSlam_  = false;
-    justAxeCharge_       = false;
-    justLaunched_      = false;
-    justRampageHit_    = false;
+    justJumped_ = false;
+    justLanded_ = false;
+    justEnteredWater_ = false;
+    justExitedWater_ = false;
+    justComboHit_ = false;
+    justFired_ = false;
+    justBlinked_ = false;
+    justChargedGauge_ = false;
+    justSpinShot_ = false;
+    justSwordDash_ = false;
+    justSpearRetreat_ = false;
+    justGreatswordSlam_ = false;
+    justAxeCharge_ = false;
+    justLaunched_ = false;
+    justRampageHit_ = false;
     justRampageFinish_ = false;
     justFinisherSlash_ = false;
-    prevOnGround_     = onGround_;
-    prevInWater_      = inWater_;
+    prevOnGround_ = onGround_;
+    prevInWater_ = inWater_;
 }
 
 void Player::HandleStyleSwitch(Input* input)
@@ -293,7 +319,9 @@ void Player::HandleStyleSwitch(Input* input)
     // スタイルチェンジ（1〜5キー）
     auto* wm = WeaponManager::GetInstance();
     for (int i = 0; i < wm->GetCount(); ++i) {
-        if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) { wm->SelectIndex(i); }
+        if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
+            wm->SelectIndex(i);
+        }
     }
 }
 
@@ -334,9 +362,9 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         } else if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
             // 乱舞開始：まず敵に向かって突進（打ち上げフェーズ）
             meleeCombo_.Reset();
-            rampagePhase_     = RampagePhase::Launch;
+            rampagePhase_ = RampagePhase::Launch;
             juggleSlashCount_ = 0;
-            juggleAngleIdx_   = 0;
+            juggleAngleIdx_ = 0;
         } else {
             bool launcherInput = input->PushKey(DIK_S) || input->PushKey(DIK_DOWN);
             meleeCombo_.TryAttack(wm->GetCurrent().type, launcherInput, !onGround_);
@@ -352,15 +380,19 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         if (meleeCombo_.JustHit()) {
             justComboHit_ = true;
-            comboStep_    = meleeCombo_.GetStep();
-            if (atk->launcher) { launchFollowTimer_ = kLaunchFollowWindow_; }
+            comboStep_ = meleeCombo_.GetStep();
+            if (atk->launcher) {
+                launchFollowTimer_ = kLaunchFollowWindow_;
+            }
         }
         // 踏み込み（斬りながら前へ出ることで空振り感を減らす）
         if (meleeCombo_.GetLungeDelta() > 0.0f) {
             pos_.x = std::clamp(pos_.x + lastDirX_ * meleeCombo_.GetLungeDelta(), kMinX_, kMaxX_);
         }
         // 空中攻撃中は滞空（落下を弱めてエアコンボを繋ぎやすくする）
-        if (!onGround_ && velocityY_ < 0.0f) { velocityY_ *= 0.5f; }
+        if (!onGround_ && velocityY_ < 0.0f) {
+            velocityY_ *= 0.5f;
+        }
     }
     if (launchFollowTimer_ > 0.0f) {
         launchFollowTimer_ -= GameConstants::kFrameDeltaTime;
@@ -374,9 +406,9 @@ void Player::HandleFinisherSlash(Input* input)
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
     // 静止して集中 → 溜め切ったら一閃、の2段構成にする
     if (!inWater_ && !isAwakened_ && !finisherCharging_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
-        justFinisherSlash_   = true;
-        awakenGauge_         = 0.0f; // ゲージを全消費
-        finisherCharging_    = true;
+        justFinisherSlash_ = true;
+        awakenGauge_ = 0.0f; // ゲージを全消費
+        finisherCharging_ = true;
         finisherChargeTimer_ = kFinisherChargeDuration;
         meleeCombo_.Reset(); // 進行中のコンボは打ち切って静止に入る
         {
@@ -403,9 +435,15 @@ void Player::UpdateAwakenGaugeFromHits()
 {
     // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
     if (!isAwakened_) {
-        if (justComboHit_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f); }
-        if (justFired_)    { awakenGauge_ = (std::min)(awakenGauge_ + 0.04f * skillMods_.gaugeChargeMult, 1.0f); }
-        if (justSpinShot_) { awakenGauge_ = (std::min)(awakenGauge_ + 0.02f * skillMods_.gaugeChargeMult, 1.0f); }
+        if (justComboHit_) {
+            awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f);
+        }
+        if (justFired_) {
+            awakenGauge_ = (std::min)(awakenGauge_ + 0.04f * skillMods_.gaugeChargeMult, 1.0f);
+        }
+        if (justSpinShot_) {
+            awakenGauge_ = (std::min)(awakenGauge_ + 0.02f * skillMods_.gaugeChargeMult, 1.0f);
+        }
     }
 }
 
@@ -419,19 +457,23 @@ void Player::HandleWeaponSkill(Input* input)
 
         // 連射クールダウンは常に消化（Ball モード以外でも自然に減る）
         shootCooldown_ -= GameConstants::kFrameDeltaTime;
-        if (shootCooldown_ < 0.0f) { shootCooldown_ = 0.0f; }
+        if (shootCooldown_ < 0.0f) {
+            shootCooldown_ = 0.0f;
+        }
 
         // 固有技のクールダウン/バフも武器切替中に凍結させず常に消化する
-        swordSkillCooldown_      = (std::max)(swordSkillCooldown_      - GameConstants::kFrameDeltaTime, 0.0f);
-        spearSkillCooldown_      = (std::max)(spearSkillCooldown_      - GameConstants::kFrameDeltaTime, 0.0f);
+        swordSkillCooldown_ = (std::max)(swordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+        spearSkillCooldown_ = (std::max)(spearSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        axeSkillCooldown_        = (std::max)(axeSkillCooldown_        - GameConstants::kFrameDeltaTime, 0.0f);
-        axeRageTimer_            = (std::max)(axeRageTimer_            - GameConstants::kFrameDeltaTime, 0.0f);
+        axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+        axeRageTimer_ = (std::max)(axeRageTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
         GetWeaponBehavior(wtype).Update(*this, input);
 
         // Ball モード以外 / 着地時はスピン角をリセット
-        if (wtype != WeaponType::Ball || onGround_) { spinAngle_ = 0.0f; }
+        if (wtype != WeaponType::Ball || onGround_) {
+            spinAngle_ = 0.0f;
+        }
         isUpsideDown_ = (spinAngle_ > 90.0f && spinAngle_ < 270.0f);
     }
 }
@@ -451,7 +493,7 @@ void Player::UpdateAwakenState(Input* input)
 {
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
-        isAwakened_  = true;
+        isAwakened_ = true;
         awakenTimer_ = kAwakenDuration_;
     }
 
@@ -459,9 +501,9 @@ void Player::UpdateAwakenState(Input* input)
     // 覚醒中のみ消費する未覚醒時は自然減衰させず、溜めた分を維持する
     if (isAwakened_) {
         awakenTimer_ -= GameConstants::kFrameDeltaTime;
-        awakenGauge_  = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / kAwakenDuration_, 0.0f);
+        awakenGauge_ = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / kAwakenDuration_, 0.0f);
         if (awakenTimer_ <= 0.0f || awakenGauge_ <= 0.0f) {
-            isAwakened_  = false;
+            isAwakened_ = false;
             awakenTimer_ = 0.0f;
             awakenGauge_ = 0.0f;
         }
@@ -498,12 +540,14 @@ void Player::ResolveEnemyOverlap(const Vector3& enemyPos)
 void Player::UpdateWaterState()
 {
     // 入水・出水判定（物理後の位置で確定）
-    inWater_          = (pos_.y < waterLevel_);
+    inWater_ = (pos_.y < waterLevel_);
     justEnteredWater_ = !prevInWater_ && inWater_;
-    justExitedWater_  = prevInWater_  && !inWater_;
+    justExitedWater_ = prevInWater_ && !inWater_;
 
     // 入水衝撃吸収（落下速度を大きく減衰）
-    if (justEnteredWater_) { velocityY_ *= 0.4f; }
+    if (justEnteredWater_) {
+        velocityY_ *= 0.4f;
+    }
 }
 
 void Player::UpdateVisualState(Input* input)
@@ -517,7 +561,7 @@ void Player::UpdateVisualState(Input* input)
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushKey(DIK_A) || input->PushKey(DIK_D)
-                       || input->PushKey(DIK_LEFT) || input->PushKey(DIK_RIGHT);
+        || input->PushKey(DIK_LEFT) || input->PushKey(DIK_RIGHT);
     UpdateAnimationState(isMovingHoriz);
 
     // ── プレイヤー色 ──
@@ -540,8 +584,12 @@ void Player::UpdateVisualState(Input* input)
         ? 1.2f + (1.0f - finisherChargeTimer_ / kFinisherChargeDuration) * 3.0f
         : 1.2f;
     rig_->object->SetRimIntensity(rimIntensity);
-    for (auto& slot : heldWeapons_) { slot.object->SetRimIntensity(rimIntensity); }
-    for (auto& slot : guns_)        { slot.object->SetRimIntensity(rimIntensity); }
+    for (auto& slot : heldWeapons_) {
+        slot.object->SetRimIntensity(rimIntensity);
+    }
+    for (auto& slot : guns_) {
+        slot.object->SetRimIntensity(rimIntensity);
+    }
 
     // 攻撃段ごとの体の傾き（前後=X/左右ロール=Z）。Ball旋回のspinAngle_とはZ軸を共有するが
     // 両者は排他（旋回はBall選択中のみ、攻撃レンはコンボ中のみ）なので単純加算でよい
@@ -561,7 +609,10 @@ void Player::AttachActiveWeapons()
     WeaponType meleeType = wm->GetCurrent().type;
     activeHeldIndex_ = -1;
     for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
-        if (heldWeapons_[i].type == meleeType) { activeHeldIndex_ = i; break; }
+        if (heldWeapons_[i].type == meleeType) {
+            activeHeldIndex_ = i;
+            break;
+        }
     }
     if (activeHeldIndex_ >= 0) {
         auto& slot = heldWeapons_[activeHeldIndex_];
@@ -576,7 +627,10 @@ void Player::AttachActiveWeapons()
         GunType gunType = wm->GetRanged().type;
         activeGunIndex_ = -1;
         for (int i = 0; i < static_cast<int>(guns_.size()); ++i) {
-            if (guns_[i].type == gunType) { activeGunIndex_ = i; break; }
+            if (guns_[i].type == gunType) {
+                activeGunIndex_ = i;
+                break;
+            }
         }
         const Skeleton& skel = rig_->object->GetSkeleton();
         gunVisible_ = (skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end());
@@ -614,14 +668,22 @@ void Player::Draw()
             }
         });
         outline->BeginOutlinePass();
-        if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->DrawOutline(outline); }
-        if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->DrawOutline(outline); }
+        if (activeHeldIndex_ >= 0) {
+            heldWeapons_[activeHeldIndex_].object->DrawOutline(outline);
+        }
+        if (gunVisible_ && activeGunIndex_ >= 0) {
+            guns_[activeGunIndex_].object->DrawOutline(outline);
+        }
         rig_->object->DrawOutline(outline);
     }
 
     // 通常描画
-    if (activeHeldIndex_ >= 0) { heldWeapons_[activeHeldIndex_].object->Draw(); }
-    if (gunVisible_ && activeGunIndex_ >= 0) { guns_[activeGunIndex_].object->Draw(); }
+    if (activeHeldIndex_ >= 0) {
+        heldWeapons_[activeHeldIndex_].object->Draw();
+    }
+    if (gunVisible_ && activeGunIndex_ >= 0) {
+        guns_[activeGunIndex_].object->Draw();
+    }
     rig_->object->Draw();
 }
 
@@ -634,12 +696,18 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
     const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
 
     // 横移動（水の抵抗で遅い）
-    if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { player.pos_.x -= kWaterSpeed_ * speedMult; player.lastDirX_ = -1.0f; }
-    if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { player.pos_.x += kWaterSpeed_ * speedMult; player.lastDirX_ =  1.0f; }
+    if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT)) {
+        player.pos_.x -= kWaterSpeed_ * speedMult;
+        player.lastDirX_ = -1.0f;
+    }
+    if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) {
+        player.pos_.x += kWaterSpeed_ * speedMult;
+        player.lastDirX_ = 1.0f;
+    }
 
     // 浮力（弱い下向き加速）
     player.velocityY_ -= kWaterGravity_;
-    player.velocityY_  = (std::max)(player.velocityY_, kSinkMaxVY_);
+    player.velocityY_ = (std::max)(player.velocityY_, kSinkMaxVY_);
 
     // ジャンプ長押し = 上昇スイム
     if (input->PushKey(DIK_W) || input->PushKey(DIK_UP) || input->PushKey(DIK_SPACE)) {
@@ -650,16 +718,16 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
 
     // 床クランプ（水底でも止まる）
     if (player.pos_.y <= kGroundY_) {
-        player.pos_.y     = kGroundY_;
+        player.pos_.y = kGroundY_;
         player.velocityY_ = 0.0f;
-        player.onGround_  = true;
+        player.onGround_ = true;
     } else {
         player.onGround_ = false;
     }
 
     // 天井クランプ
     if (player.pos_.y > kCeilingY_) {
-        player.pos_.y     = kCeilingY_;
+        player.pos_.y = kCeilingY_;
         player.velocityY_ = 0.0f;
     }
 }
@@ -667,19 +735,25 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
 void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
 {
     const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
-    const float jumpMult  = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
+    const float jumpMult = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
 
     if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_) {
-        if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT))  { player.pos_.x -= kSpeed_ * speedMult; player.lastDirX_ = -1.0f; }
-        if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) { player.pos_.x += kSpeed_ * speedMult; player.lastDirX_ =  1.0f; }
+        if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT)) {
+            player.pos_.x -= kSpeed_ * speedMult;
+            player.lastDirX_ = -1.0f;
+        }
+        if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) {
+            player.pos_.x += kSpeed_ * speedMult;
+            player.lastDirX_ = 1.0f;
+        }
     }
 
     if (player.onGround_ && !player.finisherCharging_) {
         if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
             // 打ち上げ直後は追撃用に高く跳べる（浮かせた敵にジャンプで追いつく）
             float followMult = (player.launchFollowTimer_ > 0.0f) ? kLaunchFollowJumpMult_ : 1.0f;
-            player.velocityY_  = kJumpPower_ * jumpMult * followMult;
-            player.onGround_   = false;
+            player.velocityY_ = kJumpPower_ * jumpMult * followMult;
+            player.onGround_ = false;
             player.justJumped_ = true;
         }
     }
@@ -693,7 +767,7 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
 
 const Player::IPhysicsState& Player::GetPhysicsState(bool inWater)
 {
-    static GroundedPhysicsState   grounded;
+    static GroundedPhysicsState grounded;
     static UnderwaterPhysicsState underwater;
     return inWater ? static_cast<const IPhysicsState&>(underwater) : static_cast<const IPhysicsState&>(grounded);
 }
@@ -713,17 +787,17 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
     // 敵X座標へ向かって突進（重力無効）
     // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
     float targetX = std::clamp(enemyPos.x, kMinX_ + 0.5f, kMaxX_ - 0.5f);
-    float dx  = targetX - player.pos_.x;
+    float dx = targetX - player.pos_.x;
     float dir = (dx > 0.0f) ? 1.0f : -1.0f;
-    player.lastDirX_  = dir;
+    player.lastDirX_ = dir;
     player.velocityY_ = 0.0f;
     player.pos_.x += dir * kRampageSpeed_;
-    player.pos_.x  = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+    player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
 
     // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
     if (std::abs(dx) < 1.0f) {
         player.justLaunched_ = true;
-        player.velocityY_    = 0.25f;
+        player.velocityY_ = 0.25f;
         player.rampagePhase_ = RampagePhase::Juggle;
     }
 }
@@ -731,7 +805,9 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
 void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
 {
     const int effectiveMax = kJuggleMaxSlashes_ + player.skillMods_.juggleMaxBonus;
-    if (player.juggleSlashCount_ >= effectiveMax) { return; }
+    if (player.juggleSlashCount_ >= effectiveMax) {
+        return;
+    }
 
     // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
     float angle = player.juggleAngleIdx_ * (GameConstants::kTwoPi / effectiveMax);
@@ -740,12 +816,12 @@ void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input,
     player.pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
     player.pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
     player.velocityY_ = 0.0f;
-    player.lastDirX_  = (enemyPos.x >= player.pos_.x) ? 1.0f : -1.0f;
-    player.juggleAngleIdx_   = (player.juggleAngleIdx_ + 1) % effectiveMax;
+    player.lastDirX_ = (enemyPos.x >= player.pos_.x) ? 1.0f : -1.0f;
+    player.juggleAngleIdx_ = (player.juggleAngleIdx_ + 1) % effectiveMax;
     player.juggleSlashCount_++;
 
     bool isLast = (player.juggleSlashCount_ >= effectiveMax);
-    player.justRampageHit_    = true;
+    player.justRampageHit_ = true;
     player.justRampageFinish_ = isLast;
     if (isLast) {
         player.rampagePhase_ = RampagePhase::Inactive;
@@ -761,12 +837,15 @@ void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& en
 const Player::IRampageState& Player::GetRampageState(RampagePhase phase)
 {
     static InactiveRampageState inactive;
-    static LaunchRampageState   launch;
-    static JuggleRampageState   juggle;
+    static LaunchRampageState launch;
+    static JuggleRampageState juggle;
     switch (phase) {
-    case RampagePhase::Launch: return launch;
-    case RampagePhase::Juggle: return juggle;
-    default:                   return inactive;
+    case RampagePhase::Launch:
+        return launch;
+    case RampagePhase::Juggle:
+        return juggle;
+    default:
+        return inactive;
     }
 }
 
@@ -789,8 +868,7 @@ void Player::HammerBehavior::Update(Player& player, Input* input) const
     // ゲージチャージ（長押し約3秒で満タン）覚醒中は蓄積しない
     if (!player.isAwakened_ && input->PushKey(DIK_SPACE)) {
         player.justChargedGauge_ = true;
-        player.awakenGauge_ = (std::min)(
-            player.awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime * player.skillMods_.gaugeChargeMult, 1.0f);
+        player.awakenGauge_ = (std::min)(player.awakenGauge_ + kGaugeCharge_ * GameConstants::kFrameDeltaTime * player.skillMods_.gaugeChargeMult, 1.0f);
     }
 }
 
@@ -799,12 +877,14 @@ void Player::BallBehavior::Update(Player& player, Input* input) const
     // スピン連射 + 空中くるくる
     if (input->PushKey(DIK_SPACE)) {
         if (player.shootCooldown_ <= 0.0f) {
-            player.justSpinShot_  = true;
+            player.justSpinShot_ = true;
             player.shootCooldown_ = kShootInterval_ * player.skillMods_.fireIntervalMult;
         }
         if (!player.onGround_) {
             player.spinAngle_ += kSpinSpeed_;
-            if (player.spinAngle_ >= 360.0f) { player.spinAngle_ -= 360.0f; }
+            if (player.spinAngle_ >= 360.0f) {
+                player.spinAngle_ -= 360.0f;
+            }
         }
     }
 }
@@ -815,7 +895,7 @@ void Player::SwordBehavior::Update(Player& player, Input* input) const
     if (input->TriggerKey(DIK_SPACE) && player.swordSkillCooldown_ <= 0.0f) {
         player.pos_.x += player.lastDirX_ * kSwordDashDist_;
         player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
-        player.justSwordDash_      = true;
+        player.justSwordDash_ = true;
         player.swordSkillCooldown_ = kSwordSkillCooldown_;
     }
 }
@@ -826,8 +906,8 @@ void Player::SpearBehavior::Update(Player& player, Input* input) const
     if (input->TriggerKey(DIK_SPACE) && player.spearSkillCooldown_ <= 0.0f) {
         player.pos_.x -= player.lastDirX_ * kSpearRetreatDist_;
         player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
-        player.justSpearRetreat_    = true;
-        player.spearSkillCooldown_  = kSpearSkillCooldown_;
+        player.justSpearRetreat_ = true;
+        player.spearSkillCooldown_ = kSpearSkillCooldown_;
     }
 }
 
@@ -835,7 +915,7 @@ void Player::GreatswordBehavior::Update(Player& player, Input* input) const
 {
     // 大地砕き：その場に叩きつける設置型AoE、重量級らしく地上限定・長いクールタイム
     if (input->TriggerKey(DIK_SPACE) && player.greatswordSkillCooldown_ <= 0.0f && player.onGround_) {
-        player.justGreatswordSlam_      = true;
+        player.justGreatswordSlam_ = true;
         player.greatswordSkillCooldown_ = kGreatswordSkillCooldown_;
     }
 }
@@ -845,8 +925,7 @@ void Player::ScytheBehavior::Update(Player& player, Input* input) const
     // 滞空ホバー：空中限定で降下を抑える。時間制のリソースで無限滞空を防ぎ、着地で回復する
     player.isScytheHovering_ = false;
     if (player.onGround_) {
-        player.scytheHoverTimer_ = (std::min)(
-            player.scytheHoverTimer_ + GameConstants::kFrameDeltaTime * kScytheHoverRecoverRate_, kScytheHoverMax_);
+        player.scytheHoverTimer_ = (std::min)(player.scytheHoverTimer_ + GameConstants::kFrameDeltaTime * kScytheHoverRecoverRate_, kScytheHoverMax_);
         return;
     }
     if (input->PushKey(DIK_SPACE) && player.scytheHoverTimer_ > 0.0f) {
@@ -862,32 +941,41 @@ void Player::AxeBehavior::Update(Player& player, Input* input) const
     if (input->TriggerKey(DIK_SPACE) && player.axeSkillCooldown_ <= 0.0f) {
         player.pos_.x += player.lastDirX_ * kAxeChargeDist_;
         player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
-        player.justAxeCharge_    = true;
+        player.justAxeCharge_ = true;
         player.axeSkillCooldown_ = kAxeSkillCooldown_;
-        player.axeRageTimer_     = kAxeRageDuration_;
+        player.axeRageTimer_ = kAxeRageDuration_;
     }
 }
 
 const Player::IWeaponBehavior& Player::GetWeaponBehavior(WeaponType type)
 {
-    static DaggerBehavior        dagger;
-    static HammerBehavior        hammer;
-    static BallBehavior          ball;
-    static SwordBehavior         sword;
-    static SpearBehavior         spear;
-    static GreatswordBehavior    greatsword;
-    static ScytheBehavior        scythe;
-    static AxeBehavior           axe;
+    static DaggerBehavior dagger;
+    static HammerBehavior hammer;
+    static BallBehavior ball;
+    static SwordBehavior sword;
+    static SpearBehavior spear;
+    static GreatswordBehavior greatsword;
+    static ScytheBehavior scythe;
+    static AxeBehavior axe;
     static DefaultWeaponBehavior def;
     switch (type) {
-    case WeaponType::Dagger:     return dagger;
-    case WeaponType::Hammer:     return hammer;
-    case WeaponType::Ball:       return ball;
-    case WeaponType::Sword:      return sword;
-    case WeaponType::Spear:      return spear;
-    case WeaponType::Greatsword: return greatsword;
-    case WeaponType::Scythe:     return scythe;
-    case WeaponType::Axe:        return axe;
-    default:                 return def;
+    case WeaponType::Dagger:
+        return dagger;
+    case WeaponType::Hammer:
+        return hammer;
+    case WeaponType::Ball:
+        return ball;
+    case WeaponType::Sword:
+        return sword;
+    case WeaponType::Spear:
+        return spear;
+    case WeaponType::Greatsword:
+        return greatsword;
+    case WeaponType::Scythe:
+        return scythe;
+    case WeaponType::Axe:
+        return axe;
+    default:
+        return def;
     }
 }

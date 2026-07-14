@@ -25,14 +25,14 @@ public:
     // バックバッファ上にビネットオーバーレイを描画するシーン描画後に呼ぶ
     void Apply();
 
-    void  SetEnabled(bool enabled) { enabled_ = enabled; }
-    bool  IsEnabled()  const { return enabled_; }
-    void  SetIntensity(float v);
+    void SetEnabled(bool enabled) { enabled_ = enabled; }
+    bool IsEnabled() const { return enabled_; }
+    void SetIntensity(float v);
     float GetIntensity() const;
-    void  SetRadius(float v);
-    float GetRadius()    const;
-    void  SetSoftness(float v);
-    float GetSoftness()  const;
+    void SetRadius(float v);
+    float GetRadius() const;
+    void SetSoftness(float v);
+    float GetSoftness() const;
 
 private:
     VignetteEffect() = default;
@@ -47,9 +47,9 @@ private:
 
     struct VignetteParams {
         float intensity = 1.0f;
-        float radius    = 0.3f;
-        float softness  = 0.4f;
-        float pad       = 0.0f;
+        float radius = 0.3f;
+        float softness = 0.4f;
+        float pad = 0.0f;
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
     VignetteParams* cbData_ = nullptr;

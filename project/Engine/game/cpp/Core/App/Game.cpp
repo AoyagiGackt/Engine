@@ -1,24 +1,24 @@
 #include "Game.h"
 #include "DelayTimer.h"
-#include "InputBuffer.h"
 #include "GameConstants.h"
-#include "Sequencer.h"
 #include "GamePlayScene.h"
 #include "GameSettings.h"
+#include "GrayscaleEffect.h"
+#include "HsvFilter.h"
+#include "ImGuiControl.h"
+#include "ImageFilter.h"
+#include "InputBuffer.h"
 #include "SaveData.h"
-#include "SceneManager.h"
 #include "SceneFactory.h"
+#include "SceneManager.h"
 #include "ScreenFlash.h"
+#include "Sequencer.h"
+#include "TextureManager.h"
 #include "TimeManager.h"
 #include "TitleScene.h"
 #include "Tweener.h"
-#include <SrvManager.h>
-#include "TextureManager.h"
-#include "GrayscaleEffect.h"
-#include "ImageFilter.h"
 #include "VignetteEffect.h"
-#include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include <SrvManager.h>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -52,7 +52,6 @@ void MyGame::Initialize()
     // スクリーンフラッシュ初期化
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
 }
-
 
 void MyGame::Update()
 {
@@ -91,9 +90,9 @@ void MyGame::Draw()
     dxCommon_->PreDraw();
     SrvManager::GetInstance()->PreDraw();
 
-    auto* gs        = GrayscaleEffect::GetInstance();
+    auto* gs = GrayscaleEffect::GetInstance();
     auto* imgFilter = ImageFilter::GetInstance();
-    auto* hsv       = HsvFilter::GetInstance();
+    auto* hsv = HsvFilter::GetInstance();
 
     // オフスクリーンRTVリダイレクトに対応していないシーン（GamePlayScene以外）では
     // BeginScene/EndScene/Apply を呼ばない呼んでしまうと、シーン側が何も描き込まない

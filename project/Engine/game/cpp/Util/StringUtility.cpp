@@ -7,11 +7,15 @@ namespace engine {
 // 2段階で呼ぶ理由: 1回目で「変換後に何文字必要か」を調べ、2回目で実際に変換する
 std::wstring StringUtility::ConvertString(const std::string& str)
 {
-    if (str.empty()) { return {}; } // 空文字列はそのまま空で返す
+    if (str.empty()) {
+        return { };
+    } // 空文字列はそのまま空で返す
 
     // 1回目: 変換後のワイド文字数を取得する（バッファなし = サイズ計算だけ）
     auto n = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
-    if (n == 0) { return {}; } // 変換に失敗したら空を返す
+    if (n == 0) {
+        return { };
+    } // 変換に失敗したら空を返す
 
     // 2回目: 必要な文字数分のバッファを確保して実際に変換する
     std::wstring result(n, 0);
@@ -23,11 +27,15 @@ std::wstring StringUtility::ConvertString(const std::string& str)
 // WideCharToMultiByte は「ワイド文字列 → マルチバイト文字列」の変換を行う Windows API 関数
 std::string StringUtility::ConvertString(const std::wstring& str)
 {
-    if (str.empty()) { return {}; }
+    if (str.empty()) {
+        return { };
+    }
 
     // 1回目: 変換後のバイト数を取得する
     auto n = WideCharToMultiByte(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), nullptr, 0, nullptr, nullptr);
-    if (n == 0) { return {}; }
+    if (n == 0) {
+        return { };
+    }
 
     // 2回目: 実際に変換する
     std::string result(n, 0);

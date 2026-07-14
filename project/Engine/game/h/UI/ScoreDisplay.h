@@ -37,9 +37,9 @@ public:
      * @note spriteCommon->CommonDrawSettings() 後に呼ぶこと
      */
     void DrawNumber(int value, Vector2 pos,
-                    Vector2 digitSize = { 40.f, 60.f },
-                    float gap = 4.f,
-                    Vector4 color = { 1.f, 1.f, 1.f, 1.f });
+        Vector2 digitSize = { 40.f, 60.f },
+        float gap = 4.f,
+        Vector4 color = { 1.f, 1.f, 1.f, 1.f });
 
     /**
      * @brief ランキング一覧をスプライトで描画する
@@ -50,10 +50,10 @@ public:
      * @param rowSpacing   行の高さ（次の行までの距離）
      */
     void DrawRanking(const std::vector<int>& ranking,
-                     int currentScore,
-                     Vector2 topLeft,
-                     Vector2 digitSize  = { 32.f, 48.f },
-                     float  rowSpacing  = 58.f);
+        int currentScore,
+        Vector2 topLeft,
+        Vector2 digitSize = { 32.f, 48.f },
+        float rowSpacing = 58.f);
 
 private:
     /**

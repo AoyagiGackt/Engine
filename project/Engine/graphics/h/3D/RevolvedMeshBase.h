@@ -3,12 +3,14 @@
  * @brief 分割数指定で生成する回転体状メッシュ（Cylinder/Ring）に共通するGPUリソース管理・描画処理を定義するファイル
  */
 #pragma once
-#include "MakeAffine.h"
 #include "Camera.h"
+#include "MakeAffine.h"
 #include <d3d12.h>
-#include <wrl/client.h>
 #include <string>
-namespace engine { class DirectXCommon; }
+#include <wrl/client.h>
+namespace engine {
+class DirectXCommon;
+}
 
 namespace engine::graphics {
 
@@ -17,8 +19,7 @@ namespace engine::graphics {
  * @note ジオメトリ生成（RebuildVertices相当）とマテリアル定数バッファの内容は派生クラス（Cylinder/Ring）が持つ。
  *       このクラスは頂点/マテリアルバッファの確保、PSO生成の共通部分、Update/Drawの共通処理のみを担う。
  */
-class RevolvedMeshBase
-{
+class RevolvedMeshBase {
 public:
     virtual ~RevolvedMeshBase() = default;
 
@@ -29,8 +30,8 @@ public:
 
     void SetPosition(const Vector3& pos) { position_ = pos; }
     void SetRotation(const Vector3& rot) { rotation_ = rot; }
-    void SetScale(float scale)           { scale_ = scale; }
-    const Vector3& GetPosition() const   { return position_; }
+    void SetScale(float scale) { scale_ = scale; }
+    const Vector3& GetPosition() const { return position_; }
 
 protected:
     struct VertexData {
@@ -56,7 +57,7 @@ protected:
     void CreatePipelineCommon(const std::wstring& vsPath, const std::wstring& psPath,
         D3D12_TEXTURE_ADDRESS_MODE addressV);
 
-    int divisions_   = 32;
+    int divisions_ = 32;
     int vertexCount_ = 0;
 
     engine::DirectXCommon* dxCommon_ = nullptr;
@@ -64,15 +65,15 @@ protected:
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12Resource>      vertexBuffer_;
-    D3D12_VERTEX_BUFFER_VIEW                    vbv_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer_;
+    D3D12_VERTEX_BUFFER_VIEW vbv_ { };
     VertexData* vertexData_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> materialBuffer_;
 
-    Vector3 position_ = {};
-    Vector3 rotation_ = {};
-    float   scale_    = 1.0f;
+    Vector3 position_ = { };
+    Vector3 rotation_ = { };
+    float scale_ = 1.0f;
 };
 
 } // namespace engine::graphics

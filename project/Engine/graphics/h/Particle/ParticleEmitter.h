@@ -13,17 +13,16 @@ namespace engine::graphics {
  */
 class ParticleEmitter {
 public:
-
     /**
      * @brief コンストラクタ発生させるパーティクルの種類と初期位置を設定する
      * @param name 発生させるパーティクルグループの名前（ParticleManagerで事前登録したもの）
      * @param transform エミッターの初期トランスフォーム（座標・回転・スケール）
      */
-   ParticleEmitter(const std::string& name, const Transform& transform);
+    ParticleEmitter(const std::string& name, const Transform& transform);
 
     /**
-    * @brief 毎フレームの更新処理内部タイマーを進め、指定時間が経過したらパーティクルを発生させる
-    */
+     * @brief 毎フレームの更新処理内部タイマーを進め、指定時間が経過したらパーティクルを発生させる
+     */
     void Update();
 
     /**
@@ -40,7 +39,6 @@ public:
     void SetTranslate(const Vector3& translate) { transform_.translate = translate; }
 
 private:
-
     /** @brief 発生させるパーティクルグループの名前 */
     std::string name_;
 

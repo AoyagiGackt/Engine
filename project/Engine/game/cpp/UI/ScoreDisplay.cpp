@@ -1,6 +1,3 @@
-/**
- * @file ScoreDisplay.cpp
- */
 #include "ScoreDisplay.h"
 #include "TextureManager.h"
 #include <cassert>
@@ -52,7 +49,9 @@ void ScoreDisplay::DrawNumber(int value, Vector2 pos, Vector2 digitSize, float g
     float x = pos.x;
     for (char c : s) {
         Sprite* sp = AllocSprite();
-        if (!sp) { return; }
+        if (!sp) {
+            return;
+        }
 
         int d = c - '0';
         sp->SetTexture(DigitPath(d));
@@ -67,13 +66,13 @@ void ScoreDisplay::DrawNumber(int value, Vector2 pos, Vector2 digitSize, float g
 }
 
 void ScoreDisplay::DrawRanking(const std::vector<int>& ranking,
-                               int currentScore,
-                               Vector2 topLeft,
-                               Vector2 digitSize,
-                               float rowSpacing)
+    int currentScore,
+    Vector2 topLeft,
+    Vector2 digitSize,
+    float rowSpacing)
 {
     // 順位番号列の幅（最大2桁 + gap）
-    const float rankColW  = digitSize.x * 2.f + 8.f;
+    const float rankColW = digitSize.x * 2.f + 8.f;
     // スコア列の開始 X オフセット
     const float scoreOffX = rankColW + 16.f;
 

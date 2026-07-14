@@ -1,6 +1,6 @@
 #pragma once
-#include "DirectXCommon.h"
 #include "BlendMode.h"
+#include "DirectXCommon.h"
 #include <wrl/client.h>
 namespace engine::graphics {
 

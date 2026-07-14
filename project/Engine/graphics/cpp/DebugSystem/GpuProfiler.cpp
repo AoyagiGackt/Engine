@@ -9,12 +9,14 @@
 namespace engine::graphics {
 using engine::DirectXCommon;
 
-GpuProfiler* GpuProfiler::GetInstance() {
+GpuProfiler* GpuProfiler::GetInstance()
+{
     static GpuProfiler inst;
     return &inst;
 }
 
-void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
+void GpuProfiler::Initialize(DirectXCommon* dxCommon)
+{
     dxCommon_ = dxCommon;
     auto* device = dxCommon->GetDevice();
 
@@ -22,23 +24,23 @@ void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
     dxCommon->GetCommandQueue()->GetTimestampFrequency(&freq);
     gpuFreq_ = freq;
 
-    D3D12_QUERY_HEAP_DESC qhDesc = {};
-    qhDesc.Type     = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-    qhDesc.Count    = static_cast<UINT>(kTimestampCount);
+    D3D12_QUERY_HEAP_DESC qhDesc = { };
+    qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+    qhDesc.Count = static_cast<UINT>(kTimestampCount);
     qhDesc.NodeMask = 0;
     HRESULT hr = device->CreateQueryHeap(&qhDesc, IID_PPV_ARGS(&queryHeap_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    D3D12_HEAP_PROPERTIES hp = {};
+    D3D12_HEAP_PROPERTIES hp = { };
     hp.Type = D3D12_HEAP_TYPE_READBACK;
-    D3D12_RESOURCE_DESC rb = {};
-    rb.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
-    rb.Width              = static_cast<UINT64>(kTimestampCount) * sizeof(UINT64);
-    rb.Height             = 1;
-    rb.DepthOrArraySize   = 1;
-    rb.MipLevels          = 1;
-    rb.SampleDesc.Count   = 1;
-    rb.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    D3D12_RESOURCE_DESC rb = { };
+    rb.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    rb.Width = static_cast<UINT64>(kTimestampCount) * sizeof(UINT64);
+    rb.Height = 1;
+    rb.DepthOrArraySize = 1;
+    rb.MipLevels = 1;
+    rb.SampleDesc.Count = 1;
+    rb.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     hr = device->CreateCommittedResource(
         &hp, D3D12_HEAP_FLAG_NONE, &rb,
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
@@ -48,22 +50,26 @@ void GpuProfiler::Initialize(DirectXCommon* dxCommon) {
     results_.fill(0.0f);
 }
 
-void GpuProfiler::Finalize() {
-    resolved_  = false;
+void GpuProfiler::Finalize()
+{
+    resolved_ = false;
     readbackBuf_.Reset();
     queryHeap_.Reset();
     dxCommon_ = nullptr;
 }
 
-void GpuProfiler::BeginScope(Scope s, ID3D12GraphicsCommandList* cmd) {
+void GpuProfiler::BeginScope(Scope s, ID3D12GraphicsCommandList* cmd)
+{
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2);
 }
 
-void GpuProfiler::EndScope(Scope s, ID3D12GraphicsCommandList* cmd) {
+void GpuProfiler::EndScope(Scope s, ID3D12GraphicsCommandList* cmd)
+{
     cmd->EndQuery(queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP, static_cast<int>(s) * 2 + 1);
 }
 
-void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd) {
+void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd)
+{
     cmd->ResolveQueryData(
         queryHeap_.Get(), D3D12_QUERY_TYPE_TIMESTAMP,
         0, static_cast<UINT>(kTimestampCount),
@@ -71,15 +77,20 @@ void GpuProfiler::Resolve(ID3D12GraphicsCommandList* cmd) {
     resolved_ = true;
 }
 
-void GpuProfiler::ReadBack() {
-    if (!resolved_ || !readbackBuf_) { return; }
+void GpuProfiler::ReadBack()
+{
+    if (!resolved_ || !readbackBuf_) {
+        return;
+    }
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>(kTimestampCount) * sizeof(UINT64) };
     UINT64* data = nullptr;
-    if (FAILED(readbackBuf_->Map(0, &readRange, reinterpret_cast<void**>(&data)))) { return; }
+    if (FAILED(readbackBuf_->Map(0, &readRange, reinterpret_cast<void**>(&data)))) {
+        return;
+    }
 
     for (int i = 0; i < static_cast<int>(Count); ++i) {
         UINT64 begin = data[static_cast<size_t>(i) * 2];
-        UINT64 end   = data[static_cast<size_t>(i) * 2 + 1];
+        UINT64 end = data[static_cast<size_t>(i) * 2 + 1];
         results_[static_cast<size_t>(i)] = (end >= begin)
             ? static_cast<float>((end - begin) * 1000u) / static_cast<float>(gpuFreq_)
             : 0.0f;
@@ -89,7 +100,8 @@ void GpuProfiler::ReadBack() {
     readbackBuf_->Unmap(0, &writeRange);
 }
 
-void GpuProfiler::DrawImGui() {
+void GpuProfiler::DrawImGui()
+{
 #ifdef USE_IMGUI
     auto* cpu = DebugProfiler::GetInstance();
     ImGui::SetNextWindowSize(ImVec2(230, 130), ImGuiCond_Once);

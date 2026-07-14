@@ -18,7 +18,9 @@ int EventBus::Subscribe(const std::string& eventName, Callback callback)
 void EventBus::Unsubscribe(const std::string& eventName, int handle)
 {
     auto it = subscribers_.find(eventName);
-    if (it == subscribers_.end()) { return; }
+    if (it == subscribers_.end()) {
+        return;
+    }
 
     auto& entries = it->second;
     entries.erase(
@@ -30,9 +32,13 @@ void EventBus::Unsubscribe(const std::string& eventName, int handle)
 void EventBus::Emit(const std::string& eventName)
 {
     auto it = subscribers_.find(eventName);
-    if (it == subscribers_.end()) { return; }
+    if (it == subscribers_.end()) {
+        return;
+    }
 
     // コールバック内でSubscribe/Unsubscribeされてもいいようにコピーを回す
     auto entries = it->second;
-    for (auto& e : entries) { e.callback(); }
+    for (auto& e : entries) {
+        e.callback();
+    }
 }

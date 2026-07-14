@@ -39,12 +39,14 @@ void EnemyEntity::Update()
 
 void EnemyEntity::Draw()
 {
-    if (!visible_) { return; }
+    if (!visible_) {
+        return;
+    }
     object_->Draw();
 }
 
 void EnemyEntity::Launch(float velY)
 {
     isLaunched_ = true;
-    velY_       = velY;
+    velY_ = velY;
 }

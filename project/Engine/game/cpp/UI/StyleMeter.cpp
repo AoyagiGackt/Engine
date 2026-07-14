@@ -12,25 +12,25 @@ namespace {
 
 struct RankDef {
     const char* letter;
-    float       threshold; ///< このポイント以上でこのランク
-    Vector4     color;
+    float threshold; ///< このポイント以上でこのランク
+    Vector4 color;
 };
 constexpr RankDef kRanks[StyleMeter::kRankCount] = {
-    { "D",     0.0f, { 0.55f, 0.55f, 0.55f, 1.0f } },
-    { "C",   120.0f, { 0.85f, 0.85f, 0.85f, 1.0f } },
-    { "B",   270.0f, { 0.30f, 0.72f, 1.00f, 1.0f } },
-    { "A",   440.0f, { 0.20f, 1.00f, 0.40f, 1.0f } },
-    { "S",   620.0f, { 1.00f, 0.90f, 0.10f, 1.0f } },
-    { "SS",  790.0f, { 1.00f, 0.55f, 0.10f, 1.0f } },
+    { "D", 0.0f, { 0.55f, 0.55f, 0.55f, 1.0f } },
+    { "C", 120.0f, { 0.85f, 0.85f, 0.85f, 1.0f } },
+    { "B", 270.0f, { 0.30f, 0.72f, 1.00f, 1.0f } },
+    { "A", 440.0f, { 0.20f, 1.00f, 0.40f, 1.0f } },
+    { "S", 620.0f, { 1.00f, 0.90f, 0.10f, 1.0f } },
+    { "SS", 790.0f, { 1.00f, 0.55f, 0.10f, 1.0f } },
     { "SSS", 940.0f, { 1.00f, 0.30f, 0.30f, 1.0f } },
 };
 
 // HUD レイアウト（右上アンカー）
-constexpr float kRightEdge  = 1256.0f;
-constexpr float kRankY      = 56.0f;
-constexpr float kRankScale  = 5.0f;
-constexpr float kBarW       = 190.0f;
-constexpr float kBarH       = 7.0f;
+constexpr float kRightEdge = 1256.0f;
+constexpr float kRankY = 56.0f;
+constexpr float kRankScale = 5.0f;
+constexpr float kBarW = 190.0f;
+constexpr float kBarH = 7.0f;
 
 } // namespace
 
@@ -48,7 +48,10 @@ int StyleMeter::GetRankIndex() const
 {
     int rank = 0;
     for (int i = kRankCount - 1; i >= 0; --i) {
-        if (points_ >= kRanks[i].threshold) { rank = i; break; }
+        if (points_ >= kRanks[i].threshold) {
+            rank = i;
+            break;
+        }
     }
     return rank;
 }
@@ -60,17 +63,19 @@ void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
     float mult = 1.0f / (1.0f + 0.8f * heat);
 
     // 直前と違う技ならバリエーションボーナス
-    if (!lastMoveId_.empty() && moveId != lastMoveId_) { mult *= 1.3f; }
+    if (!lastMoveId_.empty() && moveId != lastMoveId_) {
+        mult *= 1.3f;
+    }
 
     points_ = std::clamp(points_ + basePoints * mult, 0.0f, kMaxPoints);
     moveHeat_[moveId] = heat + 1.0f;
-    lastMoveId_       = moveId;
+    lastMoveId_ = moveId;
 
     hitCount_++;
-    bestChain_   = (std::max)(bestChain_, hitCount_);
-    chainTimer_  = kChainKeep;
-    noHitTimer_  = 0.0f;
-    hudAlpha_    = 1.0f;
+    bestChain_ = (std::max)(bestChain_, hitCount_);
+    chainTimer_ = kChainKeep;
+    noHitTimer_ = 0.0f;
+    hudAlpha_ = 1.0f;
     hitPopTimer_ = 0.18f;
 }
 
@@ -91,7 +96,7 @@ void StyleMeter::Update(float dt)
     chainTimer_ -= dt;
     if (chainTimer_ <= 0.0f) {
         chainTimer_ = 0.0f;
-        hitCount_   = 0;
+        hitCount_ = 0;
         if (points_ <= 0.0f) {
             hudAlpha_ = (std::max)(hudAlpha_ - dt * 2.0f, 0.0f);
         }
@@ -101,23 +106,25 @@ void StyleMeter::Update(float dt)
     int rank = GetRankIndex();
     if (rank != prevRank_) {
         rankFlashTimer_ = (rank > prevRank_) ? 0.35f : 0.15f;
-        prevRank_       = rank;
+        prevRank_ = rank;
     }
     rankFlashTimer_ = (std::max)(rankFlashTimer_ - dt, 0.0f);
-    hitPopTimer_    = (std::max)(hitPopTimer_ - dt, 0.0f);
+    hitPopTimer_ = (std::max)(hitPopTimer_ - dt, 0.0f);
 }
 
 void StyleMeter::UpdateHud(FontRenderer& font)
 {
-    if (hudAlpha_ <= 0.0f) { return; }
+    if (hudAlpha_ <= 0.0f) {
+        return;
+    }
 
-    const int      rank = GetRankIndex();
-    const RankDef& def  = kRanks[rank];
+    const int rank = GetRankIndex();
+    const RankDef& def = kRanks[rank];
 
     // ランク文字（ランクアップ直後は大きく弾む）
-    float pop   = (rankFlashTimer_ > 0.0f) ? Easing::EaseOutBack(1.0f - rankFlashTimer_ / 0.35f) : 1.0f;
+    float pop = (rankFlashTimer_ > 0.0f) ? Easing::EaseOutBack(1.0f - rankFlashTimer_ / 0.35f) : 1.0f;
     float scale = kRankScale * (0.75f + 0.25f * pop);
-    Vector4 rc  = def.color;
+    Vector4 rc = def.color;
     // 弾んでいる間は白へ寄せて発光しているように見せる
     float flash = (rankFlashTimer_ > 0.2f) ? (rankFlashTimer_ - 0.2f) / 0.15f : 0.0f;
     rc = { rc.x + (1.0f - rc.x) * flash, rc.y + (1.0f - rc.y) * flash, rc.z + (1.0f - rc.z) * flash, hudAlpha_ };
@@ -144,7 +151,7 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     // ランク内の進捗バー（次のランクまでの割合）
     float lo = def.threshold;
     float hi = (rank + 1 < kRankCount) ? kRanks[rank + 1].threshold : kMaxPoints;
-    float t  = std::clamp((points_ - lo) / (std::max)(hi - lo, 1.0f), 0.0f, 1.0f);
+    float t = std::clamp((points_ - lo) / (std::max)(hi - lo, 1.0f), 0.0f, 1.0f);
 
     barBg_->SetPosition({ kRightEdge - kBarW, kRankY + 84.0f });
     barBg_->SetSize({ kBarW, kBarH });
@@ -160,7 +167,9 @@ void StyleMeter::UpdateHud(FontRenderer& font)
 
 void StyleMeter::DrawHud()
 {
-    if (hudAlpha_ <= 0.0f) { return; }
+    if (hudAlpha_ <= 0.0f) {
+        return;
+    }
     barBg_->Draw();
     barFg_->Draw();
 }

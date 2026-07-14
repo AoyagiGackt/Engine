@@ -54,7 +54,7 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
     D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_UPLOAD };
 
     auto makeBuffer = [&](UINT64 size) -> ComPtr<ID3D12Resource> {
-        D3D12_RESOURCE_DESC d {};
+        D3D12_RESOURCE_DESC d { };
         d.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
         d.Width = size;
         d.Height = 1;
@@ -74,7 +74,7 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
 
     materialCB_ = makeBuffer(sizeof(ObjectMaterialLayout));
     materialCB_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    *materialData_ = ObjectMaterialLayout{}; // 既定値（ライティング有効・リム無効など）
+    *materialData_ = ObjectMaterialLayout { }; // 既定値（ライティング有効・リム無効など）
     materialData_->uvTransform = MakeIdentity4x4();
 
     // パレット: 256 バイト境界に合わせる（128 * 64 = 8192 はすでに倍数）

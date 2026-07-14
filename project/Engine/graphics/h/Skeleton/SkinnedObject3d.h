@@ -5,8 +5,8 @@
 #include "ObjectMaterialLayout.h"
 #include "Skeleton.h"
 #include "SkinCS.h"
-#include "SkinnedModel.h"
 #include "SkinCommon.h"
+#include "SkinnedModel.h"
 #include <string>
 #include <wrl/client.h>
 
@@ -35,37 +35,71 @@ public:
 
     void Initialize(SkinCommon* skinCommon);
 
-    void SetModel(SkinnedModel* model);  // SkinCS の初期化も行う
+    void SetModel(SkinnedModel* model); // SkinCS の初期化も行う
     // アニメーションを切り替える再生時刻は先頭に巻き戻る
-    void SetAnimation(Animation anim)         { animation_ = std::move(anim); animTime_ = 0.0f; }
-    void SetSkeleton(Skeleton skeleton)       { skeleton_  = std::move(skeleton); }
+    void SetAnimation(Animation anim)
+    {
+        animation_ = std::move(anim);
+        animTime_ = 0.0f;
+    }
+    void SetSkeleton(Skeleton skeleton) { skeleton_ = std::move(skeleton); }
     void SetEnvCubemapFilePath(const std::string& path) { envCubemapFilePath_ = path; }
 
     void SetPosition(const Vector3& pos) { transform_.translate = pos; }
-    void SetRotation(const Vector3& rot) { transform_.rotate    = rot; }
-    void SetScale(const Vector3& scale)  { transform_.scale     = scale; }
-    void SetAnimSpeed(float s)           { animSpeed_ = s; }
+    void SetRotation(const Vector3& rot) { transform_.rotate = rot; }
+    void SetScale(const Vector3& scale) { transform_.scale = scale; }
+    void SetAnimSpeed(float s) { animSpeed_ = s; }
     // スクラブ再生用: アニメーション時刻を直接指定する
     // （SetAnimation() は呼ぶ度に0へ戻すため、クリップ更新直後にこれで再生位置を復元する）
-    void SetAnimTime(float t)            { animTime_ = t; }
+    void SetAnimTime(float t) { animTime_ = t; }
 
-    void SetColor(const Vector4& color) { if (materialData_) { materialData_->color = color; } }
-    void SetEnableLighting(bool enable) { if (materialData_) { materialData_->enableLighting = enable ? 1 : 0; } }
+    void SetColor(const Vector4& color)
+    {
+        if (materialData_) {
+            materialData_->color = color;
+        }
+    }
+    void SetEnableLighting(bool enable)
+    {
+        if (materialData_) {
+            materialData_->enableLighting = enable ? 1 : 0;
+        }
+    }
 
     // リムライト（縁取り発光enableLighting 有効時のみシェーダーで反映される）
-    void SetRimColor(const Vector3& color) { if (materialData_) { materialData_->rimColor = color; } }
-    void SetRimPower(float power)          { if (materialData_) { materialData_->rimPower = power; } }
-    void SetRimIntensity(float intensity)  { if (materialData_) { materialData_->rimIntensity = intensity; } }
-    void SetEnableRim(bool enable)         { if (materialData_) { materialData_->enableRim = enable ? 1 : 0; } }
+    void SetRimColor(const Vector3& color)
+    {
+        if (materialData_) {
+            materialData_->rimColor = color;
+        }
+    }
+    void SetRimPower(float power)
+    {
+        if (materialData_) {
+            materialData_->rimPower = power;
+        }
+    }
+    void SetRimIntensity(float intensity)
+    {
+        if (materialData_) {
+            materialData_->rimIntensity = intensity;
+        }
+    }
+    void SetEnableRim(bool enable)
+    {
+        if (materialData_) {
+            materialData_->enableRim = enable ? 1 : 0;
+        }
+    }
 
-    Vector3 GetPosition()  const { return transform_.translate; }
-    Vector3 GetRotation()  const { return transform_.rotate; }
-    Vector3 GetScale()     const { return transform_.scale; }
-    float   GetAnimSpeed() const { return animSpeed_; }
+    Vector3 GetPosition() const { return transform_.translate; }
+    Vector3 GetRotation() const { return transform_.rotate; }
+    Vector3 GetScale() const { return transform_.scale; }
+    float GetAnimSpeed() const { return animSpeed_; }
 
     // 武器アタッチ等でジョイント行列を参照するためのゲッター
     // （skeletonSpaceMatrix は Update() 後に最新になる）
-    const Skeleton&  GetSkeleton()    const { return skeleton_; }
+    const Skeleton& GetSkeleton() const { return skeleton_; }
     const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
 
     void Update();
@@ -89,28 +123,28 @@ private:
         Matrix4x4 LightVP;
     };
 
-    static Camera*         commonCamera_;
-    static Matrix4x4       commonLightVP_;
+    static Camera* commonCamera_;
+    static Matrix4x4 commonLightVP_;
     static Object3dCommon* commonObjectCommon_;
-    static ShadowManager*  commonShadowManager_;
-    static ModelCommon*    commonModelCommon_;
+    static ShadowManager* commonShadowManager_;
+    static ModelCommon* commonModelCommon_;
 
-    SkinCommon*   skinCommon_ = nullptr;
-    SkinnedModel* model_      = nullptr;
+    SkinCommon* skinCommon_ = nullptr;
+    SkinnedModel* model_ = nullptr;
 
     SkinCS skinCS_;
-    bool   skinCSReady_ = false;
+    bool skinCSReady_ = false;
 
     void InitializeSkinCS();
 
     std::string envCubemapFilePath_;
 
-    Skeleton  skeleton_;
+    Skeleton skeleton_;
     Animation animation_;
-    float     animTime_  = 0.0f;
-    float     animSpeed_ = 1.0f;
+    float animTime_ = 0.0f;
+    float animSpeed_ = 1.0f;
 
-    Transform transform_{ {1,1,1}, {0,0,0}, {0,0,0} };
+    Transform transform_ { { 1, 1, 1 }, { 0, 0, 0 }, { 0, 0, 0 } };
     Matrix4x4 worldMatrix_ = MakeIdentity4x4();
 
 #ifdef USE_IMGUI
