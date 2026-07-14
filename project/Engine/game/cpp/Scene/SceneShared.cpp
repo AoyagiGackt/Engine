@@ -110,7 +110,7 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
     if (isNear && input->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeScene(targetSceneName);
+        SceneManager::GetInstance()->ChangeSceneWithLoading(targetSceneName);
     }
     return isNear;
 }

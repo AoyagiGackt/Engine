@@ -4,6 +4,9 @@
 #ifdef _DEBUG
 #include "TrainingScene.h"
 #endif
+#ifdef USE_IMGUI
+#include "GraphEditor.h"
+#endif
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -100,6 +103,12 @@ void SceneManager::Update()
     if (currentScene_) {
         currentScene_->Update();
     }
+
+#ifdef USE_IMGUI
+    // ImGuiのウィジェット構築はUpdateフェーズ（imguiManager_->End()より前）で行う必要があるため、
+    // Draw()ではなくここで呼ぶシーンに関係なく常に開けるようにする
+    GraphEditor::GetInstance()->Update(input_);
+#endif
 }
 
 void SceneManager::Draw()

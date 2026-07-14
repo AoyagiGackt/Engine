@@ -55,6 +55,9 @@
     <Filter Include="ソースファイル\Engine\game\cpp\Level">
       <UniqueIdentifier>{0f0b60e6-f031-41d2-9ea7-9185da962ee0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソースファイル\Engine\game\cpp\Scripting">
+      <UniqueIdentifier>{576c378f-d692-48b9-a568-210c0d23c385}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ソースファイル\Engine\game\cpp\Core\Lighting">
       <UniqueIdentifier>{badcb3a8-c38d-4cc0-a047-bb55a6bc6cf6}</UniqueIdentifier>
     </Filter>
@@ -153,6 +156,9 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\game\h\Level">
       <UniqueIdentifier>{864a7406-37fd-4cd4-8460-e2c0790a69ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Engine\game\h\Scripting">
+      <UniqueIdentifier>{0817d5b8-13f7-48a4-9362-9d8763672d01}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\game\h\Core\Lighting">
       <UniqueIdentifier>{d4bc4506-6509-4989-a50d-69c30e8e5584}</UniqueIdentifier>
@@ -309,7 +315,31 @@
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Util\EventBus.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphTypes.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\NodeRegistry.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphRuntime.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp">
@@ -650,7 +680,31 @@
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\EventBus.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphTypes.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\NodeRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphRuntime.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphEditor.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GameFlags.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\TriggerVolume.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h">

@@ -108,6 +108,34 @@ bool KnightEnemy::TryBeginAbsorb()
     return true;
 }
 
+void KnightEnemy::RefreshVisualTransforms()
+{
+    // 位置・AI状態は変えず、現在のカメラで行列を再計算するだけ
+    if (object_)      { object_->Update(); }
+    if (swordObject_) { swordObject_->Update(); }
+}
+
+void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
+{
+    if (blocks.empty() || !IsAlive()) { return; } // 撃破後は演出中なので押し出さない
+
+    AABB self = GetAABB();
+    for (const auto& b : blocks) {
+        bool overlapY = self.max.y > b.min.y && self.min.y < b.max.y;
+        bool overlapZ = self.max.z > b.min.z && self.min.z < b.max.z;
+        if (!overlapY || !overlapZ) { continue; }
+
+        bool overlapX = self.max.x > b.min.x && self.min.x < b.max.x;
+        if (!overlapX) { continue; }
+
+        // 侵入量が小さい側へ押し出す（ジャンプしない敵なので水平方向だけで十分）
+        float pushLeft  = b.min.x - self.max.x; // 負値＝左へ押し出す量
+        float pushRight = b.max.x - self.min.x; // 正値＝右へ押し出す量
+        pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+        self = GetAABB(); // 押し出し後の位置で以降のブロックも判定する
+    }
+}
+
 void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
 {
     justAbsorbed_ = false;

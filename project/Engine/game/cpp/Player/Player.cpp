@@ -209,6 +209,62 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     AttachActiveWeapons();
 }
 
+void Player::RefreshVisualTransforms()
+{
+    // 位置・アニメ状態は一切変えず、現在のカメラで行列を再計算するだけ
+    // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
+    float savedSpeed = rig_->object->GetAnimSpeed();
+    rig_->object->SetAnimSpeed(0.0f);
+    rig_->object->Update();
+    rig_->object->SetAnimSpeed(savedSpeed);
+
+    for (auto& slot : heldWeapons_) { slot.object->Update(); }
+    for (auto& slot : guns_)        { slot.object->Update(); }
+}
+
+void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
+{
+    if (blocks.empty()) { return; }
+
+    // プレイヤーの当たり判定はダミー等と同じ「pos_を中心とした1x1x1」規約に合わせる
+    constexpr float kHalf = 0.5f;
+
+    // ---- 垂直方向: 足元付近に上面があるブロックのうち一番高いものへ着地させる ----
+    float feetY   = pos_.y - kHalf;
+    float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
+    for (const auto& b : blocks) {
+        bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
+                       && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+        if (!overlapXZ) { continue; }
+
+        // 上面が「足元より少し下〜少し上」の範囲にあるものだけ着地対象にする（すり抜け・誤爆防止の許容幅）
+        if (b.max.y <= feetY + 0.6f && b.max.y >= feetY - 1.0f && (b.max.y + kHalf) > bestTop) {
+            bestTop = b.max.y + kHalf;
+        }
+    }
+    if (velocityY_ <= 0.0f && pos_.y <= bestTop + 0.05f) {
+        pos_.y     = bestTop;
+        velocityY_ = 0.0f;
+        onGround_  = true;
+    }
+
+    // ---- 水平方向: 側面から重なっているブロックがあれば侵入量が小さい側へ押し出す ----
+    for (const auto& b : blocks) {
+        bool overlapY = (pos_.y + kHalf) > b.min.y + 0.05f && (pos_.y - kHalf) < b.max.y - 0.05f;
+        if (!overlapY) { continue; } // 乗っているだけの上面はここでは無視する
+
+        bool overlapX = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x;
+        bool overlapZ = (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+        if (!overlapX || !overlapZ) { continue; }
+
+        float pushLeft  = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
+        float pushRight = b.max.x - (pos_.x - kHalf); // 正値＝右へ押し出す量
+        pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+    }
+
+    pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
+}
+
 void Player::ResetFrameFlags()
 {
     justJumped_        = false;

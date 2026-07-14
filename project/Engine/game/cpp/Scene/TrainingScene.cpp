@@ -12,6 +12,10 @@
 #include <cstring>
 #include <random>
 #include <string>
+#ifdef _DEBUG
+#include "EventBus.h"
+#include "Logger.h"
+#endif
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -107,6 +111,14 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     }
 
     GpuProfiler::GetInstance()->Initialize(dxCommon_);
+
+#ifdef _DEBUG
+    // ビジュアルスクリプティングVMの動作確認用スモークテスト（エディタUIはまだ無い）
+    testGraph_ = GraphIO::Load("Resources/Graphs/test_graph.json");
+    EventBus::GetInstance()->Subscribe("low_hp_warning", [] { Logger::LogInfo("[GraphTest] low_hp_warning fired"); });
+    EventBus::GetInstance()->Subscribe("hp_checked",     [] { Logger::LogInfo("[GraphTest] hp_checked fired"); });
+    testGraphRuntime_.Start(&testGraph_);
+#endif
 }
 
 void TrainingScene::Update()
@@ -123,6 +135,10 @@ void TrainingScene::Update()
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndBullets();
     UpdateCameraAndEnvironment();
+
+#ifdef _DEBUG
+    testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
+#endif
 
     bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, "BATTLETEST");
     DrawHud(nearWarp);

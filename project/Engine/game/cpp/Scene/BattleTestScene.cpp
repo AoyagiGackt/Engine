@@ -4,7 +4,6 @@
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
-#include "LevelLoader.h"
 #include "PipelineStateGuard.h"
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
@@ -78,14 +77,9 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    // 境界ブロックは本番ステージと同じ level01.json から読み込む
-    // （テストシーンが常に最新のステージ形状を反映するようにする）
-    {
-        auto levelData = LevelLoader::Load("Resources/Levels/level01.json");
-        levelSpawn_ = LevelLoader::Spawn(levelData, modelCommon_.get());
-        for (auto& obj : levelSpawn_.objects) { borderBlocks_.push_back(std::move(obj)); }
-        levelSpawn_.objects.clear();
-    }
+    // 境界ブロック・トリガーは本番ステージと同じ level01.json から読み込む
+    // （テストシーンが常に最新のステージ形状を反映するようにする。F2でその場編集も可能）
+    stageEditor_.Open("Resources/Levels/level01.json", modelCommon_.get(), camera_.get());
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -217,9 +211,32 @@ void BattleTestScene::Update()
 
     fontRenderer_.Reset();
 
+    stageEditor_.Update(input_, player_->GetPosition());
+    if (stageEditor_.IsVisible()) {
+        // ステージエディタ表示中はゲームプレイ（敵AI・プレイヤー操作・カメラ追従）を丸ごと止める
+        // TimeManagerのタイムスケールだけでは、このシーンの各種Updateが固定dt(GameConstants::kFrameDeltaTime)で
+        // 動いてしまい止まらないため、ここで明示的に丸ごとスキップする
+        stageEditor_.UpdateObjects();
+
+        // Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
+        // WASDでカメラを動かしても正しい位置に描かれるよう、全モデルの行列だけは毎フレーム再計算する
+        // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いて「ついてくる」ように見える）
+        player_->RefreshVisualTransforms();
+        if (knight_) { knight_->RefreshVisualTransforms(); }
+        bulletPool_.RefreshVisualTransforms();
+        for (auto& d : dummies_)          { d.object->Update(); }
+        for (auto& p : warpPortalBlocks_) { p->Update(); }
+        // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
+        UpdateWeaponSlotHud();
+        UpdateHpBars();
+        return;
+    }
+
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdateTargetLock();
     UpdatePlayerAndCamera();
+    // ステージエディタでsolidにしたブロックとの当たり判定（追加/移動/削除が次フレームからそのまま反映される）
+    player_->ResolveBlockCollision(stageEditor_.GetSolidColliders());
     UpdateEnvironment();
 
     UpdateCombat();
@@ -290,7 +307,7 @@ void BattleTestScene::UpdateEnvironment()
 {
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-    for (auto& b : borderBlocks_) { b->Update(); }
+    stageEditor_.UpdateObjects();
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
     float pulse = 0.6f + 0.4f * std::sin(warpPulseTimer_ * 4.0f);
@@ -826,6 +843,8 @@ void BattleTestScene::UpdateKnightEnemy()
     const Vector3&    pp     = player_->GetPosition();
 
     knight_->Update(pm_, pp);
+    // ステージエディタでsolidにしたブロックとの当たり判定（追加/移動/削除が次フレームからそのまま反映される）
+    knight_->ResolveBlockCollision(stageEditor_.GetSolidColliders());
 
     // ── プレイヤーの攻撃判定（Dummy 用と同じ AABB をナイトにも適用） ──
     if (knight_->IsAlive()) {
@@ -1183,7 +1202,7 @@ void BattleTestScene::Draw()
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
-    for (auto& b : borderBlocks_)     { b->Draw(); }
+    stageEditor_.DrawObjects();
     for (auto& p : warpPortalBlocks_) { p->Draw(); }
     for (auto& d : dummies_)          { if (!d.sliced) { d.object->Draw(); } }
     bulletPool_.Draw();

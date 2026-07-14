@@ -9,6 +9,7 @@
 #include "Object3d.h"
 #include "ParticleManager.h"
 #include <memory>
+#include <vector>
 namespace engine::graphics { class ModelCommon; }
 
 namespace engine::game {
@@ -31,6 +32,20 @@ public:
     /** @brief AI（Idle/Telegraph/Dash/Recover）または吸収演出を1フレーム進める */
     void Update(ParticleManager* pm, const Vector3& playerPos);
     void Draw();
+
+    /**
+     * @brief 見た目のトランスフォーム行列だけを再計算する（AIは一切進めない）
+     * @note ステージエディタ中、カメラだけ動く状況で呼ばないと古いカメラ行列のまま
+     * 描画されて画面に張り付いて見える（Player::RefreshVisualTransformsと同じ理由）
+     */
+    void RefreshVisualTransforms();
+
+    /**
+     * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
+     * @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
+     * @note ナイトはジャンプしない（常にkGroundY固定）ため、横から当たったら押し出すだけで良い
+     */
+    void ResolveBlockCollision(const std::vector<AABB>& blocks);
 
     /**
      * @brief ダメージを与える生存中のみ有効撃破すると凍結状態(Defeated)へ遷移する

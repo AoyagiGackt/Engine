@@ -19,7 +19,6 @@
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "KnightEnemy.h"
-#include "LevelLoader.h"
 #include "MeshSliceEffect.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -29,6 +28,7 @@
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
+#include "StageEditor.h"
 #include "SpaceDistortionEffect.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
@@ -182,8 +182,9 @@ private:
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model>                  modelBlock_;
-    std::vector<std::unique_ptr<Object3d>>  borderBlocks_;
-    LevelSpawnResult                        levelSpawn_;
+
+    // ステージ上の配置オブジェクト・トリガーの読み込み/描画/実行時編集（F2で開く）
+    StageEditor stageEditor_;
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>>  warpPortalBlocks_;

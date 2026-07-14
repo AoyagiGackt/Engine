@@ -26,6 +26,10 @@
 #include "SrvManager.h"
 #include "WeaponManager.h"
 #include "GpuProfiler.h"
+#ifdef _DEBUG
+#include "GraphRuntime.h"
+#include "GraphTypes.h"
+#endif
 namespace engine::game {
 using engine::Audio;
 using engine::graphics::Camera;
@@ -114,6 +118,13 @@ private:
     std::unique_ptr<Object3d> pbrDemoBlocks_[3];
     float pbrMetallic_[3]  = { 0.0f,  0.95f, 0.80f };
     float pbrRoughness_[3] = { 0.90f, 0.05f, 0.60f };
+
+#ifdef _DEBUG
+    // ビジュアルスクリプティングVMの動作確認用（Resources/Graphs/test_graph.jsonを読み込んで実行する）
+    // エディタ本体（imgui-node-editor等でグラフを組むUI）はまだ無く、VM単体の動作検証用
+    GraphDesc    testGraph_;
+    GraphRuntime testGraphRuntime_;
+#endif
 };
 
 } // namespace engine::game

@@ -74,6 +74,21 @@ public:
     /** @brief プレイヤーモデルを描画する */
     void Draw();
 
+    /**
+     * @brief 見た目のトランスフォーム行列だけを再計算する（ゲームロジックは一切進めない）
+     * @note Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
+     * ステージエディタ中など「本体Updateを止めたままカメラだけ動く」状況でこれを呼ばないと
+     * 古いカメラ行列のまま描画されて、モデルが画面に張り付いて見える
+     */
+    void RefreshVisualTransforms();
+
+    /**
+     * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
+     * @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
+     * @note 上に乗れば着地・横から当たれば壁として押し出す。ブロックを動かせば次フレームから追従する
+     */
+    void ResolveBlockCollision(const std::vector<AABB>& blocks);
+
     /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
     void EndRampage() { if (rampagePhase_ == RampagePhase::Juggle) { rampagePhase_ = RampagePhase::Inactive; } }
 

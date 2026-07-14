@@ -53,6 +53,13 @@ void BulletPool::Update()
     }
 }
 
+void BulletPool::RefreshVisualTransforms()
+{
+    for (auto& s : slots_) {
+        if (s.active) { s.obj->Update(); }
+    }
+}
+
 void BulletPool::Draw()
 {
     for (const auto& s : slots_) {
