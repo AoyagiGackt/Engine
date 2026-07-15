@@ -34,6 +34,14 @@ enum class CompareOp { Equal,
 CompareOp ParseCompareOp(const std::string& s); // "==" "!=" "<" "<=" ">" ">="
 bool Compare(CompareOp op, const GraphValue& lhs, const GraphValue& rhs);
 
+/// @brief Mathノードの数値演算子
+enum class MathOp { Add,
+    Subtract,
+    Multiply,
+    Divide };
+MathOp ParseMathOp(const std::string& s); // "+" "-" "*" "/"
+float ApplyMath(MathOp op, float a, float b); // Divide の 0除算は 0.0f を返す
+
 /// @brief グラフ中の1ノード
 struct GraphNode {
     std::string id;

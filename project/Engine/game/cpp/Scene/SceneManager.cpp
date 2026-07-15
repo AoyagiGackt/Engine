@@ -1,4 +1,5 @@
 #include "SceneManager.h"
+#include "StageEditor.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
 #ifdef _DEBUG
@@ -37,7 +38,7 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
 #else
     currentScene_ = std::make_unique<TitleScene>();
 #endif
-    currentScene_->Initialize(dxCommon_, input_, audio_);
+    currentScene_->Init(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();
 
@@ -76,7 +77,7 @@ void SceneManager::Update()
         } else {
             // 工場を使って新しいシーンを作成・初期化
             currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
-            currentScene_->Initialize(dxCommon_, input_, audio_);
+            currentScene_->Init(dxCommon_, input_, audio_);
             // シーン切り替え時にロードされたテクスチャを一括転送・同期する
             TextureManager::GetInstance()->FlushUploads();
 
@@ -90,7 +91,7 @@ void SceneManager::Update()
                 std::string target = loadingTargetScene_;
                 loadingThread_ = std::thread([this, target]() {
                     auto scene = sceneFactory_->CreateScene(target);
-                    scene->Initialize(dxCommon_, input_, audio_);
+                    scene->Init(dxCommon_, input_, audio_);
                     preloadedScene_ = std::move(scene);
                     asyncLoadReady_.store(true);
                 });
@@ -107,7 +108,11 @@ void SceneManager::Update()
 
     // フェード中であっても、今のシーンの更新は続ける
     if (currentScene_) {
-        currentScene_->Update();
+        // F2トグル・パネル・トリガー判定は先に処理してから、Tick()内のIsVisible()分岐に反映させる
+        currentScene_->GetStageEditor().Update(input_, currentScene_->GetEditorPlayerPos());
+        // Tick()がUpdate()呼び出し・エディタ表示中の一時停止・UpdateObjects()を一括して面倒を見る
+        // （各シーン側はDrawObjects()の呼び出し位置だけ自分のDraw()内で気にすればよい）
+        currentScene_->Tick();
     }
 
 #ifdef USE_IMGUI
@@ -120,7 +125,7 @@ void SceneManager::Update()
 void SceneManager::Draw()
 {
     if (currentScene_) {
-        currentScene_->Draw();
+        currentScene_->Render();
     }
 
     fade_.Draw();

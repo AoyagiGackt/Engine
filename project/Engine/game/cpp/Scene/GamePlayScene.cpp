@@ -1,4 +1,5 @@
 #include "GamePlayScene.h"
+#include "AudioBridge.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -6,6 +7,7 @@
 #include "ImageFilter.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
+#include "PlayerBridge.h"
 #include "PostEffectRenderTarget.h"
 #include "RunData.h"
 #include "SaveData.h"
@@ -80,6 +82,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         player_ = std::make_unique<Player>();
         player_->Initialize(modelCommon_.get());
         player_->SetPosition(levelData.playerSpawn);
+        PlayerBridge::GetInstance()->SetPlayer(player_.get());
+        AudioBridge::GetInstance()->SetAudio(audio_);
 
         {
             auto* rd = RunData::GetInstance();
@@ -112,6 +116,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
         enemy_ = std::make_unique<EnemyEntity>();
         enemy_->Initialize(modelCommon_.get(), levelData.enemySpawn);
+        enemy_->SetId("enemy");
+        EnemyRegistry::GetInstance()->Register(enemy_->GetId(), enemy_.get());
         {
             auto* rd = RunData::GetInstance();
             if (rd->IsRunActive()) {
@@ -1089,6 +1095,9 @@ void GamePlayScene::TriggerGlassShatterTest()
 
 void GamePlayScene::Finalize()
 {
+    if (enemy_) {
+        EnemyRegistry::GetInstance()->Unregister(enemy_->GetId());
+    }
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     renderTexture_->Finalize(srvManager_);
     pm_->ClearAllGroups();

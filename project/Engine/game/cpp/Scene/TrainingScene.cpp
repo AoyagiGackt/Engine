@@ -1,11 +1,14 @@
 #include "TrainingScene.h"
+#include "AudioBridge.h"
 #include "BorderBlockBuilder.h"
 #include "DebugProfiler.h"
 #include "GameConstants.h"
+#include "PlayerBridge.h"
 #include "SSAOEffect.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
+#include "StageEditor.h"
 #include "TimeManager.h"
 #include <cmath>
 #include <cstdio>
@@ -75,6 +78,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
+    // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
+    // （未作成のtraining.jsonなら空のまま起動し、F2エディタの「+」で配置してSaveで作成できる）
+    PlayerBridge::GetInstance()->SetPlayer(player_.get());
+    AudioBridge::GetInstance()->SetAudio(audio_);
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
@@ -132,6 +139,9 @@ void TrainingScene::Update()
         return;
     }
 
+    // ステージエディタ表示中の一時停止（GetStageEditor().IsVisible()）分岐はBaseScene::Tick()が面倒を見る
+    // （表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
+
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndBullets();
     UpdateCameraAndEnvironment();
@@ -142,6 +152,17 @@ void TrainingScene::Update()
 
     bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, "BATTLETEST");
     DrawHud(nearWarp);
+}
+
+void TrainingScene::RefreshVisualTransformsForEditor()
+{
+    // ステージエディタ表示中はゲームプレイ（プレイヤー操作・カメラ追従）を丸ごと止める
+    // （BattleTestSceneと同じ規約。TimeManagerのタイムスケールだけでは
+    // このシーンの各種Updateが固定dtで動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ）
+    player_->RefreshVisualTransforms();
+    for (auto& b : borderBlocks_) {
+        b->Update();
+    }
 }
 
 void TrainingScene::UpdatePlayerAndBullets()
@@ -210,6 +231,7 @@ void TrainingScene::UpdateCameraAndEnvironment()
 
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
+    // GetStageEditor().UpdateObjects()はBaseScene::Tick()がUpdate()の後に一括して呼ぶ
     for (auto& b : borderBlocks_) {
         b->Update();
     }
@@ -334,6 +356,7 @@ void TrainingScene::Draw()
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
+    // GetStageEditor().DrawObjects()はBaseScene::Render()がDraw()の後に自動で呼ぶ
     for (auto& b : borderBlocks_) {
         b->Draw();
     }

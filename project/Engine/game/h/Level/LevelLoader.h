@@ -17,6 +17,9 @@ struct ObjectDesc {
     std::string name; // 親子参照・エディタ表示用の一意な名前（空ならロード時に自動命名）
     std::string parent; // 親オブジェクトのname（空なら親なし）子のpositionは親からの相対位置になる
     std::string type; // "static" | "row"
+    // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
+    // enemy系はStageEditorが実際にHPを持つ敵インスタンスとして生成する（model/texture/type/axis/count/stepは無視される）
+    std::string kind = "prop";
     std::string model; // OBJ ファイルパス
     std::string texture; // テクスチャパス
     Vector3 position = { }; // 親がいる場合は親位置からのオフセット、いなければワールド座標

@@ -31,14 +31,16 @@
 #include "imgui.h"
 #include <cmath>
 
-// CollisionConfig.h の形状プリミティブは engine 名前空間内で定義されているため、
+// CollisionConfig.h の形状プリミティブと数学型は engine 名前空間内で定義されているため、
 // グローバル名前空間の DebugDraw から使えるように取り込む
 using engine::AABB;
 using engine::Capsule;
 using engine::Collider;
 using engine::ColliderShape;
+using engine::Matrix4x4;
 using engine::Ray;
 using engine::Sphere;
+using engine::Vector3;
 
 namespace DebugDraw {
 

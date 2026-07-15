@@ -35,12 +35,14 @@ constexpr float kAbsorbDuration = 0.5f;
 
 // 被弾ノックバック
 constexpr float kKnockbackSpeed = 0.18f; // 水平方向の初速
-constexpr float kKnockbackHop = 0.09f; // 垂直方向の初速（ぴょんと跳ねる）
 constexpr float kKnockbackDecay = 0.85f; // 毎フレームの減衰率
 
 float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
 float EaseInQuad(float t) { return t * t; }
-float Lerp(float a, float b, float t) { return a + (b - a) * t; }
+// engine::Lerp(Vector3,Vector3,float) と同名だと、KnightEnemyがengine::game所属のため
+// メンバ関数内の非修飾名探索がengine名前空間側で先に見つかって止まってしまい、
+// こちらの無名名前空間版（float版）に届かない。衝突を避けるため別名にする
+float LerpF(float a, float b, float t) { return a + (b - a) * t; }
 } // namespace
 
 void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
@@ -83,7 +85,7 @@ bool KnightEnemy::IsAlive() const
         || state_ == State::Dash || state_ == State::Recover;
 }
 
-void KnightEnemy::TakeDamage(int damage, float knockDirX)
+void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
 {
     if (!IsAlive()) {
         return;
@@ -91,7 +93,7 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX)
     hp_ -= damage;
     hitFlash_ = 0.12f;
     knockVelX_ += knockDirX * kKnockbackSpeed;
-    knockVelY_ = kKnockbackHop;
+    knockVelY_ = knockY;
     if (hp_ <= 0) {
         state_ = State::Defeated;
         stateTimer_ = 0.0f;
@@ -114,13 +116,9 @@ bool KnightEnemy::TryBeginAbsorb()
 
 void KnightEnemy::RefreshVisualTransforms()
 {
-    // 位置・AI状態は変えず、現在のカメラで行列を再計算するだけ
-    if (object_) {
-        object_->Update();
-    }
-    if (swordObject_) {
-        swordObject_->Update();
-    }
+    // 位置・AI状態は変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
+    // （ApplyTransforms()はpos_/yaw_等の現在値を読むだけでAIやタイマーは一切進めない）
+    ApplyTransforms();
 }
 
 void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
@@ -157,14 +155,18 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
         hitFlash_ = (std::max)(0.0f, hitFlash_ - GameConstants::kFrameDeltaTime);
     }
 
+    // 打ち上げ等でノックバック中はAIを一時停止する（さもないと空中でDash等の地上移動が割り込む）
+    bool inKnockback = (knockVelX_ != 0.0f || knockVelY_ != 0.0f);
     if (IsAlive()) {
-        UpdateAI(pm, playerPos);
+        if (!inKnockback) {
+            UpdateAI(pm, playerPos);
+        }
     } else if (state_ == State::Absorbing) {
         UpdateAbsorb(pm, playerPos);
     }
 
     // 被弾ノックバック（AIの位置更新の後に上乗せし、時間で減衰させる）
-    if (knockVelX_ != 0.0f || knockVelY_ != 0.0f) {
+    if (inKnockback) {
         pos_.x += knockVelX_;
         pos_.y += knockVelY_;
         knockVelX_ *= kKnockbackDecay;
@@ -187,7 +189,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
 
     switch (state_) {
     case State::Idle:
-        swordSwing_ = Lerp(swordSwing_, 0.0f, 0.15f);
+        swordSwing_ = LerpF(swordSwing_, 0.0f, 0.15f);
         if (stateTimer_ >= kIdleDuration) {
             state_ = State::Telegraph;
             stateTimer_ = 0.0f;
@@ -199,7 +201,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
 
     case State::Telegraph: {
         float t = std::clamp(stateTimer_ / kTelegraphDuration, 0.0f, 1.0f);
-        swordSwing_ = Lerp(swordSwing_, kSwordPullBack, 0.3f);
+        swordSwing_ = LerpF(swordSwing_, kSwordPullBack, 0.3f);
         if (t >= 1.0f) {
             state_ = State::Dash;
             stateTimer_ = 0.0f;
@@ -209,11 +211,11 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
     case State::Dash: {
         float t = std::clamp(stateTimer_ / kDashDuration, 0.0f, 1.0f);
         float eased = EaseOutQuad(t);
-        pos_.x = Lerp(dashStart_.x, dashTarget_.x, eased);
+        pos_.x = LerpF(dashStart_.x, dashTarget_.x, eased);
         if (dashTarget_.x != dashStart_.x) {
             yaw_ = (dashTarget_.x >= dashStart_.x) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
         }
-        swordSwing_ = Lerp(swordSwing_, kSwordSwingFwd, 0.5f);
+        swordSwing_ = LerpF(swordSwing_, kSwordSwingFwd, 0.5f);
         // 派手な閃光とは対照的な、暗い靄の軌跡
         if (pm) {
             pm->EmitTrail("bt_knight_dash_smoke", { pos_.x, pos_.y + 0.5f, pos_.z },
@@ -226,7 +228,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
         break;
     }
     case State::Recover:
-        swordSwing_ = Lerp(swordSwing_, 0.0f, 0.12f);
+        swordSwing_ = LerpF(swordSwing_, 0.0f, 0.12f);
         if (stateTimer_ >= kRecoverDuration) {
             state_ = State::Idle;
             stateTimer_ = 0.0f;
@@ -253,25 +255,25 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
     Vector3 target = { playerPos.x, playerPos.y + 0.5f, playerPos.z };
 
     Vector3 swordFlyPos = {
-        Lerp(handPos.x, target.x, eased),
-        Lerp(handPos.y, target.y, eased),
-        Lerp(handPos.z, target.z, eased)
+        LerpF(handPos.x, target.x, eased),
+        LerpF(handPos.y, target.y, eased),
+        LerpF(handPos.z, target.z, eased)
     };
 
     // 体は剣より少し遅れて発進し、丸まりながら吸い込まれていく(丸呑み演出)
     float bodyEased = EaseInQuad(std::clamp((t - 0.1f) / 0.9f, 0.0f, 1.0f));
     Vector3 bodyFlyPos = {
-        Lerp(pos_.x, target.x, bodyEased),
-        Lerp(pos_.y, target.y, bodyEased),
-        Lerp(pos_.z, target.z, bodyEased)
+        LerpF(pos_.x, target.x, bodyEased),
+        LerpF(pos_.y, target.y, bodyEased),
+        LerpF(pos_.z, target.z, bodyEased)
     };
     float bodyScale = kKnightModelScale * (1.0f - bodyEased);
 
     // 剣・体ともに光の粒に変わりながら吸い込まれていく軌跡
     Vector4 glowColor = { 0.5f + 0.5f * t, 0.85f + 0.15f * t, 1.0f, 1.0f };
     if (pm) {
-        pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, Lerp(0.35f, 0.12f, t), 0.2f);
-        pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, Lerp(0.55f, 0.1f, bodyEased), 0.16f);
+        pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, LerpF(0.35f, 0.12f, t), 0.2f);
+        pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, LerpF(0.55f, 0.1f, bodyEased), 0.16f);
     }
 
     swordObject_->SetPosition(swordFlyPos);

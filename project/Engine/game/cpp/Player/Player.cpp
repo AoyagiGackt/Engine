@@ -225,12 +225,19 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 
 void Player::RefreshVisualTransforms()
 {
-    // 位置・アニメ状態は一切変えず、現在のカメラで行列を再計算するだけ
+    // アニメ状態は一切変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
+    // （StageEditorのギズモ等、Update()を通さずpos_だけ直接書き換えられた場合に追従させるため）
+    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
+    rig_->object->SetPosition(modelPos);
+
     // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
     float savedSpeed = rig_->object->GetAnimSpeed();
     rig_->object->SetAnimSpeed(0.0f);
     rig_->object->Update();
     rig_->object->SetAnimSpeed(savedSpeed);
+
+    // 武器/銃は本体のボーンに追従しているため、本体の位置更新後に付け直さないと古い位置に取り残される
+    AttachActiveWeapons();
 
     for (auto& slot : heldWeapons_) {
         slot.object->Update();

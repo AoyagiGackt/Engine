@@ -6,6 +6,8 @@
 #include "Vector3.h"
 #include <cmath>
 
+namespace engine {
+
 /** @brief クォータニオン（四元数）回転をあらわす */
 struct Quaternion {
     float x;
@@ -80,3 +82,5 @@ inline Quaternion Slerp(const Quaternion& q1, Quaternion q2, float t)
         s1 * q1.w + s2 * q2.w
     };
 }
+
+} // namespace engine

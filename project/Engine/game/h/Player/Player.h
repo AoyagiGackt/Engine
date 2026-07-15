@@ -116,6 +116,8 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
+    Vector3& GetPositionRef() { return pos_; }
     /**
      * @brief 水面のY座標を設定する（WaterPool::GetSurfaceY() の値を渡す）
      * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）

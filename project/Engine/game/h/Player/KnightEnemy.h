@@ -52,11 +52,17 @@ public:
     /**
      * @brief ダメージを与える生存中のみ有効撃破すると凍結状態(Defeated)へ遷移する
      * @param knockDirX ノックバックの方向（+1/-1想定、プレイヤーの向き等）
+     * @param knockY    垂直ノックバック初速（MeleeAttackDef::knockY等。打ち上げ技ほど大きい値を渡す）
+     * @note 与えた分は毎フレーム重力で減衰し、地面(kGroundY)で自然に着地する（Update()参照）
      */
-    void TakeDamage(int damage, float knockDirX = 0.0f);
+    void TakeDamage(int damage, float knockDirX = 0.0f, float knockY = 0.09f);
 
     /** @brief 通常行動中（攻撃で倒せる状態）か */
     bool IsAlive() const;
+    /** @brief 現在のHPを返す */
+    int GetHp() const { return hp_; }
+    /** @brief 最大HPを返す */
+    int GetMaxHp() const { return kMaxHp; }
     /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
     bool IsAwaitingSteal() const { return state_ == State::Defeated; }
     /** @brief 吸収演出が完全に終わり消滅したか */
@@ -71,6 +77,8 @@ public:
     bool TryBeginAbsorb();
 
     Vector3 GetPosition() const { return pos_; }
+    /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
+    Vector3& GetPositionRef() { return pos_; }
     AABB GetAABB() const
     {
         return { { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },

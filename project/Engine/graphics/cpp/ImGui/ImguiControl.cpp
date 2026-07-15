@@ -250,13 +250,23 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
     // を1ウィンドウにまとめ、セクションごとに折りたたみヘッダーで表示する
     // -------------------------------------------------------
     auto* imgFilter = ImageFilter::GetInstance();
-    auto mode = imgFilter->GetMode();
 
     ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Once);
     ImGui::Begin("エフェクト・ライト設定");
+    ShowOutlineSection(imgFilter);
+    ShowRadialBlurSection(imgFilter);
+    ShowDissolveSection(imgFilter);
+    ShowNoiseSection(imgFilter);
+    ShowGlassShatterSection();
+    ShowLightSection();
+    ImGui::End();
+}
 
+void ImGuiControlPanel::ShowOutlineSection(ImageFilter* imgFilter)
+{
     // ---- アウトライン ----
     if (ImGui::CollapsingHeader("アウトライン")) {
+        auto mode = imgFilter->GetMode();
         bool isOutline = (mode == ImageFilter::Mode::PrewittEdge || mode == ImageFilter::Mode::DepthOutline);
         if (!imgFilter->IsEnabled() || !isOutline) {
             ImGui::TextDisabled("イメージフィルターで\n「Prewitt エッジ」か\n「深度アウトライン」を選択してください");
@@ -301,10 +311,13 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
             }
         }
     }
+}
 
+void ImGuiControlPanel::ShowRadialBlurSection(ImageFilter* imgFilter)
+{
     // ---- ラジアルブラー ----
     if (ImGui::CollapsingHeader("ラジアルブラー")) {
-        bool isRadial = (mode == ImageFilter::Mode::RadialBlur);
+        bool isRadial = (imgFilter->GetMode() == ImageFilter::Mode::RadialBlur);
         if (!imgFilter->IsEnabled() || !isRadial) {
             ImGui::TextDisabled("イメージフィルターで\n「ラジアルブラー」を選択してください");
         } else {
@@ -335,10 +348,13 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
             }
         }
     }
+}
 
+void ImGuiControlPanel::ShowDissolveSection(ImageFilter* imgFilter)
+{
     // ---- ディゾルブ ----
     if (ImGui::CollapsingHeader("ディゾルブ")) {
-        bool isDissolve = (mode == ImageFilter::Mode::Dissolve);
+        bool isDissolve = (imgFilter->GetMode() == ImageFilter::Mode::Dissolve);
         if (!imgFilter->IsEnabled() || !isDissolve) {
             ImGui::TextDisabled("イメージフィルターで\n「ディゾルブ」を選択してください");
         } else {
@@ -369,10 +385,13 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
             }
         }
     }
+}
 
+void ImGuiControlPanel::ShowNoiseSection(ImageFilter* imgFilter)
+{
     // ---- GPU ノイズ ----
     if (ImGui::CollapsingHeader("GPU ノイズ")) {
-        bool isNoise = (mode == ImageFilter::Mode::NoiseGen);
+        bool isNoise = (imgFilter->GetMode() == ImageFilter::Mode::NoiseGen);
         if (!imgFilter->IsEnabled() || !isNoise) {
             ImGui::TextDisabled("イメージフィルターで\n「GPU ノイズ」を選択してください");
         } else {
@@ -436,7 +455,10 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
             }
         }
     }
+}
 
+void ImGuiControlPanel::ShowGlassShatterSection()
+{
     // ---- ガラス割れエフェクト ----
     if (ImGui::CollapsingHeader("ガラス割れエフェクト")) {
         if (glassShatterTrigger_) {
@@ -449,7 +471,10 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
                                "テスト再生は登録されていません。");
         }
     }
+}
 
+void ImGuiControlPanel::ShowLightSection()
+{
     // ---- ライト（平行光源 + ポイントライト） ----
     if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (!obj3dCommon_) {
@@ -457,119 +482,124 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
                 "RegisterObject3dCommon() が未呼出しです。\n"
                 "初期化時に RegisterObject3dCommon(obj3dCommon) を呼んでください。");
         } else {
+            ShowDirectionalLightSection();
+            ImGui::Separator();
+            ShowPointLightSection();
+        }
+    }
+}
 
-            // ---- 平行光源（DirectionalLight） ----
-            if (ImGui::TreeNodeEx("平行光源", ImGuiTreeNodeFlags_DefaultOpen)) {
+void ImGuiControlPanel::ShowDirectionalLightSection()
+{
+    // ---- 平行光源（DirectionalLight） ----
+    if (ImGui::TreeNodeEx("平行光源", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-                bool manualOverride = obj3dCommon_->GetManualLightOverride();
-                if (ImGui::Checkbox("手動オーバーライド（時刻自動更新を停止）", &manualOverride)) {
-                    obj3dCommon_->SetManualLightOverride(manualOverride);
-                }
-                ImGui::SameLine();
-                ImGui::TextDisabled("(?)");
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("チェックすると UpdateLight() がスキップされ\n"
-                                      "以下のスライダーで固定設定できます。");
-                }
+        bool manualOverride = obj3dCommon_->GetManualLightOverride();
+        if (ImGui::Checkbox("手動オーバーライド（時刻自動更新を停止）", &manualOverride)) {
+            obj3dCommon_->SetManualLightOverride(manualOverride);
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("チェックすると UpdateLight() がスキップされ\n"
+                              "以下のスライダーで固定設定できます。");
+        }
 
-                if (manualOverride) {
-                    // 方向
-                    Vector3 dir = obj3dCommon_->GetLightDirectionRaw();
-                    if (ImGui::DragFloat3("方向 (XYZ)", &dir.x, 0.01f, -1.0f, 1.0f, "%.3f")) {
-                        obj3dCommon_->SetLightDirection(dir);
-                    }
-                    ImGui::SameLine();
-                    ImGui::TextDisabled("(?)");
-                    if (ImGui::IsItemHovered()) {
-                        ImGui::SetTooltip("ライトが向かう方向ベクトル（負の値が多いほど上から光が当たる）");
-                    }
+        if (manualOverride) {
+            // 方向
+            Vector3 dir = obj3dCommon_->GetLightDirectionRaw();
+            if (ImGui::DragFloat3("方向 (XYZ)", &dir.x, 0.01f, -1.0f, 1.0f, "%.3f")) {
+                obj3dCommon_->SetLightDirection(dir);
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("ライトが向かう方向ベクトル（負の値が多いほど上から光が当たる）");
+            }
 
-                    // 色
-                    Vector4 col = obj3dCommon_->GetLightColor();
-                    if (ImGui::ColorEdit3("ライト色", &col.x)) {
-                        obj3dCommon_->SetLightColor(col);
-                    }
+            // 色
+            Vector4 col = obj3dCommon_->GetLightColor();
+            if (ImGui::ColorEdit3("ライト色", &col.x)) {
+                obj3dCommon_->SetLightColor(col);
+            }
 
-                    // 強度
-                    float intensity = obj3dCommon_->GetLightIntensity();
-                    if (ImGui::SliderFloat("強度##dlight", &intensity, 0.0f, 3.0f, "%.2f")) {
-                        obj3dCommon_->SetLightIntensity(intensity);
-                    }
-
-                    ImGui::Separator();
-
-                    // アンビエント
-                    Vector3 ambCol = obj3dCommon_->GetAmbientColor();
-                    if (ImGui::ColorEdit3("アンビエント色", &ambCol.x)) {
-                        obj3dCommon_->SetAmbientColor(ambCol);
-                    }
-
-                    float ambIntensity = obj3dCommon_->GetAmbientIntensity();
-                    if (ImGui::SliderFloat("アンビエント強度", &ambIntensity, 0.0f, 1.0f, "%.2f")) {
-                        obj3dCommon_->SetAmbientIntensity(ambIntensity);
-                    }
-                } else {
-                    ImGui::TextDisabled("手動オーバーライドが OFF のため\n時刻ベースで自動更新されています。");
-                }
-                ImGui::TreePop();
+            // 強度
+            float intensity = obj3dCommon_->GetLightIntensity();
+            if (ImGui::SliderFloat("強度##dlight", &intensity, 0.0f, 3.0f, "%.2f")) {
+                obj3dCommon_->SetLightIntensity(intensity);
             }
 
             ImGui::Separator();
 
-            // ---- ポイントライト ----
-            if (ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
+            // アンビエント
+            Vector3 ambCol = obj3dCommon_->GetAmbientColor();
+            if (ImGui::ColorEdit3("アンビエント色", &ambCol.x)) {
+                obj3dCommon_->SetAmbientColor(ambCol);
+            }
 
-                ImGui::TextDisabled("最大 %d 個。毎フレーム GetDebugPointLights() をシーンで適用してください。",
-                    (int)Object3dCommon::kMaxPointLights);
-                ImGui::Separator();
+            float ambIntensity = obj3dCommon_->GetAmbientIntensity();
+            if (ImGui::SliderFloat("アンビエント強度", &ambIntensity, 0.0f, 1.0f, "%.2f")) {
+                obj3dCommon_->SetAmbientIntensity(ambIntensity);
+            }
+        } else {
+            ImGui::TextDisabled("手動オーバーライドが OFF のため\n時刻ベースで自動更新されています。");
+        }
+        ImGui::TreePop();
+    }
+}
 
-                // ライト追加ボタン
-                if ((int)debugLights_.size() < (int)Object3dCommon::kMaxPointLights) {
-                    if (ImGui::Button("+ ライトを追加")) {
-                        DebugPointLight newLight;
-                        newLight.position = { 0.f, 2.f, 0.f };
-                        debugLights_.push_back(newLight);
-                    }
-                } else {
-                    ImGui::TextDisabled("（上限 %d 個に達しています）", (int)Object3dCommon::kMaxPointLights);
-                }
+void ImGuiControlPanel::ShowPointLightSection()
+{
+    // ---- ポイントライト ----
+    if (ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-                // 各ライトの設定
-                for (int i = 0; i < (int)debugLights_.size();) {
-                    auto& pl = debugLights_[i];
-                    ImGui::PushID(i);
+        ImGui::TextDisabled("最大 %d 個。毎フレーム GetDebugPointLights() をシーンで適用してください。",
+            (int)Object3dCommon::kMaxPointLights);
+        ImGui::Separator();
 
-                    char label[64];
-                    snprintf(label, sizeof(label), "ポイントライト %d", i);
-                    bool open = ImGui::CollapsingHeader(label);
+        // ライト追加ボタン
+        if ((int)debugLights_.size() < (int)Object3dCommon::kMaxPointLights) {
+            if (ImGui::Button("+ ライトを追加")) {
+                DebugPointLight newLight;
+                newLight.position = { 0.f, 2.f, 0.f };
+                debugLights_.push_back(newLight);
+            }
+        } else {
+            ImGui::TextDisabled("（上限 %d 個に達しています）", (int)Object3dCommon::kMaxPointLights);
+        }
 
-                    // ヘッダー行に有効/削除ボタン
-                    ImGui::SameLine();
-                    ImGui::Checkbox("##enabled", &pl.enabled);
-                    ImGui::SameLine();
-                    bool removed = ImGui::SmallButton("削除");
+        // 各ライトの設定
+        for (int i = 0; i < (int)debugLights_.size();) {
+            auto& pl = debugLights_[i];
+            ImGui::PushID(i);
 
-                    if (open) {
-                        ImGui::DragFloat3("位置", &pl.position.x, 0.1f);
-                        ImGui::SliderFloat("半径", &pl.radius, 0.1f, 50.f, "%.1f");
-                        ImGui::ColorEdit3("色", &pl.color.x);
-                        ImGui::SliderFloat("強度", &pl.intensity, 0.0f, 10.f, "%.2f");
-                    }
+            char label[64];
+            snprintf(label, sizeof(label), "ポイントライト %d", i);
+            bool open = ImGui::CollapsingHeader(label);
 
-                    ImGui::PopID();
+            // ヘッダー行に有効/削除ボタン
+            ImGui::SameLine();
+            ImGui::Checkbox("##enabled", &pl.enabled);
+            ImGui::SameLine();
+            bool removed = ImGui::SmallButton("削除");
 
-                    if (removed) {
-                        debugLights_.erase(debugLights_.begin() + i);
-                    } else {
-                        ++i;
-                    }
-                }
-                ImGui::TreePop();
+            if (open) {
+                ImGui::DragFloat3("位置", &pl.position.x, 0.1f);
+                ImGui::SliderFloat("半径", &pl.radius, 0.1f, 50.f, "%.1f");
+                ImGui::ColorEdit3("色", &pl.color.x);
+                ImGui::SliderFloat("強度", &pl.intensity, 0.0f, 10.f, "%.2f");
+            }
+
+            ImGui::PopID();
+
+            if (removed) {
+                debugLights_.erase(debugLights_.begin() + i);
+            } else {
+                ++i;
             }
         }
+        ImGui::TreePop();
     }
-
-    ImGui::End();
 }
 
 #endif

@@ -74,6 +74,8 @@ bool IsHoveringCircle(const ImVec2& center, float radius)
 
 // GraphRuntime実行中かどうかの表示・操作のみに使う簡易インスタンス（GraphEditorのRunボタン用）
 GraphRuntime g_editorTestRuntime;
+// 実行開始時に開いていたグラフのパス（トップレベル実行中かどうかの判定用GetActiveLeaf()のパスが空＝トップレベルの時に使う）
+std::string g_editorTestRuntimeRootPath;
 } // namespace
 
 GraphEditor* GraphEditor::GetInstance()
@@ -100,6 +102,11 @@ void GraphEditor::Open(const std::string& path)
     if (allAtOrigin) {
         ArrangeNodes();
     }
+
+    // 別ファイルを開いたら、直前のグラフに対するUndo/Redo履歴は無関係になるため破棄する
+    undoStack_.clear();
+    redoStack_.clear();
+    hasPendingUndo_ = false;
 
     statusMessage_ = "Opened: " + path;
     statusTimer_ = 2.0f;
@@ -138,6 +145,16 @@ void GraphEditor::Update(Input* input)
         statusTimer_ -= realDt;
     }
 
+    // Ctrl+Z/Ctrl+Yで元に戻す/やり直す（テキスト入力欄にフォーカスがある間はImGui自身の入力欄内Undoに譲る）
+    if (!ImGui::GetIO().WantTextInput) {
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+            Undo();
+        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+            Redo();
+        }
+    }
+
     // 画面全体を覆う一枚のウィンドウとして開く背景を完全不透明にして後ろのゲーム画面を隠す
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->Pos);
@@ -152,7 +169,9 @@ void GraphEditor::Update(Input* input)
     // ---- ツールバー・使い方 ----
     ImGui::TextDisabled("F1: 閉じる    右クリック: ノード/コメント追加    ホイール: ズーム    中ドラッグ: パン");
     if (ImGui::CollapsingHeader("使い方")) {
-        ImGui::BulletText("何もない所を右クリック → ノードやコメント枠を追加");
+        ImGui::BulletText("何もない所を右クリック → ノードやコメント枠を追加（「よく使う」は直接、他はジャンル別サブメニューに分類）");
+        ImGui::BulletText("ノードにマウスを乗せると、何ができるノードか説明がツールチップで出る");
+        ImGui::BulletText("Ctrl+Z: 元に戻す    Ctrl+Y: やり直す（ツールバーのボタンからも可）");
         ImGui::BulletText("実行の流れ: ノード右上の黄ピンを、次ノード左上の白ピンへドラッグして接続");
         ImGui::BulletText("Ifノードは緑ピン=条件が真のとき、赤ピン=偽のときの行き先");
         ImGui::BulletText("値の受け渡し: ノード右下の出力ピンを、パラメータ左の同じ色のピンへドラッグ");
@@ -184,6 +203,7 @@ void GraphEditor::Update(Input* input)
     bool hasSelection = !selectedNodeId_.empty() && graph_.FindNode(selectedNodeId_);
     ImGui::BeginDisabled(!hasSelection);
     if (ImGui::Button("開始ノードに設定")) {
+        RecordUndoSnapshotNow();
         graph_.startNodeId = selectedNodeId_;
     }
     ImGui::EndDisabled();
@@ -196,9 +216,25 @@ void GraphEditor::Update(Input* input)
     ImGui::SameLine();
     ImGui::TextDisabled("|");
     ImGui::SameLine();
+    ImGui::BeginDisabled(undoStack_.empty());
+    if (ImGui::Button("元に戻す (Ctrl+Z)")) {
+        Undo();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(redoStack_.empty());
+    if (ImGui::Button("やり直す (Ctrl+Y)")) {
+        Redo();
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
     if (!g_editorTestRuntime.IsRunning()) {
         if (ImGui::Button("実行")) {
             g_editorTestRuntime.Start(&graph_);
+            g_editorTestRuntimeRootPath = graphPath_;
         }
     } else {
         if (ImGui::Button("停止")) {
@@ -242,6 +278,59 @@ void GraphEditor::DrawCanvas()
     ImDrawList* dl = ImGui::GetWindowDrawList();
     bool canvasHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
+    UpdateCanvasView(canvasHovered);
+
+    // コメント矩形は最背面に描く（ここではまだChannelsSplit前なので、ノードより必ず下に来る）
+    DrawComments(dl, origin);
+
+    dl->ChannelsSplit(2);
+
+    CanvasFrameState state;
+    if (g_editorTestRuntime.IsRunning()) {
+        // サブグラフ実行中に子グラフを開いて見ている場合でも正しく追従させるため、
+        // 実行チェーンの最深部（今実際に動いているグラフ）とパスで突き合わせる
+        std::string leafPath;
+        const GraphRuntime& leaf = g_editorTestRuntime.GetActiveLeaf(leafPath);
+        const std::string& effectivePath = leafPath.empty() ? g_editorTestRuntimeRootPath : leafPath;
+        state.viewingActiveGraph = (effectivePath == graphPath_);
+        state.activeRunNodeId = leaf.GetCurrentNodeId();
+    }
+    dataInPins_.clear();
+    dataOutPins_.clear();
+    for (auto& [id, node] : graph_.nodes) {
+        DrawNode(dl, origin, id, node, state);
+    }
+
+    dl->ChannelsMerge();
+
+    // ノード右クリックメニューのコピー/削除はここでまとめて処理する
+    // （ノード走査ループ中にgraph_.nodesを直接書き換えるとイテレータが壊れるため）
+    if (!pendingDuplicateNodeId_.empty()) {
+        std::string dupId = pendingDuplicateNodeId_;
+        pendingDuplicateNodeId_.clear();
+        DuplicateNode(dupId);
+    }
+    if (!pendingDeleteNodeId_.empty()) {
+        std::string delId = pendingDeleteNodeId_;
+        pendingDeleteNodeId_.clear();
+        DeleteNode(delId);
+        if (selectedNodeId_ == delId) {
+            selectedNodeId_.clear();
+        }
+    }
+
+    // リンク線は全ノードの矩形（nodeRects_）が出そろった後にまとめて描く
+    DrawLinks(dl);
+    DrawDataLinks(dl);
+    DrawLinkPreviews(dl, state);
+    HandleCanvasShortcuts(origin, canvasHovered, state);
+
+    ImGui::SetWindowFontScale(1.0f); // 他のImGuiウィジェット（ツールバー等）に影響しないよう戻す
+    ImGui::EndChild();
+}
+
+void GraphEditor::UpdateCanvasView(bool canvasHovered)
+{
     // マウスホイールでズーム（カーソル下のキャンバスにいる時だけ）
     if (canvasHovered) {
         float wheel = ImGui::GetIO().MouseWheel;
@@ -251,12 +340,6 @@ void GraphEditor::DrawCanvas()
     }
     ImGui::SetWindowFontScale(zoom_);
 
-    const float nodeW = kBaseNodeWidth * zoom_;
-    const float pinR = kBasePinRadius * zoom_;
-    const float pinPad = kBasePinPad * zoom_;
-    const float linkCtrl = kBaseLinkCtrl * zoom_;
-    const float boxPad = 6.0f * zoom_;
-
     // 中ボタンドラッグでパン（既存のStageEditor系ツールと同じ操作感に合わせる）
     // パンはグラフ座標系（ズームの影響を受けない単位）で持つので、スクリーン距離をzoomで割って変換する
     if (canvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
@@ -264,234 +347,283 @@ void GraphEditor::DrawCanvas()
         panOffsetX_ += d.x / zoom_;
         panOffsetY_ += d.y / zoom_;
     }
+}
 
-    // コメント矩形は最背面に描く（ここではまだChannelsSplit前なので、ノードより必ず下に来る）
-    DrawComments(dl, origin);
+void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state)
+{
+    const float nodeW = kBaseNodeWidth * zoom_;
+    const float pinR = kBasePinRadius * zoom_;
+    const float pinPad = kBasePinPad * zoom_;
+    const float boxPad = 6.0f * zoom_;
 
-    dl->ChannelsSplit(2);
+    ImGui::PushID(id.c_str());
+    dl->ChannelsSetCurrent(1);
 
-    ImVec2 linkFromScreenPos(0, 0);
-    bool linkFromFound = false;
-    bool linkCompletedThisFrame = false;
-    bool hoveringAnyPin = false;
+    ImVec2 nodeScreenPos(origin.x + (panOffsetX_ + node.editorX) * zoom_, origin.y + (panOffsetY_ + node.editorY) * zoom_);
+    ImGui::SetCursorScreenPos(nodeScreenPos);
+    ImGui::BeginGroup();
 
-    ImVec2 dataLinkFromScreenPos(0, 0);
-    bool dataLinkFromFound = false;
-    bool dataLinkCompletedThisFrame = false;
-
-    dataInPins_.clear();
-    dataOutPins_.clear();
-
-    for (auto& [id, node] : graph_.nodes) {
-        ImGui::PushID(id.c_str());
-        dl->ChannelsSetCurrent(1);
-
-        ImVec2 nodeScreenPos(origin.x + (panOffsetX_ + node.editorX) * zoom_, origin.y + (panOffsetY_ + node.editorY) * zoom_);
-        ImGui::SetCursorScreenPos(nodeScreenPos);
-        ImGui::BeginGroup();
-
-        // タイトル（このボタン自体がドラッグハンドル兼用）
-        ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
-        if (ImGui::IsItemActivated()) {
-            selectedNodeId_ = id;
-            selectedCommentId_.clear();
+    // タイトル（このボタン自体がドラッグハンドル兼用）
+    ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
+    if (ImGui::IsItemHovered()) {
+        state.hoveringNode = true; // キャンバス右クリックの「ノード追加」メニューと衝突しないよう抑制する
+        const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
+        if (spec && !spec->description.empty()) {
+            ImGui::SetTooltip("%s", spec->description.c_str());
         }
-        if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-            ImVec2 d = ImGui::GetIO().MouseDelta;
-            node.editorX += d.x / zoom_;
-            node.editorY += d.y / zoom_;
+    }
+    if (ImGui::IsItemActivated()) {
+        selectedNodeId_ = id;
+        selectedCommentId_.clear();
+        BeginUndoCapture();
+    }
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        ImVec2 d = ImGui::GetIO().MouseDelta;
+        node.editorX += d.x / zoom_;
+        node.editorY += d.y / zoom_;
+        MarkUndoDirty();
+    }
+    if (ImGui::IsItemDeactivated()) {
+        CommitUndoCapture();
+    }
+    // 右クリック: コピー・削除・開始ノード設定のコンテキストメニュー
+    // （ノード走査ループの途中でgraph_.nodesを直接書き換えるとイテレータが壊れるため、
+    // 実際の複製/削除はDrawCanvas末尾でpendingDuplicateNodeId_/pendingDeleteNodeId_経由の遅延実行にする）
+    ImGui::OpenPopupOnItemClick("NodeContextMenu", ImGuiPopupFlags_MouseButtonRight);
+    if (ImGui::BeginPopup("NodeContextMenu")) {
+        selectedNodeId_ = id;
+        selectedCommentId_.clear();
+        if (ImGui::MenuItem("開始ノードに設定")) {
+            RecordUndoSnapshotNow();
+            graph_.startNodeId = id;
         }
-        ImGui::TextDisabled("%s", id.c_str());
+        ImGui::Separator();
+        if (ImGui::MenuItem("コピー")) {
+            pendingDuplicateNodeId_ = id;
+        }
+        if (ImGui::MenuItem("削除")) {
+            pendingDeleteNodeId_ = id;
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::TextDisabled("%s", id.c_str());
 
-        // パラメータ編集（型に応じてウィジェットを出し分ける）
-        // 各行の左端にデータ入力ピンを置くため、行の矩形を記録する
-        for (auto& [key, val] : node.params) {
-            ImGui::PushID(key.c_str());
-            bool isLinked = node.paramLinks.count(key) > 0;
-            if (isLinked) {
-                // データ配線されているパラメータはリテラル編集を出さず、接続元を表示する
-                ImGui::TextDisabled("%s ← %s", key.c_str(), node.paramLinks[key].c_str());
-            } else {
-                ImGui::SetNextItemWidth(nodeW);
-                if (std::holds_alternative<float>(val)) {
-                    float f = std::get<float>(val);
-                    if (ImGui::InputFloat(key.c_str(), &f)) {
-                        val = f;
-                    }
-                } else if (std::holds_alternative<bool>(val)) {
-                    bool b = std::get<bool>(val);
-                    if (ImGui::Checkbox(key.c_str(), &b)) {
-                        val = b;
-                    }
-                } else {
-                    std::string s = std::get<std::string>(val);
-                    char buf[256];
-                    strncpy_s(buf, s.c_str(), _TRUNCATE);
-                    if (ImGui::InputText(key.c_str(), buf, sizeof(buf))) {
-                        val = std::string(buf);
-                    }
+    DrawNodeParams(dl, id, node, nodeScreenPos, state);
+
+    // Subgraphノードは中身をワンクリックで開けるようにする（Open()はループ後に遅延実行）
+    if (node.type == "Subgraph") {
+        if (ImGui::SmallButton("サブグラフを開く")) {
+            auto it = node.params.find("path");
+            if (it != node.params.end()) {
+                pendingOpenPath_ = AsString(it->second);
+            }
+        }
+    }
+
+    ImGui::EndGroup();
+    ImVec2 nodeMin = ImGui::GetItemRectMin();
+    ImVec2 nodeMax = ImGui::GetItemRectMax();
+    nodeRects_[id] = { nodeMin, nodeMax };
+
+    // 背景（枠・塗り、開始ノードは緑枠で強調）
+    dl->ChannelsSetCurrent(0);
+    ImU32 bg = (id == selectedNodeId_) ? kColBgSel : kColBg;
+    dl->AddRectFilled(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), bg, 4.0f * zoom_);
+    ImU32 border = (id == graph_.startNodeId) ? kColStart : kColBorder;
+    float borderThickness = 2.0f * zoom_;
+    if (state.viewingActiveGraph && id == state.activeRunNodeId) {
+        border = kColRunning;
+        borderThickness = 3.5f * zoom_; // Run中は太くして一目で分かるようにする
+    }
+    dl->AddRect(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), border, 4.0f * zoom_, 0, borderThickness);
+
+    dl->ChannelsSetCurrent(1);
+
+    // ---- 実行入力ピン（左上。タイトル行の高さに合わせる） ----
+    ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + 10.0f * zoom_);
+    dl->AddCircleFilled(inPin, pinR, kColPinIn);
+    if (IsHoveringCircle(inPin, pinR + 2.0f)) {
+        state.hoveringAnyPin = true;
+        if (linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && linkFromNodeId_ != id) {
+            auto fromIt = graph_.nodes.find(linkFromNodeId_);
+            if (fromIt != graph_.nodes.end()) {
+                RecordUndoSnapshotNow();
+                GraphNode& fromNode = fromIt->second;
+                if (linkFromPin_ == "next") {
+                    fromNode.next = id;
+                } else if (linkFromPin_ == "true") {
+                    fromNode.nextTrue = id;
+                } else if (linkFromPin_ == "false") {
+                    fromNode.nextFalse = id;
                 }
             }
-
-            // ---- データ入力ピン（この行の左端） ----
-            {
-                float rowCenterY = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
-                ImVec2 pinPos(nodeScreenPos.x - pinPad, rowCenterY);
-                dataInPins_[id][key] = pinPos;
-
-                GraphValueType paramType = ParamTypeOf(node.type, key);
-                float dataPinR = pinR * 0.75f;
-                dl->AddCircleFilled(pinPos, dataPinR, ColorForType(paramType));
-                if (IsHoveringCircle(pinPos, dataPinR + 3.0f)) {
-                    hoveringAnyPin = true;
-                    // ドロップで接続（型が合うときだけ自分自身への接続は不可）
-                    if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)
-                        && dataLinkFromNodeId_ != id && TypesCompatible(dataLinkFromType_, paramType)) {
-                        node.paramLinks[key] = dataLinkFromNodeId_;
-                        dataLinking_ = false;
-                        dataLinkCompletedThisFrame = true;
-                    }
-                    // 右クリックで配線解除
-                    if (isLinked && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                        node.paramLinks.erase(key);
-                    }
-                }
-            }
-            ImGui::PopID();
+            linking_ = false;
+            state.linkCompletedThisFrame = true;
         }
+    }
 
-        // Subgraphノードは中身をワンクリックで開けるようにする（Open()はループ後に遅延実行）
-        if (node.type == "Subgraph") {
-            if (ImGui::SmallButton("サブグラフを開く")) {
-                auto it = node.params.find("path");
-                if (it != node.params.end()) {
-                    pendingOpenPath_ = AsString(it->second);
-                }
+    // ---- 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ） ----
+    auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
+        dl->AddCircleFilled(pos, pinR, col);
+        if (IsHoveringCircle(pos, pinR + 2.0f)) {
+            state.hoveringAnyPin = true;
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !linking_ && !dataLinking_) {
+                linking_ = true;
+                linkFromNodeId_ = id;
+                linkFromPin_ = pinKind;
             }
         }
-
-        ImGui::EndGroup();
-        ImVec2 nodeMin = ImGui::GetItemRectMin();
-        ImVec2 nodeMax = ImGui::GetItemRectMax();
-        nodeRects_[id] = { nodeMin, nodeMax };
-
-        // 背景（枠・塗り、開始ノードは緑枠で強調）
-        dl->ChannelsSetCurrent(0);
-        ImU32 bg = (id == selectedNodeId_) ? kColBgSel : kColBg;
-        dl->AddRectFilled(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), bg, 4.0f * zoom_);
-        ImU32 border = (id == graph_.startNodeId) ? kColStart : kColBorder;
-        float borderThickness = 2.0f * zoom_;
-        if (g_editorTestRuntime.IsRunning() && id == g_editorTestRuntime.GetCurrentNodeId()) {
-            border = kColRunning;
-            borderThickness = 3.5f * zoom_; // Run中は太くして一目で分かるようにする
+        if (linking_ && linkFromNodeId_ == id && linkFromPin_ == pinKind) {
+            state.linkFromScreenPos = pos;
+            state.linkFromFound = true;
         }
-        dl->AddRect(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), border, 4.0f * zoom_, 0, borderThickness);
+    };
 
-        dl->ChannelsSetCurrent(1);
+    if (node.type == "If") {
+        drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.33f), kColPinTrue);
+        drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.66f), kColPinFalse);
+    } else {
+        drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * zoom_), kColPinOut);
+    }
 
-        // ---- 実行入力ピン（左上。タイトル行の高さに合わせる） ----
-        ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + 10.0f * zoom_);
-        dl->AddCircleFilled(inPin, pinR, kColPinIn);
-        if (IsHoveringCircle(inPin, pinR + 2.0f)) {
-            hoveringAnyPin = true;
-            if (linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && linkFromNodeId_ != id) {
-                auto fromIt = graph_.nodes.find(linkFromNodeId_);
-                if (fromIt != graph_.nodes.end()) {
-                    GraphNode& fromNode = fromIt->second;
-                    if (linkFromPin_ == "next") {
-                        fromNode.next = id;
-                    } else if (linkFromPin_ == "true") {
-                        fromNode.nextTrue = id;
-                    } else if (linkFromPin_ == "false") {
-                        fromNode.nextFalse = id;
-                    }
-                }
-                linking_ = false;
-                linkCompletedThisFrame = true;
+    // ---- データ出力ピン（右下。値を出力するノードだけ） ----
+    const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
+    if (spec && spec->hasOutput) {
+        ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - 10.0f * zoom_);
+        dataOutPins_[id] = outPin;
+
+        float dataPinR = pinR * 0.75f;
+        dl->AddCircleFilled(outPin, dataPinR, ColorForType(spec->outputType));
+        if (IsHoveringCircle(outPin, dataPinR + 3.0f)) {
+            state.hoveringAnyPin = true;
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !linking_ && !dataLinking_) {
+                dataLinking_ = true;
+                dataLinkFromNodeId_ = id;
+                dataLinkFromType_ = spec->outputType;
             }
         }
+        if (dataLinking_ && dataLinkFromNodeId_ == id) {
+            state.dataLinkFromScreenPos = outPin;
+            state.dataLinkFromFound = true;
+        }
+    }
 
-        // ---- 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ） ----
-        auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
-            dl->AddCircleFilled(pos, pinR, col);
-            if (IsHoveringCircle(pos, pinR + 2.0f)) {
-                hoveringAnyPin = true;
-                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !linking_ && !dataLinking_) {
-                    linking_ = true;
-                    linkFromNodeId_ = id;
-                    linkFromPin_ = pinKind;
-                }
-            }
-            if (linking_ && linkFromNodeId_ == id && linkFromPin_ == pinKind) {
-                linkFromScreenPos = pos;
-                linkFromFound = true;
-            }
-        };
+    ImGui::PopID();
+}
 
-        if (node.type == "If") {
-            drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.33f), kColPinTrue);
-            drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.66f), kColPinFalse);
+void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state)
+{
+    const float nodeW = kBaseNodeWidth * zoom_;
+    const float pinR = kBasePinRadius * zoom_;
+    const float pinPad = kBasePinPad * zoom_;
+
+    // パラメータ編集（型に応じてウィジェットを出し分ける）
+    // 各行の左端にデータ入力ピンを置くため、行の矩形を記録する
+    for (auto& [key, val] : node.params) {
+        ImGui::PushID(key.c_str());
+        bool isLinked = node.paramLinks.count(key) > 0;
+        if (isLinked) {
+            // データ配線されているパラメータはリテラル編集を出さず、接続元を表示する
+            ImGui::TextDisabled("%s ← %s", key.c_str(), node.paramLinks[key].c_str());
         } else {
-            drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * zoom_), kColPinOut);
-        }
-
-        // ---- データ出力ピン（右下。値を出力するノードだけ） ----
-        {
-            const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
-            if (spec && spec->hasOutput) {
-                ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - 10.0f * zoom_);
-                dataOutPins_[id] = outPin;
-
-                float dataPinR = pinR * 0.75f;
-                dl->AddCircleFilled(outPin, dataPinR, ColorForType(spec->outputType));
-                if (IsHoveringCircle(outPin, dataPinR + 3.0f)) {
-                    hoveringAnyPin = true;
-                    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !linking_ && !dataLinking_) {
-                        dataLinking_ = true;
-                        dataLinkFromNodeId_ = id;
-                        dataLinkFromType_ = spec->outputType;
-                    }
+            ImGui::SetNextItemWidth(nodeW);
+            if (std::holds_alternative<float>(val)) {
+                float f = std::get<float>(val);
+                bool changed = ImGui::InputFloat(key.c_str(), &f);
+                if (ImGui::IsItemActivated()) {
+                    BeginUndoCapture();
                 }
-                if (dataLinking_ && dataLinkFromNodeId_ == id) {
-                    dataLinkFromScreenPos = outPin;
-                    dataLinkFromFound = true;
+                if (changed) {
+                    MarkUndoDirty();
+                    val = f;
+                }
+                if (ImGui::IsItemDeactivated()) {
+                    CommitUndoCapture();
+                }
+            } else if (std::holds_alternative<bool>(val)) {
+                bool b = std::get<bool>(val);
+                if (ImGui::Checkbox(key.c_str(), &b)) {
+                    RecordUndoSnapshotNow();
+                    val = b;
+                }
+            } else {
+                std::string s = std::get<std::string>(val);
+                char buf[256];
+                strncpy_s(buf, s.c_str(), _TRUNCATE);
+                bool changed = ImGui::InputText(key.c_str(), buf, sizeof(buf));
+                if (ImGui::IsItemActivated()) {
+                    BeginUndoCapture();
+                }
+                if (changed) {
+                    MarkUndoDirty();
+                    val = std::string(buf);
+                }
+                if (ImGui::IsItemDeactivated()) {
+                    CommitUndoCapture();
                 }
             }
         }
 
+        // ---- データ入力ピン（この行の左端） ----
+        float rowCenterY = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
+        ImVec2 pinPos(nodeScreenPos.x - pinPad, rowCenterY);
+        dataInPins_[id][key] = pinPos;
+
+        GraphValueType paramType = ParamTypeOf(node.type, key);
+        float dataPinR = pinR * 0.75f;
+        dl->AddCircleFilled(pinPos, dataPinR, ColorForType(paramType));
+        if (IsHoveringCircle(pinPos, dataPinR + 3.0f)) {
+            state.hoveringAnyPin = true;
+            // ドロップで接続（型が合うときだけ自分自身への接続は不可）
+            if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)
+                && dataLinkFromNodeId_ != id && TypesCompatible(dataLinkFromType_, paramType)) {
+                RecordUndoSnapshotNow();
+                node.paramLinks[key] = dataLinkFromNodeId_;
+                dataLinking_ = false;
+                state.dataLinkCompletedThisFrame = true;
+            }
+            // 右クリックで配線解除
+            if (isLinked && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                RecordUndoSnapshotNow();
+                node.paramLinks.erase(key);
+            }
+        }
         ImGui::PopID();
     }
+}
 
-    dl->ChannelsMerge();
-
-    // リンク線は全ノードの矩形（nodeRects_）が出そろった後にまとめて描く
-    DrawLinks(dl);
-    DrawDataLinks(dl);
+void GraphEditor::DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state)
+{
+    const float linkCtrl = kBaseLinkCtrl * zoom_;
 
     // ドラッグ中のリンクのプレビュー線
-    if (linking_ && linkFromFound) {
+    if (linking_ && state.linkFromFound) {
         ImVec2 mouse = ImGui::GetIO().MousePos;
-        ImVec2 c1(linkFromScreenPos.x + linkCtrl, linkFromScreenPos.y);
+        ImVec2 c1(state.linkFromScreenPos.x + linkCtrl, state.linkFromScreenPos.y);
         ImVec2 c2(mouse.x - linkCtrl, mouse.y);
-        dl->AddBezierCubic(linkFromScreenPos, c1, c2, mouse, kColLink, 2.5f);
+        dl->AddBezierCubic(state.linkFromScreenPos, c1, c2, mouse, kColLink, 2.5f);
     }
-    if (linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !linkCompletedThisFrame) {
+    if (linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !state.linkCompletedThisFrame) {
         linking_ = false; // ピン以外の場所で離したらキャンセル
     }
 
     // ドラッグ中のデータ配線のプレビュー線（型の色で描く）
-    if (dataLinking_ && dataLinkFromFound) {
+    if (dataLinking_ && state.dataLinkFromFound) {
         ImVec2 mouse = ImGui::GetIO().MousePos;
-        ImVec2 c1(dataLinkFromScreenPos.x + linkCtrl, dataLinkFromScreenPos.y);
+        ImVec2 c1(state.dataLinkFromScreenPos.x + linkCtrl, state.dataLinkFromScreenPos.y);
         ImVec2 c2(mouse.x - linkCtrl, mouse.y);
-        dl->AddBezierCubic(dataLinkFromScreenPos, c1, c2, mouse, ColorForType(dataLinkFromType_), 2.0f);
+        dl->AddBezierCubic(state.dataLinkFromScreenPos, c1, c2, mouse, ColorForType(dataLinkFromType_), 2.0f);
     }
-    if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !dataLinkCompletedThisFrame) {
+    if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !state.dataLinkCompletedThisFrame) {
         dataLinking_ = false; // ピン以外の場所で離したらキャンセル
     }
+}
 
+void GraphEditor::HandleCanvasShortcuts(const ImVec2& origin, bool canvasHovered, const CanvasFrameState& state)
+{
     // 右クリックでノード追加メニュー（クリック位置をスクリーン座標からグラフ座標へ逆変換する）
-    if (canvasHovered && !hoveringAnyPin && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+    // ノード本体やピンの上で右クリックした場合はそちら側の専用メニューに譲る
+    if (canvasHovered && !state.hoveringAnyPin && !state.hoveringNode && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         ImVec2 m = ImGui::GetIO().MousePos;
         pendingAddX_ = (m.x - origin.x) / zoom_ - panOffsetX_;
         pendingAddY_ = (m.y - origin.y) / zoom_ - panOffsetY_;
@@ -509,9 +641,6 @@ void GraphEditor::DrawCanvas()
             selectedCommentId_.clear();
         }
     }
-
-    ImGui::SetWindowFontScale(1.0f); // 他のImGuiウィジェット（ツールバー等）に影響しないよう戻す
-    ImGui::EndChild();
 }
 
 void GraphEditor::DrawLinks(ImDrawList* dl)
@@ -590,50 +719,139 @@ void GraphEditor::DrawDataLinks(ImDrawList* dl)
     }
 }
 
+void GraphEditor::AddNodeOfType(const std::string& type)
+{
+    std::string id = "node_" + std::to_string(nextNodeSerial_++);
+    GraphNode node;
+    node.id = id;
+    node.type = type;
+    node.editorX = pendingAddX_;
+    node.editorY = pendingAddY_;
+
+    // 型ごとの初期パラメータ（空だと編集の取っ掛かりが無いため最低限入れておく）
+    if (type == "SetVariable") {
+        node.params["name"] = std::string("var");
+        node.params["value"] = 0.0f;
+    } else if (type == "If") {
+        node.params["var"] = std::string("var");
+        node.params["op"] = std::string("==");
+        node.params["value"] = 0.0f;
+    } else if (type == "Wait") {
+        node.params["seconds"] = 1.0f;
+    } else if (type == "EmitEvent") {
+        node.params["event"] = std::string("event_name");
+    } else if (type == "SetFlag") {
+        node.params["flag"] = std::string("flag_name");
+        node.params["value"] = false;
+    } else if (type == "GetFlag") {
+        node.params["flag"] = std::string("flag_name");
+        node.params["into"] = std::string("var");
+    } else if (type == "Subgraph") {
+        node.params["path"] = std::string("Resources/Graphs/sub_graph.json");
+    } else if (type == "Math") {
+        node.params["a"] = 0.0f;
+        node.params["b"] = 0.0f;
+        node.params["op"] = std::string("+");
+    } else if (type == "Compare") {
+        node.params["a"] = 0.0f;
+        node.params["b"] = 0.0f;
+        node.params["op"] = std::string("==");
+    } else if (type == "Random") {
+        node.params["min"] = 0.0f;
+        node.params["max"] = 1.0f;
+    } else if (type == "DamagePlayer" || type == "HealPlayer") {
+        node.params["amount"] = 1.0f;
+    } else if (type == "DamageEnemy" || type == "HealEnemy") {
+        node.params["target"] = std::string("enemy");
+        node.params["amount"] = 1.0f;
+    } else if (type == "PlaySE" || type == "PlayBGM") {
+        node.params["path"] = std::string("Resources/sound/se.wav");
+        if (type == "PlayBGM") {
+            node.params["loop"] = true;
+        } else {
+            node.params["volume"] = 1.0f;
+        }
+    } else if (type == "ScreenFlash") {
+        node.params["r"] = 1.0f;
+        node.params["g"] = 1.0f;
+        node.params["b"] = 1.0f;
+        node.params["a"] = 0.5f;
+        node.params["duration"] = 0.15f;
+    } else if (type == "HitStop") {
+        node.params["frames"] = 3.0f;
+    } else if (type == "SetEnemyVisible") {
+        node.params["target"] = std::string("enemy");
+        node.params["visible"] = true;
+    } else if (type == "TeleportEnemy") {
+        node.params["target"] = std::string("enemy");
+        node.params["x"] = 0.0f;
+        node.params["y"] = 0.0f;
+        node.params["z"] = 0.0f;
+    } else if (type == "TeleportPlayer") {
+        node.params["x"] = 0.0f;
+        node.params["y"] = 0.0f;
+        node.params["z"] = 0.0f;
+    } else if (type == "And" || type == "Or") {
+        node.params["a"] = false;
+        node.params["b"] = false;
+    } else if (type == "Not") {
+        node.params["a"] = false;
+    }
+
+    RecordUndoSnapshotNow();
+    graph_.nodes[id] = std::move(node);
+    if (graph_.startNodeId.empty()) {
+        graph_.startNodeId = id;
+    }
+    selectedNodeId_ = id;
+    selectedCommentId_.clear();
+}
+
 void GraphEditor::DrawAddNodeMenu()
 {
     if (ImGui::BeginPopup("AddNodePopup")) {
+        // カテゴリごとにグループ化する（"よく使う"は直接、他はサブメニューにまとめる）
+        std::map<std::string, std::vector<std::string>> byCategory;
         for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes()) {
-            if (ImGui::MenuItem(type.c_str())) {
-                std::string id = "node_" + std::to_string(nextNodeSerial_++);
-                GraphNode node;
-                node.id = id;
-                node.type = type;
-                node.editorX = pendingAddX_;
-                node.editorY = pendingAddY_;
+            const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
+            std::string cat = (spec && !spec->category.empty()) ? spec->category : "その他";
+            byCategory[cat].push_back(type);
+        }
 
-                // 型ごとの初期パラメータ（空だと編集の取っ掛かりが無いため最低限入れておく）
-                if (type == "SetVariable") {
-                    node.params["name"] = std::string("var");
-                    node.params["value"] = 0.0f;
-                } else if (type == "If") {
-                    node.params["var"] = std::string("var");
-                    node.params["op"] = std::string("==");
-                    node.params["value"] = 0.0f;
-                } else if (type == "Wait") {
-                    node.params["seconds"] = 1.0f;
-                } else if (type == "EmitEvent") {
-                    node.params["event"] = std::string("event_name");
-                } else if (type == "SetFlag") {
-                    node.params["flag"] = std::string("flag_name");
-                    node.params["value"] = false;
-                } else if (type == "GetFlag") {
-                    node.params["flag"] = std::string("flag_name");
-                    node.params["into"] = std::string("var");
-                } else if (type == "Subgraph") {
-                    node.params["path"] = std::string("Resources/Graphs/sub_graph.json");
+        auto drawItem = [&](const std::string& type) {
+            bool clicked = ImGui::MenuItem(type.c_str());
+            if (ImGui::IsItemHovered()) {
+                const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
+                if (spec && !spec->description.empty()) {
+                    ImGui::SetTooltip("%s", spec->description.c_str());
                 }
+            }
+            if (clicked) {
+                AddNodeOfType(type);
+            }
+        };
 
-                graph_.nodes[id] = std::move(node);
-                if (graph_.startNodeId.empty()) {
-                    graph_.startNodeId = id;
+        auto itFreq = byCategory.find("よく使う");
+        if (itFreq != byCategory.end()) {
+            for (const std::string& type : itFreq->second) {
+                drawItem(type);
+            }
+            byCategory.erase(itFreq);
+            ImGui::Separator();
+        }
+
+        for (auto& [cat, types] : byCategory) {
+            if (ImGui::BeginMenu(cat.c_str())) {
+                for (const std::string& type : types) {
+                    drawItem(type);
                 }
-                selectedNodeId_ = id;
-                selectedCommentId_.clear();
+                ImGui::EndMenu();
             }
         }
+
         ImGui::Separator();
         if (ImGui::MenuItem("コメント枠")) {
+            RecordUndoSnapshotNow();
             std::string id = "comment_" + std::to_string(nextCommentSerial_++);
             GraphComment c;
             c.id = id;
@@ -647,8 +865,76 @@ void GraphEditor::DrawAddNodeMenu()
     }
 }
 
+void GraphEditor::PushUndo(GraphDesc snapshot)
+{
+    undoStack_.push_back(std::move(snapshot));
+    if (undoStack_.size() > kMaxUndoHistory) {
+        undoStack_.erase(undoStack_.begin());
+    }
+    redoStack_.clear(); // 新しい操作をしたら、それ以前のRedo履歴は無効にする
+}
+
+void GraphEditor::RecordUndoSnapshotNow()
+{
+    PushUndo(graph_);
+}
+
+void GraphEditor::BeginUndoCapture()
+{
+    if (!hasPendingUndo_) {
+        pendingUndoSnapshot_ = graph_;
+        hasPendingUndo_ = true;
+        pendingUndoDirtied_ = false;
+    }
+}
+
+void GraphEditor::MarkUndoDirty()
+{
+    pendingUndoDirtied_ = true;
+}
+
+void GraphEditor::CommitUndoCapture()
+{
+    if (hasPendingUndo_) {
+        if (pendingUndoDirtied_) {
+            PushUndo(std::move(pendingUndoSnapshot_));
+        }
+        hasPendingUndo_ = false;
+        pendingUndoDirtied_ = false;
+    }
+}
+
+void GraphEditor::Undo()
+{
+    if (undoStack_.empty()) {
+        return;
+    }
+    redoStack_.push_back(graph_);
+    graph_ = std::move(undoStack_.back());
+    undoStack_.pop_back();
+    selectedNodeId_.clear();
+    selectedCommentId_.clear();
+    statusMessage_ = "元に戻しました";
+    statusTimer_ = 1.5f;
+}
+
+void GraphEditor::Redo()
+{
+    if (redoStack_.empty()) {
+        return;
+    }
+    undoStack_.push_back(graph_);
+    graph_ = std::move(redoStack_.back());
+    redoStack_.pop_back();
+    selectedNodeId_.clear();
+    selectedCommentId_.clear();
+    statusMessage_ = "やり直しました";
+    statusTimer_ = 1.5f;
+}
+
 void GraphEditor::DeleteNode(const std::string& id)
 {
+    RecordUndoSnapshotNow();
     graph_.nodes.erase(id);
     if (graph_.startNodeId == id) {
         graph_.startNodeId.clear();
@@ -674,13 +960,34 @@ void GraphEditor::DeleteNode(const std::string& id)
     }
 }
 
+void GraphEditor::DuplicateNode(const std::string& id)
+{
+    const GraphNode* src = graph_.FindNode(id);
+    if (!src) {
+        return;
+    }
+
+    RecordUndoSnapshotNow();
+    std::string newId = "node_" + std::to_string(nextNodeSerial_++);
+    GraphNode copy = *src; // params/paramLinks/next系も含めてまるごと複製する
+    copy.id = newId;
+    copy.editorX = src->editorX + 30.0f; // 元と重ならないよう少しずらして置く
+    copy.editorY = src->editorY + 30.0f;
+
+    graph_.nodes[newId] = std::move(copy);
+    selectedNodeId_ = newId;
+    selectedCommentId_.clear();
+}
+
 void GraphEditor::DeleteComment(const std::string& id)
 {
+    RecordUndoSnapshotNow();
     graph_.comments.erase(id);
 }
 
 void GraphEditor::ArrangeNodes()
 {
+    RecordUndoSnapshotNow();
     // 開始ノードからのBFSで各ノードの深さ（開始から何手先か）を求め、深さごとに列を作って並べる
     std::map<std::string, int> depth;
     std::vector<std::string> queue;
@@ -769,11 +1076,16 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         if (ImGui::IsItemActivated()) {
             selectedCommentId_ = id;
             selectedNodeId_.clear();
+            BeginUndoCapture();
         }
         if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
             ImVec2 d = ImGui::GetIO().MouseDelta;
             c.x += d.x / zoom_;
             c.y += d.y / zoom_;
+            MarkUndoDirty();
+        }
+        if (ImGui::IsItemDeactivated()) {
+            CommitUndoCapture();
         }
 
         // テキスト編集欄（ヘッダーの下、ボックス幅いっぱい）
@@ -781,18 +1093,33 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         char buf[256];
         strncpy_s(buf, c.text.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(c.w * zoom_ - 8.0f);
-        if (ImGui::InputText("##commentText", buf, sizeof(buf))) {
+        bool textChanged = ImGui::InputText("##commentText", buf, sizeof(buf));
+        if (ImGui::IsItemActivated()) {
+            BeginUndoCapture();
+        }
+        if (textChanged) {
+            MarkUndoDirty();
             c.text = buf;
+        }
+        if (ImGui::IsItemDeactivated()) {
+            CommitUndoCapture();
         }
 
         // リサイズハンドル（右下角）
         ImVec2 handleMin(screenMax.x - kHandleSize * zoom_, screenMax.y - kHandleSize * zoom_);
         ImGui::SetCursorScreenPos(handleMin);
         ImGui::InvisibleButton("##commentResize", ImVec2(kHandleSize * zoom_, kHandleSize * zoom_));
+        if (ImGui::IsItemActivated()) {
+            BeginUndoCapture();
+        }
         if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
             ImVec2 d = ImGui::GetIO().MouseDelta;
             c.w = (std::max)(80.0f, c.w + d.x / zoom_);
             c.h = (std::max)(60.0f, c.h + d.y / zoom_);
+            MarkUndoDirty();
+        }
+        if (ImGui::IsItemDeactivated()) {
+            CommitUndoCapture();
         }
         dl->AddRectFilled(handleMin, screenMax, borderCol);
 

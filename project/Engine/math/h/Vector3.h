@@ -5,6 +5,8 @@
 #pragma once
 #include <cmath>
 
+namespace engine {
+
 /** @brief 3次元ベクトル */
 struct Vector3 {
     float x;
@@ -105,3 +107,5 @@ inline Vector3 operator*(const Vector3& v, float s)
 {
     return { v.x * s, v.y * s, v.z * s };
 }
+
+} // namespace engine

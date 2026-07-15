@@ -4,8 +4,12 @@
  */
 #pragma once
 
+namespace engine {
+
 /** @brief 2次元ベクトル */
 struct Vector2 {
     float x;
     float y;
 };
+
+} // namespace engine

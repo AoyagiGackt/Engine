@@ -14,6 +14,7 @@ void GraphRuntime::Start(const GraphDesc* graph)
     waitResumeNodeId_.clear();
     child_.reset();
     childDesc_.reset();
+    activeChildPath_.clear();
 
     halted_ = (graph_ == nullptr || graph_->startNodeId.empty());
     if (!halted_) {
@@ -32,6 +33,7 @@ void GraphRuntime::Update(float dt)
         }
         child_.reset();
         childDesc_.reset();
+        activeChildPath_.clear();
         if (waitResumeNodeId_.empty()) {
             halted_ = true;
             return;
@@ -88,6 +90,7 @@ bool GraphRuntime::BeginSubgraph(const std::string& path)
     child_ = std::make_unique<GraphRuntime>();
     child_->depth_ = depth_ + 1;
     child_->Start(childDesc_.get());
+    activeChildPath_ = path;
     return true;
 }
 

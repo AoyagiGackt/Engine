@@ -1,12 +1,16 @@
 #include "StageEditor.h"
 #include "Camera.h"
 #include "DebugDraw.h"
+#include "EnemyEntity.h"
+#include "EnemyRegistry.h"
 #include "GameFlags.h"
 #include "Input.h"
+#include "KnightEnemy.h"
 #include "Matrix4x4.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
+#include "ParticleManager.h"
 #include "TimeManager.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -53,8 +57,29 @@ std::string ToProjectRelativePath(const std::string& absPath)
     size_t pos = p.find("Resources/");
     return (pos != std::string::npos) ? p.substr(pos) : p;
 }
+
+// アセットパレットに並べる配置物プリセット（モデル+テクスチャが対応済みの組み合わせのみ収録）
+struct AssetPreset {
+    const char* label;
+    const char* model;
+    const char* texture;
+};
+constexpr AssetPreset kAssetPresets[] = {
+    { "ブロック", "Resources/block/block.obj", "Resources/block/block.png" },
+    { "剣（Sword）", "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png" },
+    { "刀（Katana）", "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png" },
+    { "ナイト像", "Resources/Knight/OBJ/KnightCharacter.obj", "Resources/Knight/OBJ/KnightCharacterPalette.png" },
+    { "短剣（Dagger）", "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png" },
+    { "大槌（Hammer）", "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png" },
+    { "槍（Spear）", "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png" },
+    { "大剣（Claymore）", "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png" },
+    { "大鎌（Scythe）", "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png" },
+    { "両手斧（Axe）", "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png" },
+};
 } // namespace
 #endif
+
+StageEditor::StageEditor() = default;
 
 void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, Camera* camera)
 {
@@ -66,6 +91,10 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     playerSpawn_ = data.playerSpawn;
     enemySpawn_ = data.enemySpawn;
 
+    // 破棄されるenemy_basic配置分をEnemyRegistryから外してからclearする（ダングリングポインタ防止）
+    for (auto& entry : objects_) {
+        UnregisterEnemyEntity(entry);
+    }
     objects_.clear();
     modelStorage_.clear();
     modelCache_.clear();
@@ -74,6 +103,10 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
         entry.desc = std::move(desc);
         objects_.push_back(std::move(entry));
     }
+
+    // EnemyRegistryへの登録キーになるため、実体を生成する前に名前を確定させる
+    EnsureUniqueNames(); // 手書きJSON等で名前が無い/重複しているエントリに自動命名する（親子参照に必要）
+
     for (auto& entry : objects_) {
         RegenerateInstances(entry);
     }
@@ -85,12 +118,24 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
         triggers_.push_back(std::move(trg));
     }
 
-    EnsureUniqueNames(); // 手書きJSON等で名前が無い/重複しているエントリに自動命名する（親子参照に必要）
-
     selKind_ = SelKind::None;
     selIndex_ = -1;
     statusMessage_ = "読み込みました: " + levelPath_;
     statusTimer_ = 2.0f;
+}
+
+StageEditor::~StageEditor()
+{
+    for (auto& entry : objects_) {
+        UnregisterEnemyEntity(entry);
+    }
+}
+
+void StageEditor::UnregisterEnemyEntity(const ObjectEntry& entry)
+{
+    if (entry.desc.kind == "enemy_basic" && entry.enemy) {
+        EnemyRegistry::GetInstance()->Unregister(entry.desc.name);
+    }
 }
 
 void StageEditor::EnsureUniqueNames()
@@ -201,6 +246,24 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
 {
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
+
+    if (desc.kind == "enemy_knight") {
+        if (!entry.knight) {
+            entry.knight = std::make_unique<KnightEnemy>();
+            entry.knight->Initialize(modelCommon_, WorldPositionOf(desc));
+        }
+        return;
+    }
+    if (desc.kind == "enemy_basic") {
+        if (!entry.enemy) {
+            entry.enemy = std::make_unique<EnemyEntity>();
+            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc));
+            entry.enemy->SetId(desc.name);
+            EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
+        }
+        return;
+    }
+
     if (desc.model.empty()) {
         return;
     }
@@ -251,6 +314,36 @@ void StageEditor::RefreshTransforms(ObjectEntry& entry)
     }
 }
 
+void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::string& texture)
+{
+    // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
+    Vector3 center = playerSpawn_;
+    MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+
+    ObjectEntry entry;
+    entry.desc.name = "obj_" + std::to_string(nextSerial_++);
+    entry.desc.kind = "prop";
+    entry.desc.type = "static";
+    entry.desc.position = center;
+    entry.desc.model = model;
+    entry.desc.texture = texture;
+    objects_.push_back(std::move(entry));
+    RegenerateInstances(objects_.back());
+    selKind_ = SelKind::Object;
+    selIndex_ = static_cast<int>(objects_.size()) - 1;
+}
+
+void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position)
+{
+    for (auto& ref : externalEntities_) {
+        if (ref.name == name) {
+            ref.position = position; // 同名なら上書き（Scene再初期化等での再登録に備える）
+            return;
+        }
+    }
+    externalEntities_.push_back({ name, position });
+}
+
 std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
     std::vector<engine::AABB> result;
@@ -282,10 +375,14 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
     return result;
 }
 
-void StageEditor::UpdateObjects()
+void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 {
     // 親を動かしたら子も追従するよう、毎フレーム親子チェーンを解決してから反映する
     for (auto& entry : objects_) {
+        if (entry.knight || entry.enemy) {
+            UpdateEnemyEntry(entry, pm, playerPos);
+            continue;
+        }
         RefreshTransforms(entry);
         for (auto& obj : entry.instances) {
             obj->Update();
@@ -293,13 +390,62 @@ void StageEditor::UpdateObjects()
     }
 }
 
+void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
+{
+    Vector3 worldPos = WorldPositionOf(entry.desc);
+    if (entry.knight) {
+        if (visible_) {
+            // 編集中はAI/重力を進めず、desc.positionへドラッグされた位置だけ反映する
+            entry.knight->GetPositionRef() = worldPos;
+            entry.knight->RefreshVisualTransforms();
+        } else {
+            entry.knight->Update(pm, playerPos);
+            // Inspector表示・親子追従の基準にするため現在地を書き戻す（JSON保存はしない）
+            entry.desc.position = entry.knight->GetPosition();
+        }
+    } else if (entry.enemy) {
+        if (visible_) {
+            entry.enemy->GetPositionRef() = worldPos;
+            entry.enemy->RefreshVisualTransforms();
+        } else {
+            entry.enemy->Update();
+            entry.desc.position = entry.enemy->GetPosition();
+        }
+    }
+}
+
 void StageEditor::DrawObjects()
 {
+    // BaseScene::Render()がシーンのDraw()の直後に自動で呼ぶため自己完結させる：
+    // 呼び出し側が既にモデル用PSO/ルートシグネチャを設定済みである前提を置かず、ここで自分で設定する
+    // （その代わり配置物は毎フレーム最後に上乗せ描画される＝シャドウ/ポストエフェクトの対象外になる）
+    if (!modelCommon_ || objects_.empty()) {
+        return;
+    }
+    modelCommon_->CommonDrawSettings();
+
     for (auto& entry : objects_) {
         for (auto& obj : entry.instances) {
             obj->Draw();
         }
+        if (entry.knight) {
+            entry.knight->Draw();
+        }
+        if (entry.enemy) {
+            entry.enemy->Draw();
+        }
     }
+}
+
+std::vector<KnightEnemy*> StageEditor::GetKnights()
+{
+    std::vector<KnightEnemy*> result;
+    for (auto& entry : objects_) {
+        if (entry.knight) {
+            result.push_back(entry.knight.get());
+        }
+    }
+    return result;
 }
 
 void StageEditor::Update(Input* input, const Vector3& playerPos)
@@ -341,6 +487,7 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 
     RenderHierarchy();
     RenderInspector();
+    RenderAssetPalette();
     RenderFlagsPanel();
     DrawGizmos();
 #else
@@ -358,11 +505,16 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     const ObjectDesc& desc = objects_[index].desc;
     bool sel = (selKind_ == SelKind::Object && selIndex_ == index);
 
+    // 種類が一目で分かるようタグを付ける（配置物はタグ無し）
+    const char* kindTag = (desc.kind == "enemy_knight") ? "[ナイト] "
+        : (desc.kind == "enemy_basic")                  ? "[エネミー] "
+                                                         : "";
+
     // 深さぶんインデントして親子関係を視覚化する
     char label[128];
     std::string indent(static_cast<size_t>(depthLevel) * 2, ' ');
-    snprintf(label, sizeof(label), "%s%s%s##obj%d",
-        indent.c_str(), (depthLevel > 0) ? "└ " : "", desc.name.c_str(), index);
+    snprintf(label, sizeof(label), "%s%s%s%s##obj%d",
+        indent.c_str(), (depthLevel > 0) ? "└ " : "", kindTag, desc.name.c_str(), index);
     if (ImGui::Selectable(label, sel)) {
         selKind_ = SelKind::Object;
         selIndex_ = index;
@@ -387,11 +539,16 @@ void StageEditor::RenderHierarchy()
         ImGui::BulletText("WASD: カメラ移動    Q/E・マウスホイール: 奥/手前へズーム");
         ImGui::BulletText("画面上のオブジェクトを左クリック: 選択");
         ImGui::BulletText("そのまま左ドラッグ: つかんで移動");
-        ImGui::BulletText("[+]ボタン: 画面中央に新規追加");
+        ImGui::BulletText("[+]ボタン: 配置物/敵(ナイト・汎用エネミー)を選んで画面中央に新規追加");
+        ImGui::BulletText("敵は実際にHPを持って湧く本物の敵配置数・種類は自由に増減できる");
+        ImGui::BulletText("左下の「アセットパレット」: クリックで新規配置");
+        ImGui::BulletText("　配置物を選択中に押すと、そのモデルへ差し替えられる");
         ImGui::BulletText("右の「詳細設定」で数値・モデル・親子関係を編集");
         ImGui::BulletText("親を設定すると、親を動かしたとき子も一緒に動く");
         ImGui::BulletText("トリガー(水色の球): プレイヤーが入るとフラグON");
         ImGui::BulletText("　フラグはノードエディタ(F1)のGetFlagで参照できる");
+        ImGui::BulletText("エンティティ(マゼンタの十字): Player/Enemy等も同様に選択・ドラッグ移動できる");
+        ImGui::BulletText("　ただし削除不可・JSONに保存されない（位置はシーン起動時の初期値に戻る）");
         ImGui::BulletText("「保存」でJSONへ書き出しゲーム本編に即反映");
     }
     char pathBuf[256];
@@ -418,19 +575,34 @@ void StageEditor::RenderHierarchy()
     bool objOpen = ImGui::TreeNodeEx(objHeader, ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
     if (ImGui::SmallButton("+##addObj")) {
-        ObjectEntry entry;
-        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
-        entry.desc.type = "static";
-        entry.desc.model = "Resources/block/block.obj";
-        entry.desc.texture = "Resources/block/block.png";
+        ImGui::OpenPopup("AddObjectPopup");
+    }
+    if (ImGui::BeginPopup("AddObjectPopup")) {
         // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
         Vector3 center = playerSpawn_;
         MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
-        entry.desc.position = center;
-        objects_.push_back(std::move(entry));
-        RegenerateInstances(objects_.back());
-        selKind_ = SelKind::Object;
-        selIndex_ = static_cast<int>(objects_.size()) - 1;
+
+        auto addEnemyEntry = [&](const std::string& namePrefix, const std::string& kind) {
+            ObjectEntry entry;
+            entry.desc.name = namePrefix + "_" + std::to_string(nextSerial_++);
+            entry.desc.kind = kind;
+            entry.desc.position = center;
+            objects_.push_back(std::move(entry));
+            RegenerateInstances(objects_.back());
+            selKind_ = SelKind::Object;
+            selIndex_ = static_cast<int>(objects_.size()) - 1;
+        };
+
+        if (ImGui::MenuItem("配置物（ブロック）")) {
+            AddPropAtScreenCenter("Resources/block/block.obj", "Resources/block/block.png");
+        }
+        if (ImGui::MenuItem("敵：ナイト")) {
+            addEnemyEntry("knight", "enemy_knight");
+        }
+        if (ImGui::MenuItem("敵：汎用エネミー")) {
+            addEnemyEntry("enemy", "enemy_basic");
+        }
+        ImGui::EndPopup();
     }
     if (objOpen) {
         // 親を持たない（または親が見つからない）ルートから再帰的にツリー表示する
@@ -451,6 +623,24 @@ void StageEditor::RenderHierarchy()
             }
         }
         ImGui::TreePop();
+    }
+
+    if (!externalEntities_.empty()) {
+        char entHeader[48];
+        snprintf(entHeader, sizeof(entHeader), "エンティティ (%d)", static_cast<int>(externalEntities_.size()));
+        bool entOpen = ImGui::TreeNodeEx(entHeader, ImGuiTreeNodeFlags_DefaultOpen);
+        if (entOpen) {
+            for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+                bool sel = (selKind_ == SelKind::External && selIndex_ == i);
+                char label[96];
+                snprintf(label, sizeof(label), "  %s##ent%d", externalEntities_[i].name.c_str(), i);
+                if (ImGui::Selectable(label, sel)) {
+                    selKind_ = SelKind::External;
+                    selIndex_ = i;
+                }
+            }
+            ImGui::TreePop();
+        }
     }
 
     char trgHeader[48];
@@ -483,7 +673,8 @@ void StageEditor::RenderHierarchy()
     }
 
     ImGui::Separator();
-    bool hasSel = (selKind_ != SelKind::None);
+    // エンティティ(Player/Enemy等)はエディタが生成したものではないため削除の対象外
+    bool hasSel = (selKind_ == SelKind::Object || selKind_ == SelKind::Trigger);
     ImGui::BeginDisabled(!hasSel);
     if (ImGui::Button("選択を削除", ImVec2(-1, 0))) {
         if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
@@ -495,6 +686,7 @@ void StageEditor::RenderHierarchy()
                     other.desc.parent.clear();
                 }
             }
+            UnregisterEnemyEntity(objects_[selIndex_]); // EnemyRegistryに登録済みならダングリング防止に解除する
             objects_.erase(objects_.begin() + selIndex_);
         } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
             triggers_.erase(triggers_.begin() + selIndex_);
@@ -566,73 +758,87 @@ void StageEditor::RenderInspector()
             }
         }
 
-        char modelBuf[256];
-        strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
-        ImGui::SetNextItemWidth(180.0f);
-        if (ImGui::InputText("モデル", modelBuf, sizeof(modelBuf))) {
-            desc.model = modelBuf;
-        }
-        structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
-        ImGui::SameLine();
-        if (ImGui::SmallButton("参照##model")) {
-            std::string p = OpenFileDialog("OBJファイル\0*.obj\0すべてのファイル\0*.*\0\0", "Resources");
-            if (!p.empty()) {
-                desc.model = ToProjectRelativePath(p);
+        if (desc.kind == "prop") {
+            char modelBuf[256];
+            strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
+            ImGui::SetNextItemWidth(180.0f);
+            if (ImGui::InputText("モデル", modelBuf, sizeof(modelBuf))) {
+                desc.model = modelBuf;
+            }
+            structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
+            ImGui::SameLine();
+            if (ImGui::SmallButton("参照##model")) {
+                std::string p = OpenFileDialog("OBJファイル\0*.obj\0すべてのファイル\0*.*\0\0", "Resources");
+                if (!p.empty()) {
+                    desc.model = ToProjectRelativePath(p);
+                    structuralDirty = true;
+                }
+            }
+
+            char texBuf[256];
+            strncpy_s(texBuf, desc.texture.c_str(), _TRUNCATE);
+            ImGui::SetNextItemWidth(180.0f);
+            if (ImGui::InputText("テクスチャ", texBuf, sizeof(texBuf))) {
+                desc.texture = texBuf;
+            }
+            structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
+            ImGui::SameLine();
+            if (ImGui::SmallButton("参照##tex")) {
+                std::string p = OpenFileDialog("画像ファイル\0*.png;*.jpg;*.jpeg\0すべてのファイル\0*.*\0\0", "Resources");
+                if (!p.empty()) {
+                    desc.texture = ToProjectRelativePath(p);
+                    structuralDirty = true;
+                }
+            }
+
+            const char* kTypes[] = { "static", "row" };
+            const char* kTypeLabels[] = { "単体配置(static)", "並べて配置(row)" };
+            int typeIdx = (desc.type == "row") ? 1 : 0;
+            if (ImGui::Combo("種類", &typeIdx, kTypeLabels, 2)) {
+                desc.type = kTypes[typeIdx];
                 structuralDirty = true;
             }
-        }
-
-        char texBuf[256];
-        strncpy_s(texBuf, desc.texture.c_str(), _TRUNCATE);
-        ImGui::SetNextItemWidth(180.0f);
-        if (ImGui::InputText("テクスチャ", texBuf, sizeof(texBuf))) {
-            desc.texture = texBuf;
-        }
-        structuralDirty |= ImGui::IsItemDeactivatedAfterEdit();
-        ImGui::SameLine();
-        if (ImGui::SmallButton("参照##tex")) {
-            std::string p = OpenFileDialog("画像ファイル\0*.png;*.jpg;*.jpeg\0すべてのファイル\0*.*\0\0", "Resources");
-            if (!p.empty()) {
-                desc.texture = ToProjectRelativePath(p);
-                structuralDirty = true;
+        } else {
+            const char* kindLabel = (desc.kind == "enemy_knight") ? "ナイト（本物の敵として湧く）" : "汎用エネミー（本物の敵として湧く）";
+            ImGui::TextDisabled("%s", kindLabel);
+            if (entry.knight) {
+                ImGui::Text("HP: %d / %d", entry.knight->GetHp(), entry.knight->GetMaxHp());
+            } else if (entry.enemy) {
+                ImGui::Text("HP: %d / %d", entry.enemy->GetHp(), entry.enemy->GetMaxHp());
             }
-        }
-
-        const char* kTypes[] = { "static", "row" };
-        const char* kTypeLabels[] = { "単体配置(static)", "並べて配置(row)" };
-        int typeIdx = (desc.type == "row") ? 1 : 0;
-        if (ImGui::Combo("種類", &typeIdx, kTypeLabels, 2)) {
-            desc.type = kTypes[typeIdx];
-            structuralDirty = true;
         }
 
         if (!desc.parent.empty()) {
             ImGui::TextDisabled("※位置は親からの相対値");
         }
         transformDirty |= ImGui::DragFloat3("位置", &desc.position.x, 0.1f);
-        transformDirty |= ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f);
-        transformDirty |= ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f);
-        transformDirty |= ImGui::Checkbox("ライティング", &desc.lighting);
-        ImGui::Checkbox("当たり判定あり(solid)", &desc.solid);
 
-        if (desc.type == "row") {
-            const char* kAxes[] = { "x", "y", "z" };
-            int axisIdx = (desc.axis == 'y') ? 1 : (desc.axis == 'z') ? 2
-                                                                      : 0;
-            if (ImGui::Combo("並べる軸", &axisIdx, kAxes, 3)) {
-                desc.axis = kAxes[axisIdx][0];
-                structuralDirty = true;
+        if (desc.kind == "prop") {
+            transformDirty |= ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f);
+            transformDirty |= ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f);
+            transformDirty |= ImGui::Checkbox("ライティング", &desc.lighting);
+            ImGui::Checkbox("当たり判定あり(solid)", &desc.solid);
+
+            if (desc.type == "row") {
+                const char* kAxes[] = { "x", "y", "z" };
+                int axisIdx = (desc.axis == 'y') ? 1 : (desc.axis == 'z') ? 2
+                                                                          : 0;
+                if (ImGui::Combo("並べる軸", &axisIdx, kAxes, 3)) {
+                    desc.axis = kAxes[axisIdx][0];
+                    structuralDirty = true;
+                }
+                if (ImGui::InputInt("個数", &desc.count)) {
+                    desc.count = (std::max)(1, desc.count);
+                    structuralDirty = true;
+                }
+                transformDirty |= ImGui::DragFloat("間隔", &desc.step, 0.05f);
             }
-            if (ImGui::InputInt("個数", &desc.count)) {
-                desc.count = (std::max)(1, desc.count);
-                structuralDirty = true;
-            }
-            transformDirty |= ImGui::DragFloat("間隔", &desc.step, 0.05f);
         }
 
         if (structuralDirty) {
             RegenerateInstances(entry);
-        } else if (transformDirty) {
+        } else if (transformDirty && desc.kind == "prop") {
+            // enemy系はStageEditor::UpdateObjects()側が毎フレームdesc.position⇔実体位置を同期するので、ここでは不要
             RefreshTransforms(entry);
         }
     } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
@@ -655,8 +861,44 @@ void StageEditor::RenderInspector()
         ImGui::Checkbox("進入時に設定する値", &desc.value);
         ImGui::Checkbox("一度だけ成立させる", &desc.once);
         ImGui::TextDisabled(triggers_[selIndex_].IsInside() ? "プレイヤーは範囲内にいます" : "プレイヤーは範囲外です");
+    } else if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())) {
+        ExternalEntityRef& ref = externalEntities_[selIndex_];
+        ImGui::Text("%s", ref.name.c_str());
+        ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
+        if (ref.position) {
+            ImGui::DragFloat3("位置", &ref.position->x, 0.1f);
+        }
     } else {
         ImGui::TextDisabled("左のステージエディタでオブジェクト/トリガーを選択してください");
+    }
+
+    ImGui::End();
+}
+
+void StageEditor::RenderAssetPalette()
+{
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 484.0f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(280.0f, 240.0f), ImGuiCond_Once);
+    ImGui::Begin("アセットパレット");
+
+    // 配置物(prop)が選択中なら「新規追加」ではなく「選択中のモデルを差し替え」にする
+    bool applyToSelection = (selKind_ == SelKind::Object && selIndex_ >= 0
+        && selIndex_ < static_cast<int>(objects_.size())
+        && objects_[selIndex_].desc.kind == "prop");
+
+    ImGui::TextDisabled(applyToSelection ? "選択中の配置物にモデルを適用" : "クリックで画面中央に新規配置");
+
+    for (const auto& preset : kAssetPresets) {
+        if (ImGui::Button(preset.label, ImVec2(-1, 0))) {
+            if (applyToSelection) {
+                ObjectEntry& entry = objects_[selIndex_];
+                entry.desc.model = preset.model;
+                entry.desc.texture = preset.texture;
+                RegenerateInstances(entry);
+            } else {
+                AddPropAtScreenCenter(preset.model, preset.texture);
+            }
+        }
     }
 
     ImGui::End();
@@ -686,11 +928,14 @@ void StageEditor::DrawGizmos()
     }
     // 全オブジェクトに小さな十字マーカーを出し、どこをクリックすれば掴めるか分かるようにする
     // solid=trueのものは実際の当たり判定AABBをオレンジのワイヤーフレームで重ねて表示する
+    // 敵配置（enemy_knight/enemy_basic）は赤い十字にして配置物(白)と一目で区別できるようにする
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
         bool sel = (selKind_ == SelKind::Object && selIndex_ == i);
         const ObjectDesc& d = objects_[i].desc;
+        bool isEnemy = (d.kind != "prop");
         Vector3 world = WorldPositionOf(d);
-        DebugDraw::DrawCross(world, sel ? 0.6f : 0.25f, sel ? DebugDraw::kColorYellow : DebugDraw::kColorWhite);
+        ImU32 baseColor = isEnemy ? DebugDraw::kColorRed : DebugDraw::kColorWhite;
+        DebugDraw::DrawCross(world, sel ? 0.6f : (isEnemy ? 0.35f : 0.25f), sel ? DebugDraw::kColorYellow : baseColor);
 
         if (d.solid) {
             Vector3 half = { 0.5f * d.scale.x, 0.5f * d.scale.y, 0.5f * d.scale.z };
@@ -709,6 +954,16 @@ void StageEditor::DrawGizmos()
                 }
             }
         }
+    }
+
+    // Player/Enemy等のランタイム実体（マゼンタの十字。オブジェクトの白・トリガーのシアンと区別する）
+    for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+        const ExternalEntityRef& ref = externalEntities_[i];
+        if (!ref.position) {
+            continue;
+        }
+        bool sel = (selKind_ == SelKind::External && selIndex_ == i);
+        DebugDraw::DrawCross(*ref.position, sel ? 0.6f : 0.3f, sel ? DebugDraw::kColorYellow : DebugDraw::kColorMagenta);
     }
 }
 
@@ -827,6 +1082,11 @@ void StageEditor::UpdateViewportInteraction()
         for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
             consider(triggers_[i].GetDesc().position, SelKind::Trigger, i);
         }
+        for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+            if (externalEntities_[i].position) {
+                consider(*externalEntities_[i].position, SelKind::External, i);
+            }
+        }
 
         if (bestIdx >= 0) {
             selKind_ = bestKind;
@@ -848,6 +1108,12 @@ void StageEditor::UpdateViewportInteraction()
                 TriggerDesc& desc = triggers_[selIndex_].GetDesc();
                 desc.position.x = ground.x;
                 desc.position.y = ground.y;
+            } else if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())) {
+                Vector3* pos = externalEntities_[selIndex_].position;
+                if (pos) {
+                    pos->x = ground.x;
+                    pos->y = ground.y;
+                }
             }
         }
     }
@@ -859,6 +1125,7 @@ void StageEditor::UpdateViewportInteraction()
 #else
 void StageEditor::RenderHierarchy() { }
 void StageEditor::RenderInspector() { }
+void StageEditor::RenderAssetPalette() { }
 void StageEditor::RenderFlagsPanel() { }
 void StageEditor::DrawGizmos() { }
 void StageEditor::UpdateFreeCamera(Input*, float) { }

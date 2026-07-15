@@ -78,6 +78,12 @@ public:
     void Heal(int amount) { hp_ = (std::min)(hp_ + amount, maxHp_); }
 
     /**
+     * @brief ダメージを受ける（0未満にはならない）
+     * @param amount ダメージ量
+     */
+    void TakeDamage(int amount) { hp_ = (std::max)(hp_ - amount, 0); }
+
+    /**
      * @brief 指定スキルを習得済みかどうかを返す
      * @param s チェックするスキル
      * @return 習得済みなら true

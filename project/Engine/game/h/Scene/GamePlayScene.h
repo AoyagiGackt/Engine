@@ -31,6 +31,7 @@
 #include "CameraShaker.h"
 #include "Collision.h"
 #include "EnemyEntity.h"
+#include "EnemyRegistry.h"
 #include "FontRenderer.h"
 #include "GameTime.h"
 #include "GlassShatterEffect.h"

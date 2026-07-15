@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -195,6 +195,9 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GraphRuntime.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\PlayerBridge.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp" />
@@ -202,21 +205,19 @@
     <ClCompile Include="Engine\game\cpp\Core\Lighting\LightingMode.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\BaseScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BladeFlashEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp" />
@@ -226,12 +227,12 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\PostEffectFullscreenPass.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\ImGui\ImguiControl.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\3D\MapChipField.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\MaterialManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Manager\PipelineHelper.cpp" />
     <ClCompile Include="Engine\base\main.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Input\Input.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiManager.cpp" />
@@ -246,7 +247,6 @@
     <ClCompile Include="Engine\graphics\cpp\2D\Sprite.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\TextureManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\3D\InstancedObject3d.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Model.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Object3d.cpp" />
@@ -254,7 +254,6 @@
     <ClCompile Include="Engine\graphics\cpp\3D\ModelCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\SrvManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\RevolvedMeshBase.cpp" />
@@ -616,22 +615,19 @@
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h" />
     <ClInclude Include="Engine\game\h\Scene\LoadingScene.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h" />
-    <ClInclude Include="Engine\game\h\Core\Object\WorldTransform.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
     <ClInclude Include="Engine\game\h\Util\DebugDraw.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h" />
-    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h" />
     <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h" />
     <ClInclude Include="Engine\game\h\Core\Window\WinApp.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h" />
-    <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h" />
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h" />
     <ClInclude Include="Engine\graphics\h\Light\LightManager.h" />
     <ClInclude Include="Engine\graphics\h\Light\CascadedShadowMap.h" />
-    <ClInclude Include="Engine\graphics\h\3D\MapChipField.h" />
     <ClInclude Include="Engine\graphics\h\Manager\MaterialManager.h" />
     <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h" />
+    <ClInclude Include="Engine\graphics\h\Manager\PipelineHelper.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonDebugRenderer.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\SkinCS.h" />
@@ -656,7 +652,6 @@
     <ClInclude Include="Engine\graphics\h\2D\Sprite.h" />
     <ClInclude Include="Engine\graphics\h\Manager\TextureManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h" />
-    <ClInclude Include="Engine\graphics\h\3D\InstancedObject3d.h" />
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h" />
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\Model.h" />
@@ -665,7 +660,6 @@
     <ClInclude Include="Engine\graphics\h\3D\ModelCommon.h" />
     <ClInclude Include="Engine\graphics\h\Manager\SrvManager.h" />
     <ClInclude Include="Engine\graphics\h\Particle\ParticleManager.h" />
-    <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h" />
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h" />
     <ClInclude Include="Engine\graphics\h\3D\Ring.h" />
     <ClInclude Include="Engine\graphics\h\3D\RevolvedMeshBase.h" />
@@ -679,7 +673,7 @@
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectRenderTarget.h" />
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectFullscreenPass.h" />
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
-    <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h" />
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
     <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h" />
@@ -691,9 +685,11 @@
     <ClInclude Include="Engine\game\h\Scripting\GraphRuntime.h" />
     <ClInclude Include="Engine\game\h\Scripting\GraphEditor.h" />
     <ClInclude Include="Engine\game\h\Scripting\GameFlags.h" />
+    <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h" />
+    <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h" />
+    <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h" />
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditor.h" />
-    <ClInclude Include="Engine\game\h\Effect\BezierSpline.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\UIButton.h" />
     <ClInclude Include="Engine\game\h\UI\UIMenu.h" />

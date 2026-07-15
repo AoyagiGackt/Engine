@@ -333,6 +333,15 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\PlayerBridge.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
@@ -354,6 +363,9 @@
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\BaseScene.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -368,9 +380,6 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Object</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Camera</Filter>
@@ -390,13 +399,7 @@
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
@@ -426,7 +429,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ImGui\ImguiControl.cpp">
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
@@ -435,13 +438,12 @@
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\3D\MapChipField.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Manager\MaterialManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\PipelineHelper.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
+    </ClCompile>    <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\base\main.cpp">
@@ -486,9 +488,6 @@
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\3D\InstancedObject3d.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
@@ -508,9 +507,6 @@
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">
@@ -698,6 +694,15 @@
     <ClInclude Include="Engine\game\h\Scripting\GameFlags.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
@@ -746,9 +751,6 @@
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Object\WorldTransform.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Object</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
@@ -761,9 +763,6 @@
     <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Device</Filter>
     </ClInclude>
@@ -771,9 +770,6 @@
       <Filter>ヘッダーファイル\Engine\game\h\Core\Window</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
@@ -785,13 +781,12 @@
     <ClInclude Include="Engine\graphics\h\Light\CascadedShadowMap.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Light</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\3D\MapChipField.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Manager\MaterialManager.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\PipelineHelper.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
+    </ClInclude>    <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h">
@@ -866,9 +861,6 @@
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\3D\InstancedObject3d.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
@@ -891,9 +883,6 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Particle\ParticleManager.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\Particle</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Particle</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h">
@@ -935,7 +924,7 @@
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Offscreen</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h">
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
@@ -952,9 +941,6 @@
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\PipelineStateGuard.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Effect\BezierSpline.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>

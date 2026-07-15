@@ -32,7 +32,6 @@
 #include "Sprite.h"
 #include "SpriteCommon.h"
 #include "SrvManager.h"
-#include "StageEditor.h"
 #include "StyleMeter.h"
 #include "WeaponManager.h"
 namespace engine::graphics {
@@ -76,6 +75,18 @@ public:
     /// @brief ImGuiパネルからの手動テスト再生用
     void TriggerGlassShatterTest();
 
+    /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
+    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+
+    // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    Camera* GetEditorCamera() override { return camera_.get(); }
+    ParticleManager* GetEditorParticleManager() override { return pm_; }
+    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    /// @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる
+    void RefreshVisualTransformsForEditor() override;
+
 private:
     // 訓練用マネキン（動かない敵）
     struct Dummy {
@@ -85,7 +96,7 @@ private:
         float hp;
         float maxHp;
         float hitFlash = 0.0f; // 被弾時の白フラッシュタイマー
-        float hpDisplay_ = 1.0f; // HP バー表示用（0→1 に回復する演出値）
+        float hpDisplay = 1.0f; // HP バー表示用（0→1 に回復する演出値）
         float knockVelX = 0.0f;
         float knockVelY = 0.0f;
         float returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
@@ -137,6 +148,12 @@ private:
     void UpdateDummies();
     /// @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する
     void UpdateKnightEnemy();
+    /**
+     * @brief StageEditorで新規配置したナイト（GetStageEditor().GetKnights()）への攻撃判定
+     * @note AI/重力自体はBaseScene::Tick()がUpdate()の後にGetStageEditor().UpdateObjects()で回すので、
+     * ここでは当たり判定とTakeDamageだけを行うロックオン・撃破後の武器奪取はknight_専用のまま対応していない
+     */
+    void UpdatePlacedKnights();
     /// @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する
     void UpdateTargetLock();
     /// @brief 武器スロットUIのスプライトを初期化する
@@ -149,6 +166,8 @@ private:
     void DrawHud(bool nearReturnPortal);
     /// @brief 武器一覧と戻りポータルのラベルを描画する
     void DrawWeaponHud(bool nearReturnPortal);
+    /// @brief F3で表示切替。プレイヤー/ダミー/ナイト/solidブロックの当たり判定をワイヤーフレームで描く
+    void DrawColliderDebug();
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -182,9 +201,6 @@ private:
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model> modelBlock_;
-
-    // ステージ上の配置オブジェクト・トリガーの読み込み/描画/実行時編集（F2で開く）
-    StageEditor stageEditor_;
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
@@ -261,6 +277,9 @@ private:
 
     /** @brief 大技演出中の画面暗転オーバーレイ */
     std::unique_ptr<Sprite> finisherOverlay_;
+
+    // F3で切り替える当たり判定デバッグ表示（ステージエディタの表示状態とは独立）
+    bool showColliders_ = false;
 
     FontRenderer fontRenderer_;
 };

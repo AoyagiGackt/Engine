@@ -4,6 +4,8 @@
  */
 #pragma once
 
+namespace engine {
+
 /** @brief 4次元ベクトル */
 struct Vector4 {
     float x;
@@ -11,3 +13,5 @@ struct Vector4 {
     float z;
     float w;
 };
+
+} // namespace engine

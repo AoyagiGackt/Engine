@@ -32,6 +32,13 @@ LevelData LevelLoader::Load(const std::string& path)
     auto j = JsonHelper::Load(path);
     LevelData data;
 
+    // ファイルが存在しない/壊れている場合、JsonHelper::Load()はnull型のjsonを返す
+    // （空オブジェクト{}ではない）。.value()/operator[]はobject型以外に呼ぶとtype_errorを投げるため、
+    // ここで空のLevelDataとして扱う（新規レベルを起動時に自動作成するようなシーンで必須のガード）
+    if (!j.is_object()) {
+        return data;
+    }
+
     if (j.contains("playerSpawn")) {
         data.playerSpawn = ReadVec3(j["playerSpawn"], data.playerSpawn);
     }
@@ -44,6 +51,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.name = obj.value("name", "");
         desc.parent = obj.value("parent", "");
         desc.type = obj.value("type", "static");
+        desc.kind = obj.value("kind", "prop");
         desc.model = obj.value("model", "");
         desc.texture = obj.value("texture", "");
         desc.position = ReadVec3(obj.value("position", nlohmann::json::array()));
@@ -85,6 +93,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["name"] = desc.name;
         oj["parent"] = desc.parent;
         oj["type"] = desc.type;
+        oj["kind"] = desc.kind;
         oj["model"] = desc.model;
         oj["texture"] = desc.texture;
         oj["position"] = WriteVec3(desc.position);
@@ -169,7 +178,8 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
     };
 
     for (const auto& desc : data.objects) {
-        if (desc.model.empty()) {
+        // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
+        if (desc.kind != "prop" || desc.model.empty()) {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);

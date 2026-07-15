@@ -6,7 +6,9 @@
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
+#include <algorithm>
 #include <memory>
+#include <string>
 namespace engine::game {
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
@@ -65,6 +67,35 @@ public:
         defeated_ = false;
     }
 
+    /**
+     * @brief HP を回復する（maxHp を超えない、撃破済みは復活しない）
+     * @param amount 回復量
+     */
+    void Heal(int amount)
+    {
+        if (defeated_) {
+            return;
+        }
+        hp_ = (std::min)(hp_ + amount, maxHp_);
+    }
+
+    /**
+     * @brief 位置だけ再計算する（AI/物理は一切進めない、StageEditor等が外部からpos_を書き換えた後の追従用）
+     */
+    void RefreshVisualTransforms()
+    {
+        object_->SetPosition(pos_);
+        object_->Update();
+    }
+
+    /**
+     * @brief EnemyRegistry へ登録する際のid。ノードグラフの対象敵指定に使う
+     * @param id シーン内で一意な識別名（例: "enemy", "boss"）
+     */
+    void SetId(const std::string& id) { id_ = id; }
+    /** @brief 登録id未設定なら空文字 */
+    const std::string& GetId() const { return id_; }
+
     /** @brief 撃破済みかどうかを返す */
     bool IsDefeated() const { return defeated_; }
     /** @brief 現在の HP を返す */
@@ -89,6 +120,8 @@ public:
     bool IsLaunched() const { return isLaunched_; }
     /** @brief 現在のワールド座標を返す */
     const Vector3& GetPosition() const { return pos_; }
+    /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
+    Vector3& GetPositionRef() { return pos_; }
 
 private:
     static constexpr float kGroundY_ = 0.4f;
@@ -102,6 +135,7 @@ private:
     int hp_ = 20;
     bool defeated_ = false;
     bool visible_ = true;
+    std::string id_; // EnemyRegistry登録名（未登録なら空）
 
     Vector3 pos_ = { };
     float velY_ = 0.0f;

@@ -39,6 +39,21 @@ public:
     const std::string& GetCurrentNodeId() const { return currentNodeId_; }
 
     /**
+     * @brief 実行チェーンの最深部（サブグラフ実行中ならその子孫）にある GraphRuntime を返す
+     * @param outPath 返した GraphRuntime がサブグラフなら読み込み元パス、トップレベルなら空文字のまま
+     * @note GraphEditorが今開いているグラフと実際に実行中のグラフが一致するかを
+     * パスで突き合わせ、サブグラフを開いて見ている最中でもハイライトを追従させるために使う
+     */
+    const GraphRuntime& GetActiveLeaf(std::string& outPath) const
+    {
+        if (child_) {
+            outPath = activeChildPath_;
+            return child_->GetActiveLeaf(outPath);
+        }
+        return *this;
+    }
+
+    /**
      * @brief Waitを開始する（Waitノードから呼ぶ）
      * @param seconds 待つ秒数
      * @note 待機完了後に再開するノードIDは、Executorが返す outNextId から
@@ -82,6 +97,7 @@ private:
     int depth_ = 0;
     std::unique_ptr<GraphDesc> childDesc_; // 子グラフ定義（child_ が参照し続けるため所有する）
     std::unique_ptr<GraphRuntime> child_;
+    std::string activeChildPath_; // child_ をBeginSubgraph()したときの読み込み元パス（GetActiveLeaf用）
 };
 
 } // namespace engine::game

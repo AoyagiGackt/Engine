@@ -108,6 +108,39 @@ bool engine::game::Compare(CompareOp op, const GraphValue& lhs, const GraphValue
     return false;
 }
 
+MathOp engine::game::ParseMathOp(const std::string& s)
+{
+    if (s == "+") {
+        return MathOp::Add;
+    }
+    if (s == "-") {
+        return MathOp::Subtract;
+    }
+    if (s == "*") {
+        return MathOp::Multiply;
+    }
+    if (s == "/") {
+        return MathOp::Divide;
+    }
+    Logger::LogError("[Graph] unknown math op '" + s + "', defaulting to '+'");
+    return MathOp::Add;
+}
+
+float engine::game::ApplyMath(MathOp op, float a, float b)
+{
+    switch (op) {
+    case MathOp::Add:
+        return a + b;
+    case MathOp::Subtract:
+        return a - b;
+    case MathOp::Multiply:
+        return a * b;
+    case MathOp::Divide:
+        return (b != 0.0f) ? (a / b) : 0.0f;
+    }
+    return 0.0f;
+}
+
 const GraphNode* GraphDesc::FindNode(const std::string& id) const
 {
     auto it = nodes.find(id);
@@ -123,7 +156,11 @@ GraphValue ParamFromJson(const nlohmann::json& j)
     if (j.is_number()) {
         return GraphValue { j.get<float>() };
     }
-    return GraphValue { j.get<std::string>() };
+    if (j.is_string()) {
+        return GraphValue { j.get<std::string>() };
+    }
+    // 想定外の型（null/配列/オブジェクト等、手編集や壊れたJSON由来）は空文字にフォールバックする
+    return GraphValue { std::string() };
 }
 
 nlohmann::json ParamToJson(const GraphValue& v)
@@ -167,7 +204,9 @@ GraphDesc engine::game::GraphIO::Load(const std::string& path)
             }
             if (nj.contains("paramLinks") && nj["paramLinks"].is_object()) {
                 for (auto& [key, src] : nj["paramLinks"].items()) {
-                    node.paramLinks[key] = src.get<std::string>();
+                    if (src.is_string()) {
+                        node.paramLinks[key] = src.get<std::string>();
+                    }
                 }
             }
             graph.nodes[nodeId] = std::move(node);

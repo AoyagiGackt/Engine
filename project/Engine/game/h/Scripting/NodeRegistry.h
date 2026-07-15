@@ -39,6 +39,8 @@ struct NodeTypeSpec {
     std::vector<NodeParamSpec> params; // 入力データピン（パラメータ）の並び
     bool hasOutput = false; // 出力データピンを持つか
     GraphValueType outputType = GraphValueType::Any; // 出力データピンの型
+    std::string description; // 「何ができるか」の一言説明（ノード追加メニューのツールチップに使う）
+    std::string category; // ノード追加メニューでのグループ分け（例: "よく使う", "敵"）空なら「その他」扱い
 };
 
 class NodeRegistry {

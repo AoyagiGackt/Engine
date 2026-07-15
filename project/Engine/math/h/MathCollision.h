@@ -5,6 +5,8 @@
 #pragma once
 #include "Vector3.h"
 
+namespace engine {
+
 /**
  * @brief 球体とAABB（箱）の当たり判定
  * @param spherePos 球体の中心座標
@@ -88,3 +90,5 @@ inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDir
 
     return true;
 }
+
+} // namespace engine

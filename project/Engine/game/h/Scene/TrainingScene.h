@@ -64,6 +64,17 @@ public:
     /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
+    /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
+    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+
+    // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/training.json"; }
+    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    Camera* GetEditorCamera() override { return camera_.get(); }
+    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    /// @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる
+    void RefreshVisualTransformsForEditor() override;
+
 private:
     /// @brief プレイヤーとスピン連射弾を更新する
     void UpdatePlayerAndBullets();

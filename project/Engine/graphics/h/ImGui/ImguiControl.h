@@ -9,6 +9,8 @@
 #include <vector>
 namespace engine::graphics {
 
+class ImageFilter;
+
 /// @brief ImGuiパネルで設定するデバッグ用ポイントライト
 struct DebugPointLight {
     bool enabled = true;
@@ -41,6 +43,15 @@ private:
     static void ShowPostProcessSettings();
     // アウトライン/ラジアルブラー/ディゾルブ/GPUノイズ/ガラス割れ/ライトを1ウィンドウにまとめて描画する
     static void ShowEffectAndLightSettings();
+    // ShowEffectAndLightSettings() 内の各折りたたみセクション
+    static void ShowOutlineSection(ImageFilter* imgFilter);
+    static void ShowRadialBlurSection(ImageFilter* imgFilter);
+    static void ShowDissolveSection(ImageFilter* imgFilter);
+    static void ShowNoiseSection(ImageFilter* imgFilter);
+    static void ShowGlassShatterSection();
+    static void ShowLightSection();
+    static void ShowDirectionalLightSection();
+    static void ShowPointLightSection();
 
     static Object3dCommon* obj3dCommon_;
     static std::vector<DebugPointLight> debugLights_;

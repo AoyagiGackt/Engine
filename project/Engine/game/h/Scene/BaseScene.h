@@ -7,11 +7,21 @@
 #include "DirectXCommon.h"
 #include "ImGuiManager.h"
 #include "Input.h"
+#include "Vector3.h"
+#include <memory>
+#include <string>
+namespace engine::graphics {
+class ModelCommon;
+class Camera;
+class ParticleManager;
+}
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
 using engine::Input;
 using engine::graphics::ImGuiManager;
+
+class StageEditor;
 
 /**
  * @brief 全てのシーンの抽象基底クラス
@@ -21,28 +31,65 @@ using engine::graphics::ImGuiManager;
 class BaseScene {
 public:
     /**
-     * @brief 仮想デストラクタ
+     * @brief コンストラクタ（stageEditor_の生成をBaseScene.cpp側に閉じ込めるため明示宣言）
+     * @note StageEditorはここではforward宣言のみ（class StageEditor;）。
+     * StageEditorの中身（unique_ptr<KnightEnemy>/<EnemyEntity>）が、BaseSceneを使う
+     * 無関係な翻訳単位（SceneManager.cpp等）にまで漏れ出してEnemyEntity等の完全な定義を
+     * 要求してしまう（C2027）のを防ぐため、BaseScene自身もStageEditorをポインタで持つ
      */
-    virtual ~BaseScene() = default;
+    BaseScene();
 
     /**
-     * @brief シーンの初期化
+     * @brief 仮想デストラクタ（定義はBaseScene.cpp。理由はコンストラクタのコメント参照）
+     */
+    virtual ~BaseScene();
+
+    /**
+     * @brief SceneManagerが呼ぶ初期化の入口（非virtual）
+     * @note Initialize()（派生の本来の初期化）を呼んだ後、GetEditorLevelPath()等のフックを見て
+     * 必要ならStageEditorのOpen()/RegisterExternalEntity()を自動で行う。
+     * 派生シーンはこれまで通りInitialize()をoverrideするだけでよい（エディタ不要ならフックは無視してよい）
+     */
+    void Init(DirectXCommon* dxCommon, Input* input, Audio* audio);
+
+    /**
+     * @brief SceneManagerが毎フレーム呼ぶ更新の入口（非virtual）
+     * @note StageEditorがF2で表示中なら、派生のUpdate()を呼ばずに一時停止状態にする
+     * （UpdateObjects()＋RefreshVisualTransformsForEditor()のみ）。非表示ならUpdate()を呼んだ後
+     * UpdateObjects()を呼ぶ（オブジェクトの親子追従・enemy系AIの本更新は毎フレーム必要なため）
+     */
+    void Tick();
+
+    /**
+     * @brief シーンの初期化（各シーンが実装）
      * @param dxCommon DirectX基盤のポインタ
      * @param input 入力管理のポインタ
      * @param audio 音響管理のポインタ
      * @note シーン開始時に一度だけ呼ばれ、必要なリソースのロードなどを行います
+     * @note SceneManagerから直接は呼ばれない（Init()経由）。呼び出しは変わらずInit()からのみ
      */
     virtual void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) = 0;
 
     /**
-     * @brief シーンの更新処理
+     * @brief シーンの更新処理（各シーンが実装）
      * @note 毎フレーム呼び出され、ゲームロジック（移動、衝突判定等）の更新を行います
+     * @note SceneManagerから直接は呼ばれない（Tick()経由、エディタ表示中はスキップされる）
      */
     virtual void Update() = 0;
 
     /**
-     * @brief シーンの描画処理
+     * @brief SceneManagerが呼ぶ描画の入口（非virtual）
+     * @note 派生のDraw()を呼んだ直後に、StageEditorの配置物をフレーム最後に上乗せで自動描画する
+     * （GetStageEditor().DrawObjects()は自己完結型＝呼び出し位置のPSO状態に依存しない）。
+     * その代償として配置物はシャドウパス／ポストエフェクトの対象外になる
+     * （途中の正しい位置で影・エフェクト込みで描きたい場合は、Draw()内で自分でDrawObjects()を呼ぶこと）
+     */
+    void Render();
+
+    /**
+     * @brief シーンの描画処理（各シーンが実装）
      * @note 毎フレーム呼び出され、描画コマンドの積み込みを行います
+     * @note SceneManagerから直接は呼ばれない（Render()経由）
      */
     virtual void Draw() = 0;
 
@@ -70,6 +117,52 @@ public:
      *       画面から絵が消えてしまうため、対応シーンのみ true を返すこと
      */
     virtual bool SupportsPostEffects() const { return false; }
+
+    /**
+     * @brief 全シーン共通のステージエディタ（F2）SceneManagerが毎フレームUpdate()を呼ぶ
+     * @note 呼び出し側はStageEditorの実体を使うため"StageEditor.h"を自分でインクルードすること
+     * （ここではforward宣言のみで完結させ、他ヘッダーへの伝播を断つため）
+     */
+    StageEditor& GetStageEditor() { return *stageEditor_; }
+
+    /**
+     * @brief エディタのトリガー判定に使うプレイヤー位置
+     * @note プレイヤーが存在するシーンだけオーバーライドすること既定は原点
+     */
+    virtual Vector3 GetEditorPlayerPos() const { return { }; }
+
+    // ---- ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全） ----
+
+    /**
+     * @brief Init()が自動でOpen()するレベルJSONのパス
+     * @return 空文字なら自動Open()しない（既定）。ファイルが無ければ空のレベルとして起動する
+     */
+    virtual std::string GetEditorLevelPath() const { return { }; }
+
+    /** @brief Open()に渡すModelCommon既定nullptrだとOpen()自体をスキップする */
+    virtual engine::graphics::ModelCommon* GetEditorModelCommon() { return nullptr; }
+
+    /** @brief Open()に渡すCamera既定nullptrだとOpen()自体をスキップする */
+    virtual engine::graphics::Camera* GetEditorCamera() { return nullptr; }
+
+    /** @brief enemy_knight配置のAI/演出に使うParticleManager無ければnullptrでよい */
+    virtual engine::graphics::ParticleManager* GetEditorParticleManager() { return nullptr; }
+
+    /**
+     * @brief Init()時に"Player"としてRegisterExternalEntity()する対象の可変位置参照
+     * @return nullptrなら登録しない（既定）
+     */
+    virtual Vector3* GetEditorPlayerPositionRef() { return nullptr; }
+
+    /**
+     * @brief エディタ表示中（ゲームプレイ停止中）に代わりに呼ばれる
+     * @note player_->RefreshVisualTransforms()等、pos_を直接ドラッグされる可能性がある
+     * 実体の見た目だけをその場で再計算するためのフック（AI/タイマーは進めないこと）
+     */
+    virtual void RefreshVisualTransformsForEditor() { }
+
+private:
+    std::unique_ptr<StageEditor> stageEditor_;
 };
 
 } // namespace engine::game

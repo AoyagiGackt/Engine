@@ -7,6 +7,8 @@
 #include "Vector3.h"
 #include <cmath>
 
+namespace engine {
+
 // =================================================================
 // 構造体定義
 // =================================================================
@@ -348,3 +350,5 @@ inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate
 
     return rot;
 }
+
+} // namespace engine

@@ -2,7 +2,6 @@
 #include "MakeAffine.h"
 namespace engine::graphics {
 // GPU マテリアル定数バッファレイアウト（Object3dPS.hlsl の Material 構造体と一致させること）
-// Object3d と InstancedObject3d で共用する
 struct ObjectMaterialLayout {
     Vector4 color = { 1, 1, 1, 1 };
     int enableLighting = 1;

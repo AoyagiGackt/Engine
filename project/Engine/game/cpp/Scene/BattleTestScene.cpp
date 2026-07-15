@@ -1,14 +1,18 @@
 #include "BattleTestScene.h"
+#include "AudioBridge.h"
 #include "Collision.h"
+#include "DebugDraw.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
 #include "PipelineStateGuard.h"
+#include "PlayerBridge.h"
 #include "PostEffectRenderTarget.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
+#include "StageEditor.h"
 #include "TimeManager.h"
 #include <algorithm>
 #include <cmath>
@@ -30,6 +34,40 @@ static constexpr MeleeAttackDef kSwordDashSkill = { "swd_dash", 0.9f, 0.0f, 0.0f
 static constexpr MeleeAttackDef kSpearRetreatSkill = { "spr_retreat", 0.7f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.10f, 0.02f, false, 4, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kGreatswordSlamSkill = { "gs_slam", 1.6f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.40f, 0.30f, true, 10, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kAxeChargeSkill = { "axe_charge", 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.35f, 0.08f, false, 6, 0.0f, false, { }, { }, { }, { } };
+
+// 近接攻撃・固有技の判定ボックス関連
+static constexpr float kSkillRearReachMult = 0.4f; ///< 指向性判定の背面リーチ（前方リーチ比）
+static constexpr float kLockAssistReachMult = 1.6f; ///< ロックオン中に前方リーチへ掛ける補正
+static constexpr float kLockAssistRearMult = 0.6f; ///< ロックオン中の背面リーチ（前方リーチ比）
+static constexpr float kSlamRangeBelowY = 1.0f; ///< 設置型AoEの足元方向の厚み
+static constexpr float kSlamRangeAboveY = 1.5f; ///< 設置型AoEの頭上方向の厚み
+static constexpr float kStageHalfDepth = 0.5f; ///< 2.5Dステージの奥行き半分
+static constexpr Vector4 kSlamFlashColor = { 1.0f, 0.6f, 0.3f, 0.30f };
+static constexpr float kSlamFlashDuration = 0.10f;
+
+// 射撃コンボのマズルフラッシュ演出
+static constexpr float kMuzzleBaseSpeed = 8.0f; ///< 扇状パーティクルの基本速度
+static constexpr float kMuzzleSpeedStep = 1.0f; ///< 1粒ごとの速度加算
+static constexpr float kMuzzleLifeTime = 0.35f; ///< パーティクル寿命（秒）
+static constexpr float kMuzzleScale = 0.14f; ///< パーティクルの大きさ
+
+/**
+ * @brief 固有技（スペースキー）1件ぶんの発生条件と判定パラメータ
+ * @note 新しい武器固有技はこの表に1行足すだけで追加できる
+ */
+struct WeaponSkillEntry {
+    bool (Player::*justTriggered)() const; ///< 発生フレームを返すPlayerのゲッター
+    const MeleeAttackDef* def; ///< ダメージ・ノックバック定義
+    float reachMult; ///< weapon.range に掛ける射程係数
+    bool symmetricAoE; ///< true=前後対称の設置型AoE / false=前方指向性
+    bool screenImpact; ///< true=ヒットストップ＋画面フラッシュの大技演出つき
+};
+static constexpr WeaponSkillEntry kWeaponSkills[] = {
+    { &Player::JustSwordDash, &kSwordDashSkill, 0.80f, false, false },
+    { &Player::JustSpearRetreat, &kSpearRetreatSkill, 0.90f, false, false },
+    { &Player::JustGreatswordSlam, &kGreatswordSlamSkill, 1.00f, true, true },
+    { &Player::JustAxeCharge, &kAxeChargeSkill, 0.85f, false, false },
+};
 
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -74,8 +112,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/block/block.png");
 
     // 境界ブロック・トリガーは本番ステージと同じ level01.json から読み込む
-    // （テストシーンが常に最新のステージ形状を反映するようにする。F2でその場編集も可能）
-    stageEditor_.Open("Resources/Levels/level01.json", modelCommon_.get(), camera_.get());
+    // （GetEditorLevelPath()経由でBaseScene::Init()が自動でOpen()する。F2でその場編集も可能）
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -97,6 +134,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
 
     knight_ = std::make_unique<KnightEnemy>();
     knight_->Initialize(modelCommon_.get(), { 20.0f, 0.4f, 0.0f });
+    GetStageEditor().RegisterExternalEntity("Knight", &knight_->GetPositionRef());
 
     {
         Dummy d;
@@ -126,6 +164,9 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
+    // "Player"のRegisterExternalEntity()はGetEditorPlayerPositionRef()経由でBaseScene::Init()が自動で行う
+    PlayerBridge::GetInstance()->SetPlayer(player_.get());
+    AudioBridge::GetInstance()->SetAudio(audio_);
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
@@ -184,7 +225,7 @@ void BattleTestScene::UpdateHpBars()
         float sx, sy;
         SceneShared::WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
 
-        float ratio = d.hpDisplay_;
+        float ratio = d.hpDisplay;
         d.hpBarFg->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.9f });
 
         d.hpBarBg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
@@ -206,38 +247,17 @@ void BattleTestScene::Update()
 
     fontRenderer_.Reset();
 
-    stageEditor_.Update(input_, player_->GetPosition());
-    if (stageEditor_.IsVisible()) {
-        // ステージエディタ表示中はゲームプレイ（敵AI・プレイヤー操作・カメラ追従）を丸ごと止める
-        // TimeManagerのタイムスケールだけでは、このシーンの各種Updateが固定dt(GameConstants::kFrameDeltaTime)で
-        // 動いてしまい止まらないため、ここで明示的に丸ごとスキップする
-        stageEditor_.UpdateObjects();
+    // StageEditor::Update()（F2トグル・パネル・トリガー判定）と、エディタ表示中の一時停止分岐は
+    // BaseScene::Tick()が面倒を見る（表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
 
-        // Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
-        // WASDでカメラを動かしても正しい位置に描かれるよう、全モデルの行列だけは毎フレーム再計算する
-        // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いて「ついてくる」ように見える）
-        player_->RefreshVisualTransforms();
-        if (knight_) {
-            knight_->RefreshVisualTransforms();
-        }
-        bulletPool_.RefreshVisualTransforms();
-        for (auto& d : dummies_) {
-            d.object->Update();
-        }
-        for (auto& p : warpPortalBlocks_) {
-            p->Update();
-        }
-        // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
-        UpdateWeaponSlotHud();
-        UpdateHpBars();
-        return;
-    }
+    if (input_->TriggerKey(DIK_F3)) { showColliders_ = !showColliders_; }
+    if (showColliders_) { DrawColliderDebug(); }
 
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdateTargetLock();
     UpdatePlayerAndCamera();
     // ステージエディタでsolidにしたブロックとの当たり判定（追加/移動/削除が次フレームからそのまま反映される）
-    player_->ResolveBlockCollision(stageEditor_.GetSolidColliders());
+    player_->ResolveBlockCollision(GetStageEditor().GetSolidColliders());
     UpdateEnvironment();
 
     UpdateCombat();
@@ -245,6 +265,7 @@ void BattleTestScene::Update()
     styleMeter_.Update(GameConstants::kFrameDeltaTime);
     UpdateDummies();
     UpdateKnightEnemy();
+    UpdatePlacedKnights();
     UpdateWeaponSlotHud();
 
     dummySlice_.Update(GameConstants::kFrameDeltaTime, camera_.get());
@@ -282,6 +303,31 @@ void BattleTestScene::Update()
     DrawHud(nearReturn);
 }
 
+void BattleTestScene::RefreshVisualTransformsForEditor()
+{
+    // ステージエディタ表示中はゲームプレイ（敵AI・プレイヤー操作・カメラ追従）を丸ごと止める
+    // TimeManagerのタイムスケールだけでは、このシーンの各種Updateが固定dt(GameConstants::kFrameDeltaTime)で
+    // 動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ
+
+    // Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
+    // WASDでカメラを動かしても正しい位置に描かれるよう、全モデルの行列だけは毎フレーム再計算する
+    // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いて「ついてくる」ように見える）
+    player_->RefreshVisualTransforms();
+    if (knight_) {
+        knight_->RefreshVisualTransforms();
+    }
+    bulletPool_.RefreshVisualTransforms();
+    for (auto& d : dummies_) {
+        d.object->Update();
+    }
+    for (auto& p : warpPortalBlocks_) {
+        p->Update();
+    }
+    // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
+    UpdateWeaponSlotHud();
+    UpdateHpBars();
+}
+
 void BattleTestScene::UpdatePlayerAndCamera()
 {
     // 乱舞のターゲット：ロック中ならその対象、そうでなければ最も近いダミー
@@ -313,7 +359,7 @@ void BattleTestScene::UpdateEnvironment()
 {
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-    stageEditor_.UpdateObjects();
+    // GetStageEditor().UpdateObjects()はBaseScene::Tick()がUpdate()の後に一括して呼ぶ
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
     float pulse = 0.6f + 0.4f * std::sin(warpPulseTimer_ * 4.0f);
@@ -354,9 +400,9 @@ bool BattleTestScene::UpdateMeleeComboHit()
     const float meleeReach = weapon.range * rangeMult;
     const float dirX = player_->GetLastDirX();
     // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
-    AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * 0.4f);
-    // ロック中は判定を1.6倍まで広げて「ロックしたのに届かない」を減らす（距離無制限ヒットはやめる）
-    AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * 1.6f, meleeReach * 0.6f);
+    AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * kSkillRearReachMult);
+    // ロック中は判定を広げて「ロックしたのに届かない」を減らす（距離無制限ヒットはやめる）
+    AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * kLockAssistReachMult, meleeReach * kLockAssistRearMult);
     for (size_t di = 0; di < dummies_.size(); ++di) {
         auto& d = dummies_[di];
         if (d.hp <= 0.0f) {
@@ -375,72 +421,36 @@ bool BattleTestScene::UpdateMeleeComboHit()
 bool BattleTestScene::UpdateWeaponSkillHits()
 {
     // ── 固有技（Space キー、武器種別ごと。Dagger/Hammer/Ball は移動/ゲージ/射撃のみで攻撃判定を持たない）──
-    auto* tm = TimeManager::GetInstance();
+    // 発生条件・射程係数・判定形状は kWeaponSkills テーブルが持つ
     const WeaponData& weapon = weaponManager_->GetCurrent();
     const Vector3& pp = player_->GetPosition();
     const float atkMult = ComputeAttackMult();
 
     bool hitConfirmed = false;
-
-    if (player_->JustSwordDash()) {
-        const float dirX = player_->GetLastDirX();
-        const float reach = weapon.range * 0.8f;
-        AABB skillRange = SceneShared::MakeDirectionalRange(pp, dirX, reach, reach * 0.4f);
+    for (const auto& skill : kWeaponSkills) {
+        if (!((*player_).*skill.justTriggered)()) {
+            continue;
+        }
+        const float reach = weapon.range * skill.reachMult;
+        // 通常は前方に厚い指向性判定、設置型AoEのみ前後対称に叩きつける
+        const AABB skillRange = skill.symmetricAoE
+            ? AABB { { pp.x - reach, pp.y - kSlamRangeBelowY, -kStageHalfDepth },
+                  { pp.x + reach, pp.y + kSlamRangeAboveY, kStageHalfDepth } }
+            : SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), reach, reach * kSkillRearReachMult);
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) {
                 continue;
             }
             if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
                 hitConfirmed = true;
-                ApplyMeleeHitToDummy(d, &kSwordDashSkill, atkMult);
+                ApplyMeleeHitToDummy(d, skill.def, atkMult);
             }
         }
-    }
-    if (player_->JustSpearRetreat()) {
-        const float dirX = player_->GetLastDirX();
-        const float reach = weapon.range * 0.9f;
-        AABB skillRange = SceneShared::MakeDirectionalRange(pp, dirX, reach, reach * 0.4f);
-        for (auto& d : dummies_) {
-            if (d.hp <= 0.0f) {
-                continue;
-            }
-            if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
-                hitConfirmed = true;
-                ApplyMeleeHitToDummy(d, &kSpearRetreatSkill, atkMult);
-            }
+        if (skill.screenImpact) {
+            TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopLaunch);
+            ScreenFlash::GetInstance()->Request(kSlamFlashColor, kSlamFlashDuration);
         }
     }
-    if (player_->JustGreatswordSlam()) {
-        // 設置型AoE: 前後左右対称に叩きつける
-        const float reach = weapon.range;
-        AABB skillRange = { { pp.x - reach, pp.y - 1.0f, -0.5f }, { pp.x + reach, pp.y + 1.5f, 0.5f } };
-        for (auto& d : dummies_) {
-            if (d.hp <= 0.0f) {
-                continue;
-            }
-            if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
-                hitConfirmed = true;
-                ApplyMeleeHitToDummy(d, &kGreatswordSlamSkill, atkMult);
-            }
-        }
-        tm->RequestHitStop(GameConstants::kHitStopLaunch);
-        ScreenFlash::GetInstance()->Request({ 1.0f, 0.6f, 0.3f, 0.30f }, 0.10f);
-    }
-    if (player_->JustAxeCharge()) {
-        const float dirX = player_->GetLastDirX();
-        const float reach = weapon.range * 0.85f;
-        AABB skillRange = SceneShared::MakeDirectionalRange(pp, dirX, reach, reach * 0.4f);
-        for (auto& d : dummies_) {
-            if (d.hp <= 0.0f) {
-                continue;
-            }
-            if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
-                hitConfirmed = true;
-                ApplyMeleeHitToDummy(d, &kAxeChargeSkill, atkMult);
-            }
-        }
-    }
-
     return hitConfirmed;
 }
 
@@ -471,7 +481,7 @@ bool BattleTestScene::UpdateGunShotHit()
             hitConfirmed = true;
             d.hp = d.maxHp;
             d.hitFlash = 0.10f;
-            d.hpDisplay_ = 0.0f;
+            d.hpDisplay = 0.0f;
             d.returnTimer = 1.5f;
             d.knockVelX += player_->GetLastDirX() * shot->knockX * atkMult;
             d.knockVelY += shot->knockY * atkMult;
@@ -489,10 +499,10 @@ bool BattleTestScene::UpdateGunShotHit()
         const int n = (std::max)(shot->bullets, 2);
         for (int i = 0; i < n; ++i) {
             float t = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
-            float speed = 8.0f + i * 1.0f;
+            float speed = kMuzzleBaseSpeed + i * kMuzzleSpeedStep;
             pm_->EmitWithColor("bt_gun_shot", firePos,
                 { dir * speed, speed * shot->spreadDeg * GameConstants::kDegToRad * t, 0.0f },
-                col, 0.35f, 0.14f);
+                col, kMuzzleLifeTime, kMuzzleScale);
         }
     }
     return hitConfirmed;
@@ -521,7 +531,7 @@ bool BattleTestScene::UpdateRampageHit()
             hitConfirmed = true;
             d.hp = d.maxHp;
             d.hitFlash = isFinisher ? 0.20f : 0.08f;
-            d.hpDisplay_ = 0.0f;
+            d.hpDisplay = 0.0f;
             d.returnTimer = 1.5f;
             float kb = (isFinisher ? 0.45f : 0.12f) * weapon.knockbackMult;
             d.knockVelX += player_->GetLastDirX() * kb * atkMult;
@@ -607,7 +617,7 @@ bool BattleTestScene::UpdateBulletHits()
                 hitConfirmed = true;
                 d.hp = d.maxHp;
                 d.hitFlash = 0.08f;
-                d.hpDisplay_ = 0.0f;
+                d.hpDisplay = 0.0f;
                 d.returnTimer = 1.5f;
                 float bspd = std::sqrt(bvel.x * bvel.x + bvel.y * bvel.y);
                 if (bspd > 0.001f) {
@@ -687,7 +697,7 @@ bool BattleTestScene::UpdateFinisherSlash()
         for (auto& d : dummies_) {
             d.hp = d.maxHp;
             d.hitFlash = 0.10f;
-            d.hpDisplay_ = 0.0f;
+            d.hpDisplay = 0.0f;
             d.returnTimer = 1.5f;
             d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.06f;
             d.knockVelY += 0.06f;
@@ -708,7 +718,7 @@ bool BattleTestScene::UpdateFinisherSlash()
     for (auto& d : dummies_) {
         d.hp = d.maxHp;
         d.hitFlash = 0.22f;
-        d.hpDisplay_ = 0.0f;
+        d.hpDisplay = 0.0f;
         d.returnTimer = 1.5f;
         d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.5f;
         d.knockVelY += 0.20f;
@@ -779,7 +789,7 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
 
     d.hp = d.maxHp;
     d.hitFlash = atk->launcher ? 0.20f : 0.14f;
-    d.hpDisplay_ = 0.0f;
+    d.hpDisplay = 0.0f;
     d.returnTimer = 1.5f;
 
     // ノックバックは段の定義 × 武器の重さ × 覚醒倍率
@@ -821,7 +831,7 @@ void BattleTestScene::UpdateDummies()
         d.knockVelY *= 0.88f;
 
         // HP バー表示値を回復（被弾後 0.8 秒で満タンに戻る）
-        d.hpDisplay_ = (std::min)(d.hpDisplay_ + GameConstants::kFrameDeltaTime / 0.8f, 1.0f);
+        d.hpDisplay = (std::min)(d.hpDisplay + GameConstants::kFrameDeltaTime / 0.8f, 1.0f);
 
         // 帰還タイマー（被弾から 1.5 秒後に中央へ戻る）
         d.returnTimer -= GameConstants::kFrameDeltaTime;
@@ -907,7 +917,7 @@ void BattleTestScene::UpdateKnightEnemy()
 
     knight_->Update(pm_, pp);
     // ステージエディタでsolidにしたブロックとの当たり判定（追加/移動/削除が次フレームからそのまま反映される）
-    knight_->ResolveBlockCollision(stageEditor_.GetSolidColliders());
+    knight_->ResolveBlockCollision(GetStageEditor().GetSolidColliders());
 
     // ── プレイヤーの攻撃判定（Dummy 用と同じ AABB をナイトにも適用） ──
     if (knight_->IsAlive()) {
@@ -923,7 +933,7 @@ void BattleTestScene::UpdateKnightEnemy()
                 : SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * 0.4f);
             bool hit = Collision::CheckCollision(meleeRange, knight_->GetAABB());
             if (hit && atk != nullptr) {
-                knight_->TakeDamage(1, player_->GetLastDirX());
+                knight_->TakeDamage(1, player_->GetLastDirX(), atk->knockY);
                 SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
                 tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
                 styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f);
@@ -937,7 +947,7 @@ void BattleTestScene::UpdateKnightEnemy()
                 // 銃口の向きにだけ飛ぶ（ロック中でも射程・向きは無視しない）
                 AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
                 if (Collision::CheckCollision(shotRange, knight_->GetAABB())) {
-                    knight_->TakeDamage(1, player_->GetLastDirX());
+                    knight_->TakeDamage(1, player_->GetLastDirX(), shot->knockY);
                     SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
                     tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
                     styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
@@ -950,9 +960,11 @@ void BattleTestScene::UpdateKnightEnemy()
                 { pp.x + 2.5f, pp.y + 1.5f, 0.5f }
             };
             if (Collision::CheckCollision(rushRange, knight_->GetAABB())) {
-                knight_->TakeDamage(1, player_->GetLastDirX());
+                bool isFinisher = player_->JustRampageFinish();
+                float knockY = (isFinisher ? 0.18f : 0.03f) * weapon.knockbackMult;
+                knight_->TakeDamage(1, player_->GetLastDirX(), knockY);
                 SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
-                tm->RequestHitStop(player_->JustRampageFinish() ? 6 : 2);
+                tm->RequestHitStop(isFinisher ? 6 : 2);
                 styleMeter_.RegisterHit("rampage", player_->JustRampageFinish() ? 60.0f : 20.0f);
             }
         }
@@ -978,6 +990,72 @@ void BattleTestScene::UpdateKnightEnemy()
         pm_->EmitRing("bt_hit_ring", { pp.x, pp.y + 0.5f, 0.0f }, 0.10f,
             { 0.5f, 0.85f, 1.0f, 1.0f }, 20, 0.35f, 0.4f);
         slotFlashTimer_ = kSlotFlashDuration;
+    }
+}
+
+void BattleTestScene::UpdatePlacedKnights()
+{
+    // AI/重力自体はBaseScene::Tick()がUpdate()の後にGetStageEditor().UpdateObjects()で回す
+    // （1フレーム遅れで前フレームの位置に対して判定する形になるが60fpsなら誤差程度）
+    // ここでは当たり判定・ダメージ処理だけを行う
+    std::vector<KnightEnemy*> knights = GetStageEditor().GetKnights();
+    if (knights.empty()) {
+        return;
+    }
+
+    auto* tm = TimeManager::GetInstance();
+    const WeaponData& weapon = weaponManager_->GetCurrent();
+    const Vector3& pp = player_->GetPosition();
+    std::vector<AABB> solids = GetStageEditor().GetSolidColliders();
+
+    for (KnightEnemy* knight : knights) {
+        knight->ResolveBlockCollision(solids);
+        if (!knight->IsAlive()) {
+            continue;
+        }
+
+        if (player_->JustComboHit()) {
+            const MeleeAttackDef* atk = player_->GetActiveMeleeAttack();
+            if (atk != nullptr) {
+                const float meleeReach = weapon.range * atk->rangeMult;
+                const float dirX = player_->GetLastDirX();
+                AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * 0.4f);
+                if (Collision::CheckCollision(meleeRange, knight->GetAABB())) {
+                    knight->TakeDamage(1, dirX, atk->knockY);
+                    SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
+                    tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
+                    styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f);
+                }
+            }
+        }
+        if (player_->JustFired()) {
+            const GunShotDef* shot = player_->GetActiveGunShot();
+            const RangedWeaponData& gun = weaponManager_->GetRanged();
+            if (shot != nullptr) {
+                const float rangeX = gun.range * shot->rangeMult;
+                AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
+                if (Collision::CheckCollision(shotRange, knight->GetAABB())) {
+                    knight->TakeDamage(1, player_->GetLastDirX(), shot->knockY);
+                    SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
+                    tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
+                    styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
+                }
+            }
+        }
+        if (player_->JustRampageHit()) {
+            AABB rushRange = {
+                { pp.x - 2.5f, pp.y - 1.5f, -0.5f },
+                { pp.x + 2.5f, pp.y + 1.5f, 0.5f }
+            };
+            if (Collision::CheckCollision(rushRange, knight->GetAABB())) {
+                bool isFinisher = player_->JustRampageFinish();
+                float knockY = (isFinisher ? 0.18f : 0.03f) * weapon.knockbackMult;
+                knight->TakeDamage(1, player_->GetLastDirX(), knockY);
+                SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
+                tm->RequestHitStop(isFinisher ? 6 : 2);
+                styleMeter_.RegisterHit("rampage", isFinisher ? 60.0f : 20.0f);
+            }
+        }
     }
 }
 
@@ -1258,6 +1336,40 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
         constexpr Vector4 kColorReturn = { 1.0f, 0.6f, 0.1f, 1.0f };
         fontRenderer_.DrawString("[ ENTER ] Back", sx - 84.0f, sy - 36.0f, kScale, kColorReturn);
     }
+
+    if (showColliders_) {
+        fontRenderer_.DrawString("[ F3 ] Colliders: ON", 12.0f, 84.0f, kScale, { 1.0f, 0.5f, 0.1f, 1.0f });
+    }
+}
+
+void BattleTestScene::DrawColliderDebug()
+{
+    DebugDraw::SetCamera(camera_->GetViewProjectionMatrix(),
+        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));
+
+    // プレイヤー（緑）
+    DebugDraw::DrawCollider(player_->GetCollider(), DebugDraw::kColorGreen);
+
+    // 訓練マネキン（生存中のみ、シアン）
+    for (const auto& d : dummies_) {
+        if (d.hp > 0.0f) { DebugDraw::DrawAABB(DummyBounds(d), DebugDraw::kColorCyan); }
+    }
+
+    // ナイト敵（生存中のみ、赤）
+    if (knight_ && knight_->IsAlive()) {
+        DebugDraw::DrawAABB(knight_->GetAABB(), DebugDraw::kColorRed);
+    }
+    // StageEditorで配置したナイト（生存中のみ、赤）
+    for (KnightEnemy* placedKnight : GetStageEditor().GetKnights()) {
+        if (placedKnight->IsAlive()) {
+            DebugDraw::DrawAABB(placedKnight->GetAABB(), DebugDraw::kColorRed);
+        }
+    }
+
+    // ステージエディタでsolidにしたブロック（オレンジ、エディタを開いていなくても見える）
+    for (const auto& b : GetStageEditor().GetSolidColliders()) {
+        DebugDraw::DrawAABB(b, DebugDraw::kColorOrange);
+    }
 }
 
 void BattleTestScene::Draw()
@@ -1283,7 +1395,8 @@ void BattleTestScene::Draw()
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
-    stageEditor_.DrawObjects();
+    // GetStageEditor().DrawObjects()はBaseScene::Render()がDraw()の後に自動で呼ぶ
+    // （フレーム最後に上乗せ描画になる代わりに、呼び出し位置を自分で気にしなくてよい）
     for (auto& p : warpPortalBlocks_) {
         p->Draw();
     }
