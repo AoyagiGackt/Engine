@@ -8,9 +8,7 @@ using namespace engine;
 
 namespace engine::game {
 
-// =================================================================
 // ファイル読み込み
-// =================================================================
 
 Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename, const std::string& animationName)
 {
@@ -46,7 +44,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
         aiNodeAnim* nodeAnimationAssimp = animationAssimp->mChannels[channelIndex];
         NodeAnimation& nodeAnimation = animation.nodeAnimations[nodeAnimationAssimp->mNodeName.C_Str()];
 
-        // ---- Translate（位置） ----
+        // Translate（位置）
         for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumPositionKeys; ++keyIndex) {
             aiVectorKey& keyAssimp = nodeAnimationAssimp->mPositionKeys[keyIndex];
             KeyframeVector3 keyframe;
@@ -56,7 +54,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
             nodeAnimation.translate.keyframes.push_back(keyframe);
         }
 
-        // ---- Rotate（回転） ----
+        // Rotate（回転）
         for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumRotationKeys; ++keyIndex) {
             aiQuatKey& keyAssimp = nodeAnimationAssimp->mRotationKeys[keyIndex];
             KeyframeQuaternion keyframe;
@@ -71,7 +69,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
             nodeAnimation.rotate.keyframes.push_back(keyframe);
         }
 
-        // ---- Scale（スケール） ----
+        // Scale（スケール）
         for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumScalingKeys; ++keyIndex) {
             aiVectorKey& keyAssimp = nodeAnimationAssimp->mScalingKeys[keyIndex];
             KeyframeVector3 keyframe;
@@ -84,9 +82,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
     return animation;
 }
 
-// =================================================================
 // 線形補間
-// =================================================================
 
 Vector3 CalculateValue(const AnimationCurve<Vector3>& curve, float time)
 {
@@ -114,9 +110,7 @@ Vector3 CalculateValue(const AnimationCurve<Vector3>& curve, float time)
     return curve.keyframes.back().value;
 }
 
-// =================================================================
 // 球面線形補間
-// =================================================================
 
 Quaternion CalculateValue(const AnimationCurve<Quaternion>& curve, float time)
 {

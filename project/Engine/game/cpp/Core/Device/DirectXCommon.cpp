@@ -11,9 +11,11 @@ using namespace engine;
 
 using Microsoft::WRL::ComPtr;
 
-// ---------------------------------------------------------------------------------
 // Initialize関数
-// ---------------------------------------------------------------------------------
+// ══════════════════════════════════════════════════════
+// 初期化とフレーム制御
+// ══════════════════════════════════════════════════════
+
 void DirectXCommon::Initialize(WinApp* winApp)
 {
     ENGINE_ASSERT(winApp);
@@ -158,6 +160,10 @@ void DirectXCommon::PostDraw()
     UpdateFixFPS();
 }
 
+// ══════════════════════════════════════════════════════
+// シェーダーコンパイル
+// ══════════════════════════════════════════════════════
+
 Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile)
 {
     // hlslファイルを読む
@@ -216,9 +222,11 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
     return shaderBlob;
 }
 
-// ---------------------------------------------------------------------------------
 // 内部関数
-// ---------------------------------------------------------------------------------
+
+// ══════════════════════════════════════════════════════
+// DirectXリソース生成
+// ══════════════════════════════════════════════════════
 
 void DirectXCommon::InitializeDevice()
 {
@@ -391,6 +399,10 @@ void DirectXCommon::CreateRTV()
     device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
 }
 
+// ══════════════════════════════════════════════════════
+// リサイズと同期
+// ══════════════════════════════════════════════════════
+
 void DirectXCommon::OnResize(uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0 || !swapChain_) {
@@ -487,6 +499,10 @@ ID3D12Resource* DirectXCommon::GetCurrentBackBufferResource()
 }
 
 // ヘルパー関数（バッファ作成用）
+// ══════════════════════════════════════════════════════
+// 共通リソース操作
+// ══════════════════════════════════════════════════════
+
 Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateBufferResource(size_t sizeInBytes)
 {
     HRESULT hr;

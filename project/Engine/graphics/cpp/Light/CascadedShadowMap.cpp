@@ -16,7 +16,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon->GetDevice();
 
-    // --- Texture2DArray[3] (R32_TYPELESS) ---
+    // Texture2DArray[3] (R32_TYPELESS)
     {
         D3D12_RESOURCE_DESC desc = { };
         desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -71,7 +71,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
             srvManager->GetCPUDescriptorHandle(shadowSrvIndex_));
     }
 
-    // --- 定数バッファ ---
+    // 定数バッファ
     {
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC desc = { };
@@ -93,7 +93,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         }
     }
 
-    // --- ダミー定数バッファ (256 bytes 以上) ---
+    // ダミー定数バッファ (256 bytes 以上)
     {
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC desc = { };
@@ -109,7 +109,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     }
 }
 
-// ---- ComputeCascadeVP ----
+// ComputeCascadeVP
 
 Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t cascadeIdx)
 {
@@ -198,7 +198,7 @@ void CascadedShadowMap::Update(const Vector3& lightDir)
     }
 }
 
-// ---- BeginCascade / EndCascade ----
+// BeginCascade / EndCascade
 
 void CascadedShadowMap::BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t cascadeIdx)
 {
@@ -246,7 +246,7 @@ void CascadedShadowMap::EndCascade(ID3D12GraphicsCommandList* cmd)
     }
 }
 
-// ---- SetShadowMapSRV / SetCascadeDataCBV ----
+// SetShadowMapSRV / SetCascadeDataCBV
 
 void CascadedShadowMap::SetShadowMapSRV(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager)
 {

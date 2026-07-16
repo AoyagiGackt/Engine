@@ -282,6 +282,15 @@
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerPhysicsStates.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerRampageStates.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>

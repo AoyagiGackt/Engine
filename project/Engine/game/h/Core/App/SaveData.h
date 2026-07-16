@@ -7,7 +7,7 @@
 #include <vector>
 namespace engine::game {
 
-/** @brief タイトルの「コンティニュー」で復元するラン継続データ */
+/** @brief タイトルのコンティニューで復元するラン継続データ */
 struct ContinueData {
     bool valid = false; ///< コンティニューデータが存在するか
 

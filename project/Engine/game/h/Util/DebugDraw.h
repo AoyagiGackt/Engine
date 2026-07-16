@@ -24,9 +24,7 @@
 #include "CollisionConfig.h" // AABB, Sphere, Capsule, Collider, Ray
 #include "MakeAffine.h"
 
-// ===========================================================
 // USE_IMGUI が有効な場合のみ実装を提供する
-// ===========================================================
 #ifdef USE_IMGUI
 #include "imgui.h"
 #include <cmath>
@@ -42,9 +40,9 @@ using engine::Ray;
 using engine::Sphere;
 using engine::Vector3;
 
-namespace DebugDraw {
+namespace engine::game::DebugDraw {
 
-// ---- よく使うカラー定数 (IM_COL32: ABGR バイト順) ----
+// よく使うカラー定数 (IM_COL32: ABGR バイト順)
 constexpr ImU32 kColorGreen = IM_COL32(0, 255, 0, 255);
 constexpr ImU32 kColorRed = IM_COL32(255, 0, 0, 255);
 constexpr ImU32 kColorBlue = IM_COL32(0, 100, 255, 255);
@@ -54,7 +52,7 @@ constexpr ImU32 kColorMagenta = IM_COL32(255, 0, 255, 255);
 constexpr ImU32 kColorWhite = IM_COL32(255, 255, 255, 255);
 constexpr ImU32 kColorOrange = IM_COL32(255, 150, 0, 255);
 
-// ---- 内部状態（SetCamera で初期化） ----
+// 内部状態（SetCamera で初期化）
 namespace _Internal {
     inline Matrix4x4 vp_ = { };
     inline float screenW_ = 1280.0f;
@@ -67,7 +65,7 @@ namespace _Internal {
      */
     inline bool WorldToScreen(const Vector3& world, ImVec2& out)
     {
-        // 行ベクトル規約: clip = world * VP
+        // 行ベクトル規約  clip = world * VP
         float cx = world.x * vp_.m[0][0] + world.y * vp_.m[1][0] + world.z * vp_.m[2][0] + vp_.m[3][0];
         float cy = world.x * vp_.m[0][1] + world.y * vp_.m[1][1] + world.z * vp_.m[2][1] + vp_.m[3][1];
         float cw = world.x * vp_.m[0][3] + world.y * vp_.m[1][3] + world.z * vp_.m[2][3] + vp_.m[3][3];
@@ -86,9 +84,7 @@ namespace _Internal {
     }
 } // namespace _Internal
 
-// ===========================================================
 // 公開 API
-// ===========================================================
 
 /**
  * @brief 毎フレーム先頭で呼ぶ使用するカメラとスクリーンサイズをセットする
@@ -144,7 +140,7 @@ inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen)
         { mn.x, mn.y, mx.z }, { mx.x, mn.y, mx.z },
         { mx.x, mx.y, mx.z }, { mn.x, mx.y, mx.z }
     };
-    // 12 エッジ: bottom/top face, 4 pillars
+    // 12 エッジ  bottom/top face, 4 pillars
     static const int edges[12][2] = {
         { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, // near face
         { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, // far face
@@ -216,7 +212,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
     const float r = capsule.radius;
     const float pi2 = 2.0f * 3.14159265f;
 
-    // ---- 胴体のライン（4 本）----
+    // 胴体のライン（4 本）
     for (int i = 0; i < 4; ++i) {
         float angle = (pi2 / 4.0f) * i;
         float ca = std::cos(angle), sa = std::sin(angle);
@@ -231,7 +227,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
             color);
     }
 
-    // ---- 両端のリング（軸直交平面）----
+    // 両端のリング（軸直交平面）
     auto DrawRing = [&](const Vector3& center) {
         for (int i = 0; i < segments; ++i) {
             float a0 = (pi2 / segments) * i;
@@ -324,11 +320,11 @@ inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColo
     DrawLine({ pos.x, pos.y, pos.z - size }, { pos.x, pos.y, pos.z + size }, color);
 }
 
-} // namespace DebugDraw
+} // namespace engine::game::DebugDraw
 
 #else // !USE_IMGUI
 
-namespace DebugDraw {
+namespace engine::game::DebugDraw {
 // カラー定数（型は unsigned int, 値は 0 のスタブ）
 constexpr unsigned int kColorGreen = 0;
 constexpr unsigned int kColorRed = 0;
@@ -347,6 +343,9 @@ inline void DrawCapsule(const engine::Capsule&, unsigned int = 0, int = 16) { }
 inline void DrawRay(const engine::Ray&, float = 10.0f, unsigned int = 0) { }
 inline void DrawCollider(const engine::Collider&, unsigned int = 0) { }
 inline void DrawCross(const engine::Vector3&, float = 0.3f, unsigned int = 0) { }
-} // namespace DebugDraw
+} // namespace engine::game::DebugDraw
 
 #endif // USE_IMGUI
+
+// 既存コードの DebugDraw::DrawXxx 呼び出しとのソース互換性を維持する。
+namespace DebugDraw = engine::game::DebugDraw;

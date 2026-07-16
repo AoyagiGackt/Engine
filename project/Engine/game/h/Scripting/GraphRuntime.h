@@ -15,27 +15,27 @@ namespace engine::game {
 
 class GraphRuntime {
 public:
-    /// @brief startNodeIdから実行を開始する（即座に実行ピンを辿れるところまで進む）
+    /** @brief startNodeIdから実行を開始する（即座に実行ピンを辿れるところまで進む） */
     void Start(const GraphDesc* graph);
 
-    /// @brief 毎フレーム呼ぶWait中なら残り時間を減らし、0以下になったら実行を再開する
+    /** @brief 毎フレーム呼ぶWait中なら残り時間を減らし、0以下になったら実行を再開する */
     void Update(float dt);
 
-    /// @brief 実行中（Wait中を含む、Haltしていない）かどうか
+    /** @brief 実行中（Wait中を含む、Haltしていない）かどうか */
     bool IsRunning() const { return graph_ != nullptr && !halted_; }
 
-    // ---- ノード実行ロジック（NodeRegistryの各Executorから使う） ----
+    // ノード実行ロジック（NodeRegistryの各Executorから使う）
 
-    /// @brief 変数を設定する（無ければ新規作成）
+    /** @brief 変数を設定する（無ければ新規作成） */
     void SetVariable(const std::string& name, GraphValue value) { variables_[name] = std::move(value); }
 
-    /// @brief 変数を取得する未設定ならnullptr
+    /** @brief 変数を取得する未設定ならnullptr */
     const GraphValue* GetVariable(const std::string& name) const;
 
-    /// @brief 現在保持している全変数（GraphEditorのライブ変数監視パネル用）
+    /** @brief 現在保持している全変数（GraphEditorのライブ変数監視パネル用） */
     const std::map<std::string, GraphValue>& GetVariables() const { return variables_; }
 
-    /// @brief 現在実行中（またはWaitで待機中）のノードID（GraphEditorの実行ハイライト用）
+    /** @brief 現在実行中（またはWaitで待機中）のノードID（GraphEditorの実行ハイライト用） */
     const std::string& GetCurrentNodeId() const { return currentNodeId_; }
 
     /**
@@ -68,7 +68,7 @@ public:
      */
     bool BeginSubgraph(const std::string& path);
 
-    /// @brief ノードの出力データピンに値を流す（データ配線の供給元になる）
+    /** @brief ノードの出力データピンに値を流す（データ配線の供給元になる） */
     void SetNodeOutput(const std::string& nodeId, GraphValue value) { nodeOutputs_[nodeId] = std::move(value); }
 
     /**
@@ -79,7 +79,7 @@ public:
     GraphValue ResolveParam(const GraphNode& node, const std::string& key, GraphValue fallback) const;
 
 private:
-    /// @brief currentNodeId_ から、SuspendかHaltになるまで実行ピンを辿り続ける
+    /** @brief currentNodeId_ から、SuspendかHaltになるまで実行ピンを辿り続ける */
     void RunUntilSuspendOrHalt();
 
     const GraphDesc* graph_ = nullptr;
@@ -92,7 +92,7 @@ private:
     float waitTimer_ = 0.0f;
     std::string waitResumeNodeId_;
 
-    // ---- サブグラフ実行（Subgraphノード） ----
+    // サブグラフ実行（Subgraphノード）
     static constexpr int kMaxSubgraphDepth = 8; // 自己参照などによる無限ネストの安全弁
     int depth_ = 0;
     std::unique_ptr<GraphDesc> childDesc_; // 子グラフ定義（child_ が参照し続けるため所有する）

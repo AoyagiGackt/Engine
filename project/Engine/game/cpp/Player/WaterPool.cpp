@@ -17,7 +17,7 @@ void WaterPool::Initialize(SpriteCommon* spriteCommon)
     bubbleRng_ = std::mt19937(rd());
     splashRng_ = std::mt19937(rd());
 
-    // --- パーティクルグループ登録 ---
+    // パーティクルグループ登録
     pm_->CreateParticleGroup("water_ripple", "Resources/circle2.png");
     pm_->CreateParticleGroup("water_glint", "Resources/circle2.png");
     pm_->CreateParticleGroup("water_caustic", "Resources/circle2.png");
@@ -29,12 +29,12 @@ void WaterPool::Initialize(SpriteCommon* spriteCommon)
     pm_->SetAdditiveBlend("water_bubble", false);
     pm_->SetAdditiveBlend("water_splash", false);
 
-    // --- 本体スプライト（深い部分：暗い青） ---
+    // 本体スプライト（深い部分 暗い青）
     waterSprite_ = std::make_unique<Sprite>();
     waterSprite_->Initialize(spriteCommon_, "Resources/white.png");
     waterSprite_->SetColor({ 0.04f, 0.22f, 0.62f, 0.72f });
 
-    // --- 水面グラデーション層（明るいシアン、上部のみ） ---
+    // 水面グラデーション層（明るいシアン、上部のみ）
     waterSpriteTop_ = std::make_unique<Sprite>();
     waterSpriteTop_->Initialize(spriteCommon_, "Resources/white.png");
     waterSpriteTop_->SetColor({ 0.28f, 0.62f, 0.95f, 0.30f });
@@ -101,13 +101,13 @@ void WaterPool::Draw(Camera* camera)
     float sy1 = -(kPoolBottom - cam.y) / kHalfH * 360.0f + 360.0f; // 水底（下端）
     float syMid = -((kPoolTop - 1.5f) - cam.y) / kHalfH * 360.0f + 360.0f; // 水面から1.5u下
 
-    // 本体（深い暗青：全深度）
+    // 本体（深い暗青 全深度）
     waterSprite_->SetPosition({ sx0, sy0 });
     waterSprite_->SetSize({ sx1 - sx0, sy1 - sy0 });
     waterSprite_->Update();
     waterSprite_->Draw();
 
-    // グラデーション層（明るいシアン：水面付近のみ）
+    // グラデーション層（明るいシアン 水面付近のみ）
     waterSpriteTop_->SetPosition({ sx0, sy0 });
     waterSpriteTop_->SetSize({ sx1 - sx0, syMid - sy0 });
     waterSpriteTop_->Update();

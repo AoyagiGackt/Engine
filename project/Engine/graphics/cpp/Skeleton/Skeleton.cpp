@@ -10,9 +10,7 @@
 
 namespace engine::graphics {
 
-// =================================================================
 // NodeHierarchy 読み込み（assimp）
-// =================================================================
 
 static Node ConvertAiNode(const aiNode* ainode)
 {
@@ -24,7 +22,7 @@ static Node ConvertAiNode(const aiNode* ainode)
     aiQuaternion aiRotate;
     ainode->mTransformation.Decompose(aiScale, aiRotate, aiTranslate);
 
-    // 右手系→左手系変換：X軸を反転、クォータニオンはY・Zを反転
+    // 右手系→左手系変換 X軸を反転、クォータニオンはY・Zを反転
     node.transform.scale = { aiScale.x, aiScale.y, aiScale.z };
     node.transform.rotate = { aiRotate.x, -aiRotate.y, -aiRotate.z, aiRotate.w };
     node.transform.translate = { -aiTranslate.x, aiTranslate.y, aiTranslate.z };
@@ -44,9 +42,7 @@ Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::stri
     return ConvertAiNode(scene->mRootNode);
 }
 
-// =================================================================
 // Skeleton 生成
-// =================================================================
 
 int32_t Skeleton::CreateJoint(
     const Node& node,
@@ -78,9 +74,7 @@ Skeleton Skeleton::Create(const Node& rootNode)
     return skeleton;
 }
 
-// =================================================================
 // 更新（DFS順なので前から順に計算するだけでよい）
-// =================================================================
 
 void Skeleton::Update()
 {
@@ -98,9 +92,7 @@ void Skeleton::Update()
     }
 }
 
-// =================================================================
 // デバッグ描画（ImGui）
-// =================================================================
 
 #ifdef USE_IMGUI
 
@@ -132,7 +124,7 @@ void Skeleton::DebugDraw()
         return;
     }
 
-    // ---- キャンバスサイズと描画領域 ----
+    // キャンバスサイズと描画領域
     const ImVec2 canvasSize = { 400.0f, 360.0f };
     const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -146,7 +138,7 @@ void Skeleton::DebugDraw()
         { canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y },
         IM_COL32(80, 80, 100, 255));
 
-    // ---- 全ジョイントのXY範囲を自動計算してスケールを決める ----
+    // 全ジョイントのXY範囲を自動計算してスケールを決める
     float minX = 0.0f, maxX = 0.0f, minY = 0.0f, maxY = 0.0f;
     bool first = true;
     for (const Joint& joint : joints_) {
@@ -230,7 +222,7 @@ void Skeleton::DebugDraw()
 
     ImGui::Dummy(canvasSize);
 
-    // ---- ジョイントツリービュー ----
+    // ジョイントツリービュー
     ImGui::Separator();
     ImGui::Text("Joints: %d", static_cast<int>(joints_.size()));
     if (ImGui::BeginChild("##jointTree", ImVec2(0.0f, 0.0f), false)) {

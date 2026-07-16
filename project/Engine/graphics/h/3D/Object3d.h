@@ -310,7 +310,7 @@ private:
     /** @brief オブジェクトのトランスフォーム（初期値はスケール1、原点） */
     Transform transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
-    // --- GPUリソース関連 ---
+    // GPUリソース関連
 
     /** @brief 座標変換行列用のGPUリソース（定数バッファ） */
     Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;

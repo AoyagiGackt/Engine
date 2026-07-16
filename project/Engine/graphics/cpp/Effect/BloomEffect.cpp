@@ -5,9 +5,7 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// ============================================================
 // ユーティリティ
-// ============================================================
 
 void BloomEffect::Barrier(ID3D12GraphicsCommandList* cmd,
     ID3D12Resource* res,

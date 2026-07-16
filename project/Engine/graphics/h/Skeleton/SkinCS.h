@@ -5,36 +5,34 @@
 namespace engine::graphics {
 
 // Compute Shader による GPU スキニングを管理するクラス
-//
-// データフロー:
+// データフロー
 //   元の頂点バッファ (SRV, t0)
 //   × スキニングパレット (CBV, b0)
 //   → 計算済み頂点バッファ (UAV, u0)
 //   → 描画パスで頂点バッファ (VBV) として使用
-//
-// 使い方:
+// 使い方
 //   1. Initialize() で初期化
 //   2. 毎フレーム Update() より後で Dispatch() を呼ぶ
 //   3. Draw() で GetOutputVBV() を IASetVertexBuffers に渡す
 class SkinCS {
 public:
-    // 出力頂点レイアウト: ModelCommon の入力レイアウトと完全一致
+    // 出力頂点レイアウト  ModelCommon の入力レイアウトと完全一致
     // POSITION (R32G32B32A32_FLOAT) + TEXCOORD (R32G32_FLOAT) + NORMAL (R32G32B32_FLOAT)
     struct OutputVertex {
         float position[4]; // 16 バイト
         float texcoord[2]; //  8 バイト
         float normal[3]; // 12 バイト
-                         // 合計: 36 バイト
+                         // 合計  36 バイト
     };
 
-    // inputBuffer : SkinnedModel::GetVertexResource() を渡す (GENERIC_READ 状態)
-    // vertexCount : SkinnedModel::GetVertexCount()
+    // inputBuffer   SkinnedModel::GetVertexResource() を渡す (GENERIC_READ 状態)
+    // vertexCount   SkinnedModel::GetVertexCount()
     void Initialize(engine::DirectXCommon* dxCommon,
         ID3D12Resource* inputBuffer,
         UINT vertexCount);
 
     // スキニング計算を Dispatch するDraw() より前に呼ぶこと
-    // paletteCBAddress : paletteCB_->GetGPUVirtualAddress()
+    // paletteCBAddress   paletteCB_->GetGPUVirtualAddress()
     void Dispatch(ID3D12GraphicsCommandList* cmd,
         D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress);
 

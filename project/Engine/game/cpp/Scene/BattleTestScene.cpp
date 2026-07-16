@@ -69,6 +69,10 @@ static constexpr WeaponSkillEntry kWeaponSkills[] = {
     { &Player::JustAxeCharge, &kAxeChargeSkill, 0.85f, false, false },
 };
 
+// ══════════════════════════════════════════════════════
+// シーン初期化
+// ══════════════════════════════════════════════════════
+
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -256,6 +260,10 @@ void BattleTestScene::UpdateHpBars()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// シーン更新
+// ══════════════════════════════════════════════════════
+
 void BattleTestScene::Update()
 {
     if (glassShatter_.IsActive()) {
@@ -333,7 +341,7 @@ void BattleTestScene::RefreshVisualTransformsForEditor()
 
     // Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
     // WASDでカメラを動かしても正しい位置に描かれるよう、全モデルの行列だけは毎フレーム再計算する
-    // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いて「ついてくる」ように見える）
+    // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いてついてくるように見える）
     player_->RefreshVisualTransforms();
     if (knight_) {
         knight_->RefreshVisualTransforms();
@@ -352,7 +360,7 @@ void BattleTestScene::RefreshVisualTransformsForEditor()
 
 void BattleTestScene::UpdatePlayerAndCamera()
 {
-    // 乱舞のターゲット：ロック中ならその対象、そうでなければ最も近いダミー
+    // 乱舞のターゲット ロック中ならその対象、そうでなければ最も近いダミー
     {
         const Vector3& pp = player_->GetPosition();
         Vector3 rampTarget = { pp.x + player_->GetLastDirX() * 6.0f, pp.y, 0.0f };
@@ -403,6 +411,10 @@ float BattleTestScene::ComputeAttackMult() const
     return (player_->IsAwakened() ? 1.5f : 1.0f) * player_->GetAxeRageMult();
 }
 
+// ══════════════════════════════════════════════════════
+// 戦闘判定
+// ══════════════════════════════════════════════════════
+
 bool BattleTestScene::UpdateMeleeComboHit()
 {
     // 格闘コンボ（L キー）
@@ -423,7 +435,7 @@ bool BattleTestScene::UpdateMeleeComboHit()
     const float dirX = player_->GetLastDirX();
     // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
     AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * kSkillRearReachMult);
-    // ロック中は判定を広げて「ロックしたのに届かない」を減らす（距離無制限ヒットはやめる）
+    // ロック中は判定を広げてロックしたのに届かないを減らす（距離無制限ヒットはやめる）
     AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * kLockAssistReachMult, meleeReach * kLockAssistRearMult);
     for (size_t di = 0; di < dummies_.size(); ++di) {
         auto& d = dummies_[di];
@@ -572,9 +584,13 @@ bool BattleTestScene::UpdateRampageHit()
     return hitConfirmed;
 }
 
+// ══════════════════════════════════════════════════════
+// フィニッシャー演出
+// ══════════════════════════════════════════════════════
+
 void BattleTestScene::TriggerFinisherSlash()
 {
-    // ── フィニッシャースラッシュ：発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）──
+    // ── フィニッシャースラッシュ 発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）──
     if (!player_->JustFinisherSlash()) {
         return;
     }
@@ -693,7 +709,7 @@ bool BattleTestScene::UpdateFinisherSlash()
         return true;
     }
 
-    // 解放：溜めた斬撃が一斉に炸裂し、距離を問わず全マネキンに命中
+    // 解放 溜めた斬撃が一斉に炸裂し、距離を問わず全マネキンに命中
     finisherActive_ = false;
     ApplyFinisherReleaseHits();
     PlayFinisherReleaseEffects();
@@ -796,7 +812,7 @@ void BattleTestScene::PlayFinisherReleaseEffects()
         { pp.x, pp.y + 0.5f, 0.0f });
     styleMeter_.RegisterHit("finisher_release", 120.0f);
 
-    // 解放の瞬間：刃の一斉放出と空間歪みの最大化、最も近いダミーを切断破片に差し替える
+    // 解放の瞬間 刃の一斉放出と空間歪みの最大化、最も近いダミーを切断破片に差し替える
     bladeFlash_.Emit({ pp.x, pp.y + 0.5f, 0.0f }, 30, GameConstants::kFinisherSlashRadius, 2.0f, 5.0f);
     spaceWarp_.AddImpulse(1.0f);
 
@@ -818,7 +834,7 @@ void BattleTestScene::PlayFinisherReleaseEffects()
 
 void BattleTestScene::StartFinisherShatterImpact()
 {
-    // 「暗転+斬撃線ごと凍った画面」をプレイヤー位置から砕き、素の世界を見せる
+    // 暗転+斬撃線ごと凍った画面をプレイヤー位置から砕き、素の世界を見せる
     const Vector3& pp = player_->GetPosition();
     const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
     const float cx = pp.x * vp.m[0][0] + pp.y * vp.m[1][0] + pp.z * vp.m[2][0] + vp.m[3][0];
@@ -850,7 +866,7 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
 
     if (atk->launcher) {
-        // 打ち上げ: 長めのヒットストップ + 画面フラッシュで「浮かせた」手応えを出す
+        // 打ち上げ: 長めのヒットストップ + 画面フラッシュで浮かせた手応えを出す
         tm->RequestHitStop(GameConstants::kHitStopLaunch);
         ScreenFlash::GetInstance()->Request({ 1.0f, 0.95f, 0.7f, 0.25f }, 0.08f);
     } else {
@@ -860,6 +876,10 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     // スタイル加点はおおよそ与ダメージに比例（同じ技の連発は StyleMeter 側で減衰する）
     styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f * atkMult);
 }
+
+// ══════════════════════════════════════════════════════
+// 敵とターゲットの更新
+// ══════════════════════════════════════════════════════
 
 void BattleTestScene::UpdateDummies()
 {
@@ -919,7 +939,7 @@ void BattleTestScene::UpdateTargetLock()
         return;
     }
 
-    // 候補: 生存中のダミー → ナイト（生存時のみ）→ 末尾は「ロック解除」として巡回する
+    // 候補: 生存中のダミー → ナイト（生存時のみ）→ 末尾はロック解除として巡回する
     struct Candidate {
         LockTargetKind kind;
         size_t index;
@@ -946,7 +966,7 @@ void BattleTestScene::UpdateTargetLock()
         }
     }
 
-    int nextIdx = curIdx + 1; // 未ロック(-1)からは先頭へ、最後まで進んだら「解除」に戻る
+    int nextIdx = curIdx + 1; // 未ロック(-1)からは先頭へ、最後まで進んだら解除に戻る
     if (nextIdx >= static_cast<int>(candidates.size())) {
         lockedKind_ = LockTargetKind::None;
     } else {
@@ -1113,6 +1133,10 @@ void BattleTestScene::UpdatePlacedKnights()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// HUD更新と描画
+// ══════════════════════════════════════════════════════
+
 void BattleTestScene::InitializeWeaponSlotHud()
 {
     constexpr float kSlotSize = 56.0f;
@@ -1150,7 +1174,7 @@ void BattleTestScene::InitializeWeaponSlotHud()
     // 各スタイルに対応する実物3Dモデル（色塗り四角の代わりに表示）
     // ダミーの物理武器がまだ無いスタイルはここに追加すれば自動でモデル表示に切り替わる
     // scale はモデル実寸の高さ差を吸収し、見た目のアイコンサイズ(目標高さ約0.8)を揃えるための倍率
-    // baseYaw はモデルの「正面」がカメラを向くよう回す基準角度（ラジアン）。目視で合わせる必要がある
+    // baseYaw はモデルの正面がカメラを向くよう回す基準角度（ラジアン）。目視で合わせる必要がある
     struct IconAsset {
         WeaponType type;
         const char* modelPath;
@@ -1268,7 +1292,7 @@ void BattleTestScene::UpdateWeaponSlotHud()
             cam.z + kIconDepth
         };
         float iconScale = icon3d.scale * kIconDepthScale;
-        // フルスピンだと必ず「背面がカメラを向く」瞬間が来て武器が判別できなくなるため、
+        // フルスピンだと必ず背面がカメラを向く瞬間が来て武器が判別できなくなるため、
         // 正面(baseYaw)を中心に小さく揺らすだけにする
         icon3d.wobbleTime += GameConstants::kFrameDeltaTime;
         float yaw = icon3d.baseYaw + std::sin(icon3d.wobbleTime * 0.8f) * 0.35f;
@@ -1290,7 +1314,7 @@ void BattleTestScene::DrawWeaponSlotHud()
     }
     gunFrame_->Draw();
 
-    // 枠の中身：実物3Dモデルのスロットは、いったん3D描画パイプラインに切り替えて
+    // 枠の中身 実物3Dモデルのスロットは、いったん3D描画パイプラインに切り替えて
     // 枠より手前に描画する（前は3Dワールドと同じパスで描いていたため、後から描かれる
     // 2Dの枠に覆いかぶさられて背面に隠れてしまっていた）
     {
@@ -1313,7 +1337,7 @@ void BattleTestScene::DrawWeaponSlotHud()
     gunIcon_->Draw();
 
     // スタイル名の文字ラベルは廃止（枠の中身＝実物の武器モデル/色で見分ける）。
-    // 未解放のスロットだけ「?」を出し、中身が武器モデルで隠れないよう控えめな位置にする
+    // 未解放のスロットだけ?を出し、中身が武器モデルで隠れないよう控えめな位置にする
     constexpr float kSlotSize = 56.0f;
     const auto& list = weaponManager_->GetList();
     for (int i = 0; i < kWeaponSlotCount && i < static_cast<int>(list.size()); ++i) {
@@ -1428,9 +1452,13 @@ void BattleTestScene::DrawColliderDebug()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// シーン描画と終了処理
+// ══════════════════════════════════════════════════════
+
 void BattleTestScene::Draw()
 {
-    // ---- ガラス割れ演出中（かつキャプチャ済み）は通常描画をスキップ ----
+    // ガラス割れ演出中（かつキャプチャ済み）は通常描画をスキップ
     if (glassShatter_.IsActive() && !glassShatter_.NeedCapture()) {
         spriteCommon_->CommonDrawSettings();
         glassShatterBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
@@ -1512,7 +1540,7 @@ void BattleTestScene::Draw()
     }
     SlashMark::GetInstance()->Draw();
 
-    // ---- 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）----
+    // 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）
     if (finisherShatter_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         if (finisherShatter_.NeedCapture()) {
@@ -1528,7 +1556,7 @@ void BattleTestScene::Draw()
 
     fontRenderer_.Draw();
 
-    // ---- ガラス割れエフェクト（テスト再生時のみ）----
+    // ガラス割れエフェクト（テスト再生時のみ）
     if (glassShatter_.IsActive()) {
         if (glassShatter_.NeedCapture()) {
             glassShatter_.CaptureFrame();

@@ -15,31 +15,31 @@ namespace engine {
  */
 class Collision {
 public:
-    // ----- 既存 -----
+    // 既存
     static bool CheckCollision(const Sphere& s1, const Sphere& s2);
     static bool CheckCollision(const AABB& a, const AABB& b);
 
-    // ----- 球 × AABB -----
+    // 球 × AABB
     static bool CheckCollision(const Sphere& s, const AABB& b);
     static bool CheckCollision(const AABB& b, const Sphere& s) { return CheckCollision(s, b); }
 
-    // ----- 球 × カプセル -----
+    // 球 × カプセル
     static bool CheckCollision(const Sphere& s, const Capsule& c);
     static bool CheckCollision(const Capsule& c, const Sphere& s) { return CheckCollision(s, c); }
 
-    // ----- カプセル × カプセル -----
+    // カプセル × カプセル
     static bool CheckCollision(const Capsule& c1, const Capsule& c2);
 
-    // ----- カプセル × AABB -----
+    // カプセル × AABB
     static bool CheckCollision(const Capsule& c, const AABB& b);
     static bool CheckCollision(const AABB& b, const Capsule& c) { return CheckCollision(c, b); }
 
-    // ----- 形状ディスパッチ（CollisionManager から使用） -----
+    // 形状ディスパッチ（CollisionManager から使用）
     static bool CheckCollision(const Collider& a, const Collider& b);
 
-    // ===========================================================
+
     // レイキャスト
-    // ===========================================================
+
 
     /**
      * @brief レイ vs AABB（スラブ法）
@@ -66,7 +66,7 @@ public:
     static bool Raycast(const Ray& ray, const Collider& collider, RaycastResult& result);
 
 private:
-    // --- 内部ユーティリティ ---
+    // 内部ユーティリティ
 
     /// 点 p に最も近い線分上の点を返す
     static Vector3 ClosestPointOnSegment(const Vector3& p,

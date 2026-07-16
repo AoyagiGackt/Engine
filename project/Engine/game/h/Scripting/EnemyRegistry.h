@@ -15,16 +15,16 @@ class EnemyRegistry {
 public:
     static EnemyRegistry* GetInstance();
 
-    /// @brief idで敵を登録する（同じidが既にあれば上書き）
+    /** @brief idで敵を登録する（同じidが既にあれば上書き） */
     void Register(const std::string& id, EnemyEntity* enemy);
 
-    /// @brief 登録を解除する（敵を破棄する前に呼ぶこと）
+    /** @brief 登録を解除する（敵を破棄する前に呼ぶこと） */
     void Unregister(const std::string& id);
 
-    /// @brief idから敵を検索する未登録なら nullptr
+    /** @brief idから敵を検索する未登録なら nullptr */
     EnemyEntity* Find(const std::string& id) const;
 
-    /// @brief 全登録を消去する（シーン遷移時などに使う想定）
+    /** @brief 全登録を消去する（シーン遷移時などに使う想定） */
     void Clear();
 
 private:

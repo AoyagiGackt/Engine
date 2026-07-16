@@ -19,7 +19,7 @@ static Matrix4x4 ConvertOffsetMatrix(const aiMatrix4x4& m)
     aiQuaternion rotate;
     m.Decompose(scale, rotate, translate);
 
-    // 右手系 → 左手系（X 軸反転）：ConvertAiNode と同一の変換
+    // 右手系 → 左手系（X 軸反転） ConvertAiNode と同一の変換
     Vector3 s = { scale.x, scale.y, scale.z };
     Quaternion r = { rotate.x, -rotate.y, -rotate.z, rotate.w };
     Vector3 t = { -translate.x, translate.y, translate.z };
@@ -135,7 +135,7 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
                 uint32_t vIdx = order[i];
                 VertexData vd { };
 
-                // 右手系 → 左手系：X を反転
+                // 右手系 → 左手系 X を反転
                 vd.position = {
                     -mesh->mVertices[vIdx].x,
                     mesh->mVertices[vIdx].y,

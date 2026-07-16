@@ -178,6 +178,9 @@
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerPhysicsStates.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerRampageStates.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp" />

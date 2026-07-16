@@ -52,7 +52,7 @@ public: // メンバ関数
      * @param height 新しいクライアント領域の高さ
      * @note ゲーム内部の描画解像度（ビューポート・UI座標等）は WinApp::kClientWidth/Height の
      * 固定値のまま変えない。ウィンドウが大きければ余白は黒のまま、小さければ描画がクリップされる。
-     * あくまで「リサイズしてもクラッシュ・表示崩壊しない」ことを保証するための対応
+     * あくまでリサイズしてもクラッシュ・表示崩壊しないことを保証するための対応
      */
     void OnResize(uint32_t width, uint32_t height);
 
@@ -146,7 +146,7 @@ public: // メンバ関数
         D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after,
         UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
-    // --- RTV関連 ---
+    // RTV関連
 
     /** @brief 現在のバックバッファのRTVハンドルを取得 */
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackBufferHandle();
@@ -166,7 +166,7 @@ public: // メンバ関数
     /** @brief 深度ステンシルリソースを取得（SRV生成に使用） */
     ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
 
-    // --- フェンス関連 ---
+    // フェンス関連
 
     /** @brief フェンスの取得 */
     ID3D12Fence* GetFence() { return fence_.Get(); }
@@ -245,7 +245,7 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2];
     uint64_t fenceValue_;
     HANDLE fenceEvent_;
-    /** @brief バックバッファごとに「そのアロケータをGPUが使い終わったフェンス値」を記録する
+    /** @brief バックバッファごとにそのアロケータをGPUが使い終わったフェンス値を記録する
      * @note PreDraw() で該当インデックスのアロケータを使い回す直前にだけこの値を待つことで、
      * 毎フレーム無条件にWaitForGpu()するのを避けている */
     uint64_t frameFenceValues_[kFrameCount] = { };

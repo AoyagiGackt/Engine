@@ -8,9 +8,7 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// =====================================================
 // 初期化
-// =====================================================
 
 void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 {
@@ -41,7 +39,7 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
     lightData_->ambientColor = { 1.0f, 1.0f, 1.0f };
     lightData_->ambientIntensity = 0.3f;
 
-    // --- ポイントライト定数バッファ ---
+    // ポイントライト定数バッファ
     // CBV は 256 バイトアライン必須なので切り上げる
     resDesc.Width = (sizeof(PointLightBuffer) + 255) & ~255u;
     device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
@@ -52,9 +50,7 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
     pointLightData_->pad[0] = pointLightData_->pad[1] = pointLightData_->pad[2] = 0.0f;
 }
 
-// =====================================================
 // ライト更新（時刻に合わせて方向・色・アンビエントを変える）
-// =====================================================
 
 void Object3dCommon::UpdateLight(float timeRatio)
 {
@@ -63,9 +59,9 @@ void Object3dCommon::UpdateLight(float timeRatio)
         return;
     }
 
-    // ------ ライト方向アニメーション ------
+    // ライト方向アニメーション
     // timeRatio 0.0 = 18:00（夕方）、0.5 = 0:00（真夜中）、1.0 = 6:00（朝方）
-    // X 成分: 夕方は右から(+)、朝は左から(-)
+    // X 成分  夕方は右から(+)、朝は左から(-)
     float angle = std::numbers::pi_v<float> * timeRatio; // 0 → π
     float dirX = std::cos(angle) * 0.7f; // +0.7 → 0 → -0.7
     float dirY = -(std::abs(std::sin(angle)) * 0.7f + 0.3f); // 常に下向き
@@ -75,7 +71,7 @@ void Object3dCommon::UpdateLight(float timeRatio)
     float len = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
     lightData_->direction = { dirX / len, dirY / len, dirZ / len };
 
-    // ------ 光源色・強度 ------
+    // 光源色・強度
     // 夕焼け(0.0) → 月明かり(0.5) → 朝焼け(1.0)
     struct ColorKey {
         float t;
@@ -91,7 +87,7 @@ void Object3dCommon::UpdateLight(float timeRatio)
         { 1.00f, { 1.0f, 0.65f, 0.30f, 1.0f }, 1.1f }, // 6:00 朝焼け
     };
 
-    // ------ アンビエント色 ------
+    // アンビエント色
     struct AmbientKey {
         float t;
         Vector3 color;
@@ -134,9 +130,7 @@ void Object3dCommon::UpdateLight(float timeRatio)
     }
 }
 
-// =====================================================
 // ライト方向の取得（ShadowManager に渡す用）
-// =====================================================
 
 Vector3 Object3dCommon::GetLightDirection() const
 {
@@ -147,9 +141,7 @@ Vector3 Object3dCommon::GetLightDirection() const
     return lightData_->direction;
 }
 
-// =====================================================
 // ライトをコマンドリストにセット（スロット 3）
-// =====================================================
 
 void Object3dCommon::SetDefaultLight(ID3D12GraphicsCommandList* commandList)
 {

@@ -46,7 +46,7 @@ public:
     // 4パスのブルームをかけてバックバッファへ合成するEndScene() 後に呼ぶ
     void Apply(SrvManager* srvManager);
 
-    // ---- パラメータ ----
+    // パラメータ
 
     void SetEnabled(bool e) { enabled_ = e; }
     bool IsEnabled() const { return enabled_; }
@@ -76,7 +76,7 @@ private:
     BloomEffect(const BloomEffect&) = delete;
     BloomEffect& operator=(const BloomEffect&) = delete;
 
-    // ---- ヘルパー ----
+    // ヘルパー
 
     /// リソースバリアを発行するユーティリティ
     void Barrier(ID3D12GraphicsCommandList* cmd,
@@ -95,14 +95,14 @@ private:
         DXGI_FORMAT rtvFmt,
         DXGI_FORMAT srvFmt);
 
-    // ---- ルートシグネチャ生成ヘルパー ----
+    // ルートシグネチャ生成ヘルパー
     Microsoft::WRL::ComPtr<ID3D12RootSignature>
     CreateRS_CB_SRV(ID3D12Device* device) const; // b0 + t0 (Bright/Blur)
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature>
     CreateRS_SRV2(ID3D12Device* device) const; // t0 + t1 (Combine)
 
-    // ---- PSO 生成ヘルパー ----
+    // PSO 生成ヘルパー
     Microsoft::WRL::ComPtr<ID3D12PipelineState>
     CreatePSO(ID3D12Device* device,
         ID3D12RootSignature* rootSig,
@@ -111,14 +111,14 @@ private:
 
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    // ---- シーンキャプチャ RT ----
+    // シーンキャプチャ RT
     Microsoft::WRL::ComPtr<ID3D12Resource> sceneTexture_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> sceneRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE sceneRtvHandle_ = { };
     uint32_t sceneSrvIndex_ = UINT32_MAX;
     bool sceneFirstFrame_ = true;
 
-    // ---- Bloom ピンポン RT [0],[1] ----
+    // Bloom ピンポン RT [0],[1]
     // 常に Full resolution (UNORM, ガンマ非補正の中間バッファ)
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomTex_[2];
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> bloomRtvHeap_[2];
@@ -126,7 +126,7 @@ private:
     uint32_t bloomSrvIndex_[2] = { UINT32_MAX, UINT32_MAX };
     bool bloomInSrv_[2] = { false, false }; ///< true=SRV状態
 
-    // ---- PSO & ルートシグネチャ ----
+    // PSO & ルートシグネチャ
     Microsoft::WRL::ComPtr<ID3D12RootSignature> brightRS_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> brightPSO_;
 
@@ -136,7 +136,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature> combineRS_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> combinePSO_;
 
-    // ---- 定数バッファ ----
+    // 定数バッファ
     struct BrightParams {
         float threshold;
         float intensity;

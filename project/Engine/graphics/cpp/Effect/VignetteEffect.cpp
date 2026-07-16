@@ -16,7 +16,7 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = VignetteParams { };
 
-    // ルートシグネチャ: b0 CBV のみ（SRV 不要、数式で暗転するだけ）
+    // ルートシグネチャ  b0 CBV のみ（SRV 不要、数式で暗転するだけ）
     D3D12_ROOT_PARAMETER rootParam = { };
     rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -41,7 +41,7 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/VignettePS.hlsl", L"ps_6_0");
 
-    // アルファブレンド: PS が出力する (0,0,0,vig) をバックバッファに重ねて周辺を暗転
+    // アルファブレンド  PS が出力する (0,0,0,vig) をバックバッファに重ねて周辺を暗転
     D3D12_RENDER_TARGET_BLEND_DESC rtBlend = { };
     rtBlend.BlendEnable = TRUE;
     rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
@@ -74,7 +74,7 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     psoDesc.NumRenderTargets = 1;
     psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     psoDesc.SampleDesc.Count = 1;
-    // InputLayout なし: VS が SV_VertexID から三角形を生成する
+    // InputLayout なし  VS が SV_VertexID から三角形を生成する
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
     ENGINE_ASSERT(SUCCEEDED(hr));

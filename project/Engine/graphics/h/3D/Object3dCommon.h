@@ -18,9 +18,9 @@ namespace engine::graphics {
  */
 class Object3dCommon {
 public:
-    // =============================================
+
     // ポイントライト定義
-    // =============================================
+
 
     /// シェーダー側の PointLight[8] と合わせること
     static constexpr UINT kMaxPointLights = 8;
@@ -38,9 +38,9 @@ public:
     };
     static_assert(sizeof(PointLight) == 48, "PointLight must be 48 bytes for HLSL alignment");
 
-    // =============================================
+
     // 初期化・ライティング更新
-    // =============================================
+
 
     /** @brief 初期化（ライト定数バッファの作成） */
     void Initialize(engine::DirectXCommon* dxCommon);
@@ -70,9 +70,9 @@ public:
     /** @brief 現在のライト方向を取得（ShadowManager に渡す用） */
     Vector3 GetLightDirection() const;
 
-    // =============================================
+
     // 手動ライトオーバーライド（ImGui デバッグ用）
-    // =============================================
+
 
     /**
      * @brief 手動オーバーライドを有効/無効にする
@@ -129,9 +129,9 @@ public:
     Vector3 GetAmbientColor() const { return lightData_ ? lightData_->ambientColor : Vector3 { 1, 1, 1 }; }
     float GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : 0.3f; }
 
-    // =============================================
+
     // ポイントライト管理
-    // =============================================
+
 
     /**
      * @brief 全ポイントライトをクリアする
@@ -157,7 +157,7 @@ public:
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    // --- 平行光源 ---
+    // 平行光源
     struct DirectionalLight {
         Vector4 color;
         Vector3 direction;
@@ -168,7 +168,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> lightResource_;
     DirectionalLight* lightData_ = nullptr; ///< Map 済みポインタ
 
-    // --- ポイントライト群 ---
+    // ポイントライト群
     struct PointLightBuffer {
         uint32_t count;
         float pad[3];

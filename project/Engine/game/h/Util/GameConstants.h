@@ -31,8 +31,8 @@ namespace GameConstants {
     inline constexpr int kHitStopLaunch = 8; // 打ち上げ
     inline constexpr int kHitStopJuggle = 4; // ジャグル
     inline constexpr int kHitStopFinish = 12; // フィニッシュ
-    inline constexpr int kHitStopFinisherSlash = 20; // 大技：本命ヒット
-    inline constexpr int kHitStopFinisherBeat = 1; // 大技：斬撃線が1本出るごとの小停止
+    inline constexpr int kHitStopFinisherSlash = 20; // 大技 本命ヒット
+    inline constexpr int kHitStopFinisherBeat = 1; // 大技 斬撃線が1本出るごとの小停止
 
     // カメラシェイク
     inline constexpr float kShakeLaunchAmt = 0.35f;

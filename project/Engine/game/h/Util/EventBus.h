@@ -23,10 +23,10 @@ public:
      */
     int Subscribe(const std::string& eventName, Callback callback);
 
-    /// @brief 購読を解除する
+    /** @brief 購読を解除する */
     void Unsubscribe(const std::string& eventName, int handle);
 
-    /// @brief イベントを発火し、購読者のコールバックを同期的に全て呼ぶ
+    /** @brief イベントを発火し、購読者のコールバックを同期的に全て呼ぶ */
     void Emit(const std::string& eventName);
 
 private:

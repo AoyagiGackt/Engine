@@ -62,7 +62,7 @@ using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
 
-/// @brief 訓練マネキン相手にコンボ・武器を試せるデバッグ用シーン
+/** @brief 訓練マネキン相手にコンボ・武器を試せるデバッグ用シーン */
 class BattleTestScene : public BaseScene {
 public:
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
@@ -72,35 +72,35 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
     bool SupportsPostEffects() const override { return true; }
 
-    /// @brief ImGuiパネルからの手動テスト再生用
+    /** @brief ImGuiパネルからの手動テスト再生用 */
     void TriggerGlassShatterTest();
 
-    /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
+    /** @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する） */
     Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
 
     const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
 
-    // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
+    // BaseScene::Init()/Tick()からのStageEditor自動配線フック
     std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
     ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
     Camera* GetEditorCamera() override { return camera_.get(); }
     ParticleManager* GetEditorParticleManager() override { return pm_; }
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
-    /// @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる
+    /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
 
 private:
-    /// @brief Initialize()の下請け：マネージャ取得・各種Common初期化・カメラ生成を行う
+    /** @brief Initialize()の下請け マネージャ取得・各種Common初期化・カメラ生成を行う */
     void InitializeCoreSystems();
-    /// @brief Initialize()の下請け：境界ブロック・ワープポータル・ダミー用モデル・パーティクル群を初期化する
+    /** @brief Initialize()の下請け 境界ブロック・ワープポータル・ダミー用モデル・パーティクル群を初期化する */
     void InitializeStageModels();
-    /// @brief Initialize()の下請け：ナイト敵と訓練マネキン1体を生成する
+    /** @brief Initialize()の下請け ナイト敵と訓練マネキン1体を生成する */
     void InitializeDummyEnemies();
-    /// @brief Initialize()の下請け：プレイヤーと弾丸プールを初期化する
+    /** @brief Initialize()の下請け プレイヤーと弾丸プールを初期化する */
     void InitializePlayerAndBullets();
-    /// @brief Initialize()の下請け：HUD（覚醒ゲージ・武器スロット・スタイルメーター・フォント等）を初期化する
+    /** @brief Initialize()の下請け HUD（覚醒ゲージ・武器スロット・スタイルメーター・フォント等）を初期化する */
     void InitializeHud();
-    /// @brief Initialize()の下請け：画面演出エフェクト（ガラス割れ・刃・空間歪み・切断・世界割れ）を初期化する
+    /** @brief Initialize()の下請け 画面演出エフェクト（ガラス割れ・刃・空間歪み・切断・世界割れ）を初期化する */
     void InitializeEffects();
 
     // 訓練用マネキン（動かない敵）
@@ -122,54 +122,54 @@ private:
         std::unique_ptr<Sprite> hpBarFg;
     };
 
-    /// @brief 指定座標にヒットエフェクト（パーティクル）を生成する
+    /** @brief 指定座標にヒットエフェクト（パーティクル）を生成する */
     void SpawnHitEffect(const Vector3& pos);
-    /// @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する
+    /** @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する */
     void UpdateHpBars();
-    /// @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す
+    /** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
-    /// @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する
+    /** @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する */
     void SetupMainRenderTarget();
 
-    /// @brief プレイヤーを更新し、カメラをプレイヤーに追従させる
+    /** @brief プレイヤーを更新し、カメラをプレイヤーに追従させる */
     void UpdatePlayerAndCamera();
-    /// @brief 影・境界ブロック・ワープポータルの演出を更新する
+    /** @brief 影・境界ブロック・ワープポータルの演出を更新する */
     void UpdateEnvironment();
-    /// @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する命中があれば true を返す
+    /** @brief 格闘/射撃/乱舞/弾丸の当たり判定を処理する命中があれば true を返す */
     bool UpdateCombat();
-    /// @brief ダミー1体のAABBを返す（当たり判定用）
+    /** @brief ダミー1体のAABBを返す（当たり判定用） */
     static AABB DummyBounds(const Dummy& d);
-    /// @brief 覚醒/アックス怒り状態を反映した現在の攻撃力倍率を返す
+    /** @brief 覚醒/アックス怒り状態を反映した現在の攻撃力倍率を返す */
     float ComputeAttackMult() const;
-    /// @brief 格闘コンボのヒット判定を処理する命中があれば true を返す
+    /** @brief 格闘コンボのヒット判定を処理する命中があれば true を返す */
     bool UpdateMeleeComboHit();
-    /// @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す
+    /** @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す */
     bool UpdateWeaponSkillHits();
-    /// @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す
+    /** @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す */
     bool UpdateGunShotHit();
-    /// @brief 覚醒乱舞のヒット判定を処理する命中があれば true を返す
+    /** @brief 覚醒乱舞のヒット判定を処理する命中があれば true を返す */
     bool UpdateRampageHit();
-    /// @brief フィニッシャースラッシュの発動演出をトリガーする
+    /** @brief フィニッシャースラッシュの発動演出をトリガーする */
     void TriggerFinisherSlash();
-    /// @brief スペースキー スピン連射の発射処理を行う
+    /** @brief スペースキー スピン連射の発射処理を行う */
     void UpdateSpinShotFire();
-    /// @brief 弾丸の移動と衝突判定を処理する命中があれば true を返す
+    /** @brief 弾丸の移動と衝突判定を処理する命中があれば true を返す */
     bool UpdateBulletHits();
-    /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
+    /** @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す */
     bool UpdateFinisherSlash();
-    /// @brief UpdateFinisherSlash()の下請け：斬撃線を1本表示し、全マネキンに拘束ヒットを与える
+    /** @brief UpdateFinisherSlash()の下請け 斬撃線を1本表示し、全マネキンに拘束ヒットを与える */
     void UpdateFinisherSlashLine();
-    /// @brief UpdateFinisherSlash()の下請け：解放の瞬間に距離を問わず全マネキンへヒットを適用する
+    /** @brief UpdateFinisherSlash()の下請け 解放の瞬間に距離を問わず全マネキンへヒットを適用する */
     void ApplyFinisherReleaseHits();
-    /// @brief UpdateFinisherSlash()の下請け：解放演出（斬撃線・画面フラッシュ・刃の放出・ダミー切断）を再生する
+    /** @brief UpdateFinisherSlash()の下請け 解放演出（斬撃線・画面フラッシュ・刃の放出・ダミー切断）を再生する */
     void PlayFinisherReleaseEffects();
-    /// @brief UpdateFinisherSlash()の下請け：プレイヤー位置を画面UVへ投影し世界割れ演出を開始する
+    /** @brief UpdateFinisherSlash()の下請け プレイヤー位置を画面UVへ投影し世界割れ演出を開始する */
     void StartFinisherShatterImpact();
-    /// @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点）
+    /** @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点） */
     void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
-    /// @brief ダミーのノックバック物理とHPバー表示を更新する
+    /** @brief ダミーのノックバック物理とHPバー表示を更新する */
     void UpdateDummies();
-    /// @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する
+    /** @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する */
     void UpdateKnightEnemy();
     /**
      * @brief StageEditorで新規配置したナイト（GetStageEditor().GetKnights()）への攻撃判定
@@ -177,19 +177,19 @@ private:
      * ここでは当たり判定とTakeDamageだけを行うロックオン・撃破後の武器奪取はknight_専用のまま対応していない
      */
     void UpdatePlacedKnights();
-    /// @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する
+    /** @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する */
     void UpdateTargetLock();
-    /// @brief 武器スロットUIのスプライトを初期化する
+    /** @brief 武器スロットUIのスプライトを初期化する */
     void InitializeWeaponSlotHud();
-    /// @brief 武器スロットUI（枠・アイコン・光る演出）を毎フレーム更新する
+    /** @brief 武器スロットUI（枠・アイコン・光る演出）を毎フレーム更新する */
     void UpdateWeaponSlotHud();
-    /// @brief 武器スロットUIを描画する
+    /** @brief 武器スロットUIを描画する */
     void DrawWeaponSlotHud();
-    /// @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する
+    /** @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する */
     void DrawHud(bool nearReturnPortal);
-    /// @brief 武器一覧と戻りポータルのラベルを描画する
+    /** @brief 武器一覧と戻りポータルのラベルを描画する */
     void DrawWeaponHud(bool nearReturnPortal);
-    /// @brief F3で表示切替。プレイヤー/ダミー/ナイト/solidブロックの当たり判定をワイヤーフレームで描く
+    /** @brief F3で表示切替。プレイヤー/ダミー/ナイト/solidブロックの当たり判定をワイヤーフレームで描く */
     void DrawColliderDebug();
 
     DirectXCommon* dxCommon_ = nullptr;
@@ -206,7 +206,7 @@ private:
     GlassShatterEffect glassShatter_;
     std::unique_ptr<Sprite> glassShatterBgSprite_;
 
-    /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
+    /** @brief 解放時に暗転+斬撃線ごと凍った画面を砕いて素の世界を見せる演出 */
     GlassShatterEffect finisherShatter_;
 
     /** @brief 空間に走るガラス質の刃パーティクル */
@@ -280,7 +280,7 @@ private:
         int slotIndex = -1; // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
         float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
         float scale = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
-        float baseYaw = 0.0f; // モデルの「正面」がカメラを向くよう調整する基準角度（要目視調整）
+        float baseYaw = 0.0f; // モデルの正面がカメラを向くよう調整する基準角度（要目視調整）
     };
     std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
 

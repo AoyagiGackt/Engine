@@ -59,7 +59,7 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     object_->Initialize(modelCommon);
     object_->SetModel(model_.get());
     object_->SetEnableLighting(true);
-    // Vを意識した抑制的な色: 目立つ発光ではなく、わずかに暗い紫のリムに留める
+    // Vを意識した抑制的な色  目立つ発光ではなく、わずかに暗い紫のリムに留める
     object_->SetRimColor({ 0.35f, 0.2f, 0.45f });
     object_->SetRimPower(3.0f);
     object_->SetRimIntensity(0.6f);

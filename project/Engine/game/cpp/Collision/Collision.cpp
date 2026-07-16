@@ -4,9 +4,7 @@
 #include <cmath>
 using namespace engine;
 
-// ==============================================================
-// 既存：球 × 球
-// ==============================================================
+// 既存 球 × 球
 bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
 {
     float dx = s2.center.x - s1.center.x;
@@ -17,9 +15,7 @@ bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
     return distSq <= radiusSum * radiusSum;
 }
 
-// ==============================================================
-// 既存：AABB × AABB
-// ==============================================================
+// 既存 AABB × AABB
 bool Collision::CheckCollision(const AABB& a, const AABB& b)
 {
     return (a.min.x <= b.max.x && a.max.x >= b.min.x)
@@ -27,9 +23,7 @@ bool Collision::CheckCollision(const AABB& a, const AABB& b)
         && (a.min.z <= b.max.z && a.max.z >= b.min.z);
 }
 
-// ==============================================================
 // 内部ユーティリティ
-// ==============================================================
 
 Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b)
 {
@@ -90,7 +84,7 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
             if (std::abs(denom) > kEps) {
                 s = std::max(0.0f, std::min(1.0f, (b * f - c * e) / denom));
             } else {
-                s = 0.0f; // 平行：任意の点を選ぶ
+                s = 0.0f; // 平行 任意の点を選ぶ
             }
             t = (b * s + f) / e;
             // t がクランプされた場合は s を再計算
@@ -113,9 +107,7 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     return dx * dx + dy * dy + dz * dz;
 }
 
-// ==============================================================
-// 追加：球 × AABB
-// ==============================================================
+// 追加 球 × AABB
 bool Collision::CheckCollision(const Sphere& s, const AABB& b)
 {
     // AABB 上で球の中心に最も近い点を求め、距離と半径を比較
@@ -126,9 +118,7 @@ bool Collision::CheckCollision(const Sphere& s, const AABB& b)
     return dx * dx + dy * dy + dz * dz <= s.radius * s.radius;
 }
 
-// ==============================================================
-// 追加：球 × カプセル
-// ==============================================================
+// 追加 球 × カプセル
 bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
 {
     // カプセル軸上で球中心に最も近い点を求め、（球半径 + カプセル半径）と比較
@@ -140,9 +130,7 @@ bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
     return dx * dx + dy * dy + dz * dz <= r * r;
 }
 
-// ==============================================================
-// 追加：カプセル × カプセル
-// ==============================================================
+// 追加 カプセル × カプセル
 bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
 {
     // 線分同士の最近傍距離²と（半径の和）²を比較
@@ -153,15 +141,12 @@ bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
     return distSq <= r * r;
 }
 
-// ==============================================================
-// 追加：カプセル × AABB（交互射影法による近似）
-//
-// アルゴリズム:
+// 追加 カプセル × AABB（交互射影法による近似）
+// アルゴリズム
 //   1. AABB 中心 → カプセル軸上の最近傍点 P を求める
 //   2. P → AABB 上の最近傍点 Q を求める
 //   3. Q → カプセル軸上の最近傍点 R を求める（精度向上）
 //   4. |R - Q| < radius なら衝突
-// ==============================================================
 bool Collision::CheckCollision(const Capsule& c, const AABB& b)
 {
     // Step 1: AABB 中心からカプセル軸への射影
@@ -182,9 +167,7 @@ bool Collision::CheckCollision(const Capsule& c, const AABB& b)
     return dx * dx + dy * dy + dz * dz <= c.radius * c.radius;
 }
 
-// ==============================================================
-// レイキャスト: Ray vs AABB（スラブ法）
-// ==============================================================
+// レイキャスト  Ray vs AABB（スラブ法）
 bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
 {
     result = { };
@@ -192,11 +175,11 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
     float tmax = FLT_MAX;
     Vector3 hitNormal = { };
 
-    // ---- X 軸 ----
+    // X 軸
     {
         float d = ray.direction.x;
         if (std::abs(d) < 1e-8f) {
-            // レイが X 方向に平行: X 範囲外なら当たらない
+            // レイが X 方向に平行  X 範囲外なら当たらない
             if (ray.origin.x < aabb.min.x || ray.origin.x > aabb.max.x) {
                 return false;
             }
@@ -221,7 +204,7 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
         }
     }
 
-    // ---- Y 軸 ----
+    // Y 軸
     {
         float d = ray.direction.y;
         if (std::abs(d) < 1e-8f) {
@@ -249,7 +232,7 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
         }
     }
 
-    // ---- Z 軸 ----
+    // Z 軸
     {
         float d = ray.direction.z;
         if (std::abs(d) < 1e-8f) {
@@ -293,9 +276,7 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
     return true;
 }
 
-// ==============================================================
-// レイキャスト: Ray vs 球体（二次方程式）
-// ==============================================================
+// レイキャスト  Ray vs 球体（二次方程式）
 bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& result)
 {
     result = { };
@@ -305,7 +286,7 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
         ray.origin.z - sphere.center.z
     };
 
-    // ray.direction は正規化済みを仮定: dot(d,d) = 1
+    // ray.direction は正規化済みを仮定  dot(d,d) = 1
     float b = Dot(oc, ray.direction); // b/2 係数
     float c = Dot(oc, oc) - sphere.radius * sphere.radius;
     float disc = b * b - c; // 判別式 = (b/2)² - ac (a=1)
@@ -317,7 +298,7 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
     float sqrtDisc = std::sqrt(disc);
     float t = -b - sqrtDisc; // 手前側の交点
     if (t < 0.0f) {
-        t = -b + sqrtDisc; // レイ原点が球内部: 奥側を使う
+        t = -b + sqrtDisc; // レイ原点が球内部  奥側を使う
         if (t < 0.0f) {
             return false;
         }
@@ -340,24 +321,21 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
     return true;
 }
 
-// ==============================================================
-// レイキャスト: Ray vs カプセル（無限円柱 + 端球）
-//
-// アルゴリズム概要:
+// レイキャスト  Ray vs カプセル（無限円柱 + 端球）
+// アルゴリズム概要
 //   1. カプセル軸方向の垂直成分だけで二次方程式を立て円柱交点を求める
 //   2. 軸方向に [0, 1] にクリップして胴体判定
 //   3. 端球（start/end の Sphere）とも判定し最小 t を採用
-// ==============================================================
 bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& result)
 {
     result = { };
 
-    // ---- 端球判定 ----
+    // 端球判定
     RaycastResult capA, capB;
     bool hitA = Raycast(ray, Sphere { capsule.start, capsule.radius }, capA);
     bool hitB = Raycast(ray, Sphere { capsule.end, capsule.radius }, capB);
 
-    // ---- 円柱胴体判定 ----
+    // 円柱胴体判定
     RaycastResult cyl;
     bool hitCyl = false;
 
@@ -432,7 +410,7 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
         }
     }
 
-    // ---- 最小 t のヒットを採用 ----
+    // 最小 t のヒットを採用
     const RaycastResult* best = nullptr;
     if (hitA) {
         best = &capA;
@@ -451,9 +429,7 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
     return false;
 }
 
-// ==============================================================
-// レイキャスト: 形状ディスパッチ
-// ==============================================================
+// レイキャスト  形状ディスパッチ
 bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult& result)
 {
     switch (collider.shape) {
@@ -467,9 +443,7 @@ bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult&
     return false;
 }
 
-// ==============================================================
 // 形状ディスパッチ
-// ==============================================================
 bool Collision::CheckCollision(const Collider& a, const Collider& b)
 {
     using S = ColliderShape;

@@ -14,6 +14,10 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+// ══════════════════════════════════════════════════════
+// 初期化とテクスチャデコード
+// ══════════════════════════════════════════════════════
+
 TextureManager* TextureManager::GetInstance()
 {
     static TextureManager instance;
@@ -193,6 +197,10 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     return decoded;
 }
 
+// ══════════════════════════════════════════════════════
+// GPUアップロード
+// ══════════════════════════════════════════════════════
+
 void TextureManager::QueueUpload(const DecodedTexture& decoded)
 {
     // 永続コピーコマンドリストにサブリソースごとの転送コマンドを記録する
@@ -306,6 +314,10 @@ void TextureManager::LoadTexture(const std::string& filePath)
     }
 }
 
+// ══════════════════════════════════════════════════════
+// テクスチャ参照
+// ══════════════════════════════════════════════════════
+
 uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
 {
     ENGINE_ASSERT(textureDatas_.contains(filePath));
@@ -324,6 +336,10 @@ const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& fileP
     return textureDatas_[filePath].metadata;
 }
 
+// ══════════════════════════════════════════════════════
+// アップロード確定と再読み込み
+// ══════════════════════════════════════════════════════
+
 void TextureManager::FlushUploads()
 {
     if (!hasPendingCopies_) {
@@ -333,25 +349,25 @@ void TextureManager::FlushUploads()
 
     HRESULT hr;
 
-    // -------------------------------------------------------
+
     // 1. コピーコマンドリストを閉じてコピーキューで一括実行
-    // -------------------------------------------------------
+
     hr = copyCmdList_->Close();
     ENGINE_ASSERT(SUCCEEDED(hr));
     ID3D12CommandList* copyCmds[] = { copyCmdList_.Get() };
     copyQueue_->ExecuteCommandLists(1, copyCmds);
 
-    // -------------------------------------------------------
+
     // 2. コピーキュー完了を待機（全テクスチャを通じて1回のみ）
-    // -------------------------------------------------------
+
     DirectXCommon::WaitForFence(copyQueue_.Get(), copyFence_.Get(), copyFenceValue_, copyFenceEvent_);
     // コピー完了後にアップロードバッファを解放する
     pendingUploadBuffers_.clear();
 
-    // -------------------------------------------------------
+
     // 3. COMMON → PIXEL_SHADER_RESOURCE バリアをグラフィックスキューで一括処理
     //    （コピーキューの ExecuteCommandLists 後、リソースは COMMON 状態に復帰している）
-    // -------------------------------------------------------
+
     hr = transAllocator_->Reset();
     ENGINE_ASSERT(SUCCEEDED(hr));
     hr = transCmdList_->Reset(transAllocator_.Get(), nullptr);
@@ -375,9 +391,9 @@ void TextureManager::FlushUploads()
     dxCommon_->WaitForGpu();
     pendingResources_.clear();
 
-    // -------------------------------------------------------
+
     // 4. コピーアロケータとコマンドリストをリセットして次のバッチに備える
-    // -------------------------------------------------------
+
     hr = copyAllocator_->Reset();
     ENGINE_ASSERT(SUCCEEDED(hr));
     hr = copyCmdList_->Reset(copyAllocator_.Get(), nullptr);
@@ -438,6 +454,10 @@ void TextureManager::CheckHotReload()
         Logger::LogInfo("[TextureManager] Reloaded: " + r.path);
     }
 }
+
+// ══════════════════════════════════════════════════════
+// メモリデータ読み込みと終了処理
+// ══════════════════════════════════════════════════════
 
 void TextureManager::LoadFromRawRGBA8(const std::string& name,
     const uint8_t* rgbaData, uint32_t width, uint32_t height)

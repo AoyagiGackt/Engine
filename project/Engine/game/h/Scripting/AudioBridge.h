@@ -14,16 +14,16 @@ class AudioBridge {
 public:
     static AudioBridge* GetInstance();
 
-    /// @brief 現在のシーンのAudioを登録する（Scene::Initialize()から呼ぶ）
+    /** @brief 現在のシーンのAudioを登録する（Scene::Initialize()から呼ぶ） */
     void SetAudio(engine::Audio* audio) { audio_ = audio; }
 
-    /// @brief SEを再生する（未ロードなら初回のみファイルを読み込みキャッシュする）
+    /** @brief SEを再生する（未ロードなら初回のみファイルを読み込みキャッシュする） */
     void PlaySE(const std::string& path, float volume);
 
-    /// @brief BGMを再生する（前のBGMは自動停止）
+    /** @brief BGMを再生する（前のBGMは自動停止） */
     void PlayBGM(const std::string& path, bool loop);
 
-    /// @brief BGMを停止する
+    /** @brief BGMを停止する */
     void StopBGM();
 
 private:
@@ -31,7 +31,7 @@ private:
     AudioBridge(const AudioBridge&) = delete;
     AudioBridge& operator=(const AudioBridge&) = delete;
 
-    /// @brief pathのSoundDataをキャッシュから探す無ければAudio::LoadAudio()で読み込んでキャッシュする
+    /** @brief pathのSoundDataをキャッシュから探す無ければAudio::LoadAudio()で読み込んでキャッシュする */
     const engine::SoundData* LoadOrGet(const std::string& path);
 
     engine::Audio* audio_ = nullptr;

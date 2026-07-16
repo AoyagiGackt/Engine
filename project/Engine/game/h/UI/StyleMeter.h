@@ -16,7 +16,7 @@ using engine::graphics::SpriteCommon;
 /**
  * @brief スタイルポイントの蓄積・減衰からランクを算出するメーター
  * @note 採点ルール:
- *       - 同じ技を連発するほど加点が減る（技IDごとの「熱」が冷めるまで戻らない）
+ *       - 同じ技を連発するほど加点が減る（技IDごとの熱が冷めるまで戻らない）
  *       - 直前と違う技を出すとバリエーションボーナス
  *       - 攻撃が途切れるとポイントが減衰し、ランクも落ちていく
  */
@@ -52,7 +52,7 @@ private:
     float points_ = 0.0f; ///< スタイルポイント（0〜kMaxPoints）
     float noHitTimer_ = 0.0f; ///< 最後のヒットからの経過秒数（減衰開始の判定）
 
-    // 技の使用「熱」。高いほど同じ技の加点が減る。時間で冷める
+    // 技の使用熱。高いほど同じ技の加点が減る。時間で冷める
     std::unordered_map<std::string, float> moveHeat_;
     std::string lastMoveId_;
 

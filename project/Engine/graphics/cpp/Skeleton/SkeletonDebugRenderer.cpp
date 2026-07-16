@@ -15,7 +15,7 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    // ---- ルートシグネチャ: 32ビット定数 20個 (16=WVP + 4=カラー) ----
+    // ルートシグネチャ: 32ビット定数 20個 (16=WVP + 4=カラー)
     D3D12_ROOT_PARAMETER rp { };
     rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
     rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
@@ -33,17 +33,17 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
     device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&rootSignature_));
 
-    // ---- シェーダー ----
+    // シェーダー
     Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugPS.hlsl", L"ps_6_0");
 
-    // ---- 入力レイアウト ----
+    // 入力レイアウト
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
-    // ---- 三角形 PSO (ボーン・球ともに使用) ----
+    // 三角形 PSO (ボーン・球ともに使用)
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc { };
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputLayout, 1 };
@@ -90,7 +90,7 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
         return res;
     };
 
-    // ---- ボーン用ビルボードクワッド（1ボーン = 4頂点 + 6インデックス）----
+    // ボーン用ビルボードクワッド（1ボーン = 4頂点 + 6インデックス）
     UINT vbSize = kMaxBones * 4 * static_cast<UINT>(sizeof(DebugVertex));
     UINT ibSize = kMaxBones * 6 * static_cast<UINT>(sizeof(uint16_t));
 
@@ -190,7 +190,7 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
 
     const Vector3 camPos = camera->GetTranslate();
 
-    // ---- ボーン（ビルボードクワッド）----
+    // ボーン（ビルボードクワッド）
     {
         uint32_t vc = 0, ic = 0;
 
@@ -236,7 +236,7 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
         }
     }
 
-    // ---- ジョイント（球）----
+    // ジョイント（球）
     {
         cmd->IASetVertexBuffers(0, 1, &sphereVBV_);
         cmd->IASetIndexBuffer(&sphereIBV_);

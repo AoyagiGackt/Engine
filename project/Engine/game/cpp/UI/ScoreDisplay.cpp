@@ -12,9 +12,7 @@ static std::string DigitPath(int digit)
     return "Resources/Time/" + std::to_string(digit) + ".png";
 }
 
-// =====================================================
 // 初期化
-// =====================================================
 
 void ScoreDisplay::Initialize(SpriteCommon* spriteCommon)
 {
@@ -30,18 +28,14 @@ void ScoreDisplay::Initialize(SpriteCommon* spriteCommon)
     }
 }
 
-// =====================================================
 // リセット（毎フレーム Draw 前に呼ぶ）
-// =====================================================
 
 void ScoreDisplay::Reset()
 {
     poolUsed_ = 0;
 }
 
-// =====================================================
 // 描画
-// =====================================================
 
 void ScoreDisplay::DrawNumber(int value, Vector2 pos, Vector2 digitSize, float gap, Vector4 color)
 {
@@ -79,10 +73,10 @@ void ScoreDisplay::DrawRanking(const std::vector<int>& ranking,
     for (int i = 0; i < (int)ranking.size(); ++i) {
         float y = topLeft.y + i * rowSpacing;
 
-        // ---- 順位番号 ----
+        // 順位番号
         DrawNumber(i + 1, { topLeft.x, y }, digitSize, 2.f);
 
-        // ---- スコア ----
+        // スコア
         bool isCurrentScore = (ranking[i] == currentScore);
 
         // ハイライト用にスコア描画前のプール位置を記録
@@ -98,9 +92,7 @@ void ScoreDisplay::DrawRanking(const std::vector<int>& ranking,
     }
 }
 
-// =====================================================
 // プライベート
-// =====================================================
 
 Sprite* ScoreDisplay::AllocSprite()
 {

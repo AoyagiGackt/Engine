@@ -13,7 +13,7 @@ using namespace engine;
 using namespace engine::graphics;
 
 // フェード用スプライトを初期化する
-// spriteCommon: 2D描画の共通設定（シェーダーなど）
+// spriteCommon  2D描画の共通設定（シェーダーなど）
 void Fade::Initialize(SpriteCommon* spriteCommon)
 {
     // 画面全体を覆う黒いスプライトを作成する
@@ -27,8 +27,8 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
 }
 
 // フェードを開始する
-// status: フェードの種類（FadeIn = 明るくなる、FadeOut = 暗くなる）
-// duration: フェードにかかる時間（秒）
+// status  フェードの種類（FadeIn = 明るくなる、FadeOut = 暗くなる）
+// duration  フェードにかかる時間（秒）
 void Fade::Start(Status status, float duration)
 {
     status_ = status;
@@ -55,10 +55,10 @@ void Fade::Update()
 
     float alpha = 0.0f;
     if (status_ == Status::FadeIn) {
-        // フェードイン: アルファが 1.0（黒）→ 0.0（透明）に変化する
+        // フェードイン  アルファが 1.0（黒）→ 0.0（透明）に変化する
         alpha = 1.0f - progress;
     } else if (status_ == Status::FadeOut) {
-        // フェードアウト: アルファが 0.0（透明）→ 1.0（黒）に変化する
+        // フェードアウト  アルファが 0.0（透明）→ 1.0（黒）に変化する
         alpha = progress;
     }
 

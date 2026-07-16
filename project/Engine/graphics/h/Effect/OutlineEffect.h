@@ -33,24 +33,24 @@ namespace engine::graphics {
 
 class OutlineEffect {
 public:
-    /// @brief シングルトンインスタンスを取得する
+    /** @brief シングルトンインスタンスを取得する */
     static OutlineEffect* GetInstance()
     {
         static OutlineEffect instance;
         return &instance;
     }
 
-    // ---- 初期化 / 破棄 ----
+    // 初期化 / 破棄
     /**
      * @brief 初期化アウトライン用ルートシグネチャ・PSO・定数バッファを生成する
      * @param dxCommon DirectX 共通クラスのポインタ
      */
     void Initialize(engine::DirectXCommon* dxCommon);
 
-    /// @brief GPU リソースを解放する
+    /** @brief GPU リソースを解放する */
     void Finalize();
 
-    // ---- 描画パイプライン ----
+    // 描画パイプライン
     /**
      * @brief アウトライン描画パスを開始する
      *        内部でアウトライン用 PSO と root signature をコマンドリストにセットする
@@ -58,7 +58,7 @@ public:
      */
     void BeginOutlinePass();
 
-    // ---- パラメータ ----
+    // パラメータ
     /**
      * @brief アウトラインの色を設定する
      * @param color RGBA（アルファで半透明アウトラインも可能）
@@ -81,10 +81,10 @@ public:
         }
     }
 
-    /// @brief 現在のアウトライン色を取得する
+    /** @brief 現在のアウトライン色を取得する */
     Vector4 GetColor() const { return cbData_ ? cbData_->color : Vector4 { 0, 0, 0, 1 }; }
 
-    /// @brief 現在のアウトライン幅を取得する
+    /** @brief 現在のアウトライン幅を取得する */
     float GetWidth() const { return cbData_ ? cbData_->width : 0.f; }
 
 private:
@@ -95,11 +95,11 @@ private:
 
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    // --- アウトライン専用 PSO ---
+    // アウトライン専用 PSO
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_; ///< アウトライン用ルートシグネチャ
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_; ///< 前面カリング・法線押し出し用 PSO
 
-    // --- 定数バッファ（シェーダー b0 に対応、VS と PS が共用）---
+    // 定数バッファ（シェーダー b0 に対応、VS と PS が共用）
     // VS では width を使って頂点を押し出し、PS では color を使ってピクセルを塗る
     struct OutlineParams {
         Vector4 color = { 0.0f, 0.0f, 0.0f, 1.0f }; ///< アウトライン色（デフォルト黒）

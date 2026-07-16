@@ -39,12 +39,12 @@ public:
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    // ----- 通常描画用 -----
+    // 通常描画用
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::Count)];
 
-    // ----- シャドウパス用 -----
-    /** @brief シャドウパス専用ルートシグネチャ（CBV 1つ：TransformationMatrix） */
+    // シャドウパス用
+    /** @brief シャドウパス専用ルートシグネチャ（CBV 1つ TransformationMatrix） */
     Microsoft::WRL::ComPtr<ID3D12RootSignature> shadowRootSignature_;
     /** @brief シャドウパス専用 PSO（深度のみ書き込み） */
     Microsoft::WRL::ComPtr<ID3D12PipelineState> shadowPipelineState_;

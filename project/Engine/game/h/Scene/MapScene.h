@@ -41,15 +41,15 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:
-    /// @brief タイトルバーとHP/ゴールドを描画する
+    /** @brief タイトルバーとHP/ゴールドを描画する */
     void DrawHeader(RunData* rd);
-    /// @brief フロアごとのマップノードを描画する選択中ノードの種類を返す
+    /** @brief フロアごとのマップノードを描画する選択中ノードの種類を返す */
     RunData::NodeType DrawFloorNodes(int curFloor);
-    /// @brief 選択中ノードの説明パネル（右側）を描画する
+    /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
-    /// @brief REST待機中のメッセージを描画する
+    /** @brief REST待機中のメッセージを描画する */
     void DrawRestMessage();
-    /// @brief 取得済みスキル一覧を描画する
+    /** @brief 取得済みスキル一覧を描画する */
     void DrawSkillList(RunData* rd);
 
     DirectXCommon* dxCommon_ = nullptr;
@@ -63,7 +63,7 @@ private:
 
     FontRenderer fontRenderer_;
 
-    // マップ定義: floors_[floor][col] = NodeType
+    // マップ定義  floors_[floor][col] = NodeType
     std::vector<std::vector<RunData::NodeType>> floors_;
 
     // 選択状態

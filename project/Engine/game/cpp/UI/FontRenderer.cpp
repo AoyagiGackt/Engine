@@ -58,7 +58,7 @@ void FontRenderer::BuildAtlas()
     // 背景を黒で塗りつぶす
     memset(bits, 0, static_cast<size_t>(kAtlasW) * kAtlasH * 4);
 
-    // フォント: Courier New, 高さ -13px（文字高さ指定）
+    // フォント  Courier New, 高さ -13px（文字高さ指定）
     LOGFONTA lf { };
     lf.lfHeight = -13;
     lf.lfWeight = FW_NORMAL;
@@ -113,9 +113,7 @@ void FontRenderer::BuildAtlas()
     // FlushUploads は SceneManager がシーン初期化後に一括で行う
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// JP アトラス：ひらがな・カタカナ・指定漢字を 16x16 グリッドで焼く
-// ──────────────────────────────────────────────────────────────────────
+// JP アトラス ひらがな・カタカナ・指定漢字を 16x16 グリッドで焼く
 
 int FontRenderer::GetJpGlyphIdx(wchar_t c) const
 {

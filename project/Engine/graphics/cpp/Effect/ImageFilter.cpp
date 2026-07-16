@@ -9,9 +9,7 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// =====================================================
-// ヘルパー: カラーテクスチャ + RTV + SRV を作成
-// =====================================================
+// ヘルパー  カラーテクスチャ + RTV + SRV を作成
 
 static void CreateOffscreenTexture(
     ID3D12Device* device,
@@ -65,9 +63,11 @@ static void CreateOffscreenTexture(
     srvManager->CreateSRVforTexture2D(outSrvIndex, outTexture.Get(), kSrvFmt, 1);
 }
 
-// =====================================================
 // Initialize（分割ヘルパーを呼び出すだけ）
-// =====================================================
+
+// ══════════════════════════════════════════════════════
+// 初期化とリソース生成
+// ══════════════════════════════════════════════════════
 
 void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
@@ -91,9 +91,7 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     RebuildKernel();
 }
 
-// =====================================================
-// InitConstantBuffers: 各エフェクト用 CB の作成とマップ
-// =====================================================
+// InitConstantBuffers  各エフェクト用 CB の作成とマップ
 
 void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height)
 {
@@ -168,9 +166,7 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     noiseGenCb_->opacity = 1.0f;
 }
 
-// =====================================================
-// InitRootSignatures: ブラー用・アウトライン用 Root Signature 作成
-// =====================================================
+// InitRootSignatures  ブラー用・アウトライン用 Root Signature 作成
 
 void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
 {
@@ -248,9 +244,7 @@ void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
     ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
-// =====================================================
-// InitPipelineStates: シェーダーコンパイル + 全 PSO 作成
-// =====================================================
+// InitPipelineStates  シェーダーコンパイル + 全 PSO 作成
 
 void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
 {
@@ -303,6 +297,10 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
     createPSO(outlineRootSignature_.Get(), depthOlPsBlob.Get(), depthOutlinePso_);
     createPSO(outlineRootSignature_.Get(), dissolvePsBlob.Get(), dissolvePso_);
 }
+
+// ══════════════════════════════════════════════════════
+// 終了と共通描画
+// ══════════════════════════════════════════════════════
 
 void ImageFilter::Finalize()
 {
@@ -392,14 +390,16 @@ void ImageFilter::Apply(SrvManager* srvManager)
     GetFilterMode(mode_).Apply(*this, cmd, srvManager, vp, scissor, backRtv);
 }
 
-// =====================================================
-// Filter Mode Strategy: Mode ごとの Apply 実装
-// =====================================================
+// Filter Mode Strategy  Mode ごとの Apply 実装
+
+// ══════════════════════════════════════════════════════
+// フィルタ方式別の描画
+// ══════════════════════════════════════════════════════
 
 void ImageFilter::PrewittEdgeFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- Prewitt エッジ検出（輝度ベース）: シングルパス -----
+    // Prewitt エッジ検出（輝度ベース）  シングルパス
     cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
     cmd->SetPipelineState(filter.prewittPso_.Get());
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
@@ -413,7 +413,7 @@ void ImageFilter::PrewittEdgeFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
 void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- 深度ベースアウトライン: シングルパス、深度バリア付き -----
+    // 深度ベースアウトライン  シングルパス、深度バリア付き
     auto* depthRes = filter.dxCommon_->GetDepthStencilResource();
     DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_DEPTH_WRITE,
@@ -437,7 +437,7 @@ void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12Graph
 void ImageFilter::RadialBlurFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- ラジアルブラー: シングルパス -----
+    // ラジアルブラー  シングルパス
     cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
     cmd->SetPipelineState(filter.radialBlurPso_.Get());
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
@@ -451,7 +451,7 @@ void ImageFilter::RadialBlurFilterMode::Apply(ImageFilter& filter, ID3D12Graphic
 void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- ディゾルブ: シングルパス、ノイズマスクを t1 にバインド -----
+    // ディゾルブ  シングルパス、ノイズマスクを t1 にバインド
     // TextureManager が初期化済みになってから初回ロード
     if (filter.noiseSrvIndex_[0] == UINT32_MAX) {
         auto* texMgr = TextureManager::GetInstance();
@@ -475,8 +475,8 @@ void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
 void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- プロシージャルノイズ: シングルパス（シーンに重ね合わせ）-----
-    // アニメーション: 毎フレーム seed を加算して乱数パターンを変化させる
+    // プロシージャルノイズ  シングルパス（シーンに重ね合わせ）
+    // アニメーション  毎フレーム seed を加算して乱数パターンを変化させる
     if (filter.animateNoise_) {
         filter.noiseTime_ += filter.noiseSpeed_;
         filter.noiseGenCb_->seed = filter.noiseManualSeed_ + filter.noiseTime_;
@@ -496,7 +496,7 @@ void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
 void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
     const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
 {
-    // ----- Box / Gaussian: 水平→垂直の 2 パス -----
+    // Box / Gaussian  水平→垂直の 2 パス
     cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
     cmd->SetPipelineState(filter.mode_ == Mode::Box ? filter.boxPso_.Get() : filter.gaussianPso_.Get());
 
@@ -528,6 +528,10 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->DrawInstanced(3, 1, 0, 0);
 }
 
+// ══════════════════════════════════════════════════════
+// フィルタ選択とカーネル更新
+// ══════════════════════════════════════════════════════
+
 const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode)
 {
     static BoxGaussianFilterMode boxGaussian;
@@ -552,9 +556,7 @@ const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode)
     }
 }
 
-// =====================================================
 // カーネル重みの計算（Box / Gaussian のみ）
-// =====================================================
 
 void ImageFilter::RebuildKernel()
 {

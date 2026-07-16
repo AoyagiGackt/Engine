@@ -28,21 +28,21 @@ struct ObjectDesc {
     bool lighting = true;
     bool solid = false; // trueならプレイヤーの当たり判定あり（壁として塞ぐ／上に乗れる）
     // "row" 専用
-    char axis = 'x'; // 並べる軸: 'x' | 'y' | 'z'
+    char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
     float step = 1.0f; // 間隔
 };
 
 // JSON の1エントリに対応するトリガー定義
 // プレイヤーが半径radius以内に入ると、flagで指定した名前のフラグをvalueにする（GameFlags参照）
-// 実際の分岐ロジックはノードグラフ側（GetFlag→If）が担当し、トリガーは「フラグを立てるだけ」に徹する
+// 実際の分岐ロジックはノードグラフ側（GetFlag→If）が担当し、トリガーはフラグを立てるだけに徹する
 struct TriggerDesc {
     std::string name; // ステージエディタのHierarchy表示用（省略可）
     Vector3 position = { };
     float radius = 2.0f;
     std::string flag; // 立てる／倒すフラグ名（GameFlagsのキー）
     bool value = true; // トリガー成立時にflagへ設定する値
-    bool once = true; // true: 一度成立したら以降は判定しない
+    bool once = true; // true  一度成立したら以降は判定しない
 };
 
 // ファイルから読み込んだレベル全体のデータ

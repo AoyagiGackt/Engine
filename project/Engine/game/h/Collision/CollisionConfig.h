@@ -3,9 +3,7 @@
 #include <algorithm>
 #include <cmath>
 namespace engine {
-// =============================================
 // 形状プリミティブ
-// =============================================
 
 /// レイ（半直線）
 struct Ray {
@@ -49,9 +47,7 @@ struct Capsule {
     float radius; ///< 太さの半径
 };
 
-// =============================================
 // コライダー
-// =============================================
 
 /// コライダーが持つ形状の種類
 enum class ColliderShape {
@@ -73,7 +69,7 @@ struct Collider {
     Capsule capsule = { };
     bool isHit = false;
 
-    // --- 形状セッター ---
+    // 形状セッター
     void SetAsAABB(const AABB& a)
     {
         shape = ColliderShape::AABB;

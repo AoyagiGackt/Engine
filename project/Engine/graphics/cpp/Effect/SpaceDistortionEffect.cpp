@@ -22,7 +22,7 @@ void SpaceDistortionEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvM
     *cbData_ = WarpParams { };
     cbData_->aspect = static_cast<float>(WinApp::kClientWidth) / static_cast<float>(WinApp::kClientHeight);
 
-    // ---- キャプチャテクスチャ（バックバッファと同フォーマット）----
+    // キャプチャテクスチャ（バックバッファと同フォーマット）
     DXGI_FORMAT bbFormat = dxCommon_->GetCurrentBackBufferResource()->GetDesc().Format;
 
     D3D12_RESOURCE_DESC texDesc = { };
@@ -107,7 +107,7 @@ void SpaceDistortionEffect::CaptureAndApply()
     auto* cmd = dxCommon_->GetCommandList();
     auto* backBuf = dxCommon_->GetCurrentBackBufferResource();
 
-    // ---- 現在のバックバッファをキャプチャ ----
+    // 現在のバックバッファをキャプチャ
     D3D12_RESOURCE_BARRIER toCopy[2] = {
         DirectXCommon::MakeTransitionBarrier(backBuf, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
         DirectXCommon::MakeTransitionBarrier(captureTexture_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST),
@@ -122,7 +122,7 @@ void SpaceDistortionEffect::CaptureAndApply()
     };
     cmd->ResourceBarrier(2, toRestore);
 
-    // ---- 歪ませて描き戻す ----
+    // 歪ませて描き戻す
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = dxCommon_->GetCurrentBackBufferHandle();
     cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 

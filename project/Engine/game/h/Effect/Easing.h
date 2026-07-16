@@ -3,7 +3,7 @@
 
 // イージング関数ライブラリ
 // t は 0.0〜1.0 の正規化済み時間戻り値も基本 0.0〜1.0 だが Back/Elastic は範囲外になる場合あり
-// 使い方: float v = Easing::Lerp(startVal, endVal, t, Easing::EaseOutBack);
+// 使い方  float v = Easing::Lerp(startVal, endVal, t, Easing::EaseOutBack);
 namespace engine {
 namespace Easing {
 
@@ -103,7 +103,7 @@ namespace Easing {
     inline float EaseInBounce(float t) { return 1.0f - EaseOutBounce(1.0f - t); }
 
     // ── 汎用補間ヘルパー ──
-    // 例: float v = Easing::Lerp(0.0f, 100.0f, t, Easing::EaseOutBounce);
+    // 例  float v = Easing::Lerp(0.0f, 100.0f, t, Easing::EaseOutBounce);
     template <typename Fn>
     inline float Lerp(float a, float b, float t, Fn easingFn)
     {

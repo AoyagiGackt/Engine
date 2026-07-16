@@ -71,7 +71,7 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
 private:
-    // --- 外部から提供される基盤システム（借りてくるもの） ---
+    // 外部から提供される基盤システム（借りてくるもの）
 
     /** @brief DirectX基盤のポインタ */
     DirectXCommon* dxCommon_ = nullptr;
@@ -85,7 +85,7 @@ private:
     /** @brief デバッグUI用のImGuiマネージャー */
     ImGuiManager* imguiManager_ = nullptr;
 
-    // --- このシーンが所有・管理するリソース ---
+    // このシーンが所有・管理するリソース
 
     /** @brief スプライト描画の共通設定 */
     std::unique_ptr<SpriteCommon> spriteCommon_;

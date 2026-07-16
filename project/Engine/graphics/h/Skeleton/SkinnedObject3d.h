@@ -49,7 +49,7 @@ public:
     void SetRotation(const Vector3& rot) { transform_.rotate = rot; }
     void SetScale(const Vector3& scale) { transform_.scale = scale; }
     void SetAnimSpeed(float s) { animSpeed_ = s; }
-    // スクラブ再生用: アニメーション時刻を直接指定する
+    // スクラブ再生用  アニメーション時刻を直接指定する
     // （SetAnimation() は呼ぶ度に0へ戻すため、クリップ更新直後にこれで再生位置を復元する）
     void SetAnimTime(float t) { animTime_ = t; }
 

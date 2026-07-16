@@ -14,6 +14,7 @@
 #include "TimeManager.h"
 #include "WinApp.h"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -66,7 +67,7 @@ struct AssetPreset {
     const char* model;
     const char* texture;
 };
-// Shift+ドラッグのZ移動: マウス垂直1pxあたりの移動量（カメラ距離1.0基準720p想定の見かけ等速係数）
+// Shift+ドラッグのZ移動  マウス垂直1pxあたりの移動量（カメラ距離1.0基準720p想定の見かけ等速係数）
 constexpr float kZDragPerPixel = 0.0015f;
 
 constexpr AssetPreset kAssetPresets[] = {
@@ -83,6 +84,10 @@ constexpr AssetPreset kAssetPresets[] = {
 };
 } // namespace
 #endif
+
+// ══════════════════════════════════════════════════════
+// ファイル操作とデータ管理
+// ══════════════════════════════════════════════════════
 
 StageEditor::StageEditor() = default;
 
@@ -396,6 +401,10 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
     return result;
 }
 
+// ══════════════════════════════════════════════════════
+// ランタイム更新と描画
+// ══════════════════════════════════════════════════════
+
 void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 {
     objectsDrawnThisFrame_ = false; // 毎フレームUpdateObjects()が先に呼ばれるのでここでリセットする
@@ -439,7 +448,7 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
 
 void StageEditor::DrawObjects()
 {
-    // BaseScene::Render()がシーンのDraw()の直後に自動で呼ぶため自己完結させる：
+    // BaseScene::Render()がシーンのDraw()の直後に自動で呼ぶため自己完結させる
     // 呼び出し側が既にモデル用PSO/ルートシグネチャを設定済みである前提を置かず、ここで自分で設定する
     // （その代わり配置物は毎フレーム最後に上乗せ描画される＝シャドウ/ポストエフェクトの対象外になる）
     // Scene::Draw()内でHUDより前に自分で呼んだ場合は、その旨をフラグで記録する
@@ -542,6 +551,10 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 }
 
 #ifdef USE_IMGUI
+// ══════════════════════════════════════════════════════
+// 編集履歴と選択操作
+// ══════════════════════════════════════════════════════
+
 StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
 {
     LevelSnapshot snap;
@@ -720,6 +733,10 @@ float StageEditor::SnapValue(float v) const
     return std::round(v / snapStep_) * snapStep_;
 }
 
+// ══════════════════════════════════════════════════════
+// エディタパネル
+// ══════════════════════════════════════════════════════
+
 void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
 {
     if (depthLevel > 8) {
@@ -830,6 +847,22 @@ void StageEditor::RenderHierarchy()
 
     ImGui::Separator();
 
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##hierarchySearch", "名前・種類・モデルを検索", hierarchySearch_, sizeof(hierarchySearch_));
+
+    std::string searchText = hierarchySearch_;
+    std::transform(searchText.begin(), searchText.end(), searchText.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    auto matchesSearch = [&](const std::string& text) {
+        if (searchText.empty()) {
+            return true;
+        }
+        std::string target = text;
+        std::transform(target.begin(), target.end(), target.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return target.find(searchText) != std::string::npos;
+    };
+
     char objHeader[48];
     snprintf(objHeader, sizeof(objHeader), "オブジェクト (%d)", static_cast<int>(objects_.size()));
     bool objOpen = ImGui::TreeNodeEx(objHeader, ImGuiTreeNodeFlags_DefaultOpen);
@@ -868,21 +901,35 @@ void StageEditor::RenderHierarchy()
         ImGui::EndPopup();
     }
     if (objOpen) {
-        // 親を持たない（または親が見つからない）ルートから再帰的にツリー表示する
-        auto parentExists = [&](const std::string& parentName) {
-            if (parentName.empty()) {
-                return false;
-            }
-            for (const auto& e : objects_) {
-                if (e.desc.name == parentName) {
-                    return true;
+        if (!searchText.empty()) {
+            for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+                const ObjectDesc& d = objects_[i].desc;
+                if (!matchesSearch(d.name) && !matchesSearch(d.kind) && !matchesSearch(d.model)) {
+                    continue;
+                }
+                bool selected = selKind_ == SelKind::Object && selIndex_ == i;
+                std::string label = d.name + "  " + d.kind + "##searchObj" + std::to_string(i);
+                if (ImGui::Selectable(label.c_str(), selected)) {
+                    selKind_ = SelKind::Object;
+                    selIndex_ = i;
                 }
             }
-            return false;
-        };
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-            if (!parentExists(objects_[i].desc.parent)) {
-                DrawHierarchyEntry(i, 0);
+        } else {
+            auto parentExists = [&](const std::string& parentName) {
+                if (parentName.empty()) {
+                    return false;
+                }
+                for (const auto& e : objects_) {
+                    if (e.desc.name == parentName) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+                if (!parentExists(objects_[i].desc.parent)) {
+                    DrawHierarchyEntry(i, 0);
+                }
             }
         }
         ImGui::TreePop();
@@ -894,6 +941,9 @@ void StageEditor::RenderHierarchy()
         bool entOpen = ImGui::TreeNodeEx(entHeader, ImGuiTreeNodeFlags_DefaultOpen);
         if (entOpen) {
             for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+                if (!matchesSearch(externalEntities_[i].name)) {
+                    continue;
+                }
                 bool sel = (selKind_ == SelKind::External && selIndex_ == i);
                 char label[96];
                 snprintf(label, sizeof(label), "  %s##ent%d", externalEntities_[i].name.c_str(), i);
@@ -926,6 +976,9 @@ void StageEditor::RenderHierarchy()
         for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
             bool sel = (selKind_ == SelKind::Trigger && selIndex_ == i);
             const TriggerDesc& d = triggers_[i].GetDesc();
+            if (!matchesSearch(d.name) && !matchesSearch(d.flag)) {
+                continue;
+            }
             char label[96];
             snprintf(label, sizeof(label), "  %s -> %s=%s", d.name.c_str(), d.flag.c_str(), d.value ? "true" : "false");
             if (ImGui::Selectable(label, sel)) {
@@ -1263,6 +1316,10 @@ void StageEditor::RenderFlagsPanel()
     ImGui::End();
 }
 
+// ══════════════════════════════════════════════════════
+// ビューポート操作
+// ══════════════════════════════════════════════════════
+
 void StageEditor::DrawGizmos()
 {
     for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
@@ -1399,13 +1456,13 @@ void StageEditor::UpdateViewportInteraction()
 
     const ImVec2 m = io.MousePos;
 
-    // マウスホイール: カメラを奥/手前へ移動（Q/Eと同じ軸、手前に回すと近づく）
+    // マウスホイール  カメラを奥/手前へ移動（Q/Eと同じ軸、手前に回すと近づく）
     if (camera_ && io.MouseWheel != 0.0f) {
         constexpr float kWheelSpeed = 2.0f;
         camera_->GetTranslate().z += io.MouseWheel * kWheelSpeed;
     }
 
-    // 左クリック: 画面上で一番近いオブジェクト/トリガーを選択（40px以内）
+    // 左クリック  画面上で一番近いオブジェクト/トリガーを選択（40px以内）
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         float bestDist = 40.0f;
         SelKind bestKind = SelKind::None;
@@ -1458,7 +1515,7 @@ void StageEditor::UpdateViewportInteraction()
         }
     }
 
-    // ドラッグ中: 通常はマウス位置（z=0平面上）へXY移動（Zは保持）、Shift中は垂直マウス移動をZ移動にする
+    // ドラッグ中  通常はマウス位置（z=0平面上）へXY移動（Zは保持）、Shift中は垂直マウス移動をZ移動にする
     if (viewportDragging_ && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         const bool mouseMoved = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
         if (io.KeyShift) {

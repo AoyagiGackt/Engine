@@ -57,7 +57,7 @@ public:
      */
     void Finalize();
 
-    // --- スプライト操作の中継 ---
+    // スプライト操作の中継
 
     /**
      * @brief 動画の表示座標を取得
@@ -110,7 +110,7 @@ public:
         }
     }
 
-    // --- 再生速度の操作 ---
+    // 再生速度の操作
 
     /**
      * @brief 1フレームあたりの再生時間を取得
@@ -131,11 +131,11 @@ private:
     /** @brief スプライト共通設定のポインタ（借り物） */
     SpriteCommon* spriteCommon_ = nullptr;
 
-    // --- Media Foundation 関連 ---
+    // Media Foundation 関連
     /** @brief 動画ファイルの読み込みを管理するインターフェース */
     Microsoft::WRL::ComPtr<IMFSourceReader> pSourceReader_;
 
-    // --- DirectX12 GPUリソース ---
+    // DirectX12 GPUリソース
     /** @brief 動画フレームを書き込むテクスチャ本体 */
     Microsoft::WRL::ComPtr<ID3D12Resource> textureResource_;
 
@@ -145,7 +145,7 @@ private:
     /** @brief 割り当てられたSRV（シェーダーリソースビュー）のインデックス */
     uint32_t srvIndex_ = 0;
 
-    // --- 内部描画用 ---
+    // 内部描画用
     /** @brief 映像を貼り付けて表示するためのスプライト */
     std::unique_ptr<Sprite> sprite_;
 
@@ -155,7 +155,7 @@ private:
     /** @brief 動画の解像度（高さ） */
     int videoHeight_ = 0;
 
-    // --- フレームレート制御用 ---
+    // フレームレート制御用
     /** @brief 経過時間計測用タイマー */
     float timeCount_ = 0.0f;
 

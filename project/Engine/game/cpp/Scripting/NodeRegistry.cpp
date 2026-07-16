@@ -117,7 +117,7 @@ NodeResult ExecSubgraph(GraphRuntime& rt, const GraphNode& node, std::string& ou
     return NodeResult::Suspend;
 }
 
-// a op b を計算して出力データピンに流す（op: "+" "-" "*" "/"）
+// a op b を計算して出力データピンに流す（op  "+" "-" "*" "/"）
 NodeResult ExecMath(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     float a = AsFloat(rt.ResolveParam(node, "a", GraphValue { 0.0f }));
