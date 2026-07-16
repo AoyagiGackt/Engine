@@ -3,6 +3,7 @@
  * @brief 銃種別の射撃コンボ定義と、段送り・先行入力・構え/リコイル進行を管理するコントローラ
  */
 #pragma once
+#include "ComboTable.h"
 #include "Vector3.h"
 namespace engine::game {
 
@@ -31,10 +32,7 @@ struct GunShotDef {
 };
 
 /** @brief 1銃種ぶんのコンボ一式（地上/空中共通の単一テーブル） */
-struct GunComboSet {
-    const GunShotDef* steps;
-    int count;
-};
+using GunComboSet = ComboArray<GunShotDef>;
 
 /** @brief 銃種に対応するコンボ一式を返す（未定義タイプは Pistol のセット） */
 const GunComboSet& GetGunComboSet(GunType type);

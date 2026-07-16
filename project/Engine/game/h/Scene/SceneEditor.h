@@ -23,6 +23,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+namespace engine {
+class Input;
+}
 namespace engine::game {
 using engine::graphics::Camera;
 using engine::graphics::Cylinder;
@@ -129,8 +132,14 @@ public:
 
     // ---- 外部から呼ぶメソッド ----
 
-    // 毎フレーム呼ぶImGui パネルを描画し、変更をゲームに反映する
-    void Update(const EditContext& ctx);
+    /**
+     * @brief 毎フレーム呼ぶF3でパネルの表示/非表示を切り替える（既定は非表示）
+     * @param input F3キー判定用（nullptrならトグル操作は無視される）
+     * @note ライブ調整用パネルなので、F1/F2のエディタと違い表示中もゲームは止めない
+     */
+    void Update(const EditContext& ctx, engine::Input* input);
+
+    bool IsVisible() const { return visible_; }
 
     // 初期化時に1度だけ呼ぶJSON ファイルから前回保存したパラメータを読み込む
     void LoadAll(const EditContext& ctx);
@@ -206,6 +215,7 @@ private:
     void LoadUILayout(const EditContext& ctx);
 
     // ---- 状態管理 ----
+    bool visible_ = false; // F3で表示/非表示（既定は非表示にして画面を占有しない）
     Selection selection_ = Selection::None; // 現在選んでいるオブジェクト種別
     int selectionIndex_ = -1; // UIElement リスト内のインデックス（-1 = 未選択）
     std::unique_ptr<IEditorState> currentState_; // 現在アクティブな State

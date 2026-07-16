@@ -6,6 +6,7 @@
 #include "TrainingScene.h"
 #endif
 #ifdef USE_IMGUI
+#include "EditorUI.h"
 #include "GraphEditor.h"
 #endif
 using namespace engine;
@@ -119,6 +120,12 @@ void SceneManager::Update()
     // ImGuiのウィジェット構築はUpdateフェーズ（imguiManager_->End()より前）で行う必要があるため、
     // Draw()ではなくここで呼ぶシーンに関係なく常に開けるようにする
     GraphEditor::GetInstance()->Update(input_);
+
+    // エディタ起動キーの一覧を常に画面左下へ出す（開き方が画面のどこにも出ていないと気づけないため）
+    EditorUI::ShowHotkeyOverlay(
+        GraphEditor::GetInstance()->IsVisible(),
+        currentScene_ && currentScene_->GetStageEditor().IsVisible(),
+        currentScene_ ? currentScene_->GetHotkeyOverlayExtra() : nullptr);
 #endif
 }
 

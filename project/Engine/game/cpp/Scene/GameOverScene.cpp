@@ -13,12 +13,7 @@ using namespace engine::game;
 
 void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    dxCommon_ = dxCommon;
-    input_ = input;
-    audio_ = audio;
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     // 半透明の黒背景
     overlay_ = std::make_unique<Sprite>();

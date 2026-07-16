@@ -14,6 +14,7 @@ namespace engine::graphics {
 class ModelCommon;
 class Camera;
 class ParticleManager;
+class SpriteCommon;
 }
 namespace engine::game {
 using engine::Audio;
@@ -81,8 +82,11 @@ public:
      * @brief SceneManagerが呼ぶ描画の入口（非virtual）
      * @note 派生のDraw()を呼んだ直後に、StageEditorの配置物をフレーム最後に上乗せで自動描画する
      * （GetStageEditor().DrawObjects()は自己完結型＝呼び出し位置のPSO状態に依存しない）。
-     * その代償として配置物はシャドウパス／ポストエフェクトの対象外になる
-     * （途中の正しい位置で影・エフェクト込みで描きたい場合は、Draw()内で自分でDrawObjects()を呼ぶこと）
+     * その代償として配置物はシャドウパス／ポストエフェクトの対象外になり、HUDテキスト等の
+     * 2Dスプライトより後に描かれる＝画面手前のUIパネルにブロックが重なって隠す形になり得る
+     * （途中の正しい位置で影・エフェクト込み、かつHUDより手前で描きたい場合は、
+     * Draw()内のHUD/フォント描画より前で自分でDrawObjects()を呼ぶこと。呼べばここでの自動呼び出しは
+     * 自動でスキップされる＝StageEditor::WasObjectsDrawnThisFrame()）
      */
     void Render();
 
@@ -131,6 +135,12 @@ public:
      */
     virtual Vector3 GetEditorPlayerPos() const { return { }; }
 
+    /**
+     * @brief ホットキーオーバーレイ（画面左下のキー一覧）に足すシーン固有の行
+     * @return 追加行が無ければnullptr（既定）。例: "F3: シーン調整パネル"
+     */
+    virtual const char* GetHotkeyOverlayExtra() const { return nullptr; }
+
     // ---- ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全） ----
 
     /**
@@ -160,6 +170,22 @@ public:
      * 実体の見た目だけをその場で再計算するためのフック（AI/タイマーは進めないこと）
      */
     virtual void RefreshVisualTransformsForEditor() { }
+
+protected:
+    /**
+     * @brief 各シーンのInitialize()冒頭で重複しがちな共通初期化をまとめて行う
+     * @param dxCommon Initialize()が受け取ったDirectX基盤のポインタ
+     * @param input Initialize()が受け取った入力管理のポインタ
+     * @param audio Initialize()が受け取った音響管理のポインタ
+     * @param outDxCommon 呼び出し側のdxCommon_メンバへの参照（代入先）
+     * @param outInput 呼び出し側のinput_メンバへの参照（代入先）
+     * @param outAudio 呼び出し側のaudio_メンバへの参照（代入先）
+     * @return dxCommonで初期化済みのSpriteCommon（呼び出し側のspriteCommon_メンバに格納する）
+     * @note dxCommon_/input_/audio_の保持とSpriteCommonの構築はほぼ全シーンで同一のため、ここに集約する
+     */
+    std::unique_ptr<engine::graphics::SpriteCommon> InitializeCommonResources(
+        DirectXCommon* dxCommon, Input* input, Audio* audio,
+        DirectXCommon*& outDxCommon, Input*& outInput, Audio*& outAudio);
 
 private:
     std::unique_ptr<StageEditor> stageEditor_;

@@ -72,6 +72,10 @@ private:
     static constexpr float kChainKeep = 3.0f; ///< ヒットチェーンが切れるまでの秒数
     static constexpr float kDecayGrace = 1.2f; ///< 攻撃をやめてから減衰が始まるまでの秒数
     static constexpr float kHeatCool = 0.30f; ///< 技の熱が1秒あたりに冷める量
+    static constexpr float kHeatPenaltyScale = 0.8f; ///< 連発ペナルティの強さ（熱1あたりの倍率減衰）
+    static constexpr float kVariationBonusMult = 1.3f; ///< 直前と違う技を出した時の加点倍率
+    static constexpr float kDecayBase = 40.0f; ///< ポイント減衰の基礎速度（秒あたり）
+    static constexpr float kDecayPointScale = 0.12f; ///< ポイントが高いほど減衰を速める係数
 };
 
 } // namespace engine::game

@@ -60,11 +60,11 @@ void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
 {
     // 同じ技の連発ペナルティ: 熱が高いほど点が入らない（1 → 0.56 → 0.38 → 0.29 ...）
     float heat = moveHeat_[moveId];
-    float mult = 1.0f / (1.0f + 0.8f * heat);
+    float mult = 1.0f / (1.0f + kHeatPenaltyScale * heat);
 
     // 直前と違う技ならバリエーションボーナス
     if (!lastMoveId_.empty() && moveId != lastMoveId_) {
-        mult *= 1.3f;
+        mult *= kVariationBonusMult;
     }
 
     points_ = std::clamp(points_ + basePoints * mult, 0.0f, kMaxPoints);
@@ -89,7 +89,7 @@ void StyleMeter::Update(float dt)
     // ポイント減衰（攻撃をやめて少し経ってから。高ランクほど維持が難しい）
     noHitTimer_ += dt;
     if (noHitTimer_ > kDecayGrace && points_ > 0.0f) {
-        points_ = (std::max)(points_ - dt * (40.0f + points_ * 0.12f), 0.0f);
+        points_ = (std::max)(points_ - dt * (kDecayBase + points_ * kDecayPointScale), 0.0f);
     }
 
     // ヒットチェーン切れ

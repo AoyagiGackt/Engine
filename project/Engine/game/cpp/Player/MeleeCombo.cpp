@@ -119,7 +119,7 @@ template <int N, int M>
 constexpr MeleeComboSet MakeSet(const MeleeAttackDef (&ground)[N], const MeleeAttackDef (&air)[M],
     const MeleeAttackDef& launcher)
 {
-    return { ground, N, air, M, &launcher };
+    return { MakeComboArray(ground), MakeComboArray(air), &launcher };
 }
 
 constexpr MeleeComboSet kSwordSet = MakeSet(kSwordGround, kSwordAir, kSwordLauncher);
@@ -169,8 +169,8 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
         return set.launcher;
     }
 
-    const MeleeAttackDef* table = airborne ? set.air : set.ground;
-    const int count = airborne ? set.airCount : set.groundCount;
+    const MeleeAttackDef* table = airborne ? set.air.data : set.ground.data;
+    const int count = airborne ? set.air.count : set.ground.count;
     if (count <= 0) {
         return nullptr;
     }

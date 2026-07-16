@@ -55,14 +55,11 @@ constexpr GunShotDef kRailgunSteps[] = {
     { "rail2", 4.5f, 0.95f, 0.40f, 0.75f, 1, 0.0f, 3.0f, 0.35f, 0.35f, true, 15, 0.15f, { 20 * kDeg, 0, 10 * kDeg }, { -80 * kDeg, 0, -15 * kDeg } },
 };
 
-template <int N>
-constexpr GunComboSet MakeSet(const GunShotDef (&steps)[N]) { return { steps, N }; }
-
-constexpr GunComboSet kPistolSet = MakeSet(kPistolSteps);
-constexpr GunComboSet kMagnumSet = MakeSet(kMagnumSteps);
-constexpr GunComboSet kSmgSet = MakeSet(kSmgSteps);
-constexpr GunComboSet kShotgunSet = MakeSet(kShotgunSteps);
-constexpr GunComboSet kRailgunSet = MakeSet(kRailgunSteps);
+constexpr GunComboSet kPistolSet = MakeComboArray(kPistolSteps);
+constexpr GunComboSet kMagnumSet = MakeComboArray(kMagnumSteps);
+constexpr GunComboSet kSmgSet = MakeComboArray(kSmgSteps);
+constexpr GunComboSet kShotgunSet = MakeComboArray(kShotgunSteps);
+constexpr GunComboSet kRailgunSet = MakeComboArray(kRailgunSteps);
 
 } // namespace
 
@@ -102,7 +99,7 @@ bool GunComboController::TryShoot(GunType type)
     if (active_ != nullptr) {
         if (timer_ >= active_->cancelTime) {
             // キャンセル可能時間を過ぎていれば即座に次の段へ（末尾は先頭へ戻る）
-            StartStep(&set.steps[(stepIdx_ + 1) % set.count], (stepIdx_ + 1) % set.count);
+            StartStep(&set[(stepIdx_ + 1) % set.count], (stepIdx_ + 1) % set.count);
         } else {
             // まだ撃っている最中 → 先行入力としてバッファし、cancelTime に自動発動
             buffered_ = true;
@@ -112,7 +109,7 @@ bool GunComboController::TryShoot(GunType type)
 
     // 猶予中なら次の段から、そうでなければ最初から
     int idx = (chainGraceTimer_ > 0.0f) ? (stepIdx_ + 1) % set.count : 0;
-    StartStep(&set.steps[idx], idx);
+    StartStep(&set[idx], idx);
     return true;
 }
 
@@ -159,7 +156,7 @@ void GunComboController::Update(float dt)
     if (buffered_ && timer_ >= active_->cancelTime) {
         const GunComboSet& set = GetGunComboSet(type_);
         int idx = (stepIdx_ + 1) % set.count;
-        StartStep(&set.steps[idx], idx);
+        StartStep(&set[idx], idx);
         return;
     }
 

@@ -71,10 +71,18 @@ static constexpr WeaponSkillEntry kWeaponSkills[] = {
 
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    dxCommon_ = dxCommon;
-    input_ = input;
-    audio_ = audio;
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
+    InitializeCoreSystems();
+    InitializeStageModels();
+    InitializeDummyEnemies();
+    InitializePlayerAndBullets();
+    InitializeHud();
+    InitializeEffects();
+}
+
+void BattleTestScene::InitializeCoreSystems()
+{
     srvManager_ = SrvManager::GetInstance();
     weaponManager_ = WeaponManager::GetInstance();
     pm_ = ParticleManager::GetInstance();
@@ -85,9 +93,6 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     grayscaleEffect_ = GrayscaleEffect::GetInstance();
     imageFilter_ = ImageFilter::GetInstance();
     hsvFilter_ = HsvFilter::GetInstance();
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
 
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
@@ -105,7 +110,10 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
     Object3d::SetCommonCamera(camera_.get());
+}
 
+void BattleTestScene::InitializeStageModels()
+{
     modelBlock_ = std::make_unique<Model>();
     modelBlock_->Initialize(modelCommon_.get(),
         "Resources/block/block.obj",
@@ -131,37 +139,41 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
         "Resources/monsterBall.png");
 
     SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/battletest.json");
+}
 
+void BattleTestScene::InitializeDummyEnemies()
+{
     knight_ = std::make_unique<KnightEnemy>();
     knight_->Initialize(modelCommon_.get(), { 20.0f, 0.4f, 0.0f });
     GetStageEditor().RegisterExternalEntity("Knight", &knight_->GetPositionRef());
 
-    {
-        Dummy d;
-        d.pos = { 15.0f, 0.4f, 0.0f };
-        d.homePos = d.pos;
-        d.hp = kDummyMaxHp;
-        d.maxHp = kDummyMaxHp;
-        d.hitFlash = 0.0f;
+    Dummy d;
+    d.pos = { 15.0f, 0.4f, 0.0f };
+    d.homePos = d.pos;
+    d.hp = kDummyMaxHp;
+    d.maxHp = kDummyMaxHp;
+    d.hitFlash = 0.0f;
 
-        d.object = std::make_unique<Object3d>();
-        d.object->Initialize(modelCommon_.get());
-        d.object->SetModel(modelDummy_.get());
-        d.object->SetEnableLighting(false);
-        d.object->SetPosition(d.pos);
-        d.object->Update();
+    d.object = std::make_unique<Object3d>();
+    d.object->Initialize(modelCommon_.get());
+    d.object->SetModel(modelDummy_.get());
+    d.object->SetEnableLighting(false);
+    d.object->SetPosition(d.pos);
+    d.object->Update();
 
-        d.hpBarBg = std::make_unique<Sprite>();
-        d.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
-        d.hpBarBg->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+    d.hpBarBg = std::make_unique<Sprite>();
+    d.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
+    d.hpBarBg->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
 
-        d.hpBarFg = std::make_unique<Sprite>();
-        d.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
-        d.hpBarFg->SetColor({ 0.2f, 0.9f, 0.2f, 0.9f });
+    d.hpBarFg = std::make_unique<Sprite>();
+    d.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
+    d.hpBarFg->SetColor({ 0.2f, 0.9f, 0.2f, 0.9f });
 
-        dummies_.push_back(std::move(d));
-    }
+    dummies_.push_back(std::move(d));
+}
 
+void BattleTestScene::InitializePlayerAndBullets()
+{
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
     // "Player"のRegisterExternalEntity()はGetEditorPlayerPositionRef()経由でBaseScene::Init()が自動で行う
@@ -169,7 +181,10 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     AudioBridge::GetInstance()->SetAudio(audio_);
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
+}
 
+void BattleTestScene::InitializeHud()
+{
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     awakenGaugeBg_->SetColor({ 0.05f, 0.05f, 0.15f, 0.75f });
@@ -191,7 +206,10 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     glassShatterBgSprite_->SetPosition({ 0.0f, 0.0f });
     glassShatterBgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth),
         static_cast<float>(WinApp::kClientHeight) });
+}
 
+void BattleTestScene::InitializeEffects()
+{
     glassShatter_.Initialize(dxCommon_, srvManager_);
     bladeFlash_.Initialize(dxCommon_);
     spaceWarp_.Initialize(dxCommon_, srvManager_);
@@ -250,8 +268,12 @@ void BattleTestScene::Update()
     // StageEditor::Update()（F2トグル・パネル・トリガー判定）と、エディタ表示中の一時停止分岐は
     // BaseScene::Tick()が面倒を見る（表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
 
-    if (input_->TriggerKey(DIK_F3)) { showColliders_ = !showColliders_; }
-    if (showColliders_) { DrawColliderDebug(); }
+    if (input_->TriggerKey(DIK_F3)) {
+        showColliders_ = !showColliders_;
+    }
+    if (showColliders_) {
+        DrawColliderDebug();
+    }
 
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdateTargetLock();
@@ -415,6 +437,9 @@ bool BattleTestScene::UpdateMeleeComboHit()
             ApplyMeleeHitToDummy(d, atk, atkMult);
         }
     }
+    if (hitConfirmed) {
+        player_->ChargeAwakenGauge(0.08f);
+    }
     return hitConfirmed;
 }
 
@@ -489,6 +514,9 @@ bool BattleTestScene::UpdateGunShotHit()
             tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
             styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult * atkMult);
         }
+    }
+    if (hitConfirmed) {
+        player_->ChargeAwakenGauge(0.04f);
     }
     // マズルフラッシュ: 段の弾数ぶん扇状にばらまく（ダメージは上のヒットスキャンが担当。
     // BulletPool の弾はダミーに当たると二重ヒットになるため、射撃コンボの弾道は視覚専用のパーティクルにする）
@@ -627,6 +655,7 @@ bool BattleTestScene::UpdateBulletHits()
                 SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
                 tm->RequestHitStop(2);
                 styleMeter_.RegisterHit("spin_bullet", 3.0f);
+                player_->ChargeAwakenGauge(0.02f);
                 bulletPool_.Kill(bi);
                 break;
             }
@@ -659,62 +688,76 @@ bool BattleTestScene::UpdateFinisherSlash()
         return false;
     }
 
-    auto* tm = TimeManager::GetInstance();
-    const Vector3& pp = player_->GetPosition();
-
     if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
-        // カメラ視界全体にランダムな位置を高速で斬り刻む
-        const Vector3& cam = camera_->GetTranslate();
-        static std::mt19937 rng { std::random_device { }() };
-        std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
-        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
-        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
-        std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
-        const float ang = angleDist(rng);
-        const Vector2 dir = { std::cos(ang), std::sin(ang) };
-        const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
-        const float len = lenDist(rng);
-
-        // 解放の瞬間まで全ての斬撃線を画面に残す
-        const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-            + GameConstants::kFinisherImpactDelay + 0.25f;
-        SceneShared::SpawnSlashMarkWorld(
-            { center.x - dir.x * len, center.y - dir.y * len },
-            { center.x + dir.x * len, center.y + dir.y * len },
-            cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng), duration);
-
-        SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark",
-            { center.x, center.y, 0.0f }, ang, len);
-
-        // 空間にガラス質の刃を明滅させ、歪みを脈動させる
-        bladeFlash_.Emit({ center.x, center.y, 0.0f }, 3, 4.0f, 1.2f, 2.8f);
-        spaceWarp_.AddImpulse(0.12f);
-
-        tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
-
-        // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
-        for (auto& d : dummies_) {
-            d.hp = d.maxHp;
-            d.hitFlash = 0.10f;
-            d.hpDisplay = 0.0f;
-            d.returnTimer = 1.5f;
-            d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.06f;
-            d.knockVelY += 0.06f;
-            SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
-        }
-
-        styleMeter_.RegisterHit("finisher_line", 6.0f);
-
-        finisherLineIdx_++;
-        finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
-            ? GameConstants::kFinisherLineInterval
-            : GameConstants::kFinisherImpactDelay;
+        UpdateFinisherSlashLine();
         return true;
     }
 
     // 解放：溜めた斬撃が一斉に炸裂し、距離を問わず全マネキンに命中
     finisherActive_ = false;
+    ApplyFinisherReleaseHits();
+    PlayFinisherReleaseEffects();
+    StartFinisherShatterImpact();
+    return true;
+}
+
+void BattleTestScene::UpdateFinisherSlashLine()
+{
+    auto* tm = TimeManager::GetInstance();
+    const Vector3& pp = player_->GetPosition();
+
+    // カメラ視界全体にランダムな位置を高速で斬り刻む
+    const Vector3& cam = camera_->GetTranslate();
+    static std::mt19937 rng { std::random_device { }() };
+    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
+    std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+    std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
+    std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
+    const float ang = angleDist(rng);
+    const Vector2 dir = { std::cos(ang), std::sin(ang) };
+    const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
+    const float len = lenDist(rng);
+
+    // 解放の瞬間まで全ての斬撃線を画面に残す
+    const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
+        + GameConstants::kFinisherImpactDelay + 0.25f;
+    SceneShared::SpawnSlashMarkWorld(
+        { center.x - dir.x * len, center.y - dir.y * len },
+        { center.x + dir.x * len, center.y + dir.y * len },
+        cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng), duration);
+
+    SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark",
+        { center.x, center.y, 0.0f }, ang, len);
+
+    // 空間にガラス質の刃を明滅させ、歪みを脈動させる
+    bladeFlash_.Emit({ center.x, center.y, 0.0f }, 3, 4.0f, 1.2f, 2.8f);
+    spaceWarp_.AddImpulse(0.12f);
+
+    tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+
+    // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
+    for (auto& d : dummies_) {
+        d.hp = d.maxHp;
+        d.hitFlash = 0.10f;
+        d.hpDisplay = 0.0f;
+        d.returnTimer = 1.5f;
+        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * 0.06f;
+        d.knockVelY += 0.06f;
+        SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
+    }
+
+    styleMeter_.RegisterHit("finisher_line", 6.0f);
+
+    finisherLineIdx_++;
+    finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
+        ? GameConstants::kFinisherLineInterval
+        : GameConstants::kFinisherImpactDelay;
+}
+
+void BattleTestScene::ApplyFinisherReleaseHits()
+{
+    const Vector3& pp = player_->GetPosition();
     for (auto& d : dummies_) {
         d.hp = d.maxHp;
         d.hitFlash = 0.22f;
@@ -724,6 +767,12 @@ bool BattleTestScene::UpdateFinisherSlash()
         d.knockVelY += 0.20f;
         SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
     }
+}
+
+void BattleTestScene::PlayFinisherReleaseEffects()
+{
+    auto* tm = TimeManager::GetInstance();
+    const Vector3& pp = player_->GetPosition();
 
     // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
     SlashMark::GetInstance()->FlashAll({ 1.0f, 1.0f, 1.0f, 1.0f }, 0.22f);
@@ -750,36 +799,37 @@ bool BattleTestScene::UpdateFinisherSlash()
     // 解放の瞬間：刃の一斉放出と空間歪みの最大化、最も近いダミーを切断破片に差し替える
     bladeFlash_.Emit({ pp.x, pp.y + 0.5f, 0.0f }, 30, GameConstants::kFinisherSlashRadius, 2.0f, 5.0f);
     spaceWarp_.AddImpulse(1.0f);
-    {
-        Dummy* nearest = nullptr;
-        float minDist = FLT_MAX;
-        for (auto& d : dummies_) {
-            float dist = std::abs(d.pos.x - pp.x);
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = &d;
-            }
+
+    Dummy* nearest = nullptr;
+    float minDist = FLT_MAX;
+    for (auto& d : dummies_) {
+        float dist = std::abs(d.pos.x - pp.x);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = &d;
         }
-        if (nearest != nullptr) {
-            static std::mt19937 rngSlice { std::random_device { }() };
-            dummySlice_.Start(modelDummy_.get(), nearest->pos, { 1.0f, 1.0f, 1.0f }, rngSlice());
-            nearest->sliced = true;
-        }
+    }
+    if (nearest != nullptr) {
+        static std::mt19937 rngSlice { std::random_device { }() };
+        dummySlice_.Start(modelDummy_.get(), nearest->pos, { 1.0f, 1.0f, 1.0f }, rngSlice());
+        nearest->sliced = true;
+    }
+}
+
+void BattleTestScene::StartFinisherShatterImpact()
+{
+    // 「暗転+斬撃線ごと凍った画面」をプレイヤー位置から砕き、素の世界を見せる
+    const Vector3& pp = player_->GetPosition();
+    const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
+    const float cx = pp.x * vp.m[0][0] + pp.y * vp.m[1][0] + pp.z * vp.m[2][0] + vp.m[3][0];
+    const float cy = pp.x * vp.m[0][1] + pp.y * vp.m[1][1] + pp.z * vp.m[2][1] + vp.m[3][1];
+    const float cw = pp.x * vp.m[0][3] + pp.y * vp.m[1][3] + pp.z * vp.m[2][3] + vp.m[3][3];
+    if (cw > 0.0001f) {
+        finisherShatter_.SetImpactUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
     }
 
-    // 「暗転+斬撃線ごと凍った画面」をプレイヤー位置から砕き、素の世界を見せる
-    {
-        const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
-        const float cx = pp.x * vp.m[0][0] + pp.y * vp.m[1][0] + pp.z * vp.m[2][0] + vp.m[3][0];
-        const float cy = pp.x * vp.m[0][1] + pp.y * vp.m[1][1] + pp.z * vp.m[2][1] + vp.m[3][1];
-        const float cw = pp.x * vp.m[0][3] + pp.y * vp.m[1][3] + pp.z * vp.m[2][3] + vp.m[3][3];
-        if (cw > 0.0001f) {
-            finisherShatter_.SetImpactUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
-        }
-    }
     finisherShatter_.Reset();
     finisherShatter_.Start();
-    return true;
 }
 
 void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult)
@@ -937,6 +987,7 @@ void BattleTestScene::UpdateKnightEnemy()
                 SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
                 tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
                 styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f);
+                player_->ChargeAwakenGauge(0.08f);
             }
         }
         if (player_->JustFired()) {
@@ -951,6 +1002,7 @@ void BattleTestScene::UpdateKnightEnemy()
                     SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
                     tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
                     styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
+                    player_->ChargeAwakenGauge(0.04f);
                 }
             }
         }
@@ -1025,6 +1077,7 @@ void BattleTestScene::UpdatePlacedKnights()
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
                     tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
                     styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * 1.5f);
+                    player_->ChargeAwakenGauge(0.08f);
                 }
             }
         }
@@ -1039,6 +1092,7 @@ void BattleTestScene::UpdatePlacedKnights()
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
                     tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
                     styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
+                    player_->ChargeAwakenGauge(0.04f);
                 }
             }
         }
@@ -1352,7 +1406,9 @@ void BattleTestScene::DrawColliderDebug()
 
     // 訓練マネキン（生存中のみ、シアン）
     for (const auto& d : dummies_) {
-        if (d.hp > 0.0f) { DebugDraw::DrawAABB(DummyBounds(d), DebugDraw::kColorCyan); }
+        if (d.hp > 0.0f) {
+            DebugDraw::DrawAABB(DummyBounds(d), DebugDraw::kColorCyan);
+        }
     }
 
     // ナイト敵（生存中のみ、赤）
@@ -1417,6 +1473,10 @@ void BattleTestScene::Draw()
     pm_->Draw(camera_.get());
 
     bladeFlash_.Draw();
+
+    // ステージエディタの配置ブロックはここで描く（HUDテキストより前＝ブロックがUIパネルに重ならないように）
+    // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
+    GetStageEditor().DrawObjects();
 
     // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()

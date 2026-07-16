@@ -181,7 +181,6 @@
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Time\Tweener.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp" />
@@ -227,6 +226,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\HsvFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\PostEffectFullscreenPass.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />
@@ -262,7 +262,6 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\VignetteEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BloomEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Time\Sequencer.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
@@ -589,7 +588,6 @@
     <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h" />
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h" />
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h" />
-    <ClInclude Include="Engine\game\h\Core\Time\Tweener.h" />
     <ClInclude Include="Engine\game\h\Player\Player.h" />
     <ClInclude Include="Engine\game\h\Player\CharacterVisuals.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingScene.h" />
@@ -598,6 +596,7 @@
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h" />
     <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
+    <ClInclude Include="Engine\game\h\Player\ComboTable.h" />
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
     <ClInclude Include="Engine\game\h\Core\Time\GameTime.h" />
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />
@@ -673,10 +672,10 @@
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectRenderTarget.h" />
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectFullscreenPass.h" />
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
+    <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
-    <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\PipelineStateGuard.h" />
     <ClInclude Include="Engine\game\h\Util\EventBus.h" />

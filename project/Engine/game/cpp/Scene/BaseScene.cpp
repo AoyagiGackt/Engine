@@ -1,4 +1,5 @@
 #include "BaseScene.h"
+#include "SpriteCommon.h"
 #include "StageEditor.h"
 using namespace engine::game;
 
@@ -44,9 +45,25 @@ void BaseScene::Tick()
     GetStageEditor().UpdateObjects(GetEditorParticleManager(), GetEditorPlayerPos());
 }
 
+std::unique_ptr<engine::graphics::SpriteCommon> BaseScene::InitializeCommonResources(
+    DirectXCommon* dxCommon, Input* input, Audio* audio,
+    DirectXCommon*& outDxCommon, Input*& outInput, Audio*& outAudio)
+{
+    outDxCommon = dxCommon;
+    outInput = input;
+    outAudio = audio;
+
+    auto spriteCommon = std::make_unique<engine::graphics::SpriteCommon>();
+    spriteCommon->Initialize(outDxCommon);
+    return spriteCommon;
+}
+
 void BaseScene::Render()
 {
     Draw();
-    // StageEditorの配置物をフレーム最後に上乗せ描画する（自己完結・PSO状態に依存しない）
-    GetStageEditor().DrawObjects();
+    // Draw()内でHUDより前に自分でDrawObjects()を呼んだシーンは、ここでの二重描画をスキップする
+    // （呼んでいなければ、これまで通りフレーム最後に上乗せ描画する＝自己完結・PSO状態に依存しない）
+    if (!GetStageEditor().WasObjectsDrawnThisFrame()) {
+        GetStageEditor().DrawObjects();
+    }
 }

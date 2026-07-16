@@ -7,6 +7,7 @@
  */
 #pragma once
 #ifdef USE_IMGUI
+#include "GraphRuntime.h"
 #include "GraphTypes.h"
 #include <imgui.h>
 #include <map>
@@ -36,6 +37,9 @@ public:
 
     /// @brief 現在編集中のグラフ（GraphRuntime::Start()に渡して実行確認する用）
     const GraphDesc& GetGraph() const { return graph_; }
+
+    /// @brief エディタが表示中か（ホットキーオーバーレイの表示中マーク用）
+    bool IsVisible() const { return visible_; }
 
 private:
     GraphEditor() = default;
@@ -114,6 +118,15 @@ private:
     std::string graphPath_ = "Resources/Graphs/test_graph.json";
     GraphDesc graph_;
 
+    // 最後の保存以降に編集があるか（開く時の破棄確認と未保存マーカー表示に使う）
+    bool dirty_ = false;
+
+    // 未保存のまま開こうとした時の確認モーダル用（確認OK後にこのパスをOpen()する）
+    std::string pendingConfirmOpenPath_;
+    bool requestConfirmOpen_ = false;
+
+    char nodeSearchBuf_[64] = { }; // ノード追加メニューの絞り込み検索欄
+
     // F1で表示/非表示を切り替える全画面表示中はゲーム画面が透けて動いて見えないようにする
     bool visible_ = false;
     float savedTimeScale_ = 1.0f; // 開いた時点のTimeManagerのタイムスケール（閉じたら復元する）
@@ -159,6 +172,11 @@ private:
 
     std::string statusMessage_; // Save後などに表示する一時メッセージ
     float statusTimer_ = 0.0f;
+
+    // Runボタンで動かす簡易実行インスタンス（表示・操作専用、GraphRuntime本体はGraphTypes.h参照）
+    GraphRuntime testRuntime_;
+    // 実行開始時に開いていたグラフのパス（GetActiveLeaf()のパスが空＝トップレベル実行中の判定に使う）
+    std::string testRuntimeRootPath_;
 };
 
 } // namespace engine::game

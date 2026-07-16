@@ -63,6 +63,13 @@ public:
     /// @brief 生成済みオブジェクトを描画する（3Dパス中に毎フレーム呼ぶ）
     void DrawObjects();
 
+    /**
+     * @brief このフレーム中にDrawObjects()が呼ばれ済みかどうか
+     * @note Scene::Draw()内でHUDより前に自分でDrawObjects()を呼んだ場合、
+     * BaseScene::Render()側の自動呼び出しをスキップしてブロックの二重描画/UI上乗せを防ぐために使う
+     */
+    bool WasObjectsDrawnThisFrame() const { return objectsDrawnThisFrame_; }
+
     /// @brief 配置済みのKnightEnemy一覧（enemy_knight配置分）を返す戦闘判定はScene側がこれを走査して行う
     std::vector<KnightEnemy*> GetKnights();
 
@@ -175,8 +182,61 @@ private:
 
     bool viewportDragging_ = false; // 3Dビュー上で選択物をドラッグ移動中か
 
+    bool objectsDrawnThisFrame_ = false; // DrawObjects()の二重呼び出し防止用（UpdateObjects()で毎フレームリセット）
+
     std::string statusMessage_;
     float statusTimer_ = 0.0f;
+
+#ifdef USE_IMGUI
+    // ---- Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y） ----
+    // ObjectEntryは実体(unique_ptr)を持ちコピーできないため、Save()の保存対象と同じdescだけを控え、
+    // 復元時はRegenerateInstances()で実体を作り直す（modelCache_は生きているので再構築は軽い）
+    struct LevelSnapshot {
+        std::vector<ObjectDesc> objects;
+        std::vector<TriggerDesc> triggers;
+        Vector3 playerSpawn;
+        Vector3 enemySpawn;
+    };
+    static constexpr size_t kMaxUndoHistory = 50;
+
+    LevelSnapshot MakeSnapshot() const;
+    /// @brief スナップショットの内容へ丸ごと戻す（敵のHPやトリガーの成立済み状態はリセットされる）
+    void ApplySnapshot(const LevelSnapshot& snap);
+    void PushUndo(LevelSnapshot snapshot);
+    /// @brief 現在の状態を即座にUndoスタックへ積む（追加/削除など単発で完結する変更の直前に呼ぶ）
+    void RecordUndoSnapshotNow();
+    /// @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ
+    void BeginUndoCapture();
+    /// @brief BeginUndoCapture()後、実際に値が変わったことを記録する（変更が無ければCommit時に捨てられる）
+    void MarkUndoDirty();
+    /// @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する
+    void CommitUndoCapture();
+    void Undo();
+    void Redo();
+
+    /// @brief 選択中のオブジェクト/トリガーを削除する（削除ボタンとDeleteキー共用）
+    void DeleteSelected();
+    /// @brief 選択中のオブジェクト/トリガーを複製して選択を移す（複製ボタンとCtrl+D共用）
+    void DuplicateSelected();
+
+    /// @brief スナップ有効時、値をsnapStep_の倍数へ丸める（無効時はそのまま返す）
+    float SnapValue(float v) const;
+
+    std::vector<LevelSnapshot> undoStack_;
+    std::vector<LevelSnapshot> redoStack_;
+    LevelSnapshot pendingUndoSnapshot_;
+    bool hasPendingUndo_ = false;
+    bool pendingUndoDirtied_ = false;
+
+    bool dirty_ = false; // 最後の保存以降に編集があるか（未保存マーカーと開く時の破棄確認に使う）
+
+    bool snapEnabled_ = false; // グリッドスナップ（ドラッグ移動・新規配置・複製に効く）
+    float snapStep_ = 1.0f;
+
+    int paletteMode_ = 0; // アセットパレットの動作 0=新規配置 1=選択中の配置物へ差し替え
+
+    float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
+#endif
 };
 
 } // namespace engine::game

@@ -291,9 +291,6 @@
     <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\Tweener.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -432,6 +429,9 @@
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
@@ -532,9 +532,6 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\Sequencer.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
@@ -640,9 +637,6 @@
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\Tweener.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\Player.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -665,6 +659,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\GunCombo.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\ComboTable.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
@@ -927,14 +924,14 @@
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>

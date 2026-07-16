@@ -95,6 +95,8 @@ public:
     /// @brief ImGuiパネルからの手動テスト再生用
     void TriggerGlassShatterTest();
 
+    const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル"; }
+
 private:
     // シャドウマップ描画パス
     void DrawShadowPass();
@@ -129,6 +131,16 @@ private:
     void UpdateStyleAndUI(float dt);
     // パーティクルの更新
     void UpdateParticles(float dt);
+    /// @brief UpdateParticles()の下請け：着地ほこりとジャンプ煙のパーティクルを更新する
+    void UpdateLandingAndJumpDustParticles();
+    /// @brief UpdateParticles()の下請け：横移動・空中時の残像トレイルをスポーン・経年・削除する
+    void UpdateGhostTrail(float dt);
+    /// @brief UpdateParticles()の下請け：プレイヤーと敵の接触ヒット判定・ダメージ・演出を処理する
+    void UpdatePlayerEnemyContactHit(float dt);
+    /// @brief UpdateParticles()の下請け：敵の弾の発射・飛翔・プレイヤーへの命中時のダメージ・無敵開始・演出を処理する
+    void UpdateEnemyAttackOnPlayer(float dt);
+    /// @brief UpdateParticles()の下請け：格闘/射撃/瞬歩/覚醒ゲージ・覚醒発動・ランク上昇のスタイル演出パーティクルを更新する
+    void UpdateStyleTechniqueParticles(float dt);
     // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
     void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定
@@ -136,6 +148,13 @@ private:
 
     /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）
     bool IsGlassShatterFlow() const;
+
+    /// @brief Draw()の下請け：クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す
+    bool DrawClearOverlayIfNeeded();
+    /// @brief Draw()の下請け：3Dワールド（地形・残像・プレイヤー/敵・パーティクル・空間歪み）を描画する
+    void DrawWorldAndActors();
+    /// @brief Draw()の下請け：エディタUI・フィニッシャー演出・フォントなど2D上乗せ描画をまとめて行う
+    void DrawOverlaysAndUI();
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -186,6 +205,14 @@ private:
 
     static constexpr float kGhostLifetime = 0.3f;
 
+    // 敵の遠隔攻撃弾同時に1発のみ（攻撃間隔がAABBチェック不要な程度に長いため、複数弾のプールは不要）
+    static constexpr float kEnemyBulletSpeed = 9.0f;
+    static constexpr float kEnemyBulletLifetime = 1.2f;
+    Vector3 enemyBulletPos_ = { };
+    Vector3 enemyBulletVel_ = { };
+    float enemyBulletTimer_ = 0.0f;
+    bool enemyBulletActive_ = false;
+
     struct GhostEntry {
         Vector3 pos;
         float age;
@@ -197,6 +224,7 @@ private:
     float auraTimer_ = 0.0f;
     float styleMeter_ = 0.0f;
     float peakStyle_ = 0.0f;
+    int prevStyleTier_ = 0;
 
     // フィニッシャースラッシュ演出の進行状態
     bool finisherActive_ = false;
@@ -228,6 +256,7 @@ private:
     GlassShatterEffect finisherShatter_;
 
     bool clearTriggered_ = false;
+    bool weaponStealTriggered_ = false;
     bool requestClear_ = false;
     bool glassShatterDebugTest_ = false;
 

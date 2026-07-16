@@ -33,12 +33,7 @@ using namespace engine::game;
 void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     // 引数のポインタをメンバ変数に保存しておく（後で Update/Draw からも使えるように）
-    dxCommon_ = dxCommon;
-    input_ = input;
-    audio_ = audio;
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
@@ -251,7 +246,7 @@ void GamePlayScene::Update()
 
     UpdateCombat();
     UpdateCamera();
-    sceneEditor_.Update(BuildEditContext());
+    sceneEditor_.Update(BuildEditContext(), input_);
     UpdateStyleAndUI(dt);
     UpdateParticles(dt);
     UpdateFinisherSlash(dt);
@@ -462,6 +457,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
             ppos, player_->GetLastDirX(), weapon.range, weapon.range * 0.4f);
         if (Collision::CheckCollision(meleeRange, enemyAABB)) {
             styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
+            player_->ChargeAwakenGauge(0.08f);
             enemy_->TakeDamage(1);
         }
     }
@@ -476,6 +472,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
             // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
             float gain = 0.04f + ((shot != nullptr) ? player_->GetGunComboStep() * 0.01f : 0.0f);
             styleMeter_ = std::clamp(styleMeter_ + gain, 0.0f, 1.0f);
+            player_->ChargeAwakenGauge(0.04f);
             enemy_->TakeDamage(1);
         }
     }
@@ -503,7 +500,15 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
 
 void GamePlayScene::UpdateParticles(float dt)
 {
-    auto* tm = TimeManager::GetInstance();
+    UpdateLandingAndJumpDustParticles();
+    UpdateGhostTrail(dt);
+    UpdatePlayerEnemyContactHit(dt);
+    UpdateEnemyAttackOnPlayer(dt);
+    UpdateStyleTechniqueParticles(dt);
+}
+
+void GamePlayScene::UpdateLandingAndJumpDustParticles()
+{
     const Vector3& ppos = player_->GetPosition();
 
     // 着地ほこり
@@ -523,11 +528,18 @@ void GamePlayScene::UpdateParticles(float dt)
     if (player_->JustJumped()) {
         pm_->EmitRing("jump_smoke", ppos, 1.8f, { 0.9f, 0.9f, 0.9f, 0.45f }, 7, 0.22f, 0.28f);
     }
+}
 
-    // 残像: 横移動 or 空中 → プレイヤーモデルのゴーストを一定間隔でスポーン
+void GamePlayScene::UpdateGhostTrail(float dt)
+{
+    const Vector3& ppos = player_->GetPosition();
+
+    // 残像: 覚醒中/乱舞中の横移動 or 空中 → プレイヤーモデルのゴーストを一定間隔でスポーン
+    // （Player::afterImageRenderer_ と同じ、残像=覚醒時だけの演出という前提に揃える）
     bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
         || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
-    if (movingX || !player_->IsOnGround()) {
+    bool awakenActive = player_->IsAwakened() || player_->IsRampaging();
+    if (awakenActive && (movingX || !player_->IsOnGround())) {
         ghostSpawnTimer_ -= dt;
         if (ghostSpawnTimer_ <= 0.0f) {
             ghostSpawnTimer_ = 0.05f;
@@ -542,6 +554,12 @@ void GamePlayScene::UpdateParticles(float dt)
     while (!ghostTrail_.empty() && ghostTrail_.front().age >= kGhostLifetime) {
         ghostTrail_.pop_front();
     }
+}
+
+void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
+{
+    auto* tm = TimeManager::GetInstance();
+    const Vector3& ppos = player_->GetPosition();
 
     // 敵との当たり判定
     hitCooldown_ -= dt;
@@ -568,6 +586,77 @@ void GamePlayScene::UpdateParticles(float dt)
             }
         }
     }
+}
+
+void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
+{
+    // 予備動作明けの瞬間：狙いを一度だけ計算し、実弾を撃ち出す
+    if (enemy_->JustFiredAttack()) {
+        const Vector3& epos = enemy_->GetPosition();
+        const Vector3& ppos = player_->GetPosition();
+        // pos_ はAABB中心（当たり判定の基準点）そのものなので、狙い・発射位置ともにオフセットを足さずここから直接計算する
+        Vector3 dir = { ppos.x - epos.x, ppos.y - epos.y, 0.0f };
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+        if (len > 0.001f) {
+            dir.x /= len;
+            dir.y /= len;
+        }
+        enemyBulletPos_ = epos;
+        enemyBulletVel_ = { dir.x * kEnemyBulletSpeed, dir.y * kEnemyBulletSpeed, 0.0f };
+        enemyBulletTimer_ = kEnemyBulletLifetime;
+        enemyBulletActive_ = true;
+        pm_->EmitRing("hit_ring", enemyBulletPos_, 1.2f, { 1.0f, 0.35f, 0.25f, 0.8f }, 8, 0.15f, 0.1f);
+    }
+
+    if (!enemyBulletActive_) {
+        return;
+    }
+
+    enemyBulletPos_.x += enemyBulletVel_.x * dt;
+    enemyBulletPos_.y += enemyBulletVel_.y * dt;
+    enemyBulletTimer_ -= dt;
+    // 曳光弾の見た目実体（Object3d）は持たず、毎フレーム現在位置に粒を撒いて弾の軌跡に見せる
+    pm_->EmitWithColor("gun_shot", enemyBulletPos_, { 0.0f, 0.0f, 0.0f },
+        { 1.0f, 0.3f, 0.2f, 1.0f }, 0.12f, 0.28f);
+
+    if (enemyBulletTimer_ <= 0.0f) {
+        enemyBulletActive_ = false;
+        return;
+    }
+
+    if (player_->IsInvincible()) {
+        return;
+    }
+
+    AABB bulletAABB = { { enemyBulletPos_.x - 0.15f, enemyBulletPos_.y - 0.15f, -0.5f },
+        { enemyBulletPos_.x + 0.15f, enemyBulletPos_.y + 0.15f, 0.5f } };
+    Collider playerCol = player_->GetCollider();
+    if (!Collision::CheckCollision(playerCol.aabb, bulletAABB)) {
+        return;
+    }
+
+    enemyBulletActive_ = false;
+    RunData::GetInstance()->TakeDamage(enemy_->GetAttackDamage());
+    player_->OnHit();
+
+    auto* tm = TimeManager::GetInstance();
+    tm->RequestHitStop(7);
+    cameraShaker_.Request(0.22f, 0.18f);
+
+    pm_->EmitRing("hit_ring", enemyBulletPos_, 4.0f, { 1.0f, 0.2f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
+    std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
+    std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
+    for (int i = 0; i < 8; ++i) {
+        pm_->EmitGravity("hit_spark", enemyBulletPos_,
+            { vxD(rng_), vyD(rng_), 0.0f },
+            { 1.0f, 0.15f, 0.15f, 1.0f }, 0.7f, 0.15f);
+    }
+}
+
+void GamePlayScene::UpdateStyleTechniqueParticles(float dt)
+{
+    auto* tm = TimeManager::GetInstance();
+    const Vector3& ppos = player_->GetPosition();
 
     // スタイル技エフェクト
     auto* wm = WeaponManager::GetInstance();
@@ -628,6 +717,36 @@ void GamePlayScene::UpdateParticles(float dt)
     } else {
         auraTimer_ = 0.0f;
     }
+
+    // 覚醒発動の瞬間（衝撃波バースト）
+    if (player_->JustAwakened()) {
+        pm_->EmitRing("awaken_aura", ppos, 5.0f, { 1.0f, 0.85f, 0.15f, 1.0f }, 24, 0.5f, 0.5f);
+        pm_->EmitRing("awaken_aura", ppos, 2.5f, { 1.0f, 1.0f, 0.9f, 1.0f }, 16, 0.35f, 0.3f);
+        pm_->EmitHitStar("awaken_aura", ppos, { 1.0f, 0.9f, 0.3f, 1.0f });
+        tm->RequestHitStop(4);
+        cameraShaker_.Request(0.18f, 0.15f);
+    }
+
+    // スタイルランクが上がった瞬間のバースト
+    int styleTier = 0;
+    if (styleMeter_ >= 0.90f) {
+        styleTier = 6;
+    } else if (styleMeter_ >= 0.70f) {
+        styleTier = 5;
+    } else if (styleMeter_ >= 0.50f) {
+        styleTier = 4;
+    } else if (styleMeter_ >= 0.30f) {
+        styleTier = 3;
+    } else if (styleMeter_ >= 0.15f) {
+        styleTier = 2;
+    } else if (styleMeter_ >= 0.05f) {
+        styleTier = 1;
+    }
+    if (styleTier > prevStyleTier_) {
+        pm_->EmitRing("hit_ring", ppos, 3.5f, { 1.0f, 0.85f, 0.2f, 1.0f }, 20, 0.4f, 0.28f);
+        pm_->EmitHitStar("hit_spark", ppos, { 1.0f, 0.9f, 0.3f, 1.0f });
+    }
+    prevStyleTier_ = styleTier;
 }
 
 void GamePlayScene::UpdateFinisherSlash(float dt)
@@ -736,6 +855,48 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
 void GamePlayScene::CheckClearCondition()
 {
+    // ローグライト: 敵撃破の瞬間に武器奪取を発生させる（大技・切断演出は見せ切ってから）
+    if (!weaponStealTriggered_ && enemy_->IsDefeated()
+        && !finisherActive_ && !enemySlice_.IsActive()
+        && RunData::GetInstance()->IsRunActive()) {
+        weaponStealTriggered_ = true;
+
+        // ノード種別で奪える武器を決める（雑魚=Sword, エリート=Spear, ボス=Greatsword）
+        WeaponType stolenType = WeaponType::Sword;
+        switch (RunData::GetInstance()->GetCurrentNode()) {
+        case RunData::NodeType::Elite:
+            stolenType = WeaponType::Spear;
+            break;
+        case RunData::NodeType::Boss:
+            stolenType = WeaponType::Greatsword;
+            break;
+        default:
+            stolenType = WeaponType::Sword;
+            break;
+        }
+
+        if (WeaponManager::GetInstance()->Unlock(stolenType)) {
+            player_->PlayStealStab();
+
+            const Vector3& epos = enemy_->GetPosition();
+            const Vector3& ppos = player_->GetPosition();
+            Vector3 toPlayer = { ppos.x - epos.x, ppos.y + 0.5f - epos.y, 0.0f };
+            float len = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+            if (len > 0.001f) {
+                toPlayer.x /= len;
+                toPlayer.y /= len;
+            }
+            Vector4 glowColor = { 0.5f, 0.85f, 1.0f, 1.0f };
+            for (int i = 0; i < 10; ++i) {
+                float speed = 4.0f + static_cast<float>(i) * 0.3f;
+                pm_->EmitGravity("weapon_orb",
+                    { epos.x, epos.y + 0.5f, 0.0f },
+                    { toPlayer.x * speed, toPlayer.y * speed, 0.0f },
+                    glowColor, 0.35f, 0.22f);
+            }
+        }
+    }
+
     // ローグライト: 敵撃破でクリア（大技・切断演出は見せ切ってから遷移する）
     if (!clearTriggered_ && enemy_->IsDefeated()
         && !finisherActive_ && !enemySlice_.IsActive()
@@ -780,6 +941,16 @@ void GamePlayScene::DrawShadowPass()
 
 void GamePlayScene::Draw()
 {
+    if (DrawClearOverlayIfNeeded()) {
+        return;
+    }
+
+    DrawWorldAndActors();
+    DrawOverlaysAndUI();
+}
+
+bool GamePlayScene::DrawClearOverlayIfNeeded()
+{
     // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
     if (clearTriggered_ && RunData::GetInstance()->IsRunActive() && showResult_) {
         spriteCommon_->CommonDrawSettings();
@@ -795,7 +966,7 @@ void GamePlayScene::Draw()
         snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
         fontRenderer_.DrawString(goldBuf, 540.0f, 400.0f, 3.0f, { 0.9f, 0.85f, 0.2f, 1.0f });
         fontRenderer_.Draw();
-        return;
+        return true;
     }
     if (clearTriggered_ && IsGlassShatterFlow() && !glassShatter_.NeedCapture()) {
         spriteCommon_->CommonDrawSettings();
@@ -803,9 +974,13 @@ void GamePlayScene::Draw()
         clearBgSprite_->Update();
         clearBgSprite_->Draw();
         glassShatter_.Apply();
-        return;
+        return true;
     }
+    return false;
+}
 
+void GamePlayScene::DrawWorldAndActors()
+{
     renderTexture_->BeginRendering();
     renderTexture_->EndRendering();
 
@@ -857,7 +1032,10 @@ void GamePlayScene::Draw()
         PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
         spaceWarp_.CaptureAndApply();
     }
+}
 
+void GamePlayScene::DrawOverlaysAndUI()
+{
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
 

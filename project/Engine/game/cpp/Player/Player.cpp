@@ -190,7 +190,7 @@ int Player::GetComboMax() const
 {
     // 現在の武器の地上コンボ段数を基準にする（HUDの「x段目/最大」表示用）
     const MeleeComboSet& set = GetMeleeComboSet(WeaponManager::GetInstance()->GetCurrent().type);
-    return set.groundCount + skillMods_.comboMaxBonus;
+    return set.ground.count + skillMods_.comboMaxBonus;
 }
 
 void Player::PlayAttackAnim(const Animation& anim, float speed)
@@ -205,6 +205,10 @@ void Player::Update(Input* input, const Vector3& enemyPos)
 {
     ResetFrameFlags();
 
+    if (invincibleTimer_ > 0.0f) {
+        invincibleTimer_ -= GameConstants::kFrameDeltaTime;
+    }
+
     HandleStyleSwitch(input);
 
     GetPhysicsState(inWater_).Update(*this, input);
@@ -213,7 +217,6 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     HandleRangedCombat(input);
     HandleMeleeCombat(input, enemyPos);
     HandleFinisherSlash(input);
-    UpdateAwakenGaugeFromHits();
     HandleWeaponSkill(input);
     UpdateRampagePhysics(enemyPos);
     UpdateAwakenState(input);
@@ -308,6 +311,7 @@ void Player::ResetFrameFlags()
     justFired_ = false;
     justBlinked_ = false;
     justChargedGauge_ = false;
+    justAwakened_ = false;
     justSpinShot_ = false;
     justSwordDash_ = false;
     justSpearRetreat_ = false;
@@ -398,7 +402,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         // 空中攻撃中は滞空（落下を弱めてエアコンボを繋ぎやすくする）
         if (!onGround_ && velocityY_ < 0.0f) {
-            velocityY_ *= 0.5f;
+            velocityY_ *= kAirAttackFallDamping_;
         }
     }
     if (launchFollowTimer_ > 0.0f) {
@@ -434,22 +438,6 @@ void Player::HandleFinisherSlash(Input* input)
         if (finisherChargeTimer_ <= 0.0f) {
             finisherCharging_ = false;
             PlayAttackAnim(rig_->slashAnim, kFinisherReleaseAnimSpeed);
-        }
-    }
-}
-
-void Player::UpdateAwakenGaugeFromHits()
-{
-    // ── 攻撃ヒットによるゲージ蓄積 ───────────────────────────────────
-    if (!isAwakened_) {
-        if (justComboHit_) {
-            awakenGauge_ = (std::min)(awakenGauge_ + 0.08f * skillMods_.gaugeChargeMult, 1.0f);
-        }
-        if (justFired_) {
-            awakenGauge_ = (std::min)(awakenGauge_ + 0.04f * skillMods_.gaugeChargeMult, 1.0f);
-        }
-        if (justSpinShot_) {
-            awakenGauge_ = (std::min)(awakenGauge_ + 0.02f * skillMods_.gaugeChargeMult, 1.0f);
         }
     }
 }
@@ -499,8 +487,9 @@ void Player::UpdateRampagePhysics(const Vector3& enemyPos)
 void Player::UpdateAwakenState(Input* input)
 {
     // ── 覚醒発動（R キー）────────────────────────────────────────
-    if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= 0.3f && !isAwakened_) {
+    if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= kAwakenActivationThreshold_ && !isAwakened_) {
         isAwakened_ = true;
+        justAwakened_ = true;
         awakenTimer_ = kAwakenDuration_;
     }
 
@@ -553,7 +542,7 @@ void Player::UpdateWaterState()
 
     // 入水衝撃吸収（落下速度を大きく減衰）
     if (justEnteredWater_) {
-        velocityY_ *= 0.4f;
+        velocityY_ *= kWaterEntryImpactDamping_;
     }
 }
 

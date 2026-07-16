@@ -78,6 +78,8 @@ public:
     /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
     Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
 
+    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
+
     // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
     std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
     ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
@@ -88,6 +90,19 @@ public:
     void RefreshVisualTransformsForEditor() override;
 
 private:
+    /// @brief Initialize()の下請け：マネージャ取得・各種Common初期化・カメラ生成を行う
+    void InitializeCoreSystems();
+    /// @brief Initialize()の下請け：境界ブロック・ワープポータル・ダミー用モデル・パーティクル群を初期化する
+    void InitializeStageModels();
+    /// @brief Initialize()の下請け：ナイト敵と訓練マネキン1体を生成する
+    void InitializeDummyEnemies();
+    /// @brief Initialize()の下請け：プレイヤーと弾丸プールを初期化する
+    void InitializePlayerAndBullets();
+    /// @brief Initialize()の下請け：HUD（覚醒ゲージ・武器スロット・スタイルメーター・フォント等）を初期化する
+    void InitializeHud();
+    /// @brief Initialize()の下請け：画面演出エフェクト（ガラス割れ・刃・空間歪み・切断・世界割れ）を初期化する
+    void InitializeEffects();
+
     // 訓練用マネキン（動かない敵）
     struct Dummy {
         std::unique_ptr<Object3d> object;
@@ -142,6 +157,14 @@ private:
     bool UpdateBulletHits();
     /// @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す
     bool UpdateFinisherSlash();
+    /// @brief UpdateFinisherSlash()の下請け：斬撃線を1本表示し、全マネキンに拘束ヒットを与える
+    void UpdateFinisherSlashLine();
+    /// @brief UpdateFinisherSlash()の下請け：解放の瞬間に距離を問わず全マネキンへヒットを適用する
+    void ApplyFinisherReleaseHits();
+    /// @brief UpdateFinisherSlash()の下請け：解放演出（斬撃線・画面フラッシュ・刃の放出・ダミー切断）を再生する
+    void PlayFinisherReleaseEffects();
+    /// @brief UpdateFinisherSlash()の下請け：プレイヤー位置を画面UVへ投影し世界割れ演出を開始する
+    void StartFinisherShatterImpact();
     /// @brief ダミー1体への近接ヒット処理（ノックバック・打ち上げ・演出・スタイル加点）
     void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
     /// @brief ダミーのノックバック物理とHPバー表示を更新する

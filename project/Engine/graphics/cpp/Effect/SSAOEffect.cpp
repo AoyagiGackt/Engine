@@ -17,14 +17,18 @@ static void GenerateKernel(float* out, int count)
 
     int n = 0;
     while (n < count) {
+        // z を[0,1]にすることで法線側（+Z）半球に偏ったサンプルにする（SSAOは表面より上だけを見ればよい）
         float x = distF(rng), y = distF(rng), z = dist01(rng);
         float len = std::sqrt(x * x + y * y + z * z);
         if (len < 1e-5f) {
             continue;
         }
+        // 単位ベクトル化して方向だけを残す長さ（強さ）は次のscaleで別途つける
         x /= len;
         y /= len;
         z /= len;
+        // サンプルの半径方向の強さを2乗補間原点付近に密集させ、遠いサンプルほどまばらにすることで
+        // 近距離のオクルージョンを高解像度に、遠距離は粗く拾う（0.1〜1.0の範囲でスケール）
         float scale = float(n) / float(count);
         scale = 0.1f + 0.9f * scale * scale;
         out[n * 4 + 0] = x * scale;
@@ -51,6 +55,7 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     uint32_t& srvIndex,
     const float clearColor[4])
 {
+    // このRTは後段でSRVとして読むため単一サブリソースのTEXTURE2Dとして確保する
     D3D12_RESOURCE_DESC desc = { };
     desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     desc.Width = w;
@@ -61,6 +66,7 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     desc.SampleDesc.Count = 1;
     desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
+    // Clear時に実際使う色をリソースに事前登録しておくことで、ドライバ側のクリア最適化を効かせる
     D3D12_CLEAR_VALUE cv = { };
     cv.Format = fmt;
     cv.Color[0] = clearColor[0];
@@ -68,16 +74,19 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     cv.Color[2] = clearColor[2];
     cv.Color[3] = clearColor[3];
 
+    // 生成直後からシェーダで読める状態(PIXEL_SHADER_RESOURCE)にしておく描画時はここからRTV用に遷移する
     D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_DEFAULT };
     HRESULT hr = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cv,
         IID_PPV_ARGS(&res));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
+    // このRT専用のRTVヒープ・ハンドルを用意する
     rtvHeap = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1);
     rtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
     device->CreateRenderTargetView(res.Get(), nullptr, rtvHandle);
 
+    // 他パスからテクスチャとしてサンプルできるようSRVも同時に発行しておく
     srvIndex = srvManager->Allocate();
     srvManager->CreateSRVforTexture2D(srvIndex, res.Get(), fmt, 1);
 }

@@ -31,15 +31,10 @@ static constexpr float kWarpProximity = 3.0f;
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    dxCommon_ = dxCommon;
-    input_ = input;
-    audio_ = audio;
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     srvManager_ = SrvManager::GetInstance();
     weaponManager_ = WeaponManager::GetInstance();
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
 
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
@@ -356,7 +351,6 @@ void TrainingScene::Draw()
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
-    // GetStageEditor().DrawObjects()はBaseScene::Render()がDraw()の後に自動で呼ぶ
     for (auto& b : borderBlocks_) {
         b->Draw();
     }
@@ -368,6 +362,10 @@ void TrainingScene::Draw()
     }
     bulletPool_.Draw();
     player_->Draw();
+
+    // ステージエディタの配置ブロックはここで描く（HUDテキストより前＝ブロックがUIパネルに重ならないように）
+    // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
+    GetStageEditor().DrawObjects();
 
     // ---- SSAO 計算 → ブラー → 乗算合成 ----
     if (ssao->IsEnabled()) {

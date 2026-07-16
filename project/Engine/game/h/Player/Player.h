@@ -14,6 +14,7 @@
 #include "SkinCommon.h"
 #include "SkinnedModel.h"
 #include "SkinnedObject3d.h"
+#include <algorithm>
 #include <memory>
 #include <vector>
 namespace engine {
@@ -137,6 +138,14 @@ public:
             { pos_.x + 0.5f, pos_.y + 0.5f, 0.5f } });
         return c;
     }
+    /**
+     * @brief 被弾時の無敵時間を開始する
+     * @note 敵の攻撃判定がヒットした際に GamePlayScene 側から呼ぶ
+     */
+    void OnHit() { invincibleTimer_ = kInvincibleDuration_; }
+    /** @brief 被弾直後の無敵時間中かどうかを返す */
+    bool IsInvincible() const { return invincibleTimer_ > 0.0f; }
+
     bool IsOnGround() const { return onGround_; } ///< 地面に接触中か
     bool IsInWater() const { return inWater_; } ///< 水中にいるか
     bool JustJumped() const { return justJumped_; } ///< このフレームにジャンプしたか
@@ -149,12 +158,25 @@ public:
     /** @brief 覚醒状態かどうかを返す */
     bool IsAwakened() const { return isAwakened_; }
 
+    /**
+     * @brief 攻撃が実際に命中した際にシーン側の当たり判定から呼び、覚醒ゲージを加算する
+     * @note 空振りでは溜まらないよう、振った瞬間ではなく命中確定フレームで呼ぶこと
+     * @param amount 加算量（skillMods_.gaugeChargeMult 込みで計算される）
+     */
+    void ChargeAwakenGauge(float amount)
+    {
+        if (!isAwakened_) {
+            awakenGauge_ = (std::min)(awakenGauge_ + amount * skillMods_.gaugeChargeMult, 1.0f);
+        }
+    }
+
     // スタイル技フラグ（その1フレームだけ true）
     bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
     bool JustBlinked() const { return justBlinked_; } ///< ブリンク発動フレーム
     bool JustChargedGauge() const { return justChargedGauge_; } ///< ゲージチャージ発生フレーム
+    bool JustAwakened() const { return justAwakened_; } ///< 覚醒発動フレーム
     float GetLastDirX() const { return lastDirX_; } ///< 最後に入力した横方向（+1=右, -1=左）
     /** @brief スキル補正込みのコンボ最大数を返す（現在の武器の地上コンボ段数基準） */
     int GetComboMax() const;
@@ -229,6 +251,7 @@ private:
     static constexpr float kSwimAccel_ = 0.025f; // 長押しで上昇する加速度
     static constexpr float kSwimMaxVY_ = 0.28f; // 上昇最大速度
     static constexpr float kSinkMaxVY_ = -0.12f; // 沈下最大速度
+    static constexpr float kWaterEntryImpactDamping_ = 0.4f; // 入水時に落下速度を大きく減衰させる倍率
 
     Vector3 pos_ = { 8.0f, 0.4f, 0.0f };
     float waterLevel_ = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
@@ -243,6 +266,10 @@ private:
     bool justEnteredWater_ = false;
     bool justExitedWater_ = false;
 
+    // 被弾後の無敵時間
+    float invincibleTimer_ = 0.0f;
+    static constexpr float kInvincibleDuration_ = 1.0f; // 被弾後の無敵時間（秒）
+
     // 向き（最後に入力した横方向+1=右 -1=左）
     float lastDirX_ = 1.0f;
 
@@ -251,6 +278,7 @@ private:
     bool isAwakened_ = false;
     float awakenTimer_ = 0.0f;
     static constexpr float kAwakenDuration_ = 8.0f;
+    static constexpr float kAwakenActivationThreshold_ = 0.3f; // このゲージ量が溜まっていれば発動可能
 
     // スタイル技（L / K キー）
     bool justComboHit_ = false;
@@ -258,6 +286,7 @@ private:
     bool justFired_ = false;
     bool justBlinked_ = false;
     bool justChargedGauge_ = false;
+    bool justAwakened_ = false;
     static constexpr float kBlinkDist_ = 5.0f;
     static constexpr float kGaugeCharge_ = 0.18f;
 
@@ -268,6 +297,7 @@ private:
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
     static constexpr float kLaunchFollowWindow_ = 0.45f;
     static constexpr float kLaunchFollowJumpMult_ = 1.35f;
+    static constexpr float kAirAttackFallDamping_ = 0.5f; // 空中攻撃中の落下速度減衰倍率（エアコンボを繋ぎやすくする）
 
     // スペースキー スピン連射
     bool justSpinShot_ = false;
@@ -503,7 +533,6 @@ private:
     void HandleRangedCombat(Input* input);
     void HandleMeleeCombat(Input* input, const Vector3& enemyPos);
     void HandleFinisherSlash(Input* input);
-    void UpdateAwakenGaugeFromHits();
     void HandleWeaponSkill(Input* input);
     void UpdateRampagePhysics(const Vector3& enemyPos);
     void UpdateAwakenState(Input* input);

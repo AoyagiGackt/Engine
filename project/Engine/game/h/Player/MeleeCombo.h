@@ -3,6 +3,7 @@
  * @brief 武器タイプ別の近接コンボ定義と、段送り・先行入力・スイング進行を管理するコントローラ
  */
 #pragma once
+#include "ComboTable.h"
 #include "Vector3.h"
 namespace engine::game {
 
@@ -34,10 +35,8 @@ struct MeleeAttackDef {
 
 /** @brief 1武器タイプぶんのコンボ一式（地上コンボ・空中コンボ・打ち上げ技） */
 struct MeleeComboSet {
-    const MeleeAttackDef* ground; ///< 地上コンボ配列
-    int groundCount;
-    const MeleeAttackDef* air; ///< 空中コンボ配列
-    int airCount;
+    ComboArray<MeleeAttackDef> ground; ///< 地上コンボ配列
+    ComboArray<MeleeAttackDef> air; ///< 空中コンボ配列
     const MeleeAttackDef* launcher; ///< 打ち上げ技（S+攻撃、地上のみ）
 };
 

@@ -40,6 +40,19 @@ public:
      */
     void Launch(float velY);
 
+    /** @brief 攻撃の進行フェーズ */
+    enum class AttackState {
+        Idle, ///< 次の攻撃までのクールダウン中
+        Telegraph, ///< 予備動作中（攻撃判定はまだ発生しない）
+        Active, ///< 攻撃判定が発生している短い窓
+    };
+
+    /** @brief 予備動作が明けて弾を撃ち出す瞬間のフレームだけ true（弾の発射トリガー用） */
+    bool JustFiredAttack() const { return justFiredAttack_; }
+
+    /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
+    int GetAttackDamage() const { return kAttackDamage_; }
+
     /**
      * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
      * @param dmg 与えるダメージ量（デフォルト 1）
@@ -128,6 +141,16 @@ private:
     static constexpr float kCeilingY_ = 12.5f;
     static constexpr float kGravity_ = 0.015f;
 
+    // 攻撃ステートマシン（Idle→Telegraph→Active→Idle を固定時間で巡回する）
+    // Telegraph→Active の切り替わり瞬間が弾の発射トリガー実際の弾はGamePlayScene側が撃ち出して追跡する
+    static constexpr float kAttackInterval_ = 2.5f; // 攻撃と攻撃の間隔（秒）
+    static constexpr float kAttackTelegraph_ = 0.5f; // 予備動作の長さ（秒）
+    static constexpr float kAttackActive_ = 0.18f; // 発射直後の連射防止用の短い不応期（秒）
+    static constexpr int kAttackDamage_ = 2;
+
+    /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ） */
+    void UpdateAttack();
+
     std::unique_ptr<Model> model_;
     std::unique_ptr<Object3d> object_;
 
@@ -141,6 +164,10 @@ private:
     float velY_ = 0.0f;
     bool isLaunched_ = false;
     bool justLanded_ = false;
+
+    AttackState attackState_ = AttackState::Idle;
+    float attackTimer_ = kAttackInterval_;
+    bool justFiredAttack_ = false;
 };
 
 } // namespace engine::game

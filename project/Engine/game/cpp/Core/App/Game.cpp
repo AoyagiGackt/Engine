@@ -12,11 +12,9 @@
 #include "SceneFactory.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
-#include "Sequencer.h"
 #include "TextureManager.h"
 #include "TimeManager.h"
 #include "TitleScene.h"
-#include "Tweener.h"
 #include "VignetteEffect.h"
 #include <SrvManager.h>
 using namespace engine;
@@ -65,10 +63,8 @@ void MyGame::Update()
     TimeManager::GetInstance()->Update();
     audio_->Update(GameConstants::kFrameDeltaTime);
 
-    // 遅延コールバック・Tweener・Sequencer・スクリーンフラッシュを毎フレーム更新
+    // 遅延コールバック・スクリーンフラッシュを毎フレーム更新
     DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
-    Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
-    Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
     ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
 #ifdef _DEBUG

@@ -1,5 +1,6 @@
 #include "SceneEditor.h"
 #include "GameConstants.h"
+#include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
 #include "SceneManager.h"
@@ -83,16 +84,23 @@ void SceneEditor::ChangeState(Selection sel)
 // ============================================================
 
 // 毎フレーム呼ばれるUSE_IMGUI ビルドのときだけ各パネルを描画する
-// リリースビルドでは (void)ctx; だけが実行されて何もしない
-void SceneEditor::Update(const EditContext& ctx)
+// リリースビルドでは引数を無視して何もしない
+void SceneEditor::Update(const EditContext& ctx, engine::Input* input)
 {
 #ifdef USE_IMGUI
+    if (input && input->TriggerKey(DIK_F3)) {
+        visible_ = !visible_;
+    }
+    if (!visible_) {
+        return;
+    }
     RenderHierarchy(ctx); // 左：オブジェクト一覧
     RenderInspector(ctx); // 右：選択中オブジェクトのプロパティ
     RenderSceneControls(ctx); // 左下：スコア・ゲーム時刻・シーン操作
     RenderCameraControl(ctx); // 上中央：カメラ位置の簡易操作
 #else
     (void)ctx;
+    (void)input;
 #endif
 }
 
@@ -116,12 +124,10 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
         }
     };
 
+    // Ring/Cylinder/Human/White Particles はこのシーンのEditContextに配線されておらず
+    // 選んでも無効表示にしかならないため、実際に編集できる項目だけを並べる
     selectable("Camera", Selection::Camera);
     selectable("Skydome", Selection::Skydome);
-    selectable("Human", Selection::Human);
-    selectable("Ring", Selection::Ring);
-    selectable("Cylinder", Selection::Cylinder);
-    selectable("White Particles", Selection::WhiteParticles);
 
     // UI Elements は可変長リストなのでツリーノードで折りたたみ表示する
     char uiHeader[48];
