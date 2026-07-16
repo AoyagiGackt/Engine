@@ -12,6 +12,7 @@
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
+#include "GpuProfiler.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Model.h"
@@ -25,13 +26,17 @@
 #include "SpriteCommon.h"
 #include "SrvManager.h"
 #include "WeaponManager.h"
-#include "GpuProfiler.h"
+#ifdef _DEBUG
+#include "GraphRuntime.h"
+#include "GraphTypes.h"
+#endif
 namespace engine::game {
 using engine::Audio;
-using engine::graphics::Camera;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::Camera;
+using engine::graphics::GpuProfiler;
+using engine::graphics::ImGuiManager;
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
@@ -40,7 +45,6 @@ using engine::graphics::ShadowManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
-using engine::graphics::GpuProfiler;
 
 /**
  * @brief アクション操作の練習用シーン
@@ -60,6 +64,17 @@ public:
     /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
+    /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
+    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+
+    // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/training.json"; }
+    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    Camera* GetEditorCamera() override { return camera_.get(); }
+    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    /// @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる
+    void RefreshVisualTransformsForEditor() override;
+
 private:
     /// @brief プレイヤーとスピン連射弾を更新する
     void UpdatePlayerAndBullets();
@@ -72,24 +87,24 @@ private:
     /// @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する
     void DrawDebugHud();
 
-    DirectXCommon* dxCommon_     = nullptr;
-    Input*         input_        = nullptr;
-    Audio*         audio_        = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
-    SrvManager*    srvManager_   = nullptr;
+    DirectXCommon* dxCommon_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
 
-    std::unique_ptr<SpriteCommon>    spriteCommon_;
-    std::unique_ptr<ModelCommon>     modelCommon_;
-    std::unique_ptr<Object3dCommon>  objectCommon_;
-    std::unique_ptr<ShadowManager>   shadowManager_;
-    std::unique_ptr<Camera>          camera_;
+    std::unique_ptr<SpriteCommon> spriteCommon_;
+    std::unique_ptr<ModelCommon> modelCommon_;
+    std::unique_ptr<Object3dCommon> objectCommon_;
+    std::unique_ptr<ShadowManager> shadowManager_;
+    std::unique_ptr<Camera> camera_;
 
     // 境界ブロック
-    std::unique_ptr<Model>                  modelBlock_;
-    std::vector<std::unique_ptr<Object3d>>  borderBlocks_;
+    std::unique_ptr<Model> modelBlock_;
+    std::vector<std::unique_ptr<Object3d>> borderBlocks_;
 
     // ワープポータル（テストステージへ）
-    std::vector<std::unique_ptr<Object3d>>  warpPortalBlocks_;
+    std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
 
     // プレイヤー
     std::unique_ptr<Player> player_;
@@ -112,8 +127,15 @@ private:
 
     // PBR デモブロック（3 種：非金属 / 鏡面金属 / ラフ金属）
     std::unique_ptr<Object3d> pbrDemoBlocks_[3];
-    float pbrMetallic_[3]  = { 0.0f,  0.95f, 0.80f };
+    float pbrMetallic_[3] = { 0.0f, 0.95f, 0.80f };
     float pbrRoughness_[3] = { 0.90f, 0.05f, 0.60f };
+
+#ifdef _DEBUG
+    // ビジュアルスクリプティングVMの動作確認用（Resources/Graphs/test_graph.jsonを読み込んで実行する）
+    // エディタ本体（imgui-node-editor等でグラフを組むUI）はまだ無く、VM単体の動作検証用
+    GraphDesc testGraph_;
+    GraphRuntime testGraphRuntime_;
+#endif
 };
 
 } // namespace engine::game

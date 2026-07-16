@@ -63,19 +63,29 @@ public:
      * @brief アウトラインの色を設定する
      * @param color RGBA（アルファで半透明アウトラインも可能）
      */
-    void SetColor(const Vector4& color) { if (cbData_) { cbData_->color = color; } }
+    void SetColor(const Vector4& color)
+    {
+        if (cbData_) {
+            cbData_->color = color;
+        }
+    }
 
     /**
      * @brief アウトラインの太さを設定する
      * @param width クリップ空間単位（推奨 0.01〜0.05）大きすぎると正面も塗りつぶされる
      */
-    void SetWidth(float width) { if (cbData_) { cbData_->width = width; } }
+    void SetWidth(float width)
+    {
+        if (cbData_) {
+            cbData_->width = width;
+        }
+    }
 
     /// @brief 現在のアウトライン色を取得する
-    Vector4 GetColor() const { return cbData_ ? cbData_->color : Vector4{0, 0, 0, 1}; }
+    Vector4 GetColor() const { return cbData_ ? cbData_->color : Vector4 { 0, 0, 0, 1 }; }
 
     /// @brief 現在のアウトライン幅を取得する
-    float   GetWidth() const { return cbData_ ? cbData_->width : 0.f; }
+    float GetWidth() const { return cbData_ ? cbData_->width : 0.f; }
 
 private:
     OutlineEffect() = default;
@@ -93,11 +103,11 @@ private:
     // VS では width を使って頂点を押し出し、PS では color を使ってピクセルを塗る
     struct OutlineParams {
         Vector4 color = { 0.0f, 0.0f, 0.0f, 1.0f }; ///< アウトライン色（デフォルト黒）
-        float   width = 0.02f;                        ///< 押し出し幅（デフォルト 0.02）
-        float   pad[3] = {};                          ///< 16 バイトアライン用パディング
+        float width = 0.02f; ///< 押し出し幅（デフォルト 0.02）
+        float pad[3] = { }; ///< 16 バイトアライン用パディング
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_; ///< 定数バッファ GPU リソース
-    OutlineParams*                         cbData_ = nullptr; ///< CPU からの書き込みポインタ（マップ済み）
+    OutlineParams* cbData_ = nullptr; ///< CPU からの書き込みポインタ（マップ済み）
 };
 
 } // namespace engine::graphics

@@ -7,19 +7,19 @@
 #include "Vector3.h"
 #include <cmath>
 
+namespace engine {
+
 // =================================================================
 // 構造体定義
 // =================================================================
 
 /** @brief 4x4 行列構造体 */
-struct Matrix4x4
-{
+struct Matrix4x4 {
     float m[4][4];
 };
 
 /** @brief 3x3 行列構造体 */
-struct Matrix3x3
-{
+struct Matrix3x3 {
     float m[3][3];
 };
 
@@ -59,7 +59,7 @@ inline Matrix4x4 MakeIdentity4x4()
  * @param m2 右側の行列
  * @return Matrix4x4 計算結果
  */
-inline Matrix4x4 Multiply(const Matrix4x4 &m1, const Matrix4x4 &m2)
+inline Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2)
 {
     Matrix4x4 result;
     result.m[0][0] = m1.m[0][0] * m2.m[0][0] + m1.m[0][1] * m2.m[1][0] + m1.m[0][2] * m2.m[2][0] + m1.m[0][3] * m2.m[3][0];
@@ -125,7 +125,7 @@ inline Matrix4x4 MakeRotateZMatrix(float radian)
 /**
  * @brief スケール、回転、平行移動を合成したアフィン変換行列を作成する
  */
-inline Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Vector3 &rotate, const Vector3 &translate)
+inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate)
 {
     Matrix4x4 result = Multiply(Multiply(MakeRotateXMatrix(rotate.x), MakeRotateYMatrix(rotate.y)), MakeRotateZMatrix(rotate.z));
     result.m[0][0] *= scale.x;
@@ -198,7 +198,7 @@ inline Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, floa
  * @param scale 各軸の拡大倍率
  * @return Matrix4x4 スケール行列
  */
-inline Matrix4x4 MakeScaleMatrix(const Vector3 &scale)
+inline Matrix4x4 MakeScaleMatrix(const Vector3& scale)
 {
     Matrix4x4 result = MakeIdentity4x4();
     result.m[0][0] = scale.x;
@@ -212,7 +212,7 @@ inline Matrix4x4 MakeScaleMatrix(const Vector3 &scale)
  * @param translate 各軸の移動量
  * @return Matrix4x4 平行移動行列
  */
-inline Matrix4x4 MakeTranslateMatrix(const Vector3 &translate)
+inline Matrix4x4 MakeTranslateMatrix(const Vector3& translate)
 {
     Matrix4x4 result = MakeIdentity4x4();
     result.m[3][0] = translate.x;
@@ -229,7 +229,7 @@ inline Matrix4x4 MakeTranslateMatrix(const Vector3 &translate)
  * @brief 4x4 行列の逆行列を求める
  * @note カメラのビュー行列作成などで使用します
  */
-inline Matrix4x4 Inverse(const Matrix4x4 &m)
+inline Matrix4x4 Inverse(const Matrix4x4& m)
 {
     float determinant = +m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]
         + m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1]
@@ -303,7 +303,7 @@ inline Matrix4x4 Transpose(const Matrix4x4& m)
 /**
  * @brief クォタニオンから回転行列を作成する
  */
-inline Matrix4x4 MakeRotateMatrix(const Quaternion &q)
+inline Matrix4x4 MakeRotateMatrix(const Quaternion& q)
 {
     Matrix4x4 m = MakeIdentity4x4();
     float xx = q.x * q.x, yy = q.y * q.y, zz = q.z * q.z;
@@ -329,7 +329,7 @@ inline Matrix4x4 MakeRotateMatrix(const Quaternion &q)
  * @brief スケール・クォータニオン回転・平行移動を合成したアフィン行列を作成する
  * @note アニメーション再生時に使用MakeAffineMatrix(Vector3 rotate版)とは別関数
  */
-inline Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Quaternion &rotate, const Vector3 &translate)
+inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate)
 {
     Matrix4x4 rot = MakeRotateMatrix(rotate);
 
@@ -350,3 +350,5 @@ inline Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Quaternion &rotate
 
     return rot;
 }
+
+} // namespace engine

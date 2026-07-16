@@ -19,7 +19,7 @@ private:
     engine::DirectXCommon* dxCommon_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap_;
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle_ = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle_ = { };
     uint32_t srvIndex_ = 0;
     uint32_t width_ = 0;
     uint32_t height_ = 0;

@@ -9,14 +9,14 @@ using namespace engine::game;
 // ============================================================
 
 void AnimationStateMachine::AddState(const std::string& name,
-                                     Animation*         anim,
-                                     bool               loop,
-                                     float              speed)
+    Animation* anim,
+    bool loop,
+    float speed)
 {
     State s;
-    s.name  = name;
-    s.anim  = anim;
-    s.loop  = loop;
+    s.name = name;
+    s.anim = anim;
+    s.loop = loop;
     s.speed = speed;
     states_[name] = s;
 }
@@ -26,14 +26,14 @@ void AnimationStateMachine::AddState(const std::string& name,
 // ============================================================
 
 void AnimationStateMachine::AddTransition(const std::string& from,
-                                          const std::string& to,
-                                          const std::string& trigger)
+    const std::string& to,
+    const std::string& trigger)
 {
     transitions_[from].push_back({ to, trigger });
 }
 
 void AnimationStateMachine::AddAutoTransition(const std::string& from,
-                                              const std::string& to)
+    const std::string& to)
 {
     auto it = states_.find(from);
     if (it != states_.end()) {
@@ -57,7 +57,9 @@ void AnimationStateMachine::SetState(const std::string& name)
 void AnimationStateMachine::Trigger(const std::string& triggerName)
 {
     auto it = transitions_.find(currentState_);
-    if (it == transitions_.end()) { return; }
+    if (it == transitions_.end()) {
+        return;
+    }
     for (const auto& t : it->second) {
         if (t.trigger == triggerName) {
             TransitionTo(t.to);
@@ -72,13 +74,19 @@ void AnimationStateMachine::Trigger(const std::string& triggerName)
 
 void AnimationStateMachine::Update(float dt)
 {
-    if (currentState_.empty()) { return; }
+    if (currentState_.empty()) {
+        return;
+    }
 
     auto it = states_.find(currentState_);
-    if (it == states_.end()) { return; }
+    if (it == states_.end()) {
+        return;
+    }
 
     State& s = it->second;
-    if (!s.anim || s.anim->duration <= 0.0f) { return; }
+    if (!s.anim || s.anim->duration <= 0.0f) {
+        return;
+    }
 
     // 再生時刻を進める
     currentTime_ += dt * s.speed;
@@ -103,20 +111,30 @@ void AnimationStateMachine::Update(float dt)
 
 const Animation* AnimationStateMachine::GetCurrentAnimation() const
 {
-    if (currentState_.empty()) { return nullptr; }
+    if (currentState_.empty()) {
+        return nullptr;
+    }
     auto it = states_.find(currentState_);
-    if (it == states_.end()) { return nullptr; }
+    if (it == states_.end()) {
+        return nullptr;
+    }
     return it->second.anim;
 }
 
 bool AnimationStateMachine::IsCurrentAnimationFinished() const
 {
-    if (currentState_.empty()) { return false; }
+    if (currentState_.empty()) {
+        return false;
+    }
     auto it = states_.find(currentState_);
-    if (it == states_.end()) { return false; }
+    if (it == states_.end()) {
+        return false;
+    }
 
     const State& s = it->second;
-    if (s.loop || !s.anim || s.anim->duration <= 0.0f) { return false; }
+    if (s.loop || !s.anim || s.anim->duration <= 0.0f) {
+        return false;
+    }
 
     return currentTime_ >= s.anim->duration;
 }
@@ -127,12 +145,13 @@ bool AnimationStateMachine::IsCurrentAnimationFinished() const
 
 void AnimationStateMachine::TransitionTo(const std::string& stateName)
 {
-    if (stateName == currentState_) { return; } // 同じ状態なら何もしない
+    if (stateName == currentState_) {
+        return;
+    } // 同じ状態なら何もしない
 
     // 遷移先が未登録の場合はアサート（デバッグ用）
-    ENGINE_ASSERT(states_.count(stateName) > 0 &&
-           "AnimationStateMachine: 遷移先の状態が登録されていません");
+    ENGINE_ASSERT(states_.count(stateName) > 0 && "AnimationStateMachine: 遷移先の状態が登録されていません");
 
     currentState_ = stateName;
-    currentTime_  = 0.0f; // 遷移時に時刻をリセット
+    currentTime_ = 0.0f; // 遷移時に時刻をリセット
 }

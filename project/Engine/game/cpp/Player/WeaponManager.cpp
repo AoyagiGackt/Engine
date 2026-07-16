@@ -9,58 +9,85 @@ namespace {
 
 constexpr const char* kWeaponDataPath = "Resources/weapons.json";
 
-WeaponType ParseWeaponType(const std::string& type) {
-    if (type == "Sword")      { return WeaponType::Sword; }
-    if (type == "Spear")      { return WeaponType::Spear; }
-    if (type == "Hammer")     { return WeaponType::Hammer; }
-    if (type == "Dagger")     { return WeaponType::Dagger; }
-    if (type == "Ball")       { return WeaponType::Ball; }
-    if (type == "Greatsword") { return WeaponType::Greatsword; }
-    if (type == "Scythe")     { return WeaponType::Scythe; }
-    if (type == "Axe")        { return WeaponType::Axe; }
+WeaponType ParseWeaponType(const std::string& type)
+{
+    if (type == "Sword") {
+        return WeaponType::Sword;
+    }
+    if (type == "Spear") {
+        return WeaponType::Spear;
+    }
+    if (type == "Hammer") {
+        return WeaponType::Hammer;
+    }
+    if (type == "Dagger") {
+        return WeaponType::Dagger;
+    }
+    if (type == "Ball") {
+        return WeaponType::Ball;
+    }
+    if (type == "Greatsword") {
+        return WeaponType::Greatsword;
+    }
+    if (type == "Scythe") {
+        return WeaponType::Scythe;
+    }
+    if (type == "Axe") {
+        return WeaponType::Axe;
+    }
     return WeaponType::Sword;
 }
 
-GunType ParseGunType(const std::string& type) {
-    if (type == "Magnum")  { return GunType::Magnum; }
-    if (type == "SMG")     { return GunType::SMG; }
-    if (type == "Shotgun") { return GunType::Shotgun; }
-    if (type == "Railgun") { return GunType::Railgun; }
+GunType ParseGunType(const std::string& type)
+{
+    if (type == "Magnum") {
+        return GunType::Magnum;
+    }
+    if (type == "SMG") {
+        return GunType::SMG;
+    }
+    if (type == "Shotgun") {
+        return GunType::Shotgun;
+    }
+    if (type == "Railgun") {
+        return GunType::Railgun;
+    }
     return GunType::Pistol;
 }
 
-std::vector<WeaponCommand> ParseCommands(const nlohmann::json& arr) {
+std::vector<WeaponCommand> ParseCommands(const nlohmann::json& arr)
+{
     std::vector<WeaponCommand> commands;
     for (const auto& c : arr) {
-        commands.push_back({
-            c.value("key", ""),
-            StringUtility::ConvertString(c.value("desc", ""))
-        });
+        commands.push_back({ c.value("key", ""),
+            StringUtility::ConvertString(c.value("desc", "")) });
     }
     return commands;
 }
 
 } // namespace
 
-WeaponManager* WeaponManager::GetInstance() {
+WeaponManager* WeaponManager::GetInstance()
+{
     static WeaponManager instance;
     return &instance;
 }
 
-WeaponManager::WeaponManager() {
+WeaponManager::WeaponManager()
+{
     nlohmann::json j = JsonHelper::Load(kWeaponDataPath);
 
     // 射撃武器一覧（Gキーで循環切り替え、スタイルとは独立に選ぶ）
     for (const auto& r : j.value("rangedWeapons", nlohmann::json::array())) {
         RangedWeaponData data;
-        data.name           = r.value("name", "");
-        data.nameJp         = StringUtility::ConvertString(r.value("nameJp", ""));
-        data.type           = ParseGunType(r.value("type", ""));
-        data.damage         = r.value("damage", 0.0f);
-        data.range          = r.value("range", 0.0f);
+        data.name = r.value("name", "");
+        data.nameJp = StringUtility::ConvertString(r.value("nameJp", ""));
+        data.type = ParseGunType(r.value("type", ""));
+        data.damage = r.value("damage", 0.0f);
+        data.range = r.value("range", 0.0f);
         data.attackInterval = r.value("attackInterval", 0.0f);
-        data.description    = r.value("description", "");
-        data.commands       = ParseCommands(r.value("commands", nlohmann::json::array()));
+        data.description = r.value("description", "");
+        data.commands = ParseCommands(r.value("commands", nlohmann::json::array()));
 
         data.color[0] = data.color[1] = data.color[2] = 1.0f;
         data.color[3] = 1.0f;
@@ -74,22 +101,22 @@ WeaponManager::WeaponManager() {
     // JSON が空でも GetRanged() が範囲外参照しないよう保険を入れておく
     if (rangedWeapons_.empty()) {
         rangedWeapons_.push_back({ "Handgun", L"ハンドガン", GunType::Pistol,
-                                   12.0f, 15.0f, 0.18f, "", { 1.0f, 1.0f, 1.0f, 1.0f }, {} });
+            12.0f, 15.0f, 0.18f, "", { 1.0f, 1.0f, 1.0f, 1.0f }, { } });
     }
 
     // スタイル一覧（1〜5キー対応）
     for (const auto& w : j.value("weapons", nlohmann::json::array())) {
         WeaponData data;
-        data.name           = w.value("name", "");
-        data.styleName      = w.value("styleName", "");
-        data.styleNameJp    = StringUtility::ConvertString(w.value("styleNameJp", ""));
-        data.type           = ParseWeaponType(w.value("type", ""));
-        data.damage         = w.value("damage", 0.0f);
-        data.range          = w.value("range", 0.0f);
+        data.name = w.value("name", "");
+        data.styleName = w.value("styleName", "");
+        data.styleNameJp = StringUtility::ConvertString(w.value("styleNameJp", ""));
+        data.type = ParseWeaponType(w.value("type", ""));
+        data.damage = w.value("damage", 0.0f);
+        data.range = w.value("range", 0.0f);
         data.attackInterval = w.value("attackInterval", 0.0f);
-        data.description    = w.value("description", "");
-        data.knockbackMult  = w.value("knockbackMult", 1.0f);
-        data.commands       = ParseCommands(w.value("commands", nlohmann::json::array()));
+        data.description = w.value("description", "");
+        data.knockbackMult = w.value("knockbackMult", 1.0f);
+        data.commands = ParseCommands(w.value("commands", nlohmann::json::array()));
 
         data.styleColor[0] = data.styleColor[1] = data.styleColor[2] = 0.0f;
         data.styleColor[3] = 1.0f;
@@ -107,40 +134,56 @@ WeaponManager::WeaponManager() {
     for (size_t i = 0; i < weapons_.size(); ++i) {
         if (weapons_[i].type == WeaponType::Dagger) {
             unlocked_[i] = true;
-            index_       = static_cast<int>(i);
+            index_ = static_cast<int>(i);
             break;
         }
     }
 }
 
-void WeaponManager::SelectIndex(int i) {
+void WeaponManager::SelectIndex(int i)
+{
     int n = static_cast<int>(weapons_.size());
     i = std::clamp(i, 0, n - 1);
-    if (IsUnlocked(i)) { index_ = i; }
+    if (IsUnlocked(i)) {
+        index_ = i;
+    }
 }
 
-void WeaponManager::SelectNext() {
+void WeaponManager::SelectNext()
+{
     int n = static_cast<int>(weapons_.size());
     for (int step = 1; step <= n; ++step) {
         int i = (index_ + step) % n;
-        if (IsUnlocked(i)) { index_ = i; return; }
+        if (IsUnlocked(i)) {
+            index_ = i;
+            return;
+        }
     }
 }
 
-void WeaponManager::SelectPrev() {
+void WeaponManager::SelectPrev()
+{
     int n = static_cast<int>(weapons_.size());
     for (int step = 1; step <= n; ++step) {
         int i = ((index_ - step) % n + n) % n;
-        if (IsUnlocked(i)) { index_ = i; return; }
+        if (IsUnlocked(i)) {
+            index_ = i;
+            return;
+        }
     }
 }
 
-bool WeaponManager::Unlock(WeaponType type) {
+bool WeaponManager::Unlock(WeaponType type)
+{
     for (size_t i = 0; i < weapons_.size(); ++i) {
-        if (weapons_[i].type != type) { continue; }
-        if (unlocked_[i]) { return false; } // 重複入手（将来: 経験値/強化素材に転用）
+        if (weapons_[i].type != type) {
+            continue;
+        }
+        if (unlocked_[i]) {
+            return false;
+        } // 重複入手（将来: 経験値/強化素材に転用）
         unlocked_[i] = true;
-        index_       = static_cast<int>(i); // 奪った武器をそのまま装備
+        index_ = static_cast<int>(i); // 奪った武器をそのまま装備
         return true;
     }
     return false;

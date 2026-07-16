@@ -12,10 +12,10 @@ public:
     bool IsShaking() const { return timer_ > 0.0f; }
 
 private:
-    float timer_     = 0.0f;
-    float duration_  = 0.0f;
+    float timer_ = 0.0f;
+    float duration_ = 0.0f;
     float intensity_ = 0.0f;
-    int   seed_      = 0;
+    int seed_ = 0;
 };
 
 } // namespace engine::game

@@ -13,12 +13,7 @@ using namespace engine::game;
 
 void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     // 半透明の黒背景
     overlay_ = std::make_unique<Sprite>();
@@ -76,17 +71,17 @@ void GameOverScene::Update()
         if (cursor_ == 0) {
             SceneManager::GetInstance()->ChangeScene("GAMEPLAY"); // リスタート
         } else {
-            SceneManager::GetInstance()->ChangeScene("TITLE");    // タイトルへ
+            SceneManager::GetInstance()->ChangeScene("TITLE"); // タイトルへ
         }
     }
 
     // 選択中=緑、非選択=グレー
     option1_->SetColor(cursor_ == 0
-        ? Vector4{ 0.2f, 0.8f, 0.2f, 0.9f }
-        : Vector4{ 0.4f, 0.4f, 0.4f, 0.7f });
+            ? Vector4 { 0.2f, 0.8f, 0.2f, 0.9f }
+            : Vector4 { 0.4f, 0.4f, 0.4f, 0.7f });
     option2_->SetColor(cursor_ == 1
-        ? Vector4{ 0.2f, 0.8f, 0.2f, 0.9f }
-        : Vector4{ 0.4f, 0.4f, 0.4f, 0.7f });
+            ? Vector4 { 0.2f, 0.8f, 0.2f, 0.9f }
+            : Vector4 { 0.4f, 0.4f, 0.4f, 0.7f });
 
     overlay_->Update();
     option1_->Update();

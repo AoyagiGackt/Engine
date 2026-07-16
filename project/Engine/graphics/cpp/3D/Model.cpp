@@ -1,17 +1,17 @@
 ﻿#include "Model.h"
+#include "EngineAssert.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"
-#include "EngineAssert.h"
-#include <cmath>
-#include <fstream>
-#include <sstream>
 #include <algorithm>
-#include <cctype>
-#include <map>
-#include <tuple>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <cctype>
+#include <cmath>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <tuple>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -29,8 +29,8 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     auto dotPos = modelFilePath.find_last_of('.');
     ENGINE_ASSERT(dotPos != std::string::npos && "モデルファイルパスに拡張子がありません");
     std::string ext = modelFilePath.substr(dotPos + 1);
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
-    
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+
     if (ext == "obj") {
         LoadObjFile(modelFilePath);
     } else {
@@ -42,7 +42,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
 
     D3D12_HEAP_PROPERTIES uploadHeapProperties { D3D12_HEAP_TYPE_UPLOAD };
 
-    D3D12_RESOURCE_DESC resourceDesc {};
+    D3D12_RESOURCE_DESC resourceDesc { };
     resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     resourceDesc.Width = sizeInBytes;
     resourceDesc.Height = 1;
@@ -69,7 +69,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     // インデックスバッファ作成
     size_t indexSizeInBytes = sizeof(uint32_t) * indices_.size();
 
-    D3D12_RESOURCE_DESC indexResourceDesc {};
+    D3D12_RESOURCE_DESC indexResourceDesc { };
     indexResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     indexResourceDesc.Width = indexSizeInBytes;
     indexResourceDesc.Height = 1;
@@ -141,7 +141,7 @@ void Model::ParseObjFile(const std::string& filePath)
     std::string line;
 
     // (v, vt, vn) の組み合わせ → vertices_ 内のインデックスへのマップ
-    std::map<std::tuple<int,int,int>, uint32_t> indexMap;
+    std::map<std::tuple<int, int, int>, uint32_t> indexMap;
 
     while (std::getline(file, line)) {
         std::stringstream ss(line);
@@ -188,10 +188,16 @@ void Model::ParseObjFile(const std::string& filePath)
                     indexMap[key] = newIndex;
                     faceIndices.push_back(newIndex);
 
-                    VertexData vd {};
-                    if (idx[0] > 0) { vd.position = positions[idx[0] - 1]; }
-                    if (idx[1] > 0) { vd.texcoord = texcoords[idx[1] - 1]; }
-                    if (idx[2] > 0) { vd.normal = normals[idx[2] - 1]; }
+                    VertexData vd { };
+                    if (idx[0] > 0) {
+                        vd.position = positions[idx[0] - 1];
+                    }
+                    if (idx[1] > 0) {
+                        vd.texcoord = texcoords[idx[1] - 1];
+                    }
+                    if (idx[2] > 0) {
+                        vd.normal = normals[idx[2] - 1];
+                    }
                     vertices_.push_back(vd);
                 }
             }
@@ -223,7 +229,9 @@ void Model::ComputeTangents()
         float du2 = uv2.x - uv0.x, dv2 = uv2.y - uv0.y;
 
         float denom = du1 * dv2 - du2 * dv1;
-        if (std::abs(denom) < 1e-6f) { continue; }
+        if (std::abs(denom) < 1e-6f) {
+            continue;
+        }
         float invR = 1.0f / denom;
         Vector3 t = {
             (e1.x * dv2 - e2.x * dv1) * invR,
@@ -243,7 +251,11 @@ void Model::ComputeTangents()
         float dot = n.x * t.x + n.y * t.y + n.z * t.z;
         t = { t.x - n.x * dot, t.y - n.y * dot, t.z - n.z * dot };
         float len = std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
-        if (len > 1e-6f) { t.x /= len; t.y /= len; t.z /= len; }
+        if (len > 1e-6f) {
+            t.x /= len;
+            t.y /= len;
+            t.z /= len;
+        }
         vertices_[i].tangent = t;
     }
 }
@@ -252,12 +264,7 @@ void Model::LoadGltfFile(const std::string& filePath)
 {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filePath,
-        aiProcess_Triangulate |
-        aiProcess_FlipUVs |
-        aiProcess_GenSmoothNormals |
-        aiProcess_CalcTangentSpace |
-        aiProcess_MakeLeftHanded |
-        aiProcess_FlipWindingOrder);
+        aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_MakeLeftHanded | aiProcess_FlipWindingOrder);
 
     ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
@@ -267,7 +274,7 @@ void Model::LoadGltfFile(const std::string& filePath)
 
         // 頂点データをそのまま追加
         for (uint32_t vIdx = 0; vIdx < mesh->mNumVertices; ++vIdx) {
-            VertexData vd {};
+            VertexData vd { };
             vd.position = {
                 mesh->mVertices[vIdx].x,
                 mesh->mVertices[vIdx].y,

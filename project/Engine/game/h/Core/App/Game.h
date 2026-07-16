@@ -3,8 +3,8 @@
  * @brief Frameworkを継承し、ゲーム固有の進行（初期化・更新・描画）を記述するファイル
  */
 #pragma once
-#include "Framework.h"
 #include "BaseScene.h"
+#include "Framework.h"
 #include "SceneFactory.h"
 #include <memory>
 namespace engine {
@@ -19,7 +19,6 @@ using engine::game::SceneFactory;
  */
 class MyGame : public Framework {
 public:
-
     /**
      * @brief ゲーム固有の初期化処理
      * @note 基盤システムの初期化後、シーンファクトリの生成や
@@ -47,7 +46,6 @@ public:
     void Draw() override;
 
 private:
-
     /** @brief シーン生成を担う抽象ファクトリのスマートポインタ */
     std::unique_ptr<AbstractSceneFactory> sceneFactory_;
 };

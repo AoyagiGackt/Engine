@@ -19,8 +19,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
         "C:/Windows/Fonts/YuGothM.ttc",
         16.0f,
         nullptr,
-        io.Fonts->GetGlyphRangesJapanese()
-    );
+        io.Fonts->GetGlyphRangesJapanese());
 
     // Win32初期化
     ImGui_ImplWin32_Init(winApp->GetHwnd());

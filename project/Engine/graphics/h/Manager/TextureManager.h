@@ -14,6 +14,19 @@
 namespace engine::graphics {
 
 /**
+ * @brief 複数枚のテクスチャをまとめて読み込む際に使う（TextureManager::LoadTexturesParallel）
+ * @note シーン開始時などにテクスチャを何十枚もまとめて読む場面で、
+ * デコード＋ミップ生成（CPU依存でGPUに触れない部分）だけをワーカースレッドで並列化するための一時データ
+ */
+struct DecodedTexture {
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource; ///< VRAM上に確保したテクスチャリソース（COMMON状態）
+    Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer; ///< ピクセルデータを書き込み済みのアップロードバッファ
+    std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints; ///< サブリソースごとのコピー元レイアウト
+    DirectX::TexMetadata metadata { };
+    UINT subresourceCount = 0;
+};
+
+/**
  * @brief テクスチャを管理するシングルトンクラス
  * @note DirectXTexライブラリを使用して画像を読み込み、SrvManagerと連携して
  * 適切なディスクリプタを割り当てます一度読み込んだパスの画像は内部でキャッシュされます
@@ -44,10 +57,20 @@ public:
      */
     void LoadTexture(const std::string& filePath);
 
+    /**
+     * @brief 複数のテクスチャをまとめて読み込む
+     * @param filePaths 読み込む画像のパス一覧（読み込み済みのものは自動でスキップされる）
+     * @note デコード＋ミップ生成をワーカースレッドで並列に行うため、LoadTexture() を
+     * 枚数分ループするより待ち時間を短縮できる（シーン開始時の一括ロード向け）
+     * GPUコマンドの記録・SRV確保は共有状態を触るため呼び出しスレッドで順番に行う
+     * LoadTexture() 同様、呼び出し後は FlushUploads() を呼ぶこと
+     */
+    void LoadTexturesParallel(const std::vector<std::string>& filePaths);
+
     // RGBA8 生ピクセルデータからテクスチャを作成する（フォント等のコード生成テクスチャ用）
     void LoadFromRawRGBA8(const std::string& name,
-                          const uint8_t* rgbaData,
-                          uint32_t width, uint32_t height);
+        const uint8_t* rgbaData,
+        uint32_t width, uint32_t height);
 
     // 指定キーのテクスチャが登録済みかどうかを返す
     bool HasTexture(const std::string& name) const { return textureDatas_.contains(name); }
@@ -96,7 +119,7 @@ private:
         uint32_t srvIndex; ///< デスクリプタヒープ上のインデックス
         DirectX::TexMetadata metadata; ///< テクスチャのメタデータ（幅、高さ、形式等）
         /** @brief 最終更新日時（ファイルからの読み込みでない場合は既定値のまま＝ホットリロード対象外） */
-        std::filesystem::file_time_type lastWriteTime{};
+        std::filesystem::file_time_type lastWriteTime { };
     };
 
     /**
@@ -105,6 +128,19 @@ private:
      */
     Microsoft::WRL::ComPtr<ID3D12Resource> LoadAndQueueUpload(
         const std::string& filePath, DirectX::TexMetadata& outMetadata);
+
+    /**
+     * @brief 画像ファイルをデコードしGPUリソース／アップロードバッファを作成する（コピーコマンドはまだ記録しない）
+     * @note GPUに触れるのは ID3D12Device 経由のリソース作成のみで、これはスレッドセーフなためワーカースレッドから呼べる
+     * WICを使うためスレッド内でCOMを初期化する
+     */
+    DecodedTexture DecodeTexture(const std::string& filePath);
+
+    /**
+     * @brief DecodeTexture() の結果からコピーコマンドを記録し、保留リストに積む
+     * @note copyCmdList_ 等の共有状態を触るため、呼び出しスレッドで直列に実行すること
+     */
+    void QueueUpload(const DecodedTexture& decoded);
 
     /** @brief DirectX基盤のポインタ */
     engine::DirectXCommon* dxCommon_ = nullptr;
@@ -117,21 +153,21 @@ private:
     // -------------------------------------------------------
 
     /** @brief テクスチャ転送専用のコピーコマンドキュー */
-    Microsoft::WRL::ComPtr<ID3D12CommandQueue>          copyQueue_;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
     /** @brief コピーキュー用コマンドアロケータ（再利用） */
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      copyAllocator_;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> copyAllocator_;
     /** @brief コピーキュー用コマンドリスト（Open 状態を維持し LoadTexture で記録） */
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   copyCmdList_;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCmdList_;
     /** @brief コピーキュー完了待機用フェンス（再利用） */
-    Microsoft::WRL::ComPtr<ID3D12Fence>                 copyFence_;
-    UINT64                                              copyFenceValue_ = 0;
-    HANDLE                                              copyFenceEvent_ = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Fence> copyFence_;
+    UINT64 copyFenceValue_ = 0;
+    HANDLE copyFenceEvent_ = nullptr;
 
     // -------------------------------------------------------
     // バリア遷移用（COMMON → PIXEL_SHADER_RESOURCE、グラフィックスキュー）
     // -------------------------------------------------------
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      transAllocator_;
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   transCmdList_;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> transAllocator_;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> transCmdList_;
 
     // -------------------------------------------------------
     // バッチ転送の保留リスト

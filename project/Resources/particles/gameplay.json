@@ -6,5 +6,6 @@
     { "name": "sword_slash", "texture": "Resources/slashStreak.png", "additive": true },
     { "name": "gun_shot",    "texture": "Resources/circle2.png",     "additive": true },
     { "name": "blink_trail", "texture": "Resources/circle2.png",     "additive": true },
-    { "name": "awaken_aura", "texture": "Resources/circle2.png",     "additive": true }
+    { "name": "awaken_aura", "texture": "Resources/circle2.png",     "additive": true },
+    { "name": "weapon_orb",  "texture": "Resources/circle2.png",     "additive": true }
 ]

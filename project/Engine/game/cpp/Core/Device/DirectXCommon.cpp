@@ -64,14 +64,23 @@ void DirectXCommon::Finalize()
 
 void DirectXCommon::PreDraw()
 {
+    UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
+
+    // このバックバッファ用のアロケータをGPUが使い終えるまで待つ（前回このインデックスを使った時のフェンス値まで）
+    // 毎フレーム無条件に全待ちする代わりに、実際に必要な時だけ止めることでCPU/GPUを並行して動かす
+    if (frameFenceValues_[backBufferIndex] != 0
+        && fence_->GetCompletedValue() < frameFenceValues_[backBufferIndex]) {
+        fence_->SetEventOnCompletion(frameFenceValues_[backBufferIndex], fenceEvent_);
+        WaitForSingleObject(fenceEvent_, INFINITE);
+    }
+
     // コマンドアロケータとリストをリセット
-    HRESULT hr = commandAllocator_->Reset();
+    HRESULT hr = commandAllocators_[backBufferIndex]->Reset();
     ENGINE_ASSERT(SUCCEEDED(hr));
-    hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+    hr = commandList_->Reset(commandAllocators_[backBufferIndex].Get(), nullptr);
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     // リソースバリア
-    UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
     TransitionBarrier(commandList_.Get(), swapChainResources_[backBufferIndex].Get(),
         D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
@@ -87,19 +96,19 @@ void DirectXCommon::PreDraw()
     commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
     // ビューポートとシザー矩形の設定
-    D3D12_VIEWPORT viewport = {};
-    viewport.Width    = static_cast<float>(winApp_->kClientWidth);
-    viewport.Height   = static_cast<float>(winApp_->kClientHeight);
+    D3D12_VIEWPORT viewport = { };
+    viewport.Width = static_cast<float>(winApp_->kClientWidth);
+    viewport.Height = static_cast<float>(winApp_->kClientHeight);
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
     commandList_->RSSetViewports(1, &viewport);
 
-    D3D12_RECT scissorRect = {};
-    scissorRect.left   = 0;
-    scissorRect.right  = static_cast<LONG>(winApp_->kClientWidth);
-    scissorRect.top    = 0;
+    D3D12_RECT scissorRect = { };
+    scissorRect.left = 0;
+    scissorRect.right = static_cast<LONG>(winApp_->kClientWidth);
+    scissorRect.top = 0;
     scissorRect.bottom = static_cast<LONG>(winApp_->kClientHeight);
     commandList_->RSSetScissorRects(1, &scissorRect);
 }
@@ -121,6 +130,13 @@ void DirectXCommon::PostDraw()
     ID3D12CommandList* commandLists[] = { commandList_.Get() };
     commandQueue_->ExecuteCommandLists(1, commandLists);
 
+    // このフレームで使ったアロケータの完了目印としてフェンス値を積む
+    // （ここでは待たない。実際に待つのは、次にこのバックバッファを使い回す時＝PreDraw側）
+    ++fenceValue_;
+    hr = commandQueue_->Signal(fence_.Get(), fenceValue_);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    frameFenceValues_[backBufferIndex] = fenceValue_;
+
     // フリップ (画面更新)
     // VSyncオフ時はSyncInterval=0。ティアリング許可済みならALLOW_TEARINGを付けて真の非同期表示にする
     const UINT syncInterval = vsyncEnabled_ ? 1 : 0;
@@ -140,9 +156,6 @@ void DirectXCommon::PostDraw()
 
     // FPS固定（GPU が動いている間に CPU 側で余った時間を使って待機）
     UpdateFixFPS();
-
-    // フェンス同期
-    WaitForGpu();
 }
 
 Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile)
@@ -224,7 +237,7 @@ void DirectXCommon::InitializeDevice()
 
     ComPtr<IDXGIAdapter4> useAdapter = nullptr;
     for (UINT i = 0; dxgiFactory_->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter)) != DXGI_ERROR_NOT_FOUND; ++i) {
-        DXGI_ADAPTER_DESC3 adapterDesc {};
+        DXGI_ADAPTER_DESC3 adapterDesc { };
         hr = useAdapter->GetDesc3(&adapterDesc);
         ENGINE_ASSERT(SUCCEEDED(hr));
 
@@ -242,7 +255,7 @@ void DirectXCommon::InitializeDevice()
     const char* featureLevelStrings[] = { "12.2", "12.1", "12.0" };
     for (size_t i = 0; i < _countof(featureLevels); ++i) {
         hr = D3D12CreateDevice(useAdapter.Get(), featureLevels[i], IID_PPV_ARGS(&device_));
-        
+
         if (SUCCEEDED(hr)) {
             Logger::Log((std::format("Feature Level: {}", featureLevelStrings[i])));
             break;
@@ -265,14 +278,16 @@ void DirectXCommon::InitializeDevice()
 void DirectXCommon::CreateCommand()
 {
     HRESULT hr;
-    D3D12_COMMAND_QUEUE_DESC commandQueueDesc = {};
+    D3D12_COMMAND_QUEUE_DESC commandQueueDesc = { };
     hr = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    for (UINT i = 0; i < kFrameCount; ++i) {
+        hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocators_[i]));
+        ENGINE_ASSERT(SUCCEEDED(hr));
+    }
 
-    hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr, IID_PPV_ARGS(&commandList_));
+    hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocators_[0].Get(), nullptr, IID_PPV_ARGS(&commandList_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     commandList_->Close();
@@ -295,7 +310,7 @@ void DirectXCommon::CreateSwapChain()
         tearingSupported_ = (allowTearing != FALSE);
     }
 
-    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = { };
     swapChainDesc.Width = winApp_->kClientWidth;
     swapChainDesc.Height = winApp_->kClientHeight;
     swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -317,19 +332,19 @@ void DirectXCommon::CreateSwapChain()
 void DirectXCommon::CreateDepthBuffer()
 {
     // 深度ステンシルテクスチャの設定
-    D3D12_RESOURCE_DESC resourceDesc = {};
+    D3D12_RESOURCE_DESC resourceDesc = { };
     resourceDesc.Width = winApp_->kClientWidth;
     resourceDesc.Height = winApp_->kClientHeight;
     resourceDesc.MipLevels = 1;
     resourceDesc.DepthOrArraySize = 1;
-    resourceDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;  // SRV用にTYPELESSで作成
+    resourceDesc.Format = DXGI_FORMAT_R24G8_TYPELESS; // SRV用にTYPELESSで作成
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-    D3D12_HEAP_PROPERTIES heapProperties = {};
+    D3D12_HEAP_PROPERTIES heapProperties = { };
     heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-    D3D12_CLEAR_VALUE depthClearValue {};
+    D3D12_CLEAR_VALUE depthClearValue { };
     depthClearValue.DepthStencil.Depth = 1.0f;
     depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
@@ -346,7 +361,7 @@ void DirectXCommon::CreateDepthBuffer()
     dsvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
     // DSVの作成
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = { };
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     device_->CreateDepthStencilView(
@@ -363,7 +378,7 @@ void DirectXCommon::CreateRTV()
     hr = swapChain_->GetBuffer(1, IID_PPV_ARGS(&swapChainResources_[1]));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = { };
     rtvDesc.Format = GetBackBufferFormat();
     rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
@@ -378,11 +393,15 @@ void DirectXCommon::CreateRTV()
 
 void DirectXCommon::OnResize(uint32_t width, uint32_t height)
 {
-    if (width == 0 || height == 0 || !swapChain_) { return; } // 最小化中などは無視
+    if (width == 0 || height == 0 || !swapChain_) {
+        return;
+    } // 最小化中などは無視
 
-    DXGI_SWAP_CHAIN_DESC1 desc = {};
+    DXGI_SWAP_CHAIN_DESC1 desc = { };
     swapChain_->GetDesc1(&desc);
-    if (desc.Width == width && desc.Height == height) { return; }
+    if (desc.Width == width && desc.Height == height) {
+        return;
+    }
 
     // GPUがバックバッファの参照を終えるまで待ってから解放する
     WaitForGpu();
@@ -471,10 +490,10 @@ ID3D12Resource* DirectXCommon::GetCurrentBackBufferResource()
 Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateBufferResource(size_t sizeInBytes)
 {
     HRESULT hr;
-    D3D12_HEAP_PROPERTIES uploadHeapProperties {};
+    D3D12_HEAP_PROPERTIES uploadHeapProperties { };
     uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-    D3D12_RESOURCE_DESC resourceDesc {};
+    D3D12_RESOURCE_DESC resourceDesc { };
     resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     resourceDesc.Width = sizeInBytes;
     resourceDesc.Height = 1;
@@ -512,11 +531,11 @@ void DirectXCommon::WaitForGpu()
 D3D12_RESOURCE_BARRIER DirectXCommon::MakeTransitionBarrier(
     ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource)
 {
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = resource;
+    D3D12_RESOURCE_BARRIER barrier = { };
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = resource;
     barrier.Transition.StateBefore = before;
-    barrier.Transition.StateAfter  = after;
+    barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = subresource;
     return barrier;
 }
@@ -532,10 +551,10 @@ void DirectXCommon::TransitionBarrier(
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DirectXCommon::CreateDescriptorHeap(
     ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible)
 {
-    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type           = type;
+    D3D12_DESCRIPTOR_HEAP_DESC desc = { };
+    desc.Type = type;
     desc.NumDescriptors = numDescriptors;
-    desc.Flags          = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    desc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap;
     HRESULT hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap));

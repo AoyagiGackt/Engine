@@ -1,0 +1,10 @@
+{
+    "start": "n1",
+    "nodes": {
+        "n1": { "type": "SetVariable", "params": { "name": "hp", "value": 50.0 }, "next": "n2" },
+        "n2": { "type": "If", "params": { "var": "hp", "op": "<", "value": 30.0 }, "nextTrue": "n3", "nextFalse": "n4" },
+        "n3": { "type": "EmitEvent", "params": { "event": "low_hp_warning" }, "next": "" },
+        "n4": { "type": "Wait", "params": { "seconds": 1.0 }, "next": "n5" },
+        "n5": { "type": "EmitEvent", "params": { "event": "hp_checked" }, "next": "" }
+    }
+}

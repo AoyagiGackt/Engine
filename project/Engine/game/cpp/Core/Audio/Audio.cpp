@@ -10,10 +10,10 @@
  * 【SE】 : 複数同時再生可能1つのSEが複数の SourceVoice を持てる再生終了したものは自動削除する
  */
 #include "Audio.h"
+#include "EngineAssert.h"
 #include "Logger.h"
 #include "StringUtility.h"
 #include <algorithm>
-#include "EngineAssert.h"
 using namespace engine;
 
 using namespace Microsoft::WRL;
@@ -76,7 +76,7 @@ void Audio::Finalize()
 SoundData Audio::LoadAudio(const std::string& filename)
 {
     HRESULT hr;
-    SoundData soundData = {};
+    SoundData soundData = { };
 
     // ファイルパスを string から wstring に変換する（Windows API が wstring を要求するため）
     std::wstring wFilename = StringUtility::ConvertString(filename);
@@ -114,15 +114,15 @@ SoundData Audio::LoadAudio(const std::string& filename)
 
     UINT32 temp = 0;
     pOutputMediaType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &temp);
-    wfex->nChannels = (WORD)temp;          // チャンネル数（1 = モノラル、2 = ステレオ）
+    wfex->nChannels = (WORD)temp; // チャンネル数（1 = モノラル、2 = ステレオ）
     pOutputMediaType->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &temp);
-    wfex->nSamplesPerSec = temp;           // サンプルレート（例: 44100 = 1秒間に44100個のサンプル）
+    wfex->nSamplesPerSec = temp; // サンプルレート（例: 44100 = 1秒間に44100個のサンプル）
     pOutputMediaType->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &temp);
-    wfex->wBitsPerSample = (WORD)temp;     // サンプルあたりのビット数（例: 16ビット）
+    wfex->wBitsPerSample = (WORD)temp; // サンプルあたりのビット数（例: 16ビット）
     pOutputMediaType->GetUINT32(MF_MT_AUDIO_BLOCK_ALIGNMENT, &temp);
-    wfex->nBlockAlign = (WORD)temp;        // 1サンプルブロックのバイト数
+    wfex->nBlockAlign = (WORD)temp; // 1サンプルブロックのバイト数
     pOutputMediaType->GetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, &temp);
-    wfex->nAvgBytesPerSec = temp;          // 1秒あたりの平均バイト数
+    wfex->nAvgBytesPerSec = temp; // 1秒あたりの平均バイト数
     wfex->cbSize = 0;
 
     // ファイルの終端まで PCM データをチャンクごとに読み取ってバッファに貯める
@@ -154,7 +154,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
     }
 
     // 読み込んだ PCM データを SoundData に格納して返す
-    soundData.pBuffer    = std::move(rawData);
+    soundData.pBuffer = std::move(rawData);
     soundData.bufferSize = static_cast<unsigned int>(soundData.pBuffer.size());
     return soundData;
 }
@@ -185,7 +185,7 @@ void Audio::CleanupFinishedSE()
             // BuffersQueued == 0 = 再生待ちのバッファがない = 再生が終わった
             if (state.BuffersQueued == 0) {
                 v->DestroyVoice(); // SourceVoice を破棄してメモリを解放
-                return true;       // リストから除去する
+                return true; // リストから除去する
             }
 
             return false; // まだ再生中なので残す
@@ -204,11 +204,11 @@ void Audio::PlayBGM(const SoundData& soundData, bool loop)
     bgmVoice_ = CreateSourceVoice(soundData);
 
     // 音声バッファを設定する
-    XAUDIO2_BUFFER buffer = {};
+    XAUDIO2_BUFFER buffer = { };
     buffer.pAudioData = soundData.pBuffer.data(); // PCM データの先頭ポインタ
-    buffer.AudioBytes = soundData.bufferSize;      // データのバイト数
-    buffer.Flags      = XAUDIO2_END_OF_STREAM;    // これがバッファの終端であることを示す
-    buffer.LoopCount  = loop ? XAUDIO2_LOOP_INFINITE : 0; // ループ回数（無限 or 0 = ループなし）
+    buffer.AudioBytes = soundData.bufferSize; // データのバイト数
+    buffer.Flags = XAUDIO2_END_OF_STREAM; // これがバッファの終端であることを示す
+    buffer.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0; // ループ回数（無限 or 0 = ループなし）
 
     HRESULT hr = bgmVoice_->SubmitSourceBuffer(&buffer);
     ENGINE_ASSERT(SUCCEEDED(hr));
@@ -253,11 +253,11 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
     IXAudio2SourceVoice* voice = CreateSourceVoice(soundData);
     voice->SetVolume(volume);
 
-    XAUDIO2_BUFFER buffer = {};
+    XAUDIO2_BUFFER buffer = { };
     buffer.pAudioData = soundData.pBuffer.data();
     buffer.AudioBytes = soundData.bufferSize;
-    buffer.Flags      = XAUDIO2_END_OF_STREAM;
-    buffer.LoopCount  = 0; // SE はループしない
+    buffer.Flags = XAUDIO2_END_OF_STREAM;
+    buffer.LoopCount = 0; // SE はループしない
 
     HRESULT hr = voice->SubmitSourceBuffer(&buffer);
     ENGINE_ASSERT(SUCCEEDED(hr));
@@ -284,21 +284,27 @@ void Audio::StopAllSE()
 
 void Audio::FadeVolumeTo(float targetVolume, float duration)
 {
-    if (!bgmVoice_) { return; }
+    if (!bgmVoice_) {
+        return;
+    }
     bgmFadeStartVolume_ = bgmCurrentVolume_;
-    bgmTargetVolume_    = std::clamp(targetVolume, 0.0f, 1.0f);
-    bgmFadeDuration_    = (duration > 0.0f) ? duration : 0.0f;
-    bgmFadeTimer_       = 0.0f;
+    bgmTargetVolume_ = std::clamp(targetVolume, 0.0f, 1.0f);
+    bgmFadeDuration_ = (duration > 0.0f) ? duration : 0.0f;
+    bgmFadeTimer_ = 0.0f;
 }
 
 void Audio::Update(float dt)
 {
-    if (!bgmVoice_ || bgmFadeDuration_ <= 0.0f) { return; }
+    if (!bgmVoice_ || bgmFadeDuration_ <= 0.0f) {
+        return;
+    }
 
     bgmFadeTimer_ += dt;
     float t = std::clamp(bgmFadeTimer_ / bgmFadeDuration_, 0.0f, 1.0f);
     bgmCurrentVolume_ = bgmFadeStartVolume_ + (bgmTargetVolume_ - bgmFadeStartVolume_) * t;
     bgmVoice_->SetVolume(bgmCurrentVolume_);
 
-    if (t >= 1.0f) { bgmFadeDuration_ = 0.0f; }
+    if (t >= 1.0f) {
+        bgmFadeDuration_ = 0.0f;
+    }
 }

@@ -11,23 +11,27 @@ public:
     }
 
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
-    void Finalize() { FinalizeCommon(); cbData_ = nullptr; }
+    void Finalize()
+    {
+        FinalizeCommon();
+        cbData_ = nullptr;
+    }
 
-    void  SetHueShift(float degrees);
-    float GetHueShift()   const;
-    void  SetSaturation(float s);
+    void SetHueShift(float degrees);
+    float GetHueShift() const;
+    void SetSaturation(float s);
     float GetSaturation() const;
-    void  SetValue(float v);
-    float GetValue()      const;
+    void SetValue(float v);
+    float GetValue() const;
 
 private:
     HsvFilter() = default;
 
     struct HsvFilterParams {
-        float hueShift   =   0.0f; // -180 〜 +180 度
-        float saturation =   1.0f; // 0=グレー, 1=そのまま
-        float value      =   1.0f; // 0=黒, 1=そのまま
-        float pad        =   0.0f;
+        float hueShift = 0.0f; // -180 〜 +180 度
+        float saturation = 1.0f; // 0=グレー, 1=そのまま
+        float value = 1.0f; // 0=黒, 1=そのまま
+        float pad = 0.0f;
     };
     HsvFilterParams* cbData_ = nullptr;
 };

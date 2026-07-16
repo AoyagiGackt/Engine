@@ -13,8 +13,8 @@ namespace engine::graphics {
 struct VertexDataSprite {
     Vector4 position; /// 頂点座標（2D空間）
     Vector2 texcoord; /// UV座標（テクスチャの切り出し位置）
-    Vector3 normal;   /// 法線ベクトル（ライティング用）
-    Vector3 tangent;  /// 接線ベクトル（Object3dVS.hlsl が要求）
+    Vector3 normal; /// 法線ベクトル（ライティング用）
+    Vector3 tangent; /// 接線ベクトル（Object3dVS.hlsl が要求）
 };
 
 /**
@@ -35,10 +35,10 @@ struct MaterialSprite {
  * スプライトで不要な後半 2 行列もバッファサイズ確保のために定義する（値は単位行列固定）
  */
 struct TransformationMatrixSprite {
-    Matrix4x4 WVP;                   /// ワールド・ビュー・プロジェクション行列（2D正投影）
-    Matrix4x4 World;                 /// ワールド行列
+    Matrix4x4 WVP; /// ワールド・ビュー・プロジェクション行列（2D正投影）
+    Matrix4x4 World; /// ワールド行列
     Matrix4x4 WorldInverseTranspose; /// VS が読むため確保（スプライトは enableLighting=false なので未使用）
-    Matrix4x4 LightVP;               /// VS が読むため確保（スプライトは影を受けないので未使用）
+    Matrix4x4 LightVP; /// VS が読むため確保（スプライトは影を受けないので未使用）
 };
 
 /**
@@ -141,7 +141,7 @@ private:
 
     // --- GPUリソース関連 ---
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
-    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ {};
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ { };
 
     Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
     MaterialSprite* materialData_ = nullptr;

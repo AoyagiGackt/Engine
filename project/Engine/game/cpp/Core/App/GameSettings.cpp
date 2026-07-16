@@ -2,7 +2,8 @@
 #include "JsonHelper.h"
 using namespace engine;
 
-GameSettingsManager* GameSettingsManager::GetInstance() {
+GameSettingsManager* GameSettingsManager::GetInstance()
+{
     static GameSettingsManager instance;
     return &instance;
 }
@@ -18,9 +19,10 @@ void GameSettingsManager::Load()
     }
 }
 
-void GameSettingsManager::Save() {
+void GameSettingsManager::Save()
+{
     nlohmann::json j;
     j["bgm_volume"] = settings_.bgmVolume;
-    j["se_volume"]  = settings_.seVolume;
+    j["se_volume"] = settings_.seVolume;
     JsonHelper::Save(kFilePath, j);
 }

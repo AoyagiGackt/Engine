@@ -24,13 +24,13 @@ private:
     std::unique_ptr<Sprite> bgSprite_;
     std::unique_ptr<Sprite> dotSprites_[3];
 
-    float timer_    = 0.0f;
+    float timer_ = 0.0f;
     float dotTimer_ = 0.0f;
-    int   activeDot_ = 0;
-    bool  sceneChangeRequested_ = false;
+    int activeDot_ = 0;
+    bool sceneChangeRequested_ = false;
 
     static constexpr float kMinDisplayTime = 1.5f;
-    static constexpr float kDotInterval    = 0.3f;
+    static constexpr float kDotInterval = 0.3f;
 };
 
 } // namespace engine::game

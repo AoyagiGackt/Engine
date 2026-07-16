@@ -1,12 +1,14 @@
 #include "TextureManager.h"
 #include "DirectXTex.h"
+#include "EngineAssert.h"
 #include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
-#include <vector>
-#include "EngineAssert.h"
 #include <algorithm>
 #include <cctype>
+#include <future>
+#include <objbase.h>
+#include <vector>
 using namespace engine;
 using namespace engine::graphics;
 
@@ -27,10 +29,10 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
     HRESULT hr;
 
     // コピーキューを作成（グラフィックスキューと独立して動作する）
-    D3D12_COMMAND_QUEUE_DESC copyQueueDesc{};
-    copyQueueDesc.Type     = D3D12_COMMAND_LIST_TYPE_COPY;
+    D3D12_COMMAND_QUEUE_DESC copyQueueDesc { };
+    copyQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     copyQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-    copyQueueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    copyQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     hr = device->CreateCommandQueue(&copyQueueDesc, IID_PPV_ARGS(&copyQueue_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
@@ -57,11 +59,17 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
     transCmdList_->Close(); // FlushUploads() で Reset して使うため最初は閉じておく
 }
 
-ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
-    const std::string& filePath, DirectX::TexMetadata& outMetadata)
+DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
 {
     ENGINE_ASSERT(dxCommon_);
     ID3D12Device* device = dxCommon_->GetDevice();
+
+    // WIC（PNG/JPG読み込み）はCOMを使うため、ワーカースレッドではここで初期化しておく
+    // （既にそのスレッドで初期化済みならS_FALSEが返るだけで害はない。DDSはWICを使わないので不要だが無条件に呼んでおく）
+    HRESULT coHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    bool comInitializedHere = SUCCEEDED(coHr);
+
+    DecodedTexture decoded;
 
     // 画像ファイルを読み込む
     std::wstring filePathW = StringUtility::ConvertString(filePath);
@@ -71,7 +79,7 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
 
     // 最終的な画像データを格納するScratchImage
-    DirectX::ScratchImage finalImage {};
+    DirectX::ScratchImage finalImage { };
     HRESULT hr;
 
     if (ext == "dds") {
@@ -80,7 +88,7 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
         ENGINE_ASSERT(SUCCEEDED(hr));
     } else {
         // WICファイル（PNG/JPG等）はミップマップを生成する
-        DirectX::ScratchImage image {};
+        DirectX::ScratchImage image { };
         // GIFはパレット形式のためFORCE_SRGBが使えない
         DirectX::WIC_FLAGS wicFlags = (ext == "gif") ? DirectX::WIC_FLAGS_DEFAULT_SRGB : DirectX::WIC_FLAGS_FORCE_SRGB;
         hr = DirectX::LoadFromWICFile(filePathW.c_str(), wicFlags, nullptr, image);
@@ -96,20 +104,20 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
 
     // テクスチャリソース記述子
     const DirectX::TexMetadata& metadata = finalImage.GetMetadata();
-    outMetadata = metadata;
-    D3D12_RESOURCE_DESC resourceDesc {};
-    resourceDesc.Width            = UINT(metadata.width);
-    resourceDesc.Height           = UINT(metadata.height);
-    resourceDesc.MipLevels        = UINT16(metadata.mipLevels);
+    decoded.metadata = metadata;
+    D3D12_RESOURCE_DESC resourceDesc { };
+    resourceDesc.Width = UINT(metadata.width);
+    resourceDesc.Height = UINT(metadata.height);
+    resourceDesc.MipLevels = UINT16(metadata.mipLevels);
     resourceDesc.DepthOrArraySize = UINT16(metadata.arraySize);
-    resourceDesc.Format           = metadata.format;
+    resourceDesc.Format = metadata.format;
     resourceDesc.SampleDesc.Count = 1;
-    resourceDesc.Dimension        = D3D12_RESOURCE_DIMENSION(metadata.dimension);
+    resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
     // VRAM（DEFAULT heap）にテクスチャリソースを作成
     // COMMON 状態で作成することで、コピーキューが COPY_DEST へ自動昇格し、
     // ExecuteCommandLists 後に COMMON へ自動復帰する（implicit promotion / decay）
-    D3D12_HEAP_PROPERTIES defaultHeap {};
+    D3D12_HEAP_PROPERTIES defaultHeap { };
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
 
     ComPtr<ID3D12Resource> resource;
@@ -131,17 +139,17 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
     device->GetCopyableFootprints(&resourceDesc, 0, subresourceCount, 0,
         footprints.data(), numRows.data(), rowSizes.data(), &totalSize);
 
-    D3D12_HEAP_PROPERTIES uploadHeap {};
+    D3D12_HEAP_PROPERTIES uploadHeap { };
     uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-    D3D12_RESOURCE_DESC uploadDesc {};
-    uploadDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-    uploadDesc.Width            = totalSize;
-    uploadDesc.Height           = 1;
+    D3D12_RESOURCE_DESC uploadDesc { };
+    uploadDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    uploadDesc.Width = totalSize;
+    uploadDesc.Height = 1;
     uploadDesc.DepthOrArraySize = 1;
-    uploadDesc.MipLevels        = 1;
+    uploadDesc.MipLevels = 1;
     uploadDesc.SampleDesc.Count = 1;
-    uploadDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    uploadDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
     ComPtr<ID3D12Resource> uploadBuffer;
     hr = device->CreateCommittedResource(
@@ -174,28 +182,96 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
 
     uploadBuffer->Unmap(0, nullptr);
 
+    if (comInitializedHere) {
+        CoUninitialize();
+    }
+
+    decoded.resource = resource;
+    decoded.uploadBuffer = uploadBuffer;
+    decoded.footprints = std::move(footprints);
+    decoded.subresourceCount = subresourceCount;
+    return decoded;
+}
+
+void TextureManager::QueueUpload(const DecodedTexture& decoded)
+{
     // 永続コピーコマンドリストにサブリソースごとの転送コマンドを記録する
     // （実行は FlushUploads() で一括して行う）
-    for (UINT subresource = 0; subresource < subresourceCount; ++subresource) {
-        D3D12_TEXTURE_COPY_LOCATION dst {};
-        dst.pResource        = resource.Get();
-        dst.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    for (UINT subresource = 0; subresource < decoded.subresourceCount; ++subresource) {
+        D3D12_TEXTURE_COPY_LOCATION dst { };
+        dst.pResource = decoded.resource.Get();
+        dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
         dst.SubresourceIndex = subresource;
 
-        D3D12_TEXTURE_COPY_LOCATION src {};
-        src.pResource       = uploadBuffer.Get();
-        src.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        src.PlacedFootprint = footprints[subresource];
+        D3D12_TEXTURE_COPY_LOCATION src { };
+        src.pResource = decoded.uploadBuffer.Get();
+        src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src.PlacedFootprint = decoded.footprints[subresource];
 
         copyCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
     }
 
     // GPU完了まで uploadBuffer と resource を保持する（FlushUploads() で解放）
-    pendingUploadBuffers_.push_back(uploadBuffer);
-    pendingResources_.push_back(resource);
+    pendingUploadBuffers_.push_back(decoded.uploadBuffer);
+    pendingResources_.push_back(decoded.resource);
     hasPendingCopies_ = true;
+}
 
+ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
+    const std::string& filePath, DirectX::TexMetadata& outMetadata)
+{
+    DecodedTexture decoded = DecodeTexture(filePath);
+    outMetadata = decoded.metadata;
+    ComPtr<ID3D12Resource> resource = decoded.resource;
+    QueueUpload(decoded);
     return resource;
+}
+
+void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePaths)
+{
+    std::vector<std::string> toLoad;
+    toLoad.reserve(filePaths.size());
+    for (auto& path : filePaths) {
+        if (!textureDatas_.contains(path)) {
+            toLoad.push_back(path);
+        }
+    }
+    if (toLoad.empty()) {
+        return;
+    }
+
+    // デコード＋ミップ生成（GPUコマンドリストに触れない部分）だけをワーカースレッドで並列に行う
+    // ID3D12Deviceのメソッドはフリースレッドなので、CreateCommittedResource等をここで呼んでも安全
+    std::vector<std::future<DecodedTexture>> futures;
+    futures.reserve(toLoad.size());
+    for (auto& path : toLoad) {
+        futures.push_back(std::async(std::launch::async, [this, path] { return DecodeTexture(path); }));
+    }
+
+    // コピーコマンドの記録・SRV確保は共有状態（copyCmdList_ / SrvManager）を触るため呼び出しスレッドで順番に行う
+    for (size_t i = 0; i < toLoad.size(); ++i) {
+        DecodedTexture decoded = futures[i].get();
+        DirectX::TexMetadata metadata = decoded.metadata;
+        QueueUpload(decoded);
+
+        uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
+        if (metadata.IsCubemap()) {
+            SrvManager::GetInstance()->CreateSRVforTextureCube(
+                srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
+        } else {
+            SrvManager::GetInstance()->CreateSRVforTexture2D(
+                srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
+        }
+
+        TextureData& data = textureDatas_[toLoad[i]];
+        data.resource = decoded.resource;
+        data.srvIndex = srvIndex;
+        data.metadata = metadata;
+        try {
+            data.lastWriteTime = std::filesystem::last_write_time(toLoad[i]);
+        } catch (...) {
+        }
+    }
 }
 
 void TextureManager::LoadTexture(const std::string& filePath)
@@ -224,7 +300,10 @@ void TextureManager::LoadTexture(const std::string& filePath)
     data.resource = resource;
     data.srvIndex = srvIndex; // インデックスを保存
     data.metadata = metadata;
-    try { data.lastWriteTime = std::filesystem::last_write_time(filePath); } catch (...) {}
+    try {
+        data.lastWriteTime = std::filesystem::last_write_time(filePath);
+    } catch (...) {
+    }
 }
 
 uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
@@ -316,13 +395,20 @@ void TextureManager::CheckHotReload()
 
     for (auto& [path, data] : textureDatas_) {
         // LoadFromRawRGBA8 生成のテクスチャ（ファイルを持たない）は対象外
-        if (data.lastWriteTime == std::filesystem::file_time_type{}) { continue; }
+        if (data.lastWriteTime == std::filesystem::file_time_type { }) {
+            continue;
+        }
 
         std::filesystem::file_time_type writeTime;
-        try { writeTime = std::filesystem::last_write_time(path); }
-        catch (...) { continue; } // ファイルが一時的に開けない等は無視して次フレームに回す
+        try {
+            writeTime = std::filesystem::last_write_time(path);
+        } catch (...) {
+            continue;
+        } // ファイルが一時的に開けない等は無視して次フレームに回す
 
-        if (writeTime <= data.lastWriteTime) { continue; }
+        if (writeTime <= data.lastWriteTime) {
+            continue;
+        }
         data.lastWriteTime = writeTime;
 
         DirectX::TexMetadata metadata;
@@ -330,7 +416,9 @@ void TextureManager::CheckHotReload()
         reloaded.push_back({ path, resource, metadata });
     }
 
-    if (reloaded.empty()) { return; }
+    if (reloaded.empty()) {
+        return;
+    }
 
     // 新しいリソースへのコピーとバリア遷移をまとめて完了させる
     // （開発中のアセット反復用途なので、同期待ちのコストは許容する）
@@ -354,23 +442,25 @@ void TextureManager::CheckHotReload()
 void TextureManager::LoadFromRawRGBA8(const std::string& name,
     const uint8_t* rgbaData, uint32_t width, uint32_t height)
 {
-    if (textureDatas_.contains(name)) { return; }
+    if (textureDatas_.contains(name)) {
+        return;
+    }
 
     ID3D12Device* device = dxCommon_->GetDevice();
     HRESULT hr;
 
     // テクスチャリソース（DEFAULT heap）
-    D3D12_RESOURCE_DESC resourceDesc{};
-    resourceDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    resourceDesc.Width            = width;
-    resourceDesc.Height           = height;
+    D3D12_RESOURCE_DESC resourceDesc { };
+    resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    resourceDesc.Width = width;
+    resourceDesc.Height = height;
     resourceDesc.DepthOrArraySize = 1;
-    resourceDesc.MipLevels        = 1;
-    resourceDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+    resourceDesc.MipLevels = 1;
+    resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     resourceDesc.SampleDesc.Count = 1;
-    resourceDesc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
-    D3D12_HEAP_PROPERTIES defaultHeap{};
+    D3D12_HEAP_PROPERTIES defaultHeap { };
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
 
     ComPtr<ID3D12Resource> resource;
@@ -381,23 +471,20 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     // アップロードバッファ（行ピッチアライメントを考慮）
-    const UINT64 rowPitch =
-        ((static_cast<UINT64>(width) * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) /
-          D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) *
-         D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+    const UINT64 rowPitch = ((static_cast<UINT64>(width) * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
     const UINT64 uploadSize = rowPitch * height;
 
-    D3D12_RESOURCE_DESC uploadDesc{};
-    uploadDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-    uploadDesc.Width            = uploadSize;
-    uploadDesc.Height           = 1;
+    D3D12_RESOURCE_DESC uploadDesc { };
+    uploadDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    uploadDesc.Width = uploadSize;
+    uploadDesc.Height = 1;
     uploadDesc.DepthOrArraySize = 1;
-    uploadDesc.MipLevels        = 1;
+    uploadDesc.MipLevels = 1;
     uploadDesc.SampleDesc.Count = 1;
-    uploadDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    uploadDesc.Format           = DXGI_FORMAT_UNKNOWN;
+    uploadDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    uploadDesc.Format = DXGI_FORMAT_UNKNOWN;
 
-    D3D12_HEAP_PROPERTIES uploadHeap{};
+    D3D12_HEAP_PROPERTIES uploadHeap { };
     uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
 
     ComPtr<ID3D12Resource> uploadBuffer;
@@ -413,26 +500,26 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     ENGINE_ASSERT(SUCCEEDED(hr));
     for (uint32_t row = 0; row < height; ++row) {
         memcpy(pMapped + row * rowPitch,
-               rgbaData + static_cast<UINT64>(row) * width * 4,
-               static_cast<size_t>(width) * 4);
+            rgbaData + static_cast<UINT64>(row) * width * 4,
+            static_cast<size_t>(width) * 4);
     }
     uploadBuffer->Unmap(0, nullptr);
 
     // コピーコマンドを積む
-    D3D12_TEXTURE_COPY_LOCATION dst{};
-    dst.pResource        = resource.Get();
-    dst.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    D3D12_TEXTURE_COPY_LOCATION dst { };
+    dst.pResource = resource.Get();
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
     dst.SubresourceIndex = 0;
 
-    D3D12_TEXTURE_COPY_LOCATION src{};
-    src.pResource                            = uploadBuffer.Get();
-    src.Type                                 = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    src.PlacedFootprint.Offset               = 0;
-    src.PlacedFootprint.Footprint.Format     = DXGI_FORMAT_R8G8B8A8_UNORM;
-    src.PlacedFootprint.Footprint.Width      = width;
-    src.PlacedFootprint.Footprint.Height     = height;
-    src.PlacedFootprint.Footprint.Depth      = 1;
-    src.PlacedFootprint.Footprint.RowPitch   = static_cast<UINT>(rowPitch);
+    D3D12_TEXTURE_COPY_LOCATION src { };
+    src.pResource = uploadBuffer.Get();
+    src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint.Offset = 0;
+    src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    src.PlacedFootprint.Footprint.Width = width;
+    src.PlacedFootprint.Footprint.Height = height;
+    src.PlacedFootprint.Footprint.Depth = 1;
+    src.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(rowPitch);
 
     copyCmdList_->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
@@ -445,16 +532,16 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     SrvManager::GetInstance()->CreateSRVforTexture2D(
         srvIndex, resource.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, 1);
 
-    TextureData& data    = textureDatas_[name];
-    data.resource        = resource;
-    data.srvIndex        = srvIndex;
-    data.metadata        = {};
-    data.metadata.width  = width;
+    TextureData& data = textureDatas_[name];
+    data.resource = resource;
+    data.srvIndex = srvIndex;
+    data.metadata = { };
+    data.metadata.width = width;
     data.metadata.height = height;
-    data.metadata.depth  = 1;
+    data.metadata.depth = 1;
     data.metadata.arraySize = 1;
     data.metadata.mipLevels = 1;
-    data.metadata.format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+    data.metadata.format = DXGI_FORMAT_R8G8B8A8_UNORM;
     data.metadata.dimension = DirectX::TEX_DIMENSION_TEXTURE2D;
 }
 

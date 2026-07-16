@@ -31,13 +31,13 @@ LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
 
     HANDLE file = CreateFileA(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file != INVALID_HANDLE_VALUE) {
-        MINIDUMP_EXCEPTION_INFORMATION mdei = {};
-        mdei.ThreadId          = GetCurrentThreadId();
+        MINIDUMP_EXCEPTION_INFORMATION mdei = { };
+        mdei.ThreadId = GetCurrentThreadId();
         mdei.ExceptionPointers = exceptionInfo;
-        mdei.ClientPointers    = FALSE;
+        mdei.ClientPointers = FALSE;
 
         if (MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file,
-            MiniDumpNormal, &mdei, nullptr, nullptr)) {
+                MiniDumpNormal, &mdei, nullptr, nullptr)) {
             Logger::LogError(std::string("Crash dump written: ") + path);
         }
         CloseHandle(file);

@@ -5,7 +5,8 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-void LoadingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
+void LoadingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
+{
     dxCommon_ = dxCommon;
 
     spriteCommon_ = std::make_unique<SpriteCommon>();
@@ -33,15 +34,16 @@ void LoadingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     }
     dotSprites_[0]->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f }); // 最初のドットだけ明るい
 
-    timer_    = 0.0f;
+    timer_ = 0.0f;
     dotTimer_ = 0.0f;
     activeDot_ = 0;
     sceneChangeRequested_ = false;
 }
 
-void LoadingScene::Update() {
+void LoadingScene::Update()
+{
     constexpr float dt = GameConstants::kFrameDeltaTime;
-    timer_    += dt;
+    timer_ += dt;
     dotTimer_ += dt;
 
     // ドットアニメーション
@@ -53,7 +55,9 @@ void LoadingScene::Update() {
     }
 
     bgSprite_->Update();
-    for (int i = 0; i < 3; ++i) { dotSprites_[i]->Update(); }
+    for (int i = 0; i < 3; ++i) {
+        dotSprites_[i]->Update();
+    }
 
     // 最低表示時間が過ぎ、かつバックグラウンドロードが完了したら次のシーンへ（一度だけ）
     if (!sceneChangeRequested_ && timer_ >= kMinDisplayTime
@@ -66,11 +70,15 @@ void LoadingScene::Update() {
     }
 }
 
-void LoadingScene::Draw() {
+void LoadingScene::Draw()
+{
     spriteCommon_->CommonDrawSettings();
     bgSprite_->Draw();
-    for (int i = 0; i < 3; ++i) { dotSprites_[i]->Draw(); }
+    for (int i = 0; i < 3; ++i) {
+        dotSprites_[i]->Draw();
+    }
 }
 
-void LoadingScene::Finalize() {
+void LoadingScene::Finalize()
+{
 }

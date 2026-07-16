@@ -29,5 +29,4 @@ MaterialManager* MaterialManager::GetInstance()
 
 void MaterialManager::Finalize()
 {
-
 }

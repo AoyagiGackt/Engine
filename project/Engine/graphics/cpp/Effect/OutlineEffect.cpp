@@ -19,18 +19,18 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     //   ALL にすることで VS と PS が同じスロットで同じ定数バッファを参照できる
     // slot 1 (VS only, b1): TransformationMatrix
     //   Object3d が持つ WVP 行列などをここで受け取る
-    D3D12_ROOT_PARAMETER rootParams[2] = {};
-    rootParams[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParams[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL; // VS と PS 両方で使う
+    D3D12_ROOT_PARAMETER rootParams[2] = { };
+    rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL; // VS と PS 両方で使う
     rootParams[0].Descriptor.ShaderRegister = 0; // b0
-    rootParams[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParams[1].ShaderVisibility          = D3D12_SHADER_VISIBILITY_VERTEX; // VS のみ
+    rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // VS のみ
     rootParams[1].Descriptor.ShaderRegister = 1; // b1
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
-    rsDesc.Flags         = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+    D3D12_ROOT_SIGNATURE_DESC rsDesc = { };
+    rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rsDesc.NumParameters = 2;
-    rsDesc.pParameters   = rootParams;
+    rsDesc.pParameters = rootParams;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
@@ -53,49 +53,49 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // =====================================================
     D3D12_INPUT_ELEMENT_DESC inputElem[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
     // =====================================================
     // PSO（パイプラインステートオブジェクト）の設定
     // =====================================================
     // ブレンド: アルファブレンド（半透明アウトラインも対応）
-    D3D12_RENDER_TARGET_BLEND_DESC blendRT = {};
+    D3D12_RENDER_TARGET_BLEND_DESC blendRT = { };
     blendRT.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    blendRT.BlendEnable           = TRUE;
-    blendRT.SrcBlend              = D3D12_BLEND_SRC_ALPHA;
-    blendRT.DestBlend             = D3D12_BLEND_INV_SRC_ALPHA;
-    blendRT.BlendOp               = D3D12_BLEND_OP_ADD;
-    blendRT.SrcBlendAlpha         = D3D12_BLEND_ONE;
-    blendRT.DestBlendAlpha        = D3D12_BLEND_ZERO;
-    blendRT.BlendOpAlpha          = D3D12_BLEND_OP_ADD;
+    blendRT.BlendEnable = TRUE;
+    blendRT.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+    blendRT.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    blendRT.BlendOp = D3D12_BLEND_OP_ADD;
+    blendRT.SrcBlendAlpha = D3D12_BLEND_ONE;
+    blendRT.DestBlendAlpha = D3D12_BLEND_ZERO;
+    blendRT.BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
-    D3D12_BLEND_DESC blendDesc = {};
-    blendDesc.RenderTarget[0]  = blendRT;
+    D3D12_BLEND_DESC blendDesc = { };
+    blendDesc.RenderTarget[0] = blendRT;
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.pRootSignature  = rootSignature_.Get();
-    psoDesc.InputLayout     = { inputElem, _countof(inputElem) };
-    psoDesc.VS              = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.PS              = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
-    psoDesc.BlendState      = blendDesc;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = { };
+    psoDesc.pRootSignature = rootSignature_.Get();
+    psoDesc.InputLayout = { inputElem, _countof(inputElem) };
+    psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
+    psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
+    psoDesc.BlendState = blendDesc;
 
     // 前面カリング（CULL_FRONT）がアウトライン手法の核心
     // 通常は背面（CULL_BACK）をカリングするが、ここでは前面をカリングすることで
     // 法線方向に膨らんだメッシュの「外側に見える裏面」だけが描画される = アウトライン
-    psoDesc.RasterizerState.FillMode  = D3D12_FILL_MODE_SOLID;
-    psoDesc.RasterizerState.CullMode  = D3D12_CULL_MODE_FRONT;
+    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
 
-    psoDesc.DepthStencilState.DepthEnable    = TRUE;
+    psoDesc.DepthStencilState.DepthEnable = TRUE;
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-    psoDesc.DepthStencilState.DepthFunc      = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    psoDesc.DSVFormat             = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    psoDesc.NumRenderTargets      = 1;
-    psoDesc.RTVFormats[0]         = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.SampleMask            = D3D12_DEFAULT_SAMPLE_MASK;
-    psoDesc.SampleDesc.Count      = 1;
+    psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+    psoDesc.SampleDesc.Count = 1;
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
     ENGINE_ASSERT(SUCCEEDED(hr));
@@ -106,7 +106,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // 256 バイト確保するのは CBV が 256 バイトアライメント必須のため
     cbResource_ = dxCommon->CreateBufferResource(256);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
-    *cbData_ = OutlineParams{}; // デフォルト値で初期化（黒、幅 0.02）
+    *cbData_ = OutlineParams { }; // デフォルト値で初期化（黒、幅 0.02）
 }
 
 void OutlineEffect::Finalize()

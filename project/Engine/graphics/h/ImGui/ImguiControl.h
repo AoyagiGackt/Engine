@@ -3,19 +3,21 @@
  * @brief 開発・デバッグ用のImGuiコントロールパネル
  */
 #pragma once
-#include "Object3dCommon.h"
 #include "MakeAffine.h"
+#include "Object3dCommon.h"
 #include <functional>
 #include <vector>
 namespace engine::graphics {
 
+class ImageFilter;
+
 /// @brief ImGuiパネルで設定するデバッグ用ポイントライト
 struct DebugPointLight {
-    bool    enabled   = true;
-    Vector3 position  = { 0.f, 2.f, 0.f };
-    float   radius    = 10.f;
-    Vector4 color     = { 1.f, 1.f, 1.f, 1.f };
-    float   intensity = 2.f;
+    bool enabled = true;
+    Vector3 position = { 0.f, 2.f, 0.f };
+    float radius = 10.f;
+    Vector4 color = { 1.f, 1.f, 1.f, 1.f };
+    float intensity = 2.f;
 };
 
 /// @brief デバッグImGuiコントロールウィンドウを管理するクラス
@@ -41,10 +43,19 @@ private:
     static void ShowPostProcessSettings();
     // アウトライン/ラジアルブラー/ディゾルブ/GPUノイズ/ガラス割れ/ライトを1ウィンドウにまとめて描画する
     static void ShowEffectAndLightSettings();
+    // ShowEffectAndLightSettings() 内の各折りたたみセクション
+    static void ShowOutlineSection(ImageFilter* imgFilter);
+    static void ShowRadialBlurSection(ImageFilter* imgFilter);
+    static void ShowDissolveSection(ImageFilter* imgFilter);
+    static void ShowNoiseSection(ImageFilter* imgFilter);
+    static void ShowGlassShatterSection();
+    static void ShowLightSection();
+    static void ShowDirectionalLightSection();
+    static void ShowPointLightSection();
 
-    static Object3dCommon*              obj3dCommon_;
+    static Object3dCommon* obj3dCommon_;
     static std::vector<DebugPointLight> debugLights_;
-    static std::function<void()>        glassShatterTrigger_;
+    static std::function<void()> glassShatterTrigger_;
 };
 
 } // namespace engine::graphics

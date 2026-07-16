@@ -1,8 +1,8 @@
 #pragma once
 #include "DirectXCommon.h"
 #include "GrayscaleEffect.h"
-#include "ImageFilter.h"
 #include "HsvFilter.h"
+#include "ImageFilter.h"
 #include "PostEffectFullscreenPass.h" // IPostEffectSource
 #include "WinApp.h"
 #include <initializer_list>
@@ -15,7 +15,9 @@ inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
     engine::DirectXCommon* dxCommon, std::initializer_list<IPostEffectSource*> effects)
 {
     for (IPostEffectSource* effect : effects) {
-        if (effect && effect->IsEnabled()) { return effect->GetSceneRTVHandle(); }
+        if (effect && effect->IsEnabled()) {
+            return effect->GetSceneRTVHandle();
+        }
     }
     return dxCommon->GetCurrentBackBufferHandle();
 }

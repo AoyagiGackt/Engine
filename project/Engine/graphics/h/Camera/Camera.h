@@ -31,30 +31,60 @@ public:
     // セッター（呼ぶだけで行列が自動更新される）
     // =====================================================
 
-    void SetRotate(const Vector3& rotate)       { transform_.rotate    = rotate;    isDirty_ = true; }
-    void SetTranslate(const Vector3& translate) { transform_.translate = translate; isDirty_ = true; }
-    void SetFovY(float fovY)                    { fovY_       = fovY;               isDirty_ = true; }
-    void SetAspectRatio(float aspectRatio)      { aspectRatio_= aspectRatio;        isDirty_ = true; }
-    void SetNearClip(float nearClip)            { nearClip_   = nearClip;           isDirty_ = true; }
-    void SetFarClip(float farClip)              { farClip_    = farClip;            isDirty_ = true; }
+    void SetRotate(const Vector3& rotate)
+    {
+        transform_.rotate = rotate;
+        isDirty_ = true;
+    }
+    void SetTranslate(const Vector3& translate)
+    {
+        transform_.translate = translate;
+        isDirty_ = true;
+    }
+    void SetFovY(float fovY)
+    {
+        fovY_ = fovY;
+        isDirty_ = true;
+    }
+    void SetAspectRatio(float aspectRatio)
+    {
+        aspectRatio_ = aspectRatio;
+        isDirty_ = true;
+    }
+    void SetNearClip(float nearClip)
+    {
+        nearClip_ = nearClip;
+        isDirty_ = true;
+    }
+    void SetFarClip(float farClip)
+    {
+        farClip_ = farClip;
+        isDirty_ = true;
+    }
 
     // =====================================================
     // ゲッター（常に最新の行列を返す）
     // =====================================================
 
-    const Vector3& GetRotate()    const { return transform_.rotate; }
+    const Vector3& GetRotate() const { return transform_.rotate; }
     const Vector3& GetTranslate() const { return transform_.translate; }
     const Transform& GetTransform() const { return transform_; }
 
     /** @brief 最新のビュー行列を返す（必要なら自動再計算） */
-    const Matrix4x4& GetViewMatrix() const {
-        if (isDirty_) { RecalcMatrices(); }
+    const Matrix4x4& GetViewMatrix() const
+    {
+        if (isDirty_) {
+            RecalcMatrices();
+        }
         return viewMatrix_;
     }
 
     /** @brief 最新のプロジェクション行列を返す（必要なら自動再計算） */
-    const Matrix4x4& GetProjectionMatrix() const {
-        if (isDirty_) { RecalcMatrices(); }
+    const Matrix4x4& GetProjectionMatrix() const
+    {
+        if (isDirty_) {
+            RecalcMatrices();
+        }
         return projectionMatrix_;
     }
 
@@ -62,14 +92,25 @@ public:
      * @brief View × Projection の合成行列を返す
      * @note DebugDraw のワールド→スクリーン変換に使用します
      */
-    Matrix4x4 GetViewProjectionMatrix() const {
-        if (isDirty_) { RecalcMatrices(); }
+    Matrix4x4 GetViewProjectionMatrix() const
+    {
+        if (isDirty_) {
+            RecalcMatrices();
+        }
         return Multiply(viewMatrix_, projectionMatrix_);
     }
 
     // 直接変更したい場合用の非 const 参照ゲッター
-    Vector3& GetRotate()    { isDirty_ = true; return transform_.rotate; }
-    Vector3& GetTranslate() { isDirty_ = true; return transform_.translate; }
+    Vector3& GetRotate()
+    {
+        isDirty_ = true;
+        return transform_.rotate;
+    }
+    Vector3& GetTranslate()
+    {
+        isDirty_ = true;
+        return transform_.translate;
+    }
 
 private:
     /** @brief ビュー行列とプロジェクション行列を再計算する */

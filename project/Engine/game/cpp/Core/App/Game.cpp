@@ -1,24 +1,22 @@
 #include "Game.h"
 #include "DelayTimer.h"
-#include "InputBuffer.h"
 #include "GameConstants.h"
-#include "Sequencer.h"
 #include "GamePlayScene.h"
 #include "GameSettings.h"
-#include "SaveData.h"
-#include "SceneManager.h"
-#include "SceneFactory.h"
-#include "ScreenFlash.h"
-#include "TimeManager.h"
-#include "TitleScene.h"
-#include "Tweener.h"
-#include <SrvManager.h>
-#include "TextureManager.h"
 #include "GrayscaleEffect.h"
-#include "ImageFilter.h"
-#include "VignetteEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
+#include "ImageFilter.h"
+#include "InputBuffer.h"
+#include "SaveData.h"
+#include "SceneFactory.h"
+#include "SceneManager.h"
+#include "ScreenFlash.h"
+#include "TextureManager.h"
+#include "TimeManager.h"
+#include "TitleScene.h"
+#include "VignetteEffect.h"
+#include <SrvManager.h>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -53,7 +51,6 @@ void MyGame::Initialize()
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
 }
 
-
 void MyGame::Update()
 {
     // 基盤の更新
@@ -66,10 +63,8 @@ void MyGame::Update()
     TimeManager::GetInstance()->Update();
     audio_->Update(GameConstants::kFrameDeltaTime);
 
-    // 遅延コールバック・Tweener・Sequencer・スクリーンフラッシュを毎フレーム更新
+    // 遅延コールバック・スクリーンフラッシュを毎フレーム更新
     DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
-    Tweener::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
-    Sequencer::GetInstance()->Update(TimeManager::GetInstance()->GetDeltaTime());
     ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
 #ifdef _DEBUG
@@ -91,9 +86,9 @@ void MyGame::Draw()
     dxCommon_->PreDraw();
     SrvManager::GetInstance()->PreDraw();
 
-    auto* gs        = GrayscaleEffect::GetInstance();
+    auto* gs = GrayscaleEffect::GetInstance();
     auto* imgFilter = ImageFilter::GetInstance();
-    auto* hsv       = HsvFilter::GetInstance();
+    auto* hsv = HsvFilter::GetInstance();
 
     // オフスクリーンRTVリダイレクトに対応していないシーン（GamePlayScene以外）では
     // BeginScene/EndScene/Apply を呼ばない呼んでしまうと、シーン側が何も描き込まない

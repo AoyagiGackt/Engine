@@ -23,15 +23,15 @@ struct Material
     float3 cameraWorldPos;
     float envMapIntensity; // 環境マップ反射強度（0=なし, 1=フル反射）
     // ---- リムライト ----
-    float3 rimColor;      // リムライトの色
-    float  rimPower;      // 鋭さ（大きいほど細いリム、推奨 2〜6）
-    float  rimIntensity;  // 強さ（0=無効、1=通常、2以上=強調）
-    int    enableRim;     // 1=有効、0=無効
-    int    useNormalMap;  // 1=法線マップ有効
+    float3 rimColor; // リムライトの色
+    float rimPower; // 鋭さ（大きいほど細いリム、推奨 2〜6）
+    float rimIntensity; // 強さ（0=無効、1=通常、2以上=強調）
+    int enableRim; // 1=有効、0=無効
+    int useNormalMap; // 1=法線マップ有効
     // ---- PBR (shadingType==5) ----
-    float  metallic;      // メタリック度 (0=非金属, 1=金属)
-    float  roughness;     // 粗さ (0=鏡面, 1=拡散)
-    float3 _pbr_pad;      // 16 バイトアライン用パディング
+    float metallic; // メタリック度 (0=非金属, 1=金属)
+    float roughness; // 粗さ (0=鏡面, 1=拡散)
+    float3 _pbr_pad; // 16 バイトアライン用パディング
 };
 ConstantBuffer<Material> gMaterial : register(b0);
 
@@ -130,9 +130,9 @@ static const float kPI = 3.14159265358979f;
 // GGX 法線分布関数 (NDF)
 float D_GGX(float NdotH, float roughness)
 {
-    float a  = max(roughness * roughness, 1e-4f); // roughness=0 で 0/0 を防ぐ
+    float a = max(roughness * roughness, 1e-4f); // roughness=0 で 0/0 を防ぐ
     float a2 = a * a;
-    float d  = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
+    float d = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
     return a2 / max(kPI * d * d, 1e-6f);
 }
 
@@ -159,7 +159,7 @@ float3 PBR_DirectLight(float3 N, float3 V, float3 L,
                         float3 lightColor, float lightIntensity,
                         float3 albedo, float metallic, float roughness)
 {
-    float3 H    = normalize(V + L);
+    float3 H = normalize(V + L);
     float NdotV = max(dot(N, V), 0.001f);
     float NdotL = max(dot(N, L), 0.0f);
     float NdotH = max(dot(N, H), 0.0f);
@@ -168,8 +168,8 @@ float3 PBR_DirectLight(float3 N, float3 V, float3 L,
     // F0: 非金属は 0.04、金属はアルベドで補間
     float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
 
-    float  D = D_GGX(NdotH, roughness);
-    float  G = G_Smith(NdotV, NdotL, roughness);
+    float D = D_GGX(NdotH, roughness);
+    float G = G_Smith(NdotV, NdotL, roughness);
     float3 F = F_Schlick(VdotH, F0);
 
     float3 specular = (D * G * F) / max(4.0f * NdotV * NdotL, 0.001f);
@@ -219,8 +219,8 @@ PixelShaderOutput main(VertexShaderOutput input)
         if (gMaterial.useNormalMap != 0)
         {
             float3 normalSample = gNormalMap.Sample(gSampler, uv).xyz * 2.0f - 1.0f;
-            float3 T  = normalize(input.tangent);
-            float3 B  = normalize(input.bitangent);
+            float3 T = normalize(input.tangent);
+            float3 B = normalize(input.bitangent);
             float3 Nv = normalize(input.normal);
             N = normalize(normalSample.x * T + normalSample.y * B + normalSample.z * Nv);
         }
@@ -249,11 +249,11 @@ PixelShaderOutput main(VertexShaderOutput input)
             // アンビエント（split-sum 近似）
             // 拡散: (1-F)*(1-metallic)*albedo
             // 鏡面: F*(1-roughness^2)  ← ラフネスが高いほど環境鏡面が弱まる
-            float3 F0    = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMaterial.metallic);
-            float  NdotV = max(dot(N, V), 0.001f);
-            float3 Famb  = F_Schlick(NdotV, F0);
+            float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMaterial.metallic);
+            float NdotV = max(dot(N, V), 0.001f);
+            float3 Famb = F_Schlick(NdotV, F0);
             float3 kDamb = (1.0f - Famb) * (1.0f - gMaterial.metallic);
-            float  rSq   = gMaterial.roughness * gMaterial.roughness;
+            float rSq = gMaterial.roughness * gMaterial.roughness;
             float3 ambIBL = (kDamb * albedo + Famb * (1.0f - rSq))
                           * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
             litColor += ambIBL;
@@ -264,7 +264,8 @@ PixelShaderOutput main(VertexShaderOutput input)
                 PointLight pl = gPointLights.lights[i];
                 float3 toLight = pl.position - input.worldPos;
                 float dist = length(toLight);
-                if (dist >= pl.radius) continue;
+                if (dist >= pl.radius)
+                    continue;
                 float3 L_pt = toLight / dist;
                 float t = dist / pl.radius;
                 float atten = (1.0f - t) * (1.0f - t);
@@ -280,7 +281,7 @@ PixelShaderOutput main(VertexShaderOutput input)
             // =====================================================
             float NdotL = dot(N, L);
             bool useHalfLambert = (gMaterial.shadingType == 2 || gMaterial.shadingType == 4);
-            bool useSpecular    = (gMaterial.shadingType == 3 || gMaterial.shadingType == 4);
+            bool useSpecular = (gMaterial.shadingType == 3 || gMaterial.shadingType == 4);
 
             float diffuse = useHalfLambert ? NdotL * 0.5f + 0.5f : max(NdotL, 0.0f);
             float3 diffuseColor =
@@ -307,7 +308,7 @@ PixelShaderOutput main(VertexShaderOutput input)
                 float3 metalDiffuse = envColor * gMaterial.color.rgb;
                 float3 metalAmbient = gMaterial.color.rgb * gDirectionalLight.ambientColor * gDirectionalLight.ambientIntensity;
                 float3 normalLit = (diffuseColor + specularColor) * shadowFactor + ambient;
-                float3 metalLit  = (metalDiffuse + specularColor) * shadowFactor + metalAmbient;
+                float3 metalLit = (metalDiffuse + specularColor) * shadowFactor + metalAmbient;
                 litColor = lerp(normalLit, metalLit, gMaterial.envMapIntensity);
             }
             else
@@ -321,7 +322,8 @@ PixelShaderOutput main(VertexShaderOutput input)
                 PointLight pl = gPointLights.lights[i];
                 float3 toLight = pl.position - input.worldPos;
                 float dist = length(toLight);
-                if (dist >= pl.radius) continue;
+                if (dist >= pl.radius)
+                    continue;
                 float3 L_pt = toLight / dist;
                 float t = dist / pl.radius;
                 float atten = (1.0f - t) * (1.0f - t);

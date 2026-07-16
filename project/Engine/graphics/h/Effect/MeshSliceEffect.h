@@ -58,12 +58,12 @@ public:
 
 private:
     // タイムライン（秒）
-    static constexpr float kHoldTime  = 0.20f; ///< 切断済みだが静止している時間
+    static constexpr float kHoldTime = 0.20f; ///< 切断済みだが静止している時間
     static constexpr float kSlideTime = 0.45f; ///< 断面が光りながらずれる時間
     static constexpr float kBurstTime = 0.90f; ///< 飛散して消えるまでの時間
 
-    static constexpr int      kPlaneCount = 5;   ///< 切断面の数
-    static constexpr int      kMaxPieces  = 40;  ///< 破片数の上限
+    static constexpr int kPlaneCount = 5; ///< 切断面の数
+    static constexpr int kMaxPieces = 40; ///< 破片数の上限
     static constexpr uint32_t kCBSlotSize = 256; ///< 破片1個分の定数バッファスロット
 
     /** @brief 破片メッシュの頂点（HLSLの入力レイアウトと一致させること） */
@@ -71,15 +71,15 @@ private:
         Vector4 position;
         Vector2 texcoord;
         Vector3 normal;
-        float   cap; ///< 1なら切断面（発光する）
+        float cap; ///< 1なら切断面（発光する）
     };
 
     /** @brief cbuffer のメモリレイアウト（HLSL の PieceParams と一致させること） */
     struct PieceParams {
         Matrix4x4 wvp;
         Matrix4x4 world;
-        Vector4   color; ///< rgb=ティント a=不透明度
-        Vector4   glow;  ///< rgb=断面色 w=発光強度
+        Vector4 color; ///< rgb=ティント a=不透明度
+        Vector4 glow; ///< rgb=断面色 w=発光強度
     };
 
     /** @brief 切断途中の破片（3頂点で1三角形のフラット配列） */
@@ -90,13 +90,13 @@ private:
     /** @brief 確定した破片1個分の描画範囲と運動状態 */
     struct Piece {
         uint32_t vertexOffset = 0;
-        uint32_t vertexCount  = 0;
-        Vector3  centroid     = {}; ///< ローカル空間の重心（回転の支点）
-        Vector3  slideDir     = {}; ///< ずれ・飛散の方向
-        Vector3  velocity     = {};
-        Vector3  angularVel   = {};
-        Vector3  offset       = {};
-        Vector3  rotation     = {};
+        uint32_t vertexCount = 0;
+        Vector3 centroid = { }; ///< ローカル空間の重心（回転の支点）
+        Vector3 slideDir = { }; ///< ずれ・飛散の方向
+        Vector3 velocity = { };
+        Vector3 angularVel = { };
+        Vector3 offset = { };
+        Vector3 rotation = { };
     };
 
     void CreatePipeline();
@@ -109,11 +109,11 @@ private:
 
     /// @brief 破片を平面（法線n・通過点p0）で表裏に分割し、切断面のフタも生成する
     static void SplitPiece(const PieceBuild& src, const Vector3& n, const Vector3& p0,
-                           PieceBuild& outFront, PieceBuild& outBack);
+        PieceBuild& outFront, PieceBuild& outBack);
 
     /// @brief 平面をまたぐ三角形を片側だけ切り出す交点は outCutPoints に追加される
     static void ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
-                             std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints);
+        std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints);
 
     static SliceVertex LerpVertex(const SliceVertex& a, const SliceVertex& b, float t);
 
@@ -123,22 +123,22 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer_;
-    D3D12_VERTEX_BUFFER_VIEW               vbv_{};
-    uint32_t                               vertexCapacity_ = 0;
-    SliceVertex*                           vertexData_     = nullptr;
+    D3D12_VERTEX_BUFFER_VIEW vbv_ { };
+    uint32_t vertexCapacity_ = 0;
+    SliceVertex* vertexData_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> pieceCB_;
-    uint8_t*                               pieceCBData_ = nullptr;
+    uint8_t* pieceCBData_ = nullptr;
 
     std::vector<Piece> pieces_;
-    std::string        textureFilePath_;
+    std::string textureFilePath_;
 
-    Vector3 worldPos_   = {};
-    Vector3 scale_      = { 1.0f, 1.0f, 1.0f };
-    float   meshRadius_ = 1.0f;
-    float   slideDist_  = 0.3f;
-    float   timer_      = 0.0f;
-    bool    active_     = false;
+    Vector3 worldPos_ = { };
+    Vector3 scale_ = { 1.0f, 1.0f, 1.0f };
+    float meshRadius_ = 1.0f;
+    float slideDist_ = 0.3f;
+    float timer_ = 0.0f;
+    bool active_ = false;
 };
 
 } // namespace engine::graphics

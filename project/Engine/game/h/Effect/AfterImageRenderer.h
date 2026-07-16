@@ -52,17 +52,17 @@ public:
 private:
     struct AfterImage {
         Vector3 pos;
-        float   yaw;
-        float   spinZ;
-        float   alpha;
+        float yaw;
+        float spinZ;
+        float alpha;
     };
 
-    static constexpr int   kMaxImages    = 10;
+    static constexpr int kMaxImages = 10;
     static constexpr float kFastInterval = 0.03f;
     static constexpr float kSlowInterval = 0.05f;
 
-    std::array<AfterImage, kMaxImages> images_{};
-    int   idx_   = 0;
+    std::array<AfterImage, kMaxImages> images_ { };
+    int idx_ = 0;
     float timer_ = 0.0f;
 
     std::unique_ptr<Object3d> object_;

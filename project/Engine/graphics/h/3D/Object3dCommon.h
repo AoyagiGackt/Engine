@@ -9,8 +9,8 @@
 #pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
-#include <wrl/client.h>
 #include <cstdint>
+#include <wrl/client.h>
 namespace engine::graphics {
 
 /**
@@ -30,11 +30,11 @@ public:
      * HLSL の PointLight 構造体と完全一致させること（48 バイト）
      */
     struct PointLight {
-        Vector3 position;   ///< ライトのワールド座標
-        float   radius;     ///< 減衰距離（radius を超えると完全に暗くなる）
-        Vector4 color;      ///< ライトの色（RGB のみ使用、A は未使用）
-        float   intensity;  ///< 明るさの倍率
-        float   pad[3];     ///< HLSL 16 バイトアライン用パディング
+        Vector3 position; ///< ライトのワールド座標
+        float radius; ///< 減衰距離（radius を超えると完全に暗くなる）
+        Vector4 color; ///< ライトの色（RGB のみ使用、A は未使用）
+        float intensity; ///< 明るさの倍率
+        float pad[3]; ///< HLSL 16 バイトアライン用パディング
     };
     static_assert(sizeof(PointLight) == 48, "PointLight must be 48 bytes for HLSL alignment");
 
@@ -80,29 +80,54 @@ public:
      *       Set*** で設定した値が固定される
      */
     void SetManualLightOverride(bool enable) { manualLightOverride_ = enable; }
-    bool GetManualLightOverride()      const { return manualLightOverride_; }
+    bool GetManualLightOverride() const { return manualLightOverride_; }
 
     /** @brief ライト方向を手動設定（正規化済みベクトルを渡すこと） */
-    void SetLightDirection(const Vector3& dir)  { if (lightData_) { lightData_->direction        = dir; } }
+    void SetLightDirection(const Vector3& dir)
+    {
+        if (lightData_) {
+            lightData_->direction = dir;
+        }
+    }
 
     /** @brief 平行光源の色を設定 */
-    void SetLightColor(const Vector4& color)    { if (lightData_) { lightData_->color            = color; } }
+    void SetLightColor(const Vector4& color)
+    {
+        if (lightData_) {
+            lightData_->color = color;
+        }
+    }
 
     /** @brief 平行光源の強度を設定 */
-    void SetLightIntensity(float intensity)     { if (lightData_) { lightData_->intensity        = intensity; } }
+    void SetLightIntensity(float intensity)
+    {
+        if (lightData_) {
+            lightData_->intensity = intensity;
+        }
+    }
 
     /** @brief アンビエント光の色を設定 */
-    void SetAmbientColor(const Vector3& color)  { if (lightData_) { lightData_->ambientColor     = color; } }
+    void SetAmbientColor(const Vector3& color)
+    {
+        if (lightData_) {
+            lightData_->ambientColor = color;
+        }
+    }
 
     /** @brief アンビエント光の強度を設定 */
-    void SetAmbientIntensity(float intensity)   { if (lightData_) { lightData_->ambientIntensity = intensity; } }
+    void SetAmbientIntensity(float intensity)
+    {
+        if (lightData_) {
+            lightData_->ambientIntensity = intensity;
+        }
+    }
 
     // ゲッター
-    Vector3 GetLightDirectionRaw()const { return lightData_ ? lightData_->direction        : Vector3{0,-1,0}; }
-    Vector4 GetLightColor()       const { return lightData_ ? lightData_->color            : Vector4{1,1,1,1}; }
-    float   GetLightIntensity()   const { return lightData_ ? lightData_->intensity        : 1.0f; }
-    Vector3 GetAmbientColor()     const { return lightData_ ? lightData_->ambientColor     : Vector3{1,1,1}; }
-    float   GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : 0.3f; }
+    Vector3 GetLightDirectionRaw() const { return lightData_ ? lightData_->direction : Vector3 { 0, -1, 0 }; }
+    Vector4 GetLightColor() const { return lightData_ ? lightData_->color : Vector4 { 1, 1, 1, 1 }; }
+    float GetLightIntensity() const { return lightData_ ? lightData_->intensity : 1.0f; }
+    Vector3 GetAmbientColor() const { return lightData_ ? lightData_->ambientColor : Vector3 { 1, 1, 1 }; }
+    float GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : 0.3f; }
 
     // =============================================
     // ポイントライト管理
@@ -119,7 +144,8 @@ public:
      * @param light 追加するポイントライトデータ
      * @note 上限（kMaxPointLights = 8）を超えると無視されます
      */
-    void AddPointLight(const PointLight& light) {
+    void AddPointLight(const PointLight& light)
+    {
         if (pointLightCount_ < kMaxPointLights && pointLightData_) {
             pointLightData_->lights[pointLightCount_++] = light;
         }
@@ -135,27 +161,27 @@ private:
     struct DirectionalLight {
         Vector4 color;
         Vector3 direction;
-        float   intensity;
+        float intensity;
         Vector3 ambientColor;
-        float   ambientIntensity;
+        float ambientIntensity;
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> lightResource_;
     DirectionalLight* lightData_ = nullptr; ///< Map 済みポインタ
 
     // --- ポイントライト群 ---
     struct PointLightBuffer {
-        uint32_t   count;
-        float      pad[3];
+        uint32_t count;
+        float pad[3];
         PointLight lights[kMaxPointLights];
     };
     static_assert(sizeof(PointLightBuffer) == 16 + 48 * 8,
-                  "PointLightBuffer size mismatch with HLSL");
+        "PointLightBuffer size mismatch with HLSL");
 
     Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource_;
-    PointLightBuffer* pointLightData_  = nullptr; ///< Map 済みポインタ
+    PointLightBuffer* pointLightData_ = nullptr; ///< Map 済みポインタ
 
     bool manualLightOverride_ = false; ///< true のとき UpdateLight() をスキップする
-    UINT              pointLightCount_ = 0;        ///< AddPointLight で増える現在のライト数
+    UINT pointLightCount_ = 0; ///< AddPointLight で増える現在のライト数
 };
 
 } // namespace engine::graphics

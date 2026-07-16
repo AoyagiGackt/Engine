@@ -21,15 +21,15 @@ using namespace engine::graphics;
 namespace engine::game::SceneShared {
 
 namespace {
-// フィニッシャー演出共通の色（青白い剣閃）
-constexpr Vector4 kFinisherGlowColor  = { 0.60f, 0.85f, 1.00f, 0.95f };
-constexpr Vector4 kFinisherSparkColor = { 0.80f, 0.95f, 1.00f, 1.00f };
+    // フィニッシャー演出共通の色（青白い剣閃）
+    constexpr Vector4 kFinisherGlowColor = { 0.60f, 0.85f, 1.00f, 0.95f };
+    constexpr Vector4 kFinisherSparkColor = { 0.80f, 0.95f, 1.00f, 1.00f };
 
-std::mt19937& FinisherRng()
-{
-    static std::mt19937 rng{ std::random_device{}() };
-    return rng;
-}
+    std::mt19937& FinisherRng()
+    {
+        static std::mt19937 rng { std::random_device { }() };
+        return rng;
+    }
 } // namespace
 
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
@@ -38,7 +38,7 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
     overlay->Initialize(spriteCommon, "Resources/white.png");
     overlay->SetPosition({ 0.0f, 0.0f });
     overlay->SetSize({ static_cast<float>(WinApp::kClientWidth),
-                        static_cast<float>(WinApp::kClientHeight) });
+        static_cast<float>(WinApp::kClientHeight) });
     overlay->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
     return overlay;
 }
@@ -59,7 +59,9 @@ void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPa
 {
     for (const auto& group : JsonHelper::Load(jsonPath)) {
         std::string name = group.value("name", "");
-        if (name.empty()) { continue; }
+        if (name.empty()) {
+            continue;
+        }
         pm->CreateParticleGroup(name, group.value("texture", ""));
         pm->SetAdditiveBlend(name, group.value("additive", false));
     }
@@ -70,8 +72,14 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weapon
     // 武器切り替え（Q/E、数字キー 1〜4）
     weaponCycleTimer -= GameConstants::kFrameDeltaTime;
     if (weaponCycleTimer <= 0.0f) {
-        if (input->TriggerKey(DIK_Q)) { weaponManager->SelectPrev(); weaponCycleTimer = 0.15f; }
-        if (input->TriggerKey(DIK_E)) { weaponManager->SelectNext(); weaponCycleTimer = 0.15f; }
+        if (input->TriggerKey(DIK_Q)) {
+            weaponManager->SelectPrev();
+            weaponCycleTimer = 0.15f;
+        }
+        if (input->TriggerKey(DIK_E)) {
+            weaponManager->SelectNext();
+            weaponCycleTimer = 0.15f;
+        }
         for (int i = 0; i < weaponManager->GetCount(); ++i) {
             if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
                 weaponManager->SelectIndex(i);
@@ -83,10 +91,10 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weapon
 
 engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
 {
-    const float left  = (dirX >= 0.0f) ? backRange  : frontRange;
+    const float left = (dirX >= 0.0f) ? backRange : frontRange;
     const float right = (dirX >= 0.0f) ? frontRange : backRange;
-    return { { playerPos.x - left,  playerPos.y - 1.5f, -0.5f },
-             { playerPos.x + right, playerPos.y + 1.5f,  0.5f } };
+    return { { playerPos.x - left, playerPos.y - 1.5f, -0.5f },
+        { playerPos.x + right, playerPos.y + 1.5f, 0.5f } };
 }
 
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
@@ -98,11 +106,9 @@ void WorldToScreen(float worldX, float worldY, float camX, float camY, float& ou
 void UpdateCameraFollow(Camera* camera, const Vector3& playerPos)
 {
     constexpr float kBlockRadius = 0.5f;
-    camera->SetTranslate({
-        std::clamp(playerPos.x,          2.0f  - kBlockRadius + GameConstants::kCameraHalfW,  28.0f + kBlockRadius - GameConstants::kCameraHalfW),
-        std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH,  13.0f + kBlockRadius - GameConstants::kCameraHalfH),
-        -24.0f
-    });
+    camera->SetTranslate({ std::clamp(playerPos.x, 2.0f - kBlockRadius + GameConstants::kCameraHalfW, 28.0f + kBlockRadius - GameConstants::kCameraHalfW),
+        std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH, 13.0f + kBlockRadius - GameConstants::kCameraHalfH),
+        -24.0f });
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
@@ -110,7 +116,7 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
     if (isNear && input->TriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeScene(targetSceneName);
+        SceneManager::GetInstance()->ChangeSceneWithLoading(targetSceneName);
     }
     return isNear;
 }
@@ -121,9 +127,9 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     constexpr float kLineH = FontRenderer::kCharH * kScale;
     constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
     constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
-    constexpr Vector4 kColorSel    = { 1.0f, 1.0f, 0.2f, 1.0f };
+    constexpr Vector4 kColorSel = { 1.0f, 1.0f, 0.2f, 1.0f };
     constexpr Vector4 kColorLocked = { 0.45f, 0.45f, 0.45f, 0.8f };
-    constexpr Vector4 kColorHint   = { 0.6f, 0.6f, 0.6f, 1.0f };
+    constexpr Vector4 kColorHint = { 0.6f, 0.6f, 0.6f, 1.0f };
 
     float px = 12.0f;
     float py = 12.0f;
@@ -136,7 +142,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     const auto& weaponList = weaponManager->GetList();
     for (int i = 0; i < static_cast<int>(weaponList.size()); ++i) {
         bool unlocked = weaponManager->IsUnlocked(i);
-        bool sel      = unlocked && (i == weaponManager->GetIndex());
+        bool sel = unlocked && (i == weaponManager->GetIndex());
         char buf[64];
         if (unlocked) {
             std::snprintf(buf, sizeof(buf), "%s %d.%-8s DMG:%.0f  RNG:%.1f",
@@ -144,7 +150,8 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         } else {
             std::snprintf(buf, sizeof(buf), "  %d.???      [LOCKED]", i + 1);
         }
-        fontRenderer.DrawString(buf, px, py, kScale, sel ? kColorSel : unlocked ? kColorNormal : kColorLocked);
+        fontRenderer.DrawString(buf, px, py, kScale, sel ? kColorSel : unlocked ? kColorNormal
+                                                                                : kColorLocked);
         py += kLineH;
     }
 
@@ -164,11 +171,11 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
 void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabel)
 {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
-    constexpr float kIx     = 870.0f;
-    constexpr float kIS     = 1.3f;
+    constexpr float kIx = 870.0f;
+    constexpr float kIS = 1.3f;
     constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-    constexpr Vector4 kCH   = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kCD   = { 0.72f, 0.72f, 0.72f, 1.0f };
+    constexpr Vector4 kCH = { 1.0f, 0.85f, 0.0f, 1.0f };
+    constexpr Vector4 kCD = { 0.72f, 0.72f, 0.72f, 1.0f };
     float iy = 12.0f;
 
     fontRenderer.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
@@ -198,10 +205,10 @@ void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fg
     float gauge, bool awakened, float pulseTimer)
 {
     constexpr float kScale = 1.5f;
-    constexpr float kBarW  = 280.0f;
-    constexpr float kBarH  =  14.0f;
-    constexpr float kBarX  = 640.0f - kBarW * 0.5f;
-    constexpr float kBarY  = 700.0f;
+    constexpr float kBarW = 280.0f;
+    constexpr float kBarH = 14.0f;
+    constexpr float kBarX = 640.0f - kBarW * 0.5f;
+    constexpr float kBarY = 700.0f;
 
     bgSprite->SetPosition({ kBarX, kBarY });
     bgSprite->SetSize({ kBarW, kBarH });
@@ -209,8 +216,8 @@ void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fg
 
     float pulse = awakened ? (0.7f + 0.3f * std::sin(pulseTimer * 8.0f)) : 1.0f;
     Vector4 fgColor = awakened
-        ? Vector4{ 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
-        : Vector4{ 0.10f, 0.45f, 0.95f, 0.85f };
+        ? Vector4 { 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
+        : Vector4 { 0.10f, 0.45f, 0.95f, 0.85f };
     fgSprite->SetColor(fgColor);
     fgSprite->SetPosition({ kBarX, kBarY });
     fgSprite->SetSize({ kBarW * gauge, kBarH });
@@ -239,7 +246,7 @@ void EmitFinisherCharge(ParticleManager* pm,
     constexpr int kMoteCount = 20;
     for (int i = 0; i < kMoteCount; ++i) {
         const float ang = angleDist(rng);
-        const float r   = radiusDist(rng);
+        const float r = radiusDist(rng);
         Vector3 spawn = { pos.x + std::cos(ang) * r, pos.y + std::sin(ang) * r, 0.0f };
         const float speed = r / GameConstants::kFinisherChargeDelay;
         Vector3 vel = { -std::cos(ang) * speed, -std::sin(ang) * speed, 0.0f };
@@ -269,7 +276,7 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     for (int i = 0; i < kGlintCount; ++i) {
         const float t = tDist(rng);
         Vector3 spawn = { center.x + dir.x * t, center.y + dir.y * t, 0.0f };
-        Vector3 vel   = { driftDist(rng), driftDist(rng) + 0.5f, 0.0f };
+        Vector3 vel = { driftDist(rng), driftDist(rng) + 0.5f, 0.0f };
         pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherSparkColor, 0.25f, scaleDist(rng), true);
     }
 
@@ -288,7 +295,7 @@ void EmitFinisherRelease(ParticleManager* pm,
 
     // 放射状に飛び散る火花
     std::uniform_real_distribution<float> vxDist(-7.0f, 7.0f);
-    std::uniform_real_distribution<float> vyDist( 4.0f, 11.0f);
+    std::uniform_real_distribution<float> vyDist(4.0f, 11.0f);
     for (int i = 0; i < 24; ++i) {
         pm->EmitGravity(sparkGroup, pos,
             { vxDist(rng), vyDist(rng), 0.0f },
@@ -315,10 +322,10 @@ void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, f
 {
     SlashMarkParams sm;
     WorldToScreen(start.x, start.y, camX, camY, sm.start.x, sm.start.y);
-    WorldToScreen(end.x,   end.y,   camX, camY, sm.end.x,   sm.end.y);
-    sm.color     = color;
+    WorldToScreen(end.x, end.y, camX, camY, sm.end.x, sm.end.y);
+    sm.color = color;
     sm.thickness = thickness;
-    sm.duration  = duration;
+    sm.duration = duration;
     SlashMark::GetInstance()->Spawn(sm);
 }
 

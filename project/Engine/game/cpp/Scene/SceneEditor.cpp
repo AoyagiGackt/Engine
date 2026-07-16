@@ -1,13 +1,14 @@
 #include "SceneEditor.h"
 #include "GameConstants.h"
+#include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include <string>
 #ifdef USE_IMGUI
-#include <imgui.h>
 #include <commdlg.h>
+#include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
 #endif
 using namespace engine;
@@ -25,16 +26,18 @@ namespace engine::game {
 // initDir = ダイアログを開いたときに最初に表示するフォルダ
 static std::string OpenFileDialog(const char* filter, const char* initDir)
 {
-    char path[MAX_PATH] = {};
-    OPENFILENAMEA ofn   = {};
-    ofn.lStructSize     = sizeof(ofn);       // 構造体のサイズ（Windows API の決まり）
-    ofn.lpstrFilter     = filter;            // 表示するファイル種別フィルタ
-    ofn.lpstrFile       = path;              // 選択されたパスの書き込み先バッファ
-    ofn.nMaxFile        = MAX_PATH;          // バッファの最大サイズ
-    ofn.lpstrInitialDir = initDir;           // 最初に表示するフォルダ
-    ofn.Flags           = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST; // 実在するファイルのみ選択可能
-    if (GetOpenFileNameA(&ofn)) { return path; } // OK を押したらパスを返す
-    return {}; // キャンセルしたら空文字列を返す
+    char path[MAX_PATH] = { };
+    OPENFILENAMEA ofn = { };
+    ofn.lStructSize = sizeof(ofn); // 構造体のサイズ（Windows API の決まり）
+    ofn.lpstrFilter = filter; // 表示するファイル種別フィルタ
+    ofn.lpstrFile = path; // 選択されたパスの書き込み先バッファ
+    ofn.nMaxFile = MAX_PATH; // バッファの最大サイズ
+    ofn.lpstrInitialDir = initDir; // 最初に表示するフォルダ
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST; // 実在するファイルのみ選択可能
+    if (GetOpenFileNameA(&ofn)) {
+        return path;
+    } // OK を押したらパスを返す
+    return { }; // キャンセルしたら空文字列を返す
 }
 #endif
 
@@ -46,17 +49,33 @@ static std::string OpenFileDialog(const char* filter, const char* initDir)
 // こうすることで Inspector パネルに表示する内容がオブジェクト種別に応じて変わる
 void SceneEditor::ChangeState(Selection sel)
 {
-    selection_      = sel;
+    selection_ = sel;
     selectionIndex_ = -1; // UIElement のインデックスをリセット
     switch (sel) {
-    case Selection::Camera:         currentState_ = std::make_unique<CameraState>();    break;
-    case Selection::Ring:           currentState_ = std::make_unique<RingState>();      break;
-    case Selection::Cylinder:       currentState_ = std::make_unique<CylinderState>(); break;
-    case Selection::Skydome:        currentState_ = std::make_unique<SkydomeState>();   break;
-    case Selection::Human:          currentState_ = std::make_unique<HumanState>();     break;
-    case Selection::WhiteParticles: currentState_ = std::make_unique<ParticlesState>();break;
-    case Selection::UIElement:      currentState_ = std::make_unique<UIElementState>();break;
-    default:                        currentState_ = std::make_unique<NoneState>();      break;
+    case Selection::Camera:
+        currentState_ = std::make_unique<CameraState>();
+        break;
+    case Selection::Ring:
+        currentState_ = std::make_unique<RingState>();
+        break;
+    case Selection::Cylinder:
+        currentState_ = std::make_unique<CylinderState>();
+        break;
+    case Selection::Skydome:
+        currentState_ = std::make_unique<SkydomeState>();
+        break;
+    case Selection::Human:
+        currentState_ = std::make_unique<HumanState>();
+        break;
+    case Selection::WhiteParticles:
+        currentState_ = std::make_unique<ParticlesState>();
+        break;
+    case Selection::UIElement:
+        currentState_ = std::make_unique<UIElementState>();
+        break;
+    default:
+        currentState_ = std::make_unique<NoneState>();
+        break;
     }
 }
 
@@ -65,16 +84,23 @@ void SceneEditor::ChangeState(Selection sel)
 // ============================================================
 
 // 毎フレーム呼ばれるUSE_IMGUI ビルドのときだけ各パネルを描画する
-// リリースビルドでは (void)ctx; だけが実行されて何もしない
-void SceneEditor::Update(const EditContext& ctx)
+// リリースビルドでは引数を無視して何もしない
+void SceneEditor::Update(const EditContext& ctx, engine::Input* input)
 {
 #ifdef USE_IMGUI
-    RenderHierarchy(ctx);     // 左：オブジェクト一覧
-    RenderInspector(ctx);     // 右：選択中オブジェクトのプロパティ
+    if (input && input->TriggerKey(DIK_F3)) {
+        visible_ = !visible_;
+    }
+    if (!visible_) {
+        return;
+    }
+    RenderHierarchy(ctx); // 左：オブジェクト一覧
+    RenderInspector(ctx); // 右：選択中オブジェクトのプロパティ
     RenderSceneControls(ctx); // 左下：スコア・ゲーム時刻・シーン操作
     RenderCameraControl(ctx); // 上中央：カメラ位置の簡易操作
 #else
     (void)ctx;
+    (void)input;
 #endif
 }
 
@@ -93,15 +119,15 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
 
     // Selectable を選んだら ChangeState を呼んで Inspector を切り替える
     auto selectable = [&](const char* label, Selection type) {
-        if (ImGui::Selectable(label, selection_ == type)) { ChangeState(type); }
+        if (ImGui::Selectable(label, selection_ == type)) {
+            ChangeState(type);
+        }
     };
 
-    selectable("Camera",          Selection::Camera);
-    selectable("Skydome",         Selection::Skydome);
-    selectable("Human",           Selection::Human);
-    selectable("Ring",            Selection::Ring);
-    selectable("Cylinder",        Selection::Cylinder);
-    selectable("White Particles", Selection::WhiteParticles);
+    // Ring/Cylinder/Human/White Particles はこのシーンのEditContextに配線されておらず
+    // 選んでも無効表示にしかならないため、実際に編集できる項目だけを並べる
+    selectable("Camera", Selection::Camera);
+    selectable("Skydome", Selection::Skydome);
 
     // UI Elements は可変長リストなのでツリーノードで折りたたみ表示する
     char uiHeader[48];
@@ -111,9 +137,9 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
     // + ボタンを押すと新しい UI スプライトを追加する
     if (ImGui::SmallButton("+##addUI")) {
         UIEntry entry;
-        entry.name    = "UI Element " + std::to_string(uiElements_.size() + 1);
+        entry.name = "UI Element " + std::to_string(uiElements_.size() + 1);
         entry.texPath = "";
-        entry.sprite  = std::make_unique<Sprite>();
+        entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(ctx.spriteCommon, entry.texPath);
         entry.sprite->SetPosition({ GameConstants::kScreenCenterX, GameConstants::kScreenCenterY }); // 画面中央に配置
         entry.sprite->SetSize({ 100.0f, 100.0f });
@@ -126,9 +152,9 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
             snprintf(label, sizeof(label), "  %s", uiElements_[i].name.c_str());
             if (ImGui::Selectable(label, sel)) {
                 // UIElement を選択したときはインデックスも一緒に保存する
-                selection_      = Selection::UIElement;
+                selection_ = Selection::UIElement;
                 selectionIndex_ = i;
-                currentState_   = std::make_unique<UIElementState>();
+                currentState_ = std::make_unique<UIElementState>();
             }
         }
         ImGui::TreePop();
@@ -142,8 +168,14 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
         ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "Saved!");
     } else {
         if (ImGui::Button("Save", ImVec2(-1, 0))) {
-            if (selection_ == Selection::Camera)    { SaveCameraParams(ctx); savedTimer_ = 1.5f; }
-            if (selection_ == Selection::UIElement) { SaveUILayout();        savedTimer_ = 1.5f; }
+            if (selection_ == Selection::Camera) {
+                SaveCameraParams(ctx);
+                savedTimer_ = 1.5f;
+            }
+            if (selection_ == Selection::UIElement) {
+                SaveUILayout();
+                savedTimer_ = 1.5f;
+            }
         }
     }
 
@@ -161,8 +193,7 @@ void SceneEditor::RenderInspector(const EditContext& ctx)
 {
 #ifdef USE_IMGUI
     // UIElement を選んでいるのにインデックスが範囲外なら選択を解除する
-    if (selection_ == Selection::UIElement &&
-        (selectionIndex_ < 0 || selectionIndex_ >= (int)uiElements_.size())) {
+    if (selection_ == Selection::UIElement && (selectionIndex_ < 0 || selectionIndex_ >= (int)uiElements_.size())) {
         ChangeState(Selection::None);
     }
 
@@ -198,7 +229,9 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
     if (ImGui::CollapsingHeader("Score")) {
         ImGui::Text("Current : %d", ScoreManager::GetInstance()->GetCurrentScore());
         const auto& ranking = ScoreManager::GetInstance()->GetRanking();
-        if (ranking.empty()) { ImGui::TextDisabled("  (no records)"); }
+        if (ranking.empty()) {
+            ImGui::TextDisabled("  (no records)");
+        }
         for (int i = 0; i < (int)ranking.size(); ++i) {
             ImGui::Text("  %2d. %d", i + 1, ranking[i]);
         }
@@ -214,9 +247,14 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
 
     // シーン切り替えボタン（折りたたみ）
     if (ImGui::CollapsingHeader("Actions")) {
-        if (ImGui::Button("Game Clear"))  { if (ctx.requestClear) *ctx.requestClear = true; }
+        if (ImGui::Button("Game Clear")) {
+            if (ctx.requestClear)
+                *ctx.requestClear = true;
+        }
         ImGui::SameLine();
-        if (ImGui::Button("Game Over"))   { SceneManager::GetInstance()->ChangeScene("GAMEOVER"); }
+        if (ImGui::Button("Game Over")) {
+            SceneManager::GetInstance()->ChangeScene("GAMEOVER");
+        }
     }
 
     ImGui::End();
@@ -256,9 +294,13 @@ void SceneEditor::RenderCameraControl(const EditContext& ctx)
         ctx.cameraRotHistory->clear();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Save##cam")) { SaveCameraParams(ctx); } // JSON に現在値を保存
+    if (ImGui::Button("Save##cam")) {
+        SaveCameraParams(ctx);
+    } // JSON に現在値を保存
     ImGui::SameLine();
-    if (ImGui::Button("Load##cam")) { LoadCameraParams(ctx); } // JSON から前回値を復元
+    if (ImGui::Button("Load##cam")) {
+        LoadCameraParams(ctx);
+    } // JSON から前回値を復元
 
     ImGui::End();
 #endif
@@ -274,8 +316,8 @@ void SceneEditor::SaveCameraParams(const EditContext& ctx)
     const Vector3& pos = *ctx.cameraTargetPos;
     const Vector3& rot = *ctx.cameraTargetRot;
     nlohmann::json j;
-    j["camera_pos"]           = { pos.x, pos.y, pos.z };
-    j["camera_rot"]           = { rot.x, rot.y, rot.z };
+    j["camera_pos"] = { pos.x, pos.y, pos.z };
+    j["camera_rot"] = { rot.x, rot.y, rot.z };
     j["camera_smooth_frames"] = *ctx.cameraSmoothFrames;
     JsonHelper::Save("Resources/debug_camera.json", j);
 }
@@ -284,7 +326,9 @@ void SceneEditor::SaveCameraParams(const EditContext& ctx)
 void SceneEditor::LoadCameraParams(const EditContext& ctx)
 {
     auto j = JsonHelper::Load("Resources/debug_camera.json");
-    if (j.empty()) { return; }
+    if (j.empty()) {
+        return;
+    }
 
     Vector3& pos = *ctx.cameraTargetPos;
     Vector3& rot = *ctx.cameraTargetRot;
@@ -310,17 +354,15 @@ void SceneEditor::SaveUILayout()
     for (const auto& e : uiElements_) {
         Sprite* sp = e.sprite.get();
         Vector2 pos = sp->GetPosition();
-        Vector2 sz  = sp->GetSize();
+        Vector2 sz = sp->GetSize();
         Vector4 col = sp->GetColor();
-        float   rot = sp->GetRotation();
-        arr.push_back({
-            { "name",  e.name },
-            { "tex",   e.texPath },
-            { "pos",   { pos.x, pos.y } },
-            { "size",  { sz.x,  sz.y  } },
-            { "rot",   rot },
-            { "color", { col.x, col.y, col.z, col.w } }
-        });
+        float rot = sp->GetRotation();
+        arr.push_back({ { "name", e.name },
+            { "tex", e.texPath },
+            { "pos", { pos.x, pos.y } },
+            { "size", { sz.x, sz.y } },
+            { "rot", rot },
+            { "color", { col.x, col.y, col.z, col.w } } });
     }
     JsonHelper::Save("Resources/debug_ui.json", arr);
 }
@@ -336,15 +378,17 @@ void SceneEditor::LoadAll(const EditContext& ctx)
 void SceneEditor::LoadUILayout(const EditContext& ctx)
 {
     auto j = JsonHelper::Load("Resources/debug_ui.json");
-    if (!j.is_array()) { return; }
+    if (!j.is_array()) {
+        return;
+    }
 
     uiElements_.clear();
     ChangeState(Selection::None);
 
     for (const auto& item : j) {
         UIEntry entry;
-        entry.name    = item.value("name", std::string("UI Element"));
-        entry.texPath = item.value("tex",  std::string(""));
+        entry.name = item.value("name", std::string("UI Element"));
+        entry.texPath = item.value("tex", std::string(""));
 
         entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(ctx.spriteCommon, entry.texPath);
@@ -385,7 +429,7 @@ void SceneEditor::CameraState::RenderInspector(const EditContext& ctx, SceneEdit
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(1, 1, 0, 1), "[Camera]");
     ImGui::Separator();
-    ImGui::DragFloat3("Position", &ctx.cameraTargetPos->x, 0.1f);  // ドラッグで位置を変更
+    ImGui::DragFloat3("Position", &ctx.cameraTargetPos->x, 0.1f); // ドラッグで位置を変更
     ImGui::DragFloat3("Rotation", &ctx.cameraTargetRot->x, 0.01f); // ドラッグで角度を変更
     // スムージングフレーム数を変えたら履歴をリセットしないと古い平均が残ってしまう
     if (ImGui::SliderInt("Smooth Frames", ctx.cameraSmoothFrames, 1, 60)) {
@@ -393,7 +437,9 @@ void SceneEditor::CameraState::RenderInspector(const EditContext& ctx, SceneEdit
         ctx.cameraRotHistory->clear();
     }
     ImGui::Separator();
-    if (ImGui::Button("Save##inspCam")) { editor.SaveCameraParams(ctx); }
+    if (ImGui::Button("Save##inspCam")) {
+        editor.SaveCameraParams(ctx);
+    }
 #endif
 }
 
@@ -407,9 +453,15 @@ void SceneEditor::RingState::RenderInspector(const EditContext& ctx, SceneEditor
         ImGui::TextDisabled("Ring is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.ringPosition->x, 0.1f))  { ctx.ring->SetPosition(*ctx.ringPosition); }
-    if (ImGui::DragFloat3("Rotation", &ctx.ringRotation->x, 0.01f)) { ctx.ring->SetRotation(*ctx.ringRotation); }
-    if (ImGui::DragFloat("Scale", ctx.ringScale, 0.01f, 0.01f, 20.0f)) { ctx.ring->SetScale(*ctx.ringScale); }
+    if (ImGui::DragFloat3("Position", &ctx.ringPosition->x, 0.1f)) {
+        ctx.ring->SetPosition(*ctx.ringPosition);
+    }
+    if (ImGui::DragFloat3("Rotation", &ctx.ringRotation->x, 0.01f)) {
+        ctx.ring->SetRotation(*ctx.ringRotation);
+    }
+    if (ImGui::DragFloat("Scale", ctx.ringScale, 0.01f, 0.01f, 20.0f)) {
+        ctx.ring->SetScale(*ctx.ringScale);
+    }
     ImGui::Separator();
     if (ImGui::DragFloat("Inner Radius", ctx.ringInnerRadius, 0.05f, 0.01f, *ctx.ringOuterRadius - 0.01f)) {
         ctx.ring->SetInnerRadius(*ctx.ringInnerRadius);
@@ -418,7 +470,9 @@ void SceneEditor::RingState::RenderInspector(const EditContext& ctx, SceneEditor
         ctx.ring->SetOuterRadius(*ctx.ringOuterRadius);
     }
     ImGui::Separator();
-    if (ImGui::ColorEdit4("Color", &ctx.ringColor->x)) { ctx.ring->SetColor(*ctx.ringColor); }
+    if (ImGui::ColorEdit4("Color", &ctx.ringColor->x)) {
+        ctx.ring->SetColor(*ctx.ringColor);
+    }
 #endif
 }
 
@@ -432,16 +486,32 @@ void SceneEditor::CylinderState::RenderInspector(const EditContext& ctx, SceneEd
         ImGui::TextDisabled("Cylinder is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.cylinderPosition->x, 0.1f))  { ctx.cylinder->SetPosition(*ctx.cylinderPosition); }
-    if (ImGui::DragFloat3("Rotation", &ctx.cylinderRotation->x, 0.01f)) { ctx.cylinder->SetRotation(*ctx.cylinderRotation); }
-    if (ImGui::DragFloat("Scale", ctx.cylinderScale, 0.01f, 0.01f, 20.0f)) { ctx.cylinder->SetScale(*ctx.cylinderScale); }
+    if (ImGui::DragFloat3("Position", &ctx.cylinderPosition->x, 0.1f)) {
+        ctx.cylinder->SetPosition(*ctx.cylinderPosition);
+    }
+    if (ImGui::DragFloat3("Rotation", &ctx.cylinderRotation->x, 0.01f)) {
+        ctx.cylinder->SetRotation(*ctx.cylinderRotation);
+    }
+    if (ImGui::DragFloat("Scale", ctx.cylinderScale, 0.01f, 0.01f, 20.0f)) {
+        ctx.cylinder->SetScale(*ctx.cylinderScale);
+    }
     ImGui::Separator();
-    if (ImGui::DragFloat("Top Radius",    ctx.cylinderTopRadius,    0.05f, 0.01f, 50.0f)) { ctx.cylinder->SetTopRadius(*ctx.cylinderTopRadius); }
-    if (ImGui::DragFloat("Bottom Radius", ctx.cylinderBottomRadius, 0.05f, 0.01f, 50.0f)) { ctx.cylinder->SetBottomRadius(*ctx.cylinderBottomRadius); }
-    if (ImGui::DragFloat("Height",        ctx.cylinderHeight,       0.05f, 0.01f, 50.0f)) { ctx.cylinder->SetHeight(*ctx.cylinderHeight); }
+    if (ImGui::DragFloat("Top Radius", ctx.cylinderTopRadius, 0.05f, 0.01f, 50.0f)) {
+        ctx.cylinder->SetTopRadius(*ctx.cylinderTopRadius);
+    }
+    if (ImGui::DragFloat("Bottom Radius", ctx.cylinderBottomRadius, 0.05f, 0.01f, 50.0f)) {
+        ctx.cylinder->SetBottomRadius(*ctx.cylinderBottomRadius);
+    }
+    if (ImGui::DragFloat("Height", ctx.cylinderHeight, 0.05f, 0.01f, 50.0f)) {
+        ctx.cylinder->SetHeight(*ctx.cylinderHeight);
+    }
     ImGui::Separator();
-    if (ImGui::ColorEdit4("Color", &ctx.cylinderColor->x)) { ctx.cylinder->SetColor(*ctx.cylinderColor); }
-    if (ImGui::SliderFloat("Alpha Reference", ctx.cylinderAlphaRef, 0.0f, 1.0f)) { ctx.cylinder->SetAlphaReference(*ctx.cylinderAlphaRef); }
+    if (ImGui::ColorEdit4("Color", &ctx.cylinderColor->x)) {
+        ctx.cylinder->SetColor(*ctx.cylinderColor);
+    }
+    if (ImGui::SliderFloat("Alpha Reference", ctx.cylinderAlphaRef, 0.0f, 1.0f)) {
+        ctx.cylinder->SetAlphaReference(*ctx.cylinderAlphaRef);
+    }
 #endif
 }
 
@@ -452,7 +522,9 @@ void SceneEditor::SkydomeState::RenderInspector(const EditContext& ctx, SceneEdi
     ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1), "[Skydome]");
     ImGui::Separator();
     if (ctx.skydome) {
-        if (ImGui::ColorEdit4("Sky Color", &ctx.skyColor->x)) { ctx.skydome->SetSkyColor(*ctx.skyColor); }
+        if (ImGui::ColorEdit4("Sky Color", &ctx.skyColor->x)) {
+            ctx.skydome->SetSkyColor(*ctx.skyColor);
+        }
         // 天球を Y 軸回転させることで、「朝」「夕方」「夜」のような方角の変化を演出できる
         if (ImGui::SliderFloat("Rotation Offset Y", ctx.skyRotOffsetY, -GameConstants::kPi, GameConstants::kPi)) {
             ctx.skydome->SetRotationOffsetY(*ctx.skyRotOffsetY);
@@ -477,16 +549,24 @@ void SceneEditor::HumanState::RenderInspector(const EditContext& ctx, SceneEdito
         ImGui::TextDisabled("Human is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.humanPosition->x, 0.05f)) { ctx.human->SetPosition(*ctx.humanPosition); }
-    if (ImGui::DragFloat3("Rotation", &ctx.humanRotation->x, 0.01f)) { ctx.human->SetRotation(*ctx.humanRotation); }
-    if (ImGui::DragFloat3("Scale",    &ctx.humanScale->x, 0.01f, 0.001f, 100.0f)) { ctx.human->SetScale(*ctx.humanScale); }
+    if (ImGui::DragFloat3("Position", &ctx.humanPosition->x, 0.05f)) {
+        ctx.human->SetPosition(*ctx.humanPosition);
+    }
+    if (ImGui::DragFloat3("Rotation", &ctx.humanRotation->x, 0.01f)) {
+        ctx.human->SetRotation(*ctx.humanRotation);
+    }
+    if (ImGui::DragFloat3("Scale", &ctx.humanScale->x, 0.01f, 0.001f, 100.0f)) {
+        ctx.human->SetScale(*ctx.humanScale);
+    }
     ImGui::Separator();
-    if (ImGui::SliderFloat("Anim Speed", ctx.humanAnimSpeed, 0.0f, 5.0f)) { ctx.human->SetAnimSpeed(*ctx.humanAnimSpeed); }
+    if (ImGui::SliderFloat("Anim Speed", ctx.humanAnimSpeed, 0.0f, 5.0f)) {
+        ctx.human->SetAnimSpeed(*ctx.humanAnimSpeed);
+    }
     ImGui::Separator();
     if (ImGui::Button("Reset")) {
-        *ctx.humanPosition  = { 5.0f, 0.0f, 0.0f };
-        *ctx.humanRotation  = {};
-        *ctx.humanScale     = { 1.0f, 1.0f, 1.0f };
+        *ctx.humanPosition = { 5.0f, 0.0f, 0.0f };
+        *ctx.humanRotation = { };
+        *ctx.humanScale = { 1.0f, 1.0f, 1.0f };
         *ctx.humanAnimSpeed = 1.0f;
         ctx.human->SetPosition(*ctx.humanPosition);
         ctx.human->SetRotation(*ctx.humanRotation);
@@ -509,9 +589,9 @@ void SceneEditor::ParticlesState::RenderInspector(const EditContext& ctx, SceneE
         return;
     }
     ImGui::DragFloat3("Position", &ctx.whiteParticlePos->x, 0.1f);
-    ImGui::ColorEdit4("Color",    &ctx.whiteParticleColor->x);
-    ImGui::DragFloat("Scale",     ctx.whiteParticleScale, 0.01f, 0.01f, 10.0f);
-    ImGui::SliderInt("Count",     ctx.whiteParticleCount, 1, 1024);
+    ImGui::ColorEdit4("Color", &ctx.whiteParticleColor->x);
+    ImGui::DragFloat("Scale", ctx.whiteParticleScale, 0.01f, 0.01f, 10.0f);
+    ImGui::SliderInt("Count", ctx.whiteParticleCount, 1, 1024);
     ImGui::Separator();
     if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
         ParticleManager::GetInstance()->EmitScatterLoop(
@@ -527,41 +607,56 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
 {
 #ifdef USE_IMGUI
     int idx = editor.selectionIndex_;
-    if (idx < 0 || idx >= (int)editor.uiElements_.size()) { return; } // 範囲外なら何もしない
+    if (idx < 0 || idx >= (int)editor.uiElements_.size()) {
+        return;
+    } // 範囲外なら何もしない
 
     UIEntry& entry = editor.uiElements_[idx];
-    Sprite*  sp    = entry.sprite.get();
+    Sprite* sp = entry.sprite.get();
 
     ImGui::TextColored(ImVec4(1, 0.5f, 1, 1), "[UI Element]");
     ImGui::Separator();
 
     // 名前編集用のバッファ選択が変わったときだけバッファを更新する
-    static int   lastIdx       = -2;
-    static char  uiNameBuf[64] = {};
+    static int lastIdx = -2;
+    static char uiNameBuf[64] = { };
     if (lastIdx != idx) {
         lastIdx = idx;
         strncpy_s(uiNameBuf, entry.name.c_str(), sizeof(uiNameBuf) - 1);
     }
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::InputText("##uiname", uiNameBuf, sizeof(uiNameBuf))) { entry.name = uiNameBuf; }
+    if (ImGui::InputText("##uiname", uiNameBuf, sizeof(uiNameBuf))) {
+        entry.name = uiNameBuf;
+    }
     ImGui::Separator();
 
     // 位置・サイズ・回転・色を編集する
     Vector2 pos = sp->GetPosition();
-    if (ImGui::DragFloat2("Position", &pos.x, 1.0f))            { sp->SetPosition(pos); }
-    Vector2 sz  = sp->GetSize();
-    if (ImGui::DragFloat2("Size", &sz.x, 1.0f, 1.0f, 4096.0f)) { sp->SetSize(sz); }
+    if (ImGui::DragFloat2("Position", &pos.x, 1.0f)) {
+        sp->SetPosition(pos);
+    }
+    Vector2 sz = sp->GetSize();
+    if (ImGui::DragFloat2("Size", &sz.x, 1.0f, 1.0f, 4096.0f)) {
+        sp->SetSize(sz);
+    }
     float rot = sp->GetRotation();
-    if (ImGui::DragFloat("Rotation", &rot, 0.01f))               { sp->SetRotation(rot); }
+    if (ImGui::DragFloat("Rotation", &rot, 0.01f)) {
+        sp->SetRotation(rot);
+    }
     Vector4 col = sp->GetColor();
-    if (ImGui::ColorEdit4("Color", &col.x))                      { sp->SetColor(col); }
+    if (ImGui::ColorEdit4("Color", &col.x)) {
+        sp->SetColor(col);
+    }
     ImGui::Separator();
 
     // テクスチャファイルのパスを表示し、Browse ボタンでファイル選択ダイアログを開く
     ImGui::TextDisabled("%.40s", entry.texPath.empty() ? "(no texture)" : entry.texPath.c_str());
     if (ImGui::Button("Browse##uitex")) {
         std::string p = OpenFileDialog("PNG Files\0*.png\0All Files\0*.*\0\0", "Resources");
-        if (!p.empty()) { entry.texPath = p; sp->SetTexture(p); }
+        if (!p.empty()) {
+            entry.texPath = p;
+            sp->SetTexture(p);
+        }
     }
     ImGui::Separator();
 
@@ -573,9 +668,13 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
         editor.SaveUILayout();
     } else {
         ImGui::SameLine();
-        if (ImGui::Button("Save##inspUI"))  { editor.SaveUILayout();           }
+        if (ImGui::Button("Save##inspUI")) {
+            editor.SaveUILayout();
+        }
         ImGui::SameLine();
-        if (ImGui::Button("Load##inspUI"))  { editor.LoadUILayout(ctx);        }
+        if (ImGui::Button("Load##inspUI")) {
+            editor.LoadUILayout(ctx);
+        }
     }
 #endif
 }

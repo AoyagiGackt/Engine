@@ -1,8 +1,10 @@
 #pragma once
+#include <array>
 #include <d3d12.h>
 #include <wrl/client.h>
-#include <array>
-namespace engine { class DirectXCommon; }
+namespace engine {
+class DirectXCommon;
+}
 
 namespace engine::graphics {
 
@@ -19,7 +21,10 @@ namespace engine::graphics {
  */
 class GpuProfiler {
 public:
-    enum Scope { Shadow = 0, SSAO, Main3D, Count };
+    enum Scope { Shadow = 0,
+        SSAO,
+        Main3D,
+        Count };
 
     static GpuProfiler* GetInstance();
     void Initialize(engine::DirectXCommon* dxCommon);
@@ -39,10 +44,10 @@ private:
 
     engine::DirectXCommon* dxCommon_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeap_;
-    Microsoft::WRL::ComPtr<ID3D12Resource>  readbackBuf_;
-    uint64_t gpuFreq_   = 1;
-    bool     resolved_  = false;  // Resolve() が少なくとも1回実行されたか
-    std::array<float, Count> results_ = {};
+    Microsoft::WRL::ComPtr<ID3D12Resource> readbackBuf_;
+    uint64_t gpuFreq_ = 1;
+    bool resolved_ = false; // Resolve() が少なくとも1回実行されたか
+    std::array<float, Count> results_ = { };
 };
 
 } // namespace engine::graphics

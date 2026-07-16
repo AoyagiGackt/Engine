@@ -41,7 +41,7 @@ public:
      */
     bool IsFinished() const { return status_ == Status::None; }
 
-    Status GetStatus() const{ return status_; }
+    Status GetStatus() const { return status_; }
 
 private:
     std::unique_ptr<Sprite> sprite_; /// 画面を覆う板

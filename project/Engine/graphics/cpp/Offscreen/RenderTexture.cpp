@@ -6,30 +6,30 @@ using namespace engine::graphics;
 void RenderTexture::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, uint32_t width, uint32_t height)
 {
     dxCommon_ = dxCommon;
-    width_    = width;
-    height_   = height;
+    width_ = width;
+    height_ = height;
 
     constexpr DXGI_FORMAT kFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-    D3D12_HEAP_PROPERTIES heapProps = {};
+    D3D12_HEAP_PROPERTIES heapProps = { };
     heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
-    D3D12_CLEAR_VALUE clearValue = {};
-    clearValue.Format   = kFormat;
+    D3D12_CLEAR_VALUE clearValue = { };
+    clearValue.Format = kFormat;
     clearValue.Color[0] = 1.0f;
     clearValue.Color[1] = 0.0f;
     clearValue.Color[2] = 0.0f;
     clearValue.Color[3] = 1.0f;
 
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width            = width;
-    desc.Height           = height;
+    D3D12_RESOURCE_DESC desc = { };
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = width;
+    desc.Height = height;
     desc.DepthOrArraySize = 1;
-    desc.MipLevels        = 1;
-    desc.Format           = kFormat;
+    desc.MipLevels = 1;
+    desc.Format = kFormat;
     desc.SampleDesc.Count = 1;
-    desc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
     HRESULT hr = dxCommon_->GetDevice()->CreateCommittedResource(
         &heapProps, D3D12_HEAP_FLAG_NONE,
@@ -42,8 +42,8 @@ void RenderTexture::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, 
 
     // RTV 作成
     rtvHandle_ = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-    rtvDesc.Format        = kFormat;
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = { };
+    rtvDesc.Format = kFormat;
     rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
     dxCommon_->GetDevice()->CreateRenderTargetView(resource_.Get(), &rtvDesc, rtvHandle_);
 
@@ -71,8 +71,8 @@ void RenderTexture::BeginRendering()
     // レンダーターゲットを設定して赤でクリア
     cmdList->OMSetRenderTargets(1, &rtvHandle_, FALSE, nullptr);
 
-    D3D12_VIEWPORT vp     = { 0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_), 0.0f, 1.0f };
-    D3D12_RECT     scissor = { 0, 0, static_cast<LONG>(width_), static_cast<LONG>(height_) };
+    D3D12_VIEWPORT vp = { 0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_), 0.0f, 1.0f };
+    D3D12_RECT scissor = { 0, 0, static_cast<LONG>(width_), static_cast<LONG>(height_) };
     cmdList->RSSetViewports(1, &vp);
     cmdList->RSSetScissorRects(1, &scissor);
 

@@ -14,11 +14,11 @@ using engine::graphics::SpriteCommon;
 
 /** @brief 斬撃線1本分の生成パラメータ（座標はスクリーン座標・ピクセル） */
 struct SlashMarkParams {
-    Vector2 start;                                    ///< 始点座標
-    Vector2 end;                                      ///< 終点座標
-    Vector4 color     = { 0.85f, 0.95f, 1.0f, 1.0f }; ///< 色（アルファはフェードで上書き）
-    float   thickness = 6.0f;                          ///< 線の太さ（ピクセル）
-    float   duration  = 0.18f;                         ///< 表示時間（秒）
+    Vector2 start; ///< 始点座標
+    Vector2 end; ///< 終点座標
+    Vector4 color = { 0.85f, 0.95f, 1.0f, 1.0f }; ///< 色（アルファはフェードで上書き）
+    float thickness = 6.0f; ///< 線の太さ（ピクセル）
+    float duration = 0.18f; ///< 表示時間（秒）
 };
 
 class SlashMark {
@@ -63,15 +63,15 @@ private:
     /// @brief 内部管理用エントリ（斬撃線1本分のSpriteと経過時間）
     struct Entry {
         std::unique_ptr<Sprite> sprite;
-        Vector4                 baseColor;
-        float                   timer    = 0.0f;
-        float                   duration = 0.18f;
+        Vector4 baseColor;
+        float timer = 0.0f;
+        float duration = 0.18f;
     };
 
     /// @brief 1枚分のスプライトを生成してエントリに登録する
     void SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color);
 
-    SpriteCommon*      spriteCommon_ = nullptr;
+    SpriteCommon* spriteCommon_ = nullptr;
     std::vector<Entry> entries_;
 };
 

@@ -17,7 +17,6 @@ class ModelCommon;
  */
 class Model {
 public:
-
     /**
      * @brief モデルを構成する1つの頂点データ
      */
@@ -43,7 +42,7 @@ public:
      * @param textureFilePath 貼り付けるテクスチャ画像のパス（例: "Resources/texture.png"）
      */
     void Initialize(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath);
-    
+
     /**
      * @brief モデルの描画コマンド（DrawIndexedInstanced）を積む
      * @param modelCommon モデル描画の共通設定を持つオブジェクトのポインタ
@@ -101,7 +100,6 @@ public:
     const std::string& GetTextureFilePath() const { return textureFilePath_; }
 
 private:
-    
     /**
      * @brief OBJファイルを解析し、頂点座標・UV・法線を読み込む内部関数
      * @param filePath 読み込むOBJファイルのパス
@@ -130,13 +128,13 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
 
     /** @brief 頂点バッファビュー（GPUに頂点データの位置とサイズを伝えるための構造体） */
-    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ {};
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ { };
 
     /** @brief GPU側のインデックスバッファリソース */
     Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
 
     /** @brief インデックスバッファビュー */
-    D3D12_INDEX_BUFFER_VIEW indexBufferView_ {};
+    D3D12_INDEX_BUFFER_VIEW indexBufferView_ { };
 
     /** @brief 使用するテクスチャのファイルパス */
     std::string textureFilePath_;

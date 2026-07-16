@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "DirectXCommon.h"
-#include "SrvManager.h"
 #include "MakeAffine.h"
+#include "SrvManager.h"
 #include <wrl/client.h>
 namespace engine::graphics {
 
@@ -24,12 +24,13 @@ namespace engine::graphics {
 //   csm->SetCascadeDataCBV(cmd, slotIdx);          // スロット 8(or 9) にカスケード定数をバインド
 class CascadedShadowMap {
 public:
-    static CascadedShadowMap* GetInstance() {
+    static CascadedShadowMap* GetInstance()
+    {
         static CascadedShadowMap inst;
         return &inst;
     }
 
-    static const uint32_t kNumCascades   = 3;
+    static const uint32_t kNumCascades = 3;
     static const uint32_t kShadowMapSize = 2048;
 
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
@@ -52,14 +53,15 @@ public:
     Matrix4x4 GetCascadeVP(uint32_t i) const { return cascadeVP_[i]; }
 
     // ダミーバッファアドレス（SpriteCommon 等のスロットバインド用）
-    D3D12_GPU_VIRTUAL_ADDRESS GetDummyCBVAddress() const {
+    D3D12_GPU_VIRTUAL_ADDRESS GetDummyCBVAddress() const
+    {
         return dummyCBRes_ ? dummyCBRes_->GetGPUVirtualAddress() : 0;
     }
 
 private:
-    CascadedShadowMap()  = default;
+    CascadedShadowMap() = default;
     ~CascadedShadowMap() = default;
-    CascadedShadowMap(const CascadedShadowMap&)            = delete;
+    CascadedShadowMap(const CascadedShadowMap&) = delete;
     CascadedShadowMap& operator=(const CascadedShadowMap&) = delete;
 
     // カスケード i の VP 行列を計算（固定フラスタム fitting）
@@ -67,29 +69,29 @@ private:
 
     struct CascadeDataLayout {
         Matrix4x4 cascadeVP[kNumCascades];
-        float     splitDist[kNumCascades]; // カメラ距離スプリット (m)
-        float     numCascades;             // 有効カスケード数（float のため 16 バイトアライン）
-        float     _pad[3];
+        float splitDist[kNumCascades]; // カメラ距離スプリット (m)
+        float numCascades; // 有効カスケード数（float のため 16 バイトアライン）
+        float _pad[3];
     };
 
-    engine::DirectXCommon* dxCommon_   = nullptr;
-    SrvManager*    srvManager_ = nullptr;
+    engine::DirectXCommon* dxCommon_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
 
     // Texture2DArray[3] (R32_TYPELESS): DSV=D32_FLOAT, SRV=R32_FLOAT
-    Microsoft::WRL::ComPtr<ID3D12Resource>       shadowTex_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> shadowTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvHeap_; // 3 DSV descriptors
-    D3D12_CPU_DESCRIPTOR_HANDLE                  dsvHandles_[kNumCascades] = {};
-    uint32_t                                     shadowSrvIndex_ = UINT32_MAX;
-    bool                                         cascadeInDepthWrite_[kNumCascades] = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandles_[kNumCascades] = { };
+    uint32_t shadowSrvIndex_ = UINT32_MAX;
+    bool cascadeInDepthWrite_[kNumCascades] = { };
 
     // 定数バッファ
     Microsoft::WRL::ComPtr<ID3D12Resource> cascadeCBRes_;
-    CascadeDataLayout*                     cascadeCBData_ = nullptr;
+    CascadeDataLayout* cascadeCBData_ = nullptr;
 
     // ダミー定数バッファ（SpriteCommon 等が b3 を使わない場合のスロット埋め用）
     Microsoft::WRL::ComPtr<ID3D12Resource> dummyCBRes_;
 
-    Matrix4x4 cascadeVP_[kNumCascades] = {};
+    Matrix4x4 cascadeVP_[kNumCascades] = { };
 
     // 各カスケードの固定正射影パラメータ
     struct CascadeConfig {
@@ -100,9 +102,9 @@ private:
         float splitDist;
     };
     static constexpr CascadeConfig kCascadeConfigs[kNumCascades] = {
-        { 14.0f, 10.0f,  0.1f, 30.0f, 12.0f }, // near cascade
-        { 28.0f, 18.0f,  0.1f, 55.0f, 30.0f }, // mid cascade
-        { 42.0f, 27.0f,  0.1f, 85.0f, 80.0f }, // far cascade
+        { 14.0f, 10.0f, 0.1f, 30.0f, 12.0f }, // near cascade
+        { 28.0f, 18.0f, 0.1f, 55.0f, 30.0f }, // mid cascade
+        { 42.0f, 27.0f, 0.1f, 85.0f, 80.0f }, // far cascade
     };
 };
 

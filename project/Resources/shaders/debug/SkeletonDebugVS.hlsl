@@ -1,7 +1,7 @@
 cbuffer DebugCB : register(b0)
 {
     float4x4 WVP;
-    float4   color;
+    float4 color;
 };
 
 struct VSIn

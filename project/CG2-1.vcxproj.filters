@@ -55,6 +55,9 @@
     <Filter Include="ソースファイル\Engine\game\cpp\Level">
       <UniqueIdentifier>{0f0b60e6-f031-41d2-9ea7-9185da962ee0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソースファイル\Engine\game\cpp\Scripting">
+      <UniqueIdentifier>{576c378f-d692-48b9-a568-210c0d23c385}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ソースファイル\Engine\game\cpp\Core\Lighting">
       <UniqueIdentifier>{badcb3a8-c38d-4cc0-a047-bb55a6bc6cf6}</UniqueIdentifier>
     </Filter>
@@ -153,6 +156,9 @@
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\game\h\Level">
       <UniqueIdentifier>{864a7406-37fd-4cd4-8460-e2c0790a69ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダーファイル\Engine\game\h\Scripting">
+      <UniqueIdentifier>{0817d5b8-13f7-48a4-9362-9d8763672d01}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\game\h\Core\Lighting">
       <UniqueIdentifier>{d4bc4506-6509-4989-a50d-69c30e8e5584}</UniqueIdentifier>
@@ -285,9 +291,6 @@
     <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\Tweener.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -309,7 +312,40 @@
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Util\EventBus.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphTypes.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\NodeRegistry.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphRuntime.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\PlayerBridge.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp">
@@ -322,6 +358,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\BaseScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp">
@@ -338,9 +377,6 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Object\WorldTransform.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Object</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Camera</Filter>
@@ -360,13 +396,7 @@
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\DebugDrawGpu.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\ShaderHotReload.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
@@ -396,7 +426,10 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ImGui\ImguiControl.cpp">
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
@@ -405,13 +438,12 @@
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\3D\MapChipField.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Manager\MaterialManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Manager\PipelineHelper.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
+    </ClCompile>    <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\base\main.cpp">
@@ -456,9 +488,6 @@
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\3D\InstancedObject3d.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
@@ -478,9 +507,6 @@
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleEmitter.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">
@@ -506,9 +532,6 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Util\AnimationStateMachine.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\Sequencer.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
@@ -614,9 +637,6 @@
     <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\Tweener.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\Player.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -641,6 +661,9 @@
     <ClInclude Include="Engine\game\h\Player\GunCombo.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\ComboTable.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -650,7 +673,40 @@
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\EventBus.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphTypes.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\NodeRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphRuntime.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphEditor.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GameFlags.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\TriggerVolume.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h">
@@ -692,9 +748,6 @@
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Object\WorldTransform.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Object</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
@@ -707,9 +760,6 @@
     <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugDrawGpu.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Device</Filter>
     </ClInclude>
@@ -717,9 +767,6 @@
       <Filter>ヘッダーファイル\Engine\game\h\Core\Window</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\ShaderHotReload.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
@@ -731,13 +778,12 @@
     <ClInclude Include="Engine\graphics\h\Light\CascadedShadowMap.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Light</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\3D\MapChipField.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Manager\MaterialManager.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h">
+    <ClInclude Include="Engine\graphics\h\Manager\PipelineHelper.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
+    </ClInclude>    <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h">
@@ -812,9 +858,6 @@
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\3D\InstancedObject3d.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
@@ -837,9 +880,6 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Particle\ParticleManager.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\Particle</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Particle\ParticleEmitter.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Particle</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Cylinder.h">
@@ -881,7 +921,10 @@
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Offscreen</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ImGui\ImguiControl.h">
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
@@ -890,14 +933,11 @@
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\Sequencer.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Effect\BezierSpline.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
+    <ClInclude Include="Engine\graphics\h\Effect\PipelineStateGuard.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>

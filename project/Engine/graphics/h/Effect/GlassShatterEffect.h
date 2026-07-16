@@ -35,9 +35,9 @@ public:
     /** @brief タイマーをリセットして非アクティブ状態に戻す */
     void Reset();
 
-    bool IsActive()     const { return active_; }
-    bool IsFinished()   const { return finished_; }
-    bool NeedCapture()  const { return captureNeeded_; }
+    bool IsActive() const { return active_; }
+    bool IsFinished() const { return finished_; }
+    bool NeedCapture() const { return captureNeeded_; }
 
     // パラメータ調整（Initialize 後に呼べる）
     void SetImpactUV(float u, float v);
@@ -48,33 +48,33 @@ public:
 private:
     static constexpr float kDefaultDuration = 1.6f;
 
-    engine::DirectXCommon* dxCommon_   = nullptr;
-    SrvManager*    srvManager_ = nullptr;
+    engine::DirectXCommon* dxCommon_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
 
     // cbuffer のメモリレイアウト（HLSL の ShatterParams と一致させること）
     struct ShatterParams {
-        float time       = 0.0f;
+        float time = 0.0f;
         float crackWidth = 0.005f;
-        float impactU    = 0.5f;
-        float impactV    = 0.5f;
+        float impactU = 0.5f;
+        float impactV = 0.5f;
         float shardSpeed = 0.9f;
-        float pad[3]     = {};
+        float pad[3] = { };
     };
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12Resource>      cbResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
     ShatterParams* cbData_ = nullptr;
 
     // フリーズテクスチャ（クリア直前のゲーム画面を保存する）
     Microsoft::WRL::ComPtr<ID3D12Resource> freezeTexture_;
     uint32_t freezeSrvIndex_ = UINT32_MAX;
 
-    float timer_          = 0.0f;
-    float duration_       = kDefaultDuration;
-    bool  active_         = false;
-    bool  finished_       = false;
-    bool  captureNeeded_  = false;
+    float timer_ = 0.0f;
+    float duration_ = kDefaultDuration;
+    bool active_ = false;
+    bool finished_ = false;
+    bool captureNeeded_ = false;
 };
 
 } // namespace engine::graphics

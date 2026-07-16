@@ -1,6 +1,6 @@
 #pragma once
-#include <string>
 #include "json.hpp"
+#include <string>
 
 // JSON ファイルの読み書きユーティリティ
 namespace engine {

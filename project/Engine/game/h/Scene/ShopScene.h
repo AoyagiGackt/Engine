@@ -16,8 +16,8 @@
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
-using engine::graphics::ImGuiManager;
 using engine::Input;
+using engine::graphics::ImGuiManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
@@ -40,14 +40,14 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:
-    DirectXCommon* dxCommon_     = nullptr;
-    Input*         input_        = nullptr;
-    Audio*         audio_        = nullptr;
-    ImGuiManager*  imguiManager_ = nullptr;
+    DirectXCommon* dxCommon_ = nullptr;
+    Input* input_ = nullptr;
+    Audio* audio_ = nullptr;
+    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
-    std::unique_ptr<Sprite>       bgSprite_;
-    std::unique_ptr<Sprite>       cardSprite_;
+    std::unique_ptr<Sprite> bgSprite_;
+    std::unique_ptr<Sprite> cardSprite_;
 
     FontRenderer fontRenderer_;
 
@@ -59,9 +59,9 @@ private:
     };
     int offerCount_ = 0; // 実際に提示できる数
 
-    bool done_      = false;
-    float doneTimer_= 0.0f;
-    int   chosen_   = -1; // 選択されたインデックス（-1=スキップ）
+    bool done_ = false;
+    float doneTimer_ = 0.0f;
+    int chosen_ = -1; // 選択されたインデックス（-1=スキップ）
 };
 
 } // namespace engine::game

@@ -16,18 +16,17 @@ enum class MeshType {
     Count /// メッシュの種類の総数
 };
 
-
 /**
  * @brief 3Dモデルを構成する1つの頂点が持つデータ
  */
 struct VertexData {
-    
+
     /** @brief 頂点のローカル座標（X, Y, Z, W） */
     Vector4 position;
-    
+
     /** @brief テクスチャのUV座標（U, V） */
     Vector2 texcoord;
-    
+
     /** @brief 頂点法線ベクトル（ライティングの陰影計算に使用） */
     Vector3 normal;
 };
@@ -36,7 +35,7 @@ struct VertexData {
  * @brief 1つのメッシュ（3D形状）の全データを保持する構造体
  */
 struct MeshData {
-    
+
     /** @brief メッシュを構成する全頂点のリスト */
     std::vector<VertexData> vertices;
 
@@ -49,7 +48,6 @@ struct MeshData {
  */
 class MeshManager {
 public:
-
     /**
      * @brief 現在選択されているメッシュのデータを取得する
      * @return MeshData& 現在のメッシュデータへの参照

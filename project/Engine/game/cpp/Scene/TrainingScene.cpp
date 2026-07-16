@@ -1,17 +1,24 @@
 #include "TrainingScene.h"
+#include "AudioBridge.h"
 #include "BorderBlockBuilder.h"
 #include "DebugProfiler.h"
 #include "GameConstants.h"
+#include "PlayerBridge.h"
+#include "SSAOEffect.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
-#include "SSAOEffect.h"
+#include "StageEditor.h"
 #include "TimeManager.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <random>
 #include <string>
+#ifdef _DEBUG
+#include "EventBus.h"
+#include "Logger.h"
+#endif
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -19,20 +26,15 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-static constexpr float kWarpX        = 25.5f;
+static constexpr float kWarpX = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    dxCommon_ = dxCommon;
-    input_    = input;
-    audio_    = audio;
+    spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
-    srvManager_    = SrvManager::GetInstance();
+    srvManager_ = SrvManager::GetInstance();
     weaponManager_ = WeaponManager::GetInstance();
-
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
 
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
@@ -71,6 +73,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
+    // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
+    // （未作成のtraining.jsonなら空のまま起動し、F2エディタの「+」で配置してSaveで作成できる）
+    PlayerBridge::GetInstance()->SetPlayer(player_.get());
+    AudioBridge::GetInstance()->SetAudio(audio_);
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
@@ -87,11 +93,11 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
 
     // PBR デモブロック（3 種類を画面中央付近に配置）
-    static constexpr float kPBRX[3]        = {  7.0f, 14.0f, 21.0f };
-    static constexpr Vector4 kPBRColor[3]  = {
-        { 0.80f, 0.55f, 0.45f, 1.0f },  // 非金属（テラコッタ調）
-        { 0.90f, 0.90f, 1.00f, 1.0f },  // 鏡面金属（シルバー）
-        { 0.55f, 0.65f, 0.70f, 1.0f },  // ラフ金属（ガンメタル）
+    static constexpr float kPBRX[3] = { 7.0f, 14.0f, 21.0f };
+    static constexpr Vector4 kPBRColor[3] = {
+        { 0.80f, 0.55f, 0.45f, 1.0f }, // 非金属（テラコッタ調）
+        { 0.90f, 0.90f, 1.00f, 1.0f }, // 鏡面金属（シルバー）
+        { 0.55f, 0.65f, 0.70f, 1.0f }, // ラフ金属（ガンメタル）
     };
     for (int i = 0; i < 3; ++i) {
         pbrDemoBlocks_[i] = std::make_unique<Object3d>();
@@ -107,6 +113,14 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     }
 
     GpuProfiler::GetInstance()->Initialize(dxCommon_);
+
+#ifdef _DEBUG
+    // ビジュアルスクリプティングVMの動作確認用スモークテスト（エディタUIはまだ無い）
+    testGraph_ = GraphIO::Load("Resources/Graphs/test_graph.json");
+    EventBus::GetInstance()->Subscribe("low_hp_warning", [] { Logger::LogInfo("[GraphTest] low_hp_warning fired"); });
+    EventBus::GetInstance()->Subscribe("hp_checked", [] { Logger::LogInfo("[GraphTest] hp_checked fired"); });
+    testGraphRuntime_.Start(&testGraph_);
+#endif
 }
 
 void TrainingScene::Update()
@@ -120,12 +134,30 @@ void TrainingScene::Update()
         return;
     }
 
+    // ステージエディタ表示中の一時停止（GetStageEditor().IsVisible()）分岐はBaseScene::Tick()が面倒を見る
+    // （表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
+
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndBullets();
     UpdateCameraAndEnvironment();
 
+#ifdef _DEBUG
+    testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
+#endif
+
     bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, "BATTLETEST");
     DrawHud(nearWarp);
+}
+
+void TrainingScene::RefreshVisualTransformsForEditor()
+{
+    // ステージエディタ表示中はゲームプレイ（プレイヤー操作・カメラ追従）を丸ごと止める
+    // （BattleTestSceneと同じ規約。TimeManagerのタイムスケールだけでは
+    // このシーンの各種Updateが固定dtで動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ）
+    player_->RefreshVisualTransforms();
+    for (auto& b : borderBlocks_) {
+        b->Update();
+    }
 }
 
 void TrainingScene::UpdatePlayerAndBullets()
@@ -139,17 +171,16 @@ void TrainingScene::UpdatePlayerAndBullets()
     // ── スペースキー スピン連射 ──────────────────────────────────────
     if (player_->JustSpinShot()) {
         constexpr float kBulletSpeed = 0.30f;
-        const Vector3&  spawnPos     = player_->GetPosition();
+        const Vector3& spawnPos = player_->GetPosition();
         Vector3 firePos = { spawnPos.x, spawnPos.y, 0.0f };
 
         if (player_->IsUpsideDown()) {
             // 逆さ: 下方向中心に 5 方向ばらまき
             constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
-            constexpr float kSpread    =  30.0f * (3.14159265f / 180.0f); // 30°間隔
+            constexpr float kSpread = 30.0f * (3.14159265f / 180.0f); // 30°間隔
             for (int i = -2; i <= 2; ++i) {
                 float angle = kBaseAngle + i * kSpread;
-                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed,
-                                             std::sin(angle) * kBulletSpeed, 0.0f });
+                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
             }
             TimeManager::GetInstance()->RequestHitStop(3);
             ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
@@ -165,17 +196,17 @@ void TrainingScene::UpdatePlayerAndBullets()
         TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopFinisherSlash);
         ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
 
-        static std::mt19937 rng{ std::random_device{}() };
+        static std::mt19937 rng { std::random_device { }() };
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
         std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
         std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
         std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
         const Vector3& cam = camera_->GetTranslate();
         for (int i = 0; i < GameConstants::kFinisherSlashLines; ++i) {
-            const float   ang    = angleDist(rng);
-            const Vector2 dir    = { std::cos(ang), std::sin(ang) };
+            const float ang = angleDist(rng);
+            const Vector2 dir = { std::cos(ang), std::sin(ang) };
             const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
-            const float   len    = lenDist(rng);
+            const float len = lenDist(rng);
             SceneShared::SpawnSlashMarkWorld(
                 { center.x - dir.x * len, center.y - dir.y * len },
                 { center.x + dir.x * len, center.y + dir.y * len },
@@ -195,9 +226,14 @@ void TrainingScene::UpdateCameraAndEnvironment()
 
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-    for (auto& b : borderBlocks_) { b->Update(); }
+    // GetStageEditor().UpdateObjects()はBaseScene::Tick()がUpdate()の後に一括して呼ぶ
+    for (auto& b : borderBlocks_) {
+        b->Update();
+    }
 
-    for (int i = 0; i < 3; ++i) { pbrDemoBlocks_[i]->Update(); }
+    for (int i = 0; i < 3; ++i) {
+        pbrDemoBlocks_[i]->Update();
+    }
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
     float pulse = 0.6f + 0.4f * std::sin(warpPulseTimer_ * 4.0f);
@@ -239,7 +275,7 @@ void TrainingScene::DrawDebugHud()
     {
         char dbgBuf[64];
         float fps = DebugProfiler::GetInstance()->GetFPS();
-        float ms  = DebugProfiler::GetInstance()->GetMs();
+        float ms = DebugProfiler::GetInstance()->GetMs();
         std::snprintf(dbgBuf, sizeof(dbgBuf), "%.0f FPS  %.2f ms", fps, ms);
         fontRenderer_.DrawString(dbgBuf, 1140.0f, 4.0f, 1.2f, { 0.6f, 1.0f, 0.6f, 0.85f });
     }
@@ -254,7 +290,7 @@ void TrainingScene::DrawDebugHud()
         for (int i = 0; i < 3; ++i) {
             ImGui::PushID(i);
             if (ImGui::CollapsingHeader(kLabels[i])) {
-                ImGui::SliderFloat("Metallic",  &pbrMetallic_[i],  0.0f, 1.0f);
+                ImGui::SliderFloat("Metallic", &pbrMetallic_[i], 0.0f, 1.0f);
                 ImGui::SliderFloat("Roughness", &pbrRoughness_[i], 0.0f, 1.0f);
                 pbrDemoBlocks_[i]->SetMetallic(pbrMetallic_[i]);
                 pbrDemoBlocks_[i]->SetRoughness(pbrRoughness_[i]);
@@ -278,7 +314,9 @@ void TrainingScene::Draw()
     gpuProfiler->BeginScope(GpuProfiler::Shadow, cmd);
     shadowManager_->BeginShadowPass(cmd);
     modelCommon_->BeginShadowPass();
-    for (int i = 0; i < 3; ++i) { pbrDemoBlocks_[i]->DrawShadow(); }
+    for (int i = 0; i < 3; ++i) {
+        pbrDemoBlocks_[i]->DrawShadow();
+    }
     shadowManager_->EndShadowPass(cmd);
     gpuProfiler->EndScope(GpuProfiler::Shadow, cmd);
 
@@ -287,8 +325,12 @@ void TrainingScene::Draw()
     gpuProfiler->BeginScope(GpuProfiler::SSAO, cmd);
     if (ssao->IsEnabled()) {
         ssao->BeginNormalCapture(dxCommon_, camera_.get());
-        for (auto& b : borderBlocks_)     { b->DrawForNormalCapture(); }
-        for (auto& p : warpPortalBlocks_) { p->DrawForNormalCapture(); }
+        for (auto& b : borderBlocks_) {
+            b->DrawForNormalCapture();
+        }
+        for (auto& p : warpPortalBlocks_) {
+            p->DrawForNormalCapture();
+        }
         ssao->EndNormalCapture(dxCommon_);
     }
     gpuProfiler->EndScope(GpuProfiler::SSAO, cmd);
@@ -309,11 +351,21 @@ void TrainingScene::Draw()
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
-    for (auto& b : borderBlocks_)     { b->Draw(); }
-    for (auto& p : warpPortalBlocks_) { p->Draw(); }
-    for (int i = 0; i < 3; ++i)       { pbrDemoBlocks_[i]->Draw(); }
+    for (auto& b : borderBlocks_) {
+        b->Draw();
+    }
+    for (auto& p : warpPortalBlocks_) {
+        p->Draw();
+    }
+    for (int i = 0; i < 3; ++i) {
+        pbrDemoBlocks_[i]->Draw();
+    }
     bulletPool_.Draw();
     player_->Draw();
+
+    // ステージエディタの配置ブロックはここで描く（HUDテキストより前＝ブロックがUIパネルに重ならないように）
+    // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
+    GetStageEditor().DrawObjects();
 
     // ---- SSAO 計算 → ブラー → 乗算合成 ----
     if (ssao->IsEnabled()) {
@@ -331,7 +383,9 @@ void TrainingScene::Draw()
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(cmd, srvManager_);
     awakenGaugeBg_->Draw();
-    if (player_->GetAwakenGauge() > 0.0f) { awakenGaugeFg_->Draw(); }
+    if (player_->GetAwakenGauge() > 0.0f) {
+        awakenGaugeFg_->Draw();
+    }
     SlashMark::GetInstance()->Draw();
     fontRenderer_.Draw();
 }

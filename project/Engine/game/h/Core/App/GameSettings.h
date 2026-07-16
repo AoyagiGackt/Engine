@@ -3,7 +3,7 @@ namespace engine {
 // ゲーム設定データ（音量など）
 struct GameSettings {
     float bgmVolume = 0.7f;
-    float seVolume  = 1.0f;
+    float seVolume = 1.0f;
 };
 
 // 設定の読み込み・保存を管理するシングルトン
@@ -15,7 +15,7 @@ public:
     void Load(); // save/settings.json から読み込む（ファイルがなければデフォルト値）
     void Save(); // save/settings.json へ書き込む
 
-    GameSettings&       Get()       { return settings_; }
+    GameSettings& Get() { return settings_; }
     const GameSettings& Get() const { return settings_; }
 
 private:

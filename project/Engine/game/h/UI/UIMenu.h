@@ -83,14 +83,14 @@ private:
     SpriteCommon* spriteCommon_ = nullptr;
     FontRenderer* fontRenderer_ = nullptr;
 
-    std::vector<UIButton>                items_;
+    std::vector<UIButton> items_;
     std::vector<std::unique_ptr<Sprite>> boxes_;
 
     int cursor_ = 0;
 
-    float x_          = 0.0f;
-    float y_          = 0.0f;
-    float itemWidth_  = 0.0f;
+    float x_ = 0.0f;
+    float y_ = 0.0f;
+    float itemWidth_ = 0.0f;
     float itemHeight_ = 0.0f;
 };
 

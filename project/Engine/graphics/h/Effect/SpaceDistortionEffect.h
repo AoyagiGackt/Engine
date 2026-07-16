@@ -42,28 +42,28 @@ public:
     bool IsActive() const { return energy_ > kMinEnergy; }
 
 private:
-    static constexpr float kDecayTau  = 0.55f;  ///< エネルギー減衰の時定数（秒）
-    static constexpr float kMinEnergy = 0.01f;  ///< これ未満は非アクティブ扱い
+    static constexpr float kDecayTau = 0.55f; ///< エネルギー減衰の時定数（秒）
+    static constexpr float kMinEnergy = 0.01f; ///< これ未満は非アクティブ扱い
 
     // cbuffer のメモリレイアウト（HLSL の WarpParams と一致させること）
     struct WarpParams {
-        float centerU  = 0.5f;
-        float centerV  = 0.5f;
+        float centerU = 0.5f;
+        float centerV = 0.5f;
         float strength = 0.0f;
-        float time     = 0.0f;
-        float aspect   = 16.0f / 9.0f;
-        float radius   = 0.2f; // 未使用（画面全体に効くためカット不要レイアウト互換のため維持）
-        float pad[2]   = {};
+        float time = 0.0f;
+        float aspect = 16.0f / 9.0f;
+        float radius = 0.2f; // 未使用（画面全体に効くためカット不要レイアウト互換のため維持）
+        float pad[2] = { };
     };
 
     void CreatePipeline();
 
-    engine::DirectXCommon* dxCommon_   = nullptr;
-    SrvManager*            srvManager_ = nullptr;
+    engine::DirectXCommon* dxCommon_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12Resource>      cbResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> cbResource_;
     WarpParams* cbData_ = nullptr;
 
     // キャプチャテクスチャ（歪ませる元画面）
@@ -71,7 +71,7 @@ private:
     uint32_t captureSrvIndex_ = UINT32_MAX;
 
     float energy_ = 0.0f;
-    float time_   = 0.0f;
+    float time_ = 0.0f;
 };
 
 } // namespace engine::graphics

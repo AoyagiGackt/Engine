@@ -143,9 +143,9 @@ private:
     // ---- 状態データ ----
     struct State {
         std::string name;
-        Animation*  anim  = nullptr;
-        bool        loop  = true;
-        float       speed = 1.0f;
+        Animation* anim = nullptr;
+        bool loop = true;
+        float speed = 1.0f;
         std::string autoTransitionTo; ///< loop=false 終了後に遷移する先（空文字=自動遷移なし）
     };
 
@@ -155,11 +155,11 @@ private:
         std::string trigger;
     };
 
-    std::unordered_map<std::string, State>                    states_;
-    std::unordered_map<std::string, std::vector<Transition>>  transitions_; // from → 遷移リスト（O(1)ルックアップ）
+    std::unordered_map<std::string, State> states_;
+    std::unordered_map<std::string, std::vector<Transition>> transitions_; // from → 遷移リスト（O(1)ルックアップ）
 
     std::string currentState_;
-    float       currentTime_ = 0.0f;
+    float currentTime_ = 0.0f;
 
     // ---- 内部遷移処理 ----
     void TransitionTo(const std::string& stateName);

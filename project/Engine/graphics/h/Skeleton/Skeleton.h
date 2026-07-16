@@ -5,15 +5,13 @@
 #include <string>
 #include <vector>
 namespace engine::graphics {
-struct EulerTransform
-{
+struct EulerTransform {
     Vector3 scale;
     Vector3 rotate;
     Vector3 translate;
 };
 
-struct QuaternionTransform
-{
+struct QuaternionTransform {
     Vector3 scale;
     Quaternion rotate;
     Vector3 translate;
@@ -28,12 +26,12 @@ struct Node {
 
 // 1本の骨（ジョイント）
 struct Joint {
-    QuaternionTransform transform;       // ローカルのSRT
-    Matrix4x4 localMatrix;              // ローカル行列
-    Matrix4x4 skeletonSpaceMatrix;      // スケルトン空間での累積行列
+    QuaternionTransform transform; // ローカルのSRT
+    Matrix4x4 localMatrix; // ローカル行列
+    Matrix4x4 skeletonSpaceMatrix; // スケルトン空間での累積行列
     std::string name;
-    std::optional<int32_t> parent;      // 親JointのIndexrootならnullopt
-    int32_t index;                      // joints配列内のIndex
+    std::optional<int32_t> parent; // 親JointのIndexrootならnullopt
+    int32_t index; // joints配列内のIndex
 };
 
 class Skeleton {
@@ -63,9 +61,9 @@ private:
         std::vector<Joint>& joints,
         std::map<std::string, int32_t>& jointMap);
 
-    int32_t root_ = 0;                          // root JointのIndex
-    std::map<std::string, int32_t> jointMap_;   // Joint名 → Index
-    std::vector<Joint> joints_;                 // 全Jointのフラット配列
+    int32_t root_ = 0; // root JointのIndex
+    std::map<std::string, int32_t> jointMap_; // Joint名 → Index
+    std::vector<Joint> joints_; // 全Jointのフラット配列
 };
 
 // assimpを使ってGLTFファイルからNodeの階差構造を読み込む

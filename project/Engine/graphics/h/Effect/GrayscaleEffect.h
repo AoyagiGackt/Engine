@@ -11,9 +11,13 @@ public:
     }
 
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
-    void Finalize() { FinalizeCommon(); cbData_ = nullptr; }
+    void Finalize()
+    {
+        FinalizeCommon();
+        cbData_ = nullptr;
+    }
 
-    void  SetAmount(float amount);
+    void SetAmount(float amount);
     float GetAmount() const;
 
 private:
@@ -21,7 +25,7 @@ private:
 
     struct GrayscaleParams {
         float amount = 0.f;
-        float pad[3] = {};
+        float pad[3] = { };
     };
     GrayscaleParams* cbData_ = nullptr;
 };

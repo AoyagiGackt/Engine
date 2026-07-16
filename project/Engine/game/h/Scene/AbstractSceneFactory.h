@@ -4,8 +4,8 @@
  */
 #pragma once
 #include "BaseScene.h"
-#include <string>
 #include <memory>
+#include <string>
 namespace engine::game {
 /**
  * @brief シーン生成のインターフェース（抽象ファクトリ）
@@ -14,7 +14,6 @@ namespace engine::game {
  */
 class AbstractSceneFactory {
 public:
-
     /**
      * @brief 仮想デストラクタ
      */

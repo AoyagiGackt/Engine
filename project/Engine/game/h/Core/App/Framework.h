@@ -15,11 +15,11 @@
 #include "WinApp.h"
 
 // 描画共通
+#include "MaterialManager.h"
+#include "MeshManager.h"
 #include "ModelCommon.h"
 #include "Object3dCommon.h"
 #include "SpriteCommon.h"
-#include "MeshManager.h"
-#include "MaterialManager.h"
 
 // シーンオブジェクト
 #include "Camera.h"
@@ -33,15 +33,15 @@
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "dxcompiler.lib")
 namespace engine {
-using engine::graphics::ImGuiManager;
-using engine::graphics::ModelCommon;
-using engine::graphics::Object3dCommon;
-using engine::graphics::SpriteCommon;
-using engine::graphics::MeshManager;
-using engine::graphics::MaterialManager;
 using engine::graphics::Camera;
+using engine::graphics::ImGuiManager;
+using engine::graphics::MaterialManager;
+using engine::graphics::MeshManager;
+using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
+using engine::graphics::Object3dCommon;
 using engine::graphics::Sprite;
+using engine::graphics::SpriteCommon;
 using engine::graphics::VideoPlayer;
 
 /**
@@ -50,7 +50,6 @@ using engine::graphics::VideoPlayer;
  */
 class Framework {
 public:
-
     /**
      * @brief 仮想デストラクタ
      */
@@ -95,7 +94,6 @@ public:
     virtual bool IsEndRequest() { return endRequest_ || winApp_->ProcessMessage() || input_->TriggerKey(DIK_ESCAPE); }
 
 protected:
-
     // --- 主要な基盤システム（スマートポインタによる自動管理） ---
 
     /** @brief ウィンドウ管理 */

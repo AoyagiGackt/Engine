@@ -30,11 +30,11 @@ namespace engine::game {
  */
 template <typename tValue>
 struct Keyframe {
-    float  time;   ///< このキーフレームの時刻（秒）
-    tValue value;  ///< このキーフレームの値
+    float time; ///< このキーフレームの時刻（秒）
+    tValue value; ///< このキーフレームの値
 };
 
-using KeyframeVector3    = Keyframe<Vector3>;
+using KeyframeVector3 = Keyframe<Vector3>;
 using KeyframeQuaternion = Keyframe<Quaternion>;
 
 // =================================================================
@@ -58,9 +58,9 @@ struct AnimationCurve {
  * @brief 1つのノード（ボーン）のアニメーションデータ
  */
 struct NodeAnimation {
-    AnimationCurve<Vector3>    translate; ///< 位置のアニメーション（線形補間）
-    AnimationCurve<Quaternion> rotate;    ///< 回転のアニメーション（球面線形補間）
-    AnimationCurve<Vector3>    scale;     ///< スケールのアニメーション（線形補間）
+    AnimationCurve<Vector3> translate; ///< 位置のアニメーション（線形補間）
+    AnimationCurve<Quaternion> rotate; ///< 回転のアニメーション（球面線形補間）
+    AnimationCurve<Vector3> scale; ///< スケールのアニメーション（線形補間）
 };
 
 /**
