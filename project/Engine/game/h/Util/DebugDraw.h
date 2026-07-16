@@ -326,11 +326,6 @@ inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColo
 
 } // namespace DebugDraw
 
-// ===========================================================
-// USE_IMGUI が無効な場合: 全関数を空スタブにする
-// Release ビルドでも #include "DebugDraw.h" + DebugDraw::DrawXxx() を
-// 書いたままコンパイルが通る（何もしない）
-// ===========================================================
 #else // !USE_IMGUI
 
 namespace DebugDraw {
@@ -344,14 +339,14 @@ constexpr unsigned int kColorMagenta = 0;
 constexpr unsigned int kColorWhite = 0;
 constexpr unsigned int kColorOrange = 0;
 
-inline void SetCamera(const Matrix4x4&, float, float, float = 1.5f) { }
-inline void DrawLine(const Vector3&, const Vector3&, unsigned int = 0) { }
-inline void DrawAABB(const AABB&, unsigned int = 0) { }
-inline void DrawSphere(const Sphere&, unsigned int = 0, int = 20) { }
-inline void DrawCapsule(const Capsule&, unsigned int = 0, int = 16) { }
-inline void DrawRay(const Ray&, float = 10.0f, unsigned int = 0) { }
-inline void DrawCollider(const Collider&, unsigned int = 0) { }
-inline void DrawCross(const Vector3&, float = 0.3f, unsigned int = 0) { }
+inline void SetCamera(const engine::Matrix4x4&, float, float, float = 1.5f) { }
+inline void DrawLine(const engine::Vector3&, const engine::Vector3&, unsigned int = 0) { }
+inline void DrawAABB(const engine::AABB&, unsigned int = 0) { }
+inline void DrawSphere(const engine::Sphere&, unsigned int = 0, int = 20) { }
+inline void DrawCapsule(const engine::Capsule&, unsigned int = 0, int = 16) { }
+inline void DrawRay(const engine::Ray&, float = 10.0f, unsigned int = 0) { }
+inline void DrawCollider(const engine::Collider&, unsigned int = 0) { }
+inline void DrawCross(const engine::Vector3&, float = 0.3f, unsigned int = 0) { }
 } // namespace DebugDraw
 
 #endif // USE_IMGUI
