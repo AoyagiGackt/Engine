@@ -4,14 +4,14 @@
  */
 #pragma once
 
-// --- 標準ライブラリ ---
+// 標準ライブラリ
 #include <deque>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
-// --- エンジンシステム・基盤 ---
+// エンジンシステム・基盤
 #include "Audio.h"
 #include "BaseScene.h"
 #include "Camera.h"
@@ -26,7 +26,7 @@
 #include "SpriteCommon.h"
 #include "SrvManager.h"
 
-// --- ゲームロジック・オブジェクト ---
+// ゲームロジック・オブジェクト
 #include "BladeFlashEffect.h"
 #include "CameraShaker.h"
 #include "Collision.h"
@@ -92,7 +92,7 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
     bool SupportsPostEffects() const override { return true; }
 
-    /// @brief ImGuiパネルからの手動テスト再生用
+    /** @brief ImGuiパネルからの手動テスト再生用 */
     void TriggerGlassShatterTest();
 
     const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル"; }
@@ -102,9 +102,9 @@ private:
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
-    /// @brief 右上のコンボランク表示と覚醒ゲージを描画する
+    /** @brief 右上のコンボランク表示と覚醒ゲージを描画する */
     void DrawRankAndAwakenGauge();
-    /// @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する
+    /** @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する */
     void DrawStyleCommands();
     // ローグライトのHP/Gold/フロア情報HUD描画
     void DrawRogueliteHUD();
@@ -131,29 +131,29 @@ private:
     void UpdateStyleAndUI(float dt);
     // パーティクルの更新
     void UpdateParticles(float dt);
-    /// @brief UpdateParticles()の下請け：着地ほこりとジャンプ煙のパーティクルを更新する
+    /** @brief UpdateParticles()の下請け 着地ほこりとジャンプ煙のパーティクルを更新する */
     void UpdateLandingAndJumpDustParticles();
-    /// @brief UpdateParticles()の下請け：横移動・空中時の残像トレイルをスポーン・経年・削除する
+    /** @brief UpdateParticles()の下請け 横移動・空中時の残像トレイルをスポーン・経年・削除する */
     void UpdateGhostTrail(float dt);
-    /// @brief UpdateParticles()の下請け：プレイヤーと敵の接触ヒット判定・ダメージ・演出を処理する
+    /** @brief UpdateParticles()の下請け プレイヤーと敵の接触ヒット判定・ダメージ・演出を処理する */
     void UpdatePlayerEnemyContactHit(float dt);
-    /// @brief UpdateParticles()の下請け：敵の弾の発射・飛翔・プレイヤーへの命中時のダメージ・無敵開始・演出を処理する
+    /** @brief UpdateParticles()の下請け 敵の弾の発射・飛翔・プレイヤーへの命中時のダメージ・無敵開始・演出を処理する */
     void UpdateEnemyAttackOnPlayer(float dt);
-    /// @brief UpdateParticles()の下請け：格闘/射撃/瞬歩/覚醒ゲージ・覚醒発動・ランク上昇のスタイル演出パーティクルを更新する
+    /** @brief UpdateParticles()の下請け 格闘/射撃/瞬歩/覚醒ゲージ・覚醒発動・ランク上昇のスタイル演出パーティクルを更新する */
     void UpdateStyleTechniqueParticles(float dt);
     // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
     void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定
     void CheckClearCondition();
 
-    /// @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中）
+    /** @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中） */
     bool IsGlassShatterFlow() const;
 
-    /// @brief Draw()の下請け：クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す
+    /** @brief Draw()の下請け クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す */
     bool DrawClearOverlayIfNeeded();
-    /// @brief Draw()の下請け：3Dワールド（地形・残像・プレイヤー/敵・パーティクル・空間歪み）を描画する
+    /** @brief Draw()の下請け 3Dワールド（地形・残像・プレイヤー/敵・パーティクル・空間歪み）を描画する */
     void DrawWorldAndActors();
-    /// @brief Draw()の下請け：エディタUI・フィニッシャー演出・フォントなど2D上乗せ描画をまとめて行う
+    /** @brief Draw()の下請け エディタUI・フィニッシャー演出・フォントなど2D上乗せ描画をまとめて行う */
     void DrawOverlaysAndUI();
 
     DirectXCommon* dxCommon_ = nullptr;
@@ -252,7 +252,7 @@ private:
 
     GlassShatterEffect glassShatter_;
 
-    /** @brief 解放時に「暗転+斬撃線ごと凍った画面」を砕いて素の世界を見せる演出 */
+    /** @brief 解放時に暗転+斬撃線ごと凍った画面を砕いて素の世界を見せる演出 */
     GlassShatterEffect finisherShatter_;
 
     bool clearTriggered_ = false;

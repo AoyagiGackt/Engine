@@ -6,20 +6,16 @@
 namespace engine::graphics {
 
 // Cascaded Shadow Maps (CSM) - 3カスケード深度シャドウ
-//
-// 使い方:
+// 使い方
 //   csm->Initialize(dxCommon, srvManager);
-//
 //   // 毎フレーム
 //   csm->Update(lightDir);                        // 3カスケードの VP 行列を更新
 //   Object3d::SetLightViewProjection(csm->GetCascadeVP(0)); // VS の LightVP をカスケード 0 に統一
-//
 //   for (uint32_t i = 0; i < CascadedShadowMap::kNumCascades; ++i) {
 //       csm->BeginCascade(cmd, i);
 //       /* 全オブジェクトの DrawShadow() */
 //       csm->EndCascade(cmd);
 //   }
-//
 //   csm->SetShadowMapSRV(cmd, srvManager);        // スロット 4 に Texture2DArray をバインド
 //   csm->SetCascadeDataCBV(cmd, slotIdx);          // スロット 8(or 9) にカスケード定数をバインド
 class CascadedShadowMap {
@@ -77,7 +73,7 @@ private:
     engine::DirectXCommon* dxCommon_ = nullptr;
     SrvManager* srvManager_ = nullptr;
 
-    // Texture2DArray[3] (R32_TYPELESS): DSV=D32_FLOAT, SRV=R32_FLOAT
+    // Texture2DArray[3] (R32_TYPELESS)  DSV=D32_FLOAT, SRV=R32_FLOAT
     Microsoft::WRL::ComPtr<ID3D12Resource> shadowTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvHeap_; // 3 DSV descriptors
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandles_[kNumCascades] = { };

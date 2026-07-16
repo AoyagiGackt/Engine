@@ -23,10 +23,10 @@ class GraphEditor {
 public:
     static GraphEditor* GetInstance();
 
-    /// @brief 指定パスのグラフを読み込んで編集対象にする（失敗時は空のグラフになる）
+    /** @brief 指定パスのグラフを読み込んで編集対象にする（失敗時は空のグラフになる） */
     void Open(const std::string& path);
 
-    /// @brief 現在編集中のグラフをOpen()したパスへ保存する
+    /** @brief 現在編集中のグラフをOpen()したパスへ保存する */
     void Save();
 
     /**
@@ -35,10 +35,10 @@ public:
      */
     void Update(engine::Input* input);
 
-    /// @brief 現在編集中のグラフ（GraphRuntime::Start()に渡して実行確認する用）
+    /** @brief 現在編集中のグラフ（GraphRuntime::Start()に渡して実行確認する用） */
     const GraphDesc& GetGraph() const { return graph_; }
 
-    /// @brief エディタが表示中か（ホットキーオーバーレイの表示中マーク用）
+    /** @brief エディタが表示中か（ホットキーオーバーレイの表示中マーク用） */
     bool IsVisible() const { return visible_; }
 
 private:
@@ -46,7 +46,7 @@ private:
     GraphEditor(const GraphEditor&) = delete;
     GraphEditor& operator=(const GraphEditor&) = delete;
 
-    /// @brief キャンバス1フレーム分のリンクドラッグ共有状態（ノード描画→プレビュー描画で受け渡す）
+    /** @brief キャンバス1フレーム分のリンクドラッグ共有状態（ノード描画→プレビュー描画で受け渡す） */
     struct CanvasFrameState {
         ImVec2 linkFromScreenPos = { 0, 0 }; ///< ドラッグ中の実行リンクの始点
         bool linkFromFound = false;
@@ -63,47 +63,47 @@ private:
     };
 
     void DrawCanvas();
-    // ---- DrawCanvas() 分割ヘルパー（呼び出し順に宣言） ----
-    /// @brief マウスホイールズームと中ボタンドラッグパンを処理する
+    // DrawCanvas() 分割ヘルパー（呼び出し順に宣言）
+    /** @brief マウスホイールズームと中ボタンドラッグパンを処理する */
     void UpdateCanvasView(bool canvasHovered);
-    /// @brief ノード1つ分（タイトル・パラメータ・ピン・枠）を描画し、ドラッグ操作を処理する
+    /** @brief ノード1つ分（タイトル・パラメータ・ピン・枠）を描画し、ドラッグ操作を処理する */
     void DrawNode(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state);
-    /// @brief ノードのパラメータ編集ウィジェットと左端のデータ入力ピンを描画する
+    /** @brief ノードのパラメータ編集ウィジェットと左端のデータ入力ピンを描画する */
     void DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state);
-    /// @brief ドラッグ中のリンク／データ配線のプレビュー線を描き、空振り時はキャンセルする
+    /** @brief ドラッグ中のリンク／データ配線のプレビュー線を描き、空振り時はキャンセルする */
     void DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state);
-    /// @brief 右クリックのノード追加メニューとDeleteキー削除を処理する
+    /** @brief 右クリックのノード追加メニューとDeleteキー削除を処理する */
     void HandleCanvasShortcuts(const ImVec2& origin, bool canvasHovered, const CanvasFrameState& state);
 
     void DrawLinks(ImDrawList* dl);
     void DrawAddNodeMenu();
-    /// @brief pendingAddX_/Y_の位置に、型ごとの初期パラメータを埋めたtype型のノードを1つ追加する
+    /** @brief pendingAddX_/Y_の位置に、型ごとの初期パラメータを埋めたtype型のノードを1つ追加する */
     void AddNodeOfType(const std::string& type);
     void DeleteNode(const std::string& id);
-    /// @brief idのノードを丸ごと複製する（新しいidを振り、少しずらした位置に置く）
+    /** @brief idのノードを丸ごと複製する（新しいidを振り、少しずらした位置に置く） */
     void DuplicateNode(const std::string& id);
     void ArrangeNodes();
 
-    /// @brief コメント（注釈用の色付き矩形）の描画・ドラッグ移動・リサイズ・テキスト編集
+    /** @brief コメント（注釈用の色付き矩形）の描画・ドラッグ移動・リサイズ・テキスト編集 */
     void DrawComments(ImDrawList* dl, const ImVec2& origin);
     void DeleteComment(const std::string& id);
 
-    /// @brief データ配線（paramLinks）の線をまとめて描く（ピン位置はDrawCanvasが同フレームで記録済み）
+    /** @brief データ配線（paramLinks）の線をまとめて描く（ピン位置はDrawCanvasが同フレームで記録済み） */
     void DrawDataLinks(ImDrawList* dl);
 
-    /// @brief Run中のグラフ変数を一覧表示し、その場で上書きテストできるパネル
+    /** @brief Run中のグラフ変数を一覧表示し、その場で上書きテストできるパネル */
     void DrawVariablesPanel();
 
-    // ---- Undo/Redo（スナップショット方式、Ctrl+Z/Ctrl+Y） ----
+    // Undo/Redo（スナップショット方式、Ctrl+Z/Ctrl+Y）
     static constexpr size_t kMaxUndoHistory = 50;
 
-    /// @brief 直前のgraph_を即座にUndoスタックへ積む（追加/削除/配線など単発で完結する変更の前に呼ぶ）
+    /** @brief 直前のgraph_を即座にUndoスタックへ積む（追加/削除/配線など単発で完結する変更の前に呼ぶ） */
     void RecordUndoSnapshotNow();
-    /// @brief ドラッグ/テキスト編集の開始時に「変更前」を仮記録するIsItemActivated()の直後に呼ぶ
+    /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
     void BeginUndoCapture();
-    /// @brief BeginUndoCapture()後、実際に値が変わったことを記録する（変更が無ければCommit時に捨てられる）
+    /** @brief BeginUndoCapture()後、実際に値が変わったことを記録する（変更が無ければCommit時に捨てられる） */
     void MarkUndoDirty();
-    /// @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する
+    /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
     void CommitUndoCapture();
     void PushUndo(GraphDesc snapshot);
     void Undo();
@@ -153,7 +153,7 @@ private:
     std::map<std::string, std::map<std::string, ImVec2>> dataInPins_; // ノードID → パラメータ名 → 位置
     std::map<std::string, ImVec2> dataOutPins_; // ノードID → 出力ピン位置
 
-    // Subgraphノードの「開く」ボタン用ノード走査ループ中にOpen()を呼ぶとイテレータが壊れるため遅延させる
+    // Subgraphノードの開くボタン用ノード走査ループ中にOpen()を呼ぶとイテレータが壊れるため遅延させる
     std::string pendingOpenPath_;
 
     // ノード右クリックメニューの削除/コピーも、同じ理由（ノード走査ループ中にgraph_.nodesを書き換えると

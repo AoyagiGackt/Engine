@@ -34,7 +34,7 @@ public: // メンバ関数
 
     /**
      * @brief キー状態の更新
-     * @note 毎フレーム呼び出すことで、現在のキー状態を「前回の状態」にコピーし、
+     * @note 毎フレーム呼び出すことで、現在のキー状態を前回の状態にコピーし、
      * デバイスから最新のキー状態を取得して更新します
      */
     void Update();
@@ -50,7 +50,7 @@ public: // メンバ関数
      * @brief キーが押された瞬間かチェック
      * @param keyNumber キーの番号（例: DIK_RETURN）
      * @return bool このフレームで押された瞬間なら true
-     * @note 1フレーム前が「離されていた」かつ「現在が押されている」場合に true を返します
+     * @note 1フレーム前が離されていたかつ現在が押されている場合に true を返します
      */
     bool TriggerKey(BYTE keyNumber);
 
@@ -73,7 +73,7 @@ public: // メンバ関数
 
     Stick GetLeftStick() const;
 
-    // --- マウス関連 ---
+    // マウス関連
     bool TriggerMouseButton(int32_t buttonNumber);
 
     /** @brief マウスのホイールスクロール量を取得する */
@@ -86,7 +86,7 @@ private:
     /** @brief キーボードデバイスのポインタ */
     ComPtr<IDirectInputDevice8> keyboard_;
 
-    // --- キー状態管理用バッファ ---
+    // キー状態管理用バッファ
 
     /** @brief 最新のキー状態（256個のキー分） */
     BYTE key[256] = { };
@@ -97,13 +97,13 @@ private:
     /** @brief ウィンドウ管理のポインタ */
     WinApp* winApp_ = nullptr;
 
-    // --- コントローラー状態管理用 ---
+    // コントローラー状態管理用
 
     XINPUT_STATE state_ { }; /// 現在のコントローラー状態
     XINPUT_STATE previousState_ { }; /// 前回のコントローラー状態
     const float deadzone_ = 0.2f; /// デッドゾーン
 
-    // --- マウス状態管理用 ---
+    // マウス状態管理用
 
     /** @brief マウスデバイスのポインタ */
     Microsoft::WRL::ComPtr<IDirectInputDevice8> mouse_;

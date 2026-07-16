@@ -13,7 +13,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    // =====================================================
+
     // Root Signature (ModelCommon と同一 + スロット 6, 7, 8 追加)
     // スロット 0 (PS, b0) : マテリアル
     // スロット 1 (VS, b0) : 変換行列
@@ -24,7 +24,7 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 6 (VS, b1) : スキニングパレット CBV
     // スロット 7 (PS, b2) : ポイントライト配列
     // スロット 8 (PS, t3) : 法線マップ SRV
-    // =====================================================
+
     D3D12_DESCRIPTOR_RANGE texRange = PH::MakeSrvRange(0); // t0
     D3D12_DESCRIPTOR_RANGE shadowRange = PH::MakeSrvRange(1); // t1
     D3D12_DESCRIPTOR_RANGE cubemapRange = PH::MakeSrvRange(2); // t2

@@ -16,17 +16,17 @@ using namespace engine;
 
 namespace engine::graphics {
 
-// =====================================================
 // 静的メンバの実体
-// =====================================================
 
 Object3dCommon* ImGuiControlPanel::obj3dCommon_ = nullptr;
 std::vector<DebugPointLight> ImGuiControlPanel::debugLights_;
 std::function<void()> ImGuiControlPanel::glassShatterTrigger_;
 
-// =====================================================
 // 公開 API
-// =====================================================
+
+// ══════════════════════════════════════════════════════
+// 登録とメインパネル
+// ══════════════════════════════════════════════════════
 
 void ImGuiControlPanel::RegisterObject3dCommon(Object3dCommon* common)
 {
@@ -59,9 +59,13 @@ void ImGuiControlPanel::ShowControls()
 
 #ifdef USE_IMGUI
 
+// ══════════════════════════════════════════════════════
+// 描画設定
+// ══════════════════════════════════════════════════════
+
 void ImGuiControlPanel::ShowMeshSettings()
 {
-    // ---- メッシュ設定 ----
+    // メッシュ設定
     if (ImGui::CollapsingHeader("メッシュ設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* meshItems[] = { "球体", "立方体", "平面" };
         int currentMesh = static_cast<int>(MeshManager::GetInstance()->GetCurrentMeshType());
@@ -87,7 +91,7 @@ void ImGuiControlPanel::ShowMeshSettings()
 
 void ImGuiControlPanel::ShowMaterialSettings()
 {
-    // ---- マテリアル設定 ----
+    // マテリアル設定
     if (ImGui::CollapsingHeader("マテリアル設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* matItems[] = { "赤", "緑", "青", "白" };
         int currentMat = (int)MaterialManager::GetInstance()->GetCurrentMaterialIndex();
@@ -99,7 +103,7 @@ void ImGuiControlPanel::ShowMaterialSettings()
 
 void ImGuiControlPanel::ShowLightingSettings()
 {
-    // ---- ライティングモード ----
+    // ライティングモード
     if (ImGui::CollapsingHeader("ライティング設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* lightItems[] = { "なし", "Lambert", "Half Lambert", "Lambert+Phong", "HalfLambert+Phong" };
         int currentMode = LightManager::GetInstance()->GetLightingMode();
@@ -109,9 +113,13 @@ void ImGuiControlPanel::ShowLightingSettings()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// ポストエフェクト設定
+// ══════════════════════════════════════════════════════
+
 void ImGuiControlPanel::ShowPostProcessSettings()
 {
-    // ---- ポストプロセス ----
+    // ポストプロセス
     if (ImGui::CollapsingHeader("ポストプロセス", ImGuiTreeNodeFlags_DefaultOpen)) {
 
         // グレースケール
@@ -243,12 +251,16 @@ void ImGuiControlPanel::ShowPostProcessSettings()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// エフェクト詳細設定
+// ══════════════════════════════════════════════════════
+
 void ImGuiControlPanel::ShowEffectAndLightSettings()
 {
-    // -------------------------------------------------------
+
     // アウトライン / ラジアルブラー / ディゾルブ / GPUノイズ / ガラス割れ / ライト
     // を1ウィンドウにまとめ、セクションごとに折りたたみヘッダーで表示する
-    // -------------------------------------------------------
+
     auto* imgFilter = ImageFilter::GetInstance();
 
     ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Once);
@@ -264,7 +276,7 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
 
 void ImGuiControlPanel::ShowOutlineSection(ImageFilter* imgFilter)
 {
-    // ---- アウトライン ----
+    // アウトライン
     if (ImGui::CollapsingHeader("アウトライン")) {
         auto mode = imgFilter->GetMode();
         bool isOutline = (mode == ImageFilter::Mode::PrewittEdge || mode == ImageFilter::Mode::DepthOutline);
@@ -315,7 +327,7 @@ void ImGuiControlPanel::ShowOutlineSection(ImageFilter* imgFilter)
 
 void ImGuiControlPanel::ShowRadialBlurSection(ImageFilter* imgFilter)
 {
-    // ---- ラジアルブラー ----
+    // ラジアルブラー
     if (ImGui::CollapsingHeader("ラジアルブラー")) {
         bool isRadial = (imgFilter->GetMode() == ImageFilter::Mode::RadialBlur);
         if (!imgFilter->IsEnabled() || !isRadial) {
@@ -352,7 +364,7 @@ void ImGuiControlPanel::ShowRadialBlurSection(ImageFilter* imgFilter)
 
 void ImGuiControlPanel::ShowDissolveSection(ImageFilter* imgFilter)
 {
-    // ---- ディゾルブ ----
+    // ディゾルブ
     if (ImGui::CollapsingHeader("ディゾルブ")) {
         bool isDissolve = (imgFilter->GetMode() == ImageFilter::Mode::Dissolve);
         if (!imgFilter->IsEnabled() || !isDissolve) {
@@ -389,7 +401,7 @@ void ImGuiControlPanel::ShowDissolveSection(ImageFilter* imgFilter)
 
 void ImGuiControlPanel::ShowNoiseSection(ImageFilter* imgFilter)
 {
-    // ---- GPU ノイズ ----
+    // GPU ノイズ
     if (ImGui::CollapsingHeader("GPU ノイズ")) {
         bool isNoise = (imgFilter->GetMode() == ImageFilter::Mode::NoiseGen);
         if (!imgFilter->IsEnabled() || !isNoise) {
@@ -459,7 +471,7 @@ void ImGuiControlPanel::ShowNoiseSection(ImageFilter* imgFilter)
 
 void ImGuiControlPanel::ShowGlassShatterSection()
 {
-    // ---- ガラス割れエフェクト ----
+    // ガラス割れエフェクト
     if (ImGui::CollapsingHeader("ガラス割れエフェクト")) {
         if (glassShatterTrigger_) {
             if (ImGui::Button("テスト再生")) {
@@ -473,9 +485,13 @@ void ImGuiControlPanel::ShowGlassShatterSection()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// ライト設定
+// ══════════════════════════════════════════════════════
+
 void ImGuiControlPanel::ShowLightSection()
 {
-    // ---- ライト（平行光源 + ポイントライト） ----
+    // ライト（平行光源 + ポイントライト）
     if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (!obj3dCommon_) {
             ImGui::TextColored(ImVec4(1, 0.5f, 0, 1),
@@ -491,7 +507,7 @@ void ImGuiControlPanel::ShowLightSection()
 
 void ImGuiControlPanel::ShowDirectionalLightSection()
 {
-    // ---- 平行光源（DirectionalLight） ----
+    // 平行光源（DirectionalLight）
     if (ImGui::TreeNodeEx("平行光源", ImGuiTreeNodeFlags_DefaultOpen)) {
 
         bool manualOverride = obj3dCommon_->GetManualLightOverride();
@@ -550,7 +566,7 @@ void ImGuiControlPanel::ShowDirectionalLightSection()
 
 void ImGuiControlPanel::ShowPointLightSection()
 {
-    // ---- ポイントライト ----
+    // ポイントライト
     if (ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
 
         ImGui::TextDisabled("最大 %d 個。毎フレーム GetDebugPointLights() をシーンで適用してください。",

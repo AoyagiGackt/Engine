@@ -9,7 +9,7 @@
 
 namespace engine::graphics::EditorUI {
 
-/// @brief 直前のウィジェットの右に (?) を表示し、ホバーで説明ツールチップを出す
+/** @brief 直前のウィジェットの右に (?) を表示し、ホバーで説明ツールチップを出す */
 void HelpMarker(const char* desc);
 
 enum class ConfirmResult {

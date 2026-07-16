@@ -11,8 +11,8 @@ namespace engine::graphics {
 class Camera;
 
 // 3Dワールド空間にスケルトンを描画するデバッグクラス
-// - ジョイント : 白い球
-// - ボーン     : カメラ向きのビルボードクワッド（白）
+// - ジョイント   白い球
+// - ボーン       カメラ向きのビルボードクワッド（白）
 // 深度テスト無効でメッシュに埋まっていても常に表示
 class SkeletonDebugRenderer {
 public:

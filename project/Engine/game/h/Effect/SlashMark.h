@@ -23,7 +23,7 @@ struct SlashMarkParams {
 
 class SlashMark {
 public:
-    /// @brief シングルトンインスタンスを取得する
+    /** @brief シングルトンインスタンスを取得する */
     static SlashMark* GetInstance();
 
     /**
@@ -44,7 +44,7 @@ public:
      */
     void Update(float dt);
 
-    /// @brief 全斬撃線を描画コマンドとして積む
+    /** @brief 全斬撃線を描画コマンドとして積む */
     void Draw();
 
     /**
@@ -54,13 +54,13 @@ public:
      */
     void FlashAll(const Vector4& color, float duration);
 
-    /// @brief 全斬撃線を即座に削除する（シーン切り替え時などに呼ぶ）
+    /** @brief 全斬撃線を即座に削除する（シーン切り替え時などに呼ぶ） */
     void Clear();
 
 private:
     SlashMark() = default;
 
-    /// @brief 内部管理用エントリ（斬撃線1本分のSpriteと経過時間）
+    /** @brief 内部管理用エントリ（斬撃線1本分のSpriteと経過時間） */
     struct Entry {
         std::unique_ptr<Sprite> sprite;
         Vector4 baseColor;
@@ -68,7 +68,7 @@ private:
         float duration = 0.18f;
     };
 
-    /// @brief 1枚分のスプライトを生成してエントリに登録する
+    /** @brief 1枚分のスプライトを生成してエントリに登録する */
     void SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color);
 
     SpriteCommon* spriteCommon_ = nullptr;

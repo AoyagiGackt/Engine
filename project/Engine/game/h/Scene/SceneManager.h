@@ -107,13 +107,13 @@ private:
     SceneManager(const SceneManager&) = delete;
     const SceneManager& operator=(const SceneManager&) = delete;
 
-    // --- 外部から提供される基盤システム ---
+    // 外部から提供される基盤システム
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
     ImGuiManager* imguiManager_ = nullptr;
 
-    // --- シーン管理メンバ ---
+    // シーン管理メンバ
 
     /** @brief 現在アクティブなシーン */
     std::unique_ptr<BaseScene> currentScene_;

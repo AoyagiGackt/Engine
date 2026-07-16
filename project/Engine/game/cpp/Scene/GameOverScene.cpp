@@ -7,9 +7,7 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// =====================================================
 // 初期化
-// =====================================================
 
 void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -44,17 +42,13 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     }
 }
 
-// =====================================================
 // 終了
-// =====================================================
 
 void GameOverScene::Finalize()
 {
 }
 
-// =====================================================
 // 更新
-// =====================================================
 
 void GameOverScene::Update()
 {
@@ -88,9 +82,7 @@ void GameOverScene::Update()
     option2_->Update();
 }
 
-// =====================================================
 // 描画
-// =====================================================
 
 void GameOverScene::Draw()
 {

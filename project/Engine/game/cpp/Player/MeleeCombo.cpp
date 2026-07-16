@@ -5,9 +5,8 @@
 using namespace engine;
 using namespace engine::game;
 
-// ============================================================
 //  コンボ定義テーブル
-//  「素早い初段→重い締め」「武器ごとに役割が違う」を意識した配分:
+//  素早い初段→重い締め武器ごとに役割が違うを意識した配分
 //   Sword      … バランス4段。何でもできる基準武器
 //   Dagger     … 超高速5段。1発は軽いが手数と前進で押し切る
 //   Hammer     … 溜めて2段。発生は遅いが吹き飛ばしが桁違い、空中は叩き落とし
@@ -15,19 +14,18 @@ using namespace engine::game;
 //   Greatsword … 超重量3段。全部に長いヒットストップ、締めは特大
 //   Scythe     … 広範囲3段。打ち上げ性能が全武器最強の空中コンボ武器
 //   Axe        … 荒々しい3段。締めの大車輪で纏めて吹き飛ばす
-// ============================================================
 namespace {
 
 constexpr float kDeg = 3.14159265f / 180.0f;
 
-// bodyLeanFrom/To の付け方（体=rig_->objectの傾き。武器スイングとは独立した軸で「同じ動きの繰り返し」感を消す）:
+// bodyLeanFrom/To の付け方（体=rig_->objectの傾き。武器スイングとは独立した軸で同じ動きの繰り返し感を消す）
 //   ・横振り(武器スイングがZ軸)   → 体もZ軸で振りと同方向に、振りの約1/4の角度で追従して傾く
-//   ・突き/縦振り(武器スイングがX軸) → 体はX軸で「振りかぶりで後ろに反る→ヒットで前に踏み込む」
-//   ・打ち上げ技(launcher)        → 体はX軸で「後ろに溜め→上へすくい上げる」（他ステップと被らないよう常にX軸に統一）
+//   ・突き/縦振り(武器スイングがX軸) → 体はX軸で振りかぶりで後ろに反る→ヒットで前に踏み込む
+//   ・打ち上げ技(launcher)        → 体はX軸で後ろに溜め→上へすくい上げる（他ステップと被らないよう常にX軸に統一）
 //   ・空中の叩き落とし/急降下斬り  → 体はX軸で前傾のまま突入（後ろに反らない）
 //   ・締めの大技                  → 通常段より一回り大きい角度で強調
 
-// ── Sword（カタナ）: 袈裟斬り→返し→突き→回転斬り ──────────────────
+// ── Sword（カタナ）  袈裟斬り→返し→突き→回転斬り ──────────────────
 constexpr MeleeAttackDef kSwordGround[] = {
     { "swd1", 1.0f, 0.38f, 0.14f, 0.22f, 0.55f, 1.0f, 0.16f, 0.05f, false, 4, 1.6f, true, { 0, 0, 100 * kDeg }, { 0, 0, -80 * kDeg }, { 0, 0, 22 * kDeg }, { 0, 0, -18 * kDeg } },
     { "swd2", 1.0f, 0.38f, 0.13f, 0.22f, 0.55f, 1.0f, 0.16f, 0.05f, false, 4, 1.6f, true, { 0, 0, -100 * kDeg }, { 0, 0, 80 * kDeg }, { 0, 0, -22 * kDeg }, { 0, 0, 18 * kDeg } },
@@ -40,7 +38,7 @@ constexpr MeleeAttackDef kSwordAir[] = {
 };
 constexpr MeleeAttackDef kSwordLauncher = { "swd_lau", 1.3f, 0.50f, 0.16f, 0.34f, 0.45f, 1.1f, 0.05f, 0.34f, true, 8, 1.5f, true, { 0, 0, -130 * kDeg }, { 0, 0, 130 * kDeg }, { -22 * kDeg, 0, 0 }, { 28 * kDeg, 0, 0 } };
 
-// ── Dagger: 高速5段、締めはすれ違い斬り ─────────────────────────────
+// ── Dagger  高速5段、締めはすれ違い斬り ─────────────────────────────
 constexpr MeleeAttackDef kDaggerGround[] = {
     { "dag1", 1.0f, 0.22f, 0.07f, 0.12f, 0.45f, 1.0f, 0.08f, 0.03f, false, 2, 2.2f, true, { 0, 0, 70 * kDeg }, { 0, 0, -60 * kDeg }, { 0, 0, 15 * kDeg }, { 0, 0, -12 * kDeg } },
     { "dag2", 1.0f, 0.22f, 0.07f, 0.12f, 0.45f, 1.0f, 0.08f, 0.03f, false, 2, 2.2f, true, { 0, 0, -70 * kDeg }, { 0, 0, 60 * kDeg }, { 0, 0, -15 * kDeg }, { 0, 0, 12 * kDeg } },
@@ -55,18 +53,18 @@ constexpr MeleeAttackDef kDaggerAir[] = {
 };
 constexpr MeleeAttackDef kDaggerLauncher = { "dag_lau", 1.1f, 0.36f, 0.11f, 0.24f, 0.40f, 1.0f, 0.03f, 0.27f, true, 6, 2.0f, true, { 0, 0, -110 * kDeg }, { 0, 0, 110 * kDeg }, { -18 * kDeg, 0, 0 }, { 22 * kDeg, 0, 0 } };
 
-// ── Hammer: 溜めの2段、空中は叩き落とし ─────────────────────────────
+// ── Hammer  溜めの2段、空中は叩き落とし ─────────────────────────────
 constexpr MeleeAttackDef kHammerGround[] = {
     { "ham1", 1.0f, 0.70f, 0.32f, 0.46f, 0.50f, 1.0f, 0.30f, 0.10f, false, 8, 1.0f, false, { 0, 0, -160 * kDeg }, { 0, 0, 110 * kDeg }, { -30 * kDeg, 0, 0 }, { 35 * kDeg, 0, 0 } },
     { "ham2", 1.4f, 0.85f, 0.38f, 0.62f, 0.60f, 1.1f, 0.50f, 0.26f, false, 12, 0.9f, false, { 0, 0, 150 * kDeg }, { 0, 0, -120 * kDeg }, { -35 * kDeg, 0, 0 }, { 40 * kDeg, 0, 0 } },
 };
 constexpr MeleeAttackDef kHammerAir[] = {
-    // 叩き落とし: knockY が負 → 浮いた敵を地面へ叩きつける
+    // 叩き落とし  knockY が負 → 浮いた敵を地面へ叩きつける
     { "ham_a1", 1.3f, 0.55f, 0.22f, 0.40f, 0.0f, 1.0f, 0.12f, -0.30f, false, 8, 1.1f, false, { 0, 0, -150 * kDeg }, { 0, 0, 130 * kDeg }, { -15 * kDeg, 0, 0 }, { 30 * kDeg, 0, 0 } },
 };
 constexpr MeleeAttackDef kHammerLauncher = { "ham_lau", 1.2f, 0.75f, 0.34f, 0.55f, 0.45f, 1.0f, 0.08f, 0.40f, true, 10, 1.0f, false, { 0, 0, 140 * kDeg }, { 0, 0, -140 * kDeg }, { -25 * kDeg, 0, 0 }, { 30 * kDeg, 0, 0 } };
 
-// ── Spear: リーチを活かした突き3段 ──────────────────────────────────
+// ── Spear  リーチを活かした突き3段 ──────────────────────────────────
 constexpr MeleeAttackDef kSpearGround[] = {
     { "spr1", 1.0f, 0.32f, 0.11f, 0.19f, 0.70f, 1.15f, 0.14f, 0.02f, false, 3, 1.9f, true, { -80 * kDeg, 0, 0 }, { 75 * kDeg, 0, 0 }, { -12 * kDeg, 0, 0 }, { 20 * kDeg, 0, 0 } },
     { "spr2", 1.0f, 0.32f, 0.11f, 0.19f, 0.70f, 1.15f, 0.14f, 0.02f, false, 3, 1.9f, true, { -85 * kDeg, 0, 0 }, { 80 * kDeg, 0, 0 }, { -13 * kDeg, 0, 0 }, { 22 * kDeg, 0, 0 } },
@@ -78,19 +76,19 @@ constexpr MeleeAttackDef kSpearAir[] = {
 };
 constexpr MeleeAttackDef kSpearLauncher = { "spr_lau", 1.2f, 0.48f, 0.15f, 0.32f, 0.55f, 1.15f, 0.04f, 0.30f, true, 7, 1.6f, true, { 60 * kDeg, 0, 0 }, { -110 * kDeg, 0, 0 }, { -20 * kDeg, 0, 0 }, { 28 * kDeg, 0, 0 } };
 
-// ── Greatsword（クレイモア）: 超重量3段 ─────────────────────────────
+// ── Greatsword（クレイモア）  超重量3段 ─────────────────────────────
 constexpr MeleeAttackDef kGreatswordGround[] = {
     { "gsw1", 1.0f, 0.65f, 0.30f, 0.44f, 0.60f, 1.10f, 0.35f, 0.08f, false, 8, 1.0f, true, { 0, 0, 150 * kDeg }, { 0, 0, -120 * kDeg }, { 0, 0, 30 * kDeg }, { 0, 0, -26 * kDeg } },
     { "gsw2", 1.1f, 0.60f, 0.28f, 0.42f, 0.55f, 1.10f, 0.22f, 0.22f, false, 9, 1.0f, true, { 0, 0, -150 * kDeg }, { 0, 0, 120 * kDeg }, { 0, 0, -30 * kDeg }, { 0, 0, 26 * kDeg } },
     { "gsw3", 2.0f, 0.90f, 0.42f, 0.66f, 0.80f, 1.25f, 0.60f, 0.15f, false, 14, 0.9f, true, { 0, 0, -175 * kDeg }, { 0, 0, 160 * kDeg }, { -14 * kDeg, 0, 34 * kDeg }, { 18 * kDeg, 0, -34 * kDeg } },
 };
 constexpr MeleeAttackDef kGreatswordAir[] = {
-    // 落下斬り: 自分ごと振り下ろす一撃
+    // 落下斬り  自分ごと振り下ろす一撃
     { "gsw_a1", 1.6f, 0.60f, 0.24f, 0.44f, 0.0f, 1.15f, 0.25f, -0.20f, false, 10, 1.0f, true, { 0, 0, -160 * kDeg }, { 0, 0, 140 * kDeg }, { -15 * kDeg, 0, 0 }, { 28 * kDeg, 0, 0 } },
 };
 constexpr MeleeAttackDef kGreatswordLauncher = { "gsw_lau", 1.4f, 0.70f, 0.32f, 0.52f, 0.50f, 1.15f, 0.10f, 0.36f, true, 12, 0.95f, true, { 0, 0, -150 * kDeg }, { 0, 0, 150 * kDeg }, { -24 * kDeg, 0, 0 }, { 30 * kDeg, 0, 0 } };
 
-// ── Scythe（鎌）: 広範囲3段、打ち上げ最強 ───────────────────────────
+// ── Scythe（鎌）  広範囲3段、打ち上げ最強 ───────────────────────────
 constexpr MeleeAttackDef kScytheGround[] = {
     { "scy1", 1.0f, 0.45f, 0.16f, 0.26f, 0.50f, 1.35f, 0.18f, 0.06f, false, 4, 1.5f, true, { 0, 0, 130 * kDeg }, { 0, 0, -110 * kDeg }, { 0, 0, 26 * kDeg }, { 0, 0, -22 * kDeg } },
     { "scy2", 1.0f, 0.45f, 0.15f, 0.26f, 0.50f, 1.35f, 0.18f, 0.06f, false, 4, 1.5f, true, { 0, 0, -130 * kDeg }, { 0, 0, 110 * kDeg }, { 0, 0, -26 * kDeg }, { 0, 0, 22 * kDeg } },
@@ -103,7 +101,7 @@ constexpr MeleeAttackDef kScytheAir[] = {
 };
 constexpr MeleeAttackDef kScytheLauncher = { "scy_lau", 1.1f, 0.42f, 0.13f, 0.28f, 0.50f, 1.30f, 0.02f, 0.42f, true, 9, 1.6f, true, { 0, 0, -140 * kDeg }, { 0, 0, 140 * kDeg }, { -22 * kDeg, 0, 0 }, { 28 * kDeg, 0, 0 } };
 
-// ── Axe（両刃斧）: 荒々しい3段、締めは大車輪 ────────────────────────
+// ── Axe（両刃斧）  荒々しい3段、締めは大車輪 ────────────────────────
 constexpr MeleeAttackDef kAxeGround[] = {
     { "axe1", 1.0f, 0.50f, 0.20f, 0.32f, 0.80f, 1.0f, 0.25f, 0.06f, false, 6, 1.3f, true, { 0, 0, 140 * kDeg }, { 0, 0, -110 * kDeg }, { 0, 0, 28 * kDeg }, { 0, 0, -24 * kDeg } },
     { "axe2", 1.1f, 0.50f, 0.18f, 0.32f, 0.60f, 1.0f, 0.25f, 0.06f, false, 6, 1.3f, true, { 0, 0, -140 * kDeg }, { 0, 0, 110 * kDeg }, { 0, 0, -28 * kDeg }, { 0, 0, 24 * kDeg } },
@@ -152,9 +150,7 @@ const MeleeComboSet& engine::game::GetMeleeComboSet(WeaponType type)
     }
 }
 
-// ============================================================
 //  MeleeComboController
-// ============================================================
 
 const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool airborne,
     int& outIdx, bool& outLauncher) const
@@ -175,7 +171,7 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
         return nullptr;
     }
 
-    // 継続条件: 攻撃中か猶予中で、地上/空中モードが同じなら次の段へ（末尾は先頭へ戻る）
+    // 継続条件  攻撃中か猶予中で、地上/空中モードが同じなら次の段へ（末尾は先頭へ戻る）
     bool continuing = (active_ != nullptr || chainGraceTimer_ > 0.0f)
         && !launcherMode_ && (airMode_ == airborne);
     outIdx = continuing ? (stepIdx_ + 1) % count : 0;

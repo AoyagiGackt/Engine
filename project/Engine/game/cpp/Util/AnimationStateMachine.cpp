@@ -4,9 +4,7 @@
 using namespace engine;
 using namespace engine::game;
 
-// ============================================================
 // 状態登録
-// ============================================================
 
 void AnimationStateMachine::AddState(const std::string& name,
     Animation* anim,
@@ -21,9 +19,7 @@ void AnimationStateMachine::AddState(const std::string& name,
     states_[name] = s;
 }
 
-// ============================================================
 // 遷移ルール登録
-// ============================================================
 
 void AnimationStateMachine::AddTransition(const std::string& from,
     const std::string& to,
@@ -41,18 +37,14 @@ void AnimationStateMachine::AddAutoTransition(const std::string& from,
     }
 }
 
-// ============================================================
 // 初期 / 強制状態変更
-// ============================================================
 
 void AnimationStateMachine::SetState(const std::string& name)
 {
     TransitionTo(name);
 }
 
-// ============================================================
 // トリガー発火
-// ============================================================
 
 void AnimationStateMachine::Trigger(const std::string& triggerName)
 {
@@ -68,9 +60,7 @@ void AnimationStateMachine::Trigger(const std::string& triggerName)
     }
 }
 
-// ============================================================
 // 更新
-// ============================================================
 
 void AnimationStateMachine::Update(float dt)
 {
@@ -92,10 +82,10 @@ void AnimationStateMachine::Update(float dt)
     currentTime_ += dt * s.speed;
 
     if (s.loop) {
-        // ループ: duration を超えたら先頭に折り返す
+        // ループ  duration を超えたら先頭に折り返す
         currentTime_ = std::fmod(currentTime_, s.anim->duration);
     } else {
-        // 非ループ: 終端でクランプし、自動遷移があれば遷移
+        // 非ループ  終端でクランプし、自動遷移があれば遷移
         if (currentTime_ >= s.anim->duration) {
             currentTime_ = s.anim->duration;
             if (!s.autoTransitionTo.empty()) {
@@ -105,9 +95,7 @@ void AnimationStateMachine::Update(float dt)
     }
 }
 
-// ============================================================
 // 情報取得
-// ============================================================
 
 const Animation* AnimationStateMachine::GetCurrentAnimation() const
 {
@@ -139,9 +127,7 @@ bool AnimationStateMachine::IsCurrentAnimationFinished() const
     return currentTime_ >= s.anim->duration;
 }
 
-// ============================================================
-// 内部: 状態遷移
-// ============================================================
+// 内部  状態遷移
 
 void AnimationStateMachine::TransitionTo(const std::string& stateName)
 {

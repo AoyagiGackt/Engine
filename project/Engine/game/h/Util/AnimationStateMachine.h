@@ -9,7 +9,7 @@ namespace engine::game {
  * @file AnimationStateMachine.h
  * @brief アニメーション状態マシン
  *
- * 複数のアニメーション（歩き・走り・攻撃など）を「状態」として登録し、
+ * 複数のアニメーション（歩き・走り・攻撃など）を状態として登録し、
  * トリガーやアニメーション終了条件で自動的に遷移管理します
  *
  * ■ 基本的な使い方
@@ -50,9 +50,9 @@ class AnimationStateMachine {
 public:
     AnimationStateMachine() = default;
 
-    // =============================================
+
     // 状態の登録
-    // =============================================
+
 
     /**
      * @brief 状態を追加する
@@ -63,9 +63,9 @@ public:
      */
     void AddState(const std::string& name, Animation* anim, bool loop = true, float speed = 1.0f);
 
-    // =============================================
+
     // 遷移ルールの登録
-    // =============================================
+
 
     /**
      * @brief トリガー名による遷移を追加する
@@ -82,9 +82,9 @@ public:
      */
     void AddAutoTransition(const std::string& from, const std::string& to);
 
-    // =============================================
+
     // 制御
-    // =============================================
+
 
     /**
      * @brief 初期状態または強制状態変更を行う
@@ -108,9 +108,9 @@ public:
      */
     void Update(float dt);
 
-    // =============================================
+
     // 情報取得
-    // =============================================
+
 
     /** @brief 現在の状態名を返す */
     const std::string& GetCurrentStateName() const { return currentState_; }
@@ -140,7 +140,7 @@ public:
     size_t GetStateCount() const { return states_.size(); }
 
 private:
-    // ---- 状態データ ----
+    // 状態データ
     struct State {
         std::string name;
         Animation* anim = nullptr;
@@ -149,7 +149,7 @@ private:
         std::string autoTransitionTo; ///< loop=false 終了後に遷移する先（空文字=自動遷移なし）
     };
 
-    // ---- 遷移ルール ----
+    // 遷移ルール
     struct Transition {
         std::string to;
         std::string trigger;
@@ -161,7 +161,7 @@ private:
     std::string currentState_;
     float currentTime_ = 0.0f;
 
-    // ---- 内部遷移処理 ----
+    // 内部遷移処理
     void TransitionTo(const std::string& stateName);
 };
 

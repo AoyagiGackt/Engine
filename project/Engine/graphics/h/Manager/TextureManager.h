@@ -145,12 +145,12 @@ private:
     /** @brief DirectX基盤のポインタ */
     engine::DirectXCommon* dxCommon_ = nullptr;
 
-    /** @brief 読み込み済みテクスチャの管理用マップ（キー：ファイルパス） */
+    /** @brief 読み込み済みテクスチャの管理用マップ（キー ファイルパス） */
     std::map<std::string, TextureData> textureDatas_;
 
-    // -------------------------------------------------------
+
     // コピーキュー関連（初期化時に作成し再利用する）
-    // -------------------------------------------------------
+
 
     /** @brief テクスチャ転送専用のコピーコマンドキュー */
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
@@ -163,15 +163,15 @@ private:
     UINT64 copyFenceValue_ = 0;
     HANDLE copyFenceEvent_ = nullptr;
 
-    // -------------------------------------------------------
+
     // バリア遷移用（COMMON → PIXEL_SHADER_RESOURCE、グラフィックスキュー）
-    // -------------------------------------------------------
+
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> transAllocator_;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> transCmdList_;
 
-    // -------------------------------------------------------
+
     // バッチ転送の保留リスト
-    // -------------------------------------------------------
+
     /** @brief GPU がコピーを終えるまで保持するアップロードバッファ */
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> pendingUploadBuffers_;
     /** @brief COMMON → PIXEL_SHADER_RESOURCE 遷移待ちのリソース */

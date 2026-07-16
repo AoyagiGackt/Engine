@@ -11,15 +11,17 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+// ══════════════════════════════════════════════════════
+// 初期化とグループ管理
+// ══════════════════════════════════════════════════════
+
 ParticleManager* ParticleManager::GetInstance()
 {
     static ParticleManager instance;
     return &instance;
 }
 
-// ============================================================
 //  初期化 / 終了
-// ============================================================
 
 void ParticleManager::Initialize(DirectXCommon* dxCommon)
 {
@@ -61,9 +63,7 @@ void ParticleManager::Finalize()
     dxCommon_ = nullptr;
 }
 
-// ============================================================
 //  グループ生成
-// ============================================================
 
 void ParticleManager::CreateParticleGroup(const std::string& name,
     const std::string& textureFilePath)
@@ -85,7 +85,7 @@ void ParticleManager::CreateParticleStateBuffers(ParticleGroup& group)
     ID3D12Device* device = dxCommon_->GetDevice();
     const UINT64 stateSize = sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance;
 
-    // ---- particleStateBuffer: DEFAULT heap, UAV ----
+    // particleStateBuffer: DEFAULT heap, UAV
     {
         D3D12_HEAP_PROPERTIES hp { D3D12_HEAP_TYPE_DEFAULT };
         D3D12_RESOURCE_DESC rd { };
@@ -102,7 +102,7 @@ void ParticleManager::CreateParticleStateBuffers(ParticleGroup& group)
         ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
-    // ---- particleUploadBuffer: UPLOAD heap, 常時マップ ----
+    // particleUploadBuffer: UPLOAD heap, 常時マップ
     {
         D3D12_HEAP_PROPERTIES hp { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC rd { };
@@ -128,7 +128,7 @@ void ParticleManager::CreateParticleInstancingResource(ParticleGroup& group)
     ID3D12Device* device = dxCommon_->GetDevice();
     const UINT64 instancSize = sizeof(ParticleForGPU) * ParticleGroup::kNumMaxInstance;
 
-    // ---- instancingResource: DEFAULT heap, UAV (CS が書く) ----
+    // instancingResource: DEFAULT heap, UAV (CS が書く)
     {
         D3D12_HEAP_PROPERTIES hp { D3D12_HEAP_TYPE_DEFAULT };
         D3D12_RESOURCE_DESC rd { };
@@ -145,7 +145,7 @@ void ParticleManager::CreateParticleInstancingResource(ParticleGroup& group)
         ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
-    // ---- SRV for instancingResource (VS が t0 として読む) ----
+    // SRV for instancingResource (VS が t0 として読む)
     group.srvIndex = SrvManager::GetInstance()->Allocate();
     D3D12_CPU_DESCRIPTOR_HANDLE cpuH = SrvManager::GetInstance()->GetCPUDescriptorHandle(group.srvIndex);
 
@@ -172,16 +172,14 @@ void ParticleManager::InitParticleGroupState(ParticleGroup& group)
         group.freeList.push_back(i);
     }
 
-    // ---- エミッターバッファ (UPLOAD heap, 256 bytes, 常時マップ) ----
+    // エミッターバッファ (UPLOAD heap, 256 bytes, 常時マップ)
     group.emitterBuffer = dxCommon_->CreateBufferResource(256);
     group.emitterBuffer->Map(0, nullptr, reinterpret_cast<void**>(&group.emitterData));
     memset(group.emitterData, 0, sizeof(Emitter));
     group.emitterData->lifeTime = 1.0f; // デフォルト 1 秒
 }
 
-// ============================================================
 //  スロット管理
-// ============================================================
 
 uint32_t ParticleManager::AllocateSlot(ParticleGroup& group)
 {
@@ -193,9 +191,11 @@ uint32_t ParticleManager::AllocateSlot(ParticleGroup& group)
     return slot;
 }
 
-// ============================================================
 //  Emit 系
-// ============================================================
+
+// ══════════════════════════════════════════════════════
+// パーティクル生成
+// ══════════════════════════════════════════════════════
 
 void ParticleManager::Emit(const std::string& name,
     const Vector3& position,
@@ -565,9 +565,11 @@ void ParticleManager::EmitTrail(const std::string& name, const Vector3& position
     group.pendingSlots.push_back(slot);
 }
 
-// ============================================================
 //  Update: CS ディスパッチ（フェーズ分割版）
-// ============================================================
+
+// ══════════════════════════════════════════════════════
+// GPU更新
+// ══════════════════════════════════════════════════════
 
 void ParticleManager::UpdateCSConstants(Camera* camera, float dt)
 {
@@ -749,6 +751,10 @@ void ParticleManager::DispatchUpdateCS(ParticleGroup& group, ID3D12GraphicsComma
     group.instancingInSRV = true;
 }
 
+// ══════════════════════════════════════════════════════
+// フレーム更新と描画
+// ══════════════════════════════════════════════════════
+
 void ParticleManager::Update(Camera* camera)
 {
     constexpr float dt = GameConstants::kFrameDeltaTime;
@@ -765,9 +771,7 @@ void ParticleManager::Update(Camera* camera)
     }
 }
 
-// ============================================================
 //  Draw: インスタンシング描画
-// ============================================================
 
 void ParticleManager::Draw(Camera* camera)
 {
@@ -810,9 +814,7 @@ void ParticleManager::Draw(Camera* camera)
     }
 }
 
-// ============================================================
 //  テクスチャ変更
-// ============================================================
 
 void ParticleManager::SetTexture(const std::string& groupName,
     const std::string& textureFilePath)
@@ -848,9 +850,11 @@ bool ParticleManager::IsGroupAlive(const std::string& name) const
     return false;
 }
 
-// ============================================================
 //  グラフィックスルートシグネチャ
-// ============================================================
+
+// ══════════════════════════════════════════════════════
+// パイプライン生成
+// ══════════════════════════════════════════════════════
 
 void ParticleManager::CreateRootSignature()
 {
@@ -905,9 +909,7 @@ void ParticleManager::CreateRootSignature()
     ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
-// ============================================================
 //  CS ルートシグネチャ
-// ============================================================
 
 void ParticleManager::CreateCSRootSignature()
 {
@@ -937,9 +939,7 @@ void ParticleManager::CreateCSRootSignature()
         sigBlob->GetBufferSize(), IID_PPV_ARGS(&csRootSignature_));
 }
 
-// ============================================================
 //  CS パイプラインステート
-// ============================================================
 
 void ParticleManager::CreateQuadGeometry()
 {
@@ -991,9 +991,7 @@ void ParticleManager::CreateCSPipelineState()
     ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
-// ============================================================
 //  EmitParticle CS ルートシグネチャ / パイプライン
-// ============================================================
 
 void ParticleManager::CreateCSEmitRootSignature()
 {
@@ -1040,9 +1038,7 @@ Emitter* ParticleManager::GetEmitter(const std::string& name)
     return particleGroups_[name].emitterData;
 }
 
-// ============================================================
 //  グラフィックスパイプラインステート
-// ============================================================
 
 void ParticleManager::CreatePipelineState()
 {

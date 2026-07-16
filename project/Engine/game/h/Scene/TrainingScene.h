@@ -64,27 +64,27 @@ public:
     /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
-    /// @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する）
+    /** @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する） */
     Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
 
-    // ---- BaseScene::Init()/Tick()からのStageEditor自動配線フック ----
+    // BaseScene::Init()/Tick()からのStageEditor自動配線フック
     std::string GetEditorLevelPath() const override { return "Resources/Levels/training.json"; }
     ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
     Camera* GetEditorCamera() override { return camera_.get(); }
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
-    /// @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる
+    /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
 
 private:
-    /// @brief プレイヤーとスピン連射弾を更新する
+    /** @brief プレイヤーとスピン連射弾を更新する */
     void UpdatePlayerAndBullets();
-    /// @brief カメラ追従、影、境界ブロック、PBRデモ、ワープポータル演出を更新する
+    /** @brief カメラ追従、影、境界ブロック、PBRデモ、ワープポータル演出を更新する */
     void UpdateCameraAndEnvironment();
-    /// @brief HUD全体（武器一覧・デバッグ情報・操作説明・覚醒ゲージ）を描画する
+    /** @brief HUD全体（武器一覧・デバッグ情報・操作説明・覚醒ゲージ）を描画する */
     void DrawHud(bool nearWarpPortal);
-    /// @brief 武器一覧とワープポータルのラベルを描画する
+    /** @brief 武器一覧とワープポータルのラベルを描画する */
     void DrawWeaponHud(bool nearWarpPortal);
-    /// @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する
+    /** @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する */
     void DrawDebugHud();
 
     DirectXCommon* dxCommon_ = nullptr;
@@ -125,7 +125,7 @@ private:
 
     FontRenderer fontRenderer_;
 
-    // PBR デモブロック（3 種：非金属 / 鏡面金属 / ラフ金属）
+    // PBR デモブロック（3 種 非金属 / 鏡面金属 / ラフ金属）
     std::unique_ptr<Object3d> pbrDemoBlocks_[3];
     float pbrMetallic_[3] = { 0.0f, 0.95f, 0.80f };
     float pbrRoughness_[3] = { 0.90f, 0.05f, 0.60f };

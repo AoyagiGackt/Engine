@@ -104,7 +104,7 @@ void Model::Draw(ModelCommon* modelCommon)
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
     commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 
-    // スロット5（TextureCube）: 環境マップが指定されていればそちらを、なければ通常テクスチャを流用
+    // スロット5（TextureCube）  環境マップが指定されていればそちらを、なければ通常テクスチャを流用
     if (!envCubemapFilePath_.empty()) {
         D3D12_GPU_DESCRIPTOR_HANDLE cubeHandle = TextureManager::GetInstance()->GetSrvHandleGPU(envCubemapFilePath_);
         commandList->SetGraphicsRootDescriptorTable(5, cubeHandle);

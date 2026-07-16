@@ -7,9 +7,7 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// =====================================================
 // 初期化
-// =====================================================
 
 void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
@@ -59,9 +57,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         srvManager->GetCPUDescriptorHandle(shadowSrvIndex_));
 }
 
-// =====================================================
 // ライト方向 → LightVP 行列を更新
-// =====================================================
 
 void ShadowManager::Update(const Vector3& lightDir)
 {
@@ -150,9 +146,7 @@ void ShadowManager::Update(const Vector3& lightDir)
     lightVP_ = Multiply(view, proj);
 }
 
-// =====================================================
 // シャドウパス開始・終了
-// =====================================================
 
 void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
 {
@@ -180,9 +174,7 @@ void ShadowManager::EndShadowPass(ID3D12GraphicsCommandList* commandList)
     shadowMapInDepthWrite_ = false;
 }
 
-// =====================================================
 // SRV セット（スロット 4）
-// =====================================================
 
 void ShadowManager::SetShadowMap(ID3D12GraphicsCommandList* commandList, SrvManager* srvManager)
 {

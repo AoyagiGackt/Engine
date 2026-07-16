@@ -26,9 +26,11 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// =====================================================
 // 初期化
-// =====================================================
+
+// ══════════════════════════════════════════════════════
+// シーン初期化
+// ══════════════════════════════════════════════════════
 
 void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -234,6 +236,10 @@ void GamePlayScene::UpdateCameraSmoothing()
     camera_->SetRotate({ avgRot.x / n, avgRot.y / n, avgRot.z / n });
 }
 
+// ══════════════════════════════════════════════════════
+// シーン更新
+// ══════════════════════════════════════════════════════
+
 void GamePlayScene::Update()
 {
     if (UpdateClearState()) {
@@ -323,11 +329,15 @@ bool GamePlayScene::UpdateClearState()
     return true;
 }
 
+// ══════════════════════════════════════════════════════
+// 戦闘とカメラの更新
+// ══════════════════════════════════════════════════════
+
 void GamePlayScene::UpdateCombatEvents()
 {
     auto* tm = TimeManager::GetInstance();
 
-    // 乱舞：打ち上げヒット
+    // 乱舞 打ち上げヒット
     if (player_->JustLaunched()) {
         enemy_->Launch(GameConstants::kLaunchSpeed);
         const Vector3& epos = enemy_->GetPosition();
@@ -343,7 +353,7 @@ void GamePlayScene::UpdateCombatEvents()
         }
     }
 
-    // 乱舞：ジャグルスラッシュ
+    // 乱舞 ジャグルスラッシュ
     if (player_->JustRampageHit()) {
         int cnt = player_->GetJuggleCount();
         float dir = player_->GetLastDirX();
@@ -358,7 +368,7 @@ void GamePlayScene::UpdateCombatEvents()
         cameraShaker_.Request(0.12f + cnt * 0.01f, 0.10f);
     }
 
-    // 乱舞：フィニッシュ
+    // 乱舞 フィニッシュ
     if (player_->JustRampageFinish()) {
         const Vector3& epos = enemy_->GetPosition();
         tm->RequestHitStop(GameConstants::kHitStopFinish);
@@ -374,7 +384,7 @@ void GamePlayScene::UpdateCombatEvents()
         }
     }
 
-    // フィニッシャースラッシュ：発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）
+    // フィニッシャースラッシュ 発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）
     if (player_->JustFinisherSlash()) {
         const Vector3& epos = enemy_->GetPosition();
         finisherActive_ = true;
@@ -483,7 +493,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
         AABB rushRange = { { ppos.x - 2.5f, ppos.y - 1.5f, -0.5f },
             { ppos.x + 2.5f, ppos.y + 1.5f, 0.5f } };
         if (Collision::CheckCollision(rushRange, enemyAABB)) {
-            // 乱舞スラッシュ：回数が増えるほど多くゲージが溜まる
+            // 乱舞スラッシュ 回数が増えるほど多くゲージが溜まる
             styleMeter_ = std::clamp(
                 styleMeter_ + 0.10f + player_->GetJuggleCount() * 0.02f, 0.0f, 1.0f);
             enemy_->TakeDamage(1);
@@ -497,6 +507,10 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
 
     DrawStyleUI();
 }
+
+// ══════════════════════════════════════════════════════
+// パーティクルとヒット演出
+// ══════════════════════════════════════════════════════
 
 void GamePlayScene::UpdateParticles(float dt)
 {
@@ -590,7 +604,7 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
 
 void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
 {
-    // 予備動作明けの瞬間：狙いを一度だけ計算し、実弾を撃ち出す
+    // 予備動作明けの瞬間 狙いを一度だけ計算し、実弾を撃ち出す
     if (enemy_->JustFiredAttack()) {
         const Vector3& epos = enemy_->GetPosition();
         const Vector3& ppos = player_->GetPosition();
@@ -749,6 +763,10 @@ void GamePlayScene::UpdateStyleTechniqueParticles(float dt)
     prevStyleTier_ = styleTier;
 }
 
+// ══════════════════════════════════════════════════════
+// フィニッシャーとクリア判定
+// ══════════════════════════════════════════════════════
+
 void GamePlayScene::UpdateFinisherSlash(float dt)
 {
     if (!finisherActive_) {
@@ -805,7 +823,7 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
         return;
     }
 
-    // 解放：溜めた斬撃が一斉に炸裂する
+    // 解放 溜めた斬撃が一斉に炸裂する
     finisherActive_ = false;
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
     cameraShaker_.Request(GameConstants::kShakeFinisherSlashAmt, GameConstants::kShakeFinisherSlashDur);
@@ -817,11 +835,11 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     enemySlice_.Start(enemy_->GetModel(), epos, { 1.0f, 1.0f, 1.0f }, rng_());
     enemy_->SetVisible(false);
 
-    // 解放の瞬間：刃の一斉放出と空間歪みの最大化
+    // 解放の瞬間 刃の一斉放出と空間歪みの最大化
     bladeFlash_.Emit(epos, 30, GameConstants::kFinisherSlashRadius, 2.0f, 5.0f);
     spaceWarp_.AddImpulse(1.0f);
 
-    // 白閃光とともに「暗転+斬撃線ごと凍った画面」を敵位置から砕き、素の世界を見せる
+    // 白閃光とともに暗転+斬撃線ごと凍った画面を敵位置から砕き、素の世界を見せる
     ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.5f }, 0.15f);
     {
         const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
@@ -913,6 +931,10 @@ void GamePlayScene::CheckClearCondition()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// レンダリング
+// ══════════════════════════════════════════════════════
+
 D3D12_CPU_DESCRIPTOR_HANDLE GamePlayScene::GetActiveRTVHandle() const
 {
     return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
@@ -951,7 +973,7 @@ void GamePlayScene::Draw()
 
 bool GamePlayScene::DrawClearOverlayIfNeeded()
 {
-    // ---- クリア演出中（かつキャプチャ済み）はシーン描画をスキップ ----
+    // クリア演出中（かつキャプチャ済み）はシーン描画をスキップ
     if (clearTriggered_ && RunData::GetInstance()->IsRunActive() && showResult_) {
         spriteCommon_->CommonDrawSettings();
         clearBgSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 1.0f });
@@ -1054,7 +1076,7 @@ void GamePlayScene::DrawOverlaysAndUI()
     }
     SlashMark::GetInstance()->Draw();
 
-    // ---- 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）----
+    // 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）
     if (finisherShatter_.IsActive()
         && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
         if (finisherShatter_.NeedCapture()) {
@@ -1068,10 +1090,10 @@ void GamePlayScene::DrawOverlaysAndUI()
         finisherShatter_.Apply();
     }
 
-    // ----- ゲームプレイ UI テキスト -----
+    // ゲームプレイ UI テキスト
     fontRenderer_.Draw();
 
-    // ---- ガラス割れエフェクト（サンドボックスのクリア演出 / デバッグテスト再生時のみ）----
+    // ガラス割れエフェクト（サンドボックスのクリア演出 / デバッグテスト再生時のみ）
     if (clearTriggered_ && IsGlassShatterFlow()) {
         if (glassShatter_.NeedCapture()) {
             glassShatter_.CaptureFrame();
@@ -1079,6 +1101,10 @@ void GamePlayScene::DrawOverlaysAndUI()
         glassShatter_.Apply();
     }
 }
+
+// ══════════════════════════════════════════════════════
+// HUD描画
+// ══════════════════════════════════════════════════════
 
 void GamePlayScene::DrawRogueliteHUD()
 {
@@ -1117,7 +1143,7 @@ void GamePlayScene::DrawStyleUI()
 void GamePlayScene::DrawRankAndAwakenGauge()
 {
     // ══════════════════════════════════════════════════════
-    // 右上：コンボランク ＋ 覚醒ゲージ
+    // 右上 コンボランク ＋ 覚醒ゲージ
     // ══════════════════════════════════════════════════════
     constexpr float kScale = 1.5f;
     constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
@@ -1192,7 +1218,7 @@ void GamePlayScene::DrawRankAndAwakenGauge()
 void GamePlayScene::DrawStyleCommands()
 {
     // ══════════════════════════════════════════════════════
-    // 右側：スタイルコマンド UI
+    // 右側 スタイルコマンド UI
     // ══════════════════════════════════════════════════════
     constexpr float kScale = 1.5f;
     constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
@@ -1229,7 +1255,7 @@ void GamePlayScene::DrawStyleCommands()
         { 0.35f, 0.35f, 0.35f, 1.0f });
     y += kLineH;
 
-    // コマンド一覧（キーは基本ASCIIだが「空中L」等の日本語混じりもあるためUTF-8として変換する）
+    // コマンド一覧（キーは基本ASCIIだが空中L等の日本語混じりもあるためUTF-8として変換する）
     for (const auto& cmd : style.commands) {
         std::wstring line = L"[" + StringUtility::ConvertString(cmd.key) + L"] " + cmd.desc;
         fontRenderer_.DrawStringW(line, kX, y, kScale, { 0.85f, 0.85f, 0.85f, 1.0f });

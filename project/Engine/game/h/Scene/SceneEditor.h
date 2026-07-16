@@ -6,10 +6,10 @@
  * カメラ位置・オブジェクトの色・パーティクルの数などを即座に変更できる
  * USE_IMGUI ビルドでのみ動作し、リリースビルドでは何もしない
  *
- * 「State パターン」を使っている
- * → Hierarchy パネルでオブジェクトをクリックすると「選択状態」が変わり、
+ * State パターンを使っている
+ * → Hierarchy パネルでオブジェクトをクリックすると選択状態が変わり、
  *   Inspector パネルに表示される内容が切り替わる
- *   「Camera を選んだら Camera の設定画面」「Ring を選んだら Ring の設定画面」という仕組み
+ *   Camera を選んだら Camera の設定画面Ring を選んだら Ring の設定画面という仕組み
  */
 #pragma once
 #include "Camera.h"
@@ -37,7 +37,7 @@ using engine::graphics::SpriteCommon;
 
 class SceneEditor {
 public:
-    // ---- 現在何が選択されているか ----
+    // 現在何が選択されているか
     // Hierarchy パネルで選んだオブジェクトの種類を表す
     enum class Selection {
         None, // 何も選んでいない
@@ -50,8 +50,8 @@ public:
         WhiteParticles // 白い浮遊パーティクル
     };
 
-    // ---- エディタが編集できるシーンデータへの参照 ----
-    // GamePlayScene から受け取る「ゲームの今の状態」をまとめた構造体
+    // エディタが編集できるシーンデータへの参照
+    // GamePlayScene から受け取るゲームの今の状態をまとめた構造体
     // ポインタで渡しているので、エディタで値を変えると即座にゲーム側にも反映される
     struct EditContext {
         // オブジェクト本体へのポインタ（エディタがメソッドを呼ぶのに使う）
@@ -113,14 +113,14 @@ public:
         bool* requestClear = nullptr;
     };
 
-    // ---- Hierarchy に追加した UI スプライト1つ分のデータ ----
+    // Hierarchy に追加した UI スプライト1つ分のデータ
     struct UIEntry {
-        std::string name; // エディタ上での名前（例: "HP Bar"）
+        std::string name; // エディタ上での名前（例  "HP Bar"）
         std::unique_ptr<Sprite> sprite; // 実際のスプライトオブジェクト
         std::string texPath; // テクスチャファイルのパス
     };
 
-    // ---- ImGui パネルのレイアウト定数（画面上の位置・サイズ、単位はピクセル）----
+    // ImGui パネルのレイアウト定数（画面上の位置・サイズ、単位はピクセル）
     static constexpr float kHierarchyX = 0.0f, kHierarchyY = 0.0f; // 左上に配置
     static constexpr float kHierarchyW = 220.0f, kHierarchyH = 400.0f;
     static constexpr float kInspectorX = 1060.0f, kInspectorY = 0.0f; // 右上に配置
@@ -130,7 +130,7 @@ public:
     static constexpr float kCamCtrlX = 400.0f, kCamCtrlY = 0.0f; // 上中央に配置
     static constexpr float kCamCtrlW = 300.0f, kCamCtrlH = 155.0f;
 
-    // ---- 外部から呼ぶメソッド ----
+    // 外部から呼ぶメソッド
 
     /**
      * @brief 毎フレーム呼ぶF3でパネルの表示/非表示を切り替える（既定は非表示）
@@ -152,8 +152,8 @@ public:
     Selection GetSelection() const { return selection_; }
 
 private:
-    // ---- State パターンの基底クラス ----
-    // 「今何を選んでいるか」によって Inspector パネルの内容を切り替える仕組み
+    // State パターンの基底クラス
+    // 今何を選んでいるかによって Inspector パネルの内容を切り替える仕組み
     // 新しいオブジェクト種別を増やしたいときは、このクラスを継承して RenderInspector を実装する
     class IEditorState {
     public:
@@ -199,13 +199,13 @@ private:
     // 選択状態を変え、対応する State クラスに切り替える
     void ChangeState(Selection sel);
 
-    // ---- 各 ImGui パネルの描画メソッド ----
-    void RenderHierarchy(const EditContext& ctx); // 左：オブジェクト一覧
-    void RenderInspector(const EditContext& ctx); // 右：選択中オブジェクトのプロパティ
-    void RenderSceneControls(const EditContext& ctx); // 左下：スコア・ゲーム時刻・シーン操作
-    void RenderCameraControl(const EditContext& ctx); // 上中央：カメラ位置の簡易操作
+    // 各 ImGui パネルの描画メソッド
+    void RenderHierarchy(const EditContext& ctx); // 左 オブジェクト一覧
+    void RenderInspector(const EditContext& ctx); // 右 選択中オブジェクトのプロパティ
+    void RenderSceneControls(const EditContext& ctx); // 左下 スコア・ゲーム時刻・シーン操作
+    void RenderCameraControl(const EditContext& ctx); // 上中央 カメラ位置の簡易操作
 
-    // ---- JSON ファイルへの保存・読み込み ----
+    // JSON ファイルへの保存・読み込み
     // "Resources/debug_camera.json" にカメラのパラメータを保存/読込する
     void SaveCameraParams(const EditContext& ctx);
     void LoadCameraParams(const EditContext& ctx);
@@ -214,7 +214,7 @@ private:
     void SaveUILayout();
     void LoadUILayout(const EditContext& ctx);
 
-    // ---- 状態管理 ----
+    // 状態管理
     bool visible_ = false; // F3で表示/非表示（既定は非表示にして画面を占有しない）
     Selection selection_ = Selection::None; // 現在選んでいるオブジェクト種別
     int selectionIndex_ = -1; // UIElement リスト内のインデックス（-1 = 未選択）

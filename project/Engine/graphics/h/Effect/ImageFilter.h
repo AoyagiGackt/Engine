@@ -265,7 +265,7 @@ private:
     void InitRootSignatures(engine::DirectXCommon* dxCommon);
     void InitPipelineStates(engine::DirectXCommon* dxCommon);
 
-    // ---- Filter Mode Strategy パターン ----
+    // Filter Mode Strategy パターン
     // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える
     class IFilterMode {
     public:

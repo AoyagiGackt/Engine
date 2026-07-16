@@ -141,7 +141,7 @@ public:
      */
     virtual const char* GetHotkeyOverlayExtra() const { return nullptr; }
 
-    // ---- ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全） ----
+    // ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全）
 
     /**
      * @brief Init()が自動でOpen()するレベルJSONのパス

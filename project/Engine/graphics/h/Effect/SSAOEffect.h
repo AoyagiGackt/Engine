@@ -82,30 +82,30 @@ private:
     void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
         D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const;
 
-    // --- Normal RT (RGBA16F) ---
+    // Normal RT (RGBA16F)
     Microsoft::WRL::ComPtr<ID3D12Resource> normalTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> normalRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE normalRtvHandle_ = { };
     uint32_t normalSrvIndex_ = UINT32_MAX;
 
-    // --- SSAO RT (R8_UNORM) ---
+    // SSAO RT (R8_UNORM)
     Microsoft::WRL::ComPtr<ID3D12Resource> ssaoTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> ssaoRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE ssaoRtvHandle_ = { };
     uint32_t ssaoSrvIndex_ = UINT32_MAX;
 
-    // --- Blur RT (R8_UNORM) ---
+    // Blur RT (R8_UNORM)
     Microsoft::WRL::ComPtr<ID3D12Resource> blurTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> blurRtvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE blurRtvHandle_ = { };
     uint32_t blurSrvIndex_ = UINT32_MAX;
 
-    // --- 専用 DSV ---
+    // 専用 DSV
     Microsoft::WRL::ComPtr<ID3D12Resource> depthTex_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvHeap_;
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle_ = { };
 
-    // --- PSO / RS ---
+    // PSO / RS
     Microsoft::WRL::ComPtr<ID3D12RootSignature> normalRS_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> normalPSO_;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> ssaoRS_;
@@ -115,7 +115,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature> applyRS_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> applyPSO_;
 
-    // --- 定数バッファ ---
+    // 定数バッファ
     struct NormalCaptureCB {
         Matrix4x4 view;
     };

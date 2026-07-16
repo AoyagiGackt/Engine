@@ -22,16 +22,16 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// デストラクタ: オブジェクトが破棄されるときに自動でリソースを解放する
+// デストラクタ  オブジェクトが破棄されるときに自動でリソースを解放する
 VideoPlayer::~VideoPlayer()
 {
     Finalize();
 }
 
 // 動画を読み込んで再生準備をする
-// dxCommon: DirectX12 の中核（GPU コマンド発行に使う）
-// spriteCommon: 2D描画の共通設定
-// filePath: 再生する動画ファイルのパス（例: "Resources/movie.mp4"）
+// dxCommon  DirectX12 の中核（GPU コマンド発行に使う）
+// spriteCommon  2D描画の共通設定
+// filePath  再生する動画ファイルのパス（例  "Resources/movie.mp4"）
 void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon, const std::string& filePath)
 {
     dxCommon_ = dxCommon;
@@ -43,7 +43,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     hr = MFStartup(MF_VERSION);
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // 属性オブジェクトを作成し、「ビデオ処理を有効にする」フラグを立てる
+    // 属性オブジェクトを作成し、ビデオ処理を有効にするフラグを立てる
     // → これにより RGB32 形式への自動変換が有効になる
     ComPtr<IMFAttributes> attributes;
     hr = MFCreateAttributes(&attributes, 1);
@@ -61,7 +61,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
         ENGINE_ASSERT(false);
     }
 
-    // デコード先のフォーマットを「RGB32」に設定する
+    // デコード先のフォーマットをRGB32に設定する
     // RGB32 = 1ピクセルを R・G・B・X の 4バイトで表す形式（DirectX で扱いやすい）
     ComPtr<IMFMediaType> pMediaType;
     MFCreateMediaType(&pMediaType);
@@ -80,9 +80,9 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     videoWidth_ = width;
     videoHeight_ = height;
 
-    // ----- GPU テクスチャの作成 -----
+    // GPU テクスチャの作成
 
-    // GPU 側のテクスチャ（DEFAULT ヒープ: GPU だけが読み書きできる高速なメモリ）
+    // GPU 側のテクスチャ（DEFAULT ヒープ  GPU だけが読み書きできる高速なメモリ）
     D3D12_HEAP_PROPERTIES defaultHeapProps { };
     defaultHeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -101,7 +101,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
         IID_PPV_ARGS(&textureResource_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // CPU 書き込み用の中間バッファ（UPLOAD ヒープ: CPU が書き込める、GPUへの転送用）
+    // CPU 書き込み用の中間バッファ（UPLOAD ヒープ  CPU が書き込める、GPUへの転送用）
     // 毎フレームここにピクセルデータを書いて、GPU テクスチャにコピーする
     D3D12_HEAP_PROPERTIES uploadHeapProps { };
     uploadHeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -130,7 +130,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     SrvManager::GetInstance()->CreateSRVforTexture2D(
         srvIndex_, textureResource_.Get(), resDesc.Format, 1);
 
-    // ----- 描画用スプライトを作成する -----
+    // 描画用スプライトを作成する
     sprite_ = std::make_unique<Sprite>();
     sprite_->Initialize(spriteCommon_, "Resources/uvChecker.png"); // テクスチャは後で差し替える
 
@@ -145,7 +145,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 void VideoPlayer::Update()
 {
     // 動画のフレームレートより速く読み取らないよう、タイマーで間引きを行う
-    // frameDuration_ = 動画の 1フレームあたりの時間（例: 30FPS なら約0.0333秒）
+    // frameDuration_ = 動画の 1フレームあたりの時間（例  30FPS なら約0.0333秒）
     timeCount_ += GameConstants::kFrameDeltaTime;
 
     if (timeCount_ < frameDuration_) {
@@ -192,7 +192,7 @@ void VideoPlayer::Update()
             UINT64 rowSizeInBytes, totalBytes;
             dxCommon_->GetDevice()->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
 
-            // 動画の 1行あたりのバイト数（パディングなし: 幅 × 4バイト/ピクセル）
+            // 動画の 1行あたりのバイト数（パディングなし  幅 × 4バイト/ピクセル）
             LONG mfStride = videoWidth_ * 4;
 
             // 1行ずつコピーする（GPU の RowPitch に合わせてアドレスを計算）
@@ -210,10 +210,10 @@ void VideoPlayer::Update()
             currentFootprint_ = footprint; // Draw() でも使うので保存しておく
 
             // アップロードバッファの内容を GPU テクスチャにコピーする
-            // コピー中はテクスチャのリソースバリアを「コピー先」に切り替える必要がある
+            // コピー中はテクスチャのリソースバリアをコピー先に切り替える必要がある
             ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
-            // リソースバリア: シェーダー参照可能 → コピー先に遷移
+            // リソースバリア  シェーダー参照可能 → コピー先に遷移
             DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
 
@@ -230,7 +230,7 @@ void VideoPlayer::Update()
 
             commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-            // リソースバリア: コピー先 → シェーダー参照可能に戻す
+            // リソースバリア  コピー先 → シェーダー参照可能に戻す
             DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
                 D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         }

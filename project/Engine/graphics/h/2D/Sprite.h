@@ -64,7 +64,7 @@ public:
      */
     void Draw();
 
-    // --- セッター・ゲッター ---
+    // セッター・ゲッター
 
     /** @brief 画面上の描画座標（X, Y）を取得 */
     const Vector2& GetPosition() const { return position_; }
@@ -102,7 +102,7 @@ public:
     /** @brief 上下反転フラグを設定 */
     void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }
 
-    // --- テクスチャ切り出し機能 ---
+    // テクスチャ切り出し機能
 
     /** @brief テクスチャの切り出し開始位置（左上）を取得 */
     const Vector2& GetTextureLeftTop() const { return textureLeftTop_; }
@@ -139,7 +139,7 @@ private:
     /** @brief スプライト描画の共通設定ポインタ */
     SpriteCommon* spriteCommon_ = nullptr;
 
-    // --- GPUリソース関連 ---
+    // GPUリソース関連
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ { };
 
@@ -149,7 +149,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
     TransformationMatrixSprite* transformationMatrixData_ = nullptr;
 
-    // --- スプライト固有データ ---
+    // スプライト固有データ
     std::string textureFilePath_; /// 使用中のテクスチャパス
 
     // スプライトパラメータ

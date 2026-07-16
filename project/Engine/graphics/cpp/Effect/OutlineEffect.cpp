@@ -10,14 +10,14 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon->GetDevice();
 
-    // =====================================================
+
     // ルートシグネチャの設定
-    // =====================================================
-    // slot 0 (ALL shaders, b0): OutlineParams
+
+    // slot 0 (ALL shaders, b0)  OutlineParams
     //   VS では width を使って頂点を法線方向に押し出す
     //   PS では color を使ってピクセルを単一色で塗る
     //   ALL にすることで VS と PS が同じスロットで同じ定数バッファを参照できる
-    // slot 1 (VS only, b1): TransformationMatrix
+    // slot 1 (VS only, b1)  TransformationMatrix
     //   Object3d が持つ WVP 行列などをここで受け取る
     D3D12_ROOT_PARAMETER rootParams[2] = { };
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -40,27 +40,27 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&rootSignature_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // =====================================================
+
     // シェーダーのコンパイル
-    // =====================================================
-    // OutlineVS: 法線方向にクリップ空間で頂点を膨らませる
-    // OutlinePS: 単色で塗りつぶすだけ
+
+    // OutlineVS  法線方向にクリップ空間で頂点を膨らませる
+    // OutlinePS  単色で塗りつぶすだけ
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlineVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlinePS.hlsl", L"ps_6_0");
 
-    // =====================================================
+
     // 頂点レイアウト（Model::VertexData と一致させること）
-    // =====================================================
+
     D3D12_INPUT_ELEMENT_DESC inputElem[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
-    // =====================================================
+
     // PSO（パイプラインステートオブジェクト）の設定
-    // =====================================================
-    // ブレンド: アルファブレンド（半透明アウトラインも対応）
+
+    // ブレンド  アルファブレンド（半透明アウトラインも対応）
     D3D12_RENDER_TARGET_BLEND_DESC blendRT = { };
     blendRT.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     blendRT.BlendEnable = TRUE;
@@ -83,7 +83,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
 
     // 前面カリング（CULL_FRONT）がアウトライン手法の核心
     // 通常は背面（CULL_BACK）をカリングするが、ここでは前面をカリングすることで
-    // 法線方向に膨らんだメッシュの「外側に見える裏面」だけが描画される = アウトライン
+    // 法線方向に膨らんだメッシュの外側に見える裏面だけが描画される = アウトライン
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
 
@@ -100,9 +100,9 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // =====================================================
+
     // 定数バッファ（アウトライン色と幅）
-    // =====================================================
+
     // 256 バイト確保するのは CBV が 256 バイトアライメント必須のため
     cbResource_ = dxCommon->CreateBufferResource(256);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
@@ -130,7 +130,7 @@ void OutlineEffect::BeginOutlinePass()
     cmdList->SetPipelineState(pipelineState_.Get());
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // slot 0 (b0): OutlineParams（色と幅）を定数バッファとしてバインド
+    // slot 0 (b0)  OutlineParams（色と幅）を定数バッファとしてバインド
     // この後 Object3d::DrawOutline(this) を呼ぶと slot 1 (b1) に変換行列がバインドされる
     cmdList->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
 }

@@ -14,15 +14,15 @@ using engine::graphics::SpriteCommon;
 
 // 画面全体を色でフラッシュさせるエフェクト
 // Game::Initialize() で Initialize()、Update()/Draw() を毎フレーム呼ぶ
-// 使い方: ScreenFlash::GetInstance()->Request({ 1,1,1,1 }, 0.12f);
+// 使い方  ScreenFlash::GetInstance()->Request({ 1,1,1,1 }, 0.12f);
 class ScreenFlash {
 public:
     static ScreenFlash* GetInstance();
 
     void Initialize(DirectXCommon* dxCommon);
 
-    // color: フラッシュ色 RGBA（例: {1,1,1,1} で白）
-    // duration: フェードアウトにかかる秒数
+    // color  フラッシュ色 RGBA（例  {1,1,1,1} で白）
+    // duration  フェードアウトにかかる秒数
     void Request(const Vector4& color, float duration);
 
     // 実時間 dt を渡す（GameConstants::kFrameDeltaTime 推奨）

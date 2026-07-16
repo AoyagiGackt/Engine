@@ -1,6 +1,6 @@
 /**
  * @file MeshSliceEffect.h
- * @brief モデルを複数の平面で切断し、破片が「静止→断面が光ってずれる→一斉に飛散」する大技演出を描画するファイル
+ * @brief モデルを複数の平面で切断し、破片が静止→断面が光ってずれる→一斉に飛散する大技演出を描画するファイル
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -101,17 +101,17 @@ private:
 
     void CreatePipeline();
 
-    /// @brief モデルを平面群で切断し、破片リストと頂点列を構築する
+    /** @brief モデルを平面群で切断し、破片リストと頂点列を構築する */
     void BuildPieces(const Model* model, std::mt19937& rng, std::vector<SliceVertex>& outVertices);
 
-    /// @brief 頂点列をGPUバッファへ転送する（容量不足時は作り直す）
+    /** @brief 頂点列をGPUバッファへ転送する（容量不足時は作り直す） */
     void UploadVertices(const std::vector<SliceVertex>& vertices);
 
-    /// @brief 破片を平面（法線n・通過点p0）で表裏に分割し、切断面のフタも生成する
+    /** @brief 破片を平面（法線n・通過点p0）で表裏に分割し、切断面のフタも生成する */
     static void SplitPiece(const PieceBuild& src, const Vector3& n, const Vector3& p0,
         PieceBuild& outFront, PieceBuild& outBack);
 
-    /// @brief 平面をまたぐ三角形を片側だけ切り出す交点は outCutPoints に追加される
+    /** @brief 平面をまたぐ三角形を片側だけ切り出す交点は outCutPoints に追加される */
     static void ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
         std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints);
 

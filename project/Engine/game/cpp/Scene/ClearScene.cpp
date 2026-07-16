@@ -10,9 +10,7 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// =====================================================
 // レイアウト定数（調整はここだけ）
-// =====================================================
 
 // "SCORE" ラベル
 static constexpr Vector2 kScoreLabelPos = { 490.f, 130.f }; // 左上座標
@@ -34,9 +32,7 @@ static constexpr float kRankRowSpacing = 60.f;
 static constexpr float kRankTopY = 420.f;
 static constexpr float kRankLeftX = 430.f;
 
-// =====================================================
 // 初期化
-// =====================================================
 
 void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -72,17 +68,13 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     }
 }
 
-// =====================================================
 // 終了
-// =====================================================
 
 void ClearScene::Finalize()
 {
 }
 
-// =====================================================
 // 更新
-// =====================================================
 
 void ClearScene::Update()
 {
@@ -97,9 +89,7 @@ void ClearScene::Update()
     DrawScoreUI();
 }
 
-// =====================================================
 // 描画
-// =====================================================
 
 void ClearScene::Draw()
 {
@@ -133,9 +123,7 @@ void ClearScene::Draw()
         kRankDigitSize, kRankRowSpacing);
 }
 
-// =====================================================
 // デバッグ UI（ImGui）
-// =====================================================
 
 void ClearScene::DrawScoreUI()
 {

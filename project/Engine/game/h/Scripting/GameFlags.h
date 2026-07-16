@@ -2,7 +2,7 @@
  * @file GameFlags.h
  * @brief ノードグラフとステージ（トリガー）の両方から読み書きする、名前付きbool変数のグローバルストア
  * @note GraphRuntimeの変数はグラフインスタンスごとにローカルだが、
- * こちらはゲーム全体で1つを共有する（ドアの開閉、フラグ回収済みなど「ステージの状態」を表す）
+ * こちらはゲーム全体で1つを共有する（ドアの開閉、フラグ回収済みなどステージの状態を表す）
  */
 #pragma once
 #include <map>
@@ -13,19 +13,19 @@ class GameFlags {
 public:
     static GameFlags* GetInstance();
 
-    /// @brief フラグを設定する（無ければ新規作成）
+    /** @brief フラグを設定する（無ければ新規作成） */
     void SetFlag(const std::string& name, bool value);
 
-    /// @brief フラグの値を取得する未設定なら false を返す
+    /** @brief フラグの値を取得する未設定なら false を返す */
     bool GetFlag(const std::string& name) const;
 
-    /// @brief フラグが一度でも設定されたことがあるか
+    /** @brief フラグが一度でも設定されたことがあるか */
     bool HasFlag(const std::string& name) const;
 
-    /// @brief 全フラグを消去する（ステージ再読み込み時などに使う想定）
+    /** @brief 全フラグを消去する（ステージ再読み込み時などに使う想定） */
     void Clear();
 
-    /// @brief 登録済みの全フラグ（StageEditor等のデバッグ表示用）
+    /** @brief 登録済みの全フラグ（StageEditor等のデバッグ表示用） */
     const std::map<std::string, bool>& GetAll() const { return flags_; }
 
 private:

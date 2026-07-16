@@ -112,7 +112,7 @@ private:
      */
     void ParseObjFile(const std::string& filePath);
 
-    /// @brief vertices_/indices_ から三角形ごとにタンジェントを計算し格納する
+    /** @brief vertices_/indices_ から三角形ごとにタンジェントを計算し格納する */
     void ComputeTangents();
 
     /**

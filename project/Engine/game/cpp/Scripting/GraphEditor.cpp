@@ -88,6 +88,10 @@ bool IsHoveringCircle(const ImVec2& center, float radius)
 
 } // namespace
 
+// ══════════════════════════════════════════════════════
+// ファイル操作とエディタ更新
+// ══════════════════════════════════════════════════════
+
 GraphEditor* GraphEditor::GetInstance()
 {
     static GraphEditor instance;
@@ -185,7 +189,7 @@ void GraphEditor::Update(Input* input)
         return;
     }
 
-    // ---- ツールバー・使い方 ----
+    // ツールバー・使い方
     ImGui::TextDisabled("F1: 表示/非表示    右クリック: ノード/コメント追加    ホイール: ズーム    中ドラッグ: パン");
     if (ImGui::CollapsingHeader("使い方")) {
         ImGui::BulletText("何もない所を右クリック → ノードやコメント枠を追加（よく使う物は直接、他はジャンル別サブメニューに分類）");
@@ -300,7 +304,7 @@ void GraphEditor::Update(Input* input)
 
     DrawVariablesPanel();
 
-    // Subgraphノードの「開く」ボタン（ノード走査ループ内で押される）はここでまとめて処理する
+    // Subgraphノードの開くボタン（ノード走査ループ内で押される）はここでまとめて処理する
     if (!pendingOpenPath_.empty()) {
         std::string path = pendingOpenPath_;
         pendingOpenPath_.clear();
@@ -317,6 +321,10 @@ void GraphEditor::Update(Input* input)
         testRuntime_.Update(realDt);
     }
 }
+
+// ══════════════════════════════════════════════════════
+// キャンバスとノード描画
+// ══════════════════════════════════════════════════════
 
 void GraphEditor::DrawCanvas()
 {
@@ -415,7 +423,7 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
     // タイトル（このボタン自体がドラッグハンドル兼用）
     ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
     if (ImGui::IsItemHovered()) {
-        state.hoveringNode = true; // キャンバス右クリックの「ノード追加」メニューと衝突しないよう抑制する
+        state.hoveringNode = true; // キャンバス右クリックのノード追加メニューと衝突しないよう抑制する
         const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
         if (spec && !spec->description.empty()) {
             ImGui::SetTooltip("%s", spec->description.c_str());
@@ -435,7 +443,7 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
     if (ImGui::IsItemDeactivated()) {
         CommitUndoCapture();
     }
-    // 右クリック: コピー・削除・開始ノード設定のコンテキストメニュー
+    // 右クリック  コピー・削除・開始ノード設定のコンテキストメニュー
     // （ノード走査ループの途中でgraph_.nodesを直接書き換えるとイテレータが壊れるため、
     // 実際の複製/削除はDrawCanvas末尾でpendingDuplicateNodeId_/pendingDeleteNodeId_経由の遅延実行にする）
     ImGui::OpenPopupOnItemClick("NodeContextMenu", ImGuiPopupFlags_MouseButtonRight);
@@ -494,7 +502,7 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
 
     dl->ChannelsSetCurrent(1);
 
-    // ---- 実行入力ピン（左上。タイトル行の高さに合わせる） ----
+    // 実行入力ピン（左上。タイトル行の高さに合わせる）
     ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + 10.0f * zoom_);
     dl->AddCircleFilled(inPin, pinR, kColPinIn);
     if (IsHoveringCircle(inPin, pinR + 2.0f)) {
@@ -517,7 +525,7 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
         }
     }
 
-    // ---- 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ） ----
+    // 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ）
     auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
         dl->AddCircleFilled(pos, pinR, col);
         if (IsHoveringCircle(pos, pinR + 2.0f)) {
@@ -541,7 +549,7 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
         drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * zoom_), kColPinOut);
     }
 
-    // ---- データ出力ピン（右下。値を出力するノードだけ） ----
+    // データ出力ピン（右下。値を出力するノードだけ）
     const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
     if (spec && spec->hasOutput) {
         ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - 10.0f * zoom_);
@@ -619,7 +627,7 @@ void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNod
             }
         }
 
-        // ---- データ入力ピン（この行の左端） ----
+        // データ入力ピン（この行の左端）
         float rowCenterY = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
         ImVec2 pinPos(nodeScreenPos.x - pinPad, rowCenterY);
         dataInPins_[id][key] = pinPos;
@@ -654,6 +662,10 @@ void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNod
         ImGui::PopID();
     }
 }
+
+// ══════════════════════════════════════════════════════
+// リンク描画とキャンバス操作
+// ══════════════════════════════════════════════════════
 
 void GraphEditor::DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state)
 {
@@ -792,6 +804,10 @@ void GraphEditor::DrawDataLinks(ImDrawList* dl)
         }
     }
 }
+
+// ══════════════════════════════════════════════════════
+// ノード生成
+// ══════════════════════════════════════════════════════
 
 void GraphEditor::AddNodeOfType(const std::string& type)
 {
@@ -967,6 +983,10 @@ void GraphEditor::DrawAddNodeMenu()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// 編集履歴
+// ══════════════════════════════════════════════════════
+
 void GraphEditor::PushUndo(GraphDesc snapshot)
 {
     undoStack_.push_back(std::move(snapshot));
@@ -1036,6 +1056,10 @@ void GraphEditor::Redo()
     statusMessage_ = "やり直しました";
     statusTimer_ = 1.5f;
 }
+
+// ══════════════════════════════════════════════════════
+// ノードとコメントの編集
+// ══════════════════════════════════════════════════════
 
 void GraphEditor::DeleteNode(const std::string& id)
 {

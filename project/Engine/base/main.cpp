@@ -8,9 +8,7 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// --------------------------------------------------
 // メイン関数
-// --------------------------------------------------
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {

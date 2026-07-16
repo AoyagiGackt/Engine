@@ -10,6 +10,7 @@
 #include "SlashMark.h"
 #include "StageEditor.h"
 #include "TimeManager.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -28,6 +29,8 @@ using namespace engine::game;
 
 static constexpr float kWarpX = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
+static constexpr float kTrainingMinPlayerX = 3.0f;
+static constexpr float kTrainingMaxPlayerX = 27.0f;
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -74,7 +77,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
     // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
-    // （未作成のtraining.jsonなら空のまま起動し、F2エディタの「+」で配置してSaveで作成できる）
+    // （未作成のtraining.jsonなら空のまま起動し、F2エディタの+で配置してSaveで作成できる）
     PlayerBridge::GetInstance()->SetPlayer(player_.get());
     AudioBridge::GetInstance()->SetAudio(audio_);
 
@@ -166,6 +169,15 @@ void TrainingScene::UpdatePlayerAndBullets()
     {
         const Vector3& pp = player_->GetPosition();
         player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
+
+        // 境界ブロックは描画専用なので、幅1のプレイヤー判定が
+        // 中心座標 x=2 と x=28 の壁の内側に収まるよう補正する
+        Vector3& playerPos = player_->GetPositionRef();
+        const float clampedX = std::clamp(playerPos.x, kTrainingMinPlayerX, kTrainingMaxPlayerX);
+        if (playerPos.x != clampedX) {
+            playerPos.x = clampedX;
+            player_->RefreshVisualTransforms();
+        }
     }
 
     // ── スペースキー スピン連射 ──────────────────────────────────────
@@ -310,7 +322,7 @@ void TrainingScene::Draw()
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
     auto* gpuProfiler = GpuProfiler::GetInstance();
 
-    // ---- シャドウパス ----
+    // シャドウパス
     gpuProfiler->BeginScope(GpuProfiler::Shadow, cmd);
     shadowManager_->BeginShadowPass(cmd);
     modelCommon_->BeginShadowPass();
@@ -320,7 +332,7 @@ void TrainingScene::Draw()
     shadowManager_->EndShadowPass(cmd);
     gpuProfiler->EndScope(GpuProfiler::Shadow, cmd);
 
-    // ---- SSAO ノーマルキャプチャパス ----
+    // SSAO ノーマルキャプチャパス
     auto* ssao = SSAOEffect::GetInstance();
     gpuProfiler->BeginScope(GpuProfiler::SSAO, cmd);
     if (ssao->IsEnabled()) {
@@ -335,7 +347,7 @@ void TrainingScene::Draw()
     }
     gpuProfiler->EndScope(GpuProfiler::SSAO, cmd);
 
-    // ---- メイン3D描画 ----
+    // メイン3D描画
     gpuProfiler->BeginScope(GpuProfiler::Main3D, cmd);
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
     D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
@@ -367,7 +379,7 @@ void TrainingScene::Draw()
     // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
     GetStageEditor().DrawObjects();
 
-    // ---- SSAO 計算 → ブラー → 乗算合成 ----
+    // SSAO 計算 → ブラー → 乗算合成
     if (ssao->IsEnabled()) {
         ssao->Compute(dxCommon_, camera_.get());
         ssao->Blur(dxCommon_);
@@ -376,10 +388,10 @@ void TrainingScene::Draw()
     }
     gpuProfiler->EndScope(GpuProfiler::Main3D, cmd);
 
-    // ---- GPU タイムスタンプ解決（PostDraw 後の ReadBack で取得） ----
+    // GPU タイムスタンプ解決（PostDraw 後の ReadBack で取得）
     gpuProfiler->Resolve(cmd);
 
-    // ---- 2D スプライト（テキスト UI） ----
+    // 2D スプライト（テキスト UI）
     spriteCommon_->CommonDrawSettings();
     shadowManager_->SetShadowMap(cmd, srvManager_);
     awakenGaugeBg_->Draw();

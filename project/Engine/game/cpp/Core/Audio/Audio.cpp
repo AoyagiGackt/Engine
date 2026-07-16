@@ -18,9 +18,7 @@ using namespace engine;
 
 using namespace Microsoft::WRL;
 
-// =====================================================
 // 初期化 / 終了
-// =====================================================
 
 // 音声システムを初期化するゲーム起動時に1度だけ呼ぶ
 void Audio::Initialize()
@@ -67,9 +65,7 @@ void Audio::Finalize()
     MFShutdown();
 }
 
-// =====================================================
 // ロード
-// =====================================================
 
 // 音声ファイル（MP3・WAV など）を読み込んでメモリに展開する
 // 戻り値の SoundData を PlayBGM / PlaySE に渡して再生する
@@ -90,7 +86,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
         return soundData;
     }
 
-    // デコード先のフォーマットを「PCM 形式（無圧縮音声）」に指定する
+    // デコード先のフォーマットをPCM 形式（無圧縮音声）に指定する
     // XAudio2 が直接扱えるのは PCM のみなので、MP3 などは自動的に変換される
     ComPtr<IMFMediaType> pMediaType;
     MFCreateMediaType(&pMediaType);
@@ -159,9 +155,7 @@ SoundData Audio::LoadAudio(const std::string& filename)
     return soundData;
 }
 
-// =====================================================
 // ヘルパー
-// =====================================================
 
 // SoundData の WAVEFORMATEX から XAudio2 の SourceVoice（音声出力チャンネル）を作成して返す
 // SourceVoice = 音声1系統の出力口同じ SE を複数同時再生するには SourceVoice を複数作る
@@ -278,9 +272,7 @@ void Audio::StopAllSE()
     seVoices_.clear();
 }
 
-// =====================================================
 // BGM フェード
-// =====================================================
 
 void Audio::FadeVolumeTo(float targetVolume, float duration)
 {

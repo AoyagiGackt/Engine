@@ -18,17 +18,17 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    // =====================================================
+
     // 通常描画用 Root Signature
-    // スロット 0 (PS, b0) : マテリアル
-    // スロット 1 (VS, b0) : 変換行列
-    // スロット 2 (PS, t0) : テクスチャ SRV
-    // スロット 3 (PS, b1) : 平行光源
-    // スロット 4 (PS, t1) : シャドウマップ SRV
-    // スロット 5 (PS, t2) : キューブマップ SRV
-    // スロット 6 (PS, b2) : ポイントライト配列
-    // スロット 7 (PS, t3) : 法線マップ SRV
-    // =====================================================
+    // スロット 0 (PS, b0)   マテリアル
+    // スロット 1 (VS, b0)   変換行列
+    // スロット 2 (PS, t0)   テクスチャ SRV
+    // スロット 3 (PS, b1)   平行光源
+    // スロット 4 (PS, t1)   シャドウマップ SRV
+    // スロット 5 (PS, t2)   キューブマップ SRV
+    // スロット 6 (PS, b2)   ポイントライト配列
+    // スロット 7 (PS, t3)   法線マップ SRV
+
     D3D12_DESCRIPTOR_RANGE texRange = PH::MakeSrvRange(0); // t0
     D3D12_DESCRIPTOR_RANGE shadowRange = PH::MakeSrvRange(1); // t1
     D3D12_DESCRIPTOR_RANGE cubemapRange = PH::MakeSrvRange(2); // t2
@@ -60,9 +60,9 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
-    // =====================================================
+
     // 通常描画用 PSO（ブレンドモード別）
-    // =====================================================
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PH::MakeDefault3dPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { PH::kStandardInputLayout, _countof(PH::kStandardInputLayout) };
@@ -74,9 +74,9 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
         device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
     }
 
-    // =====================================================
-    // シャドウパス用 Root Signature（CBV 1つ: TransformationMatrix）
-    // =====================================================
+
+    // シャドウパス用 Root Signature（CBV 1つ  TransformationMatrix）
+
     D3D12_ROOT_PARAMETER shadowParam[1] = {
         PH::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX), // VS, b0
     };
@@ -87,9 +87,9 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     shadowRsDesc.NumParameters = _countof(shadowParam);
     shadowRootSignature_ = PH::CreateRootSignature(device, shadowRsDesc);
 
-    // =====================================================
+
     // シャドウパス用 PSO（深度のみ書き込み）
-    // =====================================================
+
     Microsoft::WRL::ComPtr<IDxcBlob> shadowVsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/ShadowVS.hlsl", L"vs_6_0");
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = PH::MakeDefault3dPsoDesc();

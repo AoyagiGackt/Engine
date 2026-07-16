@@ -13,12 +13,12 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    // ---- 定数バッファ ----
+    // 定数バッファ
     cbResource_ = dxCommon_->CreateBufferResource(256);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = ShatterParams { };
 
-    // ---- フリーズテクスチャ（バックバッファと同フォーマット）----
+    // フリーズテクスチャ（バックバッファと同フォーマット）
     DXGI_FORMAT bbFormat = dxCommon_->GetCurrentBackBufferResource()->GetDesc().Format;
 
     D3D12_RESOURCE_DESC texDesc = { };
@@ -44,7 +44,7 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     freezeSrvIndex_ = srvManager_->Allocate();
     srvManager_->CreateSRVforTexture2D(freezeSrvIndex_, freezeTexture_.Get(), bbFormat, 1);
 
-    // ---- ルートシグネチャ ----
+    // ルートシグネチャ
     // スロット 0: CBV b0（シャターパラメータ）
     // スロット 1: Descriptor table SRV t0（フリーズテクスチャ）
     D3D12_DESCRIPTOR_RANGE srvRange = { };
@@ -90,13 +90,13 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
         IID_PPV_ARGS(&rootSignature_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    // ---- シェーダーコンパイル ----
+    // シェーダーコンパイル
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
         L"Resources/shaders/postprocess/GlassShatterPS.hlsl", L"ps_6_0");
 
-    // ---- ブレンドステート: 通常アルファブレンド ----
+    // ブレンドステート  通常アルファブレンド
     D3D12_RENDER_TARGET_BLEND_DESC rtBlend = { };
     rtBlend.BlendEnable = TRUE;
     rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;

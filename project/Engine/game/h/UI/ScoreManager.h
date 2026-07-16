@@ -9,7 +9,7 @@ class ScoreManager {
 public:
     static ScoreManager* GetInstance();
 
-    // --- 現セッション ---
+    // 現セッション
 
     /** @brief 現在のスコアを0にリセット（ゲーム開始時に呼ぶ） */
     void ResetCurrentScore();
@@ -22,7 +22,7 @@ public:
 
     int GetCurrentScore() const { return currentScore_; }
 
-    // --- ランキング ---
+    // ランキング
 
     /** @brief 現在スコアをランキングに登録してファイル保存（ゲームクリア時に呼ぶ） */
     void SubmitAndSave();

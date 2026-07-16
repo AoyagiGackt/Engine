@@ -16,9 +16,7 @@ using namespace engine::graphics;
 
 namespace engine::game {
 
-// ============================================================
 // 内部ヘルパー
-// ============================================================
 
 #ifdef USE_IMGUI
 // Windows のファイル選択ダイアログを開き、ユーザーが選んだファイルのパスを返す
@@ -41,12 +39,14 @@ static std::string OpenFileDialog(const char* filter, const char* initDir)
 }
 #endif
 
-// ============================================================
 // State 遷移
-// ============================================================
 
 // Hierarchy でオブジェクトが選ばれたとき、対応する State クラスに切り替える
 // こうすることで Inspector パネルに表示する内容がオブジェクト種別に応じて変わる
+// ══════════════════════════════════════════════════════
+// 状態管理とパネル描画
+// ══════════════════════════════════════════════════════
+
 void SceneEditor::ChangeState(Selection sel)
 {
     selection_ = sel;
@@ -79,9 +79,7 @@ void SceneEditor::ChangeState(Selection sel)
     }
 }
 
-// ============================================================
 // メインエントリ
-// ============================================================
 
 // 毎フレーム呼ばれるUSE_IMGUI ビルドのときだけ各パネルを描画する
 // リリースビルドでは引数を無視して何もしない
@@ -94,19 +92,17 @@ void SceneEditor::Update(const EditContext& ctx, engine::Input* input)
     if (!visible_) {
         return;
     }
-    RenderHierarchy(ctx); // 左：オブジェクト一覧
-    RenderInspector(ctx); // 右：選択中オブジェクトのプロパティ
-    RenderSceneControls(ctx); // 左下：スコア・ゲーム時刻・シーン操作
-    RenderCameraControl(ctx); // 上中央：カメラ位置の簡易操作
+    RenderHierarchy(ctx); // 左 オブジェクト一覧
+    RenderInspector(ctx); // 右 選択中オブジェクトのプロパティ
+    RenderSceneControls(ctx); // 左下 スコア・ゲーム時刻・シーン操作
+    RenderCameraControl(ctx); // 上中央 カメラ位置の簡易操作
 #else
     (void)ctx;
     (void)input;
 #endif
 }
 
-// ============================================================
 // Hierarchy パネル（画面左）
-// ============================================================
 
 // シーン内のオブジェクト一覧を表示する
 // クリックすると Inspector パネルの内容が切り替わる
@@ -160,7 +156,7 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
         ImGui::TreePop();
     }
 
-    // Save ボタン：選択中オブジェクトのパラメータを JSON に保存する
+    // Save ボタン 選択中オブジェクトのパラメータを JSON に保存する
     ImGui::Separator();
     if (savedTimer_ > 0.0f) {
         // 保存直後は "Saved!" と表示してフェードアウトする
@@ -183,9 +179,7 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
 #endif
 }
 
-// ============================================================
 // Inspector パネル（画面右）
-// ============================================================
 
 // 現在選ばれているオブジェクトの詳細プロパティを表示する
 // 描画の実体は currentState_（各 State クラスの RenderInspector）に委譲する
@@ -213,9 +207,7 @@ void SceneEditor::RenderInspector(const EditContext& ctx)
 #endif
 }
 
-// ============================================================
 // Scene Controls パネル（画面左下）
-// ============================================================
 
 // スコアの確認・ゲーム時刻の表示・シーン切り替えボタンをまとめたパネル
 void SceneEditor::RenderSceneControls(const EditContext& ctx)
@@ -261,9 +253,7 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
 #endif
 }
 
-// ============================================================
 // Camera Control パネル（画面上中央）
-// ============================================================
 
 // カメラの目標位置・角度・スムージングフレーム数を素早く調整するための簡易パネル
 // Inspector の Camera よりも手軽に操作できるよう別パネルとして用意している
@@ -306,11 +296,13 @@ void SceneEditor::RenderCameraControl(const EditContext& ctx)
 #endif
 }
 
-// ============================================================
 // JSON 永続化
-// ============================================================
 
 // カメラの位置・角度・スムージングフレーム数を JSON ファイルに書き出す
+// ══════════════════════════════════════════════════════
+// 設定の保存と読み込み
+// ══════════════════════════════════════════════════════
+
 void SceneEditor::SaveCameraParams(const EditContext& ctx)
 {
     const Vector3& pos = *ctx.cameraTargetPos;
@@ -409,11 +401,13 @@ void SceneEditor::LoadUILayout(const EditContext& ctx)
     }
 }
 
-// ============================================================
 // IEditorState 実装（各オブジェクト種別ごとの Inspector 描画）
-// ============================================================
 
 // 何も選んでいないときの Inspector 表示
+// ══════════════════════════════════════════════════════
+// 選択状態別の詳細設定
+// ══════════════════════════════════════════════════════
+
 void SceneEditor::NoneState::RenderInspector(const EditContext&, SceneEditor&)
 {
 #ifdef USE_IMGUI
@@ -525,7 +519,7 @@ void SceneEditor::SkydomeState::RenderInspector(const EditContext& ctx, SceneEdi
         if (ImGui::ColorEdit4("Sky Color", &ctx.skyColor->x)) {
             ctx.skydome->SetSkyColor(*ctx.skyColor);
         }
-        // 天球を Y 軸回転させることで、「朝」「夕方」「夜」のような方角の変化を演出できる
+        // 天球を Y 軸回転させることで、朝夕方夜のような方角の変化を演出できる
         if (ImGui::SliderFloat("Rotation Offset Y", ctx.skyRotOffsetY, -GameConstants::kPi, GameConstants::kPi)) {
             ctx.skydome->SetRotationOffsetY(*ctx.skyRotOffsetY);
         }

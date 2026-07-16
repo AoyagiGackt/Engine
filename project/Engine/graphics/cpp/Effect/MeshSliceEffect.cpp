@@ -71,9 +71,7 @@ float MeshSliceEffect::GetOverlayWeight() const
     return std::clamp(1.0f - (timer_ - burstStart) / kBurstTime, 0.0f, 1.0f);
 }
 
-// =====================================================
 // 切断
-// =====================================================
 
 MeshSliceEffect::SliceVertex MeshSliceEffect::LerpVertex(const SliceVertex& a, const SliceVertex& b, float t)
 {
@@ -299,9 +297,7 @@ void MeshSliceEffect::UploadVertices(const std::vector<SliceVertex>& vertices)
     vbv_.StrideInBytes = sizeof(SliceVertex);
 }
 
-// =====================================================
 // 更新・描画
-// =====================================================
 
 void MeshSliceEffect::Update(float dt, Camera* camera)
 {

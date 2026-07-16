@@ -46,7 +46,7 @@ public:
      */
     void Update(bool active, bool dense, const Vector3& pos, float yaw, float spinZ);
 
-    /// @brief 全残像を描画する（半透明のため通常の Draw() の後に呼ぶ）
+    /** @brief 全残像を描画する（半透明のため通常の Draw() の後に呼ぶ） */
     void Draw();
 
 private:

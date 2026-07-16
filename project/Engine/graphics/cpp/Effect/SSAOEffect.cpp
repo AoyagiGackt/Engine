@@ -7,7 +7,7 @@ using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-// ---- ランダム半球カーネル ----
+// ランダム半球カーネル
 
 static void GenerateKernel(float* out, int count)
 {
@@ -39,7 +39,11 @@ static void GenerateKernel(float* out, int count)
     }
 }
 
-// ---- ヘルパー ----
+// ヘルパー
+
+// ══════════════════════════════════════════════════════
+// リソース生成補助
+// ══════════════════════════════════════════════════════
 
 void SSAOEffect::Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
     D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const
@@ -91,7 +95,7 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     srvManager->CreateSRVforTexture2D(srvIndex, res.Get(), fmt, 1);
 }
 
-// ---- ルートシグネチャ生成ヘルパー（static）----
+// ルートシグネチャ生成ヘルパー（static）
 
 // NormalCapture RS: slot0 = CBV (VS, b0) per-object transform / slot1 = CBV (PS, b1) view matrix
 static ComPtr<ID3D12RootSignature> CreateNormalCaptureRS(ID3D12Device* device)
@@ -227,7 +231,7 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
     return pso;
 }
 
-// ---- 定数バッファ生成ヘルパー ----
+// 定数バッファ生成ヘルパー
 
 template <typename T>
 static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* device, T** mapped)
@@ -247,6 +251,10 @@ static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* devic
     res->Map(0, nullptr, reinterpret_cast<void**>(mapped));
     return res;
 }
+
+// ══════════════════════════════════════════════════════
+// 初期化と終了処理
+// ══════════════════════════════════════════════════════
 
 void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
@@ -382,7 +390,11 @@ void SSAOEffect::Finalize()
     }
 }
 
-// ---- NormalCapture ----
+// NormalCapture
+
+// ══════════════════════════════════════════════════════
+// 法線キャプチャ
+// ══════════════════════════════════════════════════════
 
 void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera)
 {
@@ -436,7 +448,11 @@ void SSAOEffect::SetObjectTransform(ID3D12GraphicsCommandList* cmd,
     cmd->SetGraphicsRootConstantBufferView(0, transformAddr);
 }
 
-// ---- SSAO Compute ----
+// SSAO Compute
+
+// ══════════════════════════════════════════════════════
+// SSAO計算と合成
+// ══════════════════════════════════════════════════════
 
 void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
 {
@@ -509,7 +525,7 @@ void SSAOEffect::Blur(DirectXCommon* dxCommon)
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
-// ---- Apply (乗算ブレンドで AO をシーンに合成) ----
+// Apply (乗算ブレンドで AO をシーンに合成)
 
 void SSAOEffect::Apply(DirectXCommon* dxCommon, SrvManager* srvManager)
 {

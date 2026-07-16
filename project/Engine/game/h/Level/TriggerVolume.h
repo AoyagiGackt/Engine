@@ -1,7 +1,7 @@
 /**
  * @file TriggerVolume.h
  * @brief プレイヤーが近づいたらフラグを立てるだけの、ロジックを持たない軽量トリガー
- * @note 「何が起きるか」はノードグラフ側（GetFlag→If）が判断する分業なので、
+ * @note 何が起きるかはノードグラフ側（GetFlag→If）が判断する分業なので、
  * ここでは GameFlags::SetFlag を呼ぶだけに徹する
  */
 #pragma once
@@ -18,13 +18,13 @@ public:
         wasInside_ = false;
     }
 
-    /// @brief 毎フレーム呼ぶプレイヤーが範囲内に入った瞬間だけフラグを立てる
+    /** @brief 毎フレーム呼ぶプレイヤーが範囲内に入った瞬間だけフラグを立てる */
     void Update(const Vector3& playerPos);
 
     const TriggerDesc& GetDesc() const { return desc_; }
     TriggerDesc& GetDesc() { return desc_; }
 
-    /// @brief 現在プレイヤーが範囲内にいるか（StageEditorのハイライト表示用）
+    /** @brief 現在プレイヤーが範囲内にいるか（StageEditorのハイライト表示用） */
     bool IsInside() const { return wasInside_; }
 
 private:

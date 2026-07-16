@@ -20,13 +20,13 @@ void InputBuffer::Update(Input* input)
     FrameState& frame = history_[head_];
     frame.valid = true;
 
-    // キーボード: 全 256 キーの押下状態を記録
+    // キーボード  全 256 キーの押下状態を記録
     for (int i = 0; i < 256; ++i) {
         frame.keys[i] = input->PushKey(static_cast<BYTE>(i)) ? 1 : 0;
     }
 
-    // コントローラー: よく使うボタンを OR で合成してビットフラグとして保存
-    // 注: Input::PushButton() はビットマスクを受け取り、そのビットが立っているか返す
+    // コントローラー  よく使うボタンを OR で合成してビットフラグとして保存
+    // 注  Input::PushButton() はビットマスクを受け取り、そのビットが立っているか返す
     frame.buttons = 0;
     static const WORD kAllButtons[] = {
         XINPUT_GAMEPAD_A, // ×（PS）/ A（Xbox）

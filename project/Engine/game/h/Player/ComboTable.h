@@ -1,7 +1,7 @@
 /**
  * @file ComboTable.h
  * @brief 近接コンボ(MeleeCombo)と射撃コンボ(GunCombo)が共通で使う、
- *        「固定長constexpr配列の先頭ポインタ＋要素数」を保持する軽量テンプレートと構築ヘルパー
+ *        固定長constexpr配列の先頭ポインタ＋要素数を保持する軽量テンプレートと構築ヘルパー
  */
 #pragma once
 namespace engine::game {

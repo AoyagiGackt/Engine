@@ -127,7 +127,7 @@ void Sprite::Update()
     // 平行移動 (指定座標へ)
     Matrix4x4 translateMatrix = MakeTranslateMatrix({ position_.x, position_.y, 0.0f });
 
-    // 行列の合成: Anchor -> Scale -> Rotate -> Translate
+    // 行列の合成  Anchor -> Scale -> Rotate -> Translate
     Matrix4x4 worldMatrix = MakeIdentity4x4();
     worldMatrix = Multiply(worldMatrix, anchorMatrix);
     worldMatrix = Multiply(worldMatrix, scaleMatrix);

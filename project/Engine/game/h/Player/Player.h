@@ -46,6 +46,10 @@ enum class GunType; // Weapon.h で定義
  */
 class Player {
 public:
+// ══════════════════════════════════════════════════════
+// 公開型とライフサイクル
+// ══════════════════════════════════════════════════════
+
     /** @brief 覚醒乱舞の進行フェーズ */
     enum class RampagePhase { Inactive,
         Launch,
@@ -84,7 +88,7 @@ public:
     /**
      * @brief 見た目のトランスフォーム行列だけを再計算する（ゲームロジックは一切進めない）
      * @note Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
-     * ステージエディタ中など「本体Updateを止めたままカメラだけ動く」状況でこれを呼ばないと
+     * ステージエディタ中など本体Updateを止めたままカメラだけ動く状況でこれを呼ばないと
      * 古いカメラ行列のまま描画されて、モデルが画面に張り付いて見える
      */
     void RefreshVisualTransforms();
@@ -227,6 +231,10 @@ public:
     bool JustFinisherSlash() const { return justFinisherSlash_; } ///< フィニッシャースラッシュ発動フレーム
 
 private:
+// ══════════════════════════════════════════════════════
+// 物理設定と状態データ
+// ══════════════════════════════════════════════════════
+
     // 通常物理
     static constexpr float kGroundY_ = 0.4f;
     static constexpr float kCeilingY_ = 12.0f;
@@ -354,7 +362,7 @@ private:
     // スキル補正（ローグライト）
     SkillMods skillMods_;
 
-    // ---- Physics State パターン ----
+    // Physics State パターン
     // 水中/水上で横移動・重力・ジャンプの処理を切り替える
     class IPhysicsState {
     public:
@@ -371,7 +379,7 @@ private:
     };
     static const IPhysicsState& GetPhysicsState(bool inWater);
 
-    // ---- Rampage State パターン ----
+    // Rampage State パターン
     // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
     // 毎フレームの物理更新内容を切り替える
     class IRampageState {
@@ -397,7 +405,7 @@ private:
     };
     static const IRampageState& GetRampageState(RampagePhase phase);
 
-    // ---- Weapon Behavior Strategy パターン ----
+    // Weapon Behavior Strategy パターン
     // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
     class IWeaponBehavior {
     public:
@@ -517,7 +525,7 @@ private:
     bool animHold_ = false; ///< 武器持ちバリエーション（IdleHold/RunHold）を再生中か
     float attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 
-    // フィニッシャー：静止集中 → 一閃
+    // フィニッシャー 静止集中 → 一閃
     bool finisherCharging_ = false; ///< 静止して溜めている最中か
     float finisherChargeTimer_ = 0.0f; ///< 残り溜め時間（0以下で解放＝一閃へ）
 
@@ -527,7 +535,7 @@ private:
     /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
     void PlayAttackAnim(const Animation& anim, float speed);
 
-    // ---- Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照） ----
+    // Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照）
     void ResetFrameFlags();
     void HandleStyleSwitch(Input* input);
     void HandleRangedCombat(Input* input);

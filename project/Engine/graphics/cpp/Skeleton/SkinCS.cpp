@@ -16,13 +16,13 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     inputGpuVA_ = inputBuffer->GetGPUVirtualAddress();
     ID3D12Device* device = dxCommon->GetDevice();
 
-    // =====================================================
+
     // コンピュートルートシグネチャ
     //   スロット 0 (b1): 頂点数 (32ビット定数)
     //   スロット 1 (t0): 入力頂点バッファ (SRV)
     //   スロット 2 (b0): スキニングパレット (CBV)
     //   スロット 3 (u0): 出力頂点バッファ (UAV)
-    // =====================================================
+
     D3D12_ROOT_PARAMETER params[4] { };
 
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
@@ -59,9 +59,9 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&csRootSig_));
 
-    // =====================================================
+
     // コンピュートPSO
-    // =====================================================
+
     Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon->CompileShader(
         L"Resources/shaders/skinned/SkinningCS.hlsl", L"cs_6_0");
     ENGINE_ASSERT(csBlob);
@@ -71,9 +71,9 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     psoDesc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
     device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&csPSO_));
 
-    // =====================================================
+
     // 出力バッファ (DEFAULT heap, UAV フラグ付き)
-    // =====================================================
+
     UINT64 outputSize = static_cast<UINT64>(sizeof(OutputVertex)) * vertexCount;
 
     D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_DEFAULT };

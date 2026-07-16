@@ -181,7 +181,7 @@ bool WeaponManager::Unlock(WeaponType type)
         }
         if (unlocked_[i]) {
             return false;
-        } // 重複入手（将来: 経験値/強化素材に転用）
+        } // 重複入手（将来  経験値/強化素材に転用）
         unlocked_[i] = true;
         index_ = static_cast<int>(i); // 奪った武器をそのまま装備
         return true;

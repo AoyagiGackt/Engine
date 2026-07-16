@@ -58,7 +58,7 @@ int StyleMeter::GetRankIndex() const
 
 void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
 {
-    // 同じ技の連発ペナルティ: 熱が高いほど点が入らない（1 → 0.56 → 0.38 → 0.29 ...）
+    // 同じ技の連発ペナルティ  熱が高いほど点が入らない（1 → 0.56 → 0.38 → 0.29 ...）
     float heat = moveHeat_[moveId];
     float mult = 1.0f / (1.0f + kHeatPenaltyScale * heat);
 

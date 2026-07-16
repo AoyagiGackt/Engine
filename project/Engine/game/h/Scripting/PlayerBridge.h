@@ -12,10 +12,10 @@ class PlayerBridge {
 public:
     static PlayerBridge* GetInstance();
 
-    /// @brief 現在のシーンのPlayerを登録する（Scene::Initialize()から呼ぶ）
+    /** @brief 現在のシーンのPlayerを登録する（Scene::Initialize()から呼ぶ） */
     void SetPlayer(Player* player) { player_ = player; }
 
-    /// @brief 登録されていなければnullptr
+    /** @brief 登録されていなければnullptr */
     Player* Get() const { return player_; }
 
 private:

@@ -145,7 +145,7 @@ void Object3d::DrawForNormalCapture()
         return;
     }
     ID3D12GraphicsCommandList* cmd = modelCommon_->GetDxCommon()->GetCommandList();
-    // NormalCapture RS: slot0 = VS b0 (TransformationMatrix) - DrawShadow と同じスロット配置
+    // NormalCapture RS  slot0 = VS b0 (TransformationMatrix) - DrawShadow と同じスロット配置
     cmd->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
     model_->DrawGeometryOnly(modelCommon_);
 }
