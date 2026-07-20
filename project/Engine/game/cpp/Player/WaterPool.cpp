@@ -32,12 +32,12 @@ void WaterPool::Initialize(SpriteCommon* spriteCommon)
     // 本体スプライト（深い部分 暗い青）
     waterSprite_ = std::make_unique<Sprite>();
     waterSprite_->Initialize(spriteCommon_, "Resources/white.png");
-    waterSprite_->SetColor({ 0.04f, 0.22f, 0.62f, 0.72f });
+    waterSprite_->SetColor({ 0.03f, 0.18f, 0.58f, 0.94f });
 
     // 水面グラデーション層（明るいシアン、上部のみ）
     waterSpriteTop_ = std::make_unique<Sprite>();
     waterSpriteTop_->Initialize(spriteCommon_, "Resources/white.png");
-    waterSpriteTop_->SetColor({ 0.28f, 0.62f, 0.95f, 0.30f });
+    waterSpriteTop_->SetColor({ 0.20f, 0.58f, 0.96f, 0.68f });
 }
 
 void WaterPool::Update()

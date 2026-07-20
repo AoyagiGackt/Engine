@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <Windows.h>
+#include <string>
 namespace engine {
 
 /**
@@ -14,6 +15,12 @@ class CrashHandler {
 public:
     /** @brief SetUnhandledExceptionFilterにハンドラを登録する */
     static void Install();
+
+    /**
+     * @brief クラッシュレポートへ記録する現在の処理名を設定する
+     * @param context シーン名やロード処理名
+     */
+    static void SetContext(const std::string& context);
 
 private:
     static LONG WINAPI Filter(EXCEPTION_POINTERS* exceptionInfo);

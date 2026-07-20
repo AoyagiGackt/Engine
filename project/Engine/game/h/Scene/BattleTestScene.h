@@ -224,6 +224,8 @@ private:
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model> modelBlock_;
+    std::unique_ptr<Model> cityBackgroundModel_;
+    std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;

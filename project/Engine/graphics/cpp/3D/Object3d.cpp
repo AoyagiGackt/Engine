@@ -185,6 +185,10 @@ void Object3d::Draw()
     // ModelCommonからコマンドリストを取得
     ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
 
+    // Spriteやエフェクトがルートシグネチャを切り替えた後でも、通常3D描画が
+    // 使用する平行光源・ポイントライト・シャドウマップを描画直前に保証する
+    RebindCommonLighting(commandList);
+
     // マテリアルと座標変換を設定
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());

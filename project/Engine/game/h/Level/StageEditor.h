@@ -1,13 +1,17 @@
 /**
  * @file StageEditor.h
- * @brief レベルJSON（配置オブジェクト＋トリガー）の読み込み・描画・実行時編集を1つにまとめたステージエディタ
+ * @brief レベル実体、編集パネル、中央ビュー制御を統括するステージエディタ
  * @note オブジェクトの生成・毎フレームUpdate/Drawは通常ビルドでも動くレベルの実体そのものであり、
  * F2で開くImGuiパネル（Hierarchy/Inspector）だけがUSE_IMGUIビルド限定のデバッグ機能
  * ロジックはノードグラフ（GraphEditor）側の役目なので、ここではトリガーのフラグを立てるまでしかやらない
  */
 #pragma once
 #include "CollisionConfig.h"
+#include "EditorHistory.h"
 #include "LevelLoader.h"
+#include "StageEditorViewport.h"
+#include "StageEditorEventConnection.h"
+#include "StageEditorContentFactory.h"
 #include "TriggerVolume.h"
 #include <map>
 #include <memory>
@@ -41,6 +45,12 @@ public:
 
     /** @brief レベルJSONを読み込み、オブジェクト/トリガーを生成する */
     void Open(const std::string& levelPath, engine::graphics::ModelCommon* modelCommon, engine::graphics::Camera* camera);
+
+    /**
+     * @brief GPUの使用完了を待ってからレベル実体と外部参照を破棄する
+     * @note 複数回呼んでも安全で、シーンの終了処理から明示的に呼び出す
+     */
+    void Finalize();
 
     /** @brief 現在の内容を Open() したパスへ書き戻す */
     void Save();
@@ -81,6 +91,9 @@ public:
 
     bool IsVisible() const { return visible_; }
 
+    /** @brief エディタ表示中にゲーム更新を停止すべきか返す */
+    bool ShouldPauseGame() const { return visible_ && !playTestMode_; }
+
     /**
      * @brief Player/EnemyEntity/KnightEnemy等、レベルJSONに属さないランタイム上の実体をエディタで
      * 選択・ドラッグ移動できるようにする（Scene::Initialize等で、対象生成後に1回呼ぶ）
@@ -98,12 +111,19 @@ private:
         std::vector<std::unique_ptr<engine::graphics::Object3d>> instances;
         std::unique_ptr<KnightEnemy> knight;
         std::unique_ptr<EnemyEntity> enemy;
+        int patrolTargetIndex = 0; // patrolRoute上で現在向かっているWaypoint番号を保持する
+        Vector3 authoredPosition = { }; // ギミック演出やテスト終了後に戻す編集時の基準位置
+        float runtimeTimer = 0.0f; // 条件成立後の遅延と演出経過時間を保持する
+        bool conditionWasMet = false;
+        bool runtimeActive = true;
     };
 
     engine::graphics::Model* GetOrLoadModel(const std::string& modelPath, const std::string& texPath);
 
     /** @brief モデル/軸/個数など構造が変わったときの再構築（instances/knight/enemyを作り直す） */
     void RegenerateInstances(ObjectEntry& entry);
+    /** @brief ファクトリが生成した配置データをレベル実体へ追加する */
+    void AppendGeneratedContent(StageEditorGeneratedContent content);
     /** @brief 位置/回転/スケールだけを既存instancesへ反映する軽量パス（kind=="prop"専用） */
     void RefreshTransforms(ObjectEntry& entry);
     /**
@@ -115,12 +135,43 @@ private:
 
     /** @brief 削除・Open()の再読み込み・破棄の前に、enemy_basic配置分をEnemyRegistryから解除する（ダングリングポインタ防止） */
     void UnregisterEnemyEntity(const ObjectEntry& entry);
+    /** @brief 配置物が所有する描画実体と敵実体を安全な順序で破棄する */
+    void DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu);
+    /** @brief enabledとactivationFlagを評価してゲーム側で有効な配置か返す */
+    bool IsRuntimeActive(const ObjectDesc& desc) const;
+    /** @brief 敵に設定された巡回ルートへ沿って位置を更新する */
+    bool UpdatePatrol(ObjectEntry& entry);
+
+    /** @brief F2による編集セッションの開始と終了を処理する */
+    void UpdateEditorVisibility(engine::Input* input);
+    /** @brief 編集操作のキーボードショートカットを処理する */
+    void HandleEditorShortcuts();
+    /** @brief 現在のレイアウト状態に応じて編集パネルを表示する */
+    void RenderEditorPanels();
+    /** @brief 編集停止とゲーム動作テストを切り替えて時間倍率を同期する */
+    void SetPlayTestMode(bool enabled);
 
     void RenderHierarchy();
+    /** @brief 中央シーンビューの上部に編集モードと補助パネルの操作を表示する */
+    void RenderEditorToolbar();
+    /** @brief ゲーム画面を広く確認するための最小操作バーを表示する */
+    void RenderViewportFocusBar();
     void RenderInspector();
     /** @brief モデル/テクスチャをプリセットから選んで置ける一覧パネル選択中の配置物があればそれに適用、無ければ新規追加する */
     void RenderAssetPalette();
     void RenderFlagsPanel();
+    /** @brief プレハブ、検証、自動保存、編集とテストの切り替えをまとめて表示する */
+    void RenderWorkflowPanel();
+    /** @brief トリガーと配置対象を選ぶだけでイベント接続を構築する */
+    void RenderNoCodeEventPanel();
+    /** @brief 敵Wave用のSpawnPoint群を表形式の設定から生成する */
+    void RenderWavePanel();
+    /** @brief 配置・接続・到達性の問題を解析して一覧表示する */
+    void RenderStageAnalysisPanel();
+    /** @brief 最後に保存した状態との差分を一覧表示する */
+    void RenderDiffPanel();
+    /** @brief 制作手順と確認項目をエディタ内に表示する */
+    void RenderEditorHelpPanel();
     void DrawGizmos();
 
     /** @brief 画面中央(z=0平面)に新規の配置物(prop)を1つ追加して選択状態にする（+ボタン/アセットパレット共通） */
@@ -150,9 +201,11 @@ private:
     std::string levelPath_;
     engine::graphics::ModelCommon* modelCommon_ = nullptr;
     engine::graphics::Camera* camera_ = nullptr;
+    StageEditorViewport viewport_;
 
     std::vector<ObjectEntry> objects_;
     std::vector<TriggerVolume> triggers_;
+    std::vector<CheckpointDesc> checkpoints_;
 
     // レベルJSONに属さないランタイム実体（Player/Enemy等）への参照RegisterExternalEntity()で登録される
     struct ExternalEntityRef {
@@ -169,6 +222,8 @@ private:
 
     // F2で表示/非表示（GraphEditorのF1と違い、ゲーム画面を隠さない小窓パネル構成）
     bool visible_ = false;
+    bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
+    bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
     float savedTimeScale_ = 1.0f;
 
     enum class SelKind { None,
@@ -177,6 +232,7 @@ private:
         External };
     SelKind selKind_ = SelKind::None;
     int selIndex_ = -1;
+    std::vector<int> selectedObjectIndices_; // Ctrl選択した配置物を一括削除・複製するために保持する
 
     int nextSerial_ = 0; // 新規オブジェクト/トリガーの名前生成用
 
@@ -187,6 +243,12 @@ private:
     std::string statusMessage_;
     float statusTimer_ = 0.0f;
 
+    /** @brief 現在の編集内容を指定パスへ書き出す */
+    void SaveToPath(const std::string& path) const;
+
+    /** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
+    void ReleaseLevelResources(bool releaseExternalEntities);
+
 #ifdef USE_IMGUI
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
     // ObjectEntryは実体(unique_ptr)を持ちコピーできないため、Save()の保存対象と同じdescだけを控え、
@@ -194,15 +256,13 @@ private:
     struct LevelSnapshot {
         std::vector<ObjectDesc> objects;
         std::vector<TriggerDesc> triggers;
+        std::vector<CheckpointDesc> checkpoints;
         Vector3 playerSpawn;
         Vector3 enemySpawn;
     };
-    static constexpr size_t kMaxUndoHistory = 50;
-
     LevelSnapshot MakeSnapshot() const;
     /** @brief スナップショットの内容へ丸ごと戻す（敵のHPやトリガーの成立済み状態はリセットされる） */
     void ApplySnapshot(const LevelSnapshot& snap);
-    void PushUndo(LevelSnapshot snapshot);
     /** @brief 現在の状態を即座にUndoスタックへ積む（追加/削除など単発で完結する変更の直前に呼ぶ） */
     void RecordUndoSnapshotNow();
     /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
@@ -218,15 +278,17 @@ private:
     void DeleteSelected();
     /** @brief 選択中のオブジェクト/トリガーを複製して選択を移す（複製ボタンとCtrl+D共用） */
     void DuplicateSelected();
+    /** @brief 選択中の配置物をエディタ内クリップボードへコピーする */
+    void CopySelected();
+    /** @brief エディタ内クリップボードの配置物を複製して貼り付ける */
+    void PasteClipboard();
 
     /** @brief スナップ有効時、値をsnapStep_の倍数へ丸める（無効時はそのまま返す） */
     float SnapValue(float v) const;
 
-    std::vector<LevelSnapshot> undoStack_;
-    std::vector<LevelSnapshot> redoStack_;
-    LevelSnapshot pendingUndoSnapshot_;
-    bool hasPendingUndo_ = false;
-    bool pendingUndoDirtied_ = false;
+    std::vector<ObjectDesc> objectClipboard_;
+    LevelSnapshot lastSavedSnapshot_;
+    EditorHistory<LevelSnapshot> history_;
 
     bool dirty_ = false; // 最後の保存以降に編集があるか（未保存マーカーと開く時の破棄確認に使う）
 
@@ -238,6 +300,39 @@ private:
     int paletteMode_ = 0; // アセットパレットの動作 0=新規配置 1=選択中の配置物へ差し替え
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
+    int gizmoAxis_ = 0; // 0は自由移動、1から3はX・Y・Z軸へ移動を制限する
+
+    /** @brief 保存前検証を実行し、修正が必要な項目を返す */
+    std::vector<std::string> ValidateLevel() const;
+    /** @brief 未保存内容を一定間隔で復旧用ファイルへ退避する */
+    void UpdateAutoSave(float realDt);
+    /** @brief 選択中の配置物を名前付きプレハブへ保存する */
+    void SaveSelectedPrefab();
+    /** @brief 名前付きプレハブを画面中央へ生成する */
+    void InstantiatePrefab();
+
+    float autoSaveElapsed_ = 0.0f;
+    static constexpr float kAutoSaveIntervalSeconds = 30.0f;
+    bool autoSaveEnabled_ = true;
+    bool recoveryAvailable_ = false;
+    std::string recoveryPath_;
+    std::vector<std::string> validationIssues_;
+    char prefabName_[64] = "stage_part";
+    StageEditorEventConnection eventConnection_;
+    int validationFocusIndex_ = -1;
+    char waveGroupName_[64] = "wave_1";
+    int waveEnemyType_ = 0;
+    int waveEnemyCount_ = 3;
+    float waveSpacing_ = 2.0f;
+    int waveStartTrigger_ = -1;
+    bool showStageAnalysis_ = false;
+    bool showSavedDiff_ = false;
+    bool showEditorHelp_ = false;
+    bool showFlagsPanel_ = false;
+    bool showWorkflowPanel_ = false;
+    bool showNoCodeEventPanel_ = false;
+    bool showWavePanel_ = false;
+    bool helpChecklist_[5] = { false, false, false, false, false };
 #endif
 };
 

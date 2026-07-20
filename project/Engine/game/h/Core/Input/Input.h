@@ -10,6 +10,7 @@
 #include <dinput.h>
 
 #include "WinApp.h"
+#include <array>
 #include <wrl/client.h>
 
 #pragma comment(lib, "xinput.lib")
@@ -21,6 +22,20 @@ namespace engine {
  */
 class Input {
 public: // メンバ関数
+    /** @brief ゲームコードが物理キーへ依存しないための操作名 */
+    enum class Action {
+        MoveLeft,
+        MoveRight,
+        Jump,
+        Down,
+        Attack,
+        Shoot,
+        Skill,
+        Awaken,
+        Finisher,
+        GunSwitch,
+        Count
+    };
     // namespace省略
     template <class T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -73,6 +88,21 @@ public: // メンバ関数
 
     Stick GetLeftStick() const;
 
+    /** @brief 指定アクションが押されているかを返す */
+    bool PushAction(Action action) const;
+
+    /** @brief 指定アクションが押された瞬間かを返す */
+    bool TriggerAction(Action action) const;
+
+    /** @brief ゲームパッドが現在接続されているかを返す */
+    bool IsGamepadConnected() const { return gamepadConnected_; }
+
+    /** @brief このフレームでゲームパッドが接続されたかを返す */
+    bool WasGamepadConnected() const { return gamepadConnected_ && !gamepadConnectedPrevious_; }
+
+    /** @brief このフレームでゲームパッドが切断されたかを返す */
+    bool WasGamepadDisconnected() const { return !gamepadConnected_ && gamepadConnectedPrevious_; }
+
     // マウス関連
     bool TriggerMouseButton(int32_t buttonNumber);
 
@@ -80,6 +110,14 @@ public: // メンバ関数
     int32_t GetWheel() const { return mouseState_.lZ; }
 
 private:
+    struct ActionBinding {
+        BYTE primaryKey = 0;
+        BYTE secondaryKey = 0;
+        WORD gamepadButton = 0;
+    };
+
+    /** @brief Resources/input_bindings.jsonから操作割り当てを読み込む */
+    void LoadActionBindings();
     /** @brief DirectInput 8 の本体ポインタ */
     ComPtr<IDirectInput8> directInput_;
 
@@ -102,6 +140,9 @@ private:
     XINPUT_STATE state_ { }; /// 現在のコントローラー状態
     XINPUT_STATE previousState_ { }; /// 前回のコントローラー状態
     const float deadzone_ = 0.2f; /// デッドゾーン
+    bool gamepadConnected_ = false; ///< 現在の接続状態
+    bool gamepadConnectedPrevious_ = false; ///< 前フレームの接続状態
+    std::array<ActionBinding, static_cast<size_t>(Action::Count)> actionBindings_ { };
 
     // マウス状態管理用
 

@@ -240,7 +240,18 @@ void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePa
     std::vector<std::string> toLoad;
     toLoad.reserve(filePaths.size());
     for (auto& path : filePaths) {
-        if (!textureDatas_.contains(path)) {
+        if (textureDatas_.contains(path)) {
+            continue;
+        }
+        if (!std::filesystem::exists(path)) {
+            // 欠落パス名のまま登録して、呼び出し側を変更せず警告表示へ差し替える
+            static constexpr uint8_t kMissingTexture[] = {
+                255, 0, 255, 255, 32, 32, 32, 255,
+                32, 32, 32, 255, 255, 0, 255, 255
+            };
+            Logger::LogWarning("Texture not found. Using fallback: " + path);
+            LoadFromRawRGBA8(path, kMissingTexture, 2, 2);
+        } else {
             toLoad.push_back(path);
         }
     }
@@ -286,6 +297,17 @@ void TextureManager::LoadTexture(const std::string& filePath)
 {
     // 読み込み済みなら早期リターン
     if (textureDatas_.contains(filePath)) {
+        return;
+    }
+
+    if (!std::filesystem::exists(filePath)) {
+        // ピンクと黒の市松模様にして、欠落箇所を実行画面から特定できるようにする
+        static constexpr uint8_t kMissingTexture[] = {
+            255, 0, 255, 255, 32, 32, 32, 255,
+            32, 32, 32, 255, 255, 0, 255, 255
+        };
+        Logger::LogWarning("Texture not found. Using fallback: " + filePath);
+        LoadFromRawRGBA8(filePath, kMissingTexture, 2, 2);
         return;
     }
 
@@ -402,6 +424,9 @@ void TextureManager::FlushUploads()
 
 void TextureManager::CheckHotReload()
 {
+    if (!hotReloadEnabled_) {
+        return;
+    }
     struct Reloaded {
         std::string path;
         ComPtr<ID3D12Resource> resource;

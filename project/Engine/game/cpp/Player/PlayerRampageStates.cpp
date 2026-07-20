@@ -19,13 +19,13 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
 {
     // 敵X座標へ向かって突進（重力無効）
     // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
-    float targetX = std::clamp(enemyPos.x, kMinX_ + 0.5f, kMaxX_ - 0.5f);
+    float targetX = std::clamp(enemyPos.x, player.minX_ + 0.5f, player.maxX_ - 0.5f);
     float dx = targetX - player.pos_.x;
     float dir = (dx > 0.0f) ? 1.0f : -1.0f;
     player.lastDirX_ = dir;
     player.velocityY_ = 0.0f;
     player.pos_.x += dir * kRampageSpeed_;
-    player.pos_.x = std::clamp(player.pos_.x, kMinX_, kMaxX_);
+    player.pos_.x = std::clamp(player.pos_.x, player.minX_, player.maxX_);
 
     // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
     if (std::abs(dx) < 1.0f) {
@@ -45,7 +45,7 @@ void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input,
     float angle = player.juggleAngleIdx_ * (GameConstants::kTwoPi / effectiveMax);
     float dx = std::cos(angle) * kJuggleRadius_;
     float dy = std::sin(angle) * kJuggleRadius_;
-    player.pos_.x = std::clamp(enemyPos.x + dx, kMinX_, kMaxX_);
+    player.pos_.x = std::clamp(enemyPos.x + dx, player.minX_, player.maxX_);
     player.pos_.y = std::clamp(enemyPos.y + dy, kGroundY_, kCeilingY_);
     player.velocityY_ = 0.0f;
     player.lastDirX_ = (enemyPos.x >= player.pos_.x) ? 1.0f : -1.0f;

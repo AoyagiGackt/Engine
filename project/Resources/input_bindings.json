@@ -1,0 +1,14 @@
+{
+    "actions": {
+        "MoveLeft":  { "primary": "A",     "secondary": "Left",  "gamepad": "" },
+        "MoveRight": { "primary": "D",     "secondary": "Right", "gamepad": "" },
+        "Jump":      { "primary": "W",     "secondary": "Up",    "gamepad": "A" },
+        "Down":      { "primary": "S",     "secondary": "Down",  "gamepad": "" },
+        "Attack":    { "primary": "L",     "secondary": "",      "gamepad": "X" },
+        "Shoot":     { "primary": "K",     "secondary": "",      "gamepad": "Y" },
+        "Skill":     { "primary": "Space", "secondary": "",      "gamepad": "B" },
+        "Awaken":    { "primary": "R",     "secondary": "",      "gamepad": "RB" },
+        "Finisher":  { "primary": "F",     "secondary": "",      "gamepad": "LB" },
+        "GunSwitch": { "primary": "G",     "secondary": "",      "gamepad": "" }
+    }
+}

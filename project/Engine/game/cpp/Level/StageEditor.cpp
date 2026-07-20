@@ -1,6 +1,12 @@
+/**
+ * @file StageEditor.cpp
+ * @brief ステージ配置の実体管理と実行時編集ワークフローを実装するファイル
+ */
 #include "StageEditor.h"
+#include "StageEditorPrefabService.h"
 #include "Camera.h"
 #include "DebugDraw.h"
+#include "DirectXCommon.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
 #include "GameFlags.h"
@@ -18,7 +24,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <set>
+#include <unordered_set>
 #ifdef USE_IMGUI
 #include "EditorUI.h"
 #include <commdlg.h>
@@ -93,24 +101,23 @@ StageEditor::StageEditor() = default;
 
 void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, Camera* camera)
 {
+    // 再読み込み前に旧レベルのGPU参照を完了させ、実体からモデルの順で破棄する
+    ReleaseLevelResources(false);
+
     levelPath_ = levelPath;
     modelCommon_ = modelCommon;
     camera_ = camera;
+    viewport_.SetCamera(camera);
 
     LevelData data = LevelLoader::Load(levelPath);
     playerSpawn_ = data.playerSpawn;
     enemySpawn_ = data.enemySpawn;
 
-    // 破棄されるenemy_basic配置分をEnemyRegistryから外してからclearする（ダングリングポインタ防止）
-    for (auto& entry : objects_) {
-        UnregisterEnemyEntity(entry);
-    }
-    objects_.clear();
-    modelStorage_.clear();
-    modelCache_.clear();
     for (auto& desc : data.objects) {
         ObjectEntry entry;
         entry.desc = std::move(desc);
+        entry.authoredPosition = entry.desc.position;
+        entry.runtimeActive = IsRuntimeActive(entry.desc) && entry.desc.activationDelay <= 0.0f;
         objects_.push_back(std::move(entry));
     }
 
@@ -127,15 +134,23 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
         trg.Init(desc);
         triggers_.push_back(std::move(trg));
     }
+    checkpoints_ = data.checkpoints;
 
     selKind_ = SelKind::None;
     selIndex_ = -1;
+    selectedObjectIndices_.clear();
 #ifdef USE_IMGUI
+    eventConnection_.Reset();
     // 別ファイルを開いたら、直前のレベルに対するUndo/Redo履歴は無関係になるため破棄する
-    undoStack_.clear();
-    redoStack_.clear();
-    hasPendingUndo_ = false;
+    history_.Clear();
     dirty_ = false;
+    lastSavedSnapshot_ = MakeSnapshot();
+    recoveryPath_ = levelPath_ + ".autosave.json";
+    std::error_code fileError;
+    recoveryAvailable_ = std::filesystem::exists(recoveryPath_, fileError)
+        && std::filesystem::exists(levelPath_, fileError)
+        && std::filesystem::last_write_time(recoveryPath_, fileError)
+            > std::filesystem::last_write_time(levelPath_, fileError);
 #endif
     statusMessage_ = "読み込みました: " + levelPath_;
     statusTimer_ = 2.0f;
@@ -143,16 +158,62 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
 
 StageEditor::~StageEditor()
 {
+    Finalize();
+}
+
+void StageEditor::Finalize()
+{
+    if (visible_) {
+        TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
+    }
+    visible_ = false;
+    playTestMode_ = false;
+    ReleaseLevelResources(true);
+    viewport_.Reset();
+    camera_ = nullptr;
+    modelCommon_ = nullptr;
+}
+
+void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
+{
+    // 描画に使用した実体を解放する前にGPUからの参照完了を保証する
+    if ((!objects_.empty() || !modelStorage_.empty()) && modelCommon_ && modelCommon_->GetDxCommon()) {
+        modelCommon_->GetDxCommon()->WaitForGpu();
+    }
+
+    // レジストリ参照、描画実体、参照キャッシュ、所有モデルの順に破棄する
     for (auto& entry : objects_) {
-        UnregisterEnemyEntity(entry);
+        DestroyObjectRuntime(entry, false);
+    }
+    objects_.clear();
+    modelCache_.clear();
+    modelStorage_.clear();
+    triggers_.clear();
+    checkpoints_.clear();
+    if (releaseExternalEntities) {
+        externalEntities_.clear();
     }
 }
 
 void StageEditor::UnregisterEnemyEntity(const ObjectEntry& entry)
 {
-    if (entry.desc.kind == "enemy_basic" && entry.enemy) {
+    if (entry.enemy) {
         EnemyRegistry::GetInstance()->Unregister(entry.desc.name);
     }
+}
+
+void StageEditor::DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu)
+{
+    const bool ownsRuntime = !entry.instances.empty() || entry.knight || entry.enemy;
+    if (waitForGpu && ownsRuntime && modelCommon_ && modelCommon_->GetDxCommon()) {
+        modelCommon_->GetDxCommon()->WaitForGpu();
+    }
+
+    // レジストリは実体を参照するため、所有ポインタを破棄する前に登録を解除する。
+    UnregisterEnemyEntity(entry);
+    entry.instances.clear();
+    entry.knight.reset();
+    entry.enemy.reset();
 }
 
 void StageEditor::EnsureUniqueNames()
@@ -228,22 +289,37 @@ bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::st
 
 void StageEditor::Save()
 {
+#ifdef USE_IMGUI
+    validationIssues_ = ValidateLevel();
+    if (!validationIssues_.empty()) {
+        statusMessage_ = "保存前検証で問題が見つかりました";
+        statusTimer_ = 4.0f;
+        return;
+    }
+#endif
+    SaveToPath(levelPath_);
+#ifdef USE_IMGUI
+    dirty_ = false;
+    autoSaveElapsed_ = 0.0f;
+    lastSavedSnapshot_ = MakeSnapshot();
+#endif
+    statusMessage_ = "保存しました: " + levelPath_;
+    statusTimer_ = 2.0f;
+}
+
+void StageEditor::SaveToPath(const std::string& path) const
+{
     LevelData data;
     data.playerSpawn = playerSpawn_;
     data.enemySpawn = enemySpawn_;
     for (const auto& entry : objects_) {
         data.objects.push_back(entry.desc);
     }
-    for (const auto& trg : triggers_) {
-        data.triggers.push_back(trg.GetDesc());
+    for (const auto& trigger : triggers_) {
+        data.triggers.push_back(trigger.GetDesc());
     }
-
-    LevelLoader::Save(levelPath_, data);
-#ifdef USE_IMGUI
-    dirty_ = false;
-#endif
-    statusMessage_ = "保存しました: " + levelPath_;
-    statusTimer_ = 2.0f;
+    data.checkpoints = checkpoints_;
+    LevelLoader::Save(path, data);
 }
 
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
@@ -264,23 +340,50 @@ Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::stri
 
 void StageEditor::RegenerateInstances(ObjectEntry& entry)
 {
+    // 構造変更で既存実体を作り直す場合だけGPUの参照完了を待つ
+    if ((!entry.instances.empty() || entry.knight || entry.enemy)
+        && modelCommon_ && modelCommon_->GetDxCommon()) {
+        modelCommon_->GetDxCommon()->WaitForGpu();
+    }
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
+    if (!desc.enabled) {
+        UnregisterEnemyEntity(entry);
+        entry.knight.reset();
+        entry.enemy.reset();
+        return;
+    }
 
-    if (desc.kind == "enemy_knight") {
+    const bool wantsKnight = desc.kind == "enemy_knight"
+        || (desc.kind == "spawn_point" && desc.spawnType == "knight");
+    const bool wantsBasic = desc.kind == "enemy_basic"
+        || (desc.kind == "spawn_point" && desc.spawnType != "knight");
+    if (!wantsKnight) {
+        entry.knight.reset();
+    }
+    if (!wantsBasic) {
+        UnregisterEnemyEntity(entry);
+        entry.enemy.reset();
+    }
+
+    if (desc.kind == "enemy_knight" || (desc.kind == "spawn_point" && desc.spawnType == "knight" && IsRuntimeActive(desc))) {
         if (!entry.knight) {
             entry.knight = std::make_unique<KnightEnemy>();
             entry.knight->Initialize(modelCommon_, WorldPositionOf(desc));
         }
         return;
     }
-    if (desc.kind == "enemy_basic") {
+    if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
             entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc));
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
         }
+        return;
+    }
+
+    if (desc.kind == "spawn_point" || desc.kind == "camera_point" || desc.kind == "patrol_point") {
         return;
     }
 
@@ -308,6 +411,22 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
         spawnOne(desc.position);
     }
     RefreshTransforms(entry);
+}
+
+void StageEditor::AppendGeneratedContent(StageEditorGeneratedContent content)
+{
+    for (TriggerDesc& desc : content.triggers) {
+        TriggerVolume trigger;
+        trigger.Init(desc);
+        triggers_.push_back(std::move(trigger));
+    }
+    for (ObjectDesc& desc : content.objects) {
+        ObjectEntry entry;
+        entry.desc = std::move(desc);
+        entry.authoredPosition = entry.desc.position;
+        objects_.push_back(std::move(entry));
+        RegenerateInstances(objects_.back());
+    }
 }
 
 void StageEditor::RefreshTransforms(ObjectEntry& entry)
@@ -374,11 +493,45 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
     std::vector<engine::AABB> result;
     for (const auto& entry : objects_) {
-        if (!entry.desc.solid) {
+        if (!entry.desc.solid || !entry.runtimeActive) {
             continue;
         }
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
+        // Terrainは描画メッシュの各三角形をAABBへ変換し、表示形状の変更と同期する
+        if (desc.kind == "terrain" && desc.meshCollider) {
+            const std::string key = desc.model + '|' + desc.texture;
+            auto modelIt = modelCache_.find(key);
+            if (modelIt != modelCache_.end()) {
+                const auto& vertices = modelIt->second->GetVertices();
+                const auto& indices = modelIt->second->GetIndices();
+                auto transformVertex = [&](const Vector4& vertex) {
+                    Vector3 value = { vertex.x * desc.scale.x, vertex.y * desc.scale.y, vertex.z * desc.scale.z };
+                    const float cx = std::cos(desc.rotation.x), sx = std::sin(desc.rotation.x);
+                    const float cy = std::cos(desc.rotation.y), sy = std::sin(desc.rotation.y);
+                    const float cz = std::cos(desc.rotation.z), sz = std::sin(desc.rotation.z);
+                    value = { value.x, value.y * cx - value.z * sx, value.y * sx + value.z * cx };
+                    value = { value.x * cy + value.z * sy, value.y, -value.x * sy + value.z * cy };
+                    value = { value.x * cz - value.y * sz, value.x * sz + value.y * cz, value.z };
+                    return value + basePos;
+                };
+                for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+                    const Vector3 a = transformVertex(vertices[indices[i]].position);
+                    const Vector3 b = transformVertex(vertices[indices[i + 1]].position);
+                    const Vector3 c = transformVertex(vertices[indices[i + 2]].position);
+                    constexpr float kColliderThickness = 0.03f;
+                    result.push_back({
+                        { (std::min)({ a.x, b.x, c.x }) - kColliderThickness,
+                            (std::min)({ a.y, b.y, c.y }) - kColliderThickness,
+                            (std::min)({ a.z, b.z, c.z }) - kColliderThickness },
+                        { (std::max)({ a.x, b.x, c.x }) + kColliderThickness,
+                            (std::max)({ a.y, b.y, c.y }) + kColliderThickness,
+                            (std::max)({ a.z, b.z, c.z }) + kColliderThickness }
+                    });
+                }
+            }
+            continue;
+        }
         Vector3 half = { 0.5f * desc.scale.x, 0.5f * desc.scale.y, 0.5f * desc.scale.z };
 
         int instanceCount = static_cast<int>(entry.instances.size());
@@ -401,6 +554,17 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
     return result;
 }
 
+bool StageEditor::IsRuntimeActive(const ObjectDesc& desc) const
+{
+    if (!desc.enabled) {
+        return false;
+    }
+    if (desc.activationFlag.empty()) {
+        return true;
+    }
+    return GameFlags::GetInstance()->GetFlag(desc.activationFlag) == desc.activeWhenFlag;
+}
+
 // ══════════════════════════════════════════════════════
 // ランタイム更新と描画
 // ══════════════════════════════════════════════════════
@@ -408,14 +572,122 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 {
     objectsDrawnThisFrame_ = false; // 毎フレームUpdateObjects()が先に呼ばれるのでここでリセットする
+    constexpr float kRuntimeDeltaSeconds = 1.0f / 60.0f;
+
+    // ノーコード条件を先に評価し、同じフレーム内で接続先へ反映する
+    for (auto& condition : objects_) {
+        if (!condition.desc.enabled || condition.desc.kind != "event_condition") {
+            continue;
+        }
+        bool met = condition.desc.conditionType == "manual"
+            ? GameFlags::GetInstance()->GetFlag("condition_" + condition.desc.name)
+            : false;
+        if (condition.desc.conditionType == "timer") {
+            condition.runtimeTimer += kRuntimeDeltaSeconds;
+            met = condition.runtimeTimer >= condition.desc.conditionSeconds;
+        } else if (condition.desc.conditionType == "enemy_group_defeated") {
+            bool foundEnemy = false;
+            met = true;
+            for (const auto& enemyEntry : objects_) {
+                if (enemyEntry.desc.enemyGroup != condition.desc.enemyGroup) {
+                    continue;
+                }
+                if (enemyEntry.knight) {
+                    foundEnemy = true;
+                    met &= !enemyEntry.knight->IsAlive();
+                } else if (enemyEntry.enemy) {
+                    foundEnemy = true;
+                    met &= enemyEntry.enemy->IsDefeated();
+                } else if (enemyEntry.desc.kind == "spawn_point") {
+                    foundEnemy = true;
+                    met = false;
+                }
+            }
+            met &= foundEnemy;
+        }
+        GameFlags::GetInstance()->SetFlag("condition_" + condition.desc.name, met);
+    }
+
+    // 対象ごとの遅延を評価する。有効化は成立後に待ち、無効化は成立後も遅延中だけ維持する
+    for (auto& entry : objects_) {
+        const ObjectDesc& desc = entry.desc;
+        if (!desc.enabled) {
+            entry.runtimeActive = false;
+            continue;
+        }
+        if (desc.activationFlag.empty()) {
+            entry.runtimeActive = true;
+            if (desc.kind == "gimmick") {
+                entry.runtimeTimer += kRuntimeDeltaSeconds;
+            }
+            continue;
+        }
+        const bool flagValue = GameFlags::GetInstance()->GetFlag(desc.activationFlag);
+        if (flagValue) {
+            entry.runtimeTimer += kRuntimeDeltaSeconds;
+        } else {
+            entry.runtimeTimer = 0.0f;
+        }
+        entry.runtimeActive = desc.activeWhenFlag
+            ? flagValue && entry.runtimeTimer >= desc.activationDelay
+            : !flagValue || entry.runtimeTimer < desc.activationDelay;
+        if (desc.kind == "camera_point" && desc.activeWhenFlag && desc.cameraHoldSeconds > 0.0f
+            && entry.runtimeTimer > desc.activationDelay + desc.cameraHoldSeconds) {
+            entry.runtimeActive = false;
+        }
+    }
 
     // 親を動かしたら子も追従するよう、毎フレーム親子チェーンを解決してから反映する
     for (auto& entry : objects_) {
+        if (!entry.runtimeActive) {
+            continue;
+        }
+        if (entry.desc.kind == "spawn_point" && !entry.knight && !entry.enemy) {
+            if (entry.runtimeActive) {
+                RegenerateInstances(entry);
+            }
+            continue;
+        }
+        if (entry.desc.kind == "camera_point") {
+            // 編集中は演出用カメラポイントで自由カメラを上書きしない
+            if (visible_ && !playTestMode_) {
+                continue;
+            }
+            if (camera_) {
+                const Vector3 targetPosition = WorldPositionOf(entry.desc);
+                Vector3& cameraPosition = camera_->GetTranslate();
+                const float blend = entry.desc.cameraBlendSeconds <= 0.0f
+                    ? 1.0f
+                    : (std::min)(1.0f, kRuntimeDeltaSeconds / entry.desc.cameraBlendSeconds);
+                cameraPosition.x += (targetPosition.x - cameraPosition.x) * blend;
+                cameraPosition.y += (targetPosition.y - cameraPosition.y) * blend;
+                cameraPosition.z += (targetPosition.z - cameraPosition.z) * blend;
+                camera_->SetRotate(entry.desc.rotation);
+            }
+            continue;
+        }
+        if (entry.desc.kind == "patrol_point" || !IsRuntimeActive(entry.desc)) {
+            continue;
+        }
         if (entry.knight || entry.enemy) {
             UpdateEnemyEntry(entry, pm, playerPos);
             continue;
         }
+        const Vector3 authoredPosition = entry.desc.position;
+        const Vector3 authoredRotation = entry.desc.rotation;
+        if (entry.desc.kind == "gimmick") {
+            const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
+            if (entry.desc.gimmickMotion == "move_y") {
+                entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
+            } else if (entry.desc.gimmickMotion == "fall") {
+                entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
+            } else if (entry.desc.gimmickMotion == "rotate_y") {
+                entry.desc.rotation.y += phase;
+            }
+        }
         RefreshTransforms(entry);
+        entry.desc.position = authoredPosition;
+        entry.desc.rotation = authoredRotation;
         for (auto& obj : entry.instances) {
             obj->Update();
         }
@@ -425,8 +697,11 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
 {
     Vector3 worldPos = WorldPositionOf(entry.desc);
+    if (!ShouldPauseGame() && UpdatePatrol(entry)) {
+        return;
+    }
     if (entry.knight) {
-        if (visible_) {
+        if (ShouldPauseGame()) {
             // 編集中はAI/重力を進めず、desc.positionへドラッグされた位置だけ反映する
             entry.knight->GetPositionRef() = worldPos;
             entry.knight->RefreshVisualTransforms();
@@ -436,7 +711,7 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.desc.position = entry.knight->GetPosition();
         }
     } else if (entry.enemy) {
-        if (visible_) {
+        if (ShouldPauseGame()) {
             entry.enemy->GetPositionRef() = worldPos;
             entry.enemy->RefreshVisualTransforms();
         } else {
@@ -444,6 +719,50 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.desc.position = entry.enemy->GetPosition();
         }
     }
+}
+
+bool StageEditor::UpdatePatrol(ObjectEntry& entry)
+{
+    if (entry.desc.patrolRoute.empty()) {
+        return false;
+    }
+    std::vector<const ObjectDesc*> points;
+    for (const auto& candidate : objects_) {
+        if (candidate.desc.enabled && candidate.desc.kind == "patrol_point"
+            && candidate.desc.patrolRoute == entry.desc.patrolRoute) {
+            points.push_back(&candidate.desc);
+        }
+    }
+    if (points.empty()) {
+        return false;
+    }
+    std::sort(points.begin(), points.end(), [](const ObjectDesc* lhs, const ObjectDesc* rhs) {
+        return lhs->routeOrder < rhs->routeOrder;
+    });
+    entry.patrolTargetIndex %= static_cast<int>(points.size());
+    const Vector3 target = WorldPositionOf(*points[entry.patrolTargetIndex]);
+    Vector3* position = entry.knight ? &entry.knight->GetPositionRef() : &entry.enemy->GetPositionRef();
+    const float dx = target.x - position->x;
+    const float dy = target.y - position->y;
+    const float dz = target.z - position->z;
+    const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+    constexpr float kWaypointArrivalDistance = 0.12f;
+    if (distance <= kWaypointArrivalDistance) {
+        entry.patrolTargetIndex = (entry.patrolTargetIndex + 1) % static_cast<int>(points.size());
+    } else {
+        const float step = (std::max)(0.0f, entry.desc.patrolSpeed) / 60.0f;
+        const float ratio = (std::min)(1.0f, step / distance);
+        position->x += dx * ratio;
+        position->y += dy * ratio;
+        position->z += dz * ratio;
+    }
+    entry.desc.position = *position;
+    if (entry.knight) {
+        entry.knight->RefreshVisualTransforms();
+    } else {
+        entry.enemy->RefreshVisualTransforms();
+    }
+    return true;
 }
 
 void StageEditor::DrawObjects()
@@ -459,8 +778,18 @@ void StageEditor::DrawObjects()
         return;
     }
     modelCommon_->CommonDrawSettings();
+    // ルートシグネチャを設定し直すと全ルート引数が未設定へ戻るため、
+    // 平行光源、ポイントライト、シャドウマップを配置物の描画前に再設定する
+    Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
 
     for (auto& entry : objects_) {
+        if (!entry.runtimeActive) {
+            continue;
+        }
+        if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
+            && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
+            continue;
+        }
         for (auto& obj : entry.instances) {
             obj->Draw();
         }
@@ -477,7 +806,7 @@ std::vector<KnightEnemy*> StageEditor::GetKnights()
 {
     std::vector<KnightEnemy*> result;
     for (auto& entry : objects_) {
-        if (entry.knight) {
+        if (entry.knight && entry.runtimeActive) {
             result.push_back(entry.knight.get());
         }
     }
@@ -492,23 +821,18 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
     }
 
 #ifdef USE_IMGUI
-    bool wasVisible = visible_;
-    if (input && input->TriggerKey(DIK_F2)) {
-        visible_ = !visible_;
-    }
-    if (visible_ != wasVisible) {
-        if (visible_) {
-            savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
-            TimeManager::GetInstance()->SetTimeScale(0.0f);
-        } else {
-            TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
-        }
-    }
+    UpdateEditorVisibility(input);
     if (!visible_) {
         return;
     }
 
+    // F3で編集状態を維持したままパネル表示だけを切り替える
+    if (ImGui::IsKeyPressed(ImGuiKey_F3, false)) {
+        viewportFocusMode_ = !viewportFocusMode_;
+    }
+
     const float realDt = ImGui::GetIO().DeltaTime;
+    UpdateAutoSave(realDt);
     if (statusTimer_ > 0.0f) {
         statusTimer_ -= realDt;
     }
@@ -522,28 +846,8 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 
     UpdateViewportInteraction();
 
-    // キーボードショートカット（テキスト入力欄にフォーカスがある間はImGui自身の入力欄内編集に譲る）
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        if (!io.WantTextInput) {
-            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-                Undo();
-            } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
-                Redo();
-            } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-                Save();
-            } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
-                DuplicateSelected();
-            } else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
-                DeleteSelected();
-            }
-        }
-    }
-
-    RenderHierarchy();
-    RenderInspector();
-    RenderAssetPalette();
-    RenderFlagsPanel();
+    HandleEditorShortcuts();
+    RenderEditorPanels();
     DrawGizmos();
 #else
     (void)input;
@@ -551,6 +855,64 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 }
 
 #ifdef USE_IMGUI
+void StageEditor::UpdateEditorVisibility(Input* input)
+{
+    const bool wasVisible = visible_;
+    if (input && input->TriggerKey(DIK_F2)) {
+        visible_ = !visible_;
+    }
+    if (visible_ == wasVisible) {
+        return;
+    }
+    if (visible_) {
+        savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
+        TimeManager::GetInstance()->SetTimeScale(0.0f);
+        return;
+    }
+    playTestMode_ = false;
+    TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
+}
+
+void StageEditor::HandleEditorShortcuts()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantTextInput) {
+        return;
+    }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) Undo();
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) Redo();
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) Save();
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) DuplicateSelected();
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C)) CopySelected();
+    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V)) PasteClipboard();
+    else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) DeleteSelected();
+}
+
+void StageEditor::RenderEditorPanels()
+{
+    if (viewportFocusMode_) {
+        RenderViewportFocusBar();
+        return;
+    }
+    RenderEditorToolbar();
+    RenderHierarchy();
+    RenderInspector();
+    RenderAssetPalette();
+    if (showFlagsPanel_) RenderFlagsPanel();
+    if (showWorkflowPanel_) RenderWorkflowPanel();
+    if (showNoCodeEventPanel_) RenderNoCodeEventPanel();
+    if (showWavePanel_) RenderWavePanel();
+    RenderStageAnalysisPanel();
+    RenderDiffPanel();
+    RenderEditorHelpPanel();
+}
+
+void StageEditor::SetPlayTestMode(bool enabled)
+{
+    playTestMode_ = enabled;
+    TimeManager::GetInstance()->SetTimeScale(enabled ? savedTimeScale_ : 0.0f);
+}
+
 // ══════════════════════════════════════════════════════
 // 編集履歴と選択操作
 // ══════════════════════════════════════════════════════
@@ -566,6 +928,7 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
     for (const auto& trg : triggers_) {
         snap.triggers.push_back(trg.GetDesc());
     }
+    snap.checkpoints = checkpoints_;
     snap.playerSpawn = playerSpawn_;
     snap.enemySpawn = enemySpawn_;
     return snap;
@@ -573,6 +936,10 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
 
 void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
 {
+    // UndoとRedoで配置実体を破棄する前に、GPUからの参照完了を保証する
+    if (!objects_.empty() && modelCommon_ && modelCommon_->GetDxCommon()) {
+        modelCommon_->GetDxCommon()->WaitForGpu();
+    }
     // Open()のファイル読み込み抜き版。実体はdescから作り直す
     for (auto& entry : objects_) {
         UnregisterEnemyEntity(entry);
@@ -581,6 +948,8 @@ void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
     for (const auto& desc : snap.objects) {
         ObjectEntry entry;
         entry.desc = desc;
+        entry.authoredPosition = entry.desc.position;
+        entry.runtimeActive = IsRuntimeActive(entry.desc) && entry.desc.activationDelay <= 0.0f;
         objects_.push_back(std::move(entry));
     }
     for (auto& entry : objects_) {
@@ -593,6 +962,7 @@ void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
         trg.Init(desc);
         triggers_.push_back(std::move(trg));
     }
+    checkpoints_ = snap.checkpoints;
 
     playerSpawn_ = snap.playerSpawn;
     enemySpawn_ = snap.enemySpawn;
@@ -602,55 +972,37 @@ void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
     viewportDragging_ = false;
 }
 
-void StageEditor::PushUndo(LevelSnapshot snapshot)
-{
-    undoStack_.push_back(std::move(snapshot));
-    if (undoStack_.size() > kMaxUndoHistory) {
-        undoStack_.erase(undoStack_.begin());
-    }
-    redoStack_.clear(); // 新しい操作をしたら、それ以前のRedo履歴は無効にする
-    dirty_ = true; // 記録される変更 = 保存すべき変更（全ての編集操作がここを通る）
-}
-
 void StageEditor::RecordUndoSnapshotNow()
 {
-    PushUndo(MakeSnapshot());
+    history_.Record(MakeSnapshot());
+    dirty_ = true;
 }
 
 void StageEditor::BeginUndoCapture()
 {
-    if (!hasPendingUndo_) {
-        pendingUndoSnapshot_ = MakeSnapshot();
-        hasPendingUndo_ = true;
-        pendingUndoDirtied_ = false;
+    if (!history_.IsCapturing()) {
+        history_.Begin(MakeSnapshot());
     }
 }
 
 void StageEditor::MarkUndoDirty()
 {
-    pendingUndoDirtied_ = true;
+    history_.MarkChanged();
+    dirty_ = true;
 }
 
 void StageEditor::CommitUndoCapture()
 {
-    if (hasPendingUndo_) {
-        if (pendingUndoDirtied_) {
-            PushUndo(std::move(pendingUndoSnapshot_));
-        }
-        hasPendingUndo_ = false;
-        pendingUndoDirtied_ = false;
-    }
+    history_.Commit();
 }
 
 void StageEditor::Undo()
 {
-    if (undoStack_.empty()) {
+    std::optional<LevelSnapshot> snapshot = history_.Undo(MakeSnapshot());
+    if (!snapshot) {
         return;
     }
-    redoStack_.push_back(MakeSnapshot());
-    LevelSnapshot snap = std::move(undoStack_.back());
-    undoStack_.pop_back();
-    ApplySnapshot(snap);
+    ApplySnapshot(*snapshot);
     dirty_ = true;
     statusMessage_ = "元に戻しました";
     statusTimer_ = 1.5f;
@@ -658,13 +1010,11 @@ void StageEditor::Undo()
 
 void StageEditor::Redo()
 {
-    if (redoStack_.empty()) {
+    std::optional<LevelSnapshot> snapshot = history_.Redo(MakeSnapshot());
+    if (!snapshot) {
         return;
     }
-    undoStack_.push_back(MakeSnapshot());
-    LevelSnapshot snap = std::move(redoStack_.back());
-    redoStack_.pop_back();
-    ApplySnapshot(snap);
+    ApplySnapshot(*snapshot);
     dirty_ = true;
     statusMessage_ = "やり直しました";
     statusTimer_ = 1.5f;
@@ -674,16 +1024,31 @@ void StageEditor::DeleteSelected()
 {
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
         RecordUndoSnapshotNow();
-        // 子の親参照を外してから消す（子はワールド位置を保ったまま独立させる）
-        const std::string deletedName = objects_[selIndex_].desc.name;
-        for (auto& other : objects_) {
-            if (other.desc.parent == deletedName) {
-                other.desc.position = WorldPositionOf(other.desc);
-                other.desc.parent.clear();
-            }
+        // 選択実体を破棄する前に、GPUからの参照完了を保証する
+        if (modelCommon_ && modelCommon_->GetDxCommon()) {
+            modelCommon_->GetDxCommon()->WaitForGpu();
         }
-        UnregisterEnemyEntity(objects_[selIndex_]); // EnemyRegistryに登録済みならダングリング防止に解除する
-        objects_.erase(objects_.begin() + selIndex_);
+        std::vector<int> targets = selectedObjectIndices_.empty()
+            ? std::vector<int> { selIndex_ }
+            : selectedObjectIndices_;
+        std::sort(targets.begin(), targets.end());
+        targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+        for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
+            const int index = *it;
+            if (index < 0 || index >= static_cast<int>(objects_.size())) {
+                continue;
+            }
+            // 子の親参照を外してから消し、子のワールド位置を維持する
+            const std::string deletedName = objects_[index].desc.name;
+            for (auto& other : objects_) {
+                if (other.desc.parent == deletedName) {
+                    other.desc.position = WorldPositionOf(other.desc);
+                    other.desc.parent.clear();
+                }
+            }
+            DestroyObjectRuntime(objects_[index], true);
+            objects_.erase(objects_.begin() + index);
+        }
     } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
         RecordUndoSnapshotNow();
         triggers_.erase(triggers_.begin() + selIndex_);
@@ -693,19 +1058,34 @@ void StageEditor::DeleteSelected()
     }
     selKind_ = SelKind::None;
     selIndex_ = -1;
+    selectedObjectIndices_.clear();
 }
 
 void StageEditor::DuplicateSelected()
 {
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
         RecordUndoSnapshotNow();
-        ObjectEntry entry;
-        entry.desc = objects_[selIndex_].desc;
-        // 名前はEnemyRegistryの登録キーや親子参照のキーにもなるため、必ず新規で振り直す
-        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
-        entry.desc.position.x += snapEnabled_ ? snapStep_ : 1.0f; // 元と重ならないよう横にずらす
-        objects_.push_back(std::move(entry));
-        RegenerateInstances(objects_.back());
+        const std::vector<int> sources = selectedObjectIndices_.empty()
+            ? std::vector<int> { selIndex_ }
+            : selectedObjectIndices_;
+        std::vector<ObjectDesc> copies;
+        for (int index : sources) {
+            if (index >= 0 && index < static_cast<int>(objects_.size())) {
+                copies.push_back(objects_[index].desc);
+            }
+        }
+        selectedObjectIndices_.clear();
+        for (ObjectDesc& desc : copies) {
+            ObjectEntry entry;
+            entry.desc = std::move(desc);
+            // 名前はEnemyRegistryと親子参照のキーになるため新規で振り直す
+            entry.desc.name = "obj_" + std::to_string(nextSerial_++);
+            entry.desc.parent.clear();
+            entry.desc.position.x += snapEnabled_ ? snapStep_ : 1.0f;
+            objects_.push_back(std::move(entry));
+            RegenerateInstances(objects_.back());
+            selectedObjectIndices_.push_back(static_cast<int>(objects_.size()) - 1);
+        }
         selKind_ = SelKind::Object;
         selIndex_ = static_cast<int>(objects_.size()) - 1;
         statusMessage_ = "複製しました";
@@ -725,12 +1105,177 @@ void StageEditor::DuplicateSelected()
     }
 }
 
+void StageEditor::CopySelected()
+{
+    objectClipboard_.clear();
+    if (selKind_ != SelKind::Object) {
+        return;
+    }
+    const std::vector<int> sources = selectedObjectIndices_.empty()
+        ? std::vector<int> { selIndex_ }
+        : selectedObjectIndices_;
+    for (int index : sources) {
+        if (index >= 0 && index < static_cast<int>(objects_.size())) {
+            objectClipboard_.push_back(objects_[index].desc);
+        }
+    }
+    statusMessage_ = std::to_string(objectClipboard_.size()) + "個コピーしました";
+    statusTimer_ = 1.5f;
+}
+
+void StageEditor::PasteClipboard()
+{
+    if (objectClipboard_.empty()) {
+        return;
+    }
+    RecordUndoSnapshotNow();
+    selectedObjectIndices_.clear();
+    for (const ObjectDesc& source : objectClipboard_) {
+        ObjectEntry entry;
+        entry.desc = source;
+        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
+        entry.desc.parent.clear();
+        entry.desc.position.x += snapEnabled_ ? snapStep_ : 1.0f;
+        objects_.push_back(std::move(entry));
+        RegenerateInstances(objects_.back());
+        selectedObjectIndices_.push_back(static_cast<int>(objects_.size()) - 1);
+    }
+    selKind_ = SelKind::Object;
+    selIndex_ = selectedObjectIndices_.back();
+    statusMessage_ = std::to_string(selectedObjectIndices_.size()) + "個貼り付けました";
+    statusTimer_ = 1.5f;
+}
+
 float StageEditor::SnapValue(float v) const
 {
     if (!snapEnabled_ || snapStep_ <= 0.0f) {
         return v;
     }
     return std::round(v / snapStep_) * snapStep_;
+}
+
+std::vector<std::string> StageEditor::ValidateLevel() const
+{
+    std::vector<std::string> issues;
+    std::unordered_set<std::string> names;
+    for (const auto& entry : objects_) {
+        const ObjectDesc& desc = entry.desc;
+        if (desc.name.empty()) {
+            issues.push_back("名前が空のオブジェクトがあります");
+        } else if (!names.insert(desc.name).second) {
+            issues.push_back("オブジェクト名が重複しています: " + desc.name);
+        }
+        if ((desc.kind == "prop" || desc.kind == "gimmick" || desc.kind == "terrain") && desc.model.empty()) {
+            issues.push_back("モデル未設定: " + desc.name);
+        }
+        if (desc.scale.x <= 0.0f || desc.scale.y <= 0.0f || desc.scale.z <= 0.0f) {
+            issues.push_back("スケールが0以下です: " + desc.name);
+        }
+        if (desc.type == "row" && (desc.count <= 0 || desc.step == 0.0f)) {
+            issues.push_back("列配置の個数または間隔が無効です: " + desc.name);
+        }
+        if (!desc.parent.empty()) {
+            const bool parentExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& other) {
+                return other.desc.name == desc.parent;
+            });
+            if (!parentExists) {
+                issues.push_back("親が見つかりません: " + desc.name + " -> " + desc.parent);
+            } else if (desc.parent == desc.name || IsDescendantOf(desc.parent, desc.name)) {
+                issues.push_back("親子関係が循環しています: " + desc.name);
+            }
+        }
+        if (desc.kind == "spawn_point" && desc.spawnType != "basic" && desc.spawnType != "knight") {
+            issues.push_back("SpawnPointの敵種類が不正です: " + desc.name);
+        }
+        if (desc.kind == "patrol_point" && desc.patrolRoute.empty()) {
+            issues.push_back("巡回ルート名が空です: " + desc.name);
+        }
+        if (desc.kind == "terrain" && !desc.solid) {
+            issues.push_back("Terrainの当たり判定が無効です: " + desc.name);
+        }
+        if (!desc.activationFlag.empty()) {
+            bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
+                return trigger.GetDesc().flag == desc.activationFlag;
+            });
+            if (!sourceExists && desc.activationFlag.starts_with("condition_")) {
+                const std::string conditionName = desc.activationFlag.substr(10);
+                sourceExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& condition) {
+                    return condition.desc.kind == "event_condition" && condition.desc.name == conditionName;
+                });
+            }
+            if (!sourceExists) {
+                issues.push_back("イベント接続元が見つかりません: " + desc.name);
+            }
+        }
+    }
+
+    std::unordered_set<std::string> triggerNames;
+    for (const auto& trigger : triggers_) {
+        const TriggerDesc& desc = trigger.GetDesc();
+        if (desc.name.empty() || !triggerNames.insert(desc.name).second) {
+            issues.push_back("トリガー名が空または重複しています: " + desc.name);
+        }
+        if (desc.flag.empty() || desc.radius <= 0.0f) {
+            issues.push_back("トリガー設定が不正です: " + desc.name);
+        }
+    }
+    return issues;
+}
+
+void StageEditor::UpdateAutoSave(float realDt)
+{
+    if (!autoSaveEnabled_ || !dirty_ || levelPath_.empty()) {
+        autoSaveElapsed_ = 0.0f;
+        return;
+    }
+    autoSaveElapsed_ += realDt;
+    if (autoSaveElapsed_ < kAutoSaveIntervalSeconds) {
+        return;
+    }
+    recoveryPath_ = levelPath_ + ".autosave.json";
+    SaveToPath(recoveryPath_);
+    autoSaveElapsed_ = 0.0f;
+    statusMessage_ = "自動保存しました: " + recoveryPath_;
+    statusTimer_ = 2.0f;
+}
+
+void StageEditor::SaveSelectedPrefab()
+{
+    if (selKind_ != SelKind::Object || selIndex_ < 0 || selIndex_ >= static_cast<int>(objects_.size())) {
+        return;
+    }
+    const std::string path = StageEditorPrefabService::Save(prefabName_, objects_[selIndex_].desc);
+    statusMessage_ = "プレハブを保存しました: " + path;
+    statusTimer_ = 2.0f;
+}
+
+void StageEditor::InstantiatePrefab()
+{
+    const std::string path = StageEditorPrefabService::MakePath(prefabName_);
+    std::vector<ObjectDesc> prefabObjects = StageEditorPrefabService::Load(prefabName_);
+    if (prefabObjects.empty()) {
+        statusMessage_ = "プレハブが見つかりません: " + path;
+        statusTimer_ = 2.0f;
+        return;
+    }
+
+    RecordUndoSnapshotNow();
+    Vector3 center = playerSpawn_;
+    MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+    for (ObjectDesc desc : prefabObjects) {
+        ObjectEntry entry;
+        entry.desc = std::move(desc);
+        entry.desc.name = "prefab_" + std::to_string(nextSerial_++);
+        entry.desc.parent.clear();
+        entry.desc.position = center + entry.desc.position;
+        objects_.push_back(std::move(entry));
+        RegenerateInstances(objects_.back());
+    }
+    selKind_ = SelKind::Object;
+    selIndex_ = static_cast<int>(objects_.size()) - 1;
+    selectedObjectIndices_ = { selIndex_ };
+    statusMessage_ = "プレハブを配置しました";
+    statusTimer_ = 2.0f;
 }
 
 // ══════════════════════════════════════════════════════
@@ -744,7 +1289,8 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     } // 循環参照の安全弁
 
     const ObjectDesc& desc = objects_[index].desc;
-    bool sel = (selKind_ == SelKind::Object && selIndex_ == index);
+    bool sel = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), index)
+        != selectedObjectIndices_.end();
 
     // 種類が一目で分かるようタグを付ける（配置物はタグ無し）
     const char* kindTag = (desc.kind == "enemy_knight") ? "[ナイト] "
@@ -759,6 +1305,15 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     if (ImGui::Selectable(label, sel)) {
         selKind_ = SelKind::Object;
         selIndex_ = index;
+        if (!ImGui::GetIO().KeyCtrl) {
+            selectedObjectIndices_.clear();
+        }
+        auto selected = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), index);
+        if (selected == selectedObjectIndices_.end()) {
+            selectedObjectIndices_.push_back(index);
+        } else if (ImGui::GetIO().KeyCtrl) {
+            selectedObjectIndices_.erase(selected);
+        }
     }
 
     // このエントリを親にしている子を直下に描く
@@ -771,17 +1326,60 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
 
 void StageEditor::RenderHierarchy()
 {
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(280.0f, 480.0f), ImGuiCond_Once);
-    ImGui::Begin("ステージエディタ");
+    constexpr float kToolbarHeight = 42.0f;
+    constexpr float kPanelWidth = 280.0f;
+    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - kToolbarHeight) * 0.62f;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, hierarchyHeight), ImGuiCond_Always);
+    ImGui::Begin("ステージエディタ", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-    ImGui::TextDisabled("F2: 表示/非表示    WASD/QE: カメラ移動    ホイール: ズーム");
+    ImGui::TextDisabled("F2: 表示/非表示    F3: 画面優先    WASD/QE: カメラ移動");
+    if (ImGui::Button("ゲーム画面を広く表示 (F3)", ImVec2(-1.0f, 0.0f))) {
+        viewportFocusMode_ = true;
+    }
+    if (ImGui::CollapsingHeader("制作ガイド", ImGuiTreeNodeFlags_DefaultOpen)) {
+        bool hasGround = false;
+        bool hasEnemy = false;
+        bool hasEventConnection = false;
+        for (const auto& entry : objects_) {
+            hasGround |= entry.desc.solid || entry.desc.kind == "terrain";
+            hasEnemy |= entry.desc.kind == "spawn_point" || entry.desc.kind == "enemy_basic"
+                || entry.desc.kind == "enemy_knight";
+            hasEventConnection |= !entry.desc.activationFlag.empty();
+        }
+        const int completed = static_cast<int>(hasGround) + static_cast<int>(hasEnemy)
+            + static_cast<int>(!triggers_.empty()) + static_cast<int>(hasEventConnection);
+        ImGui::ProgressBar(static_cast<float>(completed) / 4.0f, ImVec2(-1.0f, 0.0f));
+        ImGui::TextWrapped("上から順に進めると、配置からゲーム進行までコードを書かずに作成できます。");
+        ImGui::BulletText("%s 1 地形を置き、詳細設定で当たり判定を有効にする",
+            hasGround ? "[完了]" : "[次]  ");
+        ImGui::BulletText("%s 2 敵またはWaveを配置する",
+            hasEnemy ? "[完了]" : "[未]  ");
+        ImGui::BulletText("%s 3 プレイヤーが入るトリガーを配置する",
+            !triggers_.empty() ? "[完了]" : "[未]  ");
+        ImGui::BulletText("%s 4 イベントで条件と動作対象を接続する",
+            hasEventConnection ? "[完了]" : "[未]  ");
+        if (ImGui::SmallButton("Waveを作る")) {
+            showWavePanel_ = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("イベントを作る")) {
+            showNoCodeEventPanel_ = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("詳しい説明")) {
+            showEditorHelp_ = true;
+        }
+        ImGui::TextDisabled("最後に上部のテストで確認し、制作パネルから検証して保存する");
+    }
     if (ImGui::CollapsingHeader("使い方")) {
         ImGui::BulletText("WASD: カメラ移動    Q/E・マウスホイール: 奥/手前へズーム");
         ImGui::BulletText("画面上のオブジェクトを左クリック: 選択");
         ImGui::BulletText("そのまま左ドラッグ: つかんで移動（Shift+ドラッグ: 奥行き(Z)移動）");
         ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存");
         ImGui::BulletText("Ctrl+D・複製ボタン: 選択中の物を複製    Deleteキー: 削除");
+        ImGui::BulletText("Ctrl+C / Ctrl+V: 選択中の配置物をコピー・貼り付け");
+        ImGui::BulletText("Ctrlを押しながら選択: 複数選択して一括移動・回転・拡縮");
         ImGui::BulletText("スナップをONにすると、移動・配置・複製の座標が指定間隔の倍数に揃う");
         ImGui::BulletText("[+]ボタン: 配置物/敵(ナイト・汎用エネミー)を選んで画面中央に新規追加");
         ImGui::BulletText("敵は実際にHPを持って湧く本物の敵配置数・種類は自由に増減できる");
@@ -823,13 +1421,24 @@ void StageEditor::RenderHierarchy()
         ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "未保存");
     }
 
-    ImGui::BeginDisabled(undoStack_.empty());
+    ImGui::BeginDisabled(!history_.CanUndo());
     if (ImGui::Button("元に戻す", ImVec2(80, 0))) {
         Undo();
     }
     ImGui::EndDisabled();
+    if (ImGui::Button("選択条件をテスト発火")) {
+        const int sourceIndex = eventConnection_.SourceIndex();
+        if (sourceIndex >= 0 && sourceIndex < static_cast<int>(triggers_.size())) {
+            GameFlags::GetInstance()->SetFlag(triggers_[sourceIndex].GetDesc().flag, true);
+        } else {
+            const int conditionIndex = sourceIndex - static_cast<int>(triggers_.size());
+            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size())) {
+                GameFlags::GetInstance()->SetFlag("condition_" + objects_[conditionIndex].desc.name, true);
+            }
+        }
+    }
     ImGui::SameLine();
-    ImGui::BeginDisabled(redoStack_.empty());
+    ImGui::BeginDisabled(!history_.CanRedo());
     if (ImGui::Button("やり直す", ImVec2(80, 0))) {
         Redo();
     }
@@ -875,7 +1484,7 @@ void StageEditor::RenderHierarchy()
         Vector3 center = playerSpawn_;
         MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
 
-        auto addEnemyEntry = [&](const std::string& namePrefix, const std::string& kind) {
+        auto addEntry = [&](const std::string& namePrefix, const std::string& kind) {
             RecordUndoSnapshotNow();
             ObjectEntry entry;
             entry.desc.name = namePrefix + "_" + std::to_string(nextSerial_++);
@@ -893,10 +1502,40 @@ void StageEditor::RenderHierarchy()
             AddPropAtScreenCenter("Resources/block/block.obj", "Resources/block/block.png");
         }
         if (ImGui::MenuItem("敵：ナイト")) {
-            addEnemyEntry("knight", "enemy_knight");
+            addEntry("knight", "enemy_knight");
         }
         if (ImGui::MenuItem("敵：汎用エネミー")) {
-            addEnemyEntry("enemy", "enemy_basic");
+            addEntry("enemy", "enemy_basic");
+        }
+        if (ImGui::MenuItem("SpawnPoint")) {
+            addEntry("spawn", "spawn_point");
+            objects_.back().desc.activationFlag = objects_.back().desc.name + "_active";
+        }
+        if (ImGui::MenuItem("ギミック")) {
+            addEntry("gimmick", "gimmick");
+            objects_.back().desc.activationFlag = objects_.back().desc.name + "_active";
+            objects_.back().desc.model = "Resources/block/block.obj";
+            objects_.back().desc.texture = "Resources/block/block.png";
+            RegenerateInstances(objects_.back());
+        }
+        if (ImGui::MenuItem("カメラポイント")) {
+            addEntry("camera", "camera_point");
+            objects_.back().desc.activationFlag = objects_.back().desc.name + "_active";
+        }
+        if (ImGui::MenuItem("巡回Waypoint")) {
+            addEntry("waypoint", "patrol_point");
+        }
+        if (ImGui::MenuItem("イベント条件")) {
+            addEntry("condition", "event_condition");
+        }
+        if (ImGui::MenuItem("Terrain")) {
+            addEntry("terrain", "terrain");
+            ObjectDesc& terrain = objects_.back().desc;
+            terrain.model = "Resources/block/block.obj";
+            terrain.texture = "Resources/block/block.png";
+            terrain.solid = true;
+            terrain.meshCollider = true;
+            RegenerateInstances(objects_.back());
         }
         ImGui::EndPopup();
     }
@@ -907,11 +1546,21 @@ void StageEditor::RenderHierarchy()
                 if (!matchesSearch(d.name) && !matchesSearch(d.kind) && !matchesSearch(d.model)) {
                     continue;
                 }
-                bool selected = selKind_ == SelKind::Object && selIndex_ == i;
+                bool selected = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), i)
+                    != selectedObjectIndices_.end();
                 std::string label = d.name + "  " + d.kind + "##searchObj" + std::to_string(i);
                 if (ImGui::Selectable(label.c_str(), selected)) {
                     selKind_ = SelKind::Object;
                     selIndex_ = i;
+                    if (!ImGui::GetIO().KeyCtrl) {
+                        selectedObjectIndices_.clear();
+                    }
+                    auto selectedIt = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), i);
+                    if (selectedIt == selectedObjectIndices_.end()) {
+                        selectedObjectIndices_.push_back(i);
+                    } else if (ImGui::GetIO().KeyCtrl) {
+                        selectedObjectIndices_.erase(selectedIt);
+                    }
                 }
             }
         } else {
@@ -1006,17 +1655,74 @@ void StageEditor::RenderHierarchy()
     ImGui::End();
 }
 
+void StageEditor::RenderEditorToolbar()
+{
+    constexpr float kLeftPanelWidth = 280.0f;
+    constexpr float kRightPanelWidth = 300.0f;
+    constexpr float kToolbarHeight = 42.0f;
+    const float toolbarWidth = static_cast<float>(WinApp::kClientWidth) - kLeftPanelWidth - kRightPanelWidth;
+
+    ImGui::SetNextWindowPos(ImVec2(kLeftPanelWidth, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(toolbarWidth, kToolbarHeight), ImGuiCond_Always);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+    ImGui::Begin("シーンビューツールバー", nullptr, flags);
+    ImGui::TextUnformatted("シーンビュー");
+    ImGui::SameLine();
+    if (ImGui::Button(playTestMode_ ? "編集へ戻る" : "テスト")) {
+        SetPlayTestMode(!playTestMode_);
+    }
+    ImGui::SameLine();
+    ImGui::Checkbox("フラグ", &showFlagsPanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("制作", &showWorkflowPanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("イベント", &showNoCodeEventPanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("Wave", &showWavePanel_);
+    ImGui::SameLine();
+    if (ImGui::Button("最大化 F3")) {
+        viewportFocusMode_ = true;
+    }
+    ImGui::End();
+}
+
+void StageEditor::RenderViewportFocusBar()
+{
+    // ゲーム画面を遮る範囲を抑えつつ、通常レイアウトへ戻る操作だけを残す
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.85f);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoCollapse
+        | ImGuiWindowFlags_NoSavedSettings;
+    ImGui::Begin("画面優先モード", nullptr, flags);
+    ImGui::TextDisabled("編集状態とギズモを維持してパネルを隠している");
+    if (ImGui::Button("編集パネルを表示 (F3)")) {
+        viewportFocusMode_ = false;
+    }
+    ImGui::End();
+}
+
 void StageEditor::RenderInspector()
 {
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - 300.0f, 0.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 340.0f), ImGuiCond_Once);
-    ImGui::Begin("詳細設定");
+    constexpr float kToolbarHeight = 42.0f;
+    constexpr float kPanelWidth = 300.0f;
+    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - kPanelWidth, kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, static_cast<float>(WinApp::kClientHeight) - kToolbarHeight), ImGuiCond_Always);
+    ImGui::Begin("詳細設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
         ObjectEntry& entry = objects_[selIndex_];
         ObjectDesc& desc = entry.desc;
         bool structuralDirty = false;
         bool transformDirty = false;
+
+        bool enabled = desc.enabled;
+        if (ImGui::Checkbox("ゲーム側で有効", &enabled)) {
+            RecordUndoSnapshotNow();
+            desc.enabled = enabled;
+            structuralDirty = true;
+        }
 
         // 名前（親子参照のキーなので、変更時は子の親参照も追従させる）
         {
@@ -1075,7 +1781,8 @@ void StageEditor::RenderInspector()
             }
         }
 
-        if (desc.kind == "prop") {
+        const bool visualKind = desc.kind == "prop" || desc.kind == "gimmick" || desc.kind == "terrain";
+        if (visualKind) {
             char modelBuf[256];
             strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
             ImGui::SetNextItemWidth(180.0f);
@@ -1136,7 +1843,7 @@ void StageEditor::RenderInspector()
             }
             EditorUI::HelpMarker("単体配置: 1つだけ置く\n並べて配置: 同じモデルを一定間隔で複数並べる（階段や壁に便利）");
         } else {
-            const char* kindLabel = (desc.kind == "enemy_knight") ? "ナイト（本物の敵として湧く）" : "汎用エネミー（本物の敵として湧く）";
+            const char* kindLabel = desc.kind.c_str();
             ImGui::TextDisabled("%s", kindLabel);
             if (entry.knight) {
                 ImGui::Text("HP: %d / %d", entry.knight->GetHp(), entry.knight->GetMaxHp());
@@ -1161,11 +1868,56 @@ void StageEditor::RenderInspector()
             }
             return changed;
         };
-        transformDirty |= captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, 0.1f));
+        const Vector3 previousPosition = desc.position;
+        const bool positionChanged = captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, 0.1f));
+        transformDirty |= positionChanged;
+        if (positionChanged && selectedObjectIndices_.size() > 1) {
+            const Vector3 delta = {
+                desc.position.x - previousPosition.x,
+                desc.position.y - previousPosition.y,
+                desc.position.z - previousPosition.z
+            };
+            for (int index : selectedObjectIndices_) {
+                if (index >= 0 && index < static_cast<int>(objects_.size()) && index != selIndex_) {
+                    objects_[index].desc.position = objects_[index].desc.position + delta;
+                    RefreshTransforms(objects_[index]);
+                }
+            }
+        }
 
-        if (desc.kind == "prop") {
-            transformDirty |= captureItemUndo(ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f));
-            transformDirty |= captureItemUndo(ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f));
+        if (visualKind || desc.kind == "camera_point") {
+            const Vector3 previousRotation = desc.rotation;
+            const bool rotationChanged = captureItemUndo(ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f));
+            transformDirty |= rotationChanged;
+            const Vector3 previousScale = desc.scale;
+            const bool scaleChanged = captureItemUndo(ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f));
+            transformDirty |= scaleChanged;
+            if ((rotationChanged || scaleChanged) && selectedObjectIndices_.size() > 1) {
+                const Vector3 rotationDelta = {
+                    desc.rotation.x - previousRotation.x,
+                    desc.rotation.y - previousRotation.y,
+                    desc.rotation.z - previousRotation.z
+                };
+                const Vector3 scaleDelta = {
+                    desc.scale.x - previousScale.x,
+                    desc.scale.y - previousScale.y,
+                    desc.scale.z - previousScale.z
+                };
+                for (int index : selectedObjectIndices_) {
+                    if (index < 0 || index >= static_cast<int>(objects_.size()) || index == selIndex_
+                        || (objects_[index].desc.kind != "prop" && objects_[index].desc.kind != "gimmick"
+                            && objects_[index].desc.kind != "terrain" && objects_[index].desc.kind != "camera_point")) {
+                        continue;
+                    }
+                    if (rotationChanged) {
+                        objects_[index].desc.rotation = objects_[index].desc.rotation + rotationDelta;
+                    }
+                    if (scaleChanged) {
+                        objects_[index].desc.scale = objects_[index].desc.scale + scaleDelta;
+                    }
+                    RefreshTransforms(objects_[index]);
+                }
+            }
             {
                 bool lighting = desc.lighting;
                 if (ImGui::Checkbox("ライティング", &lighting)) {
@@ -1179,6 +1931,13 @@ void StageEditor::RenderInspector()
                     desc.solid = solid;
                 }
                 EditorUI::HelpMarker("ONにするとプレイヤーや敵が乗れる・ぶつかる足場になります（オレンジの枠で表示）");
+            }
+
+            if (desc.kind == "terrain") {
+                if (ImGui::Checkbox("メッシュ同期コライダー", &desc.meshCollider)) {
+                    RecordUndoSnapshotNow();
+                    desc.solid = desc.meshCollider || desc.solid;
+                }
             }
 
             if (desc.type == "row") {
@@ -1200,9 +1959,85 @@ void StageEditor::RenderInspector()
             }
         }
 
+        if (desc.kind == "gimmick" || desc.kind == "spawn_point" || desc.kind == "camera_point") {
+            char flagBuffer[96] = { };
+            strncpy_s(flagBuffer, desc.activationFlag.c_str(), _TRUNCATE);
+            if (captureItemUndo(ImGui::InputText("有効化フラグ", flagBuffer, sizeof(flagBuffer)))) {
+                desc.activationFlag = flagBuffer;
+            }
+            EditorUI::HelpMarker("空なら常時有効です。イベントトリガーが同名のフラグを立てると有効になります");
+        }
+        if (desc.kind == "spawn_point") {
+            const char* spawnTypes[] = { "basic", "knight" };
+            int spawnTypeIndex = desc.spawnType == "knight" ? 1 : 0;
+            if (ImGui::Combo("発生する敵", &spawnTypeIndex, spawnTypes, 2)) {
+                RecordUndoSnapshotNow();
+                desc.spawnType = spawnTypes[spawnTypeIndex];
+                structuralDirty = true;
+            }
+        }
+        if (desc.kind == "spawn_point" || desc.kind == "enemy_basic" || desc.kind == "enemy_knight") {
+            char groupBuffer[96] = { };
+            strncpy_s(groupBuffer, desc.enemyGroup.c_str(), _TRUNCATE);
+            if (captureItemUndo(ImGui::InputText("敵グループ", groupBuffer, sizeof(groupBuffer)))) {
+                desc.enemyGroup = groupBuffer;
+            }
+        }
+        if (desc.kind == "enemy_basic" || desc.kind == "enemy_knight" || desc.kind == "patrol_point") {
+            char routeBuffer[96] = { };
+            strncpy_s(routeBuffer, desc.patrolRoute.c_str(), _TRUNCATE);
+            if (captureItemUndo(ImGui::InputText("巡回ルート名", routeBuffer, sizeof(routeBuffer)))) {
+                desc.patrolRoute = routeBuffer;
+            }
+            if (desc.kind == "patrol_point") {
+                if (ImGui::InputInt("巡回順", &desc.routeOrder)) {
+                    RecordUndoSnapshotNow();
+                }
+            } else {
+                captureItemUndo(ImGui::DragFloat("巡回速度", &desc.patrolSpeed, 0.05f, 0.0f, 20.0f));
+            }
+        }
+        if (desc.kind == "event_condition") {
+            const char* conditionTypes[] = { "manual", "timer", "enemy_group_defeated" };
+            int conditionIndex = desc.conditionType == "timer" ? 1
+                : desc.conditionType == "enemy_group_defeated" ? 2
+                                                                 : 0;
+            if (ImGui::Combo("条件", &conditionIndex, conditionTypes, 3)) {
+                RecordUndoSnapshotNow();
+                desc.conditionType = conditionTypes[conditionIndex];
+            }
+            if (desc.conditionType == "timer") {
+                captureItemUndo(ImGui::DragFloat("成立までの秒数", &desc.conditionSeconds, 0.1f, 0.0f, 300.0f));
+            } else if (desc.conditionType == "enemy_group_defeated") {
+                char groupBuffer[96] = { };
+                strncpy_s(groupBuffer, desc.enemyGroup.c_str(), _TRUNCATE);
+                if (captureItemUndo(ImGui::InputText("監視する敵グループ", groupBuffer, sizeof(groupBuffer)))) {
+                    desc.enemyGroup = groupBuffer;
+                }
+            }
+        }
+        if (desc.kind == "gimmick") {
+            const char* motions[] = { "none", "move_y", "rotate_y", "fall", "blink" };
+            int motionIndex = desc.gimmickMotion == "move_y" ? 1
+                : desc.gimmickMotion == "rotate_y"            ? 2
+                : desc.gimmickMotion == "fall"                ? 3
+                : desc.gimmickMotion == "blink"               ? 4
+                                                                  : 0;
+            if (ImGui::Combo("動作プリセット", &motionIndex, motions, 5)) {
+                RecordUndoSnapshotNow();
+                desc.gimmickMotion = motions[motionIndex];
+            }
+            captureItemUndo(ImGui::DragFloat("動作量", &desc.motionAmount, 0.1f));
+            captureItemUndo(ImGui::DragFloat("動作速度", &desc.motionSpeed, 0.1f, 0.0f, 20.0f));
+        }
+        if (desc.kind == "camera_point") {
+            captureItemUndo(ImGui::DragFloat("カメラ補間秒数", &desc.cameraBlendSeconds, 0.05f, 0.0f, 10.0f));
+            captureItemUndo(ImGui::DragFloat("カメラ維持秒数", &desc.cameraHoldSeconds, 0.1f, 0.0f, 30.0f));
+        }
+
         if (structuralDirty) {
             RegenerateInstances(entry);
-        } else if (transformDirty && desc.kind == "prop") {
+        } else if (transformDirty && visualKind) {
             // enemy系はStageEditor::UpdateObjects()側が毎フレームdesc.position⇔実体位置を同期するので、ここでは不要
             RefreshTransforms(entry);
         }
@@ -1268,9 +2103,13 @@ void StageEditor::RenderInspector()
 
 void StageEditor::RenderAssetPalette()
 {
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 484.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(280.0f, 240.0f), ImGuiCond_Once);
-    ImGui::Begin("アセットパレット");
+    constexpr float kToolbarHeight = 42.0f;
+    constexpr float kPanelWidth = 280.0f;
+    const float availableHeight = static_cast<float>(WinApp::kClientHeight) - kToolbarHeight;
+    const float hierarchyHeight = availableHeight * 0.62f;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
+    ImGui::Begin("アセットパレット", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる
     bool hasPropSel = (selKind_ == SelKind::Object && selIndex_ >= 0
@@ -1307,21 +2146,548 @@ void StageEditor::RenderAssetPalette()
 void StageEditor::RenderFlagsPanel()
 {
     ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - 300.0f, 350.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 200.0f), ImGuiCond_Once);
-    ImGui::Begin("フラグ一覧");
+    ImGui::SetNextWindowSize(ImVec2(300.0f, 360.0f), ImGuiCond_Once);
+    ImGui::Begin("フラグとチェックポイント");
     for (const auto& [name, value] : GameFlags::GetInstance()->GetAll()) {
         ImGui::TextColored(value ? ImVec4(0.5f, 1.0f, 0.6f, 1.0f) : ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
             "%s = %s", name.c_str(), value ? "true" : "false");
     }
+
+    ImGui::SeparatorText("チェックポイント");
+    if (ImGui::Button("現在の開始位置へ追加", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        CheckpointDesc checkpoint;
+        checkpoint.name = "checkpoint_" + std::to_string(checkpoints_.size() + 1);
+        checkpoint.position = playerSpawn_;
+        checkpoints_.push_back(std::move(checkpoint));
+    }
+
+    int removeIndex = -1;
+    for (int i = 0; i < static_cast<int>(checkpoints_.size()); ++i) {
+        CheckpointDesc& checkpoint = checkpoints_[i];
+        ImGui::PushID(i);
+        if (ImGui::TreeNodeEx(checkpoint.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+            char name[96] = { };
+            strncpy_s(name, checkpoint.name.c_str(), _TRUNCATE);
+            const bool nameChanged = ImGui::InputText("名前", name, sizeof(name));
+            if (ImGui::IsItemActivated()) {
+                BeginUndoCapture();
+            }
+            if (nameChanged) {
+                checkpoint.name = name;
+                MarkUndoDirty();
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                CommitUndoCapture();
+            }
+
+            const bool positionChanged = ImGui::DragFloat3("復帰位置", &checkpoint.position.x, 0.1f);
+            if (ImGui::IsItemActivated()) {
+                BeginUndoCapture();
+            }
+            if (positionChanged) {
+                MarkUndoDirty();
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                CommitUndoCapture();
+            }
+
+            const bool radiusChanged = ImGui::DragFloat(
+                "有効化半径", &checkpoint.activationRadius, 0.05f, 0.1f, 20.0f);
+            if (ImGui::IsItemActivated()) {
+                BeginUndoCapture();
+            }
+            if (radiusChanged) {
+                checkpoint.activationRadius = (std::max)(checkpoint.activationRadius, 0.1f);
+                MarkUndoDirty();
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                CommitUndoCapture();
+            }
+
+            if (ImGui::Button("削除", ImVec2(-1.0f, 0.0f))) {
+                removeIndex = i;
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    if (removeIndex >= 0) {
+        RecordUndoSnapshotNow();
+        checkpoints_.erase(checkpoints_.begin() + removeIndex);
+    }
     ImGui::End();
 }
 
-// ══════════════════════════════════════════════════════
-// ビューポート操作
-// ══════════════════════════════════════════════════════
+void StageEditor::RenderWorkflowPanel()
+{
+    ImGui::SetNextWindowPos(ImVec2(290.0f, 0.0f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(300.0f, 230.0f), ImGuiCond_Once);
+    ImGui::Begin("編集ワークフロー");
+
+    if (ImGui::Button(playTestMode_ ? "編集モードへ戻る" : "現在の配置でテスト", ImVec2(-1.0f, 0.0f))) {
+        SetPlayTestMode(!playTestMode_);
+    }
+    ImGui::TextDisabled(playTestMode_ ? "ゲーム更新中  F2で終了" : "ゲーム停止中  配置を安全に編集できます");
+
+    ImGui::SeparatorText("移動ギズモ");
+    ImGui::RadioButton("自由", &gizmoAxis_, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("X", &gizmoAxis_, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton("Y", &gizmoAxis_, 2);
+    ImGui::SameLine();
+    ImGui::RadioButton("Z", &gizmoAxis_, 3);
+
+    ImGui::SeparatorText("プレハブ");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##prefabName", "英数字のプレハブ名", prefabName_, sizeof(prefabName_));
+    ImGui::BeginDisabled(selKind_ != SelKind::Object);
+    if (ImGui::Button("選択物を保存", ImVec2(140.0f, 0.0f))) {
+        SaveSelectedPrefab();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("配置", ImVec2(140.0f, 0.0f))) {
+        InstantiatePrefab();
+    }
+
+    ImGui::Checkbox("30秒ごとに自動保存", &autoSaveEnabled_);
+    if (ImGui::Button("ステージ解析")) {
+        showStageAnalysis_ = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("保存差分")) {
+        showSavedDiff_ = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("ヘルプ")) {
+        showEditorHelp_ = true;
+    }
+    if (ImGui::Button("保存前検証", ImVec2(-1.0f, 0.0f))) {
+        validationIssues_ = ValidateLevel();
+        statusMessage_ = validationIssues_.empty()
+            ? "検証完了: 問題はありません"
+            : "検証完了: " + std::to_string(validationIssues_.size()) + "件の問題があります";
+        statusTimer_ = 4.0f;
+    }
+    if (!validationIssues_.empty() && ImGui::TreeNode("検証結果")) {
+        for (int issueIndex = 0; issueIndex < static_cast<int>(validationIssues_.size()); ++issueIndex) {
+            const std::string& issue = validationIssues_[issueIndex];
+            ImGui::PushID(issueIndex);
+            if (ImGui::SmallButton("移動")) {
+                for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
+                    if (!objects_[objectIndex].desc.name.empty()
+                        && issue.find(objects_[objectIndex].desc.name) != std::string::npos) {
+                        selKind_ = SelKind::Object;
+                        selIndex_ = objectIndex;
+                        selectedObjectIndices_ = { objectIndex };
+                        if (camera_) {
+                            const Vector3 target = WorldPositionOf(objects_[objectIndex].desc);
+                            camera_->SetTranslate({ target.x, target.y, camera_->GetTranslate().z });
+                        }
+                        break;
+                    }
+                }
+            }
+            ImGui::SameLine();
+            ImGui::TextWrapped("%s", issue.c_str());
+            ImGui::PopID();
+        }
+        ImGui::TreePop();
+    }
+
+    if (recoveryAvailable_) {
+        ImGui::OpenPopup("自動保存の復旧");
+        recoveryAvailable_ = false;
+    }
+    if (ImGui::BeginPopupModal("自動保存の復旧", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted("通常保存より新しい自動保存データがあります。");
+        if (ImGui::Button("復旧する", ImVec2(120.0f, 0.0f))) {
+            LevelData recovered = LevelLoader::Load(recoveryPath_);
+            LevelSnapshot snapshot;
+            snapshot.objects = std::move(recovered.objects);
+            snapshot.triggers = std::move(recovered.triggers);
+            snapshot.checkpoints = std::move(recovered.checkpoints);
+            snapshot.playerSpawn = recovered.playerSpawn;
+            snapshot.enemySpawn = recovered.enemySpawn;
+            ApplySnapshot(snapshot);
+            dirty_ = true;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("使用しない", ImVec2(120.0f, 0.0f))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::End();
+}
+
+void StageEditor::RenderNoCodeEventPanel()
+{
+    ImGui::SetNextWindowPos(ImVec2(600.0f, 0.0f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(360.0f, 310.0f), ImGuiCond_Once);
+    ImGui::Begin("イベント");
+    ImGui::TextWrapped("条件が成立したとき、敵・扉・カメラなどへ動作を伝える設定です。上から条件、対象、動作の順に選びます。");
+    ImGui::TextDisabled("例  部屋へ入る  0秒後  敵を出現させる");
+    if (ImGui::Button("戦闘部屋テンプレートを生成", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        Vector3 center = playerSpawn_;
+        MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+        AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(center, nextSerial_));
+        statusMessage_ = "戦闘部屋テンプレートを生成しました";
+        statusTimer_ = 3.0f;
+    }
+
+    const char* sourcePreview = "イベントトリガーを選択";
+    const int sourceIndex = eventConnection_.SourceIndex();
+    if (sourceIndex >= 0 && sourceIndex < static_cast<int>(triggers_.size())) {
+        sourcePreview = triggers_[sourceIndex].GetDesc().name.c_str();
+    } else if (sourceIndex >= static_cast<int>(triggers_.size())) {
+        const int objectIndex = sourceIndex - static_cast<int>(triggers_.size());
+        if (objectIndex >= 0 && objectIndex < static_cast<int>(objects_.size())
+            && objects_[objectIndex].desc.kind == "event_condition") {
+            sourcePreview = objects_[objectIndex].desc.name.c_str();
+        }
+    }
+    if (ImGui::BeginCombo("発生条件", sourcePreview)) {
+        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
+            const TriggerDesc& trigger = triggers_[i].GetDesc();
+            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.SourceIndex() == i)) {
+                eventConnection_.SourceIndex() = i;
+            }
+        }
+        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            if (objects_[i].desc.kind != "event_condition") {
+                continue;
+            }
+            std::string label = objects_[i].desc.name + "  [" + objects_[i].desc.conditionType + "]";
+            const int encodedIndex = static_cast<int>(triggers_.size()) + i;
+            if (ImGui::Selectable(label.c_str(), eventConnection_.SourceIndex() == encodedIndex)) {
+                eventConnection_.SourceIndex() = encodedIndex;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    EditorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。");
+
+    const char* targetPreview = "動作対象を選択";
+    if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())) {
+        targetPreview = objects_[eventConnection_.TargetIndex()].desc.name.c_str();
+    }
+    if (ImGui::BeginCombo("動作対象", targetPreview)) {
+        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            if (!StageEditorEventConnection::SupportsTarget(objects_[i].desc)) {
+                continue;
+            }
+            const ObjectDesc& object = objects_[i].desc;
+            std::string label = object.name + "  [" + object.kind + "]";
+            if (ImGui::Selectable(label.c_str(), eventConnection_.TargetIndex() == i)) {
+                eventConnection_.TargetIndex() = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    EditorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。");
+
+    const char* actions[] = { "対象を有効化", "対象を無効化" };
+    ImGui::Combo("実行する動作", &eventConnection_.ActionIndex(), actions, 2);
+    EditorUI::HelpMarker("有効化は対象を出現または動作させます。無効化は対象を消す、または停止する用途に使います。");
+    ImGui::DragFloat("実行までの遅延 秒", &eventConnection_.DelaySeconds(), 0.1f, 0.0f, 30.0f, "%.1f");
+    EditorUI::HelpMarker("条件成立から動作開始まで待つ秒数です。0なら即座に実行します。");
+
+    ObjectDesc* selectedTarget = eventConnection_.TargetIndex() >= 0
+            && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())
+        ? &objects_[eventConnection_.TargetIndex()].desc
+        : nullptr;
+    const bool canConnect = eventConnection_.CanConnect(static_cast<int>(objects_.size()), selectedTarget);
+    ImGui::BeginDisabled(!canConnect);
+    if (ImGui::Button("接続する", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        std::string sourceName;
+        if (eventConnection_.SourceIndex() < static_cast<int>(triggers_.size())) {
+            TriggerDesc& trigger = triggers_[eventConnection_.SourceIndex()].GetDesc();
+            sourceName = eventConnection_.Connect(trigger, *selectedTarget);
+        } else {
+            const int conditionIndex = eventConnection_.SourceIndex() - static_cast<int>(triggers_.size());
+            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size())) {
+                sourceName = eventConnection_.Connect(objects_[conditionIndex].desc, *selectedTarget);
+            }
+        }
+        statusMessage_ = sourceName + " から " + selectedTarget->name + " へ接続しました";
+        statusTimer_ = 2.0f;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText("現在の接続");
+    int disconnectIndex = -1;
+    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
+        const ObjectDesc& target = objects_[objectIndex].desc;
+        if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty()) {
+            continue;
+        }
+        const TriggerDesc* source = nullptr;
+        for (const auto& trigger : triggers_) {
+            if (trigger.GetDesc().flag == target.activationFlag) {
+                source = &trigger.GetDesc();
+                break;
+            }
+        }
+        std::string conditionSourceName;
+        if (!source && target.activationFlag.starts_with("condition_")) {
+            const std::string conditionName = target.activationFlag.substr(10);
+            for (const auto& condition : objects_) {
+                if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
+                    conditionSourceName = conditionName;
+                    break;
+                }
+            }
+        }
+        ImGui::PushID(objectIndex);
+        if (source) {
+            ImGui::TextWrapped("%s -> %.1f秒 -> %s -> %s", source->name.c_str(), target.activationDelay,
+                target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
+        } else if (!conditionSourceName.empty()) {
+            ImGui::TextWrapped("%s -> %.1f秒 -> %s -> %s", conditionSourceName.c_str(), target.activationDelay,
+                target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f),
+                "接続元なし -> %s", target.name.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("解除")) {
+            disconnectIndex = objectIndex;
+        }
+        ImGui::PopID();
+    }
+    if (disconnectIndex >= 0) {
+        RecordUndoSnapshotNow();
+        eventConnection_.Disconnect(objects_[disconnectIndex].desc);
+    }
+    ImGui::End();
+}
+
+void StageEditor::RenderWavePanel()
+{
+    ImGui::SetNextWindowPos(ImVec2(290.0f, 240.0f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(300.0f, 245.0f), ImGuiCond_Once);
+    ImGui::Begin("Wave作成");
+    ImGui::TextWrapped("同じグループの敵をまとめて生成します。生成後は各出現地点を個別に移動できます。");
+    ImGui::TextDisabled("例  room_1、敵数 3、開始条件 room_entry");
+    ImGui::InputText("グループ名", waveGroupName_, sizeof(waveGroupName_));
+    EditorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
+    const char* enemyTypes[] = { "汎用エネミー", "ナイト" };
+    ImGui::Combo("敵種類", &waveEnemyType_, enemyTypes, 2);
+    ImGui::InputInt("敵数", &waveEnemyCount_);
+    waveEnemyCount_ = std::clamp(waveEnemyCount_, 1, 32);
+    ImGui::DragFloat("配置間隔", &waveSpacing_, 0.1f, 0.5f, 20.0f);
+    EditorUI::HelpMarker("生成する敵同士の横方向の間隔です。単位はワールド座標です。");
+
+    const char* triggerPreview = "開始直後";
+    if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
+        triggerPreview = triggers_[waveStartTrigger_].GetDesc().name.c_str();
+    }
+    if (ImGui::BeginCombo("開始条件", triggerPreview)) {
+        if (ImGui::Selectable("開始直後", waveStartTrigger_ < 0)) {
+            waveStartTrigger_ = -1;
+        }
+        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
+            if (ImGui::Selectable(triggers_[i].GetDesc().name.c_str(), waveStartTrigger_ == i)) {
+                waveStartTrigger_ = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    EditorUI::HelpMarker("開始直後ならステージ開始時に出現します。トリガーを選ぶとプレイヤーが範囲へ入った時に出現します。");
+
+    if (ImGui::Button("Waveを生成", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        Vector3 center = playerSpawn_;
+        MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+        std::string startFlag;
+        if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
+            startFlag = triggers_[waveStartTrigger_].GetDesc().flag;
+        }
+        StageEditorWaveConfig config;
+        config.groupName = waveGroupName_;
+        config.spawnType = waveEnemyType_ == 1 ? "knight" : "basic";
+        config.activationFlag = startFlag;
+        config.enemyCount = waveEnemyCount_;
+        config.spacing = waveSpacing_;
+        config.center = center;
+        AppendGeneratedContent(StageEditorContentFactory::CreateWave(config, nextSerial_));
+        statusMessage_ = std::string(waveGroupName_) + "を生成しました";
+        statusTimer_ = 2.0f;
+    }
+    ImGui::TextDisabled("生成後も各SpawnPointを個別に移動できます");
+    ImGui::End();
+}
+
+void StageEditor::RenderStageAnalysisPanel()
+{
+    if (!showStageAnalysis_) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(520.0f, 420.0f), ImGuiCond_FirstUseEver);
+    ImGui::Begin("ステージ解析", &showStageAnalysis_);
+    std::vector<std::string> findings = ValidateLevel();
+
+    std::map<std::string, int> groupEnemyCounts;
+    std::map<std::string, int> groupConditionCounts;
+    for (const auto& entry : objects_) {
+        if (!entry.desc.enemyGroup.empty()
+            && (entry.desc.kind == "spawn_point" || entry.desc.kind == "enemy_basic" || entry.desc.kind == "enemy_knight")) {
+            ++groupEnemyCounts[entry.desc.enemyGroup];
+        }
+        if (entry.desc.kind == "event_condition" && entry.desc.conditionType == "enemy_group_defeated") {
+            ++groupConditionCounts[entry.desc.enemyGroup];
+        }
+    }
+    for (const auto& [group, count] : groupConditionCounts) {
+        if (group.empty() || !groupEnemyCounts.contains(group)) {
+            findings.push_back("敵が存在しない全滅条件です: " + group);
+        }
+    }
+    for (const auto& [group, count] : groupEnemyCounts) {
+        if (!groupConditionCounts.contains(group)) {
+            findings.push_back("全滅後の処理がない敵グループです: " + group);
+        }
+    }
+    for (size_t i = 0; i < objects_.size(); ++i) {
+        for (size_t j = i + 1; j < objects_.size(); ++j) {
+            const Vector3 a = WorldPositionOf(objects_[i].desc);
+            const Vector3 b = WorldPositionOf(objects_[j].desc);
+            if (std::abs(a.x - b.x) < 0.01f && std::abs(a.y - b.y) < 0.01f
+                && std::abs(a.z - b.z) < 0.01f) {
+                findings.push_back("同じ位置に配置されています: " + objects_[i].desc.name + " / " + objects_[j].desc.name);
+            }
+        }
+    }
+
+    if (findings.empty()) {
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.5f, 1.0f), "問題は見つかりませんでした");
+    } else {
+        ImGui::Text("%d件の確認項目", static_cast<int>(findings.size()));
+        for (const std::string& finding : findings) {
+            ImGui::BulletText("%s", finding.c_str());
+        }
+    }
+    ImGui::Separator();
+    ImGui::BeginDisabled(selKind_ != SelKind::Object || selIndex_ < 0);
+    if (ImGui::Button("選択位置からテスト開始", ImVec2(-1.0f, 0.0f))) {
+        for (auto& entity : externalEntities_) {
+            if (entity.name == "Player" && entity.position) {
+                *entity.position = WorldPositionOf(objects_[selIndex_].desc);
+                SetPlayTestMode(true);
+                break;
+            }
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::End();
+}
+
+void StageEditor::RenderDiffPanel()
+{
+    if (!showSavedDiff_) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(480.0f, 400.0f), ImGuiCond_FirstUseEver);
+    ImGui::Begin("保存内容との差分", &showSavedDiff_);
+    std::map<std::string, const ObjectDesc*> saved;
+    for (const auto& desc : lastSavedSnapshot_.objects) {
+        saved[desc.name] = &desc;
+    }
+    int differenceCount = 0;
+    for (const auto& entry : objects_) {
+        auto found = saved.find(entry.desc.name);
+        if (found == saved.end()) {
+            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.5f, 1.0f), "+ 追加  %s", entry.desc.name.c_str());
+            ++differenceCount;
+            continue;
+        }
+        const ObjectDesc& old = *found->second;
+        const ObjectDesc& now = entry.desc;
+        if (old.position.x != now.position.x || old.position.y != now.position.y || old.position.z != now.position.z
+            || old.rotation.x != now.rotation.x || old.rotation.y != now.rotation.y || old.rotation.z != now.rotation.z
+            || old.scale.x != now.scale.x || old.scale.y != now.scale.y || old.scale.z != now.scale.z
+            || old.enabled != now.enabled || old.kind != now.kind || old.activationFlag != now.activationFlag) {
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "~ 変更  %s", now.name.c_str());
+            ++differenceCount;
+        }
+        saved.erase(found);
+    }
+    for (const auto& [name, desc] : saved) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "- 削除  %s", name.c_str());
+        ++differenceCount;
+    }
+    if (differenceCount == 0) {
+        ImGui::TextDisabled("最後の保存から変更はありません");
+    }
+    ImGui::End();
+}
+
+void StageEditor::RenderEditorHelpPanel()
+{
+    if (!showEditorHelp_) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(520.0f, 500.0f), ImGuiCond_FirstUseEver);
+    ImGui::Begin("ステージ制作ヘルプ", &showEditorHelp_);
+    ImGui::SeparatorText("最初のステージを作る手順");
+    ImGui::TextWrapped("この手順では、部屋に入ると敵が出現し、全滅すると出口が開く場面を作成します。");
+    ImGui::BulletText("1  アセットパレットから床と壁を配置する");
+    ImGui::TextWrapped("   配置物を選択し、詳細設定の当たり判定を有効にします。床や壁はプレイヤーが通り抜けないsolid配置物にします。");
+    ImGui::BulletText("2  イベントパネルの戦闘部屋テンプレートを生成する");
+    ImGui::TextWrapped("   進入トリガー、敵の出現地点、全滅条件、出口、カメラ演出が一括で作られます。初回はここから始めるのが簡単です。");
+    ImGui::BulletText("3  中央ビューで各部品を選択して位置を調整する");
+    ImGui::TextWrapped("   入口に水色のトリガー、戦闘場所に敵の出現地点、奥に出口を移動します。右の詳細設定で数値も直接変更できます。");
+    ImGui::BulletText("4  上部のテストを押し、実際に入口から通して遊ぶ");
+    ImGui::TextWrapped("   敵が出ない場合はイベントの現在の接続を確認します。出口が開かない場合は敵グループ名と全滅条件のグループ名を揃えます。");
+    ImGui::BulletText("5  制作パネルで保存前検証を行い、問題がなければ保存する");
+
+    if (ImGui::CollapsingHeader("配置物の種類")) {
+        ImGui::BulletText("地形  見た目と当たり判定を持つ床や壁を作る");
+        ImGui::BulletText("敵  ステージ開始時から存在する敵を置く");
+        ImGui::BulletText("出現地点  条件成立後に敵を出現させる");
+        ImGui::BulletText("ギミック  扉、足場、点滅、移動など条件で動く物を作る");
+        ImGui::BulletText("イベント条件  敵グループ全滅などを次の動作へつなぐ");
+        ImGui::BulletText("カメラ地点  条件成立時に指定位置と角度へカメラを移動する");
+        ImGui::BulletText("トリガー  プレイヤーが範囲へ入ったことを条件にする");
+    }
+    if (ImGui::CollapsingHeader("イベントの考え方")) {
+        ImGui::TextWrapped("イベントは、いつ、何を、どうするの3項目で作ります。");
+        ImGui::BulletText("いつ  進入トリガー、敵グループ全滅などを選ぶ");
+        ImGui::BulletText("何を  敵の出現地点、扉、カメラ地点を選ぶ");
+        ImGui::BulletText("どうする  有効化または無効化と、実行までの秒数を選ぶ");
+        ImGui::TextWrapped("一つの条件から複数の対象へ接続できます。敵を出し、扉を閉め、カメラを動かす処理を同じ進入トリガーから作れます。");
+    }
+    if (ImGui::CollapsingHeader("困ったとき")) {
+        ImGui::BulletText("敵が出ない  開始条件と出現地点の接続、対象の有効設定を確認する");
+        ImGui::BulletText("出口が開かない  敵と全滅条件のグループ名を確認する");
+        ImGui::BulletText("選択できない  中央シーンビュー内でクリックし、パネル上では操作しない");
+        ImGui::BulletText("カメラが戻らない  カメラ地点の保持時間と次のカメラ演出を確認する");
+        ImGui::BulletText("変更が消えた  未保存表示を確認し、Ctrl+Sで保存する");
+        ImGui::BulletText("原因が分からない  制作パネルの保存前検証とステージ解析を実行する");
+    }
+    ImGui::SeparatorText("制作チェックリスト");
+    ImGui::Checkbox("開始地点から出口まで移動できる", &helpChecklist_[0]);
+    ImGui::Checkbox("すべての敵グループに全滅後の処理がある", &helpChecklist_[1]);
+    ImGui::Checkbox("カメラ演出後に操作画面へ戻る", &helpChecklist_[2]);
+    ImGui::Checkbox("ギミックでプレイヤーを閉じ込めない", &helpChecklist_[3]);
+    ImGui::Checkbox("保存前検証に問題がない", &helpChecklist_[4]);
+    ImGui::End();
+}
 
 void StageEditor::DrawGizmos()
 {
+    // チェックポイントは緑の範囲と十字で表示する
+    for (const CheckpointDesc& checkpoint : checkpoints_) {
+        DebugDraw::DrawSphere({ checkpoint.position, checkpoint.activationRadius }, DebugDraw::kColorGreen);
+        DebugDraw::DrawCross(checkpoint.position, 0.45f, DebugDraw::kColorGreen);
+    }
+
     for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
         const TriggerDesc& d = triggers_[i].GetDesc();
         ImU32 color = triggers_[i].IsInside()                  ? DebugDraw::kColorGreen
@@ -1334,12 +2700,20 @@ void StageEditor::DrawGizmos()
     // solid=trueのものは実際の当たり判定AABBをオレンジのワイヤーフレームで重ねて表示する
     // 敵配置（enemy_knight/enemy_basic）は赤い十字にして配置物(白)と一目で区別できるようにする
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-        bool sel = (selKind_ == SelKind::Object && selIndex_ == i);
+        bool sel = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), i)
+            != selectedObjectIndices_.end();
         const ObjectDesc& d = objects_[i].desc;
         bool isEnemy = (d.kind != "prop");
         Vector3 world = WorldPositionOf(d);
         ImU32 baseColor = isEnemy ? DebugDraw::kColorRed : DebugDraw::kColorWhite;
         DebugDraw::DrawCross(world, sel ? 0.6f : (isEnemy ? 0.35f : 0.25f), sel ? DebugDraw::kColorYellow : baseColor);
+        if (sel) {
+            // 選択位置から3軸を表示し、ワークフロー上の軸制限と対応させる
+            constexpr float kAxisLength = 2.0f;
+            DebugDraw::DrawLine(world, world + Vector3 { kAxisLength, 0.0f, 0.0f }, DebugDraw::kColorRed);
+            DebugDraw::DrawLine(world, world + Vector3 { 0.0f, kAxisLength, 0.0f }, DebugDraw::kColorGreen);
+            DebugDraw::DrawLine(world, world + Vector3 { 0.0f, 0.0f, kAxisLength }, DebugDraw::kColorCyan);
+        }
 
         if (d.solid) {
             Vector3 half = { 0.5f * d.scale.x, 0.5f * d.scale.y, 0.5f * d.scale.z };
@@ -1360,6 +2734,37 @@ void StageEditor::DrawGizmos()
         }
     }
 
+    // イベントの条件から対象へ接続線を引き、複数アクションの流れを可視化する
+    for (const auto& targetEntry : objects_) {
+        const ObjectDesc& target = targetEntry.desc;
+        if (target.activationFlag.empty()) {
+            continue;
+        }
+        bool sourceFound = false;
+        Vector3 sourcePosition = { };
+        for (const auto& trigger : triggers_) {
+            if (trigger.GetDesc().flag == target.activationFlag) {
+                sourcePosition = trigger.GetDesc().position;
+                sourceFound = true;
+                break;
+            }
+        }
+        if (!sourceFound && target.activationFlag.starts_with("condition_")) {
+            const std::string conditionName = target.activationFlag.substr(10);
+            for (const auto& condition : objects_) {
+                if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
+                    sourcePosition = WorldPositionOf(condition.desc);
+                    sourceFound = true;
+                    break;
+                }
+            }
+        }
+        if (sourceFound) {
+            const ImU32 color = target.activeWhenFlag ? DebugDraw::kColorGreen : DebugDraw::kColorRed;
+            DebugDraw::DrawLine(sourcePosition, WorldPositionOf(target), color);
+        }
+    }
+
     // Player/Enemy等のランタイム実体（マゼンタの十字。オブジェクトの白・トリガーのシアンと区別する）
     for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
         const ExternalEntityRef& ref = externalEntities_[i];
@@ -1373,78 +2778,21 @@ void StageEditor::DrawGizmos()
 
 void StageEditor::UpdateFreeCamera(Input* input, float dt)
 {
-    if (!camera_ || !input) {
-        return;
-    }
-    // ImGuiのテキスト入力欄にフォーカスがある間は、"s"等のタイプ入力がカメラ移動と衝突しないようにする
-    if (ImGui::GetIO().WantCaptureKeyboard) {
-        return;
-    }
-
-    constexpr float kSpeed = 8.0f;
-    Vector3& pos = camera_->GetTranslate();
-    if (input->PushKey(DIK_A)) {
-        pos.x -= kSpeed * dt;
-    }
-    if (input->PushKey(DIK_D)) {
-        pos.x += kSpeed * dt;
-    }
-    if (input->PushKey(DIK_W)) {
-        pos.y += kSpeed * dt;
-    }
-    if (input->PushKey(DIK_S)) {
-        pos.y -= kSpeed * dt;
-    }
-    if (input->PushKey(DIK_Q)) {
-        pos.z -= kSpeed * dt;
-    }
-    if (input->PushKey(DIK_E)) {
-        pos.z += kSpeed * dt;
-    }
+    viewport_.UpdateCamera(input, dt, viewportFocusMode_);
 }
 
 bool StageEditor::MouseToGround(float mouseX, float mouseY, Vector3& outWorld) const
 {
-    if (!camera_) {
-        return false;
-    }
-
-    // スクリーン座標→NDC→（逆VP行列で）ワールドのレイに戻し、ゲーム平面(z=0)との交点を取る
-    Matrix4x4 inv = Inverse(camera_->GetViewProjectionMatrix());
-    float ndcX = (mouseX / static_cast<float>(WinApp::kClientWidth)) * 2.0f - 1.0f;
-    float ndcY = 1.0f - (mouseY / static_cast<float>(WinApp::kClientHeight)) * 2.0f;
-
-    auto unproject = [&](float ndcZ) -> Vector3 {
-        float x = ndcX * inv.m[0][0] + ndcY * inv.m[1][0] + ndcZ * inv.m[2][0] + inv.m[3][0];
-        float y = ndcX * inv.m[0][1] + ndcY * inv.m[1][1] + ndcZ * inv.m[2][1] + inv.m[3][1];
-        float z = ndcX * inv.m[0][2] + ndcY * inv.m[1][2] + ndcZ * inv.m[2][2] + inv.m[3][2];
-        float w = ndcX * inv.m[0][3] + ndcY * inv.m[1][3] + ndcZ * inv.m[2][3] + inv.m[3][3];
-        if (std::abs(w) < 1e-8f) {
-            w = 1e-8f;
-        }
-        return { x / w, y / w, z / w };
-    };
-
-    Vector3 nearPt = unproject(0.0f); // DirectXのNDC zは[0,1]
-    Vector3 farPt = unproject(1.0f);
-    float dz = farPt.z - nearPt.z;
-    if (std::abs(dz) < 1e-6f) {
-        return false;
-    } // レイが平面と平行
-
-    float t = -nearPt.z / dz;
-    if (t < 0.0f) {
-        return false;
-    } // 交点がカメラ後方
-    outWorld = { nearPt.x + (farPt.x - nearPt.x) * t, nearPt.y + (farPt.y - nearPt.y) * t, 0.0f };
-    return true;
+    return viewport_.ScreenToGround(mouseX, mouseY, outWorld);
 }
 
 void StageEditor::UpdateViewportInteraction()
 {
     ImGuiIO& io = ImGui::GetIO();
-    // ImGuiパネル上のマウス操作はビューポート操作として扱わない
-    if (io.WantCaptureMouse) {
+    const bool insideSceneView = viewport_.Contains(io.MousePos.x, io.MousePos.y, viewportFocusMode_);
+
+    // 編集パネル上の操作をシーンビューの選択やカメラ移動として扱わない
+    if (io.WantCaptureMouse || !insideSceneView) {
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             if (viewportDragging_) {
                 CommitUndoCapture(); // パネル上で離した場合もドラッグ分をここで確定する
@@ -1498,6 +2846,17 @@ void StageEditor::UpdateViewportInteraction()
         if (bestIdx >= 0) {
             selKind_ = bestKind;
             selIndex_ = bestIdx;
+            if (bestKind == SelKind::Object) {
+                if (!io.KeyCtrl) {
+                    selectedObjectIndices_.clear();
+                }
+                auto selected = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), bestIdx);
+                if (selected == selectedObjectIndices_.end()) {
+                    selectedObjectIndices_.push_back(bestIdx);
+                }
+            } else {
+                selectedObjectIndices_.clear();
+            }
             viewportDragging_ = true;
 
             // ドラッグ1回ぶんを1つのUndoにまとめるため、変更前をここで控える
@@ -1518,7 +2877,7 @@ void StageEditor::UpdateViewportInteraction()
     // ドラッグ中  通常はマウス位置（z=0平面上）へXY移動（Zは保持）、Shift中は垂直マウス移動をZ移動にする
     if (viewportDragging_ && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         const bool mouseMoved = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
-        if (io.KeyShift) {
+        if (io.KeyShift || gizmoAxis_ == 3) {
             // カメラが遠いほど1pxあたりの移動量を増やし、近くでも遠くでも同じ操作感にする
             float camDist = 10.0f;
             if (camera_) {
@@ -1551,15 +2910,23 @@ void StageEditor::UpdateViewportInteraction()
                 if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
                     ObjectDesc& desc = objects_[selIndex_].desc;
                     Vector3 parentW = ParentWorldPositionOf(desc);
-                    desc.position.x = wx - parentW.x;
-                    desc.position.y = wy - parentW.y;
+                    if (gizmoAxis_ == 0 || gizmoAxis_ == 1) {
+                        desc.position.x = wx - parentW.x;
+                    }
+                    if (gizmoAxis_ == 0 || gizmoAxis_ == 2) {
+                        desc.position.y = wy - parentW.y;
+                    }
                     if (mouseMoved) {
                         MarkUndoDirty();
                     }
                 } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
                     TriggerDesc& desc = triggers_[selIndex_].GetDesc();
-                    desc.position.x = wx;
-                    desc.position.y = wy;
+                    if (gizmoAxis_ == 0 || gizmoAxis_ == 1) {
+                        desc.position.x = wx;
+                    }
+                    if (gizmoAxis_ == 0 || gizmoAxis_ == 2) {
+                        desc.position.y = wy;
+                    }
                     if (mouseMoved) {
                         MarkUndoDirty();
                     }
@@ -1583,9 +2950,17 @@ void StageEditor::UpdateViewportInteraction()
 }
 #else
 void StageEditor::RenderHierarchy() { }
+void StageEditor::RenderEditorToolbar() { }
+void StageEditor::RenderViewportFocusBar() { }
 void StageEditor::RenderInspector() { }
 void StageEditor::RenderAssetPalette() { }
 void StageEditor::RenderFlagsPanel() { }
+void StageEditor::RenderWorkflowPanel() { }
+void StageEditor::RenderNoCodeEventPanel() { }
+void StageEditor::RenderWavePanel() { }
+void StageEditor::RenderStageAnalysisPanel() { }
+void StageEditor::RenderDiffPanel() { }
+void StageEditor::RenderEditorHelpPanel() { }
 void StageEditor::DrawGizmos() { }
 void StageEditor::UpdateFreeCamera(Input*, float) { }
 void StageEditor::UpdateViewportInteraction() { }

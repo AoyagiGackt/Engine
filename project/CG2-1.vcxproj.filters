@@ -357,6 +357,18 @@
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorPrefabService.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorViewport.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -718,6 +730,21 @@
     <ClInclude Include="Engine\game\h\Level\StageEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\EditorHistory.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorViewport.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
@@ -971,6 +998,9 @@
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\DebugProfiler.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\RenderPassGraph.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,5 @@
 #include "Framework.h"
+#include "DebugProfiler.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
@@ -19,6 +20,7 @@ void Framework::Run()
 {
     Initialize();
     while (true) {
+        DebugProfiler::GetInstance()->BeginFrame();
         Update();
 
         if (IsEndRequest()) {
@@ -26,6 +28,7 @@ void Framework::Run()
         }
 
         Draw();
+        DebugProfiler::GetInstance()->EndFrame();
     }
 
     Finalize();

@@ -11,6 +11,31 @@ using namespace engine;
 
 using Microsoft::WRL::ComPtr;
 
+namespace {
+
+// 状態をリソース自身へ保存し、解放後に同じアドレスが再利用されても
+// 古い追跡情報を引き継がないようにする
+constexpr GUID kTrackedResourceStateGuid = {
+    0x56f0ea61, 0x3f6b, 0x4f54, { 0xa8, 0x91, 0xc8, 0x15, 0x29, 0x6f, 0x6e, 0x31 }
+};
+
+bool ReadTrackedState(ID3D12Resource* resource, D3D12_RESOURCE_STATES& state)
+{
+    UINT size = sizeof(state);
+    return resource
+        && SUCCEEDED(resource->GetPrivateData(kTrackedResourceStateGuid, &size, &state))
+        && size == sizeof(state);
+}
+
+void WriteTrackedState(ID3D12Resource* resource, D3D12_RESOURCE_STATES state)
+{
+    if (resource) {
+        resource->SetPrivateData(kTrackedResourceStateGuid, sizeof(state), &state);
+    }
+}
+
+} // namespace
+
 // Initialize関数
 // ══════════════════════════════════════════════════════
 // 初期化とフレーム制御
@@ -45,6 +70,13 @@ void DirectXCommon::Finalize()
 {
     // GPU の処理がすべて終わるまで待つ
     WaitForGpu();
+
+#ifdef _DEBUG
+    if (infoQueue_ && debugCallbackCookie_ != 0) {
+        infoQueue_->UnregisterMessageCallback(debugCallbackCookie_);
+        debugCallbackCookie_ = 0;
+    }
+#endif
 
     // スワップチェーンのフルスクリーン解除（解放前に必須）
     BOOL fullscreen = FALSE;
@@ -136,6 +168,12 @@ void DirectXCommon::PostDraw()
     // （ここでは待たない。実際に待つのは、次にこのバックバッファを使い回す時＝PreDraw側）
     ++fenceValue_;
     hr = commandQueue_->Signal(fence_.Get(), fenceValue_);
+    if (FAILED(hr)) {
+        const HRESULT reason = device_->GetDeviceRemovedReason();
+        Logger::LogError(std::format(
+            "GPU command submission failed. context={} signal=0x{:08X} reason=0x{:08X}",
+            diagnosticContext_, static_cast<unsigned long>(hr), static_cast<unsigned long>(reason)));
+    }
     ENGINE_ASSERT(SUCCEEDED(hr));
     frameFenceValues_[backBufferIndex] = fenceValue_;
 
@@ -166,6 +204,15 @@ void DirectXCommon::PostDraw()
 
 Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile)
 {
+    const std::wstring cacheKey = filePath + L"|" + profile;
+    {
+        std::scoped_lock lock(shaderCacheMutex_);
+        const auto cached = shaderCache_.find(cacheKey);
+        if (cached != shaderCache_.end()) {
+            return cached->second;
+        }
+    }
+
     // hlslファイルを読む
     Logger::Log(StringUtility::ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}", filePath, profile)));
 
@@ -219,6 +266,11 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
     shaderSource->Release();
     shaderResult->Release();
 
+    {
+        std::scoped_lock lock(shaderCacheMutex_);
+        shaderCache_[cacheKey] = shaderBlob;
+    }
+
     return shaderBlob;
 }
 
@@ -232,11 +284,30 @@ void DirectXCommon::InitializeDevice()
 {
     HRESULT hr;
 #ifdef _DEBUG
+    // GPU停止時に直前のコマンド履歴とページフォルト情報を取得できるようにする
+    // DREDはデバイス生成後には有効化できないため、デバッグレイヤーと同時に設定する
+    ComPtr<ID3D12DeviceRemovedExtendedDataSettings1> dredSettings;
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings)))) {
+        dredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        dredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        dredSettings->SetBreadcrumbContextEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+    }
+
     ComPtr<ID3D12Debug1> debugController = nullptr;
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
         debugController->EnableDebugLayer();
-        debugController->SetEnableGPUBasedValidation(TRUE);
+
+        // GPU検証は負荷が大きいため通常のDebug実行では無効にする
+        // 詳細なシェーダー検証が必要な場合だけENGINE_GPU_VALIDATIONを設定して有効にする
+        wchar_t gpuValidationValue[2] = { };
+        const bool enableGpuValidation =
+            GetEnvironmentVariableW(L"ENGINE_GPU_VALIDATION", gpuValidationValue, 2) > 0
+            && gpuValidationValue[0] != L'0';
+        debugController->SetEnableGPUBasedValidation(enableGpuValidation ? TRUE : FALSE);
+        Logger::LogInfo(enableGpuValidation
+            ? "D3D12 GPU-based validation: ON"
+            : "D3D12 GPU-based validation: OFF");
     }
 #endif
 
@@ -275,13 +346,34 @@ void DirectXCommon::InitializeDevice()
 #ifdef _DEBUG
     // ERROR/CORRUPTIONメッセージが出た瞬間にその場でブレークさせる
     // （出力ウィンドウに流れるだけだと見逃し、原因のドローコールから離れた場所で気づくことになるため）
-    ComPtr<ID3D12InfoQueue> infoQueue;
-    if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+    if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue_)))) {
+        infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+        infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+        infoQueue_->RegisterMessageCallback(
+            &DirectXCommon::DebugMessageCallback,
+            D3D12_MESSAGE_CALLBACK_FLAG_NONE, this, &debugCallbackCookie_);
     }
 #endif
 }
+
+#ifdef _DEBUG
+void CALLBACK DirectXCommon::DebugMessageCallback(
+    D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity,
+    D3D12_MESSAGE_ID id, LPCSTR description, void* context)
+{
+    auto* self = static_cast<DirectXCommon*>(context);
+    const std::string message = std::format(
+        "D3D12 message id={} context={} detail={}", static_cast<int>(id),
+        self ? self->diagnosticContext_ : "unknown", description ? description : "no description");
+
+    if (severity == D3D12_MESSAGE_SEVERITY_ERROR
+        || severity == D3D12_MESSAGE_SEVERITY_CORRUPTION) {
+        Logger::LogError(message);
+    } else if (severity == D3D12_MESSAGE_SEVERITY_WARNING) {
+        Logger::LogWarning(message);
+    }
+}
+#endif
 
 void DirectXCommon::CreateCommand()
 {
@@ -547,6 +639,26 @@ void DirectXCommon::WaitForGpu()
 D3D12_RESOURCE_BARRIER DirectXCommon::MakeTransitionBarrier(
     ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after, UINT subresource)
 {
+    ENGINE_ASSERT(resource);
+
+    // 全サブリソース遷移だけを追跡する
+    // 個別Mipの状態は一つの値で表せないため呼び出し側の指定をそのまま使う
+    if (subresource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) {
+        D3D12_RESOURCE_STATES trackedState;
+        if (ReadTrackedState(resource, trackedState) && trackedState != before) {
+            Logger::LogWarning(std::format(
+                "Resource state mismatch. requested_before=0x{:X} tracked_before=0x{:X} after=0x{:X}",
+                static_cast<unsigned>(before), static_cast<unsigned>(trackedState), static_cast<unsigned>(after)));
+
+            // 既に目的状態なら同一状態バリアを避けるため呼び出し側の値を残す
+            // それ以外は追跡済みの実状態から遷移する
+            if (trackedState != after) {
+                before = trackedState;
+            }
+        }
+        WriteTrackedState(resource, after);
+    }
+
     D3D12_RESOURCE_BARRIER barrier = { };
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = resource;

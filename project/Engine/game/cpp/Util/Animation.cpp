@@ -136,3 +136,21 @@ Quaternion CalculateValue(const AnimationCurve<Quaternion>& curve, float time)
 }
 
 }
+
+std::vector<const engine::game::AnimationEvent*> engine::game::CollectAnimationEvents(
+    const std::vector<engine::game::AnimationEvent>& events, float previousTime,
+    float currentTime, float duration, bool loop)
+{
+    std::vector<const AnimationEvent*> fired;
+    const bool wrapped = loop && duration > 0.0f && currentTime < previousTime;
+
+    for (const AnimationEvent& event : events) {
+        const bool passedNormally = event.time > previousTime && event.time <= currentTime;
+        const bool passedWrapped = wrapped
+            && ((event.time > previousTime && event.time <= duration) || event.time <= currentTime);
+        if (passedNormally || passedWrapped) {
+            fired.push_back(&event);
+        }
+    }
+    return fired;
+}

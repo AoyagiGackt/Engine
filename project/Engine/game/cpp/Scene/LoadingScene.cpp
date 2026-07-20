@@ -34,10 +34,23 @@ void LoadingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     }
     dotSprites_[0]->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f }); // 最初のドットだけ明るい
 
+    progressBg_ = std::make_unique<Sprite>();
+    progressBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    progressBg_->SetPosition({ 390.0f, 450.0f });
+    progressBg_->SetSize({ 500.0f, 12.0f });
+    progressBg_->SetColor({ 0.18f, 0.18f, 0.22f, 1.0f });
+
+    progressFg_ = std::make_unique<Sprite>();
+    progressFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    progressFg_->SetPosition({ 390.0f, 450.0f });
+    progressFg_->SetSize({ 0.0f, 12.0f });
+    progressFg_->SetColor({ 0.25f, 0.75f, 1.0f, 1.0f });
+
     timer_ = 0.0f;
     dotTimer_ = 0.0f;
     activeDot_ = 0;
     sceneChangeRequested_ = false;
+    failureHandled_ = false;
 }
 
 void LoadingScene::Update()
@@ -58,6 +71,17 @@ void LoadingScene::Update()
     for (int i = 0; i < 3; ++i) {
         dotSprites_[i]->Update();
     }
+    const float progress = SceneManager::GetInstance()->GetAsyncLoadProgress();
+    progressBg_->Update();
+    progressFg_->SetSize({ 500.0f * progress, 12.0f });
+    progressFg_->Update();
+
+    // 例外発生時にロード画面で永久待機せず、ログを残してタイトルへ戻す
+    if (!failureHandled_ && SceneManager::GetInstance()->HasAsyncLoadFailed()) {
+        failureHandled_ = true;
+        SceneManager::GetInstance()->ChangeScene("TITLE");
+        return;
+    }
 
     // 最低表示時間が過ぎ、かつバックグラウンドロードが完了したら次のシーンへ（一度だけ）
     if (!sceneChangeRequested_ && timer_ >= kMinDisplayTime
@@ -77,6 +101,8 @@ void LoadingScene::Draw()
     for (int i = 0; i < 3; ++i) {
         dotSprites_[i]->Draw();
     }
+    progressBg_->Draw();
+    progressFg_->Draw();
 }
 
 void LoadingScene::Finalize()

@@ -1,7 +1,11 @@
 #include "MeleeCombo.h"
 #include "Easing.h"
+#include "JsonHelper.h"
+#include "Logger.h"
 #include "Weapon.h"
 #include <algorithm>
+#include <array>
+#include <unordered_map>
 using namespace engine;
 using namespace engine::game;
 
@@ -128,26 +132,95 @@ constexpr MeleeComboSet kGreatswordSet = MakeSet(kGreatswordGround, kGreatswordA
 constexpr MeleeComboSet kScytheSet = MakeSet(kScytheGround, kScytheAir, kScytheLauncher);
 constexpr MeleeComboSet kAxeSet = MakeSet(kAxeGround, kAxeAir, kAxeLauncher);
 
+struct RuntimeComboSet {
+    std::vector<MeleeAttackDef> ground;
+    std::vector<MeleeAttackDef> air;
+    MeleeAttackDef launcher { };
+    MeleeComboSet view { };
+};
+
+RuntimeComboSet CopyComboSet(const MeleeComboSet& source)
+{
+    RuntimeComboSet result;
+    result.ground.assign(source.ground.data, source.ground.data + source.ground.count);
+    result.air.assign(source.air.data, source.air.data + source.air.count);
+    if (source.launcher) {
+        result.launcher = *source.launcher;
+    }
+    return result;
+}
+
+void RefreshView(RuntimeComboSet& set)
+{
+    set.view.ground = { set.ground.data(), static_cast<int>(set.ground.size()) };
+    set.view.air = { set.air.data(), static_cast<int>(set.air.size()) };
+    set.view.launcher = &set.launcher;
+}
+
+void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
+{
+    attack.damageMult = (std::max)(data.value("damageMult", attack.damageMult), 0.0f);
+    attack.duration = (std::max)(data.value("duration", attack.duration), 0.05f);
+    attack.hitTime = std::clamp(data.value("hitTime", attack.hitTime), 0.0f, attack.duration);
+    attack.cancelTime = std::clamp(data.value("cancelTime", attack.cancelTime), attack.hitTime, attack.duration);
+    attack.lungeDist = data.value("lungeDist", attack.lungeDist);
+    attack.rangeMult = (std::max)(data.value("rangeMult", attack.rangeMult), 0.0f);
+    attack.knockX = data.value("knockX", attack.knockX);
+    attack.knockY = data.value("knockY", attack.knockY);
+    attack.hitStop = (std::max)(data.value("hitStop", attack.hitStop), 0);
+    attack.animSpeed = (std::max)(data.value("animSpeed", attack.animSpeed), 0.05f);
+}
+
+std::array<RuntimeComboSet, 8>& GetRuntimeComboSets()
+{
+    static std::array<RuntimeComboSet, 8> sets = [] {
+        std::array<RuntimeComboSet, 8> result;
+        result[0] = CopyComboSet(kSwordSet);
+        result[1] = CopyComboSet(kSpearSet);
+        result[2] = CopyComboSet(kHammerSet);
+        result[3] = CopyComboSet(kDaggerSet);
+        result[4] = CopyComboSet(kSwordSet);
+        result[5] = CopyComboSet(kGreatswordSet);
+        result[6] = CopyComboSet(kScytheSet);
+        result[7] = CopyComboSet(kAxeSet);
+
+        std::unordered_map<std::string, MeleeAttackDef*> attacks;
+        for (RuntimeComboSet& set : result) {
+            for (MeleeAttackDef& attack : set.ground) {
+                attacks[attack.id] = &attack;
+            }
+            for (MeleeAttackDef& attack : set.air) {
+                attacks[attack.id] = &attack;
+            }
+            attacks[set.launcher.id] = &set.launcher;
+        }
+
+        const nlohmann::json root = JsonHelper::Load("Resources/combos.json");
+        for (const auto& data : root.value("attacks", nlohmann::json::array())) {
+            const std::string id = data.value("id", "");
+            const auto found = attacks.find(id);
+            if (found == attacks.end()) {
+                Logger::LogWarning("Unknown combo attack id: " + id);
+                continue;
+            }
+            ApplyAttackOverride(*found->second, data);
+        }
+
+        for (RuntimeComboSet& set : result) {
+            RefreshView(set);
+        }
+        return result;
+    }();
+    return sets;
+}
+
 } // namespace
 
 const MeleeComboSet& engine::game::GetMeleeComboSet(WeaponType type)
 {
-    switch (type) {
-    case WeaponType::Dagger:
-        return kDaggerSet;
-    case WeaponType::Hammer:
-        return kHammerSet;
-    case WeaponType::Spear:
-        return kSpearSet;
-    case WeaponType::Greatsword:
-        return kGreatswordSet;
-    case WeaponType::Scythe:
-        return kScytheSet;
-    case WeaponType::Axe:
-        return kAxeSet;
-    default:
-        return kSwordSet;
-    }
+    auto& sets = GetRuntimeComboSets();
+    const size_t index = static_cast<size_t>(type);
+    return sets[index < sets.size() ? index : 0].view;
 }
 
 //  MeleeComboController

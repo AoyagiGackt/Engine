@@ -34,6 +34,10 @@ struct WeaponData {
     std::string description;
     float styleColor[4]; ///< RGBA 0.0~1.0
     float knockbackMult = 1.0f; ///< ノックバック倍率（武器ごとの差別化）
+    std::string element = "None"; ///< 炎や氷など演出と追加効果を識別する属性名
+    float effectColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; ///< ヒット時の属性色
+    int effectBurstCount = 0; ///< ヒット時に放出する属性粒子数
+    float effectRingRadius = 0.0f; ///< ヒット時に広げる属性リング半径
     std::vector<WeaponCommand> commands;
 };
 

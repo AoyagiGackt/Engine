@@ -104,6 +104,12 @@ public:
     virtual void Finalize() = 0;
 
     /**
+     * @brief 派生シーンと共通エディタを決められた順序で終了する
+     * @note SceneManagerだけが呼び、共通エディタの参照を解放してから派生シーンを終了する
+     */
+    void Shutdown();
+
+    /**
      * @brief シーン終了フラグの取得
      * @return bool シーンが終了したかどうか（true: 終了 / false: 継続）
      * @note この関数が true を返すと、SceneManager は次のシーンへの遷移処理を開始します

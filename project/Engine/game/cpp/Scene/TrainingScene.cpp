@@ -51,6 +51,8 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
     Object3d::SetCommonObjectCommon(objectCommon_.get());
     Object3d::SetCommonShadowManager(shadowManager_.get());
+    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
+    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 14.5f, 6.0f, -24.0f });
@@ -62,6 +64,20 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         "Resources/block/block.png");
 
     BuildBorderBlocks(modelCommon_.get(), modelBlock_.get(), borderBlocks_);
+
+    cityBackgroundModel_ = std::make_unique<Model>();
+    cityBackgroundModel_->Initialize(modelCommon_.get(),
+        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
+    for (float x : { 5.0f, 16.0f, 27.0f }) {
+        auto city = std::make_unique<Object3d>();
+        city->Initialize(modelCommon_.get());
+        city->SetModel(cityBackgroundModel_.get());
+        city->SetPosition({ x, -0.6f, 6.0f });
+        city->SetScale({ 0.42f, 0.42f, 0.42f });
+        city->Update();
+        cityBackgroundObjects_.push_back(std::move(city));
+    }
 
     for (int i = 0; i < 5; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -95,26 +111,6 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
 
-    // PBR デモブロック（3 種類を画面中央付近に配置）
-    static constexpr float kPBRX[3] = { 7.0f, 14.0f, 21.0f };
-    static constexpr Vector4 kPBRColor[3] = {
-        { 0.80f, 0.55f, 0.45f, 1.0f }, // 非金属（テラコッタ調）
-        { 0.90f, 0.90f, 1.00f, 1.0f }, // 鏡面金属（シルバー）
-        { 0.55f, 0.65f, 0.70f, 1.0f }, // ラフ金属（ガンメタル）
-    };
-    for (int i = 0; i < 3; ++i) {
-        pbrDemoBlocks_[i] = std::make_unique<Object3d>();
-        pbrDemoBlocks_[i]->Initialize(modelCommon_.get());
-        pbrDemoBlocks_[i]->SetModel(modelBlock_.get());
-        pbrDemoBlocks_[i]->SetPosition({ kPBRX[i], 9.0f, 0.0f });
-        pbrDemoBlocks_[i]->SetScale({ 1.5f, 1.5f, 1.5f });
-        pbrDemoBlocks_[i]->SetColor(kPBRColor[i]);
-        pbrDemoBlocks_[i]->SetMetallic(pbrMetallic_[i]);
-        pbrDemoBlocks_[i]->SetRoughness(pbrRoughness_[i]);
-        pbrDemoBlocks_[i]->SetShadingTypePBR();
-        pbrDemoBlocks_[i]->Update();
-    }
-
     GpuProfiler::GetInstance()->Initialize(dxCommon_);
 
 #ifdef _DEBUG
@@ -128,8 +124,6 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
 void TrainingScene::Update()
 {
-    DebugProfiler::GetInstance()->EndFrame();
-    DebugProfiler::GetInstance()->BeginFrame();
     fontRenderer_.Reset();
 
     if (input_->TriggerKey(DIK_BACK)) {
@@ -161,6 +155,12 @@ void TrainingScene::RefreshVisualTransformsForEditor()
     for (auto& b : borderBlocks_) {
         b->Update();
     }
+    for (auto& city : cityBackgroundObjects_) {
+        city->Update();
+    }
+    for (auto& portal : warpPortalBlocks_) {
+        portal->Update();
+    }
 }
 
 void TrainingScene::UpdatePlayerAndBullets()
@@ -169,6 +169,8 @@ void TrainingScene::UpdatePlayerAndBullets()
     {
         const Vector3& pp = player_->GetPosition();
         player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
+        player_->ResolveBlockCollision(GetStageEditor().GetSolidColliders());
+        player_->RefreshVisualTransforms();
 
         // 境界ブロックは描画専用なので、幅1のプレイヤー判定が
         // 中心座標 x=2 と x=28 の壁の内側に収まるよう補正する
@@ -242,9 +244,8 @@ void TrainingScene::UpdateCameraAndEnvironment()
     for (auto& b : borderBlocks_) {
         b->Update();
     }
-
-    for (int i = 0; i < 3; ++i) {
-        pbrDemoBlocks_[i]->Update();
+    for (auto& city : cityBackgroundObjects_) {
+        city->Update();
     }
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
@@ -259,7 +260,7 @@ void TrainingScene::DrawHud(bool nearWarpPortal)
 {
     DrawWeaponHud(nearWarpPortal);
     DrawDebugHud();
-    SceneShared::DrawControlsHud(fontRenderer_, L": Warp (portal)");
+    SceneShared::DrawControlsHud(fontRenderer_, L": バトルテストへ移動");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
 }
@@ -276,7 +277,7 @@ void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
         float sx, sy;
         SceneShared::WorldToScreen(kWarpX, 5.0f, cam.x, cam.y, sx, sy);
         constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
-        fontRenderer_.DrawString("[ ENTER ] Warp", sx - 84.0f, sy - 36.0f, kScale, kColorWarp);
+        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - 110.0f, sy - 36.0f, kScale, kColorWarp);
     }
 }
 
@@ -294,24 +295,6 @@ void TrainingScene::DrawDebugHud()
 #endif
 
 #ifdef USE_IMGUI
-    // ── PBR マテリアルエディタ ────────────────────────────────────────
-    ImGui::SetNextWindowSize(ImVec2(260, 165), ImGuiCond_Once);
-    ImGui::SetNextWindowPos(ImVec2(10, 400), ImGuiCond_Once);
-    if (ImGui::Begin("PBR Material Demo")) {
-        static const char* kLabels[3] = { "Plastic (non-metal)", "Mirror Metal", "Rough Metal" };
-        for (int i = 0; i < 3; ++i) {
-            ImGui::PushID(i);
-            if (ImGui::CollapsingHeader(kLabels[i])) {
-                ImGui::SliderFloat("Metallic", &pbrMetallic_[i], 0.0f, 1.0f);
-                ImGui::SliderFloat("Roughness", &pbrRoughness_[i], 0.0f, 1.0f);
-                pbrDemoBlocks_[i]->SetMetallic(pbrMetallic_[i]);
-                pbrDemoBlocks_[i]->SetRoughness(pbrRoughness_[i]);
-            }
-            ImGui::PopID();
-        }
-    }
-    ImGui::End();
-
     // ── プロファイラ ───────────────────────────────────────────────────
     GpuProfiler::GetInstance()->DrawImGui();
 #endif
@@ -326,9 +309,6 @@ void TrainingScene::Draw()
     gpuProfiler->BeginScope(GpuProfiler::Shadow, cmd);
     shadowManager_->BeginShadowPass(cmd);
     modelCommon_->BeginShadowPass();
-    for (int i = 0; i < 3; ++i) {
-        pbrDemoBlocks_[i]->DrawShadow();
-    }
     shadowManager_->EndShadowPass(cmd);
     gpuProfiler->EndScope(GpuProfiler::Shadow, cmd);
 
@@ -366,11 +346,11 @@ void TrainingScene::Draw()
     for (auto& b : borderBlocks_) {
         b->Draw();
     }
+    for (auto& city : cityBackgroundObjects_) {
+        city->Draw();
+    }
     for (auto& p : warpPortalBlocks_) {
         p->Draw();
-    }
-    for (int i = 0; i < 3; ++i) {
-        pbrDemoBlocks_[i]->Draw();
     }
     bulletPool_.Draw();
     player_->Draw();
@@ -393,7 +373,6 @@ void TrainingScene::Draw()
 
     // 2D スプライト（テキスト UI）
     spriteCommon_->CommonDrawSettings();
-    shadowManager_->SetShadowMap(cmd, srvManager_);
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) {
         awakenGaugeFg_->Draw();

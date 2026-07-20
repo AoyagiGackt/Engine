@@ -13,6 +13,8 @@
 #include <Fade.h>
 #include <atomic>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <thread>
 namespace engine::game {
 using engine::Audio;
@@ -83,6 +85,12 @@ public:
     const std::string& GetLoadingTarget() const { return loadingTargetScene_; }
 
     bool IsAsyncLoadReady() const { return asyncLoadReady_.load(); }
+    /** @brief 非同期ロードの進捗率を0.0から1.0で返す */
+    float GetAsyncLoadProgress() const { return asyncLoadProgress_.load(); }
+    /** @brief 非同期ロードが失敗したかを返す */
+    bool HasAsyncLoadFailed() const { return asyncLoadFailed_.load(); }
+    /** @brief 非同期ロードの失敗理由を返す */
+    std::string GetAsyncLoadError() const;
 
     /**
      * @brief シーン生成用工場をセットする
@@ -129,6 +137,10 @@ private:
 
     /** @brief バックグラウンドロード完了フラグ */
     std::atomic<bool> asyncLoadReady_ { false };
+    std::atomic<float> asyncLoadProgress_ { 0.0f };
+    std::atomic<bool> asyncLoadFailed_ { false };
+    mutable std::mutex asyncLoadErrorMutex_;
+    std::string asyncLoadError_;
 
     /** @brief シーンを生成するための工場ポインタ（外部からセットされる） */
     AbstractSceneFactory* sceneFactory_ = nullptr;

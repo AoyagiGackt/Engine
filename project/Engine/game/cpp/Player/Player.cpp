@@ -10,6 +10,7 @@
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -162,7 +163,9 @@ void Player::UpdateAnimationState(bool isMoving)
     // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
     const Skeleton& skel = rig_->object->GetSkeleton();
     bool hasGunBone = skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end();
-    bool hold = UsesHoldPose(WeaponManager::GetInstance()->GetCurrent().type) || hasGunBone;
+    auto* weaponManager = WeaponManager::GetInstance();
+    bool hold = (weaponManager->HasEquippedWeapon()
+        && UsesHoldPose(weaponManager->GetCurrent().type)) || hasGunBone;
     if (newState == animState_ && hold == animHold_) {
         return;
     }
@@ -192,6 +195,9 @@ void Player::PlayStealStab()
 
 int Player::GetComboMax() const
 {
+    if (!WeaponManager::GetInstance()->HasEquippedWeapon()) {
+        return 0;
+    }
     // 現在の武器の地上コンボ段数を基準にする（HUDのx段目/最大表示用）
     const MeleeComboSet& set = GetMeleeComboSet(WeaponManager::GetInstance()->GetCurrent().type);
     return set.ground.count + skillMods_.comboMaxBonus;
@@ -220,7 +226,7 @@ void Player::Update(Input* input, const Vector3& enemyPos)
     HandleStyleSwitch(input);
 
     GetPhysicsState(inWater_).Update(*this, input);
-    pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
+    pos_.x = std::clamp(pos_.x, minX_, maxX_);
 
     HandleRangedCombat(input);
     HandleMeleeCombat(input, enemyPos);
@@ -267,6 +273,28 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     // プレイヤーの当たり判定はダミー等と同じpos_を中心とした1x1x1規約に合わせる
     constexpr float kHalf = 0.5f;
 
+    // 上昇中に頭がブロック下面を横切った場合は、下面の直下へ戻して上昇速度を止める。
+    if (velocityY_ > 0.0f) {
+        const float previousHeadY = pos_.y - velocityY_ + kHalf;
+        const float currentHeadY = pos_.y + kHalf;
+        float nearestCeiling = (std::numeric_limits<float>::max)();
+        for (const auto& b : blocks) {
+            const bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
+                && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+            if (!overlapXZ) {
+                continue;
+            }
+            if (previousHeadY <= b.min.y && currentHeadY >= b.min.y) {
+                nearestCeiling = (std::min)(nearestCeiling, b.min.y);
+            }
+        }
+        if (nearestCeiling != (std::numeric_limits<float>::max)()) {
+            pos_.y = nearestCeiling - kHalf;
+            velocityY_ = 0.0f;
+            onGround_ = false;
+        }
+    }
+
     // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
     float feetY = pos_.y - kHalf;
     float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
@@ -306,7 +334,7 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
     }
 
-    pos_.x = std::clamp(pos_.x, kMinX_, kMaxX_);
+    pos_.x = std::clamp(pos_.x, minX_, maxX_);
 }
 
 // ══════════════════════════════════════════════════════
@@ -320,6 +348,7 @@ void Player::ResetFrameFlags()
     justEnteredWater_ = false;
     justExitedWater_ = false;
     justComboHit_ = false;
+    justWeaponSwitchHit_ = false;
     justFired_ = false;
     justBlinked_ = false;
     justChargedGauge_ = false;
@@ -329,6 +358,7 @@ void Player::ResetFrameFlags()
     justSpearRetreat_ = false;
     justGreatswordSlam_ = false;
     justAxeCharge_ = false;
+    justScytheSpin_ = false;
     justLaunched_ = false;
     justRampageHit_ = false;
     justRampageFinish_ = false;
@@ -339,12 +369,28 @@ void Player::ResetFrameFlags()
 
 void Player::HandleStyleSwitch(Input* input)
 {
-    // スタイルチェンジ（1〜5キー）
+    // 数字キーと十字キーを4つの武器スロットへ対応させる
     auto* wm = WeaponManager::GetInstance();
-    for (int i = 0; i < wm->GetCount(); ++i) {
+    const int oldSlot = wm->GetSelectedSlot();
+    for (int i = 0; i < 4; ++i) {
         if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
-            wm->SelectIndex(i);
+            wm->SelectSlot(i);
         }
+    }
+    if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_UP)) {
+        wm->SelectSlot(0);
+    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_RIGHT)) {
+        wm->SelectSlot(1);
+    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_DOWN)) {
+        wm->SelectSlot(2);
+    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_LEFT)) {
+        wm->SelectSlot(3);
+    }
+    if (wm->HasEquippedWeapon() && wm->GetSelectedSlot() != oldSlot) {
+        meleeCombo_.Reset();
+        weaponSwitchAttackPending_ = true;
+        weaponSwitchAttackActive_ = false;
+        weaponSwitchWindow_ = kWeaponSwitchWindow_;
     }
 }
 
@@ -353,14 +399,14 @@ void Player::HandleRangedCombat(Input* input)
     auto* wm = WeaponManager::GetInstance();
 
     // ── 銃切り替え（G キー、循環）────────────────────────────────────
-    if (input->TriggerKey(DIK_G)) {
+    if (input->TriggerAction(Input::Action::GunSwitch)) {
         wm->SelectNextRanged();
         gunCombo_.Reset(); // 撃ちかけのコンボは持ち越さない
     }
 
     // ── 射撃コンボ（K キー、水上のみ）────────────────────────────────
     // 押下の瞬間ではなく段の shotTime で発砲する。段数・弾数・リコイルは銃種別の GunShotDef が持つ
-    if (!inWater_ && !finisherCharging_ && input->TriggerKey(DIK_K)) {
+    if (!inWater_ && !finisherCharging_ && input->TriggerAction(Input::Action::Shoot)) {
         gunCombo_.TryShoot(wm->GetRanged().type);
     }
     gunCombo_.Update(GameConstants::kFrameDeltaTime);
@@ -369,17 +415,25 @@ void Player::HandleRangedCombat(Input* input)
     }
     // 前後移動（踏み込み / 反動バックステップ）。空中では暴れるので地上のみ
     if (onGround_ && gunCombo_.GetMoveDelta() != 0.0f) {
-        pos_.x = std::clamp(pos_.x + lastDirX_ * gunCombo_.GetMoveDelta(), kMinX_, kMaxX_);
+        pos_.x = std::clamp(pos_.x + lastDirX_ * gunCombo_.GetMoveDelta(), minX_, maxX_);
     }
 }
 
 void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
 {
     auto* wm = WeaponManager::GetInstance();
+    weaponSwitchWindow_ = (std::max)(weaponSwitchWindow_ - GameConstants::kFrameDeltaTime, 0.0f);
+    if (weaponSwitchWindow_ <= 0.0f) {
+        weaponSwitchAttackPending_ = false;
+    }
+    if (!wm->HasEquippedWeapon()) {
+        meleeCombo_.Reset();
+        return;
+    }
 
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
     // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
-    if (!inWater_ && !finisherCharging_ && input->TriggerKey(DIK_L)) {
+    if (!inWater_ && !finisherCharging_ && input->TriggerAction(Input::Action::Attack)) {
         if (rampagePhase_ != RampagePhase::Inactive) {
             GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
         } else if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
@@ -389,8 +443,13 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
             juggleSlashCount_ = 0;
             juggleAngleIdx_ = 0;
         } else {
-            bool launcherInput = input->PushKey(DIK_S) || input->PushKey(DIK_DOWN);
-            meleeCombo_.TryAttack(wm->GetCurrent().type, launcherInput, !onGround_);
+            bool launcherInput = input->PushAction(Input::Action::Down);
+            const bool accepted = meleeCombo_.TryAttack(wm->GetCurrent().type, launcherInput, !onGround_);
+            if (accepted && weaponSwitchAttackPending_) {
+                weaponSwitchAttackPending_ = false;
+                weaponSwitchAttackActive_ = true;
+                pos_.x = std::clamp(pos_.x + lastDirX_ * kWeaponSwitchLunge_, minX_, maxX_);
+            }
         }
     }
 
@@ -403,6 +462,8 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         if (meleeCombo_.JustHit()) {
             justComboHit_ = true;
+            justWeaponSwitchHit_ = weaponSwitchAttackActive_;
+            weaponSwitchAttackActive_ = false;
             comboStep_ = meleeCombo_.GetStep();
             if (atk->launcher) {
                 launchFollowTimer_ = kLaunchFollowWindow_;
@@ -410,7 +471,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         // 踏み込み（斬りながら前へ出ることで空振り感を減らす）
         if (meleeCombo_.GetLungeDelta() > 0.0f) {
-            pos_.x = std::clamp(pos_.x + lastDirX_ * meleeCombo_.GetLungeDelta(), kMinX_, kMaxX_);
+            pos_.x = std::clamp(pos_.x + lastDirX_ * meleeCombo_.GetLungeDelta(), minX_, maxX_);
         }
         // 空中攻撃中は滞空（落下を弱めてエアコンボを繋ぎやすくする）
         if (!onGround_ && velocityY_ < 0.0f) {
@@ -425,10 +486,14 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
 void Player::HandleFinisherSlash(Input* input)
 {
     auto* wm = WeaponManager::GetInstance();
+    if (!wm->HasEquippedWeapon()) {
+        return;
+    }
 
     // ── フィニッシャースラッシュ（F キー、水上のみ、覚醒ゲージ満タン時のみ）─────
     // 静止して集中 → 溜め切ったら一閃、の2段構成にする
-    if (!inWater_ && !isAwakened_ && !finisherCharging_ && input->TriggerKey(DIK_F) && awakenGauge_ >= 1.0f) {
+    if (!inWater_ && !isAwakened_ && !finisherCharging_
+        && input->TriggerAction(Input::Action::Finisher) && awakenGauge_ >= 1.0f) {
         justFinisherSlash_ = true;
         awakenGauge_ = 0.0f; // ゲージを全消費
         finisherCharging_ = true;
@@ -457,6 +522,9 @@ void Player::HandleFinisherSlash(Input* input)
 void Player::HandleWeaponSkill(Input* input)
 {
     auto* wm = WeaponManager::GetInstance();
+    if (!wm->HasEquippedWeapon()) {
+        return;
+    }
 
     // ── スペースキー（武器タイプ別）──────────────────────────────
     if (!inWater_ && !finisherCharging_) {
@@ -503,7 +571,8 @@ void Player::UpdateRampagePhysics(const Vector3& enemyPos)
 void Player::UpdateAwakenState(Input* input)
 {
     // ── 覚醒発動（R キー）────────────────────────────────────────
-    if (!finisherCharging_ && input->TriggerKey(DIK_R) && awakenGauge_ >= kAwakenActivationThreshold_ && !isAwakened_) {
+    if (!finisherCharging_ && input->TriggerAction(Input::Action::Awaken)
+        && awakenGauge_ >= kAwakenActivationThreshold_ && !isAwakened_) {
         isAwakened_ = true;
         justAwakened_ = true;
         awakenTimer_ = kAwakenDuration_;
@@ -544,7 +613,7 @@ void Player::ResolveEnemyOverlap(const Vector3& enemyPos)
         float dy = pos_.y - enemyPos.y;
         if (std::abs(dx) < kMinEnemyDistanceX_ && std::abs(dy) < kMinEnemyDistanceY_) {
             float dir = (dx >= 0.0f) ? 1.0f : -1.0f;
-            pos_.x = std::clamp(enemyPos.x + dir * kMinEnemyDistanceX_, kMinX_, kMaxX_);
+            pos_.x = std::clamp(enemyPos.x + dir * kMinEnemyDistanceX_, minX_, maxX_);
         }
     }
 }
@@ -576,8 +645,8 @@ void Player::UpdateVisualState(Input* input)
     afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, modelPos, yaw, spinAngle_);
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
-    bool isMovingHoriz = input->PushKey(DIK_A) || input->PushKey(DIK_D)
-        || input->PushKey(DIK_LEFT) || input->PushKey(DIK_RIGHT);
+    bool isMovingHoriz = input->PushAction(Input::Action::MoveLeft)
+        || input->PushAction(Input::Action::MoveRight);
     UpdateAnimationState(isMovingHoriz);
 
     // ── プレイヤー色 ──
@@ -622,12 +691,14 @@ void Player::AttachActiveWeapons()
     // ── 現在のスタイルに対応する武器を右手ボーンに追従 ──────────────
     // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
     // 共通の腕モーションでも武器ごとに違う軌道に見せる
-    WeaponType meleeType = wm->GetCurrent().type;
     activeHeldIndex_ = -1;
-    for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
-        if (heldWeapons_[i].type == meleeType) {
-            activeHeldIndex_ = i;
-            break;
+    if (wm->HasEquippedWeapon()) {
+        WeaponType meleeType = wm->GetCurrent().type;
+        for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
+            if (heldWeapons_[i].type == meleeType) {
+                activeHeldIndex_ = i;
+                break;
+            }
         }
     }
     if (activeHeldIndex_ >= 0) {

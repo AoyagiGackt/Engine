@@ -203,6 +203,10 @@
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorPrefabService.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorViewport.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Lighting\LightingMode.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneFactory.cpp" />
@@ -692,6 +696,11 @@
     <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h" />
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditor.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h" />
+    <ClInclude Include="Engine\game\h\Level\EditorHistory.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorViewport.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\UIButton.h" />
     <ClInclude Include="Engine\game\h\UI\UIMenu.h" />
@@ -700,6 +709,7 @@
     <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\DebugProfiler.h" />
+    <ClInclude Include="Engine\graphics\h\RenderPassGraph.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\lighting\LightingMode.hlsli" />

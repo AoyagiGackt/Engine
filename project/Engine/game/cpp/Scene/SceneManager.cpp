@@ -1,7 +1,10 @@
 #include "SceneManager.h"
+#include "CrashHandler.h"
 #include "StageEditor.h"
 #include "TextureManager.h"
+#include "Logger.h"
 #include "TitleScene.h"
+#include <stdexcept>
 #ifdef _DEBUG
 #include "TrainingScene.h"
 #endif
@@ -32,13 +35,11 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     input_ = input;
     audio_ = audio;
     imguiManager_ = imgui;
+    dxCommon_->SetDiagnosticContext("TitleScene");
+    CrashHandler::SetContext("TitleScene");
 
     // 最初のシーン（デバッグ時はテストしやすいようTrainingSceneへ直行、それ以外はタイトルから）
-#ifdef _DEBUG
-    currentScene_ = std::make_unique<TrainingScene>();
-#else
     currentScene_ = std::make_unique<TitleScene>();
-#endif
     currentScene_->Init(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();
@@ -61,19 +62,44 @@ void SceneManager::Update()
     if (isChanging_ && fade_.IsFinished()) {
         audio_->StopWave(); // 前のシーンの音を止める
 
+        // PostDraw は複数フレームを並行実行するため、直前まで描画していた
+        // シーンの GPU リソースを Finalize する前に使用完了を保証する。
+        // ここで待たないと、解放済みのリソース／ディスクリプタ参照が次回の
+        // ExecuteCommandLists で検出されることがある。
+        dxCommon_->WaitForGpu();
+
         // 前のシーンを終了処理してからリソースを解放
         if (currentScene_) {
-            currentScene_->Finalize();
+            currentScene_->Shutdown();
         }
 
         if (preloadedScene_ && nextSceneName_ == loadingTargetScene_) {
-            // バックグラウンドで Initialize 済み → FlushUploads だけ呼んでそのまま使う
-            // （asyncLoadReady_ が true を返した時点でスレッドの作業は完了しているため、join は即座に返る）
+            // ワーカー側はシーンオブジェクトの生成までに限定する
+            // D3D12、SRV、TextureManager等の共有状態へ触れるInitは、ロード画面が暗転した後に
+            // メインスレッドで実行して描画スレッドとの競合を防ぐ
             if (loadingThread_.joinable()) {
                 loadingThread_.join();
             }
-            currentScene_ = std::move(preloadedScene_);
-            TextureManager::GetInstance()->FlushUploads();
+            asyncLoadProgress_.store(0.5f);
+            try {
+                preloadedScene_->Init(dxCommon_, input_, audio_);
+                asyncLoadProgress_.store(0.9f);
+                currentScene_ = std::move(preloadedScene_);
+                TextureManager::GetInstance()->FlushUploads();
+                asyncLoadProgress_.store(1.0f);
+            } catch (const std::exception& error) {
+                {
+                    std::scoped_lock lock(asyncLoadErrorMutex_);
+                    asyncLoadError_ = error.what();
+                }
+                asyncLoadFailed_.store(true);
+                Logger::LogError("Scene GPU initialization failed: " + std::string(error.what()));
+                preloadedScene_.reset();
+                currentScene_ = std::make_unique<TitleScene>();
+                currentScene_->Init(dxCommon_, input_, audio_);
+                TextureManager::GetInstance()->FlushUploads();
+                nextSceneName_ = "TITLE";
+            }
             loadingTargetScene_.clear();
         } else {
             // 工場を使って新しいシーンを作成・初期化
@@ -91,16 +117,40 @@ void SceneManager::Update()
 
                 std::string target = loadingTargetScene_;
                 loadingThread_ = std::thread([this, target]() {
-                    auto scene = sceneFactory_->CreateScene(target);
-                    scene->Init(dxCommon_, input_, audio_);
-                    preloadedScene_ = std::move(scene);
-                    asyncLoadReady_.store(true);
+                    try {
+                        asyncLoadProgress_.store(0.1f);
+                        auto scene = sceneFactory_->CreateScene(target);
+                        if (!scene) {
+                            throw std::runtime_error("Unknown scene: " + target);
+                        }
+                        // GPUリソース生成を含むInitはメインスレッド側で実行する
+                        // ワーカーは共有描画状態へ触れず、生成済みシーンの受け渡しだけを担当する
+                        asyncLoadProgress_.store(0.4f);
+                        preloadedScene_ = std::move(scene);
+                        asyncLoadReady_.store(true);
+                    } catch (const std::exception& error) {
+                        {
+                            std::scoped_lock lock(asyncLoadErrorMutex_);
+                            asyncLoadError_ = error.what();
+                        }
+                        asyncLoadFailed_.store(true);
+                        Logger::LogError("Async scene load failed: " + std::string(error.what()));
+                    } catch (...) {
+                        {
+                            std::scoped_lock lock(asyncLoadErrorMutex_);
+                            asyncLoadError_ = "Unknown exception";
+                        }
+                        asyncLoadFailed_.store(true);
+                        Logger::LogError("Async scene load failed: unknown exception");
+                    }
                 });
             }
         }
 
         // ImGuiのセット
         currentScene_->SetImGuiManager(imguiManager_);
+        dxCommon_->SetDiagnosticContext(nextSceneName_);
+        CrashHandler::SetContext(nextSceneName_);
 
         // シーンが切り替わったので、画面を明るくし始める
         fade_.Start(Fade::Status::FadeIn, fadeInDuration_);
@@ -132,6 +182,9 @@ void SceneManager::Update()
 void SceneManager::Draw()
 {
     if (currentScene_) {
+        // D3D12デバッグメッセージへ現在のシーンを添えて原因箇所を絞り込む
+        dxCommon_->SetDiagnosticContext(nextSceneName_.empty() ? "TitleScene" : nextSceneName_);
+        CrashHandler::SetContext(nextSceneName_.empty() ? "TitleScene" : nextSceneName_);
         currentScene_->Render();
     }
 
@@ -145,10 +198,17 @@ void SceneManager::Finalize()
     if (loadingThread_.joinable()) {
         loadingThread_.join();
     }
+
+    // 最終フレームで使用したシーンのGPUリソースを安全に破棄できるまで待機する
+    // ステージエディタ表示中は配置モデルとギズモも描画するため、シーン破棄より前に同期する
+    if (dxCommon_) {
+        dxCommon_->WaitForGpu();
+    }
+
     preloadedScene_.reset();
 
     if (currentScene_) {
-        currentScene_->Finalize();
+        currentScene_->Shutdown();
     }
 
     currentScene_.reset();
@@ -165,8 +225,20 @@ void SceneManager::ChangeSceneWithLoading(const std::string& targetScene)
 {
     loadingTargetScene_ = targetScene;
     asyncLoadReady_.store(false);
+    asyncLoadProgress_.store(0.0f);
+    asyncLoadFailed_.store(false);
+    {
+        std::scoped_lock lock(asyncLoadErrorMutex_);
+        asyncLoadError_.clear();
+    }
     preloadedScene_.reset();
     ChangeScene("LOADING");
+}
+
+std::string SceneManager::GetAsyncLoadError() const
+{
+    std::scoped_lock lock(asyncLoadErrorMutex_);
+    return asyncLoadError_;
 }
 
 // シーン切り替え予約

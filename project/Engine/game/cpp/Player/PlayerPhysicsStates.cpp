@@ -14,11 +14,11 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
     const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
 
     // 横移動（水の抵抗で遅い）
-    if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT)) {
+    if (input->PushAction(Input::Action::MoveLeft)) {
         player.pos_.x -= kWaterSpeed_ * speedMult;
         player.lastDirX_ = -1.0f;
     }
-    if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) {
+    if (input->PushAction(Input::Action::MoveRight)) {
         player.pos_.x += kWaterSpeed_ * speedMult;
         player.lastDirX_ = 1.0f;
     }
@@ -28,7 +28,7 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
     player.velocityY_ = (std::max)(player.velocityY_, kSinkMaxVY_);
 
     // ジャンプ長押し = 上昇スイム
-    if (input->PushKey(DIK_W) || input->PushKey(DIK_UP) || input->PushKey(DIK_SPACE)) {
+    if (input->PushAction(Input::Action::Jump)) {
         player.velocityY_ = (std::min)(player.velocityY_ + kSwimAccel_, kSwimMaxVY_);
     }
 
@@ -56,18 +56,18 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
     const float jumpMult = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
 
     if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_) {
-        if (input->PushKey(DIK_A) || input->PushKey(DIK_LEFT)) {
+        if (input->PushAction(Input::Action::MoveLeft)) {
             player.pos_.x -= kSpeed_ * speedMult;
             player.lastDirX_ = -1.0f;
         }
-        if (input->PushKey(DIK_D) || input->PushKey(DIK_RIGHT)) {
+        if (input->PushAction(Input::Action::MoveRight)) {
             player.pos_.x += kSpeed_ * speedMult;
             player.lastDirX_ = 1.0f;
         }
     }
 
     if (player.onGround_ && !player.finisherCharging_) {
-        if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
+        if (input->TriggerAction(Input::Action::Jump)) {
             // 打ち上げ直後は追撃用に高く跳べる（浮かせた敵にジャンプで追いつく）
             float followMult = (player.launchFollowTimer_ > 0.0f) ? kLaunchFollowJumpMult_ : 1.0f;
             player.velocityY_ = kJumpPower_ * jumpMult * followMult;

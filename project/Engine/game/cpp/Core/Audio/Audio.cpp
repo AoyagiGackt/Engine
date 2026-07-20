@@ -228,6 +228,11 @@ void Audio::SetBGMVolume(float volume)
     }
 }
 
+void Audio::SetSEVolume(float volume)
+{
+    seVolume_ = std::clamp(volume, 0.0f, 1.0f);
+}
+
 // BGM の再生速度を変更する（1.0f = 等速、0.5f = 半速、2.0f = 倍速）
 void Audio::SetBGMSpeed(float speed)
 {
@@ -245,7 +250,7 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
     CleanupFinishedSE();
 
     IXAudio2SourceVoice* voice = CreateSourceVoice(soundData);
-    voice->SetVolume(volume);
+    voice->SetVolume(std::clamp(volume, 0.0f, 1.0f) * seVolume_);
 
     XAUDIO2_BUFFER buffer = { };
     buffer.pAudioData = soundData.pBuffer.data();

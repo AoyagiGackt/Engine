@@ -118,9 +118,7 @@ void GraphEditor::Open(const std::string& path)
     }
 
     // 別ファイルを開いたら、直前のグラフに対するUndo/Redo履歴は無関係になるため破棄する
-    undoStack_.clear();
-    redoStack_.clear();
-    hasPendingUndo_ = false;
+    history_.Clear();
     dirty_ = false;
 
     statusMessage_ = "Opened: " + path;
@@ -207,6 +205,48 @@ void GraphEditor::Update(Input* input)
         ImGui::BulletText("Subgraphノード: 別のグラフJSONを部品として呼び出す（カプセル化）");
         ImGui::BulletText("フラグはステージエディタ(F2)のトリガーと共有GetFlag/SetFlagで読み書き");
     }
+    if (ImGui::CollapsingHeader("はじめてのイベント作成", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::TextWrapped("例として、ステージのトリガーがONになったら1秒待ち、効果音を鳴らす流れを作ります。");
+        ImGui::BulletText("1  空白を右クリックし、GetFlag、Wait、PlaySEを追加する");
+        ImGui::BulletText("2  GetFlagのflagへステージエディタで設定したフラグ名を入力する");
+        ImGui::BulletText("3  ノード上部の実行ピンを GetFlag から Wait、PlaySE の順につなぐ");
+        ImGui::BulletText("4  Waitのsecondsへ1、PlaySEのpathへ音声ファイルを指定する");
+        ImGui::BulletText("5  最初のGetFlagを選択し、開始ノードに設定する");
+        ImGui::BulletText("6  実行で黄色い枠が順に進むことを確認して保存する");
+        ImGui::TextDisabled("値ピンは計算結果を渡す時に使います。固定値だけなら入力欄へ直接入力できます。");
+    }
+    if (!selectedNodeId_.empty()) {
+        const GraphNode* selected = graph_.FindNode(selectedNodeId_);
+        const NodeTypeSpec* selectedSpec = selected
+            ? NodeRegistry::GetInstance()->FindSpec(selected->type)
+            : nullptr;
+        if (selected && selectedSpec && ImGui::CollapsingHeader("選択中ノードの説明", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
+            ImGui::TextWrapped("%s", selectedSpec->description.c_str());
+            auto parameterHelp = [](const std::string& key) -> const char* {
+                if (key == "flag") return "ステージエディタのトリガーと共有するフラグ名";
+                if (key == "name" || key == "var" || key == "into") return "グラフ内で値を識別するための変数名";
+                if (key == "value") return "保存、比較、または設定する値";
+                if (key == "seconds" || key == "duration") return "処理を待つ時間  単位は秒";
+                if (key == "frames") return "処理を止める時間  単位はフレーム";
+                if (key == "path") return "読み込むグラフ、音声などのファイルパス";
+                if (key == "target") return "ステージに配置した敵などの名前";
+                if (key == "amount") return "ダメージ量または回復量";
+                if (key == "op") return "計算または比較に使う記号";
+                if (key == "x" || key == "y" || key == "z") return "移動先または位置のワールド座標";
+                if (key == "a" || key == "b") return "計算や比較へ渡す入力値";
+                if (key == "loop") return "ONなら停止するまで繰り返し再生する";
+                if (key == "visible") return "ONなら表示し、OFFなら非表示にする";
+                return "ノードが処理に使用する入力値";
+            };
+            for (const NodeParamSpec& param : selectedSpec->params) {
+                ImGui::BulletText("%s  %s", param.key.c_str(), parameterHelp(param.key));
+            }
+            ImGui::TextDisabled(selectedSpec->hasOutput
+                    ? "右下の色付きピンから処理結果を別ノードへ渡せます"
+                    : "このノードは値を出力せず、上部の実行線だけで次へ進みます");
+        }
+    }
     char pathBuf[256];
     strncpy_s(pathBuf, graphPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(360.0f);
@@ -263,13 +303,13 @@ void GraphEditor::Update(Input* input)
     ImGui::SameLine();
     ImGui::TextDisabled("|");
     ImGui::SameLine();
-    ImGui::BeginDisabled(undoStack_.empty());
+    ImGui::BeginDisabled(!history_.CanUndo());
     if (ImGui::Button("元に戻す (Ctrl+Z)")) {
         Undo();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::BeginDisabled(redoStack_.empty());
+    ImGui::BeginDisabled(!history_.CanRedo());
     if (ImGui::Button("やり直す (Ctrl+Y)")) {
         Redo();
     }
@@ -443,26 +483,6 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
     if (ImGui::IsItemDeactivated()) {
         CommitUndoCapture();
     }
-    // 右クリック  コピー・削除・開始ノード設定のコンテキストメニュー
-    // （ノード走査ループの途中でgraph_.nodesを直接書き換えるとイテレータが壊れるため、
-    // 実際の複製/削除はDrawCanvas末尾でpendingDuplicateNodeId_/pendingDeleteNodeId_経由の遅延実行にする）
-    ImGui::OpenPopupOnItemClick("NodeContextMenu", ImGuiPopupFlags_MouseButtonRight);
-    if (ImGui::BeginPopup("NodeContextMenu")) {
-        selectedNodeId_ = id;
-        selectedCommentId_.clear();
-        if (ImGui::MenuItem("開始ノードに設定")) {
-            RecordUndoSnapshotNow();
-            graph_.startNodeId = id;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("コピー")) {
-            pendingDuplicateNodeId_ = id;
-        }
-        if (ImGui::MenuItem("削除")) {
-            pendingDeleteNodeId_ = id;
-        }
-        ImGui::EndPopup();
-    }
     ImGui::TextDisabled("%s", id.c_str());
 
     DrawNodeParams(dl, id, node, nodeScreenPos, state);
@@ -481,6 +501,33 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
     ImVec2 nodeMin = ImGui::GetItemRectMin();
     ImVec2 nodeMax = ImGui::GetItemRectMax();
     nodeRects_[id] = { nodeMin, nodeMax };
+
+    // タイトルやパラメータを含むノード全体で右クリックメニューを開く
+    // ノード走査中にコンテナを変更しないよう、複製と削除はキャンバス描画後に遅延実行する
+    const ImVec2 interactionMin(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f);
+    const ImVec2 interactionMax(nodeMax.x + boxPad, nodeMax.y + boxPad);
+    if (ImGui::IsMouseHoveringRect(interactionMin, interactionMax)) {
+        state.hoveringNode = true;
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            selectedNodeId_ = id;
+            selectedCommentId_.clear();
+            ImGui::OpenPopup("NodeContextMenu");
+        }
+    }
+    if (ImGui::BeginPopup("NodeContextMenu")) {
+        if (ImGui::MenuItem("開始ノードに設定")) {
+            RecordUndoSnapshotNow();
+            graph_.startNodeId = id;
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("複製")) {
+            pendingDuplicateNodeId_ = id;
+        }
+        if (ImGui::MenuItem("削除")) {
+            pendingDeleteNodeId_ = id;
+        }
+        ImGui::EndPopup();
+    }
 
     // 背景（枠・塗り、開始ノードは緑枠で強調）
     dl->ChannelsSetCurrent(0);
@@ -987,54 +1034,37 @@ void GraphEditor::DrawAddNodeMenu()
 // 編集履歴
 // ══════════════════════════════════════════════════════
 
-void GraphEditor::PushUndo(GraphDesc snapshot)
-{
-    undoStack_.push_back(std::move(snapshot));
-    if (undoStack_.size() > kMaxUndoHistory) {
-        undoStack_.erase(undoStack_.begin());
-    }
-    redoStack_.clear(); // 新しい操作をしたら、それ以前のRedo履歴は無効にする
-    dirty_ = true; // 記録される変更 = 保存すべき変更（全ての編集操作がここを通る）
-}
-
 void GraphEditor::RecordUndoSnapshotNow()
 {
-    PushUndo(graph_);
+    history_.Record(graph_);
+    dirty_ = true;
 }
 
 void GraphEditor::BeginUndoCapture()
 {
-    if (!hasPendingUndo_) {
-        pendingUndoSnapshot_ = graph_;
-        hasPendingUndo_ = true;
-        pendingUndoDirtied_ = false;
+    if (!history_.IsCapturing()) {
+        history_.Begin(graph_);
     }
 }
 
 void GraphEditor::MarkUndoDirty()
 {
-    pendingUndoDirtied_ = true;
+    history_.MarkChanged();
+    dirty_ = true;
 }
 
 void GraphEditor::CommitUndoCapture()
 {
-    if (hasPendingUndo_) {
-        if (pendingUndoDirtied_) {
-            PushUndo(std::move(pendingUndoSnapshot_));
-        }
-        hasPendingUndo_ = false;
-        pendingUndoDirtied_ = false;
-    }
+    history_.Commit();
 }
 
 void GraphEditor::Undo()
 {
-    if (undoStack_.empty()) {
+    auto snapshot = history_.Undo(graph_);
+    if (!snapshot) {
         return;
     }
-    redoStack_.push_back(graph_);
-    graph_ = std::move(undoStack_.back());
-    undoStack_.pop_back();
+    graph_ = std::move(*snapshot);
     selectedNodeId_.clear();
     selectedCommentId_.clear();
     dirty_ = true;
@@ -1044,12 +1074,11 @@ void GraphEditor::Undo()
 
 void GraphEditor::Redo()
 {
-    if (redoStack_.empty()) {
+    auto snapshot = history_.Redo(graph_);
+    if (!snapshot) {
         return;
     }
-    undoStack_.push_back(graph_);
-    graph_ = std::move(redoStack_.back());
-    redoStack_.pop_back();
+    graph_ = std::move(*snapshot);
     selectedNodeId_.clear();
     selectedCommentId_.clear();
     dirty_ = true;

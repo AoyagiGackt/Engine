@@ -11,6 +11,9 @@
 #include <dxcapi.h>
 #include <dxgi1_6.h>
 #include <thread>
+#include <string>
+#include <mutex>
+#include <unordered_map>
 #include <wrl/client.h>
 namespace engine {
 class WinApp;
@@ -62,6 +65,12 @@ public: // メンバ関数
     bool IsVSyncEnabled() const { return vsyncEnabled_; }
     /** @brief VSyncの有効/無効を切り替える */
     void ToggleVSync() { vsyncEnabled_ = !vsyncEnabled_; }
+
+    /**
+     * @brief GPU診断ログへ添える現在の処理名を設定する
+     * @param context シーン名や描画パス名などの短い識別名
+     */
+    void SetDiagnosticContext(const std::string& context) { diagnosticContext_ = context; }
 
     /**
      * @brief シェーダーファイルをコンパイルする
@@ -211,6 +220,13 @@ private:
     void InitializeFixFPS(); ///< FPS固定用の参照時間初期化
     void UpdateFixFPS(); ///< 1/60秒に満たない場合に待機する
 
+#ifdef _DEBUG
+    /** @brief D3D12デバッグレイヤーのメッセージをエンジンログへ転送する */
+    static void CALLBACK DebugMessageCallback(
+        D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity,
+        D3D12_MESSAGE_ID id, LPCSTR description, void* context);
+#endif
+
 private:
     /** @brief フレームインフライト数（スワップチェーンのバッファ数と一致させる） */
     static constexpr UINT kFrameCount = 2;
@@ -240,6 +256,10 @@ private:
     Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils_;
     Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler_;
     Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler_;
+    /** @brief 同一プロセス内で再利用するコンパイル済みシェーダー */
+    std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<IDxcBlob>> shaderCache_;
+    /** @brief シーン初期化が並行した場合のシェーダーキャッシュを保護する */
+    std::mutex shaderCacheMutex_;
 
     // 同期・管理用メンバ
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2];
@@ -258,6 +278,14 @@ private:
     // VSync（ティアリング許可）
     bool vsyncEnabled_ = true;
     bool tearingSupported_ = false;
+
+    /** @brief GPUエラー発生時に直前の処理を特定するための識別名 */
+    std::string diagnosticContext_ = "Engine initialization";
+
+#ifdef _DEBUG
+    Microsoft::WRL::ComPtr<ID3D12InfoQueue1> infoQueue_;
+    DWORD debugCallbackCookie_ = 0;
+#endif
 };
 
 } // namespace engine

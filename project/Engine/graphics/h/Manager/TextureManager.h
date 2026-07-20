@@ -88,6 +88,11 @@ public:
      */
     void CheckHotReload();
 
+    /** @brief ゲーム実行中のテクスチャホットリロードを有効または無効にする */
+    void SetHotReloadEnabled(bool enabled) { hotReloadEnabled_ = enabled; }
+    /** @brief ゲーム実行中のテクスチャホットリロードが有効か返す */
+    bool IsHotReloadEnabled() const { return hotReloadEnabled_; }
+
     /**
      * @brief 指定したファイルパスに対応するSRVインデックスを取得する
      * @param filePath 取得したいテクスチャのファイルパス
@@ -147,6 +152,7 @@ private:
 
     /** @brief 読み込み済みテクスチャの管理用マップ（キー ファイルパス） */
     std::map<std::string, TextureData> textureDatas_;
+    bool hotReloadEnabled_ = true; ///< 開発中でも計測や安定動作を優先するとき監視を停止する
 
 
     // コピーキュー関連（初期化時に作成し再利用する）

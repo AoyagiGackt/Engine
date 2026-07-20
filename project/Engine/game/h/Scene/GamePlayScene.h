@@ -92,6 +92,25 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
     bool SupportsPostEffects() const override { return true; }
 
+    /**
+     * @brief ステージエディタの判定に使用するプレイヤー位置を返す
+     * @return 現在のプレイヤー位置
+     */
+    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+
+    /** @brief ステージエディタが読み書きするレベルファイルを返す */
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    /** @brief ステージ配置物の生成に使用するモデル共通処理を返す */
+    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    /** @brief ステージエディタの表示と操作に使用するカメラを返す */
+    Camera* GetEditorCamera() override { return camera_.get(); }
+    /** @brief エディタ配置敵の演出に使用するパーティクル管理を返す */
+    ParticleManager* GetEditorParticleManager() override { return pm_; }
+    /** @brief エディタ操作で直接更新するプレイヤー位置を返す */
+    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
+    void RefreshVisualTransformsForEditor() override;
+
     /** @brief ImGuiパネルからの手動テスト再生用 */
     void TriggerGlassShatterTest();
 
@@ -102,6 +121,18 @@ private:
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
+    /** @brief プレイヤーの進行位置に対応する操作目標を描画する */
+    void DrawStageGuide();
+    /** @brief 満杯時の武器交換入力を処理する */
+    void UpdateWeaponExchange();
+    /** @brief 満杯時の武器交換画面を描画する */
+    void DrawWeaponExchange();
+    /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
+    void UpdateWeaponEnemies();
+    /** @brief 武器固有技による進行障壁の解除を処理する */
+    void UpdateWeaponGimmicks();
+    /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
+    void UpdateEnergyCores();
     /** @brief 右上のコンボランク表示と覚醒ゲージを描画する */
     void DrawRankAndAwakenGauge();
     /** @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する */
@@ -177,11 +208,31 @@ private:
     std::unique_ptr<Skydome> skydome_;
     std::unique_ptr<Model> modelSkydome_;
 
-    LevelSpawnResult levelSpawn_;
-    std::vector<std::unique_ptr<Object3d>> borderBlocks_;
-
     std::unique_ptr<Player> player_;
     std::unique_ptr<EnemyEntity> enemy_;
+
+    struct WeaponEnemyEntry {
+        std::unique_ptr<EnemyEntity> enemy;
+        WeaponType weaponType = WeaponType::Sword;
+        bool weaponAcquired = false;
+    };
+    std::vector<WeaponEnemyEntry> weaponEnemies_;
+
+    std::unique_ptr<Model> gimmickBlockModel_;
+    std::unique_ptr<Object3d> swordGate_;
+    std::unique_ptr<Object3d> spearGate_;
+    bool swordGateActive_ = true;
+    bool spearGateActive_ = true;
+
+    struct EnergyCoreEntry {
+        std::unique_ptr<Object3d> object;
+        Vector3 position = { };
+        bool collected = false;
+    };
+    std::unique_ptr<Model> energyCoreModel_;
+    std::vector<EnergyCoreEntry> energyCores_;
+    float energyCorePulse_ = 0.0f;
+    int collectedEnergyCores_ = 0;
 
     GameTime gameTime_;
 
@@ -225,6 +276,8 @@ private:
     float styleMeter_ = 0.0f;
     float peakStyle_ = 0.0f;
     int prevStyleTier_ = 0;
+    int lastTechniqueId_ = -1;
+    int repeatedTechniqueCount_ = 0;
 
     // フィニッシャースラッシュ演出の進行状態
     bool finisherActive_ = false;

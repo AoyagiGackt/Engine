@@ -7,6 +7,7 @@
  */
 #pragma once
 #ifdef USE_IMGUI
+#include "EditorHistory.h"
 #include "GraphRuntime.h"
 #include "GraphTypes.h"
 #include <imgui.h>
@@ -95,8 +96,6 @@ private:
     void DrawVariablesPanel();
 
     // Undo/Redo（スナップショット方式、Ctrl+Z/Ctrl+Y）
-    static constexpr size_t kMaxUndoHistory = 50;
-
     /** @brief 直前のgraph_を即座にUndoスタックへ積む（追加/削除/配線など単発で完結する変更の前に呼ぶ） */
     void RecordUndoSnapshotNow();
     /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
@@ -105,15 +104,10 @@ private:
     void MarkUndoDirty();
     /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
     void CommitUndoCapture();
-    void PushUndo(GraphDesc snapshot);
     void Undo();
     void Redo();
 
-    std::vector<GraphDesc> undoStack_;
-    std::vector<GraphDesc> redoStack_;
-    GraphDesc pendingUndoSnapshot_;
-    bool hasPendingUndo_ = false;
-    bool pendingUndoDirtied_ = false;
+    EditorHistory<GraphDesc> history_;
 
     std::string graphPath_ = "Resources/Graphs/test_graph.json";
     GraphDesc graph_;

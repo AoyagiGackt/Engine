@@ -59,7 +59,8 @@ namespace SceneShared {
         const Vector4& color, float thickness, float duration);
 
     /** @brief 武器切替入力（Q/E、数字キー）を処理するweaponCycleTimer は呼び出し側が保持するクールダウン */
-    void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager, float& weaponCycleTimer);
+    void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager,
+        float& weaponCycleTimer, bool cycleAllUnlocked = false);
 
     /**
      * @brief 向いている方向に厚く、背後は控えめな攻撃判定AABBを作る（近接・射撃共通）

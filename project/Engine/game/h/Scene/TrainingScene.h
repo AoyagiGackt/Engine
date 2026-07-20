@@ -102,6 +102,8 @@ private:
     // 境界ブロック
     std::unique_ptr<Model> modelBlock_;
     std::vector<std::unique_ptr<Object3d>> borderBlocks_;
+    std::unique_ptr<Model> cityBackgroundModel_;
+    std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
 
     // ワープポータル（テストステージへ）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
@@ -124,11 +126,6 @@ private:
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
     FontRenderer fontRenderer_;
-
-    // PBR デモブロック（3 種 非金属 / 鏡面金属 / ラフ金属）
-    std::unique_ptr<Object3d> pbrDemoBlocks_[3];
-    float pbrMetallic_[3] = { 0.0f, 0.95f, 0.80f };
-    float pbrRoughness_[3] = { 0.90f, 0.05f, 0.60f };
 
 #ifdef _DEBUG
     // ビジュアルスクリプティングVMの動作確認用（Resources/Graphs/test_graph.jsonを読み込んで実行する）

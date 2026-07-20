@@ -4,12 +4,20 @@
  */
 #pragma once
 #include "Weapon.h"
+#include <array>
 #include <vector>
 namespace engine::game {
 
 /// @brief スタイル別近接武器と射撃武器の定義を保持し、選択中スタイルを管理する
 class WeaponManager {
 public:
+    /** @brief 武器入手を4スロットへ反映した結果 */
+    enum class AcquireResult {
+        Added,
+        Duplicate,
+        NeedsReplacement,
+    };
+
     /// @brief シングルトンインスタンスを取得する
     static WeaponManager* GetInstance();
 
@@ -40,8 +48,36 @@ public:
     /// @brief 前の解放済みスタイルへ切り替える（循環、未解放はスキップ）
     void SelectPrev();
 
+    /** @brief 全解放済み武器を対象に次を選び、現在スロットへ割り当てる */
+    void SelectNextUnlockedInCurrentSlot();
+
+    /** @brief 全解放済み武器を対象に前を選び、現在スロットへ割り当てる */
+    void SelectPrevUnlockedInCurrentSlot();
+
     /// @brief 指定インデックスのスタイルが解放済みか
     bool IsUnlocked(int i) const { return i >= 0 && i < static_cast<int>(unlocked_.size()) && unlocked_[i]; }
+
+    /** @brief 指定した4スロットを選択する */
+    void SelectSlot(int slot);
+    /** @brief スロットに登録された武器インデックスを返す */
+    int GetSlotWeaponIndex(int slot) const;
+    /** @brief 現在選択しているスロット番号を返す */
+    int GetSelectedSlot() const { return selectedSlot_; }
+    bool HasEquippedWeapon() const
+    {
+        return selectedSlot_ >= 0 && selectedSlot_ < static_cast<int>(slots_.size())
+            && slots_[selectedSlot_] >= 0;
+    }
+    /** @brief 武器を空きスロットへ追加し、満杯なら交換待ちにする */
+    AcquireResult Acquire(WeaponType type);
+    /** @brief 交換待ちの武器で指定スロットを置き換える */
+    void ReplacePendingWeapon(int slot);
+    /** @brief 交換待ちの武器を破棄する */
+    void DiscardPendingWeapon();
+    /** @brief 武器交換の選択待ちか返す */
+    bool HasPendingWeapon() const { return pendingWeaponIndex_ >= 0; }
+    /** @brief 交換待ちの武器データを返す */
+    const WeaponData& GetPendingWeapon() const { return weapons_[pendingWeaponIndex_]; }
 
     /**
      * @brief 指定タイプの武器を解放し、そのまま装備する（敵からの武器奪取用）
@@ -50,16 +86,19 @@ public:
      */
     bool Unlock(WeaponType type);
 
-    /** @brief 全武器を解放する（BattleTestScene で全コンボを試すためのデバッグ用） */
-    void UnlockAll() { unlocked_.assign(weapons_.size(), true); }
+    /** @brief 全武器を解放し、先頭4種をスロットへ登録する */
+    void UnlockAll();
 
 private:
     WeaponManager();
 
     std::vector<WeaponData> weapons_;
     std::vector<bool> unlocked_;
+    std::array<int, 4> slots_ { -1, -1, -1, -1 };
     std::vector<RangedWeaponData> rangedWeapons_;
     int index_ = 0;
+    int selectedSlot_ = -1;
+    int pendingWeaponIndex_ = -1;
     int rangedIndex_ = 0;
 };
 

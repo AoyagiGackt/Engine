@@ -121,6 +121,11 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    void SetHorizontalBounds(float minX, float maxX)
+    {
+        minX_ = minX;
+        maxX_ = maxX;
+    }
     /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
     Vector3& GetPositionRef() { return pos_; }
     /**
@@ -176,6 +181,7 @@ public:
 
     // スタイル技フラグ（その1フレームだけ true）
     bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
+    bool JustWeaponSwitchHit() const { return justWeaponSwitchHit_; }
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
     bool JustBlinked() const { return justBlinked_; } ///< ブリンク発動フレーム
@@ -217,6 +223,7 @@ public:
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
     float GetAxeRageMult() const { return IsAxeEnraged() ? kAxeRageDamageMult_ : 1.0f; }
     bool IsScytheHovering() const { return isScytheHovering_; } ///< シザー: 滞空ホバー中か
+    bool JustScytheSpin() const { return justScytheSpin_; }
 
     // 覚醒乱舞（Sword + 覚醒 + L）
     bool IsRampaging() const { return rampagePhase_ != RampagePhase::Inactive; } ///< 乱舞中か
@@ -238,8 +245,8 @@ private:
     // 通常物理
     static constexpr float kGroundY_ = 0.4f;
     static constexpr float kCeilingY_ = 12.0f;
-    static constexpr float kMinX_ = 3.0f;
-    static constexpr float kMaxX_ = 35.0f;
+    float minX_ = 3.0f;
+    float maxX_ = 35.0f;
     static constexpr float kGravity_ = 0.012f;
     static constexpr float kJumpPower_ = 0.4f;
     static constexpr float kSpeed_ = 0.15f;
@@ -290,6 +297,12 @@ private:
 
     // スタイル技（L / K キー）
     bool justComboHit_ = false;
+    bool justWeaponSwitchHit_ = false;
+    bool weaponSwitchAttackPending_ = false;
+    bool weaponSwitchAttackActive_ = false;
+    float weaponSwitchWindow_ = 0.0f;
+    static constexpr float kWeaponSwitchWindow_ = 0.75f;
+    static constexpr float kWeaponSwitchLunge_ = 0.8f;
     int comboStep_ = 0;
     bool justFired_ = false;
     bool justBlinked_ = false;
@@ -332,6 +345,7 @@ private:
     static constexpr float kGreatswordSkillCooldown_ = 1.3f;
     // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
     bool isScytheHovering_ = false;
+    bool justScytheSpin_ = false;
     float scytheHoverTimer_ = kScytheHoverMax_;
     static constexpr float kScytheHoverMax_ = 0.9f; // 最大連続ホバー時間（秒）
     static constexpr float kScytheHoverRecoverRate_ = 2.0f; // 接地中の回復速度倍率

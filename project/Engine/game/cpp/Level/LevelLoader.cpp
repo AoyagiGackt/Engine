@@ -3,6 +3,7 @@
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
+#include <algorithm>
 #include <cctype>
 #include <unordered_map>
 
@@ -48,6 +49,7 @@ LevelData LevelLoader::Load(const std::string& path)
 
     for (const auto& obj : j.value("objects", nlohmann::json::array())) {
         ObjectDesc desc;
+        desc.enabled = obj.value("enabled", true);
         desc.name = obj.value("name", "");
         desc.parent = obj.value("parent", "");
         desc.type = obj.value("type", "static");
@@ -59,6 +61,22 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.scale = ReadVec3(obj.value("scale", nlohmann::json::array()), { 1.0f, 1.0f, 1.0f });
         desc.lighting = obj.value("lighting", true);
         desc.solid = obj.value("solid", false);
+        desc.activationFlag = obj.value("activationFlag", "");
+        desc.activeWhenFlag = obj.value("activeWhenFlag", true);
+        desc.activationDelay = obj.value("activationDelay", 0.0f);
+        desc.enemyGroup = obj.value("enemyGroup", "");
+        desc.conditionType = obj.value("conditionType", "manual");
+        desc.conditionSeconds = obj.value("conditionSeconds", 0.0f);
+        desc.gimmickMotion = obj.value("gimmickMotion", "none");
+        desc.motionAmount = obj.value("motionAmount", 3.0f);
+        desc.motionSpeed = obj.value("motionSpeed", 1.0f);
+        desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", 0.5f);
+        desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", 2.0f);
+        desc.spawnType = obj.value("spawnType", "basic");
+        desc.patrolRoute = obj.value("patrolRoute", "");
+        desc.routeOrder = obj.value("routeOrder", 0);
+        desc.patrolSpeed = obj.value("patrolSpeed", 1.5f);
+        desc.meshCollider = obj.value("meshCollider", false);
 
         std::string ax = obj.value("axis", "x");
         desc.axis = ax.empty() ? 'x' : static_cast<char>(std::tolower(static_cast<unsigned char>(ax[0])));
@@ -78,6 +96,14 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.once = trg.value("once", true);
         data.triggers.push_back(std::move(desc));
     }
+
+    for (const auto& checkpoint : j.value("checkpoints", nlohmann::json::array())) {
+        CheckpointDesc desc;
+        desc.name = checkpoint.value("name", "");
+        desc.position = ReadVec3(checkpoint.value("position", nlohmann::json::array()));
+        desc.activationRadius = (std::max)(checkpoint.value("activationRadius", 2.0f), 0.1f);
+        data.checkpoints.push_back(std::move(desc));
+    }
     return data;
 }
 
@@ -90,6 +116,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
     nlohmann::json objectsJson = nlohmann::json::array();
     for (const auto& desc : data.objects) {
         nlohmann::json oj;
+        oj["enabled"] = desc.enabled;
         oj["name"] = desc.name;
         oj["parent"] = desc.parent;
         oj["type"] = desc.type;
@@ -101,6 +128,22 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["scale"] = WriteVec3(desc.scale);
         oj["lighting"] = desc.lighting;
         oj["solid"] = desc.solid;
+        oj["activationFlag"] = desc.activationFlag;
+        oj["activeWhenFlag"] = desc.activeWhenFlag;
+        oj["activationDelay"] = desc.activationDelay;
+        oj["enemyGroup"] = desc.enemyGroup;
+        oj["conditionType"] = desc.conditionType;
+        oj["conditionSeconds"] = desc.conditionSeconds;
+        oj["gimmickMotion"] = desc.gimmickMotion;
+        oj["motionAmount"] = desc.motionAmount;
+        oj["motionSpeed"] = desc.motionSpeed;
+        oj["cameraBlendSeconds"] = desc.cameraBlendSeconds;
+        oj["cameraHoldSeconds"] = desc.cameraHoldSeconds;
+        oj["spawnType"] = desc.spawnType;
+        oj["patrolRoute"] = desc.patrolRoute;
+        oj["routeOrder"] = desc.routeOrder;
+        oj["patrolSpeed"] = desc.patrolSpeed;
+        oj["meshCollider"] = desc.meshCollider;
         oj["axis"] = std::string(1, desc.axis);
         oj["count"] = desc.count;
         oj["step"] = desc.step;
@@ -120,6 +163,16 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         triggersJson.push_back(std::move(tj));
     }
     j["triggers"] = std::move(triggersJson);
+
+    nlohmann::json checkpointsJson = nlohmann::json::array();
+    for (const auto& desc : data.checkpoints) {
+        nlohmann::json checkpointJson;
+        checkpointJson["name"] = desc.name;
+        checkpointJson["position"] = WriteVec3(desc.position);
+        checkpointJson["activationRadius"] = desc.activationRadius;
+        checkpointsJson.push_back(std::move(checkpointJson));
+    }
+    j["checkpoints"] = std::move(checkpointsJson);
 
     JsonHelper::Save(path, j);
 }
@@ -179,7 +232,7 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
 
     for (const auto& desc : data.objects) {
         // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
-        if (desc.kind != "prop" || desc.model.empty()) {
+        if (!desc.enabled || (desc.kind != "prop" && desc.kind != "gimmick" && desc.kind != "terrain") || desc.model.empty()) {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);

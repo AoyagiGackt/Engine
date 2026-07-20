@@ -53,11 +53,6 @@ private:
     /** @brief 2D描画用のグラフィックスパイプラインステート（PSO） */
     Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;
 
-    /** @brief デフォルトのライト情報用リソース（b1 DirectionalLight ダミー） */
-    Microsoft::WRL::ComPtr<ID3D12Resource> defaultLightResource_;
-
-    /** @brief ポイントライトバッファ用ダミーリソース（b2 PointLightBuffer — スプライトは count=0 で使用しない） */
-    Microsoft::WRL::ComPtr<ID3D12Resource> defaultPointLightResource_;
 };
 
 } // namespace engine::graphics
