@@ -154,9 +154,7 @@ private:
     std::map<std::string, TextureData> textureDatas_;
     bool hotReloadEnabled_ = true; ///< 開発中でも計測や安定動作を優先するとき監視を停止する
 
-
     // コピーキュー関連（初期化時に作成し再利用する）
-
 
     /** @brief テクスチャ転送専用のコピーコマンドキュー */
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
@@ -169,12 +167,10 @@ private:
     UINT64 copyFenceValue_ = 0;
     HANDLE copyFenceEvent_ = nullptr;
 
-
     // バリア遷移用（COMMON → PIXEL_SHADER_RESOURCE、グラフィックスキュー）
 
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> transAllocator_;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> transCmdList_;
-
 
     // バッチ転送の保留リスト
 

@@ -14,7 +14,7 @@ namespace engine::game {
  * @brief 任意のスナップショット型に対応する編集履歴クラス
  * @tparam Snapshot 復元に必要な編集状態を保持する型
  */
-template<class Snapshot>
+template <class Snapshot>
 class EditorHistory {
 public:
     /** @brief 最大履歴数を指定して初期化する */

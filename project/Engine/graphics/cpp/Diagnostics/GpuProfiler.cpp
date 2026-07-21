@@ -3,9 +3,9 @@
  * @brief GpuProfilerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "GpuProfiler.h"
-#include "FrameProfiler.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"
+#include "FrameProfiler.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif

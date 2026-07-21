@@ -27,9 +27,7 @@ public:
      */
     void Update() { RecalcMatrices(); }
 
-
     // セッター（呼ぶだけで行列が自動更新される）
-
 
     void SetRotate(const Vector3& rotate)
     {
@@ -62,9 +60,7 @@ public:
         isDirty_ = true;
     }
 
-
     // ゲッター（常に最新の行列を返す）
-
 
     const Vector3& GetRotate() const { return transform_.rotate; }
     const Vector3& GetTranslate() const { return transform_.translate; }

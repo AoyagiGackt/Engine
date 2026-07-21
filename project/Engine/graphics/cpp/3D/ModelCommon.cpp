@@ -22,7 +22,6 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-
     // 通常描画用 Root Signature
     // スロット 0 (PS, b0)   マテリアル
     // スロット 1 (VS, b0)   変換行列
@@ -64,7 +63,6 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
-
     // 通常描画用 PSO（ブレンドモード別）
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PH::MakeDefault3dPsoDesc();
@@ -80,7 +78,6 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
         graphicsPipelineStates_[i]->SetName(name.c_str());
     }
 
-
     // シャドウパス用 Root Signature（CBV 1つ  TransformationMatrix）
 
     D3D12_ROOT_PARAMETER shadowParam[1] = {
@@ -92,7 +89,6 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     shadowRsDesc.pParameters = shadowParam;
     shadowRsDesc.NumParameters = _countof(shadowParam);
     shadowRootSignature_ = PH::CreateRootSignature(device, shadowRsDesc);
-
 
     // シャドウパス用 PSO（深度のみ書き込み）
 

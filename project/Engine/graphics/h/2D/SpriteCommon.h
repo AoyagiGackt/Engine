@@ -52,7 +52,6 @@ private:
 
     /** @brief 2D描画用のグラフィックスパイプラインステート（PSO） */
     Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;
-
 };
 
 } // namespace engine::graphics

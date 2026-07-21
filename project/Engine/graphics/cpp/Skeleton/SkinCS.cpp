@@ -20,7 +20,6 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     inputGpuVA_ = inputBuffer->GetGPUVirtualAddress();
     ID3D12Device* device = dxCommon->GetDevice();
 
-
     // コンピュートルートシグネチャ
     //   スロット 0 (b1): 頂点数 (32ビット定数)
     //   スロット 1 (t0): 入力頂点バッファ (SRV)
@@ -63,7 +62,6 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
         0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
         IID_PPV_ARGS(&csRootSig_));
 
-
     // コンピュートPSO
 
     Microsoft::WRL::ComPtr<IDxcBlob> csBlob = dxCommon->CompileShader(
@@ -74,7 +72,6 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     psoDesc.pRootSignature = csRootSig_.Get();
     psoDesc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
     device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&csPSO_));
-
 
     // 出力バッファ (DEFAULT heap, UAV フラグ付き)
 

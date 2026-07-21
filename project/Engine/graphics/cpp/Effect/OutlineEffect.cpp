@@ -14,7 +14,6 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon->GetDevice();
 
-
     // ルートシグネチャの設定
 
     // slot 0 (ALL shaders, b0)  OutlineParams
@@ -44,14 +43,12 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&rootSignature_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-
     // シェーダーのコンパイル
 
     // OutlineVS  法線方向にクリップ空間で頂点を膨らませる
     // OutlinePS  単色で塗りつぶすだけ
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlineVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon->CompileShader(L"Resources/shaders/outline/OutlinePS.hlsl", L"ps_6_0");
-
 
     // 頂点レイアウト（Model::VertexData と一致させること）
 
@@ -60,7 +57,6 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
-
 
     // PSO（パイプラインステートオブジェクト）の設定
 
@@ -103,7 +99,6 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
 
     hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
     ENGINE_ASSERT(SUCCEEDED(hr));
-
 
     // 定数バッファ（アウトライン色と幅）
 

@@ -55,7 +55,6 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&graphicsPipelineState_));
     ENGINE_ASSERT(SUCCEEDED(hr));
     graphicsPipelineState_->SetName(L"SpriteCommon.SpritePS");
-
 }
 
 void SpriteCommon::CommonDrawSettings()
@@ -65,5 +64,4 @@ void SpriteCommon::CommonDrawSettings()
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
     commandList->SetPipelineState(graphicsPipelineState_.Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
 }
