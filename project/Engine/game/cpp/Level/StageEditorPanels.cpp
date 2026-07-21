@@ -106,6 +106,18 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 
 void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
 {
+    if (editor.camera_ && ImGui::CollapsingHeader("ゲームカメラ", ImGuiTreeNodeFlags_DefaultOpen)) {
+        Vector3 position = editor.camera_->GetTranslate();
+        Vector3 rotation = editor.camera_->GetRotate();
+        if (ImGui::DragFloat3("カメラ位置", &position.x, 0.1f)) {
+            editor.camera_->SetTranslate(position);
+        }
+        if (ImGui::DragFloat3("カメラ回転", &rotation.x, 0.01f)) {
+            editor.camera_->SetRotate(rotation);
+        }
+        ImGui::TextDisabled("WASD: XY移動 / Q,E: 奥行き移動");
+    }
+
     char pathBuf[256];
     strncpy_s(pathBuf, editor.levelPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(-1.0f);
@@ -733,6 +745,16 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
         captureItemUndo(ImGui::DragFloat("動作速度", &desc.motionSpeed, 0.1f, 0.0f, 20.0f));
     }
     if (desc.kind == "camera_point") {
+        if (editor.camera_ && ImGui::Button("現在のビューをカメラポイントへ保存")) {
+            editor.RecordUndoSnapshotNow();
+            desc.position = editor.camera_->GetTranslate();
+            desc.rotation = editor.camera_->GetRotate();
+            editor.RefreshTransforms(editor.objects_[editor.selIndex_]);
+        }
+        if (editor.camera_ && ImGui::Button("カメラポイントをプレビュー")) {
+            editor.camera_->SetTranslate(editor.WorldPositionOf(desc));
+            editor.camera_->SetRotate(desc.rotation);
+        }
         captureItemUndo(ImGui::DragFloat("カメラ補間秒数", &desc.cameraBlendSeconds, 0.05f, 0.0f, 10.0f));
         captureItemUndo(ImGui::DragFloat("カメラ維持秒数", &desc.cameraHoldSeconds, 0.1f, 0.0f, 30.0f));
     }

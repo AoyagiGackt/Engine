@@ -119,6 +119,13 @@ void GamePlayScene::InitializeCoreSystems()
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
+    awakenGaugeBg_ = std::make_unique<Sprite>();
+    awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    awakenGaugeBg_->SetColor({ 0.04f, 0.06f, 0.10f, 0.85f });
+    awakenGaugeFg_ = std::make_unique<Sprite>();
+    awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    InitializeWeaponSlotHud();
+
     ghostObject_ = std::make_unique<Object3d>();
     ghostObject_->Initialize(modelCommon_.get());
     ghostObject_->SetModel(player_->GetModel());
@@ -515,6 +522,15 @@ void GamePlayScene::UpdateWeaponEnemies()
 void GamePlayScene::UpdateWeaponGimmicks()
 {
     const Vector3& pos = player_->GetPosition();
+    const float gatePulse = 0.72f + 0.28f * std::sin(energyCorePulse_ * 6.0f);
+    if (swordGateActive_) {
+        swordGate_->SetColor({ 1.0f * gatePulse, 0.10f * gatePulse, 0.03f, 1.0f });
+        swordGate_->Update();
+    }
+    if (spearGateActive_) {
+        spearGate_->SetColor({ 0.04f, 0.45f * gatePulse, 1.0f * gatePulse, 1.0f });
+        spearGate_->Update();
+    }
     if (swordGateActive_ && player_->JustSwordDash() && std::abs(pos.x - 17.5f) <= 3.0f) {
         swordGateActive_ = false;
         pm_->EmitRing("sword_slash", { 17.5f, 1.5f, 0.0f }, 4.0f,
@@ -585,6 +601,14 @@ void GamePlayScene::UpdateCamera()
 
 void GamePlayScene::UpdateStyleAndUI(float dt)
 {
+    if (dt <= 0.0f) {
+        UpdateWeaponSlotHud();
+        DrawStyleUI();
+        return;
+    }
+
+    UpdateWeaponSlotHud();
+
     const auto* wm = WeaponManager::GetInstance();
     const Vector3& ppos = player_->GetPosition();
     const Vector3& epos = enemy_->GetPosition();
@@ -1262,6 +1286,12 @@ void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
 
+    awakenGaugeBg_->Draw();
+    if (player_->GetAwakenGauge() > 0.0f) {
+        awakenGaugeFg_->Draw();
+    }
+    DrawWeaponSlotHud();
+
     for (auto& e : sceneEditor_.GetUIElements()) {
         e.sprite->Update();
         e.sprite->Draw();
@@ -1334,9 +1364,97 @@ void GamePlayScene::DrawStyleUI()
 
     DrawStageGuide();
     DrawRogueliteHUD();
-    DrawRankAndAwakenGauge();
-    DrawStyleCommands();
+    SceneShared::DrawWeaponListHud(fontRenderer_, WeaponManager::GetInstance(), L"ステージ");
+    SceneShared::DrawControlsHud(fontRenderer_, L": ステージを進む");
+    SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
+        player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_);
     DrawWeaponExchange();
+}
+
+void GamePlayScene::InitializeWeaponSlotHud()
+{
+    constexpr float size = 56.0f;
+    constexpr float gap = 10.0f;
+    constexpr float marginX = 24.0f;
+    const float y = static_cast<float>(WinApp::kClientHeight) - 90.0f;
+    const auto& list = WeaponManager::GetInstance()->GetList();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        const float x = marginX + static_cast<float>(i) * (size + gap);
+        weaponSlotPos_[i] = { x, y };
+        weaponSlots_[i].frame = std::make_unique<Sprite>();
+        weaponSlots_[i].frame->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponSlots_[i].frame->SetPosition({ x, y });
+        weaponSlots_[i].frame->SetSize({ size, size });
+        weaponSlots_[i].icon = std::make_unique<Sprite>();
+        weaponSlots_[i].icon->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponSlots_[i].icon->SetPosition({ x + 6.0f, y + 6.0f });
+        weaponSlots_[i].icon->SetSize({ size - 12.0f, size - 12.0f });
+        if (i < static_cast<int>(list.size())) {
+            const float* color = list[i].styleColor;
+            weaponSlots_[i].icon->SetColor({ color[0], color[1], color[2], 0.9f });
+        }
+    }
+    gunPos_ = { marginX + kWeaponSlotCount * (size + gap) + 24.0f, y };
+    gunFrame_ = std::make_unique<Sprite>();
+    gunFrame_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    gunFrame_->SetPosition(gunPos_);
+    gunFrame_->SetSize({ size, size });
+    gunIcon_ = std::make_unique<Sprite>();
+    gunIcon_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    gunIcon_->SetAnchorPoint({ 0.5f, 0.5f });
+    gunIcon_->SetPosition({ gunPos_.x + size * 0.5f, gunPos_.y + size * 0.5f });
+    gunIcon_->SetSize({ size - 20.0f, size - 20.0f });
+    gunIcon_->SetColor({ 0.6f, 0.85f, 1.0f, 0.9f });
+}
+
+void GamePlayScene::UpdateWeaponSlotHud()
+{
+    weaponSlotPulse_ += GameConstants::kFrameDeltaTime;
+    gunIconAngle_ += GameConstants::kFrameDeltaTime * 0.6f;
+    const float pulse = 0.7f + 0.3f * std::sin(weaponSlotPulse_ * 6.0f);
+    auto* wm = WeaponManager::GetInstance();
+    const auto& list = wm->GetList();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        const bool active = i == wm->GetSelectedSlot();
+        const float brightness = 0.08f + (active ? pulse * 0.35f : 0.0f);
+        weaponSlots_[i].frame->SetColor({ brightness, brightness, brightness + (active ? 0.2f : 0.05f), 0.85f });
+        weaponSlots_[i].frame->Update();
+        const int weaponIndex = wm->GetSlotWeaponIndex(i);
+        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size()) && wm->IsUnlocked(weaponIndex);
+        if (unlocked) {
+            const float* color = list[weaponIndex].styleColor;
+            const float mul = active ? 0.7f + pulse * 0.3f : 0.5f;
+            weaponSlots_[i].icon->SetColor({ color[0] * mul, color[1] * mul, color[2] * mul, 0.95f });
+        } else {
+            weaponSlots_[i].icon->SetColor({ 0.2f, 0.2f, 0.2f, 0.35f });
+        }
+        weaponSlots_[i].icon->Update();
+    }
+    gunFrame_->SetColor({ 0.08f, 0.08f, 0.15f, 0.85f });
+    gunFrame_->Update();
+    gunIcon_->SetRotation(gunIconAngle_);
+    gunIcon_->Update();
+}
+
+void GamePlayScene::DrawWeaponSlotHud()
+{
+    for (auto& slot : weaponSlots_) {
+        slot.frame->Draw();
+    }
+    gunFrame_->Draw();
+    for (auto& slot : weaponSlots_) {
+        slot.icon->Draw();
+    }
+    gunIcon_->Draw();
+    const auto* wm = WeaponManager::GetInstance();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        if (!wm->IsUnlocked(i)) {
+            fontRenderer_.DrawStringW(L"?", weaponSlotPos_[i].x + 22.0f,
+                weaponSlotPos_[i].y + 16.0f, 1.6f, { 0.6f, 0.6f, 0.6f, 0.9f });
+        }
+    }
+    fontRenderer_.DrawString("GUN", gunPos_.x + 10.0f, gunPos_.y + 60.0f, 1.0f,
+        { 0.6f, 0.85f, 1.0f, 0.9f });
 }
 
 void GamePlayScene::UpdateWeaponExchange()

@@ -119,7 +119,7 @@ void WorldToScreen(float worldX, float worldY, float camX, float camY, float& ou
 void UpdateCameraFollow(Camera* camera, const Vector3& playerPos)
 {
     constexpr float kBlockRadius = 0.5f;
-    camera->SetTranslate({ std::clamp(playerPos.x, 2.0f - kBlockRadius + GameConstants::kCameraHalfW, 28.0f + kBlockRadius - GameConstants::kCameraHalfW),
+    camera->SetTranslate({ std::clamp(playerPos.x, 2.0f - kBlockRadius + GameConstants::kCameraHalfW, 36.0f + kBlockRadius - GameConstants::kCameraHalfW),
         std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH, 13.0f + kBlockRadius - GameConstants::kCameraHalfH),
         -24.0f });
 }

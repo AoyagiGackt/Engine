@@ -5,6 +5,7 @@
 #pragma once
 
 // 標準ライブラリ
+#include <array>
 #include <deque>
 #include <memory>
 #include <random>
@@ -167,6 +168,12 @@ private:
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
+    /** @brief テストシーンと共通の武器スロットUIを初期化する */
+    void InitializeWeaponSlotHud();
+    /** @brief 武器スロットUIの選択状態と演出を更新する */
+    void UpdateWeaponSlotHud();
+    /** @brief 武器スロットUIを描画する */
+    void DrawWeaponSlotHud();
     /** @brief プレイヤーの進行位置に対応する操作目標を描画する */
     void DrawStageGuide();
     /** @brief 満杯時の武器交換入力を処理する */
@@ -246,6 +253,20 @@ private:
     ParticleManager* pm_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
+    std::unique_ptr<Sprite> awakenGaugeBg_;
+    std::unique_ptr<Sprite> awakenGaugeFg_;
+    struct WeaponSlotUI {
+        std::unique_ptr<Sprite> frame;
+        std::unique_ptr<Sprite> icon;
+    };
+    static constexpr int kWeaponSlotCount = 7;
+    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
+    std::unique_ptr<Sprite> gunFrame_;
+    std::unique_ptr<Sprite> gunIcon_;
+    Vector2 gunPos_ = {};
+    float weaponSlotPulse_ = 0.0f;
+    float gunIconAngle_ = 0.0f;
     std::unique_ptr<ModelCommon> modelCommon_;
     std::unique_ptr<Object3dCommon> objectCommon_;
     std::unique_ptr<ShadowManager> shadowManager_;
