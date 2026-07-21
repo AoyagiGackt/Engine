@@ -26,10 +26,10 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"化延長速促進疾走跳躍乱舞維持" // スキル名
                                   L"距離倍大数階増加弾度蓄積移減衰" // スキル説明
                                   L"所済次開始" // ショップ・タイトル
-                                   L"切替散" // TrainingScene追加
-                                   L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
-                                   L"締踏込貫通" // 銃コンボのコマンド説明
-                                   L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"; // 全シーンのUI文字列
+                                  L"切替散" // TrainingScene追加
+                                  L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
+                                  L"締踏込貫通" // 銃コンボのコマンド説明
+                                  L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"; // 全シーンのUI文字列
 static constexpr uint32_t kHiraganaStart = 0x3041;
 static constexpr uint32_t kHiraganaEnd = 0x3096;
 static constexpr uint32_t kKatakanaStart = 0x30A0;

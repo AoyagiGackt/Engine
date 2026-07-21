@@ -4,9 +4,9 @@
  */
 #include "SceneManager.h"
 #include "CrashHandler.h"
+#include "Logger.h"
 #include "StageEditor.h"
 #include "TextureManager.h"
-#include "Logger.h"
 #include "TitleScene.h"
 #include <stdexcept>
 #ifdef _DEBUG

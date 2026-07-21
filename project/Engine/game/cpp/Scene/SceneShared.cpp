@@ -166,7 +166,8 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
             std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
         fontRenderer.DrawString(buf, px, py, kScale,
-            selected ? kColorSel : occupied ? kColorNormal : kColorLocked);
+            selected ? kColorSel : occupied ? kColorNormal
+                                            : kColorLocked);
         py += kLineH;
     }
 

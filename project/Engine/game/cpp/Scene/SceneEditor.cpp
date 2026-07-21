@@ -244,9 +244,9 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
     // シーン切り替えボタン（折りたたみ）
     if (ImGui::CollapsingHeader("Actions")) {
         if (ImGui::Button("Game Clear")) {
-    if (ctx.requestClear) {
-        *ctx.requestClear = true;
-    }
+            if (ctx.requestClear) {
+                *ctx.requestClear = true;
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button("Game Over")) {

@@ -257,8 +257,7 @@ void MapScene::Update()
         return;
     }
 
-    if (selectedCol_ == curFloor && (input_->TriggerKey(DIK_RETURN)
-        || input_->TriggerButton(XINPUT_GAMEPAD_A))) {
+    if (selectedCol_ == curFloor && (input_->TriggerKey(DIK_RETURN) || input_->TriggerButton(XINPUT_GAMEPAD_A))) {
         RunData::NodeType chosen = floors_[selectedCol_][0];
         rd->SetCurrentNode(chosen);
 
@@ -346,7 +345,8 @@ void MapScene::Draw()
         for (int i = 0; i < count; ++i) {
             const bool isNear = i == selectedCol_;
             const float screenX = (portalXs[i] - cameraPos.x)
-                / GameConstants::kCameraHalfW * 640.0f + 640.0f;
+                    / GameConstants::kCameraHalfW * 640.0f
+                + 640.0f;
 
             wchar_t stageLabel[32];
             swprintf_s(stageLabel, L"ステージ %d", i + 1);

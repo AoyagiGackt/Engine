@@ -169,7 +169,8 @@ void Player::UpdateAnimationState(bool isMoving)
     bool hasGunBone = skel.GetJointMap().find(rig_->gunBoneName) != skel.GetJointMap().end();
     auto* weaponManager = WeaponManager::GetInstance();
     bool hold = (weaponManager->HasEquippedWeapon()
-        && UsesHoldPose(weaponManager->GetCurrent().type)) || hasGunBone;
+                    && UsesHoldPose(weaponManager->GetCurrent().type))
+        || hasGunBone;
     if (newState == animState_ && hold == animHold_) {
         return;
     }

@@ -4,8 +4,8 @@
  */
 #ifdef USE_IMGUI
 #include "GraphEditor.h"
-#include "GraphEditorServices.h"
 #include "EditorUI.h"
+#include "GraphEditorServices.h"
 #include "GraphRuntime.h"
 #include "Input.h"
 #include "NodeRegistry.h"
@@ -107,8 +107,6 @@ void GraphEditor::Update(Input* input)
     GraphEditorInteraction::Update(*this, input);
 }
 
-
-
 // ══════════════════════════════════════════════════════
 // キャンバスとノード描画
 // ══════════════════════════════════════════════════════
@@ -197,8 +195,6 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
 {
     GraphNodeRenderer::Draw(*this, dl, origin, id, node, &state);
 }
-
-
 
 void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state)
 {

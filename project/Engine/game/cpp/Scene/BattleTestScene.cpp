@@ -3,8 +3,8 @@
  * @brief BattleTestSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "BattleTestScene.h"
-#include "BattleTestSceneRenderer.h"
 #include "AudioBridge.h"
+#include "BattleTestSceneRenderer.h"
 #include "Collision.h"
 #include "DiagnosticsDraw.h"
 #include "GameConstants.h"

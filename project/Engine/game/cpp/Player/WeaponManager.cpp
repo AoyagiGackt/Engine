@@ -136,7 +136,8 @@ WeaponManager::WeaponManager()
         auto effectColor = effect.value("color", nlohmann::json::array());
         for (size_t i = 0; i < 4; ++i) {
             data.effectColor[i] = i < effectColor.size()
-                ? effectColor[i].get<float>() : data.styleColor[i];
+                ? effectColor[i].get<float>()
+                : data.styleColor[i];
         }
 
         weapons_.push_back(std::move(data));
@@ -296,7 +297,8 @@ void WeaponManager::UnlockAll()
     unlocked_.assign(weapons_.size(), true);
     slots_.fill(-1);
     for (int slot = 0; slot < static_cast<int>(slots_.size())
-        && slot < static_cast<int>(weapons_.size()); ++slot) {
+        && slot < static_cast<int>(weapons_.size());
+        ++slot) {
         slots_[slot] = slot;
     }
     selectedSlot_ = 0;

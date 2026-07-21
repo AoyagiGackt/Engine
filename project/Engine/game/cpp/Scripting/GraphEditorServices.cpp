@@ -4,8 +4,8 @@
  */
 #ifdef USE_IMGUI
 #include "GraphEditorServices.h"
-#include "GraphEditor.h"
 #include "EditorUI.h"
+#include "GraphEditor.h"
 #include "GraphRuntime.h"
 #include "Input.h"
 #include "NodeRegistry.h"
@@ -20,10 +20,14 @@ namespace engine::game {
 ImU32 GraphEditorDrawingStyle::ColorForType(GraphValueType type)
 {
     switch (type) {
-    case GraphValueType::Float: return IM_COL32(110, 220, 110, 255);
-    case GraphValueType::Bool: return IM_COL32(220, 100, 100, 255);
-    case GraphValueType::String: return IM_COL32(200, 120, 220, 255);
-    default: return IM_COL32(240, 240, 240, 255);
+    case GraphValueType::Float:
+        return IM_COL32(110, 220, 110, 255);
+    case GraphValueType::Bool:
+        return IM_COL32(220, 100, 100, 255);
+    case GraphValueType::String:
+        return IM_COL32(200, 120, 220, 255);
+    default:
+        return IM_COL32(240, 240, 240, 255);
     }
 }
 
@@ -264,7 +268,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
 
 void GraphEditorInteraction::FinishFrame(GraphEditor& editor, float realDeltaTime)
 {
-// Subgraphノードの開くボタン（ノード走査ループ内で押される）はここでまとめて処理する
+    // Subgraphノードの開くボタン（ノード走査ループ内で押される）はここでまとめて処理する
     if (!editor.pendingOpenPath_.empty()) {
         std::string path = editor.pendingOpenPath_;
         editor.pendingOpenPath_.clear();
@@ -484,7 +488,6 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     }
 
     ImGui::PopID();
-
 }
 } // namespace engine::game
 #endif

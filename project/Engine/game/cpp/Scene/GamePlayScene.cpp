@@ -3,9 +3,9 @@
  * @brief GamePlaySceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "GamePlayScene.h"
-#include "GamePlaySceneInitializer.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
+#include "GamePlaySceneInitializer.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
@@ -20,8 +20,8 @@
 #include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
-#include "StringUtility.h"
 #include "StageEditor.h"
+#include "StringUtility.h"
 #include "TextureManager.h"
 #include "WeaponManager.h"
 #include <algorithm>
@@ -477,10 +477,7 @@ void GamePlayScene::UpdateWeaponEnemies()
                     playerPos, player_->GetLastDirX(), wm->GetRanged().range, 0.8f);
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
-            if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat()
-                || player_->JustBlinked() || player_->JustGreatswordSlam()
-                || player_->JustSpinShot() || player_->JustScytheSpin()
-                || player_->JustAxeCharge())) {
+            if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustBlinked() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
                 const AABB range = {
                     { playerPos.x - 3.0f, playerPos.y - 2.0f, -0.5f },
                     { playerPos.x + 3.0f, playerPos.y + 2.0f, 0.5f }
