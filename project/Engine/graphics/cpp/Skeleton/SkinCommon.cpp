@@ -17,7 +17,6 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-
     // Root Signature (ModelCommon と同一 + スロット 6, 7, 8 追加)
     // スロット 0 (PS, b0) : マテリアル
     // スロット 1 (VS, b0) : 変換行列

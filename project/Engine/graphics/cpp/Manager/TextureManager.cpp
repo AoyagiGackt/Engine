@@ -375,7 +375,6 @@ void TextureManager::FlushUploads()
 
     HRESULT hr;
 
-
     // 1. コピーコマンドリストを閉じてコピーキューで一括実行
 
     hr = copyCmdList_->Close();
@@ -383,13 +382,11 @@ void TextureManager::FlushUploads()
     ID3D12CommandList* copyCmds[] = { copyCmdList_.Get() };
     copyQueue_->ExecuteCommandLists(1, copyCmds);
 
-
     // 2. コピーキュー完了を待機（全テクスチャを通じて1回のみ）
 
     DirectXCommon::WaitForFence(copyQueue_.Get(), copyFence_.Get(), copyFenceValue_, copyFenceEvent_);
     // コピー完了後にアップロードバッファを解放する
     pendingUploadBuffers_.clear();
-
 
     // 3. COMMON → PIXEL_SHADER_RESOURCE バリアをグラフィックスキューで一括処理
     //    （コピーキューの ExecuteCommandLists 後、リソースは COMMON 状態に復帰している）
@@ -416,7 +413,6 @@ void TextureManager::FlushUploads()
     // グラフィックスキューの完了待機（DirectXCommon の永続フェンスを再利用）
     dxCommon_->WaitForGpu();
     pendingResources_.clear();
-
 
     // 4. コピーアロケータとコマンドリストをリセットして次のバッチに備える
 

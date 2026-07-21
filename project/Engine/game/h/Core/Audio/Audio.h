@@ -58,9 +58,7 @@ public:
      */
     SoundData LoadAudio(const std::string& filename);
 
-
     // BGM（1チャンネル、ループ再生）
-
 
     /**
      * @brief BGM を再生する（前の BGM は自動停止）
@@ -95,9 +93,7 @@ public:
      */
     void SetBGMSpeed(float speed);
 
-
     // SE（複数同時再生、自動クリーンアップ）
-
 
     /**
      * @brief SE を再生する（複数同時再生可）
@@ -111,9 +107,7 @@ public:
      */
     void StopAllSE();
 
-
     // BGM フェード
-
 
     /**
      * @brief BGM の音量を duration 秒かけて targetVolume へフェードする
@@ -122,16 +116,12 @@ public:
      */
     void FadeVolumeTo(float targetVolume, float duration);
 
-
     // 毎フレーム更新（Framework::Update から呼ぶ）
-
 
     /** @brief フェードアニメーションを進めるdt = 経過秒数（1/60 など）*/
     void Update(float dt);
 
-
     // 後方互換 API（PlayWave / StopWave）
-
 
     /** @brief BGM として再生する（PlayBGM の別名） */
     void PlayWave(const SoundData& soundData) { PlayBGM(soundData, true); }

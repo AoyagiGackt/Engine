@@ -49,9 +49,7 @@ public:
     /** @brief Colliderの形状種別に対応する交差判定を実行する @param a 一つ目のCollider @param b 二つ目のCollider @return 交差する場合はtrue */
     static bool CheckCollision(const Collider& a, const Collider& b);
 
-
     // レイキャスト
-
 
     /**
      * @brief レイ vs AABB（スラブ法）

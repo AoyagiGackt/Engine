@@ -6,7 +6,9 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #include <string>
-namespace engine { class Input; }
+namespace engine {
+class Input;
+}
 namespace engine::game {
 class GraphEditor;
 struct GraphNode;

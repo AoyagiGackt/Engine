@@ -6,7 +6,6 @@
 namespace engine::graphics {
 
 /**
- * @file BloomEffect.h
  * @brief Bloom（発光）ポストプロセスエフェクト
  *
  * ■ 処理の流れ（4パス）

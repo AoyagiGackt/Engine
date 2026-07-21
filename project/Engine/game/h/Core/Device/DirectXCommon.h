@@ -10,9 +10,9 @@
 #include <d3dx12.h>
 #include <dxcapi.h>
 #include <dxgi1_6.h>
-#include <thread>
-#include <string>
 #include <mutex>
+#include <string>
+#include <thread>
 #include <unordered_map>
 #include <wrl/client.h>
 namespace engine {

@@ -9,9 +9,9 @@
 #include "CollisionConfig.h"
 #include "EditorHistory.h"
 #include "LevelLoader.h"
-#include "StageEditorViewport.h"
-#include "StageEditorEventConnection.h"
 #include "StageEditorContentFactory.h"
+#include "StageEditorEventConnection.h"
+#include "StageEditorViewport.h"
 #include "TriggerVolume.h"
 #include <map>
 #include <memory>

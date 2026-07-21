@@ -54,9 +54,7 @@ class AnimationStateMachine {
 public:
     AnimationStateMachine() = default;
 
-
     // 状態の登録
-
 
     /**
      * @brief 状態を追加する
@@ -67,9 +65,7 @@ public:
      */
     void AddState(const std::string& name, Animation* anim, bool loop = true, float speed = 1.0f);
 
-
     // 遷移ルールの登録
-
 
     /**
      * @brief トリガー名による遷移を追加する
@@ -86,9 +82,7 @@ public:
      */
     void AddAutoTransition(const std::string& from, const std::string& to);
 
-
     // 制御
-
 
     /**
      * @brief 初期状態または強制状態変更を行う
@@ -112,9 +106,7 @@ public:
      */
     void Update(float dt);
 
-
     // 情報取得
-
 
     /** @brief 現在の状態名を返す */
     const std::string& GetCurrentStateName() const { return currentState_; }

@@ -1,13 +1,13 @@
 /**
  * @file RunData.h
- * @brief ローグライトの1ランを通じて保持するゲームデータを管理するファイル
+ * @brief 保持するゲームデータを管理するファイル
  */
 #pragma once
 #include <algorithm>
 #include <vector>
 namespace engine::game {
 /**
- * @brief ローグライトの1ランを通じて保持するデータを管理するシングルトンクラス
+ * @brief 保持するデータを管理するシングルトンクラス
  * @note シーン遷移をまたいで HP・ゴールド・スキル・フロア番号を共有する
  * 新しいランを開始する際は StartNewRun() で全データをリセットすること
  */
