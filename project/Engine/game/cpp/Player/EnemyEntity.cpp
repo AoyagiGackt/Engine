@@ -9,6 +9,13 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr const char* kAnimatedKnightPath = "Resources/Knight/glTF/KnightCharacter.gltf";
+constexpr const char* kAnimatedKnightDirectory = "Resources/Knight/glTF";
+constexpr const char* kAnimatedKnightFile = "KnightCharacter.gltf";
+constexpr const char* kKnightTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
+}
+
 void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, WeaponType weaponType)
 {
     pos_ = startPos;
@@ -22,9 +29,23 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
         "Resources/Knight/OBJ/KnightCharacter.obj",
         "Resources/Knight/OBJ/KnightCharacterPalette.png");
 
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(modelCommon);
-    object_->SetModel(model_.get());
+    skinCommon_ = std::make_unique<SkinCommon>();
+    skinCommon_->Initialize(modelCommon->GetDxCommon());
+    SkinnedObject3d::SetCommonModelCommon(modelCommon);
+    SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
+    animatedModel_ = std::make_unique<SkinnedModel>();
+    animatedModel_->Initialize(modelCommon->GetDxCommon(), kAnimatedKnightPath, kKnightTexture);
+    object_ = std::make_unique<SkinnedObject3d>();
+    object_->Initialize(skinCommon_.get());
+    object_->SetModel(animatedModel_.get());
+    object_->SetSkeleton(Skeleton::Create(
+        LoadNodeHierarchyFromFile(kAnimatedKnightDirectory, kAnimatedKnightFile)));
+    idleAnimation_ = LoadAnimationFile(
+        kAnimatedKnightDirectory, kAnimatedKnightFile, "Idle_swordRight");
+    attackAnimation_ = LoadAnimationFile(
+        kAnimatedKnightDirectory, kAnimatedKnightFile, "Run_swordAttack");
+    object_->SetAnimation(attackAnimation_);
+    animationState_ = AttackState::Telegraph;
     object_->SetEnableLighting(true);
     object_->SetScale({ 0.2f, 0.2f, 0.2f });
     object_->SetPosition(pos_);
@@ -78,6 +99,14 @@ void EnemyEntity::Update()
     }
 
     UpdateAttack();
+
+    const AttackState desiredAnimationState = attackState_ == AttackState::Idle ? AttackState::Idle : AttackState::Telegraph;
+    if (desiredAnimationState != animationState_) {
+        object_->SetAnimation(desiredAnimationState == AttackState::Idle
+                ? idleAnimation_
+                : attackAnimation_);
+        animationState_ = desiredAnimationState;
+    }
 
     float bodyLean = 0.0f;
     float weaponSwing = 0.4f;

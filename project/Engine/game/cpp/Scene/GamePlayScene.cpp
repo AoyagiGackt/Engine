@@ -789,7 +789,7 @@ void GamePlayScene::UpdateGhostTrail(float dt)
     // （Player::afterImageRenderer_ と同じ、残像=覚醒時だけの演出という前提に揃える）
     bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
         || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
-    bool awakenActive = player_->IsAwakened() || player_->IsRampaging();
+    bool awakenActive = player_->IsRampaging();
     if (awakenActive && (movingX || !player_->IsOnGround())) {
         ghostSpawnTimer_ -= dt;
         if (ghostSpawnTimer_ <= 0.0f) {

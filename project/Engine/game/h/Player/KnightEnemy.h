@@ -3,11 +3,15 @@
  * @brief 剣を持つナイト型の敵撃破後は灰色に凍結し、専用キー入力で武器を吸収できる
  */
 #pragma once
+#include "Animation.h"
 #include "CollisionConfig.h"
 #include "MakeAffine.h"
 #include "Model.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "SkinCommon.h"
+#include "SkinnedModel.h"
+#include "SkinnedObject3d.h"
 #include <memory>
 #include <vector>
 namespace engine::graphics {
@@ -20,6 +24,9 @@ using engine::graphics::Model;
 using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
 using engine::graphics::ParticleManager;
+using engine::graphics::SkinCommon;
+using engine::graphics::SkinnedModel;
+using engine::graphics::SkinnedObject3d;
 
 /**
  * @brief 剣を持つナイト型の敵
@@ -115,8 +122,12 @@ private:
     float knockVelY_ = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
     bool justAbsorbed_ = false;
 
-    std::unique_ptr<Model> model_;
-    std::unique_ptr<Object3d> object_;
+    std::unique_ptr<SkinCommon> skinCommon_;
+    std::unique_ptr<SkinnedModel> model_;
+    std::unique_ptr<SkinnedObject3d> object_;
+    Animation idleAnimation_;
+    Animation attackAnimation_;
+    State animationState_ = State::Defeated;
     std::unique_ptr<Model> swordModel_;
     std::unique_ptr<Object3d> swordObject_;
 };

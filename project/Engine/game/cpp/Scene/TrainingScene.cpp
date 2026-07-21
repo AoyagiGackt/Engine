@@ -122,7 +122,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         const PickupAsset& asset = kPickupAssets[i];
         WeaponPickup& pickup = weaponPickups_[i];
         pickup.type = asset.type;
-        pickup.position = { 4.5f + static_cast<float>(i) * 3.0f, 1.0f, 0.0f };
+        pickup.position = { 4.5f + static_cast<float>(i) * 3.0f, 3.0f, 0.0f };
         pickup.model = std::make_unique<Model>();
         pickup.model->Initialize(modelCommon_.get(), asset.modelPath, asset.texturePath);
         pickup.object = std::make_unique<Object3d>();

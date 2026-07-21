@@ -12,7 +12,9 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-constexpr const char* kKnightModelPath = "Resources/Knight/OBJ/KnightCharacter.obj";
+constexpr const char* kKnightModelPath = "Resources/Knight/glTF/KnightCharacter.gltf";
+constexpr const char* kKnightModelDirectory = "Resources/Knight/glTF";
+constexpr const char* kKnightModelFile = "KnightCharacter.gltf";
 constexpr const char* kKnightTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
 // モデル身長は約5.58、プレイヤーと並んでもおかしくない高さ(約1.1)に合わせる
 constexpr float kKnightModelScale = 0.2f;
@@ -59,11 +61,22 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     swordSwing_ = kSwordPullBack * 0.35f;
     hp_ = kMaxHp;
 
-    model_ = std::make_unique<Model>();
-    model_->Initialize(modelCommon, kKnightModelPath, kKnightTexture);
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(modelCommon);
+    skinCommon_ = std::make_unique<SkinCommon>();
+    skinCommon_->Initialize(modelCommon->GetDxCommon());
+    SkinnedObject3d::SetCommonModelCommon(modelCommon);
+    SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
+
+    model_ = std::make_unique<SkinnedModel>();
+    model_->Initialize(modelCommon->GetDxCommon(), kKnightModelPath, kKnightTexture);
+    object_ = std::make_unique<SkinnedObject3d>();
+    object_->Initialize(skinCommon_.get());
     object_->SetModel(model_.get());
+    object_->SetSkeleton(Skeleton::Create(
+        LoadNodeHierarchyFromFile(kKnightModelDirectory, kKnightModelFile)));
+    idleAnimation_ = LoadAnimationFile(kKnightModelDirectory, kKnightModelFile, "Idle_swordRight");
+    attackAnimation_ = LoadAnimationFile(kKnightModelDirectory, kKnightModelFile, "Run_swordAttack");
+    object_->SetAnimation(attackAnimation_);
+    animationState_ = State::Telegraph;
     object_->SetEnableLighting(true);
     // Vを意識した抑制的な色  目立つ発光ではなく、わずかに暗い紫のリムに留める
     object_->SetRimColor({ 0.35f, 0.2f, 0.45f });
@@ -184,6 +197,12 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
         if (std::abs(knockVelX_) < 0.001f) {
             knockVelX_ = 0.0f;
         }
+    }
+
+    const State desiredAnimationState = (state_ == State::Telegraph || state_ == State::Dash) ? State::Dash : State::Idle;
+    if (desiredAnimationState != animationState_) {
+        object_->SetAnimation(desiredAnimationState == State::Dash ? attackAnimation_ : idleAnimation_);
+        animationState_ = desiredAnimationState;
     }
 
     ApplyTransforms();

@@ -109,7 +109,7 @@ public:
      * @brief ステージエディタが読み書きするレベルファイルを返す
      * @return レベルJSONのパス
      */
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/battletest.json"; }
     /**
      * @brief 配置物生成に使用するモデル共通処理を返す
      * @return シーンが所有するモデル共通処理
