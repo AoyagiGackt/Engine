@@ -1,6 +1,6 @@
 /**
  * @file MeleeCombo.cpp
- * @brief MeleeComboが担当する処理を実装するファイル
+ * @brief MeleeComboのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "MeleeCombo.h"
 #include "Easing.h"

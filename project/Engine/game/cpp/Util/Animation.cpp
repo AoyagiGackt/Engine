@@ -1,6 +1,6 @@
 /**
  * @file Animation.cpp
- * @brief Animationが担当する処理を実装するファイル
+ * @brief Animationのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
  */
 #include "Animation.h"
 #include "EngineAssert.h"

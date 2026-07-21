@@ -1,6 +1,6 @@
 /**
  * @file Collision.cpp
- * @brief Collisionが担当する処理を実装するファイル
+ * @brief Collisionの衝突判定と接触結果の管理に関する具体的な処理を実装するファイル
  */
 #include "Collision.h"
 #include <algorithm>

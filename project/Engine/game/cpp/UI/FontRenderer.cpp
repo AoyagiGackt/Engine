@@ -1,6 +1,6 @@
 /**
  * @file FontRenderer.cpp
- * @brief FontRendererが担当する処理を実装するファイル
+ * @brief FontRendererのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
  */
 #include "FontRenderer.h"
 #include "TextureManager.h"

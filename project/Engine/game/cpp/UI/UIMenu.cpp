@@ -1,6 +1,6 @@
 /**
  * @file UIMenu.cpp
- * @brief UIMenuが担当する処理を実装するファイル
+ * @brief UIMenuのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
  */
 #include "UIMenu.h"
 using namespace engine;

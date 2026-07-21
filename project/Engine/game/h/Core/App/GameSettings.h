@@ -1,6 +1,6 @@
 /**
  * @file GameSettings.h
- * @brief GameSettingsが公開する型とAPIを定義するファイル
+ * @brief GameSettingsのエンジン基盤の初期化と状態管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 namespace engine {

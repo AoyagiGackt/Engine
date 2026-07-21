@@ -1,6 +1,6 @@
 /**
  * @file Model.cpp
- * @brief Modelが担当する処理を実装するファイル
+ * @brief Modelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Model.h"
 #include "EngineAssert.h"

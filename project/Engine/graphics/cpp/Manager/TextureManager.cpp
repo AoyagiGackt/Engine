@@ -1,6 +1,6 @@
 /**
  * @file TextureManager.cpp
- * @brief TextureManagerが担当する処理を実装するファイル
+ * @brief TextureManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "TextureManager.h"
 #include "DirectXTex.h"

@@ -1,6 +1,6 @@
 /**
  * @file ModelManager.cpp
- * @brief ModelManagerが担当する処理を実装するファイル
+ * @brief ModelManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "ModelManager.h"
 using namespace engine;

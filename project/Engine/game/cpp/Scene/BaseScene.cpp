@@ -1,6 +1,6 @@
 /**
  * @file BaseScene.cpp
- * @brief BaseSceneが担当する処理を実装するファイル
+ * @brief BaseSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "BaseScene.h"
 #include "SpriteCommon.h"

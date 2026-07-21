@@ -1,6 +1,6 @@
 /**
  * @file CollisionConfig.h
- * @brief CollisionConfigが公開する型とAPIを定義するファイル
+ * @brief CollisionConfigの衝突判定と接触結果の管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "MakeAffine.h"

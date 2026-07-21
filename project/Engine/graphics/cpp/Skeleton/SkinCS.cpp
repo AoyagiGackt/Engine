@@ -1,6 +1,6 @@
 /**
  * @file SkinCS.cpp
- * @brief SkinCSが担当する処理を実装するファイル
+ * @brief SkinCSの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "SkinCS.h"
 #include "EngineAssert.h"

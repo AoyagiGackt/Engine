@@ -1,6 +1,6 @@
 /**
  * @file BulletPool.cpp
- * @brief BulletPoolが担当する処理を実装するファイル
+ * @brief BulletPoolのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "BulletPool.h"
 using namespace engine;

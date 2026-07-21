@@ -1,6 +1,6 @@
 /**
  * @file SkinCommon.h
- * @brief SkinCommonが公開する型とAPIを定義するファイル
+ * @brief SkinCommonの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "BlendMode.h"

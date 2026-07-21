@@ -1,6 +1,6 @@
 /**
  * @file RenderTexture.cpp
- * @brief RenderTextureが担当する処理を実装するファイル
+ * @brief RenderTextureの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "RenderTexture.h"
 #include "EngineAssert.h"

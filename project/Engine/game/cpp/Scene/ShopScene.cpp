@@ -1,6 +1,6 @@
 /**
  * @file ShopScene.cpp
- * @brief ShopSceneが担当する処理を実装するファイル
+ * @brief ShopSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "ShopScene.h"
 #include "GameConstants.h"

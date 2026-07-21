@@ -1,6 +1,6 @@
 /**
  * @file Input.cpp
- * @brief Inputが担当する処理を実装するファイル
+ * @brief Inputのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
  */
 #include "Input.h"
 #include "EngineAssert.h"

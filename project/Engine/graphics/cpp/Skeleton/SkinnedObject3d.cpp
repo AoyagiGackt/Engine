@@ -1,6 +1,6 @@
 /**
  * @file SkinnedObject3d.cpp
- * @brief SkinnedObject3dが担当する処理を実装するファイル
+ * @brief SkinnedObject3dの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "SkinnedObject3d.h"
 #include "Camera.h"

@@ -1,6 +1,6 @@
 /**
  * @file CascadedShadowMap.cpp
- * @brief CascadedShadowMapが担当する処理を実装するファイル
+ * @brief CascadedShadowMapの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "CascadedShadowMap.h"
 #include "EngineAssert.h"

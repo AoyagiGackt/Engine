@@ -1,6 +1,6 @@
 /**
  * @file Cylinder.cpp
- * @brief Cylinderが担当する処理を実装するファイル
+ * @brief Cylinderの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Cylinder.h"
 #include "DirectXCommon.h"

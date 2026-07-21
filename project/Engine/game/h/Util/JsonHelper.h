@@ -1,6 +1,6 @@
 /**
  * @file JsonHelper.h
- * @brief JsonHelperが公開する型とAPIを定義するファイル
+ * @brief JsonHelperのアプリケーション実行基盤の管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "json.hpp"

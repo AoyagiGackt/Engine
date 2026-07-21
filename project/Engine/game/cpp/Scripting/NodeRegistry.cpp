@@ -1,6 +1,6 @@
 /**
  * @file NodeRegistry.cpp
- * @brief NodeRegistryが担当する処理を実装するファイル
+ * @brief NodeRegistryのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
  */
 #include "NodeRegistry.h"
 #include "AudioBridge.h"

@@ -1,6 +1,6 @@
 /**
  * @file DelayTimer.cpp
- * @brief DelayTimerが担当する処理を実装するファイル
+ * @brief DelayTimerのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
  */
 #include "DelayTimer.h"
 #include <algorithm>

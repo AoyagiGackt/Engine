@@ -1,6 +1,6 @@
 /**
  * @file LevelLoader.cpp
- * @brief LevelLoaderが担当する処理を実装するファイル
+ * @brief LevelLoaderのレベルデータの読込、編集、実体生成に関する具体的な処理を実装するファイル
  */
 #include "LevelLoader.h"
 #include "JsonHelper.h"

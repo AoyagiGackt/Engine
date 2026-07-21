@@ -1,6 +1,6 @@
 /**
  * @file TriggerVolume.cpp
- * @brief TriggerVolumeが担当する処理を実装するファイル
+ * @brief TriggerVolumeのレベルデータの読込、編集、実体生成に関する具体的な処理を実装するファイル
  */
 #include "TriggerVolume.h"
 #include "GameFlags.h"

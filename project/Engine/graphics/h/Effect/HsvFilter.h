@@ -1,6 +1,6 @@
 /**
  * @file HsvFilter.h
- * @brief HsvFilterが公開する型とAPIを定義するファイル
+ * @brief HsvFilterの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "PostEffectFullscreenPass.h"

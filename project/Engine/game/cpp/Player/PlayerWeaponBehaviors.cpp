@@ -1,6 +1,6 @@
 /**
  * @file PlayerWeaponBehaviors.cpp
- * @brief PlayerWeaponBehaviorsが担当する処理を実装するファイル
+ * @brief PlayerWeaponBehaviorsのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "Player.h"
 #include "GameConstants.h"

@@ -1,6 +1,6 @@
 /**
  * @file GunCombo.cpp
- * @brief GunComboが担当する処理を実装するファイル
+ * @brief GunComboのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "GunCombo.h"
 #include "Easing.h"

@@ -1,6 +1,6 @@
 /**
  * @file Object3dCommon.cpp
- * @brief Object3dCommonが担当する処理を実装するファイル
+ * @brief Object3dCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Object3dCommon.h"
 #include "MakeAffine.h"

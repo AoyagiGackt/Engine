@@ -1,6 +1,6 @@
 /**
  * @file LevelLoader.h
- * @brief LevelLoaderが公開する型とAPIを定義するファイル
+ * @brief LevelLoaderのレベルデータの読込、編集、実体生成に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "MakeAffine.h"

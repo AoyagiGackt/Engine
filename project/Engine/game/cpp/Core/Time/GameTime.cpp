@@ -1,6 +1,6 @@
 /**
  * @file GameTime.cpp
- * @brief GameTimeが担当する処理を実装するファイル
+ * @brief GameTimeのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
  */
 #include "GameTime.h"
 #include "GameConstants.h"

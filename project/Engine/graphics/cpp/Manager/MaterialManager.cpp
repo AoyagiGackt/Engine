@@ -1,6 +1,6 @@
 /**
  * @file MaterialManager.cpp
- * @brief MaterialManagerが担当する処理を実装するファイル
+ * @brief MaterialManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "MaterialManager.h"
 using namespace engine;

@@ -1,6 +1,6 @@
 /**
  * @file GraphRuntime.cpp
- * @brief GraphRuntimeが担当する処理を実装するファイル
+ * @brief GraphRuntimeのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
  */
 #include "GraphRuntime.h"
 #include "Logger.h"

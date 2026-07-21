@@ -1,6 +1,6 @@
 /**
  * @file TrainingScene.cpp
- * @brief TrainingSceneが担当する処理を実装するファイル
+ * @brief TrainingSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "TrainingScene.h"
 #include "AudioBridge.h"

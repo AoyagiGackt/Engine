@@ -1,6 +1,6 @@
 /**
  * @file ScreenFlash.h
- * @brief ScreenFlashが公開する型とAPIを定義するファイル
+ * @brief ScreenFlashのゲーム画面UIの状態更新と描画に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "MakeAffine.h"

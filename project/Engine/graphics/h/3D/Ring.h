@@ -1,6 +1,6 @@
 /**
  * @file Ring.h
- * @brief Ringが公開する型とAPIを定義するファイル
+ * @brief Ringの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "RevolvedMeshBase.h"

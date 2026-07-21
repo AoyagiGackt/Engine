@@ -1,6 +1,6 @@
 /**
  * @file Sprite.cpp
- * @brief Spriteが担当する処理を実装するファイル
+ * @brief Spriteの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Sprite.h"
 #include "GameConstants.h"

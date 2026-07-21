@@ -1,6 +1,6 @@
 /**
  * @file GraphTypes.cpp
- * @brief GraphTypesが担当する処理を実装するファイル
+ * @brief GraphTypesのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
  */
 #include "GraphTypes.h"
 #include "JsonHelper.h"

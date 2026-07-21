@@ -1,6 +1,6 @@
 /**
  * @file ModelCommon.cpp
- * @brief ModelCommonが担当する処理を実装するファイル
+ * @brief ModelCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "ModelCommon.h"
 #include "PipelineHelper.h"

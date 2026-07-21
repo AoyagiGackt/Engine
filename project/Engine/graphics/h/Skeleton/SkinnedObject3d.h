@@ -1,6 +1,6 @@
 /**
  * @file SkinnedObject3d.h
- * @brief SkinnedObject3dが公開する型とAPIを定義するファイル
+ * @brief SkinnedObject3dの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
 #include "Animation.h"

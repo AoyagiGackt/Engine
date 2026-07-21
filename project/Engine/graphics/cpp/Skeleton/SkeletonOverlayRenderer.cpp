@@ -1,6 +1,6 @@
 /**
  * @file SkeletonOverlayRenderer.cpp
- * @brief SkeletonOverlayRendererが担当する処理を実装するファイル
+ * @brief SkeletonOverlayRendererの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "SkeletonOverlayRenderer.h"
 #ifdef USE_IMGUI

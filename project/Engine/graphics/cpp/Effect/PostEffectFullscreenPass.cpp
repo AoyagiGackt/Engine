@@ -1,6 +1,6 @@
 /**
  * @file PostEffectFullscreenPass.cpp
- * @brief PostEffectFullscreenPassが担当する処理を実装するファイル
+ * @brief PostEffectFullscreenPassの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "PostEffectFullscreenPass.h"
 #include "EngineAssert.h"

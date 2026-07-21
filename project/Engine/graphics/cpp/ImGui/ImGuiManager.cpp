@@ -1,6 +1,6 @@
 /**
  * @file ImGuiManager.cpp
- * @brief ImGuiManagerが担当する処理を実装するファイル
+ * @brief ImGuiManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "ImGuiManager.h"
 #include <SrvManager.h>

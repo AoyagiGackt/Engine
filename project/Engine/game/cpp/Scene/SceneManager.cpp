@@ -1,6 +1,6 @@
 /**
  * @file SceneManager.cpp
- * @brief SceneManagerが担当する処理を実装するファイル
+ * @brief SceneManagerのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "SceneManager.h"
 #include "CrashHandler.h"

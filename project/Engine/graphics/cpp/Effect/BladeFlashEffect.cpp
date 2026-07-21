@@ -1,6 +1,6 @@
 /**
  * @file BladeFlashEffect.cpp
- * @brief BladeFlashEffectが担当する処理を実装するファイル
+ * @brief BladeFlashEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "BladeFlashEffect.h"
 #include "Camera.h"

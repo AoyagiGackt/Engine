@@ -1,6 +1,6 @@
 /**
  * @file AnimationStateMachine.cpp
- * @brief AnimationStateMachineが担当する処理を実装するファイル
+ * @brief AnimationStateMachineのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
  */
 #include "AnimationStateMachine.h"
 #include "EngineAssert.h"

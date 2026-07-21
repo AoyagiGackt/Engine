@@ -1,6 +1,6 @@
 /**
  * @file GameFlags.cpp
- * @brief GameFlagsが担当する処理を実装するファイル
+ * @brief GameFlagsのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
  */
 #include "GameFlags.h"
 using namespace engine::game;

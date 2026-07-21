@@ -1,6 +1,6 @@
 /**
  * @file GpuProfiler.cpp
- * @brief GpuProfilerが担当する処理を実装するファイル
+ * @brief GpuProfilerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "GpuProfiler.h"
 #include "FrameProfiler.h"

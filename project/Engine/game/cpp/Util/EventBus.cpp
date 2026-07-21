@@ -1,6 +1,6 @@
 /**
  * @file EventBus.cpp
- * @brief EventBusが担当する処理を実装するファイル
+ * @brief EventBusのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
  */
 #include "EventBus.h"
 #include <algorithm>
