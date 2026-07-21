@@ -67,6 +67,8 @@ namespace SceneShared {
      * @note 左右対称のAABBだと武器射程ぶん背後まで届いてしまい明らかに遠いのに当たる原因になる
      */
     engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange);
+    /** @brief 高さの異なる敵へ誤命中しない射撃用の横長判定を生成する */
+    engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange);
 
     /** @brief ワールド座標をスクリーン座標に変換する（カメラ位置基準） */
     void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY);

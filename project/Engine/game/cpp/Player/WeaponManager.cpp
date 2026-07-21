@@ -305,3 +305,26 @@ void WeaponManager::UnlockAll()
     index_ = 0;
     pendingWeaponIndex_ = -1;
 }
+
+void WeaponManager::EquipForTraining(WeaponType type)
+{
+    for (int weaponIndex = 0; weaponIndex < static_cast<int>(weapons_.size()); ++weaponIndex) {
+        if (weapons_[weaponIndex].type != type) {
+            continue;
+        }
+        int targetSlot = selectedSlot_;
+        if (targetSlot < 0 || targetSlot >= static_cast<int>(slots_.size())) {
+            targetSlot = 0;
+        }
+        const int removedWeapon = slots_[targetSlot];
+        if (removedWeapon >= 0 && removedWeapon != weaponIndex) {
+            unlocked_[removedWeapon] = false;
+        }
+        slots_[targetSlot] = weaponIndex;
+        unlocked_[weaponIndex] = true;
+        selectedSlot_ = targetSlot;
+        index_ = weaponIndex;
+        pendingWeaponIndex_ = -1;
+        return;
+    }
+}

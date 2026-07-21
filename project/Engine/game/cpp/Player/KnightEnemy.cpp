@@ -53,8 +53,10 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
 {
     pos_ = spawnPos;
     pos_.y = kGroundY;
-    state_ = State::Idle;
-    stateTimer_ = 0.0f;
+    state_ = State::Telegraph;
+    // 初回更新から攻撃の予備動作へ移り、生成直後の棒立ちをなくす
+    stateTimer_ = kTelegraphDuration;
+    swordSwing_ = kSwordPullBack * 0.35f;
     hp_ = kMaxHp;
 
     model_ = std::make_unique<Model>();

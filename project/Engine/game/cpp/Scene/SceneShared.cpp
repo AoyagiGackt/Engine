@@ -110,6 +110,15 @@ engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float fr
         { playerPos.x + right, playerPos.y + 1.5f, 0.5f } };
 }
 
+engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
+{
+    constexpr float kShotHalfHeight = 0.3f;
+    const float left = (dirX >= 0.0f) ? backRange : frontRange;
+    const float right = (dirX >= 0.0f) ? frontRange : backRange;
+    return { { playerPos.x - left, playerPos.y - kShotHalfHeight, -0.5f },
+        { playerPos.x + right, playerPos.y + kShotHalfHeight, 0.5f } };
+}
+
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
 {
     outX = (worldX - camX) / GameConstants::kCameraHalfW * 640.0f + 640.0f;

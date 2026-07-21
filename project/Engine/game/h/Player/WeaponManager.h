@@ -89,6 +89,12 @@ public:
     /** @brief 全武器を解放し、先頭4種をスロットへ登録する */
     void UnlockAll();
 
+    /**
+     * @brief トレーニング用に指定武器を現在のスロットへ装備する
+     * @param type 装備する武器種別
+     */
+    void EquipForTraining(WeaponType type);
+
 private:
     WeaponManager();
 

@@ -264,7 +264,7 @@ private:
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
     std::unique_ptr<Sprite> gunFrame_;
     std::unique_ptr<Sprite> gunIcon_;
-    Vector2 gunPos_ = {};
+    Vector2 gunPos_ = { };
     float weaponSlotPulse_ = 0.0f;
     float gunIconAngle_ = 0.0f;
     std::unique_ptr<ModelCommon> modelCommon_;
@@ -286,6 +286,8 @@ private:
         std::unique_ptr<EnemyEntity> enemy;
         WeaponType weaponType = WeaponType::Sword;
         bool weaponAcquired = false;
+        bool absorbing = false;
+        float absorbTimer = 0.0f;
     };
     std::vector<WeaponEnemyEntry> weaponEnemies_;
 
@@ -389,6 +391,8 @@ private:
 
     bool clearTriggered_ = false;
     bool weaponStealTriggered_ = false;
+    bool mainWeaponAbsorbing_ = false;
+    float mainWeaponAbsorbTimer_ = 0.0f;
     bool requestClear_ = false;
     bool glassShatterDebugTest_ = false;
 

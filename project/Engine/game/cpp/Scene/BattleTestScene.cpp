@@ -541,7 +541,7 @@ bool BattleTestScene::UpdateGunShotHit()
     const RangedWeaponData& gun = weaponManager_->GetRanged();
     const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
     // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
-    AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
+    AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
     for (auto& d : dummies_) {
         if (d.hp <= 0.0f) {
             continue;
@@ -1063,7 +1063,7 @@ void BattleTestScene::UpdateKnightEnemy()
             if (shot != nullptr) {
                 const float rangeX = gun.range * shot->rangeMult;
                 // 銃口の向きにだけ飛ぶ（ロック中でも射程・向きは無視しない）
-                AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
+                AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
                 if (Collision::CheckCollision(shotRange, knight_->GetAABB())) {
                     knight_->TakeDamage(1, player_->GetLastDirX(), shot->knockY);
                     SpawnHitEffect({ knight_->GetPosition().x, knight_->GetPosition().y + 0.7f, 0.0f });
@@ -1153,7 +1153,7 @@ void BattleTestScene::UpdatePlacedKnights()
             const RangedWeaponData& gun = weaponManager_->GetRanged();
             if (shot != nullptr) {
                 const float rangeX = gun.range * shot->rangeMult;
-                AABB shotRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
+                AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, 0.8f);
                 if (Collision::CheckCollision(shotRange, knight->GetAABB())) {
                     knight->TakeDamage(1, player_->GetLastDirX(), shot->knockY);
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + 0.7f, 0.0f });
@@ -1407,6 +1407,7 @@ void BattleTestScene::DrawWeaponSlotHud()
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
+    DrawComboHud();
     SceneShared::DrawControlsHud(fontRenderer_, L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
@@ -1446,6 +1447,27 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
                 { 0.6f, 0.85f, 1.0f, 1.0f });
         }
     }
+}
+
+void BattleTestScene::DrawComboHud()
+{
+    if (!weaponManager_->HasEquippedWeapon()) {
+        return;
+    }
+    const int comboStep = player_->GetComboStep();
+    if (comboStep <= 0) {
+        return;
+    }
+
+    const WeaponData& weapon = weaponManager_->GetCurrent();
+    const Vector4 color = { weapon.styleColor[0], weapon.styleColor[1],
+        weapon.styleColor[2], weapon.styleColor[3] };
+    std::wstring comboText = L"コンボ ";
+    const int comboMax = player_->GetComboMax();
+    for (int i = 1; i <= comboMax; ++i) {
+        comboText += i <= comboStep ? L"[*]" : L"[ ]";
+    }
+    fontRenderer_.DrawStringW(comboText, 780.0f, 448.0f, 1.5f, color);
 }
 
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)

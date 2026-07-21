@@ -13,6 +13,9 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
 {
     pos_ = startPos;
     weaponType_ = weaponType;
+    attackState_ = AttackState::Idle;
+    attackTimer_ = 0.0f;
+    justFiredAttack_ = false;
 
     model_ = std::make_unique<Model>();
     model_->Initialize(modelCommon,
@@ -76,6 +79,25 @@ void EnemyEntity::Update()
 
     UpdateAttack();
 
+    float bodyLean = 0.0f;
+    float weaponSwing = 0.4f;
+    if (!defeated_ && !isLaunched_) {
+        switch (attackState_) {
+        case AttackState::Idle:
+            break;
+        case AttackState::Telegraph:
+            bodyLean = -0.10f;
+            weaponSwing = 1.15f;
+            break;
+        case AttackState::Active:
+            bodyLean = 0.14f;
+            weaponSwing = -1.0f;
+            break;
+        }
+    }
+    object_->SetRotation({ 0.0f, 0.0f, bodyLean });
+    weaponObject_->SetRotation({ 0.0f, 0.0f, weaponSwing });
+
     object_->Update();
     weaponObject_->Update();
 }
@@ -97,10 +119,10 @@ void EnemyEntity::UpdateAttack()
     switch (attackState_) {
     case AttackState::Idle:
         attackState_ = AttackState::Telegraph;
-        attackTimer_ = weaponType_ == WeaponType::Dagger ? 0.20f
-            : weaponType_ == WeaponType::Spear ? 0.38f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 0.20f
+            : weaponType_ == WeaponType::Spear                                      ? 0.38f
             : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 0.75f
-            : kAttackTelegraph_;
+                                                                                    : kAttackTelegraph_;
         break;
     case AttackState::Telegraph:
         attackState_ = AttackState::Active;
@@ -109,10 +131,10 @@ void EnemyEntity::UpdateAttack()
         break;
     case AttackState::Active:
         attackState_ = AttackState::Idle;
-        attackTimer_ = weaponType_ == WeaponType::Dagger ? 1.25f
-            : weaponType_ == WeaponType::Spear ? 2.0f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 1.25f
+            : weaponType_ == WeaponType::Spear                                      ? 2.0f
             : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 3.2f
-            : kAttackInterval_;
+                                                                                    : kAttackInterval_;
         break;
     }
 }
