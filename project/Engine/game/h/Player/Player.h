@@ -245,8 +245,9 @@ private:
     // 通常物理
     static constexpr float kGroundY_ = 0.4f;
     static constexpr float kCeilingY_ = 12.0f;
-    float minX_ = 3.0f;
-    float maxX_ = 35.0f;
+    // 通常ステージの左右端はStageEditorのsolid配置物で制御する
+    float minX_ = -1000.0f;
+    float maxX_ = 1000.0f;
     static constexpr float kGravity_ = 0.012f;
     static constexpr float kJumpPower_ = 0.4f;
     static constexpr float kSpeed_ = 0.15f;

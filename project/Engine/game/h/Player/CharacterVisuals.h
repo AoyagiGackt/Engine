@@ -154,7 +154,7 @@ constexpr float kGunYaw180 = kGunYaw90 * 2.0f;
 // gripScaleの基準値は剣等と同じ最終見た目基準に合わせてあり、kWeaponScaleBoostも共通で適用される
 constexpr GunVisual kGunVisuals[] = {
     // ハンドガン: 原点はグリップ中心（実寸長さ約9.7）
-    { GunType::Pistol, "Resources/AnimatedFPSGuns/OBJ/Pistol.obj", "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { 0.0f, 0.0f, 0.0f } },
+    { GunType::Pistol, "Resources/AnimatedFPSGuns/OBJ/Pistol.obj", "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, -kGunYaw90, 0.0f }, { 0.0f, 0.0f, 0.0f } },
     // マグナム: グリップ(Wood)が +Z 側（実寸長さ約9.6）
     { GunType::Magnum, "Resources/AnimatedFPSGuns/OBJ/Revolver.obj", "Resources/AnimatedFPSGuns/OBJ/RevolverPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { -0.17f, 0.065f, 0.0f } },
     // マシンピストル: ブルパップ型、グリップは中央やや前（実寸長さ約11.1）

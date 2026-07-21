@@ -9,19 +9,43 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr const char* kAnimatedKnightPath = "Resources/Knight/glTF/KnightCharacter.gltf";
+constexpr const char* kAnimatedKnightDirectory = "Resources/Knight/glTF";
+constexpr const char* kAnimatedKnightFile = "KnightCharacter.gltf";
+constexpr const char* kKnightTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
+}
+
 void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, WeaponType weaponType)
 {
     pos_ = startPos;
     weaponType_ = weaponType;
+    attackState_ = AttackState::Idle;
+    attackTimer_ = 0.0f;
+    justFiredAttack_ = false;
 
     model_ = std::make_unique<Model>();
     model_->Initialize(modelCommon,
         "Resources/Knight/OBJ/KnightCharacter.obj",
         "Resources/Knight/OBJ/KnightCharacterPalette.png");
 
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(modelCommon);
-    object_->SetModel(model_.get());
+    skinCommon_ = std::make_unique<SkinCommon>();
+    skinCommon_->Initialize(modelCommon->GetDxCommon());
+    SkinnedObject3d::SetCommonModelCommon(modelCommon);
+    SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
+    animatedModel_ = std::make_unique<SkinnedModel>();
+    animatedModel_->Initialize(modelCommon->GetDxCommon(), kAnimatedKnightPath, kKnightTexture);
+    object_ = std::make_unique<SkinnedObject3d>();
+    object_->Initialize(skinCommon_.get());
+    object_->SetModel(animatedModel_.get());
+    object_->SetSkeleton(Skeleton::Create(
+        LoadNodeHierarchyFromFile(kAnimatedKnightDirectory, kAnimatedKnightFile)));
+    idleAnimation_ = LoadAnimationFile(
+        kAnimatedKnightDirectory, kAnimatedKnightFile, "Idle_swordRight");
+    attackAnimation_ = LoadAnimationFile(
+        kAnimatedKnightDirectory, kAnimatedKnightFile, "Run_swordAttack");
+    object_->SetAnimation(attackAnimation_);
+    animationState_ = AttackState::Telegraph;
     object_->SetEnableLighting(true);
     object_->SetScale({ 0.2f, 0.2f, 0.2f });
     object_->SetPosition(pos_);
@@ -76,6 +100,33 @@ void EnemyEntity::Update()
 
     UpdateAttack();
 
+    const AttackState desiredAnimationState = attackState_ == AttackState::Idle ? AttackState::Idle : AttackState::Telegraph;
+    if (desiredAnimationState != animationState_) {
+        object_->SetAnimation(desiredAnimationState == AttackState::Idle
+                ? idleAnimation_
+                : attackAnimation_);
+        animationState_ = desiredAnimationState;
+    }
+
+    float bodyLean = 0.0f;
+    float weaponSwing = 0.4f;
+    if (!defeated_ && !isLaunched_) {
+        switch (attackState_) {
+        case AttackState::Idle:
+            break;
+        case AttackState::Telegraph:
+            bodyLean = -0.10f;
+            weaponSwing = 1.15f;
+            break;
+        case AttackState::Active:
+            bodyLean = 0.14f;
+            weaponSwing = -1.0f;
+            break;
+        }
+    }
+    object_->SetRotation({ 0.0f, 0.0f, bodyLean });
+    weaponObject_->SetRotation({ 0.0f, 0.0f, weaponSwing });
+
     object_->Update();
     weaponObject_->Update();
 }
@@ -97,10 +148,10 @@ void EnemyEntity::UpdateAttack()
     switch (attackState_) {
     case AttackState::Idle:
         attackState_ = AttackState::Telegraph;
-        attackTimer_ = weaponType_ == WeaponType::Dagger ? 0.20f
-            : weaponType_ == WeaponType::Spear ? 0.38f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 0.20f
+            : weaponType_ == WeaponType::Spear                                      ? 0.38f
             : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 0.75f
-            : kAttackTelegraph_;
+                                                                                    : kAttackTelegraph_;
         break;
     case AttackState::Telegraph:
         attackState_ = AttackState::Active;
@@ -109,10 +160,10 @@ void EnemyEntity::UpdateAttack()
         break;
     case AttackState::Active:
         attackState_ = AttackState::Idle;
-        attackTimer_ = weaponType_ == WeaponType::Dagger ? 1.25f
-            : weaponType_ == WeaponType::Spear ? 2.0f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 1.25f
+            : weaponType_ == WeaponType::Spear                                      ? 2.0f
             : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 3.2f
-            : kAttackInterval_;
+                                                                                    : kAttackInterval_;
         break;
     }
 }

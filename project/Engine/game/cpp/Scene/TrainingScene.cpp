@@ -103,6 +103,37 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
 
+    struct PickupAsset {
+        WeaponType type;
+        const char* modelPath;
+        const char* texturePath;
+        float scale;
+    };
+    static constexpr PickupAsset kPickupAssets[] = {
+        { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.28f },
+        { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.13f },
+        { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.27f },
+        { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.42f },
+        { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.20f },
+        { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.22f },
+        { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.22f },
+    };
+    for (int i = 0; i < static_cast<int>(weaponPickups_.size()); ++i) {
+        const PickupAsset& asset = kPickupAssets[i];
+        WeaponPickup& pickup = weaponPickups_[i];
+        pickup.type = asset.type;
+        pickup.position = { 4.5f + static_cast<float>(i) * 3.0f, 3.0f, 0.0f };
+        pickup.model = std::make_unique<Model>();
+        pickup.model->Initialize(modelCommon_.get(), asset.modelPath, asset.texturePath);
+        pickup.object = std::make_unique<Object3d>();
+        pickup.object->Initialize(modelCommon_.get());
+        pickup.object->SetModel(pickup.model.get());
+        pickup.object->SetPosition(pickup.position);
+        pickup.object->SetScale({ asset.scale, asset.scale, asset.scale });
+        pickup.object->SetEnableLighting(true);
+        pickup.object->Update();
+    }
+
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     awakenGaugeBg_->SetColor({ 0.05f, 0.05f, 0.15f, 0.75f });
@@ -140,6 +171,7 @@ void TrainingScene::Update()
 
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndBullets();
+    UpdateWeaponPickups();
     UpdateCameraAndEnvironment();
 
 #ifdef _DEBUG
@@ -260,6 +292,31 @@ void TrainingScene::UpdateCameraAndEnvironment()
     }
 }
 
+void TrainingScene::UpdateWeaponPickups()
+{
+    weaponPickupPulse_ += GameConstants::kFrameDeltaTime;
+    const Vector3& playerPosition = player_->GetPosition();
+    for (int i = 0; i < static_cast<int>(weaponPickups_.size()); ++i) {
+        WeaponPickup& pickup = weaponPickups_[i];
+        const float dx = playerPosition.x - pickup.position.x;
+        const float dy = playerPosition.y - pickup.position.y;
+        const bool touching = dx * dx + dy * dy <= 1.0f;
+        if (touching && !pickup.wasTouching) {
+            weaponManager_->EquipForTraining(pickup.type);
+            ScreenFlash::GetInstance()->Request({ 0.55f, 0.9f, 1.0f, 0.22f }, 0.08f);
+        }
+        pickup.wasTouching = touching;
+
+        const float hover = std::sin(weaponPickupPulse_ * 2.5f + static_cast<float>(i)) * 0.15f;
+        pickup.object->SetPosition({ pickup.position.x, pickup.position.y + hover, pickup.position.z });
+        pickup.object->SetRotation({ 0.2f, weaponPickupPulse_ * 0.8f, 0.0f });
+        pickup.object->SetColor(touching
+                ? Vector4 { 1.0f, 1.0f, 1.0f, 1.0f }
+                : Vector4 { 0.75f, 0.85f, 1.0f, 1.0f });
+        pickup.object->Update();
+    }
+}
+
 void TrainingScene::DrawHud(bool nearWarpPortal)
 {
     DrawWeaponHud(nearWarpPortal);
@@ -355,6 +412,9 @@ void TrainingScene::Draw()
     }
     for (auto& p : warpPortalBlocks_) {
         p->Draw();
+    }
+    for (auto& pickup : weaponPickups_) {
+        pickup.object->Draw();
     }
     bulletPool_.Draw();
     player_->Draw();

@@ -23,6 +23,7 @@
 #include "WinApp.h"
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -532,7 +533,18 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
             }
             continue;
         }
-        Vector3 half = { 0.5f * desc.scale.x, 0.5f * desc.scale.y, 0.5f * desc.scale.z };
+        // 回転後の表示形状を含むワールドAABBを組み立てる
+        const float hx = 0.5f * std::abs(desc.scale.x);
+        const float hy = 0.5f * std::abs(desc.scale.y);
+        const float hz = 0.5f * std::abs(desc.scale.z);
+        const float cx = std::cos(desc.rotation.x), sx = std::sin(desc.rotation.x);
+        const float cy = std::cos(desc.rotation.y), sy = std::sin(desc.rotation.y);
+        const float cz = std::cos(desc.rotation.z), sz = std::sin(desc.rotation.z);
+        const auto rotateExtent = [&](Vector3 value) {
+            value = { value.x, value.y * cx - value.z * sx, value.y * sx + value.z * cx };
+            value = { value.x * cy + value.z * sy, value.y, -value.x * sy + value.z * cy };
+            return Vector3 { value.x * cz - value.y * sz, value.x * sz + value.y * cz, value.z };
+        };
 
         int instanceCount = static_cast<int>(entry.instances.size());
         for (int i = 0; i < instanceCount; ++i) {
@@ -547,8 +559,18 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
                     pos.x += offset;
                 }
             }
-            result.push_back({ { pos.x - half.x, pos.y - half.y, pos.z - half.z },
-                { pos.x + half.x, pos.y + half.y, pos.z + half.z } });
+            Vector3 minCorner = { FLT_MAX, FLT_MAX, FLT_MAX };
+            Vector3 maxCorner = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+            for (float x : { -hx, hx }) {
+                for (float y : { -hy, hy }) {
+                    for (float z : { -hz, hz }) {
+                        const Vector3 corner = pos + rotateExtent({ x, y, z });
+                        minCorner = { (std::min)(minCorner.x, corner.x), (std::min)(minCorner.y, corner.y), (std::min)(minCorner.z, corner.z) };
+                        maxCorner = { (std::max)(maxCorner.x, corner.x), (std::max)(maxCorner.y, corner.y), (std::max)(maxCorner.z, corner.z) };
+                    }
+                }
+            }
+            result.push_back({ minCorner, maxCorner });
         }
     }
     return result;

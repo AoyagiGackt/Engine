@@ -3,6 +3,7 @@
  * @brief アクション操作を自由に練習できるトレーニングシーンを定義するファイル
  */
 #pragma once
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -86,6 +87,8 @@ private:
     void DrawWeaponHud(bool nearWarpPortal);
     /** @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する */
     void DrawDebugHud();
+    /** @brief 配置された武器へ触れたときの装備切り替えを更新する */
+    void UpdateWeaponPickups();
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -117,6 +120,16 @@ private:
     // 武器選択
     WeaponManager* weaponManager_ = nullptr;
     float weaponCycleTimer_ = 0.0f;
+
+    struct WeaponPickup {
+        WeaponType type = WeaponType::Sword;
+        std::unique_ptr<Model> model;
+        std::unique_ptr<Object3d> object;
+        Vector3 position = { };
+        bool wasTouching = false;
+    };
+    std::array<WeaponPickup, 7> weaponPickups_;
+    float weaponPickupPulse_ = 0.0f;
 
     // ワープ演出タイマー（近づいたら点滅）
     float warpPulseTimer_ = 0.0f;

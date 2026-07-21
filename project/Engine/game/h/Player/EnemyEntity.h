@@ -3,9 +3,13 @@
  * @brief ローグライトの戦闘で使用する汎用敵エンティティを定義するファイル
  */
 #pragma once
+#include "Animation.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
+#include "SkinCommon.h"
+#include "SkinnedModel.h"
+#include "SkinnedObject3d.h"
 #include "Weapon.h"
 #include <algorithm>
 #include <memory>
@@ -14,6 +18,9 @@ namespace engine::game {
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
 using engine::graphics::Object3d;
+using engine::graphics::SkinCommon;
+using engine::graphics::SkinnedModel;
+using engine::graphics::SkinnedObject3d;
 
 /**
  * @brief ローグライト戦闘シーンで使用する汎用の敵エンティティクラス
@@ -169,7 +176,12 @@ private:
     void UpdateAttack();
 
     std::unique_ptr<Model> model_;
-    std::unique_ptr<Object3d> object_;
+    std::unique_ptr<SkinCommon> skinCommon_;
+    std::unique_ptr<SkinnedModel> animatedModel_;
+    std::unique_ptr<SkinnedObject3d> object_;
+    Animation idleAnimation_;
+    Animation attackAnimation_;
+    AttackState animationState_ = AttackState::Active;
     std::unique_ptr<Model> weaponModel_;
     std::unique_ptr<Object3d> weaponObject_;
     Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };

@@ -119,6 +119,13 @@ void GamePlayScene::InitializeCoreSystems()
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
+    awakenGaugeBg_ = std::make_unique<Sprite>();
+    awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    awakenGaugeBg_->SetColor({ 0.04f, 0.06f, 0.10f, 0.85f });
+    awakenGaugeFg_ = std::make_unique<Sprite>();
+    awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    InitializeWeaponSlotHud();
+
     ghostObject_ = std::make_unique<Object3d>();
     ghostObject_->Initialize(modelCommon_.get());
     ghostObject_->SetModel(player_->GetModel());
@@ -467,7 +474,7 @@ void GamePlayScene::UpdateWeaponEnemies()
 
             bool hit = false;
             if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
-                const AABB range = SceneShared::MakeDirectionalRange(
+                const AABB range = SceneShared::MakeDirectionalShotRange(
                     playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
                     wm->GetCurrent().range * 0.4f);
                 hit = Collision::CheckCollision(range, enemyBounds);
@@ -485,10 +492,18 @@ void GamePlayScene::UpdateWeaponEnemies()
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
             if (hit) {
-                entry.enemy->TakeDamage(player_->JustGreatswordSlam() ? 3 : 1);
                 const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
-                const float knockY = attack != nullptr ? attack->knockY : 0.05f;
-                entry.enemy->ApplyComboReaction(player_->GetLastDirX(), knockY,
+                const float damageMult = attack != nullptr ? attack->damageMult : 1.0f;
+                const float baseDamage = wm->HasEquippedWeapon() ? wm->GetCurrent().damage : 20.0f;
+                const int damage = player_->JustGreatswordSlam()
+                    ? 3
+                    : (std::max)(1, static_cast<int>(std::round(baseDamage * damageMult / 25.0f)));
+                const float knockbackMult = wm->HasEquippedWeapon()
+                    ? wm->GetCurrent().knockbackMult
+                    : 1.0f;
+                entry.enemy->TakeDamage(damage);
+                const float knockY = (attack != nullptr ? attack->knockY : 0.05f) * knockbackMult;
+                entry.enemy->ApplyComboReaction(player_->GetLastDirX() * knockbackMult, knockY,
                     player_->JustWeaponSwitchHit(), playerPos.x);
                 if (wm->HasEquippedWeapon() && wm->GetCurrent().type == WeaponType::Dagger) {
                     entry.enemy->ApplySlow(0.8f);
@@ -498,15 +513,32 @@ void GamePlayScene::UpdateWeaponEnemies()
         }
 
         if (!entry.weaponAcquired && entry.enemy->IsDefeated()) {
-            entry.weaponAcquired = true;
-            const auto result = WeaponManager::GetInstance()->Acquire(entry.weaponType);
-            if (result != WeaponManager::AcquireResult::Duplicate) {
+            const Vector3 enemyPos = entry.enemy->GetPosition();
+            const float dx = playerPos.x - enemyPos.x;
+            const float dy = playerPos.y - enemyPos.y;
+            constexpr float kAbsorbRange = 2.0f;
+            constexpr float kAbsorbDuration = 0.5f;
+            if (!entry.absorbing && dx * dx + dy * dy <= kAbsorbRange * kAbsorbRange
+                && input_->TriggerKey(DIK_J)) {
+                entry.absorbing = true;
+                entry.absorbTimer = kAbsorbDuration;
                 player_->PlayStealStab();
-                const Vector3& enemyPos = entry.enemy->GetPosition();
                 pm_->EmitRing("weapon_orb", enemyPos, 3.0f,
                     { 0.5f, 0.9f, 1.0f, 1.0f }, 18, 0.4f, 0.3f);
                 ScreenFlash::GetInstance()->Request(
                     { 0.6f, 0.9f, 1.0f, 0.35f }, 0.12f);
+            }
+            if (entry.absorbing) {
+                entry.absorbTimer -= GameConstants::kFrameDeltaTime;
+                Vector3& absorbPos = entry.enemy->GetPositionRef();
+                absorbPos.x += (playerPos.x - absorbPos.x) * 0.16f;
+                absorbPos.y += (playerPos.y + 0.5f - absorbPos.y) * 0.16f;
+                entry.enemy->RefreshVisualTransforms();
+                if (entry.absorbTimer <= 0.0f) {
+                    entry.weaponAcquired = true;
+                    entry.enemy->SetVisible(false);
+                    WeaponManager::GetInstance()->Acquire(entry.weaponType);
+                }
             }
         }
     }
@@ -515,6 +547,15 @@ void GamePlayScene::UpdateWeaponEnemies()
 void GamePlayScene::UpdateWeaponGimmicks()
 {
     const Vector3& pos = player_->GetPosition();
+    const float gatePulse = 0.72f + 0.28f * std::sin(energyCorePulse_ * 6.0f);
+    if (swordGateActive_) {
+        swordGate_->SetColor({ 1.0f * gatePulse, 0.10f * gatePulse, 0.03f, 1.0f });
+        swordGate_->Update();
+    }
+    if (spearGateActive_) {
+        spearGate_->SetColor({ 0.04f, 0.45f * gatePulse, 1.0f * gatePulse, 1.0f });
+        spearGate_->Update();
+    }
     if (swordGateActive_ && player_->JustSwordDash() && std::abs(pos.x - 17.5f) <= 3.0f) {
         swordGateActive_ = false;
         pm_->EmitRing("sword_slash", { 17.5f, 1.5f, 0.0f }, 4.0f,
@@ -585,6 +626,14 @@ void GamePlayScene::UpdateCamera()
 
 void GamePlayScene::UpdateStyleAndUI(float dt)
 {
+    if (dt <= 0.0f) {
+        UpdateWeaponSlotHud();
+        DrawStyleUI();
+        return;
+    }
+
+    UpdateWeaponSlotHud();
+
     const auto* wm = WeaponManager::GetInstance();
     const Vector3& ppos = player_->GetPosition();
     const Vector3& epos = enemy_->GetPosition();
@@ -611,10 +660,14 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
                     + player_->GetComboStep() * 0.04f + switchBonus - repeatPenalty,
                 0.0f, 1.0f);
             player_->ChargeAwakenGauge(0.08f);
-            enemy_->TakeDamage(1);
             const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
-            enemy_->ApplyComboReaction(player_->GetLastDirX(),
-                attack != nullptr ? attack->knockY : 0.05f,
+            const WeaponData& weapon = wm->GetCurrent();
+            const float damageMult = attack != nullptr ? attack->damageMult : 1.0f;
+            const int damage = (std::max)(1,
+                static_cast<int>(std::round(weapon.damage * damageMult / 25.0f)));
+            enemy_->TakeDamage(damage);
+            enemy_->ApplyComboReaction(player_->GetLastDirX() * weapon.knockbackMult,
+                (attack != nullptr ? attack->knockY : 0.05f) * weapon.knockbackMult,
                 player_->JustWeaponSwitchHit(), ppos.x);
 
             const WeaponType element = wm->GetCurrent().type;
@@ -656,7 +709,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
         const RangedWeaponData& gun = wm->GetRanged();
         const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
         // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
-        AABB shotRange = SceneShared::MakeDirectionalRange(
+        AABB shotRange = SceneShared::MakeDirectionalShotRange(
             ppos, player_->GetLastDirX(), rangeX, 0.8f);
         if (Collision::CheckCollision(shotRange, enemyAABB)) {
             // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
@@ -694,6 +747,10 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
 
 void GamePlayScene::UpdateParticles(float dt)
 {
+    if (dt <= 0.0f) {
+        return;
+    }
+
     UpdateLandingAndJumpDustParticles();
     UpdateGhostTrail(dt);
     UpdatePlayerEnemyContactHit(dt);
@@ -732,7 +789,7 @@ void GamePlayScene::UpdateGhostTrail(float dt)
     // （Player::afterImageRenderer_ と同じ、残像=覚醒時だけの演出という前提に揃える）
     bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
         || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
-    bool awakenActive = player_->IsAwakened() || player_->IsRampaging();
+    bool awakenActive = player_->IsRampaging();
     if (awakenActive && (movingX || !player_->IsOnGround())) {
         ghostSpawnTimer_ -= dt;
         if (ghostSpawnTimer_ <= 0.0f) {
@@ -1078,14 +1135,17 @@ void GamePlayScene::CheckClearCondition()
     // 最終敵の撃破後にハンマーを奪い、4つ目のスロットを完成させる
     if (!weaponStealTriggered_ && enemy_->IsDefeated()
         && !finisherActive_ && !enemySlice_.IsActive()) {
-        weaponStealTriggered_ = true;
-
-        const auto acquireResult = WeaponManager::GetInstance()->Acquire(WeaponType::Hammer);
-        if (acquireResult != WeaponManager::AcquireResult::Duplicate) {
+        const Vector3& epos = enemy_->GetPosition();
+        const Vector3& ppos = player_->GetPosition();
+        const float dx = ppos.x - epos.x;
+        const float dy = ppos.y - epos.y;
+        constexpr float kAbsorbRange = 2.0f;
+        constexpr float kAbsorbDuration = 0.5f;
+        if (!mainWeaponAbsorbing_ && dx * dx + dy * dy <= kAbsorbRange * kAbsorbRange
+            && input_->TriggerKey(DIK_J)) {
+            mainWeaponAbsorbing_ = true;
+            mainWeaponAbsorbTimer_ = kAbsorbDuration;
             player_->PlayStealStab();
-
-            const Vector3& epos = enemy_->GetPosition();
-            const Vector3& ppos = player_->GetPosition();
             Vector3 toPlayer = { ppos.x - epos.x, ppos.y + 0.5f - epos.y, 0.0f };
             float len = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
             if (len > 0.001f) {
@@ -1101,10 +1161,22 @@ void GamePlayScene::CheckClearCondition()
                     glowColor, 0.35f, 0.22f);
             }
         }
+        if (mainWeaponAbsorbing_) {
+            mainWeaponAbsorbTimer_ -= GameConstants::kFrameDeltaTime;
+            Vector3& absorbPos = enemy_->GetPositionRef();
+            absorbPos.x += (ppos.x - absorbPos.x) * 0.16f;
+            absorbPos.y += (ppos.y + 0.5f - absorbPos.y) * 0.16f;
+            enemy_->RefreshVisualTransforms();
+            if (mainWeaponAbsorbTimer_ <= 0.0f) {
+                weaponStealTriggered_ = true;
+                enemy_->SetVisible(false);
+                WeaponManager::GetInstance()->Acquire(WeaponType::Hammer);
+            }
+        }
     }
 
     // ローグライト: 敵撃破でクリア（大技・切断演出は見せ切ってから遷移する）
-    if (!clearTriggered_ && enemy_->IsDefeated()
+    if (!clearTriggered_ && enemy_->IsDefeated() && weaponStealTriggered_
         && !finisherActive_ && !enemySlice_.IsActive()
         && RunData::GetInstance()->IsRunActive()) {
         requestClear_ = true;
@@ -1163,6 +1235,7 @@ bool GamePlayScene::DrawClearOverlayIfNeeded()
 {
     // クリア演出中（かつキャプチャ済み）はシーン描画をスキップ
     if (clearTriggered_ && RunData::GetInstance()->IsRunActive() && showResult_) {
+        GetStageEditor().DrawObjects();
         spriteCommon_->CommonDrawSettings();
         clearBgSprite_->SetColor({ 0.0f, 0.0f, 0.0f, 1.0f });
         clearBgSprite_->Update();
@@ -1179,6 +1252,7 @@ bool GamePlayScene::DrawClearOverlayIfNeeded()
         return true;
     }
     if (clearTriggered_ && IsGlassShatterFlow() && !glassShatter_.NeedCapture()) {
+        GetStageEditor().DrawObjects();
         spriteCommon_->CommonDrawSettings();
         clearBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
         clearBgSprite_->Update();
@@ -1262,6 +1336,12 @@ void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
 
+    awakenGaugeBg_->Draw();
+    if (player_->GetAwakenGauge() > 0.0f) {
+        awakenGaugeFg_->Draw();
+    }
+    DrawWeaponSlotHud();
+
     for (auto& e : sceneEditor_.GetUIElements()) {
         e.sprite->Update();
         e.sprite->Draw();
@@ -1334,9 +1414,100 @@ void GamePlayScene::DrawStyleUI()
 
     DrawStageGuide();
     DrawRogueliteHUD();
-    DrawRankAndAwakenGauge();
-    DrawStyleCommands();
+    SceneShared::DrawControlsHud(fontRenderer_, L": ステージを進む");
+    SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
+        player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_);
+    if (enemy_->IsDefeated() && !weaponStealTriggered_) {
+        fontRenderer_.DrawStringW(L"[ J ] 敵の武器を吸収", 500.0f, 500.0f, 1.6f,
+            { 0.55f, 0.9f, 1.0f, 1.0f });
+    }
     DrawWeaponExchange();
+}
+
+void GamePlayScene::InitializeWeaponSlotHud()
+{
+    constexpr float size = 56.0f;
+    constexpr float gap = 10.0f;
+    constexpr float marginX = 24.0f;
+    const float y = static_cast<float>(WinApp::kClientHeight) - 90.0f;
+    const auto& list = WeaponManager::GetInstance()->GetList();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        const float x = marginX + static_cast<float>(i) * (size + gap);
+        weaponSlotPos_[i] = { x, y };
+        weaponSlots_[i].frame = std::make_unique<Sprite>();
+        weaponSlots_[i].frame->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponSlots_[i].frame->SetPosition({ x, y });
+        weaponSlots_[i].frame->SetSize({ size, size });
+        weaponSlots_[i].icon = std::make_unique<Sprite>();
+        weaponSlots_[i].icon->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponSlots_[i].icon->SetPosition({ x + 6.0f, y + 6.0f });
+        weaponSlots_[i].icon->SetSize({ size - 12.0f, size - 12.0f });
+        if (i < static_cast<int>(list.size())) {
+            const float* color = list[i].styleColor;
+            weaponSlots_[i].icon->SetColor({ color[0], color[1], color[2], 0.9f });
+        }
+    }
+    gunPos_ = { marginX + kWeaponSlotCount * (size + gap) + 24.0f, y };
+    gunFrame_ = std::make_unique<Sprite>();
+    gunFrame_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    gunFrame_->SetPosition(gunPos_);
+    gunFrame_->SetSize({ size, size });
+    gunIcon_ = std::make_unique<Sprite>();
+    gunIcon_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    gunIcon_->SetAnchorPoint({ 0.5f, 0.5f });
+    gunIcon_->SetPosition({ gunPos_.x + size * 0.5f, gunPos_.y + size * 0.5f });
+    gunIcon_->SetSize({ size - 20.0f, size - 20.0f });
+    gunIcon_->SetColor({ 0.6f, 0.85f, 1.0f, 0.9f });
+}
+
+void GamePlayScene::UpdateWeaponSlotHud()
+{
+    weaponSlotPulse_ += GameConstants::kFrameDeltaTime;
+    gunIconAngle_ += GameConstants::kFrameDeltaTime * 0.6f;
+    const float pulse = 0.7f + 0.3f * std::sin(weaponSlotPulse_ * 6.0f);
+    auto* wm = WeaponManager::GetInstance();
+    const auto& list = wm->GetList();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        const bool active = i == wm->GetSelectedSlot();
+        const float brightness = 0.08f + (active ? pulse * 0.35f : 0.0f);
+        weaponSlots_[i].frame->SetColor({ brightness, brightness, brightness + (active ? 0.2f : 0.05f), 0.85f });
+        weaponSlots_[i].frame->Update();
+        const int weaponIndex = wm->GetSlotWeaponIndex(i);
+        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size()) && wm->IsUnlocked(weaponIndex);
+        if (unlocked) {
+            const float* color = list[weaponIndex].styleColor;
+            const float mul = active ? 0.7f + pulse * 0.3f : 0.5f;
+            weaponSlots_[i].icon->SetColor({ color[0] * mul, color[1] * mul, color[2] * mul, 0.95f });
+        } else {
+            weaponSlots_[i].icon->SetColor({ 0.2f, 0.2f, 0.2f, 0.35f });
+        }
+        weaponSlots_[i].icon->Update();
+    }
+    gunFrame_->SetColor({ 0.08f, 0.08f, 0.15f, 0.85f });
+    gunFrame_->Update();
+    gunIcon_->SetRotation(gunIconAngle_);
+    gunIcon_->Update();
+}
+
+void GamePlayScene::DrawWeaponSlotHud()
+{
+    for (auto& slot : weaponSlots_) {
+        slot.frame->Draw();
+    }
+    gunFrame_->Draw();
+    for (auto& slot : weaponSlots_) {
+        slot.icon->Draw();
+    }
+    gunIcon_->Draw();
+    const auto* wm = WeaponManager::GetInstance();
+    for (int i = 0; i < kWeaponSlotCount; ++i) {
+        if (!wm->IsUnlocked(i)) {
+            fontRenderer_.DrawStringW(L"?", weaponSlotPos_[i].x + 22.0f,
+                weaponSlotPos_[i].y + 16.0f, 1.6f, { 0.6f, 0.6f, 0.6f, 0.9f });
+        }
+    }
+    fontRenderer_.DrawString("GUN", gunPos_.x + 10.0f, gunPos_.y + 60.0f, 1.0f,
+        { 0.6f, 0.85f, 1.0f, 0.9f });
 }
 
 void GamePlayScene::UpdateWeaponExchange()
@@ -1384,29 +1555,29 @@ void GamePlayScene::DrawStageGuide()
     const std::wstring coreCount = L"エネルギーコア  "
         + std::to_wstring(collectedEnergyCores_) + L" / "
         + std::to_wstring(energyCores_.size());
-    fontRenderer_.DrawStringW(coreCount, 24.0f, 620.0f, kScale,
+    fontRenderer_.DrawStringW(coreCount, 24.0f, 540.0f, kScale,
         { 0.3f, 0.9f, 1.0f, 1.0f });
 
     if (x < 11.0f) {
         fontRenderer_.DrawStringW(
             L"訓練区画  移動 A D  ジャンプ W  攻撃 L",
-            24.0f, 660.0f, kScale, kGuideColor);
+            24.0f, 575.0f, kScale, kGuideColor);
     } else if (swordGateActive_ && x < 19.0f) {
         fontRenderer_.DrawStringW(
             L"剣敵を倒して装備し  SPACEの瞬迅斬りで赤い障壁を壊す",
-            24.0f, 660.0f, kScale, kGuideColor);
+            24.0f, 575.0f, kScale, kGuideColor);
     } else if (spearGateActive_ && x < 27.0f) {
         fontRenderer_.DrawStringW(
             L"槍敵を倒して装備し  SPACEの間合い外しで青い障壁を解く",
-            24.0f, 660.0f, kScale, kGuideColor);
+            24.0f, 575.0f, kScale, kGuideColor);
     } else if (!enemy_->IsDefeated()) {
         fontRenderer_.DrawStringW(
             L"戦闘区画  技を変えてスタイルランクを上げる",
-            24.0f, 660.0f, kScale, { 1.0f, 0.75f, 0.25f, 1.0f });
+            24.0f, 575.0f, kScale, { 1.0f, 0.75f, 0.25f, 1.0f });
     } else {
         fontRenderer_.DrawStringW(
             L"撃破完了  敵の武器を奪って次の区画へ進む",
-            24.0f, 660.0f, kScale, { 0.45f, 1.0f, 0.65f, 1.0f });
+            24.0f, 575.0f, kScale, { 0.45f, 1.0f, 0.65f, 1.0f });
     }
 }
 

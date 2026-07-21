@@ -647,7 +647,7 @@ void Player::UpdateVisualState(Input* input)
     // ── 覚醒残像スポーン＆フェード ──
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
-    afterImageRenderer_.Update(isAwakened_ || isRampage, isRampage, modelPos, yaw, spinAngle_);
+    afterImageRenderer_.Update(isRampage, isRampage, modelPos, yaw, spinAngle_);
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushAction(Input::Action::MoveLeft)

@@ -109,7 +109,7 @@ public:
      * @brief ステージエディタが読み書きするレベルファイルを返す
      * @return レベルJSONのパス
      */
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/battletest.json"; }
     /**
      * @brief 配置物生成に使用するモデル共通処理を返す
      * @return シーンが所有するモデル共通処理
@@ -231,6 +231,8 @@ private:
     void UpdateWeaponSlotHud();
     /** @brief 武器スロットUIを描画する */
     void DrawWeaponSlotHud();
+    /** @brief 現在の近接コンボ段階を本番シーンと同じ形式で表示する */
+    void DrawComboHud();
     /** @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する */
     void DrawHud(bool nearReturnPortal);
     /** @brief 武器一覧と戻りポータルのラベルを描画する */
@@ -319,7 +321,7 @@ private:
         std::unique_ptr<Sprite> frame; // 枠背景
         std::unique_ptr<Sprite> icon; // スタイルカラーで塗った中身
     };
-    static constexpr int kWeaponSlotCount = 7;
+    static constexpr int kWeaponSlotCount = 4;
     static constexpr float kSlotFlashDuration = 0.35f;
     std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
