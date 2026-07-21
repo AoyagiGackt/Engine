@@ -1,3 +1,7 @@
+/**
+ * @file CollisionConfig.h
+ * @brief CollisionConfigが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "MakeAffine.h"
 #include <algorithm>

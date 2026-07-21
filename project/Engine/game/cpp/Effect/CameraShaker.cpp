@@ -1,3 +1,7 @@
+/**
+ * @file CameraShaker.cpp
+ * @brief CameraShakerが担当する処理を実装するファイル
+ */
 #include "CameraShaker.h"
 #include <algorithm>
 #include <cmath>

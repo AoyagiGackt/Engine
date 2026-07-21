@@ -1,3 +1,7 @@
+/**
+ * @file AudioBridge.cpp
+ * @brief AudioBridgeが担当する処理を実装するファイル
+ */
 #include "AudioBridge.h"
 #include "Logger.h"
 using namespace engine::game;

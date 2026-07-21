@@ -1,3 +1,7 @@
+/**
+ * @file GameOverScene.cpp
+ * @brief GameOverSceneが担当する処理を実装するファイル
+ */
 #include "GameOverScene.h"
 #include "GameConstants.h"
 #include "RunData.h"

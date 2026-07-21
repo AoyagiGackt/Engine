@@ -1,3 +1,7 @@
+/**
+ * @file TitleScene.cpp
+ * @brief TitleSceneが担当する処理を実装するファイル
+ */
 #include "TitleScene.h"
 #include "RunData.h"
 #include "SaveData.h"

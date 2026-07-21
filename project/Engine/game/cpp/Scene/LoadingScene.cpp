@@ -1,3 +1,7 @@
+/**
+ * @file LoadingScene.cpp
+ * @brief LoadingSceneが担当する処理を実装するファイル
+ */
 #include "LoadingScene.h"
 #include "GameConstants.h"
 #include "SceneManager.h"

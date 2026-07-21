@@ -1,3 +1,7 @@
+/**
+ * @file GrayscaleEffect.h
+ * @brief GrayscaleEffectが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "PostEffectFullscreenPass.h"
 namespace engine::graphics {

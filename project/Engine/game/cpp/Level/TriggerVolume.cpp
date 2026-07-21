@@ -1,3 +1,7 @@
+/**
+ * @file TriggerVolume.cpp
+ * @brief TriggerVolumeが担当する処理を実装するファイル
+ */
 #include "TriggerVolume.h"
 #include "GameFlags.h"
 using namespace engine::game;

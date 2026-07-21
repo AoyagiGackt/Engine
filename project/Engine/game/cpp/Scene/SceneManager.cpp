@@ -1,3 +1,7 @@
+/**
+ * @file SceneManager.cpp
+ * @brief SceneManagerが担当する処理を実装するファイル
+ */
 #include "SceneManager.h"
 #include "CrashHandler.h"
 #include "StageEditor.h"

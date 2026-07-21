@@ -1,3 +1,7 @@
+/**
+ * @file Skydome.cpp
+ * @brief Skydomeが担当する処理を実装するファイル
+ */
 #include "Skydome.h"
 using namespace engine;
 using namespace engine::graphics;

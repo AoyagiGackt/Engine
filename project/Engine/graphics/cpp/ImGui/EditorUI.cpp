@@ -1,3 +1,7 @@
+/**
+ * @file EditorUI.cpp
+ * @brief EditorUIが担当する処理を実装するファイル
+ */
 #ifdef USE_IMGUI
 #include "EditorUI.h"
 #include <imgui.h>

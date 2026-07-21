@@ -1,3 +1,7 @@
+/**
+ * @file ScreenFlash.cpp
+ * @brief ScreenFlashが担当する処理を実装するファイル
+ */
 #include "ScreenFlash.h"
 #include "DirectXCommon.h"
 #include "WinApp.h"

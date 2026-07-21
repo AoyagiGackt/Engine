@@ -19,8 +19,13 @@ namespace engine {
 class Input;
 }
 namespace engine::game {
+class GraphEditorInteraction;
+class GraphNodeRenderer;
 
 class GraphEditor {
+    friend class GraphEditorInteraction;
+    friend class GraphNodeRenderer;
+
 public:
     static GraphEditor* GetInstance();
 
@@ -63,12 +68,17 @@ private:
         std::string activeRunNodeId; ///< viewingActiveGraphがtrueの時だけ有効な、ハイライト対象ノードID
     };
 
+    /** @brief 表示切替と編集入力の実処理を実行する */
+    void UpdateContent(engine::Input* input);
+
     void DrawCanvas();
     // DrawCanvas() 分割ヘルパー（呼び出し順に宣言）
     /** @brief マウスホイールズームと中ボタンドラッグパンを処理する */
     void UpdateCanvasView(bool canvasHovered);
     /** @brief ノード1つ分（タイトル・パラメータ・ピン・枠）を描画し、ドラッグ操作を処理する */
     void DrawNode(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state);
+    /** @brief ノード一件の表示と操作の実処理を実行する */
+    void DrawNodeContent(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state);
     /** @brief ノードのパラメータ編集ウィジェットと左端のデータ入力ピンを描画する */
     void DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state);
     /** @brief ドラッグ中のリンク／データ配線のプレビュー線を描き、空振り時はキャンセルする */

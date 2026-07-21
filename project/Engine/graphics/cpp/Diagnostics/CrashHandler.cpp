@@ -1,3 +1,7 @@
+/**
+ * @file CrashHandler.cpp
+ * @brief CrashHandlerが担当する処理を実装するファイル
+ */
 #include "CrashHandler.h"
 #include "CrashContext.h"
 #include "Logger.h"

@@ -1,3 +1,7 @@
+/**
+ * @file Player.cpp
+ * @brief Playerが担当する処理を実装するファイル
+ */
 #include "Player.h"
 #include "CharacterVisuals.h"
 #include "GameConstants.h"

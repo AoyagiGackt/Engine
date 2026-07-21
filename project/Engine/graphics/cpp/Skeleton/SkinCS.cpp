@@ -1,4 +1,8 @@
-﻿#include "SkinCS.h"
+/**
+ * @file SkinCS.cpp
+ * @brief SkinCSが担当する処理を実装するファイル
+ */
+#include "SkinCS.h"
 #include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;

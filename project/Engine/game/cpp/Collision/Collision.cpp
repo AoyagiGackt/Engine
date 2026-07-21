@@ -1,3 +1,7 @@
+/**
+ * @file Collision.cpp
+ * @brief Collisionが担当する処理を実装するファイル
+ */
 #include "Collision.h"
 #include <algorithm>
 #include <cfloat> // FLT_MAX

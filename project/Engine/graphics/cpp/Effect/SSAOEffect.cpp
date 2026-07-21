@@ -1,4 +1,8 @@
-﻿#include "SSAOEffect.h"
+/**
+ * @file SSAOEffect.cpp
+ * @brief SSAOEffectが担当する処理を実装するファイル
+ */
+#include "SSAOEffect.h"
 #include "EngineAssert.h"
 #include <cmath>
 #include <random>

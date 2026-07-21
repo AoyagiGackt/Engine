@@ -1,3 +1,7 @@
+/**
+ * @file ParticleManager.cpp
+ * @brief ParticleManagerが担当する処理を実装するファイル
+ */
 #include "ParticleManager.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"

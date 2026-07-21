@@ -1,4 +1,8 @@
-﻿#include "SkeletonDebugRenderer.h"
+/**
+ * @file SkeletonOverlayRenderer.cpp
+ * @brief SkeletonOverlayRendererが担当する処理を実装するファイル
+ */
+#include "SkeletonOverlayRenderer.h"
 #ifdef USE_IMGUI
 
 #include "Camera.h"
@@ -10,7 +14,7 @@ using namespace Microsoft::WRL;
 
 static constexpr float kPi = 3.14159265358979323846f;
 
-void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
+void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
@@ -34,8 +38,8 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&rootSignature_));
 
     // シェーダー
-    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugVS.hlsl", L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayPS.hlsl", L"ps_6_0");
 
     // 入力レイアウト
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
@@ -103,7 +107,7 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
     lineIBV_ = { lineIB_->GetGPUVirtualAddress(), ibSize, DXGI_FORMAT_R16_UINT };
 }
 
-void SkeletonDebugRenderer::BuildSphere()
+void SkeletonOverlayRenderer::BuildSphere()
 {
     std::vector<DebugVertex> verts;
     verts.reserve((kStacks + 1) * (kSlices + 1));
@@ -165,7 +169,7 @@ void SkeletonDebugRenderer::BuildSphere()
         static_cast<UINT>(indices.size() * sizeof(uint16_t)), DXGI_FORMAT_R16_UINT };
 }
 
-void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
+void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
 {
     if (!camera || skeleton.GetJoints().empty()) {
         return;

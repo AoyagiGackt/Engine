@@ -1,3 +1,7 @@
+/**
+ * @file GraphRuntime.cpp
+ * @brief GraphRuntimeが担当する処理を実装するファイル
+ */
 #include "GraphRuntime.h"
 #include "Logger.h"
 #include "NodeRegistry.h"

@@ -1,4 +1,8 @@
-﻿#include "MeshManager.h"
+/**
+ * @file MeshManager.cpp
+ * @brief MeshManagerが担当する処理を実装するファイル
+ */
+#include "MeshManager.h"
 #include <cmath>
 using namespace engine;
 using namespace engine::graphics;

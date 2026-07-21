@@ -1,3 +1,7 @@
+/**
+ * @file SkinnedObject3d.cpp
+ * @brief SkinnedObject3dが担当する処理を実装するファイル
+ */
 #include "SkinnedObject3d.h"
 #include "Camera.h"
 #include "LightManager.h"
@@ -85,7 +89,7 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
     }
 
 #ifdef USE_IMGUI
-    skeletonDebugRenderer_ = std::make_unique<SkeletonDebugRenderer>();
+    skeletonDebugRenderer_ = std::make_unique<SkeletonOverlayRenderer>();
     skeletonDebugRenderer_->Initialize(skinCommon_->GetDxCommon());
 #endif
 }
@@ -154,7 +158,7 @@ void SkinnedObject3d::Update()
     materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
 }
 
-void SkinnedObject3d::DebugDraw()
+void SkinnedObject3d::DiagnosticsDraw()
 {
 #ifdef USE_IMGUI
     if (skeletonDebugRenderer_) {

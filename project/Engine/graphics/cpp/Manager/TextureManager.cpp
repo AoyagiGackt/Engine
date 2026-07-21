@@ -1,3 +1,7 @@
+/**
+ * @file TextureManager.cpp
+ * @brief TextureManagerが担当する処理を実装するファイル
+ */
 #include "TextureManager.h"
 #include "DirectXTex.h"
 #include "EngineAssert.h"

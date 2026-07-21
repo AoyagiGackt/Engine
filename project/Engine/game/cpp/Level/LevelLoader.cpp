@@ -1,3 +1,7 @@
+/**
+ * @file LevelLoader.cpp
+ * @brief LevelLoaderが担当する処理を実装するファイル
+ */
 #include "LevelLoader.h"
 #include "JsonHelper.h"
 #include "Model.h"

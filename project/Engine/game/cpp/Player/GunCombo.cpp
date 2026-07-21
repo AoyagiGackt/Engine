@@ -1,3 +1,7 @@
+/**
+ * @file GunCombo.cpp
+ * @brief GunComboが担当する処理を実装するファイル
+ */
 #include "GunCombo.h"
 #include "Easing.h"
 #include "Weapon.h"

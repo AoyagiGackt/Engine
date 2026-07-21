@@ -1,3 +1,7 @@
+/**
+ * @file SceneShared.cpp
+ * @brief SceneSharedが担当する処理を実装するファイル
+ */
 #include "SceneShared.h"
 #include "Camera.h"
 #include "FontRenderer.h"

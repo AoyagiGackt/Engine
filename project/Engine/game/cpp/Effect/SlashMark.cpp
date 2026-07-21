@@ -1,3 +1,7 @@
+/**
+ * @file SlashMark.cpp
+ * @brief SlashMarkが担当する処理を実装するファイル
+ */
 #include "SlashMark.h"
 #include <algorithm>
 #include <cmath>

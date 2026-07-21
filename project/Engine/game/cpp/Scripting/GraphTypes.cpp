@@ -1,3 +1,7 @@
+/**
+ * @file GraphTypes.cpp
+ * @brief GraphTypesが担当する処理を実装するファイル
+ */
 #include "GraphTypes.h"
 #include "JsonHelper.h"
 #include "Logger.h"

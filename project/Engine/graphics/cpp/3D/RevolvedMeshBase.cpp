@@ -1,3 +1,7 @@
+/**
+ * @file RevolvedMeshBase.cpp
+ * @brief RevolvedMeshBaseが担当する処理を実装するファイル
+ */
 #include "RevolvedMeshBase.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"

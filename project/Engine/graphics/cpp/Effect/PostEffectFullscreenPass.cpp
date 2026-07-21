@@ -1,3 +1,7 @@
+/**
+ * @file PostEffectFullscreenPass.cpp
+ * @brief PostEffectFullscreenPassが担当する処理を実装するファイル
+ */
 #include "PostEffectFullscreenPass.h"
 #include "EngineAssert.h"
 #include "WinApp.h"

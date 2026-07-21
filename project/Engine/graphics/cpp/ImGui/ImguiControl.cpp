@@ -1,3 +1,7 @@
+/**
+ * @file ImGuiControl.cpp
+ * @brief ImGuiControlが担当する処理を実装するファイル
+ */
 #include "ImGuiControl.h"
 #include "BloomEffect.h"
 #include "GlassShatterEffect.h"

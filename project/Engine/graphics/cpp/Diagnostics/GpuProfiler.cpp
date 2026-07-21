@@ -1,5 +1,9 @@
-﻿#include "GpuProfiler.h"
-#include "DebugProfiler.h"
+/**
+ * @file GpuProfiler.cpp
+ * @brief GpuProfilerが担当する処理を実装するファイル
+ */
+#include "GpuProfiler.h"
+#include "FrameProfiler.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"
 #ifdef USE_IMGUI
@@ -103,7 +107,7 @@ void GpuProfiler::ReadBack()
 void GpuProfiler::DrawImGui()
 {
 #ifdef USE_IMGUI
-    auto* cpu = DebugProfiler::GetInstance();
+    auto* cpu = FrameProfiler::GetInstance();
     ImGui::SetNextWindowSize(ImVec2(230, 130), ImGuiCond_Once);
     ImGui::SetNextWindowPos(ImVec2(10, 580), ImGuiCond_Once);
     if (ImGui::Begin("Profiler")) {

@@ -1,3 +1,7 @@
+/**
+ * @file Fade.h
+ * @brief Fadeが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "Sprite.h"
 #include <memory>

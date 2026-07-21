@@ -1,3 +1,7 @@
+/**
+ * @file SceneFactory.cpp
+ * @brief SceneFactoryが担当する処理を実装するファイル
+ */
 #include "SceneFactory.h"
 #include "BattleTestScene.h"
 #include "ClearScene.h"

@@ -366,6 +366,3 @@ externals/**/Release/
 # ログとスコアファイルの除外
 project/log.txt
 project/scores.txt
-
-# デバッグ用シェーダーの等の除外
-project/Resources/shaders/debug/

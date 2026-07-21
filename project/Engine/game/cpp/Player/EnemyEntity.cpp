@@ -1,3 +1,7 @@
+/**
+ * @file EnemyEntity.cpp
+ * @brief EnemyEntityが担当する処理を実装するファイル
+ */
 #include "EnemyEntity.h"
 #include "GameConstants.h"
 #include "GravityBody.h"

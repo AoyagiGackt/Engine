@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file SkinnedModel.h
+ * @brief SkinnedModelが公開する型とAPIを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
 #include <string>

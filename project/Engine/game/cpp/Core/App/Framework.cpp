@@ -1,5 +1,9 @@
+/**
+ * @file Framework.cpp
+ * @brief Frameworkが担当する処理を実装するファイル
+ */
 #include "Framework.h"
-#include "DebugProfiler.h"
+#include "FrameProfiler.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
@@ -20,7 +24,7 @@ void Framework::Run()
 {
     Initialize();
     while (true) {
-        DebugProfiler::GetInstance()->BeginFrame();
+        FrameProfiler::GetInstance()->BeginFrame();
         Update();
 
         if (IsEndRequest()) {
@@ -28,7 +32,7 @@ void Framework::Run()
         }
 
         Draw();
-        DebugProfiler::GetInstance()->EndFrame();
+        FrameProfiler::GetInstance()->EndFrame();
     }
 
     Finalize();

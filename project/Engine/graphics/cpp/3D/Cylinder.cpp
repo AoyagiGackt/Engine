@@ -1,3 +1,7 @@
+/**
+ * @file Cylinder.cpp
+ * @brief Cylinderが担当する処理を実装するファイル
+ */
 #include "Cylinder.h"
 #include "DirectXCommon.h"
 #include <cmath>

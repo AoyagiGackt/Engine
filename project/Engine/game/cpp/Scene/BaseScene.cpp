@@ -1,3 +1,7 @@
+/**
+ * @file BaseScene.cpp
+ * @brief BaseSceneが担当する処理を実装するファイル
+ */
 #include "BaseScene.h"
 #include "SpriteCommon.h"
 #include "StageEditor.h"

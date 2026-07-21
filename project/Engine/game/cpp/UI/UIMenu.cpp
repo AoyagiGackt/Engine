@@ -1,3 +1,7 @@
+/**
+ * @file UIMenu.cpp
+ * @brief UIMenuが担当する処理を実装するファイル
+ */
 #include "UIMenu.h"
 using namespace engine;
 using namespace engine::graphics;

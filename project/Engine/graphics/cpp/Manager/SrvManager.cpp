@@ -1,4 +1,8 @@
-﻿#include "SrvManager.h"
+/**
+ * @file SrvManager.cpp
+ * @brief SrvManagerが担当する処理を実装するファイル
+ */
+#include "SrvManager.h"
 #include "EngineAssert.h"
 #include <algorithm>
 using namespace engine;

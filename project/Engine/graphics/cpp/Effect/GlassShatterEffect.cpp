@@ -1,4 +1,8 @@
-﻿#include "GlassShatterEffect.h"
+/**
+ * @file GlassShatterEffect.cpp
+ * @brief GlassShatterEffectが担当する処理を実装するファイル
+ */
+#include "GlassShatterEffect.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "WinApp.h"

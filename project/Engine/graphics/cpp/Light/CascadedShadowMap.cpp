@@ -1,4 +1,8 @@
-﻿#include "CascadedShadowMap.h"
+/**
+ * @file CascadedShadowMap.cpp
+ * @brief CascadedShadowMapが担当する処理を実装するファイル
+ */
+#include "CascadedShadowMap.h"
 #include "EngineAssert.h"
 #include "ShadowManager.h"
 #include "WinApp.h"

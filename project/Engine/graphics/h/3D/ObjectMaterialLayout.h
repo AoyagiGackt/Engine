@@ -1,3 +1,7 @@
+/**
+ * @file ObjectMaterialLayout.h
+ * @brief ObjectMaterialLayoutが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "MakeAffine.h"
 namespace engine::graphics {

@@ -1,3 +1,7 @@
+/**
+ * @file NodeRegistry.cpp
+ * @brief NodeRegistryが担当する処理を実装するファイル
+ */
 #include "NodeRegistry.h"
 #include "AudioBridge.h"
 #include "EnemyEntity.h"

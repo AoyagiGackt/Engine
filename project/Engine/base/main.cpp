@@ -1,3 +1,7 @@
+/**
+ * @file main.cpp
+ * @brief mainが担当する処理を実装するファイル
+ */
 #include "CrashHandler.h"
 #include "D3DResourceLeakChecker.h"
 #include "Game.h"

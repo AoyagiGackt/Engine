@@ -1,6 +1,10 @@
+/**
+ * @file Game.cpp
+ * @brief Gameが担当する処理を実装するファイル
+ */
 #include "Game.h"
 #include "DelayTimer.h"
-#include "DebugProfiler.h"
+#include "FrameProfiler.h"
 #include "GameConstants.h"
 #include "GamePlayScene.h"
 #include "GameSettings.h"
@@ -90,7 +94,7 @@ void MyGame::Update()
     if (showEngineDebug) {
         const bool panelOpen = ImGui::Begin("Engine Debug", &showEngineDebug);
         if (panelOpen) {
-        auto* profiler = DebugProfiler::GetInstance();
+        auto* profiler = FrameProfiler::GetInstance();
         ImGui::Text("CPU %.2f ms  %.1f FPS", profiler->GetMs(), profiler->GetFPS());
         ImGui::Text("Gamepad %s", input_->IsGamepadConnected() ? "Connected" : "Disconnected");
         bool hotReloadEnabled = TextureManager::GetInstance()->IsHotReloadEnabled();

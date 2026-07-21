@@ -1,4 +1,8 @@
-﻿#include "ImageFilter.h"
+/**
+ * @file ImageFilter.cpp
+ * @brief ImageFilterが担当する処理を実装するファイル
+ */
+#include "ImageFilter.h"
 #include "EngineAssert.h"
 #include "TextureManager.h"
 #include "WinApp.h"

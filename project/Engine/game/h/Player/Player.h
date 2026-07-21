@@ -378,15 +378,18 @@ private:
 
     // Physics State パターン
     // 水中/水上で横移動・重力・ジャンプの処理を切り替える
+    /** @brief 環境ごとの移動と重力処理を抽象化する物理状態 */
     class IPhysicsState {
     public:
         virtual ~IPhysicsState() = default;
         virtual void Update(Player& player, Input* input) const = 0;
     };
+    /** @brief 地上環境の移動と重力処理を適用する物理状態 */
     class GroundedPhysicsState : public IPhysicsState {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 水中環境の浮力と移動処理を適用する物理状態 */
     class UnderwaterPhysicsState : public IPhysicsState {
     public:
         void Update(Player& player, Input* input) const override;
@@ -396,22 +399,26 @@ private:
     // Rampage State パターン
     // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
     // 毎フレームの物理更新内容を切り替える
+    /** @brief 覚醒乱舞の段階固有処理を抽象化する状態 */
     class IRampageState {
     public:
         virtual ~IRampageState() = default;
         virtual void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const = 0;
         virtual void UpdatePhysics(Player& player, const Vector3& enemyPos) const = 0;
     };
+    /** @brief 覚醒乱舞を開始していない通常状態 */
     class InactiveRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override { }
     };
+    /** @brief 覚醒乱舞の打ち上げ段階を処理する状態 */
     class LaunchRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override { }
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
     };
+    /** @brief 覚醒乱舞の空中追撃段階を処理する状態 */
     class JuggleRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
@@ -421,43 +428,53 @@ private:
 
     // Weapon Behavior Strategy パターン
     // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
+    /** @brief 装備武器ごとの固有更新を抽象化するStrategy */
     class IWeaponBehavior {
     public:
         virtual ~IWeaponBehavior() = default;
         virtual void Update(Player& player, Input* input) const = 0;
     };
+    /** @brief 短剣の高速移動と攻撃挙動を適用するStrategy */
     class DaggerBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief ハンマーの重量攻撃挙動を適用するStrategy */
     class HammerBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief ボール武器の固有挙動を適用するStrategy */
     class BallBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 剣の突進攻撃挙動を適用するStrategy */
     class SwordBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 槍の間合い制御を適用するStrategy */
     class SpearBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 大剣の叩きつけ挙動を適用するStrategy */
     class GreatswordBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 鎌の広範囲攻撃挙動を適用するStrategy */
     class ScytheBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 斧の溜め攻撃挙動を適用するStrategy */
     class AxeBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 固有処理を持たない武器へ共通挙動を適用するStrategy */
     class DefaultWeaponBehavior : public IWeaponBehavior {
     public:
         void Update(Player&, Input*) const override { }

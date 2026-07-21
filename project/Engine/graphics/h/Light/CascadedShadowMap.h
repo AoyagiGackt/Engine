@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file CascadedShadowMap.h
+ * @brief CascadedShadowMapが公開する型とAPIを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
 #include "SrvManager.h"

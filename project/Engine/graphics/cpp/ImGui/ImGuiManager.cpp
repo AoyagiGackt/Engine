@@ -1,4 +1,8 @@
-﻿#include "ImGuiManager.h"
+/**
+ * @file ImGuiManager.cpp
+ * @brief ImGuiManagerが担当する処理を実装するファイル
+ */
+#include "ImGuiManager.h"
 #include <SrvManager.h>
 using namespace engine;
 using namespace engine::graphics;

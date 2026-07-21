@@ -1,3 +1,7 @@
+/**
+ * @file SpriteCommon.cpp
+ * @brief SpriteCommonが担当する処理を実装するファイル
+ */
 #include "SpriteCommon.h"
 #include "EngineAssert.h"
 #include "PipelineHelper.h"

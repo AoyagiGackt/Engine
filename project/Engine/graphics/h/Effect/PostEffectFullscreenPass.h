@@ -1,3 +1,7 @@
+/**
+ * @file PostEffectFullscreenPass.h
+ * @brief PostEffectFullscreenPassが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"

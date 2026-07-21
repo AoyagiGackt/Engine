@@ -1,3 +1,7 @@
+/**
+ * @file GameSettings.cpp
+ * @brief GameSettingsが担当する処理を実装するファイル
+ */
 #include "GameSettings.h"
 #include "JsonHelper.h"
 using namespace engine;

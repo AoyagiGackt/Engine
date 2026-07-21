@@ -1,3 +1,7 @@
+/**
+ * @file GpuProfiler.h
+ * @brief GpuProfilerが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include <array>
 #include <d3d12.h>

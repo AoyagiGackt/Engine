@@ -1,3 +1,7 @@
+/**
+ * @file WinApp.cpp
+ * @brief WinAppが担当する処理を実装するファイル
+ */
 #include "WinApp.h"
 #include "ImGuiManager.h"
 using namespace engine;

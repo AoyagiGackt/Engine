@@ -1,3 +1,7 @@
+/**
+ * @file LevelLoader.h
+ * @brief LevelLoaderが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "MakeAffine.h"
 #include <memory>

@@ -1,3 +1,7 @@
+/**
+ * @file BladeFlashEffect.cpp
+ * @brief BladeFlashEffectが担当する処理を実装するファイル
+ */
 #include "BladeFlashEffect.h"
 #include "Camera.h"
 #include "EngineAssert.h"

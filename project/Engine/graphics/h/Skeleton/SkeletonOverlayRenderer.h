@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file SkeletonOverlayRenderer.h
+ * @brief SkeletonOverlayRendererが公開する型とAPIを定義するファイル
+ */
+#pragma once
 #ifdef USE_IMGUI
 
 #include "DirectXCommon.h"
@@ -14,7 +18,7 @@ class Camera;
 // - ジョイント   白い球
 // - ボーン       カメラ向きのビルボードクワッド（白）
 // 深度テスト無効でメッシュに埋まっていても常に表示
-class SkeletonDebugRenderer {
+class SkeletonOverlayRenderer {
 public:
     void Initialize(engine::DirectXCommon* dxCommon);
     void Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera);

@@ -1,3 +1,7 @@
+/**
+ * @file SkinnedObject3d.h
+ * @brief SkinnedObject3dが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "Animation.h"
 #include "MakeAffine.h"
@@ -11,7 +15,7 @@
 #include <wrl/client.h>
 
 #ifdef USE_IMGUI
-#include "SkeletonDebugRenderer.h"
+#include "SkeletonOverlayRenderer.h"
 #include <memory>
 #endif
 
@@ -104,7 +108,7 @@ public:
 
     void Update();
     void Draw();
-    void DebugDraw();
+    void DiagnosticsDraw();
 
     /**
      * @brief アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
@@ -148,7 +152,7 @@ private:
     Matrix4x4 worldMatrix_ = MakeIdentity4x4();
 
 #ifdef USE_IMGUI
-    std::unique_ptr<SkeletonDebugRenderer> skeletonDebugRenderer_;
+    std::unique_ptr<SkeletonOverlayRenderer> skeletonDebugRenderer_;
 #endif
 
     Microsoft::WRL::ComPtr<ID3D12Resource> transformCB_;

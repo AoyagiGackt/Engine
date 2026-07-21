@@ -1,4 +1,8 @@
-﻿#include "Camera.h"
+/**
+ * @file Camera.cpp
+ * @brief Cameraが担当する処理を実装するファイル
+ */
+#include "Camera.h"
 #include "WinApp.h"
 using namespace engine;
 using namespace engine::graphics;

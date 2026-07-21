@@ -1,3 +1,7 @@
+/**
+ * @file GrayscaleEffect.cpp
+ * @brief GrayscaleEffectが担当する処理を実装するファイル
+ */
 #include "GrayscaleEffect.h"
 using namespace engine;
 using namespace engine::graphics;

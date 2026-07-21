@@ -1,3 +1,7 @@
+/**
+ * @file MeleeCombo.cpp
+ * @brief MeleeComboが担当する処理を実装するファイル
+ */
 #include "MeleeCombo.h"
 #include "Easing.h"
 #include "JsonHelper.h"

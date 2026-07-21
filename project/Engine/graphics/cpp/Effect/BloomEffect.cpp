@@ -1,4 +1,8 @@
-﻿#include "BloomEffect.h"
+/**
+ * @file BloomEffect.cpp
+ * @brief BloomEffectが担当する処理を実装するファイル
+ */
+#include "BloomEffect.h"
 #include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;

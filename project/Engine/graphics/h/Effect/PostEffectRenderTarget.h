@@ -1,3 +1,7 @@
+/**
+ * @file PostEffectRenderTarget.h
+ * @brief PostEffectRenderTargetが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "DirectXCommon.h"
 #include "GrayscaleEffect.h"

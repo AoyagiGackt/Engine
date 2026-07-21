@@ -1,4 +1,8 @@
-﻿#include "Model.h"
+/**
+ * @file Model.cpp
+ * @brief Modelが担当する処理を実装するファイル
+ */
+#include "Model.h"
 #include "EngineAssert.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"

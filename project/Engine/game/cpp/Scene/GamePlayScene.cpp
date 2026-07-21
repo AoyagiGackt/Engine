@@ -1,3 +1,7 @@
+/**
+ * @file GamePlayScene.cpp
+ * @brief GamePlaySceneが担当する処理を実装するファイル
+ */
 #include "GamePlayScene.h"
 #include "GamePlaySceneInitializer.h"
 #include "AudioBridge.h"

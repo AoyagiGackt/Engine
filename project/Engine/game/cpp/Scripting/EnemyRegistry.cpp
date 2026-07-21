@@ -1,3 +1,7 @@
+/**
+ * @file EnemyRegistry.cpp
+ * @brief EnemyRegistryが担当する処理を実装するファイル
+ */
 #include "EnemyRegistry.h"
 using namespace engine::game;
 

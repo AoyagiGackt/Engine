@@ -1,4 +1,8 @@
-﻿#include "ModelManager.h"
+/**
+ * @file ModelManager.cpp
+ * @brief ModelManagerが担当する処理を実装するファイル
+ */
+#include "ModelManager.h"
 using namespace engine;
 using namespace engine::graphics;
 

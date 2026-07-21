@@ -1,3 +1,7 @@
+/**
+ * @file Ring.cpp
+ * @brief Ringが担当する処理を実装するファイル
+ */
 #include "Ring.h"
 #include "DirectXCommon.h"
 #include <cmath>

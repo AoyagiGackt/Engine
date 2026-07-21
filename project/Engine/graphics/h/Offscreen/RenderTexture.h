@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file RenderTexture.h
+ * @brief RenderTextureが公開する型とAPIを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"
 #include <wrl/client.h>

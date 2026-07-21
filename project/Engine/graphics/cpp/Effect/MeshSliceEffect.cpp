@@ -1,3 +1,7 @@
+/**
+ * @file MeshSliceEffect.cpp
+ * @brief MeshSliceEffectが担当する処理を実装するファイル
+ */
 #include "MeshSliceEffect.h"
 #include "Camera.h"
 #include "EngineAssert.h"

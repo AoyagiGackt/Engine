@@ -1,3 +1,7 @@
+/**
+ * @file PlayerRampageStates.cpp
+ * @brief PlayerRampageStatesが担当する処理を実装するファイル
+ */
 #include "Player.h"
 #include "GameConstants.h"
 #include "Input.h"

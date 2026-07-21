@@ -1,3 +1,7 @@
+/**
+ * @file AnimationStateMachine.cpp
+ * @brief AnimationStateMachineが担当する処理を実装するファイル
+ */
 #include "AnimationStateMachine.h"
 #include "EngineAssert.h"
 #include <cmath>

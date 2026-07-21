@@ -1,3 +1,7 @@
+/**
+ * @file GameSettings.h
+ * @brief GameSettingsが公開する型とAPIを定義するファイル
+ */
 #pragma once
 namespace engine {
 // ゲーム設定データ（音量など）

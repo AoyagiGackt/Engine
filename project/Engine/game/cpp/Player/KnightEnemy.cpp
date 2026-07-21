@@ -1,3 +1,7 @@
+/**
+ * @file KnightEnemy.cpp
+ * @brief KnightEnemyが担当する処理を実装するファイル
+ */
 #include "KnightEnemy.h"
 #include "GameConstants.h"
 #include "ModelCommon.h"

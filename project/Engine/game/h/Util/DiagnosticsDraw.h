@@ -1,5 +1,5 @@
 /**
- * @file DebugDraw.h
+ * @file DiagnosticsDraw.h
  * @brief ImGui を使った 3D ワイヤーフレームデバッグ描画 — ヘッダーオンリー実装
  *
  * USE_IMGUI が定義されている Debug / Development ビルドのみ有効
@@ -8,17 +8,17 @@
  * ■ 使い方（毎フレーム ImGuiManager::Begin() と End() の間）
  *
  *   // 1) フレーム先頭でカメラをセット（1 回でよい）
- *   DebugDraw::SetCamera(camera, WinApp::kClientWidth, WinApp::kClientHeight);
+ *   DiagnosticsDraw::SetCamera(camera, WinApp::kClientWidth, WinApp::kClientHeight);
  *
  *   // 2) 描画したいものを好きなだけ呼ぶ
- *   DebugDraw::DrawAABB   (aabb,    DebugDraw::kColorGreen);
- *   DebugDraw::DrawSphere (sphere,  DebugDraw::kColorRed);
- *   DebugDraw::DrawCapsule(capsule, DebugDraw::kColorCyan);
- *   DebugDraw::DrawRay    (ray, 10.0f, DebugDraw::kColorYellow);
- *   DebugDraw::DrawCollider(obj->GetCollider(), DebugDraw::kColorWhite);
+ *   DiagnosticsDraw::DrawAABB   (aabb,    DiagnosticsDraw::kColorGreen);
+ *   DiagnosticsDraw::DrawSphere (sphere,  DiagnosticsDraw::kColorRed);
+ *   DiagnosticsDraw::DrawCapsule(capsule, DiagnosticsDraw::kColorCyan);
+ *   DiagnosticsDraw::DrawRay    (ray, 10.0f, DiagnosticsDraw::kColorYellow);
+ *   DiagnosticsDraw::DrawCollider(obj->GetCollider(), DiagnosticsDraw::kColorWhite);
  *
  * ■ カラー指定
- *   IM_COL32(R, G, B, A)  または  DebugDraw::kColorGreen など定数を使用してください
+ *   IM_COL32(R, G, B, A)  または  DiagnosticsDraw::kColorGreen など定数を使用してください
  */
 #pragma once
 #include "CollisionConfig.h" // AABB, Sphere, Capsule, Collider, Ray
@@ -30,7 +30,7 @@
 #include <cmath>
 
 // CollisionConfig.h の形状プリミティブと数学型は engine 名前空間内で定義されているため、
-// グローバル名前空間の DebugDraw から使えるように取り込む
+// グローバル名前空間の DiagnosticsDraw から使えるように取り込む
 using engine::AABB;
 using engine::Capsule;
 using engine::Collider;
@@ -40,7 +40,7 @@ using engine::Ray;
 using engine::Sphere;
 using engine::Vector3;
 
-namespace engine::game::DebugDraw {
+namespace engine::game::DiagnosticsDraw {
 
 // よく使うカラー定数 (IM_COL32: ABGR バイト順)
 constexpr ImU32 kColorGreen = IM_COL32(0, 255, 0, 255);
@@ -320,11 +320,11 @@ inline void DrawCross(const Vector3& pos, float size = 0.3f, ImU32 color = kColo
     DrawLine({ pos.x, pos.y, pos.z - size }, { pos.x, pos.y, pos.z + size }, color);
 }
 
-} // namespace engine::game::DebugDraw
+} // namespace engine::game::DiagnosticsDraw
 
 #else // !USE_IMGUI
 
-namespace engine::game::DebugDraw {
+namespace engine::game::DiagnosticsDraw {
 // カラー定数（型は unsigned int, 値は 0 のスタブ）
 constexpr unsigned int kColorGreen = 0;
 constexpr unsigned int kColorRed = 0;
@@ -343,9 +343,9 @@ inline void DrawCapsule(const engine::Capsule&, unsigned int = 0, int = 16) { }
 inline void DrawRay(const engine::Ray&, float = 10.0f, unsigned int = 0) { }
 inline void DrawCollider(const engine::Collider&, unsigned int = 0) { }
 inline void DrawCross(const engine::Vector3&, float = 0.3f, unsigned int = 0) { }
-} // namespace engine::game::DebugDraw
+} // namespace engine::game::DiagnosticsDraw
 
 #endif // USE_IMGUI
 
-// 既存コードの DebugDraw::DrawXxx 呼び出しとのソース互換性を維持する。
-namespace DebugDraw = engine::game::DebugDraw;
+// 既存コードの DiagnosticsDraw::DrawXxx 呼び出しとのソース互換性を維持する。
+namespace DiagnosticsDraw = engine::game::DiagnosticsDraw;

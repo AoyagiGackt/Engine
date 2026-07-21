@@ -1,3 +1,7 @@
+/**
+ * @file ScoreManager.cpp
+ * @brief ScoreManagerが担当する処理を実装するファイル
+ */
 #include "ScoreManager.h"
 #include <algorithm>
 #include <fstream>

@@ -1,3 +1,7 @@
+/**
+ * @file SkinCommon.h
+ * @brief SkinCommonが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "BlendMode.h"
 #include "DirectXCommon.h"

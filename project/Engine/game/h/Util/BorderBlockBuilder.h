@@ -1,3 +1,7 @@
+/**
+ * @file BorderBlockBuilder.h
+ * @brief BorderBlockBuilderが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "Model.h"
 #include "ModelCommon.h"

@@ -1,4 +1,8 @@
-﻿#include "Sprite.h"
+/**
+ * @file Sprite.cpp
+ * @brief Spriteが担当する処理を実装するファイル
+ */
+#include "Sprite.h"
 #include "GameConstants.h"
 #include "Logger.h"
 #include "TextureManager.h"

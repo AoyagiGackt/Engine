@@ -1,3 +1,7 @@
+/**
+ * @file InputBuffer.cpp
+ * @brief InputBufferが担当する処理を実装するファイル
+ */
 #include "InputBuffer.h"
 #include <algorithm>
 #include <cstring>

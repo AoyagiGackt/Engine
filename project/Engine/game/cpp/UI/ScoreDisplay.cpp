@@ -1,3 +1,7 @@
+/**
+ * @file ScoreDisplay.cpp
+ * @brief ScoreDisplayが担当する処理を実装するファイル
+ */
 #include "ScoreDisplay.h"
 #include "TextureManager.h"
 #include <cassert>

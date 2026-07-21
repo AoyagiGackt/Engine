@@ -1,3 +1,7 @@
+/**
+ * @file EventBus.cpp
+ * @brief EventBusが担当する処理を実装するファイル
+ */
 #include "EventBus.h"
 #include <algorithm>
 using namespace engine::game;

@@ -1,3 +1,7 @@
+/**
+ * @file Cylinder.h
+ * @brief Cylinderが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "RevolvedMeshBase.h"
 

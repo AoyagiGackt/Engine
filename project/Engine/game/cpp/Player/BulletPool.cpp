@@ -1,3 +1,7 @@
+/**
+ * @file BulletPool.cpp
+ * @brief BulletPoolが担当する処理を実装するファイル
+ */
 #include "BulletPool.h"
 using namespace engine;
 using namespace engine::graphics;

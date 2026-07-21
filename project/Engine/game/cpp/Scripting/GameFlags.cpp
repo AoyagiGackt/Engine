@@ -1,3 +1,7 @@
+/**
+ * @file GameFlags.cpp
+ * @brief GameFlagsが担当する処理を実装するファイル
+ */
 #include "GameFlags.h"
 using namespace engine::game;
 

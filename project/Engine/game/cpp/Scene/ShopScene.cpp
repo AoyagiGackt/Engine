@@ -1,3 +1,7 @@
+/**
+ * @file ShopScene.cpp
+ * @brief ShopSceneが担当する処理を実装するファイル
+ */
 #include "ShopScene.h"
 #include "GameConstants.h"
 #include "SceneManager.h"

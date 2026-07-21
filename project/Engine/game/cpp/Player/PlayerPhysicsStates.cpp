@@ -1,3 +1,7 @@
+/**
+ * @file PlayerPhysicsStates.cpp
+ * @brief PlayerPhysicsStatesが担当する処理を実装するファイル
+ */
 #include "Player.h"
 #include "GameConstants.h"
 #include "GravityBody.h"

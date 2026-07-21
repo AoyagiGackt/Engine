@@ -1,3 +1,7 @@
+/**
+ * @file Input.cpp
+ * @brief Inputが担当する処理を実装するファイル
+ */
 #include "Input.h"
 #include "EngineAssert.h"
 #include "Logger.h"

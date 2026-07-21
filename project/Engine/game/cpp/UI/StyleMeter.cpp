@@ -1,3 +1,7 @@
+/**
+ * @file StyleMeter.cpp
+ * @brief StyleMeterが担当する処理を実装するファイル
+ */
 #include "StyleMeter.h"
 #include "Easing.h"
 #include "FontRenderer.h"

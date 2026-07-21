@@ -1,3 +1,7 @@
+/**
+ * @file ClearScene.cpp
+ * @brief ClearSceneが担当する処理を実装するファイル
+ */
 #include "ClearScene.h"
 #include "GameConstants.h"
 #include "ImGuiManager.h"

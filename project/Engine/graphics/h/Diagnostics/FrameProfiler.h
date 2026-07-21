@@ -1,14 +1,18 @@
+/**
+ * @file FrameProfiler.h
+ * @brief FrameProfilerが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include <Windows.h>
 #include <array>
 namespace engine::graphics {
 // フレームタイムとFPSをトラッキングするシングルトン
 // BeginFrame() / EndFrame() を毎フレーム呼ぶだけで使える
-class DebugProfiler {
+class FrameProfiler {
 public:
-    static DebugProfiler* GetInstance()
+    static FrameProfiler* GetInstance()
     {
-        static DebugProfiler inst;
+        static FrameProfiler inst;
         return &inst;
     }
 
@@ -39,7 +43,7 @@ public:
     float GetMs() const { return avgMs_; }
 
 private:
-    DebugProfiler() = default;
+    FrameProfiler() = default;
     static constexpr int kSamples = 60;
     std::array<float, kSamples> samples_ = { };
     int sampleIdx_ = 0;

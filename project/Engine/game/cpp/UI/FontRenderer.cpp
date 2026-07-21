@@ -1,3 +1,7 @@
+/**
+ * @file FontRenderer.cpp
+ * @brief FontRendererが担当する処理を実装するファイル
+ */
 #include "FontRenderer.h"
 #include "TextureManager.h"
 #define NOMINMAX

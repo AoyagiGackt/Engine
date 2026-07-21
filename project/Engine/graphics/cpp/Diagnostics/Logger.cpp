@@ -1,3 +1,7 @@
+/**
+ * @file Logger.cpp
+ * @brief Loggerが担当する処理を実装するファイル
+ */
 #include "Logger.h"
 #include <chrono>
 #include <cstdio>

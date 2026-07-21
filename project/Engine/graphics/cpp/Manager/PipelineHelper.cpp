@@ -1,3 +1,7 @@
+/**
+ * @file PipelineHelper.cpp
+ * @brief PipelineHelperが担当する処理を実装するファイル
+ */
 #include "PipelineHelper.h"
 
 namespace engine::graphics::PipelineHelper {

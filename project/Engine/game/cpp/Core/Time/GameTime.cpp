@@ -1,3 +1,7 @@
+/**
+ * @file GameTime.cpp
+ * @brief GameTimeが担当する処理を実装するファイル
+ */
 #include "GameTime.h"
 #include "GameConstants.h"
 using namespace engine;

@@ -34,6 +34,8 @@ namespace engine::game {
 class KnightEnemy;
 class EnemyEntity;
 class StageEditorSelectionService;
+class StageEditorHierarchyPanel;
+class StageEditorInspectorPanel;
 
 /**
  * @brief レベルデータの読み書きと配置物の実行および編集UIを統括する
@@ -43,6 +45,8 @@ class StageEditorSelectionService;
  */
 class StageEditor {
     friend class StageEditorSelectionService;
+    friend class StageEditorHierarchyPanel;
+    friend class StageEditorInspectorPanel;
 
 public:
     // unique_ptr<KnightEnemy>/<EnemyEntity>をObjectEntryが持つため、それらの完全な定義が無い
@@ -190,11 +194,15 @@ private:
     void SetPlayTestMode(bool enabled);
 
     void RenderHierarchy();
+    /** @brief 階層パネルの実際の編集内容を描画する */
+    void RenderHierarchyContent();
     /** @brief 中央シーンビューの上部に編集モードと補助パネルの操作を表示する */
     void RenderEditorToolbar();
     /** @brief ゲーム画面を広く確認するための最小操作バーを表示する */
     void RenderViewportFocusBar();
     void RenderInspector();
+    /** @brief 詳細パネルの実際の編集内容を描画する */
+    void RenderInspectorContent();
     /** @brief モデル/テクスチャをプリセットから選んで置ける一覧パネル選択中の配置物があればそれに適用、無ければ新規追加する */
     void RenderAssetPalette();
     void RenderFlagsPanel();

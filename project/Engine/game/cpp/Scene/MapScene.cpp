@@ -1,3 +1,7 @@
+/**
+ * @file MapScene.cpp
+ * @brief MapSceneが担当する処理を実装するファイル
+ */
 #include "MapScene.h"
 #include "GameConstants.h"
 #include "SceneManager.h"

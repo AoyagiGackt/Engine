@@ -1,3 +1,7 @@
+/**
+ * @file SkinnedModel.cpp
+ * @brief SkinnedModelが担当する処理を実装するファイル
+ */
 #include "SkinnedModel.h"
 #include "EngineAssert.h"
 #include "TextureManager.h"

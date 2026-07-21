@@ -1,3 +1,7 @@
+/**
+ * @file DelayTimer.cpp
+ * @brief DelayTimerが担当する処理を実装するファイル
+ */
 #include "DelayTimer.h"
 #include <algorithm>
 using namespace engine;

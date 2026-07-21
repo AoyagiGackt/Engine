@@ -1,4 +1,8 @@
-﻿#include "ModelCommon.h"
+/**
+ * @file ModelCommon.cpp
+ * @brief ModelCommonが担当する処理を実装するファイル
+ */
+#include "ModelCommon.h"
 #include "PipelineHelper.h"
 #include <cassert>
 using namespace engine;

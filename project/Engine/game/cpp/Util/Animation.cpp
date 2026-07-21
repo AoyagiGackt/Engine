@@ -1,3 +1,7 @@
+/**
+ * @file Animation.cpp
+ * @brief Animationが担当する処理を実装するファイル
+ */
 #include "Animation.h"
 #include "EngineAssert.h"
 #include <assimp/Importer.hpp>

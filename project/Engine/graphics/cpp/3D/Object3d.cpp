@@ -1,4 +1,8 @@
-﻿#include "Object3d.h"
+/**
+ * @file Object3d.cpp
+ * @brief Object3dが担当する処理を実装するファイル
+ */
+#include "Object3d.h"
 #include "Camera.h"
 #include "LightManager.h"
 #include "LightingMode.h"

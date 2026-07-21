@@ -1,4 +1,8 @@
-﻿#include "Skeleton/Skeleton.h"
+/**
+ * @file Skeleton.cpp
+ * @brief Skeletonが担当する処理を実装するファイル
+ */
+#include "Skeleton/Skeleton.h"
 #include "EngineAssert.h"
 #include <algorithm>
 #include <assimp/Importer.hpp>

@@ -1,3 +1,7 @@
+/**
+ * @file Easing.h
+ * @brief Easingが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include <cmath>
 

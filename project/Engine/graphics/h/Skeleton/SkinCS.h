@@ -1,3 +1,7 @@
+/**
+ * @file SkinCS.h
+ * @brief SkinCSが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include "DirectXCommon.h"
 #include <d3d12.h>

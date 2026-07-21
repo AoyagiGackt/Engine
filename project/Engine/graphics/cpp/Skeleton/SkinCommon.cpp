@@ -1,4 +1,8 @@
-﻿#include "SkinCommon.h"
+/**
+ * @file SkinCommon.cpp
+ * @brief SkinCommonが担当する処理を実装するファイル
+ */
+#include "SkinCommon.h"
 #include "PipelineHelper.h"
 #include <cassert>
 using namespace engine;

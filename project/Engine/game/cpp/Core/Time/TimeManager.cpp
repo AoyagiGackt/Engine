@@ -1,3 +1,7 @@
+/**
+ * @file TimeManager.cpp
+ * @brief TimeManagerが担当する処理を実装するファイル
+ */
 #include "TimeManager.h"
 #include <algorithm>
 using namespace engine;

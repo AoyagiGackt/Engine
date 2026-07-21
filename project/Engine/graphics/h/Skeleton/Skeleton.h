@@ -1,3 +1,7 @@
+/**
+ * @file Skeleton.h
+ * @brief Skeletonが公開する型とAPIを定義するファイル
+ */
 #pragma once
 #include <MakeAffine.h>
 #include <map>

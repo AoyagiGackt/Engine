@@ -1,4 +1,8 @@
-﻿#include "Object3dCommon.h"
+/**
+ * @file Object3dCommon.cpp
+ * @brief Object3dCommonが担当する処理を実装するファイル
+ */
+#include "Object3dCommon.h"
 #include "MakeAffine.h"
 #include <cassert>
 #include <cmath>

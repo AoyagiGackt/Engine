@@ -1,3 +1,7 @@
+/**
+ * @file AfterImageRenderer.cpp
+ * @brief AfterImageRendererが担当する処理を実装するファイル
+ */
 #include "AfterImageRenderer.h"
 #include "GameConstants.h"
 using namespace engine;

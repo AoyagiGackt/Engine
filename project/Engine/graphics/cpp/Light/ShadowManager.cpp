@@ -1,4 +1,8 @@
-﻿#include "ShadowManager.h"
+/**
+ * @file ShadowManager.cpp
+ * @brief ShadowManagerが担当する処理を実装するファイル
+ */
+#include "ShadowManager.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include <cmath>

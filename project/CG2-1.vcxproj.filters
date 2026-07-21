@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ソースファイル">
@@ -18,7 +18,7 @@
     <Filter Include="Shader\meshslice"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a06}</UniqueIdentifier></Filter>
     <Filter Include="Shader\bladeflash"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a07}</UniqueIdentifier></Filter>
     <Filter Include="Shader\skinned"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a08}</UniqueIdentifier></Filter>
-    <Filter Include="Shader\debug"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a09}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\diagnostics"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a09}</UniqueIdentifier></Filter>
     <Filter Include="Shader\lighting"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a10}</UniqueIdentifier></Filter>
     <Filter Include="ソースファイル\Engine">
       <UniqueIdentifier>{ecf378af-ef5f-459c-96c3-5a7ff63ac010}</UniqueIdentifier>
@@ -86,7 +86,7 @@
     <Filter Include="ソースファイル\Engine\game\cpp\Core\Window">
       <UniqueIdentifier>{6d766bdf-847f-4dae-aa9b-bd711a3f14cb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソースファイル\Engine\graphics\cpp\DebugSystem">
+    <Filter Include="ソースファイル\Engine\graphics\cpp\Diagnostics">
       <UniqueIdentifier>{9a7fb991-b1d0-4f50-9892-ea39eacabad1}</UniqueIdentifier>
     </Filter>
     <Filter Include="ソースファイル\Engine\graphics\cpp\Effect">
@@ -185,7 +185,7 @@
     <Filter Include="ヘッダーファイル\Engine\graphics\h\Camera">
       <UniqueIdentifier>{15017066-0a42-4ec8-8b87-ea30282c0f35}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダーファイル\Engine\graphics\h\DebugSystem">
+    <Filter Include="ヘッダーファイル\Engine\graphics\h\Diagnostics">
       <UniqueIdentifier>{5e805b76-2256-4915-8013-8ce0fcb76863}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダーファイル\Engine\game\h\Core\Device">
@@ -352,6 +352,9 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorServices.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
@@ -374,6 +377,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorPanels.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp">
@@ -424,14 +430,14 @@
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashHandler.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Diagnostics</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashContext.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashContext.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Diagnostics</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Diagnostics\Logger.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Window</Filter>
@@ -439,8 +445,8 @@
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\DebugSystem\GpuProfiler.cpp">
-      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    <ClCompile Include="Engine\graphics\cpp\Diagnostics\GpuProfiler.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
@@ -501,7 +507,7 @@
     <ClCompile Include="Engine\graphics\cpp\Skeleton\Skeleton.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Skeleton</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkeletonDebugRenderer.cpp">
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\SkeletonOverlayRenderer.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Skeleton</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Skeleton\SkinCS.cpp">
@@ -737,6 +743,9 @@
     <ClInclude Include="Engine\game\h\Scripting\GraphEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GraphEditorServices.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scripting\GameFlags.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
@@ -759,6 +768,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h">
@@ -785,17 +797,17 @@
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Lighting</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashHandler.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\CrashHandler.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashContext.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\CrashContext.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\EngineAssert.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\Logger.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
@@ -824,11 +836,11 @@
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Util\DebugDraw.h">
+    <ClInclude Include="Engine\game\h\Util\DiagnosticsDraw.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\D3DResourceLeakChecker.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\D3DResourceLeakChecker.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Device</Filter>
@@ -836,8 +848,8 @@
     <ClInclude Include="Engine\game\h\Core\Window\WinApp.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\Window</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\GpuProfiler.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\GpuProfiler.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
@@ -859,7 +871,7 @@
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Skeleton</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonDebugRenderer.h">
+    <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonOverlayRenderer.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Skeleton</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Skeleton\SkinCS.h">
@@ -1030,8 +1042,8 @@
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\DebugSystem\DebugProfiler.h">
-      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    <ClInclude Include="Engine\graphics\h\Diagnostics\FrameProfiler.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\RenderPassGraph.h">
       <Filter>ヘッダーファイル\Engine\graphics\h</Filter>
@@ -1095,11 +1107,11 @@
     <FxCompile Include="Resources\shaders\Particle\ParticleUpdate.CS.hlsl">
       <Filter>Shader\Particle</Filter>
     </FxCompile>
-    <FxCompile Include="Resources\shaders\debug\SkeletonDebugVS.hlsl">
-      <Filter>Shader\debug</Filter>
+    <FxCompile Include="Resources\shaders\diagnostics\SkeletonOverlayVS.hlsl">
+      <Filter>Shader\diagnostics</Filter>
     </FxCompile>
-    <FxCompile Include="Resources\shaders\debug\SkeletonDebugPS.hlsl">
-      <Filter>Shader\debug</Filter>
+    <FxCompile Include="Resources\shaders\diagnostics\SkeletonOverlayPS.hlsl">
+      <Filter>Shader\diagnostics</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\FullscreenVS.hlsl">
       <Filter>Shader\postprocess</Filter>

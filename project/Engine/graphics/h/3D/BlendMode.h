@@ -1,3 +1,7 @@
+/**
+ * @file BlendMode.h
+ * @brief BlendModeが公開する型とAPIを定義するファイル
+ */
 #pragma once
 namespace engine::graphics {
 enum class BlendMode {

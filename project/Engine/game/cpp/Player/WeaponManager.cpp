@@ -1,3 +1,7 @@
+/**
+ * @file WeaponManager.cpp
+ * @brief WeaponManagerが担当する処理を実装するファイル
+ */
 #include "WeaponManager.h"
 #include "JsonHelper.h"
 #include "StringUtility.h"

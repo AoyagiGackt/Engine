@@ -1,8 +1,12 @@
+/**
+ * @file BattleTestScene.cpp
+ * @brief BattleTestSceneが担当する処理を実装するファイル
+ */
 #include "BattleTestScene.h"
 #include "BattleTestSceneRenderer.h"
 #include "AudioBridge.h"
 #include "Collision.h"
-#include "DebugDraw.h"
+#include "DiagnosticsDraw.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -1469,33 +1473,33 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 
 void BattleTestScene::DrawColliderDebug()
 {
-    DebugDraw::SetCamera(camera_->GetViewProjectionMatrix(),
+    DiagnosticsDraw::SetCamera(camera_->GetViewProjectionMatrix(),
         static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));
 
     // プレイヤー（緑）
-    DebugDraw::DrawCollider(player_->GetCollider(), DebugDraw::kColorGreen);
+    DiagnosticsDraw::DrawCollider(player_->GetCollider(), DiagnosticsDraw::kColorGreen);
 
     // 訓練マネキン（生存中のみ、シアン）
     for (const auto& d : dummies_) {
         if (d.hp > 0.0f) {
-            DebugDraw::DrawAABB(DummyBounds(d), DebugDraw::kColorCyan);
+            DiagnosticsDraw::DrawAABB(DummyBounds(d), DiagnosticsDraw::kColorCyan);
         }
     }
 
     // ナイト敵（生存中のみ、赤）
     if (knight_ && knight_->IsAlive()) {
-        DebugDraw::DrawAABB(knight_->GetAABB(), DebugDraw::kColorRed);
+        DiagnosticsDraw::DrawAABB(knight_->GetAABB(), DiagnosticsDraw::kColorRed);
     }
     // StageEditorで配置したナイト（生存中のみ、赤）
     for (KnightEnemy* placedKnight : GetStageEditor().GetKnights()) {
         if (placedKnight->IsAlive()) {
-            DebugDraw::DrawAABB(placedKnight->GetAABB(), DebugDraw::kColorRed);
+            DiagnosticsDraw::DrawAABB(placedKnight->GetAABB(), DiagnosticsDraw::kColorRed);
         }
     }
 
     // ステージエディタでsolidにしたブロック（オレンジ、エディタを開いていなくても見える）
     for (const auto& b : GetStageEditor().GetSolidColliders()) {
-        DebugDraw::DrawAABB(b, DebugDraw::kColorOrange);
+        DiagnosticsDraw::DrawAABB(b, DiagnosticsDraw::kColorOrange);
     }
 }
 

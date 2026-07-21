@@ -1,3 +1,7 @@
+/**
+ * @file SaveData.cpp
+ * @brief SaveDataが担当する処理を実装するファイル
+ */
 #include "SaveData.h"
 #include "JsonHelper.h"
 #include "Logger.h"

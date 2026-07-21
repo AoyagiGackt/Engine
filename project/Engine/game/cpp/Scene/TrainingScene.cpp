@@ -1,7 +1,11 @@
+/**
+ * @file TrainingScene.cpp
+ * @brief TrainingSceneが担当する処理を実装するファイル
+ */
 #include "TrainingScene.h"
 #include "AudioBridge.h"
 #include "BorderBlockBuilder.h"
-#include "DebugProfiler.h"
+#include "FrameProfiler.h"
 #include "GameConstants.h"
 #include "PlayerBridge.h"
 #include "SSAOEffect.h"
@@ -287,8 +291,8 @@ void TrainingScene::DrawDebugHud()
 #ifdef _DEBUG
     {
         char dbgBuf[64];
-        float fps = DebugProfiler::GetInstance()->GetFPS();
-        float ms = DebugProfiler::GetInstance()->GetMs();
+        float fps = FrameProfiler::GetInstance()->GetFPS();
+        float ms = FrameProfiler::GetInstance()->GetMs();
         std::snprintf(dbgBuf, sizeof(dbgBuf), "%.0f FPS  %.2f ms", fps, ms);
         fontRenderer_.DrawString(dbgBuf, 1140.0f, 4.0f, 1.2f, { 0.6f, 1.0f, 0.6f, 0.85f });
     }

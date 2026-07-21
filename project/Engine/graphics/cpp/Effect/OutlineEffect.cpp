@@ -1,4 +1,8 @@
-﻿#include "OutlineEffect.h"
+/**
+ * @file OutlineEffect.cpp
+ * @brief OutlineEffectが担当する処理を実装するファイル
+ */
+#include "OutlineEffect.h"
 #include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;
