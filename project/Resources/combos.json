@@ -1,0 +1,12 @@
+{
+    "attacks": [
+        { "id": "swd1", "duration": 0.38, "hitTime": 0.14, "cancelTime": 0.22, "damageMult": 1.0, "lungeDist": 0.55, "rangeMult": 1.0, "knockX": 0.16, "knockY": 0.05, "hitStop": 4, "animSpeed": 1.6 },
+        { "id": "swd4", "duration": 0.58, "hitTime": 0.20, "cancelTime": 0.42, "damageMult": 1.8, "lungeDist": 0.70, "rangeMult": 1.2, "knockX": 0.45, "knockY": 0.12, "hitStop": 8, "animSpeed": 1.4 },
+        { "id": "spr1", "duration": 0.32, "hitTime": 0.11, "cancelTime": 0.19, "damageMult": 1.0, "lungeDist": 0.70, "rangeMult": 1.15, "hitStop": 3, "animSpeed": 1.9 },
+        { "id": "ham1", "duration": 0.70, "hitTime": 0.32, "cancelTime": 0.46, "damageMult": 1.0, "lungeDist": 0.50, "rangeMult": 1.0, "hitStop": 8, "animSpeed": 1.0 },
+        { "id": "dag1", "duration": 0.22, "hitTime": 0.07, "cancelTime": 0.12, "damageMult": 1.0, "lungeDist": 0.45, "rangeMult": 1.0, "hitStop": 2, "animSpeed": 2.2 },
+        { "id": "gsw1", "duration": 0.65, "hitTime": 0.30, "cancelTime": 0.44, "damageMult": 1.0, "lungeDist": 0.60, "rangeMult": 1.10, "hitStop": 8, "animSpeed": 1.0 },
+        { "id": "scy1", "duration": 0.45, "hitTime": 0.16, "cancelTime": 0.26, "damageMult": 1.0, "lungeDist": 0.50, "rangeMult": 1.35, "hitStop": 4, "animSpeed": 1.5 },
+        { "id": "axe1", "duration": 0.50, "hitTime": 0.20, "cancelTime": 0.32, "damageMult": 1.0, "lungeDist": 0.80, "rangeMult": 1.0, "hitStop": 6, "animSpeed": 1.3 }
+    ]
+}

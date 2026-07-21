@@ -1,3 +1,7 @@
+/**
+ * @file GameOverScene.cpp
+ * @brief GameOverSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "GameOverScene.h"
 #include "GameConstants.h"
 #include "RunData.h"

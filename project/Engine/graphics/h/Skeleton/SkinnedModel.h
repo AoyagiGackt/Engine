@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file SkinnedModel.h
+ * @brief SkinnedModelの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
 #include <string>
@@ -7,8 +11,16 @@
 namespace engine::graphics {
 
 // ボーン重み付き頂点データを持つ GLTF スキンメッシュ
+/**
+ * @brief SkinnedModel に関する型を提供する
+ * @details SkinnedModel が扱うデータと操作の責務をまとめる
+ */
 class SkinnedModel {
 public:
+    /**
+     * @brief VertexData に関する型を提供する
+     * @details VertexData が扱うデータと操作の責務をまとめる
+     */
     struct VertexData {
         Vector4 position;
         Vector2 texcoord;
@@ -23,6 +35,11 @@ public:
 
     // コマンドリストに頂点バッファとテクスチャ SRV をセットして DrawInstanced を発行する
     // スロット 2 (テクスチャ) と 5 (キューブマップ枠) を書き込む
+    /**
+     * @brief Draw に対応する内容を描画する
+     * @param cmd 処理に使用する値
+     * @return なし
+     */
     void Draw(ID3D12GraphicsCommandList* cmd);
 
     const std::string& GetTextureFilePath() const { return textureFilePath_; }

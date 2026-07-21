@@ -28,6 +28,10 @@ namespace engine::graphics {
  *   // 無効時はバックバッファへ直接描画するため BeginScene/EndScene/Apply は呼ばない
  *   // （GrayscaleEffect と同じパターン）
  */
+/**
+ * @brief BloomEffect に関する型を提供する
+ * @details BloomEffect が扱うデータと操作の責務をまとめる
+ */
 class BloomEffect {
 public:
     static BloomEffect* GetInstance()
@@ -36,14 +40,37 @@ public:
         return &instance;
     }
 
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param dxCommon 処理に使用する値
+     * @param srvManager 処理に使用する値
+     * @return なし
+     */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
+    /**
+     * @brief Finalize に対応する終了処理を行う
+     * @return なし
+     */
     void Finalize();
 
     // シーン描画の前後に呼んでオフスクリーンテクスチャへ切り替える
+    /**
+     * @brief BeginScene に対応する処理を実行する
+     * @return なし
+     */
     void BeginScene();
+    /**
+     * @brief EndScene に対応する処理を実行する
+     * @return なし
+     */
     void EndScene();
 
     // 4パスのブルームをかけてバックバッファへ合成するEndScene() 後に呼ぶ
+    /**
+     * @brief Apply に対応する状態を設定する
+     * @param srvManager 処理に使用する値
+     * @return なし
+     */
     void Apply(SrvManager* srvManager);
 
     // パラメータ
@@ -137,6 +164,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> combinePSO_;
 
     // 定数バッファ
+    /**
+     * @brief BrightParams に関する型を提供する
+     * @details BrightParams が扱うデータと操作の責務をまとめる
+     */
     struct BrightParams {
         float threshold;
         float intensity;
@@ -145,6 +176,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> brightCb_;
     BrightParams* brightCbData_ = nullptr;
 
+    /**
+     * @brief BlurParams に関する型を提供する
+     * @details BlurParams が扱うデータと操作の責務をまとめる
+     */
     struct BlurParams {
         float dirX;
         float dirY;

@@ -1,3 +1,7 @@
+/**
+ * @file SkinnedObject3d.h
+ * @brief SkinnedObject3dの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ */
 #pragma once
 #include "Animation.h"
 #include "MakeAffine.h"
@@ -11,7 +15,7 @@
 #include <wrl/client.h>
 
 #ifdef USE_IMGUI
-#include "SkeletonDebugRenderer.h"
+#include "SkeletonOverlayRenderer.h"
 #include <memory>
 #endif
 
@@ -25,14 +29,48 @@ class OutlineEffect;
 
 // スキニング（ボーンアニメーション）付き 3D オブジェクト
 // SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する
+/**
+ * @brief SkinnedObject3d に関する型を提供する
+ * @details SkinnedObject3d が扱うデータと操作の責務をまとめる
+ */
 class SkinnedObject3d {
 public:
+    /**
+     * @brief SetCommonCamera に対応する状態を設定する
+     * @param camera 処理に使用する値
+     * @return なし
+     */
     static void SetCommonCamera(Camera* camera);
+    /**
+     * @brief SetLightViewProjection に対応する状態を設定する
+     * @param lvp 処理に使用する値
+     * @return なし
+     */
     static void SetLightViewProjection(const Matrix4x4& lvp);
+    /**
+     * @brief SetCommonObjectCommon に対応する状態を設定する
+     * @param objectCommon 処理に使用する値
+     * @return なし
+     */
     static void SetCommonObjectCommon(Object3dCommon* objectCommon);
+    /**
+     * @brief SetCommonShadowManager に対応する状態を設定する
+     * @param shadowManager 処理に使用する値
+     * @return なし
+     */
     static void SetCommonShadowManager(ShadowManager* shadowManager);
+    /**
+     * @brief SetCommonModelCommon に対応する状態を設定する
+     * @param modelCommon 処理に使用する値
+     * @return なし
+     */
     static void SetCommonModelCommon(ModelCommon* modelCommon);
 
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param skinCommon 処理に使用する値
+     * @return なし
+     */
     void Initialize(SkinCommon* skinCommon);
 
     void SetModel(SkinnedModel* model); // SkinCS の初期化も行う
@@ -102,9 +140,21 @@ public:
     const Skeleton& GetSkeleton() const { return skeleton_; }
     const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
 
+    /**
+     * @brief Update に対応する状態を更新する
+     * @return なし
+     */
     void Update();
+    /**
+     * @brief Draw に対応する内容を描画する
+     * @return なし
+     */
     void Draw();
-    void DebugDraw();
+    /**
+     * @brief DiagnosticsDraw に対応する処理を実行する
+     * @return なし
+     */
+    void DiagnosticsDraw();
 
     /**
      * @brief アウトライン2パス描画（OutlineEffect::BeginOutlinePass() の後に呼ぶ）
@@ -116,6 +166,10 @@ public:
 private:
     static const int kMaxJoints = 128;
 
+    /**
+     * @brief TransformationMatrix に関する型を提供する
+     * @details TransformationMatrix が扱うデータと操作の責務をまとめる
+     */
     struct TransformationMatrix {
         Matrix4x4 WVP;
         Matrix4x4 World;
@@ -135,6 +189,10 @@ private:
     SkinCS skinCS_;
     bool skinCSReady_ = false;
 
+    /**
+     * @brief InitializeSkinCS に対応する処理を開始する
+     * @return なし
+     */
     void InitializeSkinCS();
 
     std::string envCubemapFilePath_;
@@ -148,7 +206,7 @@ private:
     Matrix4x4 worldMatrix_ = MakeIdentity4x4();
 
 #ifdef USE_IMGUI
-    std::unique_ptr<SkeletonDebugRenderer> skeletonDebugRenderer_;
+    std::unique_ptr<SkeletonOverlayRenderer> skeletonDebugRenderer_;
 #endif
 
     Microsoft::WRL::ComPtr<ID3D12Resource> transformCB_;

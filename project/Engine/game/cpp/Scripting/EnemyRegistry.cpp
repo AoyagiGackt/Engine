@@ -1,3 +1,7 @@
+/**
+ * @file EnemyRegistry.cpp
+ * @brief EnemyRegistryのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
+ */
 #include "EnemyRegistry.h"
 using namespace engine::game;
 

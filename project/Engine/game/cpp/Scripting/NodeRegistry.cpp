@@ -1,3 +1,7 @@
+/**
+ * @file NodeRegistry.cpp
+ * @brief NodeRegistryのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
+ */
 #include "NodeRegistry.h"
 #include "AudioBridge.h"
 #include "EnemyEntity.h"

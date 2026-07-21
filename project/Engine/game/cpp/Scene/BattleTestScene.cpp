@@ -1,7 +1,12 @@
+/**
+ * @file BattleTestScene.cpp
+ * @brief BattleTestSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "BattleTestScene.h"
 #include "AudioBridge.h"
+#include "BattleTestSceneRenderer.h"
 #include "Collision.h"
-#include "DebugDraw.h"
+#include "DiagnosticsDraw.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -110,6 +115,8 @@ void BattleTestScene::InitializeCoreSystems()
     // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
     Object3d::SetCommonObjectCommon(objectCommon_.get());
     Object3d::SetCommonShadowManager(shadowManager_.get());
+    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
+    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
@@ -122,6 +129,20 @@ void BattleTestScene::InitializeStageModels()
     modelBlock_->Initialize(modelCommon_.get(),
         "Resources/block/block.obj",
         "Resources/block/block.png");
+
+    cityBackgroundModel_ = std::make_unique<Model>();
+    cityBackgroundModel_->Initialize(modelCommon_.get(),
+        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
+    for (float x : { 5.0f, 16.0f, 27.0f }) {
+        auto city = std::make_unique<Object3d>();
+        city->Initialize(modelCommon_.get());
+        city->SetModel(cityBackgroundModel_.get());
+        city->SetPosition({ x, -0.6f, 6.0f });
+        city->SetScale({ 0.42f, 0.42f, 0.42f });
+        city->Update();
+        cityBackgroundObjects_.push_back(std::move(city));
+    }
 
     // 境界ブロック・トリガーは本番ステージと同じ level01.json から読み込む
     // （GetEditorLevelPath()経由でBaseScene::Init()が自動でOpen()する。F2でその場編集も可能）
@@ -271,6 +292,11 @@ void BattleTestScene::Update()
         return;
     }
 
+    UpdateSceneFlow();
+}
+
+void BattleTestScene::UpdateSceneFlow()
+{
     fontRenderer_.Reset();
 
     // StageEditor::Update()（F2トグル・パネル・トリガー判定）と、エディタ表示中の一時停止分岐は
@@ -280,10 +306,10 @@ void BattleTestScene::Update()
         showColliders_ = !showColliders_;
     }
     if (showColliders_) {
-        DrawColliderDebug();
+        DrawColliderOverlay();
     }
 
-    SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
+    SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
     UpdateTargetLock();
     UpdatePlayerAndCamera();
     // ステージエディタでsolidにしたブロックとの当たり判定（追加/移動/削除が次フレームからそのまま反映される）
@@ -353,6 +379,9 @@ void BattleTestScene::RefreshVisualTransformsForEditor()
     for (auto& p : warpPortalBlocks_) {
         p->Update();
     }
+    for (auto& city : cityBackgroundObjects_) {
+        city->Update();
+    }
     // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
     UpdateWeaponSlotHud();
     UpdateHpBars();
@@ -396,6 +425,9 @@ void BattleTestScene::UpdateEnvironment()
     for (auto& p : warpPortalBlocks_) {
         p->SetColor({ 1.0f * pulse, 0.5f * pulse, 0.1f * pulse, 0.9f });
         p->Update();
+    }
+    for (auto& city : cityBackgroundObjects_) {
+        city->Update();
     }
 }
 
@@ -457,7 +489,7 @@ bool BattleTestScene::UpdateMeleeComboHit()
 
 bool BattleTestScene::UpdateWeaponSkillHits()
 {
-    // ── 固有技（Space キー、武器種別ごと。Dagger/Hammer/Ball は移動/ゲージ/射撃のみで攻撃判定を持たない）──
+    // SPACE固有技の攻撃判定と演出を武器ごとの定義から適用する
     // 発生条件・射程係数・判定形状は kWeaponSkills テーブルが持つ
     const WeaponData& weapon = weaponManager_->GetCurrent();
     const Vector3& pp = player_->GetPosition();
@@ -863,7 +895,22 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     d.knockVelX += player_->GetLastDirX() * atk->knockX * kb;
     d.knockVelY += atk->knockY * kb;
 
-    SpawnHitEffect({ d.pos.x, d.pos.y + 0.5f, 0.0f });
+    const Vector3 hitPosition = { d.pos.x, d.pos.y + 0.5f, 0.0f };
+    SpawnHitEffect(hitPosition);
+
+    // 本編と同じ属性プリセットを使い、テストシーンで色と密度を調整できるようにする
+    const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1],
+        weapon.effectColor[2], weapon.effectColor[3] };
+    for (int i = 0; i < weapon.effectBurstCount; ++i) {
+        const float side = static_cast<float>((i % 5) - 2) * 0.5f;
+        pm_->EmitGravity("bt_hit_spark", hitPosition,
+            { player_->GetLastDirX() * (2.0f + i * 0.25f), 2.0f + (i % 4) * 0.7f, side },
+            effectColor, 0.5f, 0.16f);
+    }
+    if (weapon.effectRingRadius > 0.0f) {
+        pm_->EmitRing("bt_hit_ring", hitPosition, weapon.effectRingRadius,
+            effectColor, 12 + weapon.effectBurstCount, 0.28f, 0.16f);
+    }
 
     if (atk->launcher) {
         // 打ち上げ: 長めのヒットストップ + 画面フラッシュで浮かせた手応えを出す
@@ -1237,7 +1284,7 @@ void BattleTestScene::UpdateWeaponSlotHud()
         slotFlashTimer_ = (std::max)(0.0f, slotFlashTimer_ - GameConstants::kFrameDeltaTime);
     }
 
-    const int activeIndex = weaponManager_->GetIndex();
+    const int activeIndex = weaponManager_->GetSelectedSlot();
     const float pulse = 0.7f + 0.3f * std::sin(slotPulseTimer_ * 6.0f);
     const float flash = slotFlashTimer_ / kSlotFlashDuration;
 
@@ -1248,11 +1295,14 @@ void BattleTestScene::UpdateWeaponSlotHud()
         weaponSlots_[i].frame->SetColor({ frameB, frameB, frameB + (active ? 0.2f : 0.05f), 0.85f });
         weaponSlots_[i].frame->Update();
 
-        bool unlocked = (i < static_cast<int>(list.size()) && weaponManager_->IsUnlocked(i));
-        bool show3DIcon = unlocked && (weaponIcons3D_[i].slotIndex == i) && weaponIcons3D_[i].object;
+        const int weaponIndex = weaponManager_->GetSlotWeaponIndex(i);
+        bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size())
+            && weaponManager_->IsUnlocked(weaponIndex);
+        bool show3DIcon = unlocked && weaponIndex == i
+            && (weaponIcons3D_[i].slotIndex == i) && weaponIcons3D_[i].object;
         if (unlocked) {
             float iconMul = (active ? (0.7f + pulse * 0.3f) : 0.5f) + flash * 0.5f;
-            const float* c = list[i].styleColor;
+            const float* c = list[weaponIndex].styleColor;
             // 3Dモデルで表示するスロットは、下地の色四角を隠して実物モデルだけ見せる
             weaponSlots_[i].icon->SetColor({ c[0] * iconMul, c[1] * iconMul, c[2] * iconMul, show3DIcon ? 0.0f : 0.95f });
         } else {
@@ -1279,7 +1329,7 @@ void BattleTestScene::UpdateWeaponSlotHud()
         if (icon3d.slotIndex != i || !icon3d.object) {
             continue;
         }
-        if (!weaponManager_->IsUnlocked(i)) {
+        if (weaponManager_->GetSlotWeaponIndex(i) != i || !weaponManager_->IsUnlocked(i)) {
             continue;
         }
 
@@ -1323,7 +1373,8 @@ void BattleTestScene::DrawWeaponSlotHud()
         Object3d::RebindCommonLighting(cmd);
         for (int i = 0; i < kWeaponSlotCount; ++i) {
             auto& icon3d = weaponIcons3D_[i];
-            if (icon3d.slotIndex == i && icon3d.object && weaponManager_->IsUnlocked(i)) {
+            if (weaponManager_->GetSlotWeaponIndex(i) == i
+                && icon3d.slotIndex == i && icon3d.object && weaponManager_->IsUnlocked(i)) {
                 icon3d.object->Draw();
             }
         }
@@ -1356,7 +1407,7 @@ void BattleTestScene::DrawWeaponSlotHud()
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
-    SceneShared::DrawControlsHud(fontRenderer_, L": Back (portal)");
+    SceneShared::DrawControlsHud(fontRenderer_, L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
@@ -1412,7 +1463,7 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
         float sx, sy;
         SceneShared::WorldToScreen(kWarpRetX, 5.0f, cam.x, cam.y, sx, sy);
         constexpr Vector4 kColorReturn = { 1.0f, 0.6f, 0.1f, 1.0f };
-        fontRenderer_.DrawString("[ ENTER ] Back", sx - 84.0f, sy - 36.0f, kScale, kColorReturn);
+        fontRenderer_.DrawStringW(L"[ ENTER ] トレーニングへ", sx - 110.0f, sy - 36.0f, kScale, kColorReturn);
     }
 
     if (showColliders_) {
@@ -1420,35 +1471,35 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
     }
 }
 
-void BattleTestScene::DrawColliderDebug()
+void BattleTestScene::DrawColliderOverlay()
 {
-    DebugDraw::SetCamera(camera_->GetViewProjectionMatrix(),
+    DiagnosticsDraw::SetCamera(camera_->GetViewProjectionMatrix(),
         static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));
 
     // プレイヤー（緑）
-    DebugDraw::DrawCollider(player_->GetCollider(), DebugDraw::kColorGreen);
+    DiagnosticsDraw::DrawCollider(player_->GetCollider(), DiagnosticsDraw::kColorGreen);
 
     // 訓練マネキン（生存中のみ、シアン）
     for (const auto& d : dummies_) {
         if (d.hp > 0.0f) {
-            DebugDraw::DrawAABB(DummyBounds(d), DebugDraw::kColorCyan);
+            DiagnosticsDraw::DrawAABB(DummyBounds(d), DiagnosticsDraw::kColorCyan);
         }
     }
 
     // ナイト敵（生存中のみ、赤）
     if (knight_ && knight_->IsAlive()) {
-        DebugDraw::DrawAABB(knight_->GetAABB(), DebugDraw::kColorRed);
+        DiagnosticsDraw::DrawAABB(knight_->GetAABB(), DiagnosticsDraw::kColorRed);
     }
     // StageEditorで配置したナイト（生存中のみ、赤）
     for (KnightEnemy* placedKnight : GetStageEditor().GetKnights()) {
         if (placedKnight->IsAlive()) {
-            DebugDraw::DrawAABB(placedKnight->GetAABB(), DebugDraw::kColorRed);
+            DiagnosticsDraw::DrawAABB(placedKnight->GetAABB(), DiagnosticsDraw::kColorRed);
         }
     }
 
     // ステージエディタでsolidにしたブロック（オレンジ、エディタを開いていなくても見える）
     for (const auto& b : GetStageEditor().GetSolidColliders()) {
-        DebugDraw::DrawAABB(b, DebugDraw::kColorOrange);
+        DiagnosticsDraw::DrawAABB(b, DiagnosticsDraw::kColorOrange);
     }
 }
 
@@ -1458,111 +1509,7 @@ void BattleTestScene::DrawColliderDebug()
 
 void BattleTestScene::Draw()
 {
-    // ガラス割れ演出中（かつキャプチャ済み）は通常描画をスキップ
-    if (glassShatter_.IsActive() && !glassShatter_.NeedCapture()) {
-        spriteCommon_->CommonDrawSettings();
-        glassShatterBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
-        glassShatterBgSprite_->Update();
-        glassShatterBgSprite_->Draw();
-        glassShatter_.Apply();
-        return;
-    }
-
-    shadowManager_->BeginShadowPass(dxCommon_->GetCommandList());
-    modelCommon_->BeginShadowPass();
-    shadowManager_->EndShadowPass(dxCommon_->GetCommandList());
-
-    ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-    SetupMainRenderTarget();
-
-    modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(cmd);
-    shadowManager_->SetShadowMap(cmd, srvManager_);
-
-    // GetStageEditor().DrawObjects()はBaseScene::Render()がDraw()の後に自動で呼ぶ
-    // （フレーム最後に上乗せ描画になる代わりに、呼び出し位置を自分で気にしなくてよい）
-    for (auto& p : warpPortalBlocks_) {
-        p->Draw();
-    }
-    for (auto& d : dummies_) {
-        if (!d.sliced) {
-            d.object->Draw();
-        }
-    }
-    bulletPool_.Draw();
-    if (knight_) {
-        knight_->Draw();
-    }
-    player_->Draw();
-    dummySlice_.Draw();
-
-    // パーティクル（PreDraw でコマンドリストがリセットされるため Draw() 内で呼ぶ）
-    pm_->Update(camera_.get());
-    pm_->Draw(camera_.get());
-
-    bladeFlash_.Draw();
-
-    // ステージエディタの配置ブロックはここで描く（HUDテキストより前＝ブロックがUIパネルに重ならないように）
-    // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
-    GetStageEditor().DrawObjects();
-
-    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
-    if (spaceWarp_.IsActive()
-        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
-        // スコープを抜けた瞬間に必ずレンダーターゲット設定を戻す（歪み描画がRTを変えるため）
-        PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
-        spaceWarp_.CaptureAndApply();
-    }
-
-    // HP バー + テキスト UI（2D スプライト）
-    spriteCommon_->CommonDrawSettings();
-    shadowManager_->SetShadowMap(cmd, srvManager_);
-    for (auto& d : dummies_) {
-        if (d.hp > 0.0f) {
-            d.hpBarBg->Draw();
-            d.hpBarFg->Draw();
-        }
-    }
-    awakenGaugeBg_->Draw();
-    if (player_->GetAwakenGauge() > 0.0f) {
-        awakenGaugeFg_->Draw();
-    }
-    styleMeter_.DrawHud(); // ランクゲージのバー（文字は fontRenderer_ が描く）
-    DrawWeaponSlotHud();
-
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
-    // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
-    const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
-    if (finisherActive_ || captureFrame) {
-        finisherOverlay_->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
-        finisherOverlay_->Update();
-        finisherOverlay_->Draw();
-    }
-    SlashMark::GetInstance()->Draw();
-
-    // 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）
-    if (finisherShatter_.IsActive()
-        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
-        if (finisherShatter_.NeedCapture()) {
-            finisherShatter_.CaptureFrame();
-        }
-        // スコープを抜けた瞬間に、Apply が変えたレンダーターゲットとルートシグネチャを後続のスプライト描画用に戻す
-        PipelineStateGuard restoreGuard([this] {
-            SetupMainRenderTarget();
-            spriteCommon_->CommonDrawSettings();
-        });
-        finisherShatter_.Apply();
-    }
-
-    fontRenderer_.Draw();
-
-    // ガラス割れエフェクト（テスト再生時のみ）
-    if (glassShatter_.IsActive()) {
-        if (glassShatter_.NeedCapture()) {
-            glassShatter_.CaptureFrame();
-        }
-        glassShatter_.Apply();
-    }
+    BattleTestSceneRenderer::Draw(*this);
 }
 
 void BattleTestScene::Finalize()

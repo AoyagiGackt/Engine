@@ -7,6 +7,7 @@
  */
 #pragma once
 #ifdef USE_IMGUI
+#include "EditorHistory.h"
 #include "GraphRuntime.h"
 #include "GraphTypes.h"
 #include <imgui.h>
@@ -18,9 +19,22 @@ namespace engine {
 class Input;
 }
 namespace engine::game {
+class GraphEditorInteraction;
+class GraphNodeRenderer;
 
+/**
+ * @brief GraphEditor に関する型を提供する
+ * @details GraphEditor が扱うデータと操作の責務をまとめる
+ */
 class GraphEditor {
+    friend class GraphEditorInteraction;
+    friend class GraphNodeRenderer;
+
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static GraphEditor* GetInstance();
 
     /** @brief 指定パスのグラフを読み込んで編集対象にする（失敗時は空のグラフになる） */
@@ -62,12 +76,15 @@ private:
         std::string activeRunNodeId; ///< viewingActiveGraphがtrueの時だけ有効な、ハイライト対象ノードID
     };
 
+    /** @brief 表示切替と編集入力の実処理を実行する */
+
     void DrawCanvas();
     // DrawCanvas() 分割ヘルパー（呼び出し順に宣言）
     /** @brief マウスホイールズームと中ボタンドラッグパンを処理する */
     void UpdateCanvasView(bool canvasHovered);
     /** @brief ノード1つ分（タイトル・パラメータ・ピン・枠）を描画し、ドラッグ操作を処理する */
     void DrawNode(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state);
+    /** @brief ノード一件の表示と操作の実処理を実行する */
     /** @brief ノードのパラメータ編集ウィジェットと左端のデータ入力ピンを描画する */
     void DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state);
     /** @brief ドラッグ中のリンク／データ配線のプレビュー線を描き、空振り時はキャンセルする */
@@ -95,8 +112,6 @@ private:
     void DrawVariablesPanel();
 
     // Undo/Redo（スナップショット方式、Ctrl+Z/Ctrl+Y）
-    static constexpr size_t kMaxUndoHistory = 50;
-
     /** @brief 直前のgraph_を即座にUndoスタックへ積む（追加/削除/配線など単発で完結する変更の前に呼ぶ） */
     void RecordUndoSnapshotNow();
     /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
@@ -105,15 +120,10 @@ private:
     void MarkUndoDirty();
     /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
     void CommitUndoCapture();
-    void PushUndo(GraphDesc snapshot);
     void Undo();
     void Redo();
 
-    std::vector<GraphDesc> undoStack_;
-    std::vector<GraphDesc> redoStack_;
-    GraphDesc pendingUndoSnapshot_;
-    bool hasPendingUndo_ = false;
-    bool pendingUndoDirtied_ = false;
+    EditorHistory<GraphDesc> history_;
 
     std::string graphPath_ = "Resources/Graphs/test_graph.json";
     GraphDesc graph_;

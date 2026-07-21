@@ -10,8 +10,16 @@
 #include <string>
 namespace engine::game {
 
+/**
+ * @brief AudioBridge に関する型を提供する
+ * @details AudioBridge が扱うデータと操作の責務をまとめる
+ */
 class AudioBridge {
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static AudioBridge* GetInstance();
 
     /** @brief 現在のシーンのAudioを登録する（Scene::Initialize()から呼ぶ） */

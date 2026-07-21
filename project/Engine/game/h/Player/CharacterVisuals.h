@@ -16,6 +16,10 @@ using engine::graphics::Skeleton;
 
 // 見た目リグ（通常/覚醒フォーム）のアセット定義
 // モデルごとにアニメーション名・手のボーン名が異なるためリグ単位でまとめて持つ
+/**
+ * @brief RigVisualDef に関する型を提供する
+ * @details RigVisualDef が扱うデータと操作の責務をまとめる
+ */
 struct RigVisualDef {
     const char* dir; ///< glTF のディレクトリ
     const char* file; ///< glTF のファイル名
@@ -90,6 +94,10 @@ constexpr float kWeaponScaleBoost = 2.0f;
 // 手持ち近接武器の定義（右手ボーンにアタッチ、現在のスタイルの1つだけ表示）
 // パレットテクスチャは全て変換済み。gripScaleの基準値はモデル実寸差を吸収し、
 // 手に持った時の見た目の長さ（kWeaponScaleBoost適用前で約1.5〜1.8）が揃うように決めている
+/**
+ * @brief HeldWeaponVisual に関する型を提供する
+ * @details HeldWeaponVisual が扱うデータと操作の責務をまとめる
+ */
 struct HeldWeaponVisual {
     WeaponType type;
     const char* modelPath;
@@ -129,6 +137,10 @@ constexpr bool UsesHoldPose(WeaponType type)
 // Pistol は他4丁と違い銃口が逆向き（グリップ側から弾が出ているように見える）だったため
 // rotate.y = 180°で反転させている。他4丁は Z 軸沿い（銃口 -Z）のため rotate.y = +90°で向きを揃える。
 // translate はグリップ位置を手のひらへ寄せる調整
+/**
+ * @brief GunVisual に関する型を提供する
+ * @details GunVisual が扱うデータと操作の責務をまとめる
+ */
 struct GunVisual {
     GunType type;
     const char* modelPath;

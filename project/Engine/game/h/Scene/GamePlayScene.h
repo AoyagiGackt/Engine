@@ -82,26 +82,103 @@ using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
 
 class ScoreManager;
+class GamePlaySceneInitializer;
 
+/**
+ * @brief メインステージの戦闘、進行、演出、描画を統括する
+ *
+ * プレイヤーと敵のゲーム進行を調停し、個別システムの更新結果を描画パスへ渡す。
+ */
 class GamePlayScene : public BaseScene {
+    friend class GamePlaySceneInitializer;
+
 public:
+    /**
+     * @brief シーンで使用するゲーム実体と描画資源を初期化する
+     * @param dxCommon DirectXの共通処理
+     * @param input 入力管理
+     * @param audio 音声管理
+     */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /** @brief シーン固有の演出資源と登録済みコールバックを破棄する */
     void Finalize() override;
+    /** @brief ゲーム進行、戦闘、カメラ、演出を更新する */
     void Update() override;
+    /** @brief 3Dワールドと画面UIを描画する */
     void Draw() override;
+    /**
+     * @brief シーン調整パネルに使用するImGui管理を設定する
+     * @param imgui 使用するImGui管理
+     */
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
+    /**
+     * @brief ポストエフェクト対応の有無を返す
+     * @return 常にtrue
+     */
     bool SupportsPostEffects() const override { return true; }
 
-    /** @brief ImGuiパネルからの手動テスト再生用 */
+    /**
+     * @brief ステージエディタの判定に使用するプレイヤー位置を返す
+     * @return 現在のプレイヤー位置
+     */
+    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+
+    /**
+     * @brief ステージエディタが読み書きするレベルファイルを返す
+     * @return レベルJSONのパス
+     */
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    /**
+     * @brief ステージ配置物の生成に使用するモデル共通処理を返す
+     * @return シーンが所有するモデル共通処理
+     */
+    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    /**
+     * @brief ステージエディタの表示と操作に使用するカメラを返す
+     * @return シーンが所有するカメラ
+     */
+    Camera* GetEditorCamera() override { return camera_.get(); }
+    /**
+     * @brief エディタ配置敵の演出に使用するパーティクル管理を返す
+     * @return 共有パーティクル管理
+     */
+    ParticleManager* GetEditorParticleManager() override { return pm_; }
+    /**
+     * @brief エディタ操作で直接更新するプレイヤー位置を返す
+     * @return プレイヤー未生成時はnullptr
+     */
+    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
+    void RefreshVisualTransformsForEditor() override;
+
+    /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
 
+    /**
+     * @brief 追加ホットキーの案内文字列を返す
+     * @return シーン調整パネルのホットキー文字列
+     */
     const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル"; }
 
 private:
+    /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
+    void InitializeCoreSystems();
     // シャドウマップ描画パス
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画
     void DrawStyleUI();
+    /** @brief プレイヤーの進行位置に対応する操作目標を描画する */
+    void DrawStageGuide();
+    /** @brief 満杯時の武器交換入力を処理する */
+    void UpdateWeaponExchange();
+    /** @brief 満杯時の武器交換画面を描画する */
+    void DrawWeaponExchange();
+    /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
+    void UpdateWeaponEnemies();
+    /** @brief 武器固有技による進行障壁の解除を処理する */
+    void UpdateWeaponGimmicks();
+    /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
+    void UpdateEnergyCores();
     /** @brief 右上のコンボランク表示と覚醒ゲージを描画する */
     void DrawRankAndAwakenGauge();
     /** @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する */
@@ -177,11 +254,39 @@ private:
     std::unique_ptr<Skydome> skydome_;
     std::unique_ptr<Model> modelSkydome_;
 
-    LevelSpawnResult levelSpawn_;
-    std::vector<std::unique_ptr<Object3d>> borderBlocks_;
-
     std::unique_ptr<Player> player_;
     std::unique_ptr<EnemyEntity> enemy_;
+
+    /**
+     * @brief WeaponEnemyEntry に関する型を提供する
+     * @details WeaponEnemyEntry が扱うデータと操作の責務をまとめる
+     */
+    struct WeaponEnemyEntry {
+        std::unique_ptr<EnemyEntity> enemy;
+        WeaponType weaponType = WeaponType::Sword;
+        bool weaponAcquired = false;
+    };
+    std::vector<WeaponEnemyEntry> weaponEnemies_;
+
+    std::unique_ptr<Model> gimmickBlockModel_;
+    std::unique_ptr<Object3d> swordGate_;
+    std::unique_ptr<Object3d> spearGate_;
+    bool swordGateActive_ = true;
+    bool spearGateActive_ = true;
+
+    /**
+     * @brief EnergyCoreEntry に関する型を提供する
+     * @details EnergyCoreEntry が扱うデータと操作の責務をまとめる
+     */
+    struct EnergyCoreEntry {
+        std::unique_ptr<Object3d> object;
+        Vector3 position = { };
+        bool collected = false;
+    };
+    std::unique_ptr<Model> energyCoreModel_;
+    std::vector<EnergyCoreEntry> energyCores_;
+    float energyCorePulse_ = 0.0f;
+    int collectedEnergyCores_ = 0;
 
     GameTime gameTime_;
 
@@ -213,6 +318,10 @@ private:
     float enemyBulletTimer_ = 0.0f;
     bool enemyBulletActive_ = false;
 
+    /**
+     * @brief GhostEntry に関する型を提供する
+     * @details GhostEntry が扱うデータと操作の責務をまとめる
+     */
     struct GhostEntry {
         Vector3 pos;
         float age;
@@ -225,6 +334,8 @@ private:
     float styleMeter_ = 0.0f;
     float peakStyle_ = 0.0f;
     int prevStyleTier_ = 0;
+    int lastTechniqueId_ = -1;
+    int repeatedTechniqueCount_ = 0;
 
     // フィニッシャースラッシュ演出の進行状態
     bool finisherActive_ = false;

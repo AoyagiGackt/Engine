@@ -1,3 +1,7 @@
+/**
+ * @file SceneShared.cpp
+ * @brief SceneSharedのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "SceneShared.h"
 #include "Camera.h"
 #include "FontRenderer.h"
@@ -67,22 +71,31 @@ void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPa
     }
 }
 
-void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager, float& weaponCycleTimer)
+void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
+    float& weaponCycleTimer, bool cycleAllUnlocked)
 {
     // 武器切り替え（Q/E、数字キー 1〜4）
     weaponCycleTimer -= GameConstants::kFrameDeltaTime;
     if (weaponCycleTimer <= 0.0f) {
         if (input->TriggerKey(DIK_Q)) {
-            weaponManager->SelectPrev();
+            if (cycleAllUnlocked) {
+                weaponManager->SelectPrevUnlockedInCurrentSlot();
+            } else {
+                weaponManager->SelectPrev();
+            }
             weaponCycleTimer = 0.15f;
         }
         if (input->TriggerKey(DIK_E)) {
-            weaponManager->SelectNext();
+            if (cycleAllUnlocked) {
+                weaponManager->SelectNextUnlockedInCurrentSlot();
+            } else {
+                weaponManager->SelectNext();
+            }
             weaponCycleTimer = 0.15f;
         }
-        for (int i = 0; i < weaponManager->GetCount(); ++i) {
+        for (int i = 0; i < 4; ++i) {
             if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
-                weaponManager->SelectIndex(i);
+                weaponManager->SelectSlot(i);
                 weaponCycleTimer = 0.15f;
             }
         }
@@ -123,7 +136,7 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
 
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText)
 {
-    constexpr float kScale = 1.5f;
+    constexpr float kScale = 1.15f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
     constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
     constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
@@ -140,18 +153,21 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     py += kLineH + 2.0f;
 
     const auto& weaponList = weaponManager->GetList();
-    for (int i = 0; i < static_cast<int>(weaponList.size()); ++i) {
-        bool unlocked = weaponManager->IsUnlocked(i);
-        bool sel = unlocked && (i == weaponManager->GetIndex());
-        char buf[64];
-        if (unlocked) {
-            std::snprintf(buf, sizeof(buf), "%s %d.%-8s DMG:%.0f  RNG:%.1f",
-                sel ? ">" : " ", i + 1, weaponList[i].name.c_str(), weaponList[i].damage, weaponList[i].range);
+    for (int slot = 0; slot < 4; ++slot) {
+        const int weaponIndex = weaponManager->GetSlotWeaponIndex(slot);
+        const bool occupied = weaponIndex >= 0;
+        const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
+        char buf[80];
+        if (occupied) {
+            const auto& weapon = weaponList[weaponIndex];
+            std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  DMG %.0f  RNG %.1f",
+                selected ? ">" : " ", slot + 1, weapon.name.c_str(), weapon.damage, weapon.range);
         } else {
-            std::snprintf(buf, sizeof(buf), "  %d.???      [LOCKED]", i + 1);
+            std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
-        fontRenderer.DrawString(buf, px, py, kScale, sel ? kColorSel : unlocked ? kColorNormal
-                                                                                : kColorLocked);
+        fontRenderer.DrawString(buf, px, py, kScale,
+            selected ? kColorSel : occupied ? kColorNormal
+                                            : kColorLocked);
         py += kLineH;
     }
 
@@ -163,7 +179,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     py += kLineH;
 
     py += 4.0f;
-    fontRenderer.DrawString("Q/E 1-4 : Melee  G : Gun", px, py, kScale, kColorHint);
+    fontRenderer.DrawStringW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kScale, kColorHint);
     py += kLineH;
     return py;
 }
@@ -171,8 +187,8 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
 void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabel)
 {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
-    constexpr float kIx = 870.0f;
-    constexpr float kIS = 1.3f;
+    constexpr float kIx = 940.0f;
+    constexpr float kIS = 1.05f;
     constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
     constexpr Vector4 kCH = { 1.0f, 0.85f, 0.0f, 1.0f };
     constexpr Vector4 kCD = { 0.72f, 0.72f, 0.72f, 1.0f };
@@ -192,13 +208,12 @@ void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabe
     row("L      ", L": コンボ (x3)");
     row("K      ", L": 銃コンボ");
     row("G      ", L": 銃切替");
-    row("SPACE  ", L": スピン連射");
-    row("(Air)  ", L": スピン+散弾");
+    row("SPACE  ", L": 武器固有技");
     row("Q / E  ", L": 武器切替");
-    row("1-4", L": Weapon Select");
-    row("ENTER", portalActionLabel);
-    row("R", L": Awaken (30%+)");
-    row("F", L": Finisher (gauge MAX)");
+    row("1 - 4  ", L": スロット直接選択");
+    row("ENTER  ", portalActionLabel);
+    row("R      ", L": 覚醒発動");
+    row("F      ", L": フィニッシャー");
 }
 
 void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fgSprite,

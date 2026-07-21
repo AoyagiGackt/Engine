@@ -9,8 +9,16 @@
 #include <string>
 namespace engine::game {
 
+/**
+ * @brief GameFlags に関する型を提供する
+ * @details GameFlags が扱うデータと操作の責務をまとめる
+ */
 class GameFlags {
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static GameFlags* GetInstance();
 
     /** @brief フラグを設定する（無ければ新規作成） */

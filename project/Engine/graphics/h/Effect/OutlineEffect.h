@@ -31,6 +31,10 @@
 #include <wrl/client.h>
 namespace engine::graphics {
 
+/**
+ * @brief OutlineEffect に関する型を提供する
+ * @details OutlineEffect が扱うデータと操作の責務をまとめる
+ */
 class OutlineEffect {
 public:
     /** @brief シングルトンインスタンスを取得する */
@@ -101,6 +105,10 @@ private:
 
     // 定数バッファ（シェーダー b0 に対応、VS と PS が共用）
     // VS では width を使って頂点を押し出し、PS では color を使ってピクセルを塗る
+    /**
+     * @brief OutlineParams に関する型を提供する
+     * @details OutlineParams が扱うデータと操作の責務をまとめる
+     */
     struct OutlineParams {
         Vector4 color = { 0.0f, 0.0f, 0.0f, 1.0f }; ///< アウトライン色（デフォルト黒）
         float width = 0.02f; ///< 押し出し幅（デフォルト 0.02）

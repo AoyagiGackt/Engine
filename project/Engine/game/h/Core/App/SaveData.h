@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "RunData.h"
+#include "json.hpp"
 #include <vector>
 namespace engine::game {
 
@@ -72,10 +73,14 @@ public:
 private:
     SaveDataManager() = default;
 
+    /** @brief 現在のセーブ形式へ古いデータを補完する */
+    void Migrate(nlohmann::json& data, int sourceVersion) const;
+
     ContinueData continue_;
     SaveRecords records_;
 
     static constexpr const char* kFilePath = "save/save.json";
+    static constexpr int kCurrentVersion = 1;
 };
 
 } // namespace engine::game

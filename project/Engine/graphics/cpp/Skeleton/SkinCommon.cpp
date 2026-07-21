@@ -1,4 +1,8 @@
-﻿#include "SkinCommon.h"
+/**
+ * @file SkinCommon.cpp
+ * @brief SkinCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "SkinCommon.h"
 #include "PipelineHelper.h"
 #include <cassert>
 using namespace engine;
@@ -74,6 +78,8 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     for (int i = 0; i < static_cast<int>(BlendMode::Count); ++i) {
         psoDesc.BlendState.RenderTarget[0] = PH::MakeBlendDesc(static_cast<BlendMode>(i));
         device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
+        const std::wstring name = L"SkinCommon.Object3dPS.Blend" + std::to_wstring(i);
+        graphicsPipelineStates_[i]->SetName(name.c_str());
     }
 }
 

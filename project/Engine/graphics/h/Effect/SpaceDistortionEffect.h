@@ -46,6 +46,10 @@ private:
     static constexpr float kMinEnergy = 0.01f; ///< これ未満は非アクティブ扱い
 
     // cbuffer のメモリレイアウト（HLSL の WarpParams と一致させること）
+    /**
+     * @brief WarpParams に関する型を提供する
+     * @details WarpParams が扱うデータと操作の責務をまとめる
+     */
     struct WarpParams {
         float centerU = 0.5f;
         float centerV = 0.5f;
@@ -56,6 +60,10 @@ private:
         float pad[2] = { };
     };
 
+    /**
+     * @brief CreatePipeline の結果を取得する
+     * @return なし
+     */
     void CreatePipeline();
 
     engine::DirectXCommon* dxCommon_ = nullptr;

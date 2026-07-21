@@ -1,6 +1,11 @@
+/**
+ * @file GamePlayScene.cpp
+ * @brief GamePlaySceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
+#include "GamePlaySceneInitializer.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
@@ -15,6 +20,7 @@
 #include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
+#include "StageEditor.h"
 #include "StringUtility.h"
 #include "TextureManager.h"
 #include "WeaponManager.h"
@@ -34,9 +40,14 @@ using namespace engine::game;
 
 void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    // 引数のポインタをメンバ変数に保存しておく（後で Update/Draw からも使えるように）
+    // 外部から受け取る共通依存だけを入口で保持し、所有資源の構築は下請けへ委譲する
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
+    InitializeCoreSystems();
+}
 
+void GamePlayScene::InitializeCoreSystems()
+{
+    // 3D描画基盤を先に構築し、後続のゲーム実体が安全にモデルを生成できる状態にする
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
 
@@ -55,6 +66,8 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
     Object3d::SetCommonObjectCommon(objectCommon_.get());
     Object3d::SetCommonShadowManager(shadowManager_.get());
+    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
+    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
@@ -68,66 +81,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
 
-    {
-        auto levelData = LevelLoader::Load("Resources/Levels/level01.json");
-        levelSpawn_ = LevelLoader::Spawn(levelData, modelCommon_.get());
-        for (auto& obj : levelSpawn_.objects) {
-            borderBlocks_.push_back(std::move(obj));
-        }
-        levelSpawn_.objects.clear();
-
-        player_ = std::make_unique<Player>();
-        player_->Initialize(modelCommon_.get());
-        player_->SetPosition(levelData.playerSpawn);
-        PlayerBridge::GetInstance()->SetPlayer(player_.get());
-        AudioBridge::GetInstance()->SetAudio(audio_);
-
-        {
-            auto* rd = RunData::GetInstance();
-            if (rd->IsRunActive()) {
-                Player::SkillMods mods;
-                if (rd->HasSkill(RunData::Skill::BlinkPlus)) {
-                    mods.blinkDistMult = 1.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::ComboExtend)) {
-                    mods.comboMaxBonus = 1;
-                }
-                if (rd->HasSkill(RunData::Skill::FastFire)) {
-                    mods.fireIntervalMult = 0.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::AwakenBoost)) {
-                    mods.gaugeChargeMult = 1.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::SpeedUp)) {
-                    mods.speedMult = 1.2f;
-                }
-                if (rd->HasSkill(RunData::Skill::HighJump)) {
-                    mods.jumpMult = 1.25f;
-                }
-                if (rd->HasSkill(RunData::Skill::JuggleExtend)) {
-                    mods.juggleMaxBonus = 4;
-                }
-                player_->ApplySkillMods(mods);
-            }
-        }
-
-        enemy_ = std::make_unique<EnemyEntity>();
-        enemy_->Initialize(modelCommon_.get(), levelData.enemySpawn);
-        enemy_->SetId("enemy");
-        EnemyRegistry::GetInstance()->Register(enemy_->GetId(), enemy_.get());
-        {
-            auto* rd = RunData::GetInstance();
-            if (rd->IsRunActive()) {
-                int hp = 20;
-                if (rd->GetCurrentNode() == RunData::NodeType::Elite) {
-                    hp = 35;
-                } else if (rd->GetCurrentNode() == RunData::NodeType::Boss) {
-                    hp = 60;
-                }
-                enemy_->SetMaxHp(hp);
-            }
-        }
-    }
+    GamePlaySceneInitializer::InitializeStageActors(*this);
 
     scoreManager_->LoadScores();
     scoreManager_->ResetCurrentScore();
@@ -158,7 +112,9 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     waterPool_ = std::make_unique<WaterPool>();
     waterPool_->Initialize(spriteCommon_.get());
-    player_->SetWaterLevel(WaterPool::GetSurfaceY());
+    if (RunData::GetInstance()->GetFloor() == 3) {
+        player_->SetWaterLevel(WaterPool::GetSurfaceY());
+    }
 
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
@@ -182,6 +138,40 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     finisherShatter_.SetDuration(0.9f);
 
     ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
+}
+
+void GamePlayScene::RefreshVisualTransformsForEditor()
+{
+    if (player_) {
+        player_->RefreshVisualTransforms();
+    }
+    if (enemy_) {
+        enemy_->RefreshVisualTransforms();
+    }
+    for (auto& entry : weaponEnemies_) {
+        if (entry.enemy) {
+            entry.enemy->RefreshVisualTransforms();
+        }
+    }
+
+    // ゲーム更新停止中も、編集カメラで描画する全3D実体のWVPだけは更新する。
+    if (skydome_) {
+        skydome_->Update(camera_.get());
+    }
+    if (swordGate_ && swordGateActive_) {
+        swordGate_->Update();
+    }
+    if (spearGate_ && spearGateActive_) {
+        spearGate_->Update();
+    }
+    for (auto& core : energyCores_) {
+        if (core.object && !core.collected) {
+            core.object->Update();
+        }
+    }
+    if (ghostObject_ && !ghostTrail_.empty()) {
+        ghostObject_->Update();
+    }
 }
 
 SceneEditor::EditContext GamePlayScene::BuildEditContext()
@@ -246,6 +236,13 @@ void GamePlayScene::Update()
         return;
     }
 
+    UpdateWeaponExchange();
+    if (WeaponManager::GetInstance()->HasPendingWeapon()) {
+        UpdateCamera();
+        UpdateStyleAndUI(0.0f);
+        return;
+    }
+
     auto* tm = TimeManager::GetInstance();
     const float dt = tm->GetDeltaTime(); // ヒットストップ中 = 0、スロー時は比例値
     gameTime_.Update(1.0f);
@@ -305,7 +302,7 @@ bool GamePlayScene::UpdateClearState()
             rd->AdvanceFloor();
 
             // フロアクリア毎に自動セーブ（ボス撃破時はコンティニュー不要なので破棄）
-            if (rd->GetFloor() >= 4) {
+            if (rd->GetFloor() >= 6) {
                 SaveDataManager::GetInstance()->ClearContinue();
             } else {
                 SaveDataManager::GetInstance()->SaveContinue(*rd);
@@ -313,7 +310,7 @@ bool GamePlayScene::UpdateClearState()
         }
         resultTimer_ -= GameConstants::kFrameDeltaTime;
         if (resultTimer_ <= 0.0f) {
-            if (rd->GetFloor() >= 4) {
+            if (rd->GetFloor() >= 6) {
                 SceneManager::GetInstance()->ChangeScene("CLEAR");
             } else {
                 SceneManager::GetInstance()->ChangeScene("MAP");
@@ -407,7 +404,29 @@ void GamePlayScene::UpdateCombat()
     if (!tm->IsHitStopped()) {
         player_->Update(input_, enemy_->GetPosition());
 
+        UpdateWeaponGimmicks();
+
+        // 移動後に足場との接触を解決し、補正が入ったフレームは見た目も同期する
+        const Vector3 beforeCollision = player_->GetPosition();
+        // エディタの現在状態から毎フレーム判定を作り、移動・追加・削除を即時反映する
+        std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
+        if (swordGateActive_) {
+            activeColliders.push_back({ { 17.0f, -0.5f, -0.5f }, { 18.0f, 9.5f, 0.5f } });
+        }
+        if (spearGateActive_) {
+            activeColliders.push_back({ { 25.0f, -0.5f, -0.5f }, { 26.0f, 9.5f, 0.5f } });
+        }
+        player_->ResolveBlockCollision(activeColliders);
+        const Vector3& afterCollision = player_->GetPosition();
+        if (beforeCollision.x != afterCollision.x
+            || beforeCollision.y != afterCollision.y
+            || beforeCollision.z != afterCollision.z) {
+            player_->RefreshVisualTransforms();
+        }
+
         UpdateCombatEvents();
+        UpdateWeaponEnemies();
+        UpdateEnergyCores();
 
         enemy_->Update();
         if (enemy_->JustLanded()) {
@@ -415,16 +434,128 @@ void GamePlayScene::UpdateCombat()
         }
 
         skydome_->Update(camera_.get());
-        for (auto& block : borderBlocks_) {
-            block->Update();
+        if (swordGateActive_) {
+            swordGate_->Update();
+        }
+        if (spearGateActive_) {
+            spearGate_->Update();
         }
     }
 
     // 水エフェクト更新（ヒットストップに関係なく毎フレーム）
-    waterPool_->Update();
+    if (RunData::GetInstance()->GetFloor() == 3) {
+        waterPool_->Update();
+        if (player_->JustEnteredWater() || player_->JustExitedWater()) {
+            waterPool_->EmitSplash(player_->GetPosition());
+        }
+    }
+}
 
-    if (player_->JustEnteredWater() || player_->JustExitedWater()) {
-        waterPool_->EmitSplash(player_->GetPosition());
+void GamePlayScene::UpdateWeaponEnemies()
+{
+    const Vector3& playerPos = player_->GetPosition();
+    const auto* wm = WeaponManager::GetInstance();
+
+    for (auto& entry : weaponEnemies_) {
+        entry.enemy->Update();
+        if (!entry.enemy->IsDefeated()) {
+            const Vector3& enemyPos = entry.enemy->GetPosition();
+            const AABB enemyBounds = {
+                { enemyPos.x - 0.5f, enemyPos.y - 0.5f, -0.5f },
+                { enemyPos.x + 0.5f, enemyPos.y + 0.5f, 0.5f }
+            };
+
+            bool hit = false;
+            if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
+                const AABB range = SceneShared::MakeDirectionalRange(
+                    playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
+                    wm->GetCurrent().range * 0.4f);
+                hit = Collision::CheckCollision(range, enemyBounds);
+            }
+            if (!hit && player_->JustFired()) {
+                const AABB range = SceneShared::MakeDirectionalRange(
+                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, 0.8f);
+                hit = Collision::CheckCollision(range, enemyBounds);
+            }
+            if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustBlinked() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
+                const AABB range = {
+                    { playerPos.x - 3.0f, playerPos.y - 2.0f, -0.5f },
+                    { playerPos.x + 3.0f, playerPos.y + 2.0f, 0.5f }
+                };
+                hit = Collision::CheckCollision(range, enemyBounds);
+            }
+            if (hit) {
+                entry.enemy->TakeDamage(player_->JustGreatswordSlam() ? 3 : 1);
+                const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
+                const float knockY = attack != nullptr ? attack->knockY : 0.05f;
+                entry.enemy->ApplyComboReaction(player_->GetLastDirX(), knockY,
+                    player_->JustWeaponSwitchHit(), playerPos.x);
+                if (wm->HasEquippedWeapon() && wm->GetCurrent().type == WeaponType::Dagger) {
+                    entry.enemy->ApplySlow(0.8f);
+                }
+                pm_->EmitHitStar("hit_spark", enemyPos, { 1.0f, 0.8f, 0.25f, 1.0f });
+            }
+        }
+
+        if (!entry.weaponAcquired && entry.enemy->IsDefeated()) {
+            entry.weaponAcquired = true;
+            const auto result = WeaponManager::GetInstance()->Acquire(entry.weaponType);
+            if (result != WeaponManager::AcquireResult::Duplicate) {
+                player_->PlayStealStab();
+                const Vector3& enemyPos = entry.enemy->GetPosition();
+                pm_->EmitRing("weapon_orb", enemyPos, 3.0f,
+                    { 0.5f, 0.9f, 1.0f, 1.0f }, 18, 0.4f, 0.3f);
+                ScreenFlash::GetInstance()->Request(
+                    { 0.6f, 0.9f, 1.0f, 0.35f }, 0.12f);
+            }
+        }
+    }
+}
+
+void GamePlayScene::UpdateWeaponGimmicks()
+{
+    const Vector3& pos = player_->GetPosition();
+    if (swordGateActive_ && player_->JustSwordDash() && std::abs(pos.x - 17.5f) <= 3.0f) {
+        swordGateActive_ = false;
+        pm_->EmitRing("sword_slash", { 17.5f, 1.5f, 0.0f }, 4.0f,
+            { 1.0f, 0.3f, 0.15f, 1.0f }, 20, 0.5f, 0.35f);
+        cameraShaker_.Request(0.18f, 0.15f);
+    }
+    if (spearGateActive_ && player_->JustSpearRetreat() && std::abs(pos.x - 25.5f) <= 3.0f) {
+        spearGateActive_ = false;
+        pm_->EmitRing("hit_ring", { 25.5f, 1.5f, 0.0f }, 4.0f,
+            { 0.25f, 0.75f, 1.0f, 1.0f }, 20, 0.5f, 0.35f);
+        cameraShaker_.Request(0.18f, 0.15f);
+    }
+}
+
+void GamePlayScene::UpdateEnergyCores()
+{
+    energyCorePulse_ += GameConstants::kFrameDeltaTime;
+    const Vector3& playerPos = player_->GetPosition();
+    for (auto& core : energyCores_) {
+        if (core.collected) {
+            continue;
+        }
+
+        const float dx = playerPos.x - core.position.x;
+        const float dy = playerPos.y - core.position.y;
+        if (dx * dx + dy * dy <= 1.0f) {
+            core.collected = true;
+            collectedEnergyCores_++;
+            player_->ChargeAwakenGauge(0.2f);
+            pm_->EmitRing("awaken_aura", core.position, 3.0f,
+                { 0.3f, 0.95f, 1.0f, 1.0f }, 18, 0.45f, 0.3f);
+            ScreenFlash::GetInstance()->Request(
+                { 0.4f, 0.9f, 1.0f, 0.2f }, 0.08f);
+            continue;
+        }
+
+        const float pulse = 0.85f + std::sin(energyCorePulse_ * 5.0f) * 0.15f;
+        core.object->SetRotation({ 0.0f, energyCorePulse_ * 1.5f, 0.0f });
+        core.object->SetScale({ 0.35f * pulse, 0.35f * pulse, 0.35f * pulse });
+        core.object->SetColor({ 0.3f, 0.9f * pulse, 1.0f, 1.0f });
+        core.object->Update();
     }
 }
 
@@ -455,20 +586,69 @@ void GamePlayScene::UpdateCamera()
 void GamePlayScene::UpdateStyleAndUI(float dt)
 {
     const auto* wm = WeaponManager::GetInstance();
-    const WeaponData& weapon = wm->GetCurrent();
     const Vector3& ppos = player_->GetPosition();
     const Vector3& epos = enemy_->GetPosition();
     AABB enemyAABB = { { epos.x - 0.5f, epos.y - 0.5f, -0.5f },
         { epos.x + 0.5f, epos.y + 0.5f, 0.5f } };
 
-    if (player_->JustComboHit()) {
+    if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
         // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
         AABB meleeRange = SceneShared::MakeDirectionalRange(
-            ppos, player_->GetLastDirX(), weapon.range, weapon.range * 0.4f);
+            ppos, player_->GetLastDirX(), wm->GetCurrent().range,
+            wm->GetCurrent().range * 0.4f);
         if (Collision::CheckCollision(meleeRange, enemyAABB)) {
-            styleMeter_ = std::clamp(styleMeter_ + 0.08f + player_->GetComboStep() * 0.05f, 0.0f, 1.0f);
+            const int techniqueId = static_cast<int>(wm->GetCurrent().type) * 16
+                + player_->GetComboStep();
+            if (techniqueId == lastTechniqueId_) {
+                repeatedTechniqueCount_++;
+            } else {
+                lastTechniqueId_ = techniqueId;
+                repeatedTechniqueCount_ = 0;
+            }
+            const float repeatPenalty = (std::min)(repeatedTechniqueCount_ * 0.035f, 0.10f);
+            const float switchBonus = player_->JustWeaponSwitchHit() ? 0.18f : 0.0f;
+            styleMeter_ = std::clamp(styleMeter_ + 0.10f
+                    + player_->GetComboStep() * 0.04f + switchBonus - repeatPenalty,
+                0.0f, 1.0f);
             player_->ChargeAwakenGauge(0.08f);
             enemy_->TakeDamage(1);
+            const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
+            enemy_->ApplyComboReaction(player_->GetLastDirX(),
+                attack != nullptr ? attack->knockY : 0.05f,
+                player_->JustWeaponSwitchHit(), ppos.x);
+
+            const WeaponType element = wm->GetCurrent().type;
+            if (element == WeaponType::Sword && player_->GetComboStep() >= 3) {
+                enemy_->TakeDamage(1); // 炎: コンボ後半で追加ダメージ
+            } else if (element == WeaponType::Dagger) {
+                enemy_->ApplySlow(0.9f); // 氷: 行動速度を落とす
+            } else if (element == WeaponType::Spear) {
+                // 雷: 周囲の武器敵へ連鎖する。
+                for (auto& entry : weaponEnemies_) {
+                    if (!entry.enemy->IsDefeated()
+                        && std::abs(entry.enemy->GetPosition().x - enemy_->GetPosition().x) < 5.0f) {
+                        entry.enemy->TakeDamage(1);
+                    }
+                }
+            }
+        }
+    }
+    if (player_->JustSwordDash() || player_->JustSpearRetreat()
+        || player_->JustBlinked() || player_->JustGreatswordSlam()
+        || player_->JustSpinShot() || player_->JustScytheSpin()
+        || player_->JustAxeCharge()) {
+        const float radius = player_->JustGreatswordSlam() ? 3.5f : 2.8f;
+        const AABB skillRange = {
+            { ppos.x - radius, ppos.y - 2.0f, -0.5f },
+            { ppos.x + radius, ppos.y + 2.0f, 0.5f }
+        };
+        if (Collision::CheckCollision(skillRange, enemyAABB)) {
+            const int techniqueId = 1000 + static_cast<int>(wm->GetCurrent().type);
+            const float varietyBonus = techniqueId == lastTechniqueId_ ? 0.06f : 0.18f;
+            lastTechniqueId_ = techniqueId;
+            styleMeter_ = std::clamp(styleMeter_ + varietyBonus, 0.0f, 1.0f);
+            player_->ChargeAwakenGauge(0.10f);
+            enemy_->TakeDamage(player_->JustGreatswordSlam() ? 3 : 2);
         }
     }
     if (player_->JustFired()) {
@@ -688,6 +868,28 @@ void GamePlayScene::UpdateStyleTechniqueParticles(float dt)
             pm_->EmitRing("sword_slash", ppos, 3.5f, col, 10, 0.3f, 0.22f);
         }
 
+        // 属性演出はweapons.jsonの共通プリセットから生成する
+        // 武器追加時にシーン側へtype分岐を増やさず色と密度を調整できるようにする
+        const WeaponData& weapon = wm->GetCurrent();
+        const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1],
+            weapon.effectColor[2], weapon.effectColor[3] };
+        for (int i = 0; i < weapon.effectBurstCount; ++i) {
+            const float spread = static_cast<float>((i % 5) - 2) * 0.45f;
+            pm_->EmitGravity("hit_spark", ppos,
+                { dir * (2.0f + i * 0.3f), 1.8f + (i % 4) * 0.65f, spread },
+                effectColor, 0.5f, 0.16f);
+        }
+        if (weapon.effectRingRadius > 0.0f) {
+            pm_->EmitRing("sword_slash", ppos, weapon.effectRingRadius,
+                effectColor, 12 + weapon.effectBurstCount, 0.28f, 0.16f);
+        }
+
+        if (player_->JustWeaponSwitchHit()) {
+            pm_->EmitRing("sword_slash", ppos, 4.8f, col, 18, 0.38f, 0.28f);
+            tm->RequestHitStop(5);
+            cameraShaker_.Request(0.35f, 0.16f);
+        }
+
         tm->RequestHitStop(3);
         cameraShaker_.Request(0.10f * step, 0.10f);
     }
@@ -873,27 +1075,13 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
 void GamePlayScene::CheckClearCondition()
 {
-    // ローグライト: 敵撃破の瞬間に武器奪取を発生させる（大技・切断演出は見せ切ってから）
+    // 最終敵の撃破後にハンマーを奪い、4つ目のスロットを完成させる
     if (!weaponStealTriggered_ && enemy_->IsDefeated()
-        && !finisherActive_ && !enemySlice_.IsActive()
-        && RunData::GetInstance()->IsRunActive()) {
+        && !finisherActive_ && !enemySlice_.IsActive()) {
         weaponStealTriggered_ = true;
 
-        // ノード種別で奪える武器を決める（雑魚=Sword, エリート=Spear, ボス=Greatsword）
-        WeaponType stolenType = WeaponType::Sword;
-        switch (RunData::GetInstance()->GetCurrentNode()) {
-        case RunData::NodeType::Elite:
-            stolenType = WeaponType::Spear;
-            break;
-        case RunData::NodeType::Boss:
-            stolenType = WeaponType::Greatsword;
-            break;
-        default:
-            stolenType = WeaponType::Sword;
-            break;
-        }
-
-        if (WeaponManager::GetInstance()->Unlock(stolenType)) {
+        const auto acquireResult = WeaponManager::GetInstance()->Acquire(WeaponType::Hammer);
+        if (acquireResult != WeaponManager::AcquireResult::Duplicate) {
             player_->PlayStealStab();
 
             const Vector3& epos = enemy_->GetPosition();
@@ -1010,20 +1198,31 @@ void GamePlayScene::DrawWorldAndActors()
     SetupMainRenderTarget();
 
     spriteCommon_->CommonDrawSettings();
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
     renderTextureSprite_->Update();
     renderTextureSprite_->Draw();
 
     spriteCommon_->CommonDrawSettings();
-    waterPool_->Draw(camera_.get());
+    if (RunData::GetInstance()->GetFloor() == 3) {
+        waterPool_->Draw(camera_.get());
+    }
 
     SetupModelRenderState();
     skydome_->Draw();
 
     SetupModelRenderState();
 
-    for (auto& block : borderBlocks_) {
-        block->Draw();
+    // HUDより前にエディタ管理の配置物を描画し、BaseScene側の二重描画を抑止する
+    GetStageEditor().DrawObjects();
+    for (auto& core : energyCores_) {
+        if (!core.collected) {
+            core.object->Draw();
+        }
+    }
+    if (swordGateActive_) {
+        swordGate_->Draw();
+    }
+    if (spearGateActive_) {
+        spearGate_->Draw();
     }
 
     if (!ghostTrail_.empty()) {
@@ -1039,6 +1238,9 @@ void GamePlayScene::DrawWorldAndActors()
     }
 
     player_->Draw();
+    for (auto& entry : weaponEnemies_) {
+        entry.enemy->Draw();
+    }
     enemy_->Draw();
     enemySlice_.Draw();
 
@@ -1059,7 +1261,6 @@ void GamePlayScene::DrawWorldAndActors()
 void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
-    shadowManager_->SetShadowMap(dxCommon_->GetCommandList(), srvManager_);
 
     for (auto& e : sceneEditor_.GetUIElements()) {
         e.sprite->Update();
@@ -1113,17 +1314,13 @@ void GamePlayScene::DrawRogueliteHUD()
         return;
     }
 
-    // 敵HPバー（上部中央）
-    int eHp = enemy_->GetHp();
-    int eMaxHp = enemy_->GetMaxHp();
-    int filled = (eMaxHp > 0) ? (eHp * 20 / eMaxHp) : 0;
-    std::string hpBar = "ENEMY [";
-    for (int i = 0; i < 20; ++i) {
-        hpBar += (i < filled ? '#' : ' ');
-    }
-    hpBar += "] ";
-    hpBar += std::to_string(eHp) + "/" + std::to_string(eMaxHp);
-    fontRenderer_.DrawString(hpBar.c_str(), 280.0f, 10.0f, 1.5f, { 1.0f, 0.35f, 0.35f, 1.0f });
+    // 敵の残り体力を上部中央に数値で表示する
+    const int enemyHp = enemy_->GetHp();
+    const int enemyMaxHp = enemy_->GetMaxHp();
+    const std::wstring enemyHpText = L"敵体力  "
+        + std::to_wstring(enemyHp) + L" / " + std::to_wstring(enemyMaxHp);
+    fontRenderer_.DrawStringW(enemyHpText, 460.0f, 10.0f, 1.5f,
+        { 1.0f, 0.35f, 0.35f, 1.0f });
 
     // プレイヤーHP + ゴールド（左上）
     std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp())
@@ -1135,9 +1332,82 @@ void GamePlayScene::DrawStyleUI()
 {
     fontRenderer_.Reset();
 
+    DrawStageGuide();
     DrawRogueliteHUD();
     DrawRankAndAwakenGauge();
     DrawStyleCommands();
+    DrawWeaponExchange();
+}
+
+void GamePlayScene::UpdateWeaponExchange()
+{
+    auto* wm = WeaponManager::GetInstance();
+    if (!wm->HasPendingWeapon()) {
+        return;
+    }
+
+    for (int slot = 0; slot < 4; ++slot) {
+        if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + slot))) {
+            wm->ReplacePendingWeapon(slot);
+            return;
+        }
+    }
+    if (input_->TriggerKey(DIK_BACK) || input_->TriggerButton(XINPUT_GAMEPAD_B)) {
+        wm->DiscardPendingWeapon();
+    }
+}
+
+void GamePlayScene::DrawWeaponExchange()
+{
+    auto* wm = WeaponManager::GetInstance();
+    if (!wm->HasPendingWeapon()) {
+        return;
+    }
+
+    fontRenderer_.DrawStringW(
+        L"武器スロットが満杯です", 360.0f, 220.0f, 2.0f,
+        { 1.0f, 0.85f, 0.2f, 1.0f });
+    fontRenderer_.DrawStringW(
+        L"入手武器  " + wm->GetPendingWeapon().styleNameJp,
+        410.0f, 270.0f, 1.6f, { 0.8f, 0.95f, 1.0f, 1.0f });
+    fontRenderer_.DrawStringW(
+        L"1から4で交換するスロットを選択  Backspaceで破棄",
+        245.0f, 330.0f, 1.35f, { 1.0f, 1.0f, 1.0f, 1.0f });
+}
+
+void GamePlayScene::DrawStageGuide()
+{
+    const float x = player_->GetPosition().x;
+    constexpr float kScale = 1.35f;
+    constexpr Vector4 kGuideColor = { 0.85f, 0.95f, 1.0f, 0.95f };
+
+    const std::wstring coreCount = L"エネルギーコア  "
+        + std::to_wstring(collectedEnergyCores_) + L" / "
+        + std::to_wstring(energyCores_.size());
+    fontRenderer_.DrawStringW(coreCount, 24.0f, 620.0f, kScale,
+        { 0.3f, 0.9f, 1.0f, 1.0f });
+
+    if (x < 11.0f) {
+        fontRenderer_.DrawStringW(
+            L"訓練区画  移動 A D  ジャンプ W  攻撃 L",
+            24.0f, 660.0f, kScale, kGuideColor);
+    } else if (swordGateActive_ && x < 19.0f) {
+        fontRenderer_.DrawStringW(
+            L"剣敵を倒して装備し  SPACEの瞬迅斬りで赤い障壁を壊す",
+            24.0f, 660.0f, kScale, kGuideColor);
+    } else if (spearGateActive_ && x < 27.0f) {
+        fontRenderer_.DrawStringW(
+            L"槍敵を倒して装備し  SPACEの間合い外しで青い障壁を解く",
+            24.0f, 660.0f, kScale, kGuideColor);
+    } else if (!enemy_->IsDefeated()) {
+        fontRenderer_.DrawStringW(
+            L"戦闘区画  技を変えてスタイルランクを上げる",
+            24.0f, 660.0f, kScale, { 1.0f, 0.75f, 0.25f, 1.0f });
+    } else {
+        fontRenderer_.DrawStringW(
+            L"撃破完了  敵の武器を奪って次の区画へ進む",
+            24.0f, 660.0f, kScale, { 0.45f, 1.0f, 0.65f, 1.0f });
+    }
 }
 
 void GamePlayScene::DrawRankAndAwakenGauge()
@@ -1224,9 +1494,13 @@ void GamePlayScene::DrawStyleCommands()
     constexpr float kLineH = FontRenderer::kCharH * kScale + 4.0f;
 
     auto* wm = WeaponManager::GetInstance();
+    if (!wm->HasEquippedWeapon()) {
+        fontRenderer_.DrawStringW(L"武器なし  敵を倒して武器を奪え", 780.0f, 448.0f, 1.5f,
+            { 0.85f, 0.85f, 0.9f, 1.0f });
+        return;
+    }
     const WeaponData& style = wm->GetCurrent();
-    const int idx = wm->GetIndex();
-    const int total = wm->GetCount();
+    const int selectedSlot = wm->GetSelectedSlot();
     const int combo = player_->GetComboStep();
 
     constexpr float kX = 780.0f;
@@ -1234,11 +1508,15 @@ void GamePlayScene::DrawStyleCommands()
 
     // スタイルインジケーター [1][2][3][4]
     float bx = kX;
-    for (int i = 0; i < total; ++i) {
-        const auto& w = wm->GetList()[i];
-        Vector4 col = (i == idx)
-            ? Vector4 { w.styleColor[0], w.styleColor[1], w.styleColor[2], w.styleColor[3] }
-            : Vector4 { 0.45f, 0.45f, 0.45f, 1.0f };
+    for (int i = 0; i < 4; ++i) {
+        const int weaponIndex = wm->GetSlotWeaponIndex(i);
+        Vector4 col = { 0.28f, 0.28f, 0.28f, 1.0f };
+        if (weaponIndex >= 0) {
+            const auto& w = wm->GetList()[weaponIndex];
+            col = (i == selectedSlot)
+                ? Vector4 { w.styleColor[0], w.styleColor[1], w.styleColor[2], w.styleColor[3] }
+                : Vector4 { 0.55f, 0.55f, 0.55f, 1.0f };
+        }
         std::string btn = "[" + std::to_string(i + 1) + "]";
         fontRenderer_.DrawString(btn, bx, y, kScale, col);
         bx += static_cast<float>(btn.size()) * FontRenderer::kCharW * kScale + 2.0f;

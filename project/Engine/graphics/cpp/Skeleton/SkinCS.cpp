@@ -1,4 +1,8 @@
-﻿#include "SkinCS.h"
+/**
+ * @file SkinCS.cpp
+ * @brief SkinCSの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "SkinCS.h"
 #include "EngineAssert.h"
 using namespace engine;
 using namespace engine::graphics;

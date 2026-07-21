@@ -1,3 +1,7 @@
+/**
+ * @file Ring.cpp
+ * @brief Ringの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #include "Ring.h"
 #include "DirectXCommon.h"
 #include <cmath>

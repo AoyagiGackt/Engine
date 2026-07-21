@@ -1,5 +1,11 @@
+/**
+ * @file SaveData.cpp
+ * @brief SaveDataのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ */
 #include "SaveData.h"
 #include "JsonHelper.h"
+#include "Logger.h"
+#include <algorithm>
 using namespace engine::game;
 
 SaveDataManager* SaveDataManager::GetInstance()
@@ -15,13 +21,20 @@ void SaveDataManager::Load()
         return;
     }
 
+    const int version = j.value("version", 0);
+    if (version > kCurrentVersion) {
+        engine::Logger::LogWarning("Save data is newer than this build. Unknown fields are preserved only until the next save.");
+    } else if (version < kCurrentVersion) {
+        Migrate(j, version);
+    }
+
     if (j.contains("continue") && j["continue"].is_object()) {
         const auto& c = j["continue"];
         continue_.valid = c.value("valid", false);
-        continue_.hp = c.value("hp", 0);
-        continue_.maxHp = c.value("max_hp", 0);
-        continue_.gold = c.value("gold", 0);
-        continue_.floor = c.value("floor", 0);
+        continue_.maxHp = (std::max)(c.value("max_hp", 0), 0);
+        continue_.hp = std::clamp(c.value("hp", 0), 0, continue_.maxHp);
+        continue_.gold = (std::max)(c.value("gold", 0), 0);
+        continue_.floor = (std::max)(c.value("floor", 0), 0);
         continue_.currentNode = static_cast<RunData::NodeType>(c.value("current_node", 0));
 
         continue_.skills.clear();
@@ -45,6 +58,8 @@ void SaveDataManager::Save()
 {
     nlohmann::json j;
 
+    j["version"] = kCurrentVersion;
+
     j["continue"]["valid"] = continue_.valid;
     j["continue"]["hp"] = continue_.hp;
     j["continue"]["max_hp"] = continue_.maxHp;
@@ -64,6 +79,15 @@ void SaveDataManager::Save()
     j["records"]["total_gold_earned"] = records_.totalGoldEarned;
 
     engine::JsonHelper::Save(kFilePath, j);
+}
+
+void SaveDataManager::Migrate(nlohmann::json& data, int sourceVersion) const
+{
+    // バージョン導入前の形式はフィールド構成が同じため、番号だけ補完する
+    // 今後形式を変更する場合はsourceVersionごとに変換処理を追加する
+    if (sourceVersion <= 0) {
+        data["version"] = 1;
+    }
 }
 
 void SaveDataManager::SaveContinue(const RunData& rd)

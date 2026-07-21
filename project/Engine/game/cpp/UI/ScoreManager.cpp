@@ -1,3 +1,7 @@
+/**
+ * @file ScoreManager.cpp
+ * @brief ScoreManagerのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ */
 #include "ScoreManager.h"
 #include <algorithm>
 #include <fstream>

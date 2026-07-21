@@ -9,6 +9,13 @@
 #include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"
+#include "Camera.h"
+#include "Model.h"
+#include "ModelCommon.h"
+#include "Object3d.h"
+#include "Object3dCommon.h"
+#include "ShadowManager.h"
+#include "Player.h"
 #include "RunData.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
@@ -19,13 +26,17 @@ using engine::Audio;
 using engine::DirectXCommon;
 using engine::Input;
 using engine::graphics::ImGuiManager;
+using engine::graphics::Camera;
+using engine::graphics::Model;
+using engine::graphics::ModelCommon;
+using engine::graphics::Object3d;
+using engine::graphics::Object3dCommon;
+using engine::graphics::ShadowManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
 /**
- * @brief スレイザスパイア式のフロア選択マップシーン
- * @note 4フロア×最大3列のノード（FIGHT/ELITE/SHOP/REST/BOSS）を表示し、
- * プレイヤーが次に挑むノードを選択する選択後は対応するシーンへ遷移する
+ * @brief プレイヤーを動かして入口を選ぶステージハブシーン
  */
 class MapScene : public BaseScene {
 public:
@@ -47,8 +58,6 @@ private:
     RunData::NodeType DrawFloorNodes(int curFloor);
     /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
-    /** @brief REST待機中のメッセージを描画する */
-    void DrawRestMessage();
     /** @brief 取得済みスキル一覧を描画する */
     void DrawSkillList(RunData* rd);
 
@@ -60,6 +69,18 @@ private:
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> bgSprite_; // 黒背景
     std::unique_ptr<Sprite> nodeSprite_; // ノードボックス（都度色変え）
+    std::unique_ptr<Sprite> groundSprite_;
+
+    std::unique_ptr<ModelCommon> modelCommon_;
+    std::unique_ptr<Object3dCommon> objectCommon_;
+    std::unique_ptr<ShadowManager> shadowManager_;
+    std::unique_ptr<Camera> camera_;
+    std::unique_ptr<Player> player_;
+    std::unique_ptr<Model> blockModel_;
+    std::unique_ptr<Model> cityModel_;
+    std::vector<std::unique_ptr<Object3d>> groundBlocks_;
+    std::vector<std::unique_ptr<Object3d>> portalObjects_;
+    std::vector<std::unique_ptr<Object3d>> cityObjects_;
 
     FontRenderer fontRenderer_;
 
@@ -68,9 +89,6 @@ private:
 
     // 選択状態
     int selectedCol_ = 0;
-    bool waitingResult_ = false; // RESTノード後の待機
-    float waitTimer_ = 0.0f;
-    int restHealAmount_ = 0;
 };
 
 } // namespace engine::game

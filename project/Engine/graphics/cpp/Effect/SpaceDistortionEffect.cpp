@@ -1,3 +1,7 @@
+/**
+ * @file SpaceDistortionEffect.cpp
+ * @brief SpaceDistortionEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ */
 #include "SpaceDistortionEffect.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"

@@ -1,4 +1,8 @@
-﻿#include "VignetteEffect.h"
+/**
+ * @file VignetteEffect.cpp
+ * @brief VignetteEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ */
+#include "VignetteEffect.h"
 #include "EngineAssert.h"
 #include "WinApp.h"
 using namespace engine;

@@ -1,10 +1,14 @@
+/**
+ * @file Collision.cpp
+ * @brief Collisionの衝突判定と接触結果の管理に関する具体的な処理を実装するファイル
+ */
 #include "Collision.h"
 #include <algorithm>
 #include <cfloat> // FLT_MAX
 #include <cmath>
 using namespace engine;
 
-// 既存 球 × 球
+// 球 × 球
 bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
 {
     float dx = s2.center.x - s1.center.x;
@@ -15,7 +19,7 @@ bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
     return distSq <= radiusSum * radiusSum;
 }
 
-// 既存 AABB × AABB
+// AABB × AABB
 bool Collision::CheckCollision(const AABB& a, const AABB& b)
 {
     return (a.min.x <= b.max.x && a.max.x >= b.min.x)
@@ -48,7 +52,6 @@ Vector3 Collision::ClosestPointOnSegment(const Vector3& p,
 }
 
 // 線分 [p0,p1] と線分 [q0,q1] の最近傍距離²
-// Christer Ericson "Real-Time Collision Detection" §5.1.9 に基づく
 float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     const Vector3& q0, const Vector3& q1,
     float& outS, float& outT)
@@ -107,7 +110,7 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     return dx * dx + dy * dy + dz * dz;
 }
 
-// 追加 球 × AABB
+// 球 × AABB
 bool Collision::CheckCollision(const Sphere& s, const AABB& b)
 {
     // AABB 上で球の中心に最も近い点を求め、距離と半径を比較
@@ -118,7 +121,7 @@ bool Collision::CheckCollision(const Sphere& s, const AABB& b)
     return dx * dx + dy * dy + dz * dz <= s.radius * s.radius;
 }
 
-// 追加 球 × カプセル
+// 球 × カプセル
 bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
 {
     // カプセル軸上で球中心に最も近い点を求め、（球半径 + カプセル半径）と比較
@@ -130,7 +133,7 @@ bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
     return dx * dx + dy * dy + dz * dz <= r * r;
 }
 
-// 追加 カプセル × カプセル
+// カプセル × カプセル
 bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
 {
     // 線分同士の最近傍距離²と（半径の和）²を比較
@@ -141,24 +144,24 @@ bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
     return distSq <= r * r;
 }
 
-// 追加 カプセル × AABB（交互射影法による近似）
+// カプセル × AABB（交互射影法による近似）
 // アルゴリズム
-//   1. AABB 中心 → カプセル軸上の最近傍点 P を求める
-//   2. P → AABB 上の最近傍点 Q を求める
-//   3. Q → カプセル軸上の最近傍点 R を求める（精度向上）
-//   4. |R - Q| < radius なら衝突
+//   AABB 中心 → カプセル軸上の最近傍点 P を求める
+//   P → AABB 上の最近傍点 Q を求める
+//   Q → カプセル軸上の最近傍点 R を求める（精度向上）
+//  |R - Q| < radius なら衝突
 bool Collision::CheckCollision(const Capsule& c, const AABB& b)
 {
-    // Step 1: AABB 中心からカプセル軸への射影
+    // AABB 中心からカプセル軸への射影
     Vector3 center = { (b.min.x + b.max.x) * 0.5f,
         (b.min.y + b.max.y) * 0.5f,
         (b.min.z + b.max.z) * 0.5f };
     Vector3 segPt = ClosestPointOnSegment(center, c.start, c.end);
 
-    // Step 2: セグメント最近傍点から AABB への射影
+    // セグメント最近傍点から AABB への射影
     Vector3 aabbPt = ClosestPointOnAABB(segPt, b);
 
-    // Step 3: AABB 最近傍点からセグメントへの射影（精度向上）
+    // AABB 最近傍点からセグメントへの射影（精度向上）
     Vector3 finalSeg = ClosestPointOnSegment(aabbPt, c.start, c.end);
 
     float dx = finalSeg.x - aabbPt.x;
@@ -167,7 +170,7 @@ bool Collision::CheckCollision(const Capsule& c, const AABB& b)
     return dx * dx + dy * dy + dz * dz <= c.radius * c.radius;
 }
 
-// レイキャスト  Ray vs AABB（スラブ法）
+// レイキャスト  AABB
 bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
 {
     result = { };
@@ -276,7 +279,7 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
     return true;
 }
 
-// レイキャスト  Ray vs 球体（二次方程式）
+// レイキャスト  球体
 bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& result)
 {
     result = { };
@@ -323,9 +326,9 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
 
 // レイキャスト  Ray vs カプセル（無限円柱 + 端球）
 // アルゴリズム概要
-//   1. カプセル軸方向の垂直成分だけで二次方程式を立て円柱交点を求める
-//   2. 軸方向に [0, 1] にクリップして胴体判定
-//   3. 端球（start/end の Sphere）とも判定し最小 t を採用
+//   カプセル軸方向の垂直成分だけで二次方程式を立て円柱交点を求める
+//   軸方向に [0, 1] にクリップして胴体判定
+//   端球（start/end の Sphere）とも判定し最小 t を採用
 bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& result)
 {
     result = { };

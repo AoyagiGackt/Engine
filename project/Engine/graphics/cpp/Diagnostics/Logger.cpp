@@ -1,3 +1,7 @@
+/**
+ * @file Logger.cpp
+ * @brief Loggerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #include "Logger.h"
 #include <chrono>
 #include <cstdio>

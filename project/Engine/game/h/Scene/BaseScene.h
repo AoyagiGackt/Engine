@@ -88,6 +88,10 @@ public:
      * Draw()内のHUD/フォント描画より前で自分でDrawObjects()を呼ぶこと。呼べばここでの自動呼び出しは
      * 自動でスキップされる＝StageEditor::WasObjectsDrawnThisFrame()）
      */
+    /**
+     * @brief Render に対応する内容を描画する
+     * @return なし
+     */
     void Render();
 
     /**
@@ -102,6 +106,12 @@ public:
      * @note シーン切り替え時に呼ばれ、リソースの解放や後片付けを行います
      */
     virtual void Finalize() = 0;
+
+    /**
+     * @brief 派生シーンと共通エディタを決められた順序で終了する
+     * @note SceneManagerだけが呼び、共通エディタの参照を解放してから派生シーンを終了する
+     */
+    void Shutdown();
 
     /**
      * @brief シーン終了フラグの取得

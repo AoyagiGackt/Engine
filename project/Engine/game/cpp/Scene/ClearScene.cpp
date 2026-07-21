@@ -1,3 +1,7 @@
+/**
+ * @file ClearScene.cpp
+ * @brief ClearSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "ClearScene.h"
 #include "GameConstants.h"
 #include "ImGuiManager.h"
@@ -134,7 +138,7 @@ void ClearScene::DrawScoreUI()
 
     ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Always);
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-    ImGui::Begin("Debug", nullptr,
+    ImGui::Begin("Diagnostics", nullptr,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
     ImGui::Text("Score : %d", ScoreManager::GetInstance()->GetCurrentScore());
     ImGui::Separator();

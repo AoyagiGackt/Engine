@@ -1,4 +1,4 @@
-cbuffer DebugCB : register(b0)
+cbuffer OverlayConstants : register(b0)
 {
     float4x4 WVP;
     float4 color;

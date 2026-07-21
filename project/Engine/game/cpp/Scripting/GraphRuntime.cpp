@@ -1,3 +1,7 @@
+/**
+ * @file GraphRuntime.cpp
+ * @brief GraphRuntimeのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
+ */
 #include "GraphRuntime.h"
 #include "Logger.h"
 #include "NodeRegistry.h"

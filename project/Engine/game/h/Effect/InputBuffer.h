@@ -28,6 +28,10 @@
 namespace engine::game {
 using engine::Input;
 
+/**
+ * @brief InputBuffer に関する型を提供する
+ * @details InputBuffer が扱うデータと操作の責務をまとめる
+ */
 class InputBuffer {
 public:
     /** @brief 保持する最大フレーム数（60 フレーム = 約 1 秒分） */

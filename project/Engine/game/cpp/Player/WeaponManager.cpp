@@ -1,3 +1,7 @@
+/**
+ * @file WeaponManager.cpp
+ * @brief WeaponManagerのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
+ */
 #include "WeaponManager.h"
 #include "JsonHelper.h"
 #include "StringUtility.h"
@@ -116,6 +120,7 @@ WeaponManager::WeaponManager()
         data.attackInterval = w.value("attackInterval", 0.0f);
         data.description = w.value("description", "");
         data.knockbackMult = w.value("knockbackMult", 1.0f);
+        data.element = w.value("element", "None");
         data.commands = ParseCommands(w.value("commands", nlohmann::json::array()));
 
         data.styleColor[0] = data.styleColor[1] = data.styleColor[2] = 0.0f;
@@ -125,19 +130,22 @@ WeaponManager::WeaponManager()
             data.styleColor[i] = color[i].get<float>();
         }
 
+        const auto effect = w.value("effect", nlohmann::json::object());
+        data.effectBurstCount = std::clamp(effect.value("burstCount", 0), 0, 64);
+        data.effectRingRadius = (std::max)(effect.value("ringRadius", 0.0f), 0.0f);
+        auto effectColor = effect.value("color", nlohmann::json::array());
+        for (size_t i = 0; i < 4; ++i) {
+            data.effectColor[i] = i < effectColor.size()
+                ? effectColor[i].get<float>()
+                : data.styleColor[i];
+        }
+
         weapons_.push_back(std::move(data));
     }
 
     // 4スロットは倒した敵から奪って埋めていく想定なので、初期状態は全ロック。
     // ただし何も使えないと詰むため、機動力型（奇術師/Dagger）だけ最初から解放しておく
     unlocked_.assign(weapons_.size(), false);
-    for (size_t i = 0; i < weapons_.size(); ++i) {
-        if (weapons_[i].type == WeaponType::Dagger) {
-            unlocked_[i] = true;
-            index_ = static_cast<int>(i);
-            break;
-        }
-    }
 }
 
 void WeaponManager::SelectIndex(int i)
@@ -146,16 +154,39 @@ void WeaponManager::SelectIndex(int i)
     i = std::clamp(i, 0, n - 1);
     if (IsUnlocked(i)) {
         index_ = i;
+        for (int slot = 0; slot < static_cast<int>(slots_.size()); ++slot) {
+            if (slots_[slot] == i) {
+                selectedSlot_ = slot;
+                break;
+            }
+        }
     }
+}
+
+void WeaponManager::SelectSlot(int slot)
+{
+    if (slot < 0 || slot >= static_cast<int>(slots_.size()) || slots_[slot] < 0) {
+        return;
+    }
+    selectedSlot_ = slot;
+    index_ = slots_[slot];
+}
+
+int WeaponManager::GetSlotWeaponIndex(int slot) const
+{
+    if (slot < 0 || slot >= static_cast<int>(slots_.size())) {
+        return -1;
+    }
+    return slots_[slot];
 }
 
 void WeaponManager::SelectNext()
 {
-    int n = static_cast<int>(weapons_.size());
-    for (int step = 1; step <= n; ++step) {
-        int i = (index_ + step) % n;
-        if (IsUnlocked(i)) {
-            index_ = i;
+    const int count = static_cast<int>(slots_.size());
+    for (int step = 1; step <= count; ++step) {
+        const int slot = (selectedSlot_ + step) % count;
+        if (slots_[slot] >= 0) {
+            SelectSlot(slot);
             return;
         }
     }
@@ -163,11 +194,11 @@ void WeaponManager::SelectNext()
 
 void WeaponManager::SelectPrev()
 {
-    int n = static_cast<int>(weapons_.size());
-    for (int step = 1; step <= n; ++step) {
-        int i = ((index_ - step) % n + n) % n;
-        if (IsUnlocked(i)) {
-            index_ = i;
+    const int count = static_cast<int>(slots_.size());
+    for (int step = 1; step <= count; ++step) {
+        const int slot = ((selectedSlot_ - step) % count + count) % count;
+        if (slots_[slot] >= 0) {
+            SelectSlot(slot);
             return;
         }
     }
@@ -175,16 +206,102 @@ void WeaponManager::SelectPrev()
 
 bool WeaponManager::Unlock(WeaponType type)
 {
+    return Acquire(type) == AcquireResult::Added;
+}
+
+void WeaponManager::SelectNextUnlockedInCurrentSlot()
+{
+    const int count = static_cast<int>(weapons_.size());
+    for (int step = 1; step <= count; ++step) {
+        const int candidate = (index_ + step) % count;
+        if (!IsUnlocked(candidate)) {
+            continue;
+        }
+        if (selectedSlot_ < 0 || selectedSlot_ >= static_cast<int>(slots_.size())) {
+            selectedSlot_ = 0;
+        }
+        index_ = candidate;
+        slots_[selectedSlot_] = candidate;
+        return;
+    }
+}
+
+void WeaponManager::SelectPrevUnlockedInCurrentSlot()
+{
+    const int count = static_cast<int>(weapons_.size());
+    for (int step = 1; step <= count; ++step) {
+        const int candidate = ((index_ - step) % count + count) % count;
+        if (!IsUnlocked(candidate)) {
+            continue;
+        }
+        if (selectedSlot_ < 0 || selectedSlot_ >= static_cast<int>(slots_.size())) {
+            selectedSlot_ = 0;
+        }
+        index_ = candidate;
+        slots_[selectedSlot_] = candidate;
+        return;
+    }
+}
+
+WeaponManager::AcquireResult WeaponManager::Acquire(WeaponType type)
+{
     for (size_t i = 0; i < weapons_.size(); ++i) {
         if (weapons_[i].type != type) {
             continue;
         }
         if (unlocked_[i]) {
-            return false;
-        } // 重複入手（将来  経験値/強化素材に転用）
-        unlocked_[i] = true;
-        index_ = static_cast<int>(i); // 奪った武器をそのまま装備
-        return true;
+            return AcquireResult::Duplicate;
+        }
+
+        for (int slot = 0; slot < static_cast<int>(slots_.size()); ++slot) {
+            if (slots_[slot] >= 0) {
+                continue;
+            }
+            slots_[slot] = static_cast<int>(i);
+            unlocked_[i] = true;
+            selectedSlot_ = slot;
+            index_ = static_cast<int>(i);
+            return AcquireResult::Added;
+        }
+
+        pendingWeaponIndex_ = static_cast<int>(i);
+        return AcquireResult::NeedsReplacement;
     }
-    return false;
+    return AcquireResult::Duplicate;
+}
+
+void WeaponManager::ReplacePendingWeapon(int slot)
+{
+    if (!HasPendingWeapon() || slot < 0 || slot >= static_cast<int>(slots_.size())) {
+        return;
+    }
+
+    const int removed = slots_[slot];
+    if (removed >= 0) {
+        unlocked_[removed] = false;
+    }
+    slots_[slot] = pendingWeaponIndex_;
+    unlocked_[pendingWeaponIndex_] = true;
+    selectedSlot_ = slot;
+    index_ = pendingWeaponIndex_;
+    pendingWeaponIndex_ = -1;
+}
+
+void WeaponManager::DiscardPendingWeapon()
+{
+    pendingWeaponIndex_ = -1;
+}
+
+void WeaponManager::UnlockAll()
+{
+    unlocked_.assign(weapons_.size(), true);
+    slots_.fill(-1);
+    for (int slot = 0; slot < static_cast<int>(slots_.size())
+        && slot < static_cast<int>(weapons_.size());
+        ++slot) {
+        slots_[slot] = slot;
+    }
+    selectedSlot_ = 0;
+    index_ = 0;
+    pendingWeaponIndex_ = -1;
 }

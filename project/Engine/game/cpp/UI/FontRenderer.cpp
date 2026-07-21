@@ -1,3 +1,7 @@
+/**
+ * @file FontRenderer.cpp
+ * @brief FontRendererのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ */
 #include "FontRenderer.h"
 #include "TextureManager.h"
 #define NOMINMAX
@@ -24,7 +28,8 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"所済次開始" // ショップ・タイトル
                                   L"切替散" // TrainingScene追加
                                   L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
-                                  L"締踏込貫通"; // 銃コンボのコマンド説明
+                                  L"締踏込貫通" // 銃コンボのコマンド説明
+                                  L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"; // 全シーンのUI文字列
 static constexpr uint32_t kHiraganaStart = 0x3041;
 static constexpr uint32_t kHiraganaEnd = 0x3096;
 static constexpr uint32_t kKatakanaStart = 0x30A0;
@@ -61,7 +66,7 @@ void FontRenderer::BuildAtlas()
     // フォント  Courier New, 高さ -13px（文字高さ指定）
     LOGFONTA lf { };
     lf.lfHeight = -13;
-    lf.lfWeight = FW_NORMAL;
+    lf.lfWeight = FW_BOLD;
     lf.lfCharSet = ANSI_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
     lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
@@ -162,7 +167,7 @@ void FontRenderer::BuildJpAtlas()
 
     LOGFONTW lf { };
     lf.lfHeight = -(kJpCharH - 2);
-    lf.lfWeight = FW_NORMAL;
+    lf.lfWeight = FW_BOLD;
     lf.lfCharSet = DEFAULT_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
     lf.lfQuality = ANTIALIASED_QUALITY;

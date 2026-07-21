@@ -1,4 +1,9 @@
+/**
+ * @file Framework.cpp
+ * @brief Frameworkのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ */
 #include "Framework.h"
+#include "FrameProfiler.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImageFilter.h"
@@ -19,6 +24,7 @@ void Framework::Run()
 {
     Initialize();
     while (true) {
+        FrameProfiler::GetInstance()->BeginFrame();
         Update();
 
         if (IsEndRequest()) {
@@ -26,6 +32,7 @@ void Framework::Run()
         }
 
         Draw();
+        FrameProfiler::GetInstance()->EndFrame();
     }
 
     Finalize();

@@ -333,6 +333,7 @@ generated/
 save/
 log/
 MY/
+crash/
 
 externals/DirectXTex/Bin/
 externals/DirectXTex/x64/
@@ -353,6 +354,7 @@ imgui.ini
 *.iobj
 *.sbr
 
+
 externals/**/x64/
 externals/**/Debug/
 externals/**/Release/
@@ -364,6 +366,3 @@ externals/**/Release/
 # ログとスコアファイルの除外
 project/log.txt
 project/scores.txt
-
-# デバッグ用シェーダーの等の除外
-project/Resources/shaders/debug/

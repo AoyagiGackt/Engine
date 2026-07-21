@@ -1,3 +1,7 @@
+/**
+ * @file JsonHelper.cpp
+ * @brief JsonHelperのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ */
 #include "JsonHelper.h"
 #include <filesystem>
 #include <fstream>

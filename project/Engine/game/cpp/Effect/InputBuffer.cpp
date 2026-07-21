@@ -1,3 +1,7 @@
+/**
+ * @file InputBuffer.cpp
+ * @brief InputBufferの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ */
 #include "InputBuffer.h"
 #include <algorithm>
 #include <cstring>

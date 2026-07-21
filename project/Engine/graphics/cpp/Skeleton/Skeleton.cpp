@@ -1,4 +1,8 @@
-﻿#include "Skeleton/Skeleton.h"
+/**
+ * @file Skeleton.cpp
+ * @brief Skeletonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "Skeleton/Skeleton.h"
 #include "EngineAssert.h"
 #include <algorithm>
 #include <assimp/Importer.hpp>
@@ -115,11 +119,11 @@ static void DrawJointTree(const std::vector<Joint>& joints, int32_t index)
 
 #endif // USE_IMGUI
 
-void Skeleton::DebugDraw()
+void Skeleton::DrawDiagnostics()
 {
 #ifdef USE_IMGUI
     ImGui::SetNextWindowSize(ImVec2(440.0f, 600.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Skeleton Debug")) {
+    if (!ImGui::Begin("Skeleton Overlay")) {
         ImGui::End();
         return;
     }

@@ -1,3 +1,7 @@
+/**
+ * @file SceneEditor.cpp
+ * @brief SceneEditorのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "SceneEditor.h"
 #include "GameConstants.h"
 #include "Input.h"
@@ -240,8 +244,9 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
     // シーン切り替えボタン（折りたたみ）
     if (ImGui::CollapsingHeader("Actions")) {
         if (ImGui::Button("Game Clear")) {
-            if (ctx.requestClear)
+            if (ctx.requestClear) {
                 *ctx.requestClear = true;
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button("Game Over")) {
@@ -311,13 +316,13 @@ void SceneEditor::SaveCameraParams(const EditContext& ctx)
     j["camera_pos"] = { pos.x, pos.y, pos.z };
     j["camera_rot"] = { rot.x, rot.y, rot.z };
     j["camera_smooth_frames"] = *ctx.cameraSmoothFrames;
-    JsonHelper::Save("Resources/debug_camera.json", j);
+    JsonHelper::Save("Resources/editor_camera.json", j);
 }
 
 // カメラの位置・角度・スムージングフレーム数を JSON ファイルから読み込む
 void SceneEditor::LoadCameraParams(const EditContext& ctx)
 {
-    auto j = JsonHelper::Load("Resources/debug_camera.json");
+    auto j = JsonHelper::Load("Resources/editor_camera.json");
     if (j.empty()) {
         return;
     }
@@ -356,7 +361,7 @@ void SceneEditor::SaveUILayout()
             { "rot", rot },
             { "color", { col.x, col.y, col.z, col.w } } });
     }
-    JsonHelper::Save("Resources/debug_ui.json", arr);
+    JsonHelper::Save("Resources/editor_ui.json", arr);
 }
 
 // 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む
@@ -369,7 +374,7 @@ void SceneEditor::LoadAll(const EditContext& ctx)
 // UI スプライトのレイアウトを JSON ファイルから復元する
 void SceneEditor::LoadUILayout(const EditContext& ctx)
 {
-    auto j = JsonHelper::Load("Resources/debug_ui.json");
+    auto j = JsonHelper::Load("Resources/editor_ui.json");
     if (!j.is_array()) {
         return;
     }

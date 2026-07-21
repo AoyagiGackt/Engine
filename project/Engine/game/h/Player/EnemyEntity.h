@@ -6,6 +6,7 @@
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
+#include "Weapon.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -26,7 +27,8 @@ public:
      * @param modelCommon モデル共通設定
      * @param startPos    初期ワールド座標
      */
-    void Initialize(ModelCommon* modelCommon, const Vector3& startPos);
+    void Initialize(ModelCommon* modelCommon, const Vector3& startPos,
+        WeaponType weaponType = WeaponType::Sword);
 
     /** @brief 物理・アニメーションを毎フレーム更新する */
     void Update();
@@ -34,11 +36,23 @@ public:
     /** @brief モデルを描画する */
     void Draw();
 
+    /** @brief 所持武器を識別するための表示色を設定する */
+    void SetColor(const Vector4& color)
+    {
+        object_->SetColor(color);
+        if (weaponObject_) {
+            weaponObject_->SetColor(color);
+        }
+    }
+
     /**
      * @brief 上方向の初速を与えて打ち上げる
      * @param velY 上方向速度（正の値）
      */
     void Launch(float velY);
+    void ApplyComboReaction(float knockDirX, float knockY, bool switchPull,
+        float playerX);
+    void ApplySlow(float seconds) { slowTimer_ = (std::max)(slowTimer_, seconds); }
 
     /** @brief 攻撃の進行フェーズ */
     enum class AttackState {
@@ -51,7 +65,10 @@ public:
     bool JustFiredAttack() const { return justFiredAttack_; }
 
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
-    int GetAttackDamage() const { return kAttackDamage_; }
+    int GetAttackDamage() const
+    {
+        return (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 3 : 2;
+    }
 
     /**
      * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
@@ -153,6 +170,9 @@ private:
 
     std::unique_ptr<Model> model_;
     std::unique_ptr<Object3d> object_;
+    std::unique_ptr<Model> weaponModel_;
+    std::unique_ptr<Object3d> weaponObject_;
+    Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };
 
     int maxHp_ = 20;
     int hp_ = 20;
@@ -164,6 +184,11 @@ private:
     float velY_ = 0.0f;
     bool isLaunched_ = false;
     bool justLanded_ = false;
+    WeaponType weaponType_ = WeaponType::Sword;
+    float knockVelX_ = 0.0f;
+    float slowTimer_ = 0.0f;
+    float airComboTimer_ = 0.0f;
+    static constexpr float kAirComboHold_ = 0.32f;
 
     AttackState attackState_ = AttackState::Idle;
     float attackTimer_ = kAttackInterval_;

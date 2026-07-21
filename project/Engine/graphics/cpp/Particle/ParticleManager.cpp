@@ -1,3 +1,7 @@
+/**
+ * @file ParticleManager.cpp
+ * @brief ParticleManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #include "ParticleManager.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"

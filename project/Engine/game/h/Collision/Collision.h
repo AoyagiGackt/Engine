@@ -1,3 +1,7 @@
+/**
+ * @file Collision.h
+ * @brief 基本形状間の交差判定とレイキャストを提供するファイル
+ */
 #pragma once
 #include "CollisionConfig.h"
 namespace engine {
@@ -13,28 +17,36 @@ namespace engine {
  *   Capsule × AABB
  *   Collider × Collider （形状を自動ディスパッチ）
  */
+/**
+ * @brief Collision に関する型を提供する
+ * @details Collision が扱うデータと操作の責務をまとめる
+ */
 class Collision {
 public:
-    // 既存
+    /** @brief 二つの球が交差するか判定する @param s1 一つ目の球 @param s2 二つ目の球 @return 交差する場合はtrue */
     static bool CheckCollision(const Sphere& s1, const Sphere& s2);
+    /** @brief 二つのAABBが交差するか判定する @param a 一つ目のAABB @param b 二つ目のAABB @return 交差する場合はtrue */
     static bool CheckCollision(const AABB& a, const AABB& b);
 
-    // 球 × AABB
+    /** @brief 球とAABBが交差するか判定する @param s 球 @param b AABB @return 交差する場合はtrue */
     static bool CheckCollision(const Sphere& s, const AABB& b);
+    /** @brief AABBと球が交差するか判定する @param b AABB @param s 球 @return 交差する場合はtrue */
     static bool CheckCollision(const AABB& b, const Sphere& s) { return CheckCollision(s, b); }
 
-    // 球 × カプセル
+    /** @brief 球とカプセルが交差するか判定する @param s 球 @param c カプセル @return 交差する場合はtrue */
     static bool CheckCollision(const Sphere& s, const Capsule& c);
+    /** @brief カプセルと球が交差するか判定する @param c カプセル @param s 球 @return 交差する場合はtrue */
     static bool CheckCollision(const Capsule& c, const Sphere& s) { return CheckCollision(s, c); }
 
-    // カプセル × カプセル
+    /** @brief 二つのカプセルが交差するか判定する @param c1 一つ目のカプセル @param c2 二つ目のカプセル @return 交差する場合はtrue */
     static bool CheckCollision(const Capsule& c1, const Capsule& c2);
 
-    // カプセル × AABB
+    /** @brief カプセルとAABBが交差するか判定する @param c カプセル @param b AABB @return 交差する場合はtrue */
     static bool CheckCollision(const Capsule& c, const AABB& b);
+    /** @brief AABBとカプセルが交差するか判定する @param b AABB @param c カプセル @return 交差する場合はtrue */
     static bool CheckCollision(const AABB& b, const Capsule& c) { return CheckCollision(c, b); }
 
-    // 形状ディスパッチ（CollisionManager から使用）
+    /** @brief Colliderの形状種別に対応する交差判定を実行する @param a 一つ目のCollider @param b 二つ目のCollider @return 交差する場合はtrue */
     static bool CheckCollision(const Collider& a, const Collider& b);
 
 

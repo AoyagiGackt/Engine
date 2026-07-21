@@ -1,26 +1,45 @@
+/**
+ * @file FrameProfiler.h
+ * @brief FrameProfilerの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ */
 #pragma once
 #include <Windows.h>
 #include <array>
 namespace engine::graphics {
 // フレームタイムとFPSをトラッキングするシングルトン
 // BeginFrame() / EndFrame() を毎フレーム呼ぶだけで使える
-class DebugProfiler {
+class FrameProfiler {
 public:
-    static DebugProfiler* GetInstance()
+    static FrameProfiler* GetInstance()
     {
-        static DebugProfiler inst;
+        static FrameProfiler inst;
         return &inst;
     }
 
     void BeginFrame()
     {
+        /**
+         * @brief QueryPerformanceCounter に対応する処理を実行する
+         * @param frameStart_ 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceCounter(&frameStart_);
     }
 
     void EndFrame()
     {
         LARGE_INTEGER now, freq;
+        /**
+         * @brief QueryPerformanceCounter に対応する処理を実行する
+         * @param now 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceCounter(&now);
+        /**
+         * @brief QueryPerformanceFrequency に対応する処理を実行する
+         * @param freq 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceFrequency(&freq);
         float ms = float(now.QuadPart - frameStart_.QuadPart) / float(freq.QuadPart) * 1000.0f;
 
@@ -39,7 +58,7 @@ public:
     float GetMs() const { return avgMs_; }
 
 private:
-    DebugProfiler() = default;
+    FrameProfiler() = default;
     static constexpr int kSamples = 60;
     std::array<float, kSamples> samples_ = { };
     int sampleIdx_ = 0;

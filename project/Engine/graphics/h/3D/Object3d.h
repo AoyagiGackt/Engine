@@ -85,6 +85,10 @@ public:
     void DrawOutline(OutlineEffect* effect);
 
     // SSAOノーマルキャプチャパス用描画（SSAOEffect::BeginNormalCapture() の後に呼ぶ）
+    /**
+     * @brief DrawForNormalCapture に対応する内容を描画する
+     * @return なし
+     */
     void DrawForNormalCapture();
 
     Model* GetModel() const { return model_; }
@@ -247,6 +251,11 @@ public:
         }
     }
 
+    /**
+     * @brief SetNormalMap に対応する状態を設定する
+     * @param filePath 処理に使用する値
+     * @return なし
+     */
     void SetNormalMap(const std::string& filePath);
     void SetUseNormalMap(bool enable)
     {

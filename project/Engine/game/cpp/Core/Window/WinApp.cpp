@@ -1,3 +1,7 @@
+/**
+ * @file WinApp.cpp
+ * @brief WinAppのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ */
 #include "WinApp.h"
 #include "ImGuiManager.h"
 using namespace engine;

@@ -35,6 +35,7 @@ using engine::graphics::Skydome;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
+/** @brief シーン内オブジェクトのライブ調整、選択状態、設定保存を管理する */
 class SceneEditor {
 public:
     // 現在何が選択されているか
@@ -53,6 +54,10 @@ public:
     // エディタが編集できるシーンデータへの参照
     // GamePlayScene から受け取るゲームの今の状態をまとめた構造体
     // ポインタで渡しているので、エディタで値を変えると即座にゲーム側にも反映される
+    /**
+     * @brief EditContext に関する型を提供する
+     * @details EditContext が扱うデータと操作の責務をまとめる
+     */
     struct EditContext {
         // オブジェクト本体へのポインタ（エディタがメソッドを呼ぶのに使う）
         Camera* camera = nullptr;
@@ -114,6 +119,10 @@ public:
     };
 
     // Hierarchy に追加した UI スプライト1つ分のデータ
+    /**
+     * @brief UIEntry に関する型を提供する
+     * @details UIEntry が扱うデータと操作の責務をまとめる
+     */
     struct UIEntry {
         std::string name; // エディタ上での名前（例  "HP Bar"）
         std::unique_ptr<Sprite> sprite; // 実際のスプライトオブジェクト
@@ -139,22 +148,27 @@ public:
      */
     void Update(const EditContext& ctx, engine::Input* input);
 
+    /** @brief 調整パネルが表示中か返す @return 表示中の場合はtrue */
     bool IsVisible() const { return visible_; }
 
-    // 初期化時に1度だけ呼ぶJSON ファイルから前回保存したパラメータを読み込む
+    /** @brief 保存済みのカメラとUI設定を読み込む @param ctx 読み込み結果を反映する編集対象 */
     void LoadAll(const EditContext& ctx);
 
     // Hierarchy に追加した UI スプライト一覧を返す（GamePlayScene が描画のために使う）
+    /** @brief 編集可能なUI要素一覧を返す @return UI要素一覧の参照 */
     std::vector<UIEntry>& GetUIElements() { return uiElements_; }
+    /** @brief 読み取り専用のUI要素一覧を返す @return UI要素一覧の参照 */
     const std::vector<UIEntry>& GetUIElements() const { return uiElements_; }
 
     // 現在の選択状態を返す
+    /** @brief 現在の選択種別を返す @return 選択種別 */
     Selection GetSelection() const { return selection_; }
 
 private:
     // State パターンの基底クラス
     // 今何を選んでいるかによって Inspector パネルの内容を切り替える仕組み
     // 新しいオブジェクト種別を増やしたいときは、このクラスを継承して RenderInspector を実装する
+    /** @brief 選択種別に対応する詳細表示を抽象化するState */
     class IEditorState {
     public:
         virtual ~IEditorState() = default;
@@ -163,34 +177,42 @@ private:
     };
 
     // 各オブジェクト種別に対応する State クラス（IEditorState の具体的な実装）
+    /** @brief 未選択時の案内を表示するState */
     class NoneState : public IEditorState {
     public:
         void RenderInspector(const EditContext&, SceneEditor&) override;
     };
+    /** @brief カメラ設定を編集するState */
     class CameraState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief リング設定を編集するState */
     class RingState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief 円柱設定を編集するState */
     class CylinderState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief 天球設定を編集するState */
     class SkydomeState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief キャラクター表示設定を編集するState */
     class HumanState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief パーティクル設定を編集するState */
     class ParticlesState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
     };
+    /** @brief UI要素の配置と表示を編集するState */
     class UIElementState : public IEditorState {
     public:
         void RenderInspector(const EditContext& ctx, SceneEditor& editor) override;
@@ -206,12 +228,31 @@ private:
     void RenderCameraControl(const EditContext& ctx); // 上中央 カメラ位置の簡易操作
 
     // JSON ファイルへの保存・読み込み
-    // "Resources/debug_camera.json" にカメラのパラメータを保存/読込する
+    // "Resources/editor_camera.json" にカメラのパラメータを保存/読込する
+    /**
+     * @brief SaveCameraParams に対応する処理を実行する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void SaveCameraParams(const EditContext& ctx);
+    /**
+     * @brief LoadCameraParams の結果を取得する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void LoadCameraParams(const EditContext& ctx);
 
-    // "Resources/debug_ui.json" に UI スプライトのレイアウトを保存/読込する
+    // "Resources/editor_ui.json" に UI スプライトのレイアウトを保存/読込する
+    /**
+     * @brief SaveUILayout に対応する処理を実行する
+     * @return なし
+     */
     void SaveUILayout();
+    /**
+     * @brief LoadUILayout の結果を取得する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void LoadUILayout(const EditContext& ctx);
 
     // 状態管理

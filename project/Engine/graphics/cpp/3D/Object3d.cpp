@@ -1,4 +1,8 @@
-﻿#include "Object3d.h"
+/**
+ * @file Object3d.cpp
+ * @brief Object3dの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "Object3d.h"
 #include "Camera.h"
 #include "LightManager.h"
 #include "LightingMode.h"
@@ -184,6 +188,10 @@ void Object3d::Draw()
 
     // ModelCommonからコマンドリストを取得
     ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
+
+    // Spriteやエフェクトがルートシグネチャを切り替えた後でも、通常3D描画が
+    // 使用する平行光源・ポイントライト・シャドウマップを描画直前に保証する
+    RebindCommonLighting(commandList);
 
     // マテリアルと座標変換を設定
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());

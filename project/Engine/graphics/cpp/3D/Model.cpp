@@ -1,4 +1,8 @@
-﻿#include "Model.h"
+/**
+ * @file Model.cpp
+ * @brief Modelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "Model.h"
 #include "EngineAssert.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"

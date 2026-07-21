@@ -1,3 +1,7 @@
+/**
+ * @file TitleScene.cpp
+ * @brief TitleSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "TitleScene.h"
 #include "RunData.h"
 #include "SaveData.h"
@@ -41,11 +45,11 @@ void TitleScene::Update()
         case 0: // NEW GAME
             RunData::GetInstance()->StartNewRun();
             SaveDataManager::GetInstance()->ClearContinue();
-            SceneManager::GetInstance()->ChangeScene("MAP", 0.4f, 0.4f);
+            SceneManager::GetInstance()->ChangeScene("MAP", 0.15f, 0.2f);
             break;
         case 1: // CONTINUE
             SaveDataManager::GetInstance()->LoadContinue(*RunData::GetInstance());
-            SceneManager::GetInstance()->ChangeScene("MAP", 0.4f, 0.4f);
+            SceneManager::GetInstance()->ChangeScene("MAP", 0.15f, 0.2f);
             break;
         case 2: // TRAINING
             SceneManager::GetInstance()->ChangeScene("TRAINING", 0.4f, 0.4f);

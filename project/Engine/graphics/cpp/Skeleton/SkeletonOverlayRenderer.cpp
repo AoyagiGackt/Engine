@@ -1,4 +1,8 @@
-﻿#include "SkeletonDebugRenderer.h"
+/**
+ * @file SkeletonOverlayRenderer.cpp
+ * @brief SkeletonOverlayRendererの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "SkeletonOverlayRenderer.h"
 #ifdef USE_IMGUI
 
 #include "Camera.h"
@@ -10,7 +14,7 @@ using namespace Microsoft::WRL;
 
 static constexpr float kPi = 3.14159265358979323846f;
 
-void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
+void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
@@ -34,8 +38,8 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
         IID_PPV_ARGS(&rootSignature_));
 
     // シェーダー
-    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugVS.hlsl", L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/debug/SkeletonDebugPS.hlsl", L"ps_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayVS.hlsl", L"vs_6_0");
+    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayPS.hlsl", L"ps_6_0");
 
     // 入力レイアウト
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
@@ -91,7 +95,7 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
     };
 
     // ボーン用ビルボードクワッド（1ボーン = 4頂点 + 6インデックス）
-    UINT vbSize = kMaxBones * 4 * static_cast<UINT>(sizeof(DebugVertex));
+    UINT vbSize = kMaxBones * 4 * static_cast<UINT>(sizeof(OverlayVertex));
     UINT ibSize = kMaxBones * 6 * static_cast<UINT>(sizeof(uint16_t));
 
     lineVB_ = makeBuffer(vbSize);
@@ -99,13 +103,13 @@ void SkeletonDebugRenderer::Initialize(DirectXCommon* dxCommon)
     lineVB_->Map(0, nullptr, reinterpret_cast<void**>(&lineMapped_));
     lineIB_->Map(0, nullptr, reinterpret_cast<void**>(&lineIdxMapped_));
 
-    lineVBV_ = { lineVB_->GetGPUVirtualAddress(), vbSize, sizeof(DebugVertex) };
+    lineVBV_ = { lineVB_->GetGPUVirtualAddress(), vbSize, sizeof(OverlayVertex) };
     lineIBV_ = { lineIB_->GetGPUVirtualAddress(), ibSize, DXGI_FORMAT_R16_UINT };
 }
 
-void SkeletonDebugRenderer::BuildSphere()
+void SkeletonOverlayRenderer::BuildSphere()
 {
-    std::vector<DebugVertex> verts;
+    std::vector<OverlayVertex> verts;
     verts.reserve((kStacks + 1) * (kSlices + 1));
     for (int i = 0; i <= kStacks; ++i) {
         float phi = kPi * i / kStacks;
@@ -147,12 +151,12 @@ void SkeletonDebugRenderer::BuildSphere()
         return res;
     };
 
-    sphereVB_ = makeStatic(verts.size() * sizeof(DebugVertex));
+    sphereVB_ = makeStatic(verts.size() * sizeof(OverlayVertex));
     sphereIB_ = makeStatic(indices.size() * sizeof(uint16_t));
 
     void* mapped;
     sphereVB_->Map(0, nullptr, &mapped);
-    memcpy(mapped, verts.data(), verts.size() * sizeof(DebugVertex));
+    memcpy(mapped, verts.data(), verts.size() * sizeof(OverlayVertex));
     sphereVB_->Unmap(0, nullptr);
 
     sphereIB_->Map(0, nullptr, &mapped);
@@ -160,12 +164,12 @@ void SkeletonDebugRenderer::BuildSphere()
     sphereIB_->Unmap(0, nullptr);
 
     sphereVBV_ = { sphereVB_->GetGPUVirtualAddress(),
-        static_cast<UINT>(verts.size() * sizeof(DebugVertex)), sizeof(DebugVertex) };
+        static_cast<UINT>(verts.size() * sizeof(OverlayVertex)), sizeof(OverlayVertex) };
     sphereIBV_ = { sphereIB_->GetGPUVirtualAddress(),
         static_cast<UINT>(indices.size() * sizeof(uint16_t)), DXGI_FORMAT_R16_UINT };
 }
 
-void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
+void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
 {
     if (!camera || skeleton.GetJoints().empty()) {
         return;
@@ -228,7 +232,7 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
         }
 
         if (ic > 0) {
-            DebugCB cb { vp, { 1.0f, 1.0f, 1.0f, 1.0f } };
+            OverlayConstants cb { vp, { 1.0f, 1.0f, 1.0f, 1.0f } };
             cmd->IASetVertexBuffers(0, 1, &lineVBV_);
             cmd->IASetIndexBuffer(&lineIBV_);
             cmd->SetGraphicsRoot32BitConstants(0, 20, &cb, 0);
@@ -244,7 +248,7 @@ void SkeletonDebugRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worl
         for (const Joint& joint : skeleton.GetJoints()) {
             Vector3 wp = toWorld(joint.skeletonSpaceMatrix);
             Matrix4x4 wvp = Multiply(MakeTranslateMatrix(wp), vp);
-            DebugCB cb { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
+            OverlayConstants cb { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
             cmd->SetGraphicsRoot32BitConstants(0, 20, &cb, 0);
             cmd->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
         }

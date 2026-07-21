@@ -13,6 +13,10 @@
 #include <string>
 namespace engine::game {
 
+/**
+ * @brief GraphRuntime に関する型を提供する
+ * @details GraphRuntime が扱うデータと操作の責務をまとめる
+ */
 class GraphRuntime {
 public:
     /** @brief startNodeIdから実行を開始する（即座に実行ピンを辿れるところまで進む） */

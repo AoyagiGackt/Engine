@@ -24,8 +24,16 @@ public:
     void Initialize(ModelCommon* modelCommon, Model* model);
     void Spawn(const Vector3& pos, const Vector3& vel);
     // 移動・境界チェックのみ衝突判定は呼び出し側で行い Kill() で無効化する
+    /**
+     * @brief Update に対応する状態を更新する
+     * @return なし
+     */
     void Update();
     void Kill(int index) { slots_[index].active = false; }
+    /**
+     * @brief Draw に対応する内容を描画する
+     * @return なし
+     */
     void Draw();
 
     /** @brief 弾を動かさず、現在のカメラで行列だけ再計算する（ステージエディタ中のカメラ移動用） */

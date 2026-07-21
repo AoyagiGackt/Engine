@@ -121,6 +121,11 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    void SetHorizontalBounds(float minX, float maxX)
+    {
+        minX_ = minX;
+        maxX_ = maxX;
+    }
     /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
     Vector3& GetPositionRef() { return pos_; }
     /**
@@ -176,6 +181,7 @@ public:
 
     // スタイル技フラグ（その1フレームだけ true）
     bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
+    bool JustWeaponSwitchHit() const { return justWeaponSwitchHit_; }
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
     bool JustBlinked() const { return justBlinked_; } ///< ブリンク発動フレーム
@@ -217,6 +223,7 @@ public:
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
     float GetAxeRageMult() const { return IsAxeEnraged() ? kAxeRageDamageMult_ : 1.0f; }
     bool IsScytheHovering() const { return isScytheHovering_; } ///< シザー: 滞空ホバー中か
+    bool JustScytheSpin() const { return justScytheSpin_; }
 
     // 覚醒乱舞（Sword + 覚醒 + L）
     bool IsRampaging() const { return rampagePhase_ != RampagePhase::Inactive; } ///< 乱舞中か
@@ -238,8 +245,8 @@ private:
     // 通常物理
     static constexpr float kGroundY_ = 0.4f;
     static constexpr float kCeilingY_ = 12.0f;
-    static constexpr float kMinX_ = 3.0f;
-    static constexpr float kMaxX_ = 35.0f;
+    float minX_ = 3.0f;
+    float maxX_ = 35.0f;
     static constexpr float kGravity_ = 0.012f;
     static constexpr float kJumpPower_ = 0.4f;
     static constexpr float kSpeed_ = 0.15f;
@@ -290,6 +297,12 @@ private:
 
     // スタイル技（L / K キー）
     bool justComboHit_ = false;
+    bool justWeaponSwitchHit_ = false;
+    bool weaponSwitchAttackPending_ = false;
+    bool weaponSwitchAttackActive_ = false;
+    float weaponSwitchWindow_ = 0.0f;
+    static constexpr float kWeaponSwitchWindow_ = 0.75f;
+    static constexpr float kWeaponSwitchLunge_ = 0.8f;
     int comboStep_ = 0;
     bool justFired_ = false;
     bool justBlinked_ = false;
@@ -332,6 +345,7 @@ private:
     static constexpr float kGreatswordSkillCooldown_ = 1.3f;
     // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
     bool isScytheHovering_ = false;
+    bool justScytheSpin_ = false;
     float scytheHoverTimer_ = kScytheHoverMax_;
     static constexpr float kScytheHoverMax_ = 0.9f; // 最大連続ホバー時間（秒）
     static constexpr float kScytheHoverRecoverRate_ = 2.0f; // 接地中の回復速度倍率
@@ -364,15 +378,18 @@ private:
 
     // Physics State パターン
     // 水中/水上で横移動・重力・ジャンプの処理を切り替える
+    /** @brief 環境ごとの移動と重力処理を抽象化する物理状態 */
     class IPhysicsState {
     public:
         virtual ~IPhysicsState() = default;
         virtual void Update(Player& player, Input* input) const = 0;
     };
+    /** @brief 地上環境の移動と重力処理を適用する物理状態 */
     class GroundedPhysicsState : public IPhysicsState {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 水中環境の浮力と移動処理を適用する物理状態 */
     class UnderwaterPhysicsState : public IPhysicsState {
     public:
         void Update(Player& player, Input* input) const override;
@@ -382,22 +399,26 @@ private:
     // Rampage State パターン
     // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
     // 毎フレームの物理更新内容を切り替える
+    /** @brief 覚醒乱舞の段階固有処理を抽象化する状態 */
     class IRampageState {
     public:
         virtual ~IRampageState() = default;
         virtual void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const = 0;
         virtual void UpdatePhysics(Player& player, const Vector3& enemyPos) const = 0;
     };
+    /** @brief 覚醒乱舞を開始していない通常状態 */
     class InactiveRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override { }
     };
+    /** @brief 覚醒乱舞の打ち上げ段階を処理する状態 */
     class LaunchRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override { }
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
     };
+    /** @brief 覚醒乱舞の空中追撃段階を処理する状態 */
     class JuggleRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
@@ -407,43 +428,53 @@ private:
 
     // Weapon Behavior Strategy パターン
     // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
+    /** @brief 装備武器ごとの固有更新を抽象化するStrategy */
     class IWeaponBehavior {
     public:
         virtual ~IWeaponBehavior() = default;
         virtual void Update(Player& player, Input* input) const = 0;
     };
+    /** @brief 短剣の高速移動と攻撃挙動を適用するStrategy */
     class DaggerBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief ハンマーの重量攻撃挙動を適用するStrategy */
     class HammerBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief ボール武器の固有挙動を適用するStrategy */
     class BallBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 剣の突進攻撃挙動を適用するStrategy */
     class SwordBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 槍の間合い制御を適用するStrategy */
     class SpearBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 大剣の叩きつけ挙動を適用するStrategy */
     class GreatswordBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 鎌の広範囲攻撃挙動を適用するStrategy */
     class ScytheBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 斧の溜め攻撃挙動を適用するStrategy */
     class AxeBehavior : public IWeaponBehavior {
     public:
         void Update(Player& player, Input* input) const override;
     };
+    /** @brief 固有処理を持たない武器へ共通挙動を適用するStrategy */
     class DefaultWeaponBehavior : public IWeaponBehavior {
     public:
         void Update(Player&, Input*) const override { }
@@ -462,6 +493,10 @@ private:
     // 見た目1体ぶんのリグ。通常時と覚醒中でモデルごと差し替えるため、
     // アニメーションや武器アタッチ先ボーン名などモデル依存の情報をセットで持つ
     // （アセットパス・アニメ名の定義は CharacterVisuals.h の kNormalRigVisual / kAwakenedRigVisual）
+    /**
+     * @brief CharacterRig に関する型を提供する
+     * @details CharacterRig が扱うデータと操作の責務をまとめる
+     */
     struct CharacterRig {
         std::unique_ptr<Model> staticModel; ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）
         std::unique_ptr<SkinnedModel> skinnedModel; ///< 本体描画（ボーンアニメーション付き）
@@ -486,6 +521,10 @@ private:
 
     // 右手ボーンに持たせる近接武器（現在のスタイルに対応する1つだけ表示）
     // 種類が多いため個別メンバーではなくテーブルで持つ（追加は CharacterVisuals.h の kHeldWeaponVisuals）
+    /**
+     * @brief HeldWeaponSlot に関する型を提供する
+     * @details HeldWeaponSlot が扱うデータと操作の責務をまとめる
+     */
     struct HeldWeaponSlot {
         WeaponType type;
         std::unique_ptr<Model> model;
@@ -541,12 +580,45 @@ private:
     void HandleRangedCombat(Input* input);
     void HandleMeleeCombat(Input* input, const Vector3& enemyPos);
     void HandleFinisherSlash(Input* input);
+    /**
+     * @brief HandleWeaponSkill に対応する処理を実行する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void HandleWeaponSkill(Input* input);
+    /**
+     * @brief UpdateRampagePhysics に対応する状態を更新する
+     * @param enemyPos 処理に使用する値
+     * @return なし
+     */
     void UpdateRampagePhysics(const Vector3& enemyPos);
+    /**
+     * @brief UpdateAwakenState に対応する状態を更新する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void UpdateAwakenState(Input* input);
+    /**
+     * @brief ResolveEnemyOverlap に対応する処理を実行する
+     * @param enemyPos 処理に使用する値
+     * @return なし
+     */
     void ResolveEnemyOverlap(const Vector3& enemyPos);
+    /**
+     * @brief UpdateWaterState に対応する状態を更新する
+     * @return なし
+     */
     void UpdateWaterState();
+    /**
+     * @brief UpdateVisualState に対応する状態を更新する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void UpdateVisualState(Input* input);
+    /**
+     * @brief AttachActiveWeapons に対応する処理を実行する
+     * @return なし
+     */
     void AttachActiveWeapons();
 };
 

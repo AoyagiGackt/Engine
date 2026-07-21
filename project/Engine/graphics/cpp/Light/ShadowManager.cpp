@@ -1,4 +1,8 @@
-﻿#include "ShadowManager.h"
+/**
+ * @file ShadowManager.cpp
+ * @brief ShadowManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "ShadowManager.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include <cmath>

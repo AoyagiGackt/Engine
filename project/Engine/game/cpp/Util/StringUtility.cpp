@@ -1,3 +1,7 @@
+/**
+ * @file StringUtility.cpp
+ * @brief StringUtilityのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ */
 #include "StringUtility.h"
 #include <stringapiset.h> // MultiByteToWideChar / WideCharToMultiByte の宣言
 namespace engine {

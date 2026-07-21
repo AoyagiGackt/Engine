@@ -36,6 +36,10 @@ public:
         float intensity; ///< 明るさの倍率
         float pad[3]; ///< HLSL 16 バイトアライン用パディング
     };
+    /**
+     * @brief static_assert に対応する処理を実行する
+     * @return 処理結果
+     */
     static_assert(sizeof(PointLight) == 48, "PointLight must be 48 bytes for HLSL alignment");
 
 
@@ -169,6 +173,10 @@ private:
     DirectionalLight* lightData_ = nullptr; ///< Map 済みポインタ
 
     // ポイントライト群
+    /**
+     * @brief PointLightBuffer に関する型を提供する
+     * @details PointLightBuffer が扱うデータと操作の責務をまとめる
+     */
     struct PointLightBuffer {
         uint32_t count;
         float pad[3];

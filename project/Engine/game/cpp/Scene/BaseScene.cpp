@@ -1,3 +1,7 @@
+/**
+ * @file BaseScene.cpp
+ * @brief BaseSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ */
 #include "BaseScene.h"
 #include "SpriteCommon.h"
 #include "StageEditor.h"
@@ -13,6 +17,15 @@ BaseScene::BaseScene()
 }
 
 BaseScene::~BaseScene() = default;
+
+void BaseScene::Shutdown()
+{
+    // エディタが参照するModelCommonとカメラをシーン側が破棄する前に編集リソースを解放する
+    if (stageEditor_) {
+        stageEditor_->Finalize();
+    }
+    Finalize();
+}
 
 void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -33,7 +46,7 @@ void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
 void BaseScene::Tick()
 {
-    if (GetStageEditor().IsVisible()) {
+    if (GetStageEditor().ShouldPauseGame()) {
         // エディタ表示中はゲームプレイを丸ごと止め、配置物/enemy系の見た目だけ追従させる
         GetStageEditor().UpdateObjects(GetEditorParticleManager(), GetEditorPlayerPos());
         RefreshVisualTransformsForEditor();

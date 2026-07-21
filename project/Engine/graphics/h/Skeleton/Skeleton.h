@@ -1,3 +1,7 @@
+/**
+ * @file Skeleton.h
+ * @brief Skeletonの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ */
 #pragma once
 #include <MakeAffine.h>
 #include <map>
@@ -5,18 +9,30 @@
 #include <string>
 #include <vector>
 namespace engine::graphics {
+/**
+ * @brief EulerTransform に関する型を提供する
+ * @details EulerTransform が扱うデータと操作の責務をまとめる
+ */
 struct EulerTransform {
     Vector3 scale;
     Vector3 rotate;
     Vector3 translate;
 };
 
+/**
+ * @brief QuaternionTransform に関する型を提供する
+ * @details QuaternionTransform が扱うデータと操作の責務をまとめる
+ */
 struct QuaternionTransform {
     Vector3 scale;
     Quaternion rotate;
     Vector3 translate;
 };
 
+/**
+ * @brief Node に関する型を提供する
+ * @details Node が扱うデータと操作の責務をまとめる
+ */
 struct Node {
     QuaternionTransform transform;
     Matrix4x4 localMatrix;
@@ -25,6 +41,10 @@ struct Node {
 };
 
 // 1本の骨（ジョイント）
+/**
+ * @brief Joint に関する型を提供する
+ * @details Joint が扱うデータと操作の責務をまとめる
+ */
 struct Joint {
     QuaternionTransform transform; // ローカルのSRT
     Matrix4x4 localMatrix; // ローカル行列
@@ -34,16 +54,33 @@ struct Joint {
     int32_t index; // joints配列内のIndex
 };
 
+/**
+ * @brief Skeleton に関する型を提供する
+ * @details Skeleton が扱うデータと操作の責務をまとめる
+ */
 class Skeleton {
 public:
     // Nodeの階差構造からSkeletonを生成する
+    /**
+     * @brief Create の結果を取得する
+     * @param rootNode 処理に使用する値
+     * @return 処理結果
+     */
     static Skeleton Create(const Node& rootNode);
 
     // localMatrixを反映してskeletonSpaceMatrixを更新する
+    /**
+     * @brief Update に対応する状態を更新する
+     * @return なし
+     */
     void Update();
 
     // ImGuiでSkeletonの状態をデバッグ描画する（自動スケールのスティックフィギュア）
-    void DebugDraw();
+    /**
+     * @brief DrawDiagnostics に対応する内容を描画する
+     * @return なし
+     */
+    void DrawDiagnostics();
 
     /** @brief root JointのIndexを返す */
     int32_t GetRoot() const { return root_; }

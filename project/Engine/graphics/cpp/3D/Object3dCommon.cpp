@@ -1,4 +1,8 @@
-﻿#include "Object3dCommon.h"
+/**
+ * @file Object3dCommon.cpp
+ * @brief Object3dCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
+#include "Object3dCommon.h"
 #include "MakeAffine.h"
 #include <cassert>
 #include <cmath>

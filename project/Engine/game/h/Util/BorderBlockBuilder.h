@@ -1,3 +1,7 @@
+/**
+ * @file BorderBlockBuilder.h
+ * @brief BorderBlockBuilderのアプリケーション実行基盤の管理に関する公開型と操作インターフェースを定義するファイル
+ */
 #pragma once
 #include "Model.h"
 #include "ModelCommon.h"

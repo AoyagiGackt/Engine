@@ -65,6 +65,25 @@ struct Animation {
     std::map<std::string, NodeAnimation> nodeAnimations; ///< ノード名 → NodeAnimation
 };
 
+/** @brief モーション再生中の任意時刻で通知するゲームイベント */
+struct AnimationEvent {
+    float time = 0.0f; ///< 発火時刻を秒で指定する
+    std::string name; ///< 攻撃判定や足音など呼び出し側が解釈する名前
+};
+
+/**
+ * @brief 前回時刻から現在時刻までに通過したイベントを取得する
+ * @param events 時刻順に並べたイベント一覧
+ * @param previousTime 前フレームの再生時刻
+ * @param currentTime 現在の再生時刻
+ * @param duration アニメーション尺
+ * @param loop 末尾から先頭へループした可能性があるか
+ * @return 今回発火するイベントへのポインタ一覧
+ */
+std::vector<const AnimationEvent*> CollectAnimationEvents(
+    const std::vector<AnimationEvent>& events, float previousTime,
+    float currentTime, float duration, bool loop);
+
 // ファイル読み込み
 
 /**

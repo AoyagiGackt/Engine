@@ -1,3 +1,7 @@
+/**
+ * @file GameTime.cpp
+ * @brief GameTimeのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ */
 #include "GameTime.h"
 #include "GameConstants.h"
 using namespace engine;

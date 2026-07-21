@@ -80,6 +80,15 @@ public:
      */
     void SetBGMVolume(float volume);
 
+    /** @brief 全SEへ適用するカテゴリ音量を設定する */
+    void SetSEVolume(float volume);
+
+    /** @brief 現在のBGMカテゴリ音量を返す */
+    float GetBGMVolume() const { return bgmCurrentVolume_; }
+
+    /** @brief 現在のSEカテゴリ音量を返す */
+    float GetSEVolume() const { return seVolume_; }
+
     /**
      * @brief BGM の再生速度（ピッチ）を変更する
      * @param speed 1.0f で通常速度
@@ -155,6 +164,7 @@ private:
     float bgmFadeStartVolume_ = 1.0f;
     float bgmFadeDuration_ = 0.0f;
     float bgmFadeTimer_ = 0.0f;
+    float seVolume_ = 1.0f; ///< 個別SE音量へ乗算するカテゴリ音量
 };
 
 } // namespace engine

@@ -1,4 +1,8 @@
-﻿#pragma once
+/**
+ * @file CascadedShadowMap.h
+ * @brief CascadedShadowMapの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ */
+#pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
 #include "SrvManager.h"
@@ -18,6 +22,10 @@ namespace engine::graphics {
 //   }
 //   csm->SetShadowMapSRV(cmd, srvManager);        // スロット 4 に Texture2DArray をバインド
 //   csm->SetCascadeDataCBV(cmd, slotIdx);          // スロット 8(or 9) にカスケード定数をバインド
+/**
+ * @brief CascadedShadowMap に関する型を提供する
+ * @details CascadedShadowMap が扱うデータと操作の責務をまとめる
+ */
 class CascadedShadowMap {
 public:
     static CascadedShadowMap* GetInstance()
@@ -29,21 +37,55 @@ public:
     static const uint32_t kNumCascades = 3;
     static const uint32_t kShadowMapSize = 2048;
 
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param dxCommon 処理に使用する値
+     * @param srvManager 処理に使用する値
+     * @return なし
+     */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
 
     // ライト方向からすべてのカスケード VP 行列を更新
+    /**
+     * @brief Update に対応する状態を更新する
+     * @param lightDir 処理に使用する値
+     * @return なし
+     */
     void Update(const Vector3& lightDir);
 
     // カスケード i のシャドウパス開始（DSV セット・クリア・バリア）
+    /**
+     * @brief BeginCascade に対応する処理を実行する
+     * @param cmd 処理に使用する値
+     * @param cascadeIdx 処理に使用する値
+     * @return なし
+     */
     void BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t cascadeIdx);
 
     // カスケード i のシャドウパス終了（バリア遷移）
+    /**
+     * @brief EndCascade に対応する処理を実行する
+     * @param cmd 処理に使用する値
+     * @return なし
+     */
     void EndCascade(ID3D12GraphicsCommandList* cmd);
 
     // スロット 4 (t1) に Texture2DArray SRV をバインド
+    /**
+     * @brief SetShadowMapSRV に対応する状態を設定する
+     * @param cmd 処理に使用する値
+     * @param srvManager 処理に使用する値
+     * @return なし
+     */
     void SetShadowMapSRV(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager);
 
     // 指定スロットにカスケード定数バッファをバインド（ModelCommon=8, SkinCommon=9）
+    /**
+     * @brief SetCascadeDataCBV に対応する状態を設定する
+     * @param cmd 処理に使用する値
+     * @param slot 処理に使用する値
+     * @return なし
+     */
     void SetCascadeDataCBV(ID3D12GraphicsCommandList* cmd, uint32_t slot);
 
     Matrix4x4 GetCascadeVP(uint32_t i) const { return cascadeVP_[i]; }
@@ -63,6 +105,10 @@ private:
     // カスケード i の VP 行列を計算（固定フラスタム fitting）
     Matrix4x4 ComputeCascadeVP(const Vector3& lightDir, uint32_t cascadeIdx);
 
+    /**
+     * @brief CascadeDataLayout に関する型を提供する
+     * @details CascadeDataLayout が扱うデータと操作の責務をまとめる
+     */
     struct CascadeDataLayout {
         Matrix4x4 cascadeVP[kNumCascades];
         float splitDist[kNumCascades]; // カメラ距離スプリット (m)
@@ -90,6 +136,10 @@ private:
     Matrix4x4 cascadeVP_[kNumCascades] = { };
 
     // 各カスケードの固定正射影パラメータ
+    /**
+     * @brief CascadeConfig に関する型を提供する
+     * @details CascadeConfig が扱うデータと操作の責務をまとめる
+     */
     struct CascadeConfig {
         float orthoWidth;
         float orthoHeight;

@@ -1,3 +1,7 @@
+/**
+ * @file EditorUI.cpp
+ * @brief EditorUIの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #ifdef USE_IMGUI
 #include "EditorUI.h"
 #include <imgui.h>

@@ -267,39 +267,106 @@ private:
 
     // Filter Mode Strategy パターン
     // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える
+    /**
+     * @brief IFilterMode に関する型を提供する
+     * @details IFilterMode が扱うデータと操作の責務をまとめる
+     */
     class IFilterMode {
     public:
         virtual ~IFilterMode() = default;
         virtual void Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
             const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const = 0;
     };
+    /**
+     * @brief BoxGaussianFilterMode に関する型を提供する
+     * @details BoxGaussianFilterMode が扱うデータと操作の責務をまとめる
+     */
     class BoxGaussianFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief PrewittEdgeFilterMode に関する型を提供する
+     * @details PrewittEdgeFilterMode が扱うデータと操作の責務をまとめる
+     */
     class PrewittEdgeFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief DepthOutlineFilterMode に関する型を提供する
+     * @details DepthOutlineFilterMode が扱うデータと操作の責務をまとめる
+     */
     class DepthOutlineFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief RadialBlurFilterMode に関する型を提供する
+     * @details RadialBlurFilterMode が扱うデータと操作の責務をまとめる
+     */
     class RadialBlurFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief DissolveFilterMode に関する型を提供する
+     * @details DissolveFilterMode が扱うデータと操作の責務をまとめる
+     */
     class DissolveFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief NoiseGenFilterMode に関する型を提供する
+     * @details NoiseGenFilterMode が扱うデータと操作の責務をまとめる
+     */
     class NoiseGenFilterMode : public IFilterMode {
     public:
+        /**
+         * @brief Apply に対応する状態を設定する
+         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
+         * @return なし
+         */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
+    /**
+     * @brief GetFilterMode の結果を取得する
+     * @param mode 処理に使用する値
+     * @return 処理結果
+     */
     static const IFilterMode& GetFilterMode(Mode mode);
 
     // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
+    /**
+     * @brief FilterParams に関する型を提供する
+     * @details FilterParams が扱うデータと操作の責務をまとめる
+     */
     struct FilterParams {
         float texelSizeX;
         float texelSizeY;
@@ -312,6 +379,10 @@ private:
     };
 
     // ラジアルブラー用 CBuffer（1スロット）
+    /**
+     * @brief RadialBlurParams に関する型を提供する
+     * @details RadialBlurParams が扱うデータと操作の責務をまとめる
+     */
     struct RadialBlurParams {
         float centerX; // 0  ブラー中心 X（UV空間）
         float centerY; // 4  ブラー中心 Y（UV空間）
@@ -320,6 +391,10 @@ private:
     };
 
     // ディゾルブ用 CBuffer（1スロット）
+    /**
+     * @brief DissolveParams に関する型を提供する
+     * @details DissolveParams が扱うデータと操作の責務をまとめる
+     */
     struct DissolveParams {
         float threshold; // 0  溶解進行度（0=なし, 1=完全消滅）
         float edgeWidth; // 4  エッジ帯幅
@@ -331,6 +406,10 @@ private:
     };
 
     // プロシージャルノイズ用 CBuffer（1スロット）
+    /**
+     * @brief NoiseGenParams に関する型を提供する
+     * @details NoiseGenParams が扱うデータと操作の責務をまとめる
+     */
     struct NoiseGenParams {
         float scaleX; // 0  UV スケール X
         float scaleY; // 4  UV スケール Y
@@ -343,6 +422,10 @@ private:
     };
 
     // アウトライン用 CBuffer（1スロット）
+    /**
+     * @brief OutlineParams に関する型を提供する
+     * @details OutlineParams が扱うデータと操作の責務をまとめる
+     */
     struct OutlineParams {
         float texelSizeX; // 0
         float texelSizeY; // 4

@@ -1,3 +1,7 @@
+/**
+ * @file RevolvedMeshBase.cpp
+ * @brief RevolvedMeshBaseの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #include "RevolvedMeshBase.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"

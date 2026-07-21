@@ -1,3 +1,7 @@
+/**
+ * @file ImGuiControl.cpp
+ * @brief ImGuiControlの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ */
 #include "ImGuiControl.h"
 #include "BloomEffect.h"
 #include "GlassShatterEffect.h"
@@ -19,7 +23,7 @@ namespace engine::graphics {
 // 静的メンバの実体
 
 Object3dCommon* ImGuiControlPanel::obj3dCommon_ = nullptr;
-std::vector<DebugPointLight> ImGuiControlPanel::debugLights_;
+std::vector<EditorPointLight> ImGuiControlPanel::editorLights_;
 std::function<void()> ImGuiControlPanel::glassShatterTrigger_;
 
 // 公開 API
@@ -38,9 +42,9 @@ void ImGuiControlPanel::RegisterGlassShatterTrigger(std::function<void()> trigge
     glassShatterTrigger_ = std::move(trigger);
 }
 
-const std::vector<DebugPointLight>& ImGuiControlPanel::GetDebugPointLights()
+const std::vector<EditorPointLight>& ImGuiControlPanel::GetEditorPointLights()
 {
-    return debugLights_;
+    return editorLights_;
 }
 
 void ImGuiControlPanel::ShowControls()
@@ -569,24 +573,24 @@ void ImGuiControlPanel::ShowPointLightSection()
     // ポイントライト
     if (ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-        ImGui::TextDisabled("最大 %d 個。毎フレーム GetDebugPointLights() をシーンで適用してください。",
+        ImGui::TextDisabled("最大 %d 個。毎フレーム GetEditorPointLights() をシーンで適用してください。",
             (int)Object3dCommon::kMaxPointLights);
         ImGui::Separator();
 
         // ライト追加ボタン
-        if ((int)debugLights_.size() < (int)Object3dCommon::kMaxPointLights) {
+        if ((int)editorLights_.size() < (int)Object3dCommon::kMaxPointLights) {
             if (ImGui::Button("+ ライトを追加")) {
-                DebugPointLight newLight;
+                EditorPointLight newLight;
                 newLight.position = { 0.f, 2.f, 0.f };
-                debugLights_.push_back(newLight);
+                editorLights_.push_back(newLight);
             }
         } else {
             ImGui::TextDisabled("（上限 %d 個に達しています）", (int)Object3dCommon::kMaxPointLights);
         }
 
         // 各ライトの設定
-        for (int i = 0; i < (int)debugLights_.size();) {
-            auto& pl = debugLights_[i];
+        for (int i = 0; i < (int)editorLights_.size();) {
+            auto& pl = editorLights_[i];
             ImGui::PushID(i);
 
             char label[64];
@@ -609,7 +613,7 @@ void ImGuiControlPanel::ShowPointLightSection()
             ImGui::PopID();
 
             if (removed) {
-                debugLights_.erase(debugLights_.begin() + i);
+                editorLights_.erase(editorLights_.begin() + i);
             } else {
                 ++i;
             }
