@@ -34,6 +34,10 @@ public:
     const Vector3& GetPosition() const { return position_; }
 
 protected:
+    /**
+     * @brief VertexData に関する型を提供する
+     * @details VertexData が扱うデータと操作の責務をまとめる
+     */
     struct VertexData {
         Vector4 position;
         Vector2 texcoord;

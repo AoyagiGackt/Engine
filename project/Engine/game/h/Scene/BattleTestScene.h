@@ -236,7 +236,7 @@ private:
     /** @brief 武器一覧と戻りポータルのラベルを描画する */
     void DrawWeaponHud(bool nearReturnPortal);
     /** @brief F3で表示切替。プレイヤー/ダミー/ナイト/solidブロックの当たり判定をワイヤーフレームで描く */
-    void DrawColliderDebug();
+    void DrawColliderOverlay();
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -311,6 +311,10 @@ private:
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
     // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
+    /**
+     * @brief WeaponSlotUI に関する型を提供する
+     * @details WeaponSlotUI が扱うデータと操作の責務をまとめる
+     */
     struct WeaponSlotUI {
         std::unique_ptr<Sprite> frame; // 枠背景
         std::unique_ptr<Sprite> icon; // スタイルカラーで塗った中身
@@ -322,6 +326,10 @@ private:
 
     // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
     // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
+    /**
+     * @brief WeaponIcon3D に関する型を提供する
+     * @details WeaponIcon3D が扱うデータと操作の責務をまとめる
+     */
     struct WeaponIcon3D {
         std::unique_ptr<Model> model;
         std::unique_ptr<Object3d> object;

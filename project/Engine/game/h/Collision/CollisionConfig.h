@@ -10,6 +10,10 @@ namespace engine {
 // 形状プリミティブ
 
 /// レイ（半直線）
+/**
+ * @brief Ray に関する型を提供する
+ * @details Ray が扱うデータと操作の責務をまとめる
+ */
 struct Ray {
     Vector3 origin; ///< 発射点
     Vector3 direction; ///< 方向ベクトル（必ず正規化して渡すこと）
@@ -32,12 +36,20 @@ struct RaycastResult {
 };
 
 /// 球体
+/**
+ * @brief Sphere に関する型を提供する
+ * @details Sphere が扱うデータと操作の責務をまとめる
+ */
 struct Sphere {
     Vector3 center; ///< 中心点
     float radius; ///< 半径
 };
 
 /// AABB（回転しない軸並行境界箱）
+/**
+ * @brief AABB に関する型を提供する
+ * @details AABB が扱うデータと操作の責務をまとめる
+ */
 struct AABB {
     Vector3 min; ///< 最小座標（左・下・奥）
     Vector3 max; ///< 最大座標（右・上・手前）
@@ -45,6 +57,10 @@ struct AABB {
 
 /// カプセル（線分を軸とする球の掃引体）
 /// 使い方: キャラクターの上半身〜下半身、武器の刀身など縦長の当たり判定に最適
+/**
+ * @brief Capsule に関する型を提供する
+ * @details Capsule が扱うデータと操作の責務をまとめる
+ */
 struct Capsule {
     Vector3 start; ///< 始点（線分の根元）
     Vector3 end; ///< 終点（線分の先端）

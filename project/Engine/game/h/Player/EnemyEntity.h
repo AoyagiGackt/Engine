@@ -40,7 +40,9 @@ public:
     void SetColor(const Vector4& color)
     {
         object_->SetColor(color);
-        if (weaponObject_) weaponObject_->SetColor(color);
+        if (weaponObject_) {
+            weaponObject_->SetColor(color);
+        }
     }
 
     /**

@@ -71,6 +71,10 @@ private:
         Vector4 edgeColor = { 0.35f, 0.7f, 1.0f, 1.0f };
     };
 
+    /**
+     * @brief CreatePipeline の結果を取得する
+     * @return なし
+     */
     void CreatePipeline();
 
     engine::DirectXCommon* dxCommon_ = nullptr;

@@ -21,6 +21,10 @@ struct SlashMarkParams {
     float duration = 0.18f; ///< 表示時間（秒）
 };
 
+/**
+ * @brief SlashMark に関する型を提供する
+ * @details SlashMark が扱うデータと操作の責務をまとめる
+ */
 class SlashMark {
 public:
     /** @brief シングルトンインスタンスを取得する */

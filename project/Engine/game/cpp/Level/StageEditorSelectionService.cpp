@@ -2,6 +2,7 @@
  * @file StageEditorSelectionService.cpp
  * @brief ステージエディタの選択対象に対する編集コマンドを実行する
  */
+#ifdef USE_IMGUI
 #include "StageEditorSelectionService.h"
 
 #include "DirectXCommon.h"
@@ -142,3 +143,4 @@ void StageEditorSelectionService::PasteClipboard(StageEditor& editor)
 }
 
 } // namespace engine::game
+#endif // USE_IMGUI

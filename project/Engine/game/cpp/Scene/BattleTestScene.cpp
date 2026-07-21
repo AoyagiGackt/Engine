@@ -306,7 +306,7 @@ void BattleTestScene::UpdateSceneFlow()
         showColliders_ = !showColliders_;
     }
     if (showColliders_) {
-        DrawColliderDebug();
+        DrawColliderOverlay();
     }
 
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
@@ -1471,7 +1471,7 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
     }
 }
 
-void BattleTestScene::DrawColliderDebug()
+void BattleTestScene::DrawColliderOverlay()
 {
     DiagnosticsDraw::SetCamera(camera_->GetViewProjectionMatrix(),
         static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));

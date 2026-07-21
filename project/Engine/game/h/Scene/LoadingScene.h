@@ -11,11 +11,34 @@ namespace engine::game {
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
+/**
+ * @brief LoadingScene に関する型を提供する
+ * @details LoadingScene が扱うデータと操作の責務をまとめる
+ */
 class LoadingScene : public BaseScene {
 public:
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param dxCommon 処理に使用する値
+     * @param input 処理に使用する値
+     * @param audio 処理に使用する値
+     * @return なし
+     */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /**
+     * @brief Update に対応する状態を更新する
+     * @return なし
+     */
     void Update() override;
+    /**
+     * @brief Draw に対応する内容を描画する
+     * @return なし
+     */
     void Draw() override;
+    /**
+     * @brief Finalize に対応する終了処理を行う
+     * @return なし
+     */
     void Finalize() override;
 
 private:

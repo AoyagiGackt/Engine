@@ -99,6 +99,10 @@ private:
         Vector3 rotation = { };
     };
 
+    /**
+     * @brief CreatePipeline の結果を取得する
+     * @return なし
+     */
     void CreatePipeline();
 
     /** @brief モデルを平面群で切断し、破片リストと頂点列を構築する */

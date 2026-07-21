@@ -43,8 +43,16 @@ struct NodeTypeSpec {
     std::string category; // ノード追加メニューでのグループ分け（例  "よく使う", "敵"）空ならその他扱い
 };
 
+/**
+ * @brief NodeRegistry に関する型を提供する
+ * @details NodeRegistry が扱うデータと操作の責務をまとめる
+ */
 class NodeRegistry {
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static NodeRegistry* GetInstance();
 
     /** @brief 新しいノード種別を登録する（同名で上書きも可） */

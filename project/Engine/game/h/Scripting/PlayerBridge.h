@@ -10,6 +10,10 @@ class Player;
 
 class PlayerBridge {
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static PlayerBridge* GetInstance();
 
     /** @brief 現在のシーンのPlayerを登録する（Scene::Initialize()から呼ぶ） */

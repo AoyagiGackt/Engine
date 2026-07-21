@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file GlassShatterEffect.h
  * @brief ゲーム画面をガラスのように割り砕く演出エフェクトを定義するファイル
  */
@@ -41,8 +41,23 @@ public:
 
     // パラメータ調整（Initialize 後に呼べる）
     void SetImpactUV(float u, float v);
+    /**
+     * @brief SetCrackWidth に対応する状態を設定する
+     * @param w 処理に使用する値
+     * @return なし
+     */
     void SetCrackWidth(float w);
+    /**
+     * @brief SetShardSpeed に対応する状態を設定する
+     * @param s 処理に使用する値
+     * @return なし
+     */
     void SetShardSpeed(float s);
+    /**
+     * @brief SetDuration に対応する状態を設定する
+     * @param seconds 処理に使用する値
+     * @return なし
+     */
     void SetDuration(float seconds);
 
 private:
@@ -52,6 +67,10 @@ private:
     SrvManager* srvManager_ = nullptr;
 
     // cbuffer のメモリレイアウト（HLSL の ShatterParams と一致させること）
+    /**
+     * @brief ShatterParams に関する型を提供する
+     * @details ShatterParams が扱うデータと操作の責務をまとめる
+     */
     struct ShatterParams {
         float time = 0.0f;
         float crackWidth = 0.005f;

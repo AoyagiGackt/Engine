@@ -119,11 +119,11 @@ static void DrawJointTree(const std::vector<Joint>& joints, int32_t index)
 
 #endif // USE_IMGUI
 
-void Skeleton::DebugDraw()
+void Skeleton::DrawDiagnostics()
 {
 #ifdef USE_IMGUI
     ImGui::SetNextWindowSize(ImVec2(440.0f, 600.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Skeleton Debug")) {
+    if (!ImGui::Begin("Skeleton Overlay")) {
         ImGui::End();
         return;
     }

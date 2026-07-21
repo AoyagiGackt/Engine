@@ -12,7 +12,7 @@ namespace engine::graphics {
 class ImageFilter;
 
 /** @brief ImGuiパネルで設定するデバッグ用ポイントライト */
-struct DebugPointLight {
+struct EditorPointLight {
     bool enabled = true;
     Vector3 position = { 0.f, 2.f, 0.f };
     float radius = 10.f;
@@ -30,7 +30,7 @@ public:
     static void RegisterGlassShatterTrigger(std::function<void()> trigger);
 
     /** @brief ImGuiで設定されたデバッグポイントライト一覧を返す */
-    static const std::vector<DebugPointLight>& GetDebugPointLights();
+    static const std::vector<EditorPointLight>& GetEditorPointLights();
 
     /** @brief デバッグコントロールウィンドウを描画する（ImGuiManager::Begin/Endの間に呼ぶ） */
     static void ShowControls();
@@ -54,7 +54,7 @@ private:
     static void ShowPointLightSection();
 
     static Object3dCommon* obj3dCommon_;
-    static std::vector<DebugPointLight> debugLights_;
+    static std::vector<EditorPointLight> editorLights_;
     static std::function<void()> glassShatterTrigger_;
 };
 

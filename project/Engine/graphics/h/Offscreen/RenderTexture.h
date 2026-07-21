@@ -10,8 +10,24 @@ namespace engine::graphics {
 
 class RenderTexture {
 public:
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param dxCommon 処理に使用する値
+     * @param srvManager 処理に使用する値
+     * @param width 処理に使用する値
+     * @param height 処理に使用する値
+     * @return なし
+     */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager, uint32_t width, uint32_t height);
+    /**
+     * @brief BeginRendering に対応する処理を実行する
+     * @return なし
+     */
     void BeginRendering();
+    /**
+     * @brief EndRendering に対応する処理を実行する
+     * @return なし
+     */
     void EndRendering();
 
     /** @brief 確保したSRVインデックスをSrvManagerへ返却する（再生成前・破棄前に呼ぶこと） */

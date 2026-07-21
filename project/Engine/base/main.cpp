@@ -22,7 +22,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     // どのビルドで動かしたログかを後から追跡できるよう先頭に1行残す
     Logger::LogInfo(std::string("Engine build: ") + __DATE__ + " " + __TIME__
 #ifdef _DEBUG
-        + " [Debug]"
+        + " [Development]"
 #elif defined(ENGINE_RELEASE)
         + " [Release]"
 #elif defined(ENGINE_DEVELOPMENT)

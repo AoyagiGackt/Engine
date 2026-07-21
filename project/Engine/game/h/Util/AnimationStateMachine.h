@@ -46,6 +46,10 @@ namespace engine::game {
  *   Quaternion rot = CalculateValue(nodeAnim.rotate,    t);
  * @endcode
  */
+/**
+ * @brief AnimationStateMachine に関する型を提供する
+ * @details AnimationStateMachine が扱うデータと操作の責務をまとめる
+ */
 class AnimationStateMachine {
 public:
     AnimationStateMachine() = default;
@@ -150,6 +154,10 @@ private:
     };
 
     // 遷移ルール
+    /**
+     * @brief Transition に関する型を提供する
+     * @details Transition が扱うデータと操作の責務をまとめる
+     */
     struct Transition {
         std::string to;
         std::string trigger;
@@ -162,6 +170,11 @@ private:
     float currentTime_ = 0.0f;
 
     // 内部遷移処理
+    /**
+     * @brief TransitionTo に対応する処理を実行する
+     * @param stateName 処理に使用する値
+     * @return なし
+     */
     void TransitionTo(const std::string& stateName);
 };
 

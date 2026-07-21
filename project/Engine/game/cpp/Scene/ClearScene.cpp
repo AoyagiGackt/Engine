@@ -138,7 +138,7 @@ void ClearScene::DrawScoreUI()
 
     ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Always);
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-    ImGui::Begin("Debug", nullptr,
+    ImGui::Begin("Diagnostics", nullptr,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
     ImGui::Text("Score : %d", ScoreManager::GetInstance()->GetCurrentScore());
     ImGui::Separator();

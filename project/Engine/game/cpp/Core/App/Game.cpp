@@ -87,51 +87,51 @@ void MyGame::Update()
 
 #ifdef USE_IMGUI
     // F8でエンジン共通の実行時診断を開閉する
-    static bool showEngineDebug = false;
+    static bool showEngineDiagnostics = false;
     if (input_->TriggerKey(DIK_F8)) {
-        showEngineDebug = !showEngineDebug;
+        showEngineDiagnostics = !showEngineDiagnostics;
     }
-    if (showEngineDebug) {
-        const bool panelOpen = ImGui::Begin("Engine Debug", &showEngineDebug);
+    if (showEngineDiagnostics) {
+        const bool panelOpen = ImGui::Begin("Engine Diagnostics", &showEngineDiagnostics);
         if (panelOpen) {
-        auto* profiler = FrameProfiler::GetInstance();
-        ImGui::Text("CPU %.2f ms  %.1f FPS", profiler->GetMs(), profiler->GetFPS());
-        ImGui::Text("Gamepad %s", input_->IsGamepadConnected() ? "Connected" : "Disconnected");
-        bool hotReloadEnabled = TextureManager::GetInstance()->IsHotReloadEnabled();
-        if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled)) {
-            TextureManager::GetInstance()->SetHotReloadEnabled(hotReloadEnabled);
-        }
+            auto* profiler = FrameProfiler::GetInstance();
+            ImGui::Text("CPU %.2f ms  %.1f FPS", profiler->GetMs(), profiler->GetFPS());
+            ImGui::Text("Gamepad %s", input_->IsGamepadConnected() ? "Connected" : "Disconnected");
+            bool hotReloadEnabled = TextureManager::GetInstance()->IsHotReloadEnabled();
+            if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled)) {
+                TextureManager::GetInstance()->SetHotReloadEnabled(hotReloadEnabled);
+            }
 
-        bool vsync = dxCommon_->IsVSyncEnabled();
-        if (ImGui::Checkbox("VSync", &vsync)) {
-            dxCommon_->SetVSyncEnabled(vsync);
-        }
+            bool vsync = dxCommon_->IsVSyncEnabled();
+            if (ImGui::Checkbox("VSync", &vsync)) {
+                dxCommon_->SetVSyncEnabled(vsync);
+            }
 
-        GameSettings& settings = GameSettingsManager::GetInstance()->Get();
-        bool settingsChanged = false;
-        settingsChanged |= ImGui::SliderFloat("BGM", &settings.bgmVolume, 0.0f, 1.0f);
-        settingsChanged |= ImGui::SliderFloat("SE", &settings.seVolume, 0.0f, 1.0f);
-        if (settingsChanged) {
-            audio_->SetBGMVolume(settings.bgmVolume);
-            audio_->SetSEVolume(settings.seVolume);
-            GameSettingsManager::GetInstance()->Save();
-        }
+            GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+            bool settingsChanged = false;
+            settingsChanged |= ImGui::SliderFloat("BGM", &settings.bgmVolume, 0.0f, 1.0f);
+            settingsChanged |= ImGui::SliderFloat("SE", &settings.seVolume, 0.0f, 1.0f);
+            if (settingsChanged) {
+                audio_->SetBGMVolume(settings.bgmVolume);
+                audio_->SetSEVolume(settings.seVolume);
+                GameSettingsManager::GetInstance()->Save();
+            }
 
-        ImGui::Separator();
-        if (ImGui::Button("Title")) {
-            SceneManager::GetInstance()->ChangeScene("TITLE");
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Stage Select")) {
-            SceneManager::GetInstance()->ChangeScene("MAP");
-        }
-        if (ImGui::Button("Training")) {
-            SceneManager::GetInstance()->ChangeScene("TRAINING");
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Battle Test")) {
-            SceneManager::GetInstance()->ChangeScene("BATTLETEST");
-        }
+            ImGui::Separator();
+            if (ImGui::Button("Title")) {
+                SceneManager::GetInstance()->ChangeScene("TITLE");
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Stage Select")) {
+                SceneManager::GetInstance()->ChangeScene("MAP");
+            }
+            if (ImGui::Button("Training")) {
+                SceneManager::GetInstance()->ChangeScene("TRAINING");
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Battle Test")) {
+                SceneManager::GetInstance()->ChangeScene("BATTLETEST");
+            }
         }
         ImGui::End();
     }
@@ -166,8 +166,7 @@ void MyGame::Draw()
             gs->BeginScene();
         } else if (hsv->IsEnabled()) {
             hsv->BeginScene();
-        }
-    }, postEffectsSupported);
+        } }, postEffectsSupported);
 
     graph.AddPass("Scene", [] { SceneManager::GetInstance()->Draw(); });
 
@@ -181,12 +180,11 @@ void MyGame::Draw()
         } else if (hsv->IsEnabled()) {
             hsv->EndScene();
             hsv->Apply(SrvManager::GetInstance());
-        }
-    }, postEffectsSupported);
+        } }, postEffectsSupported);
 
     graph.AddPass("Vignette", [] { VignetteEffect::GetInstance()->Apply(); });
     graph.AddPass("Screen Flash", [] { ScreenFlash::GetInstance()->Draw(); });
-    graph.AddPass("Debug UI", [this] { imguiManager_->Draw(dxCommon_.get()); });
+    graph.AddPass("Diagnostics UI", [this] { imguiManager_->Draw(dxCommon_.get()); });
     graph.Execute();
 
     dxCommon_->PostDraw();

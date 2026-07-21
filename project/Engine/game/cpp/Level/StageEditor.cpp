@@ -3,9 +3,6 @@
  * @brief ステージ配置の実体管理と実行時編集ワークフローを実装するファイル
  */
 #include "StageEditor.h"
-#include "StageEditorSelectionService.h"
-#include "StageEditorPanels.h"
-#include "StageEditorPrefabService.h"
 #include "Camera.h"
 #include "DiagnosticsDraw.h"
 #include "DirectXCommon.h"
@@ -19,6 +16,9 @@
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "StageEditorPanels.h"
+#include "StageEditorPrefabService.h"
+#include "StageEditorSelectionService.h"
 #include "TimeManager.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -522,14 +522,12 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
                     const Vector3 b = transformVertex(vertices[indices[i + 1]].position);
                     const Vector3 c = transformVertex(vertices[indices[i + 2]].position);
                     constexpr float kColliderThickness = 0.03f;
-                    result.push_back({
-                        { (std::min)({ a.x, b.x, c.x }) - kColliderThickness,
-                            (std::min)({ a.y, b.y, c.y }) - kColliderThickness,
-                            (std::min)({ a.z, b.z, c.z }) - kColliderThickness },
+                    result.push_back({ { (std::min)({ a.x, b.x, c.x }) - kColliderThickness,
+                                           (std::min)({ a.y, b.y, c.y }) - kColliderThickness,
+                                           (std::min)({ a.z, b.z, c.z }) - kColliderThickness },
                         { (std::max)({ a.x, b.x, c.x }) + kColliderThickness,
                             (std::max)({ a.y, b.y, c.y }) + kColliderThickness,
-                            (std::max)({ a.z, b.z, c.z }) + kColliderThickness }
-                    });
+                            (std::max)({ a.z, b.z, c.z }) + kColliderThickness } });
                 }
             }
             continue;
@@ -896,13 +894,21 @@ void StageEditor::HandleEditorShortcuts()
     if (io.WantTextInput) {
         return;
     }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) Undo();
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) Redo();
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) Save();
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) DuplicateSelected();
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C)) CopySelected();
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V)) PasteClipboard();
-    else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) DeleteSelected();
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+        Undo();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+        Redo();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+        Save();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
+        DuplicateSelected();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
+        CopySelected();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V)) {
+        PasteClipboard();
+    } else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+        DeleteSelected();
+    }
 }
 
 void StageEditor::RenderEditorPanels()
@@ -915,10 +921,18 @@ void StageEditor::RenderEditorPanels()
     RenderHierarchy();
     RenderInspector();
     RenderAssetPalette();
-    if (showFlagsPanel_) RenderFlagsPanel();
-    if (showWorkflowPanel_) RenderWorkflowPanel();
-    if (showNoCodeEventPanel_) RenderNoCodeEventPanel();
-    if (showWavePanel_) RenderWavePanel();
+    if (showFlagsPanel_) {
+        RenderFlagsPanel();
+    }
+    if (showWorkflowPanel_) {
+        RenderWorkflowPanel();
+    }
+    if (showNoCodeEventPanel_) {
+        RenderNoCodeEventPanel();
+    }
+    if (showWavePanel_) {
+        RenderWavePanel();
+    }
     RenderStageAnalysisPanel();
     RenderDiffPanel();
     RenderEditorHelpPanel();
@@ -1240,8 +1254,6 @@ void StageEditor::RenderHierarchy()
     StageEditorHierarchyPanel::Render(*this);
 }
 
-
-
 void StageEditor::RenderEditorToolbar()
 {
     constexpr float kLeftPanelWidth = 280.0f;
@@ -1294,8 +1306,6 @@ void StageEditor::RenderInspector()
 {
     StageEditorInspectorPanel::Render(*this);
 }
-
-
 
 void StageEditor::RenderAssetPalette()
 {
@@ -1914,7 +1924,7 @@ void StageEditor::DrawGizmos()
         if (d.solid) {
             Vector3 half = { 0.5f * d.scale.x, 0.5f * d.scale.y, 0.5f * d.scale.z };
             DiagnosticsDraw::DrawAABB({ { world.x - half.x, world.y - half.y, world.z - half.z },
-                                    { world.x + half.x, world.y + half.y, world.z + half.z } },
+                                          { world.x + half.x, world.y + half.y, world.z + half.z } },
                 DiagnosticsDraw::kColorOrange);
         }
 

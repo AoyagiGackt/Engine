@@ -88,6 +88,10 @@ public:
      * Draw()内のHUD/フォント描画より前で自分でDrawObjects()を呼ぶこと。呼べばここでの自動呼び出しは
      * 自動でスキップされる＝StageEditor::WasObjectsDrawnThisFrame()）
      */
+    /**
+     * @brief Render に対応する内容を描画する
+     * @return なし
+     */
     void Render();
 
     /**

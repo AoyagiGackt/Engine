@@ -18,13 +18,28 @@ public:
 
     void BeginFrame()
     {
+        /**
+         * @brief QueryPerformanceCounter に対応する処理を実行する
+         * @param frameStart_ 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceCounter(&frameStart_);
     }
 
     void EndFrame()
     {
         LARGE_INTEGER now, freq;
+        /**
+         * @brief QueryPerformanceCounter に対応する処理を実行する
+         * @param now 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceCounter(&now);
+        /**
+         * @brief QueryPerformanceFrequency に対応する処理を実行する
+         * @param freq 処理に使用する値
+         * @return 処理結果
+         */
         QueryPerformanceFrequency(&freq);
         float ms = float(now.QuadPart - frameStart_.QuadPart) / float(freq.QuadPart) * 1000.0f;
 

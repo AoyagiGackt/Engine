@@ -11,8 +11,16 @@
 #include <vector>
 namespace engine::game {
 
+/**
+ * @brief EventBus に関する型を提供する
+ * @details EventBus が扱うデータと操作の責務をまとめる
+ */
 class EventBus {
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static EventBus* GetInstance();
 
     using Callback = std::function<void()>;

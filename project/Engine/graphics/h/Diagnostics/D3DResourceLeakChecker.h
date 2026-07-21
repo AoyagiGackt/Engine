@@ -30,6 +30,11 @@ struct D3D12ResourceLeakChecker {
         if (dxgidebug) {
             // 関数ポインタを取得
             auto dxgiGetDebugInterface1 = reinterpret_cast<PFN_DXGI_GET_DEBUG_INTERFACE1>(
+                /**
+                 * @brief GetProcAddress の結果を取得する
+                 * @param dxgidebug 処理に使用する値
+                 * @return 処理結果
+                 */
                 GetProcAddress(dxgidebug, "DXGIGetDebugInterface1"));
 
             // 関数が見つかったら実行
@@ -40,6 +45,11 @@ struct D3D12ResourceLeakChecker {
                     debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
                 }
             }
+            /**
+             * @brief FreeLibrary に対応する処理を実行する
+             * @param dxgidebug 処理に使用する値
+             * @return 処理結果
+             */
             FreeLibrary(dxgidebug);
         }
     }

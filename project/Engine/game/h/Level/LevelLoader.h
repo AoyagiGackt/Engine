@@ -17,6 +17,10 @@ class Model;
 namespace engine::game {
 
 // JSON の1エントリに対応するオブジェクト定義
+/**
+ * @brief ObjectDesc に関する型を提供する
+ * @details ObjectDesc が扱うデータと操作の責務をまとめる
+ */
 struct ObjectDesc {
     bool enabled = true; // falseなら保存は維持するが生成・更新・描画・当たり判定から除外する
     std::string name; // 親子参照・エディタ表示用の一意な名前（空ならロード時に自動命名）
@@ -57,6 +61,10 @@ struct ObjectDesc {
 // JSON の1エントリに対応するトリガー定義
 // プレイヤーが半径radius以内に入ると、flagで指定した名前のフラグをvalueにする（GameFlags参照）
 // 実際の分岐ロジックはノードグラフ側（GetFlag→If）が担当し、トリガーはフラグを立てるだけに徹する
+/**
+ * @brief TriggerDesc に関する型を提供する
+ * @details TriggerDesc が扱うデータと操作の責務をまとめる
+ */
 struct TriggerDesc {
     std::string name; // ステージエディタのHierarchy表示用（省略可）
     Vector3 position = { };
@@ -132,6 +140,10 @@ private:
 };
 
 // ファイルから読み込んだレベル全体のデータ
+/**
+ * @brief LevelData に関する型を提供する
+ * @details LevelData が扱うデータと操作の責務をまとめる
+ */
 struct LevelData {
     std::vector<ObjectDesc> objects;
     std::vector<TriggerDesc> triggers;
@@ -141,6 +153,10 @@ struct LevelData {
 };
 
 // Spawn() の戻り値Model と Object3d の所有権を持つ
+/**
+ * @brief LevelSpawnResult に関する型を提供する
+ * @details LevelSpawnResult が扱うデータと操作の責務をまとめる
+ */
 struct LevelSpawnResult {
     std::vector<std::unique_ptr<engine::graphics::Model>> models;
     std::vector<std::unique_ptr<engine::graphics::Object3d>> objects;
@@ -148,12 +164,29 @@ struct LevelSpawnResult {
 
 namespace LevelLoader {
     // JSON ファイルを読んで LevelData を返す
+    /**
+     * @brief Load の結果を取得する
+     * @param path 処理に使用する値
+     * @return 処理結果
+     */
     LevelData Load(const std::string& path);
 
     // LevelData を JSON ファイルへ書き出す（StageEditorの保存機能から使う）
+    /**
+     * @brief Save に対応する処理を実行する
+     * @param path 処理に使用する値
+     * @param data 処理に使用する値
+     * @return なし
+     */
     void Save(const std::string& path, const LevelData& data);
 
     // LevelData の静的オブジェクトを生成して返す
+    /**
+     * @brief Spawn に対応する処理を実行する
+     * @param data 処理に使用する値
+     * @param modelCommon 処理に使用する値
+     * @return 処理結果
+     */
     LevelSpawnResult Spawn(const LevelData& data, engine::graphics::ModelCommon* modelCommon);
 }
 

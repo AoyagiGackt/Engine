@@ -22,10 +22,27 @@ public:
 
 // シーンをオフスクリーンに描画し、フルスクリーンPSで加工してバックバッファへ合成する処理の共通基盤
 // GrayscaleEffect/HsvFilterのように定数バッファ1つ+SRV1枚のフルスクリーンパスはこれを継承する
+/**
+ * @brief PostEffectFullscreenPass に関する型を提供する
+ * @details PostEffectFullscreenPass が扱うデータと操作の責務をまとめる
+ */
 class PostEffectFullscreenPass : public IPostEffectSource {
 public:
+    /**
+     * @brief BeginScene に対応する処理を実行する
+     * @return なし
+     */
     void BeginScene();
+    /**
+     * @brief EndScene に対応する処理を実行する
+     * @return なし
+     */
     void EndScene();
+    /**
+     * @brief Apply に対応する状態を設定する
+     * @param srvManager 処理に使用する値
+     * @return なし
+     */
     void Apply(SrvManager* srvManager);
 
     void SetEnabled(bool v) { enabled_ = v; }

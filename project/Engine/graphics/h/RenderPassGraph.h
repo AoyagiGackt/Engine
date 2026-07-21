@@ -48,6 +48,10 @@ public:
     }
 
 private:
+    /**
+     * @brief Pass に関する型を提供する
+     * @details Pass が扱うデータと操作の責務をまとめる
+     */
     struct Pass {
         std::string name;
         std::function<void()> execute;

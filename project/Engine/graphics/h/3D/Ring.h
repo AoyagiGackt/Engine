@@ -17,11 +17,19 @@ public:
     void SetInnerRadius(float r)
     {
         innerRadius_ = r;
+        /**
+         * @brief RebuildVertices に対応する処理を実行する
+         * @return 処理結果
+         */
         RebuildVertices();
     }
     void SetOuterRadius(float R)
     {
         outerRadius_ = R;
+        /**
+         * @brief RebuildVertices に対応する処理を実行する
+         * @return 処理結果
+         */
         RebuildVertices();
     }
 
@@ -32,6 +40,10 @@ private:
     void CreatePipeline();
     void RebuildVertices();
 
+    /**
+     * @brief MaterialCB に関する型を提供する
+     * @details MaterialCB が扱うデータと操作の責務をまとめる
+     */
     struct MaterialCB {
         Matrix4x4 WVP;
         Vector4 color;

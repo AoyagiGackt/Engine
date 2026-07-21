@@ -41,12 +41,24 @@ void StageEditorViewport::UpdateCamera(Input* input, float deltaTime, bool focus
     }
 
     Vector3& position = camera_->GetTranslate();
-    if (input->PushKey(DIK_A)) position.x -= kCameraSpeedPerSecond * deltaTime;
-    if (input->PushKey(DIK_D)) position.x += kCameraSpeedPerSecond * deltaTime;
-    if (input->PushKey(DIK_W)) position.y += kCameraSpeedPerSecond * deltaTime;
-    if (input->PushKey(DIK_S)) position.y -= kCameraSpeedPerSecond * deltaTime;
-    if (input->PushKey(DIK_Q)) position.z -= kCameraSpeedPerSecond * deltaTime;
-    if (input->PushKey(DIK_E)) position.z += kCameraSpeedPerSecond * deltaTime;
+    if (input->PushKey(DIK_A)) {
+        position.x -= kCameraSpeedPerSecond * deltaTime;
+    }
+    if (input->PushKey(DIK_D)) {
+        position.x += kCameraSpeedPerSecond * deltaTime;
+    }
+    if (input->PushKey(DIK_W)) {
+        position.y += kCameraSpeedPerSecond * deltaTime;
+    }
+    if (input->PushKey(DIK_S)) {
+        position.y -= kCameraSpeedPerSecond * deltaTime;
+    }
+    if (input->PushKey(DIK_Q)) {
+        position.z -= kCameraSpeedPerSecond * deltaTime;
+    }
+    if (input->PushKey(DIK_E)) {
+        position.z += kCameraSpeedPerSecond * deltaTime;
+    }
 #else
     (void)input;
     (void)deltaTime;

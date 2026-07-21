@@ -116,12 +116,20 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> applyPSO_;
 
     // 定数バッファ
+    /**
+     * @brief NormalCaptureCB に関する型を提供する
+     * @details NormalCaptureCB が扱うデータと操作の責務をまとめる
+     */
     struct NormalCaptureCB {
         Matrix4x4 view;
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> normalCb_;
     NormalCaptureCB* normalCbData_ = nullptr;
 
+    /**
+     * @brief SSAOParams に関する型を提供する
+     * @details SSAOParams が扱うデータと操作の責務をまとめる
+     */
     struct SSAOParams {
         Matrix4x4 projection;
         Matrix4x4 projectionInverse;
@@ -137,6 +145,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> ssaoCb_;
     SSAOParams* ssaoCbData_ = nullptr;
 
+    /**
+     * @brief BlurParams に関する型を提供する
+     * @details BlurParams が扱うデータと操作の責務をまとめる
+     */
     struct BlurParams {
         float texW;
         float texH;

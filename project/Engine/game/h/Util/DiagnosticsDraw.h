@@ -2,7 +2,7 @@
  * @file DiagnosticsDraw.h
  * @brief ImGui を使った 3D ワイヤーフレームデバッグ描画 — ヘッダーオンリー実装
  *
- * USE_IMGUI が定義されている Debug / Development ビルドのみ有効
+ * USE_IMGUI が定義されている Development ビルドのみ有効
  * Release ビルドでは全関数が空のスタブになるのでコードを残したまま出荷できます
  *
  * ■ 使い方（毎フレーム ImGuiManager::Begin() と End() の間）

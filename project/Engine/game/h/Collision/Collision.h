@@ -17,6 +17,10 @@ namespace engine {
  *   Capsule × AABB
  *   Collider × Collider （形状を自動ディスパッチ）
  */
+/**
+ * @brief Collision に関する型を提供する
+ * @details Collision が扱うデータと操作の責務をまとめる
+ */
 class Collision {
 public:
     /** @brief 二つの球が交差するか判定する @param s1 一つ目の球 @param s2 二つ目の球 @return 交差する場合はtrue */

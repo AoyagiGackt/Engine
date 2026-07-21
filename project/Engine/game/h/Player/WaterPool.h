@@ -30,6 +30,11 @@ public:
     void Draw(Camera* camera);
 
     // プレイヤーの入水・出水時に呼ぶ（水面でスプラッシュ発生）
+    /**
+     * @brief EmitSplash に対応する処理を実行する
+     * @param position 処理に使用する値
+     * @return なし
+     */
     void EmitSplash(const Vector3& position);
 
     /** @brief 水面のY座標を返す（Player::SetWaterLevel() に渡して水中判定と同期させる） */

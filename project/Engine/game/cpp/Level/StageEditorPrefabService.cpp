@@ -34,7 +34,8 @@ std::string StageEditorPrefabService::SanitizeName(const std::string& name)
     std::string safeName = name;
     safeName.erase(std::remove_if(safeName.begin(), safeName.end(), [](unsigned char character) {
         return !(std::isalnum(character) || character == '_' || character == '-');
-    }), safeName.end());
+    }),
+        safeName.end());
     return safeName.empty() ? "stage_part" : safeName;
 }
 

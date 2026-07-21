@@ -10,6 +10,42 @@ namespace engine { class Input; }
 namespace engine::game {
 class GraphEditor;
 struct GraphNode;
+enum class GraphValueType;
+
+/**
+ * @brief グラフ描画で共有する寸法、色、当たり判定を提供する
+ * @details キャンバス描画とノード描画の見た目および判定規則を一元管理する
+ */
+class GraphEditorDrawingStyle {
+public:
+    static constexpr float kBaseNodeWidth = 200.0f;
+    static constexpr float kBasePinRadius = 6.0f;
+    static constexpr float kBasePinPad = 10.0f;
+    static constexpr ImU32 kBackgroundColor = IM_COL32(45, 45, 55, 235);
+    static constexpr ImU32 kSelectedBackgroundColor = IM_COL32(70, 70, 95, 235);
+    static constexpr ImU32 kBorderColor = IM_COL32(90, 90, 110, 255);
+    static constexpr ImU32 kStartColor = IM_COL32(90, 200, 120, 255);
+    static constexpr ImU32 kInputPinColor = IM_COL32(230, 230, 230, 255);
+    static constexpr ImU32 kOutputPinColor = IM_COL32(230, 200, 90, 255);
+    static constexpr ImU32 kTruePinColor = IM_COL32(90, 200, 120, 255);
+    static constexpr ImU32 kFalsePinColor = IM_COL32(210, 90, 90, 255);
+    static constexpr ImU32 kRunningColor = IM_COL32(255, 210, 60, 255);
+
+    /**
+     * @brief 値型に対応するピン色を返す
+     * @param type グラフ値の型
+     * @return 型に対応するRGBA色
+     */
+    static ImU32 ColorForType(GraphValueType type);
+
+    /**
+     * @brief マウス座標が円形ピンの判定範囲内か調べる
+     * @param center 円の中心座標
+     * @param radius 判定半径
+     * @return 範囲内ならtrue
+     */
+    static bool IsHoveringCircle(const ImVec2& center, float radius);
+};
 
 /**
  * @brief グラフエディタの入力を処理するサービス
@@ -24,6 +60,12 @@ public:
      * @return なし
      */
     static void Update(GraphEditor& editor, engine::Input* input);
+
+private:
+    static bool PrepareFrame(GraphEditor& editor, engine::Input* input, float& realDeltaTime);
+    static void DrawGuidance(GraphEditor& editor);
+    static void DrawToolbar(GraphEditor& editor);
+    static void FinishFrame(GraphEditor& editor, float realDeltaTime);
 };
 
 /**

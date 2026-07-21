@@ -117,6 +117,10 @@ struct ParticleGroup {
     Emitter* emitterData = nullptr;
 
     // CPU 自動再配置（EmitScatterLoop 用）
+    /**
+     * @brief RespawnConfig に関する型を提供する
+     * @details RespawnConfig が扱うデータと操作の責務をまとめる
+     */
     struct RespawnConfig {
         Vector3 center = { };
         float radius = 0.0f;

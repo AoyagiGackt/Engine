@@ -493,6 +493,10 @@ private:
     // 見た目1体ぶんのリグ。通常時と覚醒中でモデルごと差し替えるため、
     // アニメーションや武器アタッチ先ボーン名などモデル依存の情報をセットで持つ
     // （アセットパス・アニメ名の定義は CharacterVisuals.h の kNormalRigVisual / kAwakenedRigVisual）
+    /**
+     * @brief CharacterRig に関する型を提供する
+     * @details CharacterRig が扱うデータと操作の責務をまとめる
+     */
     struct CharacterRig {
         std::unique_ptr<Model> staticModel; ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）
         std::unique_ptr<SkinnedModel> skinnedModel; ///< 本体描画（ボーンアニメーション付き）
@@ -517,6 +521,10 @@ private:
 
     // 右手ボーンに持たせる近接武器（現在のスタイルに対応する1つだけ表示）
     // 種類が多いため個別メンバーではなくテーブルで持つ（追加は CharacterVisuals.h の kHeldWeaponVisuals）
+    /**
+     * @brief HeldWeaponSlot に関する型を提供する
+     * @details HeldWeaponSlot が扱うデータと操作の責務をまとめる
+     */
     struct HeldWeaponSlot {
         WeaponType type;
         std::unique_ptr<Model> model;
@@ -572,12 +580,45 @@ private:
     void HandleRangedCombat(Input* input);
     void HandleMeleeCombat(Input* input, const Vector3& enemyPos);
     void HandleFinisherSlash(Input* input);
+    /**
+     * @brief HandleWeaponSkill に対応する処理を実行する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void HandleWeaponSkill(Input* input);
+    /**
+     * @brief UpdateRampagePhysics に対応する状態を更新する
+     * @param enemyPos 処理に使用する値
+     * @return なし
+     */
     void UpdateRampagePhysics(const Vector3& enemyPos);
+    /**
+     * @brief UpdateAwakenState に対応する状態を更新する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void UpdateAwakenState(Input* input);
+    /**
+     * @brief ResolveEnemyOverlap に対応する処理を実行する
+     * @param enemyPos 処理に使用する値
+     * @return なし
+     */
     void ResolveEnemyOverlap(const Vector3& enemyPos);
+    /**
+     * @brief UpdateWaterState に対応する状態を更新する
+     * @return なし
+     */
     void UpdateWaterState();
+    /**
+     * @brief UpdateVisualState に対応する状態を更新する
+     * @param input 処理に使用する値
+     * @return なし
+     */
     void UpdateVisualState(Input* input);
+    /**
+     * @brief AttachActiveWeapons に対応する処理を実行する
+     * @return なし
+     */
     void AttachActiveWeapons();
 };
 

@@ -32,6 +32,11 @@ public:
     static constexpr int kJpCharH = 16;
     static constexpr int kJpCols = 16;
 
+    /**
+     * @brief Initialize に対応する処理を開始する
+     * @param spriteCommon 処理に使用する値
+     * @return なし
+     */
     void Initialize(SpriteCommon* spriteCommon);
 
     // ASCII 文字列描画
@@ -44,23 +49,52 @@ public:
         float scale = 1.0f,
         const Vector4& color = { 1.0f, 1.0f, 1.0f, 1.0f });
 
+    /**
+     * @brief Reset に対応する状態を設定する
+     * @return なし
+     */
     void Reset();
+    /**
+     * @brief Draw に対応する内容を描画する
+     * @return なし
+     */
     void Draw();
 
 private:
+    /**
+     * @brief DrawCmd に関する型を提供する
+     * @details DrawCmd が扱うデータと操作の責務をまとめる
+     */
     struct DrawCmd {
         std::string text;
         float x, y, scale;
         Vector4 color;
     };
+    /**
+     * @brief DrawCmdW に関する型を提供する
+     * @details DrawCmdW が扱うデータと操作の責務をまとめる
+     */
     struct DrawCmdW {
         std::wstring text;
         float x, y, scale;
         Vector4 color;
     };
 
+    /**
+     * @brief BuildAtlas に対応する処理を実行する
+     * @return なし
+     */
     void BuildAtlas();
+    /**
+     * @brief BuildJpAtlas に対応する処理を実行する
+     * @return なし
+     */
     void BuildJpAtlas();
+    /**
+     * @brief GetJpGlyphIdx の結果を取得する
+     * @param c 処理に使用する値
+     * @return 処理結果
+     */
     int GetJpGlyphIdx(wchar_t c) const;
 
     SpriteCommon* spriteCommon_ = nullptr;

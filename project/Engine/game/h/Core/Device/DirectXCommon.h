@@ -222,7 +222,7 @@ private:
 
 #ifdef _DEBUG
     /** @brief D3D12デバッグレイヤーのメッセージをエンジンログへ転送する */
-    static void CALLBACK DebugMessageCallback(
+    static void CALLBACK DiagnosticsMessageCallback(
         D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity,
         D3D12_MESSAGE_ID id, LPCSTR description, void* context);
 #endif
@@ -284,7 +284,7 @@ private:
 
 #ifdef _DEBUG
     Microsoft::WRL::ComPtr<ID3D12InfoQueue1> infoQueue_;
-    DWORD debugCallbackCookie_ = 0;
+    DWORD diagnosticsCallbackCookie_ = 0;
 #endif
 };
 

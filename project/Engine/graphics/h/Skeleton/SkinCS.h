@@ -18,10 +18,18 @@ namespace engine::graphics {
 //   1. Initialize() で初期化
 //   2. 毎フレーム Update() より後で Dispatch() を呼ぶ
 //   3. Draw() で GetOutputVBV() を IASetVertexBuffers に渡す
+/**
+ * @brief SkinCS に関する型を提供する
+ * @details SkinCS が扱うデータと操作の責務をまとめる
+ */
 class SkinCS {
 public:
     // 出力頂点レイアウト  ModelCommon の入力レイアウトと完全一致
     // POSITION (R32G32B32A32_FLOAT) + TEXCOORD (R32G32_FLOAT) + NORMAL (R32G32B32_FLOAT)
+    /**
+     * @brief OutputVertex に関する型を提供する
+     * @details OutputVertex が扱うデータと操作の責務をまとめる
+     */
     struct OutputVertex {
         float position[4]; // 16 バイト
         float texcoord[2]; //  8 バイト

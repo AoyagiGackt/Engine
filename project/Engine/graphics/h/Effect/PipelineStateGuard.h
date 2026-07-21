@@ -13,6 +13,10 @@
 #include <utility>
 namespace engine::graphics {
 
+/**
+ * @brief PipelineStateGuard に関する型を提供する
+ * @details PipelineStateGuard が扱うデータと操作の責務をまとめる
+ */
 class PipelineStateGuard {
 public:
     /**
@@ -26,6 +30,10 @@ public:
     ~PipelineStateGuard()
     {
         if (onRestore_) {
+            /**
+             * @brief onRestore_ に対応する処理を実行する
+             * @return 処理結果
+             */
             onRestore_();
         }
     }

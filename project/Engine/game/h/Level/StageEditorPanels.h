@@ -19,6 +19,11 @@ public:
      * @return なし
      */
     static void Render(StageEditor& editor);
+
+private:
+    static void RenderGuideAndFileActions(StageEditor& editor);
+    static void RenderEntityBrowser(StageEditor& editor);
+    static void RenderSelectionActions(StageEditor& editor);
 };
 
 /**
@@ -33,5 +38,14 @@ public:
      * @return なし
      */
     static void Render(StageEditor& editor);
+
+private:
+    static bool RenderObjectInspector(StageEditor& editor);
+    static void RenderObjectIdentity(StageEditor& editor, bool& structuralDirty);
+    static void RenderObjectVisual(StageEditor& editor, bool& structuralDirty);
+    static void RenderObjectTransform(StageEditor& editor, bool& structuralDirty, bool& transformDirty);
+    static void RenderObjectGameplay(StageEditor& editor, bool& structuralDirty);
+    static bool RenderTriggerInspector(StageEditor& editor);
+    static bool RenderExternalInspector(StageEditor& editor);
 };
 } // namespace engine::game

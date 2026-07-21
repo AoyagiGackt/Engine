@@ -136,7 +136,9 @@ void EnemyEntity::Launch(float velY)
 void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
     bool switchPull, float playerX)
 {
-    if (defeated_) return;
+    if (defeated_) {
+        return;
+    }
     if (switchPull) {
         const float toPlayer = playerX - pos_.x;
         knockVelX_ = std::clamp(toPlayer * 0.18f, -0.32f, 0.32f);
@@ -144,5 +146,7 @@ void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
     } else {
         knockVelX_ += knockDirX * 0.055f;
     }
-    if (knockY > 0.08f) Launch(knockY);
+    if (knockY > 0.08f) {
+        Launch(knockY);
+    }
 }

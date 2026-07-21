@@ -141,6 +141,10 @@ public:
 private:
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
+    /**
+     * @brief ObjectEntry に関する型を提供する
+     * @details ObjectEntry が扱うデータと操作の責務をまとめる
+     */
     struct ObjectEntry {
         ObjectDesc desc;
         std::vector<std::unique_ptr<engine::graphics::Object3d>> instances;
@@ -153,6 +157,12 @@ private:
         bool runtimeActive = true;
     };
 
+    /**
+     * @brief GetOrLoadModel の結果を取得する
+     * @param modelPath 処理に使用する値
+     * @param texPath 処理に使用する値
+     * @return 処理結果
+     */
     engine::graphics::Model* GetOrLoadModel(const std::string& modelPath, const std::string& texPath);
 
     /** @brief モデル/軸/個数など構造が変わったときの再構築（instances/knight/enemyを作り直す） */
@@ -252,6 +262,10 @@ private:
     std::vector<CheckpointDesc> checkpoints_;
 
     // レベルJSONに属さないランタイム実体（Player/Enemy等）への参照RegisterExternalEntity()で登録される
+    /**
+     * @brief ExternalEntityRef に関する型を提供する
+     * @details ExternalEntityRef が扱うデータと操作の責務をまとめる
+     */
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
@@ -304,6 +318,10 @@ private:
         Vector3 playerSpawn;
         Vector3 enemySpawn;
     };
+    /**
+     * @brief MakeSnapshot の結果を取得する
+     * @return 処理結果
+     */
     LevelSnapshot MakeSnapshot() const;
     /** @brief スナップショットの内容へ丸ごと戻す（敵のHPやトリガーの成立済み状態はリセットされる） */
     void ApplySnapshot(const LevelSnapshot& snap);

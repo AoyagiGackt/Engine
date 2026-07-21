@@ -20,36 +20,8 @@ using namespace engine::game;
 using namespace engine;
 
 namespace {
-// ズーム1.0のときの基準サイズ実際の描画時は GraphEditor::zoom_ を掛けて使う
-constexpr float kBaseNodeWidth = 200.0f;
-constexpr float kBasePinRadius = 6.0f;
-constexpr float kBasePinPad = 10.0f; // ノード枠からピンをどれだけ外側に出すか
 constexpr float kBaseLinkCtrl = 60.0f; // ベジエ曲線の制御点オフセット
-constexpr ImU32 kColBg = IM_COL32(45, 45, 55, 235);
-constexpr ImU32 kColBgSel = IM_COL32(70, 70, 95, 235);
-constexpr ImU32 kColBorder = IM_COL32(90, 90, 110, 255);
-constexpr ImU32 kColStart = IM_COL32(90, 200, 120, 255);
-constexpr ImU32 kColPinIn = IM_COL32(230, 230, 230, 255);
-constexpr ImU32 kColPinOut = IM_COL32(230, 200, 90, 255);
-constexpr ImU32 kColPinTrue = IM_COL32(90, 200, 120, 255);
-constexpr ImU32 kColPinFalse = IM_COL32(210, 90, 90, 255);
 constexpr ImU32 kColLink = IM_COL32(220, 220, 220, 200);
-constexpr ImU32 kColRunning = IM_COL32(255, 210, 60, 255); // Run中、実行が今いるノードの枠
-
-// データピンの型別カラー（使い方ガイドの説明と一致させること）
-ImU32 ColorForType(GraphValueType t)
-{
-    switch (t) {
-    case GraphValueType::Float:
-        return IM_COL32(110, 220, 110, 255); // 緑
-    case GraphValueType::Bool:
-        return IM_COL32(220, 100, 100, 255); // 赤
-    case GraphValueType::String:
-        return IM_COL32(200, 120, 220, 255); // 紫
-    default:
-        return IM_COL32(240, 240, 240, 255); // 白（Any）
-    }
-}
 
 // 同じ型同士、またはどちらかがAny（白）なら接続できる
 bool TypesCompatible(GraphValueType a, GraphValueType b)
@@ -81,14 +53,6 @@ bool ContainsCI(const std::string& hay, const std::string& needle)
         return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
     };
     return std::search(hay.begin(), hay.end(), needle.begin(), needle.end(), eq) != hay.end();
-}
-
-bool IsHoveringCircle(const ImVec2& center, float radius)
-{
-    ImVec2 m = ImGui::GetIO().MousePos;
-    float dx = m.x - center.x;
-    float dy = m.y - center.y;
-    return (dx * dx + dy * dy) <= (radius * radius);
 }
 
 } // namespace
@@ -238,9 +202,9 @@ void GraphEditor::DrawNode(ImDrawList* dl, const ImVec2& origin, const std::stri
 
 void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state)
 {
-    const float nodeW = kBaseNodeWidth * zoom_;
-    const float pinR = kBasePinRadius * zoom_;
-    const float pinPad = kBasePinPad * zoom_;
+    const float nodeW = GraphEditorDrawingStyle::kBaseNodeWidth * zoom_;
+    const float pinR = GraphEditorDrawingStyle::kBasePinRadius * zoom_;
+    const float pinPad = GraphEditorDrawingStyle::kBasePinPad * zoom_;
 
     // パラメータ編集（型に応じてウィジェットを出し分ける）
     // 各行の左端にデータ入力ピンを置くため、行の矩形を記録する
@@ -296,8 +260,8 @@ void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNod
 
         GraphValueType paramType = ParamTypeOf(node.type, key);
         float dataPinR = pinR * 0.75f;
-        dl->AddCircleFilled(pinPos, dataPinR, ColorForType(paramType));
-        if (IsHoveringCircle(pinPos, dataPinR + 3.0f)) {
+        dl->AddCircleFilled(pinPos, dataPinR, GraphEditorDrawingStyle::ColorForType(paramType));
+        if (GraphEditorDrawingStyle::IsHoveringCircle(pinPos, dataPinR + 3.0f)) {
             state.hoveringAnyPin = true;
             // ドロップで接続（型が合うときだけ自分自身への接続は不可）
             // つなげない場合も無反応にせず、理由をステータス表示する
@@ -349,7 +313,7 @@ void GraphEditor::DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state
         ImVec2 mouse = ImGui::GetIO().MousePos;
         ImVec2 c1(state.dataLinkFromScreenPos.x + linkCtrl, state.dataLinkFromScreenPos.y);
         ImVec2 c2(mouse.x - linkCtrl, mouse.y);
-        dl->AddBezierCubic(state.dataLinkFromScreenPos, c1, c2, mouse, ColorForType(dataLinkFromType_), 2.0f);
+        dl->AddBezierCubic(state.dataLinkFromScreenPos, c1, c2, mouse, GraphEditorDrawingStyle::ColorForType(dataLinkFromType_), 2.0f);
     }
     if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !state.dataLinkCompletedThisFrame) {
         dataLinking_ = false; // ピン以外の場所で離したらキャンセル
@@ -393,7 +357,7 @@ void GraphEditor::HandleCanvasShortcuts(const ImVec2& origin, bool canvasHovered
 
 void GraphEditor::DrawLinks(ImDrawList* dl)
 {
-    const float pinPad = kBasePinPad * zoom_;
+    const float pinPad = GraphEditorDrawingStyle::kBasePinPad * zoom_;
     const float linkCtrl = kBaseLinkCtrl * zoom_;
 
     // 同じフレームでDrawCanvas()が埋めたnodeRects_（実際の描画結果の矩形）を使うので、
@@ -462,7 +426,7 @@ void GraphEditor::DrawDataLinks(ImDrawList* dl)
             const ImVec2& to = toIt->second;
             ImVec2 c1(from.x + linkCtrl, from.y);
             ImVec2 c2(to.x - linkCtrl, to.y);
-            dl->AddBezierCubic(from, c1, c2, to, ColorForType(ParamTypeOf(node.type, key)), 2.0f);
+            dl->AddBezierCubic(from, c1, c2, to, GraphEditorDrawingStyle::ColorForType(ParamTypeOf(node.type, key)), 2.0f);
         }
     }
 }

@@ -22,11 +22,19 @@ namespace engine::game {
 class GraphEditorInteraction;
 class GraphNodeRenderer;
 
+/**
+ * @brief GraphEditor に関する型を提供する
+ * @details GraphEditor が扱うデータと操作の責務をまとめる
+ */
 class GraphEditor {
     friend class GraphEditorInteraction;
     friend class GraphNodeRenderer;
 
 public:
+    /**
+     * @brief GetInstance の結果を取得する
+     * @return 処理結果
+     */
     static GraphEditor* GetInstance();
 
     /** @brief 指定パスのグラフを読み込んで編集対象にする（失敗時は空のグラフになる） */

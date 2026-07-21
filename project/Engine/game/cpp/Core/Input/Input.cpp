@@ -4,8 +4,8 @@
  */
 #include "Input.h"
 #include "EngineAssert.h"
-#include "Logger.h"
 #include "JsonHelper.h"
+#include "Logger.h"
 #include <cmath>
 #include <dinput.h>
 using namespace engine;
@@ -14,31 +14,72 @@ namespace {
 
 BYTE ParseKey(const std::string& name)
 {
-    if (name == "A") return DIK_A;
-    if (name == "D") return DIK_D;
-    if (name == "W") return DIK_W;
-    if (name == "S") return DIK_S;
-    if (name == "F") return DIK_F;
-    if (name == "G") return DIK_G;
-    if (name == "K") return DIK_K;
-    if (name == "L") return DIK_L;
-    if (name == "R") return DIK_R;
-    if (name == "Left") return DIK_LEFT;
-    if (name == "Right") return DIK_RIGHT;
-    if (name == "Up") return DIK_UP;
-    if (name == "Down") return DIK_DOWN;
-    if (name == "Space") return DIK_SPACE;
+    if (name == "A") {
+        return DIK_A;
+    }
+
+    if (name == "D") {
+        return DIK_D;
+    }
+    if (name == "W") {
+        return DIK_W;
+    }
+    if (name == "S") {
+        return DIK_S;
+    }
+    if (name == "F") {
+        return DIK_F;
+    }
+    if (name == "G") {
+        return DIK_G;
+    }
+    if (name == "K") {
+        return DIK_K;
+    }
+    if (name == "L") {
+        return DIK_L;
+    }
+    if (name == "R") {
+        return DIK_R;
+    }
+    if (name == "Left") {
+        return DIK_LEFT;
+    }
+    if (name == "Right") {
+        return DIK_RIGHT;
+    }
+    if (name == "Up") {
+        return DIK_UP;
+    }
+    if (name == "Down") {
+        return DIK_DOWN;
+    }
+    if (name == "Space") {
+        return DIK_SPACE;
+    }
     return 0;
 }
 
 WORD ParseGamepadButton(const std::string& name)
 {
-    if (name == "A") return XINPUT_GAMEPAD_A;
-    if (name == "B") return XINPUT_GAMEPAD_B;
-    if (name == "X") return XINPUT_GAMEPAD_X;
-    if (name == "Y") return XINPUT_GAMEPAD_Y;
-    if (name == "LB") return XINPUT_GAMEPAD_LEFT_SHOULDER;
-    if (name == "RB") return XINPUT_GAMEPAD_RIGHT_SHOULDER;
+    if (name == "A") {
+        return XINPUT_GAMEPAD_A;
+    }
+    if (name == "B") {
+        return XINPUT_GAMEPAD_B;
+    }
+    if (name == "X") {
+        return XINPUT_GAMEPAD_X;
+    }
+    if (name == "Y") {
+        return XINPUT_GAMEPAD_Y;
+    }
+    if (name == "LB") {
+        return XINPUT_GAMEPAD_LEFT_SHOULDER;
+    }
+    if (name == "RB") {
+        return XINPUT_GAMEPAD_RIGHT_SHOULDER;
+    }
     return 0;
 }
 
@@ -96,12 +137,10 @@ void Input::LoadActionBindings()
 
     const nlohmann::json root = JsonHelper::Load("Resources/input_bindings.json");
     const auto actions = root.value("actions", nlohmann::json::object());
-    const std::array<std::pair<const char*, Action>, static_cast<size_t>(Action::Count)> names = { {
-        { "MoveLeft", Action::MoveLeft }, { "MoveRight", Action::MoveRight },
+    const std::array<std::pair<const char*, Action>, static_cast<size_t>(Action::Count)> names = { { { "MoveLeft", Action::MoveLeft }, { "MoveRight", Action::MoveRight },
         { "Jump", Action::Jump }, { "Down", Action::Down }, { "Attack", Action::Attack },
         { "Shoot", Action::Shoot }, { "Skill", Action::Skill }, { "Awaken", Action::Awaken },
-        { "Finisher", Action::Finisher }, { "GunSwitch", Action::GunSwitch }
-    } };
+        { "Finisher", Action::Finisher }, { "GunSwitch", Action::GunSwitch } } };
 
     for (const auto& [name, action] : names) {
         const auto data = actions.value(name, nlohmann::json::object());

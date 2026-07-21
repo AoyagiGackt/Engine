@@ -54,6 +54,10 @@ public:
     // エディタが編集できるシーンデータへの参照
     // GamePlayScene から受け取るゲームの今の状態をまとめた構造体
     // ポインタで渡しているので、エディタで値を変えると即座にゲーム側にも反映される
+    /**
+     * @brief EditContext に関する型を提供する
+     * @details EditContext が扱うデータと操作の責務をまとめる
+     */
     struct EditContext {
         // オブジェクト本体へのポインタ（エディタがメソッドを呼ぶのに使う）
         Camera* camera = nullptr;
@@ -115,6 +119,10 @@ public:
     };
 
     // Hierarchy に追加した UI スプライト1つ分のデータ
+    /**
+     * @brief UIEntry に関する型を提供する
+     * @details UIEntry が扱うデータと操作の責務をまとめる
+     */
     struct UIEntry {
         std::string name; // エディタ上での名前（例  "HP Bar"）
         std::unique_ptr<Sprite> sprite; // 実際のスプライトオブジェクト
@@ -221,11 +229,30 @@ private:
 
     // JSON ファイルへの保存・読み込み
     // "Resources/editor_camera.json" にカメラのパラメータを保存/読込する
+    /**
+     * @brief SaveCameraParams に対応する処理を実行する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void SaveCameraParams(const EditContext& ctx);
+    /**
+     * @brief LoadCameraParams の結果を取得する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void LoadCameraParams(const EditContext& ctx);
 
     // "Resources/editor_ui.json" に UI スプライトのレイアウトを保存/読込する
+    /**
+     * @brief SaveUILayout に対応する処理を実行する
+     * @return なし
+     */
     void SaveUILayout();
+    /**
+     * @brief LoadUILayout の結果を取得する
+     * @param ctx 処理に使用する値
+     * @return なし
+     */
     void LoadUILayout(const EditContext& ctx);
 
     // 状態管理

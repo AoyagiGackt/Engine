@@ -76,9 +76,9 @@ void DirectXCommon::Finalize()
     WaitForGpu();
 
 #ifdef _DEBUG
-    if (infoQueue_ && debugCallbackCookie_ != 0) {
-        infoQueue_->UnregisterMessageCallback(debugCallbackCookie_);
-        debugCallbackCookie_ = 0;
+    if (infoQueue_ && diagnosticsCallbackCookie_ != 0) {
+        infoQueue_->UnregisterMessageCallback(diagnosticsCallbackCookie_);
+        diagnosticsCallbackCookie_ = 0;
     }
 #endif
 
@@ -297,21 +297,20 @@ void DirectXCommon::InitializeDevice()
         dredSettings->SetBreadcrumbContextEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
     }
 
-    ComPtr<ID3D12Debug1> debugController = nullptr;
+    ComPtr<ID3D12Debug1> validationController = nullptr;
 
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
-        debugController->EnableDebugLayer();
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&validationController)))) {
+        validationController->EnableDebugLayer();
 
         // GPU検証は負荷が大きいため通常のDebug実行では無効にする
         // 詳細なシェーダー検証が必要な場合だけENGINE_GPU_VALIDATIONを設定して有効にする
         wchar_t gpuValidationValue[2] = { };
-        const bool enableGpuValidation =
-            GetEnvironmentVariableW(L"ENGINE_GPU_VALIDATION", gpuValidationValue, 2) > 0
+        const bool enableGpuValidation = GetEnvironmentVariableW(L"ENGINE_GPU_VALIDATION", gpuValidationValue, 2) > 0
             && gpuValidationValue[0] != L'0';
-        debugController->SetEnableGPUBasedValidation(enableGpuValidation ? TRUE : FALSE);
+        validationController->SetEnableGPUBasedValidation(enableGpuValidation ? TRUE : FALSE);
         Logger::LogInfo(enableGpuValidation
-            ? "D3D12 GPU-based validation: ON"
-            : "D3D12 GPU-based validation: OFF");
+                ? "D3D12 GPU-based validation: ON"
+                : "D3D12 GPU-based validation: OFF");
     }
 #endif
 
@@ -354,14 +353,14 @@ void DirectXCommon::InitializeDevice()
         infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
         infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
         infoQueue_->RegisterMessageCallback(
-            &DirectXCommon::DebugMessageCallback,
-            D3D12_MESSAGE_CALLBACK_FLAG_NONE, this, &debugCallbackCookie_);
+            &DirectXCommon::DiagnosticsMessageCallback,
+            D3D12_MESSAGE_CALLBACK_FLAG_NONE, this, &diagnosticsCallbackCookie_);
     }
 #endif
 }
 
 #ifdef _DEBUG
-void CALLBACK DirectXCommon::DebugMessageCallback(
+void CALLBACK DirectXCommon::DiagnosticsMessageCallback(
     D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity,
     D3D12_MESSAGE_ID id, LPCSTR description, void* context)
 {

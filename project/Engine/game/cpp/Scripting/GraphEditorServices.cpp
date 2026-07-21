@@ -16,42 +16,27 @@
 #include <optional>
 #include <vector>
 
-namespace {
-constexpr float kBaseNodeWidth = 200.0f;
-constexpr float kBasePinRadius = 6.0f;
-constexpr float kBasePinPad = 10.0f;
-constexpr ImU32 kColBg = IM_COL32(45, 45, 55, 235);
-constexpr ImU32 kColBgSel = IM_COL32(70, 70, 95, 235);
-constexpr ImU32 kColBorder = IM_COL32(90, 90, 110, 255);
-constexpr ImU32 kColStart = IM_COL32(90, 200, 120, 255);
-constexpr ImU32 kColPinIn = IM_COL32(230, 230, 230, 255);
-constexpr ImU32 kColPinOut = IM_COL32(230, 200, 90, 255);
-constexpr ImU32 kColPinTrue = IM_COL32(90, 200, 120, 255);
-constexpr ImU32 kColPinFalse = IM_COL32(210, 90, 90, 255);
-constexpr ImU32 kColRunning = IM_COL32(255, 210, 60, 255);
-
-ImU32 ColorForType(engine::game::GraphValueType type)
+namespace engine::game {
+ImU32 GraphEditorDrawingStyle::ColorForType(GraphValueType type)
 {
     switch (type) {
-    case engine::game::GraphValueType::Float: return IM_COL32(110, 220, 110, 255);
-    case engine::game::GraphValueType::Bool: return IM_COL32(220, 100, 100, 255);
-    case engine::game::GraphValueType::String: return IM_COL32(200, 120, 220, 255);
+    case GraphValueType::Float: return IM_COL32(110, 220, 110, 255);
+    case GraphValueType::Bool: return IM_COL32(220, 100, 100, 255);
+    case GraphValueType::String: return IM_COL32(200, 120, 220, 255);
     default: return IM_COL32(240, 240, 240, 255);
     }
 }
 
-bool IsHoveringCircle(const ImVec2& center, float radius)
+bool GraphEditorDrawingStyle::IsHoveringCircle(const ImVec2& center, float radius)
 {
     const ImVec2 mousePosition = ImGui::GetIO().MousePos;
     const float deltaX = mousePosition.x - center.x;
     const float deltaY = mousePosition.y - center.y;
     return deltaX * deltaX + deltaY * deltaY <= radius * radius;
 }
-} // namespace
-
-namespace engine::game {
-void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
+bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* input, float& realDeltaTime)
 {
+
     bool wasVisible = editor.visible_;
     if (input && input->TriggerKey(DIK_F1)) {
         editor.visible_ = !editor.visible_;
@@ -66,14 +51,14 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
         }
     }
     if (!editor.visible_) {
-        return;
+        return false;
     }
 
     // エディタ内蔵のタイマー類は、開いている間はTimeManagerのdtが0になる（背後のゲームを止めるため）ので、
     // ImGuiが持つ実時間ベースのdt（io.DeltaTime）を使う
-    const float realDt = ImGui::GetIO().DeltaTime;
+    realDeltaTime = ImGui::GetIO().DeltaTime;
     if (editor.statusTimer_ > 0.0f) {
-        editor.statusTimer_ -= realDt;
+        editor.statusTimer_ -= realDeltaTime;
     }
 
     // Ctrl系ショートカット（テキスト入力欄にフォーカスがある間はImGui自身の入力欄内編集に譲る）
@@ -92,18 +77,11 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
             }
         }
     }
+    return true;
+}
 
-    // 画面全体を覆う一枚のウィンドウとして開く背景を完全不透明にして後ろのゲーム画面を隠す
-    const ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->Pos);
-    ImGui::SetNextWindowSize(vp->Size);
-    ImGui::SetNextWindowBgAlpha(1.0f);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
-    if (!ImGui::Begin("ノードエディタ", nullptr, flags)) {
-        ImGui::End();
-        return;
-    }
-
+void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
+{
     // ツールバー・使い方
     ImGui::TextDisabled("F1: 表示/非表示    右クリック: ノード/コメント追加    ホイール: ズーム    中ドラッグ: パン");
     if (ImGui::CollapsingHeader("使い方")) {
@@ -141,19 +119,45 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
             ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
             ImGui::TextWrapped("%s", selectedSpec->description.c_str());
             auto parameterHelp = [](const std::string& key) -> const char* {
-                if (key == "flag") return "ステージエディタのトリガーと共有するフラグ名";
-                if (key == "name" || key == "var" || key == "into") return "グラフ内で値を識別するための変数名";
-                if (key == "value") return "保存、比較、または設定する値";
-                if (key == "seconds" || key == "duration") return "処理を待つ時間  単位は秒";
-                if (key == "frames") return "処理を止める時間  単位はフレーム";
-                if (key == "path") return "読み込むグラフ、音声などのファイルパス";
-                if (key == "target") return "ステージに配置した敵などの名前";
-                if (key == "amount") return "ダメージ量または回復量";
-                if (key == "op") return "計算または比較に使う記号";
-                if (key == "x" || key == "y" || key == "z") return "移動先または位置のワールド座標";
-                if (key == "a" || key == "b") return "計算や比較へ渡す入力値";
-                if (key == "loop") return "ONなら停止するまで繰り返し再生する";
-                if (key == "visible") return "ONなら表示し、OFFなら非表示にする";
+                if (key == "flag") {
+                    return "ステージエディタのトリガーと共有するフラグ名";
+                }
+                if (key == "name" || key == "var" || key == "into") {
+                    return "グラフ内で値を識別するための変数名";
+                }
+                if (key == "value") {
+                    return "保存、比較、または設定する値";
+                }
+                if (key == "seconds" || key == "duration") {
+                    return "処理を待つ時間  単位は秒";
+                }
+                if (key == "frames") {
+                    return "処理を止める時間  単位はフレーム";
+                }
+                if (key == "path") {
+                    return "読み込むグラフ、音声などのファイルパス";
+                }
+                if (key == "target") {
+                    return "ステージに配置した敵などの名前";
+                }
+                if (key == "amount") {
+                    return "ダメージ量または回復量";
+                }
+                if (key == "op") {
+                    return "計算または比較に使う記号";
+                }
+                if (key == "x" || key == "y" || key == "z") {
+                    return "移動先または位置のワールド座標";
+                }
+                if (key == "a" || key == "b") {
+                    return "計算や比較へ渡す入力値";
+                }
+                if (key == "loop") {
+                    return "ONなら停止するまで繰り返し再生する";
+                }
+                if (key == "visible") {
+                    return "ONなら表示し、OFFなら非表示にする";
+                }
                 return "ノードが処理に使用する入力値";
             };
             for (const NodeParamSpec& param : selectedSpec->params) {
@@ -164,6 +168,10 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
                     : "このノードは値を出力せず、上部の実行線だけで次へ進みます");
         }
     }
+}
+
+void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
+{
     char pathBuf[256];
     strncpy_s(pathBuf, editor.graphPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(360.0f);
@@ -252,16 +260,11 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
         ImGui::SameLine();
         ImGui::TextDisabled("%s", editor.statusMessage_.c_str());
     }
+}
 
-    ImGui::Separator();
-
-    editor.DrawCanvas();
-
-    ImGui::End();
-
-    editor.DrawVariablesPanel();
-
-    // Subgraphノードの開くボタン（ノード走査ループ内で押される）はここでまとめて処理する
+void GraphEditorInteraction::FinishFrame(GraphEditor& editor, float realDeltaTime)
+{
+// Subgraphノードの開くボタン（ノード走査ループ内で押される）はここでまとめて処理する
     if (!editor.pendingOpenPath_.empty()) {
         std::string path = editor.pendingOpenPath_;
         editor.pendingOpenPath_.clear();
@@ -275,18 +278,44 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
     }
 
     if (editor.testRuntime_.IsRunning()) {
-        editor.testRuntime_.Update(realDt);
+        editor.testRuntime_.Update(realDeltaTime);
+    }
+}
+
+void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input)
+{
+    float realDeltaTime = 0.0f;
+    if (!PrepareFrame(editor, input, realDeltaTime)) {
+        return;
     }
 
+    // 画面全体を覆う一枚のウィンドウとして開く背景を完全不透明にして後ろのゲーム画面を隠す
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->Pos);
+    ImGui::SetNextWindowSize(vp->Size);
+    ImGui::SetNextWindowBgAlpha(1.0f);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+    if (!ImGui::Begin("ノードエディタ", nullptr, flags)) {
+        ImGui::End();
+        return;
+    }
+
+    DrawGuidance(editor);
+    DrawToolbar(editor);
+    ImGui::Separator();
+    editor.DrawCanvas();
+    ImGui::End();
+    editor.DrawVariablesPanel();
+    FinishFrame(editor, realDeltaTime);
 }
 
 void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& origin,
     const std::string& id, GraphNode& node, void* opaqueState)
 {
     auto& state = *static_cast<GraphEditor::CanvasFrameState*>(opaqueState);
-    const float nodeW = kBaseNodeWidth * editor.zoom_;
-    const float pinR = kBasePinRadius * editor.zoom_;
-    const float pinPad = kBasePinPad * editor.zoom_;
+    const float nodeW = GraphEditorDrawingStyle::kBaseNodeWidth * editor.zoom_;
+    const float pinR = GraphEditorDrawingStyle::kBasePinRadius * editor.zoom_;
+    const float pinPad = GraphEditorDrawingStyle::kBasePinPad * editor.zoom_;
     const float boxPad = 6.0f * editor.zoom_;
 
     ImGui::PushID(id.c_str());
@@ -367,12 +396,12 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
 
     // 背景（枠・塗り、開始ノードは緑枠で強調）
     dl->ChannelsSetCurrent(0);
-    ImU32 bg = (id == editor.selectedNodeId_) ? kColBgSel : kColBg;
+    ImU32 bg = (id == editor.selectedNodeId_) ? GraphEditorDrawingStyle::kSelectedBackgroundColor : GraphEditorDrawingStyle::kBackgroundColor;
     dl->AddRectFilled(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), bg, 4.0f * editor.zoom_);
-    ImU32 border = (id == editor.graph_.startNodeId) ? kColStart : kColBorder;
+    ImU32 border = (id == editor.graph_.startNodeId) ? GraphEditorDrawingStyle::kStartColor : GraphEditorDrawingStyle::kBorderColor;
     float borderThickness = 2.0f * editor.zoom_;
     if (state.viewingActiveGraph && id == state.activeRunNodeId) {
-        border = kColRunning;
+        border = GraphEditorDrawingStyle::kRunningColor;
         borderThickness = 3.5f * editor.zoom_; // Run中は太くして一目で分かるようにする
     }
     dl->AddRect(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), border, 4.0f * editor.zoom_, 0, borderThickness);
@@ -380,15 +409,15 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     // 開始ノードは緑枠だけだと気づきにくいため、枠の上にラベルも出す
     if (id == editor.graph_.startNodeId) {
         ImVec2 labelPos(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f - ImGui::GetFontSize() - 2.0f * editor.zoom_);
-        dl->AddText(labelPos, kColStart, "開始");
+        dl->AddText(labelPos, GraphEditorDrawingStyle::kStartColor, "開始");
     }
 
     dl->ChannelsSetCurrent(1);
 
     // 実行入力ピン（左上。タイトル行の高さに合わせる）
     ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + 10.0f * editor.zoom_);
-    dl->AddCircleFilled(inPin, pinR, kColPinIn);
-    if (IsHoveringCircle(inPin, pinR + 2.0f)) {
+    dl->AddCircleFilled(inPin, pinR, GraphEditorDrawingStyle::kInputPinColor);
+    if (GraphEditorDrawingStyle::IsHoveringCircle(inPin, pinR + 2.0f)) {
         state.hoveringAnyPin = true;
         if (editor.linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && editor.linkFromNodeId_ != id) {
             auto fromIt = editor.graph_.nodes.find(editor.linkFromNodeId_);
@@ -411,7 +440,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     // 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ）
     auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
         dl->AddCircleFilled(pos, pinR, col);
-        if (IsHoveringCircle(pos, pinR + 2.0f)) {
+        if (GraphEditorDrawingStyle::IsHoveringCircle(pos, pinR + 2.0f)) {
             state.hoveringAnyPin = true;
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
                 editor.linking_ = true;
@@ -426,10 +455,10 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     };
 
     if (node.type == "If") {
-        drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.33f), kColPinTrue);
-        drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.66f), kColPinFalse);
+        drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.33f), GraphEditorDrawingStyle::kTruePinColor);
+        drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.66f), GraphEditorDrawingStyle::kFalsePinColor);
     } else {
-        drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * editor.zoom_), kColPinOut);
+        drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * editor.zoom_), GraphEditorDrawingStyle::kOutputPinColor);
     }
 
     // データ出力ピン（右下。値を出力するノードだけ）
@@ -439,8 +468,8 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
         editor.dataOutPins_[id] = outPin;
 
         float dataPinR = pinR * 0.75f;
-        dl->AddCircleFilled(outPin, dataPinR, ColorForType(spec->outputType));
-        if (IsHoveringCircle(outPin, dataPinR + 3.0f)) {
+        dl->AddCircleFilled(outPin, dataPinR, GraphEditorDrawingStyle::ColorForType(spec->outputType));
+        if (GraphEditorDrawingStyle::IsHoveringCircle(outPin, dataPinR + 3.0f)) {
             state.hoveringAnyPin = true;
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
                 editor.dataLinking_ = true;

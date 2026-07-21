@@ -257,6 +257,10 @@ private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<EnemyEntity> enemy_;
 
+    /**
+     * @brief WeaponEnemyEntry に関する型を提供する
+     * @details WeaponEnemyEntry が扱うデータと操作の責務をまとめる
+     */
     struct WeaponEnemyEntry {
         std::unique_ptr<EnemyEntity> enemy;
         WeaponType weaponType = WeaponType::Sword;
@@ -270,6 +274,10 @@ private:
     bool swordGateActive_ = true;
     bool spearGateActive_ = true;
 
+    /**
+     * @brief EnergyCoreEntry に関する型を提供する
+     * @details EnergyCoreEntry が扱うデータと操作の責務をまとめる
+     */
     struct EnergyCoreEntry {
         std::unique_ptr<Object3d> object;
         Vector3 position = { };
@@ -310,6 +318,10 @@ private:
     float enemyBulletTimer_ = 0.0f;
     bool enemyBulletActive_ = false;
 
+    /**
+     * @brief GhostEntry に関する型を提供する
+     * @details GhostEntry が扱うデータと操作の責務をまとめる
+     */
     struct GhostEntry {
         Vector3 pos;
         float age;
