@@ -33,17 +33,33 @@ namespace engine::game {
 
 class KnightEnemy;
 class EnemyEntity;
+class StageEditorSelectionService;
 
+/**
+ * @brief レベルデータの読み書きと配置物の実行および編集UIを統括する
+ *
+ * JSONに保存する編集データとゲーム中に動作する実体を対応付ける。
+ * 編集入力と表示は専用サービスへ委譲し、配置物の所有権とライフサイクルを管理する。
+ */
 class StageEditor {
+    friend class StageEditorSelectionService;
+
 public:
     // unique_ptr<KnightEnemy>/<EnemyEntity>をObjectEntryが持つため、それらの完全な定義が無い
     // 翻訳単位（BaseScene経由でStageEditorを持つ全シーン等）でも安全にコンパイルできるよう、
     // コンストラクタ/デストラクタは両方とも.cpp側（KnightEnemy.h/EnemyEntity.hをインクルード済みの場所）で
     // 定義する（暗黙生成に任せると、生成先の翻訳単位でobjects_絡みの完全性チェックが走ってしまうため）
+    /** @brief 空のステージエディタを構築する */
     StageEditor();
+    /** @brief 保持しているレベル実体と外部参照を破棄する */
     ~StageEditor();
 
-    /** @brief レベルJSONを読み込み、オブジェクト/トリガーを生成する */
+    /**
+     * @brief レベルJSONを読み込み、配置物とトリガーを生成する
+     * @param levelPath 読み込むレベルJSONのパス
+     * @param modelCommon 配置物のモデル生成に使用する共通処理
+     * @param camera 編集ビューとカメラポイントに使用するカメラ
+     */
     void Open(const std::string& levelPath, engine::graphics::ModelCommon* modelCommon, engine::graphics::Camera* camera);
 
     /**
@@ -52,11 +68,13 @@ public:
      */
     void Finalize();
 
-    /** @brief 現在の内容を Open() したパスへ書き戻す */
+    /** @brief 現在の内容をOpenで指定したパスへ書き戻す */
     void Save();
 
     /**
      * @brief 毎フレーム呼ぶF2でパネルの表示/非表示を切り替える
+     * @param input 編集操作に使用する入力
+     * @param playerPos トリガー判定に使用するプレイヤー位置
      * @note トリガー判定（フラグを立てる処理）はパネルの表示状態に関係なく常に行う
      */
     void Update(engine::Input* input, const Vector3& playerPos);
@@ -70,28 +88,41 @@ public:
      */
     void UpdateObjects(engine::graphics::ParticleManager* pm = nullptr, const Vector3& playerPos = { });
 
-    /** @brief 生成済みオブジェクトを描画する（3Dパス中に毎フレーム呼ぶ） */
+    /** @brief 生成済みオブジェクトを3D描画パスへ描画する */
     void DrawObjects();
 
     /**
      * @brief このフレーム中にDrawObjects()が呼ばれ済みかどうか
+     * @return 描画済みの場合はtrue
      * @note Scene::Draw()内でHUDより前に自分でDrawObjects()を呼んだ場合、
      * BaseScene::Render()側の自動呼び出しをスキップしてブロックの二重描画/UI上乗せを防ぐために使う
      */
     bool WasObjectsDrawnThisFrame() const { return objectsDrawnThisFrame_; }
 
-    /** @brief 配置済みのKnightEnemy一覧（enemy_knight配置分）を返す戦闘判定はScene側がこれを走査して行う */
+    /**
+     * @brief 配置済みのナイト敵一覧を返す
+     * @return エディタが所有する生存期間限定のナイト敵ポインタ一覧
+     * @note 戦闘判定はシーン側が一覧を走査して行う
+     */
     std::vector<KnightEnemy*> GetKnights();
 
     /**
      * @brief solid=trueのオブジェクトのワールドAABB一覧を返す（毎フレーム呼ぶ想定）
+     * @return 現在の配置状態から構築したワールドAABB一覧
      * @note ブロックの追加・移動・削除がそのまま次フレームの当たり判定に反映される
      */
     std::vector<engine::AABB> GetSolidColliders() const;
 
+    /**
+     * @brief 編集UIが表示中か返す
+     * @return 編集UIが表示中の場合はtrue
+     */
     bool IsVisible() const { return visible_; }
 
-    /** @brief エディタ表示中にゲーム更新を停止すべきか返す */
+    /**
+     * @brief エディタ表示中にゲーム更新を停止すべきか返す
+     * @return 編集停止モードの場合はtrue
+     */
     bool ShouldPauseGame() const { return visible_ && !playTestMode_; }
 
     /**
@@ -139,6 +170,13 @@ private:
     void DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu);
     /** @brief enabledとactivationFlagを評価してゲーム側で有効な配置か返す */
     bool IsRuntimeActive(const ObjectDesc& desc) const;
+    /** @brief ノーコード条件を評価して対応するゲームフラグへ反映する */
+    void EvaluateEventConditions(float dt);
+    /** @brief 有効化フラグと遅延から全配置物の実行状態を更新する */
+    void UpdateRuntimeActivation(float dt);
+    /** @brief 実行中の配置物一件へ種別固有の更新を適用する */
+    void UpdateRuntimeEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm,
+        const Vector3& playerPos, float dt);
     /** @brief 敵に設定された巡回ルートへ沿って位置を更新する */
     bool UpdatePatrol(ObjectEntry& entry);
 

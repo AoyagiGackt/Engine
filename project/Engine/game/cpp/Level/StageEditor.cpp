@@ -3,6 +3,7 @@
  * @brief ステージ配置の実体管理と実行時編集ワークフローを実装するファイル
  */
 #include "StageEditor.h"
+#include "StageEditorSelectionService.h"
 #include "StageEditorPrefabService.h"
 #include "Camera.h"
 #include "DebugDraw.h"
@@ -571,10 +572,21 @@ bool StageEditor::IsRuntimeActive(const ObjectDesc& desc) const
 
 void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 {
-    objectsDrawnThisFrame_ = false; // 毎フレームUpdateObjects()が先に呼ばれるのでここでリセットする
+    // 描画済み状態を更新開始時に戻し、BaseScene側の二重描画判定をフレーム単位に保つ
+    objectsDrawnThisFrame_ = false;
     constexpr float kRuntimeDeltaSeconds = 1.0f / 60.0f;
 
-    // ノーコード条件を先に評価し、同じフレーム内で接続先へ反映する
+    // 条件、接続先の有効化、実体の順で更新して同じフレーム内に結果を反映する
+    EvaluateEventConditions(kRuntimeDeltaSeconds);
+    UpdateRuntimeActivation(kRuntimeDeltaSeconds);
+    for (auto& entry : objects_) {
+        UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
+    }
+}
+
+void StageEditor::EvaluateEventConditions(float dt)
+{
+    // ノーコード条件を先に評価し、接続先が参照するゲームフラグへ反映する
     for (auto& condition : objects_) {
         if (!condition.desc.enabled || condition.desc.kind != "event_condition") {
             continue;
@@ -583,7 +595,7 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
             ? GameFlags::GetInstance()->GetFlag("condition_" + condition.desc.name)
             : false;
         if (condition.desc.conditionType == "timer") {
-            condition.runtimeTimer += kRuntimeDeltaSeconds;
+            condition.runtimeTimer += dt;
             met = condition.runtimeTimer >= condition.desc.conditionSeconds;
         } else if (condition.desc.conditionType == "enemy_group_defeated") {
             bool foundEnemy = false;
@@ -607,7 +619,10 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
         }
         GameFlags::GetInstance()->SetFlag("condition_" + condition.desc.name, met);
     }
+}
 
+void StageEditor::UpdateRuntimeActivation(float dt)
+{
     // 対象ごとの遅延を評価する。有効化は成立後に待ち、無効化は成立後も遅延中だけ維持する
     for (auto& entry : objects_) {
         const ObjectDesc& desc = entry.desc;
@@ -618,13 +633,13 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
         if (desc.activationFlag.empty()) {
             entry.runtimeActive = true;
             if (desc.kind == "gimmick") {
-                entry.runtimeTimer += kRuntimeDeltaSeconds;
+                entry.runtimeTimer += dt;
             }
             continue;
         }
         const bool flagValue = GameFlags::GetInstance()->GetFlag(desc.activationFlag);
         if (flagValue) {
-            entry.runtimeTimer += kRuntimeDeltaSeconds;
+            entry.runtimeTimer += dt;
         } else {
             entry.runtimeTimer = 0.0f;
         }
@@ -636,61 +651,62 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
             entry.runtimeActive = false;
         }
     }
+}
 
-    // 親を動かしたら子も追従するよう、毎フレーム親子チェーンを解決してから反映する
-    for (auto& entry : objects_) {
-        if (!entry.runtimeActive) {
-            continue;
+void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
+    const Vector3& playerPos, float dt)
+{
+    if (!entry.runtimeActive) {
+        return;
+    }
+    if (entry.desc.kind == "spawn_point" && !entry.knight && !entry.enemy) {
+        RegenerateInstances(entry);
+        return;
+    }
+    if (entry.desc.kind == "camera_point") {
+        // 編集中は演出用カメラポイントで自由カメラを上書きしない
+        if (visible_ && !playTestMode_) {
+            return;
         }
-        if (entry.desc.kind == "spawn_point" && !entry.knight && !entry.enemy) {
-            if (entry.runtimeActive) {
-                RegenerateInstances(entry);
-            }
-            continue;
+        if (camera_) {
+            const Vector3 targetPosition = WorldPositionOf(entry.desc);
+            Vector3& cameraPosition = camera_->GetTranslate();
+            const float blend = entry.desc.cameraBlendSeconds <= 0.0f
+                ? 1.0f
+                : (std::min)(1.0f, dt / entry.desc.cameraBlendSeconds);
+            cameraPosition.x += (targetPosition.x - cameraPosition.x) * blend;
+            cameraPosition.y += (targetPosition.y - cameraPosition.y) * blend;
+            cameraPosition.z += (targetPosition.z - cameraPosition.z) * blend;
+            camera_->SetRotate(entry.desc.rotation);
         }
-        if (entry.desc.kind == "camera_point") {
-            // 編集中は演出用カメラポイントで自由カメラを上書きしない
-            if (visible_ && !playTestMode_) {
-                continue;
-            }
-            if (camera_) {
-                const Vector3 targetPosition = WorldPositionOf(entry.desc);
-                Vector3& cameraPosition = camera_->GetTranslate();
-                const float blend = entry.desc.cameraBlendSeconds <= 0.0f
-                    ? 1.0f
-                    : (std::min)(1.0f, kRuntimeDeltaSeconds / entry.desc.cameraBlendSeconds);
-                cameraPosition.x += (targetPosition.x - cameraPosition.x) * blend;
-                cameraPosition.y += (targetPosition.y - cameraPosition.y) * blend;
-                cameraPosition.z += (targetPosition.z - cameraPosition.z) * blend;
-                camera_->SetRotate(entry.desc.rotation);
-            }
-            continue;
+        return;
+    }
+    if (entry.desc.kind == "patrol_point" || !IsRuntimeActive(entry.desc)) {
+        return;
+    }
+    if (entry.knight || entry.enemy) {
+        UpdateEnemyEntry(entry, pm, playerPos);
+        return;
+    }
+
+    // 一時的なギミック変形だけを描画実体へ渡し、保存対象の編集値は維持する
+    const Vector3 authoredPosition = entry.desc.position;
+    const Vector3 authoredRotation = entry.desc.rotation;
+    if (entry.desc.kind == "gimmick") {
+        const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
+        if (entry.desc.gimmickMotion == "move_y") {
+            entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
+        } else if (entry.desc.gimmickMotion == "fall") {
+            entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
+        } else if (entry.desc.gimmickMotion == "rotate_y") {
+            entry.desc.rotation.y += phase;
         }
-        if (entry.desc.kind == "patrol_point" || !IsRuntimeActive(entry.desc)) {
-            continue;
-        }
-        if (entry.knight || entry.enemy) {
-            UpdateEnemyEntry(entry, pm, playerPos);
-            continue;
-        }
-        const Vector3 authoredPosition = entry.desc.position;
-        const Vector3 authoredRotation = entry.desc.rotation;
-        if (entry.desc.kind == "gimmick") {
-            const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
-            if (entry.desc.gimmickMotion == "move_y") {
-                entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
-            } else if (entry.desc.gimmickMotion == "fall") {
-                entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
-            } else if (entry.desc.gimmickMotion == "rotate_y") {
-                entry.desc.rotation.y += phase;
-            }
-        }
-        RefreshTransforms(entry);
-        entry.desc.position = authoredPosition;
-        entry.desc.rotation = authoredRotation;
-        for (auto& obj : entry.instances) {
-            obj->Update();
-        }
+    }
+    RefreshTransforms(entry);
+    entry.desc.position = authoredPosition;
+    entry.desc.rotation = authoredRotation;
+    for (auto& obj : entry.instances) {
+        obj->Update();
     }
 }
 
@@ -1022,128 +1038,22 @@ void StageEditor::Redo()
 
 void StageEditor::DeleteSelected()
 {
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-        RecordUndoSnapshotNow();
-        // 選択実体を破棄する前に、GPUからの参照完了を保証する
-        if (modelCommon_ && modelCommon_->GetDxCommon()) {
-            modelCommon_->GetDxCommon()->WaitForGpu();
-        }
-        std::vector<int> targets = selectedObjectIndices_.empty()
-            ? std::vector<int> { selIndex_ }
-            : selectedObjectIndices_;
-        std::sort(targets.begin(), targets.end());
-        targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
-        for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
-            const int index = *it;
-            if (index < 0 || index >= static_cast<int>(objects_.size())) {
-                continue;
-            }
-            // 子の親参照を外してから消し、子のワールド位置を維持する
-            const std::string deletedName = objects_[index].desc.name;
-            for (auto& other : objects_) {
-                if (other.desc.parent == deletedName) {
-                    other.desc.position = WorldPositionOf(other.desc);
-                    other.desc.parent.clear();
-                }
-            }
-            DestroyObjectRuntime(objects_[index], true);
-            objects_.erase(objects_.begin() + index);
-        }
-    } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-        RecordUndoSnapshotNow();
-        triggers_.erase(triggers_.begin() + selIndex_);
-    } else {
-        // エンティティ(Player/Enemy等)はエディタが生成したものではないため削除の対象外
-        return;
-    }
-    selKind_ = SelKind::None;
-    selIndex_ = -1;
-    selectedObjectIndices_.clear();
+    StageEditorSelectionService::DeleteSelected(*this);
 }
 
 void StageEditor::DuplicateSelected()
 {
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-        RecordUndoSnapshotNow();
-        const std::vector<int> sources = selectedObjectIndices_.empty()
-            ? std::vector<int> { selIndex_ }
-            : selectedObjectIndices_;
-        std::vector<ObjectDesc> copies;
-        for (int index : sources) {
-            if (index >= 0 && index < static_cast<int>(objects_.size())) {
-                copies.push_back(objects_[index].desc);
-            }
-        }
-        selectedObjectIndices_.clear();
-        for (ObjectDesc& desc : copies) {
-            ObjectEntry entry;
-            entry.desc = std::move(desc);
-            // 名前はEnemyRegistryと親子参照のキーになるため新規で振り直す
-            entry.desc.name = "obj_" + std::to_string(nextSerial_++);
-            entry.desc.parent.clear();
-            entry.desc.position.x += snapEnabled_ ? snapStep_ : 1.0f;
-            objects_.push_back(std::move(entry));
-            RegenerateInstances(objects_.back());
-            selectedObjectIndices_.push_back(static_cast<int>(objects_.size()) - 1);
-        }
-        selKind_ = SelKind::Object;
-        selIndex_ = static_cast<int>(objects_.size()) - 1;
-        statusMessage_ = "複製しました";
-        statusTimer_ = 1.5f;
-    } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-        RecordUndoSnapshotNow();
-        TriggerDesc desc = triggers_[selIndex_].GetDesc();
-        desc.name = "trigger_" + std::to_string(nextSerial_++);
-        desc.position.x += snapEnabled_ ? snapStep_ : 1.0f;
-        TriggerVolume trg;
-        trg.Init(desc);
-        triggers_.push_back(std::move(trg));
-        selKind_ = SelKind::Trigger;
-        selIndex_ = static_cast<int>(triggers_.size()) - 1;
-        statusMessage_ = "複製しました";
-        statusTimer_ = 1.5f;
-    }
+    StageEditorSelectionService::DuplicateSelected(*this);
 }
 
 void StageEditor::CopySelected()
 {
-    objectClipboard_.clear();
-    if (selKind_ != SelKind::Object) {
-        return;
-    }
-    const std::vector<int> sources = selectedObjectIndices_.empty()
-        ? std::vector<int> { selIndex_ }
-        : selectedObjectIndices_;
-    for (int index : sources) {
-        if (index >= 0 && index < static_cast<int>(objects_.size())) {
-            objectClipboard_.push_back(objects_[index].desc);
-        }
-    }
-    statusMessage_ = std::to_string(objectClipboard_.size()) + "個コピーしました";
-    statusTimer_ = 1.5f;
+    StageEditorSelectionService::CopySelected(*this);
 }
 
 void StageEditor::PasteClipboard()
 {
-    if (objectClipboard_.empty()) {
-        return;
-    }
-    RecordUndoSnapshotNow();
-    selectedObjectIndices_.clear();
-    for (const ObjectDesc& source : objectClipboard_) {
-        ObjectEntry entry;
-        entry.desc = source;
-        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
-        entry.desc.parent.clear();
-        entry.desc.position.x += snapEnabled_ ? snapStep_ : 1.0f;
-        objects_.push_back(std::move(entry));
-        RegenerateInstances(objects_.back());
-        selectedObjectIndices_.push_back(static_cast<int>(objects_.size()) - 1);
-    }
-    selKind_ = SelKind::Object;
-    selIndex_ = selectedObjectIndices_.back();
-    statusMessage_ = std::to_string(selectedObjectIndices_.size()) + "個貼り付けました";
-    statusTimer_ = 1.5f;
+    StageEditorSelectionService::PasteClipboard(*this);
 }
 
 float StageEditor::SnapValue(float v) const

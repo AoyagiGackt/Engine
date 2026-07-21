@@ -1,4 +1,5 @@
 #include "BattleTestScene.h"
+#include "BattleTestSceneRenderer.h"
 #include "AudioBridge.h"
 #include "Collision.h"
 #include "DebugDraw.h"
@@ -287,6 +288,11 @@ void BattleTestScene::Update()
         return;
     }
 
+    UpdateSceneFlow();
+}
+
+void BattleTestScene::UpdateSceneFlow()
+{
     fontRenderer_.Reset();
 
     // StageEditor::Update()（F2トグル・パネル・トリガー判定）と、エディタ表示中の一時停止分岐は
@@ -1499,116 +1505,7 @@ void BattleTestScene::DrawColliderDebug()
 
 void BattleTestScene::Draw()
 {
-    // ガラス割れ演出中（かつキャプチャ済み）は通常描画をスキップ
-    if (glassShatter_.IsActive() && !glassShatter_.NeedCapture()) {
-        spriteCommon_->CommonDrawSettings();
-        glassShatterBgSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
-        glassShatterBgSprite_->Update();
-        glassShatterBgSprite_->Draw();
-        glassShatter_.Apply();
-        return;
-    }
-
-    shadowManager_->BeginShadowPass(dxCommon_->GetCommandList());
-    modelCommon_->BeginShadowPass();
-    shadowManager_->EndShadowPass(dxCommon_->GetCommandList());
-
-    ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-    SetupMainRenderTarget();
-
-    modelCommon_->CommonDrawSettings();
-    objectCommon_->SetDefaultLight(cmd);
-    shadowManager_->SetShadowMap(cmd, srvManager_);
-
-    // GetStageEditor().DrawObjects()はBaseScene::Render()がDraw()の後に自動で呼ぶ
-    // （フレーム最後に上乗せ描画になる代わりに、呼び出し位置を自分で気にしなくてよい）
-    for (auto& city : cityBackgroundObjects_) {
-        city->Draw();
-    }
-    for (auto& p : warpPortalBlocks_) {
-        p->Draw();
-    }
-    for (auto& d : dummies_) {
-        if (!d.sliced) {
-            d.object->Draw();
-        }
-    }
-    bulletPool_.Draw();
-    if (knight_) {
-        knight_->Draw();
-    }
-    player_->Draw();
-    dummySlice_.Draw();
-
-    // パーティクル（PreDraw でコマンドリストがリセットされるため Draw() 内で呼ぶ）
-    pm_->Update(camera_.get());
-    pm_->Draw(camera_.get());
-
-    bladeFlash_.Draw();
-
-    // ステージエディタの配置ブロックはここで描く（HUDテキストより前＝ブロックがUIパネルに重ならないように）
-    // BaseScene::Render()側の自動呼び出しはWasObjectsDrawnThisFrame()で自動的にスキップされる
-    GetStageEditor().DrawObjects();
-
-    // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
-    if (spaceWarp_.IsActive()
-        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
-        // スコープを抜けた瞬間に必ずレンダーターゲット設定を戻す（歪み描画がRTを変えるため）
-        PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
-        spaceWarp_.CaptureAndApply();
-    }
-
-    // HP バー + テキスト UI（2D スプライト）
-    spriteCommon_->CommonDrawSettings();
-    for (auto& d : dummies_) {
-        if (d.hp > 0.0f) {
-            d.hpBarBg->Draw();
-            d.hpBarFg->Draw();
-        }
-    }
-    awakenGaugeBg_->Draw();
-    if (player_->GetAwakenGauge() > 0.0f) {
-        awakenGaugeFg_->Draw();
-    }
-    styleMeter_.DrawHud(); // ランクゲージのバー（文字は fontRenderer_ が描く）
-    DrawWeaponSlotHud();
-
-    // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
-    // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
-    const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
-    if (finisherActive_ || captureFrame) {
-        finisherOverlay_->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
-        finisherOverlay_->Update();
-        finisherOverlay_->Draw();
-    }
-    SlashMark::GetInstance()->Draw();
-
-    // 解放時の世界割れ（暗転+斬撃線ごと凍った画面を砕き、下から素の世界が現れる）
-    if (finisherShatter_.IsActive()
-        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
-        if (finisherShatter_.NeedCapture()) {
-            finisherShatter_.CaptureFrame();
-        }
-        // スコープを抜けた瞬間に、Apply が変えたレンダーターゲットとルートシグネチャを後続のスプライト描画用に戻す
-        PipelineStateGuard restoreGuard([this] {
-            SetupMainRenderTarget();
-            spriteCommon_->CommonDrawSettings();
-        });
-        finisherShatter_.Apply();
-    }
-
-    fontRenderer_.Draw();
-
-    // ガラス割れはバックバッファをコピーするため、ポストエフェクト用RTVへ
-    // 描画中は実行しない。別RTVの描画中にバックバッファを
-    // RENDER_TARGET として遷移すると、GPU検証エラーになる。
-    if (glassShatter_.IsActive()
-        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
-        if (glassShatter_.NeedCapture()) {
-            glassShatter_.CaptureFrame();
-        }
-        glassShatter_.Apply();
-    }
+    BattleTestSceneRenderer::Draw(*this);
 }
 
 void BattleTestScene::Finalize()

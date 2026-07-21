@@ -1,4 +1,5 @@
 #include "GamePlayScene.h"
+#include "GamePlaySceneInitializer.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
@@ -35,9 +36,14 @@ using namespace engine::game;
 
 void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
-    // 引数のポインタをメンバ変数に保存しておく（後で Update/Draw からも使えるように）
+    // 外部から受け取る共通依存だけを入口で保持し、所有資源の構築は下請けへ委譲する
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
+    InitializeCoreSystems();
+}
 
+void GamePlayScene::InitializeCoreSystems()
+{
+    // 3D描画基盤を先に構築し、後続のゲーム実体が安全にモデルを生成できる状態にする
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
 
@@ -71,128 +77,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
 
-    {
-        auto levelData = LevelLoader::Load("Resources/Levels/level01.json");
-
-        player_ = std::make_unique<Player>();
-        player_->Initialize(modelCommon_.get());
-        player_->SetPosition(levelData.playerSpawn);
-        PlayerBridge::GetInstance()->SetPlayer(player_.get());
-        AudioBridge::GetInstance()->SetAudio(audio_);
-
-        {
-            auto* rd = RunData::GetInstance();
-            if (rd->IsRunActive()) {
-                Player::SkillMods mods;
-                if (rd->HasSkill(RunData::Skill::BlinkPlus)) {
-                    mods.blinkDistMult = 1.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::ComboExtend)) {
-                    mods.comboMaxBonus = 1;
-                }
-                if (rd->HasSkill(RunData::Skill::FastFire)) {
-                    mods.fireIntervalMult = 0.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::AwakenBoost)) {
-                    mods.gaugeChargeMult = 1.5f;
-                }
-                if (rd->HasSkill(RunData::Skill::SpeedUp)) {
-                    mods.speedMult = 1.2f;
-                }
-                if (rd->HasSkill(RunData::Skill::HighJump)) {
-                    mods.jumpMult = 1.25f;
-                }
-                if (rd->HasSkill(RunData::Skill::JuggleExtend)) {
-                    mods.juggleMaxBonus = 4;
-                }
-                player_->ApplySkillMods(mods);
-            }
-        }
-
-        enemy_ = std::make_unique<EnemyEntity>();
-        enemy_->Initialize(modelCommon_.get(), levelData.enemySpawn, WeaponType::Hammer);
-        enemy_->SetId("enemy");
-        EnemyRegistry::GetInstance()->Register(enemy_->GetId(), enemy_.get());
-        {
-            auto* rd = RunData::GetInstance();
-            if (rd->IsRunActive()) {
-                int hp = 20;
-                if (rd->GetCurrentNode() == RunData::NodeType::Elite) {
-                    hp = 35;
-                } else if (rd->GetCurrentNode() == RunData::NodeType::Boss) {
-                    hp = 60;
-                }
-                enemy_->SetMaxHp(hp);
-            }
-        }
-        enemy_->SetColor({ 0.9f, 0.65f, 0.15f, 1.0f });
-
-        // 道中に剣と槍を持つ敵を配置し、倒した順にスロットを埋める
-        struct WeaponEnemySpawn {
-            Vector3 position;
-            WeaponType type;
-            Vector4 color;
-        };
-        const WeaponEnemySpawn weaponEnemySpawns[] = {
-            { { 12.0f, 0.4f, 0.0f }, WeaponType::Sword, { 1.0f, 0.3f, 0.15f, 1.0f } },
-            { { 21.0f, 0.4f, 0.0f }, WeaponType::Spear, { 0.25f, 0.75f, 1.0f, 1.0f } },
-            { { 30.0f, 0.4f, 0.0f }, WeaponType::Dagger, { 0.15f, 0.85f, 1.0f, 1.0f } },
-        };
-        for (const auto& spawn : weaponEnemySpawns) {
-            WeaponEnemyEntry entry;
-            entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_.get(), spawn.position, spawn.type);
-            entry.enemy->SetMaxHp(5);
-            entry.enemy->SetColor(spawn.color);
-            entry.weaponType = spawn.type;
-            weaponEnemies_.push_back(std::move(entry));
-        }
-
-        // 固有技を使うまで次区画へ進めない二つの障壁を生成する
-        gimmickBlockModel_ = std::make_unique<Model>();
-        gimmickBlockModel_->Initialize(modelCommon_.get(),
-            "Resources/block/block.obj", "Resources/white.png");
-
-        swordGate_ = std::make_unique<Object3d>();
-        swordGate_->Initialize(modelCommon_.get());
-        swordGate_->SetModel(gimmickBlockModel_.get());
-        swordGate_->SetPosition({ 17.5f, 4.5f, 0.0f });
-        swordGate_->SetScale({ 1.0f, 10.0f, 1.0f });
-        swordGate_->SetColor({ 0.90f, 0.08f, 0.03f, 1.0f });
-        swordGate_->SetEnableLighting(false);
-        swordGate_->Update();
-
-        spearGate_ = std::make_unique<Object3d>();
-        spearGate_->Initialize(modelCommon_.get());
-        spearGate_->SetModel(gimmickBlockModel_.get());
-        spearGate_->SetPosition({ 25.5f, 4.5f, 0.0f });
-        spearGate_->SetScale({ 1.0f, 10.0f, 1.0f });
-        spearGate_->SetColor({ 0.04f, 0.35f, 0.95f, 1.0f });
-        spearGate_->SetEnableLighting(false);
-        spearGate_->Update();
-
-        // 足場の寄り道へ配置するエネルギーコアを生成する
-        energyCoreModel_ = std::make_unique<Model>();
-        energyCoreModel_->Initialize(modelCommon_.get(),
-            "Resources/block/block.obj", "Resources/circle2.png");
-        const Vector3 energyCorePositions[] = {
-            { 9.5f, 2.3f, 0.0f },
-            { 15.5f, 4.1f, 0.0f },
-            { 21.0f, 6.1f, 0.0f },
-        };
-        for (const Vector3& position : energyCorePositions) {
-            EnergyCoreEntry entry;
-            entry.position = position;
-            entry.object = std::make_unique<Object3d>();
-            entry.object->Initialize(modelCommon_.get());
-            entry.object->SetModel(energyCoreModel_.get());
-            entry.object->SetPosition(position);
-            entry.object->SetScale({ 0.35f, 0.35f, 0.35f });
-            entry.object->SetEnableLighting(false);
-            entry.object->Update();
-            energyCores_.push_back(std::move(entry));
-        }
-    }
+    GamePlaySceneInitializer::InitializeStageActors(*this);
 
     scoreManager_->LoadScores();
     scoreManager_->ResetCurrentScore();

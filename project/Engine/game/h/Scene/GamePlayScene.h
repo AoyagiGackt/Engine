@@ -82,14 +82,39 @@ using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
 
 class ScoreManager;
+class GamePlaySceneInitializer;
 
+/**
+ * @brief メインステージの戦闘、進行、演出、描画を統括する
+ *
+ * プレイヤーと敵のゲーム進行を調停し、個別システムの更新結果を描画パスへ渡す。
+ */
 class GamePlayScene : public BaseScene {
+    friend class GamePlaySceneInitializer;
+
 public:
+    /**
+     * @brief シーンで使用するゲーム実体と描画資源を初期化する
+     * @param dxCommon DirectXの共通処理
+     * @param input 入力管理
+     * @param audio 音声管理
+     */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /** @brief シーン固有の演出資源と登録済みコールバックを破棄する */
     void Finalize() override;
+    /** @brief ゲーム進行、戦闘、カメラ、演出を更新する */
     void Update() override;
+    /** @brief 3Dワールドと画面UIを描画する */
     void Draw() override;
+    /**
+     * @brief シーン調整パネルに使用するImGui管理を設定する
+     * @param imgui 使用するImGui管理
+     */
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
+    /**
+     * @brief ポストエフェクト対応の有無を返す
+     * @return 常にtrue
+     */
     bool SupportsPostEffects() const override { return true; }
 
     /**
@@ -98,25 +123,46 @@ public:
      */
     Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
 
-    /** @brief ステージエディタが読み書きするレベルファイルを返す */
+    /**
+     * @brief ステージエディタが読み書きするレベルファイルを返す
+     * @return レベルJSONのパス
+     */
     std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
-    /** @brief ステージ配置物の生成に使用するモデル共通処理を返す */
+    /**
+     * @brief ステージ配置物の生成に使用するモデル共通処理を返す
+     * @return シーンが所有するモデル共通処理
+     */
     ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
-    /** @brief ステージエディタの表示と操作に使用するカメラを返す */
+    /**
+     * @brief ステージエディタの表示と操作に使用するカメラを返す
+     * @return シーンが所有するカメラ
+     */
     Camera* GetEditorCamera() override { return camera_.get(); }
-    /** @brief エディタ配置敵の演出に使用するパーティクル管理を返す */
+    /**
+     * @brief エディタ配置敵の演出に使用するパーティクル管理を返す
+     * @return 共有パーティクル管理
+     */
     ParticleManager* GetEditorParticleManager() override { return pm_; }
-    /** @brief エディタ操作で直接更新するプレイヤー位置を返す */
+    /**
+     * @brief エディタ操作で直接更新するプレイヤー位置を返す
+     * @return プレイヤー未生成時はnullptr
+     */
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
     /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
     void RefreshVisualTransformsForEditor() override;
 
-    /** @brief ImGuiパネルからの手動テスト再生用 */
+    /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
 
+    /**
+     * @brief 追加ホットキーの案内文字列を返す
+     * @return シーン調整パネルのホットキー文字列
+     */
     const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル"; }
 
 private:
+    /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
+    void InitializeCoreSystems();
     // シャドウマップ描画パス
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画

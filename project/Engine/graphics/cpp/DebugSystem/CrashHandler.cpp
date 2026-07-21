@@ -1,19 +1,14 @@
 #include "CrashHandler.h"
+#include "CrashContext.h"
 #include "Logger.h"
 #include <DbgHelp.h>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <mutex>
 #include <string>
 #pragma comment(lib, "Dbghelp.lib")
 
 namespace engine {
-
-namespace {
-std::mutex gContextMutex;
-std::string gCrashContext = "Engine initialization";
-}
 
 void CrashHandler::Install()
 {
@@ -22,8 +17,7 @@ void CrashHandler::Install()
 
 void CrashHandler::SetContext(const std::string& context)
 {
-    std::scoped_lock lock(gContextMutex);
-    gCrashContext = context;
+    CrashContext::GetInstance().Set(context);
 }
 
 LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
@@ -34,11 +28,7 @@ LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
         exceptionInfo->ExceptionRecord->ExceptionAddress);
     Logger::LogError(message);
 
-    std::string context;
-    {
-        std::scoped_lock lock(gContextMutex);
-        context = gCrashContext;
-    }
+    const std::string context = CrashContext::GetInstance().Get();
     Logger::LogError("Crash context: " + context);
 
     std::error_code ec;

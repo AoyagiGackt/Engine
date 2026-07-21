@@ -169,12 +169,14 @@
     <ClCompile Include="Engine\game\cpp\Core\Object\GameObject.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\KnightEnemy.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneInitializer.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp" />
@@ -203,6 +205,7 @@
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPrefabService.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp" />
@@ -220,6 +223,7 @@
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashContext.cpp" />
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
@@ -583,6 +587,7 @@
     <ClInclude Include="Engine\game\h\Util\BorderBlockBuilder.h" />
     <ClInclude Include="Engine\game\h\Effect\AfterImageRenderer.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h" />
+    <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\BulletPool.h" />
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h" />
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h" />
@@ -590,6 +595,7 @@
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
     <ClInclude Include="Engine\game\h\Effect\Easing.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h" />
+    <ClInclude Include="Engine\game\h\Scene\GamePlaySceneInitializer.h" />
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h" />
     <ClInclude Include="Engine\game\h\Core\App\SaveData.h" />
     <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h" />
@@ -612,6 +618,7 @@
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
     <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\CrashHandler.h" />
+    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashContext.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h" />
     <ClInclude Include="Engine\graphics\h\DebugSystem\Logger.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneFactory.h" />
@@ -696,6 +703,7 @@
     <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h" />
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditor.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h" />

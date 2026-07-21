@@ -10,6 +10,16 @@
     <Filter Include="Shader">
       <UniqueIdentifier>{3502162c-944c-4403-9663-e77a4278663d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader\object3d"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a01}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\Particle"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a02}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\cylinder"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a03}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\postprocess"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a04}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\ring"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a05}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\meshslice"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a06}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\bladeflash"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a07}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\skinned"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a08}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\debug"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a09}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\lighting"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a10}</UniqueIdentifier></Filter>
     <Filter Include="ソースファイル\Engine">
       <UniqueIdentifier>{ecf378af-ef5f-459c-96c3-5a7ff63ac010}</UniqueIdentifier>
     </Filter>
@@ -255,6 +265,9 @@
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneRenderer.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
@@ -271,6 +284,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneInitializer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp">
@@ -357,6 +373,9 @@
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
@@ -406,6 +425,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashHandler.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\DebugSystem\CrashContext.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\DebugSystem</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\DebugSystem\Logger.cpp">
@@ -622,6 +644,9 @@
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\BulletPool.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -641,6 +666,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\GamePlaySceneInitializer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h">
@@ -730,6 +758,9 @@
     <ClInclude Include="Engine\game\h\Level\StageEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
@@ -755,6 +786,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Core\Lighting</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\CrashHandler.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\DebugSystem\CrashContext.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\DebugSystem</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\DebugSystem\EngineAssert.h">
@@ -1005,129 +1039,129 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resources\shaders\object3d\Object3dPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\object3d</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\object3d\Object3dVS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\object3d</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\object3d\ShadowVS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\object3d</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\Particle\EmitParticle.CS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Particle</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\Particle\Particle.PS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Particle</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\Particle\Particle.VS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Particle</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\cylinder\Cylinder.VS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\cylinder</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\cylinder\Cylinder.PS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\cylinder</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\VignettePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\ring\Ring.VS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\ring</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\ring\Ring.PS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\ring</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\meshslice\MeshSlice.VS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\meshslice</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\meshslice\MeshSlice.PS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\meshslice</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\bladeflash\BladeFlash.VS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\bladeflash</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\bladeflash\BladeFlash.PS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\bladeflash</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\SpaceDistortionPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\skinned\SkinnedVS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\skinned</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\skinned\SkinningCS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\skinned</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\Particle\ParticleUpdate.CS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Particle</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\debug\SkeletonDebugVS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\debug</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\debug\SkeletonDebugPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\debug</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\FullscreenVS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\GrayscalePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\HsvFilterPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\KernelFilterPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\GaussianFilterPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\PrewittEdgePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\DepthOutlinePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\RadialBlurPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\DissolvePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\NoisePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\BloomBrightPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\BloomBlurPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\BloomCombinePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\NormalCapturePS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\SSAOPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\SSAOBlurPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\SSAOApplyPS.hlsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\postprocess</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\shaders\lighting\LightingMode.hlsli">
-      <Filter>Shader</Filter>
+      <Filter>Shader\lighting</Filter>
     </None>
     <None Include="Resources\shaders\object3d\Object3d.hlsli">
-      <Filter>Shader</Filter>
+      <Filter>Shader\object3d</Filter>
     </None>
     <None Include="Resources\shaders\Particle\Particle.hlsli">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Particle</Filter>
     </None>
   </ItemGroup>
 </Project>

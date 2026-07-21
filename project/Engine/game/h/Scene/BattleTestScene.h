@@ -40,6 +40,7 @@ class HsvFilter;
 }
 
 namespace engine::game {
+class BattleTestSceneRenderer;
 using engine::Audio;
 using engine::DirectXCommon;
 using engine::Input;
@@ -64,27 +65,70 @@ using engine::graphics::SrvManager;
 
 /** @brief 訓練マネキン相手にコンボ・武器を試せるデバッグ用シーン */
 class BattleTestScene : public BaseScene {
+    friend class BattleTestSceneRenderer;
+
 public:
+    /**
+     * @brief 訓練用のゲーム実体と描画資源を初期化する
+     * @param dxCommon DirectXの共通処理
+     * @param input 入力管理
+     * @param audio 音声管理
+     */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
+    /** @brief 訓練シーン固有の演出資源を破棄する */
     void Finalize() override;
+    /** @brief 訓練用の操作、戦闘、敵、演出を更新する */
     void Update() override;
+    /** @brief 訓練ステージとHUDを描画する */
     void Draw() override;
+    /**
+     * @brief デバッグパネルに使用するImGui管理を設定する
+     * @param imgui 使用するImGui管理
+     */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
+    /**
+     * @brief ポストエフェクト対応の有無を返す
+     * @return 常にtrue
+     */
     bool SupportsPostEffects() const override { return true; }
 
-    /** @brief ImGuiパネルからの手動テスト再生用 */
+    /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
 
     /** @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する） */
     Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
 
+    /**
+     * @brief 追加ホットキーの案内文字列を返す
+     * @return コライダー表示のホットキー文字列
+     */
     const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
+    /**
+     * @brief ステージエディタが読み書きするレベルファイルを返す
+     * @return レベルJSONのパス
+     */
     std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    /**
+     * @brief 配置物生成に使用するモデル共通処理を返す
+     * @return シーンが所有するモデル共通処理
+     */
     ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    /**
+     * @brief 編集ビューに使用するカメラを返す
+     * @return シーンが所有するカメラ
+     */
     Camera* GetEditorCamera() override { return camera_.get(); }
+    /**
+     * @brief 配置敵の演出に使用するパーティクル管理を返す
+     * @return 共有パーティクル管理
+     */
     ParticleManager* GetEditorParticleManager() override { return pm_; }
+    /**
+     * @brief 編集操作で直接更新するプレイヤー位置を返す
+     * @return プレイヤー未生成時はnullptr
+     */
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
@@ -102,6 +146,8 @@ private:
     void InitializeHud();
     /** @brief Initialize()の下請け 画面演出エフェクト（ガラス割れ・刃・空間歪み・切断・世界割れ）を初期化する */
     void InitializeEffects();
+    /** @brief 訓練シーンの入力、戦闘、演出、HUD更新を順序付けて実行する */
+    void UpdateSceneFlow();
 
     // 訓練用マネキン（動かない敵）
     struct Dummy {

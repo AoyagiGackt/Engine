@@ -1,25 +1,29 @@
+/**
+ * @file TimeManager.h
+ * @brief 時間倍率とヒットストップを管理するファイル
+ */
 #pragma once
 namespace engine {
-// タイムスケール制御 & ヒットストップ管理
-// - SetTimeScale(0.3f) でスローモーション
-// - RequestHitStop(4)  で 4 フレーム一時停止（連続リクエストは最大値を採用）
-// - GetDeltaTime()     はヒットストップ中 0、スロー中は比例値を返す
+/** @brief ゲーム全体の時間倍率とヒットストップ残量を一元管理する */
 class TimeManager {
 public:
+    /** @brief 共有時間管理を返す @return 時間管理のポインタ */
     static TimeManager* GetInstance();
 
-    // 毎フレーム Game::Update() の先頭で呼ぶ
+    /** @brief ヒットストップの残りフレームを更新する */
     void Update();
 
-    // timers や物理に渡す dt（ヒットストップ中=0, 通常=1/60, スロー=比例値）
+    /** @brief 時間倍率と停止状態を反映したフレーム間隔を返す @return ゲーム更新用の秒数 */
     float GetDeltaTime() const;
+    /** @brief 現在の時間倍率を返す @return 時間倍率 */
     float GetTimeScale() const { return timeScale_; }
+    /** @brief ヒットストップ中か返す @return 停止中の場合はtrue */
     bool IsHitStopped() const { return hitStopFrames_ > 0; }
 
-    // 0.0=完全停止 / 0.5=スロー / 1.0=通常
+    /** @brief ゲーム更新へ適用する時間倍率を設定する @param scale 0で停止、1で通常速度となる倍率 */
     void SetTimeScale(float scale);
 
-    // N フレーム時間を止める（既存残量との最大値を採用）
+    /** @brief 指定フレーム数のヒットストップを要求する @param frames 停止するフレーム数 */
     void RequestHitStop(int frames);
 
     static constexpr float kBaseDeltaTime = 1.0f / 60.0f;
