@@ -258,7 +258,27 @@ Vector3 StageEditor::ParentWorldPositionOf(const ObjectDesc& desc) const
 
 Vector3 StageEditor::WorldPositionOf(const ObjectDesc& desc) const
 {
-    return ParentWorldPositionOf(desc) + desc.position;
+    Vector3 result = desc.position;
+    const ObjectDesc* cur = &desc;
+    for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
+        const ObjectDesc* parent = nullptr;
+        for (const auto& entry : objects_) {
+            if (entry.desc.name == cur->parent) {
+                parent = &entry.desc;
+                break;
+            }
+        }
+        if (!parent) {
+            break;
+        }
+        const float c = std::cos(parent->rotation.z);
+        const float s = std::sin(parent->rotation.z);
+        result = { result.x * c - result.y * s + parent->position.x,
+            result.x * s + result.y * c + parent->position.y,
+            result.z + parent->position.z };
+        cur = parent;
+    }
+    return result;
 }
 
 bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::string& selfName) const
@@ -481,15 +501,40 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selIndex_ = static_cast<int>(objects_.size()) - 1;
 }
 
-void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position)
+void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
+    std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
+    std::function<void(const std::string&)> setStaticVisualModel)
 {
     for (auto& ref : externalEntities_) {
         if (ref.name == name) {
+            ref.getVisualPreset = std::move(getVisualPreset);
+            ref.setVisualPreset = std::move(setVisualPreset);
+            ref.setStaticVisualModel = std::move(setStaticVisualModel);
             ref.position = position; // 同名なら上書き（Scene再初期化等での再登録に備える）
             return;
         }
     }
-    externalEntities_.push_back({ name, position });
+    externalEntities_.push_back({ name, position, nullptr, std::move(getVisualPreset), std::move(setVisualPreset), std::move(setStaticVisualModel) });
+}
+
+void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object)
+{
+    if (!object) {
+        return;
+    }
+    Vector3* position = &object->GetTransform().translate;
+    for (auto& ref : externalEntities_) {
+        if (ref.name == name) {
+            ref.position = position;
+            ref.object = object;
+            return;
+        }
+    }
+    ExternalEntityRef ref;
+    ref.name = name;
+    ref.position = position;
+    ref.object = object;
+    externalEntities_.push_back(std::move(ref));
 }
 
 std::vector<engine::AABB> StageEditor::GetSolidColliders() const
@@ -710,6 +755,16 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
         return;
     }
 
+    // rotate_z の子は親側で同じ一時回転中に更新する。ここで更新し直すと元位置へ戻ってしまう。
+    if (!entry.desc.parent.empty()) {
+        for (const auto& candidate : objects_) {
+            if (candidate.desc.name == entry.desc.parent && candidate.desc.kind == "gimmick"
+                && candidate.desc.gimmickMotion == "rotate_z") {
+                return;
+            }
+        }
+    }
+
     // 一時的なギミック変形だけを描画実体へ渡し、保存対象の編集値は維持する
     const Vector3 authoredPosition = entry.desc.position;
     const Vector3 authoredRotation = entry.desc.rotation;
@@ -721,9 +776,21 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
             entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
         } else if (entry.desc.gimmickMotion == "rotate_y") {
             entry.desc.rotation.y += phase;
+        } else if (entry.desc.gimmickMotion == "rotate_z") {
+            entry.desc.rotation.z += phase;
         }
     }
     RefreshTransforms(entry);
+    if (entry.desc.gimmickMotion == "rotate_z") {
+        for (auto& child : objects_) {
+            if (child.desc.parent == entry.desc.name) {
+                RefreshTransforms(child);
+                for (auto& obj : child.instances) {
+                    obj->Update();
+                }
+            }
+        }
+    }
     entry.desc.position = authoredPosition;
     entry.desc.rotation = authoredRotation;
     for (auto& obj : entry.instances) {
@@ -2059,19 +2126,123 @@ void StageEditor::UpdateViewportInteraction()
             }
         };
 
+        auto considerModelBounds = [&](const ObjectEntry& entry, int index) {
+            if (entry.instances.empty() || !entry.instances.front()->GetModel()) {
+                return;
+            }
+            const auto& vertices = entry.instances.front()->GetModel()->GetVertices();
+            if (vertices.empty()) {
+                return;
+            }
+
+            const ObjectDesc& desc = entry.desc;
+            const Matrix4x4 worldMatrix = MakeAffineMatrix(desc.scale, desc.rotation, WorldPositionOf(desc));
+            float minX = FLT_MAX;
+            float minY = FLT_MAX;
+            float maxX = -FLT_MAX;
+            float maxY = -FLT_MAX;
+            bool projected = false;
+            for (const auto& vertex : vertices) {
+                const Vector4& p = vertex.position;
+                Vector3 worldVertex = {
+                    p.x * worldMatrix.m[0][0] + p.y * worldMatrix.m[1][0] + p.z * worldMatrix.m[2][0] + worldMatrix.m[3][0],
+                    p.x * worldMatrix.m[0][1] + p.y * worldMatrix.m[1][1] + p.z * worldMatrix.m[2][1] + worldMatrix.m[3][1],
+                    p.x * worldMatrix.m[0][2] + p.y * worldMatrix.m[1][2] + p.z * worldMatrix.m[2][2] + worldMatrix.m[3][2]
+                };
+                ImVec2 screen;
+                if (!DiagnosticsDraw::WorldToScreen(worldVertex, screen)) {
+                    continue;
+                }
+                projected = true;
+                minX = (std::min)(minX, screen.x);
+                minY = (std::min)(minY, screen.y);
+                maxX = (std::max)(maxX, screen.x);
+                maxY = (std::max)(maxY, screen.y);
+            }
+            constexpr float kPickPadding = 4.0f;
+            if (projected && m.x >= minX - kPickPadding && m.x <= maxX + kPickPadding
+                && m.y >= minY - kPickPadding && m.y <= maxY + kPickPadding && bestDist > 0.0f) {
+                bestDist = 0.0f;
+                bestKind = SelKind::Object;
+                bestIdx = index;
+            }
+        };
+
+        auto considerExternalObjectBounds = [&](const ExternalEntityRef& ref, int index) {
+            if (!ref.object || !ref.object->GetModel()) {
+                return;
+            }
+            const auto& vertices = ref.object->GetModel()->GetVertices();
+            const Transform& transform = ref.object->GetTransform();
+            const Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
+            float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
+            bool projected = false;
+            for (const auto& vertex : vertices) {
+                const Vector4& p = vertex.position;
+                Vector3 worldVertex = {
+                    p.x * worldMatrix.m[0][0] + p.y * worldMatrix.m[1][0] + p.z * worldMatrix.m[2][0] + worldMatrix.m[3][0],
+                    p.x * worldMatrix.m[0][1] + p.y * worldMatrix.m[1][1] + p.z * worldMatrix.m[2][1] + worldMatrix.m[3][1],
+                    p.x * worldMatrix.m[0][2] + p.y * worldMatrix.m[1][2] + p.z * worldMatrix.m[2][2] + worldMatrix.m[3][2]
+                };
+                ImVec2 screen;
+                if (!DiagnosticsDraw::WorldToScreen(worldVertex, screen)) {
+                    continue;
+                }
+                projected = true;
+                minX = (std::min)(minX, screen.x);
+                minY = (std::min)(minY, screen.y);
+                maxX = (std::max)(maxX, screen.x);
+                maxY = (std::max)(maxY, screen.y);
+            }
+            constexpr float kPickPadding = 4.0f;
+            if (projected && m.x >= minX - kPickPadding && m.x <= maxX + kPickPadding
+                && m.y >= minY - kPickPadding && m.y <= maxY + kPickPadding && bestDist > 0.0f) {
+                bestDist = 0.0f;
+                bestKind = SelKind::External;
+                bestIdx = index;
+            }
+        };
+
         for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            considerModelBounds(objects_[i], i);
             consider(WorldPositionOf(objects_[i].desc), SelKind::Object, i);
         }
         for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
             consider(triggers_[i].GetDesc().position, SelKind::Trigger, i);
         }
         for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+            considerExternalObjectBounds(externalEntities_[i], i);
             if (externalEntities_[i].position) {
                 consider(*externalEntities_[i].position, SelKind::External, i);
             }
         }
 
         if (bestIdx >= 0) {
+            if (parentLinkChildIndex_ >= 0 && bestKind == SelKind::Object) {
+                const int childIndex = parentLinkChildIndex_;
+                parentLinkChildIndex_ = -1;
+                if (childIndex != bestIdx && childIndex >= 0 && childIndex < static_cast<int>(objects_.size())
+                    && !IsDescendantOf(objects_[bestIdx].desc.name, objects_[childIndex].desc.name)) {
+                    RecordUndoSnapshotNow();
+                    ObjectDesc& child = objects_[childIndex].desc;
+                    const Vector3 world = WorldPositionOf(child);
+                    const ObjectDesc& parent = objects_[bestIdx].desc;
+                    const Vector3 parentWorld = WorldPositionOf(parent);
+                    const float c = std::cos(-parent.rotation.z);
+                    const float s = std::sin(-parent.rotation.z);
+                    const float dx = world.x - parentWorld.x;
+                    const float dy = world.y - parentWorld.y;
+                    child.parent = parent.name;
+                    child.position = { dx * c - dy * s, dx * s + dy * c, world.z - parentWorld.z };
+                    dirty_ = true;
+                    statusMessage_ = child.name + " を " + parent.name + " に接続しました";
+                    statusTimer_ = 3.0f;
+                    selKind_ = SelKind::Object;
+                    selIndex_ = childIndex;
+                    selectedObjectIndices_ = { childIndex };
+                }
+                return;
+            }
             selKind_ = bestKind;
             selIndex_ = bestIdx;
             if (bestKind == SelKind::Object) {

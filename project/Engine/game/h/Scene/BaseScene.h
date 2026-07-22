@@ -150,6 +150,8 @@ public:
      * @return 追加行が無ければnullptr（既定）。例: "F3: シーン調整パネル"
      */
     virtual const char* GetHotkeyOverlayExtra() const { return nullptr; }
+    /** @brief 画面端のF1/F2/F3操作ガイドを表示するか */
+    virtual bool ShouldShowHotkeyOverlay() const { return true; }
 
     // ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全）
 
@@ -173,6 +175,9 @@ public:
      * @return nullptrなら登録しない（既定）
      */
     virtual Vector3* GetEditorPlayerPositionRef() { return nullptr; }
+    virtual int GetEditorPlayerVisualPreset() const { return -1; }
+    virtual void SetEditorPlayerVisualPreset(int) { }
+    virtual void SetEditorPlayerStaticVisual(const std::string&) { }
 
     /**
      * @brief エディタ表示中（ゲームプレイ停止中）に代わりに呼ばれる

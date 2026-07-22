@@ -149,6 +149,17 @@ public:
      * @return プレイヤー未生成時はnullptr
      */
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    int GetEditorPlayerVisualPreset() const override { return player_ ? player_->GetVisualPreset() : -1; }
+    void SetEditorPlayerVisualPreset(int preset) override
+    {
+        if (player_)
+            player_->SetVisualPreset(preset);
+    }
+    void SetEditorPlayerStaticVisual(const std::string& path) override
+    {
+        if (player_)
+            player_->SetStaticVisualModel(path);
+    }
     /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
     void RefreshVisualTransformsForEditor() override;
 

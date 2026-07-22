@@ -103,6 +103,7 @@ public:
      * @return コライダー表示のホットキー文字列
      */
     const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
+    bool ShouldShowHotkeyOverlay() const override { return showHud_; }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
     /**
@@ -130,6 +131,17 @@ public:
      * @return プレイヤー未生成時はnullptr
      */
     Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
+    int GetEditorPlayerVisualPreset() const override { return player_ ? player_->GetVisualPreset() : -1; }
+    void SetEditorPlayerVisualPreset(int preset) override
+    {
+        if (player_)
+            player_->SetVisualPreset(preset);
+    }
+    void SetEditorPlayerStaticVisual(const std::string& path) override
+    {
+        if (player_)
+            player_->SetStaticVisualModel(path);
+    }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
 
@@ -361,6 +373,7 @@ private:
 
     // F3で切り替える当たり判定デバッグ表示（ステージエディタの表示状態とは独立）
     bool showColliders_ = false;
+    bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
 
     FontRenderer fontRenderer_;
 };

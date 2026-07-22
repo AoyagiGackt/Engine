@@ -156,6 +156,9 @@ public:
     bool IsInvincible() const { return invincibleTimer_ > 0.0f; }
 
     bool IsOnGround() const { return onGround_; } ///< 地面に接触中か
+    void SetVisualPreset(int preset) { visualPreset_ = std::clamp(preset, -1, 1); }
+    int GetVisualPreset() const { return visualPreset_; }
+    void SetStaticVisualModel(const std::string& modelPath);
     bool IsInWater() const { return inWater_; } ///< 水中にいるか
     bool JustJumped() const { return justJumped_; } ///< このフレームにジャンプしたか
     bool JustLanded() const { return justLanded_; } ///< このフレームに着地したか
@@ -272,7 +275,9 @@ private:
     Vector3 pos_ = { 8.0f, 0.4f, 0.0f };
     float waterLevel_ = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
     float velocityY_ = 0.0f;
+    float groundVisualCorrection_ = 0.0f; // 実ブロック床と通常地面の高さ差を見た目だけへ反映
     bool onGround_ = true;
+    int visualPreset_ = -1; // -1=自動、0=Alien、1=Mech
     bool prevOnGround_ = true;
     bool justJumped_ = false;
     bool justLanded_ = false;
@@ -487,6 +492,8 @@ private:
 
     // アウトラインパス後に通常描画 PSO へ戻すために保持（Player::Draw() で使用）
     ModelCommon* modelCommon_ = nullptr;
+    std::unique_ptr<Model> staticOverrideModel_;
+    std::unique_ptr<Object3d> staticOverrideObject_;
 
     // スキンメッシュ描画の共通設定（両フォームのリグで共有）
     std::unique_ptr<SkinCommon> skinCommon_;

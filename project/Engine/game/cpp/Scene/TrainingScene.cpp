@@ -33,8 +33,6 @@ using namespace engine::game;
 
 static constexpr float kWarpX = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
-static constexpr float kTrainingMinPlayerX = 3.0f;
-static constexpr float kTrainingMaxPlayerX = 27.0f;
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -80,6 +78,8 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         city->SetPosition({ x, -0.6f, 6.0f });
         city->SetScale({ 0.42f, 0.42f, 0.42f });
         city->Update();
+        GetStageEditor().RegisterExternalObject(
+            "Background Building " + std::to_string(cityBackgroundObjects_.size() + 1), city.get());
         cityBackgroundObjects_.push_back(std::move(city));
     }
 
@@ -210,12 +210,6 @@ void TrainingScene::UpdatePlayerAndBullets()
 
         // 境界ブロックは描画専用なので、幅1のプレイヤー判定が
         // 中心座標 x=2 と x=28 の壁の内側に収まるよう補正する
-        Vector3& playerPos = player_->GetPositionRef();
-        const float clampedX = std::clamp(playerPos.x, kTrainingMinPlayerX, kTrainingMaxPlayerX);
-        if (playerPos.x != clampedX) {
-            playerPos.x = clampedX;
-            player_->RefreshVisualTransforms();
-        }
     }
 
     // ── スペースキー スピン連射 ──────────────────────────────────────
@@ -268,7 +262,7 @@ void TrainingScene::UpdatePlayerAndBullets()
 
 void TrainingScene::UpdateCameraAndEnvironment()
 {
-    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition());
+    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
 
 #ifdef _DEBUG
     GpuProfiler::GetInstance()->ReadBack();

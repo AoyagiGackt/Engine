@@ -141,6 +141,8 @@ void BattleTestScene::InitializeStageModels()
         city->SetPosition({ x, -0.6f, 6.0f });
         city->SetScale({ 0.42f, 0.42f, 0.42f });
         city->Update();
+        GetStageEditor().RegisterExternalObject(
+            "Background Building " + std::to_string(cityBackgroundObjects_.size() + 1), city.get());
         cityBackgroundObjects_.push_back(std::move(city));
     }
 
@@ -305,6 +307,9 @@ void BattleTestScene::UpdateSceneFlow()
     if (input_->TriggerKey(DIK_F3)) {
         showColliders_ = !showColliders_;
     }
+    if (input_->TriggerKey(DIK_F4)) {
+        showHud_ = !showHud_;
+    }
     if (showColliders_) {
         DrawColliderOverlay();
     }
@@ -411,7 +416,7 @@ void BattleTestScene::UpdatePlayerAndCamera()
         player_->Update(input_, rampTarget);
     }
 
-    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition());
+    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
 }
 
 void BattleTestScene::UpdateEnvironment()

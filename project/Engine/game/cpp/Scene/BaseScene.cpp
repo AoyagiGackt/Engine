@@ -9,8 +9,6 @@ using namespace engine::game;
 
 // コンストラクタ／デストラクタの実体をここに1箇所だけ置く
 // StageEditor.hをフルインクルードするのはこの.cppだけでよく、BaseScene.hはforward宣言のみで済む
-// （StageEditor内部のunique_ptr<KnightEnemy>/<EnemyEntity>絡みで、他の翻訳単位が
-//   EnemyEntity/KnightEnemyの完全な定義を要求されてしまう問題の対処）
 BaseScene::BaseScene()
     : stageEditor_(std::make_unique<StageEditor>())
 {
@@ -40,7 +38,7 @@ void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio)
     }
 
     if (Vector3* playerPos = GetEditorPlayerPositionRef()) {
-        GetStageEditor().RegisterExternalEntity("Player", playerPos);
+        GetStageEditor().RegisterExternalEntity("Player", playerPos, [this] { return GetEditorPlayerVisualPreset(); }, [this](int preset) { SetEditorPlayerVisualPreset(preset); }, [this](const std::string& path) { SetEditorPlayerStaticVisual(path); });
     }
 }
 

@@ -176,10 +176,12 @@ void SceneManager::Update()
     GraphEditor::GetInstance()->Update(input_);
 
     // エディタ起動キーの一覧を常に画面左下へ出す（開き方が画面のどこにも出ていないと気づけないため）
-    EditorUI::ShowHotkeyOverlay(
-        GraphEditor::GetInstance()->IsVisible(),
-        currentScene_ && currentScene_->GetStageEditor().IsVisible(),
-        currentScene_ ? currentScene_->GetHotkeyOverlayExtra() : nullptr);
+    if (!currentScene_ || currentScene_->ShouldShowHotkeyOverlay()) {
+        EditorUI::ShowHotkeyOverlay(
+            GraphEditor::GetInstance()->IsVisible(),
+            currentScene_ && currentScene_->GetStageEditor().IsVisible(),
+            currentScene_ ? currentScene_->GetHotkeyOverlayExtra() : nullptr);
+    }
 #endif
 }
 

@@ -68,18 +68,20 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
 
     // 画面座標で管理する訓練HUDをまとめて描画する
     scene.spriteCommon_->CommonDrawSettings();
-    for (auto& dummy : scene.dummies_) {
-        if (dummy.hp > 0.0f) {
-            dummy.hpBarBg->Draw();
-            dummy.hpBarFg->Draw();
+    if (scene.showHud_) {
+        for (auto& dummy : scene.dummies_) {
+            if (dummy.hp > 0.0f) {
+                dummy.hpBarBg->Draw();
+                dummy.hpBarFg->Draw();
+            }
         }
+        scene.awakenGaugeBg_->Draw();
+        if (scene.player_->GetAwakenGauge() > 0.0f) {
+            scene.awakenGaugeFg_->Draw();
+        }
+        scene.styleMeter_.DrawHud();
+        scene.DrawWeaponSlotHud();
     }
-    scene.awakenGaugeBg_->Draw();
-    if (scene.player_->GetAwakenGauge() > 0.0f) {
-        scene.awakenGaugeFg_->Draw();
-    }
-    scene.styleMeter_.DrawHud();
-    scene.DrawWeaponSlotHud();
 
     // フィニッシャーの暗転と凍結画面をHUDより手前へ合成する
     const bool captureFrame = scene.finisherShatter_.IsActive() && scene.finisherShatter_.NeedCapture();
@@ -101,7 +103,9 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
         scene.finisherShatter_.Apply();
     }
 
-    scene.fontRenderer_.Draw();
+    if (scene.showHud_) {
+        scene.fontRenderer_.Draw();
+    }
 
     // バックバッファが描画先の場合だけ最終画面をガラス割れ演出へ取り込む
     if (scene.glassShatter_.IsActive()

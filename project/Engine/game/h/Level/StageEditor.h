@@ -13,6 +13,7 @@
 #include "StageEditorEventConnection.h"
 #include "StageEditorViewport.h"
 #include "TriggerVolume.h"
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -136,7 +137,11 @@ public:
      * @param position 実体側が持つ位置メンバへの参照（Player::GetPositionRef()等）
      * @note ここに渡した参照はJSONへは保存しない位置の永続化は各Sceneが自前で行うこと
      */
-    void RegisterExternalEntity(const std::string& name, Vector3* position);
+    void RegisterExternalEntity(const std::string& name, Vector3* position,
+        std::function<int()> getVisualPreset = { },
+        std::function<void(int)> setVisualPreset = { },
+        std::function<void(const std::string&)> setStaticVisualModel = { });
+    void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object);
 
 private:
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
@@ -269,6 +274,10 @@ private:
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
+        engine::graphics::Object3d* object = nullptr;
+        std::function<int()> getVisualPreset;
+        std::function<void(int)> setVisualPreset;
+        std::function<void(const std::string&)> setStaticVisualModel;
     };
     std::vector<ExternalEntityRef> externalEntities_;
 
@@ -363,6 +372,7 @@ private:
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
     int gizmoAxis_ = 0; // 0は自由移動、1から3はX・Y・Z軸へ移動を制限する
+    int parentLinkChildIndex_ = -1; // マウス親子リンクで親のクリックを待っている子
 
     /** @brief 保存前検証を実行し、修正が必要な項目を返す */
     std::vector<std::string> ValidateLevel() const;

@@ -603,11 +603,26 @@ void GamePlayScene::UpdateEnergyCores()
 void GamePlayScene::UpdateCamera()
 {
     // カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）
-    constexpr float kBlkR = 0.5f;
     const Vector3& ppos = player_->GetPosition();
+    const std::vector<AABB> stageSolids = GetStageEditor().GetSolidColliders();
+    float stageLeft = 1.5f;
+    float stageRight = 36.5f;
+    if (!stageSolids.empty()) {
+        stageLeft = stageSolids.front().min.x;
+        stageRight = stageSolids.front().max.x;
+        for (const AABB& solid : stageSolids) {
+            stageLeft = (std::min)(stageLeft, solid.min.x);
+            stageRight = (std::max)(stageRight, solid.max.x);
+        }
+    }
+    const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
+    const float cameraMaxX = stageRight - GameConstants::kCameraHalfW;
+    const float cameraX = cameraMinX <= cameraMaxX
+        ? std::clamp(ppos.x, cameraMinX, cameraMaxX)
+        : (stageLeft + stageRight) * 0.5f;
     cameraTargetPos_ = {
-        std::clamp(ppos.x, 2.0f - kBlkR + GameConstants::kCameraHalfW, 36.0f + kBlkR - GameConstants::kCameraHalfW),
-        std::clamp(ppos.y + 3.0f, -0.6f - kBlkR + GameConstants::kCameraHalfH, 13.0f + kBlkR - GameConstants::kCameraHalfH),
+        cameraX,
+        std::clamp(ppos.y + 3.0f, -1.1f + GameConstants::kCameraHalfH, 13.5f - GameConstants::kCameraHalfH),
         -24.0f
     };
 
