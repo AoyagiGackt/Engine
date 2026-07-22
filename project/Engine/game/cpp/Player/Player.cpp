@@ -93,7 +93,7 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.object->SetRimIntensity(1.2f);
         rig.object->SetEnableRim(true);
         rig.object->SetScale({ def.scale, def.scale, def.scale });
-        rig.object->SetPosition({ pos_.x, pos_.y + def.offsetY, pos_.z });
+        rig.object->SetPosition({ pos_.x, pos_.y + def.offsetY + groundVisualCorrection_, pos_.z });
         rig.object->Update();
     };
     initRig(normalRig_, kNormalRigVisual);
@@ -141,6 +141,22 @@ void Player::Initialize(ModelCommon* modelCommon)
         initHeldWeapon(slot.model, slot.object, asset.modelPath, asset.texturePath);
         guns_.push_back(std::move(slot));
     }
+}
+
+void Player::SetStaticVisualModel(const std::string& modelPath)
+{
+    if (modelPath.empty() || !modelCommon_) {
+        staticOverrideObject_.reset();
+        staticOverrideModel_.reset();
+        return;
+    }
+    staticOverrideModel_ = std::make_unique<Model>();
+    staticOverrideModel_->Initialize(modelCommon_, modelPath, "Resources/white.png");
+    staticOverrideObject_ = std::make_unique<Object3d>();
+    staticOverrideObject_->Initialize(modelCommon_);
+    staticOverrideObject_->SetModel(staticOverrideModel_.get());
+    staticOverrideObject_->SetEnableLighting(true);
+    staticOverrideObject_->SetScale({ 0.5f, 0.5f, 0.5f });
 }
 
 void Player::UpdateAnimationState(bool isMoving)
@@ -249,7 +265,7 @@ void Player::RefreshVisualTransforms()
 {
     // アニメ状態は一切変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
     // （StageEditorのギズモ等、Update()を通さずpos_だけ直接書き換えられた場合に追従させるため）
-    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
+    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
     rig_->object->SetPosition(modelPos);
 
     // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
@@ -271,6 +287,7 @@ void Player::RefreshVisualTransforms()
 
 void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 {
+    groundVisualCorrection_ = 0.0f;
     if (blocks.empty()) {
         return;
     }
@@ -303,6 +320,7 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
     float feetY = pos_.y - kHalf;
     float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
+    float visualFloorTop = (std::numeric_limits<float>::lowest)();
     for (const auto& b : blocks) {
         bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
             && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
@@ -310,10 +328,18 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
             continue;
         }
 
-        // 上面が足元より少し下〜少し上の範囲にあるものだけ着地対象にする（すり抜け・誤爆防止の許容幅）
-        if (b.max.y <= feetY + 0.6f && b.max.y >= feetY - 1.0f && (b.max.y + kHalf) > bestTop) {
+        // X/Z が重なっている床のうち、足元より上に出ていない一番高い面を採用する
+        // 床をエディタで上下させたときも、古い高さに張り付かないようにする
+        if (b.max.y <= feetY + 0.6f && (b.max.y + kHalf) > bestTop) {
             bestTop = b.max.y + kHalf;
         }
+        if (b.max.y <= feetY + 0.6f && b.max.y > visualFloorTop) {
+            visualFloorTop = b.max.y;
+        }
+    }
+    if (onGround_ && velocityY_ <= 0.0f
+        && visualFloorTop != (std::numeric_limits<float>::lowest)()) {
+        groundVisualCorrection_ = visualFloorTop - (pos_.y - kHalf);
     }
     if (velocityY_ <= 0.0f && pos_.y <= bestTop + 0.05f) {
         pos_.y = bestTop;
@@ -596,7 +622,9 @@ void Player::UpdateAwakenState(Input* input)
     }
 
     // ── 覚醒フォーム切り替え（覚醒中はメカモデルへ丸ごと差し替え）──────
-    CharacterRig* desiredRig = isAwakened_ ? &awakenedRig_ : &normalRig_;
+    CharacterRig* desiredRig = visualPreset_ == 0 ? &normalRig_
+        : visualPreset_ == 1                      ? &awakenedRig_
+                                                  : (isAwakened_ ? &awakenedRig_ : &normalRig_);
     if (rig_ != desiredRig) {
         rig_ = desiredRig;
         afterImageRenderer_.SetModel(rig_->staticModel.get(), rig_->modelScale);
@@ -645,7 +673,7 @@ void Player::UpdateVisualState(Input* input)
     float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
 
     // ── 覚醒残像スポーン＆フェード ──
-    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
+    Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
     afterImageRenderer_.Update(isRampage, isRampage, modelPos, yaw, spinAngle_);
 
@@ -743,6 +771,13 @@ void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
 
 void Player::Draw()
 {
+    if (staticOverrideObject_) {
+        staticOverrideObject_->SetPosition({ pos_.x, pos_.y - 0.5f + groundVisualCorrection_, pos_.z });
+        staticOverrideObject_->SetRotation({ 0.0f, lastDirX_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi, 0.0f });
+        staticOverrideObject_->Update();
+        staticOverrideObject_->Draw();
+        return;
+    }
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
 

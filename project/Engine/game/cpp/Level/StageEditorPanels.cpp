@@ -174,6 +174,16 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
     ImGui::SameLine();
     ImGui::SetNextItemWidth(70.0f);
     ImGui::DragFloat("##snapStep", &editor.snapStep_, 0.1f, 0.1f, 10.0f, "%.1f");
+    const bool canLink = editor.selKind_ == StageEditor::SelKind::Object
+        && editor.selIndex_ >= 0 && editor.selIndex_ < static_cast<int>(editor.objects_.size());
+    ImGui::BeginDisabled(!canLink);
+    if (ImGui::Button(editor.parentLinkChildIndex_ >= 0 ? "親子リンクをキャンセル" : "選択物を子にして親をクリック")) {
+        editor.parentLinkChildIndex_ = editor.parentLinkChildIndex_ >= 0 ? -1 : editor.selIndex_;
+    }
+    ImGui::EndDisabled();
+    if (editor.parentLinkChildIndex_ >= 0) {
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "接続する親ブロックを画面上でクリック");
+    }
     EditorUI::HelpMarker("ドラッグ移動・新規配置・複製の座標を、この間隔の倍数に揃えます");
 
     if (editor.statusTimer_ > 0.0f) {
@@ -226,6 +236,16 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
 
         if (ImGui::MenuItem("配置物（ブロック）")) {
             editor.AddPropAtScreenCenter("Resources/block/block.obj", "Resources/block/block.png");
+        }
+        if (ImGui::MenuItem("背景モデル")) {
+            addEntry("background", "background");
+            auto& background = editor.objects_.back().desc;
+            background.model = "Resources/block/block.obj";
+            background.texture = "Resources/block/block.png";
+            background.lighting = false;
+            background.solid = false;
+            background.position.z = 5.0f;
+            editor.RegenerateInstances(editor.objects_.back());
         }
         if (ImGui::MenuItem("敵：ナイト")) {
             addEntry("knight", "enemy_knight");
@@ -471,7 +491,7 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
 {
     auto& entry = editor.objects_[editor.selIndex_];
     auto& desc = entry.desc;
-    const bool visualKind = desc.kind == "prop" || desc.kind == "gimmick" || desc.kind == "terrain";
+    const bool visualKind = desc.kind == "prop" || desc.kind == "background" || desc.kind == "gimmick" || desc.kind == "terrain";
     if (visualKind) {
         char modelBuf[256];
         strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
@@ -490,7 +510,7 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("参照##model")) {
-            std::string p = OpenFileDialog("OBJファイル\0*.obj\0すべてのファイル\0*.*\0\0", "Resources");
+            std::string p = OpenFileDialog("3Dモデル\0*.obj;*.gltf;*.glb\0OBJ\0*.obj\0glTF\0*.gltf;*.glb\0すべてのファイル\0*.*\0\0", "Resources");
             if (!p.empty()) {
                 editor.RecordUndoSnapshotNow();
                 desc.model = ToProjectRelativePath(p);
@@ -551,7 +571,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
     StageEditor& editor, bool& structuralDirty, bool& transformDirty)
 {
     auto& desc = editor.objects_[editor.selIndex_].desc;
-    const bool visualKind = desc.kind == "prop" || desc.kind == "gimmick" || desc.kind == "terrain";
+    const bool visualKind = desc.kind == "prop" || desc.kind == "background" || desc.kind == "gimmick" || desc.kind == "terrain";
     auto captureItemUndo = [&](bool changed) {
         if (ImGui::IsItemActivated()) {
             editor.BeginUndoCapture();
@@ -731,11 +751,12 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
         }
     }
     if (desc.kind == "gimmick") {
-        const char* motions[] = { "none", "move_y", "rotate_y", "fall", "blink" };
+        const char* motions[] = { "none", "move_y", "rotate_y", "rotate_z", "fall", "blink" };
         int motionIndex = desc.gimmickMotion == "move_y" ? 1
             : desc.gimmickMotion == "rotate_y"           ? 2
-            : desc.gimmickMotion == "fall"               ? 3
-            : desc.gimmickMotion == "blink"              ? 4
+            : desc.gimmickMotion == "rotate_z"           ? 3
+            : desc.gimmickMotion == "fall"               ? 4
+            : desc.gimmickMotion == "blink"              ? 5
                                                          : 0;
         if (ImGui::Combo("動作プリセット", &motionIndex, motions, 5)) {
             editor.RecordUndoSnapshotNow();
@@ -774,7 +795,7 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectGameplay(editor, structuralDirty);
 
     auto& entry = editor.objects_[editor.selIndex_];
-    const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";
+    const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "background" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";
     if (structuralDirty) {
         editor.RegenerateInstances(entry);
     } else if (transformDirty && visualKind) {
@@ -848,6 +869,41 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
     if (ref.position) {
         ImGui::DragFloat3("位置", &ref.position->x, 0.1f);
+    }
+    if (ref.getVisualPreset && ref.setVisualPreset) {
+        const int preset = ref.getVisualPreset();
+        const char* currentModel = preset == 1
+            ? "Resources/AnimatedMechPack/Textured/glTF/Mike.gltf"
+            : "Resources/AlienAnimated/glTF/Alien.gltf";
+        ImGui::TextWrapped("モデル: %s", currentModel);
+        if (ImGui::Button("モデルファイルを選択...")) {
+            const std::string selected = OpenFileDialog(
+                "対応キャラクター(glTF)\0*.gltf;*.glb\0すべてのファイル\0*.*\0\0", "Resources");
+            if (!selected.empty()) {
+                std::string normalized = selected;
+                std::replace(normalized.begin(), normalized.end(), '\\', '/');
+                if (normalized.find("Alien.gltf") != std::string::npos) {
+                    if (ref.setStaticVisualModel)
+                        ref.setStaticVisualModel("");
+                    ref.setVisualPreset(0);
+                } else if (normalized.find("Mike.gltf") != std::string::npos) {
+                    if (ref.setStaticVisualModel)
+                        ref.setStaticVisualModel("");
+                    ref.setVisualPreset(1);
+                } else {
+                    if (ref.setStaticVisualModel) {
+                        ref.setStaticVisualModel(ToProjectRelativePath(selected));
+                        editor.statusMessage_ = "アニメーションなしの静的モデルとして読み込みました";
+                        editor.statusTimer_ = 4.0f;
+                    }
+                }
+            }
+        }
+        if (ImGui::Button("モデルを自動選択へ戻す")) {
+            if (ref.setStaticVisualModel)
+                ref.setStaticVisualModel("");
+            ref.setVisualPreset(-1);
+        }
     }
     return true;
 }

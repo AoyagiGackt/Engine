@@ -125,10 +125,25 @@ void WorldToScreen(float worldX, float worldY, float camX, float camY, float& ou
     outY = -(worldY - camY) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
 }
 
-void UpdateCameraFollow(Camera* camera, const Vector3& playerPos)
+void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids)
 {
     constexpr float kBlockRadius = 0.5f;
-    camera->SetTranslate({ std::clamp(playerPos.x, 2.0f - kBlockRadius + GameConstants::kCameraHalfW, 36.0f + kBlockRadius - GameConstants::kCameraHalfW),
+    float stageLeft = 2.0f - kBlockRadius;
+    float stageRight = 36.0f + kBlockRadius;
+    if (!stageSolids.empty()) {
+        stageLeft = stageSolids.front().min.x;
+        stageRight = stageSolids.front().max.x;
+        for (const AABB& solid : stageSolids) {
+            stageLeft = (std::min)(stageLeft, solid.min.x);
+            stageRight = (std::max)(stageRight, solid.max.x);
+        }
+    }
+    const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
+    const float cameraMaxX = stageRight - GameConstants::kCameraHalfW;
+    const float cameraX = cameraMinX <= cameraMaxX
+        ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
+        : (stageLeft + stageRight) * 0.5f;
+    camera->SetTranslate({ cameraX,
         std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH, 13.0f + kBlockRadius - GameConstants::kCameraHalfH),
         -24.0f });
 }

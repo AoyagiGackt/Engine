@@ -305,6 +305,9 @@ void BattleTestScene::UpdateSceneFlow()
     if (input_->TriggerKey(DIK_F3)) {
         showColliders_ = !showColliders_;
     }
+    if (input_->TriggerKey(DIK_F4)) {
+        showHud_ = !showHud_;
+    }
     if (showColliders_) {
         DrawColliderOverlay();
     }
@@ -411,7 +414,7 @@ void BattleTestScene::UpdatePlayerAndCamera()
         player_->Update(input_, rampTarget);
     }
 
-    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition());
+    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
 }
 
 void BattleTestScene::UpdateEnvironment()

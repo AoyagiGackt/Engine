@@ -9,6 +9,7 @@
 #include "WeaponManager.h"
 #include <memory>
 #include <string>
+#include <vector>
 namespace engine {
 class DirectXCommon;
 class Input;
@@ -74,7 +75,8 @@ namespace SceneShared {
     void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY);
 
     /** @brief プレイヤーにカメラを追従させる（ステージ境界クランプ込み） */
-    void UpdateCameraFollow(engine::graphics::Camera* camera, const Vector3& playerPos);
+    void UpdateCameraFollow(engine::graphics::Camera* camera, const Vector3& playerPos,
+        const std::vector<engine::AABB>& stageSolids);
 
     /** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
     bool UpdatePortalTransition(engine::Input* input, const Vector3& playerPos,

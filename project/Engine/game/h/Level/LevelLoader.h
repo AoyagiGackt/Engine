@@ -42,7 +42,7 @@ struct ObjectDesc {
     std::string enemyGroup; // 敵生成と全滅条件をまとめるグループ名
     std::string conditionType = "manual"; // event_conditionの条件 manual、timer、enemy_group_defeated
     float conditionSeconds = 0.0f; // timer条件が成立するまでの秒数
-    std::string gimmickMotion = "none"; // none、move_y、rotate_y、fall、blink
+    std::string gimmickMotion = "none"; // none、move_y、rotate_y、rotate_z、fall、blink
     float motionAmount = 3.0f; // ギミック移動量または回転量をワールド単位またはラジアンで指定する
     float motionSpeed = 1.0f; // ギミック演出速度を毎秒単位で指定する
     float cameraBlendSeconds = 0.5f; // カメラポイントへ補間する秒数

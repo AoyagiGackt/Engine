@@ -258,7 +258,27 @@ Vector3 StageEditor::ParentWorldPositionOf(const ObjectDesc& desc) const
 
 Vector3 StageEditor::WorldPositionOf(const ObjectDesc& desc) const
 {
-    return ParentWorldPositionOf(desc) + desc.position;
+    Vector3 result = desc.position;
+    const ObjectDesc* cur = &desc;
+    for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
+        const ObjectDesc* parent = nullptr;
+        for (const auto& entry : objects_) {
+            if (entry.desc.name == cur->parent) {
+                parent = &entry.desc;
+                break;
+            }
+        }
+        if (!parent) {
+            break;
+        }
+        const float c = std::cos(parent->rotation.z);
+        const float s = std::sin(parent->rotation.z);
+        result = { result.x * c - result.y * s + parent->position.x,
+            result.x * s + result.y * c + parent->position.y,
+            result.z + parent->position.z };
+        cur = parent;
+    }
+    return result;
 }
 
 bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::string& selfName) const
@@ -481,15 +501,20 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selIndex_ = static_cast<int>(objects_.size()) - 1;
 }
 
-void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position)
+void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
+    std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
+    std::function<void(const std::string&)> setStaticVisualModel)
 {
     for (auto& ref : externalEntities_) {
         if (ref.name == name) {
+            ref.getVisualPreset = std::move(getVisualPreset);
+            ref.setVisualPreset = std::move(setVisualPreset);
+            ref.setStaticVisualModel = std::move(setStaticVisualModel);
             ref.position = position; // 同名なら上書き（Scene再初期化等での再登録に備える）
             return;
         }
     }
-    externalEntities_.push_back({ name, position });
+    externalEntities_.push_back({ name, position, std::move(getVisualPreset), std::move(setVisualPreset), std::move(setStaticVisualModel) });
 }
 
 std::vector<engine::AABB> StageEditor::GetSolidColliders() const
@@ -710,6 +735,16 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
         return;
     }
 
+    // rotate_z の子は親側で同じ一時回転中に更新する。ここで更新し直すと元位置へ戻ってしまう。
+    if (!entry.desc.parent.empty()) {
+        for (const auto& candidate : objects_) {
+            if (candidate.desc.name == entry.desc.parent && candidate.desc.kind == "gimmick"
+                && candidate.desc.gimmickMotion == "rotate_z") {
+                return;
+            }
+        }
+    }
+
     // 一時的なギミック変形だけを描画実体へ渡し、保存対象の編集値は維持する
     const Vector3 authoredPosition = entry.desc.position;
     const Vector3 authoredRotation = entry.desc.rotation;
@@ -721,9 +756,21 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
             entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
         } else if (entry.desc.gimmickMotion == "rotate_y") {
             entry.desc.rotation.y += phase;
+        } else if (entry.desc.gimmickMotion == "rotate_z") {
+            entry.desc.rotation.z += phase;
         }
     }
     RefreshTransforms(entry);
+    if (entry.desc.gimmickMotion == "rotate_z") {
+        for (auto& child : objects_) {
+            if (child.desc.parent == entry.desc.name) {
+                RefreshTransforms(child);
+                for (auto& obj : child.instances) {
+                    obj->Update();
+                }
+            }
+        }
+    }
     entry.desc.position = authoredPosition;
     entry.desc.rotation = authoredRotation;
     for (auto& obj : entry.instances) {
@@ -2072,6 +2119,31 @@ void StageEditor::UpdateViewportInteraction()
         }
 
         if (bestIdx >= 0) {
+            if (parentLinkChildIndex_ >= 0 && bestKind == SelKind::Object) {
+                const int childIndex = parentLinkChildIndex_;
+                parentLinkChildIndex_ = -1;
+                if (childIndex != bestIdx && childIndex >= 0 && childIndex < static_cast<int>(objects_.size())
+                    && !IsDescendantOf(objects_[bestIdx].desc.name, objects_[childIndex].desc.name)) {
+                    RecordUndoSnapshotNow();
+                    ObjectDesc& child = objects_[childIndex].desc;
+                    const Vector3 world = WorldPositionOf(child);
+                    const ObjectDesc& parent = objects_[bestIdx].desc;
+                    const Vector3 parentWorld = WorldPositionOf(parent);
+                    const float c = std::cos(-parent.rotation.z);
+                    const float s = std::sin(-parent.rotation.z);
+                    const float dx = world.x - parentWorld.x;
+                    const float dy = world.y - parentWorld.y;
+                    child.parent = parent.name;
+                    child.position = { dx * c - dy * s, dx * s + dy * c, world.z - parentWorld.z };
+                    dirty_ = true;
+                    statusMessage_ = child.name + " を " + parent.name + " に接続しました";
+                    statusTimer_ = 3.0f;
+                    selKind_ = SelKind::Object;
+                    selIndex_ = childIndex;
+                    selectedObjectIndices_ = { childIndex };
+                }
+                return;
+            }
             selKind_ = bestKind;
             selIndex_ = bestIdx;
             if (bestKind == SelKind::Object) {
