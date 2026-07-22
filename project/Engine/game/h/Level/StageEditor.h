@@ -141,6 +141,7 @@ public:
         std::function<int()> getVisualPreset = { },
         std::function<void(int)> setVisualPreset = { },
         std::function<void(const std::string&)> setStaticVisualModel = { });
+    void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object);
 
 private:
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
@@ -273,6 +274,7 @@ private:
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
+        engine::graphics::Object3d* object = nullptr;
         std::function<int()> getVisualPreset;
         std::function<void(int)> setVisualPreset;
         std::function<void(const std::string&)> setStaticVisualModel;

@@ -141,6 +141,8 @@ void BattleTestScene::InitializeStageModels()
         city->SetPosition({ x, -0.6f, 6.0f });
         city->SetScale({ 0.42f, 0.42f, 0.42f });
         city->Update();
+        GetStageEditor().RegisterExternalObject(
+            "Background Building " + std::to_string(cityBackgroundObjects_.size() + 1), city.get());
         cityBackgroundObjects_.push_back(std::move(city));
     }
 

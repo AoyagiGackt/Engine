@@ -240,11 +240,13 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         if (ImGui::MenuItem("背景モデル")) {
             addEntry("background", "background");
             auto& background = editor.objects_.back().desc;
-            background.model = "Resources/block/block.obj";
-            background.texture = "Resources/block/block.png";
-            background.lighting = false;
+            background.model = "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf";
+            background.texture = "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png";
+            background.scale = { 0.42f, 0.42f, 0.42f };
+            background.position.y = -0.6f;
+            background.lighting = true;
             background.solid = false;
-            background.position.z = 5.0f;
+            background.position.z = 6.0f;
             editor.RegenerateInstances(editor.objects_.back());
         }
         if (ImGui::MenuItem("敵：ナイト")) {
@@ -493,6 +495,11 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
     auto& desc = entry.desc;
     const bool visualKind = desc.kind == "prop" || desc.kind == "background" || desc.kind == "gimmick" || desc.kind == "terrain";
     if (visualKind) {
+        if (desc.kind == "background") {
+            ImGui::TextDisabled("背景モデル（レベルJSONに保存）");
+            ImGui::SameLine();
+            EditorUI::HelpMarker("モデル・テクスチャ・位置・回転・スケールを通常のオブジェクトと同様に調整できます。当たり判定は初期状態で無効です。");
+        }
         char modelBuf[256];
         strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(180.0f);
@@ -623,7 +630,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             };
             for (int index : editor.selectedObjectIndices_) {
                 if (index < 0 || index >= static_cast<int>(editor.objects_.size()) || index == editor.selIndex_
-                    || (editor.objects_[index].desc.kind != "prop" && editor.objects_[index].desc.kind != "gimmick"
+                    || (editor.objects_[index].desc.kind != "prop" && editor.objects_[index].desc.kind != "background" && editor.objects_[index].desc.kind != "gimmick"
                         && editor.objects_[index].desc.kind != "terrain" && editor.objects_[index].desc.kind != "camera_point")) {
                     continue;
                 }
@@ -869,6 +876,12 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
     if (ref.position) {
         ImGui::DragFloat3("位置", &ref.position->x, 0.1f);
+    }
+    if (ref.object) {
+        Transform& transform = ref.object->GetTransform();
+        ImGui::DragFloat3("回転", &transform.rotate.x, 0.01f);
+        ImGui::DragFloat3("スケール", &transform.scale.x, 0.05f);
+        ImGui::TextDisabled("シーン背景（実行中のみ編集）");
     }
     if (ref.getVisualPreset && ref.setVisualPreset) {
         const int preset = ref.getVisualPreset();

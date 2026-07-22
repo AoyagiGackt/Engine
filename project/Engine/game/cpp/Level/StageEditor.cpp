@@ -514,7 +514,27 @@ void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* posit
             return;
         }
     }
-    externalEntities_.push_back({ name, position, std::move(getVisualPreset), std::move(setVisualPreset), std::move(setStaticVisualModel) });
+    externalEntities_.push_back({ name, position, nullptr, std::move(getVisualPreset), std::move(setVisualPreset), std::move(setStaticVisualModel) });
+}
+
+void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object)
+{
+    if (!object) {
+        return;
+    }
+    Vector3* position = &object->GetTransform().translate;
+    for (auto& ref : externalEntities_) {
+        if (ref.name == name) {
+            ref.position = position;
+            ref.object = object;
+            return;
+        }
+    }
+    ExternalEntityRef ref;
+    ref.name = name;
+    ref.position = position;
+    ref.object = object;
+    externalEntities_.push_back(std::move(ref));
 }
 
 std::vector<engine::AABB> StageEditor::GetSolidColliders() const
@@ -2106,13 +2126,92 @@ void StageEditor::UpdateViewportInteraction()
             }
         };
 
+        auto considerModelBounds = [&](const ObjectEntry& entry, int index) {
+            if (entry.instances.empty() || !entry.instances.front()->GetModel()) {
+                return;
+            }
+            const auto& vertices = entry.instances.front()->GetModel()->GetVertices();
+            if (vertices.empty()) {
+                return;
+            }
+
+            const ObjectDesc& desc = entry.desc;
+            const Matrix4x4 worldMatrix = MakeAffineMatrix(desc.scale, desc.rotation, WorldPositionOf(desc));
+            float minX = FLT_MAX;
+            float minY = FLT_MAX;
+            float maxX = -FLT_MAX;
+            float maxY = -FLT_MAX;
+            bool projected = false;
+            for (const auto& vertex : vertices) {
+                const Vector4& p = vertex.position;
+                Vector3 worldVertex = {
+                    p.x * worldMatrix.m[0][0] + p.y * worldMatrix.m[1][0] + p.z * worldMatrix.m[2][0] + worldMatrix.m[3][0],
+                    p.x * worldMatrix.m[0][1] + p.y * worldMatrix.m[1][1] + p.z * worldMatrix.m[2][1] + worldMatrix.m[3][1],
+                    p.x * worldMatrix.m[0][2] + p.y * worldMatrix.m[1][2] + p.z * worldMatrix.m[2][2] + worldMatrix.m[3][2]
+                };
+                ImVec2 screen;
+                if (!DiagnosticsDraw::WorldToScreen(worldVertex, screen)) {
+                    continue;
+                }
+                projected = true;
+                minX = (std::min)(minX, screen.x);
+                minY = (std::min)(minY, screen.y);
+                maxX = (std::max)(maxX, screen.x);
+                maxY = (std::max)(maxY, screen.y);
+            }
+            constexpr float kPickPadding = 4.0f;
+            if (projected && m.x >= minX - kPickPadding && m.x <= maxX + kPickPadding
+                && m.y >= minY - kPickPadding && m.y <= maxY + kPickPadding && bestDist > 0.0f) {
+                bestDist = 0.0f;
+                bestKind = SelKind::Object;
+                bestIdx = index;
+            }
+        };
+
+        auto considerExternalObjectBounds = [&](const ExternalEntityRef& ref, int index) {
+            if (!ref.object || !ref.object->GetModel()) {
+                return;
+            }
+            const auto& vertices = ref.object->GetModel()->GetVertices();
+            const Transform& transform = ref.object->GetTransform();
+            const Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
+            float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
+            bool projected = false;
+            for (const auto& vertex : vertices) {
+                const Vector4& p = vertex.position;
+                Vector3 worldVertex = {
+                    p.x * worldMatrix.m[0][0] + p.y * worldMatrix.m[1][0] + p.z * worldMatrix.m[2][0] + worldMatrix.m[3][0],
+                    p.x * worldMatrix.m[0][1] + p.y * worldMatrix.m[1][1] + p.z * worldMatrix.m[2][1] + worldMatrix.m[3][1],
+                    p.x * worldMatrix.m[0][2] + p.y * worldMatrix.m[1][2] + p.z * worldMatrix.m[2][2] + worldMatrix.m[3][2]
+                };
+                ImVec2 screen;
+                if (!DiagnosticsDraw::WorldToScreen(worldVertex, screen)) {
+                    continue;
+                }
+                projected = true;
+                minX = (std::min)(minX, screen.x);
+                minY = (std::min)(minY, screen.y);
+                maxX = (std::max)(maxX, screen.x);
+                maxY = (std::max)(maxY, screen.y);
+            }
+            constexpr float kPickPadding = 4.0f;
+            if (projected && m.x >= minX - kPickPadding && m.x <= maxX + kPickPadding
+                && m.y >= minY - kPickPadding && m.y <= maxY + kPickPadding && bestDist > 0.0f) {
+                bestDist = 0.0f;
+                bestKind = SelKind::External;
+                bestIdx = index;
+            }
+        };
+
         for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            considerModelBounds(objects_[i], i);
             consider(WorldPositionOf(objects_[i].desc), SelKind::Object, i);
         }
         for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
             consider(triggers_[i].GetDesc().position, SelKind::Trigger, i);
         }
         for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
+            considerExternalObjectBounds(externalEntities_[i], i);
             if (externalEntities_[i].position) {
                 consider(*externalEntities_[i].position, SelKind::External, i);
             }
