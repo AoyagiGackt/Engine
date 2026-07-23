@@ -14,8 +14,7 @@
 namespace engine::graphics {
 
 /**
- * @brief PipelineStateGuard に関する型を提供する
- * @details PipelineStateGuard が扱うデータと操作の責務をまとめる
+ * @brief スコープを抜ける際に自前PSO描画からの復帰処理を必ず実行するRAIIガード
  */
 class PipelineStateGuard {
 public:
@@ -30,10 +29,7 @@ public:
     ~PipelineStateGuard()
     {
         if (onRestore_) {
-            /**
-             * @brief onRestore_ に対応する処理を実行する
-             * @return 処理結果
-             */
+            // コンストラクタで渡された復帰処理（PSO/レンダーターゲットの復帰）を呼ぶ
             onRestore_();
         }
     }

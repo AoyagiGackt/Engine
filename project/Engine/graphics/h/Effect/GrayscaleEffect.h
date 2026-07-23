@@ -15,31 +15,26 @@ public:
     }
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @param srvManager 処理に使用する値
-     * @return なし
+     * @brief オフスクリーンRTV・定数バッファ・グレースケール変換用PSOを生成する
+     * @param dxCommon DirectX共通基盤
+     * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     void Finalize()
     {
-        /**
-         * @brief FinalizeCommon に対応する終了処理を行う
-         * @return 処理結果
-         */
+        // オフスクリーンRTV・定数バッファ・PSOを解放する
         FinalizeCommon();
         cbData_ = nullptr;
     }
 
     /**
-     * @brief SetAmount に対応する状態を設定する
-     * @param amount 処理に使用する値
-     * @return なし
+     * @brief グレースケール化の割合を設定する
+     * @param amount 適用度（0で元のカラーのまま、1で完全にグレースケール）
      */
     void SetAmount(float amount);
     /**
-     * @brief GetAmount の結果を取得する
-     * @return 処理結果
+     * @brief グレースケール化の割合を取得する
+     * @return 現在設定されている適用度
      */
     float GetAmount() const;
 
@@ -47,8 +42,7 @@ private:
     GrayscaleEffect() = default;
 
     /**
-     * @brief GrayscaleParams に関する型を提供する
-     * @details GrayscaleParams が扱うデータと操作の責務をまとめる
+     * @brief グレースケール変換PS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct GrayscaleParams {
         float amount = 0.f;

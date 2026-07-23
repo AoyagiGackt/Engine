@@ -44,14 +44,15 @@ struct NodeTypeSpec {
 };
 
 /**
- * @brief NodeRegistry に関する型を提供する
- * @details NodeRegistry が扱うデータと操作の責務をまとめる
+ * @brief ノード種別名とその実行ロジック・ピン情報を登録・検索するレジストリ
+ * @details 組み込みノードはコンストラクタでRegisterBuiltins()により登録され、
+ * グラフJSON側は登録済みのtype名を書くだけで対応するノードを使えるようになる
  */
 class NodeRegistry {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のNodeRegistryインスタンスを取得する（未生成なら生成し、組み込みノードを登録する）
+     * @return NodeRegistryのインスタンス
      */
     static NodeRegistry* GetInstance();
 

@@ -22,8 +22,7 @@ struct SlashMarkParams {
 };
 
 /**
- * @brief SlashMark に関する型を提供する
- * @details SlashMark が扱うデータと操作の責務をまとめる
+ * @brief 画面上に一瞬だけ表示される斬撃線（複数本）を生成・更新・描画するシングルトン
  */
 class SlashMark {
 public:

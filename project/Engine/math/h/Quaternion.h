@@ -38,12 +38,7 @@ inline Quaternion MakeRotateXYZQuaternion(const Vector3& eulerRadians)
             a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
         };
     };
-    /**
-     * @brief mul に対応する処理を実行する
-     * @param qz 処理に使用する値
-     * @param qx 処理に使用する値
-     * @return 処理結果
-     */
+    // 合成順序は @note の通り qz * qy * qx（qxを最初に、qzを最後に適用）
     return mul(mul(qz, qy), qx);
 }
 

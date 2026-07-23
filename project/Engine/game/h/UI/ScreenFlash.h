@@ -19,47 +19,32 @@ using engine::graphics::SpriteCommon;
 // 画面全体を色でフラッシュさせるエフェクト
 // Game::Initialize() で Initialize()、Update()/Draw() を毎フレーム呼ぶ
 // 使い方  ScreenFlash::GetInstance()->Request({ 1,1,1,1 }, 0.12f);
-/**
- * @brief ScreenFlash に関する型を提供する
- * @details ScreenFlash が扱うデータと操作の責務をまとめる
- */
+/** @brief 画面全体を単色フェードでフラッシュさせるシングルトンエフェクト */
 class ScreenFlash {
 public:
-    /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
-     */
+    /** @brief シングルトンインスタンスを返す（初回呼び出しで生成される） */
     static ScreenFlash* GetInstance();
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @return なし
+     * @brief 画面全体を覆う不透明スプライトを生成する（Game::Initialize()で1回呼ぶ）
+     * @param dxCommon DirectXの共通処理
      */
     void Initialize(DirectXCommon* dxCommon);
 
-    // color  フラッシュ色 RGBA（例  {1,1,1,1} で白）
-    // duration  フェードアウトにかかる秒数
     /**
-     * @brief Request に対応する処理を実行する
-     * @param color 処理に使用する値
-     * @param duration 処理に使用する値
-     * @return なし
+     * @brief フラッシュを開始する（既存のフラッシュ中に呼ぶと上書きされる）
+     * @param color フラッシュ色 RGBA（例 {1,1,1,1} で白）
+     * @param duration 色の不透明度が0まで減衰する秒数
      */
     void Request(const Vector4& color, float duration);
 
-    // 実時間 dt を渡す（GameConstants::kFrameDeltaTime 推奨）
     /**
-     * @brief Update に対応する状態を更新する
-     * @param dt 処理に使用する値
-     * @return なし
+     * @brief 残り時間を減らし、経過に応じてスプライトの不透明度を線形フェードさせる
+     * @param dt 実時間の経過秒数（GameConstants::kFrameDeltaTime 推奨）
      */
     void Update(float dt);
 
-    /**
-     * @brief Draw に対応する内容を描画する
-     * @return なし
-     */
+    /** @brief フラッシュ中（timer_>0）ならスプライトを描画する */
     void Draw();
 
     bool IsActive() const { return timer_ > 0.0f; }

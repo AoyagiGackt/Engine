@@ -4,8 +4,12 @@
  */
 #include "GunCombo.h"
 #include "Easing.h"
+#include "JsonHelper.h"
+#include "Logger.h"
 #include "Weapon.h"
 #include <algorithm>
+#include <array>
+#include <unordered_map>
 using namespace engine;
 using namespace engine::game;
 
@@ -63,21 +67,89 @@ constexpr GunComboSet kSmgSet = MakeComboArray(kSmgSteps);
 constexpr GunComboSet kShotgunSet = MakeComboArray(kShotgunSteps);
 constexpr GunComboSet kRailgunSet = MakeComboArray(kRailgunSteps);
 
+// MeleeCombo.cpp と同じ仕組み既定値はこの上のテーブル、Resources/combos.json の "shots" で個別上書き可能
+struct RuntimeGunComboSet {
+    std::vector<GunShotDef> steps;
+    GunComboSet view { };
+};
+
+RuntimeGunComboSet CopyComboSet(const GunComboSet& source)
+{
+    RuntimeGunComboSet result;
+    result.steps.assign(source.data, source.data + source.count);
+    return result;
+}
+
+void RefreshView(RuntimeGunComboSet& set)
+{
+    set.view = { set.steps.data(), static_cast<int>(set.steps.size()) };
+}
+
+void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data)
+{
+    shot.damageMult = (std::max)(data.value("damageMult", shot.damageMult), 0.0f);
+    shot.duration = (std::max)(data.value("duration", shot.duration), 0.05f);
+    shot.shotTime = std::clamp(data.value("shotTime", shot.shotTime), 0.0f, shot.duration);
+    shot.cancelTime = std::clamp(data.value("cancelTime", shot.cancelTime), shot.shotTime, shot.duration);
+    shot.rangeMult = (std::max)(data.value("rangeMult", shot.rangeMult), 0.0f);
+    shot.knockX = data.value("knockX", shot.knockX);
+    shot.knockY = data.value("knockY", shot.knockY);
+    shot.hitStop = (std::max)(data.value("hitStop", shot.hitStop), 0);
+    shot.moveDist = data.value("moveDist", shot.moveDist);
+}
+
+std::array<RuntimeGunComboSet, 5>& GetRuntimeComboSets()
+{
+    static std::array<RuntimeGunComboSet, 5> sets = [] {
+        std::array<RuntimeGunComboSet, 5> result;
+        result[0] = CopyComboSet(kPistolSet);
+        result[1] = CopyComboSet(kMagnumSet);
+        result[2] = CopyComboSet(kSmgSet);
+        result[3] = CopyComboSet(kShotgunSet);
+        result[4] = CopyComboSet(kRailgunSet);
+
+        std::unordered_map<std::string, GunShotDef*> shots;
+        for (RuntimeGunComboSet& set : result) {
+            for (GunShotDef& shot : set.steps) {
+                shots[shot.id] = &shot;
+            }
+        }
+
+        const nlohmann::json root = JsonHelper::Load("Resources/combos.json");
+        for (const auto& data : root.value("shots", nlohmann::json::array())) {
+            const std::string id = data.value("id", "");
+            const auto found = shots.find(id);
+            if (found == shots.end()) {
+                Logger::LogWarning("Unknown combo shot id: " + id);
+                continue;
+            }
+            ApplyShotOverride(*found->second, data);
+        }
+
+        for (RuntimeGunComboSet& set : result) {
+            RefreshView(set);
+        }
+        return result;
+    }();
+    return sets;
+}
+
 } // namespace
 
 const GunComboSet& engine::game::GetGunComboSet(GunType type)
 {
+    auto& sets = GetRuntimeComboSets();
     switch (type) {
     case GunType::Magnum:
-        return kMagnumSet;
+        return sets[1].view;
     case GunType::SMG:
-        return kSmgSet;
+        return sets[2].view;
     case GunType::Shotgun:
-        return kShotgunSet;
+        return sets[3].view;
     case GunType::Railgun:
-        return kRailgunSet;
+        return sets[4].view;
     default:
-        return kPistolSet;
+        return sets[0].view;
     }
 }
 

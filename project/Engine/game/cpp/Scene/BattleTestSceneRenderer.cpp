@@ -49,9 +49,6 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
         }
     }
     scene.bulletPool_.Draw();
-    if (scene.knight_) {
-        scene.knight_->Draw();
-    }
     scene.player_->Draw();
     scene.dummySlice_.Draw();
     scene.pm_->Update(scene.camera_.get());

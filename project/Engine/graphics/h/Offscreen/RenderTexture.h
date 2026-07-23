@@ -11,22 +11,20 @@ namespace engine::graphics {
 class RenderTexture {
 public:
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @param srvManager 処理に使用する値
-     * @param width 処理に使用する値
-     * @param height 処理に使用する値
-     * @return なし
+     * @brief 指定サイズの RTV/SRV 兼用テクスチャ（RGBA8_UNORM）を確保する
+     * @param dxCommon   デバイス取得に使う DirectX 基盤
+     * @param srvManager SRV 確保に使う SrvManager（Finalize でも同じインスタンスを渡すこと）
+     * @param width      テクスチャ幅（ピクセル）
+     * @param height     テクスチャ高さ（ピクセル）
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager, uint32_t width, uint32_t height);
     /**
-     * @brief BeginRendering に対応する処理を実行する
-     * @return なし
+     * @brief レンダーターゲットとして設定し、ビューポート/シザーを適用して赤でクリアする
+     * @note 2回目以降は PIXEL_SHADER_RESOURCE → RENDER_TARGET のバリアを行う
      */
     void BeginRendering();
     /**
-     * @brief EndRendering に対応する処理を実行する
-     * @return なし
+     * @brief 描画を終え、リソース状態を RENDER_TARGET から PIXEL_SHADER_RESOURCE へ遷移する
      */
     void EndRendering();
 

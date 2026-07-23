@@ -268,8 +268,7 @@ private:
     // Filter Mode Strategy パターン
     // Mode ごとに異なるバックバッファへの適用処理（ルートシグネチャ/PSO選択・パス数）を切り替える
     /**
-     * @brief IFilterMode に関する型を提供する
-     * @details IFilterMode が扱うデータと操作の責務をまとめる
+     * @brief モードごとのバックバッファ適用処理を切り替えるStrategyパターンの基底インターフェース
      */
     class IFilterMode {
     public:
@@ -278,94 +277,63 @@ private:
             const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const = 0;
     };
     /**
-     * @brief BoxGaussianFilterMode に関する型を提供する
-     * @details BoxGaussianFilterMode が扱うデータと操作の責務をまとめる
+     * @brief ボックス/ガウシアンぼかしを水平パス→垂直パスの2パスで適用する
      */
     class BoxGaussianFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief 水平パス（sceneTexture→intermediateTexture）→垂直パス（intermediateTexture→backbuffer）の順に描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief PrewittEdgeFilterMode に関する型を提供する
-     * @details PrewittEdgeFilterMode が扱うデータと操作の責務をまとめる
+     * @brief Prewittオペレータによる輝度ベースのエッジ検出をシングルパスで適用する
      */
     class PrewittEdgeFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief シーンテクスチャからエッジを検出してバックバッファへ描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief DepthOutlineFilterMode に関する型を提供する
-     * @details DepthOutlineFilterMode が扱うデータと操作の責務をまとめる
+     * @brief 深度バッファの差分からアウトラインを検出してシングルパスで適用する
      */
     class DepthOutlineFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief 深度バッファをSRV状態に一時遷移させ、シーンと深度の2テクスチャからアウトラインを描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief RadialBlurFilterMode に関する型を提供する
-     * @details RadialBlurFilterMode が扱うデータと操作の責務をまとめる
+     * @brief 指定した中心点から放射状にぼかすラジアルブラーをシングルパスで適用する
      */
     class RadialBlurFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief シーンテクスチャに対して放射状サンプリングでブラーをかけて描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief DissolveFilterMode に関する型を提供する
-     * @details DissolveFilterMode が扱うデータと操作の責務をまとめる
+     * @brief ノイズマスクを閾値で切り取り、境界に色を付けて溶解させる表現をシングルパスで適用する
      */
     class DissolveFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief ノイズマスクテクスチャ（初回使用時に遅延ロード）をt1にバインドして溶解境界を描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief NoiseGenFilterMode に関する型を提供する
-     * @details NoiseGenFilterMode が扱うデータと操作の責務をまとめる
+     * @brief プロシージャルノイズを生成してシーンに重ね合わせるシングルパスの処理
      */
     class NoiseGenFilterMode : public IFilterMode {
     public:
-        /**
-         * @brief Apply に対応する状態を設定する
-         * @param D3D12_CPU_DESCRIPTOR_HANDLE 処理に使用する値
-         * @return なし
-         */
+        /** @brief アニメーション有効時はseedを毎フレーム加算してからノイズを描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };
     /**
-     * @brief GetFilterMode の結果を取得する
-     * @param mode 処理に使用する値
-     * @return 処理結果
+     * @brief 指定モードに対応するIFilterMode実装のシングルトンインスタンスを返す
+     * @param mode 適用するフィルターモード
+     * @return モードに対応するIFilterModeの参照
      */
     static const IFilterMode& GetFilterMode(Mode mode);
 
     // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
     /**
-     * @brief FilterParams に関する型を提供する
-     * @details FilterParams が扱うデータと操作の責務をまとめる
+     * @brief Box/GaussianフィルターPS用の定数バッファに1:1で対応する構造体
      */
     struct FilterParams {
         float texelSizeX;
@@ -380,8 +348,7 @@ private:
 
     // ラジアルブラー用 CBuffer（1スロット）
     /**
-     * @brief RadialBlurParams に関する型を提供する
-     * @details RadialBlurParams が扱うデータと操作の責務をまとめる
+     * @brief ラジアルブラーPS用の定数バッファに1:1で対応する構造体
      */
     struct RadialBlurParams {
         float centerX; // 0  ブラー中心 X（UV空間）
@@ -392,8 +359,7 @@ private:
 
     // ディゾルブ用 CBuffer（1スロット）
     /**
-     * @brief DissolveParams に関する型を提供する
-     * @details DissolveParams が扱うデータと操作の責務をまとめる
+     * @brief ディゾルブPS用の定数バッファに1:1で対応する構造体
      */
     struct DissolveParams {
         float threshold; // 0  溶解進行度（0=なし, 1=完全消滅）
@@ -407,8 +373,7 @@ private:
 
     // プロシージャルノイズ用 CBuffer（1スロット）
     /**
-     * @brief NoiseGenParams に関する型を提供する
-     * @details NoiseGenParams が扱うデータと操作の責務をまとめる
+     * @brief プロシージャルノイズ生成PS用の定数バッファに1:1で対応する構造体
      */
     struct NoiseGenParams {
         float scaleX; // 0  UV スケール X
@@ -423,8 +388,7 @@ private:
 
     // アウトライン用 CBuffer（1スロット）
     /**
-     * @brief OutlineParams に関する型を提供する
-     * @details OutlineParams が扱うデータと操作の責務をまとめる
+     * @brief Prewitt/深度アウトラインPS用の定数バッファに1:1で対応する構造体
      */
     struct OutlineParams {
         float texelSizeX; // 0

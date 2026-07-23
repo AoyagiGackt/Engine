@@ -14,26 +14,25 @@
 
 namespace engine {
 /**
- * @brief StringUtility に関する型を提供する
- * @details StringUtility が扱うデータと操作の責務をまとめる
+ * @brief string（UTF-8）とwstring（ワイド文字列）を相互変換する静的関数のみを持つユーティリティクラス
  */
 class StringUtility {
 public:
     // UTF-8 の string（日本語も扱える文字列）を wstring（ワイド文字列）に変換する
     // 用途  ファイルパスを Windows API（MFCreateSourceReaderFromURL など）に渡すとき
     /**
-     * @brief ConvertString に対応する処理を実行する
-     * @param str 処理に使用する値
-     * @return 処理結果
+     * @brief UTF-8のstringをwstringへ変換する
+     * @param str 変換元のUTF-8文字列
+     * @return 変換後のワイド文字列
      */
     static std::wstring ConvertString(const std::string& str);
 
     // wstring（ワイド文字列）を UTF-8 の string に変換する
     // 用途  Windows API から返ってきた wstring をログ出力やデバッグ表示に使うとき
     /**
-     * @brief ConvertString に対応する処理を実行する
-     * @param str 処理に使用する値
-     * @return 処理結果
+     * @brief wstringをUTF-8のstringへ変換する
+     * @param str 変換元のワイド文字列
+     * @return 変換後のUTF-8文字列
      */
     static std::string ConvertString(const std::wstring& str);
 };

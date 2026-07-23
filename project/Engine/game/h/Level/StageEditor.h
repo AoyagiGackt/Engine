@@ -146,10 +146,7 @@ public:
 private:
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
-    /**
-     * @brief ObjectEntry に関する型を提供する
-     * @details ObjectEntry が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 配置物1件ぶんの編集データと、生成済みランタイム実体（見た目のみ/ナイト/汎用敵のいずれか）を束ねる */
     struct ObjectEntry {
         ObjectDesc desc;
         std::vector<std::unique_ptr<engine::graphics::Object3d>> instances;
@@ -163,10 +160,10 @@ private:
     };
 
     /**
-     * @brief GetOrLoadModel の結果を取得する
-     * @param modelPath 処理に使用する値
-     * @param texPath 処理に使用する値
-     * @return 処理結果
+     * @brief モデル+テクスチャの組み合わせをキャッシュから探し、無ければロードして登録する
+     * @param modelPath OBJ ファイルパス
+     * @param texPath テクスチャパス
+     * @return キャッシュ済み、または新規ロードした Model へのポインタ
      */
     engine::graphics::Model* GetOrLoadModel(const std::string& modelPath, const std::string& texPath);
 
@@ -267,10 +264,7 @@ private:
     std::vector<CheckpointDesc> checkpoints_;
 
     // レベルJSONに属さないランタイム実体（Player/Enemy等）への参照RegisterExternalEntity()で登録される
-    /**
-     * @brief ExternalEntityRef に関する型を提供する
-     * @details ExternalEntityRef が扱うデータと操作の責務をまとめる
-     */
+    /** @brief RegisterExternalEntity()で登録された、レベルJSON外のランタイム実体（Player等）への参照1件 */
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
@@ -328,8 +322,8 @@ private:
         Vector3 enemySpawn;
     };
     /**
-     * @brief MakeSnapshot の結果を取得する
-     * @return 処理結果
+     * @brief 現在の配置物・トリガー・チェックポイント・スポーン位置からUndo用スナップショットを構築する
+     * @return Undo/Redoスタックへ積む、descのみのコピー
      */
     LevelSnapshot MakeSnapshot() const;
     /** @brief スナップショットの内容へ丸ごと戻す（敵のHPやトリガーの成立済み状態はリセットされる） */

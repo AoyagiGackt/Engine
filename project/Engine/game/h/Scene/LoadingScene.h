@@ -11,34 +11,21 @@ namespace engine::game {
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
-/**
- * @brief LoadingScene に関する型を提供する
- * @details LoadingScene が扱うデータと操作の責務をまとめる
- */
+/** @brief 非同期シーンロード中に背景・進捗バー・点滅ドットを表示し、完了したら遷移先シーンへ切り替える */
 class LoadingScene : public BaseScene {
 public:
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @param input 処理に使用する値
-     * @param audio 処理に使用する値
-     * @return なし
+     * @brief ロード画面の背景・進捗バー・ドットアニメーション用スプライトを初期化する
+     * @param dxCommon DirectXの共通処理
+     * @param input 入力管理（本シーンでは未使用）
+     * @param audio 音声管理（本シーンでは未使用）
      */
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
-    /**
-     * @brief Update に対応する状態を更新する
-     * @return なし
-     */
+    /** @brief 進捗バーとドットアニメーションを更新し、最低表示時間経過後にロード完了なら遷移先シーンへ切り替える */
     void Update() override;
-    /**
-     * @brief Draw に対応する内容を描画する
-     * @return なし
-     */
+    /** @brief 背景・進捗バー・ドットアニメーションを描画する */
     void Draw() override;
-    /**
-     * @brief Finalize に対応する終了処理を行う
-     * @return なし
-     */
+    /** @brief 特に解放処理は行わない（何もしない） */
     void Finalize() override;
 
 private:

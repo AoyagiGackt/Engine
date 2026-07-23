@@ -24,8 +24,7 @@ namespace engine::graphics {
  *   PostDraw() 後（GPU 完了後）に ReadBack() を呼ぶと次フレームの DrawImGui() で表示
  */
 /**
- * @brief GpuProfiler に関する型を提供する
- * @details GpuProfiler が扱うデータと操作の責務をまとめる
+ * @brief タイムスタンプクエリヒープとリードバックバッファでGPUパス別コストを計測するシングルトンクラス
  */
 class GpuProfiler {
 public:
@@ -35,50 +34,44 @@ public:
         Count };
 
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief シングルトンインスタンスを取得する
+     * @return GpuProfiler のインスタンスへのポインタ
      */
     static GpuProfiler* GetInstance();
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @return なし
+     * @brief タイムスタンプクエリヒープとリードバックバッファを生成する
+     * @param dxCommon DirectX共通基盤
      */
     void Initialize(engine::DirectXCommon* dxCommon);
     /**
-     * @brief Finalize に対応する終了処理を行う
-     * @return なし
+     * @brief クエリヒープとリードバックバッファを解放する
      */
     void Finalize();
 
     /**
-     * @brief BeginScope に対応する処理を実行する
-     * @param s 処理に使用する値
-     * @param cmd 処理に使用する値
-     * @return なし
+     * @brief 指定スコープの計測開始タイムスタンプを打つ
+     * @param s 計測対象のパス（Shadow/SSAO/Main3D）
+     * @param cmd タイムスタンプを積むコマンドリスト
      */
     void BeginScope(Scope s, ID3D12GraphicsCommandList* cmd);
     /**
-     * @brief EndScope に対応する処理を実行する
-     * @param s 処理に使用する値
-     * @param cmd 処理に使用する値
-     * @return なし
+     * @brief 指定スコープの計測終了タイムスタンプを打つ
+     * @param s 計測対象のパス（Shadow/SSAO/Main3D）
+     * @param cmd タイムスタンプを積むコマンドリスト
      */
     void EndScope(Scope s, ID3D12GraphicsCommandList* cmd);
     /**
-     * @brief Resolve に対応する処理を実行する
-     * @param cmd 処理に使用する値
-     * @return なし
+     * @brief 積んだ全タイムスタンプクエリの結果をリードバックバッファへ解決する
+     * @param cmd コマンドリスト（Draw() 末尾、フラッシュ前に呼ぶこと）
      */
     void Resolve(ID3D12GraphicsCommandList* cmd);
     /**
-     * @brief ReadBack に対応する処理を実行する
-     * @return なし
+     * @brief リードバックバッファをCPU側にマップし、各パスの経過時間(ms)を results_ に反映する
+     * @note Resolve() 済みのGPU完了後（PostDraw() 後）に呼ぶこと
      */
     void ReadBack();
     /**
-     * @brief DrawImGui に対応する内容を描画する
-     * @return なし
+     * @brief CPU/GPUのフレーム時間とパス別コストを表示するImGuiウィンドウを描画する
      */
     void DrawImGui();
 

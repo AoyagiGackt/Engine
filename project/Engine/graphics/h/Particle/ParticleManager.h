@@ -118,8 +118,7 @@ struct ParticleGroup {
 
     // CPU 自動再配置（EmitScatterLoop 用）
     /**
-     * @brief RespawnConfig に関する型を提供する
-     * @details RespawnConfig が扱うデータと操作の責務をまとめる
+     * @brief EmitScatterLoop で指定した再配置条件（中心・半径・寿命範囲・色・スケール・数）を保持する
      */
     struct RespawnConfig {
         Vector3 center = { };

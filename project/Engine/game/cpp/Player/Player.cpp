@@ -38,6 +38,19 @@ constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも
 
 // 武器奪取の刺突（ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
 constexpr float kStealStabAnimSpeed = 1.2f;
+
+void LockJumpClipVerticalRootMotion(Animation& animation)
+{
+    auto body = animation.nodeAnimations.find("Body");
+    if (body == animation.nodeAnimations.end() || body->second.translate.keyframes.empty()) {
+        return;
+    }
+
+    const float baseY = body->second.translate.keyframes.front().value.y;
+    for (auto& keyframe : body->second.translate.keyframes) {
+        keyframe.value.y = baseY;
+    }
+}
 }
 
 // ══════════════════════════════════════════════════════
@@ -75,6 +88,8 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.runAnim = LoadAnimationFile(def.dir, def.file, def.run);
         rig.jumpAnim = LoadAnimationFile(def.dir, def.file, def.jump);
         rig.runningJumpAnim = LoadAnimationFile(def.dir, def.file, def.runningJump);
+        LockJumpClipVerticalRootMotion(rig.jumpAnim);
+        LockJumpClipVerticalRootMotion(rig.runningJumpAnim);
         rig.swimAnim = LoadAnimationFile(def.dir, def.file, def.swim);
         rig.idleHoldAnim = LoadAnimationFile(def.dir, def.file, def.idleHold);
         rig.runHoldAnim = LoadAnimationFile(def.dir, def.file, def.runHold);
@@ -289,6 +304,9 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 {
     groundVisualCorrection_ = 0.0f;
     if (blocks.empty()) {
+        if (pos_.y > kGroundY_ && velocityY_ <= 0.0f) {
+            onGround_ = false;
+        }
         return;
     }
 
@@ -321,6 +339,7 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     float feetY = pos_.y - kHalf;
     float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
     float visualFloorTop = (std::numeric_limits<float>::lowest)();
+    constexpr float kMaxStepHeight = 0.12f;
     for (const auto& b : blocks) {
         bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
             && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
@@ -330,10 +349,10 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
         // X/Z が重なっている床のうち、足元より上に出ていない一番高い面を採用する
         // 床をエディタで上下させたときも、古い高さに張り付かないようにする
-        if (b.max.y <= feetY + 0.6f && (b.max.y + kHalf) > bestTop) {
+        if (b.max.y <= feetY + kMaxStepHeight && (b.max.y + kHalf) > bestTop) {
             bestTop = b.max.y + kHalf;
         }
-        if (b.max.y <= feetY + 0.6f && b.max.y > visualFloorTop) {
+        if (b.max.y <= feetY + kMaxStepHeight && b.max.y > visualFloorTop) {
             visualFloorTop = b.max.y;
         }
     }
@@ -345,6 +364,8 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         pos_.y = bestTop;
         velocityY_ = 0.0f;
         onGround_ = true;
+    } else if (pos_.y > kGroundY_ && velocityY_ <= 0.0f) {
+        onGround_ = false;
     }
 
     // 水平方向  側面から重なっているブロックがあれば侵入量が小さい側へ押し出す

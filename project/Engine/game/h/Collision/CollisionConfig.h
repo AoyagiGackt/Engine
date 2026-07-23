@@ -1,6 +1,6 @@
 /**
  * @file CollisionConfig.h
- * @brief CollisionConfigの衝突判定と接触結果の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief 当たり判定に使う形状プリミティブ（Ray/Sphere/AABB/Capsule）とコライダー・レイキャスト結果を定義するファイル
  */
 #pragma once
 #include "MakeAffine.h"
@@ -10,10 +10,7 @@ namespace engine {
 // 形状プリミティブ
 
 /// レイ（半直線）
-/**
- * @brief Ray に関する型を提供する
- * @details Ray が扱うデータと操作の責務をまとめる
- */
+/** @brief レイキャストの入力となる半直線（発射点＋方向） */
 struct Ray {
     Vector3 origin; ///< 発射点
     Vector3 direction; ///< 方向ベクトル（必ず正規化して渡すこと）
@@ -36,20 +33,14 @@ struct RaycastResult {
 };
 
 /// 球体
-/**
- * @brief Sphere に関する型を提供する
- * @details Sphere が扱うデータと操作の責務をまとめる
- */
+/** @brief 球形の当たり判定形状（中心座標と半径） */
 struct Sphere {
     Vector3 center; ///< 中心点
     float radius; ///< 半径
 };
 
 /// AABB（回転しない軸並行境界箱）
-/**
- * @brief AABB に関する型を提供する
- * @details AABB が扱うデータと操作の責務をまとめる
- */
+/** @brief 軸並行境界箱（回転なし）の当たり判定形状。最小座標と最大座標の対角2点で表す */
 struct AABB {
     Vector3 min; ///< 最小座標（左・下・奥）
     Vector3 max; ///< 最大座標（右・上・手前）
@@ -57,10 +48,7 @@ struct AABB {
 
 /// カプセル（線分を軸とする球の掃引体）
 /// 使い方: キャラクターの上半身〜下半身、武器の刀身など縦長の当たり判定に最適
-/**
- * @brief Capsule に関する型を提供する
- * @details Capsule が扱うデータと操作の責務をまとめる
- */
+/** @brief カプセル形状の当たり判定形状。始点と終点を結ぶ線分を軸に半径分だけ膨らませた形 */
 struct Capsule {
     Vector3 start; ///< 始点（線分の根元）
     Vector3 end; ///< 終点（線分の先端）

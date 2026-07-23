@@ -49,8 +49,7 @@ public:
 
 private:
     /**
-     * @brief Pass に関する型を提供する
-     * @details Pass が扱うデータと操作の責務をまとめる
+     * @brief 登録された1描画パス分の名前・実行処理・有効フラグ
      */
     struct Pass {
         std::string name;

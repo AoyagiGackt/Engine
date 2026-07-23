@@ -23,25 +23,23 @@ public:
 // シーンをオフスクリーンに描画し、フルスクリーンPSで加工してバックバッファへ合成する処理の共通基盤
 // GrayscaleEffect/HsvFilterのように定数バッファ1つ+SRV1枚のフルスクリーンパスはこれを継承する
 /**
- * @brief PostEffectFullscreenPass に関する型を提供する
- * @details PostEffectFullscreenPass が扱うデータと操作の責務をまとめる
+ * @brief オフスクリーンRTVへのシーン描画からバックバッファへのフルスクリーン合成までを担う基底クラス
  */
 class PostEffectFullscreenPass : public IPostEffectSource {
 public:
     /**
-     * @brief BeginScene に対応する処理を実行する
-     * @return なし
+     * @brief オフスクリーンRTV（＋共有深度バッファ）をレンダーターゲットに設定しクリアする
+     * @note 3D描画の前に呼ぶ、2回目以降の呼び出しはリソースをRTV状態へ遷移させる
      */
     void BeginScene();
     /**
-     * @brief EndScene に対応する処理を実行する
-     * @return なし
+     * @brief オフスクリーンテクスチャをピクセルシェーダーリソース状態へ遷移させる
+     * @note 3D描画の後、Apply() の前に呼ぶ
      */
     void EndScene();
     /**
-     * @brief Apply に対応する状態を設定する
-     * @param srvManager 処理に使用する値
-     * @return なし
+     * @brief バックバッファをレンダーターゲットに戻し、オフスクリーン結果をフルスクリーンPSで合成する
+     * @param srvManager SRVディスクリプタヒープ管理
      */
     void Apply(SrvManager* srvManager);
 

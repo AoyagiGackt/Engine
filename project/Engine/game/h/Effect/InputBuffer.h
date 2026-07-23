@@ -29,8 +29,8 @@ namespace engine::game {
 using engine::Input;
 
 /**
- * @brief InputBuffer に関する型を提供する
- * @details InputBuffer が扱うデータと操作の責務をまとめる
+ * @brief 直近kHistorySizeフレーム分のキー/ボタン入力履歴をリングバッファで保持するシングルトン
+ * @details 「Nフレーム以内に押されていたか」の判定により、入力の先行受付やコマンド判定の猶予を実現する
  */
 class InputBuffer {
 public:

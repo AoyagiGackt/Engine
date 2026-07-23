@@ -10,14 +10,15 @@
 namespace engine::game {
 
 /**
- * @brief GameFlags に関する型を提供する
- * @details GameFlags が扱うデータと操作の責務をまとめる
+ * @brief 名前付きbool変数（フラグ）をゲーム全体で共有するグローバルストア
+ * @details ドアの開閉やアイテム回収済みなど、ステージをまたいで保持したい状態を
+ * 文字列キーで登録・参照する。ノードグラフのSetFlag/GetFlagノードとステージトリガーの両方から使われる
  */
 class GameFlags {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のGameFlagsインスタンスを取得する（未生成なら生成する）
+     * @return GameFlagsのインスタンス
      */
     static GameFlags* GetInstance();
 

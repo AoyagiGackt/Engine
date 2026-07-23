@@ -17,10 +17,7 @@ class Model;
 namespace engine::game {
 
 // JSON の1エントリに対応するオブジェクト定義
-/**
- * @brief ObjectDesc に関する型を提供する
- * @details ObjectDesc が扱うデータと操作の責務をまとめる
- */
+/** @brief レベルJSONの配置物1件ぶんの編集データ（見た目・当たり判定・ギミック・敵生成設定をすべて保持） */
 struct ObjectDesc {
     bool enabled = true; // falseなら保存は維持するが生成・更新・描画・当たり判定から除外する
     std::string name; // 親子参照・エディタ表示用の一意な名前（空ならロード時に自動命名）
@@ -61,10 +58,7 @@ struct ObjectDesc {
 // JSON の1エントリに対応するトリガー定義
 // プレイヤーが半径radius以内に入ると、flagで指定した名前のフラグをvalueにする（GameFlags参照）
 // 実際の分岐ロジックはノードグラフ側（GetFlag→If）が担当し、トリガーはフラグを立てるだけに徹する
-/**
- * @brief TriggerDesc に関する型を提供する
- * @details TriggerDesc が扱うデータと操作の責務をまとめる
- */
+/** @brief プレイヤーが半径radius以内に入るとflagをvalueにするトリガー1件の定義 */
 struct TriggerDesc {
     std::string name; // ステージエディタのHierarchy表示用（省略可）
     Vector3 position = { };
@@ -140,10 +134,7 @@ private:
 };
 
 // ファイルから読み込んだレベル全体のデータ
-/**
- * @brief LevelData に関する型を提供する
- * @details LevelData が扱うデータと操作の責務をまとめる
- */
+/** @brief レベルJSON1ファイルぶんの内容（配置物・トリガー・チェックポイント・プレイヤー/敵の初期スポーン位置） */
 struct LevelData {
     std::vector<ObjectDesc> objects;
     std::vector<TriggerDesc> triggers;
@@ -153,39 +144,32 @@ struct LevelData {
 };
 
 // Spawn() の戻り値Model と Object3d の所有権を持つ
-/**
- * @brief LevelSpawnResult に関する型を提供する
- * @details LevelSpawnResult が扱うデータと操作の責務をまとめる
- */
+/** @brief LevelLoader::Spawn() が生成したModel/Object3dの所有権を保持する（シーン側が寿命を管理する） */
 struct LevelSpawnResult {
     std::vector<std::unique_ptr<engine::graphics::Model>> models;
     std::vector<std::unique_ptr<engine::graphics::Object3d>> objects;
 };
 
 namespace LevelLoader {
-    // JSON ファイルを読んで LevelData を返す
     /**
-     * @brief Load の結果を取得する
-     * @param path 処理に使用する値
-     * @return 処理結果
+     * @brief JSON ファイルを読み込みLevelDataへ変換する
+     * @param path 読み込むレベルJSONのパス
+     * @return 読み込んだレベルデータファイルが存在しない/壊れている場合は空のLevelData
      */
     LevelData Load(const std::string& path);
 
-    // LevelData を JSON ファイルへ書き出す（StageEditorの保存機能から使う）
     /**
-     * @brief Save に対応する処理を実行する
-     * @param path 処理に使用する値
-     * @param data 処理に使用する値
-     * @return なし
+     * @brief LevelData を JSON ファイルへ書き出す（StageEditorの保存機能から使う）
+     * @param path 書き出し先のパス
+     * @param data 書き出すレベルデータ
      */
     void Save(const std::string& path, const LevelData& data);
 
-    // LevelData の静的オブジェクトを生成して返す
     /**
-     * @brief Spawn に対応する処理を実行する
-     * @param data 処理に使用する値
-     * @param modelCommon 処理に使用する値
-     * @return 処理結果
+     * @brief kindがprop/gimmick/terrainの配置物からModel/Object3dを生成する（enemy系の実体生成はStageEditor側が担当）
+     * @param data 生成元のレベルデータ
+     * @param modelCommon モデル生成に使用する共通処理
+     * @return 生成したModel/Object3dの所有権を持つ結果
      */
     LevelSpawnResult Spawn(const LevelData& data, engine::graphics::ModelCommon* modelCommon);
 }

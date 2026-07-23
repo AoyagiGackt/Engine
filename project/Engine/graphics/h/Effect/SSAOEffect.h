@@ -117,8 +117,7 @@ private:
 
     // 定数バッファ
     /**
-     * @brief NormalCaptureCB に関する型を提供する
-     * @details NormalCaptureCB が扱うデータと操作の責務をまとめる
+     * @brief ノーマルキャプチャパス用の定数バッファに1:1で対応する構造体
      */
     struct NormalCaptureCB {
         Matrix4x4 view;
@@ -127,8 +126,7 @@ private:
     NormalCaptureCB* normalCbData_ = nullptr;
 
     /**
-     * @brief SSAOParams に関する型を提供する
-     * @details SSAOParams が扱うデータと操作の責務をまとめる
+     * @brief AO計算コンピュートシェーダー用の定数バッファに1:1で対応する構造体
      */
     struct SSAOParams {
         Matrix4x4 projection;
@@ -146,8 +144,7 @@ private:
     SSAOParams* ssaoCbData_ = nullptr;
 
     /**
-     * @brief BlurParams に関する型を提供する
-     * @details BlurParams が扱うデータと操作の責務をまとめる
+     * @brief AOテクスチャのブラーパス用の定数バッファに1:1で対応する構造体
      */
     struct BlurParams {
         float texW;

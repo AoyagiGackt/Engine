@@ -266,12 +266,8 @@ private:
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
-    struct WeaponSlotUI {
-        std::unique_ptr<Sprite> frame;
-        std::unique_ptr<Sprite> icon;
-    };
     static constexpr int kWeaponSlotCount = 7;
-    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
     std::unique_ptr<Sprite> gunFrame_;
     std::unique_ptr<Sprite> gunIcon_;
@@ -289,10 +285,7 @@ private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<EnemyEntity> enemy_;
 
-    /**
-     * @brief WeaponEnemyEntry に関する型を提供する
-     * @details WeaponEnemyEntry が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 道中に配置された武器持ち敵1体分の状態（撃破後、Jキーで吸収して武器を奪取する） */
     struct WeaponEnemyEntry {
         std::unique_ptr<EnemyEntity> enemy;
         WeaponType weaponType = WeaponType::Sword;
@@ -308,10 +301,7 @@ private:
     bool swordGateActive_ = true;
     bool spearGateActive_ = true;
 
-    /**
-     * @brief EnergyCoreEntry に関する型を提供する
-     * @details EnergyCoreEntry が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 探索用エネルギーコア1個の状態（プレイヤーが触れると回収され、覚醒ゲージが増える） */
     struct EnergyCoreEntry {
         std::unique_ptr<Object3d> object;
         Vector3 position = { };
@@ -352,10 +342,7 @@ private:
     float enemyBulletTimer_ = 0.0f;
     bool enemyBulletActive_ = false;
 
-    /**
-     * @brief GhostEntry に関する型を提供する
-     * @details GhostEntry が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 覚醒中の残像トレイル1コマ分の位置と経過秒数（kGhostLifetimeを超えたら消える） */
     struct GhostEntry {
         Vector3 pos;
         float age;

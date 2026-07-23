@@ -86,8 +86,7 @@ public:
 
     // SSAOノーマルキャプチャパス用描画（SSAOEffect::BeginNormalCapture() の後に呼ぶ）
     /**
-     * @brief DrawForNormalCapture に対応する内容を描画する
-     * @return なし
+     * @brief WVP行列のみをバインドしてジオメトリだけを描画する（マテリアル/テクスチャなし）
      */
     void DrawForNormalCapture();
 
@@ -252,9 +251,8 @@ public:
     }
 
     /**
-     * @brief SetNormalMap に対応する状態を設定する
-     * @param filePath 処理に使用する値
-     * @return なし
+     * @brief 法線マップテクスチャを読み込んで設定し、useNormalMapフラグを有効にする
+     * @param filePath 法線マップ画像のファイルパス
      */
     void SetNormalMap(const std::string& filePath);
     void SetUseNormalMap(bool enable)

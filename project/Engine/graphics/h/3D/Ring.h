@@ -17,19 +17,13 @@ public:
     void SetInnerRadius(float r)
     {
         innerRadius_ = r;
-        /**
-         * @brief RebuildVertices に対応する処理を実行する
-         * @return 処理結果
-         */
+        // 半径変更を反映して頂点データを再生成する
         RebuildVertices();
     }
     void SetOuterRadius(float R)
     {
         outerRadius_ = R;
-        /**
-         * @brief RebuildVertices に対応する処理を実行する
-         * @return 処理結果
-         */
+        // 半径変更を反映して頂点データを再生成する
         RebuildVertices();
     }
 
@@ -41,8 +35,7 @@ private:
     void RebuildVertices();
 
     /**
-     * @brief MaterialCB に関する型を提供する
-     * @details MaterialCB が扱うデータと操作の責務をまとめる
+     * @brief Ring描画PS/VS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct MaterialCB {
         Matrix4x4 WVP;

@@ -32,8 +32,7 @@
 namespace engine::graphics {
 
 /**
- * @brief OutlineEffect に関する型を提供する
- * @details OutlineEffect が扱うデータと操作の責務をまとめる
+ * @brief 法線押し出し＋前面カリングによる2パスアウトライン描画を管理するシングルトンクラス
  */
 class OutlineEffect {
 public:
@@ -106,8 +105,7 @@ private:
     // 定数バッファ（シェーダー b0 に対応、VS と PS が共用）
     // VS では width を使って頂点を押し出し、PS では color を使ってピクセルを塗る
     /**
-     * @brief OutlineParams に関する型を提供する
-     * @details OutlineParams が扱うデータと操作の責務をまとめる
+     * @brief アウトラインVS/PS共用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct OutlineParams {
         Vector4 color = { 0.0f, 0.0f, 0.0f, 1.0f }; ///< アウトライン色（デフォルト黒）

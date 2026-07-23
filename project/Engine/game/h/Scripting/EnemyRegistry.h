@@ -12,14 +12,14 @@ namespace engine::game {
 class EnemyEntity;
 
 /**
- * @brief EnemyRegistry に関する型を提供する
- * @details EnemyRegistry が扱うデータと操作の責務をまとめる
+ * @brief idからEnemyEntity*を引けるグローバル登録簿
+ * @details 敵の生成・破棄そのものはScene側が行い、ここは現在生存している敵のidとポインタの対応だけを持つ
  */
 class EnemyRegistry {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のEnemyRegistryインスタンスを取得する（未生成なら生成する）
+     * @return EnemyRegistryのインスタンス
      */
     static EnemyRegistry* GetInstance();
 

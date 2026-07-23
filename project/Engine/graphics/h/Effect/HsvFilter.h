@@ -15,53 +15,46 @@ public:
     }
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @param srvManager 処理に使用する値
-     * @return なし
+     * @brief オフスクリーンRTV・定数バッファ・HSV変換用PSOを生成する
+     * @param dxCommon DirectX共通基盤
+     * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     void Finalize()
     {
-        /**
-         * @brief FinalizeCommon に対応する終了処理を行う
-         * @return 処理結果
-         */
+        // オフスクリーンRTV・定数バッファ・PSOを解放する
         FinalizeCommon();
         cbData_ = nullptr;
     }
 
     /**
-     * @brief SetHueShift に対応する状態を設定する
-     * @param degrees 処理に使用する値
-     * @return なし
+     * @brief 色相のシフト量を設定する
+     * @param degrees シフト角度（-180〜+180度）
      */
     void SetHueShift(float degrees);
     /**
-     * @brief GetHueShift の結果を取得する
-     * @return 処理結果
+     * @brief 色相のシフト量を取得する
+     * @return 現在設定されているシフト角度（度）
      */
     float GetHueShift() const;
     /**
-     * @brief SetSaturation に対応する状態を設定する
-     * @param s 処理に使用する値
-     * @return なし
+     * @brief 彩度の倍率を設定する
+     * @param s 彩度（0でグレースケール、1で元の彩度のまま）
      */
     void SetSaturation(float s);
     /**
-     * @brief GetSaturation の結果を取得する
-     * @return 処理結果
+     * @brief 彩度の倍率を取得する
+     * @return 現在設定されている彩度
      */
     float GetSaturation() const;
     /**
-     * @brief SetValue に対応する状態を設定する
-     * @param v 処理に使用する値
-     * @return なし
+     * @brief 明度の倍率を設定する
+     * @param v 明度（0で黒、1で元の明度のまま）
      */
     void SetValue(float v);
     /**
-     * @brief GetValue の結果を取得する
-     * @return 処理結果
+     * @brief 明度の倍率を取得する
+     * @return 現在設定されている明度
      */
     float GetValue() const;
 
@@ -69,8 +62,7 @@ private:
     HsvFilter() = default;
 
     /**
-     * @brief HsvFilterParams に関する型を提供する
-     * @details HsvFilterParams が扱うデータと操作の責務をまとめる
+     * @brief HSV変換PS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct HsvFilterParams {
         float hueShift = 0.0f; // -180 〜 +180 度

@@ -227,12 +227,10 @@ private:
     void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
     /** @brief ダミーのノックバック物理とHPバー表示を更新する */
     void UpdateDummies();
-    /** @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する */
-    void UpdateKnightEnemy();
     /**
      * @brief StageEditorで新規配置したナイト（GetStageEditor().GetKnights()）への攻撃判定
      * @note AI/重力自体はBaseScene::Tick()がUpdate()の後にGetStageEditor().UpdateObjects()で回すので、
-     * ここでは当たり判定とTakeDamageだけを行うロックオン・撃破後の武器奪取はknight_専用のまま対応していない
+     * ここでは当たり判定とTakeDamageだけを行う
      */
     void UpdatePlacedKnights();
     /** @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する */
@@ -297,13 +295,9 @@ private:
     std::unique_ptr<Model> modelDummy_;
     std::vector<Dummy> dummies_;
 
-    // 剣を持つナイト敵（撃破→凍結→武器奪取のお試し実装）
-    std::unique_ptr<KnightEnemy> knight_;
-
     // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
     enum class LockTargetKind { None,
-        Dummy,
-        Knight };
+        Dummy };
     LockTargetKind lockedKind_ = LockTargetKind::None;
     size_t lockedDummyIndex_ = 0;
 
@@ -325,25 +319,14 @@ private:
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
     // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
-    /**
-     * @brief WeaponSlotUI に関する型を提供する
-     * @details WeaponSlotUI が扱うデータと操作の責務をまとめる
-     */
-    struct WeaponSlotUI {
-        std::unique_ptr<Sprite> frame; // 枠背景
-        std::unique_ptr<Sprite> icon; // スタイルカラーで塗った中身
-    };
     static constexpr int kWeaponSlotCount = 4;
     static constexpr float kSlotFlashDuration = 0.35f;
-    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
 
     // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
     // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
-    /**
-     * @brief WeaponIcon3D に関する型を提供する
-     * @details WeaponIcon3D が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 武器スロットUIに表示する回転3Dアイコン1個分のモデルと演出状態 */
     struct WeaponIcon3D {
         std::unique_ptr<Model> model;
         std::unique_ptr<Object3d> object;

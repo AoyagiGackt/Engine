@@ -30,46 +30,41 @@ class OutlineEffect;
 // スキニング（ボーンアニメーション）付き 3D オブジェクト
 // SkinnedModel + Skeleton + Animation を組み合わせて毎フレーム描画する
 /**
- * @brief SkinnedObject3d に関する型を提供する
- * @details SkinnedObject3d が扱うデータと操作の責務をまとめる
+ * @brief GPU スキニングによるボーンアニメーション付き 3D オブジェクトの描画クラス
+ * @details SkinnedModel（頂点・ボーン情報）と Skeleton（ジョイント階層）と Animation（キーフレーム）を
+ *          毎フレーム合成し、CS でスキニングした頂点、またはフォールバックの VS 内ボーン計算で描画する
  */
 class SkinnedObject3d {
 public:
     /**
-     * @brief SetCommonCamera に対応する状態を設定する
-     * @param camera 処理に使用する値
-     * @return なし
+     * @brief 全インスタンス共通で参照するカメラを設定する
+     * @param camera Update()/Draw() で view/projection 行列取得に使うカメラ
      */
     static void SetCommonCamera(Camera* camera);
     /**
-     * @brief SetLightViewProjection に対応する状態を設定する
-     * @param lvp 処理に使用する値
-     * @return なし
+     * @brief 全インスタンス共通のライト視点ビュープロジェクション行列を設定する（シャドウ判定用）
+     * @param lvp シャドウマップ生成時に使ったライト視点の VP 行列
      */
     static void SetLightViewProjection(const Matrix4x4& lvp);
     /**
-     * @brief SetCommonObjectCommon に対応する状態を設定する
-     * @param objectCommon 処理に使用する値
-     * @return なし
+     * @brief 全インスタンス共通の Object3dCommon（ライト・共有描画設定）を設定する
+     * @param objectCommon Draw() でライト設定の取得に使う Object3dCommon インスタンス
      */
     static void SetCommonObjectCommon(Object3dCommon* objectCommon);
     /**
-     * @brief SetCommonShadowManager に対応する状態を設定する
-     * @param shadowManager 処理に使用する値
-     * @return なし
+     * @brief 全インスタンス共通の ShadowManager を設定する
+     * @param shadowManager Draw() でシャドウマップ SRV のバインドに使う ShadowManager インスタンス
      */
     static void SetCommonShadowManager(ShadowManager* shadowManager);
     /**
-     * @brief SetCommonModelCommon に対応する状態を設定する
-     * @param modelCommon 処理に使用する値
-     * @return なし
+     * @brief 全インスタンス共通の ModelCommon（CS スキニング済みパスの PSO）を設定する
+     * @param modelCommon Draw() で CS スキニング結果を描画する際に使う ModelCommon インスタンス
      */
     static void SetCommonModelCommon(ModelCommon* modelCommon);
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param skinCommon 処理に使用する値
-     * @return なし
+     * @brief 変換行列・マテリアル・スキニングパレットの定数バッファを確保し既定値で初期化する
+     * @param skinCommon 描画に使う PSO・ルートシグネチャを保持する SkinCommon インスタンス
      */
     void Initialize(SkinCommon* skinCommon);
 
@@ -141,18 +136,15 @@ public:
     const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
 
     /**
-     * @brief Update に対応する状態を更新する
-     * @return なし
+     * @brief アニメーションを適用してスケルトンとスキニングパレット、ワールド/WVP行列を更新する
      */
     void Update();
     /**
-     * @brief Draw に対応する内容を描画する
-     * @return なし
+     * @brief スキニング済み頂点を描画する（CS スキニング可なら CS 結果を、不可なら VS 内ボーン計算にフォールバックする）
      */
     void Draw();
     /**
-     * @brief DiagnosticsDraw に対応する処理を実行する
-     * @return なし
+     * @brief ImGui 有効時にスケルトンのジョイント・ボーンをワールド空間へデバッグ描画する
      */
     void DiagnosticsDraw();
 
@@ -167,8 +159,7 @@ private:
     static const int kMaxJoints = 128;
 
     /**
-     * @brief TransformationMatrix に関する型を提供する
-     * @details TransformationMatrix が扱うデータと操作の責務をまとめる
+     * @brief VS に渡す座標変換用定数バッファのレイアウト（SkinnedVS.hlsl / Object3dVS.hlsl と一致させる）
      */
     struct TransformationMatrix {
         Matrix4x4 WVP;
@@ -190,8 +181,7 @@ private:
     bool skinCSReady_ = false;
 
     /**
-     * @brief InitializeSkinCS に対応する処理を開始する
-     * @return なし
+     * @brief model_ と skinCommon_ が両方設定済みなら SkinCS を初期化する（未設定時は何もしない）
      */
     void InitializeSkinCS();
 

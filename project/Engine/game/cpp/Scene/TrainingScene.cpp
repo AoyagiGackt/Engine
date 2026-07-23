@@ -96,6 +96,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
+    player_->SetHorizontalBounds(2.5f, 27.5f);
     // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
     // （未作成のtraining.jsonなら空のまま起動し、F2エディタの+で配置してSaveで作成できる）
     PlayerBridge::GetInstance()->SetPlayer(player_.get());
@@ -197,6 +198,9 @@ void TrainingScene::RefreshVisualTransformsForEditor()
     for (auto& portal : warpPortalBlocks_) {
         portal->Update();
     }
+    for (auto& pickup : weaponPickups_) {
+        pickup.object->Update();
+    }
 }
 
 void TrainingScene::UpdatePlayerAndBullets()
@@ -213,26 +217,7 @@ void TrainingScene::UpdatePlayerAndBullets()
     }
 
     // ── スペースキー スピン連射 ──────────────────────────────────────
-    if (player_->JustSpinShot()) {
-        constexpr float kBulletSpeed = 0.30f;
-        const Vector3& spawnPos = player_->GetPosition();
-        Vector3 firePos = { spawnPos.x, spawnPos.y, 0.0f };
-
-        if (player_->IsUpsideDown()) {
-            // 逆さ: 下方向中心に 5 方向ばらまき
-            constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
-            constexpr float kSpread = 30.0f * (3.14159265f / 180.0f); // 30°間隔
-            for (int i = -2; i <= 2; ++i) {
-                float angle = kBaseAngle + i * kSpread;
-                bulletPool_.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
-            }
-            TimeManager::GetInstance()->RequestHitStop(3);
-            ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
-        } else {
-            // 通常: 向いている方向に 1 発
-            bulletPool_.Spawn(firePos, { player_->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
-        }
-    }
+    SceneShared::UpdateSpinShotFire(player_.get(), bulletPool_);
     bulletPool_.Update();
 
     // ── フィニッシャースラッシュ（ゲージ満タン消費）───────────────────
@@ -263,6 +248,7 @@ void TrainingScene::UpdatePlayerAndBullets()
 void TrainingScene::UpdateCameraAndEnvironment()
 {
     SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
+    player_->RefreshVisualTransforms();
 
 #ifdef _DEBUG
     GpuProfiler::GetInstance()->ReadBack();
