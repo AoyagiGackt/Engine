@@ -23,8 +23,9 @@ class GraphEditorInteraction;
 class GraphNodeRenderer;
 
 /**
- * @brief GraphEditor に関する型を提供する
- * @details GraphEditor が扱うデータと操作の責務をまとめる
+ * @brief ノードグラフをキャンバス上で編集するImGuiエディタ本体
+ * @details グラフの読み込み/保存、ノード・コメントの追加削除、実行フロー配線とデータ配線の
+ * ドラッグ操作、Undo/Redo、テスト実行（Run）までの編集機能一式をまとめて保持する
  */
 class GraphEditor {
     friend class GraphEditorInteraction;
@@ -32,8 +33,8 @@ class GraphEditor {
 
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のGraphEditorインスタンスを取得する（未生成なら生成する）
+     * @return GraphEditorのインスタンス
      */
     static GraphEditor* GetInstance();
 

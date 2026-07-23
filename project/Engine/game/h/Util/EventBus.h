@@ -12,14 +12,13 @@
 namespace engine::game {
 
 /**
- * @brief EventBus に関する型を提供する
- * @details EventBus が扱うデータと操作の責務をまとめる
+ * @brief 文字列イベント名で購読者を管理し、Emit時にコールバックを同期的に呼び出すPublish/Subscribeバス
  */
 class EventBus {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のEventBusインスタンスを取得する（未生成なら生成する）
+     * @return EventBusのインスタンス
      */
     static EventBus* GetInstance();
 

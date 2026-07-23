@@ -27,18 +27,29 @@ inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
 }
 
 // RTV/DSVとビューポート・シザーをセットしてメイン描画先を確定する
+// rtv がバックバッファそのものの場合（＝ポストエフェクトが無効で直接描画するケース）は、
+// 深度バッファ（固定解像度）を併用するため拡大はせず、バックバッファ中央に配置する
+// （オフスクリーンテクスチャへ描く場合は元々サイズが一致しているので内部解像度のまま）
 inline void SetupSceneRenderTarget(engine::DirectXCommon* dxCommon, D3D12_CPU_DESCRIPTOR_HANDLE rtv)
 {
     ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
     D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon->GetDsvHandle();
     commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-    D3D12_VIEWPORT vp = { 0, 0,
-        static_cast<float>(engine::WinApp::kClientWidth), static_cast<float>(engine::WinApp::kClientHeight),
-        0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, engine::WinApp::kClientWidth, engine::WinApp::kClientHeight };
-    commandList->RSSetViewports(1, &vp);
-    commandList->RSSetScissorRects(1, &scissor);
+    const bool targetsBackBuffer = (rtv.ptr == dxCommon->GetCurrentBackBufferHandle().ptr);
+    if (targetsBackBuffer) {
+        D3D12_VIEWPORT vp = dxCommon->GetCenteredClientViewport();
+        D3D12_RECT scissor = dxCommon->GetCenteredClientScissorRect();
+        commandList->RSSetViewports(1, &vp);
+        commandList->RSSetScissorRects(1, &scissor);
+    } else {
+        D3D12_VIEWPORT vp = { 0, 0,
+            static_cast<float>(engine::WinApp::kClientWidth), static_cast<float>(engine::WinApp::kClientHeight),
+            0.0f, 1.0f };
+        D3D12_RECT scissor = { 0, 0, engine::WinApp::kClientWidth, engine::WinApp::kClientHeight };
+        commandList->RSSetViewports(1, &vp);
+        commandList->RSSetScissorRects(1, &scissor);
+    }
 }
 
 } // namespace engine::graphics

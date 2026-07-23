@@ -4,5 +4,6 @@
     { "name": "bt_gun_shot",         "texture": "Resources/circle2.png", "additive": true },
     { "name": "bt_sword_slash",      "texture": "Resources/slashStreak.png", "additive": true },
     { "name": "bt_weapon_orb",       "texture": "Resources/circle2.png", "additive": true },
-    { "name": "bt_knight_dash_smoke","texture": "Resources/noise0.png",  "additive": false }
+    { "name": "bt_knight_dash_smoke","texture": "Resources/noise0.png",  "additive": false },
+    { "name": "bt_water_splash",     "texture": "Resources/circle2.png", "additive": false }
 ]

@@ -25,9 +25,8 @@ public:
     static constexpr int kRankCount = 7; ///< D C B A S SS SSS
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param spriteCommon 処理に使用する値
-     * @return なし
+     * @brief ランクゲージのバー（背景/前景）スプライトを生成する
+     * @param spriteCommon スプライト描画の共通設定
      */
     void Initialize(SpriteCommon* spriteCommon);
 

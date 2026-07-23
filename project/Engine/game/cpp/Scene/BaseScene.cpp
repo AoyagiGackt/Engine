@@ -38,7 +38,12 @@ void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio)
     }
 
     if (Vector3* playerPos = GetEditorPlayerPositionRef()) {
-        GetStageEditor().RegisterExternalEntity("Player", playerPos, [this] { return GetEditorPlayerVisualPreset(); }, [this](int preset) { SetEditorPlayerVisualPreset(preset); }, [this](const std::string& path) { SetEditorPlayerStaticVisual(path); });
+        GetStageEditor().RegisterExternalEntity("Player", playerPos,
+            [this] { return GetEditorPlayerVisualPreset(); },
+            [this](int preset) { SetEditorPlayerVisualPreset(preset); },
+            [this](const std::string& model, const std::string& tex) { SetEditorPlayerStaticVisual(model, tex); },
+            [this] { return GetEditorPlayerStaticVisualModel(); },
+            [this] { return GetEditorPlayerStaticVisualTexture(); });
     }
 }
 

@@ -385,8 +385,8 @@ void ImageFilter::Apply(SrvManager* srvManager)
 {
     auto* cmd = dxCommon_->GetCommandList();
 
-    D3D12_VIEWPORT vp = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
+    D3D12_VIEWPORT vp = dxCommon_->GetBackBufferViewport();
+    D3D12_RECT scissor = dxCommon_->GetBackBufferScissorRect();
     D3D12_CPU_DESCRIPTOR_HANDLE backRtv = dxCommon_->GetCurrentBackBufferHandle();
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -504,7 +504,7 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
     cmd->SetPipelineState(filter.mode_ == Mode::Box ? filter.boxPso_.Get() : filter.gaussianPso_.Get());
 
-    // Pass 1: 水平（sceneTexture → intermediateTexture）
+    // Pass 1: 水平（sceneTexture → intermediateTexture、内部解像度は固定のまま）
     if (!filter.isIntermediateFirstFrame_) {
         DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -512,9 +512,11 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     }
     filter.isIntermediateFirstFrame_ = false;
 
+    D3D12_VIEWPORT internalVp = { 0.f, 0.f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.f, 1.f };
+    D3D12_RECT internalScissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
     cmd->OMSetRenderTargets(1, &filter.intermediateRtvHandle_, FALSE, nullptr);
-    cmd->RSSetViewports(1, &vp);
-    cmd->RSSetScissorRects(1, &scissor);
+    cmd->RSSetViewports(1, &internalVp);
+    cmd->RSSetScissorRects(1, &internalScissor);
     cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
     cmd->DrawInstanced(3, 1, 0, 0);

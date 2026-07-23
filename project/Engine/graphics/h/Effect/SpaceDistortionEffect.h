@@ -47,8 +47,7 @@ private:
 
     // cbuffer のメモリレイアウト（HLSL の WarpParams と一致させること）
     /**
-     * @brief WarpParams に関する型を提供する
-     * @details WarpParams が扱うデータと操作の責務をまとめる
+     * @brief 歪みPS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct WarpParams {
         float centerU = 0.5f;
@@ -61,8 +60,7 @@ private:
     };
 
     /**
-     * @brief CreatePipeline の結果を取得する
-     * @return なし
+     * @brief ルートシグネチャ・PSO・定数バッファを生成する
      */
     void CreatePipeline();
 

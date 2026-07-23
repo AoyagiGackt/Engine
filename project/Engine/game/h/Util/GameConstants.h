@@ -45,6 +45,9 @@ namespace GameConstants {
     // 打ち上げ速度
     inline constexpr float kLaunchSpeed = 0.48f;
 
+    // 近接攻撃・固有技の指向性判定（BattleTestScene/GamePlayScene共通）
+    inline constexpr float kSkillRearReachMult = 0.4f; // 背面リーチ（前方リーチ比）
+
     // 覚醒ゲージ満タン消費の大技（溜め→高速連続斬撃で刻む→一斉解放）
     inline constexpr int kFinisherLineDamage = 1; // 斬撃線1本ごとのダメージ
     inline constexpr int kFinisherSlashDamage = 8; // 本命（解放の一撃）の固定ダメージ

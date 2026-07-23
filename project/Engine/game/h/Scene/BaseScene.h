@@ -177,7 +177,9 @@ public:
     virtual Vector3* GetEditorPlayerPositionRef() { return nullptr; }
     virtual int GetEditorPlayerVisualPreset() const { return -1; }
     virtual void SetEditorPlayerVisualPreset(int) { }
-    virtual void SetEditorPlayerStaticVisual(const std::string&) { }
+    virtual void SetEditorPlayerStaticVisual(const std::string&, const std::string&) { }
+    virtual std::string GetEditorPlayerStaticVisualModel() const { return { }; }
+    virtual std::string GetEditorPlayerStaticVisualTexture() const { return { }; }
 
     /**
      * @brief エディタ表示中（ゲームプレイ停止中）に代わりに呼ばれる

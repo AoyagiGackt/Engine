@@ -1,6 +1,6 @@
 /**
  * @file JsonHelper.h
- * @brief JsonHelperのアプリケーション実行基盤の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief nlohmann::jsonを使ったJSONファイルの読み込み・保存ユーティリティ
  */
 #pragma once
 #include "json.hpp"
@@ -12,19 +12,18 @@ class JsonHelper {
 public:
     // ファイルから JSON を読み込む（ファイルが存在しない・破損の場合は空オブジェクトを返す）
     /**
-     * @brief Load の結果を取得する
-     * @param path 処理に使用する値
-     * @return 処理結果
+     * @brief JSONファイルを読み込んでパースする
+     * @param path 読み込むファイルのパス
+     * @return パース結果ファイルが無い・パースに失敗した場合は空オブジェクト
      */
     static nlohmann::json Load(const std::string& path);
 
     // JSON をファイルへ保存する（親ディレクトリがなければ作成する）
     /**
-     * @brief Save に対応する処理を実行する
-     * @param path 処理に使用する値
-     * @param j 処理に使用する値
-     * @param indent 処理に使用する値
-     * @return なし
+     * @brief JSONをファイルへ書き出す（親ディレクトリが無ければ作成する）
+     * @param path 書き出し先のファイルパス
+     * @param j 書き出すJSONデータ
+     * @param indent インデントの空白数（0以下ならnlohmann::jsonのdump()の仕様に従う）
      */
     static void Save(const std::string& path, const nlohmann::json& j, int indent = 2);
 };

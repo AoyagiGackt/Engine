@@ -23,8 +23,40 @@ class SpriteCommon;
 
 namespace engine::game {
 class FontRenderer;
+class Player;
+class BulletPool;
 
 namespace SceneShared {
+
+    /** @brief 武器スロットHUD1枠ぶんのスプライト(枠+色アイコン) */
+    struct WeaponSlotUI {
+        std::unique_ptr<engine::graphics::Sprite> frame; // 枠背景
+        std::unique_ptr<engine::graphics::Sprite> icon; // スタイルカラーで塗った中身
+    };
+
+    /**
+     * @brief 武器スロットHUD(枠+色アイコン+常時装備銃)のスプライトを初期化して配置する
+     * @param checkUnlockedForInitialColor 初期色を決める際にロック状態も見るか(未解放スロットを初手から暗く表示したいシーンでtrue)
+     */
+    void InitializeWeaponSlotHud(engine::graphics::SpriteCommon* spriteCommon, WeaponManager* weaponManager,
+        WeaponSlotUI* slots, Vector2* slotPos, int slotCount,
+        float slotSize, float slotGap, float marginX, float baseY, bool checkUnlockedForInitialColor,
+        std::unique_ptr<engine::graphics::Sprite>& gunFrame, std::unique_ptr<engine::graphics::Sprite>& gunIcon, Vector2& gunPos);
+
+    /**
+     * @brief 武器スロットの枠明滅とアイコン色(未解放/選択中)、銃アイコンの回転を毎フレーム更新する
+     * @param flash 全スロットを一時的に光らせる演出量。使わないシーンは0を渡す
+     */
+    void UpdateWeaponSlotHud(WeaponManager* weaponManager, WeaponSlotUI* slots, int slotCount,
+        float pulseTimer, float flash, engine::graphics::Sprite* gunIcon, float gunIconAngle);
+
+    /** @brief 武器スロットの枠(+常時装備銃の枠)だけを描画する3D武器モデルを枠とアイコンの間に挟みたい場合は、この後に挟んでからDrawWeaponSlotIconsAndLabelsを呼ぶ */
+    void DrawWeaponSlotFrames(const WeaponSlotUI* slots, int slotCount, engine::graphics::Sprite* gunFrame);
+
+    /** @brief 武器スロットのアイコン・未解放"?"ラベル・GUNラベルを描画する */
+    void DrawWeaponSlotIconsAndLabels(const WeaponSlotUI* slots, int slotCount, const Vector2* slotPos,
+        engine::graphics::Sprite* gunIcon, const Vector2& gunPos, WeaponManager* weaponManager, FontRenderer& fontRenderer,
+        float slotSize);
 
     /** @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する */
     std::unique_ptr<engine::graphics::Sprite> CreateFinisherOverlay(engine::graphics::SpriteCommon* spriteCommon);
@@ -58,6 +90,9 @@ namespace SceneShared {
     /// @param thickness 線の太さ（ピクセル）
     void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, float camY,
         const Vector4& color, float thickness, float duration);
+
+    /** @brief スペースキーのスピン連射弾を発射する（逆さ時は下方向中心に5方向ばらまき、通常時は向いている方向へ1発）JustSpinShot()でなければ何もしない */
+    void UpdateSpinShotFire(Player* player, BulletPool& bulletPool);
 
     /** @brief 武器切替入力（Q/E、数字キー）を処理するweaponCycleTimer は呼び出し側が保持するクールダウン */
     void UpdateWeaponCycle(engine::Input* input, WeaponManager* weaponManager,

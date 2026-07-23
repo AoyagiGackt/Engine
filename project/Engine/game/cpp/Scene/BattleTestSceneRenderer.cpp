@@ -36,10 +36,6 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
     scene.objectCommon_->SetDefaultLight(commandList);
     scene.shadowManager_->SetShadowMap(commandList, scene.srvManager_);
 
-    // 背景、訓練対象、プレイヤーの順で3Dワールドを描画する
-    for (auto& city : scene.cityBackgroundObjects_) {
-        city->Draw();
-    }
     for (auto& portal : scene.warpPortalBlocks_) {
         portal->Draw();
     }
@@ -49,9 +45,6 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
         }
     }
     scene.bulletPool_.Draw();
-    if (scene.knight_) {
-        scene.knight_->Draw();
-    }
     scene.player_->Draw();
     scene.dummySlice_.Draw();
     scene.pm_->Update(scene.camera_.get());

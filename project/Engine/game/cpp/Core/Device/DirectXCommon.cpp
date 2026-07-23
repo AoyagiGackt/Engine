@@ -134,20 +134,11 @@ void DirectXCommon::PreDraw()
     commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
     // ビューポートとシザー矩形の設定
-    D3D12_VIEWPORT viewport = { };
-    viewport.Width = static_cast<float>(winApp_->kClientWidth);
-    viewport.Height = static_cast<float>(winApp_->kClientHeight);
-    viewport.TopLeftX = 0;
-    viewport.TopLeftY = 0;
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+    // 深度バッファ（固定解像度）を併用するため拡大はせず、バックバッファ中央に配置する
+    D3D12_VIEWPORT viewport = GetCenteredClientViewport();
     commandList_->RSSetViewports(1, &viewport);
 
-    D3D12_RECT scissorRect = { };
-    scissorRect.left = 0;
-    scissorRect.right = static_cast<LONG>(winApp_->kClientWidth);
-    scissorRect.top = 0;
-    scissorRect.bottom = static_cast<LONG>(winApp_->kClientHeight);
+    D3D12_RECT scissorRect = GetCenteredClientScissorRect();
     commandList_->RSSetScissorRects(1, &scissorRect);
 }
 
@@ -522,6 +513,86 @@ void DirectXCommon::OnResize(uint32_t width, uint32_t height)
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     CreateRTV();
+}
+
+D3D12_VIEWPORT DirectXCommon::GetBackBufferViewport() const
+{
+    uint32_t backBufferWidth = winApp_->kClientWidth;
+    uint32_t backBufferHeight = winApp_->kClientHeight;
+    if (swapChain_) {
+        DXGI_SWAP_CHAIN_DESC1 desc = { };
+        if (SUCCEEDED(swapChain_->GetDesc1(&desc)) && desc.Width > 0 && desc.Height > 0) {
+            backBufferWidth = desc.Width;
+            backBufferHeight = desc.Height;
+        }
+    }
+
+    // 内部解像度のアスペクト比を保ったまま、バックバッファ内に収まる最大サイズへ拡大する
+    const float clientAspect = static_cast<float>(winApp_->kClientWidth) / static_cast<float>(winApp_->kClientHeight);
+    const float backAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
+
+    float width = static_cast<float>(backBufferWidth);
+    float height = static_cast<float>(backBufferHeight);
+    if (backAspect > clientAspect) {
+        // バックバッファの方が横長 → 左右に余白（ピラーボックス）
+        width = height * clientAspect;
+    } else if (backAspect < clientAspect) {
+        // バックバッファの方が縦長 → 上下に余白（レターボックス）
+        height = width / clientAspect;
+    }
+
+    D3D12_VIEWPORT viewport = { };
+    viewport.TopLeftX = (static_cast<float>(backBufferWidth) - width) * 0.5f;
+    viewport.TopLeftY = (static_cast<float>(backBufferHeight) - height) * 0.5f;
+    viewport.Width = width;
+    viewport.Height = height;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+    return viewport;
+}
+
+D3D12_RECT DirectXCommon::GetBackBufferScissorRect() const
+{
+    const D3D12_VIEWPORT viewport = GetBackBufferViewport();
+    D3D12_RECT rect = { };
+    rect.left = static_cast<LONG>(viewport.TopLeftX);
+    rect.top = static_cast<LONG>(viewport.TopLeftY);
+    rect.right = static_cast<LONG>(viewport.TopLeftX + viewport.Width);
+    rect.bottom = static_cast<LONG>(viewport.TopLeftY + viewport.Height);
+    return rect;
+}
+
+D3D12_VIEWPORT DirectXCommon::GetCenteredClientViewport() const
+{
+    uint32_t backBufferWidth = winApp_->kClientWidth;
+    uint32_t backBufferHeight = winApp_->kClientHeight;
+    if (swapChain_) {
+        DXGI_SWAP_CHAIN_DESC1 desc = { };
+        if (SUCCEEDED(swapChain_->GetDesc1(&desc)) && desc.Width > 0 && desc.Height > 0) {
+            backBufferWidth = desc.Width;
+            backBufferHeight = desc.Height;
+        }
+    }
+
+    D3D12_VIEWPORT viewport = { };
+    viewport.TopLeftX = (static_cast<float>(backBufferWidth) - static_cast<float>(winApp_->kClientWidth)) * 0.5f;
+    viewport.TopLeftY = (static_cast<float>(backBufferHeight) - static_cast<float>(winApp_->kClientHeight)) * 0.5f;
+    viewport.Width = static_cast<float>(winApp_->kClientWidth);
+    viewport.Height = static_cast<float>(winApp_->kClientHeight);
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+    return viewport;
+}
+
+D3D12_RECT DirectXCommon::GetCenteredClientScissorRect() const
+{
+    const D3D12_VIEWPORT viewport = GetCenteredClientViewport();
+    D3D12_RECT rect = { };
+    rect.left = static_cast<LONG>(viewport.TopLeftX);
+    rect.top = static_cast<LONG>(viewport.TopLeftY);
+    rect.right = static_cast<LONG>(viewport.TopLeftX + viewport.Width);
+    rect.bottom = static_cast<LONG>(viewport.TopLeftY + viewport.Height);
+    return rect;
 }
 
 void DirectXCommon::CreateFence()

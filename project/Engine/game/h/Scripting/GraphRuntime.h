@@ -14,8 +14,8 @@
 namespace engine::game {
 
 /**
- * @brief GraphRuntime に関する型を提供する
- * @details GraphRuntime が扱うデータと操作の責務をまとめる
+ * @brief ノードグラフ1個ぶんの実行状態（現在ノード・変数・Wait/サブグラフの進行）を保持し進行させるVM本体
+ * @details 同じGraphDescを参照しつつ、変数と実行位置はインスタンスごとに独立して持つ
  */
 class GraphRuntime {
 public:

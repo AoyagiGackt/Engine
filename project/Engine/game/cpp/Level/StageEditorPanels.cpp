@@ -26,7 +26,7 @@ std::string OpenFileDialog(const char* filter, const char* initialDirectory)
     dialog.lpstrFile = path;
     dialog.nMaxFile = MAX_PATH;
     dialog.lpstrInitialDir = initialDirectory;
-    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     return GetOpenFileNameA(&dialog) ? std::string(path) : std::string { };
 }
 
@@ -43,8 +43,8 @@ namespace engine::game {
 using namespace engine::graphics;
 void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 {
-    ImGui::TextDisabled("F2: 表示/非表示    F3: 画面優先    WASD/QE: カメラ移動");
-    if (ImGui::Button("ゲーム画面を広く表示 (F3)", ImVec2(-1.0f, 0.0f))) {
+    ImGui::TextDisabled("F2: 表示/非表示    F4: 画面優先    WASD/QE: カメラ移動");
+    if (ImGui::Button("ゲーム画面を広く表示 (F4)", ImVec2(-1.0f, 0.0f))) {
         editor.viewportFocusMode_ = true;
     }
     if (ImGui::CollapsingHeader("制作ガイド", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -76,6 +76,24 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         if (ImGui::SmallButton("イベントを作る")) {
             editor.showNoCodeEventPanel_ = true;
         }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("水イベントを作る")) {
+            editor.RecordUndoSnapshotNow();
+            Vector3 center = editor.playerSpawn_;
+            editor.MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+            TriggerDesc desc;
+            desc.name = "water_trigger_" + std::to_string(editor.nextSerial_++);
+            desc.position = center;
+            desc.spawnsWaterSplash = true;
+            TriggerVolume trg;
+            trg.Init(desc);
+            editor.triggers_.push_back(std::move(trg));
+            editor.selKind_ = StageEditor::SelKind::Trigger;
+            editor.selIndex_ = static_cast<int>(editor.triggers_.size()) - 1;
+            editor.statusMessage_ = "水イベントを画面中央に作成しました。ドラッグして位置を調整してください";
+            editor.statusTimer_ = 3.0f;
+        }
+        EditorUI::HelpMarker("動作対象やイベントパネルでの接続を行わず、この場所に来たら水しぶきが出るトリガーを1回で作ります");
         ImGui::SameLine();
         if (ImGui::SmallButton("詳しい説明")) {
             editor.showEditorHelp_ = true;
@@ -232,6 +250,7 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
             editor.RegenerateInstances(editor.objects_.back());
             editor.selKind_ = StageEditor::SelKind::Object;
             editor.selIndex_ = static_cast<int>(editor.objects_.size()) - 1;
+            editor.selectedObjectIndices_ = { editor.selIndex_ };
         };
 
         if (ImGui::MenuItem("配置物（ブロック）")) {
@@ -391,14 +410,21 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
 
 void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
 {
-    // エンティティ(Player/Enemy等)はエディタが生成したものではないため削除・複製の対象外
-    bool hasSel = (editor.selKind_ == StageEditor::SelKind::Object || editor.selKind_ == StageEditor::SelKind::Trigger);
+    // エンティティ(Player/Enemy等)はエディタが生成したものではないため複製の対象外
+    // ただし onDelete が設定されているエンティティ（シーン所有の背景オブジェクト等）だけは削除できる
+    bool canDuplicate = (editor.selKind_ == StageEditor::SelKind::Object || editor.selKind_ == StageEditor::SelKind::Trigger);
+    bool canDelete = canDuplicate
+        || (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ >= 0
+            && editor.selIndex_ < static_cast<int>(editor.externalEntities_.size())
+            && editor.externalEntities_[editor.selIndex_].onDelete);
     float halfWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-    ImGui::BeginDisabled(!hasSel);
+    ImGui::BeginDisabled(!canDuplicate);
     if (ImGui::Button("複製 (Ctrl+D)", ImVec2(halfWidth, 0))) {
         editor.DuplicateSelected();
     }
+    ImGui::EndDisabled();
     ImGui::SameLine();
+    ImGui::BeginDisabled(!canDelete);
     if (ImGui::Button("選択を削除 (Del)", ImVec2(halfWidth, 0))) {
         editor.DeleteSelected();
     }
@@ -860,6 +886,12 @@ bool StageEditorInspectorPanel::RenderTriggerInspector(StageEditor& editor)
             editor.RecordUndoSnapshotNow();
             desc.once = once;
         }
+        bool spawnsWaterSplash = desc.spawnsWaterSplash;
+        if (ImGui::Checkbox("この地点に来たら水しぶきを出す", &spawnsWaterSplash)) {
+            editor.RecordUndoSnapshotNow();
+            desc.spawnsWaterSplash = spawnsWaterSplash;
+        }
+        EditorUI::HelpMarker("動作対象やイベントパネルでの接続は不要です。プレイヤーがこのトリガーに進入した瞬間、この位置で水しぶきが発生します");
     }
     ImGui::TextDisabled(editor.triggers_[editor.selIndex_].IsInside() ? "プレイヤーは範囲内にいます" : "プレイヤーは範囲外です");
     return true;
@@ -885,36 +917,58 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     }
     if (ref.getVisualPreset && ref.setVisualPreset) {
         const int preset = ref.getVisualPreset();
-        const char* currentModel = preset == 1
+        const bool isCustomStatic = preset < 0 && ref.getStaticVisualModel && !ref.getStaticVisualModel().empty();
+        const std::string currentModel = preset == 1
             ? "Resources/AnimatedMechPack/Textured/glTF/Mike.gltf"
-            : "Resources/AlienAnimated/glTF/Alien.gltf";
-        ImGui::TextWrapped("モデル: %s", currentModel);
+            : preset == 0 ? "Resources/AlienAnimated/glTF/Alien.gltf"
+            : isCustomStatic ? ref.getStaticVisualModel()
+                              : "（未設定）";
+        ImGui::TextWrapped("モデル: %s", currentModel.c_str());
+        if (isCustomStatic) {
+            const std::string currentTex = ref.getStaticVisualTexture ? ref.getStaticVisualTexture() : "";
+            ImGui::TextWrapped("テクスチャ: %s", currentTex.empty() ? "（白テクスチャ）" : currentTex.c_str());
+        }
         if (ImGui::Button("モデルファイルを選択...")) {
             const std::string selected = OpenFileDialog(
-                "対応キャラクター(glTF)\0*.gltf;*.glb\0すべてのファイル\0*.*\0\0", "Resources");
+                "対応モデル(gltf/glb/obj)\0*.gltf;*.glb;*.obj\0すべてのファイル\0*.*\0\0", "Resources");
             if (!selected.empty()) {
                 std::string normalized = selected;
                 std::replace(normalized.begin(), normalized.end(), '\\', '/');
                 if (normalized.find("Alien.gltf") != std::string::npos) {
                     if (ref.setStaticVisualModel)
-                        ref.setStaticVisualModel("");
+                        ref.setStaticVisualModel("", "");
                     ref.setVisualPreset(0);
                 } else if (normalized.find("Mike.gltf") != std::string::npos) {
                     if (ref.setStaticVisualModel)
-                        ref.setStaticVisualModel("");
+                        ref.setStaticVisualModel("", "");
                     ref.setVisualPreset(1);
                 } else {
+                    // Model::Initializeは拡張子で分岐する（.obj以外はAssimp経由のLoadGltfFileへ）ため、
+                    // gltf/glb/obj問わずここへそのまま渡してよい。テクスチャは既存の指定があれば引き継ぐ
                     if (ref.setStaticVisualModel) {
-                        ref.setStaticVisualModel(ToProjectRelativePath(selected));
+                        const std::string keepTex = ref.getStaticVisualTexture ? ref.getStaticVisualTexture() : "";
+                        ref.setStaticVisualModel(ToProjectRelativePath(selected), keepTex);
                         editor.statusMessage_ = "アニメーションなしの静的モデルとして読み込みました";
                         editor.statusTimer_ = 4.0f;
                     }
                 }
             }
         }
+        if (isCustomStatic) {
+            ImGui::SameLine();
+            if (ImGui::Button("テクスチャファイルを選択...")) {
+                const std::string selectedTex = OpenFileDialog(
+                    "画像ファイル\0*.png;*.jpg;*.jpeg\0すべてのファイル\0*.*\0\0", "Resources");
+                if (!selectedTex.empty() && ref.setStaticVisualModel && ref.getStaticVisualModel) {
+                    ref.setStaticVisualModel(ref.getStaticVisualModel(), ToProjectRelativePath(selectedTex));
+                    editor.statusMessage_ = "テクスチャを差し替えました";
+                    editor.statusTimer_ = 4.0f;
+                }
+            }
+        }
         if (ImGui::Button("モデルを自動選択へ戻す")) {
             if (ref.setStaticVisualModel)
-                ref.setStaticVisualModel("");
+                ref.setStaticVisualModel("", "");
             ref.setVisualPreset(-1);
         }
     }

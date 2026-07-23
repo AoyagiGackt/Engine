@@ -19,37 +19,32 @@ class Camera;
 // - ボーン       カメラ向きのビルボードクワッド（白）
 // 深度テスト無効でメッシュに埋まっていても常に表示
 /**
- * @brief SkeletonOverlayRenderer に関する型を提供する
- * @details SkeletonOverlayRenderer が扱うデータと操作の責務をまとめる
+ * @brief スケルトンのジョイント（球）とボーン（ビルボードクワッド）をワールド空間にデバッグ表示するクラス
  */
 class SkeletonOverlayRenderer {
 public:
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @return なし
+     * @brief ルートシグネチャ・PSO・ジョイント用球メッシュ・ボーン用動的頂点バッファを構築する
+     * @param dxCommon デバイス取得・シェーダーコンパイルに使う DirectX 基盤
      */
     void Initialize(engine::DirectXCommon* dxCommon);
     /**
-     * @brief Draw に対応する内容を描画する
-     * @param skeleton 処理に使用する値
-     * @param worldMatrix 処理に使用する値
-     * @param camera 処理に使用する値
-     * @return なし
+     * @brief 深度テスト無効でスケルトンのジョイント（白球）とボーン（白ビルボード）を描画する
+     * @param skeleton     描画対象のスケルトン（ジョイントのスケルトン空間行列を使用）
+     * @param worldMatrix  スケルトンが属するオブジェクトのワールド行列
+     * @param camera       ビルボード方向・VP行列の計算に使うカメラ（nullptr なら何もしない）
      */
     void Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera);
 
 private:
     /**
-     * @brief OverlayVertex に関する型を提供する
-     * @details OverlayVertex が扱うデータと操作の責務をまとめる
+     * @brief オーバーレイ描画用の位置のみの頂点（球・ボーン共通の入力レイアウト）
      */
     struct OverlayVertex {
         float x, y, z, w;
     };
     /**
-     * @brief OverlayConstants に関する型を提供する
-     * @details OverlayConstants が扱うデータと操作の責務をまとめる
+     * @brief VS の 32bit ルート定数に渡す WVP 行列と描画色（球・ボーン1回分の描画ごとに更新）
      */
     struct OverlayConstants {
         Matrix4x4 wvp;
@@ -57,8 +52,7 @@ private:
     };
 
     /**
-     * @brief BuildSphere に対応する処理を実行する
-     * @return なし
+     * @brief ジョイント表示用の単位球メッシュ（UV球）の頂点・インデックスを生成しGPUバッファへ書き込む
      */
     void BuildSphere();
 

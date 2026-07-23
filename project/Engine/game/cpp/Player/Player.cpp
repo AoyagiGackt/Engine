@@ -38,6 +38,19 @@ constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも
 
 // 武器奪取の刺突（ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
 constexpr float kStealStabAnimSpeed = 1.2f;
+
+void LockJumpClipVerticalRootMotion(Animation& animation)
+{
+    auto body = animation.nodeAnimations.find("Body");
+    if (body == animation.nodeAnimations.end() || body->second.translate.keyframes.empty()) {
+        return;
+    }
+
+    const float baseY = body->second.translate.keyframes.front().value.y;
+    for (auto& keyframe : body->second.translate.keyframes) {
+        keyframe.value.y = baseY;
+    }
+}
 }
 
 // ══════════════════════════════════════════════════════
@@ -75,6 +88,8 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.runAnim = LoadAnimationFile(def.dir, def.file, def.run);
         rig.jumpAnim = LoadAnimationFile(def.dir, def.file, def.jump);
         rig.runningJumpAnim = LoadAnimationFile(def.dir, def.file, def.runningJump);
+        LockJumpClipVerticalRootMotion(rig.jumpAnim);
+        LockJumpClipVerticalRootMotion(rig.runningJumpAnim);
         rig.swimAnim = LoadAnimationFile(def.dir, def.file, def.swim);
         rig.idleHoldAnim = LoadAnimationFile(def.dir, def.file, def.idleHold);
         rig.runHoldAnim = LoadAnimationFile(def.dir, def.file, def.runHold);
@@ -143,20 +158,37 @@ void Player::Initialize(ModelCommon* modelCommon)
     }
 }
 
-void Player::SetStaticVisualModel(const std::string& modelPath)
+void Player::SetStaticVisualModel(const std::string& modelPath, const std::string& texturePath)
 {
     if (modelPath.empty() || !modelCommon_) {
         staticOverrideObject_.reset();
         staticOverrideModel_.reset();
+        staticOverrideFootOffset_ = 0.0f;
+        staticOverrideModelPath_.clear();
+        staticOverrideTexturePath_.clear();
         return;
     }
+    staticOverrideModelPath_ = modelPath;
+    staticOverrideTexturePath_ = texturePath.empty() ? "Resources/white.png" : texturePath;
     staticOverrideModel_ = std::make_unique<Model>();
-    staticOverrideModel_->Initialize(modelCommon_, modelPath, "Resources/white.png");
+    staticOverrideModel_->Initialize(modelCommon_, modelPath, staticOverrideTexturePath_);
     staticOverrideObject_ = std::make_unique<Object3d>();
     staticOverrideObject_->Initialize(modelCommon_);
     staticOverrideObject_->SetModel(staticOverrideModel_.get());
     staticOverrideObject_->SetEnableLighting(true);
-    staticOverrideObject_->SetScale({ 0.5f, 0.5f, 0.5f });
+
+    // 差し替えモデルは身長がまちまちなので、当たり判定(1x1x1 AABB)の高さに合わせて自動スケールする
+    // 原点が中心にあるモデル（足元が0でない）でも、最下点をAABB下端に合わせられるよう足元オフセットも計算する
+    float minY = (std::numeric_limits<float>::max)();
+    float maxY = (std::numeric_limits<float>::lowest)();
+    for (const auto& v : staticOverrideModel_->GetVertices()) {
+        minY = (std::min)(minY, v.position.y);
+        maxY = (std::max)(maxY, v.position.y);
+    }
+    const float height = maxY - minY;
+    const float scale = (height > 0.001f) ? (1.0f / height) : 0.5f;
+    staticOverrideObject_->SetScale({ scale, scale, scale });
+    staticOverrideFootOffset_ = -minY * scale;
 }
 
 void Player::UpdateAnimationState(bool isMoving)
@@ -289,6 +321,9 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 {
     groundVisualCorrection_ = 0.0f;
     if (blocks.empty()) {
+        if (pos_.y > kGroundY_ && velocityY_ <= 0.0f) {
+            onGround_ = false;
+        }
         return;
     }
 
@@ -317,36 +352,6 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         }
     }
 
-    // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
-    float feetY = pos_.y - kHalf;
-    float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
-    float visualFloorTop = (std::numeric_limits<float>::lowest)();
-    for (const auto& b : blocks) {
-        bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
-            && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
-        if (!overlapXZ) {
-            continue;
-        }
-
-        // X/Z が重なっている床のうち、足元より上に出ていない一番高い面を採用する
-        // 床をエディタで上下させたときも、古い高さに張り付かないようにする
-        if (b.max.y <= feetY + 0.6f && (b.max.y + kHalf) > bestTop) {
-            bestTop = b.max.y + kHalf;
-        }
-        if (b.max.y <= feetY + 0.6f && b.max.y > visualFloorTop) {
-            visualFloorTop = b.max.y;
-        }
-    }
-    if (onGround_ && velocityY_ <= 0.0f
-        && visualFloorTop != (std::numeric_limits<float>::lowest)()) {
-        groundVisualCorrection_ = visualFloorTop - (pos_.y - kHalf);
-    }
-    if (velocityY_ <= 0.0f && pos_.y <= bestTop + 0.05f) {
-        pos_.y = bestTop;
-        velocityY_ = 0.0f;
-        onGround_ = true;
-    }
-
     // 水平方向  側面から重なっているブロックがあれば侵入量が小さい側へ押し出す
     for (const auto& b : blocks) {
         bool overlapY = (pos_.y + kHalf) > b.min.y + 0.05f && (pos_.y - kHalf) < b.max.y - 0.05f;
@@ -363,6 +368,57 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         float pushLeft = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
         float pushRight = b.max.x - (pos_.x - kHalf); // 正値＝右へ押し出す量
         pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+    }
+
+    // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
+    float feetY = pos_.y - kHalf;
+    float bestTop = kGroundY_; // 何も無ければ通常の地面が最終フォールバック
+    float visualFloorTop = (std::numeric_limits<float>::lowest)();
+    constexpr float kMaxStepHeight = 0.12f;
+    // 壁のように同じX/Zに積み重なったブロックの途中の継ぎ目に、ジャンプで壁へ突っ込んだ際に
+    // 乗ってしまわないよう、頭上（立った時に体が収まる高さ）に別のブロックが無いことも確認する
+    auto hasClearanceAbove = [&](const AABB& candidate) {
+        for (const auto& other : blocks) {
+            if (&other == &candidate) {
+                continue;
+            }
+            bool otherOverlapXZ = (pos_.x + kHalf) > other.min.x && (pos_.x - kHalf) < other.max.x
+                && (pos_.z + kHalf) > other.min.z && (pos_.z - kHalf) < other.max.z;
+            if (!otherOverlapXZ) {
+                continue;
+            }
+            if (other.min.y < candidate.max.y + kHalf * 2.0f && other.max.y > candidate.max.y) {
+                return false;
+            }
+        }
+        return true;
+    };
+    for (const auto& b : blocks) {
+        bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
+            && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+        if (!overlapXZ) {
+            continue;
+        }
+
+        // X/Z が重なっている床のうち、足元より上に出ていない一番高い面を採用する
+        // 床をエディタで上下させたときも、古い高さに張り付かないようにする
+        if (b.max.y <= feetY + kMaxStepHeight && (b.max.y + kHalf) > bestTop && hasClearanceAbove(b)) {
+            bestTop = b.max.y + kHalf;
+        }
+        if (b.max.y <= feetY + kMaxStepHeight && b.max.y > visualFloorTop && hasClearanceAbove(b)) {
+            visualFloorTop = b.max.y;
+        }
+    }
+    if (onGround_ && velocityY_ <= 0.0f
+        && visualFloorTop != (std::numeric_limits<float>::lowest)()) {
+        groundVisualCorrection_ = visualFloorTop - (pos_.y - kHalf);
+    }
+    if (velocityY_ <= 0.0f && pos_.y <= bestTop + 0.05f) {
+        pos_.y = bestTop;
+        velocityY_ = 0.0f;
+        onGround_ = true;
+    } else if (pos_.y > kGroundY_ && velocityY_ <= 0.0f) {
+        onGround_ = false;
     }
 
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
@@ -772,7 +828,7 @@ void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
 void Player::Draw()
 {
     if (staticOverrideObject_) {
-        staticOverrideObject_->SetPosition({ pos_.x, pos_.y - 0.5f + groundVisualCorrection_, pos_.z });
+        staticOverrideObject_->SetPosition({ pos_.x, pos_.y - 0.5f + groundVisualCorrection_ + staticOverrideFootOffset_, pos_.z });
         staticOverrideObject_->SetRotation({ 0.0f, lastDirX_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi, 0.0f });
         staticOverrideObject_->Update();
         staticOverrideObject_->Draw();
@@ -795,20 +851,20 @@ void Player::Draw()
             }
         });
         outline->BeginOutlinePass();
-        if (activeHeldIndex_ >= 0) {
+        if (weaponsVisible_ && activeHeldIndex_ >= 0) {
             heldWeapons_[activeHeldIndex_].object->DrawOutline(outline);
         }
-        if (gunVisible_ && activeGunIndex_ >= 0) {
+        if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
         }
         rig_->object->DrawOutline(outline);
     }
 
     // 通常描画
-    if (activeHeldIndex_ >= 0) {
+    if (weaponsVisible_ && activeHeldIndex_ >= 0) {
         heldWeapons_[activeHeldIndex_].object->Draw();
     }
-    if (gunVisible_ && activeGunIndex_ >= 0) {
+    if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();
     }
     rig_->object->Draw();

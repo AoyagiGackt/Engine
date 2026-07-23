@@ -10,7 +10,7 @@
 #include "TitleScene.h"
 #include <stdexcept>
 #ifdef _DEBUG
-#include "TrainingScene.h"
+#include "BattleTestScene.h"
 #endif
 #ifdef USE_IMGUI
 #include "EditorUI.h"
@@ -42,8 +42,12 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     dxCommon_->SetDiagnosticContext("TitleScene");
     CrashHandler::SetContext("TitleScene");
 
-    // 最初のシーン（デバッグ時はテストしやすいようTrainingSceneへ直行、それ以外はタイトルから）
+    // 最初のシーン（デバッグ時は撮影・テストしやすいようBattleTestSceneへ直行、それ以外はタイトルから）
+#ifdef _DEBUG
+    currentScene_ = std::make_unique<BattleTestScene>();
+#else
     currentScene_ = std::make_unique<TitleScene>();
+#endif
     currentScene_->Init(dxCommon_, input_, audio_);
     // シーン初期化中にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();

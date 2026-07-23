@@ -42,21 +42,18 @@ public:
     // パラメータ調整（Initialize 後に呼べる）
     void SetImpactUV(float u, float v);
     /**
-     * @brief SetCrackWidth に対応する状態を設定する
-     * @param w 処理に使用する値
-     * @return なし
+     * @brief ひび割れ線の太さを設定する
+     * @param w 太さ（UV空間、値が大きいほど割れ目が太くなる）
      */
     void SetCrackWidth(float w);
     /**
-     * @brief SetShardSpeed に対応する状態を設定する
-     * @param s 処理に使用する値
-     * @return なし
+     * @brief 破片が飛び散る速さを設定する
+     * @param s 速度係数（値が大きいほど破片が速く画面外へ移動する）
      */
     void SetShardSpeed(float s);
     /**
-     * @brief SetDuration に対応する状態を設定する
-     * @param seconds 処理に使用する値
-     * @return なし
+     * @brief 演出の再生時間を設定する
+     * @param seconds 再生時間（秒、0.01秒未満は0.01秒にクランプされる）
      */
     void SetDuration(float seconds);
 
@@ -68,8 +65,7 @@ private:
 
     // cbuffer のメモリレイアウト（HLSL の ShatterParams と一致させること）
     /**
-     * @brief ShatterParams に関する型を提供する
-     * @details ShatterParams が扱うデータと操作の責務をまとめる
+     * @brief 割れ演出PS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct ShatterParams {
         float time = 0.0f;

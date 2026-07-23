@@ -100,8 +100,7 @@ private:
     };
 
     /**
-     * @brief CreatePipeline の結果を取得する
-     * @return なし
+     * @brief 破片描画用のルートシグネチャ・PSOを生成する
      */
     void CreatePipeline();
 

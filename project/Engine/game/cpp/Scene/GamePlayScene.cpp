@@ -32,6 +32,10 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+// スタイルゲージ関連の調整値
+static constexpr float kMeleeDamageDivisor = 25.0f; ///< 武器ダメージ×倍率を敵HPスケールへ落とし込む除数
+static constexpr float kStyleDecayRate = 0.12f; ///< スタイルゲージの毎秒減衰量（StylePersist未所持時）
+
 // 初期化
 
 // ══════════════════════════════════════════════════════
@@ -229,7 +233,7 @@ void GamePlayScene::UpdateCameraSmoothing()
     }
     float n = static_cast<float>(cameraPosHistory_.size());
 
-    camera_->SetTranslate({ avgPos.x / n, avgPos.y / n, avgPos.z / n });
+    camera_->SetTranslate({ avgPos.x / n, cameraTargetPos_.y, avgPos.z / n });
     camera_->SetRotate({ avgRot.x / n, avgRot.y / n, avgRot.z / n });
 }
 
@@ -256,6 +260,7 @@ void GamePlayScene::Update()
 
     UpdateCombat();
     UpdateCamera();
+    player_->RefreshVisualTransforms();
     sceneEditor_.Update(BuildEditContext(), input_);
     UpdateStyleAndUI(dt);
     UpdateParticles(dt);
@@ -414,7 +419,6 @@ void GamePlayScene::UpdateCombat()
         UpdateWeaponGimmicks();
 
         // 移動後に足場との接触を解決し、補正が入ったフレームは見た目も同期する
-        const Vector3 beforeCollision = player_->GetPosition();
         // エディタの現在状態から毎フレーム判定を作り、移動・追加・削除を即時反映する
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
         if (swordGateActive_) {
@@ -424,12 +428,7 @@ void GamePlayScene::UpdateCombat()
             activeColliders.push_back({ { 25.0f, -0.5f, -0.5f }, { 26.0f, 9.5f, 0.5f } });
         }
         player_->ResolveBlockCollision(activeColliders);
-        const Vector3& afterCollision = player_->GetPosition();
-        if (beforeCollision.x != afterCollision.x
-            || beforeCollision.y != afterCollision.y
-            || beforeCollision.z != afterCollision.z) {
-            player_->RefreshVisualTransforms();
-        }
+        player_->RefreshVisualTransforms();
 
         UpdateCombatEvents();
         UpdateWeaponEnemies();
@@ -622,7 +621,7 @@ void GamePlayScene::UpdateCamera()
         : (stageLeft + stageRight) * 0.5f;
     cameraTargetPos_ = {
         cameraX,
-        std::clamp(ppos.y + 3.0f, -1.1f + GameConstants::kCameraHalfH, 13.5f - GameConstants::kCameraHalfH),
+        ppos.y + 3.0f,
         -24.0f
     };
 
@@ -659,7 +658,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
         // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
         AABB meleeRange = SceneShared::MakeDirectionalRange(
             ppos, player_->GetLastDirX(), wm->GetCurrent().range,
-            wm->GetCurrent().range * 0.4f);
+            wm->GetCurrent().range * GameConstants::kSkillRearReachMult);
         if (Collision::CheckCollision(meleeRange, enemyAABB)) {
             const int techniqueId = static_cast<int>(wm->GetCurrent().type) * 16
                 + player_->GetComboStep();
@@ -679,7 +678,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
             const WeaponData& weapon = wm->GetCurrent();
             const float damageMult = attack != nullptr ? attack->damageMult : 1.0f;
             const int damage = (std::max)(1,
-                static_cast<int>(std::round(weapon.damage * damageMult / 25.0f)));
+                static_cast<int>(std::round(weapon.damage * damageMult / kMeleeDamageDivisor)));
             enemy_->TakeDamage(damage);
             enemy_->ApplyComboReaction(player_->GetLastDirX() * weapon.knockbackMult,
                 (attack != nullptr ? attack->knockY : 0.05f) * weapon.knockbackMult,
@@ -750,7 +749,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
     // フィニッシャースラッシュのダメージは UpdateFinisherSlash の本命ヒットで適用する
 
     float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? 0.6f : 1.0f;
-    styleMeter_ = std::clamp(styleMeter_ - 0.12f * dt * decayMult, 0.0f, 1.0f);
+    styleMeter_ = std::clamp(styleMeter_ - kStyleDecayRate * dt * decayMult, 0.0f, 1.0f);
     peakStyle_ = (std::max)(peakStyle_, styleMeter_);
 
     DrawStyleUI();
@@ -1445,84 +1444,31 @@ void GamePlayScene::InitializeWeaponSlotHud()
     constexpr float gap = 10.0f;
     constexpr float marginX = 24.0f;
     const float y = static_cast<float>(WinApp::kClientHeight) - 90.0f;
-    const auto& list = WeaponManager::GetInstance()->GetList();
-    for (int i = 0; i < kWeaponSlotCount; ++i) {
-        const float x = marginX + static_cast<float>(i) * (size + gap);
-        weaponSlotPos_[i] = { x, y };
-        weaponSlots_[i].frame = std::make_unique<Sprite>();
-        weaponSlots_[i].frame->Initialize(spriteCommon_.get(), "Resources/white.png");
-        weaponSlots_[i].frame->SetPosition({ x, y });
-        weaponSlots_[i].frame->SetSize({ size, size });
-        weaponSlots_[i].icon = std::make_unique<Sprite>();
-        weaponSlots_[i].icon->Initialize(spriteCommon_.get(), "Resources/white.png");
-        weaponSlots_[i].icon->SetPosition({ x + 6.0f, y + 6.0f });
-        weaponSlots_[i].icon->SetSize({ size - 12.0f, size - 12.0f });
-        if (i < static_cast<int>(list.size())) {
-            const float* color = list[i].styleColor;
-            weaponSlots_[i].icon->SetColor({ color[0], color[1], color[2], 0.9f });
-        }
-    }
-    gunPos_ = { marginX + kWeaponSlotCount * (size + gap) + 24.0f, y };
-    gunFrame_ = std::make_unique<Sprite>();
-    gunFrame_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    gunFrame_->SetPosition(gunPos_);
-    gunFrame_->SetSize({ size, size });
-    gunIcon_ = std::make_unique<Sprite>();
-    gunIcon_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    gunIcon_->SetAnchorPoint({ 0.5f, 0.5f });
-    gunIcon_->SetPosition({ gunPos_.x + size * 0.5f, gunPos_.y + size * 0.5f });
-    gunIcon_->SetSize({ size - 20.0f, size - 20.0f });
-    gunIcon_->SetColor({ 0.6f, 0.85f, 1.0f, 0.9f });
+
+    SceneShared::InitializeWeaponSlotHud(spriteCommon_.get(), WeaponManager::GetInstance(),
+        weaponSlots_.data(), weaponSlotPos_.data(), kWeaponSlotCount,
+        size, gap, marginX, y, /*checkUnlockedForInitialColor=*/false,
+        gunFrame_, gunIcon_, gunPos_);
 }
 
 void GamePlayScene::UpdateWeaponSlotHud()
 {
     weaponSlotPulse_ += GameConstants::kFrameDeltaTime;
     gunIconAngle_ += GameConstants::kFrameDeltaTime * 0.6f;
-    const float pulse = 0.7f + 0.3f * std::sin(weaponSlotPulse_ * 6.0f);
-    auto* wm = WeaponManager::GetInstance();
-    const auto& list = wm->GetList();
-    for (int i = 0; i < kWeaponSlotCount; ++i) {
-        const bool active = i == wm->GetSelectedSlot();
-        const float brightness = 0.08f + (active ? pulse * 0.35f : 0.0f);
-        weaponSlots_[i].frame->SetColor({ brightness, brightness, brightness + (active ? 0.2f : 0.05f), 0.85f });
-        weaponSlots_[i].frame->Update();
-        const int weaponIndex = wm->GetSlotWeaponIndex(i);
-        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size()) && wm->IsUnlocked(weaponIndex);
-        if (unlocked) {
-            const float* color = list[weaponIndex].styleColor;
-            const float mul = active ? 0.7f + pulse * 0.3f : 0.5f;
-            weaponSlots_[i].icon->SetColor({ color[0] * mul, color[1] * mul, color[2] * mul, 0.95f });
-        } else {
-            weaponSlots_[i].icon->SetColor({ 0.2f, 0.2f, 0.2f, 0.35f });
-        }
-        weaponSlots_[i].icon->Update();
-    }
+
+    SceneShared::UpdateWeaponSlotHud(WeaponManager::GetInstance(), weaponSlots_.data(), kWeaponSlotCount,
+        weaponSlotPulse_, /*flash=*/0.0f, gunIcon_.get(), gunIconAngle_);
+
     gunFrame_->SetColor({ 0.08f, 0.08f, 0.15f, 0.85f });
     gunFrame_->Update();
-    gunIcon_->SetRotation(gunIconAngle_);
-    gunIcon_->Update();
 }
 
 void GamePlayScene::DrawWeaponSlotHud()
 {
-    for (auto& slot : weaponSlots_) {
-        slot.frame->Draw();
-    }
-    gunFrame_->Draw();
-    for (auto& slot : weaponSlots_) {
-        slot.icon->Draw();
-    }
-    gunIcon_->Draw();
-    const auto* wm = WeaponManager::GetInstance();
-    for (int i = 0; i < kWeaponSlotCount; ++i) {
-        if (!wm->IsUnlocked(i)) {
-            fontRenderer_.DrawStringW(L"?", weaponSlotPos_[i].x + 22.0f,
-                weaponSlotPos_[i].y + 16.0f, 1.6f, { 0.6f, 0.6f, 0.6f, 0.9f });
-        }
-    }
-    fontRenderer_.DrawString("GUN", gunPos_.x + 10.0f, gunPos_.y + 60.0f, 1.0f,
-        { 0.6f, 0.85f, 1.0f, 0.9f });
+    constexpr float kSlotSize = 56.0f;
+    SceneShared::DrawWeaponSlotFrames(weaponSlots_.data(), kWeaponSlotCount, gunFrame_.get());
+    SceneShared::DrawWeaponSlotIconsAndLabels(weaponSlots_.data(), kWeaponSlotCount, weaponSlotPos_.data(),
+        gunIcon_.get(), gunPos_, WeaponManager::GetInstance(), fontRenderer_, kSlotSize);
 }
 
 void GamePlayScene::UpdateWeaponExchange()

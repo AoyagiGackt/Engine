@@ -47,8 +47,7 @@ namespace engine::game {
  * @endcode
  */
 /**
- * @brief AnimationStateMachine に関する型を提供する
- * @details AnimationStateMachine が扱うデータと操作の責務をまとめる
+ * @brief 複数のアニメーションを状態として登録し、トリガーや再生終了で自動的に遷移させるステートマシン
  */
 class AnimationStateMachine {
 public:
@@ -146,10 +145,7 @@ private:
     };
 
     // 遷移ルール
-    /**
-     * @brief Transition に関する型を提供する
-     * @details Transition が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 1つの遷移ルール（トリガー名が一致したら to の状態へ遷移する） */
     struct Transition {
         std::string to;
         std::string trigger;
@@ -163,9 +159,8 @@ private:
 
     // 内部遷移処理
     /**
-     * @brief TransitionTo に対応する処理を実行する
-     * @param stateName 処理に使用する値
-     * @return なし
+     * @brief 現在の状態をstateNameへ切り替え、再生時刻を0にリセットする
+     * @param stateName 遷移先の状態名（未登録の名前を渡すとアサートで停止する）
      */
     void TransitionTo(const std::string& stateName);
 };

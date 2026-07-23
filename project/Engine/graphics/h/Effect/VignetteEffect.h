@@ -20,57 +20,52 @@ public:
     }
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @return なし
+     * @brief 定数バッファ・ルートシグネチャ・PSOを生成する
+     * @param dxCommon DirectX共通基盤
      */
     void Initialize(engine::DirectXCommon* dxCommon);
     /**
-     * @brief Finalize に対応する終了処理を行う
-     * @return なし
+     * @brief 生成したリソース（定数バッファ・PSO・ルートシグネチャ）を解放する
      */
     void Finalize();
 
     // バックバッファ上にビネットオーバーレイを描画するシーン描画後に呼ぶ
     /**
-     * @brief Apply に対応する状態を設定する
-     * @return なし
+     * @brief バックバッファに周辺減光をアルファブレンドで重ね描きする
+     * @note enabled_ が false の場合は何もしない
      */
     void Apply();
 
     void SetEnabled(bool enabled) { enabled_ = enabled; }
     bool IsEnabled() const { return enabled_; }
     /**
-     * @brief SetIntensity に対応する状態を設定する
-     * @param v 処理に使用する値
-     * @return なし
+     * @brief 暗転の強さを設定する
+     * @param v 減光の強度（0で無効、値が大きいほど周辺が濃く暗くなる）
      */
     void SetIntensity(float v);
     /**
-     * @brief GetIntensity の結果を取得する
-     * @return 処理結果
+     * @brief 暗転の強さを取得する
+     * @return 現在設定されている減光の強度
      */
     float GetIntensity() const;
     /**
-     * @brief SetRadius に対応する状態を設定する
-     * @param v 処理に使用する値
-     * @return なし
+     * @brief 減光が始まる画面中心からの半径を設定する
+     * @param v 半径（0〜1、画面中心からの正規化距離）
      */
     void SetRadius(float v);
     /**
-     * @brief GetRadius の結果を取得する
-     * @return 処理結果
+     * @brief 減光が始まる半径を取得する
+     * @return 現在設定されている半径（正規化距離）
      */
     float GetRadius() const;
     /**
-     * @brief SetSoftness に対応する状態を設定する
-     * @param v 処理に使用する値
-     * @return なし
+     * @brief 明部から暗部への遷移のぼかし幅を設定する
+     * @param v 遷移幅（値が大きいほど境界が滑らかになる）
      */
     void SetSoftness(float v);
     /**
-     * @brief GetSoftness の結果を取得する
-     * @return 処理結果
+     * @brief 遷移のぼかし幅を取得する
+     * @return 現在設定されている遷移幅
      */
     float GetSoftness() const;
 
@@ -86,8 +81,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
 
     /**
-     * @brief VignetteParams に関する型を提供する
-     * @details VignetteParams が扱うデータと操作の責務をまとめる
+     * @brief ビネットPS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct VignetteParams {
         float intensity = 1.0f;

@@ -12,14 +12,13 @@ namespace engine::graphics {
 
 // ボーン重み付き頂点データを持つ GLTF スキンメッシュ
 /**
- * @brief SkinnedModel に関する型を提供する
- * @details SkinnedModel が扱うデータと操作の責務をまとめる
+ * @brief assimp で読み込んだ GLTF スキンメッシュの頂点バッファとボーン情報を保持するクラス
+ * @details ボーンインデックス・ウェイト付き頂点、逆バインド行列、ボーン名一覧を管理する
  */
 class SkinnedModel {
 public:
     /**
-     * @brief VertexData に関する型を提供する
-     * @details VertexData が扱うデータと操作の責務をまとめる
+     * @brief 1頂点分のスキニング用データ（位置・UV・法線・最大4本分のボーン影響）
      */
     struct VertexData {
         Vector4 position;
@@ -36,9 +35,8 @@ public:
     // コマンドリストに頂点バッファとテクスチャ SRV をセットして DrawInstanced を発行する
     // スロット 2 (テクスチャ) と 5 (キューブマップ枠) を書き込む
     /**
-     * @brief Draw に対応する内容を描画する
-     * @param cmd 処理に使用する値
-     * @return なし
+     * @brief 頂点バッファとテクスチャ SRV をセットして DrawInstanced を発行する
+     * @param cmd コマンドを記録するコマンドリスト
      */
     void Draw(ID3D12GraphicsCommandList* cmd);
 

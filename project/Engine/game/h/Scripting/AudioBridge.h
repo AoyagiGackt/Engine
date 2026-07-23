@@ -11,14 +11,14 @@
 namespace engine::game {
 
 /**
- * @brief AudioBridge に関する型を提供する
- * @details AudioBridge が扱うデータと操作の責務をまとめる
+ * @brief ノードグラフからSE/BGMを再生するための橋渡しシングルトン
+ * @details 現在のシーンのAudio*を経由してPlaySE/PlayBGMを実行し、読み込んだSoundDataはpathをキーにキャッシュする
  */
 class AudioBridge {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のAudioBridgeインスタンスを取得する（未生成なら生成する）
+     * @return AudioBridgeのインスタンス
      */
     static AudioBridge* GetInstance();
 

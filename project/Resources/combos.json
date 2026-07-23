@@ -8,5 +8,12 @@
         { "id": "gsw1", "duration": 0.65, "hitTime": 0.30, "cancelTime": 0.44, "damageMult": 1.0, "lungeDist": 0.60, "rangeMult": 1.10, "hitStop": 8, "animSpeed": 1.0 },
         { "id": "scy1", "duration": 0.45, "hitTime": 0.16, "cancelTime": 0.26, "damageMult": 1.0, "lungeDist": 0.50, "rangeMult": 1.35, "hitStop": 4, "animSpeed": 1.5 },
         { "id": "axe1", "duration": 0.50, "hitTime": 0.20, "cancelTime": 0.32, "damageMult": 1.0, "lungeDist": 0.80, "rangeMult": 1.0, "hitStop": 6, "animSpeed": 1.3 }
+    ],
+    "shots": [
+        { "id": "pst1", "duration": 0.20, "shotTime": 0.05, "cancelTime": 0.10, "damageMult": 1.0, "rangeMult": 1.0, "knockX": 0.06, "knockY": 0.00, "hitStop": 2, "moveDist": 0.00 },
+        { "id": "mag1", "duration": 0.55, "shotTime": 0.26, "cancelTime": 0.40, "damageMult": 2.2, "rangeMult": 1.2, "knockX": 0.40, "knockY": 0.00, "hitStop": 9, "moveDist": -0.15 },
+        { "id": "smg1", "duration": 0.11, "shotTime": 0.03, "cancelTime": 0.055, "damageMult": 0.45, "rangeMult": 0.9, "knockX": 0.03, "knockY": 0.00, "hitStop": 1, "moveDist": 0.08 },
+        { "id": "sht1", "duration": 0.45, "shotTime": 0.12, "cancelTime": 0.30, "damageMult": 1.6, "rangeMult": 0.60, "knockX": 0.35, "knockY": 0.00, "hitStop": 6, "moveDist": -0.35 },
+        { "id": "rail1", "duration": 0.85, "shotTime": 0.45, "cancelTime": 0.62, "damageMult": 3.5, "rangeMult": 3.0, "knockX": 0.55, "knockY": 0.00, "hitStop": 13, "moveDist": -0.20 }
     ]
 }

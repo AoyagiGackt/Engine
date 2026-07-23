@@ -59,6 +59,30 @@ public: // メンバ関数
      */
     void OnResize(uint32_t width, uint32_t height);
 
+    /**
+     * @brief 内部解像度(WinApp::kClientWidth/Height)の絵を実際のバックバッファへ
+     * アスペクト比を保ったまま最大表示するためのビューポートを取得する（レターボックス）
+     * @note フルスクリーンやウィンドウリサイズでバックバッファが内部解像度と異なるサイズに
+     * なった場合でも、ゲーム画面が中央に拡大表示されるようにするためのもの
+     * 深度バッファを併用しない合成パス（ポストエフェクトの最終合成等）専用
+     * 深度バッファは常にWinApp::kClientWidth/Height固定サイズのため、これと併用すると
+     * ビューポートが深度バッファの範囲を超えて表示崩壊する恐れがある
+     */
+    D3D12_VIEWPORT GetBackBufferViewport() const;
+
+    /** @brief GetBackBufferViewport() に対応するシザー矩形を取得する */
+    D3D12_RECT GetBackBufferScissorRect() const;
+
+    /**
+     * @brief 内部解像度(WinApp::kClientWidth/Height)のまま、実際のバックバッファ中央に
+     * 配置するビューポートを取得する（拡大はしない）
+     * @note 深度バッファ（固定サイズ）を併用する直接描画パスはこちらを使う
+     */
+    D3D12_VIEWPORT GetCenteredClientViewport() const;
+
+    /** @brief GetCenteredClientViewport() に対応するシザー矩形を取得する */
+    D3D12_RECT GetCenteredClientScissorRect() const;
+
     /** @brief VSyncの有効/無効を設定する */
     void SetVSyncEnabled(bool enabled) { vsyncEnabled_ = enabled; }
     /** @brief VSyncが有効かどうかを返す */

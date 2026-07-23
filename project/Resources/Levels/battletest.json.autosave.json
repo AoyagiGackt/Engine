@@ -105,7 +105,7 @@
       "cameraHoldSeconds": 2.0,
       "conditionSeconds": 0.0,
       "conditionType": "manual",
-      "count": 13,
+      "count": 14,
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
@@ -120,8 +120,8 @@
       "patrolRoute": "",
       "patrolSpeed": 1.5,
       "position": [
-        38.0,
-        0.0,
+        37.977684020996094,
+        -0.9968757629394531,
         0.0
       ],
       "rotation": [
@@ -200,7 +200,7 @@
       "enemyGroup": "",
       "gimmickMotion": "none",
       "kind": "prop",
-      "lighting": true,
+      "lighting": false,
       "meshCollider": false,
       "model": "Resources/block/block.obj",
       "motionAmount": 3.0,
@@ -210,8 +210,8 @@
       "patrolRoute": "",
       "patrolSpeed": 1.5,
       "position": [
-        6.650628089904785,
-        5.40180778503418,
+        5.6147966384887695,
+        2.479593515396118,
         0.0
       ],
       "rotation": [
@@ -240,7 +240,7 @@
       "cameraHoldSeconds": 2.0,
       "conditionSeconds": 0.0,
       "conditionType": "manual",
-      "count": 4,
+      "count": 2,
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
@@ -255,143 +255,8 @@
       "patrolRoute": "",
       "patrolSpeed": 1.5,
       "position": [
-        13.123161315917969,
-        6.5861496925354,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/block/block.png",
-      "type": "row"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_5",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        17.31920623779297,
-        7.99001932144165,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/block/block.png",
-      "type": "row"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_6",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        18.25011444091797,
-        6.6319260597229,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/block/block.png",
-      "type": "row"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_7",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        16.22057342529297,
-        7.80691385269165,
+        9.040053367614746,
+        5.444429397583008,
         0.0
       ],
       "rotation": [

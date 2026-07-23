@@ -24,8 +24,12 @@ public:
         wasInside_ = false;
     }
 
-    /** @brief プレイヤーが範囲内に入った瞬間だけフラグを立てる @param playerPos 判定するプレイヤー位置 */
-    void Update(const Vector3& playerPos);
+    /**
+     * @brief プレイヤーが範囲内に入った瞬間だけフラグを立てる
+     * @param playerPos 判定するプレイヤー位置
+     * @return この呼び出しで新規に成立した（進入した瞬間だった）ならtrue
+     */
+    bool Update(const Vector3& playerPos);
 
     /** @brief 読み取り専用のトリガー設定を返す @return トリガー設定の参照 */
     const TriggerDesc& GetDesc() const { return desc_; }

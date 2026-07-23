@@ -1,6 +1,6 @@
 /**
  * @file GameSettings.h
- * @brief GameSettingsのエンジン基盤の初期化と状態管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief BGM/SE音量などのゲーム設定データと、その読み込み・保存を行うシングルトンを定義するファイル
  */
 #pragma once
 namespace engine {
@@ -13,14 +13,13 @@ struct GameSettings {
 // 設定の読み込み・保存を管理するシングルトン
 // Load() はゲーム起動時、Save() は設定変更時に呼ぶ
 /**
- * @brief GameSettingsManager に関する型を提供する
- * @details GameSettingsManager が扱うデータと操作の責務をまとめる
+ * @brief GameSettingsをファイル（save/settings.json）から読み込み・保存するシングルトン
  */
 class GameSettingsManager {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のGameSettingsManagerインスタンスを取得する（未生成なら生成する）
+     * @return GameSettingsManagerのインスタンス
      */
     static GameSettingsManager* GetInstance();
 

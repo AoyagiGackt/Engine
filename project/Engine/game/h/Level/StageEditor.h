@@ -140,16 +140,27 @@ public:
     void RegisterExternalEntity(const std::string& name, Vector3* position,
         std::function<int()> getVisualPreset = { },
         std::function<void(int)> setVisualPreset = { },
-        std::function<void(const std::string&)> setStaticVisualModel = { });
-    void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object);
+        std::function<void(const std::string&, const std::string&)> setStaticVisualModel = { },
+        std::function<std::string()> getStaticVisualModel = { },
+        std::function<std::string()> getStaticVisualTexture = { });
+    /**
+     * @brief シーン側が所有する背景オブジェクト等を、エディタで選択・位置調整できるように登録する
+     * @param onDelete 指定するとHierarchyから「選択を削除」で削除可能になる（呼び出し側が実体を破棄する）
+     *                 省略時はPlayer等と同様に削除不可のまま位置調整のみ可能
+     */
+    void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object,
+        std::function<void()> onDelete = { });
+
+    /**
+     * @brief トリガーのspawnsWaterSplashが成立した瞬間に呼ぶコールバックを登録する
+     * @note 水しぶきの実体（パーティクル発生）はシーン側の責務のため、StageEditorはここでは何もしない
+     */
+    void SetWaterSplashCallback(std::function<void(const Vector3&)> callback) { onWaterSplashRequested_ = std::move(callback); }
 
 private:
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
-    /**
-     * @brief ObjectEntry に関する型を提供する
-     * @details ObjectEntry が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 配置物1件ぶんの編集データと、生成済みランタイム実体（見た目のみ/ナイト/汎用敵のいずれか）を束ねる */
     struct ObjectEntry {
         ObjectDesc desc;
         std::vector<std::unique_ptr<engine::graphics::Object3d>> instances;
@@ -163,10 +174,10 @@ private:
     };
 
     /**
-     * @brief GetOrLoadModel の結果を取得する
-     * @param modelPath 処理に使用する値
-     * @param texPath 処理に使用する値
-     * @return 処理結果
+     * @brief モデル+テクスチャの組み合わせをキャッシュから探し、無ければロードして登録する
+     * @param modelPath OBJ ファイルパス
+     * @param texPath テクスチャパス
+     * @return キャッシュ済み、または新規ロードした Model へのポインタ
      */
     engine::graphics::Model* GetOrLoadModel(const std::string& modelPath, const std::string& texPath);
 
@@ -267,19 +278,22 @@ private:
     std::vector<CheckpointDesc> checkpoints_;
 
     // レベルJSONに属さないランタイム実体（Player/Enemy等）への参照RegisterExternalEntity()で登録される
-    /**
-     * @brief ExternalEntityRef に関する型を提供する
-     * @details ExternalEntityRef が扱うデータと操作の責務をまとめる
-     */
+    /** @brief RegisterExternalEntity()で登録された、レベルJSON外のランタイム実体（Player等）への参照1件 */
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
         engine::graphics::Object3d* object = nullptr;
         std::function<int()> getVisualPreset;
         std::function<void(int)> setVisualPreset;
-        std::function<void(const std::string&)> setStaticVisualModel;
+        std::function<void(const std::string&, const std::string&)> setStaticVisualModel; // (モデルパス, テクスチャパス)
+        std::function<std::string()> getStaticVisualModel;
+        std::function<std::string()> getStaticVisualTexture;
+        std::function<void()> onDelete; // 設定されている時だけHierarchyから削除できる（例: シーン所有の背景オブジェクト）
     };
     std::vector<ExternalEntityRef> externalEntities_;
+
+    // トリガーのspawnsWaterSplash成立時にシーン側の演出を呼ぶためのコールバック（SetWaterSplashCallback()で登録）
+    std::function<void(const Vector3&)> onWaterSplashRequested_;
 
     std::vector<std::unique_ptr<engine::graphics::Model>> modelStorage_;
     std::map<std::string, engine::graphics::Model*> modelCache_;
@@ -328,8 +342,8 @@ private:
         Vector3 enemySpawn;
     };
     /**
-     * @brief MakeSnapshot の結果を取得する
-     * @return 処理結果
+     * @brief 現在の配置物・トリガー・チェックポイント・スポーン位置からUndo用スナップショットを構築する
+     * @return Undo/Redoスタックへ積む、descのみのコピー
      */
     LevelSnapshot MakeSnapshot() const;
     /** @brief スナップショットの内容へ丸ごと戻す（敵のHPやトリガーの成立済み状態はリセットされる） */
@@ -371,6 +385,10 @@ private:
     int paletteMode_ = 0; // アセットパレットの動作 0=新規配置 1=選択中の配置物へ差し替え
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
+    // クリックした瞬間にオブジェクト原点へ位置が飛ばないよう、掴んだ時の
+    // (オブジェクト位置 - マウスの接地位置)のオフセットを保持し、ドラッグ中はこれを保ったまま追従させる
+    float dragGrabOffsetX_ = 0.0f;
+    float dragGrabOffsetY_ = 0.0f;
     int gizmoAxis_ = 0; // 0は自由移動、1から3はX・Y・Z軸へ移動を制限する
     int parentLinkChildIndex_ = -1; // マウス親子リンクで親のクリックを待っている子
 

@@ -28,8 +28,7 @@ namespace engine::graphics {
  *   // （GrayscaleEffect と同じパターン）
  */
 /**
- * @brief BloomEffect に関する型を提供する
- * @details BloomEffect が扱うデータと操作の責務をまとめる
+ * @brief シーンを輝度抽出→水平/垂直ブラー→加算合成の4パスで処理するブルーム効果のシングルトンクラス
  */
 class BloomEffect {
 public:
@@ -40,35 +39,32 @@ public:
     }
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param dxCommon 処理に使用する値
-     * @param srvManager 処理に使用する値
-     * @return なし
+     * @brief シーンキャプチャ用RT・ブルームピンポンRT・各パスのPSO/定数バッファを生成する
+     * @param dxCommon DirectX共通基盤
+     * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     /**
-     * @brief Finalize に対応する終了処理を行う
-     * @return なし
+     * @brief 生成した全RT・PSO・定数バッファを解放する
      */
     void Finalize();
 
     // シーン描画の前後に呼んでオフスクリーンテクスチャへ切り替える
     /**
-     * @brief BeginScene に対応する処理を実行する
-     * @return なし
+     * @brief シーンキャプチャ用RTをレンダーターゲットに設定する
+     * @note 3D/Sprite描画の前に呼ぶ
      */
     void BeginScene();
     /**
-     * @brief EndScene に対応する処理を実行する
-     * @return なし
+     * @brief シーンキャプチャ用テクスチャをSRV状態へ遷移させる
+     * @note 3D/Sprite描画の後、Apply() の前に呼ぶ
      */
     void EndScene();
 
     // 4パスのブルームをかけてバックバッファへ合成するEndScene() 後に呼ぶ
     /**
-     * @brief Apply に対応する状態を設定する
-     * @param srvManager 処理に使用する値
-     * @return なし
+     * @brief 輝度抽出→水平ブラー→垂直ブラー→加算合成の4パスを実行しバックバッファへ合成する
+     * @param srvManager SRVディスクリプタヒープ管理
      */
     void Apply(SrvManager* srvManager);
 
@@ -164,8 +160,7 @@ private:
 
     // 定数バッファ
     /**
-     * @brief BrightParams に関する型を提供する
-     * @details BrightParams が扱うデータと操作の責務をまとめる
+     * @brief 輝度抽出パス（BrightPass）PS用の定数バッファに1:1で対応する構造体
      */
     struct BrightParams {
         float threshold;
@@ -176,8 +171,7 @@ private:
     BrightParams* brightCbData_ = nullptr;
 
     /**
-     * @brief BlurParams に関する型を提供する
-     * @details BlurParams が扱うデータと操作の責務をまとめる
+     * @brief ガウシアンブラーパス（水平/垂直共用）PS用の定数バッファに1:1で対応する構造体
      */
     struct BlurParams {
         float dirX;

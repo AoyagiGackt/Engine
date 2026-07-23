@@ -79,10 +79,18 @@ public:
         if (player_)
             player_->SetVisualPreset(preset);
     }
-    void SetEditorPlayerStaticVisual(const std::string& path) override
+    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
     {
         if (player_)
-            player_->SetStaticVisualModel(path);
+            player_->SetStaticVisualModel(model, tex);
+    }
+    std::string GetEditorPlayerStaticVisualModel() const override
+    {
+        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
+    }
+    std::string GetEditorPlayerStaticVisualTexture() const override
+    {
+        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;

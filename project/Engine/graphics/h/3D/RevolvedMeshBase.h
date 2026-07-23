@@ -35,8 +35,7 @@ public:
 
 protected:
     /**
-     * @brief VertexData に関する型を提供する
-     * @details VertexData が扱うデータと操作の責務をまとめる
+     * @brief 回転体メッシュの頂点1個分のレイアウト（HLSLの入力レイアウトと一致させること）
      */
     struct VertexData {
         Vector4 position;

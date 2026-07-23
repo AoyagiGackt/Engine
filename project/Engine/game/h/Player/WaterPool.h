@@ -29,11 +29,9 @@ public:
     void Update();
     void Draw(Camera* camera);
 
-    // プレイヤーの入水・出水時に呼ぶ（水面でスプラッシュ発生）
     /**
-     * @brief EmitSplash に対応する処理を実行する
-     * @param position 処理に使用する値
-     * @return なし
+     * @brief 入水・出水時に呼ぶ水面のY位置で水しぶきパーティクルを発生させる
+     * @param position スプラッシュを出すワールド座標（Y以外は使用位置、Yは水面高さへ補正される）
      */
     void EmitSplash(const Vector3& position);
 

@@ -137,10 +137,18 @@ public:
         if (player_)
             player_->SetVisualPreset(preset);
     }
-    void SetEditorPlayerStaticVisual(const std::string& path) override
+    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
     {
         if (player_)
-            player_->SetStaticVisualModel(path);
+            player_->SetStaticVisualModel(model, tex);
+    }
+    std::string GetEditorPlayerStaticVisualModel() const override
+    {
+        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
+    }
+    std::string GetEditorPlayerStaticVisualTexture() const override
+    {
+        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
@@ -182,6 +190,8 @@ private:
 
     /** @brief 指定座標にヒットエフェクト（パーティクル）を生成する */
     void SpawnHitEffect(const Vector3& pos);
+    /** @brief 指定座標に水しぶきエフェクト（パーティクル）を生成する StageEditorのトリガー(spawnsWaterSplash)から呼ばれる */
+    void SpawnWaterSplashEffect(const Vector3& pos);
     /** @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する */
     void UpdateHpBars();
     /** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
@@ -227,12 +237,10 @@ private:
     void ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, float atkMult);
     /** @brief ダミーのノックバック物理とHPバー表示を更新する */
     void UpdateDummies();
-    /** @brief ナイト敵への攻撃判定・撃破後の武器奪取入力を処理する */
-    void UpdateKnightEnemy();
     /**
      * @brief StageEditorで新規配置したナイト（GetStageEditor().GetKnights()）への攻撃判定
      * @note AI/重力自体はBaseScene::Tick()がUpdate()の後にGetStageEditor().UpdateObjects()で回すので、
-     * ここでは当たり判定とTakeDamageだけを行うロックオン・撃破後の武器奪取はknight_専用のまま対応していない
+     * ここでは当たり判定とTakeDamageだけを行う
      */
     void UpdatePlacedKnights();
     /** @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する */
@@ -284,8 +292,8 @@ private:
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model> modelBlock_;
-    std::unique_ptr<Model> cityBackgroundModel_;
-    std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
+    // 背景の街並みはStageEditorのkind="background"配置物（battletest.json）として管理する
+    // （以前はここでC++側に3体決め打ちしていたが、エディタで削除しても保存できず復活する問題があったため撤去）
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
@@ -297,13 +305,9 @@ private:
     std::unique_ptr<Model> modelDummy_;
     std::vector<Dummy> dummies_;
 
-    // 剣を持つナイト敵（撃破→凍結→武器奪取のお試し実装）
-    std::unique_ptr<KnightEnemy> knight_;
-
     // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
     enum class LockTargetKind { None,
-        Dummy,
-        Knight };
+        Dummy };
     LockTargetKind lockedKind_ = LockTargetKind::None;
     size_t lockedDummyIndex_ = 0;
 
@@ -325,25 +329,14 @@ private:
     std::unique_ptr<Sprite> awakenGaugeFg_;
 
     // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
-    /**
-     * @brief WeaponSlotUI に関する型を提供する
-     * @details WeaponSlotUI が扱うデータと操作の責務をまとめる
-     */
-    struct WeaponSlotUI {
-        std::unique_ptr<Sprite> frame; // 枠背景
-        std::unique_ptr<Sprite> icon; // スタイルカラーで塗った中身
-    };
     static constexpr int kWeaponSlotCount = 4;
     static constexpr float kSlotFlashDuration = 0.35f;
-    std::array<WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
+    std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
 
     // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
     // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
-    /**
-     * @brief WeaponIcon3D に関する型を提供する
-     * @details WeaponIcon3D が扱うデータと操作の責務をまとめる
-     */
+    /** @brief 武器スロットUIに表示する回転3Dアイコン1個分のモデルと演出状態 */
     struct WeaponIcon3D {
         std::unique_ptr<Model> model;
         std::unique_ptr<Object3d> object;
@@ -373,7 +366,7 @@ private:
 
     // F3で切り替える当たり判定デバッグ表示（ステージエディタの表示状態とは独立）
     bool showColliders_ = false;
-    bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
+    bool showHud_ = false; // F4でテスト用HUDを一括表示・非表示（動画撮影用に既定は非表示）
 
     FontRenderer fontRenderer_;
 };

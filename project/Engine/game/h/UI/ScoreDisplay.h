@@ -11,10 +11,7 @@ namespace engine::game {
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 
-/**
- * @brief ScoreDisplay に関する型を提供する
- * @details ScoreDisplay が扱うデータと操作の責務をまとめる
- */
+/** @brief スプライトプールを使い、数値やランキング一覧を桁ごとの画像で描画するクラス */
 class ScoreDisplay {
 public:
     /** @brief プールサイズ（最大同時描画桁数） */

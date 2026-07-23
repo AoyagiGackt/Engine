@@ -10,8 +10,7 @@
 #include <vector>
 namespace engine::graphics {
 /**
- * @brief EulerTransform に関する型を提供する
- * @details EulerTransform が扱うデータと操作の責務をまとめる
+ * @brief オイラー角（度数ではなくラジアン想定）による SRT 変換
  */
 struct EulerTransform {
     Vector3 scale;
@@ -20,8 +19,7 @@ struct EulerTransform {
 };
 
 /**
- * @brief QuaternionTransform に関する型を提供する
- * @details QuaternionTransform が扱うデータと操作の責務をまとめる
+ * @brief クォータニオン回転による SRT 変換（ジョイント・アニメーションが実際に使う形式）
  */
 struct QuaternionTransform {
     Vector3 scale;
@@ -30,8 +28,7 @@ struct QuaternionTransform {
 };
 
 /**
- * @brief Node に関する型を提供する
- * @details Node が扱うデータと操作の責務をまとめる
+ * @brief assimp から読み込んだシーンノードの階層構造（Skeleton::Create の入力元）
  */
 struct Node {
     QuaternionTransform transform;
@@ -42,8 +39,7 @@ struct Node {
 
 // 1本の骨（ジョイント）
 /**
- * @brief Joint に関する型を提供する
- * @details Joint が扱うデータと操作の責務をまとめる
+ * @brief スケルトン内の1ジョイント（骨）。ローカル変換と親子関係、累積行列を保持する
  */
 struct Joint {
     QuaternionTransform transform; // ローカルのSRT
@@ -55,30 +51,27 @@ struct Joint {
 };
 
 /**
- * @brief Skeleton に関する型を提供する
- * @details Skeleton が扱うデータと操作の責務をまとめる
+ * @brief ジョイントの階層とスケルトン空間行列を保持し、毎フレーム行列更新を行うスケルトンクラス
  */
 class Skeleton {
 public:
     // Nodeの階差構造からSkeletonを生成する
     /**
-     * @brief Create の結果を取得する
-     * @param rootNode 処理に使用する値
-     * @return 処理結果
+     * @brief Node階層をDFSで辿り、親子関係を保持したJoint配列としてSkeletonを構築する
+     * @param rootNode 変換元となるノード階層のルート（LoadNodeHierarchyFromFile で読み込んだもの）
+     * @return 構築されたSkeletonインスタンス（skeletonSpaceMatrixは未更新の単位行列）
      */
     static Skeleton Create(const Node& rootNode);
 
     // localMatrixを反映してskeletonSpaceMatrixを更新する
     /**
-     * @brief Update に対応する状態を更新する
-     * @return なし
+     * @brief 全JointのlocalMatrixを再計算し、親から順にskeletonSpaceMatrix（累積行列）へ反映する
      */
     void Update();
 
     // ImGuiでSkeletonの状態をデバッグ描画する（自動スケールのスティックフィギュア）
     /**
-     * @brief DrawDiagnostics に対応する内容を描画する
-     * @return なし
+     * @brief ImGuiウィンドウに全ジョイントを2D投影したスティックフィギュアとツリービューを表示する
      */
     void DrawDiagnostics();
 

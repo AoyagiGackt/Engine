@@ -454,12 +454,14 @@ void BloomEffect::Apply(SrvManager* srvManager)
         bloomInSrv_[0] = true;
     }
 
-    // Pass 4: 合成
+    // Pass 4: 合成（内部解像度のテクスチャを実バックバッファへレターボックス表示）
     {
+        D3D12_VIEWPORT backVp = dxCommon_->GetBackBufferViewport();
+        D3D12_RECT backSc = dxCommon_->GetBackBufferScissorRect();
         D3D12_CPU_DESCRIPTOR_HANDLE backBuffer = dxCommon_->GetCurrentBackBufferHandle();
         cmd->OMSetRenderTargets(1, &backBuffer, FALSE, nullptr);
-        cmd->RSSetViewports(1, &vp);
-        cmd->RSSetScissorRects(1, &sc);
+        cmd->RSSetViewports(1, &backVp);
+        cmd->RSSetScissorRects(1, &backSc);
 
         cmd->SetGraphicsRootSignature(combineRS_.Get());
         cmd->SetPipelineState(combinePSO_.Get());

@@ -11,8 +11,8 @@ class Player;
 class PlayerBridge {
 public:
     /**
-     * @brief GetInstance の結果を取得する
-     * @return 処理結果
+     * @brief 唯一のPlayerBridgeインスタンスを取得する（未生成なら生成する）
+     * @return PlayerBridgeのインスタンス
      */
     static PlayerBridge* GetInstance();
 

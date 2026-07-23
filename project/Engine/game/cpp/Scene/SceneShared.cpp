@@ -3,16 +3,20 @@
  * @brief SceneSharedのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
  */
 #include "SceneShared.h"
+#include "BulletPool.h"
 #include "Camera.h"
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
+#include "Player.h"
 #include "PostEffectRenderTarget.h"
+#include "ScreenFlash.h"
 #include "SceneManager.h"
 #include "SlashMark.h"
 #include "Sprite.h"
+#include "TimeManager.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
@@ -35,6 +39,114 @@ namespace {
         return rng;
     }
 } // namespace
+
+void InitializeWeaponSlotHud(SpriteCommon* spriteCommon, WeaponManager* weaponManager,
+    WeaponSlotUI* slots, Vector2* slotPos, int slotCount,
+    float slotSize, float slotGap, float marginX, float baseY, bool checkUnlockedForInitialColor,
+    std::unique_ptr<Sprite>& gunFrame, std::unique_ptr<Sprite>& gunIcon, Vector2& gunPos)
+{
+    const auto& list = weaponManager->GetList();
+    for (int i = 0; i < slotCount; ++i) {
+        const float x = marginX + static_cast<float>(i) * (slotSize + slotGap);
+        slotPos[i] = { x, baseY };
+
+        slots[i].frame = std::make_unique<Sprite>();
+        slots[i].frame->Initialize(spriteCommon, "Resources/white.png");
+        slots[i].frame->SetPosition({ x, baseY });
+        slots[i].frame->SetSize({ slotSize, slotSize });
+
+        slots[i].icon = std::make_unique<Sprite>();
+        slots[i].icon->Initialize(spriteCommon, "Resources/white.png");
+        slots[i].icon->SetPosition({ x + 6.0f, baseY + 6.0f });
+        slots[i].icon->SetSize({ slotSize - 12.0f, slotSize - 12.0f });
+
+        const bool showStyleColor = i < static_cast<int>(list.size())
+            && (!checkUnlockedForInitialColor || weaponManager->IsUnlocked(i));
+        if (showStyleColor) {
+            const float* c = list[i].styleColor;
+            slots[i].icon->SetColor({ c[0], c[1], c[2], 0.9f });
+        } else if (checkUnlockedForInitialColor) {
+            slots[i].icon->SetColor({ 0.2f, 0.2f, 0.2f, 0.35f }); // 未解放スロット
+        }
+    }
+
+    const float gunX = marginX + static_cast<float>(slotCount) * (slotSize + slotGap) + 24.0f;
+    gunPos = { gunX, baseY };
+
+    gunFrame = std::make_unique<Sprite>();
+    gunFrame->Initialize(spriteCommon, "Resources/white.png");
+    gunFrame->SetPosition({ gunX, baseY });
+    gunFrame->SetSize({ slotSize, slotSize });
+
+    gunIcon = std::make_unique<Sprite>();
+    gunIcon->Initialize(spriteCommon, "Resources/white.png");
+    gunIcon->SetAnchorPoint({ 0.5f, 0.5f });
+    gunIcon->SetPosition({ gunX + slotSize * 0.5f, baseY + slotSize * 0.5f });
+    gunIcon->SetSize({ slotSize - 20.0f, slotSize - 20.0f });
+    gunIcon->SetColor({ 0.6f, 0.85f, 1.0f, 0.9f });
+}
+
+void UpdateWeaponSlotHud(WeaponManager* weaponManager, WeaponSlotUI* slots, int slotCount,
+    float pulseTimer, float flash, Sprite* gunIcon, float gunIconAngle)
+{
+    const int activeIndex = weaponManager->GetSelectedSlot();
+    const float pulse = 0.7f + 0.3f * std::sin(pulseTimer * 6.0f);
+
+    const auto& list = weaponManager->GetList();
+    for (int i = 0; i < slotCount; ++i) {
+        const bool active = (i == activeIndex);
+        const float frameB = 0.08f + (active ? pulse * 0.35f : 0.0f) + flash * 0.5f;
+        slots[i].frame->SetColor({ frameB, frameB, frameB + (active ? 0.2f : 0.05f), 0.85f });
+        slots[i].frame->Update();
+
+        const int weaponIndex = weaponManager->GetSlotWeaponIndex(i);
+        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size())
+            && weaponManager->IsUnlocked(weaponIndex);
+        if (unlocked) {
+            const float iconMul = (active ? (0.7f + pulse * 0.3f) : 0.5f) + flash * 0.5f;
+            const float* c = list[weaponIndex].styleColor;
+            slots[i].icon->SetColor({ c[0] * iconMul, c[1] * iconMul, c[2] * iconMul, 0.95f });
+        } else {
+            const float lockFlash = 0.2f + flash * 0.6f; // 新規解放の瞬間はロック中のスロットも一緒に光らせる
+            slots[i].icon->SetColor({ lockFlash, lockFlash, lockFlash, 0.35f + flash * 0.3f });
+        }
+        slots[i].icon->Update();
+    }
+
+    gunIcon->SetRotation(gunIconAngle);
+    gunIcon->Update();
+}
+
+void DrawWeaponSlotFrames(const WeaponSlotUI* slots, int slotCount, Sprite* gunFrame)
+{
+    for (int i = 0; i < slotCount; ++i) {
+        slots[i].frame->Draw();
+    }
+    gunFrame->Draw();
+}
+
+void DrawWeaponSlotIconsAndLabels(const WeaponSlotUI* slots, int slotCount, const Vector2* slotPos,
+    Sprite* gunIcon, const Vector2& gunPos, WeaponManager* weaponManager, FontRenderer& fontRenderer,
+    float slotSize)
+{
+    for (int i = 0; i < slotCount; ++i) {
+        slots[i].icon->Draw();
+    }
+    gunIcon->Draw();
+
+    const auto& list = weaponManager->GetList();
+    for (int i = 0; i < slotCount && i < static_cast<int>(list.size()); ++i) {
+        if (weaponManager->IsUnlocked(i)) {
+            continue;
+        }
+        fontRenderer.DrawStringW(L"?",
+            slotPos[i].x + slotSize * 0.5f - 6.0f,
+            slotPos[i].y + slotSize * 0.5f - 12.0f, 1.6f,
+            { 0.6f, 0.6f, 0.6f, 0.9f });
+    }
+    fontRenderer.DrawString("GUN", gunPos.x + 10.0f, gunPos.y + slotSize + 4.0f, 1.0f,
+        { 0.6f, 0.85f, 1.0f, 0.9f });
+}
 
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 {
@@ -102,6 +214,32 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
     }
 }
 
+void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
+{
+    if (!player->JustSpinShot()) {
+        return;
+    }
+
+    constexpr float kBulletSpeed = 0.30f;
+    const Vector3& pp = player->GetPosition();
+    Vector3 firePos = { pp.x, pp.y, 0.0f };
+
+    if (player->IsUpsideDown()) {
+        // 逆さ: 下方向中心に 5 方向ばらまき
+        constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
+        constexpr float kSpread = 30.0f * (3.14159265f / 180.0f); // 30°間隔
+        for (int i = -2; i <= 2; ++i) {
+            float angle = kBaseAngle + i * kSpread;
+            bulletPool.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
+        }
+        TimeManager::GetInstance()->RequestHitStop(3);
+        ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
+    } else {
+        // 通常: 向いている方向に 1 発
+        bulletPool.Spawn(firePos, { player->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
+    }
+}
+
 engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
 {
     const float left = (dirX >= 0.0f) ? backRange : frontRange;
@@ -130,12 +268,18 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     constexpr float kBlockRadius = 0.5f;
     float stageLeft = 2.0f - kBlockRadius;
     float stageRight = 36.0f + kBlockRadius;
+    float stageBottom = -1.0f - kBlockRadius;
+    float stageTop = 12.0f + kBlockRadius;
     if (!stageSolids.empty()) {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;
+        stageBottom = stageSolids.front().min.y;
+        stageTop = stageSolids.front().max.y;
         for (const AABB& solid : stageSolids) {
             stageLeft = (std::min)(stageLeft, solid.min.x);
             stageRight = (std::max)(stageRight, solid.max.x);
+            stageBottom = (std::min)(stageBottom, solid.min.y);
+            stageTop = (std::max)(stageTop, solid.max.y);
         }
     }
     const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
@@ -143,9 +287,16 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     const float cameraX = cameraMinX <= cameraMaxX
         ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
         : (stageLeft + stageRight) * 0.5f;
-    camera->SetTranslate({ cameraX,
-        std::clamp(playerPos.y + 3.0f, -0.6f - kBlockRadius + GameConstants::kCameraHalfH, 13.0f + kBlockRadius - GameConstants::kCameraHalfH),
-        -24.0f });
+
+    // Xと同様にYも組んだブロックの範囲内へクランプし、ジャンプ等でブロックの外（未構築の空間）が
+    // 画面に映り込まないようにする
+    const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
+    const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
+    const float cameraTargetY = playerPos.y + 3.0f;
+    const float cameraY = cameraMinY <= cameraMaxY
+        ? std::clamp(cameraTargetY, cameraMinY, cameraMaxY)
+        : (stageBottom + stageTop) * 0.5f;
+    camera->SetTranslate({ cameraX, cameraY, -24.0f });
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,

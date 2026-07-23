@@ -98,6 +98,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.flag = trg.value("flag", "");
         desc.value = trg.value("value", true);
         desc.once = trg.value("once", true);
+        desc.spawnsWaterSplash = trg.value("spawnsWaterSplash", false);
         data.triggers.push_back(std::move(desc));
     }
 
@@ -164,6 +165,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         tj["flag"] = desc.flag;
         tj["value"] = desc.value;
         tj["once"] = desc.once;
+        tj["spawnsWaterSplash"] = desc.spawnsWaterSplash;
         triggersJson.push_back(std::move(tj));
     }
     j["triggers"] = std::move(triggersJson);

@@ -33,9 +33,8 @@ public:
     static constexpr int kJpCols = 16;
 
     /**
-     * @brief Initialize に対応する処理を開始する
-     * @param spriteCommon 処理に使用する値
-     * @return なし
+     * @brief ASCII/JP両アトラスを構築（未生成なら）し、描画用スプライトプールを確保する
+     * @param spriteCommon スプライト描画の共通設定
      */
     void Initialize(SpriteCommon* spriteCommon);
 
@@ -49,51 +48,33 @@ public:
         float scale = 1.0f,
         const Vector4& color = { 1.0f, 1.0f, 1.0f, 1.0f });
 
-    /**
-     * @brief Reset に対応する状態を設定する
-     * @return なし
-     */
+    /** @brief 積んだ描画コマンドとスプライト使用数をクリアする（毎フレーム、DrawString系を呼ぶ前に呼ぶ） */
     void Reset();
-    /**
-     * @brief Draw に対応する内容を描画する
-     * @return なし
-     */
+    /** @brief Reset()以降に積んだASCII/JP文字列コマンドをすべてスプライトとして描画する */
     void Draw();
 
 private:
-    /**
-     * @brief DrawCmd に関する型を提供する
-     * @details DrawCmd が扱うデータと操作の責務をまとめる
-     */
+    /** @brief Draw()まで遅延させるASCII文字列描画コマンド1件（文字列・座標・スケール・色） */
     struct DrawCmd {
         std::string text;
         float x, y, scale;
         Vector4 color;
     };
-    /**
-     * @brief DrawCmdW に関する型を提供する
-     * @details DrawCmdW が扱うデータと操作の責務をまとめる
-     */
+    /** @brief Draw()まで遅延させる日本語文字列描画コマンド1件（文字列・座標・スケール・色） */
     struct DrawCmdW {
         std::wstring text;
         float x, y, scale;
         Vector4 color;
     };
 
-    /**
-     * @brief BuildAtlas に対応する処理を実行する
-     * @return なし
-     */
+    /** @brief GDIでCourier Newの全ASCII文字をDIBSectionへ描画し、ASCIIアトラステクスチャとして登録する（登録済みなら何もしない） */
     void BuildAtlas();
-    /**
-     * @brief BuildJpAtlas に対応する処理を実行する
-     * @return なし
-     */
+    /** @brief ひらがな・カタカナ・追加漢字グリフをGDIで描画し、JPアトラステクスチャとして登録する（登録済みなら何もしない） */
     void BuildJpAtlas();
     /**
-     * @brief GetJpGlyphIdx の結果を取得する
-     * @param c 処理に使用する値
-     * @return 処理結果
+     * @brief 文字がJPアトラス内のどのグリフ番号に対応するかを返す
+     * @param c 判定する文字（ひらがな/カタカナ/kJpExtra内の追加漢字）
+     * @return グリフ番号（アトラス内の並び順）対応外の文字なら-1
      */
     int GetJpGlyphIdx(wchar_t c) const;
 
