@@ -137,10 +137,18 @@ public:
         if (player_)
             player_->SetVisualPreset(preset);
     }
-    void SetEditorPlayerStaticVisual(const std::string& path) override
+    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
     {
         if (player_)
-            player_->SetStaticVisualModel(path);
+            player_->SetStaticVisualModel(model, tex);
+    }
+    std::string GetEditorPlayerStaticVisualModel() const override
+    {
+        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
+    }
+    std::string GetEditorPlayerStaticVisualTexture() const override
+    {
+        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
@@ -182,6 +190,8 @@ private:
 
     /** @brief 指定座標にヒットエフェクト（パーティクル）を生成する */
     void SpawnHitEffect(const Vector3& pos);
+    /** @brief 指定座標に水しぶきエフェクト（パーティクル）を生成する StageEditorのトリガー(spawnsWaterSplash)から呼ばれる */
+    void SpawnWaterSplashEffect(const Vector3& pos);
     /** @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する */
     void UpdateHpBars();
     /** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
@@ -282,8 +292,8 @@ private:
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
     std::unique_ptr<Model> modelBlock_;
-    std::unique_ptr<Model> cityBackgroundModel_;
-    std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
+    // 背景の街並みはStageEditorのkind="background"配置物（battletest.json）として管理する
+    // （以前はここでC++側に3体決め打ちしていたが、エディタで削除しても保存できず復活する問題があったため撤去）
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
@@ -356,7 +366,7 @@ private:
 
     // F3で切り替える当たり判定デバッグ表示（ステージエディタの表示状態とは独立）
     bool showColliders_ = false;
-    bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
+    bool showHud_ = false; // F4でテスト用HUDを一括表示・非表示（動画撮影用に既定は非表示）
 
     FontRenderer fontRenderer_;
 };

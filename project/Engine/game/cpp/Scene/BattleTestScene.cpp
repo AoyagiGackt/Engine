@@ -143,21 +143,8 @@ void BattleTestScene::InitializeStageModels()
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    cityBackgroundModel_ = std::make_unique<Model>();
-    cityBackgroundModel_->Initialize(modelCommon_.get(),
-        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
-    for (float x : { 5.0f, 16.0f, 27.0f }) {
-        auto city = std::make_unique<Object3d>();
-        city->Initialize(modelCommon_.get());
-        city->SetModel(cityBackgroundModel_.get());
-        city->SetPosition({ x, -0.6f, 6.0f });
-        city->SetScale({ 0.42f, 0.42f, 0.42f });
-        city->Update();
-        GetStageEditor().RegisterExternalObject(
-            "Background Building " + std::to_string(cityBackgroundObjects_.size() + 1), city.get());
-        cityBackgroundObjects_.push_back(std::move(city));
-    }
+    // 背景の街並みはbattletest.json側のkind="background"配置物として管理する
+    // （エディタのHierarchy/Inspectorから通常の配置物と同じく選択・移動・削除・保存ができる）
 
     // 境界ブロック・トリガーは本番ステージと同じ level01.json から読み込む
     // （GetEditorLevelPath()経由でBaseScene::Init()が自動でOpen()する。F2でその場編集も可能）
@@ -212,7 +199,9 @@ void BattleTestScene::InitializePlayerAndBullets()
 {
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
-    player_->SetHorizontalBounds(2.5f, 27.5f);
+    player_->SetWeaponsVisible(false); // 撮影用: テストシーンでは武器（近接・銃）を一時的に描画しない
+    // 水平方向の移動範囲は固定値で決め打ちしない壁ブロックの当たり判定（ResolveBlockCollision）が
+    // StageEditorでの編集をそのまま反映するので、それ自体が境界として機能する
     // "Player"のRegisterExternalEntity()はGetEditorPlayerPositionRef()経由でBaseScene::Init()が自動で行う
     PlayerBridge::GetInstance()->SetPlayer(player_.get());
     AudioBridge::GetInstance()->SetAudio(audio_);
@@ -254,6 +243,8 @@ void BattleTestScene::InitializeEffects()
     finisherShatter_.Initialize(dxCommon_, srvManager_);
     finisherShatter_.SetDuration(0.9f);
     ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
+
+    GetStageEditor().SetWaterSplashCallback([this](const Vector3& pos) { SpawnWaterSplashEffect(pos); });
 }
 
 void BattleTestScene::SpawnHitEffect(const Vector3& pos)
@@ -266,6 +257,19 @@ void BattleTestScene::SpawnHitEffect(const Vector3& pos)
         pm_->EmitGravity("bt_hit_spark", pos,
             { vx(rng), vy(rng), 0.0f },
             { 1.0f, 0.55f, 0.1f, 1.0f }, 0.6f, 0.13f);
+    }
+}
+
+void BattleTestScene::SpawnWaterSplashEffect(const Vector3& pos)
+{
+    pm_->EmitRing("bt_water_splash", pos, 2.2f, { 0.6f, 0.86f, 1.0f, 0.9f }, 8, 0.4f, 0.12f);
+    static std::mt19937 rng { std::random_device { }() };
+    std::uniform_real_distribution<float> vx(-2.5f, 2.5f);
+    std::uniform_real_distribution<float> vy(2.0f, 4.5f);
+    for (int i = 0; i < 5; ++i) {
+        pm_->EmitGravity("bt_water_splash", pos,
+            { vx(rng), vy(rng), 0.0f },
+            { 0.55f, 0.82f, 1.0f, 0.9f }, 0.5f, 0.1f);
     }
 }
 
@@ -368,7 +372,9 @@ void BattleTestScene::UpdateSceneFlow()
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
     bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpRetX, kReturnProx, "TRAINING");
-    DrawHud(nearReturn);
+    if (showHud_) {
+        DrawHud(nearReturn);
+    }
 }
 
 void BattleTestScene::RefreshVisualTransformsForEditor()
@@ -388,12 +394,13 @@ void BattleTestScene::RefreshVisualTransformsForEditor()
     for (auto& p : warpPortalBlocks_) {
         p->Update();
     }
-    for (auto& city : cityBackgroundObjects_) {
-        city->Update();
-    }
     // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
     UpdateWeaponSlotHud();
     UpdateHpBars();
+
+    if (showColliders_) {
+        DrawColliderOverlay();
+    }
 }
 
 void BattleTestScene::UpdatePlayerAndCamera()
@@ -439,9 +446,6 @@ void BattleTestScene::UpdateEnvironment()
     for (auto& p : warpPortalBlocks_) {
         p->SetColor({ 1.0f * pulse, 0.5f * pulse, 0.1f * pulse, 0.9f });
         p->Update();
-    }
-    for (auto& city : cityBackgroundObjects_) {
-        city->Update();
     }
 }
 

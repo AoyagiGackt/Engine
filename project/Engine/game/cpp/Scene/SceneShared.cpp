@@ -268,12 +268,18 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     constexpr float kBlockRadius = 0.5f;
     float stageLeft = 2.0f - kBlockRadius;
     float stageRight = 36.0f + kBlockRadius;
+    float stageBottom = -1.0f - kBlockRadius;
+    float stageTop = 12.0f + kBlockRadius;
     if (!stageSolids.empty()) {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;
+        stageBottom = stageSolids.front().min.y;
+        stageTop = stageSolids.front().max.y;
         for (const AABB& solid : stageSolids) {
             stageLeft = (std::min)(stageLeft, solid.min.x);
             stageRight = (std::max)(stageRight, solid.max.x);
+            stageBottom = (std::min)(stageBottom, solid.min.y);
+            stageTop = (std::max)(stageTop, solid.max.y);
         }
     }
     const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
@@ -281,7 +287,16 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     const float cameraX = cameraMinX <= cameraMaxX
         ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
         : (stageLeft + stageRight) * 0.5f;
-    camera->SetTranslate({ cameraX, playerPos.y + 3.0f, -24.0f });
+
+    // Xと同様にYも組んだブロックの範囲内へクランプし、ジャンプ等でブロックの外（未構築の空間）が
+    // 画面に映り込まないようにする
+    const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
+    const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
+    const float cameraTargetY = playerPos.y + 3.0f;
+    const float cameraY = cameraMinY <= cameraMaxY
+        ? std::clamp(cameraTargetY, cameraMinY, cameraMaxY)
+        : (stageBottom + stageTop) * 0.5f;
+    camera->SetTranslate({ cameraX, cameraY, -24.0f });
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,

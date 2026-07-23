@@ -96,7 +96,8 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
-    player_->SetHorizontalBounds(2.5f, 27.5f);
+    // 水平方向の移動範囲は固定値で決め打ちしない壁ブロックの当たり判定（ResolveBlockCollision）が
+    // StageEditorでの編集をそのまま反映するので、それ自体が境界として機能する
     // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
     // （未作成のtraining.jsonなら空のまま起動し、F2エディタの+で配置してSaveで作成できる）
     PlayerBridge::GetInstance()->SetPlayer(player_.get());
@@ -373,10 +374,8 @@ void TrainingScene::Draw()
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
     D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
     cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-    D3D12_VIEWPORT vp = { 0, 0,
-        static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
-        0.0f, 1.0f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
+    D3D12_VIEWPORT vp = dxCommon_->GetCenteredClientViewport();
+    D3D12_RECT scissor = dxCommon_->GetCenteredClientScissorRect();
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
 

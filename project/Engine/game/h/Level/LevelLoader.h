@@ -66,6 +66,7 @@ struct TriggerDesc {
     std::string flag; // 立てる／倒すフラグ名（GameFlagsのキー）
     bool value = true; // トリガー成立時にflagへ設定する値
     bool once = true; // true  一度成立したら以降は判定しない
+    bool spawnsWaterSplash = false; // trueなら成立した瞬間、この位置に水しぶきを出す（ノードグラフ不要の単体演出）
 };
 
 /** @brief ステージ内の復帰地点を定義する */

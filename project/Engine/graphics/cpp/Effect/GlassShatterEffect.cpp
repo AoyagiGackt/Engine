@@ -209,9 +209,8 @@ void GlassShatterEffect::Apply()
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = dxCommon_->GetCurrentBackBufferHandle();
     cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
-    D3D12_VIEWPORT vp = { 0.f, 0.f,
-        (float)WinApp::kClientWidth, (float)WinApp::kClientHeight, 0.f, 1.f };
-    D3D12_RECT scissor = { 0, 0, WinApp::kClientWidth, WinApp::kClientHeight };
+    D3D12_VIEWPORT vp = dxCommon_->GetBackBufferViewport();
+    D3D12_RECT scissor = dxCommon_->GetBackBufferScissorRect();
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
 

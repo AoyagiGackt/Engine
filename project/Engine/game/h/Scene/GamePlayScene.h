@@ -155,10 +155,18 @@ public:
         if (player_)
             player_->SetVisualPreset(preset);
     }
-    void SetEditorPlayerStaticVisual(const std::string& path) override
+    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
     {
         if (player_)
-            player_->SetStaticVisualModel(path);
+            player_->SetStaticVisualModel(model, tex);
+    }
+    std::string GetEditorPlayerStaticVisualModel() const override
+    {
+        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
+    }
+    std::string GetEditorPlayerStaticVisualTexture() const override
+    {
+        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
     }
     /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
     void RefreshVisualTransformsForEditor() override;

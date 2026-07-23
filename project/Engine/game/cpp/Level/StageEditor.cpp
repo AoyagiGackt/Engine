@@ -26,6 +26,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <set>
@@ -122,6 +123,31 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
         entry.authoredPosition = entry.desc.position;
         entry.runtimeActive = IsRuntimeActive(entry.desc) && entry.desc.activationDelay <= 0.0f;
         objects_.push_back(std::move(entry));
+    }
+
+    // 新規作成時の連番(obj_N等)が、読み込んだレベルに既にある名前と衝突しないよう、
+    // "_数字"で終わる名前を走査してnextSerial_をその最大値+1から再開させる
+    // （これを怠ると保存済みのobj_0等と同じ名前が新規オブジェクトに振られ、
+    //   保存前検証の名前重複エラーで保存できなくなる）
+    auto bumpSerialPastName = [this](const std::string& name) {
+        const size_t underscorePos = name.find_last_of('_');
+        if (underscorePos == std::string::npos || underscorePos + 1 >= name.size()) {
+            return;
+        }
+        const std::string suffix = name.substr(underscorePos + 1);
+        if (!std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) { return std::isdigit(c); })) {
+            return;
+        }
+        const int value = std::atoi(suffix.c_str());
+        if (value >= nextSerial_) {
+            nextSerial_ = value + 1;
+        }
+    };
+    for (const auto& entry : objects_) {
+        bumpSerialPastName(entry.desc.name);
+    }
+    for (const auto& trigger : data.triggers) {
+        bumpSerialPastName(trigger.name);
     }
 
     // EnemyRegistryへの登録キーになるため、実体を生成する前に名前を確定させる
@@ -499,25 +525,37 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     RegenerateInstances(objects_.back());
     selKind_ = SelKind::Object;
     selIndex_ = static_cast<int>(objects_.size()) - 1;
+    selectedObjectIndices_ = { selIndex_ };
 }
 
 void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
     std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
-    std::function<void(const std::string&)> setStaticVisualModel)
+    std::function<void(const std::string&, const std::string&)> setStaticVisualModel,
+    std::function<std::string()> getStaticVisualModel, std::function<std::string()> getStaticVisualTexture)
 {
     for (auto& ref : externalEntities_) {
         if (ref.name == name) {
             ref.getVisualPreset = std::move(getVisualPreset);
             ref.setVisualPreset = std::move(setVisualPreset);
             ref.setStaticVisualModel = std::move(setStaticVisualModel);
+            ref.getStaticVisualModel = std::move(getStaticVisualModel);
+            ref.getStaticVisualTexture = std::move(getStaticVisualTexture);
             ref.position = position; // 同名なら上書き（Scene再初期化等での再登録に備える）
             return;
         }
     }
-    externalEntities_.push_back({ name, position, nullptr, std::move(getVisualPreset), std::move(setVisualPreset), std::move(setStaticVisualModel) });
+    ExternalEntityRef ref;
+    ref.name = name;
+    ref.position = position;
+    ref.getVisualPreset = std::move(getVisualPreset);
+    ref.setVisualPreset = std::move(setVisualPreset);
+    ref.setStaticVisualModel = std::move(setStaticVisualModel);
+    ref.getStaticVisualModel = std::move(getStaticVisualModel);
+    ref.getStaticVisualTexture = std::move(getStaticVisualTexture);
+    externalEntities_.push_back(std::move(ref));
 }
 
-void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object)
+void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object, std::function<void()> onDelete)
 {
     if (!object) {
         return;
@@ -527,6 +565,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
         if (ref.name == name) {
             ref.position = position;
             ref.object = object;
+            ref.onDelete = std::move(onDelete);
             return;
         }
     }
@@ -534,6 +573,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
     ref.name = name;
     ref.position = position;
     ref.object = object;
+    ref.onDelete = std::move(onDelete);
     externalEntities_.push_back(std::move(ref));
 }
 
@@ -921,7 +961,10 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 {
     // トリガー判定はエディタの表示状態に関係なく常に行う（普段のプレイ中でも成立させるため）
     for (auto& trg : triggers_) {
-        trg.Update(playerPos);
+        const bool justFired = trg.Update(playerPos);
+        if (justFired && trg.GetDesc().spawnsWaterSplash && onWaterSplashRequested_) {
+            onWaterSplashRequested_(trg.GetDesc().position);
+        }
     }
 
 #ifdef USE_IMGUI
@@ -930,8 +973,9 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
         return;
     }
 
-    // F3で編集状態を維持したままパネル表示だけを切り替える
-    if (ImGui::IsKeyPressed(ImGuiKey_F3, false)) {
+    // F4で編集状態を維持したままパネル表示だけを切り替える
+    // （F3はゲーム側の当たり判定オーバーレイ表示と統一するためF4にしている）
+    if (ImGui::IsKeyPressed(ImGuiKey_F4, false)) {
         viewportFocusMode_ = !viewportFocusMode_;
     }
 
@@ -1369,7 +1413,7 @@ void StageEditor::RenderEditorToolbar()
     ImGui::SameLine();
     ImGui::Checkbox("Wave", &showWavePanel_);
     ImGui::SameLine();
-    if (ImGui::Button("最大化 F3")) {
+    if (ImGui::Button("最大化 F4")) {
         viewportFocusMode_ = true;
     }
     ImGui::End();
@@ -1385,7 +1429,7 @@ void StageEditor::RenderViewportFocusBar()
         | ImGuiWindowFlags_NoSavedSettings;
     ImGui::Begin("画面優先モード", nullptr, flags);
     ImGui::TextDisabled("編集状態とギズモを維持してパネルを隠している");
-    if (ImGui::Button("編集パネルを表示 (F3)")) {
+    if (ImGui::Button("編集パネルを表示 (F4)")) {
         viewportFocusMode_ = false;
     }
     ImGui::End();
@@ -2263,12 +2307,29 @@ void StageEditor::UpdateViewportInteraction()
             BeginUndoCapture();
 
             // Shift+ドラッグ(Z移動)用に、選択物の現在のZをスナップ前の生値として持つ
+            Vector3 grabWorldPos { };
+            bool hasGrabWorldPos = true;
             if (bestKind == SelKind::Object) {
                 dragRawZ_ = objects_[bestIdx].desc.position.z;
+                grabWorldPos = WorldPositionOf(objects_[bestIdx].desc);
             } else if (bestKind == SelKind::Trigger) {
                 dragRawZ_ = triggers_[bestIdx].GetDesc().position.z;
+                grabWorldPos = triggers_[bestIdx].GetDesc().position;
             } else if (externalEntities_[bestIdx].position) {
                 dragRawZ_ = externalEntities_[bestIdx].position->z;
+                grabWorldPos = *externalEntities_[bestIdx].position;
+            } else {
+                hasGrabWorldPos = false;
+            }
+
+            // クリックした位置がオブジェクト原点とずれていても、その場で原点まで飛ばないよう、
+            // 掴んだ瞬間の(オブジェクト位置 - マウス接地位置)のオフセットを控えておく
+            dragGrabOffsetX_ = 0.0f;
+            dragGrabOffsetY_ = 0.0f;
+            Vector3 grabGround { };
+            if (hasGrabWorldPos && MouseToGround(m.x, m.y, grabGround)) {
+                dragGrabOffsetX_ = grabWorldPos.x - grabGround.x;
+                dragGrabOffsetY_ = grabWorldPos.y - grabGround.y;
             }
         }
     }
@@ -2303,9 +2364,10 @@ void StageEditor::UpdateViewportInteraction()
         } else {
             Vector3 ground;
             if (MouseToGround(m.x, m.y, ground)) {
+                // 掴んだ時のオフセットを保ったまま追従させる（クリック位置がオブジェクト原点からずれていても飛ばない）
                 // スナップはワールド座標側で丸めてから、親がいる場合はローカル座標へ逆算する
-                const float wx = SnapValue(ground.x);
-                const float wy = SnapValue(ground.y);
+                const float wx = SnapValue(ground.x + dragGrabOffsetX_);
+                const float wy = SnapValue(ground.y + dragGrabOffsetY_);
                 if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
                     ObjectDesc& desc = objects_[selIndex_].desc;
                     Vector3 parentW = ParentWorldPositionOf(desc);

@@ -48,6 +48,13 @@ void StageEditorSelectionService::DeleteSelected(StageEditor& editor)
         && editor.selIndex_ < static_cast<int>(editor.triggers_.size())) {
         editor.RecordUndoSnapshotNow();
         editor.triggers_.erase(editor.triggers_.begin() + editor.selIndex_);
+    } else if (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ >= 0
+        && editor.selIndex_ < static_cast<int>(editor.externalEntities_.size())
+        && editor.externalEntities_[editor.selIndex_].onDelete) {
+        // シーン所有の背景オブジェクト等onDeleteが設定されたエンティティのみ削除できる
+        // （JSON/Undoの管理対象外なので、実体の破棄は登録元シーンのコールバックに委ねる）
+        editor.externalEntities_[editor.selIndex_].onDelete();
+        editor.externalEntities_.erase(editor.externalEntities_.begin() + editor.selIndex_);
     } else {
         return;
     }

@@ -105,7 +105,7 @@
       "cameraHoldSeconds": 2.0,
       "conditionSeconds": 0.0,
       "conditionType": "manual",
-      "count": 13,
+      "count": 14,
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
@@ -120,53 +120,8 @@
       "patrolRoute": "",
       "patrolSpeed": 1.5,
       "position": [
-        38.0,
-        0.0,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/block/block.png",
-      "type": "row"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_0",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        10.466723442077637,
-        5.65542459487915,
+        37.977684020996094,
+        -0.9968757629394531,
         0.0
       ],
       "rotation": [
@@ -212,6 +167,96 @@
       "position": [
         2.0000317096710205,
         12.985525131225586,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": true,
+      "spawnType": "basic",
+      "step": 1.0,
+      "texture": "Resources/block/block.png",
+      "type": "row"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 4,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "kind": "prop",
+      "lighting": false,
+      "meshCollider": false,
+      "model": "Resources/block/block.obj",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "obj_3",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        5.6147966384887695,
+        2.479593515396118,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": true,
+      "spawnType": "basic",
+      "step": 1.0,
+      "texture": "Resources/block/block.png",
+      "type": "row"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "kind": "prop",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "Resources/block/block.obj",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "obj_4",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        12.076491355895996,
+        2.3469254970550537,
         0.0
       ],
       "rotation": [
