@@ -213,6 +213,10 @@ private:
     bool UpdateMeleeComboHit();
     /** @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す */
     bool UpdateWeaponSkillHits();
+    /** @brief ダガー スティンガーの多段ヒット判定を処理する（刺突ごとに個別のダメージ定義を参照）命中があれば true を返す */
+    bool UpdateDaggerStingerHit();
+    /** @brief グレートソード 投げ回転斬りの渦（吸い込み+多段ヒット）を処理する命中があれば true を返す */
+    bool UpdateGreatswordSpin();
     /** @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す */
     bool UpdateGunShotHit();
     /** @brief 覚醒乱舞のヒット判定を処理する命中があれば true を返す */
@@ -305,7 +309,7 @@ private:
     std::unique_ptr<Model> modelDummy_;
     std::vector<Dummy> dummies_;
 
-    // ロックオン（Shiftキーで生存中の敵を巡回選択乱舞/コンボの誘導先に使う）
+    // ロックオン（Shift長押し中だけ最寄りの生存ダミーを自動ロック乱舞/コンボの誘導先・プレイヤーの向き・カメラ寄せに使う）
     enum class LockTargetKind { None,
         Dummy };
     LockTargetKind lockedKind_ = LockTargetKind::None;

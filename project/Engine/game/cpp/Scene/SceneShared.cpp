@@ -263,8 +263,11 @@ void WorldToScreen(float worldX, float worldY, float camX, float camY, float& ou
     outY = -(worldY - camY) / GameConstants::kCameraHalfH * GameConstants::kScreenCenterY + GameConstants::kScreenCenterY;
 }
 
-void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids)
+void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids, const Vector3* lockTarget)
 {
+    // ロックオン中はカメラをほんの少しだけ対象側へ寄せる（気付きにくいという声への対策、
+    // 派手に振るとロック対象がプレイヤーの目の前にいる時に画角が窮屈になるので控えめにする）
+    constexpr float kLockOnCameraShiftRatio = 0.15f;
     // stageSolidsが空の場合(配置ブロックが1つも無いシーン)に使う既定ステージ範囲
     // 通常のトレーニング/バトルテストステージの境界ブロック配置(BorderBlockBuilder参照)に合わせた値
     constexpr float kBlockRadius = 0.5f;
@@ -290,9 +293,15 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     }
     const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
     const float cameraMaxX = stageRight - GameConstants::kCameraHalfW;
-    const float cameraX = cameraMinX <= cameraMaxX
+    float cameraX = cameraMinX <= cameraMaxX
         ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
         : (stageLeft + stageRight) * 0.5f;
+    if (lockTarget != nullptr) {
+        cameraX += (lockTarget->x - playerPos.x) * kLockOnCameraShiftRatio;
+        if (cameraMinX <= cameraMaxX) {
+            cameraX = std::clamp(cameraX, cameraMinX, cameraMaxX);
+        }
+    }
 
     // Xと同様にYも組んだブロックの範囲内へクランプし、ジャンプ等でブロックの外（未構築の空間）が
     // 画面に映り込まないようにする

@@ -46,13 +46,15 @@ void Player::ResetFrameFlags()
     justComboHit_ = false;
     justWeaponSwitchHit_ = false;
     justFired_ = false;
-    justBlinked_ = false;
+    justDaggerStingerHit_ = false;
     justChargedGauge_ = false;
     justAwakened_ = false;
     justSpinShot_ = false;
     justSwordDash_ = false;
     justSpearRetreat_ = false;
     justGreatswordSlam_ = false;
+    justGreatswordSpinHit_ = false;
+    justGreatswordThrown_ = false;
     justAxeCharge_ = false;
     justScytheSpin_ = false;
     justLaunched_ = false;
@@ -84,6 +86,13 @@ void Player::HandleStyleSwitch(Input* input)
     }
     if (wm->HasEquippedWeapon() && wm->GetSelectedSlot() != oldSlot) {
         meleeCombo_.Reset();
+        daggerStingerHitIndex_ = -1; // 刺突の途中で持ち替えても居残らないよう仕切り直す
+        daggerStingerDash_.active = false;
+        swordDash_.active = false;
+        spearDash_.active = false;
+        axeDash_.active = false;
+        greatswordThrowActive_ = false; // 渦の途中で持ち替えても居残らないよう仕切り直す
+        greatswordReturnCaptured_ = false;
         weaponSwitchAttackPending_ = true;
         weaponSwitchAttackActive_ = false;
         weaponSwitchWindow_ = kWeaponSwitchWindow_;
@@ -122,7 +131,10 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
     if (weaponSwitchWindow_ <= 0.0f) {
         weaponSwitchAttackPending_ = false;
     }
-    if (!wm->HasEquippedWeapon()) {
+    // 投げ回転斬りで大剣が手元を離れている間は、素手同然として近接コンボを封じる
+    // （手元にない武器でコンボ攻撃までできると、渦を出しっぱなしにしつつ通常戦闘もできてしまい強すぎるため）
+    const bool disarmed = wm->HasEquippedWeapon() && wm->GetCurrent().type == WeaponType::Greatsword && greatswordThrowActive_;
+    if (!wm->HasEquippedWeapon() || disarmed) {
         meleeCombo_.Reset();
         return;
     }
@@ -233,9 +245,11 @@ void Player::HandleWeaponSkill(Input* input)
         }
 
         // 固有技のクールダウン/バフも武器切替中に凍結させず常に消化する
+        daggerStingerCooldown_ = (std::max)(daggerStingerCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         swordSkillCooldown_ = (std::max)(swordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         spearSkillCooldown_ = (std::max)(spearSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+        greatswordThrowCooldown_ = (std::max)(greatswordThrowCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         axeRageTimer_ = (std::max)(axeRageTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 

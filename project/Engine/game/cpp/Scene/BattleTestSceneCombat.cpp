@@ -36,6 +36,19 @@ static constexpr MeleeAttackDef kSwordDashSkill = { "swd_dash", 0.9f, 0.0f, 0.0f
 static constexpr MeleeAttackDef kSpearRetreatSkill = { "spr_retreat", 0.7f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.10f, 0.02f, false, 4, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kGreatswordSlamSkill = { "gs_slam", 1.6f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.40f, 0.30f, true, 10, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kAxeChargeSkill = { "axe_charge", 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.35f, 0.08f, false, 6, 0.0f, false, { }, { }, { }, { } };
+// ダガー スティンガーの多段突き。1-2段目は軽い刺突、3段目だけ少し重くしてフィニッシュ感を出す
+static constexpr MeleeAttackDef kDaggerStingerHits[3] = {
+    { "dag_stg1", 0.45f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.08f, 0.02f, false, 1, 0.0f, false, { }, { }, { }, { } },
+    { "dag_stg2", 0.45f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.08f, 0.02f, false, 1, 0.0f, false, { }, { }, { }, { } },
+    { "dag_stg3", 0.85f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.30f, 0.08f, false, 4, 0.0f, false, { }, { }, { }, { } },
+};
+static constexpr float kDaggerStingerReachMult = 0.75f; ///< weapon.range に掛ける射程係数
+
+// グレートソード 投げ回転斬りの渦。knockXは0にして吸い込みと喧嘩させず、代わりに小さく打ち上げて多段ヒット感を出す
+static constexpr MeleeAttackDef kGreatswordSpinSkill = { "gsw_spin", 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.05f, false, 2, 0.0f, false, { }, { }, { }, { } };
+static constexpr float kGreatswordSpinSuctionRadius = 4.0f; ///< この半径内のダミーを渦へ引き寄せる
+static constexpr float kGreatswordSpinHitRadius = 1.5f; ///< この半径内なら実際にヒットする
+static constexpr float kGreatswordSpinSuctionSpeed = 0.10f; ///< 毎フレームの吸い込み速度
 
 // 近接攻撃・固有技の判定ボックス関連
 static constexpr float kLockAssistReachMult = 1.6f; ///< ロックオン中に前方リーチへ掛ける補正
@@ -170,6 +183,91 @@ bool BattleTestScene::UpdateWeaponSkillHits()
         if (skill.screenImpact) {
             TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopLaunch);
             ScreenFlash::GetInstance()->Request(kSlamFlashColor, kSlamFlashDuration);
+        }
+    }
+    return hitConfirmed;
+}
+
+bool BattleTestScene::UpdateDaggerStingerHit()
+{
+    // ダガー スティンガー: 踏み込み直後から1段ずつ発生するヒットを、刺突番号ごとの定義で個別に適用する
+    if (!player_->JustDaggerStingerHit()) {
+        return false;
+    }
+
+    const int idx = std::clamp(player_->GetDaggerStingerHitIndex(), 0, 2);
+    const MeleeAttackDef* atk = &kDaggerStingerHits[idx];
+    const WeaponData& weapon = weaponManager_->GetCurrent();
+    const Vector3& pp = player_->GetPosition();
+    const float atkMult = ComputeAttackMult();
+    const float reach = weapon.range * kDaggerStingerReachMult;
+    const AABB skillRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), reach, reach * GameConstants::kSkillRearReachMult);
+
+    bool hitConfirmed = false;
+    for (auto& d : dummies_) {
+        if (d.hp <= 0.0f) {
+            continue;
+        }
+        if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
+            hitConfirmed = true;
+            ApplyMeleeHitToDummy(d, atk, atkMult);
+        }
+    }
+    return hitConfirmed;
+}
+
+bool BattleTestScene::UpdateGreatswordSpin()
+{
+    // 投げた瞬間（まだ飛行中でIsGreatswordSpinning()はfalse）に発射エフェクトを出す
+    if (player_->JustGreatswordThrown()) {
+        const WeaponData& weapon = weaponManager_->GetCurrent();
+        const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
+        const Vector3& pp = player_->GetPosition();
+        const Vector3 launchPos = { pp.x, pp.y + 0.5f, 0.0f };
+        pm_->EmitRing("bt_hit_ring", launchPos, 1.2f, effectColor, 10, 0.22f, 0.16f);
+        for (int i = 0; i < 6; ++i) {
+            const float speed = 6.0f + i * 1.2f;
+            pm_->EmitGravity("bt_hit_spark", launchPos,
+                { player_->GetLastDirX() * speed, 1.0f + (i % 3) * 0.6f, 0.0f },
+                effectColor, 0.35f, 0.14f);
+        }
+    }
+
+    // グレートソード 投げ回転斬り: 静止した大剣が渦になっている間、周囲のダミーを毎フレーム引き寄せ、
+    // 一定間隔で範囲内のダミーへまとめてヒットさせる（吸い込みと着弾を別々に判定する）
+    if (!player_->IsGreatswordSpinning()) {
+        return false;
+    }
+
+    const Vector3& center = player_->GetGreatswordThrowPos();
+    for (auto& d : dummies_) {
+        if (d.hp <= 0.0f) {
+            continue;
+        }
+        const float dx = center.x - d.pos.x;
+        const float dist = std::abs(dx);
+        if (dist < kGreatswordSpinSuctionRadius && dist > 0.05f) {
+            d.knockVelX += (dx / dist) * kGreatswordSpinSuctionSpeed;
+        }
+    }
+
+    if (!player_->JustGreatswordSpinHit()) {
+        return false;
+    }
+
+    const WeaponData& weapon = weaponManager_->GetCurrent();
+    const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
+    pm_->EmitRing("bt_hit_ring", center, kGreatswordSpinHitRadius, effectColor, 14, 0.30f, 0.18f);
+
+    const float atkMult = ComputeAttackMult();
+    bool hitConfirmed = false;
+    for (auto& d : dummies_) {
+        if (d.hp <= 0.0f) {
+            continue;
+        }
+        if (std::abs(d.pos.x - center.x) <= kGreatswordSpinHitRadius) {
+            hitConfirmed = true;
+            ApplyMeleeHitToDummy(d, &kGreatswordSpinSkill, atkMult);
         }
     }
     return hitConfirmed;
@@ -346,6 +444,8 @@ bool BattleTestScene::UpdateCombat()
     bool hitConfirmed = false;
     hitConfirmed |= UpdateMeleeComboHit();
     hitConfirmed |= UpdateWeaponSkillHits();
+    hitConfirmed |= UpdateDaggerStingerHit();
+    hitConfirmed |= UpdateGreatswordSpin();
     hitConfirmed |= UpdateGunShotHit();
     hitConfirmed |= UpdateRampageHit();
     TriggerFinisherSlash();

@@ -4,6 +4,7 @@
  */
 #include "Player.h"
 #include "CharacterVisuals.h"
+#include "Easing.h"
 #include "GameConstants.h"
 #include "GravityBody.h"
 #include "Input.h"
@@ -519,8 +520,13 @@ void Player::AttachActiveWeapons()
     }
     if (activeHeldIndex_ >= 0) {
         auto& slot = heldWeapons_[activeHeldIndex_];
-        Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
-        AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
+        if (slot.type == WeaponType::Greatsword && greatswordThrowActive_) {
+            // 投げ回転斬りの最中は手のボーンから外し、飛行/渦の位置へ直接動かす
+            UpdateThrownGreatswordVisual(slot);
+        } else {
+            Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
+            AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
+        }
     }
 
     // ── 選択中の銃を左手ボーンに追従（Gキーで切り替えた1丁だけ表示）──────
@@ -543,6 +549,70 @@ void Player::AttachActiveWeapons()
             AttachHeldWeapon(slot.object.get(), rig_->gunBoneName, slot.gripScale, rot, slot.gripTranslate);
         }
     }
+}
+
+void Player::BeginDash(DashMotion& dash, float worldDeltaX)
+{
+    dash.active = true;
+    dash.timer = 0.0f;
+    dash.startX = pos_.x;
+    dash.targetX = std::clamp(pos_.x + worldDeltaX, minX_, maxX_);
+}
+
+bool Player::AdvanceDash(DashMotion& dash)
+{
+    if (!dash.active) {
+        return false;
+    }
+    dash.timer += GameConstants::kFrameDeltaTime;
+    const float t = std::clamp(dash.timer / kDashDuration_, 0.0f, 1.0f);
+    pos_.x = dash.startX + (dash.targetX - dash.startX) * Easing::EaseOutQuad(t);
+    if (t >= 1.0f) {
+        dash.active = false;
+        return true;
+    }
+    return false;
+}
+
+void Player::UpdateThrownGreatswordVisual(HeldWeaponSlot& slot)
+{
+    // 目にも留まらぬ速さで回転させ続ける（飛行中→静止後の渦で途切れず連続した見た目にする）
+    constexpr float kThrowSpinSpeed = 22.0f; // ラジアン/秒
+    constexpr float kSpinBobAmplitude = 0.06f; // 静止後、渦の間だけ小さく上下に揺らす
+    constexpr float kSpinBobSpeed = 10.0f;
+
+    Vector3 pos;
+    if (greatswordThrowTimer_ < kGreatswordThrowTravelTime_) {
+        // 飛行中: 手元から静止地点へ補間しながら飛んでいく
+        const float t = Easing::EaseOutQuad(greatswordThrowTimer_ / kGreatswordThrowTravelTime_);
+        pos = {
+            greatswordThrowStartPos_.x + (greatswordThrowPos_.x - greatswordThrowStartPos_.x) * t,
+            greatswordThrowStartPos_.y + (greatswordThrowPos_.y - greatswordThrowStartPos_.y) * t,
+            greatswordThrowStartPos_.z + (greatswordThrowPos_.z - greatswordThrowStartPos_.z) * t,
+        };
+    } else {
+        const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
+        if (spinElapsed < kGreatswordVortexMaxDuration_) {
+            // 渦の最中: その場に留まり、渦らしく小さく上下に揺れる
+            pos = greatswordThrowPos_;
+            pos.y += std::sin(spinElapsed * kSpinBobSpeed) * kSpinBobAmplitude;
+        } else {
+            // 帰還中: 渦の中心から手元へ飛んで戻る（瞬間移動に見えないよう補間する）
+            const float returnElapsed = spinElapsed - kGreatswordVortexMaxDuration_;
+            const float t = Easing::EaseInQuad((std::min)(returnElapsed / kGreatswordReturnTime_, 1.0f));
+            pos = {
+                greatswordThrowPos_.x + (greatswordReturnTargetPos_.x - greatswordThrowPos_.x) * t,
+                greatswordThrowPos_.y + (greatswordReturnTargetPos_.y - greatswordThrowPos_.y) * t,
+                greatswordThrowPos_.z + (greatswordReturnTargetPos_.z - greatswordThrowPos_.z) * t,
+            };
+        }
+    }
+
+    slot.object->ClearLocalMatrix(); // 手のボーン追従（SetLocalMatrix）を解除し、直接のTransform制御に戻す
+    slot.object->SetPosition(pos);
+    slot.object->SetRotation({ slot.gripRotate.x, slot.gripRotate.y, greatswordThrowTimer_ * kThrowSpinSpeed });
+    slot.object->SetScale(slot.gripScale);
+    slot.object->Update();
 }
 
 void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,

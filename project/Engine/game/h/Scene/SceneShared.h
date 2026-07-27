@@ -109,9 +109,12 @@ namespace SceneShared {
     /** @brief ワールド座標をスクリーン座標に変換する（カメラ位置基準） */
     void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY);
 
-    /** @brief プレイヤーにカメラを追従させる（ステージ境界クランプ込み） */
+    /**
+     * @brief プレイヤーにカメラを追従させる（ステージ境界クランプ込み）
+     * @param lockTarget ロックオン中の対象位置（非nullptrならカメラを対象側へ少しだけ寄せ、ロック中だと分かるようにする）
+     */
     void UpdateCameraFollow(engine::graphics::Camera* camera, const Vector3& playerPos,
-        const std::vector<engine::AABB>& stageSolids);
+        const std::vector<engine::AABB>& stageSolids, const Vector3* lockTarget = nullptr);
 
     /** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
     bool UpdatePortalTransition(engine::Input* input, const Vector3& playerPos,
