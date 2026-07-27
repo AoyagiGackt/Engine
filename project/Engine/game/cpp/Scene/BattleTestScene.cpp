@@ -377,7 +377,13 @@ void BattleTestScene::UpdatePlayerAndCamera()
     // 「高速で降りて後からカメラが付いてくる」ように見えてしまう
     player_->ResolveBlockCollision(GetStageEditor().GetSolidColliders());
 
-    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
+    // ロック中は移動入力に関係なく対象の方を向かせ、カメラも少しだけ対象側へ寄せて気付きやすくする
+    const Vector3* lockTargetPos = nullptr;
+    if (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ < dummies_.size()) {
+        lockTargetPos = &dummies_[lockedDummyIndex_].pos;
+        player_->FaceTarget(*lockTargetPos);
+    }
+    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders(), lockTargetPos);
     player_->RefreshVisualTransforms();
 }
 
@@ -397,46 +403,33 @@ void BattleTestScene::UpdateEnvironment()
 
 void BattleTestScene::UpdateTargetLock()
 {
-    // ロック中の対象が無効になっていたら（撃破された等）自動解除
-    if (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ >= dummies_.size()) {
+    // Shiftを押している間だけロックオンし、その間は常に一番近いダミーを対象にし続ける
+    // （押した瞬間の対象に固定するのではなく、離れたら別の敵が近くなるような場面でも自然に切り替わる）
+    if (!input_->PushKey(DIK_LSHIFT)) {
         lockedKind_ = LockTargetKind::None;
-    }
-
-    if (!input_->TriggerKey(DIK_LSHIFT)) {
         return;
     }
 
-    // 候補: 生存中のダミー → 末尾はロック解除として巡回する
-    struct Candidate {
-        LockTargetKind kind;
-        size_t index;
-    };
-    std::vector<Candidate> candidates;
+    const Vector3& pp = player_->GetPosition();
+    float minDist = FLT_MAX;
+    int nearest = -1;
     for (size_t i = 0; i < dummies_.size(); ++i) {
-        candidates.push_back({ LockTargetKind::Dummy, i });
-    }
-    if (candidates.empty()) {
-        lockedKind_ = LockTargetKind::None;
-        return;
-    }
-
-    int curIdx = -1;
-    for (size_t i = 0; i < candidates.size(); ++i) {
-        bool sameKind = (candidates[i].kind == lockedKind_);
-        bool sameSlot = (lockedKind_ != LockTargetKind::Dummy) || (candidates[i].index == lockedDummyIndex_);
-        if (sameKind && sameSlot) {
-            curIdx = static_cast<int>(i);
-            break;
+        if (dummies_[i].hp <= 0.0f) {
+            continue;
+        }
+        const float dist = std::abs(dummies_[i].pos.x - pp.x);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = static_cast<int>(i);
         }
     }
 
-    int nextIdx = curIdx + 1; // 未ロック(-1)からは先頭へ、最後まで進んだら解除に戻る
-    if (nextIdx >= static_cast<int>(candidates.size())) {
+    if (nearest < 0) {
         lockedKind_ = LockTargetKind::None;
-    } else {
-        lockedKind_ = candidates[nextIdx].kind;
-        lockedDummyIndex_ = candidates[nextIdx].index;
+        return;
     }
+    lockedKind_ = LockTargetKind::Dummy;
+    lockedDummyIndex_ = static_cast<size_t>(nearest);
 }
 
 // ══════════════════════════════════════════════════════
@@ -499,7 +492,7 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ");
     fontRenderer_.DrawStringW(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", 12.0f, py, kScale, kColorHint);
-    fontRenderer_.DrawStringW(L"[K] 射撃  [R] 覚醒  [Shift] ロックオン切替", 12.0f, py + 24.0f, kScale, kColorHint);
+    fontRenderer_.DrawStringW(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", 12.0f, py + 24.0f, kScale, kColorHint);
 
     // 戻りポータルのラベル
     if (nearReturnPortal) {

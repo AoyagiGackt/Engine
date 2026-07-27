@@ -192,10 +192,13 @@ public:
     bool JustWeaponSwitchHit() const { return justWeaponSwitchHit_; }
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
-    bool JustBlinked() const { return justBlinked_; } ///< ブリンク発動フレーム
+    bool JustDaggerStingerHit() const { return justDaggerStingerHit_; } ///< ダガー: スティンガー各刺突のヒット発生フレーム
+    int GetDaggerStingerHitIndex() const { return daggerStingerHitIndex_; } ///< 現在の刺突番号（0始まり、非発動中は-1）
     bool JustChargedGauge() const { return justChargedGauge_; } ///< ゲージチャージ発生フレーム
     bool JustAwakened() const { return justAwakened_; } ///< 覚醒発動フレーム
     float GetLastDirX() const { return lastDirX_; } ///< 最後に入力した横方向（+1=右, -1=左）
+    /** @brief 指定位置の方向へ向きだけ強制的に振り向かせる（ロックオン中、移動入力に関係なく敵の方を向かせる用） */
+    void FaceTarget(const Vector3& targetPos) { lastDirX_ = (targetPos.x >= pos_.x) ? 1.0f : -1.0f; }
     /** @brief スキル補正込みのコンボ最大数を返す（現在の武器の地上コンボ段数基準） */
     int GetComboMax() const;
 
@@ -225,7 +228,19 @@ public:
     // 固有技（スペースキー、武器種別ごと。Dagger/Hammer/Ball は上の Just～ を使う）
     bool JustSwordDash() const { return justSwordDash_; } ///< ソード: 瞬迅斬り（ダッシュ斬り）発生フレーム
     bool JustSpearRetreat() const { return justSpearRetreat_; } ///< スピア: 間合い外し（後退突き）発生フレーム
-    bool JustGreatswordSlam() const { return justGreatswordSlam_; } ///< グレートソード: 大地砕き発生フレーム
+    bool JustGreatswordSlam() const { return justGreatswordSlam_; } ///< グレートソード/ハンマー共通: 大地砕き発生フレーム
+    /** @brief グレートソード: 投げ回転斬りで大剣が静止し渦を巻いている最中か（飛行中・帰還中はfalse） */
+    bool IsGreatswordSpinning() const
+    {
+        if (!greatswordThrowActive_) {
+            return false;
+        }
+        const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
+        return spinElapsed >= 0.0f && spinElapsed < kGreatswordVortexMaxDuration_;
+    }
+    bool JustGreatswordSpinHit() const { return justGreatswordSpinHit_; } ///< グレートソード: 渦の多段ヒット発生フレーム
+    bool JustGreatswordThrown() const { return justGreatswordThrown_; } ///< グレートソード: 投げた瞬間のフレーム（発射エフェクト用）
+    const Vector3& GetGreatswordThrowPos() const { return greatswordThrowPos_; } ///< 投げた大剣が静止している位置（渦の中心）
     bool JustAxeCharge() const { return justAxeCharge_; } ///< アックス: バーサーク突進発生フレーム
     bool IsAxeEnraged() const { return axeRageTimer_ > 0.0f; } ///< アックス: 突進後の怒り強化中か
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
@@ -316,10 +331,8 @@ private:
     static constexpr float kWeaponSwitchLunge_ = 0.8f;
     int comboStep_ = 0;
     bool justFired_ = false;
-    bool justBlinked_ = false;
     bool justChargedGauge_ = false;
     bool justAwakened_ = false;
-    static constexpr float kBlinkDist_ = 5.0f;
     static constexpr float kGaugeCharge_ = 0.18f;
 
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
@@ -340,20 +353,65 @@ private:
     static constexpr float kSpinSpeed_ = 5.0f; // 空中回転速度（度/フレーム）
 
     // 固有技（スペースキー、武器種別ごと）
+    // 共通: 瞬間移動に見えないよう、開始位置→目標位置へ短時間でイージング移動する水平ダッシュ
+    // （踏み込み/後退/突進系の全技が共有する。ヒット判定は移動完了フレームで発生させること）
+    struct DashMotion {
+        bool active = false;
+        float timer = 0.0f;
+        float startX = 0.0f;
+        float targetX = 0.0f;
+    };
+    static constexpr float kDashDuration_ = 0.10f; // どの技もこの秒数で移動しきる
+    /** @brief 現在位置からworldDeltaXぶん先（minX_/maxX_でクランプ）へダッシュを開始する */
+    void BeginDash(DashMotion& dash, float worldDeltaX);
+    /** @brief ダッシュを1フレーム進める（pos_.xを更新）。ちょうど完了したフレームだけtrueを返す */
+    bool AdvanceDash(DashMotion& dash);
+
+    // ダガー: スティンガー（踏み込みながら3連続で刺す多段突き。数合わせでなく手数武器らしい連続ヒットを体感させる）
+    bool justDaggerStingerHit_ = false;
+    int daggerStingerHitIndex_ = -1; // -1=非発動中、0始まりで刺突が進む
+    float daggerStingerTimer_ = 0.0f;
+    float daggerStingerCooldown_ = 0.0f;
+    DashMotion daggerStingerDash_; ///< 1段目が突き刺さるまでの踏み込み
+    static constexpr float kDaggerStingerDashDist_ = 3.0f;
+    static constexpr float kDaggerStingerHitInterval_ = 0.09f; // 刺突ごとの間隔（秒）
+    static constexpr int kDaggerStingerHitCount_ = 3;
+    static constexpr float kDaggerStingerCooldown_ = 0.9f;
     // ソード: 瞬迅斬り（短距離ダッシュ斬り、全能武器らしく癖のない攻守一体の一撃）
     bool justSwordDash_ = false;
     float swordSkillCooldown_ = 0.0f;
+    DashMotion swordDash_;
     static constexpr float kSwordDashDist_ = 2.0f;
     static constexpr float kSwordSkillCooldown_ = 0.55f;
     // スピア: 間合い外し（後退しながら突く、牽制役らしいヒットアンドアウェイ）
     bool justSpearRetreat_ = false;
     float spearSkillCooldown_ = 0.0f;
+    DashMotion spearDash_;
     static constexpr float kSpearRetreatDist_ = 2.2f;
     static constexpr float kSpearSkillCooldown_ = 0.75f;
-    // グレートソード: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
+    // グレートソード/ハンマー共通: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
     bool justGreatswordSlam_ = false;
     float greatswordSkillCooldown_ = 0.0f;
     static constexpr float kGreatswordSkillCooldown_ = 1.3f;
+    // グレートソード専用: 投げ回転斬り（自身を投げ、途中で静止して渦のように回転し周囲を吸い込みながら多段ヒット）
+    bool justGreatswordSpinHit_ = false;
+    bool justGreatswordThrown_ = false;
+    bool greatswordThrowActive_ = false; ///< 投げてから渦が終わるまでtrue（飛行中も含む）
+    Vector3 greatswordThrowStartPos_ { }; ///< 投げた瞬間の手元位置（飛行中の補間の始点）
+    Vector3 greatswordThrowPos_ { }; ///< 大剣が静止する位置（渦の中心、飛行中は補間の終点）
+    float greatswordThrowTimer_ = 0.0f; ///< 投げてからの経過秒（飛行→渦の順で進む）
+    float greatswordSpinHitTimer_ = 0.0f; ///< 渦の中でのヒット間隔用タイマー
+    float greatswordThrowCooldown_ = 0.0f;
+    static constexpr float kGreatswordThrowDist_ = 4.0f; ///< 静止するまでの距離
+    static constexpr float kGreatswordThrowTravelTime_ = 0.12f; ///< 投げてから静止するまでの飛行時間（秒）
+    // 渦は「もう一度スペースを押す」か「この時間が経つ」のどちらか早い方で終わる
+    // （手動リコール前提にすると出しっぱなしが強すぎるため、上限として最後まで残す）
+    static constexpr float kGreatswordVortexMaxDuration_ = 10.0f;
+    static constexpr float kGreatswordSpinHitInterval_ = 0.15f; ///< 渦の中でのヒット間隔（秒）
+    static constexpr float kGreatswordThrowCooldown_ = 1.6f;
+    Vector3 greatswordReturnTargetPos_ { }; ///< 帰還先（渦が終わった瞬間の手元位置を1回だけ記録する）
+    bool greatswordReturnCaptured_ = false;
+    static constexpr float kGreatswordReturnTime_ = 0.2f; ///< 渦の終了後、手元へ飛んで戻るまでの時間（秒）
     // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
     bool isScytheHovering_ = false;
     bool justScytheSpin_ = false;
@@ -365,6 +423,7 @@ private:
     bool justAxeCharge_ = false;
     float axeSkillCooldown_ = 0.0f;
     float axeRageTimer_ = 0.0f;
+    DashMotion axeDash_;
     static constexpr float kAxeChargeDist_ = 2.3f;
     static constexpr float kAxeSkillCooldown_ = 1.0f;
     static constexpr float kAxeRageDuration_ = 2.5f;
@@ -546,6 +605,9 @@ private:
     };
     std::vector<HeldWeaponSlot> heldWeapons_;
     int activeHeldIndex_ = -1; ///< 現在表示中の heldWeapons_ インデックス（-1=非表示）
+
+    /** @brief グレートソード投げ回転斬りの飛行中/渦の間、手のボーンから外して位置・回転を直接動かす */
+    void UpdateThrownGreatswordVisual(HeldWeaponSlot& slot);
 
     /** @brief 右手ボーンに武器オブジェクトを追従させる（握りローカル行列は呼び出し側で指定） */
     void AttachHeldWeapon(Object3d* obj, const char* boneName,

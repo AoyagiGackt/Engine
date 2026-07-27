@@ -294,7 +294,16 @@ void WeaponManager::DiscardPendingWeapon()
 
 void WeaponManager::UnlockAll()
 {
+    // 全武器を使える状態にするのは常に安全（現在の装備選択には影響しない）
     unlocked_.assign(weapons_.size(), true);
+
+    // 既に何か装備済み（Trainingで組んだ構成など）ならスロット構成は壊さない。
+    // ここで毎回スロットを既定値へ戻すと、Trainingで選んだ武器がテストシーンへ行くたびに
+    // リセットされてしまい、Training→テストという行き来での検証ができなくなる
+    if (HasEquippedWeapon()) {
+        return;
+    }
+
     slots_.fill(-1);
     for (int slot = 0; slot < static_cast<int>(slots_.size())
         && slot < static_cast<int>(weapons_.size());

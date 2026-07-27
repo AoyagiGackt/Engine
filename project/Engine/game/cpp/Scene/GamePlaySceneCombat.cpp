@@ -62,7 +62,7 @@ static constexpr float kGunComboStepStyleGain = 0.01f; ///< 銃コンボ段数1�
 static constexpr float kGunAwakenGaugeGain = 0.04f; ///< 銃ヒットで溜まる覚醒ゲージ量
 
 // UpdateStyleAndUI: 瞬歩(ブリンク)・覚醒乱舞のスタイル加点調整値
-static constexpr float kBlinkStyleGain = 0.10f; ///< 瞬歩発動時のスタイル加点
+static constexpr float kStingerStyleGain = 0.10f; ///< ダガー スティンガー刺突ごとのスタイル加点
 static constexpr float kRampageRushRadiusX = 2.5f; ///< 覚醒乱舞ラッシュの判定半径(横)
 static constexpr float kRampageRushRadiusY = 1.5f; ///< 覚醒乱舞ラッシュの判定半径(縦)
 static constexpr float kRampageBaseStyleGain = 0.10f; ///< 覚醒乱舞ヒットの基礎スタイル加点
@@ -94,7 +94,7 @@ void GamePlayScene::UpdateWeaponEnemies()
                     playerPos, player_->GetLastDirX(), wm->GetRanged().range, 0.8f);
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
-            if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustBlinked() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
+            if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
                 const AABB range = {
                     { playerPos.x - 3.0f, playerPos.y - 2.0f, -0.5f },
                     { playerPos.x + 3.0f, playerPos.y + 2.0f, 0.5f }
@@ -312,7 +312,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
         }
     }
     if (player_->JustSwordDash() || player_->JustSpearRetreat()
-        || player_->JustBlinked() || player_->JustGreatswordSlam()
+        || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam()
         || player_->JustSpinShot() || player_->JustScytheSpin()
         || player_->JustAxeCharge()) {
         const float radius = player_->JustGreatswordSlam() ? kSkillSlamRadius : kSkillDefaultRadius;
@@ -344,8 +344,8 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
             enemy_->TakeDamage(1);
         }
     }
-    if (player_->JustBlinked()) {
-        styleMeter_ = std::clamp(styleMeter_ + kBlinkStyleGain, 0.0f, 1.0f);
+    if (player_->JustDaggerStingerHit()) {
+        styleMeter_ = std::clamp(styleMeter_ + kStingerStyleGain, 0.0f, 1.0f);
     }
     if (player_->JustRampageHit()) {
         AABB rushRange = { { ppos.x - kRampageRushRadiusX, ppos.y - kRampageRushRadiusY, -0.5f },
@@ -613,7 +613,7 @@ void GamePlayScene::EmitBlinkAndGaugeParticles(const Vector3& ppos)
     auto* wm = WeaponManager::GetInstance();
     const auto& styles = wm->GetList();
 
-    if (player_->JustBlinked()) {
+    if (player_->JustDaggerStingerHit()) {
         const auto& sc = styles[2].styleColor;
         Vector4 col = { sc[0], sc[1], sc[2], 0.75f };
         pm_->EmitRing("blink_trail", ppos, 2.8f, col, 10, 0.28f, 0.17f);
