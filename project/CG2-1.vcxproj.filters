@@ -265,6 +265,12 @@
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneCombat.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneHud.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneRenderer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -286,6 +292,15 @@
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCombat.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneDraw.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneUI.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneInitializer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -296,6 +311,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Core\App</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerCombatInput.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\PlayerPhysicsStates.cpp">
@@ -352,6 +370,9 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorDraw.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorServices.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
@@ -379,7 +400,22 @@
     <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntime.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorInteraction.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorContentPanels.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorFlagsPanel.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPanels.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorInspectorPanels.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp">
@@ -428,6 +464,9 @@
       <Filter>ソースファイル\Engine\graphics\cpp\Camera</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommonInit.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\Device</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashHandler.cpp">
@@ -556,6 +595,12 @@
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManagerEmit.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManagerPipeline.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Particle</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp">

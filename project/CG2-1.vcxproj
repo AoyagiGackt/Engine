@@ -169,6 +169,8 @@
     <ClCompile Include="Engine\game\cpp\Core\Object\GameObject.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneCombat.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneHud.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\BulletPool.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp" />
@@ -176,10 +178,14 @@
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCombat.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneDraw.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneUI.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneInitializer.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\Player.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerCombatInput.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\PlayerPhysicsStates.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\PlayerRampageStates.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp" />
@@ -198,6 +204,7 @@
     <ClCompile Include="Engine\game\cpp\Scripting\NodeRegistry.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphRuntime.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditor.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorDraw.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorServices.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp" />
@@ -206,8 +213,13 @@
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntime.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorInteraction.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorContentPanels.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorFlagsPanel.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPanels.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorInspectorPanels.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPrefabService.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp" />
@@ -224,6 +236,7 @@
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommonInit.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashHandler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashContext.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\Logger.cpp" />
@@ -267,6 +280,8 @@
     <ClCompile Include="Engine\graphics\cpp\3D\ModelCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\SrvManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManager.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManagerEmit.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Particle\ParticleManagerPipeline.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Cylinder.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Ring.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\RevolvedMeshBase.cpp" />
