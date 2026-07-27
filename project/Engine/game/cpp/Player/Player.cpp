@@ -349,8 +349,18 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         }
     }
 
+    // 1フレームの落下量は側面判定の余白より大きくなり得るため、今フレームで上面を
+    // 上から跨いだブロックは着地扱いにする（側面押し出しで横へ弾くと着地できない）
+    const float prevFeetY = pos_.y - velocityY_ - kHalf;
+    auto landedOnTop = [&](const AABB& b) {
+        return velocityY_ <= 0.0f && prevFeetY >= b.max.y - 0.01f;
+    };
+
     // 水平方向  側面から重なっているブロックがあれば侵入量が小さい側へ押し出す
     for (const auto& b : blocks) {
+        if (landedOnTop(b)) {
+            continue;
+        }
         bool overlapY = (pos_.y + kHalf) > b.min.y + 0.05f && (pos_.y - kHalf) < b.max.y - 0.05f;
         if (!overlapY) {
             continue;
@@ -364,7 +374,18 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
         float pushLeft = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
         float pushRight = b.max.x - (pos_.x - kHalf); // 正値＝右へ押し出す量
-        pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+        float pushBack = b.min.z - (pos_.z + kHalf); // 負値＝手前へ押し出す量
+        float pushFront = b.max.z - (pos_.z - kHalf); // 正値＝奥へ押し出す量
+
+        float pushX = (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+        float pushZ = (std::abs(pushBack) < std::abs(pushFront)) ? pushBack : pushFront;
+
+        // 侵入量がより小さい軸だけを押し出す（角にめり込んだ場合に誤った軸へ押し出さないため）
+        if (std::abs(pushX) < std::abs(pushZ)) {
+            pos_.x += pushX;
+        } else {
+            pos_.z += pushZ;
+        }
     }
 
     // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
@@ -390,19 +411,23 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         }
         return true;
     };
+    // 支持判定は体の幅よりかなり狭くし、見た目上ブロックの外（空中）なのに乗れてしまうのを防ぐ
+    constexpr float kSupportHalf = 0.15f;
     for (const auto& b : blocks) {
-        bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
-            && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
+        bool overlapXZ = (pos_.x + kSupportHalf) > b.min.x && (pos_.x - kSupportHalf) < b.max.x
+            && (pos_.z + kSupportHalf) > b.min.z && (pos_.z - kSupportHalf) < b.max.z;
         if (!overlapXZ) {
             continue;
         }
 
         // X/Z が重なっている床のうち、足元より上に出ていない一番高い面を採用する
         // 床をエディタで上下させたときも、古い高さに張り付かないようにする
-        if (b.max.y <= feetY + kMaxStepHeight && (b.max.y + kHalf) > bestTop && hasClearanceAbove(b)) {
+        // 上から跨いで落ちてきたフレームは、めり込み量が段差許容を超えていても着地を成立させる
+        const bool reachable = b.max.y <= feetY + kMaxStepHeight || landedOnTop(b);
+        if (reachable && (b.max.y + kHalf) > bestTop && hasClearanceAbove(b)) {
             bestTop = b.max.y + kHalf;
         }
-        if (b.max.y <= feetY + kMaxStepHeight && b.max.y > visualFloorTop && hasClearanceAbove(b)) {
+        if (reachable && b.max.y > visualFloorTop && hasClearanceAbove(b)) {
             visualFloorTop = b.max.y;
         }
     }
