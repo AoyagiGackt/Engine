@@ -1,6 +1,6 @@
 /**
  * @file ShopScene.cpp
- * @brief ShopSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief ローグライトのスキル選択ショップ画面（ShopScene）の表示と選択処理の実装
  */
 #include "ShopScene.h"
 #include "GameConstants.h"

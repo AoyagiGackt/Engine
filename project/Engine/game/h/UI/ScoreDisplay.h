@@ -1,5 +1,6 @@
 /**
  * @file ScoreDisplay.h
+ * @brief 数値やランキング一覧を桁ごとのスプライトで描画するユーティリティを定義するファイル
  */
 #pragma once
 #include "Sprite.h"

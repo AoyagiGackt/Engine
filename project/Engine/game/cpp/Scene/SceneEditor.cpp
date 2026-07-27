@@ -1,6 +1,6 @@
 /**
  * @file SceneEditor.cpp
- * @brief SceneEditorのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief 実行中のライブパラメータ調整パネル（SceneEditor、Stateパターンによる選択種別ごとの表示切替）の実装
  */
 #include "SceneEditor.h"
 #include "GameConstants.h"

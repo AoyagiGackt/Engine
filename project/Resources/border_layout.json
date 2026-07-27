@@ -1,0 +1,10 @@
+{
+    "floorY": -0.6,
+    "ceilingY": 13.0,
+    "leftWallX": 2.0,
+    "rightWallX": 28.0,
+    "wallMinIndex": 0,
+    "floorCeilingMaxIndex": 28,
+    "wallMaxIndex": 12,
+    "blockZ": 0.0
+}

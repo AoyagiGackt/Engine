@@ -1,6 +1,6 @@
 /**
  * @file AnimationStateMachine.cpp
- * @brief AnimationStateMachineのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief 複数アニメーションの状態登録・トリガー遷移・自動遷移（AnimationStateMachine）の実装
  */
 #include "AnimationStateMachine.h"
 #include "EngineAssert.h"

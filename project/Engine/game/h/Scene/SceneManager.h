@@ -115,6 +115,11 @@ private:
     SceneManager(const SceneManager&) = delete;
     const SceneManager& operator=(const SceneManager&) = delete;
 
+    /** @brief フェードアウト完了後のシーン切替本体（Update()の冒頭から呼ばれる） */
+    void PerformSceneSwitch();
+    /** @brief LOADINGシーンへの切替時、遷移先シーンをバックグラウンドスレッドで事前生成する */
+    void StartBackgroundLoad();
+
     // 外部から提供される基盤システム
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;

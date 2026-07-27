@@ -29,10 +29,7 @@ public:
     void Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) override;
     void Finalize() override;
     void Update() override;
-    /**
-     * @brief Draw に対応する内容を描画する
-     * @return なし
-     */
+    /** @brief 半透明オーバーレイと選択肢（リスタート/タイトルに戻る）を描画する */
     void Draw() override;
 
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }

@@ -52,6 +52,21 @@ public:
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
 private:
+    /** @brief Initialize()の下請け 背景・ノード・地面のUIスプライトを初期化する */
+    void InitializeUiSprites();
+    /** @brief Initialize()の下請け 描画基盤(Common類・シャドウ・カメラ)とプレイヤーを初期化する */
+    void InitializeRenderFoundationAndPlayer();
+    /** @brief Initialize()の下請け 地面ブロック・ステージ入口ポータル・街並み背景を初期化する */
+    void InitializeStageObjects();
+    /** @brief Initialize()の下請け フロア構成を組み、現在のフロアに応じた開始位置へプレイヤーを置く(クリア済みならCLEARへ遷移) */
+    void InitializeFloorsAndStartPosition();
+
+    /** @brief Draw()の下請け 街並み・地面ブロックのシャドウマップパスを描画する */
+    void DrawShadowPass();
+    /** @brief Draw()の下請け 背景・街並み・地面ブロック・入口ポータル・プレイヤーを3D描画する */
+    void DrawWorld();
+    /** @brief Draw()の下請け 各ステージ入口ポータルの上に番号ラベルとENTER案内を描画する */
+    void DrawStagePortalLabels(int floor);
     /** @brief タイトルバーとHP/ゴールドを描画する */
     void DrawHeader(RunData* rd);
     /** @brief フロアごとのマップノードを描画する選択中ノードの種類を返す */

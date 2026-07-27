@@ -1,6 +1,6 @@
 /**
  * @file AfterImageRenderer.cpp
- * @brief AfterImageRendererの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief プレイヤーの残像エフェクトの生成・更新・描画（AfterImageRenderer）の実装
  */
 #include "AfterImageRenderer.h"
 #include "GameConstants.h"

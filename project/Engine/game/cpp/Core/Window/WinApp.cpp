@@ -1,6 +1,6 @@
 /**
  * @file WinApp.cpp
- * @brief WinAppのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief ウィンドウ生成・メッセージ処理・フルスクリーン切替（WinApp）の実装
  */
 #include "WinApp.h"
 #include "ImGuiManager.h"

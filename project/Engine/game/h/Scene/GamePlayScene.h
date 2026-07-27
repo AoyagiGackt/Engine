@@ -183,6 +183,16 @@ public:
 private:
     /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
     void InitializeCoreSystems();
+    /** @brief InitializeCoreSystems()の下請け 描画基盤(Common類・シャドウ・カメラ)とスカイドームを初期化する */
+    void InitializeRenderFoundation();
+    /** @brief InitializeCoreSystems()の下請け ステージ実体(プレイヤー/敵等)とスコアシステムを初期化する */
+    void InitializeStageActorsAndScore();
+    /** @brief InitializeCoreSystems()の下請け レンダーテクスチャとクリア演出用オーバーレイスプライトを初期化する */
+    void InitializeRenderTargetsAndOverlays();
+    /** @brief InitializeCoreSystems()の下請け パーティクル・水面・武器スロットHUDを初期化する */
+    void InitializeParticlesWaterAndHud();
+    /** @brief InitializeCoreSystems()の下請け 残像用オブジェクト・シーンエディタ・画面演出エフェクトを初期化する */
+    void InitializeGhostEditorAndEffects();
     // シャドウマップ描画パス
     void DrawShadowPass();
     // スタイルランクとコンボ数のUI描画
@@ -244,6 +254,16 @@ private:
     void UpdateEnemyAttackOnPlayer(float dt);
     /** @brief UpdateParticles()の下請け 格闘/射撃/瞬歩/覚醒ゲージ・覚醒発動・ランク上昇のスタイル演出パーティクルを更新する */
     void UpdateStyleTechniqueParticles(float dt);
+    /** @brief UpdateStyleTechniqueParticles()の下請け 格闘コンボヒット時の斬撃・属性パーティクルを発生させる */
+    void EmitComboHitParticles(const Vector3& ppos);
+    /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
+    void EmitGunFireParticles(const Vector3& ppos);
+    /** @brief UpdateStyleTechniqueParticles()の下請け 瞬歩トレイル・覚醒ゲージ加算時のパーティクルを発生させる */
+    void EmitBlinkAndGaugeParticles(const Vector3& ppos);
+    /** @brief UpdateStyleTechniqueParticles()の下請け 覚醒中の継続オーラと発動瞬間の衝撃波を発生させる */
+    void EmitAwakenParticles(const Vector3& ppos, float dt);
+    /** @brief UpdateStyleTechniqueParticles()の下請け スタイルランクが上がった瞬間のバーストを発生させる */
+    void EmitStyleRankUpParticles(const Vector3& ppos);
     // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
     void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定

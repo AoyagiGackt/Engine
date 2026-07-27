@@ -1,6 +1,6 @@
 /**
  * @file SlashMark.cpp
- * @brief SlashMarkの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief 画面上に一瞬だけ残る斬撃線エフェクト（SlashMark）の生成・更新・描画の実装
  */
 #include "SlashMark.h"
 #include <algorithm>

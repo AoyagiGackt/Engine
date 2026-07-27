@@ -150,4 +150,25 @@ void StageEditorSelectionService::PasteClipboard(StageEditor& editor)
 }
 
 } // namespace engine::game
+
+// StageEditor.cppからの分割StageEditor::の薄い転送メソッド本体はすべて上のStageEditorSelectionServiceが持つ
+void engine::game::StageEditor::DeleteSelected()
+{
+    StageEditorSelectionService::DeleteSelected(*this);
+}
+
+void engine::game::StageEditor::DuplicateSelected()
+{
+    StageEditorSelectionService::DuplicateSelected(*this);
+}
+
+void engine::game::StageEditor::CopySelected()
+{
+    StageEditorSelectionService::CopySelected(*this);
+}
+
+void engine::game::StageEditor::PasteClipboard()
+{
+    StageEditorSelectionService::PasteClipboard(*this);
+}
 #endif // USE_IMGUI

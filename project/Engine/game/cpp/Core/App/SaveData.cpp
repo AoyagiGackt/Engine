@@ -1,6 +1,6 @@
 /**
  * @file SaveData.cpp
- * @brief SaveDataのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief ローグライトのコンティニューデータ・通算記録の読み込み・保存とバージョン移行（SaveDataManager）の実装
  */
 #include "SaveData.h"
 #include "JsonHelper.h"

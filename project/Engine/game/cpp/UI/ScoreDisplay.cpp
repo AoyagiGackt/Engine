@@ -1,6 +1,6 @@
 /**
  * @file ScoreDisplay.cpp
- * @brief ScoreDisplayのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ * @brief 数値・ランキング一覧を桁ごとのスプライトで描画する（ScoreDisplay）の実装
  */
 #include "ScoreDisplay.h"
 #include "TextureManager.h"

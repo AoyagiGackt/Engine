@@ -1,6 +1,6 @@
 /**
  * @file TitleScene.cpp
- * @brief TitleSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief タイトル画面のメニュー表示と入力待ち・シーン遷移（TitleScene）の実装
  */
 #include "TitleScene.h"
 #include "RunData.h"

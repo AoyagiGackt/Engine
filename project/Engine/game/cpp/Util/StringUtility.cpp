@@ -1,6 +1,6 @@
 /**
  * @file StringUtility.cpp
- * @brief StringUtilityのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief string⇔wstring相互変換ユーティリティ（StringUtility）の実装
  */
 #include "StringUtility.h"
 #include <stringapiset.h> // MultiByteToWideChar / WideCharToMultiByte の宣言

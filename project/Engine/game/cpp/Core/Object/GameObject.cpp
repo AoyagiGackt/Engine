@@ -1,6 +1,6 @@
 /**
  * @file GameObject.cpp
- * @brief GameObjectのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief GameObject.hの抽象基底クラス定義に対応する翻訳単位（純粋仮想のみのためロジックはない）
  */
 #include "GameObject.h"
 using namespace engine;

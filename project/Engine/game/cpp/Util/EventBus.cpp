@@ -1,6 +1,6 @@
 /**
  * @file EventBus.cpp
- * @brief EventBusのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief 文字列イベント名によるPublish/Subscribe（EventBus）の実装
  */
 #include "EventBus.h"
 #include <algorithm>

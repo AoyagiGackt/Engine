@@ -1,6 +1,6 @@
 /**
  * @file SceneShared.cpp
- * @brief SceneSharedのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief BattleTestScene/TrainingScene/GamePlayScene間で共通の武器切替・カメラ追従・HUD描画処理（SceneShared名前空間）の実装
  */
 #include "SceneShared.h"
 #include "BulletPool.h"
@@ -259,17 +259,23 @@ engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, floa
 
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
 {
-    outX = (worldX - camX) / GameConstants::kCameraHalfW * 640.0f + 640.0f;
-    outY = -(worldY - camY) / GameConstants::kCameraHalfH * 360.0f + 360.0f;
+    outX = (worldX - camX) / GameConstants::kCameraHalfW * GameConstants::kScreenCenterX + GameConstants::kScreenCenterX;
+    outY = -(worldY - camY) / GameConstants::kCameraHalfH * GameConstants::kScreenCenterY + GameConstants::kScreenCenterY;
 }
 
 void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids)
 {
+    // stageSolidsが空の場合(配置ブロックが1つも無いシーン)に使う既定ステージ範囲
+    // 通常のトレーニング/バトルテストステージの境界ブロック配置(BorderBlockBuilder参照)に合わせた値
     constexpr float kBlockRadius = 0.5f;
-    float stageLeft = 2.0f - kBlockRadius;
-    float stageRight = 36.0f + kBlockRadius;
-    float stageBottom = -1.0f - kBlockRadius;
-    float stageTop = 12.0f + kBlockRadius;
+    constexpr float kDefaultStageLeft = 2.0f;
+    constexpr float kDefaultStageRight = 36.0f;
+    constexpr float kDefaultStageBottom = -1.0f;
+    constexpr float kDefaultStageTop = 12.0f;
+    float stageLeft = kDefaultStageLeft - kBlockRadius;
+    float stageRight = kDefaultStageRight + kBlockRadius;
+    float stageBottom = kDefaultStageBottom - kBlockRadius;
+    float stageTop = kDefaultStageTop + kBlockRadius;
     if (!stageSolids.empty()) {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;

@@ -1,6 +1,6 @@
 /**
  * @file Game.cpp
- * @brief Gameのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief Frameworkを継承したゲーム固有の初期化・更新・描画・シーン遷移制御（MyGame）の実装
  */
 #include "Game.h"
 #include "DelayTimer.h"

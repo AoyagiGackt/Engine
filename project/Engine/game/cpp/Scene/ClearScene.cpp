@@ -1,6 +1,6 @@
 /**
  * @file ClearScene.cpp
- * @brief ClearSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief ゲームクリア画面の表示・スコア確定・タイトルへの遷移（ClearScene）の実装
  */
 #include "ClearScene.h"
 #include "GameConstants.h"

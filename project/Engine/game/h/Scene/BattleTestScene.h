@@ -366,7 +366,7 @@ private:
 
     // F3で切り替える当たり判定デバッグ表示（ステージエディタの表示状態とは独立）
     bool showColliders_ = false;
-    bool showHud_ = false; // F4でテスト用HUDを一括表示・非表示（動画撮影用に既定は非表示）
+    bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
 
     FontRenderer fontRenderer_;
 };

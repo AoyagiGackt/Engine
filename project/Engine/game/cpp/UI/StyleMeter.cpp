@@ -1,6 +1,6 @@
 /**
  * @file StyleMeter.cpp
- * @brief StyleMeterのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ * @brief スタイリッシュランク（D〜SSS）の採点処理とHUD描画（StyleMeter）の実装
  */
 #include "StyleMeter.h"
 #include "Easing.h"

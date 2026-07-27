@@ -354,6 +354,7 @@ imgui.ini
 *.iobj
 *.sbr
 
+Idid.md
 
 externals/**/x64/
 externals/**/Debug/
