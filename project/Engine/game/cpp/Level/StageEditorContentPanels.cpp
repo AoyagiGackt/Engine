@@ -377,7 +377,23 @@ void StageEditor::RenderNoCodeEventPanel()
         }
         ImGui::EndCombo();
     }
-    EditorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。");
+    ImGui::SameLine();
+    {
+        // 3Dビューでトリガー/イベント条件を選択中なら、それをそのまま発生条件に使えるようにする
+        int selectedSourceIndex = -1;
+        if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
+            selectedSourceIndex = selIndex_;
+        } else if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
+            && objects_[selIndex_].desc.kind == "event_condition") {
+            selectedSourceIndex = static_cast<int>(triggers_.size()) + selIndex_;
+        }
+        ImGui::BeginDisabled(selectedSourceIndex < 0);
+        if (ImGui::SmallButton("選択中を使う##sourceUseSelection")) {
+            eventConnection_.SourceIndex() = selectedSourceIndex;
+        }
+        ImGui::EndDisabled();
+    }
+    EditorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。3Dビューでトリガー/条件を選択中なら「選択中を使う」で反映できます。");
 
     const char* targetPreview = "動作対象を選択";
     if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())) {
@@ -396,7 +412,19 @@ void StageEditor::RenderNoCodeEventPanel()
         }
         ImGui::EndCombo();
     }
-    EditorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。");
+    ImGui::SameLine();
+    {
+        // 3Dビューで動作対象になれる配置物を選択中なら、それをそのまま動作対象に使えるようにする
+        const bool hasValidSelection = selKind_ == SelKind::Object && selIndex_ >= 0
+            && selIndex_ < static_cast<int>(objects_.size())
+            && StageEditorEventConnection::SupportsTarget(objects_[selIndex_].desc);
+        ImGui::BeginDisabled(!hasValidSelection);
+        if (ImGui::SmallButton("選択中を使う##targetUseSelection")) {
+            eventConnection_.TargetIndex() = selIndex_;
+        }
+        ImGui::EndDisabled();
+    }
+    EditorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。3Dビューで対象を選択中なら「選択中を使う」で反映できます。");
 
     const char* actions[] = { "対象を有効化", "対象を無効化" };
     ImGui::Combo("実行する動作", &eventConnection_.ActionIndex(), actions, 2);
@@ -429,39 +457,88 @@ void StageEditor::RenderNoCodeEventPanel()
 
     ImGui::SeparatorText("現在の接続");
     int disconnectIndex = -1;
+    auto renderConnectionTarget = [&](int objectIndex) {
+        const ObjectDesc& target = objects_[objectIndex].desc;
+        ImGui::PushID(objectIndex);
+        ImGui::Bullet();
+        ImGui::SameLine();
+        ImGui::TextWrapped("%.1f秒 -> %s -> %s", target.activationDelay,
+            target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("解除")) {
+            disconnectIndex = objectIndex;
+        }
+        ImGui::PopID();
+    };
+
+    // 1つの発生条件から複数へ繋げているケースが一目で分かるよう、対象ごとではなく発生条件ごとにまとめて表示する
+    for (const auto& triggerEntry : triggers_) {
+        const TriggerDesc& trigger = triggerEntry.GetDesc();
+        std::vector<int> targetIndices;
+        for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
+            const ObjectDesc& target = objects_[objectIndex].desc;
+            if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == trigger.flag) {
+                targetIndices.push_back(objectIndex);
+            }
+        }
+        if (targetIndices.empty()) {
+            continue;
+        }
+        ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, 1.0f), "%s (%d件)", trigger.name.c_str(),
+            static_cast<int>(targetIndices.size()));
+        for (int objectIndex : targetIndices) {
+            renderConnectionTarget(objectIndex);
+        }
+    }
+    for (const auto& conditionEntry : objects_) {
+        if (conditionEntry.desc.kind != "event_condition") {
+            continue;
+        }
+        const std::string conditionFlag = "condition_" + conditionEntry.desc.name;
+        std::vector<int> targetIndices;
+        for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
+            const ObjectDesc& target = objects_[objectIndex].desc;
+            if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == conditionFlag) {
+                targetIndices.push_back(objectIndex);
+            }
+        }
+        if (targetIndices.empty()) {
+            continue;
+        }
+        ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, 1.0f), "%s [%s] (%d件)",
+            conditionEntry.desc.name.c_str(), conditionEntry.desc.conditionType.c_str(),
+            static_cast<int>(targetIndices.size()));
+        for (int objectIndex : targetIndices) {
+            renderConnectionTarget(objectIndex);
+        }
+    }
+    // トリガー/条件が削除された等で接続元が見つからないものは最後にまとめて警告表示する
     for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
         const ObjectDesc& target = objects_[objectIndex].desc;
         if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty()) {
             continue;
         }
-        const TriggerDesc* source = nullptr;
+        bool matched = false;
         for (const auto& trigger : triggers_) {
             if (trigger.GetDesc().flag == target.activationFlag) {
-                source = &trigger.GetDesc();
+                matched = true;
                 break;
             }
         }
-        std::string conditionSourceName;
-        if (!source && target.activationFlag.starts_with("condition_")) {
+        if (!matched && target.activationFlag.starts_with("condition_")) {
             const std::string conditionName = target.activationFlag.substr(10);
             for (const auto& condition : objects_) {
                 if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
-                    conditionSourceName = conditionName;
+                    matched = true;
                     break;
                 }
             }
         }
-        ImGui::PushID(objectIndex);
-        if (source) {
-            ImGui::TextWrapped("%s -> %.1f秒 -> %s -> %s", source->name.c_str(), target.activationDelay,
-                target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
-        } else if (!conditionSourceName.empty()) {
-            ImGui::TextWrapped("%s -> %.1f秒 -> %s -> %s", conditionSourceName.c_str(), target.activationDelay,
-                target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
-        } else {
-            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f),
-                "接続元なし -> %s", target.name.c_str());
+        if (matched) {
+            continue;
         }
+        ImGui::PushID(objectIndex);
+        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "接続元なし -> %s", target.name.c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton("解除")) {
             disconnectIndex = objectIndex;

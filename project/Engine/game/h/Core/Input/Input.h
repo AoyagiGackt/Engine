@@ -127,10 +127,10 @@ private:
     // キー状態管理用バッファ
 
     /** @brief 最新のキー状態（256個のキー分） */
-    BYTE key[256] = { };
+    BYTE key_[256] = { };
 
     /** @brief 1フレーム前のキー状態（256個のキー分） */
-    BYTE keyPre[256] = { };
+    BYTE keyPre_[256] = { };
 
     /** @brief ウィンドウ管理のポインタ */
     WinApp* winApp_ = nullptr;

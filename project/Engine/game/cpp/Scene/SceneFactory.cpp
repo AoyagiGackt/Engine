@@ -1,6 +1,6 @@
 /**
  * @file SceneFactory.cpp
- * @brief SceneFactoryのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief シーン名から対応するシーンクラスを生成する具体的な工場（SceneFactory）の実装
  */
 #include "SceneFactory.h"
 #include "BattleTestScene.h"

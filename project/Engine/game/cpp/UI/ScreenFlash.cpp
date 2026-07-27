@@ -1,6 +1,6 @@
 /**
  * @file ScreenFlash.cpp
- * @brief ScreenFlashのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ * @brief 画面全体を単色でフラッシュさせる演出（ScreenFlash）の実装
  */
 #include "ScreenFlash.h"
 #include "DirectXCommon.h"

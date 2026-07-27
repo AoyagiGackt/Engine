@@ -1,6 +1,7 @@
 /**
  * @file DirectXCommon.cpp
- * @brief DirectXCommonのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief DirectXCommonの初期化・終了処理、フレーム制御（PreDraw/PostDraw）、リソースバリア・GPU同期の実装
+ * @note デバイス・コマンド・スワップチェーン等の生成処理はDirectXCommonInit.cppに分割されている
  */
 #include "DirectXCommon.h"
 #include "EngineAssert.h"

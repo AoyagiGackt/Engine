@@ -1,6 +1,6 @@
 /**
  * @file LoadingScene.cpp
- * @brief LoadingSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief 非同期シーンロード中の進捗バー・ドット演出表示と遷移先への切替（LoadingScene）の実装
  */
 #include "LoadingScene.h"
 #include "GameConstants.h"

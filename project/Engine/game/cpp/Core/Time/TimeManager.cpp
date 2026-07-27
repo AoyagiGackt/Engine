@@ -1,6 +1,6 @@
 /**
  * @file TimeManager.cpp
- * @brief TimeManagerのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief 時間倍率とヒットストップの残フレーム管理（TimeManager）の実装
  */
 #include "TimeManager.h"
 #include <algorithm>

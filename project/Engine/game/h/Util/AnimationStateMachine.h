@@ -129,11 +129,6 @@ public:
      */
     bool IsCurrentAnimationFinished() const;
 
-    /**
-     * @brief 登録されている状態の数を返す（デバッグ用）
-     */
-    size_t GetStateCount() const { return states_.size(); }
-
 private:
     // 状態データ
     struct State {

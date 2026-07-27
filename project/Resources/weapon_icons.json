@@ -1,0 +1,11 @@
+{
+    "icons": [
+        { "type": "Sword", "model": "Resources/Knight/OBJ/Sword.obj", "texture": "Resources/Knight/OBJ/SwordPalette.png", "scale": 0.18, "baseYawDeg": 0.0, "note": "実寸高さ約4.35" },
+        { "type": "Dagger", "model": "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", "scale": 0.31, "baseYawDeg": 0.0, "note": "実寸高さ約2.60" },
+        { "type": "Hammer", "model": "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", "scale": 0.18, "baseYawDeg": 180.0, "note": "実寸高さ約4.33（正面が逆だったので180度回転）" },
+        { "type": "Spear", "model": "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", "scale": 0.08, "baseYawDeg": 0.0, "note": "実寸高さ約9.72" },
+        { "type": "Greatsword", "model": "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", "scale": 0.12, "baseYawDeg": 0.0, "note": "実寸高さ約6.59" },
+        { "type": "Scythe", "model": "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", "scale": 0.14, "baseYawDeg": 0.0, "note": "実寸高さ約5.58" },
+        { "type": "Axe", "model": "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "texture": "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", "scale": 0.13, "baseYawDeg": 0.0, "note": "実寸高さ約6.35" }
+    ]
+}

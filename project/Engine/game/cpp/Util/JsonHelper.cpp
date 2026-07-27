@@ -1,6 +1,6 @@
 /**
  * @file JsonHelper.cpp
- * @brief JsonHelperのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief JSONファイルの読み込み・保存ユーティリティ（JsonHelper）の実装
  */
 #include "JsonHelper.h"
 #include <filesystem>

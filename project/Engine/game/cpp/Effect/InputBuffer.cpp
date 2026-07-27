@@ -1,6 +1,6 @@
 /**
  * @file InputBuffer.cpp
- * @brief InputBufferの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief Nフレーム分の入力履歴をリングバッファで保持する入力バッファ（InputBuffer）の実装
  */
 #include "InputBuffer.h"
 #include <algorithm>

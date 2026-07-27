@@ -1,6 +1,6 @@
 /**
  * @file ScoreManager.cpp
- * @brief ScoreManagerのゲーム画面UIの状態更新と描画に関する具体的な処理を実装するファイル
+ * @brief スコアの加算・ランキング保存とファイル読み書き（ScoreManager）の実装
  */
 #include "ScoreManager.h"
 #include <algorithm>

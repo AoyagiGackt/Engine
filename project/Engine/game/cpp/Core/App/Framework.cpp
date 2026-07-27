@@ -1,6 +1,6 @@
 /**
  * @file Framework.cpp
- * @brief Frameworkのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief アプリケーションのメインループ・基盤システム初期化と終了処理（Framework）の実装
  */
 #include "Framework.h"
 #include "FrameProfiler.h"

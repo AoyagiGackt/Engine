@@ -1,6 +1,6 @@
 /**
  * @file DelayTimer.cpp
- * @brief DelayTimerのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief 実時間に基づく遅延コールバックの登録・取消・実行（DelayTimer）の実装
  */
 #include "DelayTimer.h"
 #include <algorithm>

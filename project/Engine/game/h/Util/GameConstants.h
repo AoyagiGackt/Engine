@@ -48,6 +48,20 @@ namespace GameConstants {
     // 近接攻撃・固有技の指向性判定（BattleTestScene/GamePlayScene共通）
     inline constexpr float kSkillRearReachMult = 0.4f; // 背面リーチ（前方リーチ比）
 
+    // スタイルランク（D/C/B/A/S/SS/SSS）のしきい値（styleMeter_: 0.0〜1.0に対する各ランクの下限値、昇順）
+    // GamePlayScene側のランク表示(DrawRankAndAwakenGauge)とランクアップ演出(EmitStyleRankUpParticles)の
+    // 両方から参照し、二重管理で閾値がずれないようにする
+    inline constexpr int kStyleRankCount = 7;
+    inline constexpr float kStyleRankThresholds[kStyleRankCount] = {
+        0.00f, // D
+        0.05f, // C
+        0.15f, // B
+        0.30f, // A
+        0.50f, // S
+        0.70f, // SS
+        0.90f, // SSS
+    };
+
     // 覚醒ゲージ満タン消費の大技（溜め→高速連続斬撃で刻む→一斉解放）
     inline constexpr int kFinisherLineDamage = 1; // 斬撃線1本ごとのダメージ
     inline constexpr int kFinisherSlashDamage = 8; // 本命（解放の一撃）の固定ダメージ

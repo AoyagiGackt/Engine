@@ -96,6 +96,17 @@ public:
     void RefreshVisualTransformsForEditor() override;
 
 private:
+    /** @brief Initialize()の下請け マネージャ取得・各種Common初期化・カメラ生成を行う */
+    void InitializeCoreSystems();
+    /** @brief Initialize()の下請け 境界ブロック・街並み背景・ワープポータルを初期化する */
+    void InitializeStageModels();
+    /** @brief Initialize()の下請け プレイヤーと弾丸プールを初期化する */
+    void InitializePlayerAndBullets();
+    /** @brief Initialize()の下請け 配置武器ピックアップ（アセット表に基づく実体生成）を初期化する */
+    void InitializeWeaponPickups();
+    /** @brief Initialize()の下請け 覚醒ゲージUI・フォント・斬撃線・SSAO・プロファイラを初期化する */
+    void InitializeHudAndEffects();
+
     /** @brief プレイヤーとスピン連射弾を更新する */
     void UpdatePlayerAndBullets();
     /** @brief カメラ追従、影、境界ブロック、PBRデモ、ワープポータル演出を更新する */

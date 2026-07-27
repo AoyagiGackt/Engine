@@ -1,6 +1,6 @@
 /**
  * @file MapScene.cpp
- * @brief MapSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief ローグライトのフロア選択マップ（MapScene）の表示とノード選択・遷移処理の実装
  */
 #include "MapScene.h"
 #include "GameConstants.h"
@@ -106,6 +106,14 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
+    InitializeUiSprites();
+    InitializeRenderFoundationAndPlayer();
+    InitializeStageObjects();
+    InitializeFloorsAndStartPosition();
+}
+
+void MapScene::InitializeUiSprites()
+{
     bgSprite_ = std::make_unique<Sprite>();
     bgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     bgSprite_->SetPosition({ 0.0f, 0.0f });
@@ -122,6 +130,11 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     groundSprite_->SetSize({ GameConstants::kScreenWidth, 160.0f });
     groundSprite_->SetColor({ 0.12f, 0.42f, 0.2f, 1.0f });
 
+    fontRenderer_.Initialize(spriteCommon_.get());
+}
+
+void MapScene::InitializeRenderFoundationAndPlayer()
+{
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
     objectCommon_ = std::make_unique<Object3dCommon>();
@@ -143,7 +156,10 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     player_->Initialize(modelCommon_.get());
     player_->SetHorizontalBounds(2.5f, 63.5f);
     player_->SetPosition({ 8.0f, 0.4f, 0.0f });
+}
 
+void MapScene::InitializeStageObjects()
+{
     blockModel_ = std::make_unique<Model>();
     blockModel_->Initialize(modelCommon_.get(),
         "Resources/block/block.obj",
@@ -180,9 +196,10 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
         city->Update();
         cityObjects_.push_back(std::move(city));
     }
+}
 
-    fontRenderer_.Initialize(spriteCommon_.get());
-
+void MapScene::InitializeFloorsAndStartPosition()
+{
     floors_ = {
         { RunData::NodeType::Combat },
         { RunData::NodeType::Combat },
@@ -278,6 +295,28 @@ void MapScene::Draw()
 {
     auto* rd = RunData::GetInstance();
 
+    DrawShadowPass();
+    DrawWorld();
+
+    spriteCommon_->CommonDrawSettings();
+    fontRenderer_.Reset();
+
+    DrawHeader(rd);
+    const int floor = rd->GetFloor();
+    if (floor < static_cast<int>(floors_.size())) {
+        DrawStagePortalLabels(floor);
+    }
+
+    DrawSkillList(rd);
+
+    fontRenderer_.DrawStringW(L"A Dまたは左スティックで移動  入口の前でEnterまたはAボタン  Tでトレーニング",
+        20.0f, 690.0f, 1.1f, { 0.88f, 0.90f, 1.0f, 1.0f });
+
+    fontRenderer_.Draw();
+}
+
+void MapScene::DrawShadowPass()
+{
     // シャドウマップを描画可能状態からシェーダー参照状態へ遷移する
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     shadowManager_->BeginShadowPass(commandList);
@@ -289,6 +328,11 @@ void MapScene::Draw()
         block->DrawShadow();
     }
     shadowManager_->EndShadowPass(commandList);
+}
+
+void MapScene::DrawWorld()
+{
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
     // シャドウパスが設定した専用DSVから通常画面のRTVとDSVへ描画先を戻す
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
@@ -314,7 +358,7 @@ void MapScene::Draw()
         block->Draw();
     }
 
-    const int floor = rd->GetFloor();
+    const int floor = RunData::GetInstance()->GetFloor();
     if (floor < static_cast<int>(floors_.size())) {
         const int count = kStageCount;
         for (int i = 0; i < count; ++i) {
@@ -322,56 +366,37 @@ void MapScene::Draw()
         }
     }
     player_->Draw();
+}
 
-    spriteCommon_->CommonDrawSettings();
-    fontRenderer_.Reset();
+void MapScene::DrawStagePortalLabels(int floor)
+{
+    const int count = kStageCount;
+    const float* portalXs = kStageWorldX;
+    const Vector3& cameraPos = camera_->GetTranslate();
+    for (int i = 0; i < count; ++i) {
+        const bool isNear = i == selectedCol_;
+        const float screenX = (portalXs[i] - cameraPos.x)
+                / GameConstants::kCameraHalfW * GameConstants::kScreenCenterX
+            + GameConstants::kScreenCenterX;
 
-    DrawHeader(rd);
-    if (floor < static_cast<int>(floors_.size())) {
-        const int count = kStageCount;
-        const float* portalXs = kStageWorldX;
-        const Vector3& cameraPos = camera_->GetTranslate();
-        int stageNumber = 1;
-        for (int previousFloor = 0; previousFloor < floor; ++previousFloor) {
-            for (RunData::NodeType type : floors_[previousFloor]) {
-                if (type == RunData::NodeType::Combat || type == RunData::NodeType::Elite
-                    || type == RunData::NodeType::Boss) {
-                    stageNumber++;
-                }
-            }
-        }
-        for (int i = 0; i < count; ++i) {
-            const bool isNear = i == selectedCol_;
-            const float screenX = (portalXs[i] - cameraPos.x)
-                    / GameConstants::kCameraHalfW * 640.0f
-                + 640.0f;
-
-            wchar_t stageLabel[32];
-            swprintf_s(stageLabel, L"ステージ %d", i + 1);
-            const wchar_t* label = stageLabel;
-            fontRenderer_.DrawStringW(label, screenX - 40.0f, 188.0f, 1.55f,
-                { 0.02f, 0.02f, 0.04f, 0.95f });
-            fontRenderer_.DrawStringW(label, screenX - 42.0f, 185.0f, 1.55f,
-                isNear ? Vector4 { 1.0f, 1.0f, 0.2f, 1.0f }
-                       : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f });
-            if (isNear) {
-                fontRenderer_.DrawStringW(L"ENTERで入る", screenX - 62.0f, 225.0f, 1.2f,
-                    { 1.0f, 0.9f, 0.3f, 0.0f });
-                fontRenderer_.DrawString("ENTER / A", screenX - 41.0f, 228.0f, 1.35f,
-                    { 0.02f, 0.02f, 0.03f, 0.95f });
-                fontRenderer_.DrawString("ENTER / A", screenX - 43.0f, 225.0f, 1.35f,
-                    { 1.0f, 0.92f, 0.22f, 1.0f });
-                DrawSelectedNodeInfo(floor, floors_[i][0]);
-            }
+        wchar_t stageLabel[32];
+        swprintf_s(stageLabel, L"ステージ %d", i + 1);
+        const wchar_t* label = stageLabel;
+        fontRenderer_.DrawStringW(label, screenX - 40.0f, 188.0f, 1.55f,
+            { 0.02f, 0.02f, 0.04f, 0.95f });
+        fontRenderer_.DrawStringW(label, screenX - 42.0f, 185.0f, 1.55f,
+            isNear ? Vector4 { 1.0f, 1.0f, 0.2f, 1.0f }
+                   : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f });
+        if (isNear) {
+            fontRenderer_.DrawStringW(L"ENTERで入る", screenX - 62.0f, 225.0f, 1.2f,
+                { 1.0f, 0.9f, 0.3f, 0.0f });
+            fontRenderer_.DrawString("ENTER / A", screenX - 41.0f, 228.0f, 1.35f,
+                { 0.02f, 0.02f, 0.03f, 0.95f });
+            fontRenderer_.DrawString("ENTER / A", screenX - 43.0f, 225.0f, 1.35f,
+                { 1.0f, 0.92f, 0.22f, 1.0f });
+            DrawSelectedNodeInfo(floor, floors_[i][0]);
         }
     }
-
-    DrawSkillList(rd);
-
-    fontRenderer_.DrawStringW(L"A Dまたは左スティックで移動  入口の前でEnterまたはAボタン  Tでトレーニング",
-        20.0f, 690.0f, 1.1f, { 0.88f, 0.90f, 1.0f, 1.0f });
-
-    fontRenderer_.Draw();
 }
 
 void MapScene::DrawHeader(RunData* rd)

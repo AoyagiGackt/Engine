@@ -1,6 +1,6 @@
 /**
  * @file GameOverScene.cpp
- * @brief GameOverSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief ゲームオーバー画面の選択（リスタート/タイトル）と遷移処理（GameOverScene）の実装
  */
 #include "GameOverScene.h"
 #include "GameConstants.h"

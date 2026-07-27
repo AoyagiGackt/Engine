@@ -1,6 +1,6 @@
 /**
  * @file Input.cpp
- * @brief Inputのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief DirectInput/XInputによるキーボード・ゲームパッド・マウス入力の取得とアクション判定（Input）の実装
  */
 #include "Input.h"
 #include "EngineAssert.h"
@@ -157,16 +157,16 @@ void Input::LoadActionBindings()
 bool Input::PushAction(Action action) const
 {
     const ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
-    const bool keyboard = (binding.primaryKey && key[binding.primaryKey])
-        || (binding.secondaryKey && key[binding.secondaryKey]);
+    const bool keyboard = (binding.primaryKey && key_[binding.primaryKey])
+        || (binding.secondaryKey && key_[binding.secondaryKey]);
     return keyboard || (binding.gamepadButton && (state_.Gamepad.wButtons & binding.gamepadButton));
 }
 
 bool Input::TriggerAction(Action action) const
 {
     const ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
-    const bool keyboard = (binding.primaryKey && key[binding.primaryKey] && !keyPre[binding.primaryKey])
-        || (binding.secondaryKey && key[binding.secondaryKey] && !keyPre[binding.secondaryKey]);
+    const bool keyboard = (binding.primaryKey && key_[binding.primaryKey] && !keyPre_[binding.primaryKey])
+        || (binding.secondaryKey && key_[binding.secondaryKey] && !keyPre_[binding.secondaryKey]);
     const bool gamepad = binding.gamepadButton
         && (state_.Gamepad.wButtons & binding.gamepadButton)
         && !(previousState_.Gamepad.wButtons & binding.gamepadButton);
@@ -179,12 +179,12 @@ void Input::Update()
     UpdateGamepad();
 
     // 前回のキー入力を保存
-    memcpy(keyPre, key, sizeof(key));
+    memcpy(keyPre_, key_, sizeof(key_));
     // キーボード情報の取得開始
     keyboard_->Acquire();
     // 全キーの入力情報を取得するフォーカス喪失などで失敗したらバッファをクリアして刺さり防止
-    if (FAILED(keyboard_->GetDeviceState(sizeof(key), key))) {
-        ZeroMemory(key, sizeof(key));
+    if (FAILED(keyboard_->GetDeviceState(sizeof(key_), key_))) {
+        ZeroMemory(key_, sizeof(key_));
     }
 
     // 前回のマウス入力を保存
@@ -200,7 +200,7 @@ void Input::Update()
 bool Input::PushKey(BYTE keyNumber)
 {
     // 指定キーを押していればtrueを返す
-    if (key[keyNumber]) {
+    if (key_[keyNumber]) {
         return true;
     }
 
@@ -210,7 +210,7 @@ bool Input::PushKey(BYTE keyNumber)
 
 bool Input::TriggerKey(BYTE keyNumber)
 {
-    return key[keyNumber] && !keyPre[keyNumber];
+    return key_[keyNumber] && !keyPre_[keyNumber];
 }
 
 /**

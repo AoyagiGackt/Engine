@@ -1,6 +1,6 @@
 /**
  * @file Animation.cpp
- * @brief Animationのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief glTF/FBXアニメーションの読み込みとキーフレーム補間（Animation）の実装
  */
 #include "Animation.h"
 #include "EngineAssert.h"

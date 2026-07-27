@@ -1,6 +1,6 @@
 /**
  * @file GamePlayScene.cpp
- * @brief GamePlaySceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief メインステージ（GamePlayScene）の初期化と基本更新フローの実装
  */
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
@@ -47,6 +47,15 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
 void GamePlayScene::InitializeCoreSystems()
 {
+    InitializeRenderFoundation();
+    InitializeStageActorsAndScore();
+    InitializeRenderTargetsAndOverlays();
+    InitializeParticlesWaterAndHud();
+    InitializeGhostEditorAndEffects();
+}
+
+void GamePlayScene::InitializeRenderFoundation()
+{
     // 3D描画基盤を先に構築し、後続のゲーム実体が安全にモデルを生成できる状態にする
     modelCommon_ = std::make_unique<ModelCommon>();
     modelCommon_->Initialize(dxCommon_);
@@ -80,14 +89,20 @@ void GamePlayScene::InitializeCoreSystems()
 
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
+}
 
+void GamePlayScene::InitializeStageActorsAndScore()
+{
     GamePlaySceneInitializer::InitializeStageActors(*this);
 
     scoreManager_->LoadScores();
     scoreManager_->ResetCurrentScore();
 
     gameTime_.Initialize();
+}
 
+void GamePlayScene::InitializeRenderTargetsAndOverlays()
+{
     renderTexture_ = std::make_unique<RenderTexture>();
     renderTexture_->Initialize(dxCommon_, srvManager_,
         WinApp::kClientWidth, WinApp::kClientHeight);
@@ -106,7 +121,10 @@ void GamePlayScene::InitializeCoreSystems()
         static_cast<float>(WinApp::kClientHeight) });
 
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
+}
 
+void GamePlayScene::InitializeParticlesWaterAndHud()
+{
     pm_ = ParticleManager::GetInstance();
     SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/gameplay.json");
 
@@ -125,7 +143,10 @@ void GamePlayScene::InitializeCoreSystems()
     awakenGaugeFg_ = std::make_unique<Sprite>();
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     InitializeWeaponSlotHud();
+}
 
+void GamePlayScene::InitializeGhostEditorAndEffects()
+{
     ghostObject_ = std::make_unique<Object3d>();
     ghostObject_->Initialize(modelCommon_.get());
     ghostObject_->SetModel(player_->GetModel());

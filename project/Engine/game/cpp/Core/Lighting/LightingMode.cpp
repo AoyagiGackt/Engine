@@ -1,6 +1,6 @@
 /**
  * @file LightingMode.cpp
- * @brief LightingModeのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief LightingMode.hの列挙型定義に対応する翻訳単位（列挙型のみのためロジックはない）
  */
 #include "LightingMode.h"
 using namespace engine;

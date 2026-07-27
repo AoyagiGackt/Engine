@@ -1,6 +1,6 @@
 /**
  * @file TrainingScene.cpp
- * @brief TrainingSceneのゲームシーンの初期化、更新、描画、遷移に関する具体的な処理を実装するファイル
+ * @brief アクション操作練習用シーン（TrainingScene）の初期化と基本更新フローの実装
  */
 #include "TrainingScene.h"
 #include "AudioBridge.h"
@@ -38,6 +38,23 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
+    InitializeCoreSystems();
+    InitializeStageModels();
+    InitializePlayerAndBullets();
+    InitializeWeaponPickups();
+    InitializeHudAndEffects();
+
+#ifdef _DEBUG
+    // ビジュアルスクリプティングVMの動作確認用スモークテスト（エディタUIはまだ無い）
+    testGraph_ = GraphIO::Load("Resources/Graphs/test_graph.json");
+    EventBus::GetInstance()->Subscribe("low_hp_warning", [] { Logger::LogInfo("[GraphTest] low_hp_warning fired"); });
+    EventBus::GetInstance()->Subscribe("hp_checked", [] { Logger::LogInfo("[GraphTest] hp_checked fired"); });
+    testGraphRuntime_.Start(&testGraph_);
+#endif
+}
+
+void TrainingScene::InitializeCoreSystems()
+{
     srvManager_ = SrvManager::GetInstance();
     weaponManager_ = WeaponManager::GetInstance();
 
@@ -59,7 +76,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 14.5f, 6.0f, -24.0f });
     Object3d::SetCommonCamera(camera_.get());
+}
 
+void TrainingScene::InitializeStageModels()
+{
     modelBlock_ = std::make_unique<Model>();
     modelBlock_->Initialize(modelCommon_.get(),
         "Resources/block/block.obj",
@@ -93,7 +113,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         p->Update();
         warpPortalBlocks_.push_back(std::move(p));
     }
+}
 
+void TrainingScene::InitializePlayerAndBullets()
+{
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
     // 水平方向の移動範囲は固定値で決め打ちしない壁ブロックの当たり判定（ResolveBlockCollision）が
@@ -104,7 +127,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     AudioBridge::GetInstance()->SetAudio(audio_);
 
     bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
+}
 
+void TrainingScene::InitializeWeaponPickups()
+{
     struct PickupAsset {
         WeaponType type;
         const char* modelPath;
@@ -135,7 +161,10 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
         pickup.object->SetEnableLighting(true);
         pickup.object->Update();
     }
+}
 
+void TrainingScene::InitializeHudAndEffects()
+{
     awakenGaugeBg_ = std::make_unique<Sprite>();
     awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     awakenGaugeBg_->SetColor({ 0.05f, 0.05f, 0.15f, 0.75f });
@@ -149,14 +178,6 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
 
     GpuProfiler::GetInstance()->Initialize(dxCommon_);
-
-#ifdef _DEBUG
-    // ビジュアルスクリプティングVMの動作確認用スモークテスト（エディタUIはまだ無い）
-    testGraph_ = GraphIO::Load("Resources/Graphs/test_graph.json");
-    EventBus::GetInstance()->Subscribe("low_hp_warning", [] { Logger::LogInfo("[GraphTest] low_hp_warning fired"); });
-    EventBus::GetInstance()->Subscribe("hp_checked", [] { Logger::LogInfo("[GraphTest] hp_checked fired"); });
-    testGraphRuntime_.Start(&testGraph_);
-#endif
 }
 
 void TrainingScene::Update()

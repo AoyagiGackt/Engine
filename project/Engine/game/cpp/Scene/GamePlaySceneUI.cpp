@@ -33,6 +33,27 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+/** @brief コンボランク表示1段ぶんの定義（styleMeter_のしきい値とラベル・色） */
+struct StyleRankDef {
+    const char* label;
+    float threshold; ///< styleMeter_(0.0〜1.0)がこの値以上でこのランクになる
+    Vector4 color;
+};
+// 低い方から並べる。DrawRankAndAwakenGauge()がしきい値以下の最高ランクを検索する
+// しきい値本体はGameConstants::kStyleRankThresholds（ランクアップ演出側と共通）を参照する
+constexpr StyleRankDef kStyleRanks[] = {
+    { "D", GameConstants::kStyleRankThresholds[0], { 0.45f, 0.45f, 0.45f, 1.0f } },
+    { "C", GameConstants::kStyleRankThresholds[1], { 0.85f, 0.85f, 0.85f, 1.0f } },
+    { "B", GameConstants::kStyleRankThresholds[2], { 0.85f, 0.85f, 0.20f, 1.0f } },
+    { "A", GameConstants::kStyleRankThresholds[3], { 0.95f, 0.55f, 0.15f, 1.0f } },
+    { "S", GameConstants::kStyleRankThresholds[4], { 0.20f, 0.85f, 1.00f, 1.0f } },
+    { "SS", GameConstants::kStyleRankThresholds[5], { 1.00f, 0.85f, 0.00f, 1.0f } },
+    { "SSS", GameConstants::kStyleRankThresholds[6], { 1.00f, 0.15f, 0.15f, 1.0f } },
+};
+constexpr float kRankHudRightEdge = 1260.0f; ///< ランク文字を右揃えする画面X座標
+} // namespace
+
 void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
@@ -240,33 +261,19 @@ void GamePlayScene::DrawRankAndAwakenGauge()
     const float gauge = player_->GetAwakenGauge();
     const bool awakened = player_->IsAwakened();
 
-    // ランク算出
-    struct RankInfo {
-        const char* label;
-        Vector4 color;
-    };
-    RankInfo ri;
-    if (styleMeter_ >= 0.90f) {
-        ri = { "SSS", { 1.0f, 0.15f, 0.15f, 1.0f } };
-    } else if (styleMeter_ >= 0.70f) {
-        ri = { "SS", { 1.0f, 0.85f, 0.00f, 1.0f } };
-    } else if (styleMeter_ >= 0.50f) {
-        ri = { "S", { 0.2f, 0.85f, 1.00f, 1.0f } };
-    } else if (styleMeter_ >= 0.30f) {
-        ri = { "A", { 0.95f, 0.55f, 0.15f, 1.0f } };
-    } else if (styleMeter_ >= 0.15f) {
-        ri = { "B", { 0.85f, 0.85f, 0.20f, 1.0f } };
-    } else if (styleMeter_ >= 0.05f) {
-        ri = { "C", { 0.85f, 0.85f, 0.85f, 1.0f } };
-    } else {
-        ri = { "D", { 0.45f, 0.45f, 0.45f, 1.0f } };
+    // ランク算出（しきい値表を下から検索し、条件を満たす最高ランクを採用する）
+    const StyleRankDef* rankDef = &kStyleRanks[0];
+    for (const auto& def : kStyleRanks) {
+        if (styleMeter_ >= def.threshold) {
+            rankDef = &def;
+        }
     }
 
     // ランク文字（大きく右揃え）
     constexpr float kRankScale = 4.0f;
-    int rankLen = static_cast<int>(strlen(ri.label));
-    float rankX = 1260.0f - rankLen * FontRenderer::kCharW * kRankScale;
-    fontRenderer_.DrawString(ri.label, rankX, 20.0f, kRankScale, ri.color);
+    int rankLen = static_cast<int>(strlen(rankDef->label));
+    float rankX = kRankHudRightEdge - rankLen * FontRenderer::kCharW * kRankScale;
+    fontRenderer_.DrawString(rankDef->label, rankX, 20.0f, kRankScale, rankDef->color);
 
     // 覚醒ゲージ（ランクの下）
     float gy = 20.0f + FontRenderer::kCharH * kRankScale + 6.0f;

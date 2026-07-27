@@ -1,6 +1,6 @@
 /**
  * @file GameSettings.cpp
- * @brief GameSettingsのエンジン基盤の初期化と状態管理に関する具体的な処理を実装するファイル
+ * @brief BGM/SE音量設定の読み込み・保存（GameSettingsManager）の実装
  */
 #include "GameSettings.h"
 #include "JsonHelper.h"
