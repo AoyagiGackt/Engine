@@ -5,15 +5,19 @@
  * 敵/巡回/イベント条件の評価）をまとめている。クラス自体はStageEditorのまま、定義の置き場所だけを分けている
  */
 #include "StageEditor.h"
+#include "Camera.h"
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
+#include "FontRenderer.h"
 #include "GameFlags.h"
 #include "KnightEnemy.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "SceneShared.h"
+#include "StringUtility.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cfloat>
@@ -179,6 +183,62 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selectedObjectIndices_ = { selIndex_ };
 }
 
+void StageEditor::GenerateControlsHudText()
+{
+#ifdef USE_IMGUI
+    RecordUndoSnapshotNow();
+
+    // 旧DrawControlsHud()と同じ見た目になるよう、位置・色・行間をそのまま踏襲する
+    constexpr float kIx = 1020.0f;
+    constexpr float kStartY = 12.0f;
+    constexpr float kIS = 1.05f;
+    constexpr float kLineGap = 2.0f;
+    constexpr float kHeaderExtraGap = 2.0f; // 見出しの次の行だけ空ける追加余白
+    const float kILineH = FontRenderer::kCharH * kIS + kLineGap;
+    const Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
+    const Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
+
+    struct Row {
+        std::string text;
+        Vector4 color;
+    };
+    const std::vector<Row> rows = {
+        { "-- 操作説明 --", kCH },
+        { "A / D  : 移動", kCD },
+        { "W      : ジャンプ", kCD },
+        { "L      : コンボ (x3)", kCD },
+        { "K      : 銃コンボ", kCD },
+        { "G      : 銃切替", kCD },
+        { "SPACE  : 武器固有技", kCD },
+        { "Q / E  : 武器切替", kCD },
+        { "1 - 4  : スロット直接選択", kCD },
+        { "ENTER  : " + std::string(controlsHudPortalLabel_), kCD },
+        { "R      : 覚醒発動", kCD },
+        { "F      : フィニッシャー", kCD },
+    };
+
+    float y = kStartY;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        ObjectEntry entry;
+        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
+        entry.desc.kind = "ui_text";
+        entry.desc.text = rows[i].text;
+        entry.desc.textColor = rows[i].color;
+        entry.desc.textScale = kIS;
+        entry.desc.textSpace = "screen";
+        entry.desc.position = { kIx, y, 0.0f };
+        entry.runtimeActive = true;
+        objects_.push_back(std::move(entry));
+        // 見出しの次だけ本文開始前に1行ぶん余白を足す（旧DrawControlsHudのiy += kILineH + 2.0fに合わせる）
+        y += (i == 0) ? (kILineH + kHeaderExtraGap) : kILineH;
+    }
+
+    dirty_ = true;
+    statusMessage_ = "操作説明パネルを" + std::to_string(rows.size()) + "件のテキストとして生成しました";
+    statusTimer_ = 3.0f;
+#endif
+}
+
 void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
     std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
     std::function<void(const std::string&, const std::string&)> setStaticVisualModel,
@@ -206,7 +266,8 @@ void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* posit
     externalEntities_.push_back(std::move(ref));
 }
 
-void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object, std::function<void()> onDelete)
+void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object,
+    std::function<void()> onDelete, std::function<void()> onDuplicate)
 {
     if (!object) {
         return;
@@ -217,6 +278,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
             ref.position = position;
             ref.object = object;
             ref.onDelete = std::move(onDelete);
+            ref.onDuplicate = std::move(onDuplicate);
             return;
         }
     }
@@ -225,6 +287,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
     ref.position = position;
     ref.object = object;
     ref.onDelete = std::move(onDelete);
+    ref.onDuplicate = std::move(onDuplicate);
     externalEntities_.push_back(std::move(ref));
 }
 
@@ -594,6 +657,35 @@ void StageEditor::DrawObjects()
         if (entry.enemy) {
             entry.enemy->Draw();
         }
+    }
+}
+
+void StageEditor::DrawUIText(FontRenderer& font) const
+{
+    // エディタ編集中だけ、テキスト表示チェックボックスoffで配置物の邪魔にならないよう隠す（実プレイ中は常に表示）
+    if (visible_ && !showUIText_) {
+        return;
+    }
+    float camX = 0.0f;
+    float camY = 0.0f;
+    if (camera_) {
+        const Vector3& camPos = camera_->GetTranslate();
+        camX = camPos.x;
+        camY = camPos.y;
+    }
+    for (const auto& entry : objects_) {
+        const ObjectDesc& desc = entry.desc;
+        if (desc.kind != "ui_text" || !entry.runtimeActive || desc.text.empty()) {
+            continue;
+        }
+        const Vector3 pos = WorldPositionOf(desc);
+        float screenX = pos.x;
+        float screenY = pos.y;
+        if (desc.textSpace == "world") {
+            SceneShared::WorldToScreen(pos.x, pos.y, camX, camY, screenX, screenY);
+        }
+        font.DrawStringW(StringUtility::ConvertString(desc.text), screenX, screenY,
+            desc.textScale, desc.textColor, desc.textBold);
     }
 }
 

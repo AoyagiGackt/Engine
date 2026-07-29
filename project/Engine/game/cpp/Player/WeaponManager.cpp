@@ -11,7 +11,7 @@ using namespace engine::game;
 
 namespace {
 
-constexpr const char* kWeaponDataPath = "Resources/weapons.json";
+constexpr const char* kWeaponDataPath = "Resources/Config/weapons.json";
 
 WeaponType ParseWeaponType(const std::string& type)
 {

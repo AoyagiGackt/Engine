@@ -5,9 +5,11 @@
  */
 #ifdef USE_IMGUI
 #include "StageEditorPanels.h"
+#include "Camera.h"
 #include "EditorUI.h"
 #include "EnemyEntity.h"
 #include "KnightEnemy.h"
+#include "SceneShared.h"
 #include "StageEditor.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -410,6 +412,86 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
     }
 }
 
+void StageEditorInspectorPanel::RenderObjectText(StageEditor& editor)
+{
+    auto& desc = editor.objects_[editor.selIndex_].desc;
+    if (desc.kind != "ui_text") {
+        return;
+    }
+    auto captureItemUndo = [&](bool changed) {
+        if (ImGui::IsItemActivated()) {
+            editor.BeginUndoCapture();
+        }
+        if (changed) {
+            editor.MarkUndoDirty();
+        }
+        if (ImGui::IsItemDeactivated()) {
+            editor.CommitUndoCapture();
+        }
+        return changed;
+    };
+
+    char textBuf[512];
+    strncpy_s(textBuf, desc.text.c_str(), _TRUNCATE);
+    if (captureItemUndo(ImGui::InputTextMultiline("文字列", textBuf, sizeof(textBuf), ImVec2(-1.0f, 60.0f)))) {
+        desc.text = textBuf;
+    }
+
+    captureItemUndo(ImGui::ColorEdit4("色", &desc.textColor.x));
+    if (ImGui::Checkbox("太字", &desc.textBold)) {
+        editor.RecordUndoSnapshotNow();
+    }
+    captureItemUndo(ImGui::DragFloat("大きさ", &desc.textScale, 0.05f, 0.1f, 10.0f));
+
+    const char* spaces[] = { "screen", "world" };
+    const char* spaceLabels[] = { "画面座標(px)", "ワールド座標" };
+    int spaceIndex = (desc.textSpace == "world") ? 1 : 0;
+    if (ImGui::Combo("座標基準", &spaceIndex, spaceLabels, 2)) {
+        const std::string newSpace = spaces[spaceIndex];
+        if (newSpace != desc.textSpace) {
+            editor.RecordUndoSnapshotNow();
+            // 座標基準の切り替え時にposition(px⇔ワールド単位)を素通りさせると、
+            // 数値のスケールが噛み合わずカメラ範囲外へ飛んで見えなくなるため、その場でスクリーン上の見た目を保つよう変換する
+            if (newSpace == "world") {
+                Vector3 worldPos;
+                desc.position = editor.MouseToGround(desc.position.x, desc.position.y, worldPos) ? worldPos : Vector3 { };
+            } else {
+                float camX = 0.0f, camY = 0.0f;
+                if (editor.camera_) {
+                    const Vector3& camPos = editor.camera_->GetTranslate();
+                    camX = camPos.x;
+                    camY = camPos.y;
+                }
+                const Vector3 world = editor.WorldPositionOf(desc);
+                float screenX, screenY;
+                SceneShared::WorldToScreen(world.x, world.y, camX, camY, screenX, screenY);
+                desc.position = { screenX, screenY, 0.0f };
+            }
+            desc.textSpace = newSpace;
+        }
+    }
+    EditorUI::HelpMarker("画面座標: 位置のx/yをスクリーンピクセル座標として使います（カメラに影響されず常に同じ位置に表示）\nワールド座標: 位置をワールド座標として扱い、カメラに応じて画面へ投影します");
+
+    // 編集パネル（ツールバー/左カラム/右インスペクタ）と同じ画面領域にある場合、3Dビュー側のマーカーが
+    // パネルの下に隠れてマウスで選択・ドラッグできない。ここで検知して、数値入力に加えて逃がすボタンも用意する
+    if (desc.textSpace == "screen") {
+        constexpr float kVisibleAreaTopMargin = 40.0f; // ツールバーのすぐ下は掴みにくいので少し余白を空ける
+        const float visibleLeft = StageEditor::kLeftPanelWidth;
+        const float visibleRight = static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth;
+        const float visibleTop = StageEditor::kToolbarHeight;
+        const bool hiddenByPanel = desc.position.x < visibleLeft || desc.position.x > visibleRight || desc.position.y < visibleTop;
+        if (hiddenByPanel) {
+            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
+            ImGui::TextDisabled("上の「位置」欄で直接数値を入力するか、下のボタンで一旦ドラッグできる位置へ移動してください");
+            if (ImGui::Button("ドラッグできる位置へ移動")) {
+                editor.RecordUndoSnapshotNow();
+                desc.position.x = (visibleLeft + visibleRight) * 0.5f;
+                desc.position.y = visibleTop + kVisibleAreaTopMargin;
+            }
+        }
+    }
+}
+
 bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
 {
     if (editor.selKind_ != StageEditor::SelKind::Object || editor.selIndex_ < 0
@@ -422,6 +504,7 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectVisual(editor, structuralDirty);
     RenderObjectTransform(editor, structuralDirty, transformDirty);
     RenderObjectGameplay(editor, structuralDirty);
+    RenderObjectText(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
     const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "background" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";
@@ -573,11 +656,8 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
 
 void StageEditorInspectorPanel::Render(StageEditor& editor)
 {
-
-    constexpr float kToolbarHeight = 42.0f;
-    constexpr float kPanelWidth = 300.0f;
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - kPanelWidth, kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, static_cast<float>(WinApp::kClientHeight) - kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth, StageEditor::kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth, static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::Begin("詳細設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     if (!RenderObjectInspector(editor)
         && !RenderTriggerInspector(editor)

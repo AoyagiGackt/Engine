@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "Animation.h"
+#include "IEnemyEntity.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
@@ -27,7 +28,7 @@ using engine::graphics::SkinnedObject3d;
  * @note HP 管理・打ち上げ物理・撃破判定を提供する
  * SetMaxHp() で種別（Normal/Elite/Boss）ごとの HP を設定してから使用すること
  */
-class EnemyEntity {
+class EnemyEntity : public IEnemyEntity {
 public:
     /**
      * @brief 初期化モデル生成とワールド座標を設定する
@@ -119,7 +120,7 @@ public:
     /**
      * @brief 位置だけ再計算する（AI/物理は一切進めない、StageEditor等が外部からpos_を書き換えた後の追従用）
      */
-    void RefreshVisualTransforms()
+    void RefreshVisualTransforms() override
     {
         object_->SetPosition(pos_);
         object_->Update();
@@ -136,9 +137,9 @@ public:
     /** @brief 撃破済みかどうかを返す */
     bool IsDefeated() const { return defeated_; }
     /** @brief 現在の HP を返す */
-    int GetHp() const { return hp_; }
+    int GetHp() const override { return hp_; }
     /** @brief 最大 HP を返す */
-    int GetMaxHp() const { return maxHp_; }
+    int GetMaxHp() const override { return maxHp_; }
 
     /**
      * @brief 本体モデルの表示/非表示を切り替える（切断演出中に非表示にする用）
@@ -156,9 +157,9 @@ public:
     /** @brief 打ち上げ中かどうか */
     bool IsLaunched() const { return isLaunched_; }
     /** @brief 現在のワールド座標を返す */
-    const Vector3& GetPosition() const { return pos_; }
+    Vector3 GetPosition() const override { return pos_; }
     /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
-    Vector3& GetPositionRef() { return pos_; }
+    Vector3& GetPositionRef() override { return pos_; }
 
 private:
     static constexpr float kGroundY_ = 0.4f;

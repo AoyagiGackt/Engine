@@ -51,6 +51,7 @@ static constexpr float kChainSkillRange = 5.0f; ///< 雷属性(Spear)の周囲�
 static constexpr float kSkillSlamRadius = 3.5f; ///< 設置型AoE技(大剣叩きつけ等)の判定半径
 static constexpr float kSkillDefaultRadius = 2.8f; ///< 通常の固有技の判定半径
 static constexpr float kSkillRangeHalfHeight = 2.0f; ///< 固有技判定AABBの縦方向半径
+static constexpr float kWeaponEnemySkillRadius = 3.0f; ///< 武器付き敵に対する固有技判定AABBの横方向半径（プレイヤー中心の固定範囲）
 static constexpr float kSkillVarietyBonusRepeat = 0.06f; ///< 同じ固有技を連続で当てた場合のスタイル加点
 static constexpr float kSkillVarietyBonusFresh = 0.18f; ///< 直前と違う固有技を当てた場合のスタイル加点
 static constexpr float kSkillAwakenGaugeGain = 0.10f; ///< 固有技ヒットで溜まる覚醒ゲージ量
@@ -78,26 +79,26 @@ void GamePlayScene::UpdateWeaponEnemies()
         if (!entry.enemy->IsDefeated()) {
             const Vector3& enemyPos = entry.enemy->GetPosition();
             const AABB enemyBounds = {
-                { enemyPos.x - 0.5f, enemyPos.y - 0.5f, -0.5f },
-                { enemyPos.x + 0.5f, enemyPos.y + 0.5f, 0.5f }
+                { enemyPos.x - kEnemyHitBoxHalfExtent, enemyPos.y - kEnemyHitBoxHalfExtent, -0.5f },
+                { enemyPos.x + kEnemyHitBoxHalfExtent, enemyPos.y + kEnemyHitBoxHalfExtent, 0.5f }
             };
 
             bool hit = false;
             if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
                 const AABB range = SceneShared::MakeDirectionalShotRange(
                     playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
-                    wm->GetCurrent().range * 0.4f);
+                    wm->GetCurrent().range * GameConstants::kSkillRearReachMult);
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
             if (!hit && player_->JustFired()) {
                 const AABB range = SceneShared::MakeDirectionalRange(
-                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, 0.8f);
+                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, kGunBackRange);
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
             if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
                 const AABB range = {
-                    { playerPos.x - 3.0f, playerPos.y - 2.0f, -0.5f },
-                    { playerPos.x + 3.0f, playerPos.y + 2.0f, 0.5f }
+                    { playerPos.x - kWeaponEnemySkillRadius, playerPos.y - kSkillRangeHalfHeight, -0.5f },
+                    { playerPos.x + kWeaponEnemySkillRadius, playerPos.y + kSkillRangeHalfHeight, 0.5f }
                 };
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
@@ -107,7 +108,7 @@ void GamePlayScene::UpdateWeaponEnemies()
                 const float baseDamage = wm->HasEquippedWeapon() ? wm->GetCurrent().damage : 20.0f;
                 const int damage = player_->JustGreatswordSlam()
                     ? 3
-                    : (std::max)(1, static_cast<int>(std::round(baseDamage * damageMult / 25.0f)));
+                    : (std::max)(1, static_cast<int>(std::round(baseDamage * damageMult / kMeleeDamageDivisor)));
                 const float knockbackMult = wm->HasEquippedWeapon()
                     ? wm->GetCurrent().knockbackMult
                     : 1.0f;
@@ -232,8 +233,8 @@ void GamePlayScene::UpdateCamera()
         : (stageLeft + stageRight) * 0.5f;
     cameraTargetPos_ = {
         cameraX,
-        ppos.y + 3.0f,
-        -24.0f
+        ppos.y + GameConstants::kCameraFollowOffsetY,
+        GameConstants::kCameraDistanceZ
     };
 
     UpdateCameraSmoothing();
@@ -442,8 +443,8 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
     {
         Collider playerCol = player_->GetCollider();
         const Vector3& epos = enemy_->GetPosition();
-        AABB enemyAABB = { { epos.x - 0.5f, epos.y - 0.5f, -0.5f },
-            { epos.x + 0.5f, epos.y + 0.5f, 0.5f } };
+        AABB enemyAABB = { { epos.x - kEnemyHitBoxHalfExtent, epos.y - kEnemyHitBoxHalfExtent, -0.5f },
+            { epos.x + kEnemyHitBoxHalfExtent, epos.y + kEnemyHitBoxHalfExtent, 0.5f } };
         if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
             hitCooldown_ = 0.5f;
             enemy_->TakeDamage(1);
@@ -560,7 +561,7 @@ void GamePlayScene::EmitComboHitParticles(const Vector3& ppos)
         pm_->EmitRing("sword_slash", ppos, 3.5f, col, 10, 0.3f, 0.22f);
     }
 
-    // 属性演出はweapons.jsonの共通プリセットから生成する
+    // 属性演出はConfig/weapons.jsonの共通プリセットから生成する
     // 武器追加時にシーン側へtype分岐を増やさず色と密度を調整できるようにする
     const WeaponData& weapon = wm->GetCurrent();
     const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1],

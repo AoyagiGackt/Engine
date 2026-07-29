@@ -297,6 +297,13 @@ private:
     void TransitionInstancingToUAV(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
     void ExpireAndRespawnSlots(ParticleGroup& group);
     void FlushPendingSlotsToGPU(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
+    /**
+     * @brief 発生頻度(frequency)に応じて発射タイミングを判定し、来ていればスロットの有効期限を延長した上で
+     *        発射用コンピュートシェーダをディスパッチして新規パーティクルを生成する（発射タイミングでなければ何もしない）
+     * @param group 対象パーティクルグループ（GPU側のエミッタ・状態バッファを保持）
+     * @param cmd   ディスパッチを積むコマンドリスト
+     * @param dt    経過時間（発生間隔タイマーの加算に使う）
+     */
     void DispatchEmitCS(ParticleGroup& group, ID3D12GraphicsCommandList* cmd, float dt);
     void DispatchUpdateCS(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
 

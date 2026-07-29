@@ -123,9 +123,6 @@ namespace SceneShared {
     /** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
     float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText);
 
-    /** @brief 右側の操作説明パネルを描画する */
-    void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabel);
-
     /** @brief 覚醒ゲージUIを描画する */
     void DrawAwakenGaugeHud(FontRenderer& fontRenderer, engine::graphics::Sprite* bgSprite, engine::graphics::Sprite* fgSprite,
         float gauge, bool awakened, float pulseTimer);

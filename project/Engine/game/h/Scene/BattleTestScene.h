@@ -169,6 +169,15 @@ private:
     /** @brief 訓練シーンの入力、戦闘、演出、HUD更新を順序付けて実行する */
     void UpdateSceneFlow();
 
+    // Slimeモデルの実寸(高さ約1.93)を、これまでのブロック(1x1x1)に近い見た目サイズへ縮小する
+    // （見た目・切断演出の両方で使うのでここで共有する）
+    static constexpr float kDummyModelScale = 0.55f;
+    // d.pos は当たり判定AABB(DummyBounds、1x1x1)の中心。ブロックはそれ自体が中心原点だったので
+    // ずれなかったが、Slimeモデルの原点は足元(ローカルY≒0)にあるため、そのままd.posへ置くと
+    // 半分(0.5)ぶん宙に浮いて見える。見た目だけ下げてAABB下端＝地面に足元を合わせる。
+    // -0.5だけでもまだ僅かに浮いて見えたため、少し多めに下げている（要目視再確認）
+    static constexpr float kDummyModelFootOffsetY = -0.65f;
+
     // 訓練用マネキン（動かない敵）
     struct Dummy {
         std::unique_ptr<Object3d> object;
@@ -255,8 +264,6 @@ private:
     void UpdateWeaponSlotHud();
     /** @brief 武器スロットUIを描画する */
     void DrawWeaponSlotHud();
-    /** @brief 現在の近接コンボ段階を本番シーンと同じ形式で表示する */
-    void DrawComboHud();
     /** @brief HUD全体（武器一覧・操作説明・コンボランク・覚醒ゲージ）を描画する */
     void DrawHud(bool nearReturnPortal);
     /** @brief 武器一覧と戻りポータルのラベルを描画する */

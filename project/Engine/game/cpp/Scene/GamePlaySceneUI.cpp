@@ -94,6 +94,7 @@ void GamePlayScene::DrawOverlaysAndUI()
     }
 
     // ゲームプレイ UI テキスト
+    GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
 
     // ガラス割れエフェクト（サンドボックスのクリア演出 / デバッグテスト再生時のみ）
@@ -136,7 +137,6 @@ void GamePlayScene::DrawStyleUI()
 
     DrawStageGuide();
     DrawRogueliteHUD();
-    SceneShared::DrawControlsHud(fontRenderer_, L": ステージを進む");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_);
     if (enemy_->IsDefeated() && !weaponStealTriggered_) {

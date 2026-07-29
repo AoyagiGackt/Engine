@@ -62,7 +62,7 @@ WeaponType ParseIconWeaponType(const std::string& type)
 
 /**
  * @brief 武器スロットUIの3Dアイコン素材一覧をJSONから読み込む
- * @note ダミーの物理武器がまだ無いスタイルはResources/weapon_icons.jsonに1行追記すれば自動でモデル表示に切り替わる
+ * @note ダミーの物理武器がまだ無いスタイルはResources/Config/weapon_icons.jsonに1行追記すれば自動でモデル表示に切り替わる
  * @param jsonPath アイコン素材定義のJSONパス
  * @return 読み込んだ素材一覧。ファイルが無い・読み込めない場合は既存互換の既定値を返す
  */
@@ -82,7 +82,7 @@ std::vector<IconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
         }
     }
     if (assets.empty()) {
-        // Resources/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
+        // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
         assets = {
             { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
             { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
@@ -113,7 +113,7 @@ void BattleTestScene::InitializeWeaponSlotHud()
     gunFrame_->SetColor({ 0.08f, 0.08f, 0.1f, 0.85f }); // Update()で色を更新しないため初期化時に決め打ちする
 
     // 各スタイルに対応する実物3Dモデル（色塗り四角の代わりに表示）
-    const std::vector<IconAsset> kIconAssets = LoadWeaponIconAssets("Resources/weapon_icons.json");
+    const std::vector<IconAsset> kIconAssets = LoadWeaponIconAssets("Resources/Config/weapon_icons.json");
 
     const auto& list = weaponManager_->GetList();
     for (int i = 0; i < kWeaponSlotCount && i < static_cast<int>(list.size()); ++i) {

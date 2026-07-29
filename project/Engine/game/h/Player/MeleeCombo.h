@@ -83,6 +83,13 @@ private:
     /** @brief GetSwingOffset/GetBodyLeanOffset共通: 振りかぶり→振り抜き→構え直しの3相でfrom/toを補間する */
     Vector3 BlendPhase(const Vector3& from, const Vector3& to) const;
 
+    /**
+     * @brief 指定した段を新しい攻撃としてセットアップし、進行タイマー・段番号・各種状態フラグをリセットする
+     * @param def       これから出す段の定義（ダメージ・リーチ・打ち上げ等）
+     * @param tableIdx  対応するコンボテーブル内のインデックス（表示段数や次段の算出に使う）
+     * @param airMode   空中コンボとして進行するか（trueの間はlungeによる前進を行わない）
+     * @param isLauncher 打ち上げ技として発生させるか（trueなら表示段数を0扱いにする）
+     */
     void StartStep(const MeleeAttackDef* def, int tableIdx, bool airMode, bool isLauncher);
     /** @brief 現在の状態から次に出すべき段を返す（テーブル末尾は先頭へループ） */
     const MeleeAttackDef* NextStep(bool launcherInput, bool airborne, int& outIdx, bool& outLauncher) const;

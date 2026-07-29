@@ -53,12 +53,12 @@ inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath)
 
 /**
  * @brief 標準の壁沿いに境界ブロックを並べて生成する（TrainingScene/BattleTestSceneで共用）
- * @param jsonPath レイアウト設定のJSONパス（省略時はResources/border_layout.json）。
+ * @param jsonPath レイアウト設定のJSONパス（省略時はResources/Config/border_layout.json）。
  *        ファイルが無ければ既存互換の既定形状で生成する
  */
 inline void BuildBorderBlocks(engine::graphics::ModelCommon* modelCommon, engine::graphics::Model* modelBlock,
     std::vector<std::unique_ptr<engine::graphics::Object3d>>& borderBlocks,
-    const std::string& jsonPath = "Resources/border_layout.json")
+    const std::string& jsonPath = "Resources/Config/border_layout.json")
 {
     const BorderBlockLayout layout = LoadBorderBlockLayout(jsonPath);
 

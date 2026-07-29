@@ -100,6 +100,11 @@ private:
     void InitializeCoreSystems();
     /** @brief Initialize()の下請け 境界ブロック・街並み背景・ワープポータルを初期化する */
     void InitializeStageModels();
+    /**
+     * @brief 街並み背景ビルを1体生成し、StageEditorへ複製/削除可能な外部オブジェクトとして登録する
+     * @note 複製コールバックはこの関数自身を再度呼ぶだけなので、複製したビルもさらに複製/削除できる
+     */
+    void SpawnCityBuilding(const Vector3& position, const Vector3& scale);
     /** @brief Initialize()の下請け プレイヤーと弾丸プールを初期化する */
     void InitializePlayerAndBullets();
     /** @brief Initialize()の下請け 配置武器ピックアップ（アセット表に基づく実体生成）を初期化する */
@@ -137,6 +142,7 @@ private:
     std::vector<std::unique_ptr<Object3d>> borderBlocks_;
     std::unique_ptr<Model> cityBackgroundModel_;
     std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
+    int cityBuildingSerial_ = 0; ///< RegisterExternalObjectの名前衝突を避けるための連番（複製のたびに増やす）
 
     // ワープポータル（テストステージへ）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;

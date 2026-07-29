@@ -115,52 +115,61 @@ void Player::SpearBehavior::Update(Player& player, Input* input) const
 void Player::GreatswordBehavior::Update(Player& player, Input* input) const
 {
     // 投げ回転斬り 大剣そのものを投げ、途中で静止して渦のように回転し、周囲の敵を巻き込みながら多段ヒットする
-    if (!player.greatswordThrowActive_) {
-        if (input->TriggerAction(Input::Action::Skill) && player.greatswordThrowCooldown_ <= 0.0f) {
-            // 浮遊高さは胸の高さ付近（他の命中エフェクトと同じ pos_.y + 0.5 に合わせる）
-            player.greatswordThrowStartPos_ = { player.pos_.x, player.pos_.y + 0.5f, player.pos_.z };
-            player.greatswordThrowPos_ = player.greatswordThrowStartPos_;
-            player.greatswordThrowPos_.x = std::clamp(
-                player.pos_.x + player.lastDirX_ * kGreatswordThrowDist_, player.minX_, player.maxX_);
-            player.greatswordThrowTimer_ = 0.0f;
-            player.greatswordSpinHitTimer_ = 0.0f;
-            player.greatswordThrowActive_ = true;
-            player.greatswordReturnCaptured_ = false;
-            player.greatswordThrowCooldown_ = kGreatswordThrowCooldown_;
-            player.justGreatswordThrown_ = true;
-            player.PlayAttackAnim(player.rig_->slashAnim, 1.3f);
-        }
+    // 発生（投げる瞬間）だけここで扱う。進行中の状態（飛行→渦→帰還）はUpdateGreatswordThrowState()が
+    // 装備武器に関係なく毎フレーム進めるので、持ち替えても凍結しない
+    if (player.greatswordThrowActive_) {
+        return;
+    }
+    if (input->TriggerAction(Input::Action::Skill) && player.greatswordThrowCooldown_ <= 0.0f) {
+        // 浮遊高さは胸の高さ付近（他の命中エフェクトと同じ pos_.y + 0.5 に合わせる）
+        player.greatswordThrowStartPos_ = { player.pos_.x, player.pos_.y + 0.5f, player.pos_.z };
+        player.greatswordThrowPos_ = player.greatswordThrowStartPos_;
+        player.greatswordThrowPos_.x = std::clamp(
+            player.pos_.x + player.lastDirX_ * kGreatswordThrowDist_, player.minX_, player.maxX_);
+        player.greatswordThrowTimer_ = 0.0f;
+        player.greatswordSpinHitTimer_ = 0.0f;
+        player.greatswordThrowActive_ = true;
+        player.greatswordReturnCaptured_ = false;
+        player.greatswordThrowCooldown_ = kGreatswordThrowCooldown_;
+        player.justGreatswordThrown_ = true;
+        player.PlayAttackAnim(player.rig_->slashAnim, 1.3f);
+    }
+}
+
+void Player::UpdateGreatswordThrowState(Input* input)
+{
+    if (!greatswordThrowActive_) {
         return;
     }
 
-    player.greatswordThrowTimer_ += GameConstants::kFrameDeltaTime;
-    if (player.greatswordThrowTimer_ < kGreatswordThrowTravelTime_) {
+    greatswordThrowTimer_ += GameConstants::kFrameDeltaTime;
+    if (greatswordThrowTimer_ < kGreatswordThrowTravelTime_) {
         return; // 飛んでいる最中（静止するまで）はまだ渦を巻かない
     }
 
-    const float spinElapsed = player.greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
+    const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
     if (spinElapsed < kGreatswordVortexMaxDuration_) {
         // 渦の最中にもう一度スペースを押したら、上限まで待たずにその場で帰還を開始する（手動リコール）
         if (input->TriggerAction(Input::Action::Skill)) {
-            player.greatswordThrowTimer_ = kGreatswordThrowTravelTime_ + kGreatswordVortexMaxDuration_;
+            greatswordThrowTimer_ = kGreatswordThrowTravelTime_ + kGreatswordVortexMaxDuration_;
             return;
         }
-        player.greatswordSpinHitTimer_ += GameConstants::kFrameDeltaTime;
-        if (player.greatswordSpinHitTimer_ >= kGreatswordSpinHitInterval_) {
-            player.greatswordSpinHitTimer_ -= kGreatswordSpinHitInterval_;
-            player.justGreatswordSpinHit_ = true;
+        greatswordSpinHitTimer_ += GameConstants::kFrameDeltaTime;
+        if (greatswordSpinHitTimer_ >= kGreatswordSpinHitInterval_) {
+            greatswordSpinHitTimer_ -= kGreatswordSpinHitInterval_;
+            justGreatswordSpinHit_ = true;
         }
         return;
     }
 
     // 渦が終わったら、瞬間移動で戻さず手元へ飛んで帰るフェーズへ（帰還先はこの瞬間の位置を1回だけ記録）
-    if (!player.greatswordReturnCaptured_) {
-        player.greatswordReturnTargetPos_ = { player.pos_.x, player.pos_.y + 0.5f, player.pos_.z };
-        player.greatswordReturnCaptured_ = true;
+    if (!greatswordReturnCaptured_) {
+        greatswordReturnTargetPos_ = { pos_.x, pos_.y + 0.5f, pos_.z };
+        greatswordReturnCaptured_ = true;
     }
     const float returnElapsed = spinElapsed - kGreatswordVortexMaxDuration_;
     if (returnElapsed >= kGreatswordReturnTime_) {
-        player.greatswordThrowActive_ = false; // 帰還完了、次フレームから手元のボーン追従に戻る
+        greatswordThrowActive_ = false; // 帰還完了、次フレームから手元のボーン追従に戻る
     }
 }
 

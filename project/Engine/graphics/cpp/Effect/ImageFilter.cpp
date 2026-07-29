@@ -459,10 +459,10 @@ void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
     // TextureManager が初期化済みになってから初回ロード
     if (filter.noiseSrvIndex_[0] == UINT32_MAX) {
         auto* texMgr = TextureManager::GetInstance();
-        texMgr->LoadTexture("Resources/noise0.png");
-        texMgr->LoadTexture("Resources/noise1.png");
-        filter.noiseSrvIndex_[0] = texMgr->GetTextureIndexByFilePath("Resources/noise0.png");
-        filter.noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/noise1.png");
+        texMgr->LoadTexture("Resources/Effects/noise0.png");
+        texMgr->LoadTexture("Resources/Effects/noise1.png");
+        filter.noiseSrvIndex_[0] = texMgr->GetTextureIndexByFilePath("Resources/Effects/noise0.png");
+        filter.noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/Effects/noise1.png");
     }
     uint32_t maskSrv = filter.noiseSrvIndex_[filter.dissolveMaskIndex_];
     cmd->SetGraphicsRootSignature(filter.outlineRootSignature_.Get());

@@ -30,6 +30,19 @@ namespace {
         return nlohmann::json::array({ v.x, v.y, v.z });
     }
 
+    Vector4 ReadVec4(const nlohmann::json& arr, Vector4 def = { })
+    {
+        if (arr.is_array() && arr.size() >= 4) {
+            return { arr[0].get<float>(), arr[1].get<float>(), arr[2].get<float>(), arr[3].get<float>() };
+        }
+        return def;
+    }
+
+    nlohmann::json WriteVec4(const Vector4& v)
+    {
+        return nlohmann::json::array({ v.x, v.y, v.z, v.w });
+    }
+
 }
 
 LevelData LevelLoader::Load(const std::string& path)
@@ -86,6 +99,12 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.axis = ax.empty() ? 'x' : static_cast<char>(std::tolower(static_cast<unsigned char>(ax[0])));
         desc.count = obj.value("count", 1);
         desc.step = obj.value("step", 1.0f);
+
+        desc.text = obj.value("text", "");
+        desc.textColor = ReadVec4(obj.value("textColor", nlohmann::json::array()), { 1.0f, 1.0f, 1.0f, 1.0f });
+        desc.textBold = obj.value("textBold", false);
+        desc.textScale = obj.value("textScale", 1.5f);
+        desc.textSpace = obj.value("textSpace", "screen");
 
         data.objects.push_back(std::move(desc));
     }
@@ -152,6 +171,11 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["axis"] = std::string(1, desc.axis);
         oj["count"] = desc.count;
         oj["step"] = desc.step;
+        oj["text"] = desc.text;
+        oj["textColor"] = WriteVec4(desc.textColor);
+        oj["textBold"] = desc.textBold;
+        oj["textScale"] = desc.textScale;
+        oj["textSpace"] = desc.textSpace;
         objectsJson.push_back(std::move(oj));
     }
     j["objects"] = std::move(objectsJson);

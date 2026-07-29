@@ -17,6 +17,20 @@
 
 namespace engine::game {
 using namespace engine::graphics;
+namespace {
+/** @brief 検索語(小文字化済み)がtext(小文字化して比較)に部分一致するか。空検索語は常にtrue */
+bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
+{
+    if (searchTextLower.empty()) {
+        return true;
+    }
+    std::string target = text;
+    std::transform(target.begin(), target.end(), target.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return target.find(searchTextLower) != std::string::npos;
+}
+} // namespace
+
 void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 {
     ImGui::TextDisabled("F2: 表示/非表示    F4: 画面優先    WASD/QE: カメラ移動");
@@ -100,6 +114,19 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 
 void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
 {
+    RenderCameraSection(editor);
+    RenderFileAndHistoryActions(editor);
+
+    const std::string searchTextLower = RenderSearchBar(editor);
+    RenderObjectTree(editor, searchTextLower);
+    RenderExternalEntityList(editor, searchTextLower);
+    RenderTriggerList(editor, searchTextLower);
+
+    ImGui::Separator();
+}
+
+void StageEditorHierarchyPanel::RenderCameraSection(StageEditor& editor)
+{
     if (editor.camera_ && ImGui::CollapsingHeader("ゲームカメラ", ImGuiTreeNodeFlags_DefaultOpen)) {
         Vector3 position = editor.camera_->GetTranslate();
         Vector3 rotation = editor.camera_->GetRotate();
@@ -111,7 +138,10 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         }
         ImGui::TextDisabled("WASD: XY移動 / Q,E: 奥行き移動");
     }
+}
 
+void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
+{
     char pathBuf[256];
     strncpy_s(pathBuf, editor.levelPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(-1.0f);
@@ -185,22 +215,22 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
     }
 
     ImGui::Separator();
+}
 
+std::string StageEditorHierarchyPanel::RenderSearchBar(StageEditor& editor)
+{
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##hierarchySearch", "名前・種類・モデルを検索", editor.hierarchySearch_, sizeof(editor.hierarchySearch_));
 
     std::string searchText = editor.hierarchySearch_;
     std::transform(searchText.begin(), searchText.end(), searchText.begin(),
         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    auto matchesSearch = [&](const std::string& text) {
-        if (searchText.empty()) {
-            return true;
-        }
-        std::string target = text;
-        std::transform(target.begin(), target.end(), target.begin(),
-            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        return target.find(searchText) != std::string::npos;
-    };
+    return searchText;
+}
+
+void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std::string& searchTextLower)
+{
+    auto matchesSearch = [&](const std::string& text) { return MatchesSearch(searchTextLower, text); };
 
     char objHeader[48];
     snprintf(objHeader, sizeof(objHeader), "オブジェクト (%d)", static_cast<int>(editor.objects_.size()));
@@ -271,6 +301,17 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         if (ImGui::MenuItem("イベント条件")) {
             addEntry("condition", "event_condition");
         }
+        if (ImGui::MenuItem("テキスト")) {
+            addEntry("text", "ui_text");
+            ObjectDesc& text = editor.objects_.back().desc;
+            text.text = "テキスト";
+            text.textSpace = "screen";
+            text.position = { 100.0f, 100.0f, 0.0f }; // スクリーン座標(px)として使う
+        }
+        if (ImGui::MenuItem("操作説明パネル（一括生成）")) {
+            editor.GenerateControlsHudText();
+        }
+        EditorUI::HelpMarker("移動・攻撃・武器切替などの操作一覧をui_textとして一括生成します\nENTER行の説明文を変えたい場合は「制作」パネルの入力欄で先に設定してください");
         if (ImGui::MenuItem("Terrain")) {
             addEntry("terrain", "terrain");
             ObjectDesc& terrain = editor.objects_.back().desc;
@@ -283,7 +324,7 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         ImGui::EndPopup();
     }
     if (objOpen) {
-        if (!searchText.empty()) {
+        if (!searchTextLower.empty()) {
             for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
                 const ObjectDesc& d = editor.objects_[i].desc;
                 if (!matchesSearch(d.name) && !matchesSearch(d.kind) && !matchesSearch(d.model)) {
@@ -326,28 +367,35 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         }
         ImGui::TreePop();
     }
+}
 
-    if (!editor.externalEntities_.empty()) {
-        char entHeader[48];
-        snprintf(entHeader, sizeof(entHeader), "エンティティ (%d)", static_cast<int>(editor.externalEntities_.size()));
-        bool entOpen = ImGui::TreeNodeEx(entHeader, ImGuiTreeNodeFlags_DefaultOpen);
-        if (entOpen) {
-            for (int i = 0; i < static_cast<int>(editor.externalEntities_.size()); ++i) {
-                if (!matchesSearch(editor.externalEntities_[i].name)) {
-                    continue;
-                }
-                bool sel = (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ == i);
-                char label[96];
-                snprintf(label, sizeof(label), "  %s##ent%d", editor.externalEntities_[i].name.c_str(), i);
-                if (ImGui::Selectable(label, sel)) {
-                    editor.selKind_ = StageEditor::SelKind::External;
-                    editor.selIndex_ = i;
-                }
-            }
-            ImGui::TreePop();
-        }
+void StageEditorHierarchyPanel::RenderExternalEntityList(StageEditor& editor, const std::string& searchTextLower)
+{
+    if (editor.externalEntities_.empty()) {
+        return;
     }
+    char entHeader[48];
+    snprintf(entHeader, sizeof(entHeader), "エンティティ (%d)", static_cast<int>(editor.externalEntities_.size()));
+    bool entOpen = ImGui::TreeNodeEx(entHeader, ImGuiTreeNodeFlags_DefaultOpen);
+    if (entOpen) {
+        for (int i = 0; i < static_cast<int>(editor.externalEntities_.size()); ++i) {
+            if (!MatchesSearch(searchTextLower, editor.externalEntities_[i].name)) {
+                continue;
+            }
+            bool sel = (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ == i);
+            char label[96];
+            snprintf(label, sizeof(label), "  %s##ent%d", editor.externalEntities_[i].name.c_str(), i);
+            if (ImGui::Selectable(label, sel)) {
+                editor.selKind_ = StageEditor::SelKind::External;
+                editor.selIndex_ = i;
+            }
+        }
+        ImGui::TreePop();
+    }
+}
 
+void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std::string& searchTextLower)
+{
     char trgHeader[48];
     snprintf(trgHeader, sizeof(trgHeader), "トリガー (%d)", static_cast<int>(editor.triggers_.size()));
     bool trgOpen = ImGui::TreeNodeEx(trgHeader, ImGuiTreeNodeFlags_DefaultOpen);
@@ -368,7 +416,7 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         for (int i = 0; i < static_cast<int>(editor.triggers_.size()); ++i) {
             bool sel = (editor.selKind_ == StageEditor::SelKind::Trigger && editor.selIndex_ == i);
             const TriggerDesc& d = editor.triggers_[i].GetDesc();
-            if (!matchesSearch(d.name) && !matchesSearch(d.flag)) {
+            if (!MatchesSearch(searchTextLower, d.name) && !MatchesSearch(searchTextLower, d.flag)) {
                 continue;
             }
             char label[96];
@@ -380,8 +428,6 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
         }
         ImGui::TreePop();
     }
-
-    ImGui::Separator();
 }
 
 void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
@@ -410,11 +456,9 @@ void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
 void StageEditorHierarchyPanel::Render(StageEditor& editor)
 {
 
-    constexpr float kToolbarHeight = 42.0f;
-    constexpr float kPanelWidth = 280.0f;
-    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - kToolbarHeight) * 0.62f;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, hierarchyHeight), ImGuiCond_Always);
+    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight) * 0.62f;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, StageEditor::kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::kLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("ステージエディタ", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     RenderGuideAndFileActions(editor);
     RenderEntityBrowser(editor);

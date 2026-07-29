@@ -149,7 +149,7 @@ void MapScene::InitializeRenderFoundationAndPlayer()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 18.0f, 4.8f, -24.0f });
+    camera_->SetTranslate({ 18.0f, 4.8f, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 
     player_ = std::make_unique<Player>();
@@ -236,7 +236,7 @@ void MapScene::Update()
     player_->Update(input_, { currentPos.x + player_->GetLastDirX() * 8.0f, currentPos.y, 0.0f });
     Vector3& playerPos = player_->GetPositionRef();
     playerPos.x = std::clamp(playerPos.x, 2.5f, 63.5f);
-    camera_->SetTranslate({ std::clamp(playerPos.x, 12.0f, 54.0f), 4.8f, -24.0f });
+    camera_->SetTranslate({ std::clamp(playerPos.x, 12.0f, 54.0f), 4.8f, GameConstants::kCameraDistanceZ });
     player_->RefreshVisualTransforms();
 
     shadowManager_->Update(objectCommon_->GetLightDirection());

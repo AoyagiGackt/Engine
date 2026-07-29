@@ -97,7 +97,7 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
     // 寄り道の収集物をデータ列から生成し、表示位置と回収状態をまとめて所有する
     scene.energyCoreModel_ = std::make_unique<Model>();
     scene.energyCoreModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/circle2.png");
+        "Resources/block/block.obj", "Resources/Effects/circle2.png");
     constexpr Vector3 kEnergyCorePositions[] = {
         { 9.5f, 2.3f, 0.0f }, { 15.5f, 4.1f, 0.0f }, { 21.0f, 6.1f, 0.0f }
     };

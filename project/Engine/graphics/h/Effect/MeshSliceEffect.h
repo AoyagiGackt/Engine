@@ -118,6 +118,13 @@ private:
     static void ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
         std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints);
 
+    /**
+     * @brief 2頂点(位置・法線・UV等)を線形補間する。ClipTriangleが平面との交点を作る際に使う
+     * @param a 始点側の頂点
+     * @param b 終点側の頂点
+     * @param t 補間係数（0でa、1でb）
+     * @return 補間後の頂点
+     */
     static SliceVertex LerpVertex(const SliceVertex& a, const SliceVertex& b, float t);
 
     engine::DirectXCommon* dxCommon_ = nullptr;

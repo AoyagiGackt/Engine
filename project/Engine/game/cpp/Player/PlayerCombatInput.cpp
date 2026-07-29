@@ -253,6 +253,9 @@ void Player::HandleWeaponSkill(Input* input)
         axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
         axeRageTimer_ = (std::max)(axeRageTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
+        // グレートソード投げ回転斬りの進行も、装備武器を切り替えている間だけ凍結しないよう常に進める
+        UpdateGreatswordThrowState(input);
+
         GetWeaponBehavior(wtype).Update(*this, input);
 
         // Ball モード以外 / 着地時はスピン角をリセット

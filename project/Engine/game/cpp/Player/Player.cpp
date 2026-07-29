@@ -518,14 +518,22 @@ void Player::AttachActiveWeapons()
             }
         }
     }
-    if (activeHeldIndex_ >= 0) {
+    if (activeHeldIndex_ >= 0 && !(heldWeapons_[activeHeldIndex_].type == WeaponType::Greatsword && greatswordThrowActive_)) {
         auto& slot = heldWeapons_[activeHeldIndex_];
-        if (slot.type == WeaponType::Greatsword && greatswordThrowActive_) {
-            // 投げ回転斬りの最中は手のボーンから外し、飛行/渦の位置へ直接動かす
-            UpdateThrownGreatswordVisual(slot);
-        } else {
-            Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
-            AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
+        Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
+        AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
+    }
+
+    // 投げ回転斬りの最中は、途中で他の武器に持ち替えてもactiveHeldIndex_とは別に
+    // 大剣モデルを飛行/渦の位置へ動かし続ける（持ち替え直後に消えて見えないようにする）
+    thrownGreatswordIndex_ = -1;
+    if (greatswordThrowActive_) {
+        for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
+            if (heldWeapons_[i].type == WeaponType::Greatsword) {
+                thrownGreatswordIndex_ = i;
+                UpdateThrownGreatswordVisual(heldWeapons_[i]);
+                break;
+            }
         }
     }
 
@@ -651,6 +659,9 @@ void Player::Draw()
         if (weaponsVisible_ && activeHeldIndex_ >= 0) {
             heldWeapons_[activeHeldIndex_].object->DrawOutline(outline);
         }
+        if (weaponsVisible_ && thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
+            heldWeapons_[thrownGreatswordIndex_].object->DrawOutline(outline);
+        }
         if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
         }
@@ -660,6 +671,9 @@ void Player::Draw()
     // 通常描画
     if (weaponsVisible_ && activeHeldIndex_ >= 0) {
         heldWeapons_[activeHeldIndex_].object->Draw();
+    }
+    if (weaponsVisible_ && thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
+        heldWeapons_[thrownGreatswordIndex_].object->Draw();
     }
     if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();

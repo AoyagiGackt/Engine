@@ -14,7 +14,9 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 static constexpr const char* kAtlasKey = "__fontAtlas__";
+static constexpr const char* kAtlasKeyRegular = "__fontAtlasRegular__";
 static constexpr const char* kJpAtlasKey = "__fontAtlasJp__";
+static constexpr const char* kJpAtlasKeyRegular = "__fontAtlasJpRegular__";
 
 // ひらがな 0x3041-0x3096 (86文字), カタカナ 0x30A0-0x30FF (96文字) は範囲カバー
 // それ以外でゲームUIに使う文字を追加
@@ -29,7 +31,8 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"切替散" // TrainingScene追加
                                   L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
                                   L"締踏込貫通" // 銃コンボのコマンド説明
-                                  L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"; // 全シーンのUI文字列
+                                  L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"
+                                  L"寄押"; // ロックオンUI（最寄り・長押し）
 static constexpr uint32_t kHiraganaStart = 0x3041;
 static constexpr uint32_t kHiraganaEnd = 0x3096;
 static constexpr uint32_t kKatakanaStart = 0x30A0;
@@ -38,9 +41,10 @@ static constexpr int kHiraganaCount = static_cast<int>(kHiraganaEnd - kHiraganaS
 static constexpr int kKatakanaCount = static_cast<int>(kKatakanaEnd - kKatakanaStart + 1); // 96
 static constexpr int kKanaTotal = kHiraganaCount + kKatakanaCount; // 182
 
-void FontRenderer::BuildAtlas()
+void FontRenderer::BuildAtlas(bool bold)
 {
-    if (TextureManager::GetInstance()->HasTexture(kAtlasKey)) {
+    const char* atlasKey = bold ? kAtlasKey : kAtlasKeyRegular;
+    if (TextureManager::GetInstance()->HasTexture(atlasKey)) {
         return;
     }
 
@@ -66,7 +70,7 @@ void FontRenderer::BuildAtlas()
     // フォント  Courier New, 高さ -13px（文字高さ指定）
     LOGFONTA lf { };
     lf.lfHeight = -13;
-    lf.lfWeight = FW_BOLD;
+    lf.lfWeight = bold ? FW_BOLD : FW_NORMAL;
     lf.lfCharSet = ANSI_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
     lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
@@ -114,7 +118,7 @@ void FontRenderer::BuildAtlas()
 
     DeleteObject(hBmp);
 
-    TextureManager::GetInstance()->LoadFromRawRGBA8(kAtlasKey, rgba.data(), kAtlasW, kAtlasH);
+    TextureManager::GetInstance()->LoadFromRawRGBA8(atlasKey, rgba.data(), kAtlasW, kAtlasH);
     // FlushUploads は SceneManager がシーン初期化後に一括で行う
 }
 
@@ -137,17 +141,19 @@ int FontRenderer::GetJpGlyphIdx(wchar_t c) const
     return -1;
 }
 
-void FontRenderer::BuildJpAtlas()
+void FontRenderer::BuildJpAtlas(bool bold)
 {
-    if (TextureManager::GetInstance()->HasTexture(kJpAtlasKey)) {
+    const char* atlasKey = bold ? kJpAtlasKey : kJpAtlasKeyRegular;
+    if (TextureManager::GetInstance()->HasTexture(atlasKey)) {
         return;
     }
 
     int extraCount = static_cast<int>(wcslen(kJpExtra));
     int totalGlyphs = kKanaTotal + extraCount;
-    jpAtlasRows_ = (totalGlyphs + kJpCols - 1) / kJpCols;
+    int atlasRows = (totalGlyphs + kJpCols - 1) / kJpCols;
+    (bold ? jpAtlasRows_ : jpAtlasRowsRegular_) = atlasRows;
     int atlasW = kJpCols * kJpCharW; // 256
-    int atlasH = jpAtlasRows_ * kJpCharH;
+    int atlasH = atlasRows * kJpCharH;
 
     BITMAPINFO bmi { };
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -167,7 +173,7 @@ void FontRenderer::BuildJpAtlas()
 
     LOGFONTW lf { };
     lf.lfHeight = -(kJpCharH - 2);
-    lf.lfWeight = FW_BOLD;
+    lf.lfWeight = bold ? FW_BOLD : FW_NORMAL;
     lf.lfCharSet = DEFAULT_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
     lf.lfQuality = ANTIALIASED_QUALITY;
@@ -218,37 +224,47 @@ void FontRenderer::BuildJpAtlas()
     }
     DeleteObject(hBmp);
 
-    TextureManager::GetInstance()->LoadFromRawRGBA8(kJpAtlasKey, rgba.data(), atlasW, atlasH);
+    TextureManager::GetInstance()->LoadFromRawRGBA8(atlasKey, rgba.data(), atlasW, atlasH);
     // FlushUploads は SceneManager がシーン初期化後に一括で行う
 }
 
 void FontRenderer::Initialize(SpriteCommon* spriteCommon)
 {
     spriteCommon_ = spriteCommon;
-    BuildAtlas();
-    BuildJpAtlas();
+    BuildAtlas(true);
+    BuildAtlas(false);
+    BuildJpAtlas(true);
+    BuildJpAtlas(false);
 
     sprites_.resize(kMaxChars);
     for (auto& s : sprites_) {
         s.Initialize(spriteCommon_, kAtlasKey);
+    }
+    spritesRegular_.resize(kMaxRegularChars);
+    for (auto& s : spritesRegular_) {
+        s.Initialize(spriteCommon_, kAtlasKeyRegular);
     }
 
     jpSprites_.resize(kMaxChars);
     for (auto& s : jpSprites_) {
         s.Initialize(spriteCommon_, kJpAtlasKey);
     }
+    jpSpritesRegular_.resize(kMaxRegularChars);
+    for (auto& s : jpSpritesRegular_) {
+        s.Initialize(spriteCommon_, kJpAtlasKeyRegular);
+    }
 }
 
 void FontRenderer::DrawString(const std::string& text, float x, float y,
-    float scale, const Vector4& color)
+    float scale, const Vector4& color, bool bold)
 {
-    cmds_.push_back({ text, x, y, scale, color });
+    cmds_.push_back({ text, x, y, scale, color, bold });
 }
 
 void FontRenderer::DrawStringW(const std::wstring& text, float x, float y,
-    float scale, const Vector4& color)
+    float scale, const Vector4& color, bool bold)
 {
-    cmdsW_.push_back({ text, x, y, scale, color });
+    cmdsW_.push_back({ text, x, y, scale, color, bold });
 }
 
 void FontRenderer::Reset()
@@ -256,17 +272,22 @@ void FontRenderer::Reset()
     cmds_.clear();
     cmdsW_.clear();
     spriteIdx_ = 0;
+    spriteRegularIdx_ = 0;
     jpSpriteIdx_ = 0;
+    jpSpriteRegularIdx_ = 0;
 }
 
 void FontRenderer::Draw()
 {
     // ── ASCII 文字列 ──────────────────────────────────────────────────
     for (const auto& cmd : cmds_) {
+        auto& pool = cmd.bold ? sprites_ : spritesRegular_;
+        auto& poolIdx = cmd.bold ? spriteIdx_ : spriteRegularIdx_;
+        const int poolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
         float cx = cmd.x;
         for (unsigned char c : cmd.text) {
-            if (spriteIdx_ >= kMaxChars) {
-                return;
+            if (poolIdx >= poolMax) {
+                break;
             }
             int idx = static_cast<int>(c) - kCharBase;
             if (idx < 0 || idx >= kCols * kRows) {
@@ -275,7 +296,7 @@ void FontRenderer::Draw()
             }
             int col = idx % kCols;
             int row = idx / kCols;
-            auto& s = sprites_[spriteIdx_++];
+            auto& s = pool[poolIdx++];
             s.SetPosition({ cx, cmd.y });
             s.SetSize({ (float)kCharW * cmd.scale, (float)kCharH * cmd.scale });
             s.SetTextureLeftTop({ (float)(col * kCharW), (float)(row * kCharH) });
@@ -289,15 +310,21 @@ void FontRenderer::Draw()
 
     // ── 日本語（ASCII 混在可）ワイド文字列 ────────────────────────────
     for (const auto& cmd : cmdsW_) {
+        auto& pool = cmd.bold ? sprites_ : spritesRegular_;
+        auto& poolIdx = cmd.bold ? spriteIdx_ : spriteRegularIdx_;
+        const int poolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
+        auto& jpPool = cmd.bold ? jpSprites_ : jpSpritesRegular_;
+        auto& jpPoolIdx = cmd.bold ? jpSpriteIdx_ : jpSpriteRegularIdx_;
+        const int jpPoolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
         float cx = cmd.x;
         for (wchar_t wc : cmd.text) {
             if (wc < 128) {
                 // ASCII 部分 → ASCII アトラス
                 int idx = static_cast<int>(wc) - kCharBase;
-                if (idx >= 0 && idx < kCols * kRows && spriteIdx_ < kMaxChars) {
+                if (idx >= 0 && idx < kCols * kRows && poolIdx < poolMax) {
                     int col = idx % kCols;
                     int row = idx / kCols;
-                    auto& s = sprites_[spriteIdx_++];
+                    auto& s = pool[poolIdx++];
                     s.SetPosition({ cx, cmd.y });
                     s.SetSize({ (float)kCharW * cmd.scale, (float)kCharH * cmd.scale });
                     s.SetTextureLeftTop({ (float)(col * kCharW), (float)(row * kCharH) });
@@ -310,10 +337,10 @@ void FontRenderer::Draw()
             } else {
                 // 日本語 → JP アトラス
                 int jpIdx = GetJpGlyphIdx(wc);
-                if (jpIdx >= 0 && jpSpriteIdx_ < kMaxChars) {
+                if (jpIdx >= 0 && jpPoolIdx < jpPoolMax) {
                     int col = jpIdx % kJpCols;
                     int row = jpIdx / kJpCols;
-                    auto& s = jpSprites_[jpSpriteIdx_++];
+                    auto& s = jpPool[jpPoolIdx++];
                     s.SetPosition({ cx, cmd.y });
                     s.SetSize({ (float)kJpCharW * cmd.scale, (float)kJpCharH * cmd.scale });
                     s.SetTextureLeftTop({ (float)(col * kJpCharW), (float)(row * kJpCharH) });

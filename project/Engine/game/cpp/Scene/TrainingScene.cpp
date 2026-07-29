@@ -74,7 +74,7 @@ void TrainingScene::InitializeCoreSystems()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 14.5f, 6.0f, -24.0f });
+    camera_->SetTranslate({ 14.5f, 6.0f, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 }
 
@@ -92,15 +92,7 @@ void TrainingScene::InitializeStageModels()
         "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
         "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
     for (float x : { 5.0f, 16.0f, 27.0f }) {
-        auto city = std::make_unique<Object3d>();
-        city->Initialize(modelCommon_.get());
-        city->SetModel(cityBackgroundModel_.get());
-        city->SetPosition({ x, -0.6f, 6.0f });
-        city->SetScale({ 0.42f, 0.42f, 0.42f });
-        city->Update();
-        GetStageEditor().RegisterExternalObject(
-            "Background Building " + std::to_string(cityBackgroundObjects_.size() + 1), city.get());
-        cityBackgroundObjects_.push_back(std::move(city));
+        SpawnCityBuilding({ x, -0.6f, 6.0f }, { 0.42f, 0.42f, 0.42f });
     }
 
     for (int i = 0; i < 5; ++i) {
@@ -113,6 +105,36 @@ void TrainingScene::InitializeStageModels()
         p->Update();
         warpPortalBlocks_.push_back(std::move(p));
     }
+}
+
+void TrainingScene::SpawnCityBuilding(const Vector3& position, const Vector3& scale)
+{
+    auto city = std::make_unique<Object3d>();
+    city->Initialize(modelCommon_.get());
+    city->SetModel(cityBackgroundModel_.get());
+    city->SetPosition(position);
+    city->SetScale(scale);
+    city->Update();
+
+    Object3d* rawCity = city.get();
+    cityBackgroundObjects_.push_back(std::move(city));
+
+    const std::string name = "Background Building " + std::to_string(++cityBuildingSerial_);
+    GetStageEditor().RegisterExternalObject(
+        name, rawCity,
+        [this, rawCity]() {
+            // Hierarchyの「選択を削除」から呼ばれる。描画中のGPUリソースをそのまま破棄しないよう待つ
+            if (dxCommon_) {
+                dxCommon_->WaitForGpu();
+            }
+            std::erase_if(cityBackgroundObjects_,
+                [rawCity](const std::unique_ptr<Object3d>& obj) { return obj.get() == rawCity; });
+        },
+        [this, rawCity]() {
+            // Hierarchyの「複製」から呼ばれる。同じ見た目をXへ少しずらして増やす（複製もさらに複製/削除できる）
+            const engine::Transform& t = rawCity->GetTransform();
+            SpawnCityBuilding({ t.translate.x + 1.0f, t.translate.y, t.translate.z }, t.scale);
+        });
 }
 
 void TrainingScene::InitializePlayerAndBullets()
@@ -323,7 +345,6 @@ void TrainingScene::DrawHud(bool nearWarpPortal)
 {
     DrawWeaponHud(nearWarpPortal);
     DrawDebugHud();
-    SceneShared::DrawControlsHud(fontRenderer_, L": バトルテストへ移動");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
 }
@@ -442,6 +463,7 @@ void TrainingScene::Draw()
         awakenGaugeFg_->Draw();
     }
     SlashMark::GetInstance()->Draw();
+    GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
 }
 

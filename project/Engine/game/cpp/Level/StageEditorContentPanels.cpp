@@ -58,6 +58,7 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     // 種類が一目で分かるようタグを付ける（配置物はタグ無し）
     const char* kindTag = (desc.kind == "enemy_knight") ? "[ナイト] "
         : (desc.kind == "enemy_basic")                  ? "[エネミー] "
+        : (desc.kind == "ui_text")                      ? "[テキスト] "
                                                         : "";
 
     // 深さぶんインデントして親子関係を視覚化する
@@ -94,9 +95,6 @@ void StageEditor::RenderHierarchy()
 
 void StageEditor::RenderEditorToolbar()
 {
-    constexpr float kLeftPanelWidth = 280.0f;
-    constexpr float kRightPanelWidth = 300.0f;
-    constexpr float kToolbarHeight = 42.0f;
     const float toolbarWidth = static_cast<float>(WinApp::kClientWidth) - kLeftPanelWidth - kRightPanelWidth;
 
     ImGui::SetNextWindowPos(ImVec2(kLeftPanelWidth, 0.0f), ImGuiCond_Always);
@@ -117,6 +115,9 @@ void StageEditor::RenderEditorToolbar()
     ImGui::Checkbox("イベント", &showNoCodeEventPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("Wave", &showWavePanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("テキスト表示", &showUIText_);
+    EditorUI::HelpMarker("配置物の邪魔になる時、ui_textのマーカーと表示だけを一時的に隠します（保存内容には影響しません）");
     ImGui::SameLine();
     if (ImGui::Button("最大化 F4")) {
         viewportFocusMode_ = true;
@@ -147,12 +148,10 @@ void StageEditor::RenderInspector()
 
 void StageEditor::RenderAssetPalette()
 {
-    constexpr float kToolbarHeight = 42.0f;
-    constexpr float kPanelWidth = 280.0f;
     const float availableHeight = static_cast<float>(WinApp::kClientHeight) - kToolbarHeight;
     const float hierarchyHeight = availableHeight * 0.62f;
     ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(kLeftPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("アセットパレット", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる
@@ -219,6 +218,14 @@ void StageEditor::RenderWorkflowPanel()
     if (ImGui::Button("配置", ImVec2(140.0f, 0.0f))) {
         InstantiatePrefab();
     }
+
+    ImGui::SeparatorText("操作説明パネル");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##controlsHudPortalLabel", "ENTER行の説明（例: 決定）", controlsHudPortalLabel_, sizeof(controlsHudPortalLabel_));
+    if (ImGui::Button("操作説明を生成", ImVec2(-1.0f, 0.0f))) {
+        GenerateControlsHudText();
+    }
+    EditorUI::HelpMarker("移動・攻撃・武器切替などの操作一覧をui_textとして一括生成します\n生成後は通常のテキストと同様に1行ずつドラッグ移動・非表示・文言編集ができます");
 
     ImGui::Checkbox("30秒ごとに自動保存", &autoSaveEnabled_);
     if (ImGui::Button("ステージ解析")) {

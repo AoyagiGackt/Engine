@@ -307,11 +307,11 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     // 画面に映り込まないようにする
     const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
     const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
-    const float cameraTargetY = playerPos.y + 3.0f;
+    const float cameraTargetY = playerPos.y + GameConstants::kCameraFollowOffsetY;
     const float cameraY = cameraMinY <= cameraMaxY
         ? std::clamp(cameraTargetY, cameraMinY, cameraMaxY)
         : (stageBottom + stageTop) * 0.5f;
-    camera->SetTranslate({ cameraX, cameraY, -24.0f });
+    camera->SetTranslate({ cameraX, cameraY, GameConstants::kCameraDistanceZ });
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
@@ -328,18 +328,30 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
 {
     constexpr float kScale = 1.15f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
-    constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
-    constexpr Vector4 kColorSel = { 1.0f, 1.0f, 0.2f, 1.0f };
-    constexpr Vector4 kColorLocked = { 0.45f, 0.45f, 0.45f, 0.8f };
-    constexpr Vector4 kColorHint = { 0.6f, 0.6f, 0.6f, 1.0f };
+    // 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
+    constexpr Vector4 kColorHeader = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
+    constexpr Vector4 kColorNormal = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
+    constexpr Vector4 kColorSel = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
+    constexpr Vector4 kColorLocked = { 0.55f, 0.50f, 0.40f, 0.85f };
+    constexpr Vector4 kColorHint = { 0.80f, 0.76f, 0.65f, 1.0f };
+    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+    constexpr float kShadowOffset = 1.6f;
 
     float px = 12.0f;
     float py = 12.0f;
 
-    fontRenderer.DrawStringW(headerText, px, py, kScale, kColorHeader);
+    auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
+        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
+        fontRenderer.DrawStringW(text, x, y, kScale, color);
+    };
+    auto drawShadowed = [&](const std::string& text, float x, float y, const Vector4& color) {
+        fontRenderer.DrawString(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
+        fontRenderer.DrawString(text, x, y, kScale, color);
+    };
+
+    drawShadowedW(headerText, px, py, kColorHeader);
     py += kLineH + 2.0f;
-    fontRenderer.DrawStringW(L"-- 武器選択 --", px, py, kScale, kColorNormal);
+    drawShadowedW(L"-- 武器選択 --", px, py, kColorNormal);
     py += kLineH + 2.0f;
 
     const auto& weaponList = weaponManager->GetList();
@@ -355,7 +367,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         } else {
             std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
-        fontRenderer.DrawString(buf, px, py, kScale,
+        drawShadowed(buf, px, py,
             selected ? kColorSel : occupied ? kColorNormal
                                             : kColorLocked);
         py += kLineH;
@@ -365,45 +377,13 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     py += 2.0f;
     const RangedWeaponData& gun = weaponManager->GetRanged();
     std::wstring gunLine = L"銃[G]: " + gun.nameJp;
-    fontRenderer.DrawStringW(gunLine, px, py, kScale, kColorSel);
+    drawShadowedW(gunLine, px, py, kColorSel);
     py += kLineH;
 
     py += 4.0f;
-    fontRenderer.DrawStringW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kScale, kColorHint);
+    drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kColorHint);
     py += kLineH;
     return py;
-}
-
-void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabel)
-{
-    // ── 操作説明（右パネル） ─────────────────────────────────────────
-    constexpr float kIx = 940.0f;
-    constexpr float kIS = 1.05f;
-    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-    constexpr Vector4 kCH = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kCD = { 0.72f, 0.72f, 0.72f, 1.0f };
-    float iy = 12.0f;
-
-    fontRenderer.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
-    iy += kILineH + 2.0f;
-
-    auto row = [&](const char* key, const wchar_t* desc) {
-        std::wstring line(key, key + std::strlen(key));
-        line += desc;
-        fontRenderer.DrawStringW(line, kIx, iy, kIS, kCD);
-        iy += kILineH;
-    };
-    row("A / D  ", L": 移動");
-    row("W      ", L": ジャンプ");
-    row("L      ", L": コンボ (x3)");
-    row("K      ", L": 銃コンボ");
-    row("G      ", L": 銃切替");
-    row("SPACE  ", L": 武器固有技");
-    row("Q / E  ", L": 武器切替");
-    row("1 - 4  ", L": スロット直接選択");
-    row("ENTER  ", portalActionLabel);
-    row("R      ", L": 覚醒発動");
-    row("F      ", L": フィニッシャー");
 }
 
 void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fgSprite,

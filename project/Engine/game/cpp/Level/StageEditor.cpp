@@ -589,6 +589,9 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         if (desc.kind == "terrain" && !desc.solid) {
             issues.push_back("Terrainの当たり判定が無効です: " + desc.name);
         }
+        if (desc.kind == "ui_text" && desc.text.empty()) {
+            issues.push_back("表示文字列が空です: " + desc.name);
+        }
         if (!desc.activationFlag.empty()) {
             bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
                 return trigger.GetDesc().flag == desc.activationFlag;

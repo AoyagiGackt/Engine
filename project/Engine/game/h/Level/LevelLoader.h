@@ -24,6 +24,7 @@ struct ObjectDesc {
     std::string parent; // 親オブジェクトのname（空なら親なし）子のpositionは親からの相対位置になる
     std::string type; // "static" | "row"
     // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
+    // | "ui_text"（Object3dを生成せず、StageEditor::DrawUITextがFontRendererで文字列を描画する。以下のtext系フィールド専用）
     // enemy系はStageEditorが実際にHPを持つ敵インスタンスとして生成する（model/texture/type/axis/count/stepは無視される）
     std::string kind = "prop";
     std::string model; // OBJ ファイルパス
@@ -53,6 +54,13 @@ struct ObjectDesc {
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
     float step = 1.0f; // 間隔
+
+    // "ui_text" 専用（画面またはワールドに文字列を表示する）
+    std::string text; // 表示文字列（UTF-8、複数行可）
+    Vector4 textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    bool textBold = false;
+    float textScale = 1.5f;
+    std::string textSpace = "screen"; // "screen"（position.x/yをスクリーンpx座標として使う）| "world"（ワールド座標をカメラ基準で画面へ投影する）
 };
 
 // JSON の1エントリに対応するトリガー定義

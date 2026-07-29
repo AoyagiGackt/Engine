@@ -5,6 +5,7 @@
 #pragma once
 #include "Animation.h"
 #include "CollisionConfig.h"
+#include "IEnemyEntity.h"
 #include "MakeAffine.h"
 #include "Model.h"
 #include "Object3d.h"
@@ -34,7 +35,7 @@ using engine::graphics::SkinnedObject3d;
  *       エンジンのAssimpビルドがFBXインポーターを含まないため、色付けのみ済んだOBJ版を使う。
  *       派手なテレポート斬りではなく、抑制的で静かな立ち回りを意識した動き。
  */
-class KnightEnemy {
+class KnightEnemy : public IEnemyEntity {
 public:
     void Initialize(ModelCommon* modelCommon, const Vector3& spawnPos);
 
@@ -47,7 +48,7 @@ public:
      * @note ステージエディタ中、カメラだけ動く状況で呼ばないと古いカメラ行列のまま
      * 描画されて画面に張り付いて見える（Player::RefreshVisualTransformsと同じ理由）
      */
-    void RefreshVisualTransforms();
+    void RefreshVisualTransforms() override;
 
     /**
      * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
@@ -67,9 +68,9 @@ public:
     /** @brief 通常行動中（攻撃で倒せる状態）か */
     bool IsAlive() const;
     /** @brief 現在のHPを返す */
-    int GetHp() const { return hp_; }
+    int GetHp() const override { return hp_; }
     /** @brief 最大HPを返す */
-    int GetMaxHp() const { return kMaxHp; }
+    int GetMaxHp() const override { return kMaxHp; }
     /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
     bool IsAwaitingSteal() const { return state_ == State::Defeated; }
     /** @brief 吸収演出が完全に終わり消滅したか */
@@ -83,9 +84,9 @@ public:
      */
     bool TryBeginAbsorb();
 
-    Vector3 GetPosition() const { return pos_; }
+    Vector3 GetPosition() const override { return pos_; }
     /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
-    Vector3& GetPositionRef() { return pos_; }
+    Vector3& GetPositionRef() override { return pos_; }
     AABB GetAABB() const
     {
         return { { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },

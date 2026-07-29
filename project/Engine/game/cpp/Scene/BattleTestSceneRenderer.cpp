@@ -97,6 +97,7 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
     }
 
     if (scene.showHud_) {
+        scene.GetStageEditor().DrawUIText(scene.fontRenderer_);
         scene.fontRenderer_.Draw();
     }
 

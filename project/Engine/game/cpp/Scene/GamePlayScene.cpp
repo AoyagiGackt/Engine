@@ -79,7 +79,7 @@ void GamePlayScene::InitializeRenderFoundation()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
+    camera_->SetTranslate({ 19.0f, 6.0f, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 
     modelSkydome_ = std::make_unique<Model>();
