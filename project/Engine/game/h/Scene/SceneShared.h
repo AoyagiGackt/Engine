@@ -120,8 +120,17 @@ namespace SceneShared {
     bool UpdatePortalTransition(engine::Input* input, const Vector3& playerPos,
         float portalX, float proximity, const char* targetSceneName);
 
-    /** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
-    float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText);
+    /**
+     * @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す
+     * @param anchor 描画開始位置（スクリーンpx）ステージエディタのhud_anchor("hud_anchor_weapon_list")で編集する
+     */
+    float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor);
+
+    /**
+     * @brief 右側の操作説明パネルを描画する
+     * @param anchor 描画開始位置（スクリーンpx）ステージエディタのhud_anchor("hud_anchor_controls")で編集する
+     */
+    void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel);
 
     /** @brief 覚醒ゲージUIを描画する */
     void DrawAwakenGaugeHud(FontRenderer& fontRenderer, engine::graphics::Sprite* bgSprite, engine::graphics::Sprite* fgSprite,

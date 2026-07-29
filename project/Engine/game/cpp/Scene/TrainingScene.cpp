@@ -345,6 +345,8 @@ void TrainingScene::DrawHud(bool nearWarpPortal)
 {
     DrawWeaponHud(nearWarpPortal);
     DrawDebugHud();
+    SceneShared::DrawControlsHud(fontRenderer_,
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": バトルテストへ移動");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
 }
@@ -353,7 +355,8 @@ void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
 {
     constexpr float kScale = 1.5f;
 
-    SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"トレーニングルーム");
+    SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"トレーニングルーム",
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f }));
 
     // ワープラベル（ポータルの上）
     if (nearWarpPortal) {

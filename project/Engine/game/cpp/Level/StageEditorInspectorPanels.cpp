@@ -39,10 +39,32 @@ std::string ToProjectRelativePath(const std::string& absolutePath)
     const size_t resourcesPosition = path.find("Resources/");
     return resourcesPosition == std::string::npos ? path : path.substr(resourcesPosition);
 }
+
 } // namespace
 
 namespace engine::game {
 using namespace engine::graphics;
+
+// screen座標のui_text/hud_anchorが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
+// 3Dビュー上でドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
+void StageEditorInspectorPanel::RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc)
+{
+    constexpr float kVisibleAreaTopMargin = 40.0f; // ツールバーのすぐ下は掴みにくいので少し余白を空ける
+    const float visibleLeft = StageEditor::kLeftPanelWidth;
+    const float visibleRight = static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth;
+    const float visibleTop = StageEditor::kToolbarHeight;
+    const bool hiddenByPanel = desc.position.x < visibleLeft || desc.position.x > visibleRight || desc.position.y < visibleTop;
+    if (!hiddenByPanel) {
+        return;
+    }
+    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
+    ImGui::TextDisabled("上の「位置」欄で直接数値を入力するか、下のボタンで一旦ドラッグできる位置へ移動してください");
+    if (ImGui::Button("ドラッグできる位置へ移動")) {
+        editor.RecordUndoSnapshotNow();
+        desc.position.x = (visibleLeft + visibleRight) * 0.5f;
+        desc.position.y = visibleTop + kVisibleAreaTopMargin;
+    }
+}
 
 void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& structuralDirty)
 {
@@ -56,7 +78,9 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
     }
 
     // 名前（親子参照のキーなので、変更時は子の親参照も追従させる）
+    // hud_anchorは固定名でシーン側から検索されるため、名前変更を許すと位置指定が無効化されてしまう
     {
+        ImGui::BeginDisabled(desc.kind == "hud_anchor");
         char nameBuf[96];
         strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
         bool changed = ImGui::InputText("名前", nameBuf, sizeof(nameBuf));
@@ -78,6 +102,7 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
         if (ImGui::IsItemDeactivated()) {
             editor.CommitUndoCapture();
         }
+        ImGui::EndDisabled();
     }
 
     // 親の選択（自分自身と自分の子孫は循環になるため選択肢から除外する）
@@ -472,24 +497,19 @@ void StageEditorInspectorPanel::RenderObjectText(StageEditor& editor)
     }
     EditorUI::HelpMarker("画面座標: 位置のx/yをスクリーンピクセル座標として使います（カメラに影響されず常に同じ位置に表示）\nワールド座標: 位置をワールド座標として扱い、カメラに応じて画面へ投影します");
 
-    // 編集パネル（ツールバー/左カラム/右インスペクタ）と同じ画面領域にある場合、3Dビュー側のマーカーが
-    // パネルの下に隠れてマウスで選択・ドラッグできない。ここで検知して、数値入力に加えて逃がすボタンも用意する
     if (desc.textSpace == "screen") {
-        constexpr float kVisibleAreaTopMargin = 40.0f; // ツールバーのすぐ下は掴みにくいので少し余白を空ける
-        const float visibleLeft = StageEditor::kLeftPanelWidth;
-        const float visibleRight = static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth;
-        const float visibleTop = StageEditor::kToolbarHeight;
-        const bool hiddenByPanel = desc.position.x < visibleLeft || desc.position.x > visibleRight || desc.position.y < visibleTop;
-        if (hiddenByPanel) {
-            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
-            ImGui::TextDisabled("上の「位置」欄で直接数値を入力するか、下のボタンで一旦ドラッグできる位置へ移動してください");
-            if (ImGui::Button("ドラッグできる位置へ移動")) {
-                editor.RecordUndoSnapshotNow();
-                desc.position.x = (visibleLeft + visibleRight) * 0.5f;
-                desc.position.y = visibleTop + kVisibleAreaTopMargin;
-            }
-        }
+        RenderScreenAnchorOcclusionWarning(editor, desc);
     }
+}
+
+void StageEditorInspectorPanel::RenderHudAnchorInspector(StageEditor& editor)
+{
+    auto& desc = editor.objects_[editor.selIndex_].desc;
+    if (desc.kind != "hud_anchor") {
+        return;
+    }
+    ImGui::TextDisabled("「%s」パネルの表示位置マーカーです（文言はコード側で管理、位置だけ上の「位置」欄で編集できます）", desc.text.c_str());
+    RenderScreenAnchorOcclusionWarning(editor, desc);
 }
 
 bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
@@ -505,6 +525,7 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectTransform(editor, structuralDirty, transformDirty);
     RenderObjectGameplay(editor, structuralDirty);
     RenderObjectText(editor);
+    RenderHudAnchorInspector(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
     const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "background" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";

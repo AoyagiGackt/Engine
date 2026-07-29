@@ -41,12 +41,18 @@ constexpr ImU32 kParentLinkLineColor = IM_COL32(255, 255, 255, 90);
 // PickViewportTarget()の最大ピック距離（画面px）これより遠いものはクリック対象にしない
 constexpr float kPickRadiusPx = 40.0f;
 
-// "screen"座標ui_textのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
+// "screen"座標ui_text/hud_anchorのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
 constexpr float kScreenTextMarkerSize = 10.0f;
 constexpr float kScreenTextMarkerLineThickness = 2.0f;
 constexpr float kScreenTextMarkerRectPadding = 3.0f;
 constexpr float kScreenTextLabelGapX = 6.0f;
 constexpr float kScreenTextLabelOffsetY = 8.0f;
+
+// 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text、および武器選択/操作説明の位置マーカーhud_anchor）
+bool IsScreenAnchorObject(const ObjectDesc& d)
+{
+    return (d.kind == "ui_text" && d.textSpace == "screen") || d.kind == "hud_anchor";
+}
 } // namespace
 
 void StageEditor::DrawGizmos()
@@ -78,11 +84,11 @@ void StageEditor::DrawGizmos()
             continue;
         }
 
-        // "screen"座標のui_textはスクリーンpx座標を3Dワールド座標として扱うと、
+        // "screen"座標のui_text/hud_anchorはスクリーンpx座標を3Dワールド座標として扱うと、
         // カメラ投影で画面外/後方に飛んでしまい見えなくなるため、ここだけ2Dで直接描く
-        if (d.kind == "ui_text" && d.textSpace == "screen") {
+        if (IsScreenAnchorObject(d)) {
             ImDrawList* dl = ImGui::GetForegroundDrawList();
-            const ImU32 color = sel ? DiagnosticsDraw::kColorYellow : DiagnosticsDraw::kColorCyan;
+            const ImU32 color = sel ? DiagnosticsDraw::kColorYellow : (d.kind == "hud_anchor" ? DiagnosticsDraw::kColorMagenta : DiagnosticsDraw::kColorCyan);
             const ImVec2 p(d.position.x, d.position.y);
             dl->AddLine({ p.x - kScreenTextMarkerSize, p.y }, { p.x + kScreenTextMarkerSize, p.y }, color, kScreenTextMarkerLineThickness);
             dl->AddLine({ p.x, p.y - kScreenTextMarkerSize }, { p.x, p.y + kScreenTextMarkerSize }, color, kScreenTextMarkerLineThickness);
@@ -313,8 +319,8 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
         if (d.kind == "ui_text" && !showUIText_) {
             continue;
         }
-        // "screen"座標のui_textはpositionが既にスクリーンpx座標なので、3D投影せずマウスと直接比較する
-        if (d.kind == "ui_text" && d.textSpace == "screen") {
+        // "screen"座標のui_text/hud_anchorはpositionが既にスクリーンpx座標なので、3D投影せずマウスと直接比較する
+        if (IsScreenAnchorObject(d)) {
             float dx = d.position.x - mouseX;
             float dy = d.position.y - mouseY;
             float dist = std::sqrt(dx * dx + dy * dy);
@@ -397,9 +403,8 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY)
     // （エンティティはスナップショット対象外なので、動かしても確定時に捨てられる）
     BeginUndoCapture();
 
-    // "screen"座標のui_textはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
-    const bool screenSpaceText = (bestKind == SelKind::Object
-        && objects_[bestIdx].desc.kind == "ui_text" && objects_[bestIdx].desc.textSpace == "screen");
+    // "screen"座標のui_text/hud_anchorはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
+    const bool screenSpaceText = (bestKind == SelKind::Object && IsScreenAnchorObject(objects_[bestIdx].desc));
     if (screenSpaceText) {
         dragGrabOffsetX_ = objects_[bestIdx].desc.position.x - mouseX;
         dragGrabOffsetY_ = objects_[bestIdx].desc.position.y - mouseY;
@@ -439,8 +444,8 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY)
     const bool mouseMoved = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
 
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
-        && objects_[selIndex_].desc.kind == "ui_text" && objects_[selIndex_].desc.textSpace == "screen") {
-        // スクリーン座標のテキストはワールド平面と無関係なので、マウスのピクセル位置へそのまま追従させる（Z移動もない）
+        && IsScreenAnchorObject(objects_[selIndex_].desc)) {
+        // スクリーン座標のテキスト/hud_anchorはワールド平面と無関係なので、マウスのピクセル位置へそのまま追従させる（Z移動もない）
         ObjectDesc& desc = objects_[selIndex_].desc;
         desc.position.x = mouseX + dragGrabOffsetX_;
         desc.position.y = mouseY + dragGrabOffsetY_;

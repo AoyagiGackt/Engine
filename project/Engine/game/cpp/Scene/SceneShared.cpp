@@ -324,7 +324,7 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     return isNear;
 }
 
-float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText)
+float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor)
 {
     constexpr float kScale = 1.15f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
@@ -337,8 +337,8 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
     constexpr float kShadowOffset = 1.6f;
 
-    float px = 12.0f;
-    float py = 12.0f;
+    const float px = anchor.x;
+    float py = anchor.y;
 
     auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
         fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
@@ -384,6 +384,47 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kColorHint);
     py += kLineH;
     return py;
+}
+
+void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel)
+{
+    // ── 操作説明（右パネル） ─────────────────────────────────────────
+    // 明るいブロックの上に乗ると薄い色の文字が背景に埋もれるため、色自体を変えるだけでなく
+    // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
+    const float kIx = anchor.x;
+    constexpr float kIS = 1.05f;
+    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
+    constexpr Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
+    constexpr Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
+    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+    constexpr float kShadowOffset = 1.6f;
+    float iy = anchor.y;
+
+    auto drawShadowed = [&](const std::wstring& text, float y, const Vector4& color) {
+        fontRenderer.DrawStringW(text, kIx + kShadowOffset, y + kShadowOffset, kIS, kShadow);
+        fontRenderer.DrawStringW(text, kIx, y, kIS, color);
+    };
+
+    drawShadowed(L"-- 操作説明 --", iy, kCH);
+    iy += kILineH + 2.0f;
+
+    auto row = [&](const char* key, const wchar_t* desc) {
+        std::wstring line(key, key + std::strlen(key));
+        line += desc;
+        drawShadowed(line, iy, kCD);
+        iy += kILineH;
+    };
+    row("A / D  ", L": 移動");
+    row("W      ", L": ジャンプ");
+    row("L      ", L": コンボ (x3)");
+    row("K      ", L": 銃コンボ");
+    row("G      ", L": 銃切替");
+    row("SPACE  ", L": 武器固有技");
+    row("Q / E  ", L": 武器切替");
+    row("1 - 4  ", L": スロット直接選択");
+    row("ENTER  ", portalActionLabel);
+    row("R      ", L": 覚醒発動");
+    row("F      ", L": フィニッシャー");
 }
 
 void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fgSprite,

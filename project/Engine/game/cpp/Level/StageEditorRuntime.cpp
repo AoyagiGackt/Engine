@@ -183,60 +183,35 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selectedObjectIndices_ = { selIndex_ };
 }
 
-void StageEditor::GenerateControlsHudText()
+void StageEditor::EnsureHudAnchors()
 {
-#ifdef USE_IMGUI
-    RecordUndoSnapshotNow();
-
-    // 旧DrawControlsHud()と同じ見た目になるよう、位置・色・行間をそのまま踏襲する
-    constexpr float kIx = 1020.0f;
-    constexpr float kStartY = 12.0f;
-    constexpr float kIS = 1.05f;
-    constexpr float kLineGap = 2.0f;
-    constexpr float kHeaderExtraGap = 2.0f; // 見出しの次の行だけ空ける追加余白
-    const float kILineH = FontRenderer::kCharH * kIS + kLineGap;
-    const Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
-    const Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
-
-    struct Row {
-        std::string text;
-        Vector4 color;
-    };
-    const std::vector<Row> rows = {
-        { "-- 操作説明 --", kCH },
-        { "A / D  : 移動", kCD },
-        { "W      : ジャンプ", kCD },
-        { "L      : コンボ (x3)", kCD },
-        { "K      : 銃コンボ", kCD },
-        { "G      : 銃切替", kCD },
-        { "SPACE  : 武器固有技", kCD },
-        { "Q / E  : 武器切替", kCD },
-        { "1 - 4  : スロット直接選択", kCD },
-        { "ENTER  : " + std::string(controlsHudPortalLabel_), kCD },
-        { "R      : 覚醒発動", kCD },
-        { "F      : フィニッシャー", kCD },
-    };
-
-    float y = kStartY;
-    for (size_t i = 0; i < rows.size(); ++i) {
+    auto ensureAnchor = [&](const std::string& name, const std::string& label, const Vector3& defaultPos) {
+        for (const auto& entry : objects_) {
+            if (entry.desc.name == name) {
+                return;
+            }
+        }
         ObjectEntry entry;
-        entry.desc.name = "obj_" + std::to_string(nextSerial_++);
-        entry.desc.kind = "ui_text";
-        entry.desc.text = rows[i].text;
-        entry.desc.textColor = rows[i].color;
-        entry.desc.textScale = kIS;
-        entry.desc.textSpace = "screen";
-        entry.desc.position = { kIx, y, 0.0f };
+        entry.desc.name = name;
+        entry.desc.kind = "hud_anchor";
+        entry.desc.text = label;
+        entry.desc.position = defaultPos;
         entry.runtimeActive = true;
         objects_.push_back(std::move(entry));
-        // 見出しの次だけ本文開始前に1行ぶん余白を足す（旧DrawControlsHudのiy += kILineH + 2.0fに合わせる）
-        y += (i == 0) ? (kILineH + kHeaderExtraGap) : kILineH;
-    }
+    };
+    // 既定位置は、これまでコード側に直書きされていた各HUDの原点座標と同じにする
+    ensureAnchor("hud_anchor_controls", "操作説明", { 1020.0f, 12.0f, 0.0f });
+    ensureAnchor("hud_anchor_weapon_list", "武器選択", { 12.0f, 12.0f, 0.0f });
+}
 
-    dirty_ = true;
-    statusMessage_ = "操作説明パネルを" + std::to_string(rows.size()) + "件のテキストとして生成しました";
-    statusTimer_ = 3.0f;
-#endif
+Vector2 StageEditor::GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const
+{
+    for (const auto& entry : objects_) {
+        if (entry.desc.kind == "hud_anchor" && entry.desc.name == anchorName) {
+            return { entry.desc.position.x, entry.desc.position.y };
+        }
+    }
+    return fallback;
 }
 
 void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,

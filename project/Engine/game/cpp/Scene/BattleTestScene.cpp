@@ -446,6 +446,8 @@ void BattleTestScene::UpdateTargetLock()
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
+    SceneShared::DrawControlsHud(fontRenderer_,
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
@@ -480,9 +482,10 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
         fontRenderer_.DrawStringW(text, x, y, kScale, kColorHint);
     };
 
-    float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ");
-    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", 12.0f, py);
-    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", 12.0f, py + 24.0f);
+    const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f });
+    float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
+    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
+    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + 24.0f);
 
     // 戻りポータルのラベル
     if (nearReturnPortal) {

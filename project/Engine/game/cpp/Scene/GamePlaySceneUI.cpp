@@ -137,6 +137,8 @@ void GamePlayScene::DrawStyleUI()
 
     DrawStageGuide();
     DrawRogueliteHUD();
+    SceneShared::DrawControlsHud(fontRenderer_,
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": ステージを進む");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_);
     if (enemy_->IsDefeated() && !weaponStealTriggered_) {

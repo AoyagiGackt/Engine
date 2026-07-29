@@ -96,6 +96,7 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
 
     // EnemyRegistryへの登録キーになるため、実体を生成する前に名前を確定させる
     EnsureUniqueNames(); // 手書きJSON等で名前が無い/重複しているエントリに自動命名する（親子参照に必要）
+    EnsureHudAnchors(); // 操作説明/武器選択パネルの位置マーカーが無ければ既定位置で追加する（旧レベルにも自動で足す）
 
     for (auto& entry : objects_) {
         RegenerateInstances(entry);

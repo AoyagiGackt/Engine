@@ -111,6 +111,15 @@ public:
     void DrawUIText(FontRenderer& font) const;
 
     /**
+     * @brief kind=="hud_anchor"かつ指定nameの位置マーカーのスクリーンpx座標を返す
+     * @param anchorName EnsureHudAnchors()で使う固定名（例: "hud_anchor_controls"）
+     * @param fallback 該当マーカーが無い場合（未対応の古いレベル等）に返す既定位置
+     * @note 武器選択パネル/操作説明パネルのように中身が動的なHUDの「表示位置だけ」を
+     * ステージエディタでドラッグ編集できるようにするための仕組み。文言自体はコード側のまま
+     */
+    Vector2 GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const;
+
+    /**
      * @brief このフレーム中にDrawObjects()が呼ばれ済みかどうか
      * @return 描画済みの場合はtrue
      * @note Scene::Draw()内でHUDより前に自分でDrawObjects()を呼んだ場合、
@@ -436,8 +445,8 @@ private:
     void SaveSelectedPrefab();
     /** @brief 名前付きプレハブを画面中央へ生成する */
     void InstantiatePrefab();
-    /** @brief 旧DrawControlsHud()相当の操作説明パネルをui_text群として一括生成する（以降はステージごとに自由編集できる） */
-    void GenerateControlsHudText();
+    /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
+    void EnsureHudAnchors();
 
     float autoSaveElapsed_ = 0.0f;
     static constexpr float kAutoSaveIntervalSeconds = 30.0f;
@@ -446,7 +455,6 @@ private:
     std::string recoveryPath_;
     std::vector<std::string> validationIssues_;
     char prefabName_[64] = "stage_part";
-    char controlsHudPortalLabel_[64] = "決定"; // GenerateControlsHudText()のENTER行に使う説明文
     StageEditorEventConnection eventConnection_;
     int validationFocusIndex_ = -1;
     char waveGroupName_[64] = "wave_1";

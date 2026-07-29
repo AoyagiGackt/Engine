@@ -308,10 +308,6 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             text.textSpace = "screen";
             text.position = { 100.0f, 100.0f, 0.0f }; // スクリーン座標(px)として使う
         }
-        if (ImGui::MenuItem("操作説明パネル（一括生成）")) {
-            editor.GenerateControlsHudText();
-        }
-        EditorUI::HelpMarker("移動・攻撃・武器切替などの操作一覧をui_textとして一括生成します\nENTER行の説明文を変えたい場合は「制作」パネルの入力欄で先に設定してください");
         if (ImGui::MenuItem("Terrain")) {
             addEntry("terrain", "terrain");
             ObjectDesc& terrain = editor.objects_.back().desc;
