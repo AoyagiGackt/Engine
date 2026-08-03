@@ -5,15 +5,19 @@
  * 敵/巡回/イベント条件の評価）をまとめている。クラス自体はStageEditorのまま、定義の置き場所だけを分けている
  */
 #include "StageEditor.h"
+#include "Camera.h"
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
+#include "FontRenderer.h"
 #include "GameFlags.h"
 #include "KnightEnemy.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "SceneShared.h"
+#include "StringUtility.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cfloat>
@@ -21,6 +25,36 @@
 using namespace engine::game;
 using namespace engine;
 using namespace engine::graphics;
+
+namespace {
+// ObjectDesc::weaponType（Inspectorのコンボボックスと同じ文字列規約）をWeaponTypeへ変換する
+// WeaponManager.cpp内の同名パーサは無名namespace限定で外部から使えないため、ここだけ小さく複製する
+WeaponType ParseEnemyWeaponType(const std::string& type)
+{
+    if (type == "Spear") {
+        return WeaponType::Spear;
+    }
+    if (type == "Hammer") {
+        return WeaponType::Hammer;
+    }
+    if (type == "Dagger") {
+        return WeaponType::Dagger;
+    }
+    if (type == "Ball") {
+        return WeaponType::Ball;
+    }
+    if (type == "Greatsword") {
+        return WeaponType::Greatsword;
+    }
+    if (type == "Scythe") {
+        return WeaponType::Scythe;
+    }
+    if (type == "Axe") {
+        return WeaponType::Axe;
+    }
+    return WeaponType::Sword;
+}
+} // namespace
 
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
 {
@@ -76,7 +110,7 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc));
+            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseEnemyWeaponType(desc.weaponType));
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
         }
@@ -179,6 +213,37 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selectedObjectIndices_ = { selIndex_ };
 }
 
+void StageEditor::EnsureHudAnchors()
+{
+    auto ensureAnchor = [&](const std::string& name, const std::string& label, const Vector3& defaultPos) {
+        for (const auto& entry : objects_) {
+            if (entry.desc.name == name) {
+                return;
+            }
+        }
+        ObjectEntry entry;
+        entry.desc.name = name;
+        entry.desc.kind = "hud_anchor";
+        entry.desc.text = label;
+        entry.desc.position = defaultPos;
+        entry.runtimeActive = true;
+        objects_.push_back(std::move(entry));
+    };
+    // 既定位置は、これまでコード側に直書きされていた各HUDの原点座標と同じにする
+    ensureAnchor("hud_anchor_controls", "操作説明", { 1020.0f, 12.0f, 0.0f });
+    ensureAnchor("hud_anchor_weapon_list", "武器選択", { 12.0f, 12.0f, 0.0f });
+}
+
+Vector2 StageEditor::GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const
+{
+    for (const auto& entry : objects_) {
+        if (entry.desc.kind == "hud_anchor" && entry.desc.name == anchorName) {
+            return { entry.desc.position.x, entry.desc.position.y };
+        }
+    }
+    return fallback;
+}
+
 void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
     std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
     std::function<void(const std::string&, const std::string&)> setStaticVisualModel,
@@ -206,7 +271,8 @@ void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* posit
     externalEntities_.push_back(std::move(ref));
 }
 
-void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object, std::function<void()> onDelete)
+void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object,
+    std::function<void()> onDelete, std::function<void()> onDuplicate)
 {
     if (!object) {
         return;
@@ -217,6 +283,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
             ref.position = position;
             ref.object = object;
             ref.onDelete = std::move(onDelete);
+            ref.onDuplicate = std::move(onDuplicate);
             return;
         }
     }
@@ -225,6 +292,7 @@ void StageEditor::RegisterExternalObject(const std::string& name, Object3d* obje
     ref.position = position;
     ref.object = object;
     ref.onDelete = std::move(onDelete);
+    ref.onDuplicate = std::move(onDuplicate);
     externalEntities_.push_back(std::move(ref));
 }
 
@@ -510,7 +578,7 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.enemy->GetPositionRef() = worldPos;
             entry.enemy->RefreshVisualTransforms();
         } else {
-            entry.enemy->Update();
+            entry.enemy->Update(playerPos.x);
             entry.desc.position = entry.enemy->GetPosition();
         }
     }
@@ -597,6 +665,35 @@ void StageEditor::DrawObjects()
     }
 }
 
+void StageEditor::DrawUIText(FontRenderer& font) const
+{
+    // エディタ編集中だけ、テキスト表示チェックボックスoffで配置物の邪魔にならないよう隠す（実プレイ中は常に表示）
+    if (visible_ && !showUIText_) {
+        return;
+    }
+    float camX = 0.0f;
+    float camY = 0.0f;
+    if (camera_) {
+        const Vector3& camPos = camera_->GetTranslate();
+        camX = camPos.x;
+        camY = camPos.y;
+    }
+    for (const auto& entry : objects_) {
+        const ObjectDesc& desc = entry.desc;
+        if (desc.kind != "ui_text" || !entry.runtimeActive || desc.text.empty()) {
+            continue;
+        }
+        const Vector3 pos = WorldPositionOf(desc);
+        float screenX = pos.x;
+        float screenY = pos.y;
+        if (desc.textSpace == "world") {
+            SceneShared::WorldToScreen(pos.x, pos.y, camX, camY, screenX, screenY);
+        }
+        font.DrawStringW(StringUtility::ConvertString(desc.text), screenX, screenY,
+            desc.textScale, desc.textColor, desc.textBold);
+    }
+}
+
 std::vector<KnightEnemy*> StageEditor::GetKnights()
 {
     std::vector<KnightEnemy*> result;
@@ -604,6 +701,23 @@ std::vector<KnightEnemy*> StageEditor::GetKnights()
         if (entry.knight && entry.runtimeActive) {
             result.push_back(entry.knight.get());
         }
+    }
+    return result;
+}
+
+std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
+{
+    std::vector<CombatEnemyRef> result;
+    for (const auto& entry : objects_) {
+        if (!entry.enemy || !entry.runtimeActive || entry.desc.kind != "enemy_basic" || entry.desc.weaponType.empty()) {
+            continue;
+        }
+        CombatEnemyRef ref;
+        ref.name = entry.desc.name;
+        ref.weaponType = ParseEnemyWeaponType(entry.desc.weaponType);
+        ref.isStageBoss = entry.desc.isStageBoss;
+        ref.enemy = entry.enemy.get();
+        result.push_back(ref);
     }
     return result;
 }

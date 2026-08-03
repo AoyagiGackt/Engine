@@ -24,6 +24,10 @@ struct ObjectDesc {
     std::string parent; // 親オブジェクトのname（空なら親なし）子のpositionは親からの相対位置になる
     std::string type; // "static" | "row"
     // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
+    // | "ui_text"（Object3dを生成せず、StageEditor::DrawUITextがFontRendererで文字列を描画する。以下のtext系フィールド専用）
+    // | "hud_anchor"（Object3dを生成しないスクリーンpx位置マーカー。武器選択/操作説明のように中身が動的で
+    //   コード側に残したままのHUDパネルについて、表示位置(position.x/y)だけをステージエディタで編集可能にする。
+    //   StageEditor::GetHudAnchorPosition()で名前引きする。textは編集画面に出すラベルとしてのみ使う）
     // enemy系はStageEditorが実際にHPを持つ敵インスタンスとして生成する（model/texture/type/axis/count/stepは無視される）
     std::string kind = "prop";
     std::string model; // OBJ ファイルパス
@@ -49,10 +53,20 @@ struct ObjectDesc {
     int routeOrder = 0; // patrol_pointを並べる順序
     float patrolSpeed = 1.5f; // 巡回速度をワールド単位毎秒で指定する
     bool meshCollider = false; // terrainの表示メッシュから三角形単位AABBを同期する
+    // "enemy_basic" 専用（GamePlayScene等が武器奪取ギミックの対象を判別するのに使う）
+    std::string weaponType; // 空なら武器を持たない一般敵。"Sword"等ならその武器を持ち、倒してJキーで奪取できる
+    bool isStageBoss = false; // trueならこの敵を倒して奪取するとステージクリア条件が成立する（HPはRunDataのノード種別で自動調整）
     // "row" 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
     float step = 1.0f; // 間隔
+
+    // "ui_text" 専用（画面またはワールドに文字列を表示する）
+    std::string text; // 表示文字列（UTF-8、複数行可）
+    Vector4 textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    bool textBold = false;
+    float textScale = 1.5f;
+    std::string textSpace = "screen"; // "screen"（position.x/yをスクリーンpx座標として使う）| "world"（ワールド座標をカメラ基準で画面へ投影する）
 };
 
 // JSON の1エントリに対応するトリガー定義

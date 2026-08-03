@@ -11,7 +11,7 @@ using namespace engine::game;
 
 namespace {
 
-constexpr const char* kWeaponDataPath = "Resources/weapons.json";
+constexpr const char* kWeaponDataPath = "Resources/Config/weapons.json";
 
 WeaponType ParseWeaponType(const std::string& type)
 {
@@ -354,4 +354,14 @@ void WeaponManager::EquipForTraining(WeaponType type)
         pendingWeaponIndex_ = -1;
         return;
     }
+}
+
+void WeaponManager::Reset()
+{
+    std::fill(unlocked_.begin(), unlocked_.end(), false);
+    slots_.fill(-1);
+    selectedSlot_ = -1;
+    pendingWeaponIndex_ = -1;
+    index_ = 0;
+    rangedIndex_ = 0;
 }

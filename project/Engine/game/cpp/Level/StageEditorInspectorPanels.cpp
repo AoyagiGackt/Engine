@@ -5,9 +5,11 @@
  */
 #ifdef USE_IMGUI
 #include "StageEditorPanels.h"
+#include "Camera.h"
 #include "EditorUI.h"
 #include "EnemyEntity.h"
 #include "KnightEnemy.h"
+#include "SceneShared.h"
 #include "StageEditor.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -37,10 +39,32 @@ std::string ToProjectRelativePath(const std::string& absolutePath)
     const size_t resourcesPosition = path.find("Resources/");
     return resourcesPosition == std::string::npos ? path : path.substr(resourcesPosition);
 }
+
 } // namespace
 
 namespace engine::game {
 using namespace engine::graphics;
+
+// screen座標のui_text/hud_anchorが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
+// 3Dビュー上でドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
+void StageEditorInspectorPanel::RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc)
+{
+    constexpr float kVisibleAreaTopMargin = 40.0f; // ツールバーのすぐ下は掴みにくいので少し余白を空ける
+    const float visibleLeft = StageEditor::kLeftPanelWidth;
+    const float visibleRight = static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth;
+    const float visibleTop = StageEditor::kToolbarHeight;
+    const bool hiddenByPanel = desc.position.x < visibleLeft || desc.position.x > visibleRight || desc.position.y < visibleTop;
+    if (!hiddenByPanel) {
+        return;
+    }
+    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
+    ImGui::TextDisabled("上の「位置」欄で直接数値を入力するか、下のボタンで一旦ドラッグできる位置へ移動してください");
+    if (ImGui::Button("ドラッグできる位置へ移動")) {
+        editor.RecordUndoSnapshotNow();
+        desc.position.x = (visibleLeft + visibleRight) * 0.5f;
+        desc.position.y = visibleTop + kVisibleAreaTopMargin;
+    }
+}
 
 void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& structuralDirty)
 {
@@ -54,7 +78,9 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
     }
 
     // 名前（親子参照のキーなので、変更時は子の親参照も追従させる）
+    // hud_anchorは固定名でシーン側から検索されるため、名前変更を許すと位置指定が無効化されてしまう
     {
+        ImGui::BeginDisabled(desc.kind == "hud_anchor");
         char nameBuf[96];
         strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
         bool changed = ImGui::InputText("名前", nameBuf, sizeof(nameBuf));
@@ -76,6 +102,7 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
         if (ImGui::IsItemDeactivated()) {
             editor.CommitUndoCapture();
         }
+        ImGui::EndDisabled();
     }
 
     // 親の選択（自分自身と自分の子孫は循環になるため選択肢から除外する）
@@ -360,6 +387,25 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
             captureItemUndo(ImGui::DragFloat("巡回速度", &desc.patrolSpeed, 0.05f, 0.0f, 20.0f));
         }
     }
+    if (desc.kind == "enemy_basic") {
+        // 空="武器を持たない一般敵"。指定すると倒してJキーで奪取できるようになる（GamePlayScene参照）
+        constexpr const char* kWeaponTypes[] = { "なし", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
+        constexpr int kWeaponTypeCount = static_cast<int>(sizeof(kWeaponTypes) / sizeof(kWeaponTypes[0]));
+        int weaponTypeIndex = 0;
+        for (int i = 1; i < kWeaponTypeCount; ++i) {
+            if (desc.weaponType == kWeaponTypes[i]) {
+                weaponTypeIndex = i;
+                break;
+            }
+        }
+        if (ImGui::Combo("奪取可能な武器", &weaponTypeIndex, kWeaponTypes, kWeaponTypeCount)) {
+            editor.RecordUndoSnapshotNow();
+            desc.weaponType = weaponTypeIndex == 0 ? "" : kWeaponTypes[weaponTypeIndex];
+            structuralDirty = true; // 武器種別はEnemyEntity生成時にしか反映できないため実体を作り直す
+        }
+        // isStageBossはEnemyEntity生成には関わらないメタデータなのでstructuralDirtyは不要
+        captureItemUndo(ImGui::Checkbox("ステージボス（倒して奪取するとクリア）", &desc.isStageBoss));
+    }
     if (desc.kind == "event_condition") {
         const char* conditionTypes[] = { "manual", "timer", "enemy_group_defeated" };
         int conditionIndex = desc.conditionType == "timer" ? 1
@@ -410,6 +456,81 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
     }
 }
 
+void StageEditorInspectorPanel::RenderObjectText(StageEditor& editor)
+{
+    auto& desc = editor.objects_[editor.selIndex_].desc;
+    if (desc.kind != "ui_text") {
+        return;
+    }
+    auto captureItemUndo = [&](bool changed) {
+        if (ImGui::IsItemActivated()) {
+            editor.BeginUndoCapture();
+        }
+        if (changed) {
+            editor.MarkUndoDirty();
+        }
+        if (ImGui::IsItemDeactivated()) {
+            editor.CommitUndoCapture();
+        }
+        return changed;
+    };
+
+    char textBuf[512];
+    strncpy_s(textBuf, desc.text.c_str(), _TRUNCATE);
+    if (captureItemUndo(ImGui::InputTextMultiline("文字列", textBuf, sizeof(textBuf), ImVec2(-1.0f, 60.0f)))) {
+        desc.text = textBuf;
+    }
+
+    captureItemUndo(ImGui::ColorEdit4("色", &desc.textColor.x));
+    if (ImGui::Checkbox("太字", &desc.textBold)) {
+        editor.RecordUndoSnapshotNow();
+    }
+    captureItemUndo(ImGui::DragFloat("大きさ", &desc.textScale, 0.05f, 0.1f, 10.0f));
+
+    const char* spaces[] = { "screen", "world" };
+    const char* spaceLabels[] = { "画面座標(px)", "ワールド座標" };
+    int spaceIndex = (desc.textSpace == "world") ? 1 : 0;
+    if (ImGui::Combo("座標基準", &spaceIndex, spaceLabels, 2)) {
+        const std::string newSpace = spaces[spaceIndex];
+        if (newSpace != desc.textSpace) {
+            editor.RecordUndoSnapshotNow();
+            // 座標基準の切り替え時にposition(px⇔ワールド単位)を素通りさせると、
+            // 数値のスケールが噛み合わずカメラ範囲外へ飛んで見えなくなるため、その場でスクリーン上の見た目を保つよう変換する
+            if (newSpace == "world") {
+                Vector3 worldPos;
+                desc.position = editor.MouseToGround(desc.position.x, desc.position.y, worldPos) ? worldPos : Vector3 { };
+            } else {
+                float camX = 0.0f, camY = 0.0f;
+                if (editor.camera_) {
+                    const Vector3& camPos = editor.camera_->GetTranslate();
+                    camX = camPos.x;
+                    camY = camPos.y;
+                }
+                const Vector3 world = editor.WorldPositionOf(desc);
+                float screenX, screenY;
+                SceneShared::WorldToScreen(world.x, world.y, camX, camY, screenX, screenY);
+                desc.position = { screenX, screenY, 0.0f };
+            }
+            desc.textSpace = newSpace;
+        }
+    }
+    EditorUI::HelpMarker("画面座標: 位置のx/yをスクリーンピクセル座標として使います（カメラに影響されず常に同じ位置に表示）\nワールド座標: 位置をワールド座標として扱い、カメラに応じて画面へ投影します");
+
+    if (desc.textSpace == "screen") {
+        RenderScreenAnchorOcclusionWarning(editor, desc);
+    }
+}
+
+void StageEditorInspectorPanel::RenderHudAnchorInspector(StageEditor& editor)
+{
+    auto& desc = editor.objects_[editor.selIndex_].desc;
+    if (desc.kind != "hud_anchor") {
+        return;
+    }
+    ImGui::TextDisabled("「%s」パネルの表示位置マーカーです（文言はコード側で管理、位置だけ上の「位置」欄で編集できます）", desc.text.c_str());
+    RenderScreenAnchorOcclusionWarning(editor, desc);
+}
+
 bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
 {
     if (editor.selKind_ != StageEditor::SelKind::Object || editor.selIndex_ < 0
@@ -422,6 +543,8 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectVisual(editor, structuralDirty);
     RenderObjectTransform(editor, structuralDirty, transformDirty);
     RenderObjectGameplay(editor, structuralDirty);
+    RenderObjectText(editor);
+    RenderHudAnchorInspector(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
     const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "background" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";
@@ -573,11 +696,8 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
 
 void StageEditorInspectorPanel::Render(StageEditor& editor)
 {
-
-    constexpr float kToolbarHeight = 42.0f;
-    constexpr float kPanelWidth = 300.0f;
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - kPanelWidth, kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, static_cast<float>(WinApp::kClientHeight) - kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth, StageEditor::kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth, static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::Begin("詳細設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     if (!RenderObjectInspector(editor)
         && !RenderTriggerInspector(editor)

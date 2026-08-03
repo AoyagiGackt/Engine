@@ -10,7 +10,7 @@ namespace engine::graphics {
 class Ring : public RevolvedMeshBase {
 public:
     void Initialize(engine::DirectXCommon* dxCommon,
-        const std::string& textureFilePath = "Resources/gradationLine.png",
+        const std::string& textureFilePath = "Resources/Effects/gradationLine.png",
         int divisions = 32);
 
     void SetColor(const Vector4& color) { materialData_->color = color; }

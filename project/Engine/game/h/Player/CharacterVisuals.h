@@ -88,9 +88,8 @@ constexpr RigVisualDef kAwakenedRigVisual = {
 // 見た目の大きさを変えたい時はここだけ調整すればよい）
 constexpr float kWeaponScaleBoost = 2.0f;
 
-// 手持ち近接武器の定義（右手ボーンにアタッチ、現在のスタイルの1つだけ表示）
-// パレットテクスチャは全て変換済み。gripScaleの基準値はモデル実寸差を吸収し、
-// 手に持った時の見た目の長さ（kWeaponScaleBoost適用前で約1.5〜1.8）が揃うように決めている
+constexpr float kMeleeYaw180 = 3.14159265f;
+
 /** @brief 近接武器1種ぶんのモデルパスと、手ボーンへ握らせる際のローカルスケール/回転/位置 */
 struct HeldWeaponVisual {
     WeaponType type;
@@ -105,16 +104,25 @@ constexpr HeldWeaponVisual kHeldWeaponVisuals[] = {
     { WeaponType::Sword, "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", { 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // ダガー: 柄が根元(-Y側)、刃が +Y（実寸高さ約2.6）
     { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
-    // ハンマー: 柄が根元(-Y側)（実寸高さ約4.33）
-    { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // ハンマー: 柄が根元(-Y側)、柄自体は原点をまっすぐ通っている（実寸高さ約4.33）。
+    // ただしヘッド(+Y側)は左右非対称な形状で、+X側だけに大きく張り出す(頂点実測でmaxAbsXが柄の
+    // 直径の6倍以上)。回転無しだとその張り出しが自分側を向いてしまうため、Y軸180度で反転させる
+    { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // スピア: 実寸高さ約9.7と長いため小さめのスケール
     { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", { 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // クレイモア: 柄が根元付近(Y=-0.32)、刃が +Y（実寸高さ約6.6）
     { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", { 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
-    // 鎌: 柄の中程が原点、刃が +X 側へ張り出す（実寸高さ約5.6）
-    { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
-    // 両刃斧: 柄の中央が原点（Y対称、実寸高さ約6.35）
-    { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // 鎌: 柄の中程が原点、刃が +X 側へ張り出す（実寸高さ約5.6）。
+    // 他の武器と違い刃が柄と同軸(+Y)ではなく横に張り出す形状のため、回転無しだと刃が自分側を向いてしまう。
+    // Y軸180度で+X側の張り出しを反転させ、刃が外側（キャラの正面側）を向くようにする
+    { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    // 両刃斧: 頂点座標を実測したところ、刃(左右対称の両刃ヘッド)は+Y端のみにあり(実寸高さ約6.35)、
+    // 柄そのものが原点(X=0)ではなくX≈+0.605の位置を通っている(=原点は柄から外れた位置にある)。
+    // 刃は左右対称なので回転は無意味(向きに関係無い)、回転はせずXだけ補正する。
+    // ・Y: 柄の反対側の端(-Y、無地の石突き)を握り手に合わせて、刃を全部前方へ出す(+1.525相当)
+    // ・X: 柄の実際の通り道(+0.605相当)を握り手(原点)に合わせるため-0.29ぶんずらす。
+    //      これをしないと武器全体が横にずれ、キャラの向きによっては刃が体のほうへ回り込んで見えていた
+    { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { -0.29f, 1.58f, 0.0f } },
 };
 constexpr int kHeldWeaponVisualCount = static_cast<int>(sizeof(kHeldWeaponVisuals) / sizeof(kHeldWeaponVisuals[0]));
 

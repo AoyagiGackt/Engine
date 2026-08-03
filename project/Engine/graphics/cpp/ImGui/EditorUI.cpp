@@ -52,7 +52,9 @@ void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* ex
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + 10.0f, vp->Pos.y + vp->Size.y - 10.0f),
         ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowBgAlpha(0.35f);
+    // 背景を明るい色のブロック上に表示することがあるため、白文字だけでは埋もれる。
+    // 背景を濃いめにし、文字も白ではなく視認性の高い暖色(アンバー)にして常に読めるようにする
+    ImGui::SetNextWindowBgAlpha(0.75f);
 
     // NoInputs: ゲーム画面や他エディタへのクリックを一切奪わない表示専用オーバーレイ
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration
@@ -63,6 +65,7 @@ void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* ex
         | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoInputs;
 
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.82f, 0.35f, 1.0f));
     if (ImGui::Begin("##EditorHotkeyOverlay", nullptr, flags)) {
         ImGui::Text("F1: ノードエディタ%s", nodeEditorOpen ? " (表示中)" : "");
         ImGui::Text("F2: ステージエディタ%s", stageEditorOpen ? " (表示中)" : "");
@@ -71,6 +74,7 @@ void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* ex
         }
     }
     ImGui::End();
+    ImGui::PopStyleColor();
 }
 
 } // namespace engine::graphics::EditorUI

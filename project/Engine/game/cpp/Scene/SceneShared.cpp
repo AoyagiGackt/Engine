@@ -38,7 +38,54 @@ namespace {
         static std::mt19937 rng { std::random_device { }() };
         return rng;
     }
+
+    WeaponType ParseIconWeaponType(const std::string& type)
+    {
+        if (type == "Dagger")
+            return WeaponType::Dagger;
+        if (type == "Hammer")
+            return WeaponType::Hammer;
+        if (type == "Spear")
+            return WeaponType::Spear;
+        if (type == "Greatsword")
+            return WeaponType::Greatsword;
+        if (type == "Scythe")
+            return WeaponType::Scythe;
+        if (type == "Axe")
+            return WeaponType::Axe;
+        return WeaponType::Sword;
+    }
 } // namespace
+
+std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
+{
+    std::vector<WeaponIconAsset> assets;
+    nlohmann::json j = engine::JsonHelper::Load(jsonPath);
+    if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
+        for (const auto& entry : j["icons"]) {
+            WeaponIconAsset asset;
+            asset.type = ParseIconWeaponType(entry.value("type", std::string("Sword")));
+            asset.modelPath = entry.value("model", std::string());
+            asset.texturePath = entry.value("texture", std::string());
+            asset.scale = entry.value("scale", 0.2f);
+            asset.baseYaw = entry.value("baseYawDeg", 0.0f) * GameConstants::kDegToRad;
+            assets.push_back(std::move(asset));
+        }
+    }
+    if (assets.empty()) {
+        // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
+        assets = {
+            { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
+            { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
+            { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.18f, GameConstants::kPi },
+            { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.08f, 0.0f },
+            { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.12f, 0.0f },
+            { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.14f, 0.0f },
+            { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.13f, 0.0f },
+        };
+    }
+    return assets;
+}
 
 void InitializeWeaponSlotHud(SpriteCommon* spriteCommon, WeaponManager* weaponManager,
     WeaponSlotUI* slots, Vector2* slotPos, int slotCount,
@@ -307,11 +354,11 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     // 画面に映り込まないようにする
     const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
     const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
-    const float cameraTargetY = playerPos.y + 3.0f;
+    const float cameraTargetY = playerPos.y + GameConstants::kCameraFollowOffsetY;
     const float cameraY = cameraMinY <= cameraMaxY
         ? std::clamp(cameraTargetY, cameraMinY, cameraMaxY)
         : (stageBottom + stageTop) * 0.5f;
-    camera->SetTranslate({ cameraX, cameraY, -24.0f });
+    camera->SetTranslate({ cameraX, cameraY, GameConstants::kCameraDistanceZ });
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
@@ -324,22 +371,34 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     return isNear;
 }
 
-float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText)
+float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor)
 {
     constexpr float kScale = 1.15f;
     constexpr float kLineH = FontRenderer::kCharH * kScale;
-    constexpr Vector4 kColorHeader = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kColorNormal = { 0.85f, 0.85f, 0.85f, 1.0f };
-    constexpr Vector4 kColorSel = { 1.0f, 1.0f, 0.2f, 1.0f };
-    constexpr Vector4 kColorLocked = { 0.45f, 0.45f, 0.45f, 0.8f };
-    constexpr Vector4 kColorHint = { 0.6f, 0.6f, 0.6f, 1.0f };
+    // 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
+    constexpr Vector4 kColorHeader = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
+    constexpr Vector4 kColorNormal = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
+    constexpr Vector4 kColorSel = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
+    constexpr Vector4 kColorLocked = { 0.55f, 0.50f, 0.40f, 0.85f };
+    constexpr Vector4 kColorHint = { 0.80f, 0.76f, 0.65f, 1.0f };
+    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+    constexpr float kShadowOffset = 1.6f;
 
-    float px = 12.0f;
-    float py = 12.0f;
+    const float px = anchor.x;
+    float py = anchor.y;
 
-    fontRenderer.DrawStringW(headerText, px, py, kScale, kColorHeader);
+    auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
+        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
+        fontRenderer.DrawStringW(text, x, y, kScale, color);
+    };
+    auto drawShadowed = [&](const std::string& text, float x, float y, const Vector4& color) {
+        fontRenderer.DrawString(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
+        fontRenderer.DrawString(text, x, y, kScale, color);
+    };
+
+    drawShadowedW(headerText, px, py, kColorHeader);
     py += kLineH + 2.0f;
-    fontRenderer.DrawStringW(L"-- 武器選択 --", px, py, kScale, kColorNormal);
+    drawShadowedW(L"-- 武器選択 --", px, py, kColorNormal);
     py += kLineH + 2.0f;
 
     const auto& weaponList = weaponManager->GetList();
@@ -355,7 +414,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         } else {
             std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
-        fontRenderer.DrawString(buf, px, py, kScale,
+        drawShadowed(buf, px, py,
             selected ? kColorSel : occupied ? kColorNormal
                                             : kColorLocked);
         py += kLineH;
@@ -365,32 +424,41 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     py += 2.0f;
     const RangedWeaponData& gun = weaponManager->GetRanged();
     std::wstring gunLine = L"銃[G]: " + gun.nameJp;
-    fontRenderer.DrawStringW(gunLine, px, py, kScale, kColorSel);
+    drawShadowedW(gunLine, px, py, kColorSel);
     py += kLineH;
 
     py += 4.0f;
-    fontRenderer.DrawStringW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kScale, kColorHint);
+    drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kColorHint);
     py += kLineH;
     return py;
 }
 
-void DrawControlsHud(FontRenderer& fontRenderer, const wchar_t* portalActionLabel)
+void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel)
 {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
-    constexpr float kIx = 940.0f;
+    // 明るいブロックの上に乗ると薄い色の文字が背景に埋もれるため、色自体を変えるだけでなく
+    // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
+    const float kIx = anchor.x;
     constexpr float kIS = 1.05f;
     constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
-    constexpr Vector4 kCH = { 1.0f, 0.85f, 0.0f, 1.0f };
-    constexpr Vector4 kCD = { 0.72f, 0.72f, 0.72f, 1.0f };
-    float iy = 12.0f;
+    constexpr Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
+    constexpr Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
+    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+    constexpr float kShadowOffset = 1.6f;
+    float iy = anchor.y;
 
-    fontRenderer.DrawStringW(L"-- 操作説明 --", kIx, iy, kIS, kCH);
+    auto drawShadowed = [&](const std::wstring& text, float y, const Vector4& color) {
+        fontRenderer.DrawStringW(text, kIx + kShadowOffset, y + kShadowOffset, kIS, kShadow);
+        fontRenderer.DrawStringW(text, kIx, y, kIS, color);
+    };
+
+    drawShadowed(L"-- 操作説明 --", iy, kCH);
     iy += kILineH + 2.0f;
 
     auto row = [&](const char* key, const wchar_t* desc) {
         std::wstring line(key, key + std::strlen(key));
         line += desc;
-        fontRenderer.DrawStringW(line, kIx, iy, kIS, kCD);
+        drawShadowed(line, iy, kCD);
         iy += kILineH;
     };
     row("A / D  ", L": 移動");

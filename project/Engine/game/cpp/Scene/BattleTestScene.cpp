@@ -33,7 +33,6 @@ static constexpr float kWarpRetX = 3.0f;
 static constexpr float kReturnProx = 3.0f;
 static constexpr float kDummyMaxHp = 100.0f;
 
-
 // ══════════════════════════════════════════════════════
 // シーン初期化
 // ══════════════════════════════════════════════════════
@@ -79,7 +78,7 @@ void BattleTestScene::InitializeCoreSystems()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
+    camera_->SetTranslate({ 19.0f, 6.0f, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 }
 
@@ -109,8 +108,8 @@ void BattleTestScene::InitializeStageModels()
 
     modelDummy_ = std::make_unique<Model>();
     modelDummy_->Initialize(modelCommon_.get(),
-        "Resources/block/block.obj",
-        "Resources/monsterBall.png");
+        "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj",
+        "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SlimePalette.png");
 
     SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/battletest.json");
 }
@@ -128,7 +127,8 @@ void BattleTestScene::InitializeDummyEnemies()
     d.object->Initialize(modelCommon_.get());
     d.object->SetModel(modelDummy_.get());
     d.object->SetEnableLighting(false);
-    d.object->SetPosition(d.pos);
+    d.object->SetScale({ kDummyModelScale, kDummyModelScale, kDummyModelScale });
+    d.object->SetPosition({ d.pos.x, d.pos.y + kDummyModelFootOffsetY, d.pos.z });
     d.object->Update();
 
     d.hpBarBg = std::make_unique<Sprite>();
@@ -410,6 +410,10 @@ void BattleTestScene::UpdateTargetLock()
         return;
     }
 
+    // 画面外の敵まで拾うとロック対象の方へカメラが大きく寄ってしまい暴れて見えるため、
+    // 画面内に映る範囲（カメラ半幅）より遠い敵はロック対象から除外する
+    constexpr float kMaxLockRange = GameConstants::kCameraHalfW;
+
     const Vector3& pp = player_->GetPosition();
     float minDist = FLT_MAX;
     int nearest = -1;
@@ -418,6 +422,9 @@ void BattleTestScene::UpdateTargetLock()
             continue;
         }
         const float dist = std::abs(dummies_[i].pos.x - pp.x);
+        if (dist > kMaxLockRange) {
+            continue;
+        }
         if (dist < minDist) {
             minDist = dist;
             nearest = static_cast<int>(i);
@@ -436,12 +443,11 @@ void BattleTestScene::UpdateTargetLock()
 // HUD更新と描画
 // ══════════════════════════════════════════════════════
 
-
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
-    DrawComboHud();
-    SceneShared::DrawControlsHud(fontRenderer_, L": トレーニングへ戻る");
+    SceneShared::DrawControlsHud(fontRenderer_,
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
@@ -464,35 +470,22 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
     }
 }
 
-void BattleTestScene::DrawComboHud()
-{
-    if (!weaponManager_->HasEquippedWeapon()) {
-        return;
-    }
-    const int comboStep = player_->GetComboStep();
-    if (comboStep <= 0) {
-        return;
-    }
-
-    const WeaponData& weapon = weaponManager_->GetCurrent();
-    const Vector4 color = { weapon.styleColor[0], weapon.styleColor[1],
-        weapon.styleColor[2], weapon.styleColor[3] };
-    std::wstring comboText = L"コンボ ";
-    const int comboMax = player_->GetComboMax();
-    for (int i = 1; i <= comboMax; ++i) {
-        comboText += i <= comboStep ? L"[*]" : L"[ ]";
-    }
-    fontRenderer_.DrawStringW(comboText, 780.0f, 448.0f, 1.5f, color);
-}
-
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 {
     constexpr float kScale = 1.5f;
-    constexpr Vector4 kColorHint = { 0.6f, 0.6f, 0.6f, 1.0f };
+    // 明るいブロックの上でも埋もれないよう暖色＋影付きにする（武器選択パネルと揃える）
+    constexpr Vector4 kColorHint = { 0.80f, 0.76f, 0.65f, 1.0f };
+    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+    constexpr float kShadowOffset = 1.6f;
+    auto drawShadowedHint = [&](const std::wstring& text, float x, float y) {
+        fontRenderer_.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
+        fontRenderer_.DrawStringW(text, x, y, kScale, kColorHint);
+    };
 
-    float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ");
-    fontRenderer_.DrawStringW(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", 12.0f, py, kScale, kColorHint);
-    fontRenderer_.DrawStringW(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", 12.0f, py + 24.0f, kScale, kColorHint);
+    const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f });
+    float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
+    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
+    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + 24.0f);
 
     // 戻りポータルのラベル
     if (nearReturnPortal) {

@@ -79,7 +79,7 @@ void GamePlayScene::InitializeRenderFoundation()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 19.0f, 6.0f, -24.0f });
+    camera_->SetTranslate({ 19.0f, 6.0f, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 
     modelSkydome_ = std::make_unique<Model>();
@@ -185,12 +185,6 @@ void GamePlayScene::RefreshVisualTransformsForEditor()
     // ゲーム更新停止中も、編集カメラで描画する全3D実体のWVPだけは更新する。
     if (skydome_) {
         skydome_->Update(camera_.get());
-    }
-    if (swordGate_ && swordGateActive_) {
-        swordGate_->Update();
-    }
-    if (spearGate_ && spearGateActive_) {
-        spearGate_->Update();
     }
     for (auto& core : energyCores_) {
         if (core.object && !core.collected) {
@@ -431,38 +425,34 @@ void GamePlayScene::UpdateCombat()
     auto* tm = TimeManager::GetInstance();
 
     if (!tm->IsHitStopped()) {
+        UpdateTargetLock();
         player_->Update(input_, enemy_->GetPosition());
-
-        UpdateWeaponGimmicks();
 
         // 移動後に足場との接触を解決し、補正が入ったフレームは見た目も同期する
         // エディタの現在状態から毎フレーム判定を作り、移動・追加・削除を即時反映する
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
-        if (swordGateActive_) {
-            activeColliders.push_back({ { 17.0f, -0.5f, -0.5f }, { 18.0f, 9.5f, 0.5f } });
-        }
-        if (spearGateActive_) {
-            activeColliders.push_back({ { 25.0f, -0.5f, -0.5f }, { 26.0f, 9.5f, 0.5f } });
-        }
         player_->ResolveBlockCollision(activeColliders);
         player_->RefreshVisualTransforms();
+
+        // ロック中は移動入力に関係なく対象の方を向かせる（コンボ判定より前でないと今フレームに反映されない）
+        if (lockedKind_ == LockTargetKind::MainEnemy) {
+            player_->FaceTarget(enemy_->GetPosition());
+        } else if (lockedKind_ == LockTargetKind::WeaponEnemy && lockedWeaponEnemyIndex_ < weaponEnemies_.size()) {
+            player_->FaceTarget(weaponEnemies_[lockedWeaponEnemyIndex_].enemy->GetPosition());
+        }
 
         UpdateCombatEvents();
         UpdateWeaponEnemies();
         UpdateEnergyCores();
 
-        enemy_->Update();
+        // enemy_の物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()
+        // （BaseScene::Tick()がUpdate()の直後に呼ぶ）が担う。ここでは前フレーム分の着地判定だけ読む
+        // （1フレーム遅延するが60fps下では実用上無視できる差）
         if (enemy_->JustLanded()) {
             player_->EndRampage(); // 敵が着地したらジャグル強制終了
         }
 
         skydome_->Update(camera_.get());
-        if (swordGateActive_) {
-            swordGate_->Update();
-        }
-        if (spearGateActive_) {
-            spearGate_->Update();
-        }
     }
 
     // 水エフェクト更新（ヒットストップに関係なく毎フレーム）

@@ -301,13 +301,6 @@ void GamePlayScene::DrawWorldAndActors()
             core.object->Draw();
         }
     }
-    if (swordGateActive_) {
-        swordGate_->Draw();
-    }
-    if (spearGateActive_) {
-        spearGate_->Draw();
-    }
-
     if (!ghostTrail_.empty()) {
         SetupModelRenderState();
         ghostObject_->SetModel(player_->GetModel()); // 覚醒フォーム切り替えに残像の見た目を追従させる
@@ -321,10 +314,8 @@ void GamePlayScene::DrawWorldAndActors()
     }
 
     player_->Draw();
-    for (auto& entry : weaponEnemies_) {
-        entry.enemy->Draw();
-    }
-    enemy_->Draw();
+    // weaponEnemies_/enemy_の描画自体はStageEditor所有のためGetStageEditor().DrawObjects()
+    // （このすぐ上で呼び済み）が担う。ここで二重に呼ぶとブロックが二重描画されてしまう
     enemySlice_.Draw();
 
     pm_->Update(camera_.get());

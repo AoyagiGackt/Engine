@@ -22,11 +22,11 @@ void WaterPool::Initialize(SpriteCommon* spriteCommon)
     splashRng_ = std::mt19937(rd());
 
     // パーティクルグループ登録
-    pm_->CreateParticleGroup("water_ripple", "Resources/circle2.png");
-    pm_->CreateParticleGroup("water_glint", "Resources/circle2.png");
-    pm_->CreateParticleGroup("water_caustic", "Resources/circle2.png");
-    pm_->CreateParticleGroup("water_bubble", "Resources/circle2.png");
-    pm_->CreateParticleGroup("water_splash", "Resources/circle2.png");
+    pm_->CreateParticleGroup("water_ripple", "Resources/Effects/circle2.png");
+    pm_->CreateParticleGroup("water_glint", "Resources/Effects/circle2.png");
+    pm_->CreateParticleGroup("water_caustic", "Resources/Effects/circle2.png");
+    pm_->CreateParticleGroup("water_bubble", "Resources/Effects/circle2.png");
+    pm_->CreateParticleGroup("water_splash", "Resources/Effects/circle2.png");
     pm_->SetAdditiveBlend("water_ripple", false);
     pm_->SetAdditiveBlend("water_glint", true);
     pm_->SetAdditiveBlend("water_caustic", true);

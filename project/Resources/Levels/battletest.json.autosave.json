@@ -48,6 +48,16 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
@@ -93,6 +103,16 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
@@ -138,6 +158,16 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
@@ -183,6 +213,16 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
@@ -228,6 +268,16 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
@@ -273,192 +323,22 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
       "type": "row"
     },
     {
       "activationDelay": 0.0,
-      "activationFlag": "room_start_5",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "room_wave_5",
-      "gimmickMotion": "none",
-      "kind": "spawn_point",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "room_spawn_5_1",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        14.29991340637207,
-        4.010072231292725,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "room_start_5",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "room_wave_5",
-      "gimmickMotion": "none",
-      "kind": "spawn_point",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "room_spawn_5_2",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        16.29991340637207,
-        4.010072231292725,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
       "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "enemy_group_defeated",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "room_wave_5",
-      "gimmickMotion": "none",
-      "kind": "event_condition",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "room_clear_5",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        11.29991340637207,
-        4.010072231292725,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "condition_room_clear_5",
-      "activeWhenFlag": false,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "gimmick",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "room_exit_5",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        19.29991340637207,
-        6.010072231292725,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        5.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/block/block.png",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "room_start_5",
       "activeWhenFlag": true,
       "axis": "x",
       "cameraBlendSeconds": 0.5,
@@ -469,64 +349,19 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
-      "kind": "camera_point",
+      "kind": "ui_text",
       "lighting": true,
       "meshCollider": false,
       "model": "",
       "motionAmount": 3.0,
       "motionSpeed": 1.0,
-      "name": "room_camera_5",
+      "name": "text_5",
       "parent": "",
       "patrolRoute": "",
       "patrolSpeed": 1.5,
       "position": [
-        15.29991340637207,
-        8.010072708129883,
-        -24.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "wave_1",
-      "gimmickMotion": "none",
-      "kind": "spawn_point",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "wave_1_spawn_6",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        9.600048065185547,
-        6.3471574783325195,
+        257.6000061035156,
+        100.0,
         0.0
       ],
       "rotation": [
@@ -543,96 +378,16 @@
       "solid": false,
       "spawnType": "basic",
       "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "wave_1",
-      "gimmickMotion": "none",
-      "kind": "spawn_point",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "wave_1_spawn_7",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        11.600048065185547,
-        6.3471574783325195,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
+      "text": "テキスト",
+      "textBold": false,
+      "textColor": [
+        1.0,
         1.0,
         1.0,
         1.0
       ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "",
-      "type": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "wave_1",
-      "gimmickMotion": "none",
-      "kind": "spawn_point",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "wave_1_spawn_8",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        13.600048065185547,
-        6.3471574783325195,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
+      "textScale": 1.5,
+      "textSpace": "world",
       "texture": "",
       "type": ""
     }
@@ -642,19 +397,5 @@
     0.4000000059604645,
     0.0
   ],
-  "triggers": [
-    {
-      "flag": "room_start_5",
-      "name": "room_entry_5",
-      "once": true,
-      "position": [
-        11.29991340637207,
-        4.010072231292725,
-        0.0
-      ],
-      "radius": 2.0,
-      "spawnsWaterSplash": false,
-      "value": true
-    }
-  ]
+  "triggers": []
 }

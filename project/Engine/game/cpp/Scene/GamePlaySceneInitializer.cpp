@@ -5,11 +5,12 @@
 #include "GamePlaySceneInitializer.h"
 
 #include "AudioBridge.h"
-#include "EnemyRegistry.h"
 #include "GamePlayScene.h"
 #include "LevelLoader.h"
+#include "Logger.h"
 #include "PlayerBridge.h"
 #include "RunData.h"
+#include "StageEditor.h"
 
 using namespace engine;
 using namespace engine::graphics;
@@ -39,67 +40,15 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
         scene.player_->ApplySkillMods(mods);
     }
 
-    // 主敵を生成し、選択中のランノードに応じて耐久値を調整する
-    scene.enemy_ = std::make_unique<EnemyEntity>();
-    scene.enemy_->Initialize(scene.modelCommon_.get(), levelData.enemySpawn, WeaponType::Hammer);
-    scene.enemy_->SetId("enemy");
-    EnemyRegistry::GetInstance()->Register(scene.enemy_->GetId(), scene.enemy_.get());
-    if (runData->IsRunActive()) {
-        int maxHp = 20;
-        if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
-            maxHp = 35;
-        } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
-            maxHp = 60;
-        }
-        scene.enemy_->SetMaxHp(maxHp);
-    }
-    scene.enemy_->SetColor({ 0.9f, 0.65f, 0.15f, 1.0f });
-
-    // 武器種ごとの敵を配置し、撃破順に取得できる進行対象として登録する
-    struct WeaponEnemySpawn {
-        Vector3 position;
-        WeaponType type;
-        Vector4 color;
-    };
-    constexpr WeaponEnemySpawn kWeaponEnemySpawns[] = {
-        { { 12.0f, 0.4f, 0.0f }, WeaponType::Sword, { 1.0f, 0.3f, 0.15f, 1.0f } },
-        { { 21.0f, 0.4f, 0.0f }, WeaponType::Spear, { 0.25f, 0.75f, 1.0f, 1.0f } },
-        { { 30.0f, 0.4f, 0.0f }, WeaponType::Dagger, { 0.15f, 0.85f, 1.0f, 1.0f } },
-    };
-    for (const auto& spawn : kWeaponEnemySpawns) {
-        GamePlayScene::WeaponEnemyEntry entry;
-        entry.enemy = std::make_unique<EnemyEntity>();
-        entry.enemy->Initialize(scene.modelCommon_.get(), spawn.position, spawn.type);
-        entry.enemy->SetMaxHp(5);
-        entry.enemy->SetColor(spawn.color);
-        entry.weaponType = spawn.type;
-        scene.weaponEnemies_.push_back(std::move(entry));
-    }
-
-    // 武器固有技で解除する二つの進行障壁を共通モデルから生成する
-    scene.gimmickBlockModel_ = std::make_unique<Model>();
-    scene.gimmickBlockModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/white.png");
-    const auto createGate = [&scene](const Vector3& position, const Vector4& color) {
-        auto gate = std::make_unique<Object3d>();
-        gate->Initialize(scene.modelCommon_.get());
-        gate->SetModel(scene.gimmickBlockModel_.get());
-        gate->SetPosition(position);
-        gate->SetScale({ 1.0f, 10.0f, 1.0f });
-        gate->SetColor(color);
-        gate->SetEnableLighting(false);
-        gate->Update();
-        return gate;
-    };
-    scene.swordGate_ = createGate({ 17.5f, 4.5f, 0.0f }, { 0.90f, 0.08f, 0.03f, 1.0f });
-    scene.spearGate_ = createGate({ 25.5f, 4.5f, 0.0f }, { 0.04f, 0.35f, 0.95f, 1.0f });
+    // 主敵・武器持ち雑魚敵はStageEditorに配置されたenemy_basic実体を使う（OnEditorLevelLoaded()参照）。
+    // Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
 
     // 寄り道の収集物をデータ列から生成し、表示位置と回収状態をまとめて所有する
     scene.energyCoreModel_ = std::make_unique<Model>();
     scene.energyCoreModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/circle2.png");
+        "Resources/block/block.obj", "Resources/Effects/circle2.png");
     constexpr Vector3 kEnergyCorePositions[] = {
-        { 9.5f, 2.3f, 0.0f }, { 15.5f, 4.1f, 0.0f }, { 21.0f, 6.1f, 0.0f }
+        { 7.5f, 2.3f, 0.0f }, { 18.5f, 4.1f, 0.0f }, { 28.5f, 5.5f, 0.0f }
     };
     for (const Vector3& position : kEnergyCorePositions) {
         GamePlayScene::EnergyCoreEntry entry;
@@ -112,6 +61,58 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
         entry.object->SetEnableLighting(false);
         entry.object->Update();
         scene.energyCores_.push_back(std::move(entry));
+    }
+}
+
+void GamePlayScene::OnEditorLevelLoaded()
+{
+    // 見た目の色分けは元のハードコード値を踏襲する（武器種別ごとに雑魚の見分けがつくように）
+    auto colorForWeapon = [](WeaponType type) -> Vector4 {
+        switch (type) {
+        case WeaponType::Spear:
+            return { 0.25f, 0.75f, 1.0f, 1.0f };
+        case WeaponType::Dagger:
+            return { 0.15f, 0.85f, 1.0f, 1.0f };
+        case WeaponType::Sword:
+        default:
+            return { 1.0f, 0.3f, 0.15f, 1.0f };
+        }
+    };
+
+    enemy_ = nullptr;
+    weaponEnemies_.clear();
+
+    auto* runData = RunData::GetInstance();
+    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
+        if (ref.isStageBoss) {
+            if (enemy_) {
+                Logger::LogWarning("level01.json: isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
+                continue;
+            }
+            enemy_ = ref.enemy;
+            int maxHp = 20;
+            if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
+                maxHp = 35;
+            } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
+                maxHp = 60;
+            }
+            if (runData->IsRunActive()) {
+                enemy_->SetMaxHp(maxHp);
+            }
+            enemy_->SetColor({ 0.9f, 0.65f, 0.15f, 1.0f });
+            continue;
+        }
+
+        WeaponEnemyEntry entry;
+        entry.enemy = ref.enemy;
+        entry.weaponType = ref.weaponType;
+        entry.enemy->SetMaxHp(5);
+        entry.enemy->SetColor(colorForWeapon(ref.weaponType));
+        weaponEnemies_.push_back(entry);
+    }
+
+    if (!enemy_) {
+        Logger::LogError("level01.jsonにisStageBoss=trueの敵(enemy_basic)が配置されていません");
     }
 }
 

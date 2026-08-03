@@ -34,9 +34,19 @@ namespace engine::game {
 
 class KnightEnemy;
 class EnemyEntity;
+class FontRenderer;
 class StageEditorSelectionService;
 class StageEditorHierarchyPanel;
 class StageEditorInspectorPanel;
+enum class WeaponType; // Weapon.h で定義
+
+/** @brief kind=="enemy_basic"かつ武器種別を持つ配置物1件ぶんの参照（GetCombatEnemies()の戻り値） */
+struct CombatEnemyRef {
+    std::string name;
+    WeaponType weaponType;
+    bool isStageBoss = false;
+    EnemyEntity* enemy = nullptr; // 非所有。StageEditorのobjects_が生存させる
+};
 
 /**
  * @brief レベルデータの読み書きと配置物の実行および編集UIを統括する
@@ -50,6 +60,12 @@ class StageEditor {
     friend class StageEditorInspectorPanel;
 
 public:
+    // 編集パネルのレイアウト定数（ツールバー/左カラム/右インスペクタの各Beginで使う値と一致させる。
+    // screen座標のui_textがどの領域の下に隠れるかの判定にも使うため、パネル側の値とここを両方直さないと食い違う）
+    static constexpr float kToolbarHeight = 42.0f;
+    static constexpr float kLeftPanelWidth = 280.0f; // ヒエラルキー＋アセットパレットの列
+    static constexpr float kRightPanelWidth = 300.0f; // 詳細設定(インスペクタ)の列
+
     // unique_ptr<KnightEnemy>/<EnemyEntity>をObjectEntryが持つため、それらの完全な定義が無い
     // 翻訳単位（BaseScene経由でStageEditorを持つ全シーン等）でも安全にコンパイルできるよう、
     // コンストラクタ/デストラクタは両方とも.cpp側（KnightEnemy.h/EnemyEntity.hをインクルード済みの場所）で
@@ -97,6 +113,22 @@ public:
     void DrawObjects();
 
     /**
+     * @brief kind=="ui_text"の配置物をFontRendererへ描画コマンドとして積む
+     * @param font 呼び出し元シーンが所有するFontRendererfontRenderer_.Reset()後、Draw()前に呼ぶこと
+     * @note textSpace=="world"の配置物はcamera_の現在位置を基準にスクリーン座標へ投影する（SceneShared::WorldToScreenと同じ変換）
+     */
+    void DrawUIText(FontRenderer& font) const;
+
+    /**
+     * @brief kind=="hud_anchor"かつ指定nameの位置マーカーのスクリーンpx座標を返す
+     * @param anchorName EnsureHudAnchors()で使う固定名（例: "hud_anchor_controls"）
+     * @param fallback 該当マーカーが無い場合（未対応の古いレベル等）に返す既定位置
+     * @note 武器選択パネル/操作説明パネルのように中身が動的なHUDの「表示位置だけ」を
+     * ステージエディタでドラッグ編集できるようにするための仕組み。文言自体はコード側のまま
+     */
+    Vector2 GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const;
+
+    /**
      * @brief このフレーム中にDrawObjects()が呼ばれ済みかどうか
      * @return 描画済みの場合はtrue
      * @note Scene::Draw()内でHUDより前に自分でDrawObjects()を呼んだ場合、
@@ -110,6 +142,14 @@ public:
      * @note 戦闘判定はシーン側が一覧を走査して行う
      */
     std::vector<KnightEnemy*> GetKnights();
+
+    /**
+     * @brief 武器種別が設定されたkind=="enemy_basic"の配置物一覧を返す（毎フレーム呼ぶ想定）
+     * @return エディタが所有する生存期間限定のEnemyEntityポインタと武器種別/ボス指定の一覧
+     * @note 倒して奪取できる武器持ち敵をコード側で決め打ちせず、レベル側の配置とInspector設定だけで
+     * 増減・変更できるようにするための仕組み（GetKnights()と同じ規約）
+     */
+    std::vector<CombatEnemyRef> GetCombatEnemies() const;
 
     /**
      * @brief solid=trueのオブジェクトのワールドAABB一覧を返す（毎フレーム呼ぶ想定）
@@ -145,11 +185,13 @@ public:
         std::function<std::string()> getStaticVisualTexture = { });
     /**
      * @brief シーン側が所有する背景オブジェクト等を、エディタで選択・位置調整できるように登録する
-     * @param onDelete 指定するとHierarchyから「選択を削除」で削除可能になる（呼び出し側が実体を破棄する）
-     *                 省略時はPlayer等と同様に削除不可のまま位置調整のみ可能
+     * @param onDelete    指定するとHierarchyから「選択を削除」で削除可能になる（呼び出し側が実体を破棄する）
+     *                    省略時はPlayer等と同様に削除不可のまま位置調整のみ可能
+     * @param onDuplicate 指定するとHierarchyから「複製」で複製可能になる（呼び出し側が新しい実体を生成・登録する）
+     *                    省略時は複製不可のまま位置調整のみ可能
      */
     void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object,
-        std::function<void()> onDelete = { });
+        std::function<void()> onDelete = { }, std::function<void()> onDuplicate = { });
 
     /**
      * @brief トリガーのspawnsWaterSplashが成立した瞬間に呼ぶコールバックを登録する
@@ -158,6 +200,11 @@ public:
     void SetWaterSplashCallback(std::function<void(const Vector3&)> callback) { onWaterSplashRequested_ = std::move(callback); }
 
 private:
+    enum class SelKind { None,
+        Object,
+        Trigger,
+        External };
+
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
     /** @brief 配置物1件ぶんの編集データと、生成済みランタイム実体（見た目のみ/ナイト/汎用敵のいずれか）を束ねる */
@@ -219,16 +266,17 @@ private:
     /** @brief 編集停止とゲーム動作テストを切り替えて時間倍率を同期する */
     void SetPlayTestMode(bool enabled);
 
+    /** @brief 階層パネルの実際の編集内容を描画する（StageEditorHierarchyPanel::Renderへ委譲） */
     void RenderHierarchy();
-    /** @brief 階層パネルの実際の編集内容を描画する */
     /** @brief 中央シーンビューの上部に編集モードと補助パネルの操作を表示する */
     void RenderEditorToolbar();
     /** @brief ゲーム画面を広く確認するための最小操作バーを表示する */
     void RenderViewportFocusBar();
+    /** @brief 詳細パネルの実際の編集内容を描画する（StageEditorInspectorPanel::Renderへ委譲） */
     void RenderInspector();
-    /** @brief 詳細パネルの実際の編集内容を描画する */
     /** @brief モデル/テクスチャをプリセットから選んで置ける一覧パネル選択中の配置物があればそれに適用、無ければ新規追加する */
     void RenderAssetPalette();
+    /** @brief GameFlagsの現在値一覧とチェックポイントの追加/一覧を表示する */
     void RenderFlagsPanel();
     /** @brief プレハブ、検証、自動保存、編集とテストの切り替えをまとめて表示する */
     void RenderWorkflowPanel();
@@ -242,6 +290,7 @@ private:
     void RenderDiffPanel();
     /** @brief 制作手順と確認項目をエディタ内に表示する */
     void RenderEditorHelpPanel();
+    /** @brief チェックポイント・トリガー・配置物・イベント接続線・外部エンティティの補助表示（十字・AABB・接続線）を描画する */
     void DrawGizmos();
 
     /** @brief 画面中央(z=0平面)に新規の配置物(prop)を1つ追加して選択状態にする（+ボタン/アセットパレット共通） */
@@ -251,6 +300,19 @@ private:
 
     /** @brief 3Dビュー上での左クリック選択とドラッグ移動（ImGuiウィンドウ上のマウスは無視する） */
     void UpdateViewportInteraction();
+    // UpdateViewportInteraction()の下請け（責務ごとに分割）
+    /**
+     * @brief クリック位置に最も近いオブジェクト/トリガー/外部エンティティを探す（画面40px以内、モデル外形にヒットすれば距離0扱い）
+     * @param mouseX,mouseY 判定するスクリーン座標
+     * @param outKind 見つかった対象の種別（見つからなければSelKind::Noneのまま）
+     * @param outIdx  見つかった対象のインデックス（見つからなければ-1のまま）
+     * @return 何かヒットしたか
+     */
+    bool PickViewportTarget(float mouseX, float mouseY, SelKind& outKind, int& outIdx) const;
+    /** @brief 左クリック時の選択処理（親子リンク待機中ならその接続、それ以外は選択+ドラッグ開始準備）を行う */
+    void HandleViewportClick(float mouseX, float mouseY);
+    /** @brief ドラッグ中の選択物を移動させる（Shift中はマウス垂直移動をZ移動、それ以外はXY平面移動） */
+    void UpdateViewportDrag(float mouseX, float mouseY);
 
     /** @brief マウススクリーン座標をゲーム平面(z=0)上のワールド座標へ変換する */
     bool MouseToGround(float mouseX, float mouseY, Vector3& outWorld) const;
@@ -289,6 +351,7 @@ private:
         std::function<std::string()> getStaticVisualModel;
         std::function<std::string()> getStaticVisualTexture;
         std::function<void()> onDelete; // 設定されている時だけHierarchyから削除できる（例: シーン所有の背景オブジェクト）
+        std::function<void()> onDuplicate; // 設定されている時だけHierarchyから複製できる（呼び出し側が新しい実体を生成・登録する）
     };
     std::vector<ExternalEntityRef> externalEntities_;
 
@@ -306,11 +369,8 @@ private:
     bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
     bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
     float savedTimeScale_ = 1.0f;
+    bool showUIText_ = true; // falseなら編集中だけui_textのマーカーと実表示を隠す（配置物の陰になって邪魔な時用）
 
-    enum class SelKind { None,
-        Object,
-        Trigger,
-        External };
     SelKind selKind_ = SelKind::None;
     int selIndex_ = -1;
     std::vector<int> selectedObjectIndices_; // Ctrl選択した配置物を一括削除・複製するために保持する
@@ -329,6 +389,9 @@ private:
 
     /** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
     void ReleaseLevelResources(bool releaseExternalEntities);
+
+    /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
+    void EnsureHudAnchors();
 
 #ifdef USE_IMGUI
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
@@ -356,7 +419,9 @@ private:
     void MarkUndoDirty();
     /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
     void CommitUndoCapture();
+    /** @brief Undoスタックから1つ前の状態へ戻す（Ctrl+Z） */
     void Undo();
+    /** @brief Redoスタックから1つ先の状態へ進める（Ctrl+Y） */
     void Redo();
 
     /** @brief 選択中のオブジェクト/トリガーを削除する（削除ボタンとDeleteキー共用） */

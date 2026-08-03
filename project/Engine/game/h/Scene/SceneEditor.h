@@ -234,7 +234,7 @@ private:
      */
     void LoadCameraParams(const EditContext& ctx);
 
-    // "Resources/editor_ui.json" に UI スプライトのレイアウトを保存/読込する
+    // "Resources/Config/editor_ui.json" に UI スプライトのレイアウトを保存/読込する
     /** @brief uiElements_の各スプライトの位置・サイズ・回転・色・テクスチャをJSONへ書き出す */
     void SaveUILayout();
     /**

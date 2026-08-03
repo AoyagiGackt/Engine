@@ -67,7 +67,7 @@ constexpr GunComboSet kSmgSet = MakeComboArray(kSmgSteps);
 constexpr GunComboSet kShotgunSet = MakeComboArray(kShotgunSteps);
 constexpr GunComboSet kRailgunSet = MakeComboArray(kRailgunSteps);
 
-// MeleeCombo.cpp と同じ仕組み既定値はこの上のテーブル、Resources/combos.json の "shots" で個別上書き可能
+// MeleeCombo.cpp と同じ仕組み既定値はこの上のテーブル、Resources/Config/combos.json の "shots" で個別上書き可能
 struct RuntimeGunComboSet {
     std::vector<GunShotDef> steps;
     GunComboSet view { };
@@ -115,7 +115,7 @@ std::array<RuntimeGunComboSet, 5>& GetRuntimeComboSets()
             }
         }
 
-        const nlohmann::json root = JsonHelper::Load("Resources/combos.json");
+        const nlohmann::json root = JsonHelper::Load("Resources/Config/combos.json");
         for (const auto& data : root.value("shots", nlohmann::json::array())) {
             const std::string id = data.value("id", "");
             const auto found = shots.find(id);

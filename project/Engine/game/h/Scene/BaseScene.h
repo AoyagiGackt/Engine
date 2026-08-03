@@ -163,6 +163,14 @@ public:
     /** @brief Open()に渡すCamera既定nullptrだとOpen()自体をスキップする */
     virtual engine::graphics::Camera* GetEditorCamera() { return nullptr; }
 
+    /**
+     * @brief GetEditorLevelPath()等のフックでOpen()が自動実行された直後に呼ばれる
+     * @note Initialize()の時点ではまだレベルJSONが未読み込みのため、StageEditorに配置された
+     * 敵等（GetCombatEnemies()等）をInitialize()内で参照することはできない。それらを読みたい
+     * シーンはこのフックをoverrideして拾うこと。既定は何もしない（安全）
+     */
+    virtual void OnEditorLevelLoaded() { }
+
     /** @brief enemy_knight配置のAI/演出に使うParticleManager無ければnullptrでよい */
     virtual engine::graphics::ParticleManager* GetEditorParticleManager() { return nullptr; }
 

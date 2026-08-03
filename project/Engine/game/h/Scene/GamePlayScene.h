@@ -55,6 +55,7 @@ class ParticleManager;
 }
 
 namespace engine::game {
+using engine::AABB;
 using engine::Audio;
 using engine::Collision;
 using engine::DirectXCommon;
@@ -171,6 +172,9 @@ public:
     /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
     void RefreshVisualTransformsForEditor() override;
 
+    /** @brief StageEditorへ配置済みの敵（武器持ち雑魚・ボス）をenemy_/weaponEnemies_へ結び付ける */
+    void OnEditorLevelLoaded() override;
+
     /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
 
@@ -211,8 +215,6 @@ private:
     void DrawWeaponExchange();
     /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
     void UpdateWeaponEnemies();
-    /** @brief 武器固有技による進行障壁の解除を処理する */
-    void UpdateWeaponGimmicks();
     /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
     void UpdateEnergyCores();
     /** @brief 右上のコンボランク表示と覚醒ゲージを描画する */
@@ -238,10 +240,26 @@ private:
     void UpdateCombat();
     // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
+    /** @brief Shift長押しで最寄りの敵をロックオンし、その方向へ向かせる（BattleTestSceneと同じ規約） */
+    void UpdateTargetLock();
     // カメラ追従・シェイクの更新
     void UpdateCamera();
     // スタイルメーターとUI状態の更新
     void UpdateStyleAndUI(float dt);
+    /** @brief UpdateStyleAndUI()の下請け 敵の当たり判定AABBを現在位置から算出する */
+    AABB GetEnemyHitBox() const;
+    /** @brief UpdateStyleAndUI()の下請け 近接コンボのヒット判定とスタイル加点・属性追撃を処理する */
+    void ApplyMeleeComboStyleHit(const AABB& enemyAABB);
+    /** @brief UpdateStyleAndUI()の下請け 武器固有技（SPACE）のヒット判定とスタイル加点を処理する */
+    void ApplyWeaponSkillStyleHit(const AABB& enemyAABB);
+    /** @brief UpdateStyleAndUI()の下請け 銃コンボのヒット判定とスタイル加点を処理する */
+    void ApplyGunShotStyleHit(const AABB& enemyAABB);
+    /** @brief UpdateStyleAndUI()の下請け ダガー スティンガー刺突のスタイル加点を処理する */
+    void ApplyDaggerStingerStyleBonus();
+    /** @brief UpdateStyleAndUI()の下請け 覚醒乱舞ラッシュのヒット判定とスタイル加点を処理する */
+    void ApplyRampageStyleHit(const AABB& enemyAABB);
+    /** @brief UpdateStyleAndUI()の下請け スタイルメーターの時間経過による減衰を処理する */
+    void DecayStyleMeter(float dt);
     // パーティクルの更新
     void UpdateParticles(float dt);
     /** @brief UpdateParticles()の下請け 着地ほこりとジャンプ煙のパーティクルを更新する */
@@ -294,7 +312,7 @@ private:
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> awakenGaugeBg_;
     std::unique_ptr<Sprite> awakenGaugeFg_;
-    static constexpr int kWeaponSlotCount = 7;
+    static constexpr int kWeaponSlotCount = 4;
     std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
     std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
     std::unique_ptr<Sprite> gunFrame_;
@@ -302,6 +320,19 @@ private:
     Vector2 gunPos_ = { };
     float weaponSlotPulse_ = 0.0f;
     float gunIconAngle_ = 0.0f;
+
+    // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
+    // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
+    /** @brief 武器スロットUIに表示する回転3Dアイコン1個分のモデルと演出状態 */
+    struct WeaponIcon3D {
+        std::unique_ptr<Model> model;
+        std::unique_ptr<Object3d> object;
+        int slotIndex = -1; // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
+        float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
+        float scale = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
+        float baseYaw = 0.0f; // モデルの正面がカメラを向くよう調整する基準角度（要目視調整）
+    };
+    std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
     std::unique_ptr<ModelCommon> modelCommon_;
     std::unique_ptr<Object3dCommon> objectCommon_;
     std::unique_ptr<ShadowManager> shadowManager_;
@@ -311,11 +342,13 @@ private:
     std::unique_ptr<Model> modelSkydome_;
 
     std::unique_ptr<Player> player_;
-    std::unique_ptr<EnemyEntity> enemy_;
+    // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
+    // OnEditorLevelLoaded()でポインタだけを受け取る（非所有）
+    EnemyEntity* enemy_ = nullptr;
 
     /** @brief 道中に配置された武器持ち敵1体分の状態（撃破後、Jキーで吸収して武器を奪取する） */
     struct WeaponEnemyEntry {
-        std::unique_ptr<EnemyEntity> enemy;
+        EnemyEntity* enemy = nullptr; // 非所有。StageEditorの配置物が実体を所有する
         WeaponType weaponType = WeaponType::Sword;
         bool weaponAcquired = false;
         bool absorbing = false;
@@ -323,11 +356,12 @@ private:
     };
     std::vector<WeaponEnemyEntry> weaponEnemies_;
 
-    std::unique_ptr<Model> gimmickBlockModel_;
-    std::unique_ptr<Object3d> swordGate_;
-    std::unique_ptr<Object3d> spearGate_;
-    bool swordGateActive_ = true;
-    bool spearGateActive_ = true;
+    /** @brief ロックオン中の対象種別（BattleTestSceneと同じくShift長押し中は最寄りの敵を自動追従する） */
+    enum class LockTargetKind { None,
+        MainEnemy,
+        WeaponEnemy };
+    LockTargetKind lockedKind_ = LockTargetKind::None;
+    size_t lockedWeaponEnemyIndex_ = 0;
 
     /** @brief 探索用エネルギーコア1個の状態（プレイヤーが触れると回収され、覚醒ゲージが増える） */
     struct EnergyCoreEntry {

@@ -67,14 +67,10 @@ private:
     void DrawWorld();
     /** @brief Draw()の下請け 各ステージ入口ポータルの上に番号ラベルとENTER案内を描画する */
     void DrawStagePortalLabels(int floor);
-    /** @brief タイトルバーとHP/ゴールドを描画する */
-    void DrawHeader(RunData* rd);
     /** @brief フロアごとのマップノードを描画する選択中ノードの種類を返す */
     RunData::NodeType DrawFloorNodes(int curFloor);
     /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
-    /** @brief 取得済みスキル一覧を描画する */
-    void DrawSkillList(RunData* rd);
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;

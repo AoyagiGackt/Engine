@@ -1,6 +1,6 @@
 /**
  * @file Weapon.h
- * @brief 武器・戦闘スタイルのデータ構造を定義するファイル（実データは Resources/weapons.json）
+ * @brief 武器・戦闘スタイルのデータ構造を定義するファイル（実データは Resources/Config/weapons.json）
  */
 #pragma once
 #include <string>

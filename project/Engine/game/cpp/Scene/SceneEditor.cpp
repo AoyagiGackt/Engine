@@ -361,7 +361,7 @@ void SceneEditor::SaveUILayout()
             { "rot", rot },
             { "color", { col.x, col.y, col.z, col.w } } });
     }
-    JsonHelper::Save("Resources/editor_ui.json", arr);
+    JsonHelper::Save("Resources/Config/editor_ui.json", arr);
 }
 
 // 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む
@@ -374,7 +374,7 @@ void SceneEditor::LoadAll(const EditContext& ctx)
 // UI スプライトのレイアウトを JSON ファイルから復元する
 void SceneEditor::LoadUILayout(const EditContext& ctx)
 {
-    auto j = JsonHelper::Load("Resources/editor_ui.json");
+    auto j = JsonHelper::Load("Resources/Config/editor_ui.json");
     if (!j.is_array()) {
         return;
     }

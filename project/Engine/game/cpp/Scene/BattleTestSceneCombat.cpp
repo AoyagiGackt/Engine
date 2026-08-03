@@ -51,8 +51,8 @@ static constexpr float kGreatswordSpinHitRadius = 1.5f; ///< この半径内な�
 static constexpr float kGreatswordSpinSuctionSpeed = 0.10f; ///< 毎フレームの吸い込み速度
 
 // 近接攻撃・固有技の判定ボックス関連
-static constexpr float kLockAssistReachMult = 1.6f; ///< ロックオン中に前方リーチへ掛ける補正
-static constexpr float kLockAssistRearMult = 0.6f; ///< ロックオン中の背面リーチ（前方リーチ比）
+static constexpr float kLockAssistReachMult = 1.2f; ///< ロックオン中に前方リーチへ掛ける補正
+static constexpr float kLockAssistRearMult = 0.5f; ///< ロックオン中の背面リーチ（前方リーチ比）
 static constexpr float kSlamRangeBelowY = 1.0f; ///< 設置型AoEの足元方向の厚み
 static constexpr float kSlamRangeAboveY = 1.5f; ///< 設置型AoEの頭上方向の厚み
 static constexpr float kStageHalfDepth = 0.5f; ///< 2.5Dステージの奥行き半分
@@ -74,7 +74,6 @@ static constexpr float kRampageRushStyleFinisher = 60.0f; ///< 乱舞ラッシ�
 static constexpr float kRampageRushStyleNormal = 20.0f; ///< 乱舞ラッシュ命中時のスタイル加点（通常段）
 
 // 射撃コンボのマズルフラッシュ演出
-static constexpr float kMuzzleBaseSpeed = 8.0f; ///< 扇状パーティクルの基本速度
 static constexpr float kMuzzleSpeedStep = 1.0f; ///< 1粒ごとの速度加算
 static constexpr float kMuzzleLifeTime = 0.35f; ///< パーティクル寿命（秒）
 static constexpr float kMuzzleScale = 0.14f; ///< パーティクルの大きさ
@@ -128,7 +127,12 @@ bool BattleTestScene::UpdateMeleeComboHit()
     bool hitConfirmed = false;
     const MeleeAttackDef* atk = player_->GetActiveMeleeAttack();
     const float rangeMult = (atk != nullptr) ? atk->rangeMult : 1.0f;
-    const float meleeReach = weapon.range * rangeMult;
+    const float baseReach = weapon.range * rangeMult;
+    // ヒット判定時点のpp(プレイヤー座標)は既にlungeDistぶん敵へ踏み込み済みなので、
+    // ここでweapon.rangeをそのまま足すと踏み込み+リーチの二重計上になり、間合い外から当たって見える。
+    // 踏み込みぶんを差し引いて、始点からの合計到達距離がbaseReachに収まるようにする
+    const float lungeDist = (atk != nullptr) ? atk->lungeDist : 0.0f;
+    const float meleeReach = (std::max)(baseReach - lungeDist, baseReach * 0.35f);
     const float dirX = player_->GetLastDirX();
     // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
     AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * GameConstants::kSkillRearReachMult);
@@ -319,9 +323,12 @@ bool BattleTestScene::UpdateGunShotHit()
         const Vector3 firePos = { pp.x, pp.y, 0.0f }; // 銃口高さ＝手の高さ付近（頭から出ているように見えないよう低めに）
         const Vector4 col = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
         const int n = (std::max)(shot->bullets, 2);
+        // ヒット判定はrangeXの距離まで即座に通るのに、演出弾が固定速度だと寿命内にその距離まで
+        // 届かず敵の手前で消えてしまい「当たっていない」ように見える。実際の射程まで届く速度にする
+        const float reachSpeed = rangeX / kMuzzleLifeTime;
         for (int i = 0; i < n; ++i) {
             float t = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
-            float speed = kMuzzleBaseSpeed + i * kMuzzleSpeedStep;
+            float speed = reachSpeed + i * kMuzzleSpeedStep;
             pm_->EmitWithColor("bt_gun_shot", firePos,
                 { dir * speed, speed * shot->spreadDeg * GameConstants::kDegToRad * t, 0.0f },
                 col, kMuzzleLifeTime, kMuzzleScale);
@@ -588,7 +595,8 @@ void BattleTestScene::PlayFinisherReleaseEffects()
     }
     if (nearest != nullptr) {
         static std::mt19937 rngSlice { std::random_device { }() };
-        dummySlice_.Start(modelDummy_.get(), nearest->pos, { 1.0f, 1.0f, 1.0f }, rngSlice());
+        const Vector3 slicePos = { nearest->pos.x, nearest->pos.y + kDummyModelFootOffsetY, nearest->pos.z };
+        dummySlice_.Start(modelDummy_.get(), slicePos, { kDummyModelScale, kDummyModelScale, kDummyModelScale }, rngSlice());
         nearest->sliced = true;
     }
 }
@@ -687,7 +695,7 @@ void BattleTestScene::UpdateDummies()
             d.pos.y += (d.homePos.y - d.pos.y) * kDummyReturnLerpRate;
         }
 
-        d.object->SetPosition(d.pos);
+        d.object->SetPosition({ d.pos.x, d.pos.y + kDummyModelFootOffsetY, d.pos.z });
 
         d.hitFlash -= GameConstants::kFrameDeltaTime;
         if (d.hitFlash > 0) {

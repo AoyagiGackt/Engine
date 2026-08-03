@@ -199,7 +199,7 @@ std::array<RuntimeComboSet, 8>& GetRuntimeComboSets()
             attacks[set.launcher.id] = &set.launcher;
         }
 
-        const nlohmann::json root = JsonHelper::Load("Resources/combos.json");
+        const nlohmann::json root = JsonHelper::Load("Resources/Config/combos.json");
         for (const auto& data : root.value("attacks", nlohmann::json::array())) {
             const std::string id = data.value("id", "");
             const auto found = attacks.find(id);

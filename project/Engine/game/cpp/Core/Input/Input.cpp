@@ -135,7 +135,7 @@ void Input::LoadActionBindings()
     actionBindings_[static_cast<size_t>(Action::Finisher)] = { DIK_F, 0, XINPUT_GAMEPAD_LEFT_SHOULDER };
     actionBindings_[static_cast<size_t>(Action::GunSwitch)] = { DIK_G, 0, 0 };
 
-    const nlohmann::json root = JsonHelper::Load("Resources/input_bindings.json");
+    const nlohmann::json root = JsonHelper::Load("Resources/Config/input_bindings.json");
     const auto actions = root.value("actions", nlohmann::json::object());
     const std::array<std::pair<const char*, Action>, static_cast<size_t>(Action::Count)> names = { { { "MoveLeft", Action::MoveLeft }, { "MoveRight", Action::MoveRight },
         { "Jump", Action::Jump }, { "Down", Action::Down }, { "Attack", Action::Attack },

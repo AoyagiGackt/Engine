@@ -605,6 +605,7 @@ private:
     };
     std::vector<HeldWeaponSlot> heldWeapons_;
     int activeHeldIndex_ = -1; ///< 現在表示中の heldWeapons_ インデックス（-1=非表示）
+    int thrownGreatswordIndex_ = -1; ///< 投げ回転斬り中の大剣（武器切り替え後もactiveHeldIndex_と別に描画し続けるための heldWeapons_ インデックス、非投擲中は-1）
 
     /** @brief グレートソード投げ回転斬りの飛行中/渦の間、手のボーンから外して位置・回転を直接動かす */
     void UpdateThrownGreatswordVisual(HeldWeaponSlot& slot);
@@ -676,6 +677,14 @@ private:
      * @param input 入力マネージャー
      */
     void HandleWeaponSkill(Input* input);
+    /**
+     * @brief グレートソード投げ回転斬りの飛行→渦→帰還の進行を、武器を持ち替えていても止めずに進める
+     * @note 元々はGreatswordBehavior::Update内で進めていたが、そこは現在装備中の武器がグレートソードの
+     *       時しか呼ばれないため、渦の最中に他の武器へ持ち替えるとタイマーが凍結し、モデルは表示されたまま
+     *       回転や帰還だけ止まって見える不具合があった。装備武器に関係なく毎フレーム呼ぶことで解決する
+     * @param input 入力マネージャー（渦の最中の再スペース入力で早期帰還させるために使う）
+     */
+    void UpdateGreatswordThrowState(Input* input);
     /**
      * @brief 覚醒乱舞の現フェーズに応じた突進/追撃物理を進め、ヒットフレームで斬撃モーションを再生する
      * @param enemyPos 乱舞スラッシュのターゲット座標

@@ -116,7 +116,7 @@ private:
         WORD gamepadButton = 0;
     };
 
-    /** @brief Resources/input_bindings.jsonから操作割り当てを読み込む */
+    /** @brief Resources/Config/input_bindings.jsonから操作割り当てを読み込む */
     void LoadActionBindings();
     /** @brief DirectInput 8 の本体ポインタ */
     ComPtr<IDirectInput8> directInput_;
