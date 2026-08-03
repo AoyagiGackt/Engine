@@ -34,6 +34,11 @@ using namespace engine::game;
 static constexpr float kWarpX = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
 
+static constexpr float kMapHintX = 12.0f;
+static constexpr float kMapHintY = 690.0f;
+static constexpr float kMapHintScale = 1.2f;
+static constexpr Vector4 kMapHintColor = { 0.75f, 0.90f, 1.0f, 0.9f };
+
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -210,6 +215,10 @@ void TrainingScene::Update()
         SceneManager::GetInstance()->ChangeScene("TITLE", 0.4f, 0.4f);
         return;
     }
+    if (input_->TriggerKey(DIK_TAB)) {
+        SceneManager::GetInstance()->ChangeScene("MAP", 0.4f, 0.4f);
+        return;
+    }
 
     // ステージエディタ表示中の一時停止（GetStageEditor().IsVisible()）分岐はBaseScene::Tick()が面倒を見る
     // （表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
@@ -349,6 +358,7 @@ void TrainingScene::DrawHud(bool nearWarpPortal)
         GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": バトルテストへ移動");
     SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
         player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
+    fontRenderer_.DrawStringW(L"[ TAB ] ステージ選択へ", kMapHintX, kMapHintY, kMapHintScale, kMapHintColor);
 }
 
 void TrainingScene::DrawWeaponHud(bool nearWarpPortal)

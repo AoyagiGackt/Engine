@@ -1,7 +1,7 @@
 {
   "checkpoints": [],
   "enemySpawn": [
-    30.0,
+    35.5,
     0.4000000059604645,
     0.0
   ],
@@ -19,6 +19,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -48,8 +49,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -64,6 +76,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -93,8 +106,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -109,6 +133,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -138,8 +163,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -154,6 +190,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -183,8 +220,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -199,6 +247,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -228,8 +277,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -244,6 +304,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -273,8 +334,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -289,6 +361,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -318,143 +391,19 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_8",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        8.0,
-        -0.6000000238418579,
-        6.199999809265137
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        0.550000011920929,
-        0.550000011920929,
-        0.550000011920929
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
-      "type": "static"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Medium_2_001.gltf",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_9",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        22.0,
-        -0.6000000238418579,
-        6.199999809265137
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        0.47999998927116394,
-        0.47999998927116394,
-        0.47999998927116394
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
-      "type": "static"
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_10",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        34.0,
-        -0.6000000238418579,
-        6.199999809265137
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        0.550000011920929,
-        0.550000011920929,
-        0.550000011920929
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
-      "type": "static"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -469,6 +418,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": true,
       "meshCollider": false,
@@ -498,8 +448,19 @@
       "solid": false,
       "spawnType": "basic",
       "step": 8.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
     },
     {
       "activationDelay": 0.0,
@@ -514,6 +475,7 @@
       "enabled": true,
       "enemyGroup": "",
       "gimmickMotion": "none",
+      "isStageBoss": false,
       "kind": "prop",
       "lighting": false,
       "meshCollider": false,
@@ -543,8 +505,361 @@
       "solid": true,
       "spawnType": "basic",
       "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
       "texture": "Resources/block/block.png",
-      "type": "row"
+      "type": "row",
+      "weaponType": ""
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": false,
+      "kind": "enemy_basic",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "enemy_sword_guard",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        11.19830322265625,
+        -0.380590558052063,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "static",
+      "weaponType": "Sword"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": false,
+      "kind": "enemy_basic",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "enemy_spear_guard",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        20.9542236328125,
+        -0.3195246458053589,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "static",
+      "weaponType": "Spear"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": false,
+      "kind": "enemy_basic",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "enemy_dagger_guard",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        31.015378952026367,
+        -0.3805903196334839,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "static",
+      "weaponType": "Dagger"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": true,
+      "kind": "enemy_basic",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "enemy_boss",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        35.24072265625,
+        -0.334814190864563,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "static",
+      "weaponType": "Hammer"
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": false,
+      "kind": "hud_anchor",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "hud_anchor_controls",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        1020.0,
+        12.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "操作説明",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "",
+      "weaponType": ""
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "isStageBoss": false,
+      "kind": "hud_anchor",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "hud_anchor_weapon_list",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        12.0,
+        12.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "武器選択",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": "",
+      "weaponType": ""
     }
   ],
   "playerSpawn": [

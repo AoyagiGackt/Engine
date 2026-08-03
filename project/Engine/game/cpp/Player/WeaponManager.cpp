@@ -355,3 +355,13 @@ void WeaponManager::EquipForTraining(WeaponType type)
         return;
     }
 }
+
+void WeaponManager::Reset()
+{
+    std::fill(unlocked_.begin(), unlocked_.end(), false);
+    slots_.fill(-1);
+    selectedSlot_ = -1;
+    pendingWeaponIndex_ = -1;
+    index_ = 0;
+    rangedIndex_ = 0;
+}

@@ -32,72 +32,6 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-namespace {
-
-/** @brief 武器スロットUIの3Dアイコン1個分の素材（モデル・テクスチャ・表示調整値） */
-struct IconAsset {
-    WeaponType type;
-    std::string modelPath;
-    std::string texturePath;
-    float scale; ///< モデル実寸の高さ差を吸収し、見た目のアイコンサイズ(目標高さ約0.8)を揃えるための倍率
-    float baseYaw; ///< モデルの正面がカメラを向くよう回す基準角度（ラジアン）。目視で調整した値
-};
-
-WeaponType ParseIconWeaponType(const std::string& type)
-{
-    if (type == "Dagger")
-        return WeaponType::Dagger;
-    if (type == "Hammer")
-        return WeaponType::Hammer;
-    if (type == "Spear")
-        return WeaponType::Spear;
-    if (type == "Greatsword")
-        return WeaponType::Greatsword;
-    if (type == "Scythe")
-        return WeaponType::Scythe;
-    if (type == "Axe")
-        return WeaponType::Axe;
-    return WeaponType::Sword;
-}
-
-/**
- * @brief 武器スロットUIの3Dアイコン素材一覧をJSONから読み込む
- * @note ダミーの物理武器がまだ無いスタイルはResources/Config/weapon_icons.jsonに1行追記すれば自動でモデル表示に切り替わる
- * @param jsonPath アイコン素材定義のJSONパス
- * @return 読み込んだ素材一覧。ファイルが無い・読み込めない場合は既存互換の既定値を返す
- */
-std::vector<IconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
-{
-    std::vector<IconAsset> assets;
-    nlohmann::json j = engine::JsonHelper::Load(jsonPath);
-    if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
-        for (const auto& entry : j["icons"]) {
-            IconAsset asset;
-            asset.type = ParseIconWeaponType(entry.value("type", std::string("Sword")));
-            asset.modelPath = entry.value("model", std::string());
-            asset.texturePath = entry.value("texture", std::string());
-            asset.scale = entry.value("scale", 0.2f);
-            asset.baseYaw = entry.value("baseYawDeg", 0.0f) * GameConstants::kDegToRad;
-            assets.push_back(std::move(asset));
-        }
-    }
-    if (assets.empty()) {
-        // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
-        assets = {
-            { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
-            { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
-            { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.18f, GameConstants::kPi },
-            { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.08f, 0.0f },
-            { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.12f, 0.0f },
-            { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.14f, 0.0f },
-            { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.13f, 0.0f },
-        };
-    }
-    return assets;
-}
-
-} // namespace
-
 void BattleTestScene::InitializeWeaponSlotHud()
 {
     constexpr float kSlotSize = 56.0f;
@@ -113,7 +47,7 @@ void BattleTestScene::InitializeWeaponSlotHud()
     gunFrame_->SetColor({ 0.08f, 0.08f, 0.1f, 0.85f }); // Update()で色を更新しないため初期化時に決め打ちする
 
     // 各スタイルに対応する実物3Dモデル（色塗り四角の代わりに表示）
-    const std::vector<IconAsset> kIconAssets = LoadWeaponIconAssets("Resources/Config/weapon_icons.json");
+    const std::vector<SceneShared::WeaponIconAsset> kIconAssets = SceneShared::LoadWeaponIconAssets("Resources/Config/weapon_icons.json");
 
     const auto& list = weaponManager_->GetList();
     for (int i = 0; i < kWeaponSlotCount && i < static_cast<int>(list.size()); ++i) {
@@ -138,14 +72,19 @@ void BattleTestScene::InitializeWeaponSlotHud()
 
 void BattleTestScene::UpdateWeaponSlotHud()
 {
+    constexpr float kGunIconSpinSpeed = 0.6f; // 常時装備の印として、ゆっくり回り続ける
+    constexpr float kSlotPulseBase = 0.7f;
+    constexpr float kSlotPulseAmplitude = 0.3f;
+    constexpr float kSlotPulseFrequency = 6.0f;
+
     slotPulseTimer_ += GameConstants::kFrameDeltaTime;
-    gunIconAngle_ += GameConstants::kFrameDeltaTime * 0.6f; // 常時装備の印として、ゆっくり回り続ける
+    gunIconAngle_ += GameConstants::kFrameDeltaTime * kGunIconSpinSpeed;
     if (slotFlashTimer_ > 0.0f) {
         slotFlashTimer_ = (std::max)(0.0f, slotFlashTimer_ - GameConstants::kFrameDeltaTime);
     }
 
     const int activeIndex = weaponManager_->GetSelectedSlot();
-    const float pulse = 0.7f + 0.3f * std::sin(slotPulseTimer_ * 6.0f);
+    const float pulse = kSlotPulseBase + kSlotPulseAmplitude * std::sin(slotPulseTimer_ * kSlotPulseFrequency);
     const float flash = slotFlashTimer_ / kSlotFlashDuration;
 
     SceneShared::UpdateWeaponSlotHud(weaponManager_, weaponSlots_.data(), kWeaponSlotCount,

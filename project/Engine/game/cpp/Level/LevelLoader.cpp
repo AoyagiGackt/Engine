@@ -94,6 +94,8 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.routeOrder = obj.value("routeOrder", 0);
         desc.patrolSpeed = obj.value("patrolSpeed", 1.5f);
         desc.meshCollider = obj.value("meshCollider", false);
+        desc.weaponType = obj.value("weaponType", "");
+        desc.isStageBoss = obj.value("isStageBoss", false);
 
         std::string ax = obj.value("axis", "x");
         desc.axis = ax.empty() ? 'x' : static_cast<char>(std::tolower(static_cast<unsigned char>(ax[0])));
@@ -168,6 +170,8 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["routeOrder"] = desc.routeOrder;
         oj["patrolSpeed"] = desc.patrolSpeed;
         oj["meshCollider"] = desc.meshCollider;
+        oj["weaponType"] = desc.weaponType;
+        oj["isStageBoss"] = desc.isStageBoss;
         oj["axis"] = std::string(1, desc.axis);
         oj["count"] = desc.count;
         oj["step"] = desc.step;

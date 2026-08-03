@@ -5,7 +5,118 @@
     0.4000000059604645,
     0.0
   ],
-  "objects": [],
+  "objects": [
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "kind": "hud_anchor",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "hud_anchor_controls",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        1020.0,
+        12.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "操作説明",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": ""
+    },
+    {
+      "activationDelay": 0.0,
+      "activationFlag": "",
+      "activeWhenFlag": true,
+      "axis": "x",
+      "cameraBlendSeconds": 0.5,
+      "cameraHoldSeconds": 2.0,
+      "conditionSeconds": 0.0,
+      "conditionType": "manual",
+      "count": 1,
+      "enabled": true,
+      "enemyGroup": "",
+      "gimmickMotion": "none",
+      "kind": "hud_anchor",
+      "lighting": true,
+      "meshCollider": false,
+      "model": "",
+      "motionAmount": 3.0,
+      "motionSpeed": 1.0,
+      "name": "hud_anchor_weapon_list",
+      "parent": "",
+      "patrolRoute": "",
+      "patrolSpeed": 1.5,
+      "position": [
+        12.0,
+        12.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "routeOrder": 0,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "solid": false,
+      "spawnType": "basic",
+      "step": 1.0,
+      "text": "武器選択",
+      "textBold": false,
+      "textColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textScale": 1.5,
+      "textSpace": "screen",
+      "texture": "",
+      "type": ""
+    }
+  ],
   "playerSpawn": [
     8.0,
     0.4000000059604645,

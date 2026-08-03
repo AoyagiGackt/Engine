@@ -50,7 +50,7 @@ using engine::graphics::SrvManager;
 /**
  * @brief アクション操作の練習用シーン
  * @note ランデータを消費せずにプレイヤー操作を試せる
- * Backspace でタイトルまたはマップシーンへ戻る
+ * Backspaceでタイトルへ、Tabでステージ選択(マップ)シーンへ戻る
  */
 class TrainingScene : public BaseScene {
 public:

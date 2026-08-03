@@ -7,6 +7,7 @@
 #include "SceneManager.h"
 #include "SkinnedObject3d.h"
 #include "SrvManager.h"
+#include "WeaponManager.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
@@ -105,6 +106,14 @@ static const wchar_t* NodeDesc(RunData::NodeType t)
 void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
+
+    // Title の NEW GAME/CONTINUE を経由せずここへ来た場合（Tabショートカット・デバッグ直行等）に備え、
+    // ランが未開始ならここで開始しておく（未開始のままだとHP/スタイルUIがGamePlayScene側で出ない）
+    // 武器もトレーニング等で装備したものがシングルトン経由で残ってしまうためあわせてリセットする
+    if (!RunData::GetInstance()->IsRunActive()) {
+        RunData::GetInstance()->StartNewRun();
+        WeaponManager::GetInstance()->Reset();
+    }
 
     InitializeUiSprites();
     InitializeRenderFoundationAndPlayer();
@@ -301,13 +310,10 @@ void MapScene::Draw()
     spriteCommon_->CommonDrawSettings();
     fontRenderer_.Reset();
 
-    DrawHeader(rd);
     const int floor = rd->GetFloor();
     if (floor < static_cast<int>(floors_.size())) {
         DrawStagePortalLabels(floor);
     }
-
-    DrawSkillList(rd);
 
     fontRenderer_.DrawStringW(L"A Dまたは左スティックで移動  入口の前でEnterまたはAボタン  Tでトレーニング",
         20.0f, 690.0f, 1.1f, { 0.88f, 0.90f, 1.0f, 1.0f });
@@ -397,19 +403,6 @@ void MapScene::DrawStagePortalLabels(int floor)
             DrawSelectedNodeInfo(floor, floors_[i][0]);
         }
     }
-}
-
-void MapScene::DrawHeader(RunData* rd)
-{
-    // ── タイトルバー ──
-    fontRenderer_.DrawStringW(L"STYLE RUN", 510.0f, 12.0f, 2.2f, { 1.0f, 0.85f, 0.2f, 1.0f });
-
-    // HP / ゴールド
-    char buf[64];
-    snprintf(buf, sizeof(buf), "HP:%d/%d", rd->GetHp(), rd->GetMaxHp());
-    fontRenderer_.DrawString(buf, 20.0f, 18.0f, 1.6f, { 0.3f, 1.0f, 0.4f, 1.0f });
-    snprintf(buf, sizeof(buf), "Gold: %dG", rd->GetGold());
-    fontRenderer_.DrawString(buf, 20.0f, 44.0f, 1.6f, { 1.0f, 0.85f, 0.2f, 1.0f });
 }
 
 RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
@@ -506,23 +499,3 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
     }
 }
 
-void MapScene::DrawSkillList(RunData* rd)
-{
-    // ── スキル一覧 ──
-    fontRenderer_.DrawStringW(L"取得スキル:", 20.0f, 648.0f, 1.2f, { 0.7f, 0.9f, 1.0f, 1.0f });
-    if (rd->GetSkills().empty()) {
-        fontRenderer_.DrawStringW(L"なし", 200.0f, 648.0f, 1.2f, { 0.5f, 0.5f, 0.5f, 1.0f });
-        return;
-    }
-
-    float sx = 200.0f;
-    for (auto sk : rd->GetSkills()) {
-        const char* name = RunData::SkillName(sk);
-        // 最初の単語だけ（スペース前まで）
-        std::string n(name);
-        auto p = n.find(' ');
-        std::string short_n = (p != std::string::npos) ? n.substr(0, p) : n;
-        fontRenderer_.DrawString((short_n + "  ").c_str(), sx, 650.0f, 1.2f, { 0.9f, 0.85f, 0.3f, 1.0f });
-        sx += static_cast<float>(short_n.size() + 2) * FontRenderer::kCharW * 1.2f;
-    }
-}

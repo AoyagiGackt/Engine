@@ -53,6 +53,9 @@ struct ObjectDesc {
     int routeOrder = 0; // patrol_pointを並べる順序
     float patrolSpeed = 1.5f; // 巡回速度をワールド単位毎秒で指定する
     bool meshCollider = false; // terrainの表示メッシュから三角形単位AABBを同期する
+    // "enemy_basic" 専用（GamePlayScene等が武器奪取ギミックの対象を判別するのに使う）
+    std::string weaponType; // 空なら武器を持たない一般敵。"Sword"等ならその武器を持ち、倒してJキーで奪取できる
+    bool isStageBoss = false; // trueならこの敵を倒して奪取するとステージクリア条件が成立する（HPはRunDataのノード種別で自動調整）
     // "row" 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数

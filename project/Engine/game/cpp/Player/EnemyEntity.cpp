@@ -19,6 +19,7 @@ constexpr const char* kKnightTexture = "Resources/Knight/OBJ/KnightCharacterPale
 void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, WeaponType weaponType)
 {
     pos_ = startPos;
+    spawnX_ = startPos.x;
     weaponType_ = weaponType;
     attackState_ = AttackState::Idle;
     attackTimer_ = 0.0f;
@@ -56,11 +57,11 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     if (weaponType == WeaponType::Spear) {
         weaponPath = "Resources/Knight/OBJ/Katana.obj";
         weaponTexture = "Resources/Knight/OBJ/KatanaPalette.png";
-        weaponScale_ = { 0.11f, 0.11f, 0.22f };
+        weaponScale_ = kSpearWeaponScale_;
     } else if (weaponType == WeaponType::Hammer || weaponType == WeaponType::Axe) {
         weaponPath = "Resources/Knight/OBJ/Club.obj";
         weaponTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
-        weaponScale_ = { 0.16f, 0.16f, 0.16f };
+        weaponScale_ = kHeavyWeaponScale_;
     }
     weaponModel_ = std::make_unique<Model>();
     weaponModel_->Initialize(modelCommon, weaponPath, weaponTexture);
@@ -69,34 +70,44 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     weaponObject_->SetModel(weaponModel_.get());
     weaponObject_->SetEnableLighting(true);
     weaponObject_->SetScale(weaponScale_);
-    weaponObject_->SetPosition({ pos_.x + 0.35f, pos_.y + 0.75f, pos_.z + 0.15f });
-    weaponObject_->SetRotation({ 0.0f, 0.0f, 0.4f });
+    weaponObject_->SetPosition({ pos_.x + facingSign_ * kWeaponOffsetX_, pos_.y + kWeaponOffsetY_, pos_.z + kWeaponOffsetZ_ });
+    weaponObject_->SetRotation({ 0.0f, facingSign_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi, kWeaponRestTilt_ });
     weaponObject_->Update();
 }
 
-void EnemyEntity::Update()
+void EnemyEntity::Update(float playerX)
 {
     justLanded_ = false;
     slowTimer_ = (std::max)(slowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
+    facingSign_ = (playerX >= pos_.x) ? 1.0f : -1.0f;
+
     if (std::abs(knockVelX_) > 0.001f) {
-        pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? 0.45f : 1.0f);
-        knockVelX_ *= 0.82f;
-        object_->SetPosition(pos_);
-        weaponObject_->SetPosition({ pos_.x + 0.35f, pos_.y + 0.75f, pos_.z + 0.15f });
+        pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? kKnockbackSlowMultiplier_ : 1.0f);
+        knockVelX_ *= kKnockbackDecay_;
+    } else if (!defeated_ && !isLaunched_ && attackState_ == AttackState::Idle) {
+        // 予備動作/攻撃中やノックバック中は歩かせない。プレイヤーが持ち場に近づいてくるまでは待機し、
+        // 近づいてきたら間合いの外にいる間だけ追うが、持ち場から離れすぎたら止まる（全員が団子にならないように）
+        const bool playerNearPost = std::abs(playerX - spawnX_) <= kAggroRange_;
+        const bool withinLeash = std::abs(pos_.x - spawnX_) < kLeashDistance_;
+        const float dx = playerX - pos_.x;
+        if (playerNearPost && withinLeash && std::abs(dx) > kEngageRange_) {
+            pos_.x += dx > 0.0f ? kApproachSpeed_ : -kApproachSpeed_;
+        }
     }
 
     if (isLaunched_) {
         airComboTimer_ = (std::max)(airComboTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
-        const float gravity = airComboTimer_ > 0.0f ? kGravity_ * 0.28f : kGravity_;
-        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, kGroundY_, kCeilingY_, -0.1f)) {
+        const float gravity = airComboTimer_ > 0.0f ? kGravity_ * kAirComboGravityScale_ : kGravity_;
+        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, launchOriginY_, kCeilingY_, -0.1f)) {
             isLaunched_ = false;
             justLanded_ = true;
         }
-
-        object_->SetPosition(pos_);
-        weaponObject_->SetPosition({ pos_.x + 0.35f, pos_.y + 0.75f, pos_.z + 0.15f });
     }
+    // 非打ち上げ中はpos_.yに一切触れない。ステージエディタで配置・ドラッグした高さをそのまま信用する
+
+    object_->SetPosition(pos_);
+    weaponObject_->SetPosition({ pos_.x + facingSign_ * kWeaponOffsetX_, pos_.y + kWeaponOffsetY_, pos_.z + kWeaponOffsetZ_ });
 
     UpdateAttack();
 
@@ -109,23 +120,24 @@ void EnemyEntity::Update()
     }
 
     float bodyLean = 0.0f;
-    float weaponSwing = 0.4f;
+    float weaponSwing = kWeaponRestTilt_;
     if (!defeated_ && !isLaunched_) {
         switch (attackState_) {
         case AttackState::Idle:
             break;
         case AttackState::Telegraph:
-            bodyLean = -0.10f;
-            weaponSwing = 1.15f;
+            bodyLean = kTelegraphBodyLean_;
+            weaponSwing = kTelegraphWeaponSwing_;
             break;
         case AttackState::Active:
-            bodyLean = 0.14f;
-            weaponSwing = -1.0f;
+            bodyLean = kActiveBodyLean_;
+            weaponSwing = kActiveWeaponSwing_;
             break;
         }
     }
-    object_->SetRotation({ 0.0f, 0.0f, bodyLean });
-    weaponObject_->SetRotation({ 0.0f, 0.0f, weaponSwing });
+    const float facingYaw = facingSign_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    object_->SetRotation({ 0.0f, facingYaw, bodyLean });
+    weaponObject_->SetRotation({ 0.0f, facingYaw, weaponSwing });
 
     object_->Update();
     weaponObject_->Update();
@@ -148,9 +160,9 @@ void EnemyEntity::UpdateAttack()
     switch (attackState_) {
     case AttackState::Idle:
         attackState_ = AttackState::Telegraph;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 0.20f
-            : weaponType_ == WeaponType::Spear                                      ? 0.38f
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 0.75f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? kDaggerTelegraph_
+            : weaponType_ == WeaponType::Spear                                      ? kSpearTelegraph_
+            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? kHeavyTelegraph_
                                                                                     : kAttackTelegraph_;
         break;
     case AttackState::Telegraph:
@@ -160,9 +172,9 @@ void EnemyEntity::UpdateAttack()
         break;
     case AttackState::Active:
         attackState_ = AttackState::Idle;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? 1.25f
-            : weaponType_ == WeaponType::Spear                                      ? 2.0f
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? 3.2f
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? kDaggerRecovery_
+            : weaponType_ == WeaponType::Spear                                      ? kSpearRecovery_
+            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? kHeavyRecovery_
                                                                                     : kAttackInterval_;
         break;
     }
@@ -179,6 +191,9 @@ void EnemyEntity::Draw()
 
 void EnemyEntity::Launch(float velY)
 {
+    if (!isLaunched_) {
+        launchOriginY_ = pos_.y; // 最初の打ち上げ時点の高さを着地目標として記録する（空中コンボ中は上書きしない）
+    }
     isLaunched_ = true;
     velY_ = velY;
     airComboTimer_ = kAirComboHold_;
@@ -192,12 +207,12 @@ void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
     }
     if (switchPull) {
         const float toPlayer = playerX - pos_.x;
-        knockVelX_ = std::clamp(toPlayer * 0.18f, -0.32f, 0.32f);
-        airComboTimer_ = kAirComboHold_ + 0.18f;
+        knockVelX_ = std::clamp(toPlayer * kSwitchPullStrength_, -kSwitchPullClamp_, kSwitchPullClamp_);
+        airComboTimer_ = kAirComboHold_ + kSwitchPullAirComboBonus_;
     } else {
-        knockVelX_ += knockDirX * 0.055f;
+        knockVelX_ += knockDirX * kKnockDirXScale_;
     }
-    if (knockY > 0.08f) {
+    if (knockY > kLaunchThreshold_) {
         Launch(knockY);
     }
 }

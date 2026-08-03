@@ -26,6 +26,36 @@ using namespace engine::game;
 using namespace engine;
 using namespace engine::graphics;
 
+namespace {
+// ObjectDesc::weaponType（Inspectorのコンボボックスと同じ文字列規約）をWeaponTypeへ変換する
+// WeaponManager.cpp内の同名パーサは無名namespace限定で外部から使えないため、ここだけ小さく複製する
+WeaponType ParseEnemyWeaponType(const std::string& type)
+{
+    if (type == "Spear") {
+        return WeaponType::Spear;
+    }
+    if (type == "Hammer") {
+        return WeaponType::Hammer;
+    }
+    if (type == "Dagger") {
+        return WeaponType::Dagger;
+    }
+    if (type == "Ball") {
+        return WeaponType::Ball;
+    }
+    if (type == "Greatsword") {
+        return WeaponType::Greatsword;
+    }
+    if (type == "Scythe") {
+        return WeaponType::Scythe;
+    }
+    if (type == "Axe") {
+        return WeaponType::Axe;
+    }
+    return WeaponType::Sword;
+}
+} // namespace
+
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
 {
     std::string key = modelPath + '|' + texPath;
@@ -80,7 +110,7 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc));
+            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseEnemyWeaponType(desc.weaponType));
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
         }
@@ -548,7 +578,7 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.enemy->GetPositionRef() = worldPos;
             entry.enemy->RefreshVisualTransforms();
         } else {
-            entry.enemy->Update();
+            entry.enemy->Update(playerPos.x);
             entry.desc.position = entry.enemy->GetPosition();
         }
     }
@@ -671,6 +701,23 @@ std::vector<KnightEnemy*> StageEditor::GetKnights()
         if (entry.knight && entry.runtimeActive) {
             result.push_back(entry.knight.get());
         }
+    }
+    return result;
+}
+
+std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
+{
+    std::vector<CombatEnemyRef> result;
+    for (const auto& entry : objects_) {
+        if (!entry.enemy || !entry.runtimeActive || entry.desc.kind != "enemy_basic" || entry.desc.weaponType.empty()) {
+            continue;
+        }
+        CombatEnemyRef ref;
+        ref.name = entry.desc.name;
+        ref.weaponType = ParseEnemyWeaponType(entry.desc.weaponType);
+        ref.isStageBoss = entry.desc.isStageBoss;
+        ref.enemy = entry.enemy.get();
+        result.push_back(ref);
     }
     return result;
 }

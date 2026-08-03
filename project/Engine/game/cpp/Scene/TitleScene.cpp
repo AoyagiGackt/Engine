@@ -6,6 +6,7 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
+#include "WeaponManager.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -44,6 +45,7 @@ void TitleScene::Update()
         switch (menu_.GetSelectedIndex()) {
         case 0: // NEW GAME
             RunData::GetInstance()->StartNewRun();
+            WeaponManager::GetInstance()->Reset();
             SaveDataManager::GetInstance()->ClearContinue();
             SceneManager::GetInstance()->ChangeScene("MAP", 0.15f, 0.2f);
             break;

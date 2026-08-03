@@ -38,6 +38,15 @@ class FontRenderer;
 class StageEditorSelectionService;
 class StageEditorHierarchyPanel;
 class StageEditorInspectorPanel;
+enum class WeaponType; // Weapon.h で定義
+
+/** @brief kind=="enemy_basic"かつ武器種別を持つ配置物1件ぶんの参照（GetCombatEnemies()の戻り値） */
+struct CombatEnemyRef {
+    std::string name;
+    WeaponType weaponType;
+    bool isStageBoss = false;
+    EnemyEntity* enemy = nullptr; // 非所有。StageEditorのobjects_が生存させる
+};
 
 /**
  * @brief レベルデータの読み書きと配置物の実行および編集UIを統括する
@@ -133,6 +142,14 @@ public:
      * @note 戦闘判定はシーン側が一覧を走査して行う
      */
     std::vector<KnightEnemy*> GetKnights();
+
+    /**
+     * @brief 武器種別が設定されたkind=="enemy_basic"の配置物一覧を返す（毎フレーム呼ぶ想定）
+     * @return エディタが所有する生存期間限定のEnemyEntityポインタと武器種別/ボス指定の一覧
+     * @note 倒して奪取できる武器持ち敵をコード側で決め打ちせず、レベル側の配置とInspector設定だけで
+     * 増減・変更できるようにするための仕組み（GetKnights()と同じ規約）
+     */
+    std::vector<CombatEnemyRef> GetCombatEnemies() const;
 
     /**
      * @brief solid=trueのオブジェクトのワールドAABB一覧を返す（毎フレーム呼ぶ想定）
@@ -373,6 +390,9 @@ private:
     /** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
     void ReleaseLevelResources(bool releaseExternalEntities);
 
+    /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
+    void EnsureHudAnchors();
+
 #ifdef USE_IMGUI
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
     // ObjectEntryは実体(unique_ptr)を持ちコピーできないため、Save()の保存対象と同じdescだけを控え、
@@ -445,8 +465,6 @@ private:
     void SaveSelectedPrefab();
     /** @brief 名前付きプレハブを画面中央へ生成する */
     void InstantiatePrefab();
-    /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
-    void EnsureHudAnchors();
 
     float autoSaveElapsed_ = 0.0f;
     static constexpr float kAutoSaveIntervalSeconds = 30.0f;

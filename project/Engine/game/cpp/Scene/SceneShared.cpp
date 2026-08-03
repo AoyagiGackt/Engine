@@ -38,7 +38,54 @@ namespace {
         static std::mt19937 rng { std::random_device { }() };
         return rng;
     }
+
+    WeaponType ParseIconWeaponType(const std::string& type)
+    {
+        if (type == "Dagger")
+            return WeaponType::Dagger;
+        if (type == "Hammer")
+            return WeaponType::Hammer;
+        if (type == "Spear")
+            return WeaponType::Spear;
+        if (type == "Greatsword")
+            return WeaponType::Greatsword;
+        if (type == "Scythe")
+            return WeaponType::Scythe;
+        if (type == "Axe")
+            return WeaponType::Axe;
+        return WeaponType::Sword;
+    }
 } // namespace
+
+std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
+{
+    std::vector<WeaponIconAsset> assets;
+    nlohmann::json j = engine::JsonHelper::Load(jsonPath);
+    if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
+        for (const auto& entry : j["icons"]) {
+            WeaponIconAsset asset;
+            asset.type = ParseIconWeaponType(entry.value("type", std::string("Sword")));
+            asset.modelPath = entry.value("model", std::string());
+            asset.texturePath = entry.value("texture", std::string());
+            asset.scale = entry.value("scale", 0.2f);
+            asset.baseYaw = entry.value("baseYawDeg", 0.0f) * GameConstants::kDegToRad;
+            assets.push_back(std::move(asset));
+        }
+    }
+    if (assets.empty()) {
+        // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
+        assets = {
+            { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
+            { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
+            { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.18f, GameConstants::kPi },
+            { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.08f, 0.0f },
+            { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.12f, 0.0f },
+            { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.14f, 0.0f },
+            { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.13f, 0.0f },
+        };
+    }
+    return assets;
+}
 
 void InitializeWeaponSlotHud(SpriteCommon* spriteCommon, WeaponManager* weaponManager,
     WeaponSlotUI* slots, Vector2* slotPos, int slotCount,

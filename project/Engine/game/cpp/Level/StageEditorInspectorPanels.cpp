@@ -387,6 +387,25 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
             captureItemUndo(ImGui::DragFloat("巡回速度", &desc.patrolSpeed, 0.05f, 0.0f, 20.0f));
         }
     }
+    if (desc.kind == "enemy_basic") {
+        // 空="武器を持たない一般敵"。指定すると倒してJキーで奪取できるようになる（GamePlayScene参照）
+        constexpr const char* kWeaponTypes[] = { "なし", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
+        constexpr int kWeaponTypeCount = static_cast<int>(sizeof(kWeaponTypes) / sizeof(kWeaponTypes[0]));
+        int weaponTypeIndex = 0;
+        for (int i = 1; i < kWeaponTypeCount; ++i) {
+            if (desc.weaponType == kWeaponTypes[i]) {
+                weaponTypeIndex = i;
+                break;
+            }
+        }
+        if (ImGui::Combo("奪取可能な武器", &weaponTypeIndex, kWeaponTypes, kWeaponTypeCount)) {
+            editor.RecordUndoSnapshotNow();
+            desc.weaponType = weaponTypeIndex == 0 ? "" : kWeaponTypes[weaponTypeIndex];
+            structuralDirty = true; // 武器種別はEnemyEntity生成時にしか反映できないため実体を作り直す
+        }
+        // isStageBossはEnemyEntity生成には関わらないメタデータなのでstructuralDirtyは不要
+        captureItemUndo(ImGui::Checkbox("ステージボス（倒して奪取するとクリア）", &desc.isStageBoss));
+    }
     if (desc.kind == "event_condition") {
         const char* conditionTypes[] = { "manual", "timer", "enemy_group_defeated" };
         int conditionIndex = desc.conditionType == "timer" ? 1

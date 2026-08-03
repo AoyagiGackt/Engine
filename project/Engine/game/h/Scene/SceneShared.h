@@ -34,6 +34,23 @@ namespace SceneShared {
         std::unique_ptr<engine::graphics::Sprite> icon; // スタイルカラーで塗った中身
     };
 
+    /** @brief 武器スロットUIの3Dアイコン1個分の素材（モデル・テクスチャ・表示調整値） */
+    struct WeaponIconAsset {
+        WeaponType type;
+        std::string modelPath;
+        std::string texturePath;
+        float scale; ///< モデル実寸の高さ差を吸収し、見た目のアイコンサイズ(目標高さ約0.8)を揃えるための倍率
+        float baseYaw; ///< モデルの正面がカメラを向くよう回す基準角度（ラジアン）。目視で調整した値
+    };
+
+    /**
+     * @brief 武器スロットUIの3Dアイコン素材一覧をJSONから読み込む
+     * @note ダミーの物理武器がまだ無いスタイルはResources/Config/weapon_icons.jsonに1行追記すれば自動でモデル表示に切り替わる
+     * @param jsonPath アイコン素材定義のJSONパス
+     * @return 読み込んだ素材一覧。ファイルが無い・読み込めない場合は既存互換の既定値を返す
+     */
+    std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath);
+
     /**
      * @brief 武器スロットHUD(枠+色アイコン+常時装備銃)のスプライトを初期化して配置する
      * @param checkUnlockedForInitialColor 初期色を決める際にロック状態も見るか(未解放スロットを初手から暗く表示したいシーンでtrue)

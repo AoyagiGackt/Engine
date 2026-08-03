@@ -95,6 +95,12 @@ public:
      */
     void EquipForTraining(WeaponType type);
 
+    /**
+     * @brief 全武器を未解放状態へ戻す（新しいランの開始時に呼ぶ）
+     * @note シングルトンのためトレーニング等で装備した武器がシーンをまたいで残ってしまうのを防ぐ
+     */
+    void Reset();
+
 private:
     WeaponManager();
 

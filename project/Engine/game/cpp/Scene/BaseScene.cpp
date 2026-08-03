@@ -35,6 +35,7 @@ void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio)
     auto* camera = GetEditorCamera();
     if (!levelPath.empty() && modelCommon && camera) {
         GetStageEditor().Open(levelPath, modelCommon, camera);
+        OnEditorLevelLoaded();
     }
 
     if (Vector3* playerPos = GetEditorPlayerPositionRef()) {
