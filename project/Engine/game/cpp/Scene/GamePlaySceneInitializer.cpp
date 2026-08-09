@@ -81,6 +81,7 @@ void GamePlayScene::OnEditorLevelLoaded()
 
     enemy_ = nullptr;
     weaponEnemies_.clear();
+    enemyBullets_.clear();
 
     auto* runData = RunData::GetInstance();
     for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {

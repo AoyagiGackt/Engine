@@ -46,6 +46,7 @@
 #include "SceneShared.h"
 #include "Skydome.h"
 #include "SpaceDistortionEffect.h"
+#include "StyleMeter.h"
 #include "TimeManager.h"
 #include "WaterPool.h"
 namespace engine::graphics {
@@ -217,10 +218,8 @@ private:
     void UpdateWeaponEnemies();
     /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
     void UpdateEnergyCores();
-    /** @brief 右上のコンボランク表示と覚醒ゲージを描画する */
-    void DrawRankAndAwakenGauge();
-    /** @brief 右側のスタイルコマンド一覧とコンボ進捗を描画する */
-    void DrawStyleCommands();
+    /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
+    void DrawWeaponListPanel();
     // ローグライトのHP/Gold/フロア情報HUD描画
     void DrawRogueliteHUD();
     // モデル共通描画設定（PSO/ルートシグネチャ）の適用
@@ -396,13 +395,19 @@ private:
 
     static constexpr float kGhostLifetime = 0.3f;
 
-    // 敵の遠隔攻撃弾同時に1発のみ（攻撃間隔がAABBチェック不要な程度に長いため、複数弾のプールは不要）
+    // 敵の遠隔攻撃弾ボスと道中の武器持ち敵が共用する（発射時にプレイヤーが射程内にいる敵だけ撃つ）
     static constexpr float kEnemyBulletSpeed = 9.0f;
     static constexpr float kEnemyBulletLifetime = 1.2f;
-    Vector3 enemyBulletPos_ = { };
-    Vector3 enemyBulletVel_ = { };
-    float enemyBulletTimer_ = 0.0f;
-    bool enemyBulletActive_ = false;
+    static constexpr float kEnemyFireRange = 7.0f; ///< 発射の瞬間にプレイヤーがこの距離より遠い敵は撃たない
+
+    /** @brief 敵の遠隔攻撃弾1発分の状態 */
+    struct EnemyBullet {
+        Vector3 pos = { };
+        Vector3 vel = { };
+        float timer = 0.0f;
+        int damage = 0;
+    };
+    std::vector<EnemyBullet> enemyBullets_;
 
     /** @brief 覚醒中の残像トレイル1コマ分の位置と経過秒数（kGhostLifetimeを超えたら消える） */
     struct GhostEntry {
@@ -416,6 +421,8 @@ private:
     float auraTimer_ = 0.0f;
     float styleMeter_ = 0.0f;
     float peakStyle_ = 0.0f;
+    /** @brief 右上のスタイリッシュランクHUD（採点はstyleMeter_側で行い、表示だけこれに委ねる） */
+    StyleMeter styleRankHud_;
     int prevStyleTier_ = 0;
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;

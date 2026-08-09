@@ -220,16 +220,25 @@ private:
     static constexpr float kKnockDirXScale_ = 0.055f; // 通常ノックバックの反映倍率
     static constexpr float kLaunchThreshold_ = 0.08f; // これを超えるknockYで打ち上げが発生する
 
-    /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ） */
-    void UpdateAttack();
+    /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ）
+     *  @param playerX プレイヤーのワールドX座標（持ち場基準の索敵判定に使う） */
+    void UpdateAttack(float playerX);
+
+    /** @brief 表示アニメーションの種類（攻撃ステートと歩行状態の組み合わせから決まる） */
+    enum class VisualAnim {
+        Idle, ///< 立ち姿勢
+        Run, ///< 接近歩行中の走り
+        Attack, ///< 予備動作〜攻撃中
+    };
 
     std::unique_ptr<Model> model_;
     std::unique_ptr<SkinCommon> skinCommon_;
     std::unique_ptr<SkinnedModel> animatedModel_;
     std::unique_ptr<SkinnedObject3d> object_;
     Animation idleAnimation_;
+    Animation runAnimation_;
     Animation attackAnimation_;
-    AttackState animationState_ = AttackState::Active;
+    VisualAnim animationState_ = VisualAnim::Attack;
     std::unique_ptr<Model> weaponModel_;
     std::unique_ptr<Object3d> weaponObject_;
     Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };

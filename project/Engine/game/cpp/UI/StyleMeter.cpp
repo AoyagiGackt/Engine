@@ -83,6 +83,14 @@ void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
     hitPopTimer_ = 0.18f;
 }
 
+void StyleMeter::SetNormalizedPoints(float t)
+{
+    points_ = std::clamp(t, 0.0f, 1.0f) * kMaxPoints;
+    if (points_ > 0.0f) {
+        hudAlpha_ = 1.0f;
+    }
+}
+
 void StyleMeter::Update(float dt)
 {
     // 技の熱冷まし

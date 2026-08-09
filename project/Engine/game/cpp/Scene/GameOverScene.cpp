@@ -7,6 +7,7 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
+#include "WeaponManager.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -67,7 +68,10 @@ void GameOverScene::Update()
     // 決定
     if (input_->TriggerKey(DIK_SPACE) || input_->TriggerKey(DIK_RETURN)) {
         if (cursor_ == 0) {
-            SceneManager::GetInstance()->ChangeScene("GAMEPLAY"); // リスタート
+            // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
+            RunData::GetInstance()->StartNewRun();
+            WeaponManager::GetInstance()->Reset();
+            SceneManager::GetInstance()->ChangeScene("MAP");
         } else {
             SceneManager::GetInstance()->ChangeScene("TITLE"); // タイトルへ
         }

@@ -43,10 +43,12 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
         LoadNodeHierarchyFromFile(kAnimatedKnightDirectory, kAnimatedKnightFile)));
     idleAnimation_ = LoadAnimationFile(
         kAnimatedKnightDirectory, kAnimatedKnightFile, "Idle_swordRight");
+    runAnimation_ = LoadAnimationFile(
+        kAnimatedKnightDirectory, kAnimatedKnightFile, "Run_swordRight");
     attackAnimation_ = LoadAnimationFile(
         kAnimatedKnightDirectory, kAnimatedKnightFile, "Run_swordAttack");
     object_->SetAnimation(attackAnimation_);
-    animationState_ = AttackState::Telegraph;
+    animationState_ = VisualAnim::Attack;
     object_->SetEnableLighting(true);
     object_->SetScale({ 0.2f, 0.2f, 0.2f });
     object_->SetPosition(pos_);
@@ -82,6 +84,7 @@ void EnemyEntity::Update(float playerX)
 
     facingSign_ = (playerX >= pos_.x) ? 1.0f : -1.0f;
 
+    bool walkedThisFrame = false;
     if (std::abs(knockVelX_) > 0.001f) {
         pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? kKnockbackSlowMultiplier_ : 1.0f);
         knockVelX_ *= kKnockbackDecay_;
@@ -93,6 +96,7 @@ void EnemyEntity::Update(float playerX)
         const float dx = playerX - pos_.x;
         if (playerNearPost && withinLeash && std::abs(dx) > kEngageRange_) {
             pos_.x += dx > 0.0f ? kApproachSpeed_ : -kApproachSpeed_;
+            walkedThisFrame = true;
         }
     }
 
@@ -109,13 +113,17 @@ void EnemyEntity::Update(float playerX)
     object_->SetPosition(pos_);
     weaponObject_->SetPosition({ pos_.x + facingSign_ * kWeaponOffsetX_, pos_.y + kWeaponOffsetY_, pos_.z + kWeaponOffsetZ_ });
 
-    UpdateAttack();
+    UpdateAttack(playerX);
 
-    const AttackState desiredAnimationState = attackState_ == AttackState::Idle ? AttackState::Idle : AttackState::Telegraph;
+    // 攻撃動作が最優先、次に接近歩行の走り、どちらでもなければ立ち姿勢
+    // （歩行中にIdleのままだと棒立ちで滑って見える）
+    const VisualAnim desiredAnimationState = attackState_ != AttackState::Idle ? VisualAnim::Attack
+        : walkedThisFrame                                                      ? VisualAnim::Run
+                                                                               : VisualAnim::Idle;
     if (desiredAnimationState != animationState_) {
-        object_->SetAnimation(desiredAnimationState == AttackState::Idle
-                ? idleAnimation_
-                : attackAnimation_);
+        object_->SetAnimation(desiredAnimationState == VisualAnim::Attack ? attackAnimation_
+                : desiredAnimationState == VisualAnim::Run                ? runAnimation_
+                                                                          : idleAnimation_);
         animationState_ = desiredAnimationState;
     }
 
@@ -143,7 +151,7 @@ void EnemyEntity::Update(float playerX)
     weaponObject_->Update();
 }
 
-void EnemyEntity::UpdateAttack()
+void EnemyEntity::UpdateAttack(float playerX)
 {
     justFiredAttack_ = false;
 
@@ -159,6 +167,12 @@ void EnemyEntity::UpdateAttack()
 
     switch (attackState_) {
     case AttackState::Idle:
+        // 接近AIと同じ持ち場基準の索敵距離を使い、プレイヤーが戦闘圏内へ来るまでは
+        // 予備動作を始めない（遠くの敵が延々と素振り・発砲を繰り返さないように）
+        if (std::abs(playerX - spawnX_) > kAggroRange_) {
+            attackTimer_ = 0.0f;
+            break;
+        }
         attackState_ = AttackState::Telegraph;
         attackTimer_ = weaponType_ == WeaponType::Dagger                            ? kDaggerTelegraph_
             : weaponType_ == WeaponType::Spear                                      ? kSpearTelegraph_

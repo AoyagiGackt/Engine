@@ -142,6 +142,7 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
     awakenGaugeBg_->SetColor({ 0.04f, 0.06f, 0.10f, 0.85f });
     awakenGaugeFg_ = std::make_unique<Sprite>();
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    styleRankHud_.Initialize(spriteCommon_.get());
     InitializeWeaponSlotHud();
 }
 
@@ -298,13 +299,23 @@ void GamePlayScene::Update()
         finisherShatter_.Reset();
     }
 
-    // 切断演出が飛散に移ったら、生き残っている敵本体を再表示する
-    if (!enemy_->IsDefeated() && !enemy_->IsVisible()
+    // 切断演出が飛散に移ったら、敵本体を再表示する
+    // 撃破済みでもJの武器吸収で本体を消費するまでは戻す（フィニッシャーで倒した場合に
+    // 透明な敵へJを当てる状態にならないように）。吸収完了後はweaponStealTriggered_が立つので戻さない
+    if (!enemy_->IsVisible() && !weaponStealTriggered_
         && (enemySlice_.IsBursting() || !enemySlice_.IsActive())) {
         enemy_->SetVisible(true);
     }
 
     SlashMark::GetInstance()->Update(dt);
+
+    // ラン中にHPが尽きたらゲームオーバーへ（クリア演出が始まっていればそちらを優先する）
+    auto* runData = RunData::GetInstance();
+    if (runData->IsRunActive() && runData->GetHp() <= 0 && !clearTriggered_) {
+        SceneManager::GetInstance()->ChangeScene("GAMEOVER");
+        return;
+    }
+
     CheckClearCondition();
 }
 

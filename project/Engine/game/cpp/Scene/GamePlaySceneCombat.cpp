@@ -449,6 +449,10 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
     // フィニッシャースラッシュのダメージは UpdateFinisherSlash の本命ヒットで適用する
     DecayStyleMeter(dt);
 
+    // 採点はstyleMeter_(0〜1)のまま、右上ランクの表示だけStyleMeterへ渡す
+    styleRankHud_.SetNormalizedPoints(styleMeter_);
+    styleRankHud_.Update(dt);
+
     DrawStyleUI();
 }
 
@@ -552,66 +556,81 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
 
 void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
 {
+    const Vector3& ppos = player_->GetPosition();
+
     // 予備動作明けの瞬間 狙いを一度だけ計算し、実弾を撃ち出す
-    if (enemy_->JustFiredAttack()) {
-        const Vector3& epos = enemy_->GetPosition();
-        const Vector3& ppos = player_->GetPosition();
+    // （発射の瞬間にプレイヤーが射程外にいる敵は撃たない遠くの敵に一方的に狙撃されないように）
+    auto fireBulletFrom = [&](EnemyEntity* shooter) {
+        if (!shooter->JustFiredAttack()) {
+            return;
+        }
+        const Vector3& epos = shooter->GetPosition();
         // pos_ はAABB中心（当たり判定の基準点）そのものなので、狙い・発射位置ともにオフセットを足さずここから直接計算する
         Vector3 dir = { ppos.x - epos.x, ppos.y - epos.y, 0.0f };
         float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+        if (len > kEnemyFireRange) {
+            return;
+        }
         if (len > 0.001f) {
             dir.x /= len;
             dir.y /= len;
         }
-        enemyBulletPos_ = epos;
-        enemyBulletVel_ = { dir.x * kEnemyBulletSpeed, dir.y * kEnemyBulletSpeed, 0.0f };
-        enemyBulletTimer_ = kEnemyBulletLifetime;
-        enemyBulletActive_ = true;
-        pm_->EmitRing("hit_ring", enemyBulletPos_, 1.2f, { 1.0f, 0.35f, 0.25f, 0.8f }, 8, 0.15f, 0.1f);
+        EnemyBullet bullet;
+        bullet.pos = epos;
+        bullet.vel = { dir.x * kEnemyBulletSpeed, dir.y * kEnemyBulletSpeed, 0.0f };
+        bullet.timer = kEnemyBulletLifetime;
+        bullet.damage = shooter->GetAttackDamage();
+        enemyBullets_.push_back(bullet);
+        pm_->EmitRing("hit_ring", epos, 1.2f, { 1.0f, 0.35f, 0.25f, 0.8f }, 8, 0.15f, 0.1f);
+    };
+    fireBulletFrom(enemy_);
+    for (auto& entry : weaponEnemies_) {
+        fireBulletFrom(entry.enemy);
     }
 
-    if (!enemyBulletActive_) {
-        return;
-    }
+    for (auto it = enemyBullets_.begin(); it != enemyBullets_.end();) {
+        EnemyBullet& bullet = *it;
+        bullet.pos.x += bullet.vel.x * dt;
+        bullet.pos.y += bullet.vel.y * dt;
+        bullet.timer -= dt;
+        // 曳光弾の見た目実体（Object3d）は持たず、毎フレーム現在位置に粒を撒いて弾の軌跡に見せる
+        pm_->EmitWithColor("gun_shot", bullet.pos, { 0.0f, 0.0f, 0.0f },
+            { 1.0f, 0.3f, 0.2f, 1.0f }, 0.12f, 0.28f);
 
-    enemyBulletPos_.x += enemyBulletVel_.x * dt;
-    enemyBulletPos_.y += enemyBulletVel_.y * dt;
-    enemyBulletTimer_ -= dt;
-    // 曳光弾の見た目実体（Object3d）は持たず、毎フレーム現在位置に粒を撒いて弾の軌跡に見せる
-    pm_->EmitWithColor("gun_shot", enemyBulletPos_, { 0.0f, 0.0f, 0.0f },
-        { 1.0f, 0.3f, 0.2f, 1.0f }, 0.12f, 0.28f);
+        if (bullet.timer <= 0.0f) {
+            it = enemyBullets_.erase(it);
+            continue;
+        }
 
-    if (enemyBulletTimer_ <= 0.0f) {
-        enemyBulletActive_ = false;
-        return;
-    }
+        if (player_->IsInvincible()) {
+            ++it;
+            continue;
+        }
 
-    if (player_->IsInvincible()) {
-        return;
-    }
+        AABB bulletAABB = { { bullet.pos.x - 0.15f, bullet.pos.y - 0.15f, -0.5f },
+            { bullet.pos.x + 0.15f, bullet.pos.y + 0.15f, 0.5f } };
+        Collider playerCol = player_->GetCollider();
+        if (!Collision::CheckCollision(playerCol.aabb, bulletAABB)) {
+            ++it;
+            continue;
+        }
 
-    AABB bulletAABB = { { enemyBulletPos_.x - 0.15f, enemyBulletPos_.y - 0.15f, -0.5f },
-        { enemyBulletPos_.x + 0.15f, enemyBulletPos_.y + 0.15f, 0.5f } };
-    Collider playerCol = player_->GetCollider();
-    if (!Collision::CheckCollision(playerCol.aabb, bulletAABB)) {
-        return;
-    }
+        RunData::GetInstance()->TakeDamage(bullet.damage);
+        player_->OnHit();
 
-    enemyBulletActive_ = false;
-    RunData::GetInstance()->TakeDamage(enemy_->GetAttackDamage());
-    player_->OnHit();
+        auto* tm = TimeManager::GetInstance();
+        tm->RequestHitStop(7);
+        cameraShaker_.Request(0.22f, 0.18f);
 
-    auto* tm = TimeManager::GetInstance();
-    tm->RequestHitStop(7);
-    cameraShaker_.Request(0.22f, 0.18f);
-
-    pm_->EmitRing("hit_ring", enemyBulletPos_, 4.0f, { 1.0f, 0.2f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
-    std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
-    std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
-    for (int i = 0; i < 8; ++i) {
-        pm_->EmitGravity("hit_spark", enemyBulletPos_,
-            { vxD(rng_), vyD(rng_), 0.0f },
-            { 1.0f, 0.15f, 0.15f, 1.0f }, 0.7f, 0.15f);
+        pm_->EmitRing("hit_ring", bullet.pos, 4.0f, { 1.0f, 0.2f, 0.2f, 1.0f }, 16, 0.3f, 0.2f);
+        std::uniform_real_distribution<float> vxD(-3.0f, 3.0f);
+        std::uniform_real_distribution<float> vyD(2.0f, 5.5f);
+        for (int i = 0; i < 8; ++i) {
+            pm_->EmitGravity("hit_spark", bullet.pos,
+                { vxD(rng_), vyD(rng_), 0.0f },
+                { 1.0f, 0.15f, 0.15f, 1.0f }, 0.7f, 0.15f);
+        }
+        it = enemyBullets_.erase(it);
     }
 }
 

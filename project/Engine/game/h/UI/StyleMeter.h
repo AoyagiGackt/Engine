@@ -37,6 +37,13 @@ public:
      */
     void RegisterHit(const std::string& moveId, float basePoints);
 
+    /**
+     * @brief 外部で採点済みの正規化スタイル値(0.0〜1.0)を表示へ反映する
+     * @note 独自にスタイル値を管理するシーンが、採点ロジックはそのままに
+     *       同じ見た目のランクHUDだけを使うための入口。毎フレームUpdate()の前に呼ぶ
+     */
+    void SetNormalizedPoints(float t);
+
     /** @brief ポイント減衰・技の熱冷まし・表示アニメを1フレーム進める */
     void Update(float dt);
 
