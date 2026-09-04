@@ -352,9 +352,19 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
     // 1フレームの落下量は側面判定の余白より大きくなり得るため、今フレームで上面を
     // 上から跨いだブロックは着地扱いにする（側面押し出しで横へ弾くと着地できない）
+    const float feetYBeforeResolve = pos_.y - kHalf;
     const float prevFeetY = pos_.y - velocityY_ - kHalf;
+    // 上昇する床は1フレームで足元へ少し食い込むことがある。
+    // その食い込みを側面衝突として横へ押し出さず、上面への着地として扱う。
+    // 60fps時の移動床の最大移動量を少しだけ上回る値に留める。
+    // 大きすぎる許容値は、床から離れた後も上面へ吸着して浮いて見える原因になる。
+    constexpr float kMovingFloorTopTolerance = 0.04f;
     auto landedOnTop = [&](const AABB& b) {
-        return velocityY_ <= 0.0f && prevFeetY >= b.max.y - 0.01f;
+        const bool crossedTopWhileFalling = prevFeetY >= b.max.y - 0.01f;
+        const bool shallowMovingFloorPenetration = onGround_
+            && feetYBeforeResolve >= b.max.y - kMovingFloorTopTolerance
+            && feetYBeforeResolve <= b.max.y + kMovingFloorTopTolerance;
+        return velocityY_ <= 0.0f && (crossedTopWhileFalling || shallowMovingFloorPenetration);
     };
 
     // 水平方向  側面から重なっているブロックがあれば侵入量が小さい側へ押し出す

@@ -218,8 +218,14 @@ private:
     void UpdateWeaponEnemies();
     /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
     void UpdateEnergyCores();
+    /** @brief 破壊可能な爆発オブジェクトのヒット判定・爆発ダメージ・演出を処理する */
+    void UpdateExplosiveBarrels();
     /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
     void DrawWeaponListPanel();
+    /** @brief ボス・道中の武器敵の頭上HPバーの位置と色を更新する（BattleTestSceneのダミーHPバーと同じ体裁） */
+    void UpdateEnemyHpBars();
+    /** @brief 左下のプレイヤーHPゲージの位置と色を更新する */
+    void UpdatePlayerHpBar();
     // ローグライトのHP/Gold/フロア情報HUD描画
     void DrawRogueliteHUD();
     // モデル共通描画設定（PSO/ルートシグネチャ）の適用
@@ -269,6 +275,8 @@ private:
     void UpdatePlayerEnemyContactHit(float dt);
     /** @brief UpdateParticles()の下請け 敵の弾の発射・飛翔・プレイヤーへの命中時のダメージ・無敵開始・演出を処理する */
     void UpdateEnemyAttackOnPlayer(float dt);
+    /** @brief UpdateParticles()の下請け ボスの予告円→着弾ダメージのAoEスラム攻撃を処理する */
+    void UpdateBossSlamAttack(float dt);
     /** @brief UpdateParticles()の下請け 格闘/射撃/瞬歩/覚醒ゲージ・覚醒発動・ランク上昇のスタイル演出パーティクルを更新する */
     void UpdateStyleTechniqueParticles(float dt);
     /** @brief UpdateStyleTechniqueParticles()の下請け 格闘コンボヒット時の斬撃・属性パーティクルを発生させる */
@@ -344,6 +352,13 @@ private:
     // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
     // OnEditorLevelLoaded()でポインタだけを受け取る（非所有）
     EnemyEntity* enemy_ = nullptr;
+    // ボス頭上のHPバー（BattleTestSceneのDummy::hpBarBg/Fgと同じ体裁、GamePlayScene初期化時に一度だけ生成）
+    std::unique_ptr<Sprite> bossHpBarBg_;
+    std::unique_ptr<Sprite> bossHpBarFg_;
+
+    // プレイヤーHPゲージ（左下、数値表示に加えて一目で残量が分かるようにするバー）
+    std::unique_ptr<Sprite> playerHpBarBg_;
+    std::unique_ptr<Sprite> playerHpBarFg_;
 
     /** @brief 道中に配置された武器持ち敵1体分の状態（撃破後、Jキーで吸収して武器を奪取する） */
     struct WeaponEnemyEntry {
@@ -352,6 +367,8 @@ private:
         bool weaponAcquired = false;
         bool absorbing = false;
         float absorbTimer = 0.0f;
+        std::unique_ptr<Sprite> hpBarBg; // OnEditorLevelLoaded()で生成（レベル再読込のたびに作り直す）
+        std::unique_ptr<Sprite> hpBarFg;
     };
     std::vector<WeaponEnemyEntry> weaponEnemies_;
 
@@ -372,6 +389,22 @@ private:
     std::vector<EnergyCoreEntry> energyCores_;
     float energyCorePulse_ = 0.0f;
     int collectedEnergyCores_ = 0;
+
+    /** @brief 攻撃で破壊すると周囲にダメージを撒く設置物1個分の状態(戦闘演出ギミック) */
+    struct ExplosiveBarrelEntry {
+        std::unique_ptr<Object3d> object;
+        Vector3 position = { };
+        int hp = 0;
+        bool destroyed = false;
+    };
+    std::unique_ptr<Model> explosiveBarrelModel_;
+    std::vector<ExplosiveBarrelEntry> explosiveBarrels_;
+    float explosiveBarrelPulse_ = 0.0f;
+    static constexpr int kExplosiveBarrelHp_ = 2;
+    static constexpr float kExplosiveBarrelHalfExtent_ = 0.55f; ///< ヒット判定AABBの半径
+    static constexpr float kExplosiveBarrelRadius_ = 3.0f; ///< 爆発が届く範囲の半径
+    static constexpr int kExplosiveBarrelPlayerDamage_ = 4;
+    static constexpr int kExplosiveBarrelEnemyDamage_ = 3;
 
     GameTime gameTime_;
 
@@ -408,6 +441,19 @@ private:
         int damage = 0;
     };
     std::vector<EnemyBullet> enemyBullets_;
+
+    // ボスの予告円→着弾のAoEスラム攻撃(戦闘演出ギミック)
+    static constexpr float kBossSlamEngageRange_ = 10.0f; ///< ボスとこの距離以内でなければタイマーを進めない(戦闘開始前に発動しないように)
+    static constexpr float kBossSlamInterval_ = 7.0f; ///< 着弾から次の予告開始までの間隔(秒)
+    static constexpr float kBossSlamWarningDuration_ = 1.1f; ///< 予告円が出てから着弾するまでの秒数
+    static constexpr float kBossSlamRadius_ = 2.6f; ///< 着弾範囲の半径
+    static constexpr int kBossSlamDamage_ = 3;
+    bool bossSlamWarningActive_ = false;
+    float bossSlamTimer_ = kBossSlamInterval_;
+    float bossSlamWarningTimer_ = 0.0f;
+    Vector3 bossSlamTargetPos_ = { };
+    // 着弾地点に出す予告円（円形グロー画像を着弾範囲の見かけ半径まで拡大し、赤く点滅させる）
+    std::unique_ptr<Sprite> bossSlamWarningSprite_;
 
     /** @brief 覚醒中の残像トレイル1コマ分の位置と経過秒数（kGhostLifetimeを超えたら消える） */
     struct GhostEntry {

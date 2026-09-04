@@ -188,6 +188,104 @@ void GamePlayScene::UpdateEnergyCores()
     }
 }
 
+void GamePlayScene::UpdateExplosiveBarrels()
+{
+    const Vector3& playerPos = player_->GetPosition();
+    const auto* wm = WeaponManager::GetInstance();
+    explosiveBarrelPulse_ += GameConstants::kFrameDeltaTime;
+
+    for (auto& barrel : explosiveBarrels_) {
+        if (barrel.destroyed) {
+            continue;
+        }
+
+        // カメラが動くたびに表示行列を更新する（毎フレームUpdate()しないと初期カメラ位置のまま固定され画面に映らなくなる）
+        // 赤く脈動させて「攻撃で壊せる設置物」だと分かりやすくする
+        const float pulse = 0.75f + std::sin(explosiveBarrelPulse_ * 4.0f) * 0.25f;
+        barrel.object->SetColor({ 1.0f, 0.35f * pulse, 0.08f, 1.0f });
+        barrel.object->Update();
+
+        const AABB barrelBounds = {
+            { barrel.position.x - kExplosiveBarrelHalfExtent_, barrel.position.y - kExplosiveBarrelHalfExtent_, -0.5f },
+            { barrel.position.x + kExplosiveBarrelHalfExtent_, barrel.position.y + kExplosiveBarrelHalfExtent_, 0.5f }
+        };
+
+        // ヒット判定は道中の武器敵(UpdateWeaponEnemies)と同じ3つの攻撃窓（近接コンボ/射撃/固有技）を流用する
+        bool hit = false;
+        if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
+            const AABB range = SceneShared::MakeDirectionalRange(
+                playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
+                wm->GetCurrent().range * GameConstants::kSkillRearReachMult);
+            hit = Collision::CheckCollision(range, barrelBounds);
+        }
+        if (!hit && player_->JustFired()) {
+            const AABB range = SceneShared::MakeDirectionalRange(
+                playerPos, player_->GetLastDirX(), wm->GetRanged().range, kGunBackRange);
+            hit = Collision::CheckCollision(range, barrelBounds);
+        }
+        if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit()
+                || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
+            const AABB range = {
+                { playerPos.x - kWeaponEnemySkillRadius, playerPos.y - kSkillRangeHalfHeight, -0.5f },
+                { playerPos.x + kWeaponEnemySkillRadius, playerPos.y + kSkillRangeHalfHeight, 0.5f }
+            };
+            hit = Collision::CheckCollision(range, barrelBounds);
+        }
+
+        if (!hit) {
+            continue;
+        }
+
+        barrel.hp--;
+        pm_->EmitHitStar("hit_spark", barrel.position, { 1.0f, 0.6f, 0.15f, 1.0f });
+        if (barrel.hp > 0) {
+            continue;
+        }
+
+        // 破壊: 爆風範囲内のプレイヤー/敵にまとめてダメージを与える（環境を利用した攻撃手段）
+        barrel.destroyed = true;
+
+        const float pdx = playerPos.x - barrel.position.x;
+        const float pdy = playerPos.y - barrel.position.y;
+        if (pdx * pdx + pdy * pdy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_ && !player_->IsInvincible()) {
+            RunData::GetInstance()->TakeDamage(kExplosiveBarrelPlayerDamage_);
+            player_->OnHit();
+        }
+        if (enemy_ && !enemy_->IsDefeated()) {
+            const Vector3& epos = enemy_->GetPosition();
+            const float edx = epos.x - barrel.position.x;
+            const float edy = epos.y - barrel.position.y;
+            if (edx * edx + edy * edy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_) {
+                enemy_->TakeDamage(kExplosiveBarrelEnemyDamage_);
+            }
+        }
+        for (auto& entry : weaponEnemies_) {
+            if (entry.enemy->IsDefeated()) {
+                continue;
+            }
+            const Vector3& wepos = entry.enemy->GetPosition();
+            const float wdx = wepos.x - barrel.position.x;
+            const float wdy = wepos.y - barrel.position.y;
+            if (wdx * wdx + wdy * wdy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_) {
+                entry.enemy->TakeDamage(kExplosiveBarrelEnemyDamage_);
+            }
+        }
+
+        auto* tm = TimeManager::GetInstance();
+        tm->RequestHitStop(8);
+        cameraShaker_.Request(0.28f, 0.2f);
+        pm_->EmitRing("hit_ring", barrel.position, kExplosiveBarrelRadius_,
+            { 1.0f, 0.55f, 0.15f, 1.0f }, 26, 0.5f, 0.32f);
+        std::uniform_real_distribution<float> vxB(-5.0f, 5.0f);
+        std::uniform_real_distribution<float> vyB(2.5f, 7.0f);
+        for (int i = 0; i < 18; ++i) {
+            pm_->EmitGravity("hit_spark", barrel.position,
+                { vxB(rng_), vyB(rng_), 0.0f },
+                { 1.0f, 0.4f, 0.1f, 1.0f }, 0.9f, 0.2f);
+        }
+    }
+}
+
 void GamePlayScene::UpdateTargetLock()
 {
     // Shiftを押している間だけロックオンし、その間は常に一番近い敵を対象にし続ける
@@ -470,6 +568,7 @@ void GamePlayScene::UpdateParticles(float dt)
     UpdateGhostTrail(dt);
     UpdatePlayerEnemyContactHit(dt);
     UpdateEnemyAttackOnPlayer(dt);
+    UpdateBossSlamAttack(dt);
     UpdateStyleTechniqueParticles(dt);
 }
 
@@ -631,6 +730,79 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
                 { 1.0f, 0.15f, 0.15f, 1.0f }, 0.7f, 0.15f);
         }
         it = enemyBullets_.erase(it);
+    }
+}
+
+void GamePlayScene::UpdateBossSlamAttack(float dt)
+{
+    if (!enemy_ || enemy_->IsDefeated() || !enemy_->IsVisible()) {
+        return;
+    }
+
+    if (!bossSlamWarningActive_) {
+        const Vector3& ppos = player_->GetPosition();
+        const Vector3& epos = enemy_->GetPosition();
+        const float dx = ppos.x - epos.x;
+        const float dy = ppos.y - epos.y;
+        if (dx * dx + dy * dy > kBossSlamEngageRange_ * kBossSlamEngageRange_) {
+            return; // ボスと交戦中でなければタイマーを進めない（戦闘開始前に発動しないように）
+        }
+        bossSlamTimer_ -= dt;
+        if (bossSlamTimer_ <= 0.0f) {
+            bossSlamWarningActive_ = true;
+            bossSlamWarningTimer_ = kBossSlamWarningDuration_;
+            bossSlamTargetPos_ = ppos; // 着弾地点は予告開始時点のプレイヤー位置に固定する（避けられるように）
+        }
+        return;
+    }
+
+    // 予告円の警告演出（円形グロー画像を着弾範囲の見かけ半径まで拡大し、点滅させながら見せる）
+    bossSlamWarningTimer_ -= dt;
+    const float progress = std::clamp(1.0f - bossSlamWarningTimer_ / kBossSlamWarningDuration_, 0.0f, 1.0f);
+
+    const Vector3& cam = camera_->GetTranslate();
+    float sx, sy;
+    SceneShared::WorldToScreen(bossSlamTargetPos_.x, bossSlamTargetPos_.y, cam.x, cam.y, sx, sy);
+    const float pxPerWorldUnit = GameConstants::kScreenCenterX / GameConstants::kCameraHalfW;
+    const float diameterPx = kBossSlamRadius_ * 2.0f * pxPerWorldUnit * (0.6f + 0.4f * progress);
+    const float blink = 0.5f + 0.5f * std::sin(bossSlamWarningTimer_ * 22.0f); // 素早く点滅させて視線を引く
+    bossSlamWarningSprite_->SetColor({ 1.0f, 0.15f + progress * 0.1f, 0.1f, 0.35f + blink * 0.4f });
+    bossSlamWarningSprite_->SetPosition({ sx - diameterPx * 0.5f, sy - diameterPx * 0.5f });
+    bossSlamWarningSprite_->SetSize({ diameterPx, diameterPx });
+    bossSlamWarningSprite_->Update();
+
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_,
+        { 1.0f, 0.3f - progress * 0.15f, 0.15f - progress * 0.1f, 0.5f }, 6, 0.15f, 0.06f);
+
+    if (bossSlamWarningTimer_ > 0.0f) {
+        return;
+    }
+
+    // 着弾判定
+    bossSlamWarningActive_ = false;
+    bossSlamTimer_ = kBossSlamInterval_;
+
+    const Vector3& ppos = player_->GetPosition();
+    const float dx = ppos.x - bossSlamTargetPos_.x;
+    const float dy = ppos.y - bossSlamTargetPos_.y;
+    if (dx * dx + dy * dy <= kBossSlamRadius_ * kBossSlamRadius_ && !player_->IsInvincible()) {
+        RunData::GetInstance()->TakeDamage(kBossSlamDamage_);
+        player_->OnHit();
+        auto* tm = TimeManager::GetInstance();
+        tm->RequestHitStop(9);
+        cameraShaker_.Request(0.3f, 0.22f);
+    }
+
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_,
+        { 1.0f, 0.6f, 0.2f, 1.0f }, 32, 0.55f, 0.34f);
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_ * 1.4f,
+        { 1.0f, 0.85f, 0.4f, 0.6f }, 20, 0.4f, 0.24f);
+    std::uniform_real_distribution<float> vxS(-4.0f, 4.0f);
+    std::uniform_real_distribution<float> vyS(2.5f, 6.0f);
+    for (int i = 0; i < 20; ++i) {
+        pm_->EmitGravity("hit_spark", bossSlamTargetPos_,
+            { vxS(rng_), vyS(rng_), 0.0f },
+            { 1.0f, 0.45f, 0.1f, 1.0f }, 0.85f, 0.18f);
     }
 }
 

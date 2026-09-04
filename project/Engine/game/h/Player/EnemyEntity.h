@@ -46,6 +46,20 @@ public:
      */
     void Update(float playerX);
 
+    void SetArchetype(const std::string& archetype)
+    {
+        archetype_ = archetype;
+        const Vector4 color = archetype_ == "flying" ? Vector4 { 0.55f, 0.8f, 1.0f, 1.0f }
+            : archetype_ == "healer" ? Vector4 { 0.45f, 1.0f, 0.55f, 1.0f }
+                                      : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f };
+        object_->SetColor(color);
+        if (weaponObject_) { weaponObject_->SetColor(color); }
+    }
+    bool IsHealer() const { return archetype_ == "healer"; }
+    bool IsFlying() const { return archetype_ == "flying"; }
+    /** @brief flying/healerなど、武器色ではなく種別色で見分けさせるアーキタイプか */
+    bool HasArchetypeColor() const { return IsHealer() || IsFlying(); }
+
     /** @brief モデルを描画する */
     void Draw();
 
@@ -210,8 +224,8 @@ private:
     // 接近AI（Idle中だけプレイヤーへ向かって歩く。予備動作/攻撃中や被弾ノックバック中は歩かせない）
     static constexpr float kApproachSpeed_ = 0.06f; // 1フレームあたりの歩行距離（プレイヤーのkSpeed_=0.15fより遅め）
     static constexpr float kEngageRange_ = 2.0f; // これより近づいたら歩みを止める（武器の間合い目安）
-    static constexpr float kAggroRange_ = 6.0f; // 配置位置からこの距離にプレイヤーが来るまでは歩き出さない
-    static constexpr float kLeashDistance_ = 3.0f; // 配置位置からこれ以上は離れない（持ち場を離れて全員が団子にならないように）
+    static constexpr float kAggroRange_ = 10.0f; // 画面内へ入った敵はプレイヤーへの接近を開始する
+    static constexpr float kLeashDistance_ = 8.0f; // 短すぎる持ち場制限で途中停止しない範囲
 
     // コンボ被弾リアクション
     static constexpr float kSwitchPullStrength_ = 0.18f; // 武器切替吸い寄せの引き込み強さ
@@ -257,6 +271,9 @@ private:
     bool justLanded_ = false;
     float launchOriginY_ = 0.0f; ///< 打ち上げ直前のpos_.y（着地時にここへ戻す。Launch()の最初の呼び出しでだけ更新する）
     WeaponType weaponType_ = WeaponType::Sword;
+    float spawnY_ = 0.0f;
+    float archetypeTimer_ = 0.0f;
+    std::string archetype_ = "basic";
     float knockVelX_ = 0.0f;
     float slowTimer_ = 0.0f;
     float airComboTimer_ = 0.0f;

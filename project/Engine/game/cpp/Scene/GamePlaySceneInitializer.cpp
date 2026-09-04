@@ -62,6 +62,29 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
         entry.object->Update();
         scene.energyCores_.push_back(std::move(entry));
     }
+
+    // 破壊可能な爆発オブジェクト（戦闘演出ギミック。攻撃を当てて壊すと周囲に爆風ダメージを撒く）
+    scene.explosiveBarrelModel_ = std::make_unique<Model>();
+    scene.explosiveBarrelModel_->Initialize(scene.modelCommon_.get(),
+        "Resources/block/block.obj", "Resources/block/block.png");
+    // y座標は道中の敵配置（-0.38付近）に合わせて地面の高さへ置く
+    constexpr Vector3 kExplosiveBarrelPositions[] = {
+        { 14.5f, -0.35f, 0.0f }, { 24.0f, -0.35f, 0.0f }, { 32.5f, -0.35f, 0.0f }
+    };
+    for (const Vector3& position : kExplosiveBarrelPositions) {
+        GamePlayScene::ExplosiveBarrelEntry entry;
+        entry.position = position;
+        entry.hp = GamePlayScene::kExplosiveBarrelHp_;
+        entry.object = std::make_unique<Object3d>();
+        entry.object->Initialize(scene.modelCommon_.get());
+        entry.object->SetModel(scene.explosiveBarrelModel_.get());
+        entry.object->SetPosition(position);
+        entry.object->SetScale({ 0.9f, 0.9f, 0.9f });
+        entry.object->SetColor({ 1.0f, 0.35f, 0.1f, 1.0f });
+        entry.object->SetEnableLighting(true);
+        entry.object->Update();
+        scene.explosiveBarrels_.push_back(std::move(entry));
+    }
 }
 
 void GamePlayScene::OnEditorLevelLoaded()
@@ -82,6 +105,8 @@ void GamePlayScene::OnEditorLevelLoaded()
     enemy_ = nullptr;
     weaponEnemies_.clear();
     enemyBullets_.clear();
+    bossSlamWarningActive_ = false;
+    bossSlamTimer_ = kBossSlamInterval_;
 
     auto* runData = RunData::GetInstance();
     for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
@@ -108,8 +133,16 @@ void GamePlayScene::OnEditorLevelLoaded()
         entry.enemy = ref.enemy;
         entry.weaponType = ref.weaponType;
         entry.enemy->SetMaxHp(5);
-        entry.enemy->SetColor(colorForWeapon(ref.weaponType));
-        weaponEnemies_.push_back(entry);
+        // flying/healerはSetArchetype()で付けた種別色（水色/緑）を優先し、武器色で上書きしない
+        if (!entry.enemy->HasArchetypeColor()) {
+            entry.enemy->SetColor(colorForWeapon(ref.weaponType));
+        }
+        entry.hpBarBg = std::make_unique<Sprite>();
+        entry.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
+        entry.hpBarBg->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+        entry.hpBarFg = std::make_unique<Sprite>();
+        entry.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponEnemies_.push_back(std::move(entry));
     }
 
     if (!enemy_) {

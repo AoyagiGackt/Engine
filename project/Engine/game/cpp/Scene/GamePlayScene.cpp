@@ -143,6 +143,25 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
     awakenGaugeFg_ = std::make_unique<Sprite>();
     awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
     styleRankHud_.Initialize(spriteCommon_.get());
+
+    // ボス頭上のHPバー（道中の武器敵ぶんはOnEditorLevelLoaded()でレベル読込のたびに生成する）
+    bossHpBarBg_ = std::make_unique<Sprite>();
+    bossHpBarBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    bossHpBarBg_->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+    bossHpBarFg_ = std::make_unique<Sprite>();
+    bossHpBarFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+
+    // プレイヤーHPゲージ（左下、既存の数値表示のすぐ上に置く）
+    playerHpBarBg_ = std::make_unique<Sprite>();
+    playerHpBarBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    playerHpBarBg_->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+    playerHpBarFg_ = std::make_unique<Sprite>();
+    playerHpBarFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+
+    // ボスAoEスラムの着弾予告円（円形グロー画像を赤く点滅させて範囲を示す）
+    bossSlamWarningSprite_ = std::make_unique<Sprite>();
+    bossSlamWarningSprite_->Initialize(spriteCommon_.get(), "Resources/Effects/circle2.png");
+
     InitializeWeaponSlotHud();
 }
 
@@ -455,6 +474,7 @@ void GamePlayScene::UpdateCombat()
         UpdateCombatEvents();
         UpdateWeaponEnemies();
         UpdateEnergyCores();
+        UpdateExplosiveBarrels();
 
         // enemy_の物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()
         // （BaseScene::Tick()がUpdate()の直後に呼ぶ）が担う。ここでは前フレーム分の着地判定だけ読む

@@ -7,5 +7,6 @@
     { "name": "gun_shot",    "texture": "Resources/Effects/circle2.png",     "additive": true },
     { "name": "blink_trail", "texture": "Resources/Effects/circle2.png",     "additive": true },
     { "name": "awaken_aura", "texture": "Resources/Effects/circle2.png",     "additive": true },
-    { "name": "weapon_orb",  "texture": "Resources/Effects/circle2.png",     "additive": true }
+    { "name": "weapon_orb",  "texture": "Resources/Effects/circle2.png",     "additive": true },
+    { "name": "heal_pulse",  "texture": "Resources/Effects/circle2.png",     "additive": true }
 ]

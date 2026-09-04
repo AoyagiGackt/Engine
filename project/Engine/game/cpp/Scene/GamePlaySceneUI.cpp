@@ -37,6 +37,26 @@ void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
 
+    // 敵頭上のHPバー（BattleTestSceneのダミーHPバーと同じ描画順序位置はUpdateEnemyHpBars()が
+    // DrawStyleUI()内で毎フレーム更新している）
+    if (enemy_ && !enemy_->IsDefeated()) {
+        bossHpBarBg_->Draw();
+        bossHpBarFg_->Draw();
+    }
+    for (auto& entry : weaponEnemies_) {
+        if (entry.enemy && !entry.enemy->IsDefeated()) {
+            entry.hpBarBg->Draw();
+            entry.hpBarFg->Draw();
+        }
+    }
+    if (RunData::GetInstance()->IsRunActive()) {
+        playerHpBarBg_->Draw();
+        playerHpBarFg_->Draw();
+    }
+    if (bossSlamWarningActive_) {
+        bossSlamWarningSprite_->Draw();
+    }
+
     awakenGaugeBg_->Draw();
     if (player_->GetAwakenGauge() > 0.0f) {
         awakenGaugeFg_->Draw();
@@ -113,10 +133,68 @@ void GamePlayScene::DrawRogueliteHUD()
     fontRenderer_.DrawString(info.c_str(), kInfoX, infoY, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
 }
 
+void GamePlayScene::UpdateEnemyHpBars()
+{
+    // BattleTestScene::UpdateHpBars()と同じ体裁（頭上に固定サイズのバー、WorldToScreenで追従）
+    const Vector3& cam = camera_->GetTranslate();
+    constexpr float kBarW = 60.0f;
+    constexpr float kBarH = 8.0f;
+    constexpr float kBarUp = 70.0f;
+
+    auto layoutBar = [&](Sprite* bg, Sprite* fg, const Vector3& pos, float ratio) {
+        float sx, sy;
+        SceneShared::WorldToScreen(pos.x, pos.y, cam.x, cam.y, sx, sy);
+        fg->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.9f });
+        bg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
+        bg->SetSize({ kBarW, kBarH });
+        bg->Update();
+        fg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
+        fg->SetSize({ kBarW * ratio, kBarH });
+        fg->Update();
+    };
+
+    if (enemy_ && !enemy_->IsDefeated() && enemy_->GetMaxHp() > 0) {
+        const float ratio = static_cast<float>(enemy_->GetHp()) / static_cast<float>(enemy_->GetMaxHp());
+        layoutBar(bossHpBarBg_.get(), bossHpBarFg_.get(), enemy_->GetPosition(), ratio);
+    }
+    for (auto& entry : weaponEnemies_) {
+        if (!entry.enemy || entry.enemy->IsDefeated() || entry.enemy->GetMaxHp() <= 0) {
+            continue;
+        }
+        const float ratio = static_cast<float>(entry.enemy->GetHp()) / static_cast<float>(entry.enemy->GetMaxHp());
+        layoutBar(entry.hpBarBg.get(), entry.hpBarFg.get(), entry.enemy->GetPosition(), ratio);
+    }
+}
+
+void GamePlayScene::UpdatePlayerHpBar()
+{
+    auto* rd = RunData::GetInstance();
+    if (!rd->IsRunActive() || rd->GetMaxHp() <= 0) {
+        return;
+    }
+
+    constexpr float kBarW = 200.0f;
+    constexpr float kBarH = 16.0f;
+    constexpr float kBarX = 24.0f;
+    const float barY = static_cast<float>(WinApp::kClientHeight) - 150.0f;
+
+    const float ratio = std::clamp(static_cast<float>(rd->GetHp()) / static_cast<float>(rd->GetMaxHp()), 0.0f, 1.0f);
+    playerHpBarBg_->SetPosition({ kBarX, barY });
+    playerHpBarBg_->SetSize({ kBarW, kBarH });
+    playerHpBarBg_->Update();
+
+    playerHpBarFg_->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.95f });
+    playerHpBarFg_->SetPosition({ kBarX, barY });
+    playerHpBarFg_->SetSize({ kBarW * ratio, kBarH });
+    playerHpBarFg_->Update();
+}
+
 void GamePlayScene::DrawStyleUI()
 {
     fontRenderer_.Reset();
 
+    UpdateEnemyHpBars();
+    UpdatePlayerHpBar();
     DrawStageGuide();
     DrawRogueliteHUD();
     styleRankHud_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク（BattleTestSceneと同じ体裁）

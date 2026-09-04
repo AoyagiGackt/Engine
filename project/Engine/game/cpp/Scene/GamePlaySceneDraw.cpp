@@ -301,6 +301,11 @@ void GamePlayScene::DrawWorldAndActors()
             core.object->Draw();
         }
     }
+    for (auto& barrel : explosiveBarrels_) {
+        if (!barrel.destroyed) {
+            barrel.object->Draw();
+        }
+    }
     if (!ghostTrail_.empty()) {
         SetupModelRenderState();
         ghostObject_->SetModel(player_->GetModel()); // 覚醒フォーム切り替えに残像の見た目を追従させる

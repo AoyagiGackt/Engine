@@ -218,6 +218,9 @@ private:
         float runtimeTimer = 0.0f; // 条件成立後の遅延と演出経過時間を保持する
         bool conditionWasMet = false;
         bool runtimeActive = true;
+        bool fallFloorWasSolid = true; // "fall"ギミック用: 直前フレームの床の有無（崩落/復帰の瞬間だけ砂ぼこりを出す判定に使う）
+        bool healChanneling = false; // healer用: 詠唱（回復発動までのタメ）中かどうか
+        int healChannelHpAtStart = 0; // healer用: 詠唱開始時のHP。詠唱中に減ったら被弾＝中断とみなす
     };
 
     /**

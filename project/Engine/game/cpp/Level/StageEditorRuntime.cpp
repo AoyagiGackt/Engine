@@ -22,11 +22,95 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <random>
 using namespace engine::game;
 using namespace engine;
 using namespace engine::graphics;
 
 namespace {
+constexpr float kFallFloorWarningEnd = 0.6f;
+constexpr float kFallFloorRespawnStart = 3.5f;
+constexpr float kFallFloorCycleEnd = 4.0f;
+constexpr float kFallFloorCrackLeadTime = 0.28f; // 崩落の何秒前からひび割れの砂ぼこりを出すか
+
+struct FallingFloorState {
+    float yOffset = 0.0f;
+    bool visible = true;
+    bool solid = true;
+    float phase = 0.0f; // サイクル内経過秒（0〜kFallFloorCycleEnd）。ひび割れ演出のタイミング判定に使う
+};
+
+// "fall" gimmicks repeatedly collapse, remain absent, then rise back into place.
+FallingFloorState GetFallingFloorState(float runtimeTimer, float motionSpeed, float motionAmount)
+{
+    const float speed = (std::max)(motionSpeed, 0.01f);
+    const float phase = std::fmod(runtimeTimer * speed, kFallFloorCycleEnd);
+    (void)motionAmount;
+
+    FallingFloorState state;
+    state.phase = phase;
+    if (phase < kFallFloorWarningEnd) {
+        return state;
+    }
+    if (phase < kFallFloorRespawnStart) {
+        // 床だけが高速で下降すると、通常重力のプレイヤーが空中に取り残される。
+        // 壊れる床はその場で消し、同じフレームから当たり判定も無効にする。
+        state.visible = false;
+        state.solid = false;
+        return state;
+    }
+    // 復帰時も途中の高さに当たり判定を出さず、元の位置へ直接戻す。
+    return state;
+}
+
+std::mt19937& FallFloorDebrisRng()
+{
+    static std::mt19937 rng { std::random_device {}() };
+    return rng;
+}
+
+// 崩落ギミックの床に、崩れる直前のひび割れ粉塵と、崩落/復帰の瞬間の土煙をまとめて出す
+// （床が消えるだけだと壊れる床だと気付きにくいので、視覚的な予告と崩落感を補う）
+void EmitFallingFloorDebris(ParticleManager* pm, const Vector3& worldPos, const Vector3& halfExtent,
+    const FallingFloorState& state, bool& wasSolid)
+{
+    if (!pm) {
+        wasSolid = state.solid;
+        return;
+    }
+    auto& rng = FallFloorDebrisRng();
+    std::uniform_real_distribution<float> ox(-halfExtent.x, halfExtent.x);
+    std::uniform_real_distribution<float> oz(-halfExtent.z, halfExtent.z);
+    std::uniform_real_distribution<float> chance(0.0f, 1.0f);
+    const Vector4 kDustColor = { 0.8f, 0.72f, 0.56f, 0.75f };
+
+    if (wasSolid && !state.solid) {
+        // 崩落の瞬間：破片が飛び散り、土煙が広がる
+        std::uniform_real_distribution<float> vx(-1.8f, 1.8f);
+        std::uniform_real_distribution<float> vy(0.6f, 2.0f);
+        for (int i = 0; i < 14; ++i) {
+            const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
+            pm->EmitGravity("land_dust", p, { vx(rng), vy(rng), 0.0f },
+                kDustColor, 0.55f, 0.14f + chance(rng) * 0.1f);
+        }
+        pm->EmitRing("land_dust", worldPos + Vector3 { 0.0f, halfExtent.y, 0.0f },
+            1.2f, { kDustColor.x, kDustColor.y, kDustColor.z, 0.5f }, 14, 0.5f, 0.2f);
+    } else if (!wasSolid && state.solid) {
+        // 復帰の瞬間：着地のような軽い土煙
+        for (int i = 0; i < 6; ++i) {
+            const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
+            pm->EmitGravity("land_dust", p, { 0.0f, 0.2f + chance(rng) * 0.2f, 0.0f },
+                kDustColor, 0.3f, 0.12f);
+        }
+    } else if (state.solid && state.phase >= kFallFloorWarningEnd - kFallFloorCrackLeadTime
+        && state.phase < kFallFloorWarningEnd && chance(rng) < 0.35f) {
+        // 崩落直前：ひびの隙間から砂ぼこりが間欠的に噴く（崩れる床だと気付かせる警告演出）
+        const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y + 0.02f, worldPos.z + oz(rng) };
+        pm->EmitGravity("land_dust", p, { 0.0f, 0.3f + chance(rng) * 0.3f, 0.0f },
+            kDustColor, 0.35f, 0.08f + chance(rng) * 0.06f);
+    }
+    wasSolid = state.solid;
+}
 // ObjectDesc::weaponType（Inspectorのコンボボックスと同じ文字列規約）をWeaponTypeへ変換する
 // WeaponManager.cpp内の同名パーサは無名namespace限定で外部から使えないため、ここだけ小さく複製する
 WeaponType ParseEnemyWeaponType(const std::string& type)
@@ -111,6 +195,7 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
             entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseEnemyWeaponType(desc.weaponType));
+            entry.enemy->SetArchetype(desc.spawnType);
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
         }
@@ -305,6 +390,21 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
         }
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
+        if (desc.kind == "gimmick") {
+            const float phase = entry.runtimeTimer * desc.motionSpeed;
+            if (desc.gimmickMotion == "move_y") {
+                basePos.y += std::sin(phase) * desc.motionAmount;
+            } else if (desc.gimmickMotion == "move_x") {
+                basePos.x += std::sin(phase) * desc.motionAmount;
+            } else if (desc.gimmickMotion == "fall") {
+                const FallingFloorState state = GetFallingFloorState(
+                    entry.runtimeTimer, desc.motionSpeed, desc.motionAmount);
+                if (!state.solid) {
+                    continue;
+                }
+                basePos.y += state.yOffset;
+            }
+        }
         // Terrainは描画メッシュの各三角形をAABBへ変換し、表示形状の変更と同期する
         if (desc.kind == "terrain" && desc.meshCollider) {
             const std::string key = desc.model + '|' + desc.texture;
@@ -531,8 +631,15 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
         const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
         if (entry.desc.gimmickMotion == "move_y") {
             entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
+        } else if (entry.desc.gimmickMotion == "move_x") {
+            entry.desc.position.x += std::sin(phase) * entry.desc.motionAmount;
         } else if (entry.desc.gimmickMotion == "fall") {
-            entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
+            const FallingFloorState fallState = GetFallingFloorState(entry.runtimeTimer,
+                entry.desc.motionSpeed, entry.desc.motionAmount);
+            entry.desc.position.y += fallState.yOffset;
+            const Vector3 halfExtent = { 0.5f * std::abs(entry.desc.scale.x),
+                0.5f * std::abs(entry.desc.scale.y), 0.5f * std::abs(entry.desc.scale.z) };
+            EmitFallingFloorDebris(pm, WorldPositionOf(entry.desc), halfExtent, fallState, entry.fallFloorWasSolid);
         } else if (entry.desc.gimmickMotion == "rotate_y") {
             entry.desc.rotation.y += phase;
         } else if (entry.desc.gimmickMotion == "rotate_z") {
@@ -559,6 +666,10 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
 
 void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
 {
+    constexpr float kHealerPulseSeconds = 1.5f;
+    constexpr float kHealerCastSeconds = 0.5f; // 詠唱（回復発動までのタメ）時間。この間に被弾すると中断できる
+    constexpr float kHealerRange = 7.0f;
+    constexpr int kHealerAmount = 4;
     Vector3 worldPos = WorldPositionOf(entry.desc);
     if (!ShouldPauseGame() && UpdatePatrol(entry)) {
         return;
@@ -580,6 +691,65 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
         } else {
             entry.enemy->Update(playerPos.x);
             entry.desc.position = entry.enemy->GetPosition();
+            if (entry.enemy->IsHealer() && !entry.enemy->IsDefeated()) {
+                const int hpNow = entry.enemy->GetHp();
+                if (entry.healChanneling && hpNow < entry.healChannelHpAtStart) {
+                    // 詠唱中にHPが減った＝回復を中断された。サイクルを最初からやり直させる
+                    // （プレイヤーの直接攻撃に限らず、爆発バレルの爆風などダメージ源は問わない仕様）
+                    entry.healChanneling = false;
+                    entry.runtimeTimer = 0.0f;
+                    if (pm) {
+                        pm->EmitHitStar("hit_spark", entry.enemy->GetPosition() + Vector3 { 0.0f, 0.7f, 0.0f },
+                            { 1.0f, 0.9f, 0.35f, 1.0f });
+                    }
+                } else {
+                    entry.runtimeTimer += 1.0f / 60.0f;
+                    if (!entry.healChanneling && entry.runtimeTimer >= kHealerPulseSeconds - kHealerCastSeconds) {
+                        // 詠唱開始。ここから完了までの間に被弾すると上のブロックで中断される
+                        entry.healChanneling = true;
+                        entry.healChannelHpAtStart = hpNow;
+                        if (pm) {
+                            pm->EmitRing("heal_pulse", entry.enemy->GetPosition() + Vector3 { 0.0f, 0.7f, 0.0f },
+                                kHealerRange * 0.5f, { 0.3f, 1.0f, 0.4f, 0.4f }, 16, kHealerCastSeconds, 0.16f);
+                        }
+                    }
+                    if (entry.runtimeTimer >= kHealerPulseSeconds) {
+                        entry.runtimeTimer = 0.0f;
+                        entry.healChanneling = false;
+                        const Vector3 healerPos = entry.enemy->GetPosition();
+                        // 回復対象のHP状態にかかわらず、回復行動そのものを緑の波で知らせる。
+                        if (pm) {
+                            pm->EmitRing("heal_pulse", healerPos + Vector3 { 0.0f, 0.7f, 0.0f },
+                                kHealerRange, { 0.2f, 1.0f, 0.35f, 0.75f }, 24, 0.65f, 0.22f);
+                        }
+                        bool healedAnyAlly = false;
+                        for (auto& ally : objects_) {
+                            if (!ally.enemy || ally.enemy.get() == entry.enemy.get() || ally.enemy->IsDefeated()) continue;
+                            const Vector3 allyPos = ally.enemy->GetPosition();
+                            const float dx = allyPos.x - healerPos.x;
+                            const float dy = allyPos.y - healerPos.y;
+                            if (dx * dx + dy * dy <= kHealerRange * kHealerRange) {
+                                const int hpBefore = ally.enemy->GetHp();
+                                ally.enemy->Heal(kHealerAmount);
+                                if (ally.enemy->GetHp() > hpBefore) {
+                                    healedAnyAlly = true;
+                                    if (pm) {
+                                        const Vector3 effectPos = allyPos + Vector3 { 0.0f, 0.65f, 0.0f };
+                                        pm->EmitRing("heal_pulse", effectPos, 1.4f,
+                                            { 0.25f, 1.0f, 0.4f, 0.9f }, 12, 0.55f, 0.16f);
+                                        pm->EmitBurst("heal_pulse", effectPos,
+                                            { 0.55f, 1.0f, 0.65f, 0.85f }, 8, 0.7f, 0.12f, true);
+                                    }
+                                }
+                            }
+                        }
+                        if (healedAnyAlly && pm) {
+                            pm->EmitBurst("heal_pulse", healerPos + Vector3 { 0.0f, 0.7f, 0.0f },
+                                { 0.4f, 1.0f, 0.55f, 1.0f }, 14, 1.0f, 0.18f, true);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -651,6 +821,11 @@ void StageEditor::DrawObjects()
         }
         if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
             && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
+            continue;
+        }
+        if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "fall"
+            && !GetFallingFloorState(entry.runtimeTimer, entry.desc.motionSpeed,
+                entry.desc.motionAmount).visible) {
             continue;
         }
         for (auto& obj : entry.instances) {

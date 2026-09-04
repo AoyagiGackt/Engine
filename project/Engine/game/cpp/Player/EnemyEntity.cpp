@@ -20,6 +20,7 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
 {
     pos_ = startPos;
     spawnX_ = startPos.x;
+    spawnY_ = startPos.y;
     weaponType_ = weaponType;
     attackState_ = AttackState::Idle;
     attackTimer_ = 0.0f;
@@ -79,6 +80,7 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
 
 void EnemyEntity::Update(float playerX)
 {
+    archetypeTimer_ += GameConstants::kFrameDeltaTime;
     justLanded_ = false;
     slowTimer_ = (std::max)(slowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
@@ -110,10 +112,19 @@ void EnemyEntity::Update(float playerX)
     }
     // 非打ち上げ中はpos_.yに一切触れない。ステージエディタで配置・ドラッグした高さをそのまま信用する
 
+    if (archetype_ == "flying" && !isLaunched_ && !defeated_) {
+        pos_.y = spawnY_ + std::sin(archetypeTimer_ * 2.0f) * 0.65f;
+    }
+
     object_->SetPosition(pos_);
     weaponObject_->SetPosition({ pos_.x + facingSign_ * kWeaponOffsetX_, pos_.y + kWeaponOffsetY_, pos_.z + kWeaponOffsetZ_ });
 
-    UpdateAttack(playerX);
+    if (archetype_ != "healer") {
+        UpdateAttack(playerX);
+    } else {
+        attackState_ = AttackState::Idle;
+        justFiredAttack_ = false;
+    }
 
     // 攻撃動作が最優先、次に接近歩行の走り、どちらでもなければ立ち姿勢
     // （歩行中にIdleのままだと棒立ちで滑って見える）
