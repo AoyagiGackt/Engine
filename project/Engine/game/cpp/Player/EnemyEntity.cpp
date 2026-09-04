@@ -80,6 +80,7 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
 
 void EnemyEntity::Update(float playerX)
 {
+    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
     archetypeTimer_ += GameConstants::kFrameDeltaTime;
     justLanded_ = false;
     slowTimer_ = (std::max)(slowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
@@ -88,24 +89,24 @@ void EnemyEntity::Update(float playerX)
 
     bool walkedThisFrame = false;
     if (std::abs(knockVelX_) > 0.001f) {
-        pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? kKnockbackSlowMultiplier_ : 1.0f);
-        knockVelX_ *= kKnockbackDecay_;
+        pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? tuning.knockbackSlowMultiplier : 1.0f);
+        knockVelX_ *= tuning.knockbackDecay;
     } else if (!defeated_ && !isLaunched_ && attackState_ == AttackState::Idle) {
         // 予備動作/攻撃中やノックバック中は歩かせない。プレイヤーが持ち場に近づいてくるまでは待機し、
         // 近づいてきたら間合いの外にいる間だけ追うが、持ち場から離れすぎたら止まる（全員が団子にならないように）
-        const bool playerNearPost = std::abs(playerX - spawnX_) <= kAggroRange_;
-        const bool withinLeash = std::abs(pos_.x - spawnX_) < kLeashDistance_;
+        const bool playerNearPost = std::abs(playerX - spawnX_) <= tuning.aggroRange;
+        const bool withinLeash = std::abs(pos_.x - spawnX_) < tuning.leashDistance;
         const float dx = playerX - pos_.x;
-        if (playerNearPost && withinLeash && std::abs(dx) > kEngageRange_) {
-            pos_.x += dx > 0.0f ? kApproachSpeed_ : -kApproachSpeed_;
+        if (playerNearPost && withinLeash && std::abs(dx) > tuning.engageRange) {
+            pos_.x += dx > 0.0f ? tuning.approachSpeed : -tuning.approachSpeed;
             walkedThisFrame = true;
         }
     }
 
     if (isLaunched_) {
         airComboTimer_ = (std::max)(airComboTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
-        const float gravity = airComboTimer_ > 0.0f ? kGravity_ * kAirComboGravityScale_ : kGravity_;
-        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, launchOriginY_, kCeilingY_, -0.1f)) {
+        const float gravity = airComboTimer_ > 0.0f ? tuning.gravity * tuning.airComboGravityScale : tuning.gravity;
+        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, launchOriginY_, tuning.ceilingY, -0.1f)) {
             isLaunched_ = false;
             justLanded_ = true;
         }
@@ -113,7 +114,7 @@ void EnemyEntity::Update(float playerX)
     // 非打ち上げ中はpos_.yに一切触れない。ステージエディタで配置・ドラッグした高さをそのまま信用する
 
     if (archetype_ == "flying" && !isLaunched_ && !defeated_) {
-        pos_.y = spawnY_ + std::sin(archetypeTimer_ * 2.0f) * 0.65f;
+        pos_.y = spawnY_ + std::sin(archetypeTimer_ * tuning.flyingBobSpeed) * tuning.flyingBobAmplitude;
     }
 
     object_->SetPosition(pos_);
@@ -176,31 +177,32 @@ void EnemyEntity::UpdateAttack(float playerX)
         return;
     }
 
+    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
     switch (attackState_) {
     case AttackState::Idle:
         // 接近AIと同じ持ち場基準の索敵距離を使い、プレイヤーが戦闘圏内へ来るまでは
         // 予備動作を始めない（遠くの敵が延々と素振り・発砲を繰り返さないように）
-        if (std::abs(playerX - spawnX_) > kAggroRange_) {
+        if (std::abs(playerX - spawnX_) > tuning.aggroRange) {
             attackTimer_ = 0.0f;
             break;
         }
         attackState_ = AttackState::Telegraph;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? kDaggerTelegraph_
-            : weaponType_ == WeaponType::Spear                                      ? kSpearTelegraph_
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? kHeavyTelegraph_
-                                                                                    : kAttackTelegraph_;
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? tuning.daggerTelegraph
+            : weaponType_ == WeaponType::Spear                                      ? tuning.spearTelegraph
+            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? tuning.heavyTelegraph
+                                                                                    : tuning.attackTelegraph;
         break;
     case AttackState::Telegraph:
         attackState_ = AttackState::Active;
-        attackTimer_ = kAttackActive_;
+        attackTimer_ = tuning.attackActive;
         justFiredAttack_ = true;
         break;
     case AttackState::Active:
         attackState_ = AttackState::Idle;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? kDaggerRecovery_
-            : weaponType_ == WeaponType::Spear                                      ? kSpearRecovery_
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? kHeavyRecovery_
-                                                                                    : kAttackInterval_;
+        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? tuning.daggerRecovery
+            : weaponType_ == WeaponType::Spear                                      ? tuning.spearRecovery
+            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? tuning.heavyRecovery
+                                                                                    : tuning.attackInterval;
         break;
     }
 }
@@ -221,7 +223,7 @@ void EnemyEntity::Launch(float velY)
     }
     isLaunched_ = true;
     velY_ = velY;
-    airComboTimer_ = kAirComboHold_;
+    airComboTimer_ = EnemyTuning::GetInstance()->Basic().airComboHold;
 }
 
 void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
@@ -233,7 +235,7 @@ void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
     if (switchPull) {
         const float toPlayer = playerX - pos_.x;
         knockVelX_ = std::clamp(toPlayer * kSwitchPullStrength_, -kSwitchPullClamp_, kSwitchPullClamp_);
-        airComboTimer_ = kAirComboHold_ + kSwitchPullAirComboBonus_;
+        airComboTimer_ = EnemyTuning::GetInstance()->Basic().airComboHold + kSwitchPullAirComboBonus_;
     } else {
         knockVelX_ += knockDirX * kKnockDirXScale_;
     }

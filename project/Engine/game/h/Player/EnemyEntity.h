@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "Animation.h"
+#include "EnemyTuning.h"
 #include "IEnemyEntity.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -94,9 +95,10 @@ public:
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
     int GetAttackDamage() const
     {
+        const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
         return (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe)
-            ? kHeavyAttackDamage_
-            : kAttackDamage_;
+            ? tuning.heavyAttackDamage
+            : tuning.attackDamage;
     }
 
     /**
@@ -183,8 +185,8 @@ public:
     Vector3& GetPositionRef() override { return pos_; }
 
 private:
-    static constexpr float kCeilingY_ = 12.5f;
-    static constexpr float kGravity_ = 0.015f;
+    // 攻撃間隔・索敵距離・重力などのゲームプレイ調整値はResources/Config/enemy_params.json（EnemyTuning::Basic()）で持つ。
+    // ここに残す定数は見た目（装備の位置・傾き・被弾リアクションの倍率）だけ
 
     // 装備ビジュアル（武器の見た目スケール・本体からのオフセット・傾き）
     static constexpr Vector3 kSpearWeaponScale_ = { 0.11f, 0.11f, 0.22f };
@@ -194,11 +196,6 @@ private:
     static constexpr float kWeaponOffsetZ_ = 0.15f;
     static constexpr float kWeaponRestTilt_ = 0.4f; // Idle中の武器の傾き
 
-    // ノックバック・打ち上げ挙動
-    static constexpr float kKnockbackSlowMultiplier_ = 0.45f; // ApplySlow()中のノックバック速度倍率
-    static constexpr float kKnockbackDecay_ = 0.82f; // ノックバック速度の1フレームあたりの減衰率
-    static constexpr float kAirComboGravityScale_ = 0.28f; // 空中コンボ猶予中の重力倍率
-
     // モーション演出（攻撃ステート毎の体/武器の傾き）
     static constexpr float kTelegraphBodyLean_ = -0.10f;
     static constexpr float kTelegraphWeaponSwing_ = 1.15f;
@@ -207,25 +204,7 @@ private:
 
     // 攻撃ステートマシン（Idle→Telegraph→Active→Idle を固定時間で巡回する）
     // Telegraph→Active の切り替わり瞬間が弾の発射トリガー実際の弾はGamePlayScene側が撃ち出して追跡する
-    static constexpr float kAttackInterval_ = 2.5f; // 攻撃と攻撃の間隔（秒）
-    static constexpr float kAttackTelegraph_ = 0.5f; // 予備動作の長さ（秒）
-    static constexpr float kAttackActive_ = 0.18f; // 発射直後の連射防止用の短い不応期（秒）
-    static constexpr int kAttackDamage_ = 2;
-    static constexpr int kHeavyAttackDamage_ = 3; // Hammer/Axe
-
-    // 武器種別ごとの予備動作/回復時間（Dagger=速攻小威力、Spear=中間、Hammer/Axe=遅いが重い）
-    static constexpr float kDaggerTelegraph_ = 0.20f;
-    static constexpr float kSpearTelegraph_ = 0.38f;
-    static constexpr float kHeavyTelegraph_ = 0.75f;
-    static constexpr float kDaggerRecovery_ = 1.25f;
-    static constexpr float kSpearRecovery_ = 2.0f;
-    static constexpr float kHeavyRecovery_ = 3.2f;
-
-    // 接近AI（Idle中だけプレイヤーへ向かって歩く。予備動作/攻撃中や被弾ノックバック中は歩かせない）
-    static constexpr float kApproachSpeed_ = 0.06f; // 1フレームあたりの歩行距離（プレイヤーのkSpeed_=0.15fより遅め）
-    static constexpr float kEngageRange_ = 2.0f; // これより近づいたら歩みを止める（武器の間合い目安）
-    static constexpr float kAggroRange_ = 10.0f; // 画面内へ入った敵はプレイヤーへの接近を開始する
-    static constexpr float kLeashDistance_ = 8.0f; // 短すぎる持ち場制限で途中停止しない範囲
+    // 各時間はEnemyTuning::Basic()から読む
 
     // コンボ被弾リアクション
     static constexpr float kSwitchPullStrength_ = 0.18f; // 武器切替吸い寄せの引き込み強さ
@@ -277,10 +256,9 @@ private:
     float knockVelX_ = 0.0f;
     float slowTimer_ = 0.0f;
     float airComboTimer_ = 0.0f;
-    static constexpr float kAirComboHold_ = 0.32f;
 
     AttackState attackState_ = AttackState::Idle;
-    float attackTimer_ = kAttackInterval_;
+    float attackTimer_ = 0.0f;
     bool justFiredAttack_ = false;
 };
 

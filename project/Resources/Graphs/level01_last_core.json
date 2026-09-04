@@ -1,0 +1,30 @@
+{
+  "comments": {
+    "c0": {
+      "text": "3つ目のエネルギーコア(pickup_core_3)を回収した瞬間に起動するグラフ。フラグ pickup_pickup_core_3 の立ち上がりでlevel01.jsonのflagGraphsから呼ばれる",
+      "x": -20.0, "y": -140.0, "w": 560.0, "h": 110.0,
+      "colorR": 0.3, "colorG": 0.8, "colorB": 0.9
+    }
+  },
+  "start": "n_hitstop",
+  "nodes": {
+    "n_hitstop": {
+      "type": "HitStop",
+      "params": { "frames": 6.0 },
+      "next": "n_flash",
+      "editorX": 0.0, "editorY": 0.0
+    },
+    "n_flash": {
+      "type": "ScreenFlash",
+      "params": { "r": 1.0, "g": 1.0, "b": 0.6, "a": 0.35, "duration": 0.25 },
+      "next": "n_heal",
+      "editorX": 260.0, "editorY": 0.0
+    },
+    "n_heal": {
+      "type": "HealPlayer",
+      "params": { "amount": 2.0 },
+      "next": "",
+      "editorX": 520.0, "editorY": 0.0
+    }
+  }
+}

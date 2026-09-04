@@ -295,6 +295,26 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             addEntry("camera", "camera_point");
             editor.objects_.back().desc.activationFlag = editor.objects_.back().desc.name + "_active";
         }
+        if (ImGui::MenuItem("収集物（エネルギーコア）")) {
+            addEntry("pickup", "pickup");
+            auto& pickup = editor.objects_.back().desc;
+            pickup.model = "Resources/block/block.obj";
+            pickup.texture = "Resources/Effects/circle2.png";
+            pickup.scale = { 0.35f, 0.35f, 0.35f };
+            pickup.lighting = false;
+            pickup.solid = false;
+            editor.RegenerateInstances(editor.objects_.back());
+        }
+        if (ImGui::MenuItem("壊せる物（爆発バレル）")) {
+            addEntry("breakable", "breakable");
+            auto& breakable = editor.objects_.back().desc;
+            breakable.model = "Resources/block/block.obj";
+            breakable.texture = "Resources/block/block.png";
+            breakable.scale = { 0.9f, 0.9f, 0.9f };
+            breakable.lighting = true;
+            breakable.solid = false;
+            editor.RegenerateInstances(editor.objects_.back());
+        }
         if (ImGui::MenuItem("巡回Waypoint")) {
             addEntry("waypoint", "patrol_point");
         }

@@ -8,6 +8,7 @@
 #pragma once
 #include "CollisionConfig.h"
 #include "EditorHistory.h"
+#include "LevelGraphRunner.h"
 #include "LevelLoader.h"
 #include "StageEditorContentFactory.h"
 #include "StageEditorEventConnection.h"
@@ -48,6 +49,15 @@ struct CombatEnemyRef {
     EnemyEntity* enemy = nullptr; // 非所有。StageEditorのobjects_が生存させる
 };
 
+/** @brief kind=="breakable"の配置物1件ぶんの参照（GetBreakables()の戻り値。ヒット判定と破壊処理はシーン側が行う） */
+struct BreakableRef {
+    const ObjectDesc* desc = nullptr; // 非所有。HP・爆風半径・ダメージ量の設定元
+    Vector3 position = { }; // 親チェーン解決済みのワールド位置
+    int* hp = nullptr; // 残りHP（シーン側が減らす）
+    bool* destroyed = nullptr; // trueにすると以降は描画・判定から外れる
+    engine::graphics::Object3d* object = nullptr; // 非所有。脈動色などの見た目更新用
+};
+
 /**
  * @brief レベルデータの読み書きと配置物の実行および編集UIを統括する
  *
@@ -74,6 +84,13 @@ public:
     StageEditor();
     /** @brief 保持しているレベル実体と外部参照を破棄する */
     ~StageEditor();
+
+    /**
+     * @brief 現在レベルを開いているStageEditorを返す（ノードグラフの配置物操作ノードが名前引きに使う）
+     * @return Open()済みのStageEditor。無ければnullptr
+     * @note シーンは同時に1つしか動かないため、最後にOpen()したものを有効とする。Finalize()で解除する
+     */
+    static StageEditor* GetActive() { return activeEditor_; }
 
     /**
      * @brief レベルJSONを読み込み、配置物とトリガーを生成する
@@ -152,6 +169,35 @@ public:
     std::vector<CombatEnemyRef> GetCombatEnemies() const;
 
     /**
+     * @brief kind=="breakable"で未破壊の配置物一覧を返す（毎フレーム呼ぶ想定）
+     * @return HP/破壊フラグへの可変参照を含む一覧。ヒット判定と爆風ダメージはシーン側が行う
+     * @note 破壊時はシーン側がdestroyedをtrueにし、あわせてGameFlagsのbroken_<name>を立てること
+     */
+    std::vector<BreakableRef> GetBreakables();
+
+    /**
+     * @brief kind=="pickup"の回収状況を返す（HUDの「x / y」表示用）
+     * @param outCollected 回収済み個数
+     * @param outTotal 有効な収集物の総数
+     */
+    void GetPickupCounts(int& outCollected, int& outTotal) const;
+
+    // 名前引きの配置物操作（ノードグラフのSetObjectVisible/TeleportObject/MoveObject/SetObjectEnabledノードから使う）
+    /** @brief 配置物の表示/非表示を切り替える（レベルJSONには保存しない一時状態） @return 名前が見つかればtrue */
+    bool SetObjectVisibleByName(const std::string& name, bool visible);
+    /** @brief 配置物のローカル位置を即座に書き換える @return 名前が見つかればtrue */
+    bool TeleportObjectByName(const std::string& name, const Vector3& position);
+    /** @brief 配置物のローカル位置をseconds秒かけて目標へ補間移動させる（0以下なら即座） @return 名前が見つかればtrue */
+    bool MoveObjectByName(const std::string& name, const Vector3& target, float seconds);
+    /** @brief 配置物の有効/無効を上書きする（activationFlagより優先。レベルJSONには保存しない） @return 名前が見つかればtrue */
+    bool SetObjectEnabledByName(const std::string& name, bool enabled);
+    /** @brief 配置物のワールド位置を返す @return 名前が見つかればtrue */
+    bool FindObjectWorldPosition(const std::string& name, Vector3& outPosition) const;
+
+    /** @brief レベルに紐付いたグラフ実行（常駐グラフ＋フラグ起動グラフ）の状態を返す */
+    const LevelGraphRunner& GetLevelGraphs() const { return levelGraphs_; }
+
+    /**
      * @brief solid=trueのオブジェクトのワールドAABB一覧を返す（毎フレーム呼ぶ想定）
      * @return 現在の配置状態から構築したワールドAABB一覧
      * @note ブロックの追加・移動・削除がそのまま次フレームの当たり判定に反映される
@@ -221,7 +267,31 @@ private:
         bool fallFloorWasSolid = true; // "fall"ギミック用: 直前フレームの床の有無（崩落/復帰の瞬間だけ砂ぼこりを出す判定に使う）
         bool healChanneling = false; // healer用: 詠唱（回復発動までのタメ）中かどうか
         int healChannelHpAtStart = 0; // healer用: 詠唱開始時のHP。詠唱中に減ったら被弾＝中断とみなす
+        bool pickupCollected = false; // pickup用: 回収済みなら描画・判定から外す
+        int breakableHp = 0; // breakable用: 残りHP（RegenerateInstancesでdesc.breakableHpから初期化）
+        bool breakableDestroyed = false; // breakable用: 破壊済みなら描画・判定から外す
+        bool visibleOverride = true; // グラフのSetObjectVisibleで切り替える一時的な表示状態
+        int enabledOverride = -1; // グラフのSetObjectEnabledによる上書き（-1: 無し / 0: 無効 / 1: 有効）
+        bool graphMoveActive = false; // グラフのMoveObjectによる補間移動中か
+        Vector3 graphMoveFrom = { };
+        Vector3 graphMoveTo = { };
+        float graphMoveTimer = 0.0f;
+        float graphMoveDuration = 0.0f;
     };
+
+    /** @brief ギミックの一時変形量（位置と回転のオフセット。保存対象の編集値には加えない） */
+    struct GimmickOffset {
+        Vector3 position = { };
+        Vector3 rotation = { };
+    };
+    /** @brief ギミック種別と経過時間から現在フレームの一時変形量を求める（UpdateRuntimeEntryとGetSolidCollidersで共用） */
+    GimmickOffset ComputeGimmickOffset(const ObjectEntry& entry) const;
+    /** @brief pickup配置物の回収判定と演出（プレイヤーが半径内に入ったら回収し、覚醒ゲージを増やす） */
+    void UpdatePickupEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
+    /** @brief グラフのMoveObjectによる補間移動を1フレーム進める */
+    void UpdateGraphMove(ObjectEntry& entry, float dt);
+    /** @brief 名前から配置物を探す（無ければnullptr） */
+    ObjectEntry* FindEntryByName(const std::string& name);
 
     /**
      * @brief モデル+テクスチャの組み合わせをキャッシュから探し、無ければロードして登録する
@@ -285,6 +355,8 @@ private:
     void RenderWorkflowPanel();
     /** @brief トリガーと配置対象を選ぶだけでイベント接続を構築する */
     void RenderNoCodeEventPanel();
+    /** @brief レベルに紐付ける常駐グラフとフラグ起動グラフの一覧を編集する */
+    void RenderGraphPanel();
     /** @brief 敵Wave用のSpawnPoint群を表形式の設定から生成する */
     void RenderWavePanel();
     /** @brief 配置・接続・到達性の問題を解析して一覧表示する */
@@ -367,6 +439,13 @@ private:
     Vector3 playerSpawn_ = { };
     Vector3 enemySpawn_ = { };
 
+    // レベルに紐付いたノードグラフ（レベルJSONのgraphPath/flagGraphs）。実行はlevelGraphs_が担う
+    std::string graphPath_;
+    std::vector<FlagGraphBinding> flagGraphs_;
+    LevelGraphRunner levelGraphs_;
+
+    static inline StageEditor* activeEditor_ = nullptr; // GetActive()用。Open()で設定、Finalize()で解除
+
     // F2で表示/非表示（GraphEditorのF1と違い、ゲーム画面を隠さない小窓パネル構成）
     bool visible_ = false;
     bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
@@ -406,6 +485,8 @@ private:
         std::vector<CheckpointDesc> checkpoints;
         Vector3 playerSpawn;
         Vector3 enemySpawn;
+        std::string graphPath;
+        std::vector<FlagGraphBinding> flagGraphs;
     };
     /**
      * @brief 現在の配置物・トリガー・チェックポイント・スポーン位置からUndo用スナップショットを構築する
@@ -489,7 +570,11 @@ private:
     bool showFlagsPanel_ = false;
     bool showWorkflowPanel_ = false;
     bool showNoCodeEventPanel_ = false;
+    bool showGraphPanel_ = false;
     bool showWavePanel_ = false;
+    char graphPathBuffer_[160] = { };
+    char newFlagGraphFlag_[64] = { };
+    char newFlagGraphPath_[160] = "Resources/Graphs/";
     bool helpChecklist_[5] = { false, false, false, false, false };
 #endif
 };

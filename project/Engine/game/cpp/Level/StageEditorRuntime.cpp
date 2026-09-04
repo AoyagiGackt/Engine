@@ -9,6 +9,7 @@
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
+#include "EnemyTuning.h"
 #include "FontRenderer.h"
 #include "GameFlags.h"
 #include "KnightEnemy.h"
@@ -16,7 +17,10 @@
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "Player.h"
+#include "PlayerBridge.h"
 #include "SceneShared.h"
+#include "ScreenFlash.h"
 #include "StringUtility.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -111,33 +115,6 @@ void EmitFallingFloorDebris(ParticleManager* pm, const Vector3& worldPos, const 
     }
     wasSolid = state.solid;
 }
-// ObjectDesc::weaponType（Inspectorのコンボボックスと同じ文字列規約）をWeaponTypeへ変換する
-// WeaponManager.cpp内の同名パーサは無名namespace限定で外部から使えないため、ここだけ小さく複製する
-WeaponType ParseEnemyWeaponType(const std::string& type)
-{
-    if (type == "Spear") {
-        return WeaponType::Spear;
-    }
-    if (type == "Hammer") {
-        return WeaponType::Hammer;
-    }
-    if (type == "Dagger") {
-        return WeaponType::Dagger;
-    }
-    if (type == "Ball") {
-        return WeaponType::Ball;
-    }
-    if (type == "Greatsword") {
-        return WeaponType::Greatsword;
-    }
-    if (type == "Scythe") {
-        return WeaponType::Scythe;
-    }
-    if (type == "Axe") {
-        return WeaponType::Axe;
-    }
-    return WeaponType::Sword;
-}
 } // namespace
 
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
@@ -165,6 +142,13 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     }
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
+    // 実体を作り直す＝ゲーム内の状態もやり直す（回収済み/破壊済み/グラフによる一時状態を初期値へ戻す）
+    entry.pickupCollected = false;
+    entry.breakableHp = desc.breakableHp;
+    entry.breakableDestroyed = false;
+    entry.visibleOverride = true;
+    entry.enabledOverride = -1;
+    entry.graphMoveActive = false;
     if (!desc.enabled) {
         UnregisterEnemyEntity(entry);
         entry.knight.reset();
@@ -194,7 +178,7 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseEnemyWeaponType(desc.weaponType));
+            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseWeaponTypeName(desc.weaponType));
             entry.enemy->SetArchetype(desc.spawnType);
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
@@ -385,24 +369,22 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
     std::vector<engine::AABB> result;
     for (const auto& entry : objects_) {
-        if (!entry.desc.solid || !entry.runtimeActive) {
+        if (!entry.desc.solid || !entry.runtimeActive || !entry.visibleOverride
+            || entry.pickupCollected || entry.breakableDestroyed) {
             continue;
         }
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
         if (desc.kind == "gimmick") {
-            const float phase = entry.runtimeTimer * desc.motionSpeed;
-            if (desc.gimmickMotion == "move_y") {
-                basePos.y += std::sin(phase) * desc.motionAmount;
-            } else if (desc.gimmickMotion == "move_x") {
-                basePos.x += std::sin(phase) * desc.motionAmount;
-            } else if (desc.gimmickMotion == "fall") {
+            if (desc.gimmickMotion == "fall") {
                 const FallingFloorState state = GetFallingFloorState(
                     entry.runtimeTimer, desc.motionSpeed, desc.motionAmount);
                 if (!state.solid) {
                     continue;
                 }
                 basePos.y += state.yOffset;
+            } else {
+                basePos = basePos + ComputeGimmickOffset(entry).position;
             }
         }
         // Terrainは描画メッシュの各三角形をAABBへ変換し、表示形状の変更と同期する
@@ -507,6 +489,232 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
     for (auto& entry : objects_) {
         UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
     }
+    // レベル紐付きグラフは配置物の状態が確定した後に進める（編集停止中はロジックも止める）
+    if (!ShouldPauseGame()) {
+        levelGraphs_.Update(kRuntimeDeltaSeconds);
+    }
+}
+
+StageEditor::GimmickOffset StageEditor::ComputeGimmickOffset(const ObjectEntry& entry) const
+{
+    GimmickOffset offset;
+    const ObjectDesc& desc = entry.desc;
+    if (desc.kind != "gimmick") {
+        return offset;
+    }
+    const float phase = entry.runtimeTimer * desc.motionSpeed;
+    if (desc.gimmickMotion == "move_y") {
+        offset.position.y = std::sin(phase) * desc.motionAmount;
+    } else if (desc.gimmickMotion == "move_x") {
+        offset.position.x = std::sin(phase) * desc.motionAmount;
+    } else if (desc.gimmickMotion == "rotate_y") {
+        offset.rotation.y = phase;
+    } else if (desc.gimmickMotion == "rotate_z") {
+        offset.rotation.z = phase;
+    } else if (desc.gimmickMotion == "custom") {
+        // 進行度t（-1〜1または0〜1）をモードごとに求め、移動方向×量と回転量へ同じtを掛ける
+        float t = 0.0f;
+        if (desc.motionMode == "pingpong") {
+            // 等速の三角波（0→1→0）。phaseは1周期=2として折り返す
+            constexpr float kPingPongPeriod = 2.0f;
+            const float cycle = std::fmod(std::abs(phase), kPingPongPeriod);
+            t = cycle <= 1.0f ? cycle : kPingPongPeriod - cycle;
+        } else if (desc.motionMode == "once") {
+            t = std::clamp(phase, 0.0f, 1.0f);
+        } else {
+            t = std::sin(phase);
+        }
+        if (desc.motionEase == "smooth") {
+            // 符号を保ったままsmoothstepで加減速を付ける（loopのsin波はそのまま滑らかなので対象外）
+            const float sign = t < 0.0f ? -1.0f : 1.0f;
+            const float mag = std::abs(t);
+            t = sign * (mag * mag * (3.0f - 2.0f * mag));
+        }
+        offset.position = desc.motionAxis * (desc.motionAmount * t);
+        offset.rotation = desc.motionRotation * t;
+    }
+    return offset;
+}
+
+void StageEditor::UpdateGraphMove(ObjectEntry& entry, float dt)
+{
+    if (!entry.graphMoveActive) {
+        return;
+    }
+    entry.graphMoveTimer += dt;
+    const float t = entry.graphMoveDuration <= 0.0f
+        ? 1.0f
+        : std::clamp(entry.graphMoveTimer / entry.graphMoveDuration, 0.0f, 1.0f);
+    entry.desc.position = {
+        entry.graphMoveFrom.x + (entry.graphMoveTo.x - entry.graphMoveFrom.x) * t,
+        entry.graphMoveFrom.y + (entry.graphMoveTo.y - entry.graphMoveFrom.y) * t,
+        entry.graphMoveFrom.z + (entry.graphMoveTo.z - entry.graphMoveFrom.z) * t
+    };
+    if (t >= 1.0f) {
+        entry.graphMoveActive = false;
+    }
+}
+
+void StageEditor::UpdatePickupEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
+{
+    constexpr float kPickupPulseSpeed = 5.0f; // 脈動の速さ
+    constexpr float kPickupPulseAmplitude = 0.15f; // 脈動によるスケールの揺れ幅
+    constexpr float kPickupSpinSpeed = 1.5f; // 回転の速さ（ラジアン毎秒）
+    constexpr float kPickupRingRadius = 3.0f; // 回収時に広がるリングの半径
+    constexpr int kPickupRingCount = 18;
+    constexpr float kPickupRingLifetime = 0.45f;
+    constexpr float kPickupRingSize = 0.3f;
+    constexpr float kPickupFlashAlpha = 0.2f;
+    constexpr float kPickupFlashSeconds = 0.08f;
+
+    const ObjectDesc& desc = entry.desc;
+    const Vector3 worldPos = WorldPositionOf(desc);
+    if (!ShouldPauseGame()) {
+        const float dx = playerPos.x - worldPos.x;
+        const float dy = playerPos.y - worldPos.y;
+        if (dx * dx + dy * dy <= desc.pickupRadius * desc.pickupRadius) {
+            entry.pickupCollected = true;
+            GameFlags::GetInstance()->SetFlag("pickup_" + desc.name, true);
+            if (Player* player = PlayerBridge::GetInstance()->Get()) {
+                player->ChargeAwakenGauge(desc.pickupGaugeAmount);
+            }
+            if (pm) {
+                pm->EmitRing("awaken_aura", worldPos, kPickupRingRadius, desc.pickupColor,
+                    kPickupRingCount, kPickupRingLifetime, kPickupRingSize);
+            }
+            ScreenFlash::GetInstance()->Request(
+                { desc.pickupColor.x, desc.pickupColor.y, desc.pickupColor.z, kPickupFlashAlpha }, kPickupFlashSeconds);
+            return;
+        }
+    }
+
+    // 未回収の間は回転と脈動で拾える物だと分かるようにする（位置は親子追従のためRefreshTransformsで先に反映する）
+    RefreshTransforms(entry);
+    const float pulse = 1.0f - kPickupPulseAmplitude + std::sin(entry.runtimeTimer * kPickupPulseSpeed) * kPickupPulseAmplitude;
+    for (auto& obj : entry.instances) {
+        obj->SetRotation({ desc.rotation.x, desc.rotation.y + entry.runtimeTimer * kPickupSpinSpeed, desc.rotation.z });
+        obj->SetScale(desc.scale * pulse);
+        obj->SetColor({ desc.pickupColor.x, desc.pickupColor.y * pulse, desc.pickupColor.z, desc.pickupColor.w });
+        obj->Update();
+    }
+}
+
+StageEditor::ObjectEntry* StageEditor::FindEntryByName(const std::string& name)
+{
+    for (auto& entry : objects_) {
+        if (entry.desc.name == name) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+bool StageEditor::SetObjectVisibleByName(const std::string& name, bool visible)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->visibleOverride = visible;
+    if (entry->enemy) {
+        entry->enemy->SetVisible(visible);
+    }
+    return true;
+}
+
+bool StageEditor::TeleportObjectByName(const std::string& name, const Vector3& position)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->graphMoveActive = false;
+    entry->desc.position = position;
+    entry->authoredPosition = position;
+    if (entry->knight) {
+        entry->knight->GetPositionRef() = WorldPositionOf(entry->desc);
+        entry->knight->RefreshVisualTransforms();
+    } else if (entry->enemy) {
+        entry->enemy->GetPositionRef() = WorldPositionOf(entry->desc);
+        entry->enemy->RefreshVisualTransforms();
+    } else {
+        RefreshTransforms(*entry);
+        for (auto& obj : entry->instances) {
+            obj->Update();
+        }
+    }
+    return true;
+}
+
+bool StageEditor::MoveObjectByName(const std::string& name, const Vector3& target, float seconds)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    if (seconds <= 0.0f) {
+        return TeleportObjectByName(name, target);
+    }
+    entry->graphMoveActive = true;
+    entry->graphMoveFrom = entry->desc.position;
+    entry->graphMoveTo = target;
+    entry->graphMoveTimer = 0.0f;
+    entry->graphMoveDuration = seconds;
+    return true;
+}
+
+bool StageEditor::SetObjectEnabledByName(const std::string& name, bool enabled)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->enabledOverride = enabled ? 1 : 0;
+    return true;
+}
+
+bool StageEditor::FindObjectWorldPosition(const std::string& name, Vector3& outPosition) const
+{
+    for (const auto& entry : objects_) {
+        if (entry.desc.name == name) {
+            outPosition = WorldPositionOf(entry.desc);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<BreakableRef> StageEditor::GetBreakables()
+{
+    std::vector<BreakableRef> result;
+    for (auto& entry : objects_) {
+        if (entry.desc.kind != "breakable" || !entry.runtimeActive || entry.breakableDestroyed || entry.instances.empty()) {
+            continue;
+        }
+        BreakableRef ref;
+        ref.desc = &entry.desc;
+        ref.position = WorldPositionOf(entry.desc);
+        ref.hp = &entry.breakableHp;
+        ref.destroyed = &entry.breakableDestroyed;
+        ref.object = entry.instances.front().get();
+        result.push_back(ref);
+    }
+    return result;
+}
+
+void StageEditor::GetPickupCounts(int& outCollected, int& outTotal) const
+{
+    outCollected = 0;
+    outTotal = 0;
+    for (const auto& entry : objects_) {
+        if (entry.desc.kind != "pickup" || !entry.desc.enabled) {
+            continue;
+        }
+        ++outTotal;
+        if (entry.pickupCollected) {
+            ++outCollected;
+        }
+    }
 }
 
 void StageEditor::EvaluateEventConditions(float dt)
@@ -555,9 +763,17 @@ void StageEditor::UpdateRuntimeActivation(float dt)
             entry.runtimeActive = false;
             continue;
         }
+        // グラフのSetObjectEnabledによる上書きは有効化フラグより優先する
+        if (entry.enabledOverride >= 0) {
+            entry.runtimeActive = entry.enabledOverride == 1;
+            if (entry.runtimeActive) {
+                entry.runtimeTimer += dt;
+            }
+            continue;
+        }
         if (desc.activationFlag.empty()) {
             entry.runtimeActive = true;
-            if (desc.kind == "gimmick") {
+            if (desc.kind == "gimmick" || desc.kind == "pickup" || desc.kind == "breakable") {
                 entry.runtimeTimer += dt;
             }
             continue;
@@ -606,11 +822,30 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
         }
         return;
     }
-    if (entry.desc.kind == "patrol_point" || !IsRuntimeActive(entry.desc)) {
+    if (entry.desc.kind == "patrol_point" || (entry.enabledOverride < 0 && !IsRuntimeActive(entry.desc))) {
         return;
     }
     if (entry.knight || entry.enemy) {
         UpdateEnemyEntry(entry, pm, playerPos);
+        return;
+    }
+    if (!ShouldPauseGame()) {
+        UpdateGraphMove(entry, dt);
+    }
+    if (entry.desc.kind == "pickup") {
+        if (!entry.pickupCollected) {
+            UpdatePickupEntry(entry, pm, playerPos);
+        }
+        return;
+    }
+    if (entry.desc.kind == "breakable") {
+        // 見た目のトランスフォームだけ追従させる（ヒット判定と破壊はシーン側がGetBreakables()経由で行う）
+        if (!entry.breakableDestroyed) {
+            RefreshTransforms(entry);
+            for (auto& obj : entry.instances) {
+                obj->Update();
+            }
+        }
         return;
     }
 
@@ -628,22 +863,17 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     const Vector3 authoredPosition = entry.desc.position;
     const Vector3 authoredRotation = entry.desc.rotation;
     if (entry.desc.kind == "gimmick") {
-        const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
-        if (entry.desc.gimmickMotion == "move_y") {
-            entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
-        } else if (entry.desc.gimmickMotion == "move_x") {
-            entry.desc.position.x += std::sin(phase) * entry.desc.motionAmount;
-        } else if (entry.desc.gimmickMotion == "fall") {
+        if (entry.desc.gimmickMotion == "fall") {
             const FallingFloorState fallState = GetFallingFloorState(entry.runtimeTimer,
                 entry.desc.motionSpeed, entry.desc.motionAmount);
             entry.desc.position.y += fallState.yOffset;
             const Vector3 halfExtent = { 0.5f * std::abs(entry.desc.scale.x),
                 0.5f * std::abs(entry.desc.scale.y), 0.5f * std::abs(entry.desc.scale.z) };
             EmitFallingFloorDebris(pm, WorldPositionOf(entry.desc), halfExtent, fallState, entry.fallFloorWasSolid);
-        } else if (entry.desc.gimmickMotion == "rotate_y") {
-            entry.desc.rotation.y += phase;
-        } else if (entry.desc.gimmickMotion == "rotate_z") {
-            entry.desc.rotation.z += phase;
+        } else {
+            const GimmickOffset offset = ComputeGimmickOffset(entry);
+            entry.desc.position = entry.desc.position + offset.position;
+            entry.desc.rotation = entry.desc.rotation + offset.rotation;
         }
     }
     RefreshTransforms(entry);
@@ -666,10 +896,12 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
 
 void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
 {
-    constexpr float kHealerPulseSeconds = 1.5f;
-    constexpr float kHealerCastSeconds = 0.5f; // 詠唱（回復発動までのタメ）時間。この間に被弾すると中断できる
-    constexpr float kHealerRange = 7.0f;
-    constexpr int kHealerAmount = 4;
+    // 詠唱（回復発動までのタメ）の間に被弾すると中断できる。数値はenemy_params.jsonのbasic節で調整する
+    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
+    const float kHealerPulseSeconds = tuning.healerPulseSeconds;
+    const float kHealerCastSeconds = tuning.healerCastSeconds;
+    const float kHealerRange = tuning.healerRange;
+    const int kHealerAmount = tuning.healerAmount;
     Vector3 worldPos = WorldPositionOf(entry.desc);
     if (!ShouldPauseGame() && UpdatePatrol(entry)) {
         return;
@@ -816,7 +1048,7 @@ void StageEditor::DrawObjects()
     Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
 
     for (auto& entry : objects_) {
-        if (!entry.runtimeActive) {
+        if (!entry.runtimeActive || !entry.visibleOverride || entry.pickupCollected || entry.breakableDestroyed) {
             continue;
         }
         if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
@@ -889,7 +1121,7 @@ std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
         }
         CombatEnemyRef ref;
         ref.name = entry.desc.name;
-        ref.weaponType = ParseEnemyWeaponType(entry.desc.weaponType);
+        ref.weaponType = ParseWeaponTypeName(entry.desc.weaponType);
         ref.isStageBoss = entry.desc.isStageBoss;
         ref.enemy = entry.enemy.get();
         result.push_back(ref);

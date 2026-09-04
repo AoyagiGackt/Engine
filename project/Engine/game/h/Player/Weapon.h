@@ -16,6 +16,37 @@ enum class WeaponType { Sword,
     Scythe,
     Axe };
 
+/**
+ * @brief 武器種別名（weapons.jsonの"type"・レベルJSONのweaponType・game_rules.jsonと同じ文字列規約）をWeaponTypeへ変換する
+ * @param type "Sword" "Spear" "Hammer" "Dagger" "Ball" "Greatsword" "Scythe" "Axe" のいずれか
+ * @return 対応する種別。未知の文字列はSword
+ */
+inline WeaponType ParseWeaponTypeName(const std::string& type)
+{
+    if (type == "Spear") {
+        return WeaponType::Spear;
+    }
+    if (type == "Hammer") {
+        return WeaponType::Hammer;
+    }
+    if (type == "Dagger") {
+        return WeaponType::Dagger;
+    }
+    if (type == "Ball") {
+        return WeaponType::Ball;
+    }
+    if (type == "Greatsword") {
+        return WeaponType::Greatsword;
+    }
+    if (type == "Scythe") {
+        return WeaponType::Scythe;
+    }
+    if (type == "Axe") {
+        return WeaponType::Axe;
+    }
+    return WeaponType::Sword;
+}
+
 /** @brief 操作説明HUDに表示する1コマンドぶんのキー表示と説明 */
 struct WeaponCommand {
     std::string key; ///< ASCII キー表示（例: "Space"）

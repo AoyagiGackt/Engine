@@ -3,6 +3,7 @@
  * @brief KnightEnemyのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "KnightEnemy.h"
+#include "EnemyTuning.h"
 #include "GameConstants.h"
 #include "ModelCommon.h"
 #include <algorithm>
@@ -29,19 +30,12 @@ constexpr float kSwordBaseTilt = 0.4f; // 基本の刀身傾き（ラジアン�
 constexpr float kSwordPullBack = 0.9f; // 溜め時に引く角度
 constexpr float kSwordSwingFwd = -1.3f; // 突進時に振り出す角度
 
-// AI タイミング
-constexpr float kIdleDuration = 1.2f;
-constexpr float kTelegraphDuration = 0.35f;
-constexpr float kDashDuration = 0.22f;
-constexpr float kRecoverDuration = 0.6f;
-constexpr float kMaxDashDistance = 5.0f;
+// AI タイミング・被弾ノックバック・最大HPはResources/Config/enemy_params.jsonのknight節で調整する
+const KnightEnemyTuning& Tuning() { return EnemyTuning::GetInstance()->Knight(); }
+
 constexpr float kGroundY = 0.4f; // Dummy等と同じ地面の高さ
 
 constexpr float kAbsorbDuration = 0.5f;
-
-// 被弾ノックバック
-constexpr float kKnockbackSpeed = 0.18f; // 水平方向の初速
-constexpr float kKnockbackDecay = 0.85f; // 毎フレームの減衰率
 
 float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
 float EaseInQuad(float t) { return t * t; }
@@ -57,9 +51,10 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     pos_.y = kGroundY;
     state_ = State::Telegraph;
     // 初回更新から攻撃の予備動作へ移り、生成直後の棒立ちをなくす
-    stateTimer_ = kTelegraphDuration;
+    stateTimer_ = Tuning().telegraphDuration;
     swordSwing_ = kSwordPullBack * 0.35f;
-    hp_ = kMaxHp;
+    maxHp_ = Tuning().maxHp;
+    hp_ = maxHp_;
 
     skinCommon_ = std::make_unique<SkinCommon>();
     skinCommon_->Initialize(modelCommon->GetDxCommon());
@@ -111,7 +106,7 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
     }
     hp_ -= damage;
     hitFlash_ = 0.12f;
-    knockVelX_ += knockDirX * kKnockbackSpeed;
+    knockVelX_ += knockDirX * Tuning().knockbackSpeed;
     knockVelY_ = knockY;
     if (hp_ <= 0) {
         state_ = State::Defeated;
@@ -188,7 +183,7 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
     if (inKnockback) {
         pos_.x += knockVelX_;
         pos_.y += knockVelY_;
-        knockVelX_ *= kKnockbackDecay;
+        knockVelX_ *= Tuning().knockbackDecay;
         knockVelY_ -= 0.02f; // 重力っぽく落ちる
         if (pos_.y <= kGroundY) {
             pos_.y = kGroundY;
@@ -215,17 +210,17 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
     switch (state_) {
     case State::Idle:
         swordSwing_ = LerpF(swordSwing_, 0.0f, 0.15f);
-        if (stateTimer_ >= kIdleDuration) {
+        if (stateTimer_ >= Tuning().idleDuration) {
             state_ = State::Telegraph;
             stateTimer_ = 0.0f;
             dashStart_ = pos_;
-            float dx = std::clamp(playerPos.x - pos_.x, -kMaxDashDistance, kMaxDashDistance);
+            float dx = std::clamp(playerPos.x - pos_.x, -Tuning().maxDashDistance, Tuning().maxDashDistance);
             dashTarget_ = { pos_.x + dx, pos_.y, pos_.z };
         }
         break;
 
     case State::Telegraph: {
-        float t = std::clamp(stateTimer_ / kTelegraphDuration, 0.0f, 1.0f);
+        float t = std::clamp(stateTimer_ / Tuning().telegraphDuration, 0.0f, 1.0f);
         swordSwing_ = LerpF(swordSwing_, kSwordPullBack, 0.3f);
         if (t >= 1.0f) {
             state_ = State::Dash;
@@ -234,7 +229,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
         break;
     }
     case State::Dash: {
-        float t = std::clamp(stateTimer_ / kDashDuration, 0.0f, 1.0f);
+        float t = std::clamp(stateTimer_ / Tuning().dashDuration, 0.0f, 1.0f);
         float eased = EaseOutQuad(t);
         pos_.x = LerpF(dashStart_.x, dashTarget_.x, eased);
         if (dashTarget_.x != dashStart_.x) {
@@ -254,7 +249,7 @@ void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
     }
     case State::Recover:
         swordSwing_ = LerpF(swordSwing_, 0.0f, 0.12f);
-        if (stateTimer_ >= kRecoverDuration) {
+        if (stateTimer_ >= Tuning().recoverDuration) {
             state_ = State::Idle;
             stateTimer_ = 0.0f;
         }

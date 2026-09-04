@@ -7,6 +7,7 @@
 #include "ImGuiManager.h"
 #include "RunData.h"
 #include "SaveData.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include <string>
@@ -83,7 +84,7 @@ void ClearScene::Finalize()
 void ClearScene::Update()
 {
     if (input_->TriggerKey(DIK_SPACE)) {
-        SceneManager::GetInstance()->ChangeScene("TITLE");
+        SceneFlow::GetInstance()->Transition("CLEAR", "title", "TITLE");
     }
 
     clearSprite_->Update();

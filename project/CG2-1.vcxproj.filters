@@ -382,6 +382,21 @@
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\SceneFlow.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GameRules.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\CombatTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\LevelGraphRunner.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
@@ -795,6 +810,21 @@
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\SceneFlow.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GameRules.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\EnemyTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\CombatTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\LevelGraphRunner.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h">

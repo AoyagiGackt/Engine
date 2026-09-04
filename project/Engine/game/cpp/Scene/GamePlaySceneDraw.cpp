@@ -6,6 +6,8 @@
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
+#include "GameFlags.h"
+#include "GameRules.h"
 #include "GamePlaySceneInitializer.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -141,7 +143,9 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
 void GamePlayScene::CheckClearCondition()
 {
-    // 最終敵の撃破後にハンマーを奪い、4つ目のスロットを完成させる
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
+
+    // 最終敵の撃破後にgame_rules.jsonで指定した武器を奪い、スロットを完成させる
     if (!weaponStealTriggered_ && enemy_->IsDefeated()
         && !finisherActive_ && !enemySlice_.IsActive()) {
         const Vector3& epos = enemy_->GetPosition();
@@ -179,15 +183,22 @@ void GamePlayScene::CheckClearCondition()
             if (mainWeaponAbsorbTimer_ <= 0.0f) {
                 weaponStealTriggered_ = true;
                 enemy_->SetVisible(false);
-                WeaponManager::GetInstance()->Acquire(WeaponType::Hammer);
+                WeaponManager::GetInstance()->Acquire(ParseWeaponTypeName(rules.bossStealWeapon));
             }
         }
     }
 
     // ローグライト: 敵撃破でクリア（大技・切断演出は見せ切ってから遷移する）
-    if (!clearTriggered_ && enemy_->IsDefeated() && weaponStealTriggered_
+    if (rules.requireBossWeaponSteal && !clearTriggered_ && enemy_->IsDefeated() && weaponStealTriggered_
         && !finisherActive_ && !enemySlice_.IsActive()
         && RunData::GetInstance()->IsRunActive()) {
+        requestClear_ = true;
+    }
+
+    // ノードグラフ（RequestStageClear/SetFlag）やステージのトリガーがクリアフラグを立てた場合もクリアへ進む
+    if (!clearTriggered_ && !rules.clearFlag.empty() && GameFlags::GetInstance()->GetFlag(rules.clearFlag)
+        && !finisherActive_ && !enemySlice_.IsActive()) {
+        GameFlags::GetInstance()->SetFlag(rules.clearFlag, false); // 次のステージへ持ち越さない
         requestClear_ = true;
     }
 
@@ -285,7 +296,7 @@ void GamePlayScene::DrawWorldAndActors()
     renderTextureSprite_->Draw();
 
     spriteCommon_->CommonDrawSettings();
-    if (RunData::GetInstance()->GetFloor() == 3) {
+    if (IsWaterFloor()) {
         waterPool_->Draw(camera_.get());
     }
 
@@ -294,18 +305,8 @@ void GamePlayScene::DrawWorldAndActors()
 
     SetupModelRenderState();
 
-    // HUDより前にエディタ管理の配置物を描画し、BaseScene側の二重描画を抑止する
+    // HUDより前にエディタ管理の配置物（収集物・壊せる物を含む）を描画し、BaseScene側の二重描画を抑止する
     GetStageEditor().DrawObjects();
-    for (auto& core : energyCores_) {
-        if (!core.collected) {
-            core.object->Draw();
-        }
-    }
-    for (auto& barrel : explosiveBarrels_) {
-        if (!barrel.destroyed) {
-            barrel.object->Draw();
-        }
-    }
     if (!ghostTrail_.empty()) {
         SetupModelRenderState();
         ghostObject_->SetModel(player_->GetModel()); // 覚醒フォーム切り替えに残像の見た目を追従させる

@@ -459,6 +459,24 @@ void GraphEditor::AddNodeOfType(const std::string& type)
         node.params["b"] = false;
     } else if (type == "Not") {
         node.params["a"] = false;
+    } else if (type == "SetObjectVisible") {
+        node.params["target"] = std::string("obj_0");
+        node.params["visible"] = true;
+    } else if (type == "SetObjectEnabled") {
+        node.params["target"] = std::string("obj_0");
+        node.params["enabled"] = true;
+    } else if (type == "TeleportObject" || type == "MoveObject") {
+        node.params["target"] = std::string("obj_0");
+        node.params["x"] = 0.0f;
+        node.params["y"] = 0.0f;
+        node.params["z"] = 0.0f;
+        if (type == "MoveObject") {
+            node.params["seconds"] = 1.0f;
+        }
+    } else if (type == "ChangeScene") {
+        node.params["scene"] = std::string("MAP");
+        node.params["fadeOut"] = 0.15f;
+        node.params["fadeIn"] = 0.15f;
     }
 
     RecordUndoSnapshotNow();

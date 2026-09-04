@@ -7,6 +7,7 @@
 #include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include <string>
@@ -250,7 +251,7 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
         }
         ImGui::SameLine();
         if (ImGui::Button("Game Over")) {
-            SceneManager::GetInstance()->ChangeScene("GAMEOVER");
+            SceneFlow::GetInstance()->Transition("GAMEPLAY", "gameover", "GAMEOVER");
         }
     }
 

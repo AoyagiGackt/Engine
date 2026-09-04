@@ -60,6 +60,9 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     LevelData data = LevelLoader::Load(levelPath);
     playerSpawn_ = data.playerSpawn;
     enemySpawn_ = data.enemySpawn;
+    graphPath_ = data.graphPath;
+    flagGraphs_ = data.flagGraphs;
+    activeEditor_ = this;
 
     for (auto& desc : data.objects) {
         ObjectEntry entry;
@@ -110,10 +113,14 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     }
     checkpoints_ = data.checkpoints;
 
+    // 配置物とトリガーが揃ってから常駐グラフを起動する（グラフが配置物を名前で操作できるように）
+    levelGraphs_.Start(data);
+
     selKind_ = SelKind::None;
     selIndex_ = -1;
     selectedObjectIndices_.clear();
 #ifdef USE_IMGUI
+    strncpy_s(graphPathBuffer_, graphPath_.c_str(), _TRUNCATE);
     eventConnection_.Reset();
     // 別ファイルを開いたら、直前のレベルに対するUndo/Redo履歴は無関係になるため破棄する
     history_.Clear();
@@ -146,6 +153,9 @@ void StageEditor::Finalize()
     viewport_.Reset();
     camera_ = nullptr;
     modelCommon_ = nullptr;
+    if (activeEditor_ == this) {
+        activeEditor_ = nullptr;
+    }
 }
 
 void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
@@ -154,6 +164,9 @@ void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
     if ((!objects_.empty() || !modelStorage_.empty()) && modelCommon_ && modelCommon_->GetDxCommon()) {
         modelCommon_->GetDxCommon()->WaitForGpu();
     }
+
+    // グラフは配置物を名前で参照するため、実体より先に止める
+    levelGraphs_.Stop();
 
     // レジストリ参照、描画実体、参照キャッシュ、所有モデルの順に破棄する
     for (auto& entry : objects_) {
@@ -313,6 +326,8 @@ void StageEditor::SaveToPath(const std::string& path) const
         data.triggers.push_back(trigger.GetDesc());
     }
     data.checkpoints = checkpoints_;
+    data.graphPath = graphPath_;
+    data.flagGraphs = flagGraphs_;
     LevelLoader::Save(path, data);
 }
 
@@ -422,6 +437,9 @@ void StageEditor::RenderEditorPanels()
     if (showNoCodeEventPanel_) {
         RenderNoCodeEventPanel();
     }
+    if (showGraphPanel_) {
+        RenderGraphPanel();
+    }
     if (showWavePanel_) {
         RenderWavePanel();
     }
@@ -454,6 +472,8 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
     snap.checkpoints = checkpoints_;
     snap.playerSpawn = playerSpawn_;
     snap.enemySpawn = enemySpawn_;
+    snap.graphPath = graphPath_;
+    snap.flagGraphs = flagGraphs_;
     return snap;
 }
 
@@ -489,6 +509,9 @@ void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
 
     playerSpawn_ = snap.playerSpawn;
     enemySpawn_ = snap.enemySpawn;
+    graphPath_ = snap.graphPath;
+    flagGraphs_ = snap.flagGraphs;
+    strncpy_s(graphPathBuffer_, graphPath_.c_str(), _TRUNCATE);
 
     selKind_ = SelKind::None;
     selIndex_ = -1;
@@ -562,8 +585,16 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         } else if (!names.insert(desc.name).second) {
             issues.push_back("オブジェクト名が重複しています: " + desc.name);
         }
-        if ((desc.kind == "prop" || desc.kind == "gimmick" || desc.kind == "terrain") && desc.model.empty()) {
+        if (IsVisualKind(desc.kind) && desc.kind != "background" && desc.model.empty()) {
             issues.push_back("モデル未設定: " + desc.name);
+        }
+        if (desc.kind == "breakable" && desc.breakableHp <= 0) {
+            issues.push_back("壊せる物のHPが0以下です: " + desc.name);
+        }
+        if (desc.kind == "gimmick" && desc.gimmickMotion == "custom"
+            && desc.motionAxis.x == 0.0f && desc.motionAxis.y == 0.0f && desc.motionAxis.z == 0.0f
+            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f) {
+            issues.push_back("カスタム動作の移動方向と回転量が両方0です: " + desc.name);
         }
         if (desc.scale.x <= 0.0f || desc.scale.y <= 0.0f || desc.scale.z <= 0.0f) {
             issues.push_back("スケールが0以下です: " + desc.name);
@@ -617,6 +648,23 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         }
         if (desc.flag.empty() || desc.radius <= 0.0f) {
             issues.push_back("トリガー設定が不正です: " + desc.name);
+        }
+    }
+
+    for (const auto& binding : flagGraphs_) {
+        if (binding.flag.empty() || binding.graphPath.empty()) {
+            issues.push_back("フラグ起動グラフのフラグ名またはパスが空です");
+            continue;
+        }
+        std::error_code fileError;
+        if (!std::filesystem::exists(binding.graphPath, fileError)) {
+            issues.push_back("フラグ起動グラフのファイルが見つかりません: " + binding.graphPath);
+        }
+    }
+    if (!graphPath_.empty()) {
+        std::error_code fileError;
+        if (!std::filesystem::exists(graphPath_, fileError)) {
+            issues.push_back("常駐グラフのファイルが見つかりません: " + graphPath_);
         }
     }
     return issues;

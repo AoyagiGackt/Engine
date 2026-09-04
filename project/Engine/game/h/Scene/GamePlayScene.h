@@ -128,9 +128,9 @@ public:
 
     /**
      * @brief ステージエディタが読み書きするレベルファイルを返す
-     * @return レベルJSONのパス
+     * @return レベルJSONのパス（game_rules.jsonのlevelPathsから現在フロアに対応するもの）
      */
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/level01.json"; }
+    std::string GetEditorLevelPath() const override;
     /**
      * @brief ステージ配置物の生成に使用するモデル共通処理を返す
      * @return シーンが所有するモデル共通処理
@@ -216,10 +216,10 @@ private:
     void DrawWeaponExchange();
     /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
     void UpdateWeaponEnemies();
-    /** @brief 探索用エネルギーコアの回収と表示更新を処理する */
-    void UpdateEnergyCores();
-    /** @brief 破壊可能な爆発オブジェクトのヒット判定・爆発ダメージ・演出を処理する */
+    /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
     void UpdateExplosiveBarrels();
+    /** @brief 現在のフロアが水面演出の対象か（game_rules.jsonのwaterFloor） */
+    bool IsWaterFloor() const;
     /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
     void DrawWeaponListPanel();
     /** @brief ボス・道中の武器敵の頭上HPバーの位置と色を更新する（BattleTestSceneのダミーHPバーと同じ体裁） */
@@ -379,32 +379,9 @@ private:
     LockTargetKind lockedKind_ = LockTargetKind::None;
     size_t lockedWeaponEnemyIndex_ = 0;
 
-    /** @brief 探索用エネルギーコア1個の状態（プレイヤーが触れると回収され、覚醒ゲージが増える） */
-    struct EnergyCoreEntry {
-        std::unique_ptr<Object3d> object;
-        Vector3 position = { };
-        bool collected = false;
-    };
-    std::unique_ptr<Model> energyCoreModel_;
-    std::vector<EnergyCoreEntry> energyCores_;
-    float energyCorePulse_ = 0.0f;
-    int collectedEnergyCores_ = 0;
-
-    /** @brief 攻撃で破壊すると周囲にダメージを撒く設置物1個分の状態(戦闘演出ギミック) */
-    struct ExplosiveBarrelEntry {
-        std::unique_ptr<Object3d> object;
-        Vector3 position = { };
-        int hp = 0;
-        bool destroyed = false;
-    };
-    std::unique_ptr<Model> explosiveBarrelModel_;
-    std::vector<ExplosiveBarrelEntry> explosiveBarrels_;
+    // 収集物（pickup）と壊せる物（breakable）はレベルJSONの配置物としてStageEditorが所有する。
+    // ここでは壊せる物の脈動表示に使うタイマーだけを持つ
     float explosiveBarrelPulse_ = 0.0f;
-    static constexpr int kExplosiveBarrelHp_ = 2;
-    static constexpr float kExplosiveBarrelHalfExtent_ = 0.55f; ///< ヒット判定AABBの半径
-    static constexpr float kExplosiveBarrelRadius_ = 3.0f; ///< 爆発が届く範囲の半径
-    static constexpr int kExplosiveBarrelPlayerDamage_ = 4;
-    static constexpr int kExplosiveBarrelEnemyDamage_ = 3;
 
     GameTime gameTime_;
 
@@ -429,9 +406,7 @@ private:
     static constexpr float kGhostLifetime = 0.3f;
 
     // 敵の遠隔攻撃弾ボスと道中の武器持ち敵が共用する（発射時にプレイヤーが射程内にいる敵だけ撃つ）
-    static constexpr float kEnemyBulletSpeed = 9.0f;
-    static constexpr float kEnemyBulletLifetime = 1.2f;
-    static constexpr float kEnemyFireRange = 7.0f; ///< 発射の瞬間にプレイヤーがこの距離より遠い敵は撃たない
+    // 弾速・寿命・射程はResources/Config/enemy_params.jsonのbullet節（EnemyTuning::Bullet()）で持つ
 
     /** @brief 敵の遠隔攻撃弾1発分の状態 */
     struct EnemyBullet {
@@ -443,13 +418,9 @@ private:
     std::vector<EnemyBullet> enemyBullets_;
 
     // ボスの予告円→着弾のAoEスラム攻撃(戦闘演出ギミック)
-    static constexpr float kBossSlamEngageRange_ = 10.0f; ///< ボスとこの距離以内でなければタイマーを進めない(戦闘開始前に発動しないように)
-    static constexpr float kBossSlamInterval_ = 7.0f; ///< 着弾から次の予告開始までの間隔(秒)
-    static constexpr float kBossSlamWarningDuration_ = 1.1f; ///< 予告円が出てから着弾するまでの秒数
-    static constexpr float kBossSlamRadius_ = 2.6f; ///< 着弾範囲の半径
-    static constexpr int kBossSlamDamage_ = 3;
+    // 間隔・予告秒数・半径・ダメージはenemy_params.jsonのbossSlam節（EnemyTuning::BossSlam()）で持つ
     bool bossSlamWarningActive_ = false;
-    float bossSlamTimer_ = kBossSlamInterval_;
+    float bossSlamTimer_ = 0.0f; ///< OnEditorLevelLoaded()でEnemyTuning::BossSlam().intervalから初期化する
     float bossSlamWarningTimer_ = 0.0f;
     Vector3 bossSlamTargetPos_ = { };
     // 着弾地点に出す予告円（円形グロー画像を着弾範囲の見かけ半径まで拡大し、赤く点滅させる）

@@ -60,6 +60,8 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         : (desc.kind == "enemy_basic")                  ? "[エネミー] "
         : (desc.kind == "ui_text")                      ? "[テキスト] "
         : (desc.kind == "hud_anchor")                   ? "[HUD位置] "
+        : (desc.kind == "pickup")                       ? "[収集物] "
+        : (desc.kind == "breakable")                    ? "[壊せる物] "
                                                         : "";
 
     // 深さぶんインデントして親子関係を視覚化する
@@ -114,6 +116,8 @@ void StageEditor::RenderEditorToolbar()
     ImGui::Checkbox("制作", &showWorkflowPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("イベント", &showNoCodeEventPanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("グラフ", &showGraphPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("Wave", &showWavePanel_);
     ImGui::SameLine();
@@ -279,6 +283,8 @@ void StageEditor::RenderWorkflowPanel()
             snapshot.checkpoints = std::move(recovered.checkpoints);
             snapshot.playerSpawn = recovered.playerSpawn;
             snapshot.enemySpawn = recovered.enemySpawn;
+            snapshot.graphPath = recovered.graphPath;
+            snapshot.flagGraphs = recovered.flagGraphs;
             ApplySnapshot(snapshot);
             dirty_ = true;
             ImGui::CloseCurrentPopup();
@@ -552,6 +558,77 @@ void StageEditor::RenderNoCodeEventPanel()
     ImGui::End();
 }
 
+void StageEditor::RenderGraphPanel()
+{
+    constexpr float kPanelPosX = 600.0f;
+    constexpr float kPanelPosY = 320.0f;
+    constexpr float kPanelWidth = 380.0f;
+    constexpr float kPanelHeight = 300.0f;
+    constexpr float kRemoveButtonWidth = 24.0f;
+    constexpr float kStatusSeconds = 3.0f;
+    ImGui::SetNextWindowPos(ImVec2(kPanelPosX, kPanelPosY), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, kPanelHeight), ImGuiCond_Once);
+    ImGui::Begin("グラフ", &showGraphPanel_);
+    ImGui::TextWrapped("このレベルで動かすノードグラフ（F1で編集）を紐付けます。常駐グラフは読込直後から走り、フラグ起動グラフは指定フラグが立った瞬間に走ります。");
+
+    ImGui::SeparatorText("常駐グラフ");
+    ImGui::SetNextItemWidth(-1.0f);
+    const bool graphPathChanged = ImGui::InputTextWithHint("##graphPath", "Resources/Graphs/xxx.json（空なら無し）", graphPathBuffer_, sizeof(graphPathBuffer_));
+    if (ImGui::IsItemActivated()) {
+        BeginUndoCapture();
+    }
+    if (graphPathChanged) {
+        MarkUndoDirty();
+        graphPath_ = graphPathBuffer_;
+    }
+    if (ImGui::IsItemDeactivated()) {
+        CommitUndoCapture();
+    }
+
+    ImGui::SeparatorText("フラグ起動グラフ");
+    ImGui::TextDisabled("例  トリガーのフラグ room_start_0 → 敵出現の演出グラフ");
+    for (int i = 0; i < static_cast<int>(flagGraphs_.size()); ++i) {
+        ImGui::PushID(i);
+        if (ImGui::Button("x", ImVec2(kRemoveButtonWidth, 0.0f))) {
+            RecordUndoSnapshotNow();
+            flagGraphs_.erase(flagGraphs_.begin() + i);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s  →  %s", flagGraphs_[i].flag.c_str(), flagGraphs_[i].graphPath.c_str());
+        ImGui::PopID();
+    }
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##newFlag", "フラグ名（トリガー/条件のフラグ、pickup_<名前> 等）", newFlagGraphFlag_, sizeof(newFlagGraphFlag_));
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##newFlagPath", "グラフJSONのパス", newFlagGraphPath_, sizeof(newFlagGraphPath_));
+    const bool canAdd = newFlagGraphFlag_[0] != '\0' && newFlagGraphPath_[0] != '\0';
+    ImGui::BeginDisabled(!canAdd);
+    if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        FlagGraphBinding binding;
+        binding.flag = newFlagGraphFlag_;
+        binding.graphPath = newFlagGraphPath_;
+        flagGraphs_.push_back(std::move(binding));
+        newFlagGraphFlag_[0] = '\0';
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText("実行状態");
+    ImGui::Text("実行中のグラフ: %d", levelGraphs_.GetRunningCount());
+    if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f))) {
+        LevelData data;
+        data.graphPath = graphPath_;
+        data.flagGraphs = flagGraphs_;
+        levelGraphs_.Start(data);
+        statusMessage_ = "レベルのグラフを再起動しました";
+        statusTimer_ = kStatusSeconds;
+    }
+    EditorUI::HelpMarker("グラフの編集はF1のノードエディタで行い、保存後にここで再起動すると反映されます");
+    ImGui::End();
+}
+
 void StageEditor::RenderWavePanel()
 {
     ImGui::SetNextWindowPos(ImVec2(290.0f, 240.0f), ImGuiCond_Once);
@@ -771,6 +848,7 @@ void StageEditor::RenderInspector() { }
 void StageEditor::RenderAssetPalette() { }
 void StageEditor::RenderWorkflowPanel() { }
 void StageEditor::RenderNoCodeEventPanel() { }
+void StageEditor::RenderGraphPanel() { }
 void StageEditor::RenderWavePanel() { }
 void StageEditor::RenderStageAnalysisPanel() { }
 void StageEditor::RenderDiffPanel() { }

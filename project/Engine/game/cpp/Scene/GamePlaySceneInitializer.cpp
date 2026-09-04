@@ -5,7 +5,9 @@
 #include "GamePlaySceneInitializer.h"
 
 #include "AudioBridge.h"
+#include "EnemyTuning.h"
 #include "GamePlayScene.h"
+#include "GameRules.h"
 #include "LevelLoader.h"
 #include "Logger.h"
 #include "PlayerBridge.h"
@@ -19,7 +21,7 @@ namespace engine::game {
 
 void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
 {
-    const LevelData levelData = LevelLoader::Load("Resources/Levels/level01.json");
+    const LevelData levelData = LevelLoader::Load(scene.GetEditorLevelPath());
 
     // プレイヤーを生成し、ラン中に取得した強化を開始状態へ反映する
     scene.player_ = std::make_unique<Player>();
@@ -40,51 +42,8 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
         scene.player_->ApplySkillMods(mods);
     }
 
-    // 主敵・武器持ち雑魚敵はStageEditorに配置されたenemy_basic実体を使う（OnEditorLevelLoaded()参照）。
-    // Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
-
-    // 寄り道の収集物をデータ列から生成し、表示位置と回収状態をまとめて所有する
-    scene.energyCoreModel_ = std::make_unique<Model>();
-    scene.energyCoreModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/Effects/circle2.png");
-    constexpr Vector3 kEnergyCorePositions[] = {
-        { 7.5f, 2.3f, 0.0f }, { 18.5f, 4.1f, 0.0f }, { 28.5f, 5.5f, 0.0f }
-    };
-    for (const Vector3& position : kEnergyCorePositions) {
-        GamePlayScene::EnergyCoreEntry entry;
-        entry.position = position;
-        entry.object = std::make_unique<Object3d>();
-        entry.object->Initialize(scene.modelCommon_.get());
-        entry.object->SetModel(scene.energyCoreModel_.get());
-        entry.object->SetPosition(position);
-        entry.object->SetScale({ 0.35f, 0.35f, 0.35f });
-        entry.object->SetEnableLighting(false);
-        entry.object->Update();
-        scene.energyCores_.push_back(std::move(entry));
-    }
-
-    // 破壊可能な爆発オブジェクト（戦闘演出ギミック。攻撃を当てて壊すと周囲に爆風ダメージを撒く）
-    scene.explosiveBarrelModel_ = std::make_unique<Model>();
-    scene.explosiveBarrelModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/block/block.png");
-    // y座標は道中の敵配置（-0.38付近）に合わせて地面の高さへ置く
-    constexpr Vector3 kExplosiveBarrelPositions[] = {
-        { 14.5f, -0.35f, 0.0f }, { 24.0f, -0.35f, 0.0f }, { 32.5f, -0.35f, 0.0f }
-    };
-    for (const Vector3& position : kExplosiveBarrelPositions) {
-        GamePlayScene::ExplosiveBarrelEntry entry;
-        entry.position = position;
-        entry.hp = GamePlayScene::kExplosiveBarrelHp_;
-        entry.object = std::make_unique<Object3d>();
-        entry.object->Initialize(scene.modelCommon_.get());
-        entry.object->SetModel(scene.explosiveBarrelModel_.get());
-        entry.object->SetPosition(position);
-        entry.object->SetScale({ 0.9f, 0.9f, 0.9f });
-        entry.object->SetColor({ 1.0f, 0.35f, 0.1f, 1.0f });
-        entry.object->SetEnableLighting(true);
-        entry.object->Update();
-        scene.explosiveBarrels_.push_back(std::move(entry));
-    }
+    // 主敵・武器持ち雑魚敵・収集物・壊せる物はすべてStageEditorに配置されたレベルJSONの実体を使う
+    // （OnEditorLevelLoaded()参照）。Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
 }
 
 void GamePlayScene::OnEditorLevelLoaded()
@@ -106,33 +65,35 @@ void GamePlayScene::OnEditorLevelLoaded()
     weaponEnemies_.clear();
     enemyBullets_.clear();
     bossSlamWarningActive_ = false;
-    bossSlamTimer_ = kBossSlamInterval_;
+    bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
 
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
+    const std::string levelPath = GetEditorLevelPath();
     auto* runData = RunData::GetInstance();
     for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
         if (ref.isStageBoss) {
             if (enemy_) {
-                Logger::LogWarning("level01.json: isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
+                Logger::LogWarning(levelPath + ": isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
                 continue;
             }
             enemy_ = ref.enemy;
-            int maxHp = 20;
+            int maxHp = rules.bossHpCombat;
             if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
-                maxHp = 35;
+                maxHp = rules.bossHpElite;
             } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
-                maxHp = 60;
+                maxHp = rules.bossHpBoss;
             }
             if (runData->IsRunActive()) {
                 enemy_->SetMaxHp(maxHp);
             }
-            enemy_->SetColor({ 0.9f, 0.65f, 0.15f, 1.0f });
+            enemy_->SetColor(rules.bossColor);
             continue;
         }
 
         WeaponEnemyEntry entry;
         entry.enemy = ref.enemy;
         entry.weaponType = ref.weaponType;
-        entry.enemy->SetMaxHp(5);
+        entry.enemy->SetMaxHp(rules.weaponEnemyHp);
         // flying/healerはSetArchetype()で付けた種別色（水色/緑）を優先し、武器色で上書きしない
         if (!entry.enemy->HasArchetypeColor()) {
             entry.enemy->SetColor(colorForWeapon(ref.weaponType));
@@ -146,7 +107,7 @@ void GamePlayScene::OnEditorLevelLoaded()
     }
 
     if (!enemy_) {
-        Logger::LogError("level01.jsonにisStageBoss=trueの敵(enemy_basic)が配置されていません");
+        Logger::LogError(levelPath + "にisStageBoss=trueの敵(enemy_basic)が配置されていません");
     }
 }
 

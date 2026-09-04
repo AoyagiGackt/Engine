@@ -6,6 +6,7 @@
 #include "GameConstants.h"
 #include "RunData.h"
 #include "SaveData.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "WeaponManager.h"
 using namespace engine;
@@ -71,9 +72,9 @@ void GameOverScene::Update()
             // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
             RunData::GetInstance()->StartNewRun();
             WeaponManager::GetInstance()->Reset();
-            SceneManager::GetInstance()->ChangeScene("MAP");
+            SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
         } else {
-            SceneManager::GetInstance()->ChangeScene("TITLE"); // タイトルへ
+            SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
         }
     }
 

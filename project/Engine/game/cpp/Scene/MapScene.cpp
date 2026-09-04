@@ -4,6 +4,7 @@
  */
 #include "MapScene.h"
 #include "GameConstants.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "SkinnedObject3d.h"
 #include "SrvManager.h"
@@ -222,7 +223,7 @@ void MapScene::InitializeFloorsAndStartPosition()
 
     auto* rd = RunData::GetInstance();
     if (rd->GetFloor() >= static_cast<int>(floors_.size())) {
-        SceneManager::GetInstance()->ChangeScene("CLEAR");
+        SceneFlow::GetInstance()->Transition("MAP", "all_cleared", "CLEAR");
     } else {
         player_->SetPosition({ kStageWorldX[rd->GetFloor()], 0.4f, 0.0f });
     }
@@ -279,7 +280,7 @@ void MapScene::Update()
     }
 
     if (input_->TriggerKey(DIK_T)) {
-        SceneManager::GetInstance()->ChangeScene("TRAINING");
+        SceneFlow::GetInstance()->Transition("MAP", "training", "TRAINING");
         return;
     }
 
@@ -291,7 +292,7 @@ void MapScene::Update()
         case RunData::NodeType::Combat:
         case RunData::NodeType::Elite:
         case RunData::NodeType::Boss:
-            SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+            SceneFlow::GetInstance()->Transition("MAP", "combat", "GAMEPLAY");
             break;
         case RunData::NodeType::Shop:
         case RunData::NodeType::Rest:

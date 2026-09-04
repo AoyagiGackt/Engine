@@ -208,6 +208,11 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorServices.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\SceneFlow.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\GameRules.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyTuning.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\CombatTuning.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\LevelGraphRunner.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\PlayerBridge.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
@@ -717,6 +722,11 @@
     <ClInclude Include="Engine\game\h\Scripting\GraphEditorServices.h" />
     <ClInclude Include="Engine\game\h\Scripting\GameFlags.h" />
     <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h" />
+    <ClInclude Include="Engine\game\h\Scripting\SceneFlow.h" />
+    <ClInclude Include="Engine\game\h\Scripting\GameRules.h" />
+    <ClInclude Include="Engine\game\h\Scripting\EnemyTuning.h" />
+    <ClInclude Include="Engine\game\h\Scripting\CombatTuning.h" />
+    <ClInclude Include="Engine\game\h\Scripting\LevelGraphRunner.h" />
     <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h" />
     <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h" />
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />

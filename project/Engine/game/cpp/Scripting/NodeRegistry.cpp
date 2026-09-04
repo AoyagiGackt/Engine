@@ -8,12 +8,15 @@
 #include "EnemyRegistry.h"
 #include "EventBus.h"
 #include "GameFlags.h"
+#include "GameRules.h"
 #include "GraphRuntime.h"
 #include "Logger.h"
 #include "Player.h"
 #include "PlayerBridge.h"
 #include "RunData.h"
+#include "SceneManager.h"
 #include "ScreenFlash.h"
+#include "StageEditor.h"
 #include "TimeManager.h"
 #include <random>
 #include <utility>
@@ -335,6 +338,102 @@ NodeResult ExecNot(GraphRuntime& rt, const GraphNode& node, std::string& outNext
     return NodeResult::Continue;
 }
 
+// ── 配置物（StageEditorが開いているレベルの配置物を名前で操作する）──
+// 対象はレベルJSONのname。StageEditor::GetActive()が無い（レベル未読込）場合はログを出して何もしない
+
+StageEditor* ActiveStageEditorOrLog(const GraphNode& node)
+{
+    StageEditor* editor = StageEditor::GetActive();
+    if (!editor) {
+        Logger::LogError("[Graph] " + node.type + " node '" + node.id + "' has no level open (StageEditor)");
+    }
+    return editor;
+}
+
+NodeResult ExecSetObjectVisible(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    bool visible = AsBool(rt.ResolveParam(node, "visible", GraphValue { true }));
+    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
+        if (!editor->SetObjectVisibleByName(target, visible)) {
+            Logger::LogError("[Graph] SetObjectVisible node '" + node.id + "' unknown target '" + target + "'");
+        }
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+NodeResult ExecSetObjectEnabled(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    bool enabled = AsBool(rt.ResolveParam(node, "enabled", GraphValue { true }));
+    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
+        if (!editor->SetObjectEnabledByName(target, enabled)) {
+            Logger::LogError("[Graph] SetObjectEnabled node '" + node.id + "' unknown target '" + target + "'");
+        }
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+NodeResult ExecTeleportObject(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
+    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
+    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
+        if (!editor->TeleportObjectByName(target, { x, y, z })) {
+            Logger::LogError("[Graph] TeleportObject node '" + node.id + "' unknown target '" + target + "'");
+        }
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+// seconds秒かけて目標位置へ補間移動させる。移動完了を待たずに次のノードへ進む（待ちたい場合はWaitを続ける）
+NodeResult ExecMoveObject(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
+    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
+    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue { 1.0f }));
+    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
+        if (!editor->MoveObjectByName(target, { x, y, z }, seconds)) {
+            Logger::LogError("[Graph] MoveObject node '" + node.id + "' unknown target '" + target + "'");
+        }
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+// ── 進行（シーン遷移とステージクリア）──
+
+// sceneはSceneFactoryの登録名（"TITLE" "MAP" "GAMEPLAY" 等）。フェード秒数は省略可
+NodeResult ExecChangeScene(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    constexpr float kDefaultFadeSeconds = 0.15f;
+    std::string scene = AsString(rt.ResolveParam(node, "scene", std::string { }));
+    float fadeOut = AsFloat(rt.ResolveParam(node, "fadeOut", GraphValue { kDefaultFadeSeconds }));
+    float fadeIn = AsFloat(rt.ResolveParam(node, "fadeIn", GraphValue { kDefaultFadeSeconds }));
+    if (scene.empty()) {
+        Logger::LogError("[Graph] ChangeScene node '" + node.id + "' is missing 'scene' param");
+    } else {
+        SceneManager::GetInstance()->ChangeScene(scene, fadeOut, fadeIn);
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+// game_rules.jsonのclearFlagを立てる。本編シーンはこのフラグを毎フレーム見てクリア演出へ進む
+NodeResult ExecRequestStageClear(GraphRuntime&, const GraphNode& node, std::string& outNextId)
+{
+    GameFlags::GetInstance()->SetFlag(GameRules::GetInstance()->Get().clearFlag, true);
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
 } // namespace
 
 NodeRegistry* NodeRegistry::GetInstance()
@@ -432,6 +531,26 @@ void NodeRegistry::RegisterBuiltins()
 
     Register("HitStop", ExecHitStop);
     RegisterSpec("HitStop", { { { "frames", VT::Float } }, false, VT::Any, "framesフレームぶんゲームを一瞬止める演出用のヒットストップ", "演出・音声" });
+
+    // ── 配置物（ステージエディタで置いた配置物をnameで操作。敵・ギミック・ブロック等すべて対象）──
+    Register("SetObjectVisible", ExecSetObjectVisible);
+    RegisterSpec("SetObjectVisible", { { { "target", VT::String }, { "visible", VT::Bool } }, false, VT::Any, "レベルの配置物targetの表示/非表示を切り替える（当たり判定も一緒に消える）", "配置物" });
+
+    Register("SetObjectEnabled", ExecSetObjectEnabled);
+    RegisterSpec("SetObjectEnabled", { { { "target", VT::String }, { "enabled", VT::Bool } }, false, VT::Any, "レベルの配置物targetを有効/無効にする（有効化フラグより優先。敵なら生成/消滅、ギミックなら動作停止）", "配置物" });
+
+    Register("TeleportObject", ExecTeleportObject);
+    RegisterSpec("TeleportObject", { { { "target", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "レベルの配置物targetを座標(x,y,z)へ瞬間移動させる（親がいる場合は親からの相対位置）", "配置物" });
+
+    Register("MoveObject", ExecMoveObject);
+    RegisterSpec("MoveObject", { { { "target", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "seconds", VT::Float } }, false, VT::Any, "レベルの配置物targetをseconds秒かけて座標(x,y,z)へ滑らかに移動させる（扉の開閉や足場の移動に）", "配置物" });
+
+    // ── 進行（シーン遷移・ステージクリア）──
+    Register("ChangeScene", ExecChangeScene);
+    RegisterSpec("ChangeScene", { { { "scene", VT::String }, { "fadeOut", VT::Float }, { "fadeIn", VT::Float } }, false, VT::Any, "指定シーン（TITLE / MAP / GAMEPLAY / CLEAR / GAMEOVER 等）へ切り替える", "進行" });
+
+    Register("RequestStageClear", ExecRequestStageClear);
+    RegisterSpec("RequestStageClear", { { }, false, VT::Any, "本編ステージのクリア条件を成立させる（game_rules.jsonのclearFlagを立てる）", "進行" });
 }
 
 void NodeRegistry::Register(const std::string& type, NodeExecuteFn fn)

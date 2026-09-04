@@ -403,9 +403,12 @@ void GamePlayScene::DrawStageGuide()
     constexpr float kScale = 1.35f;
     constexpr Vector4 kGuideColor = { 0.85f, 0.95f, 1.0f, 0.95f };
 
+    int collectedPickups = 0;
+    int totalPickups = 0;
+    GetStageEditor().GetPickupCounts(collectedPickups, totalPickups);
     const std::wstring coreCount = L"エネルギーコア  "
-        + std::to_wstring(collectedEnergyCores_) + L" / "
-        + std::to_wstring(energyCores_.size());
+        + std::to_wstring(collectedPickups) + L" / "
+        + std::to_wstring(totalPickups);
     fontRenderer_.DrawStringW(coreCount, 24.0f, 540.0f, kScale,
         { 0.3f, 0.9f, 1.0f, 1.0f });
 

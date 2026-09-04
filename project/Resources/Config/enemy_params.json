@@ -1,0 +1,54 @@
+{
+  "_comment": "敵AIの調整値。basic=汎用敵(EnemyEntity) knight=ナイト(KnightEnemy) bullet=敵弾 bossSlam=ボスの範囲攻撃",
+  "basic": {
+    "attackInterval": 2.5,
+    "attackTelegraph": 0.5,
+    "attackActive": 0.18,
+    "attackDamage": 2,
+    "heavyAttackDamage": 3,
+    "daggerTelegraph": 0.2,
+    "spearTelegraph": 0.38,
+    "heavyTelegraph": 0.75,
+    "daggerRecovery": 1.25,
+    "spearRecovery": 2.0,
+    "heavyRecovery": 3.2,
+    "approachSpeed": 0.06,
+    "engageRange": 2.0,
+    "aggroRange": 10.0,
+    "leashDistance": 8.0,
+    "gravity": 0.015,
+    "ceilingY": 12.5,
+    "knockbackDecay": 0.82,
+    "knockbackSlowMultiplier": 0.45,
+    "airComboGravityScale": 0.28,
+    "airComboHold": 0.32,
+    "flyingBobAmplitude": 0.65,
+    "flyingBobSpeed": 2.0,
+    "healerPulseSeconds": 1.5,
+    "healerCastSeconds": 0.5,
+    "healerRange": 7.0,
+    "healerAmount": 4
+  },
+  "knight": {
+    "maxHp": 3,
+    "idleDuration": 1.2,
+    "telegraphDuration": 0.35,
+    "dashDuration": 0.22,
+    "recoverDuration": 0.6,
+    "maxDashDistance": 5.0,
+    "knockbackSpeed": 0.18,
+    "knockbackDecay": 0.85
+  },
+  "bullet": {
+    "speed": 9.0,
+    "lifetime": 1.2,
+    "fireRange": 7.0
+  },
+  "bossSlam": {
+    "engageRange": 10.0,
+    "interval": 7.0,
+    "warningDuration": 1.1,
+    "radius": 2.6,
+    "damage": 3
+  }
+}

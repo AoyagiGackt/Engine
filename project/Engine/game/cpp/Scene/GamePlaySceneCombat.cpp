@@ -5,7 +5,10 @@
  */
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
+#include "CombatTuning.h"
+#include "EnemyTuning.h"
 #include "GameConstants.h"
+#include "GameFlags.h"
 #include "GamePlaySceneInitializer.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -34,42 +37,8 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// スタイルゲージ関連の調整値
-static constexpr float kMeleeDamageDivisor = 25.0f; ///< 武器ダメージ×倍率を敵HPスケールへ落とし込む除数
-static constexpr float kStyleDecayRate = 0.12f; ///< スタイルゲージの毎秒減衰量（StylePersist未所持時）
-static constexpr float kStylePersistDecayMult = 0.6f; ///< StylePersistスキル所持時の減衰倍率
-
-// UpdateStyleAndUI: 近接コンボのヒット判定・スタイル加点調整値
-static constexpr float kEnemyHitBoxHalfExtent = 0.5f; ///< 敵の当たり判定AABBの半径（X/Y共通）
-static constexpr float kMeleeRepeatPenaltyPerHit = 0.035f; ///< 同じ技を連続ヒットさせるたびに加算される減点係数
-static constexpr float kMeleeRepeatPenaltyCap = 0.10f; ///< 連続技ペナルティの上限
-static constexpr float kMeleeWeaponSwitchBonus = 0.18f; ///< 武器切替直後のコンボヒットに乗るボーナス
-static constexpr float kMeleeBaseStyleGain = 0.10f; ///< 近接ヒット1回あたりの基礎スタイル加点
-static constexpr float kMeleeComboStepStyleGain = 0.04f; ///< コンボ段数1につき加算されるスタイル加点
-static constexpr float kMeleeAwakenGaugeGain = 0.08f; ///< 近接ヒットで溜まる覚醒ゲージ量
-static constexpr float kChainSkillRange = 5.0f; ///< 雷属性(Spear)の周囲武器敵への連鎖判定距離
-
-// UpdateStyleAndUI: 武器固有技（SPACE）のスタイル加点調整値
-static constexpr float kSkillSlamRadius = 3.5f; ///< 設置型AoE技(大剣叩きつけ等)の判定半径
-static constexpr float kSkillDefaultRadius = 2.8f; ///< 通常の固有技の判定半径
-static constexpr float kSkillRangeHalfHeight = 2.0f; ///< 固有技判定AABBの縦方向半径
-static constexpr float kWeaponEnemySkillRadius = 3.0f; ///< 武器付き敵に対する固有技判定AABBの横方向半径（プレイヤー中心の固定範囲）
-static constexpr float kSkillVarietyBonusRepeat = 0.06f; ///< 同じ固有技を連続で当てた場合のスタイル加点
-static constexpr float kSkillVarietyBonusFresh = 0.18f; ///< 直前と違う固有技を当てた場合のスタイル加点
-static constexpr float kSkillAwakenGaugeGain = 0.10f; ///< 固有技ヒットで溜まる覚醒ゲージ量
-
-// UpdateStyleAndUI: 銃コンボのスタイル加点調整値
-static constexpr float kGunBackRange = 0.8f; ///< 銃口とは逆方向の判定の奥行き（銃身ぶんの余裕）
-static constexpr float kGunBaseStyleGain = 0.04f; ///< 銃ヒット1回あたりの基礎スタイル加点
-static constexpr float kGunComboStepStyleGain = 0.01f; ///< 銃コンボ段数1につき加算されるスタイル加点
-static constexpr float kGunAwakenGaugeGain = 0.04f; ///< 銃ヒットで溜まる覚醒ゲージ量
-
-// UpdateStyleAndUI: 瞬歩(ブリンク)・覚醒乱舞のスタイル加点調整値
-static constexpr float kStingerStyleGain = 0.10f; ///< ダガー スティンガー刺突ごとのスタイル加点
-static constexpr float kRampageRushRadiusX = 2.5f; ///< 覚醒乱舞ラッシュの判定半径(横)
-static constexpr float kRampageRushRadiusY = 1.5f; ///< 覚醒乱舞ラッシュの判定半径(縦)
-static constexpr float kRampageBaseStyleGain = 0.10f; ///< 覚醒乱舞ヒットの基礎スタイル加点
-static constexpr float kRampageJuggleStyleGain = 0.02f; ///< 乱舞の連続ジャグル回数1につき加算されるスタイル加点
+// スタイルゲージ・覚醒ゲージ・ヒット判定範囲の調整値はResources/Config/combat_tuning.json（CombatTuning）で持つ
+static const CombatTuningData& Tune() { return CombatTuning::GetInstance()->Get(); }
 
 void GamePlayScene::UpdateWeaponEnemies()
 {
@@ -82,8 +51,8 @@ void GamePlayScene::UpdateWeaponEnemies()
         if (!entry.enemy->IsDefeated()) {
             const Vector3& enemyPos = entry.enemy->GetPosition();
             const AABB enemyBounds = {
-                { enemyPos.x - kEnemyHitBoxHalfExtent, enemyPos.y - kEnemyHitBoxHalfExtent, -0.5f },
-                { enemyPos.x + kEnemyHitBoxHalfExtent, enemyPos.y + kEnemyHitBoxHalfExtent, 0.5f }
+                { enemyPos.x - Tune().enemyHitBoxHalfExtent, enemyPos.y - Tune().enemyHitBoxHalfExtent, -0.5f },
+                { enemyPos.x + Tune().enemyHitBoxHalfExtent, enemyPos.y + Tune().enemyHitBoxHalfExtent, 0.5f }
             };
 
             bool hit = false;
@@ -95,13 +64,13 @@ void GamePlayScene::UpdateWeaponEnemies()
             }
             if (!hit && player_->JustFired()) {
                 const AABB range = SceneShared::MakeDirectionalRange(
-                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, kGunBackRange);
+                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, Tune().gunBackRange);
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
             if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
                 const AABB range = {
-                    { playerPos.x - kWeaponEnemySkillRadius, playerPos.y - kSkillRangeHalfHeight, -0.5f },
-                    { playerPos.x + kWeaponEnemySkillRadius, playerPos.y + kSkillRangeHalfHeight, 0.5f }
+                    { playerPos.x - Tune().weaponEnemySkillRadius, playerPos.y - Tune().skillRangeHalfHeight, -0.5f },
+                    { playerPos.x + Tune().weaponEnemySkillRadius, playerPos.y + Tune().skillRangeHalfHeight, 0.5f }
                 };
                 hit = Collision::CheckCollision(range, enemyBounds);
             }
@@ -111,7 +80,7 @@ void GamePlayScene::UpdateWeaponEnemies()
                 const float baseDamage = wm->HasEquippedWeapon() ? wm->GetCurrent().damage : 20.0f;
                 const int damage = player_->JustGreatswordSlam()
                     ? 3
-                    : (std::max)(1, static_cast<int>(std::round(baseDamage * damageMult / kMeleeDamageDivisor)));
+                    : (std::max)(1, static_cast<int>(std::round(baseDamage * damageMult / Tune().meleeDamageDivisor)));
                 const float knockbackMult = wm->HasEquippedWeapon()
                     ? wm->GetCurrent().knockbackMult
                     : 1.0f;
@@ -158,56 +127,38 @@ void GamePlayScene::UpdateWeaponEnemies()
     }
 }
 
-void GamePlayScene::UpdateEnergyCores()
-{
-    energyCorePulse_ += GameConstants::kFrameDeltaTime;
-    const Vector3& playerPos = player_->GetPosition();
-    for (auto& core : energyCores_) {
-        if (core.collected) {
-            continue;
-        }
-
-        const float dx = playerPos.x - core.position.x;
-        const float dy = playerPos.y - core.position.y;
-        if (dx * dx + dy * dy <= 1.0f) {
-            core.collected = true;
-            collectedEnergyCores_++;
-            player_->ChargeAwakenGauge(0.2f);
-            pm_->EmitRing("awaken_aura", core.position, 3.0f,
-                { 0.3f, 0.95f, 1.0f, 1.0f }, 18, 0.45f, 0.3f);
-            ScreenFlash::GetInstance()->Request(
-                { 0.4f, 0.9f, 1.0f, 0.2f }, 0.08f);
-            continue;
-        }
-
-        const float pulse = 0.85f + std::sin(energyCorePulse_ * 5.0f) * 0.15f;
-        core.object->SetRotation({ 0.0f, energyCorePulse_ * 1.5f, 0.0f });
-        core.object->SetScale({ 0.35f * pulse, 0.35f * pulse, 0.35f * pulse });
-        core.object->SetColor({ 0.3f, 0.9f * pulse, 1.0f, 1.0f });
-        core.object->Update();
-    }
-}
-
 void GamePlayScene::UpdateExplosiveBarrels()
 {
+    // 収集物（pickup）の回収はStageEditor側が行う。ここでは壊せる物（breakable）のヒット判定と爆風ダメージだけを担当する
+    constexpr float kBreakablePulseSpeed = 4.0f;
+    constexpr float kBreakablePulseAmplitude = 0.25f;
+    constexpr float kBreakableHalfDepth = 0.5f;
+    constexpr float kBreakableHitPadding = 0.1f; // 見た目の箱よりわずかに広く当たりを取り、かすった攻撃も拾う
+    constexpr int kBreakableHitStopFrames = 8;
+    constexpr float kBreakableShakeAmount = 0.28f;
+    constexpr float kBreakableShakeSeconds = 0.2f;
+    constexpr int kBreakableRingCount = 26;
+    constexpr float kBreakableRingLifetime = 0.5f;
+    constexpr float kBreakableRingSize = 0.32f;
+    constexpr int kBreakableSparkCount = 18;
+
     const Vector3& playerPos = player_->GetPosition();
     const auto* wm = WeaponManager::GetInstance();
     explosiveBarrelPulse_ += GameConstants::kFrameDeltaTime;
 
-    for (auto& barrel : explosiveBarrels_) {
-        if (barrel.destroyed) {
-            continue;
-        }
+    for (BreakableRef barrel : GetStageEditor().GetBreakables()) {
+        const ObjectDesc& desc = *barrel.desc;
 
-        // カメラが動くたびに表示行列を更新する（毎フレームUpdate()しないと初期カメラ位置のまま固定され画面に映らなくなる）
-        // 赤く脈動させて「攻撃で壊せる設置物」だと分かりやすくする
-        const float pulse = 0.75f + std::sin(explosiveBarrelPulse_ * 4.0f) * 0.25f;
-        barrel.object->SetColor({ 1.0f, 0.35f * pulse, 0.08f, 1.0f });
+        // 赤く脈動させて攻撃で壊せる設置物だと分かりやすくする（表示行列の更新はStageEditor側が毎フレーム行う）
+        const float pulse = 1.0f - kBreakablePulseAmplitude + std::sin(explosiveBarrelPulse_ * kBreakablePulseSpeed) * kBreakablePulseAmplitude;
+        barrel.object->SetColor({ desc.breakableColor.x, desc.breakableColor.y * pulse, desc.breakableColor.z, desc.breakableColor.w });
         barrel.object->Update();
 
+        const float halfExtentX = 0.5f * std::abs(desc.scale.x) + kBreakableHitPadding;
+        const float halfExtentY = 0.5f * std::abs(desc.scale.y) + kBreakableHitPadding;
         const AABB barrelBounds = {
-            { barrel.position.x - kExplosiveBarrelHalfExtent_, barrel.position.y - kExplosiveBarrelHalfExtent_, -0.5f },
-            { barrel.position.x + kExplosiveBarrelHalfExtent_, barrel.position.y + kExplosiveBarrelHalfExtent_, 0.5f }
+            { barrel.position.x - halfExtentX, barrel.position.y - halfExtentY, -kBreakableHalfDepth },
+            { barrel.position.x + halfExtentX, barrel.position.y + halfExtentY, kBreakableHalfDepth }
         };
 
         // ヒット判定は道中の武器敵(UpdateWeaponEnemies)と同じ3つの攻撃窓（近接コンボ/射撃/固有技）を流用する
@@ -220,14 +171,14 @@ void GamePlayScene::UpdateExplosiveBarrels()
         }
         if (!hit && player_->JustFired()) {
             const AABB range = SceneShared::MakeDirectionalRange(
-                playerPos, player_->GetLastDirX(), wm->GetRanged().range, kGunBackRange);
+                playerPos, player_->GetLastDirX(), wm->GetRanged().range, Tune().gunBackRange);
             hit = Collision::CheckCollision(range, barrelBounds);
         }
         if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit()
                 || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
             const AABB range = {
-                { playerPos.x - kWeaponEnemySkillRadius, playerPos.y - kSkillRangeHalfHeight, -0.5f },
-                { playerPos.x + kWeaponEnemySkillRadius, playerPos.y + kSkillRangeHalfHeight, 0.5f }
+                { playerPos.x - Tune().weaponEnemySkillRadius, playerPos.y - Tune().skillRangeHalfHeight, -0.5f },
+                { playerPos.x + Tune().weaponEnemySkillRadius, playerPos.y + Tune().skillRangeHalfHeight, 0.5f }
             };
             hit = Collision::CheckCollision(range, barrelBounds);
         }
@@ -236,27 +187,29 @@ void GamePlayScene::UpdateExplosiveBarrels()
             continue;
         }
 
-        barrel.hp--;
+        (*barrel.hp)--;
         pm_->EmitHitStar("hit_spark", barrel.position, { 1.0f, 0.6f, 0.15f, 1.0f });
-        if (barrel.hp > 0) {
+        if (*barrel.hp > 0) {
             continue;
         }
 
         // 破壊: 爆風範囲内のプレイヤー/敵にまとめてダメージを与える（環境を利用した攻撃手段）
-        barrel.destroyed = true;
+        *barrel.destroyed = true;
+        GameFlags::GetInstance()->SetFlag("broken_" + desc.name, true);
 
+        const float radiusSq = desc.breakableRadius * desc.breakableRadius;
         const float pdx = playerPos.x - barrel.position.x;
         const float pdy = playerPos.y - barrel.position.y;
-        if (pdx * pdx + pdy * pdy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_ && !player_->IsInvincible()) {
-            RunData::GetInstance()->TakeDamage(kExplosiveBarrelPlayerDamage_);
+        if (pdx * pdx + pdy * pdy <= radiusSq && !player_->IsInvincible()) {
+            RunData::GetInstance()->TakeDamage(desc.breakablePlayerDamage);
             player_->OnHit();
         }
         if (enemy_ && !enemy_->IsDefeated()) {
             const Vector3& epos = enemy_->GetPosition();
             const float edx = epos.x - barrel.position.x;
             const float edy = epos.y - barrel.position.y;
-            if (edx * edx + edy * edy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_) {
-                enemy_->TakeDamage(kExplosiveBarrelEnemyDamage_);
+            if (edx * edx + edy * edy <= radiusSq) {
+                enemy_->TakeDamage(desc.breakableEnemyDamage);
             }
         }
         for (auto& entry : weaponEnemies_) {
@@ -266,19 +219,19 @@ void GamePlayScene::UpdateExplosiveBarrels()
             const Vector3& wepos = entry.enemy->GetPosition();
             const float wdx = wepos.x - barrel.position.x;
             const float wdy = wepos.y - barrel.position.y;
-            if (wdx * wdx + wdy * wdy <= kExplosiveBarrelRadius_ * kExplosiveBarrelRadius_) {
-                entry.enemy->TakeDamage(kExplosiveBarrelEnemyDamage_);
+            if (wdx * wdx + wdy * wdy <= radiusSq) {
+                entry.enemy->TakeDamage(desc.breakableEnemyDamage);
             }
         }
 
         auto* tm = TimeManager::GetInstance();
-        tm->RequestHitStop(8);
-        cameraShaker_.Request(0.28f, 0.2f);
-        pm_->EmitRing("hit_ring", barrel.position, kExplosiveBarrelRadius_,
-            { 1.0f, 0.55f, 0.15f, 1.0f }, 26, 0.5f, 0.32f);
+        tm->RequestHitStop(kBreakableHitStopFrames);
+        cameraShaker_.Request(kBreakableShakeAmount, kBreakableShakeSeconds);
+        pm_->EmitRing("hit_ring", barrel.position, desc.breakableRadius,
+            { 1.0f, 0.55f, 0.15f, 1.0f }, kBreakableRingCount, kBreakableRingLifetime, kBreakableRingSize);
         std::uniform_real_distribution<float> vxB(-5.0f, 5.0f);
         std::uniform_real_distribution<float> vyB(2.5f, 7.0f);
-        for (int i = 0; i < 18; ++i) {
+        for (int i = 0; i < kBreakableSparkCount; ++i) {
             pm_->EmitGravity("hit_spark", barrel.position,
                 { vxB(rng_), vyB(rng_), 0.0f },
                 { 1.0f, 0.4f, 0.1f, 1.0f }, 0.9f, 0.2f);
@@ -389,8 +342,8 @@ void GamePlayScene::UpdateCamera()
 AABB GamePlayScene::GetEnemyHitBox() const
 {
     const Vector3& epos = enemy_->GetPosition();
-    return { { epos.x - kEnemyHitBoxHalfExtent, epos.y - kEnemyHitBoxHalfExtent, -0.5f },
-        { epos.x + kEnemyHitBoxHalfExtent, epos.y + kEnemyHitBoxHalfExtent, 0.5f } };
+    return { { epos.x - Tune().enemyHitBoxHalfExtent, epos.y - Tune().enemyHitBoxHalfExtent, -0.5f },
+        { epos.x + Tune().enemyHitBoxHalfExtent, epos.y + Tune().enemyHitBoxHalfExtent, 0.5f } };
 }
 
 void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
@@ -415,17 +368,17 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
         lastTechniqueId_ = techniqueId;
         repeatedTechniqueCount_ = 0;
     }
-    const float repeatPenalty = (std::min)(repeatedTechniqueCount_ * kMeleeRepeatPenaltyPerHit, kMeleeRepeatPenaltyCap);
-    const float switchBonus = player_->JustWeaponSwitchHit() ? kMeleeWeaponSwitchBonus : 0.0f;
-    styleMeter_ = std::clamp(styleMeter_ + kMeleeBaseStyleGain
-            + player_->GetComboStep() * kMeleeComboStepStyleGain + switchBonus - repeatPenalty,
+    const float repeatPenalty = (std::min)(repeatedTechniqueCount_ * Tune().meleeRepeatPenaltyPerHit, Tune().meleeRepeatPenaltyCap);
+    const float switchBonus = player_->JustWeaponSwitchHit() ? Tune().meleeWeaponSwitchBonus : 0.0f;
+    styleMeter_ = std::clamp(styleMeter_ + Tune().meleeBaseStyleGain
+            + player_->GetComboStep() * Tune().meleeComboStepStyleGain + switchBonus - repeatPenalty,
         0.0f, 1.0f);
-    player_->ChargeAwakenGauge(kMeleeAwakenGaugeGain);
+    player_->ChargeAwakenGauge(Tune().meleeAwakenGaugeGain);
     const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
     const WeaponData& weapon = wm->GetCurrent();
     const float damageMult = attack != nullptr ? attack->damageMult : 1.0f;
     const int damage = (std::max)(1,
-        static_cast<int>(std::round(weapon.damage * damageMult / kMeleeDamageDivisor)));
+        static_cast<int>(std::round(weapon.damage * damageMult / Tune().meleeDamageDivisor)));
     enemy_->TakeDamage(damage);
     enemy_->ApplyComboReaction(player_->GetLastDirX() * weapon.knockbackMult,
         (attack != nullptr ? attack->knockY : 0.05f) * weapon.knockbackMult,
@@ -440,7 +393,7 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
         // 雷: 周囲の武器敵へ連鎖する。
         for (auto& entry : weaponEnemies_) {
             if (!entry.enemy->IsDefeated()
-                && std::abs(entry.enemy->GetPosition().x - enemy_->GetPosition().x) < kChainSkillRange) {
+                && std::abs(entry.enemy->GetPosition().x - enemy_->GetPosition().x) < Tune().chainSkillRange) {
                 entry.enemy->TakeDamage(1);
             }
         }
@@ -457,19 +410,19 @@ void GamePlayScene::ApplyWeaponSkillStyleHit(const AABB& enemyAABB)
     }
     const auto* wm = WeaponManager::GetInstance();
     const Vector3& ppos = player_->GetPosition();
-    const float radius = player_->JustGreatswordSlam() ? kSkillSlamRadius : kSkillDefaultRadius;
+    const float radius = player_->JustGreatswordSlam() ? Tune().skillSlamRadius : Tune().skillDefaultRadius;
     const AABB skillRange = {
-        { ppos.x - radius, ppos.y - kSkillRangeHalfHeight, -0.5f },
-        { ppos.x + radius, ppos.y + kSkillRangeHalfHeight, 0.5f }
+        { ppos.x - radius, ppos.y - Tune().skillRangeHalfHeight, -0.5f },
+        { ppos.x + radius, ppos.y + Tune().skillRangeHalfHeight, 0.5f }
     };
     if (!Collision::CheckCollision(skillRange, enemyAABB)) {
         return;
     }
     const int techniqueId = 1000 + static_cast<int>(wm->GetCurrent().type);
-    const float varietyBonus = techniqueId == lastTechniqueId_ ? kSkillVarietyBonusRepeat : kSkillVarietyBonusFresh;
+    const float varietyBonus = techniqueId == lastTechniqueId_ ? Tune().skillVarietyBonusRepeat : Tune().skillVarietyBonusFresh;
     lastTechniqueId_ = techniqueId;
     styleMeter_ = std::clamp(styleMeter_ + varietyBonus, 0.0f, 1.0f);
-    player_->ChargeAwakenGauge(kSkillAwakenGaugeGain);
+    player_->ChargeAwakenGauge(Tune().skillAwakenGaugeGain);
     enemy_->TakeDamage(player_->JustGreatswordSlam() ? 3 : 2);
 }
 
@@ -485,14 +438,14 @@ void GamePlayScene::ApplyGunShotStyleHit(const AABB& enemyAABB)
     const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
     // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
     AABB shotRange = SceneShared::MakeDirectionalShotRange(
-        ppos, player_->GetLastDirX(), rangeX, kGunBackRange);
+        ppos, player_->GetLastDirX(), rangeX, Tune().gunBackRange);
     if (!Collision::CheckCollision(shotRange, enemyAABB)) {
         return;
     }
     // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
-    float gain = kGunBaseStyleGain + ((shot != nullptr) ? player_->GetGunComboStep() * kGunComboStepStyleGain : 0.0f);
+    float gain = Tune().gunBaseStyleGain + ((shot != nullptr) ? player_->GetGunComboStep() * Tune().gunComboStepStyleGain : 0.0f);
     styleMeter_ = std::clamp(styleMeter_ + gain, 0.0f, 1.0f);
-    player_->ChargeAwakenGauge(kGunAwakenGaugeGain);
+    player_->ChargeAwakenGauge(Tune().gunAwakenGaugeGain);
     enemy_->TakeDamage(1);
 }
 
@@ -501,7 +454,7 @@ void GamePlayScene::ApplyDaggerStingerStyleBonus()
     if (!player_->JustDaggerStingerHit()) {
         return;
     }
-    styleMeter_ = std::clamp(styleMeter_ + kStingerStyleGain, 0.0f, 1.0f);
+    styleMeter_ = std::clamp(styleMeter_ + Tune().stingerStyleGain, 0.0f, 1.0f);
 }
 
 void GamePlayScene::ApplyRampageStyleHit(const AABB& enemyAABB)
@@ -510,21 +463,21 @@ void GamePlayScene::ApplyRampageStyleHit(const AABB& enemyAABB)
         return;
     }
     const Vector3& ppos = player_->GetPosition();
-    AABB rushRange = { { ppos.x - kRampageRushRadiusX, ppos.y - kRampageRushRadiusY, -0.5f },
-        { ppos.x + kRampageRushRadiusX, ppos.y + kRampageRushRadiusY, 0.5f } };
+    AABB rushRange = { { ppos.x - Tune().rampageRushRadiusX, ppos.y - Tune().rampageRushRadiusY, -0.5f },
+        { ppos.x + Tune().rampageRushRadiusX, ppos.y + Tune().rampageRushRadiusY, 0.5f } };
     if (!Collision::CheckCollision(rushRange, enemyAABB)) {
         return;
     }
     // 乱舞スラッシュ 回数が増えるほど多くゲージが溜まる
     styleMeter_ = std::clamp(
-        styleMeter_ + kRampageBaseStyleGain + player_->GetJuggleCount() * kRampageJuggleStyleGain, 0.0f, 1.0f);
+        styleMeter_ + Tune().rampageBaseStyleGain + player_->GetJuggleCount() * Tune().rampageJuggleStyleGain, 0.0f, 1.0f);
     enemy_->TakeDamage(1);
 }
 
 void GamePlayScene::DecayStyleMeter(float dt)
 {
-    const float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? kStylePersistDecayMult : 1.0f;
-    styleMeter_ = std::clamp(styleMeter_ - kStyleDecayRate * dt * decayMult, 0.0f, 1.0f);
+    const float decayMult = RunData::GetInstance()->HasSkill(RunData::Skill::StylePersist) ? Tune().stylePersistDecayMult : 1.0f;
+    styleMeter_ = std::clamp(styleMeter_ - Tune().styleDecayRate * dt * decayMult, 0.0f, 1.0f);
     peakStyle_ = (std::max)(peakStyle_, styleMeter_);
 }
 
@@ -631,8 +584,8 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
     {
         Collider playerCol = player_->GetCollider();
         const Vector3& epos = enemy_->GetPosition();
-        AABB enemyAABB = { { epos.x - kEnemyHitBoxHalfExtent, epos.y - kEnemyHitBoxHalfExtent, -0.5f },
-            { epos.x + kEnemyHitBoxHalfExtent, epos.y + kEnemyHitBoxHalfExtent, 0.5f } };
+        AABB enemyAABB = { { epos.x - Tune().enemyHitBoxHalfExtent, epos.y - Tune().enemyHitBoxHalfExtent, -0.5f },
+            { epos.x + Tune().enemyHitBoxHalfExtent, epos.y + Tune().enemyHitBoxHalfExtent, 0.5f } };
         if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
             hitCooldown_ = 0.5f;
             enemy_->TakeDamage(1);
@@ -667,7 +620,7 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         // pos_ はAABB中心（当たり判定の基準点）そのものなので、狙い・発射位置ともにオフセットを足さずここから直接計算する
         Vector3 dir = { ppos.x - epos.x, ppos.y - epos.y, 0.0f };
         float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (len > kEnemyFireRange) {
+        if (len > EnemyTuning::GetInstance()->Bullet().fireRange) {
             return;
         }
         if (len > 0.001f) {
@@ -676,8 +629,8 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         }
         EnemyBullet bullet;
         bullet.pos = epos;
-        bullet.vel = { dir.x * kEnemyBulletSpeed, dir.y * kEnemyBulletSpeed, 0.0f };
-        bullet.timer = kEnemyBulletLifetime;
+        bullet.vel = { dir.x * EnemyTuning::GetInstance()->Bullet().speed, dir.y * EnemyTuning::GetInstance()->Bullet().speed, 0.0f };
+        bullet.timer = EnemyTuning::GetInstance()->Bullet().lifetime;
         bullet.damage = shooter->GetAttackDamage();
         enemyBullets_.push_back(bullet);
         pm_->EmitRing("hit_ring", epos, 1.2f, { 1.0f, 0.35f, 0.25f, 0.8f }, 8, 0.15f, 0.1f);
@@ -744,13 +697,13 @@ void GamePlayScene::UpdateBossSlamAttack(float dt)
         const Vector3& epos = enemy_->GetPosition();
         const float dx = ppos.x - epos.x;
         const float dy = ppos.y - epos.y;
-        if (dx * dx + dy * dy > kBossSlamEngageRange_ * kBossSlamEngageRange_) {
+        if (dx * dx + dy * dy > EnemyTuning::GetInstance()->BossSlam().engageRange * EnemyTuning::GetInstance()->BossSlam().engageRange) {
             return; // ボスと交戦中でなければタイマーを進めない（戦闘開始前に発動しないように）
         }
         bossSlamTimer_ -= dt;
         if (bossSlamTimer_ <= 0.0f) {
             bossSlamWarningActive_ = true;
-            bossSlamWarningTimer_ = kBossSlamWarningDuration_;
+            bossSlamWarningTimer_ = EnemyTuning::GetInstance()->BossSlam().warningDuration;
             bossSlamTargetPos_ = ppos; // 着弾地点は予告開始時点のプレイヤー位置に固定する（避けられるように）
         }
         return;
@@ -758,20 +711,20 @@ void GamePlayScene::UpdateBossSlamAttack(float dt)
 
     // 予告円の警告演出（円形グロー画像を着弾範囲の見かけ半径まで拡大し、点滅させながら見せる）
     bossSlamWarningTimer_ -= dt;
-    const float progress = std::clamp(1.0f - bossSlamWarningTimer_ / kBossSlamWarningDuration_, 0.0f, 1.0f);
+    const float progress = std::clamp(1.0f - bossSlamWarningTimer_ / EnemyTuning::GetInstance()->BossSlam().warningDuration, 0.0f, 1.0f);
 
     const Vector3& cam = camera_->GetTranslate();
     float sx, sy;
     SceneShared::WorldToScreen(bossSlamTargetPos_.x, bossSlamTargetPos_.y, cam.x, cam.y, sx, sy);
     const float pxPerWorldUnit = GameConstants::kScreenCenterX / GameConstants::kCameraHalfW;
-    const float diameterPx = kBossSlamRadius_ * 2.0f * pxPerWorldUnit * (0.6f + 0.4f * progress);
+    const float diameterPx = EnemyTuning::GetInstance()->BossSlam().radius * 2.0f * pxPerWorldUnit * (0.6f + 0.4f * progress);
     const float blink = 0.5f + 0.5f * std::sin(bossSlamWarningTimer_ * 22.0f); // 素早く点滅させて視線を引く
     bossSlamWarningSprite_->SetColor({ 1.0f, 0.15f + progress * 0.1f, 0.1f, 0.35f + blink * 0.4f });
     bossSlamWarningSprite_->SetPosition({ sx - diameterPx * 0.5f, sy - diameterPx * 0.5f });
     bossSlamWarningSprite_->SetSize({ diameterPx, diameterPx });
     bossSlamWarningSprite_->Update();
 
-    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_,
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, EnemyTuning::GetInstance()->BossSlam().radius,
         { 1.0f, 0.3f - progress * 0.15f, 0.15f - progress * 0.1f, 0.5f }, 6, 0.15f, 0.06f);
 
     if (bossSlamWarningTimer_ > 0.0f) {
@@ -780,22 +733,22 @@ void GamePlayScene::UpdateBossSlamAttack(float dt)
 
     // 着弾判定
     bossSlamWarningActive_ = false;
-    bossSlamTimer_ = kBossSlamInterval_;
+    bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
 
     const Vector3& ppos = player_->GetPosition();
     const float dx = ppos.x - bossSlamTargetPos_.x;
     const float dy = ppos.y - bossSlamTargetPos_.y;
-    if (dx * dx + dy * dy <= kBossSlamRadius_ * kBossSlamRadius_ && !player_->IsInvincible()) {
-        RunData::GetInstance()->TakeDamage(kBossSlamDamage_);
+    if (dx * dx + dy * dy <= EnemyTuning::GetInstance()->BossSlam().radius * EnemyTuning::GetInstance()->BossSlam().radius && !player_->IsInvincible()) {
+        RunData::GetInstance()->TakeDamage(EnemyTuning::GetInstance()->BossSlam().damage);
         player_->OnHit();
         auto* tm = TimeManager::GetInstance();
         tm->RequestHitStop(9);
         cameraShaker_.Request(0.3f, 0.22f);
     }
 
-    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_,
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, EnemyTuning::GetInstance()->BossSlam().radius,
         { 1.0f, 0.6f, 0.2f, 1.0f }, 32, 0.55f, 0.34f);
-    pm_->EmitRing("hit_ring", bossSlamTargetPos_, kBossSlamRadius_ * 1.4f,
+    pm_->EmitRing("hit_ring", bossSlamTargetPos_, EnemyTuning::GetInstance()->BossSlam().radius * 1.4f,
         { 1.0f, 0.85f, 0.4f, 0.6f }, 20, 0.4f, 0.24f);
     std::uniform_real_distribution<float> vxS(-4.0f, 4.0f);
     std::uniform_real_distribution<float> vyS(2.5f, 6.0f);

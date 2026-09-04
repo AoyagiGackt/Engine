@@ -5,6 +5,7 @@
 #include "TitleScene.h"
 #include "RunData.h"
 #include "SaveData.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "WeaponManager.h"
 using namespace engine;
@@ -47,14 +48,14 @@ void TitleScene::Update()
             RunData::GetInstance()->StartNewRun();
             WeaponManager::GetInstance()->Reset();
             SaveDataManager::GetInstance()->ClearContinue();
-            SceneManager::GetInstance()->ChangeScene("MAP", 0.15f, 0.2f);
+            SceneFlow::GetInstance()->Transition("TITLE", "new_game", "MAP");
             break;
         case 1: // CONTINUE
             SaveDataManager::GetInstance()->LoadContinue(*RunData::GetInstance());
-            SceneManager::GetInstance()->ChangeScene("MAP", 0.15f, 0.2f);
+            SceneFlow::GetInstance()->Transition("TITLE", "continue", "MAP");
             break;
         case 2: // TRAINING
-            SceneManager::GetInstance()->ChangeScene("TRAINING", 0.4f, 0.4f);
+            SceneFlow::GetInstance()->Transition("TITLE", "training", "TRAINING");
             break;
         default:
             break;

@@ -1,0 +1,24 @@
+{
+  "comments": {
+    "c0": {
+      "text": "level01の常駐グラフ。レベル読込直後に1回だけ走る。ここにBGM再生や開始演出を足せる",
+      "x": -20.0, "y": -120.0, "w": 520.0, "h": 90.0,
+      "colorR": 0.9, "colorG": 0.85, "colorB": 0.3
+    }
+  },
+  "start": "n_start",
+  "nodes": {
+    "n_start": {
+      "type": "SetFlag",
+      "params": { "flag": "stage_started", "value": true },
+      "next": "n_flash",
+      "editorX": 0.0, "editorY": 0.0
+    },
+    "n_flash": {
+      "type": "ScreenFlash",
+      "params": { "r": 0.4, "g": 0.9, "b": 1.0, "a": 0.15, "duration": 0.3 },
+      "next": "",
+      "editorX": 260.0, "editorY": 0.0
+    }
+  }
+}

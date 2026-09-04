@@ -6,6 +6,8 @@
 #include "AudioBridge.h"
 #include "GameConstants.h"
 #include "GamePlaySceneInitializer.h"
+#include "GameRules.h"
+#include "SceneFlow.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
@@ -31,6 +33,22 @@
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
+
+namespace {
+constexpr const char* kSceneName = "GAMEPLAY"; // scene_flow.jsonのキー（SceneFactoryの登録名と同じ）
+constexpr const char* kDefaultLevelPath = "Resources/Levels/level01.json";
+}
+
+std::string GamePlayScene::GetEditorLevelPath() const
+{
+    return GameRules::GetInstance()->LevelPathForFloor(RunData::GetInstance()->GetFloor(), kDefaultLevelPath);
+}
+
+bool GamePlayScene::IsWaterFloor() const
+{
+    const int waterFloor = GameRules::GetInstance()->Get().waterFloor;
+    return waterFloor >= 0 && RunData::GetInstance()->GetFloor() == waterFloor;
+}
 
 // 初期化
 
@@ -130,7 +148,7 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
 
     waterPool_ = std::make_unique<WaterPool>();
     waterPool_->Initialize(spriteCommon_.get());
-    if (RunData::GetInstance()->GetFloor() == 3) {
+    if (IsWaterFloor()) {
         player_->SetWaterLevel(WaterPool::GetSurfaceY());
     }
 
@@ -203,13 +221,9 @@ void GamePlayScene::RefreshVisualTransformsForEditor()
     }
 
     // ゲーム更新停止中も、編集カメラで描画する全3D実体のWVPだけは更新する。
+    // （収集物・壊せる物はStageEditor所有の配置物なのでStageEditor::UpdateObjects()側が追従させる）
     if (skydome_) {
         skydome_->Update(camera_.get());
-    }
-    for (auto& core : energyCores_) {
-        if (core.object && !core.collected) {
-            core.object->Update();
-        }
     }
     if (ghostObject_ && !ghostTrail_.empty()) {
         ghostObject_->Update();
@@ -328,10 +342,11 @@ void GamePlayScene::Update()
 
     SlashMark::GetInstance()->Update(dt);
 
-    // ラン中にHPが尽きたらゲームオーバーへ（クリア演出が始まっていればそちらを優先する）
+    // ラン中にHPが尽きたらゲームオーバー結果へ（クリア演出が始まっていればそちらを優先する）
     auto* runData = RunData::GetInstance();
-    if (runData->IsRunActive() && runData->GetHp() <= 0 && !clearTriggered_) {
-        SceneManager::GetInstance()->ChangeScene("GAMEOVER");
+    if (GameRules::GetInstance()->Get().gameOverOnHpZero
+        && runData->IsRunActive() && runData->GetHp() <= 0 && !clearTriggered_) {
+        SceneFlow::GetInstance()->Transition(kSceneName, "gameover", "GAMEOVER");
         return;
     }
 
@@ -345,17 +360,18 @@ bool GamePlayScene::UpdateClearState()
     }
 
     auto* rd = RunData::GetInstance();
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
     if (rd->IsRunActive() && !glassShatterDebugTest_) {
-        // ローグライト: 結果表示 → MAP遷移
+        // ローグライト: 結果表示 → 次のフロア（最終フロアならクリア）へ
         if (!showResult_) {
             showResult_ = true;
-            resultTimer_ = 2.5f;
+            resultTimer_ = rules.resultDisplaySeconds;
             lastGold_ = RunData::CalcGold(peakStyle_);
             rd->AddGold(lastGold_);
             rd->AdvanceFloor();
 
-            // フロアクリア毎に自動セーブ（ボス撃破時はコンティニュー不要なので破棄）
-            if (rd->GetFloor() >= 6) {
+            // フロアクリア毎に自動セーブ（最終フロア到達時はコンティニュー不要なので破棄）
+            if (rd->GetFloor() >= rules.finalFloor) {
                 SaveDataManager::GetInstance()->ClearContinue();
             } else {
                 SaveDataManager::GetInstance()->SaveContinue(*rd);
@@ -363,17 +379,17 @@ bool GamePlayScene::UpdateClearState()
         }
         resultTimer_ -= GameConstants::kFrameDeltaTime;
         if (resultTimer_ <= 0.0f) {
-            if (rd->GetFloor() >= 6) {
-                SceneManager::GetInstance()->ChangeScene("CLEAR");
+            if (rd->GetFloor() >= rules.finalFloor) {
+                SceneFlow::GetInstance()->Transition(kSceneName, "clear", "CLEAR");
             } else {
-                SceneManager::GetInstance()->ChangeScene("MAP");
+                SceneFlow::GetInstance()->Transition(kSceneName, "next", "MAP");
             }
         }
     } else {
-        // サンドボックス: ガラス割れ → CLEAR
+        // サンドボックス: ガラス割れ → クリア結果へ
         glassShatter_.Update(GameConstants::kFrameDeltaTime);
         if (glassShatter_.IsFinished()) {
-            SceneManager::GetInstance()->ChangeScene("CLEAR");
+            SceneFlow::GetInstance()->Transition(kSceneName, "sandbox_clear", "CLEAR");
         }
     }
     return true;
@@ -473,7 +489,6 @@ void GamePlayScene::UpdateCombat()
 
         UpdateCombatEvents();
         UpdateWeaponEnemies();
-        UpdateEnergyCores();
         UpdateExplosiveBarrels();
 
         // enemy_の物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()
@@ -487,7 +502,7 @@ void GamePlayScene::UpdateCombat()
     }
 
     // 水エフェクト更新（ヒットストップに関係なく毎フレーム）
-    if (RunData::GetInstance()->GetFloor() == 3) {
+    if (IsWaterFloor()) {
         waterPool_->Update();
         if (player_->JustEnteredWater() || player_->JustExitedWater()) {
             waterPool_->EmitSplash(player_->GetPosition());

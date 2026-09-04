@@ -1,0 +1,34 @@
+{
+  "_comment": "シーン名 → 結果名 → 遷移先シーン名。fadeOut/fadeInは省略可（秒）",
+  "TITLE": {
+    "new_game": { "scene": "MAP", "fadeOut": 0.15, "fadeIn": 0.2 },
+    "continue": { "scene": "MAP", "fadeOut": 0.15, "fadeIn": 0.2 },
+    "training": { "scene": "TRAINING", "fadeOut": 0.4, "fadeIn": 0.4 }
+  },
+  "MAP": {
+    "combat": { "scene": "GAMEPLAY" },
+    "all_cleared": { "scene": "CLEAR" },
+    "training": { "scene": "TRAINING" }
+  },
+  "GAMEPLAY": {
+    "gameover": { "scene": "GAMEOVER" },
+    "next": { "scene": "MAP" },
+    "clear": { "scene": "CLEAR" },
+    "sandbox_clear": { "scene": "CLEAR" }
+  },
+  "SHOP": {
+    "done": { "scene": "MAP" }
+  },
+  "GAMEOVER": {
+    "restart": { "scene": "MAP" },
+    "title": { "scene": "TITLE" }
+  },
+  "CLEAR": {
+    "title": { "scene": "TITLE" }
+  },
+  "TRAINING": {
+    "title": { "scene": "TITLE", "fadeOut": 0.4, "fadeIn": 0.4 },
+    "map": { "scene": "MAP", "fadeOut": 0.4, "fadeIn": 0.4 },
+    "battle_test": { "scene": "BATTLETEST" }
+  }
+}

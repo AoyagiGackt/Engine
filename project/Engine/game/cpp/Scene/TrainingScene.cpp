@@ -9,6 +9,7 @@
 #include "GameConstants.h"
 #include "PlayerBridge.h"
 #include "SSAOEffect.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
@@ -212,11 +213,11 @@ void TrainingScene::Update()
     fontRenderer_.Reset();
 
     if (input_->TriggerKey(DIK_BACK)) {
-        SceneManager::GetInstance()->ChangeScene("TITLE", 0.4f, 0.4f);
+        SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
         return;
     }
     if (input_->TriggerKey(DIK_TAB)) {
-        SceneManager::GetInstance()->ChangeScene("MAP", 0.4f, 0.4f);
+        SceneFlow::GetInstance()->Transition("TRAINING", "map", "MAP");
         return;
     }
 
@@ -232,7 +233,7 @@ void TrainingScene::Update()
     testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
 #endif
 
-    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, "BATTLETEST");
+    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, SceneFlow::GetInstance()->Resolve("TRAINING", "battle_test", "BATTLETEST").scene.c_str());
     DrawHud(nearWarp);
 }
 
