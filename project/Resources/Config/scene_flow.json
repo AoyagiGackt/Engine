@@ -3,7 +3,11 @@
   "TITLE": {
     "new_game": { "scene": "MAP", "fadeOut": 0.15, "fadeIn": 0.2 },
     "continue": { "scene": "MAP", "fadeOut": 0.15, "fadeIn": 0.2 },
-    "training": { "scene": "TRAINING", "fadeOut": 0.4, "fadeIn": 0.4 }
+    "training": { "scene": "TRAINING", "fadeOut": 0.4, "fadeIn": 0.4 },
+    "options": { "scene": "OPTIONS", "fadeOut": 0.2, "fadeIn": 0.2 }
+  },
+  "OPTIONS": {
+    "back": { "scene": "TITLE", "fadeOut": 0.2, "fadeIn": 0.2 }
   },
   "MAP": {
     "combat": { "scene": "GAMEPLAY" },
@@ -14,7 +18,8 @@
     "gameover": { "scene": "GAMEOVER" },
     "next": { "scene": "MAP" },
     "clear": { "scene": "CLEAR" },
-    "sandbox_clear": { "scene": "CLEAR" }
+    "sandbox_clear": { "scene": "CLEAR" },
+    "pause_quit": { "scene": "TITLE", "fadeOut": 0.3, "fadeIn": 0.3 }
   },
   "SHOP": {
     "done": { "scene": "MAP" }

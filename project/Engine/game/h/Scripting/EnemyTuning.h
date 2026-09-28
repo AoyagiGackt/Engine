@@ -23,6 +23,9 @@ struct BasicEnemyTuning {
     float engageRange = 2.0f; ///< これより近づいたら歩みを止める
     float aggroRange = 10.0f; ///< 持ち場からこの距離にプレイヤーが来たら接近・攻撃を始める
     float leashDistance = 8.0f; ///< 持ち場から離れられる上限
+    float meleeAttackRange = 2.8f; ///< 近接敵が振りかぶりを始めるプレイヤーとの距離
+    float meleeReach = 2.2f; ///< 近接攻撃が届く前方距離（発生の瞬間にこの範囲内なら命中）
+    float meleeHitHalfHeight = 1.2f; ///< 近接攻撃判定の縦方向半径
     float gravity = 0.015f;
     float ceilingY = 12.5f;
     float knockbackDecay = 0.82f;

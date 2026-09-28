@@ -130,6 +130,12 @@ WeaponManager::WeaponManager()
             data.styleColor[i] = color[i].get<float>();
         }
 
+        const auto awakened = w.value("awakened", nlohmann::json::object());
+        data.awakened.damageMult = awakened.value("damageMult", data.awakened.damageMult);
+        data.awakened.skillRadiusMult = awakened.value("skillRadiusMult", data.awakened.skillRadiusMult);
+        data.awakened.skillCooldownMult = (std::max)(awakened.value("skillCooldownMult", data.awakened.skillCooldownMult), 0.05f);
+        data.awakened.knockbackMult = awakened.value("knockbackMult", data.awakened.knockbackMult);
+
         const auto effect = w.value("effect", nlohmann::json::object());
         data.effectBurstCount = std::clamp(effect.value("burstCount", 0), 0, 64);
         data.effectRingRadius = (std::max)(effect.value("ringRadius", 0.0f), 0.0f);

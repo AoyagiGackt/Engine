@@ -51,7 +51,7 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     object_->SetAnimation(attackAnimation_);
     animationState_ = VisualAnim::Attack;
     object_->SetEnableLighting(true);
-    object_->SetScale({ 0.2f, 0.2f, 0.2f });
+    object_->SetScale({ kBodyScale_, kBodyScale_, kBodyScale_ });
     object_->SetPosition(pos_);
     object_->Update();
 
@@ -159,6 +159,31 @@ void EnemyEntity::Update(float playerX)
     object_->SetRotation({ 0.0f, facingYaw, bodyLean });
     weaponObject_->SetRotation({ 0.0f, facingYaw, weaponSwing });
 
+    // 被弾フラッシュ: 基準色→白へ寄せ、本体を一瞬膨らませてから戻す
+    float flash = 0.0f;
+    if (hitFlashTimer_ > 0.0f) {
+        hitFlashTimer_ = (std::max)(hitFlashTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
+        flash = hitFlashTimer_ / kHitFlashDuration_;
+    }
+    // 予備動作中は基準色を警告色へ寄せる（被弾フラッシュはその上から白へ寄せる）
+    const float warn = IsTelegraphing() ? kTelegraphTintStrength_ : 0.0f;
+    const Vector4 tintedColor = {
+        baseColor_.x + (kTelegraphTint_.x - baseColor_.x) * warn,
+        baseColor_.y + (kTelegraphTint_.y - baseColor_.y) * warn,
+        baseColor_.z + (kTelegraphTint_.z - baseColor_.z) * warn,
+        baseColor_.w
+    };
+    const Vector4 flashColor = {
+        tintedColor.x + (1.0f - tintedColor.x) * flash,
+        tintedColor.y + (1.0f - tintedColor.y) * flash,
+        tintedColor.z + (1.0f - tintedColor.z) * flash,
+        tintedColor.w
+    };
+    object_->SetColor(flashColor);
+    weaponObject_->SetColor(flashColor);
+    const float bodyScale = kBodyScale_ * (1.0f + kHitScalePunch_ * flash);
+    object_->SetScale({ bodyScale, bodyScale, bodyScale });
+
     object_->Update();
     weaponObject_->Update();
 }
@@ -166,6 +191,7 @@ void EnemyEntity::Update(float playerX)
 void EnemyEntity::UpdateAttack(float playerX)
 {
     justFiredAttack_ = false;
+    justStartedTelegraph_ = false;
 
     // 打ち上げ中/撃破後はステートマシンを止め、丸腰の演出中に攻撃が発生しないようにする
     if (defeated_ || isLaunched_) {
@@ -179,19 +205,24 @@ void EnemyEntity::UpdateAttack(float playerX)
 
     const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
     switch (attackState_) {
-    case AttackState::Idle:
-        // 接近AIと同じ持ち場基準の索敵距離を使い、プレイヤーが戦闘圏内へ来るまでは
-        // 予備動作を始めない（遠くの敵が延々と素振り・発砲を繰り返さないように）
-        if (std::abs(playerX - spawnX_) > tuning.aggroRange) {
+    case AttackState::Idle: {
+        // 遠隔の敵は持ち場基準の索敵距離、近接の敵は自分からの間合いで攻撃開始を判定する
+        // （遠くの敵が延々と素振り・発砲を繰り返さないように。近接敵は届く距離でしか振らない）
+        const bool inStartRange = IsMeleeAttacker()
+            ? std::abs(playerX - pos_.x) <= tuning.meleeAttackRange
+            : std::abs(playerX - spawnX_) <= tuning.aggroRange;
+        if (!inStartRange) {
             attackTimer_ = 0.0f;
             break;
         }
         attackState_ = AttackState::Telegraph;
+        justStartedTelegraph_ = true;
         attackTimer_ = weaponType_ == WeaponType::Dagger                            ? tuning.daggerTelegraph
             : weaponType_ == WeaponType::Spear                                      ? tuning.spearTelegraph
             : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? tuning.heavyTelegraph
                                                                                     : tuning.attackTelegraph;
         break;
+    }
     case AttackState::Telegraph:
         attackState_ = AttackState::Active;
         attackTimer_ = tuning.attackActive;

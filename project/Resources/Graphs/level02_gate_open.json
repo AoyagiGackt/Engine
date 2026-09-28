@@ -1,0 +1,30 @@
+{
+  "comments": {
+    "c0": {
+      "text": "ハンマーで壁(gate_wall)を壊した瞬間（フラグ broken_gate_wall）に走る。案内文を消し、揺れとリングで開通を見せる",
+      "x": -20.0, "y": -120.0, "w": 560.0, "h": 90.0,
+      "colorR": 0.6, "colorG": 0.8, "colorB": 0.9
+    }
+  },
+  "start": "n_hide",
+  "nodes": {
+    "n_hide": {
+      "type": "SetObjectEnabled",
+      "params": { "target": "guide_s2_a", "enabled": false },
+      "next": "n_shake",
+      "editorX": 0.0, "editorY": 0.0
+    },
+    "n_shake": {
+      "type": "ShakeCamera",
+      "params": { "amount": 0.35, "seconds": 0.3 },
+      "next": "n_ring",
+      "editorX": 260.0, "editorY": 0.0
+    },
+    "n_ring": {
+      "type": "EmitRing",
+      "params": { "group": "hit_ring", "x": 12.0, "y": 1.5, "z": 0.0, "radius": 4.0, "r": 0.8, "g": 0.8, "b": 0.9 },
+      "next": "",
+      "editorX": 520.0, "editorY": 0.0
+    }
+  }
+}

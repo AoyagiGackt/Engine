@@ -9,6 +9,8 @@
         "Skill":     { "primary": "Space", "secondary": "",      "gamepad": "B" },
         "Awaken":    { "primary": "R",     "secondary": "",      "gamepad": "RB" },
         "Finisher":  { "primary": "F",     "secondary": "",      "gamepad": "LB" },
-        "GunSwitch": { "primary": "G",     "secondary": "",      "gamepad": "" }
+        "GunSwitch": { "primary": "G",     "secondary": "",      "gamepad": "" },
+        "Dodge":     { "primary": "I",     "secondary": "",      "gamepad": "RS" },
+        "Warp":      { "primary": "C",     "secondary": "",      "gamepad": "LS" }
     }
 }

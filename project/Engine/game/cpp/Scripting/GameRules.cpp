@@ -5,6 +5,7 @@
 #include "GameRules.h"
 #include "JsonHelper.h"
 #include "Logger.h"
+#include <algorithm>
 using namespace engine::game;
 using namespace engine;
 
@@ -55,6 +56,13 @@ void GameRules::Reload()
             data_.levelPaths.push_back(path.get<std::string>());
         }
     }
+    // finalFloorが0以下ならレベル数をそのまま最終フロアにする（ステージを足すだけで周回数が追従する）
+    if (data_.finalFloor <= 0) {
+        data_.finalFloor = (std::max)(1, static_cast<int>(data_.levelPaths.size()));
+    }
+    data_.bossTechnique = root.value("bossTechnique", defaults.bossTechnique);
+    data_.bossTechniqueRadiusMult = root.value("bossTechniqueRadiusMult", defaults.bossTechniqueRadiusMult);
+    data_.bossTechniqueBonusDamage = root.value("bossTechniqueBonusDamage", defaults.bossTechniqueBonusDamage);
 }
 
 std::string GameRules::LevelPathForFloor(int floor, const std::string& fallback) const

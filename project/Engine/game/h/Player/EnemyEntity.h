@@ -53,9 +53,13 @@ public:
         const Vector4 color = archetype_ == "flying" ? Vector4 { 0.55f, 0.8f, 1.0f, 1.0f }
             : archetype_ == "healer" ? Vector4 { 0.45f, 1.0f, 0.55f, 1.0f }
                                       : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f };
-        object_->SetColor(color);
-        if (weaponObject_) { weaponObject_->SetColor(color); }
+        SetColor(color);
     }
+    /**
+     * @brief 近接で殴ってくる敵か（槍とボールは投擲＝遠隔扱い）
+     * @note 近接敵は間合いに入るまで攻撃を始めず、発生時は自分の前方だけに判定を出す（GamePlayScene側）
+     */
+    bool IsMeleeAttacker() const { return weaponType_ != WeaponType::Spear && weaponType_ != WeaponType::Ball; }
     bool IsHealer() const { return archetype_ == "healer"; }
     bool IsFlying() const { return archetype_ == "flying"; }
     /** @brief flying/healerなど、武器色ではなく種別色で見分けさせるアーキタイプか */
@@ -64,9 +68,10 @@ public:
     /** @brief モデルを描画する */
     void Draw();
 
-    /** @brief 所持武器を識別するための表示色を設定する */
+    /** @brief 所持武器を識別するための表示色を設定する（被弾フラッシュが明けた後に戻る基準色になる） */
     void SetColor(const Vector4& color)
     {
+        baseColor_ = color;
         object_->SetColor(color);
         if (weaponObject_) {
             weaponObject_->SetColor(color);
@@ -91,6 +96,10 @@ public:
 
     /** @brief 予備動作が明けて弾を撃ち出す瞬間のフレームだけ true（弾の発射トリガー用） */
     bool JustFiredAttack() const { return justFiredAttack_; }
+    /** @brief 予備動作に入った瞬間のフレームだけ true（シーン側が警告演出を出し、回避のタイミングを読めるようにする） */
+    bool JustStartedTelegraph() const { return justStartedTelegraph_; }
+    /** @brief 予備動作中か（本体を警告色に寄せる等、攻撃が来ることを見た目で伝えるために使う） */
+    bool IsTelegraphing() const { return attackState_ == AttackState::Telegraph && !defeated_ && !isLaunched_; }
 
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
     int GetAttackDamage() const
@@ -110,6 +119,7 @@ public:
         if (defeated_) {
             return;
         }
+        hitFlashTimer_ = kHitFlashDuration_; // 白く光って一瞬膨らむ（当たった手応えを見た目でも返す）
         hp_ -= dmg;
         if (hp_ <= 0) {
             hp_ = 0;
@@ -196,11 +206,20 @@ private:
     static constexpr float kWeaponOffsetZ_ = 0.15f;
     static constexpr float kWeaponRestTilt_ = 0.4f; // Idle中の武器の傾き
 
+    // 被弾リアクション（白フラッシュと一瞬のスケール膨張）
+    static constexpr float kHitFlashDuration_ = 0.12f;
+    static constexpr float kHitScalePunch_ = 0.22f; // フラッシュ開始時に本体スケールへ足す割合
+    static constexpr float kBodyScale_ = 0.2f; // 本体モデルの基準スケール
+
     // モーション演出（攻撃ステート毎の体/武器の傾き）
     static constexpr float kTelegraphBodyLean_ = -0.10f;
     static constexpr float kTelegraphWeaponSwing_ = 1.15f;
     static constexpr float kActiveBodyLean_ = 0.14f;
     static constexpr float kActiveWeaponSwing_ = -1.0f;
+
+    // 予備動作中の警告色（本体色をこの色へ寄せ、攻撃が来ることを傾きだけでなく色でも伝える）
+    static constexpr Vector4 kTelegraphTint_ = { 1.0f, 0.3f, 0.2f, 1.0f };
+    static constexpr float kTelegraphTintStrength_ = 0.55f; // 基準色から警告色へ寄せる割合（0〜1）
 
     // 攻撃ステートマシン（Idle→Telegraph→Active→Idle を固定時間で巡回する）
     // Telegraph→Active の切り替わり瞬間が弾の発射トリガー実際の弾はGamePlayScene側が撃ち出して追跡する
@@ -240,6 +259,8 @@ private:
     int hp_ = 20;
     bool defeated_ = false;
     bool visible_ = true;
+    Vector4 baseColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float hitFlashTimer_ = 0.0f;
     std::string id_; // EnemyRegistry登録名（未登録なら空）
 
     Vector3 pos_ = { };
@@ -260,6 +281,7 @@ private:
     AttackState attackState_ = AttackState::Idle;
     float attackTimer_ = 0.0f;
     bool justFiredAttack_ = false;
+    bool justStartedTelegraph_ = false;
 };
 
 } // namespace engine::game

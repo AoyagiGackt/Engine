@@ -48,6 +48,7 @@
 #include "SpaceDistortionEffect.h"
 #include "StyleMeter.h"
 #include "TimeManager.h"
+#include "UIMenu.h"
 #include "WaterPool.h"
 namespace engine::graphics {
 class GrayscaleEffect;
@@ -175,6 +176,11 @@ public:
 
     /** @brief StageEditorへ配置済みの敵（武器持ち雑魚・ボス）をenemy_/weaponEnemies_へ結び付ける */
     void OnEditorLevelLoaded() override;
+    /**
+     * @brief StageEditorの戦闘対象一覧とweaponEnemies_を同期する（毎フレーム呼ぶ）
+     * @note spawn_pointが後から出した敵を取り込み、無効化された敵を外す。既存の項目はHP・奪取状態を保つ
+     */
+    void SyncCombatEnemies();
 
     /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
@@ -214,6 +220,12 @@ private:
     void UpdateWeaponExchange();
     /** @brief 満杯時の武器交換画面を描画する */
     void DrawWeaponExchange();
+    /** @brief 一時停止メニュー（RESUME/音量/タイトルへ戻る）の初期化 */
+    void SetupPauseMenu();
+    /** @brief 一時停止中の入力処理（ESCで再開、カーソル移動、音量調整、タイトルへ戻る） */
+    void UpdatePauseMenu();
+    /** @brief 一時停止中の暗転オーバーレイとメニューを描画する */
+    void DrawPauseOverlay();
     /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
     void UpdateWeaponEnemies();
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
@@ -265,6 +277,31 @@ private:
     void ApplyRampageStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け スタイルメーターの時間経過による減衰を処理する */
     void DecayStyleMeter(float dt);
+    /** @brief UpdateStyleAndUI()の下請け 回避の連打ペナルティを処理する（ジャスト回避の加点はTryJustDodge側） */
+    void UpdateDodgeStyle();
+    /** @brief 覚醒中の武器倍率とジャスト回避直後の強化窓を合わせた、現在の攻撃ダメージ倍率 */
+    float CurrentDamageMult() const;
+    /**
+     * @brief 固有技の判定半径を返す（覚醒中の武器倍率と、習得済みボス技による叩きつけ強化を含む）
+     * @param baseRadius 通常時の判定半径
+     * @param slam 叩きつけ系（大剣/ハンマー）の技か
+     */
+    float SkillRadiusFor(float baseRadius, bool slam) const;
+    /** @brief 叩きつけ系固有技が習得済みボス技で強化されているか */
+    bool HasBossSlamTechnique() const;
+    /**
+     * @brief 近接敵の攻撃発生フレームに前方判定を出し、命中ならプレイヤーへダメージを与える
+     * @param attacker 攻撃した敵
+     * @note 回避中ならジャスト回避として処理し、ダメージは入らない
+     */
+    void ApplyEnemyMeleeSwing(EnemyEntity* attacker);
+    /**
+     * @brief 敵の攻撃がプレイヤーに届いた瞬間、回避中ならジャスト回避として成立させる
+     * @param hitPos 演出を出す位置（弾や着弾点）
+     * @return 回避中で攻撃を無効化した場合はtrue（呼び出し側はダメージ処理を行わない）
+     * @note 1回の回避につき加点・演出は1回だけ。2発目以降は無効化のみ行う
+     */
+    bool TryJustDodge(const Vector3& hitPos);
     // パーティクルの更新
     void UpdateParticles(float dt);
     /** @brief UpdateParticles()の下請け 着地ほこりとジャンプ煙のパーティクルを更新する */
@@ -281,14 +318,25 @@ private:
     void UpdateStyleTechniqueParticles(float dt);
     /** @brief UpdateStyleTechniqueParticles()の下請け 格闘コンボヒット時の斬撃・属性パーティクルを発生させる */
     void EmitComboHitParticles(const Vector3& ppos);
+    /**
+     * @brief 敵に攻撃が当たった位置へ星・リング・火花を出す（どの攻撃が敵に入ったかを敵側で見せる）
+     * @param enemyPos 当たった敵の中心位置
+     * @param color 演出の色（武器の属性色など）
+     * @param strength 演出の大きさ倍率（1.0が通常ヒット。強い技ほど大きく）
+     */
+    void EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& color, float strength);
+    /** @brief 敵が予備動作に入った瞬間に警告リングを出す（攻撃が来ることを事前に伝え、回避を狙えるようにする） */
+    void EmitEnemyTelegraphCue(const EnemyEntity* enemy);
     /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
     void EmitGunFireParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 瞬歩トレイル・覚醒ゲージ加算時のパーティクルを発生させる */
     void EmitBlinkAndGaugeParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 覚醒中の継続オーラと発動瞬間の衝撃波を発生させる */
     void EmitAwakenParticles(const Vector3& ppos, float dt);
-    /** @brief UpdateStyleTechniqueParticles()の下請け スタイルランクが上がった瞬間のバーストを発生させる */
+    /** @brief UpdateStyleTechniqueParticles()の下請け styleRankHud_のランクが上がった瞬間にリング・火花・カメラシェイク・画面フラッシュを出す */
     void EmitStyleRankUpParticles(const Vector3& ppos);
+    /** @brief 近接コンボのモーション中、装備武器の色で手元にトレイル残像を発生させ続ける */
+    void UpdateWeaponTrail();
     // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
     void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定
@@ -352,6 +400,7 @@ private:
     // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
     // OnEditorLevelLoaded()でポインタだけを受け取る（非所有）
     EnemyEntity* enemy_ = nullptr;
+    WeaponType bossWeaponType_ = WeaponType::Sword; ///< ボスの配置物に設定された武器種別（撃破後にこれを奪う）
     // ボス頭上のHPバー（BattleTestSceneのDummy::hpBarBg/Fgと同じ体裁、GamePlayScene初期化時に一度だけ生成）
     std::unique_ptr<Sprite> bossHpBarBg_;
     std::unique_ptr<Sprite> bossHpBarFg_;
@@ -438,9 +487,9 @@ private:
     float auraTimer_ = 0.0f;
     float styleMeter_ = 0.0f;
     float peakStyle_ = 0.0f;
+    float floorElapsedSeconds_ = 0.0f; ///< このフロアに入ってからの経過秒数（OnEditorLevelLoaded()でリセット、プレイログ用）
     /** @brief 右上のスタイリッシュランクHUD（採点はstyleMeter_側で行い、表示だけこれに委ねる） */
     StyleMeter styleRankHud_;
-    int prevStyleTier_ = 0;
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;
 
@@ -482,6 +531,15 @@ private:
 
     std::unique_ptr<Sprite> clearBgSprite_;
     std::unique_ptr<WaterPool> waterPool_;
+
+    // 一時停止メニュー（ESCで開閉、ゲームプレイ中限定。クリア演出中・武器交換中は開けない）
+    bool paused_ = false;
+    UIMenu pauseMenu_;
+    std::unique_ptr<Sprite> pauseOverlay_;
+    static constexpr int kPauseRowResume = 0;
+    static constexpr int kPauseRowBgmVolume = 1;
+    static constexpr int kPauseRowSeVolume = 2;
+    static constexpr int kPauseRowQuit = 3;
 };
 
 } // namespace engine::game

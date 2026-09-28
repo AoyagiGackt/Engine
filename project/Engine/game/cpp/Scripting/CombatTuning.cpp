@@ -59,4 +59,12 @@ void CombatTuning::Reload()
     data_.rampageRushRadiusY = root.value("rampageRushRadiusY", defaults.rampageRushRadiusY);
     data_.rampageBaseStyleGain = root.value("rampageBaseStyleGain", defaults.rampageBaseStyleGain);
     data_.rampageJuggleStyleGain = root.value("rampageJuggleStyleGain", defaults.rampageJuggleStyleGain);
+    data_.justDodgeStyleGain = root.value("justDodgeStyleGain", defaults.justDodgeStyleGain);
+    data_.justDodgeGaugeGain = root.value("justDodgeGaugeGain", defaults.justDodgeGaugeGain);
+    data_.justDodgeHitStopFrames = root.value("justDodgeHitStopFrames", defaults.justDodgeHitStopFrames);
+    data_.dodgeSpamPenalty = root.value("dodgeSpamPenalty", defaults.dodgeSpamPenalty);
+    data_.justDodgeBonusSeconds = root.value("justDodgeBonusSeconds", defaults.justDodgeBonusSeconds);
+    data_.justDodgeDamageMult = root.value("justDodgeDamageMult", defaults.justDodgeDamageMult);
+    data_.airborneHitStyleBonus = root.value("airborneHitStyleBonus", defaults.airborneHitStyleBonus);
+    data_.duplicateWeaponAwakenBonus = root.value("duplicateWeaponAwakenBonus", defaults.duplicateWeaponAwakenBonus);
 }

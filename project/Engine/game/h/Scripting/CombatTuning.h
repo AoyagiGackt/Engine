@@ -34,6 +34,14 @@ struct CombatTuningData {
     float rampageRushRadiusY = 1.5f;
     float rampageBaseStyleGain = 0.10f;
     float rampageJuggleStyleGain = 0.02f;
+    float justDodgeStyleGain = 0.12f; ///< 敵の攻撃を回避の無敵で紙一重にかわした時のスタイル加点
+    float justDodgeGaugeGain = 0.12f; ///< ジャスト回避で溜まる覚醒ゲージ量
+    int justDodgeHitStopFrames = 5; ///< ジャスト回避の瞬間に世界を止めるフレーム数
+    float dodgeSpamPenalty = 0.04f; ///< 連打回避1回ごとに減るスタイル量（2回目以降）
+    float justDodgeBonusSeconds = 1.5f; ///< ジャスト回避直後に攻撃力が上がる強化窓の長さ
+    float justDodgeDamageMult = 1.3f; ///< 強化窓中のダメージ倍率
+    float airborneHitStyleBonus = 0.03f; ///< 空中で近接ヒットを当てた時の追加スタイル加点
+    float duplicateWeaponAwakenBonus = 0.15f; ///< 所持済み武器タイプを再度奪った時に覚醒ゲージへ転用する量
 };
 
 /**

@@ -7,6 +7,7 @@
 #include "Input.h"
 #include "Matrix4x4.h"
 #include "WinApp.h"
+#include <algorithm>
 #include <cmath>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -41,6 +42,20 @@ void StageEditorViewport::UpdateCamera(Input* input, float deltaTime, bool focus
     }
 
     Vector3& position = camera_->GetTranslate();
+
+    // 中ボタンドラッグでカメラを平行移動（掴んだ地面が指に付いてくる速さになるよう奥行きで倍率を変える）
+    if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+        constexpr float kPanPerPixelPerDepth = 0.00064f;
+        const ImVec2 delta = ImGui::GetIO().MouseDelta;
+        const float panScale = (std::max)(1.0f, std::abs(position.z)) * kPanPerPixelPerDepth;
+        position.x -= delta.x * panScale;
+        position.y += delta.y * panScale;
+    }
+
+    // WASD/QEの飛行は右ボタンを押している間だけ（W/E/Rを変形ツールの切替に使うため）
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+        return;
+    }
     if (input->PushKey(DIK_A)) {
         position.x -= kCameraSpeedPerSecond * deltaTime;
     }

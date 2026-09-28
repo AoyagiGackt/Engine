@@ -91,8 +91,15 @@ void StyleMeter::SetNormalizedPoints(float t)
     }
 }
 
+Vector4 StyleMeter::GetRankColor() const
+{
+    return kRanks[GetRankIndex()].color;
+}
+
 void StyleMeter::Update(float dt)
 {
+    justRankedUp_ = false;
+
     // 技の熱冷まし
     for (auto& [id, heat] : moveHeat_) {
         heat = (std::max)(heat - kHeatCool * dt, 0.0f);
@@ -118,6 +125,7 @@ void StyleMeter::Update(float dt)
     int rank = GetRankIndex();
     if (rank != prevRank_) {
         rankFlashTimer_ = (rank > prevRank_) ? 0.35f : 0.15f;
+        justRankedUp_ = rank > prevRank_;
         prevRank_ = rank;
     }
     rankFlashTimer_ = (std::max)(rankFlashTimer_ - dt, 0.0f);

@@ -45,6 +45,12 @@ public:
     void Save();
 
     /**
+     * @brief 指定パスのグラフを開き、エディタを表示状態にする（ステージエディタのグラフパネルから呼ぶ）
+     * @note F1トグルと同じくゲームを一時停止し、閉じた時に元のタイムスケールへ戻す
+     */
+    void OpenAndShow(const std::string& path);
+
+    /**
      * @brief 毎フレーム呼ぶF1で表示/非表示を切り替える（非表示中はImGui呼び出し自体を行わない）
      * @param input F1キー判定用（nullptrなら表示中でもトグル操作は無視される）
      */

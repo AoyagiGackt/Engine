@@ -107,6 +107,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.breakableRadius = obj.value("breakableRadius", 3.0f);
         desc.breakablePlayerDamage = obj.value("breakablePlayerDamage", 4);
         desc.breakableEnemyDamage = obj.value("breakableEnemyDamage", 3);
+        desc.breakableWeapon = obj.value("breakableWeapon", "");
         desc.breakableColor = ReadVec4(obj.value("breakableColor", nlohmann::json::array()), desc.breakableColor);
 
         std::string ax = obj.value("axis", "x");
@@ -203,6 +204,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["breakableRadius"] = desc.breakableRadius;
         oj["breakablePlayerDamage"] = desc.breakablePlayerDamage;
         oj["breakableEnemyDamage"] = desc.breakableEnemyDamage;
+        oj["breakableWeapon"] = desc.breakableWeapon;
         oj["breakableColor"] = WriteVec4(desc.breakableColor);
         oj["axis"] = std::string(1, desc.axis);
         oj["count"] = desc.count;

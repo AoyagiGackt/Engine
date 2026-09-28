@@ -57,6 +57,24 @@ BYTE ParseKey(const std::string& name)
     if (name == "Space") {
         return DIK_SPACE;
     }
+    if (name == "E") {
+        return DIK_E;
+    }
+    if (name == "I") {
+        return DIK_I;
+    }
+    if (name == "Q") {
+        return DIK_Q;
+    }
+    if (name == "C") {
+        return DIK_C;
+    }
+    if (name == "LShift") {
+        return DIK_LSHIFT;
+    }
+    if (name == "LControl") {
+        return DIK_LCONTROL;
+    }
     return 0;
 }
 
@@ -79,6 +97,18 @@ WORD ParseGamepadButton(const std::string& name)
     }
     if (name == "RB") {
         return XINPUT_GAMEPAD_RIGHT_SHOULDER;
+    }
+    if (name == "LS") {
+        return XINPUT_GAMEPAD_LEFT_THUMB;
+    }
+    if (name == "RS") {
+        return XINPUT_GAMEPAD_RIGHT_THUMB;
+    }
+    if (name == "Start") {
+        return XINPUT_GAMEPAD_START;
+    }
+    if (name == "Back") {
+        return XINPUT_GAMEPAD_BACK;
     }
     return 0;
 }
@@ -134,13 +164,16 @@ void Input::LoadActionBindings()
     actionBindings_[static_cast<size_t>(Action::Awaken)] = { DIK_R, 0, XINPUT_GAMEPAD_RIGHT_SHOULDER };
     actionBindings_[static_cast<size_t>(Action::Finisher)] = { DIK_F, 0, XINPUT_GAMEPAD_LEFT_SHOULDER };
     actionBindings_[static_cast<size_t>(Action::GunSwitch)] = { DIK_G, 0, 0 };
+    actionBindings_[static_cast<size_t>(Action::Dodge)] = { DIK_I, 0, XINPUT_GAMEPAD_RIGHT_THUMB };
+    actionBindings_[static_cast<size_t>(Action::Warp)] = { DIK_C, 0, XINPUT_GAMEPAD_LEFT_THUMB };
 
     const nlohmann::json root = JsonHelper::Load("Resources/Config/input_bindings.json");
     const auto actions = root.value("actions", nlohmann::json::object());
     const std::array<std::pair<const char*, Action>, static_cast<size_t>(Action::Count)> names = { { { "MoveLeft", Action::MoveLeft }, { "MoveRight", Action::MoveRight },
         { "Jump", Action::Jump }, { "Down", Action::Down }, { "Attack", Action::Attack },
         { "Shoot", Action::Shoot }, { "Skill", Action::Skill }, { "Awaken", Action::Awaken },
-        { "Finisher", Action::Finisher }, { "GunSwitch", Action::GunSwitch } } };
+        { "Finisher", Action::Finisher }, { "GunSwitch", Action::GunSwitch }, { "Dodge", Action::Dodge },
+        { "Warp", Action::Warp } } };
 
     for (const auto& [name, action] : names) {
         const auto data = actions.value(name, nlohmann::json::object());

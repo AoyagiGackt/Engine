@@ -200,6 +200,7 @@
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\EventBus.cpp" />
+    <ClCompile Include="Engine\game\cpp\Util\PlaytestLog.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphTypes.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\NodeRegistry.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphRuntime.cpp" />
@@ -208,6 +209,7 @@
     <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorServices.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameFlags.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\SceneEffectBridge.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\SceneFlow.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameRules.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyTuning.cpp" />
@@ -238,6 +240,7 @@
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
@@ -612,6 +615,7 @@
     <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\BulletPool.h" />
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h" />
+    <ClInclude Include="Engine\game\h\Player\IEnemyEntity.h" />
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
@@ -635,6 +639,7 @@
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
     <ClInclude Include="Engine\game\h\Core\Time\GameTime.h" />
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />
+    <ClInclude Include="Engine\game\h\Util\PlaytestLog.h" />
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
@@ -649,6 +654,7 @@
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h" />
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h" />
     <ClInclude Include="Engine\game\h\Scene\LoadingScene.h" />
+    <ClInclude Include="Engine\game\h\Scene\OptionsScene.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
@@ -722,6 +728,7 @@
     <ClInclude Include="Engine\game\h\Scripting\GraphEditorServices.h" />
     <ClInclude Include="Engine\game\h\Scripting\GameFlags.h" />
     <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h" />
+    <ClInclude Include="Engine\game\h\Scripting\SceneEffectBridge.h" />
     <ClInclude Include="Engine\game\h\Scripting\SceneFlow.h" />
     <ClInclude Include="Engine\game\h\Scripting\GameRules.h" />
     <ClInclude Include="Engine\game\h\Scripting\EnemyTuning.h" />

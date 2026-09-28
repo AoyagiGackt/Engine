@@ -7,6 +7,7 @@
 #include "AudioBridge.h"
 #include "GameConstants.h"
 #include "GamePlaySceneInitializer.h"
+#include "GameSettings.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
@@ -17,6 +18,8 @@
 #include "PostEffectRenderTarget.h"
 #include "RunData.h"
 #include "SaveData.h"
+#include "SceneEffectBridge.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
 #include "ScreenFlash.h"
@@ -27,6 +30,7 @@
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <random>
 using namespace engine;
@@ -91,6 +95,10 @@ void GamePlayScene::DrawOverlaysAndUI()
             spriteCommon_->CommonDrawSettings();
         });
         finisherShatter_.Apply();
+    }
+
+    if (paused_) {
+        DrawPauseOverlay();
     }
 
     // ゲームプレイ UI テキスト
@@ -397,46 +405,109 @@ void GamePlayScene::DrawWeaponExchange()
         245.0f, 330.0f, 1.35f, { 1.0f, 1.0f, 1.0f, 1.0f });
 }
 
+// ══════════════════════════════════════════════════════
+// 一時停止メニュー
+// ══════════════════════════════════════════════════════
+
+void GamePlayScene::SetupPauseMenu()
+{
+    pauseOverlay_ = std::make_unique<Sprite>();
+    pauseOverlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
+    pauseOverlay_->SetPosition({ 0.0f, 0.0f });
+    pauseOverlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
+    pauseOverlay_->SetColor({ 0.0f, 0.0f, 0.0f, 0.75f });
+
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_);
+    pauseMenu_.SetLayout(440.0f, 220.0f, 400.0f, 60.0f);
+    pauseMenu_.SetItems({
+        { "RESUME" },
+        { "BGM VOLUME" },
+        { "SE VOLUME" },
+        { "QUIT TO TITLE" },
+    });
+}
+
+void GamePlayScene::UpdatePauseMenu()
+{
+    // ESCでの開閉自体はGamePlayScene::Update()側のトグルで処理済み（このフレームには来ない）
+    pauseMenu_.Update(input_);
+
+    const int row = pauseMenu_.GetSelectedIndex();
+    if (row == kPauseRowBgmVolume || row == kPauseRowSeVolume) {
+        float delta = 0.0f;
+        if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
+            delta = -0.1f;
+        } else if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
+            delta = 0.1f;
+        }
+        if (delta != 0.0f) {
+            GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+            if (row == kPauseRowBgmVolume) {
+                settings.bgmVolume = std::clamp(settings.bgmVolume + delta, 0.0f, 1.0f);
+                audio_->SetBGMVolume(settings.bgmVolume);
+            } else {
+                settings.seVolume = std::clamp(settings.seVolume + delta, 0.0f, 1.0f);
+                audio_->SetSEVolume(settings.seVolume);
+            }
+            GameSettingsManager::GetInstance()->Save();
+        }
+    }
+
+    if (!pauseMenu_.ConsumeConfirm(input_)) {
+        return;
+    }
+    switch (row) {
+    case kPauseRowResume:
+        paused_ = false;
+        break;
+    case kPauseRowQuit: {
+        auto* rd = RunData::GetInstance();
+        if (rd->IsRunActive()) {
+            SaveDataManager::GetInstance()->SaveContinue(*rd);
+        }
+        paused_ = false;
+        SceneFlow::GetInstance()->Transition("GAMEPLAY", "pause_quit", "TITLE");
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void GamePlayScene::DrawPauseOverlay()
+{
+    pauseOverlay_->Update();
+    pauseOverlay_->Draw();
+    pauseMenu_.Draw();
+
+    const auto& settings = GameSettingsManager::GetInstance()->Get();
+    char bgmBuf[32];
+    char seBuf[32];
+    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * 100.0f + 0.5f));
+    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * 100.0f + 0.5f));
+    fontRenderer_.DrawString(bgmBuf, 900.0f, 291.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
+    fontRenderer_.DrawString(seBuf, 900.0f, 351.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
+    fontRenderer_.DrawString("PAUSED", 560.0f, 130.0f, 2.0f, { 1.0f, 1.0f, 0.6f, 1.0f });
+}
+
 void GamePlayScene::DrawStageGuide()
 {
-    const float x = player_->GetPosition().x;
+    // 区画ごとの案内文はレベルJSONのui_text（トリガーのフラグで切り替わる）が担当する。ここは収集物の個数だけ
     constexpr float kScale = 1.35f;
-    constexpr Vector4 kGuideColor = { 0.85f, 0.95f, 1.0f, 0.95f };
+    constexpr float kCounterX = 24.0f;
+    constexpr float kCounterY = 540.0f;
+    constexpr Vector4 kCounterColor = { 0.3f, 0.9f, 1.0f, 1.0f };
 
     int collectedPickups = 0;
     int totalPickups = 0;
     GetStageEditor().GetPickupCounts(collectedPickups, totalPickups);
+    if (totalPickups <= 0) {
+        return;
+    }
     const std::wstring coreCount = L"エネルギーコア  "
         + std::to_wstring(collectedPickups) + L" / "
         + std::to_wstring(totalPickups);
-    fontRenderer_.DrawStringW(coreCount, 24.0f, 540.0f, kScale,
-        { 0.3f, 0.9f, 1.0f, 1.0f });
-
-    if (x < 11.0f) {
-        fontRenderer_.DrawStringW(
-            L"訓練区画  移動 A D  ジャンプ W  攻撃 L",
-            24.0f, 575.0f, kScale, kGuideColor);
-    } else if (x < 17.0f) {
-        fontRenderer_.DrawStringW(
-            L"剣を持つ敵を倒し  Jで武器を奪って強化しよう",
-            24.0f, 575.0f, kScale, kGuideColor);
-    } else if (x < 24.0f) {
-        fontRenderer_.DrawStringW(
-            L"槍を持つ敵を倒し  Jで武器を奪って強化しよう",
-            24.0f, 575.0f, kScale, kGuideColor);
-    } else if (x < 31.5f) {
-        fontRenderer_.DrawStringW(
-            L"短剣を持つ敵を倒し  Jで武器を奪って強化しよう",
-            24.0f, 575.0f, kScale, kGuideColor);
-    } else if (!enemy_->IsDefeated()) {
-        fontRenderer_.DrawStringW(
-            L"戦闘区画  技を変えてスタイルランクを上げる",
-            24.0f, 575.0f, kScale, { 1.0f, 0.75f, 0.25f, 1.0f });
-    } else {
-        fontRenderer_.DrawStringW(
-            L"撃破完了  敵の武器を奪って次の区画へ進む",
-            24.0f, 575.0f, kScale, { 0.45f, 1.0f, 0.65f, 1.0f });
-    }
+    fontRenderer_.DrawStringW(coreCount, kCounterX, kCounterY, kScale, kCounterColor);
 }
 
 void GamePlayScene::DrawWeaponListPanel()
@@ -454,7 +525,7 @@ void GamePlayScene::DrawWeaponListPanel()
     const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f });
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, WeaponManager::GetInstance(),
         L"メインステージ", weaponHudAnchor);
-    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
+    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ  [I] 回避", weaponHudAnchor.x, py);
     drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + 24.0f);
 }
 
@@ -478,6 +549,7 @@ void GamePlayScene::Finalize()
     // enemy_/weaponEnemies_はStageEditor所有（非所有ポインタ）のため、EnemyRegistryへの
     // 登録解除もStageEditor自身のReleaseLevelResources()が行う。ここでは何もしない
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
+    SceneEffectBridge::GetInstance()->SetCameraShakeHandler({ });
     renderTexture_->Finalize(srvManager_);
     pm_->ClearAllGroups();
     glassShatter_.Finalize();

@@ -254,6 +254,137 @@ int Player::GetComboMax() const
     return set.ground.count + skillMods_.comboMaxBonus;
 }
 
+float Player::GetAwakenedDamageMult() const
+{
+    const auto* wm = WeaponManager::GetInstance();
+    return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.damageMult : 1.0f;
+}
+
+float Player::GetAwakenedSkillRadiusMult() const
+{
+    const auto* wm = WeaponManager::GetInstance();
+    return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.skillRadiusMult : 1.0f;
+}
+
+float Player::GetAwakenedKnockbackMult() const
+{
+    const auto* wm = WeaponManager::GetInstance();
+    return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.knockbackMult : 1.0f;
+}
+
+void Player::BufferDodgeInput(Input* input)
+{
+    if (input->TriggerAction(Input::Action::Dodge)) {
+        dodgeBufferFrames_ = kDodgeBufferFrames_;
+    }
+}
+
+void Player::HandleDodge(Input* input)
+{
+    justDodged_ = false;
+    dodgeCooldown_ = (std::max)(dodgeCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+    dodgeSpamTimer_ += GameConstants::kFrameDeltaTime;
+
+    // 先行入力の残りフレームを消費しつつ、このフレームの押下も同じバッファに載せる
+    // （シーンがBufferDodgeInput()を呼んでいなくても直押しで回避できるように）
+    BufferDodgeInput(input);
+    const bool dodgeRequested = dodgeBufferFrames_ > 0;
+    dodgeBufferFrames_ = (std::max)(dodgeBufferFrames_ - 1, 0);
+
+    // 進行中の回避を進める（イージングで滑らかに移動し、終わったら無敵を解く）
+    if (dodgeActive_) {
+        dodgeTimer_ += GameConstants::kFrameDeltaTime;
+        const float t = std::clamp(dodgeTimer_ / kDodgeDuration_, 0.0f, 1.0f);
+        pos_.x = std::clamp(dodgeStartX_ + (dodgeTargetX_ - dodgeStartX_) * Easing::EaseOutQuad(t), minX_, maxX_);
+        if (t >= 1.0f) {
+            dodgeActive_ = false;
+            dodgeCooldown_ = kDodgeCooldown_;
+        }
+        return;
+    }
+
+    const bool blocked = inWater_ || finisherCharging_ || rampagePhase_ != RampagePhase::Inactive
+        || dodgeCooldown_ > 0.0f || warpActive_;
+    if (blocked || !dodgeRequested) {
+        return;
+    }
+    dodgeBufferFrames_ = 0; // 消費した先行入力で二重に回避しない
+
+    // 方向は移動入力優先、無ければ向いている方向の逆へバックステップ（向き自体は変えない＝敵を見たまま退く）
+    float dirX = -lastDirX_;
+    if (input->PushAction(Input::Action::MoveLeft)) {
+        dirX = -1.0f;
+    } else if (input->PushAction(Input::Action::MoveRight)) {
+        dirX = 1.0f;
+    }
+
+    // 短い間隔で繰り返した回避は連打として数える（危険の無い場面での乱用をスタイル評価で咎めるため）
+    dodgeSpamCount_ = dodgeSpamTimer_ < kDodgeSpamWindow_ ? dodgeSpamCount_ + 1 : 0;
+    dodgeSpamTimer_ = 0.0f;
+
+    dodgeActive_ = true;
+    justDodged_ = true;
+    dodgeRewardClaimed_ = false;
+    dodgeTimer_ = 0.0f;
+    dodgeStartX_ = pos_.x;
+    dodgeTargetX_ = std::clamp(pos_.x + dirX * kDodgeDistance_, minX_, maxX_);
+
+    // 回避はコンボの逃げ道。振りかけの段は打ち切り、踏み込み系の技も止める
+    meleeCombo_.Reset();
+    daggerStingerHitIndex_ = -1;
+    daggerStingerDash_.active = false;
+    airDash_.active = false;
+    swordDash_.active = false;
+    spearDash_.active = false;
+    axeDash_.active = false;
+    PlayAttackAnim(rig_->runningJumpAnim, kDodgeAnimSpeed_);
+}
+
+void Player::HandleWarp(Input* input)
+{
+    warpCooldown_ = (std::max)(warpCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+
+    // 進行中のワープを進める（イージングで滑らかに移動し、終わったら無敵を解く）
+    if (warpActive_) {
+        warpTimer_ += GameConstants::kFrameDeltaTime;
+        const float t = std::clamp(warpTimer_ / kWarpDuration_, 0.0f, 1.0f);
+        pos_.x = std::clamp(warpStartX_ + (warpTargetX_ - warpStartX_) * Easing::EaseOutQuad(t), minX_, maxX_);
+        if (t >= 1.0f) {
+            warpActive_ = false;
+            warpCooldown_ = isAwakened_ ? kWarpAwakenedCooldown_ : kWarpCooldown_;
+        }
+        return;
+    }
+
+    const bool blocked = inWater_ || finisherCharging_ || rampagePhase_ != RampagePhase::Inactive
+        || warpCooldown_ > 0.0f || dodgeActive_;
+    const bool hasGauge = isAwakened_ || awakenGauge_ >= kWarpGaugeCost_;
+    if (blocked || !hasGauge || !input->TriggerAction(Input::Action::Warp)) {
+        return;
+    }
+
+    if (!isAwakened_) {
+        awakenGauge_ -= kWarpGaugeCost_;
+    }
+
+    warpActive_ = true;
+    justWarped_ = true;
+    warpTimer_ = 0.0f;
+    warpStartX_ = pos_.x;
+    const float distance = isAwakened_ ? kWarpAwakenedDistance_ : kWarpDistance_;
+    warpTargetX_ = std::clamp(pos_.x + lastDirX_ * distance, minX_, maxX_);
+
+    // ワープはコンボの逃げ道兼割り込み技。振りかけの段は打ち切り、踏み込み系の技も止める
+    meleeCombo_.Reset();
+    daggerStingerHitIndex_ = -1;
+    daggerStingerDash_.active = false;
+    airDash_.active = false;
+    swordDash_.active = false;
+    spearDash_.active = false;
+    axeDash_.active = false;
+    PlayAttackAnim(rig_->slashAnim, kWarpAnimSpeed_);
+}
+
 void Player::PlayAttackAnim(const Animation& anim, float speed)
 {
     rig_->object->SetAnimation(anim);
@@ -274,10 +405,17 @@ void Player::Update(Input* input, const Vector3& enemyPos)
         invincibleTimer_ -= GameConstants::kFrameDeltaTime;
     }
 
+    justDodgeWindowTimer_ = (std::max)(justDodgeWindowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
+
     HandleStyleSwitch(input);
+    HandleDodge(input);
+    HandleWarp(input);
 
     GetPhysicsState(inWater_).Update(*this, input);
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
+    if (onGround_) {
+        airDashAvailable_ = true; // 空中ダッシュは着地で回復する
+    }
 
     HandleRangedCombat(input);
     HandleMeleeCombat(input, enemyPos);
@@ -469,7 +607,8 @@ void Player::UpdateVisualState(Input* input)
     // ── 覚醒残像スポーン＆フェード ──
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
     bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
-    afterImageRenderer_.Update(isRampage, isRampage, modelPos, yaw, spinAngle_);
+    // 回避中も薄い残像を出して、瞬間的に位置が飛んだのではなく素早く動いたことを見せる
+    afterImageRenderer_.Update(isRampage || dodgeActive_, isRampage, modelPos, yaw, spinAngle_);
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushAction(Input::Action::MoveLeft)
@@ -638,6 +777,14 @@ void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
 {
     AttachToBone(obj, rig_->object->GetSkeleton(), rig_->object->GetWorldMatrix(),
         boneName, gripScale, gripRotate, gripTranslate);
+}
+
+Vector3 Player::GetActiveWeaponWorldPosition() const
+{
+    if (weaponsVisible_ && activeHeldIndex_ >= 0) {
+        return heldWeapons_[activeHeldIndex_].object->GetWorldPosition();
+    }
+    return { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
 }
 
 void Player::Draw()

@@ -149,6 +149,19 @@ public:
     const Transform& GetTransform() const { return transform_; }
 
     /**
+     * @brief ワールド座標を取得する
+     * @note SetLocalMatrix()（ボーン追従など）でセットされている場合はその行列の平行移動成分を、
+     *       そうでなければ通常のtransform_.translateを返す
+     */
+    Vector3 GetWorldPosition() const
+    {
+        if (useLocalMatrix_) {
+            return { localMatrix_.m[3][0], localMatrix_.m[3][1], localMatrix_.m[3][2] };
+        }
+        return transform_.translate;
+    }
+
+    /**
      * @brief トランスフォーム（座標・回転・スケール）への参照を取得する（書き込み用）
      * @return Transform& トランスフォームへの参照
      */

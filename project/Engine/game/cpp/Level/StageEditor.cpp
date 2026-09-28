@@ -45,6 +45,10 @@ using namespace engine::graphics;
 // ファイル操作とデータ管理
 // ══════════════════════════════════════════════════════
 
+namespace {
+constexpr float kNudgeStep = 0.25f; // スナップOFF時に矢印キーで動かす量（ワールド単位）
+}
+
 StageEditor::StageEditor() = default;
 
 void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, Camera* camera)
@@ -63,6 +67,7 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     graphPath_ = data.graphPath;
     flagGraphs_ = data.flagGraphs;
     activeEditor_ = this;
+    ResetLevelLocalFlags(data);
 
     for (auto& desc : data.objects) {
         ObjectEntry entry;
@@ -201,6 +206,93 @@ void StageEditor::DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu)
     entry.instances.clear();
     entry.knight.reset();
     entry.enemy.reset();
+}
+
+void StageEditor::ResetLevelLocalFlags(const LevelData& data)
+{
+    GameFlags* flags = GameFlags::GetInstance();
+    for (const TriggerDesc& trigger : data.triggers) {
+        if (!trigger.flag.empty() && flags->HasFlag(trigger.flag)) {
+            flags->SetFlag(trigger.flag, false);
+        }
+    }
+    for (const ObjectDesc& desc : data.objects) {
+        if (desc.name.empty()) {
+            continue;
+        }
+        const char* prefix = desc.kind == "event_condition" ? "condition_"
+            : desc.kind == "pickup"                         ? "pickup_"
+            : desc.kind == "breakable"                      ? "broken_"
+                                                            : nullptr;
+        if (!prefix) {
+            continue;
+        }
+        const std::string flag = std::string(prefix) + desc.name;
+        if (flags->HasFlag(flag)) {
+            flags->SetFlag(flag, false);
+        }
+    }
+}
+
+void StageEditor::FocusCameraOn(const Vector3& worldPosition)
+{
+    if (!camera_) {
+        return;
+    }
+    constexpr float kFocusOffsetY = 3.0f; // ゲームカメラと同じく少し上から見下ろす
+    Vector3& cameraPosition = camera_->GetTranslate();
+    cameraPosition.x = worldPosition.x;
+    cameraPosition.y = worldPosition.y + kFocusOffsetY;
+}
+
+void StageEditor::FocusCameraOnSelection()
+{
+    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
+        FocusCameraOn(WorldPositionOf(objects_[selIndex_].desc));
+        return;
+    }
+    if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
+        FocusCameraOn(triggers_[selIndex_].GetDesc().position);
+        return;
+    }
+    if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())
+        && externalEntities_[selIndex_].position) {
+        FocusCameraOn(*externalEntities_[selIndex_].position);
+        return;
+    }
+    for (const ExternalEntityRef& ref : externalEntities_) {
+        if (ref.name == "Player" && ref.position) {
+            FocusCameraOn(*ref.position);
+            return;
+        }
+    }
+}
+
+bool StageEditor::StartPlayTestAt(const Vector3& worldPosition)
+{
+    for (const ExternalEntityRef& ref : externalEntities_) {
+        if (ref.name != "Player" || !ref.position) {
+            continue;
+        }
+        *ref.position = worldPosition;
+        FocusCameraOn(worldPosition);
+        SetPlayTestMode(true);
+        return true;
+    }
+    return false;
+}
+
+void StageEditor::SetPlayTestMode(bool enabled)
+{
+    playTestMode_ = enabled;
+    TimeManager::GetInstance()->SetTimeScale(enabled ? savedTimeScale_ : 0.0f);
+}
+
+Vector3 StageEditor::ViewCenterOnGround() const
+{
+    Vector3 center = playerSpawn_;
+    MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+    return center;
 }
 
 void StageEditor::EnsureUniqueNames()
@@ -370,6 +462,7 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 
     HandleEditorShortcuts();
     RenderEditorPanels();
+    DrawGridOverlay();
     DrawGizmos();
 #else
     (void)input;
@@ -415,6 +508,107 @@ void StageEditor::HandleEditorShortcuts()
         PasteClipboard();
     } else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
         DeleteSelected();
+    } else if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+        FocusCameraOnSelection();
+    } else if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        ClearSelection();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
+        SelectAllObjects();
+    }
+
+    // 変形ツールの切替（右ボタンでカメラを飛ばしている間はWASDなので切り替えない）
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !io.KeyCtrl) {
+        if (ImGui::IsKeyPressed(ImGuiKey_W)) {
+            transformTool_ = TransformTool::Move;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_E)) {
+            transformTool_ = TransformTool::Rotate;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
+            transformTool_ = TransformTool::Scale;
+        }
+    }
+
+    // 矢印キーで選択物を微調整（Shift+上下は奥行き）。押しっぱなしはImGuiのリピートに任せる
+    const float step = snapEnabled_ && snapStep_ > 0.0f ? snapStep_ : kNudgeStep;
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+        NudgeSelection(-step, 0.0f, 0.0f);
+    } else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+        NudgeSelection(step, 0.0f, 0.0f);
+    } else if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+        if (io.KeyShift) {
+            NudgeSelection(0.0f, 0.0f, step);
+        } else {
+            NudgeSelection(0.0f, step, 0.0f);
+        }
+    } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+        if (io.KeyShift) {
+            NudgeSelection(0.0f, 0.0f, -step);
+        } else {
+            NudgeSelection(0.0f, -step, 0.0f);
+        }
+    }
+}
+
+void StageEditor::NudgeSelection(float dx, float dy, float dz)
+{
+    if (selKind_ == SelKind::Trigger) {
+        if (selIndex_ < 0 || selIndex_ >= static_cast<int>(triggers_.size())) {
+            return;
+        }
+        RecordUndoSnapshotNow();
+        Vector3& position = triggers_[selIndex_].GetDesc().position;
+        position = position + Vector3 { dx, dy, dz };
+        return;
+    }
+    if (selKind_ == SelKind::External) {
+        if (selIndex_ < 0 || selIndex_ >= static_cast<int>(externalEntities_.size()) || !externalEntities_[selIndex_].position) {
+            return;
+        }
+        Vector3& position = *externalEntities_[selIndex_].position;
+        position = position + Vector3 { dx, dy, dz };
+        return;
+    }
+    if (selKind_ != SelKind::Object || selectedObjectIndices_.empty()) {
+        return;
+    }
+    RecordUndoSnapshotNow();
+    for (int index : selectedObjectIndices_) {
+        if (index < 0 || index >= static_cast<int>(objects_.size())) {
+            continue;
+        }
+        ObjectEntry& entry = objects_[index];
+        entry.desc.position = entry.desc.position + Vector3 { dx, dy, dz };
+        entry.authoredPosition = entry.desc.position;
+        if (IsVisualKind(entry.desc.kind)) {
+            RefreshTransforms(entry);
+        }
+    }
+}
+
+void StageEditor::DrawGridOverlay()
+{
+    if (!snapEnabled_ || !showGrid_ || snapStep_ <= 0.0f || !camera_) {
+        return;
+    }
+    constexpr float kGridHalfWidth = 14.0f; // カメラ中心から左右に描く範囲
+    constexpr float kGridMinY = -2.0f;
+    constexpr float kGridMaxY = 14.0f;
+    constexpr int kMaxLinesPerAxis = 80; // スナップ間隔が小さすぎる時に線で埋まらないよう上限を設ける
+    constexpr ImU32 kGridColor = IM_COL32(255, 255, 255, 40);
+    constexpr ImU32 kGridAxisColor = IM_COL32(255, 255, 255, 110);
+
+    const Vector3& cameraPosition = camera_->GetTranslate();
+    const float step = snapStep_;
+    if ((kGridHalfWidth * 2.0f) / step > static_cast<float>(kMaxLinesPerAxis)) {
+        return;
+    }
+    const float left = std::floor((cameraPosition.x - kGridHalfWidth) / step) * step;
+    const float right = cameraPosition.x + kGridHalfWidth;
+    for (float x = left; x <= right; x += step) {
+        DiagnosticsDraw::DrawLine({ x, kGridMinY, 0.0f }, { x, kGridMaxY, 0.0f }, std::abs(x) < step * 0.5f ? kGridAxisColor : kGridColor);
+    }
+    const float bottom = std::floor(kGridMinY / step) * step;
+    for (float y = bottom; y <= kGridMaxY; y += step) {
+        DiagnosticsDraw::DrawLine({ left, y, 0.0f }, { right, y, 0.0f }, std::abs(y) < step * 0.5f ? kGridAxisColor : kGridColor);
     }
 }
 
@@ -428,6 +622,7 @@ void StageEditor::RenderEditorPanels()
     RenderHierarchy();
     RenderInspector();
     RenderAssetPalette();
+    RenderViewportContextMenu();
     if (showFlagsPanel_) {
         RenderFlagsPanel();
     }
@@ -446,12 +641,6 @@ void StageEditor::RenderEditorPanels()
     RenderStageAnalysisPanel();
     RenderDiffPanel();
     RenderEditorHelpPanel();
-}
-
-void StageEditor::SetPlayTestMode(bool enabled)
-{
-    playTestMode_ = enabled;
-    TimeManager::GetInstance()->SetTimeScale(enabled ? savedTimeScale_ : 0.0f);
 }
 
 // ══════════════════════════════════════════════════════
@@ -568,7 +757,9 @@ void StageEditor::Redo()
 
 float StageEditor::SnapValue(float v) const
 {
-    if (!snapEnabled_ || snapStep_ <= 0.0f) {
+    // Ctrlを押している間はスナップOFFでも一時的に揃える
+    const bool snapActive = snapEnabled_ || ImGui::GetIO().KeyCtrl;
+    if (!snapActive || snapStep_ <= 0.0f) {
         return v;
     }
     return std::round(v / snapStep_) * snapStep_;

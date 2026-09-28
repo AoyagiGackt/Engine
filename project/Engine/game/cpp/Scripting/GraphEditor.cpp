@@ -57,6 +57,22 @@ void GraphEditor::Open(const std::string& path)
     statusTimer_ = 2.0f;
 }
 
+void GraphEditor::OpenAndShow(const std::string& path)
+{
+    if (path.empty()) {
+        return;
+    }
+    if (path != graphPath_ || graph_.nodes.empty()) {
+        Open(path);
+    }
+    if (!visible_) {
+        // F1トグルと同じ手順で背後のゲームを止める（閉じる時の復元はGraphEditorInteraction側）
+        savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
+        TimeManager::GetInstance()->SetTimeScale(0.0f);
+        visible_ = true;
+    }
+}
+
 void GraphEditor::Save()
 {
     GraphIO::Save(graphPath_, graph_);

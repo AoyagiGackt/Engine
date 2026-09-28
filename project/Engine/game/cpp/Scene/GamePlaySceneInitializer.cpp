@@ -13,6 +13,7 @@
 #include "PlayerBridge.h"
 #include "RunData.h"
 #include "StageEditor.h"
+#include <algorithm>
 
 using namespace engine;
 using namespace engine::graphics;
@@ -48,48 +49,89 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
 
 void GamePlayScene::OnEditorLevelLoaded()
 {
-    // 見た目の色分けは元のハードコード値を踏襲する（武器種別ごとに雑魚の見分けがつくように）
+    enemy_ = nullptr;
+    weaponEnemies_.clear();
+    enemyBullets_.clear();
+    bossSlamWarningActive_ = false;
+    floorElapsedSeconds_ = 0.0f;
+    bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
+    lockedKind_ = LockTargetKind::None;
+
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
+    const std::string levelPath = GetEditorLevelPath();
+    auto* runData = RunData::GetInstance();
+    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
+        if (!ref.isStageBoss) {
+            continue;
+        }
+        if (enemy_) {
+            Logger::LogWarning(levelPath + ": isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
+            continue;
+        }
+        enemy_ = ref.enemy;
+        bossWeaponType_ = ref.weaponType;
+        int maxHp = rules.bossHpCombat;
+        if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
+            maxHp = rules.bossHpElite;
+        } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
+            maxHp = rules.bossHpBoss;
+        }
+        if (runData->IsRunActive()) {
+            enemy_->SetMaxHp(maxHp);
+        }
+        enemy_->SetColor(rules.bossColor);
+    }
+
+    if (!enemy_) {
+        Logger::LogError(levelPath + "にisStageBoss=trueの敵(enemy_basic)が配置されていません");
+    }
+
+    SyncCombatEnemies();
+}
+
+void GamePlayScene::SyncCombatEnemies()
+{
+    // 見た目の色分けは武器種別ごとに固定（倒せば何が手に入るかを見た目で予測できるように）
     auto colorForWeapon = [](WeaponType type) -> Vector4 {
         switch (type) {
         case WeaponType::Spear:
             return { 0.25f, 0.75f, 1.0f, 1.0f };
         case WeaponType::Dagger:
             return { 0.15f, 0.85f, 1.0f, 1.0f };
+        case WeaponType::Hammer:
+        case WeaponType::Axe:
+            return { 0.85f, 0.45f, 1.0f, 1.0f };
         case WeaponType::Sword:
         default:
             return { 1.0f, 0.3f, 0.15f, 1.0f };
         }
     };
 
-    enemy_ = nullptr;
-    weaponEnemies_.clear();
-    enemyBullets_.clear();
-    bossSlamWarningActive_ = false;
-    bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
+    const std::vector<CombatEnemyRef> refs = GetStageEditor().GetCombatEnemies();
 
+    // 無効化・破棄された敵の項目を外す（spawn_pointの敵はレベル側の都合で消えることがある）
+    const size_t beforeCount = weaponEnemies_.size();
+    weaponEnemies_.erase(std::remove_if(weaponEnemies_.begin(), weaponEnemies_.end(),
+                             [&](const WeaponEnemyEntry& entry) {
+                                 return std::none_of(refs.begin(), refs.end(),
+                                     [&](const CombatEnemyRef& ref) { return !ref.isStageBoss && ref.enemy == entry.enemy; });
+                             }),
+        weaponEnemies_.end());
+    if (weaponEnemies_.size() != beforeCount && lockedKind_ == LockTargetKind::WeaponEnemy) {
+        lockedKind_ = LockTargetKind::None; // 添字がずれるためロックは張り直させる
+    }
+
+    // 新しく現れた敵を取り込む
     const GameRulesData& rules = GameRules::GetInstance()->Get();
-    const std::string levelPath = GetEditorLevelPath();
-    auto* runData = RunData::GetInstance();
-    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
-        if (ref.isStageBoss) {
-            if (enemy_) {
-                Logger::LogWarning(levelPath + ": isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
-                continue;
-            }
-            enemy_ = ref.enemy;
-            int maxHp = rules.bossHpCombat;
-            if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
-                maxHp = rules.bossHpElite;
-            } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
-                maxHp = rules.bossHpBoss;
-            }
-            if (runData->IsRunActive()) {
-                enemy_->SetMaxHp(maxHp);
-            }
-            enemy_->SetColor(rules.bossColor);
+    for (const CombatEnemyRef& ref : refs) {
+        if (ref.isStageBoss || ref.enemy == enemy_) {
             continue;
         }
-
+        const bool known = std::any_of(weaponEnemies_.begin(), weaponEnemies_.end(),
+            [&](const WeaponEnemyEntry& entry) { return entry.enemy == ref.enemy; });
+        if (known) {
+            continue;
+        }
         WeaponEnemyEntry entry;
         entry.enemy = ref.enemy;
         entry.weaponType = ref.weaponType;
@@ -104,10 +146,6 @@ void GamePlayScene::OnEditorLevelLoaded()
         entry.hpBarFg = std::make_unique<Sprite>();
         entry.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
         weaponEnemies_.push_back(std::move(entry));
-    }
-
-    if (!enemy_) {
-        Logger::LogError(levelPath + "にisStageBoss=trueの敵(enemy_basic)が配置されていません");
     }
 }
 

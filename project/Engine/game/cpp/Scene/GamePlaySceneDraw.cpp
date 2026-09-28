@@ -5,6 +5,7 @@
  */
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
+#include "CombatTuning.h"
 #include "GameConstants.h"
 #include "GameFlags.h"
 #include "GameRules.h"
@@ -183,7 +184,11 @@ void GamePlayScene::CheckClearCondition()
             if (mainWeaponAbsorbTimer_ <= 0.0f) {
                 weaponStealTriggered_ = true;
                 enemy_->SetVisible(false);
-                WeaponManager::GetInstance()->Acquire(ParseWeaponTypeName(rules.bossStealWeapon));
+                // ボスの配置物に設定された武器を奪う（未設定ならgame_rules.jsonの既定）。あわせてボス技を習得する
+                if (WeaponManager::GetInstance()->Acquire(bossWeaponType_) == WeaponManager::AcquireResult::Duplicate) {
+                    player_->ChargeAwakenGauge(CombatTuning::GetInstance()->Get().duplicateWeaponAwakenBonus);
+                }
+                RunData::GetInstance()->AddBossTechnique(rules.bossTechnique);
             }
         }
     }

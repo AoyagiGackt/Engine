@@ -34,6 +34,7 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
         { "NEW GAME" },
         { "CONTINUE", SaveDataManager::GetInstance()->HasContinue() },
         { "TRAINING" },
+        { "OPTIONS" },
     });
 }
 
@@ -56,6 +57,9 @@ void TitleScene::Update()
             break;
         case 2: // TRAINING
             SceneFlow::GetInstance()->Transition("TITLE", "training", "TRAINING");
+            break;
+        case 3: // OPTIONS
+            SceneFlow::GetInstance()->Transition("TITLE", "options", "OPTIONS");
             break;
         default:
             break;

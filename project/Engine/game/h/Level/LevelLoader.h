@@ -74,6 +74,7 @@ struct ObjectDesc {
     float breakableRadius = 3.0f; // 爆発が届く範囲の半径
     int breakablePlayerDamage = 4; // 範囲内のプレイヤーが受けるダメージ
     int breakableEnemyDamage = 3; // 範囲内の敵が受けるダメージ
+    std::string breakableWeapon; // 空なら何でも壊せる。"Hammer"等を指定するとその武器の近接攻撃でしか壊れない（壁ギミック用、solid=trueと組み合わせる）
     Vector4 breakableColor = { 1.0f, 0.35f, 0.1f, 1.0f }; // 表示色（脈動の基準色）
     // "row" 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'

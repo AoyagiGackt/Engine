@@ -402,6 +402,81 @@ private:
     /** @brief 空の名前・重複した名前に一意な自動名を振る（Open直後に呼ぶ） */
     void EnsureUniqueNames();
 
+    /** @brief 編集カメラを指定ワールド位置が画面中央に来るよう移動する（奥行きは維持） */
+    void FocusCameraOn(const Vector3& worldPosition);
+    /** @brief 現在の選択物（配置物/トリガー/外部エンティティ）へカメラを寄せる。未選択ならプレイヤーへ */
+    void FocusCameraOnSelection();
+    /**
+     * @brief プレイヤー実体を指定位置へ移し、テストモードを開始する（配置した場所から即プレイして確かめる用）
+     * @return RegisterExternalEntityで"Player"が登録されていなければfalse
+     */
+    bool StartPlayTestAt(const Vector3& worldPosition);
+    /** @brief 選択中の配置物・トリガーを矢印キーで少しずつ動かす（スナップONならその間隔、OFFなら固定の微動量） */
+    void NudgeSelection(float dx, float dy, float dz);
+    /** @brief スナップONの間、z=0平面にスナップ間隔のグリッド線を描く */
+    void DrawGridOverlay();
+    /** @brief 画面中央のz=0平面上のワールド座標を返す（テンプレート生成の基準位置） */
+    Vector3 ViewCenterOnGround() const;
+
+    // ── ビューポート直接操作（画面上のハンドル、右クリックメニュー、範囲選択、親子付け）──
+    /** @brief 変形ツール（W: 移動 / E: 回転 / R: 拡縮）。ハンドルの見た目とドラッグの意味が変わる */
+    enum class TransformTool { Move,
+        Rotate,
+        Scale };
+    /**
+     * @brief 選択物のワールド位置を返す（配置物/トリガー/外部エンティティ共通）
+     * @return 何も選択していなければfalse
+     */
+    bool SelectionWorldPosition(Vector3& outWorld) const;
+    /**
+     * @brief クリック位置が選択物のハンドル（軸の矢印・回転リング・中央の四角）に乗っているか判定する
+     * @param outAxis 乗っていた軸（1: X / 2: Y / 3: Z / 0: 中央）
+     * @param outUniform 拡縮ツールで中央を掴んだ（全軸同時）ならtrue
+     * @return ハンドルを掴んだならtrue
+     */
+    bool PickTransformHandle(float mouseX, float mouseY, int& outAxis, bool& outUniform) const;
+    /** @brief 選択物にツールごとのハンドルを画面固定サイズで描く（DrawGizmosから呼ぶ） */
+    void DrawTransformHandles();
+    /** @brief 回転/拡縮ツールのドラッグを1フレームぶん反映する（マウス移動量のピクセル） */
+    void UpdateRotateScaleDrag(float deltaX, float deltaY);
+    /** @brief 範囲選択の矩形を確定し、内側の配置物を選択する（小さすぎる矩形はクリック扱いで選択解除） */
+    void FinishBoxSelect(float mouseX, float mouseY);
+    /** @brief 右クリックメニューを描く（RenderEditorPanelsから毎フレーム呼ぶ） */
+    void RenderViewportContextMenu();
+    /**
+     * @brief 種類に応じた既定値で配置物を指定位置へ追加し、選択する
+     * @param kind "prop" "pickup" "breakable" "enemy_basic" "spawn_point" "gimmick" "camera_point" "patrol_point" "ui_text"
+     * @return 追加した配置物の添字
+     */
+    int AddObjectAt(const std::string& kind, const Vector3& position);
+    /** @brief トリガーを指定位置へ追加して選択する */
+    void AddTriggerAt(const Vector3& position);
+    /**
+     * @brief 見た目の位置を変えずに親を付け替える
+     * @param childIndex 子にする配置物
+     * @param parentIndex 親にする配置物（-1で親を外す）
+     */
+    void SetParentPreservingWorld(int childIndex, int parentIndex);
+    /** @brief 全配置物を選択する（Ctrl+A） */
+    void SelectAllObjects();
+    /** @brief 選択を解除する（Escape） */
+    void ClearSelection();
+
+    TransformTool transformTool_ = TransformTool::Move;
+    int activeDragAxis_ = 0; // ハンドルを掴んだドラッグ中の軸（0: 自由 / 1: X / 2: Y / 3: Z）。離すと0に戻る
+    bool rotateDragging_ = false; // 回転ツールのドラッグ中か
+    bool scaleDragging_ = false; // 拡縮ツールのドラッグ中か
+    bool scaleUniform_ = false; // 拡縮ドラッグが全軸同時か
+    bool boxSelecting_ = false; // 何も無い場所からの左ドラッグで範囲選択中か
+    float boxStartX_ = 0.0f;
+    float boxStartY_ = 0.0f;
+    SelKind hoverKind_ = SelKind::None; // マウス直下の対象（ハイライト表示用）
+    int hoverIndex_ = -1;
+    bool contextMenuRequested_ = false; // 右クリックの直後、次のRenderでメニューを開く
+    SelKind contextKind_ = SelKind::None;
+    int contextIndex_ = -1;
+    Vector3 contextWorldPos_ = { }; // 右クリックした地面位置（生成メニューの配置先）
+
     /** @brief Hierarchyツリーに1エントリ＋その子を再帰的に描く */
     void DrawHierarchyEntry(int index, int depthLevel);
 
@@ -474,6 +549,13 @@ private:
 
     /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
     void EnsureHudAnchors();
+
+    /**
+     * @brief このレベルが自分で立てるフラグ（トリガーのflag、condition_<名前>、pickup_<名前>、broken_<名前>）をfalseへ戻す
+     * @note GameFlagsはシーンをまたいで残るため、同じレベルを再度開いた時に前回の進行状態（区画到達・回収済み等）が
+     * 持ち越されないようにする。他レベルやグラフが立てた進行フラグには触れない（Open()から呼ぶ）
+     */
+    void ResetLevelLocalFlags(const LevelData& data);
 
 #ifdef USE_IMGUI
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
@@ -571,6 +653,12 @@ private:
     bool showWorkflowPanel_ = false;
     bool showNoCodeEventPanel_ = false;
     bool showGraphPanel_ = false;
+    bool showGrid_ = true; // スナップON時にグリッド線を描くか
+    int levelFileIndex_ = -1; // レベル切替コンボの選択位置（-1は未選択）
+    char newLevelName_[64] = "level03";
+    char templateGuideText_[128] = "案内文をここに";
+    char templateDoorCondition_[96] = "condition_room_clear";
+    int templateWallWeapon_ = 3; // 壊せる壁テンプレの武器（kWeaponTypesの添字、既定はHammer）
     bool showWavePanel_ = false;
     char graphPathBuffer_[160] = { };
     char newFlagGraphFlag_[64] = { };

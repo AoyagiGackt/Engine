@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <string>
 #include <vector>
 namespace engine::game {
 /**
@@ -68,6 +69,22 @@ public:
     /** @brief フロアを1つ進める */
     void AdvanceFloor() { ++floor_; }
 
+    /**
+     * @brief ボスから奪った技を習得済みにする（game_rules.jsonのbossTechnique名）
+     * @note ボスの武器奪取と同時に呼ばれる。以降、該当する固有技が強化版になる
+     */
+    void AddBossTechnique(const std::string& name)
+    {
+        if (!name.empty() && !HasBossTechnique(name)) {
+            bossTechniques_.push_back(name);
+        }
+    }
+    /** @brief ボス技を習得済みか */
+    bool HasBossTechnique(const std::string& name) const
+    {
+        return std::find(bossTechniques_.begin(), bossTechniques_.end(), name) != bossTechniques_.end();
+    }
+
     /** @brief ゴールドを加算する */
     void AddGold(int amount) { gold_ += amount; }
 
@@ -114,6 +131,7 @@ public:
         gold_ = 0;
         floor_ = 0;
         skills_.clear();
+        bossTechniques_.clear();
         currentNode_ = NodeType::Combat;
     }
 
@@ -229,6 +247,7 @@ private:
 
     /** @brief 習得済みスキルのリスト */
     std::vector<Skill> skills_;
+    std::vector<std::string> bossTechniques_; ///< ボスから奪って習得した技名（StartNewRunで消える。セーブ対象外）
 };
 
 } // namespace engine::game

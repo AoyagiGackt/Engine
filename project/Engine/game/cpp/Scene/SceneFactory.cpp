@@ -9,6 +9,7 @@
 #include "GamePlayScene.h"
 #include "LoadingScene.h"
 #include "MapScene.h"
+#include "OptionsScene.h"
 #include "ShopScene.h"
 #include "TitleScene.h"
 #include "TrainingScene.h"
@@ -39,6 +40,8 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
         newScene = std::make_unique<MapScene>();
     } else if (sceneName == "SHOP") {
         newScene = std::make_unique<ShopScene>();
+    } else if (sceneName == "OPTIONS") {
+        newScene = std::make_unique<OptionsScene>();
     }
 
     return newScene;

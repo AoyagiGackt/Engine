@@ -7,6 +7,7 @@
 #include "GameConstants.h"
 #include "GamePlaySceneInitializer.h"
 #include "GameRules.h"
+#include "SceneEffectBridge.h"
 #include "SceneFlow.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -15,6 +16,7 @@
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
+#include "PlaytestLog.h"
 #include "PostEffectRenderTarget.h"
 #include "RunData.h"
 #include "SaveData.h"
@@ -181,6 +183,7 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
     bossSlamWarningSprite_->Initialize(spriteCommon_.get(), "Resources/Effects/circle2.png");
 
     InitializeWeaponSlotHud();
+    SetupPauseMenu();
 }
 
 void GamePlayScene::InitializeGhostEditorAndEffects()
@@ -204,6 +207,9 @@ void GamePlayScene::InitializeGhostEditorAndEffects()
     finisherShatter_.SetDuration(0.9f);
 
     ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
+    // ノードグラフのShakeCameraノードからこのシーンのカメラシェイクを呼べるようにする
+    SceneEffectBridge::GetInstance()->SetCameraShakeHandler(
+        [this](float amount, float seconds) { cameraShaker_.Request(amount, seconds); });
 }
 
 void GamePlayScene::RefreshVisualTransformsForEditor()
@@ -292,6 +298,17 @@ void GamePlayScene::Update()
         return;
     }
 
+    if (input_->TriggerKey(DIK_ESCAPE) && !WeaponManager::GetInstance()->HasPendingWeapon()) {
+        paused_ = !paused_;
+        if (paused_) {
+            return; // 開いた瞬間のフレームはメニュー入力もゲーム進行も行わない
+        }
+    }
+    if (paused_) {
+        UpdatePauseMenu();
+        return;
+    }
+
     UpdateWeaponExchange();
     if (WeaponManager::GetInstance()->HasPendingWeapon()) {
         UpdateCamera();
@@ -302,6 +319,7 @@ void GamePlayScene::Update()
     auto* tm = TimeManager::GetInstance();
     const float dt = tm->GetDeltaTime(); // ヒットストップ中 = 0、スロー時は比例値
     gameTime_.Update(1.0f);
+    floorElapsedSeconds_ += GameConstants::kFrameDeltaTime; // プレイログ用。ヒットストップの影響を受けない実時間換算
 
     UpdateCombat();
     UpdateCamera();
@@ -346,6 +364,8 @@ void GamePlayScene::Update()
     auto* runData = RunData::GetInstance();
     if (GameRules::GetInstance()->Get().gameOverOnHpZero
         && runData->IsRunActive() && runData->GetHp() <= 0 && !clearTriggered_) {
+        PlaytestLog::GetInstance()->RecordRunResult(false, runData->GetFloor(), floorElapsedSeconds_,
+            peakStyle_, styleRankHud_.GetBestChain(), player_->GetPosition());
         SceneFlow::GetInstance()->Transition(kSceneName, "gameover", "GAMEOVER");
         return;
     }
@@ -368,6 +388,8 @@ bool GamePlayScene::UpdateClearState()
             resultTimer_ = rules.resultDisplaySeconds;
             lastGold_ = RunData::CalcGold(peakStyle_);
             rd->AddGold(lastGold_);
+            PlaytestLog::GetInstance()->RecordRunResult(true, rd->GetFloor(), floorElapsedSeconds_,
+                peakStyle_, styleRankHud_.GetBestChain(), player_->GetPosition());
             rd->AdvanceFloor();
 
             // フロアクリア毎に自動セーブ（最終フロア到達時はコンティニュー不要なので破棄）
@@ -470,7 +492,11 @@ void GamePlayScene::UpdateCombat()
 {
     auto* tm = TimeManager::GetInstance();
 
+    // ヒットストップ中も回避ボタンの押下は記憶しておく（停止明けに回避へつなげ、押した感触が消えないように）
+    player_->BufferDodgeInput(input_);
+
     if (!tm->IsHitStopped()) {
+        SyncCombatEnemies(); // spawn_pointが出した敵をこのフレームから戦闘対象に含める
         UpdateTargetLock();
         player_->Update(input_, enemy_->GetPosition());
 
@@ -479,6 +505,7 @@ void GamePlayScene::UpdateCombat()
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
         player_->ResolveBlockCollision(activeColliders);
         player_->RefreshVisualTransforms();
+        UpdateWeaponTrail();
 
         // ロック中は移動入力に関係なく対象の方を向かせる（コンボ判定より前でないと今フレームに反映されない）
         if (lockedKind_ == LockTargetKind::MainEnemy) {

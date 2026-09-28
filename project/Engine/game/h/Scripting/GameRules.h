@@ -24,6 +24,9 @@ struct GameRulesData {
     Vector4 bossColor = { 0.9f, 0.65f, 0.15f, 1.0f };
     int waterFloor = 3; ///< 水面演出を有効にするフロア番号（負なら無効）
     std::vector<std::string> levelPaths; ///< フロア番号順のレベルJSON。フロア数を超えた分は最後のものを使う
+    std::string bossTechnique = "slam_shockwave"; ///< ボス武器奪取時に習得する技の名前（RunData::AddBossTechnique）
+    float bossTechniqueRadiusMult = 1.6f; ///< 習得後、叩きつけ系固有技の判定半径に掛かる倍率
+    int bossTechniqueBonusDamage = 3; ///< 習得後、叩きつけ系固有技に上乗せするダメージ
 };
 
 /**

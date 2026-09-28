@@ -68,7 +68,11 @@ public:
         return selectedSlot_ >= 0 && selectedSlot_ < static_cast<int>(slots_.size())
             && slots_[selectedSlot_] >= 0;
     }
-    /** @brief 武器を空きスロットへ追加し、満杯なら交換待ちにする */
+    /**
+     * @brief 武器を空きスロットへ追加し、満杯なら交換待ちにする
+     * @note 戻り値が Duplicate（所持済みタイプの再入手）の場合、呼び出し側（GamePlayScene）が
+     * player_->ChargeAwakenGauge(CombatTuning::duplicateWeaponAwakenBonus) で覚醒ゲージへ転用する
+     */
     AcquireResult Acquire(WeaponType type);
     /** @brief 交換待ちの武器で指定スロットを置き換える */
     void ReplacePendingWeapon(int slot);
@@ -82,7 +86,8 @@ public:
     /**
      * @brief 指定タイプの武器を解放し、そのまま装備する（敵からの武器奪取用）
      * @return 新規解放なら true既に解放済み（重複入手）なら false を返す
-     * @note 重複入手時の経験値/強化素材への転用は未実装（戻り値 false を呼び出し側で活用する想定）
+     * @note 実際の武器奪取フローは Acquire() を直接使う（Duplicate/NeedsReplacement を区別できるため）。
+     * この関数はAddedかどうかだけを見たい単純なケース向けの薄いラッパー
      */
     bool Unlock(WeaponType type);
 

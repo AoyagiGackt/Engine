@@ -11,9 +11,11 @@
 #include "GameRules.h"
 #include "GraphRuntime.h"
 #include "Logger.h"
+#include "ParticleManager.h"
 #include "Player.h"
 #include "PlayerBridge.h"
 #include "RunData.h"
+#include "SceneEffectBridge.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "StageEditor.h"
@@ -434,6 +436,53 @@ NodeResult ExecRequestStageClear(GraphRuntime&, const GraphNode& node, std::stri
     return NodeResult::Continue;
 }
 
+// spawn_pointを名前で起動する（有効化フラグを待たずに敵を出す。SetObjectEnabled(true)の敵出現向けの別名）
+NodeResult ExecSpawnEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
+        if (!editor->SetObjectEnabledByName(target, true)) {
+            Logger::LogError("[Graph] SpawnEnemy node '" + node.id + "' unknown target '" + target + "'");
+        }
+    }
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+// ── 演出（シーンのカメラシェイク、パーティクル）──
+
+NodeResult ExecShakeCamera(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    constexpr float kDefaultShakeAmount = 0.25f;
+    constexpr float kDefaultShakeSeconds = 0.2f;
+    float amount = AsFloat(rt.ResolveParam(node, "amount", GraphValue { kDefaultShakeAmount }));
+    float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue { kDefaultShakeSeconds }));
+    SceneEffectBridge::GetInstance()->RequestCameraShake(amount, seconds);
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
+// groupはparticles/*.jsonで定義したパーティクルグループ名（"hit_ring" "awaken_aura" 等）
+NodeResult ExecEmitRing(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    constexpr float kDefaultRadius = 3.0f;
+    constexpr int kRingParticleCount = 16;
+    constexpr float kRingLifetime = 0.4f;
+    constexpr float kRingSize = 0.25f;
+    std::string group = AsString(rt.ResolveParam(node, "group", std::string("hit_ring")));
+    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
+    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
+    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    float radius = AsFloat(rt.ResolveParam(node, "radius", GraphValue { kDefaultRadius }));
+    float r = AsFloat(rt.ResolveParam(node, "r", GraphValue { 1.0f }));
+    float g = AsFloat(rt.ResolveParam(node, "g", GraphValue { 1.0f }));
+    float b = AsFloat(rt.ResolveParam(node, "b", GraphValue { 1.0f }));
+    engine::graphics::ParticleManager::GetInstance()->EmitRing(group, { x, y, z }, radius,
+        { r, g, b, 1.0f }, kRingParticleCount, kRingLifetime, kRingSize);
+    outNextId = node.next;
+    return NodeResult::Continue;
+}
+
 } // namespace
 
 NodeRegistry* NodeRegistry::GetInstance()
@@ -551,6 +600,16 @@ void NodeRegistry::RegisterBuiltins()
 
     Register("RequestStageClear", ExecRequestStageClear);
     RegisterSpec("RequestStageClear", { { }, false, VT::Any, "本編ステージのクリア条件を成立させる（game_rules.jsonのclearFlagを立てる）", "進行" });
+
+    Register("SpawnEnemy", ExecSpawnEnemy);
+    RegisterSpec("SpawnEnemy", { { { "target", VT::String } }, false, VT::Any, "名前で指定したspawn_pointを起動して敵を出す（有効化フラグを待たない）", "配置物" });
+
+    // ── 演出（カメラシェイク・パーティクル）──
+    Register("ShakeCamera", ExecShakeCamera);
+    RegisterSpec("ShakeCamera", { { { "amount", VT::Float }, { "seconds", VT::Float } }, false, VT::Any, "カメラをamountの強さでseconds秒揺らす", "演出・音声" });
+
+    Register("EmitRing", ExecEmitRing);
+    RegisterSpec("EmitRing", { { { "group", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "radius", VT::Float }, { "r", VT::Float }, { "g", VT::Float }, { "b", VT::Float } }, false, VT::Any, "座標(x,y,z)に色(r,g,b)のリング状パーティクルを出す（groupはparticles JSONのグループ名）", "演出・音声" });
 }
 
 void NodeRegistry::Register(const std::string& type, NodeExecuteFn fn)

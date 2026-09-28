@@ -34,6 +34,8 @@ public: // メンバ関数
         Awaken,
         Finisher,
         GunSwitch,
+        Dodge,
+        Warp,
         Count
     };
     // namespace省略

@@ -58,6 +58,9 @@ void EnemyTuning::Reload()
     basic_.engageRange = ReadValue(basic, "engageRange", basic_.engageRange);
     basic_.aggroRange = ReadValue(basic, "aggroRange", basic_.aggroRange);
     basic_.leashDistance = ReadValue(basic, "leashDistance", basic_.leashDistance);
+    basic_.meleeAttackRange = ReadValue(basic, "meleeAttackRange", basic_.meleeAttackRange);
+    basic_.meleeReach = ReadValue(basic, "meleeReach", basic_.meleeReach);
+    basic_.meleeHitHalfHeight = ReadValue(basic, "meleeHitHalfHeight", basic_.meleeHitHalfHeight);
     basic_.gravity = ReadValue(basic, "gravity", basic_.gravity);
     basic_.ceilingY = ReadValue(basic, "ceilingY", basic_.ceilingY);
     basic_.knockbackDecay = ReadValue(basic, "knockbackDecay", basic_.knockbackDecay);

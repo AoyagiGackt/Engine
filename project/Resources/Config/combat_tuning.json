@@ -26,5 +26,13 @@
   "rampageRushRadiusX": 2.5,
   "rampageRushRadiusY": 1.5,
   "rampageBaseStyleGain": 0.10,
-  "rampageJuggleStyleGain": 0.02
+  "rampageJuggleStyleGain": 0.02,
+  "justDodgeStyleGain": 0.12,
+  "justDodgeGaugeGain": 0.12,
+  "justDodgeHitStopFrames": 5,
+  "dodgeSpamPenalty": 0.04,
+  "justDodgeBonusSeconds": 1.5,
+  "justDodgeDamageMult": 1.3,
+  "airborneHitStyleBonus": 0.03,
+  "duplicateWeaponAwakenBonus": 0.15
 }

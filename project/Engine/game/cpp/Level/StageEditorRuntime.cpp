@@ -1116,7 +1116,9 @@ std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
 {
     std::vector<CombatEnemyRef> result;
     for (const auto& entry : objects_) {
-        if (!entry.enemy || !entry.runtimeActive || entry.desc.kind != "enemy_basic" || entry.desc.weaponType.empty()) {
+        // 直置きの敵に加えて、spawn_pointから生成された敵も戦闘対象にする（出現制御をレベル側で組めるように）
+        const bool combatKind = entry.desc.kind == "enemy_basic" || entry.desc.kind == "spawn_point";
+        if (!entry.enemy || !entry.runtimeActive || !combatKind || entry.desc.weaponType.empty()) {
             continue;
         }
         CombatEnemyRef ref;
