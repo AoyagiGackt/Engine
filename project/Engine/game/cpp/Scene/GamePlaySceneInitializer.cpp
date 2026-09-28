@@ -5,12 +5,15 @@
 #include "GamePlaySceneInitializer.h"
 
 #include "AudioBridge.h"
+#include "EnemyTuning.h"
 #include "GamePlayScene.h"
+#include "GameRules.h"
 #include "LevelLoader.h"
 #include "Logger.h"
 #include "PlayerBridge.h"
 #include "RunData.h"
 #include "StageEditor.h"
+#include <algorithm>
 
 using namespace engine;
 using namespace engine::graphics;
@@ -19,7 +22,7 @@ namespace engine::game {
 
 void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
 {
-    const LevelData levelData = LevelLoader::Load("Resources/Levels/level01.json");
+    const LevelData levelData = LevelLoader::Load(scene.GetEditorLevelPath());
 
     // プレイヤーを生成し、ラン中に取得した強化を開始状態へ反映する
     scene.player_ = std::make_unique<Player>();
@@ -40,79 +43,109 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
         scene.player_->ApplySkillMods(mods);
     }
 
-    // 主敵・武器持ち雑魚敵はStageEditorに配置されたenemy_basic実体を使う（OnEditorLevelLoaded()参照）。
-    // Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
-
-    // 寄り道の収集物をデータ列から生成し、表示位置と回収状態をまとめて所有する
-    scene.energyCoreModel_ = std::make_unique<Model>();
-    scene.energyCoreModel_->Initialize(scene.modelCommon_.get(),
-        "Resources/block/block.obj", "Resources/Effects/circle2.png");
-    constexpr Vector3 kEnergyCorePositions[] = {
-        { 7.5f, 2.3f, 0.0f }, { 18.5f, 4.1f, 0.0f }, { 28.5f, 5.5f, 0.0f }
-    };
-    for (const Vector3& position : kEnergyCorePositions) {
-        GamePlayScene::EnergyCoreEntry entry;
-        entry.position = position;
-        entry.object = std::make_unique<Object3d>();
-        entry.object->Initialize(scene.modelCommon_.get());
-        entry.object->SetModel(scene.energyCoreModel_.get());
-        entry.object->SetPosition(position);
-        entry.object->SetScale({ 0.35f, 0.35f, 0.35f });
-        entry.object->SetEnableLighting(false);
-        entry.object->Update();
-        scene.energyCores_.push_back(std::move(entry));
-    }
+    // 主敵・武器持ち雑魚敵・収集物・壊せる物はすべてStageEditorに配置されたレベルJSONの実体を使う
+    // （OnEditorLevelLoaded()参照）。Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
 }
 
 void GamePlayScene::OnEditorLevelLoaded()
 {
-    // 見た目の色分けは元のハードコード値を踏襲する（武器種別ごとに雑魚の見分けがつくように）
+    enemy_ = nullptr;
+    weaponEnemies_.clear();
+    enemyBullets_.clear();
+    bossSlamWarningActive_ = false;
+    floorElapsedSeconds_ = 0.0f;
+    bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
+    lockedKind_ = LockTargetKind::None;
+
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
+    const std::string levelPath = GetEditorLevelPath();
+    auto* runData = RunData::GetInstance();
+    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
+        if (!ref.isStageBoss) {
+            continue;
+        }
+        if (enemy_) {
+            Logger::LogWarning(levelPath + ": isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
+            continue;
+        }
+        enemy_ = ref.enemy;
+        bossWeaponType_ = ref.weaponType;
+        int maxHp = rules.bossHpCombat;
+        if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
+            maxHp = rules.bossHpElite;
+        } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
+            maxHp = rules.bossHpBoss;
+        }
+        if (runData->IsRunActive()) {
+            enemy_->SetMaxHp(maxHp);
+        }
+        enemy_->SetColor(rules.bossColor);
+    }
+
+    if (!enemy_) {
+        Logger::LogError(levelPath + "にisStageBoss=trueの敵(enemy_basic)が配置されていません");
+    }
+
+    SyncCombatEnemies();
+}
+
+void GamePlayScene::SyncCombatEnemies()
+{
+    // 見た目の色分けは武器種別ごとに固定（倒せば何が手に入るかを見た目で予測できるように）
     auto colorForWeapon = [](WeaponType type) -> Vector4 {
         switch (type) {
         case WeaponType::Spear:
             return { 0.25f, 0.75f, 1.0f, 1.0f };
         case WeaponType::Dagger:
             return { 0.15f, 0.85f, 1.0f, 1.0f };
+        case WeaponType::Hammer:
+        case WeaponType::Axe:
+            return { 0.85f, 0.45f, 1.0f, 1.0f };
         case WeaponType::Sword:
         default:
             return { 1.0f, 0.3f, 0.15f, 1.0f };
         }
     };
 
-    enemy_ = nullptr;
-    weaponEnemies_.clear();
+    const std::vector<CombatEnemyRef> refs = GetStageEditor().GetCombatEnemies();
 
-    auto* runData = RunData::GetInstance();
-    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
-        if (ref.isStageBoss) {
-            if (enemy_) {
-                Logger::LogWarning("level01.json: isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
-                continue;
-            }
-            enemy_ = ref.enemy;
-            int maxHp = 20;
-            if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
-                maxHp = 35;
-            } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
-                maxHp = 60;
-            }
-            if (runData->IsRunActive()) {
-                enemy_->SetMaxHp(maxHp);
-            }
-            enemy_->SetColor({ 0.9f, 0.65f, 0.15f, 1.0f });
+    // 無効化・破棄された敵の項目を外す（spawn_pointの敵はレベル側の都合で消えることがある）
+    const size_t beforeCount = weaponEnemies_.size();
+    weaponEnemies_.erase(std::remove_if(weaponEnemies_.begin(), weaponEnemies_.end(),
+                             [&](const WeaponEnemyEntry& entry) {
+                                 return std::none_of(refs.begin(), refs.end(),
+                                     [&](const CombatEnemyRef& ref) { return !ref.isStageBoss && ref.enemy == entry.enemy; });
+                             }),
+        weaponEnemies_.end());
+    if (weaponEnemies_.size() != beforeCount && lockedKind_ == LockTargetKind::WeaponEnemy) {
+        lockedKind_ = LockTargetKind::None; // 添字がずれるためロックは張り直させる
+    }
+
+    // 新しく現れた敵を取り込む
+    const GameRulesData& rules = GameRules::GetInstance()->Get();
+    for (const CombatEnemyRef& ref : refs) {
+        if (ref.isStageBoss || ref.enemy == enemy_) {
             continue;
         }
-
+        const bool known = std::any_of(weaponEnemies_.begin(), weaponEnemies_.end(),
+            [&](const WeaponEnemyEntry& entry) { return entry.enemy == ref.enemy; });
+        if (known) {
+            continue;
+        }
         WeaponEnemyEntry entry;
         entry.enemy = ref.enemy;
         entry.weaponType = ref.weaponType;
-        entry.enemy->SetMaxHp(5);
-        entry.enemy->SetColor(colorForWeapon(ref.weaponType));
-        weaponEnemies_.push_back(entry);
-    }
-
-    if (!enemy_) {
-        Logger::LogError("level01.jsonにisStageBoss=trueの敵(enemy_basic)が配置されていません");
+        entry.enemy->SetMaxHp(rules.weaponEnemyHp);
+        // flying/healerはSetArchetype()で付けた種別色（水色/緑）を優先し、武器色で上書きしない
+        if (!entry.enemy->HasArchetypeColor()) {
+            entry.enemy->SetColor(colorForWeapon(ref.weaponType));
+        }
+        entry.hpBarBg = std::make_unique<Sprite>();
+        entry.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
+        entry.hpBarBg->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+        entry.hpBarFg = std::make_unique<Sprite>();
+        entry.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
+        weaponEnemies_.push_back(std::move(entry));
     }
 }
 

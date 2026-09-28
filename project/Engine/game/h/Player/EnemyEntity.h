@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "Animation.h"
+#include "EnemyTuning.h"
 #include "IEnemyEntity.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -46,12 +47,31 @@ public:
      */
     void Update(float playerX);
 
+    void SetArchetype(const std::string& archetype)
+    {
+        archetype_ = archetype;
+        const Vector4 color = archetype_ == "flying" ? Vector4 { 0.55f, 0.8f, 1.0f, 1.0f }
+            : archetype_ == "healer" ? Vector4 { 0.45f, 1.0f, 0.55f, 1.0f }
+                                      : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f };
+        SetColor(color);
+    }
+    /**
+     * @brief 近接で殴ってくる敵か（槍とボールは投擲＝遠隔扱い）
+     * @note 近接敵は間合いに入るまで攻撃を始めず、発生時は自分の前方だけに判定を出す（GamePlayScene側）
+     */
+    bool IsMeleeAttacker() const { return weaponType_ != WeaponType::Spear && weaponType_ != WeaponType::Ball; }
+    bool IsHealer() const { return archetype_ == "healer"; }
+    bool IsFlying() const { return archetype_ == "flying"; }
+    /** @brief flying/healerなど、武器色ではなく種別色で見分けさせるアーキタイプか */
+    bool HasArchetypeColor() const { return IsHealer() || IsFlying(); }
+
     /** @brief モデルを描画する */
     void Draw();
 
-    /** @brief 所持武器を識別するための表示色を設定する */
+    /** @brief 所持武器を識別するための表示色を設定する（被弾フラッシュが明けた後に戻る基準色になる） */
     void SetColor(const Vector4& color)
     {
+        baseColor_ = color;
         object_->SetColor(color);
         if (weaponObject_) {
             weaponObject_->SetColor(color);
@@ -76,13 +96,18 @@ public:
 
     /** @brief 予備動作が明けて弾を撃ち出す瞬間のフレームだけ true（弾の発射トリガー用） */
     bool JustFiredAttack() const { return justFiredAttack_; }
+    /** @brief 予備動作に入った瞬間のフレームだけ true（シーン側が警告演出を出し、回避のタイミングを読めるようにする） */
+    bool JustStartedTelegraph() const { return justStartedTelegraph_; }
+    /** @brief 予備動作中か（本体を警告色に寄せる等、攻撃が来ることを見た目で伝えるために使う） */
+    bool IsTelegraphing() const { return attackState_ == AttackState::Telegraph && !defeated_ && !isLaunched_; }
 
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
     int GetAttackDamage() const
     {
+        const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
         return (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe)
-            ? kHeavyAttackDamage_
-            : kAttackDamage_;
+            ? tuning.heavyAttackDamage
+            : tuning.attackDamage;
     }
 
     /**
@@ -94,6 +119,7 @@ public:
         if (defeated_) {
             return;
         }
+        hitFlashTimer_ = kHitFlashDuration_; // 白く光って一瞬膨らむ（当たった手応えを見た目でも返す）
         hp_ -= dmg;
         if (hp_ <= 0) {
             hp_ = 0;
@@ -169,8 +195,8 @@ public:
     Vector3& GetPositionRef() override { return pos_; }
 
 private:
-    static constexpr float kCeilingY_ = 12.5f;
-    static constexpr float kGravity_ = 0.015f;
+    // 攻撃間隔・索敵距離・重力などのゲームプレイ調整値はResources/Config/enemy_params.json（EnemyTuning::Basic()）で持つ。
+    // ここに残す定数は見た目（装備の位置・傾き・被弾リアクションの倍率）だけ
 
     // 装備ビジュアル（武器の見た目スケール・本体からのオフセット・傾き）
     static constexpr Vector3 kSpearWeaponScale_ = { 0.11f, 0.11f, 0.22f };
@@ -180,10 +206,10 @@ private:
     static constexpr float kWeaponOffsetZ_ = 0.15f;
     static constexpr float kWeaponRestTilt_ = 0.4f; // Idle中の武器の傾き
 
-    // ノックバック・打ち上げ挙動
-    static constexpr float kKnockbackSlowMultiplier_ = 0.45f; // ApplySlow()中のノックバック速度倍率
-    static constexpr float kKnockbackDecay_ = 0.82f; // ノックバック速度の1フレームあたりの減衰率
-    static constexpr float kAirComboGravityScale_ = 0.28f; // 空中コンボ猶予中の重力倍率
+    // 被弾リアクション（白フラッシュと一瞬のスケール膨張）
+    static constexpr float kHitFlashDuration_ = 0.12f;
+    static constexpr float kHitScalePunch_ = 0.22f; // フラッシュ開始時に本体スケールへ足す割合
+    static constexpr float kBodyScale_ = 0.2f; // 本体モデルの基準スケール
 
     // モーション演出（攻撃ステート毎の体/武器の傾き）
     static constexpr float kTelegraphBodyLean_ = -0.10f;
@@ -191,27 +217,13 @@ private:
     static constexpr float kActiveBodyLean_ = 0.14f;
     static constexpr float kActiveWeaponSwing_ = -1.0f;
 
+    // 予備動作中の警告色（本体色をこの色へ寄せ、攻撃が来ることを傾きだけでなく色でも伝える）
+    static constexpr Vector4 kTelegraphTint_ = { 1.0f, 0.3f, 0.2f, 1.0f };
+    static constexpr float kTelegraphTintStrength_ = 0.55f; // 基準色から警告色へ寄せる割合（0〜1）
+
     // 攻撃ステートマシン（Idle→Telegraph→Active→Idle を固定時間で巡回する）
     // Telegraph→Active の切り替わり瞬間が弾の発射トリガー実際の弾はGamePlayScene側が撃ち出して追跡する
-    static constexpr float kAttackInterval_ = 2.5f; // 攻撃と攻撃の間隔（秒）
-    static constexpr float kAttackTelegraph_ = 0.5f; // 予備動作の長さ（秒）
-    static constexpr float kAttackActive_ = 0.18f; // 発射直後の連射防止用の短い不応期（秒）
-    static constexpr int kAttackDamage_ = 2;
-    static constexpr int kHeavyAttackDamage_ = 3; // Hammer/Axe
-
-    // 武器種別ごとの予備動作/回復時間（Dagger=速攻小威力、Spear=中間、Hammer/Axe=遅いが重い）
-    static constexpr float kDaggerTelegraph_ = 0.20f;
-    static constexpr float kSpearTelegraph_ = 0.38f;
-    static constexpr float kHeavyTelegraph_ = 0.75f;
-    static constexpr float kDaggerRecovery_ = 1.25f;
-    static constexpr float kSpearRecovery_ = 2.0f;
-    static constexpr float kHeavyRecovery_ = 3.2f;
-
-    // 接近AI（Idle中だけプレイヤーへ向かって歩く。予備動作/攻撃中や被弾ノックバック中は歩かせない）
-    static constexpr float kApproachSpeed_ = 0.06f; // 1フレームあたりの歩行距離（プレイヤーのkSpeed_=0.15fより遅め）
-    static constexpr float kEngageRange_ = 2.0f; // これより近づいたら歩みを止める（武器の間合い目安）
-    static constexpr float kAggroRange_ = 6.0f; // 配置位置からこの距離にプレイヤーが来るまでは歩き出さない
-    static constexpr float kLeashDistance_ = 3.0f; // 配置位置からこれ以上は離れない（持ち場を離れて全員が団子にならないように）
+    // 各時間はEnemyTuning::Basic()から読む
 
     // コンボ被弾リアクション
     static constexpr float kSwitchPullStrength_ = 0.18f; // 武器切替吸い寄せの引き込み強さ
@@ -220,16 +232,25 @@ private:
     static constexpr float kKnockDirXScale_ = 0.055f; // 通常ノックバックの反映倍率
     static constexpr float kLaunchThreshold_ = 0.08f; // これを超えるknockYで打ち上げが発生する
 
-    /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ） */
-    void UpdateAttack();
+    /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ）
+     *  @param playerX プレイヤーのワールドX座標（持ち場基準の索敵判定に使う） */
+    void UpdateAttack(float playerX);
+
+    /** @brief 表示アニメーションの種類（攻撃ステートと歩行状態の組み合わせから決まる） */
+    enum class VisualAnim {
+        Idle, ///< 立ち姿勢
+        Run, ///< 接近歩行中の走り
+        Attack, ///< 予備動作〜攻撃中
+    };
 
     std::unique_ptr<Model> model_;
     std::unique_ptr<SkinCommon> skinCommon_;
     std::unique_ptr<SkinnedModel> animatedModel_;
     std::unique_ptr<SkinnedObject3d> object_;
     Animation idleAnimation_;
+    Animation runAnimation_;
     Animation attackAnimation_;
-    AttackState animationState_ = AttackState::Active;
+    VisualAnim animationState_ = VisualAnim::Attack;
     std::unique_ptr<Model> weaponModel_;
     std::unique_ptr<Object3d> weaponObject_;
     Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };
@@ -238,6 +259,8 @@ private:
     int hp_ = 20;
     bool defeated_ = false;
     bool visible_ = true;
+    Vector4 baseColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float hitFlashTimer_ = 0.0f;
     std::string id_; // EnemyRegistry登録名（未登録なら空）
 
     Vector3 pos_ = { };
@@ -248,14 +271,17 @@ private:
     bool justLanded_ = false;
     float launchOriginY_ = 0.0f; ///< 打ち上げ直前のpos_.y（着地時にここへ戻す。Launch()の最初の呼び出しでだけ更新する）
     WeaponType weaponType_ = WeaponType::Sword;
+    float spawnY_ = 0.0f;
+    float archetypeTimer_ = 0.0f;
+    std::string archetype_ = "basic";
     float knockVelX_ = 0.0f;
     float slowTimer_ = 0.0f;
     float airComboTimer_ = 0.0f;
-    static constexpr float kAirComboHold_ = 0.32f;
 
     AttackState attackState_ = AttackState::Idle;
-    float attackTimer_ = kAttackInterval_;
+    float attackTimer_ = 0.0f;
     bool justFiredAttack_ = false;
+    bool justStartedTelegraph_ = false;
 };
 
 } // namespace engine::game

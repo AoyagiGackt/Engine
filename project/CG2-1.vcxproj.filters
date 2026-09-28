@@ -358,6 +358,9 @@
     <ClCompile Include="Engine\game\cpp\Util\EventBus.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Util\PlaytestLog.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Util</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\GraphTypes.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
@@ -380,6 +383,24 @@
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyRegistry.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\SceneEffectBridge.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\SceneFlow.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\GameRules.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\CombatTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scripting\LevelGraphRunner.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scripting</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp">
@@ -455,6 +476,9 @@
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
@@ -704,6 +728,9 @@
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\IEnemyEntity.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -773,6 +800,9 @@
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\PlaytestLog.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Util\EventBus.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
@@ -795,6 +825,24 @@
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scripting\EnemyRegistry.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\SceneEffectBridge.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\SceneFlow.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\GameRules.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\EnemyTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\CombatTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scripting\LevelGraphRunner.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h">
@@ -870,6 +918,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\LoadingScene.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\OptionsScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h">

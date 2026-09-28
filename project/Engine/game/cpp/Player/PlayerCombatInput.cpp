@@ -40,6 +40,7 @@ constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも
 void Player::ResetFrameFlags()
 {
     justJumped_ = false;
+    justWarped_ = false;
     justLanded_ = false;
     justEnteredWater_ = false;
     justExitedWater_ = false;
@@ -88,6 +89,7 @@ void Player::HandleStyleSwitch(Input* input)
         meleeCombo_.Reset();
         daggerStingerHitIndex_ = -1; // 刺突の途中で持ち替えても居残らないよう仕切り直す
         daggerStingerDash_.active = false;
+        airDash_.active = false;
         swordDash_.active = false;
         spearDash_.active = false;
         axeDash_.active = false;
@@ -245,12 +247,15 @@ void Player::HandleWeaponSkill(Input* input)
         }
 
         // 固有技のクールダウン/バフも武器切替中に凍結させず常に消化する
-        daggerStingerCooldown_ = (std::max)(daggerStingerCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        swordSkillCooldown_ = (std::max)(swordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        spearSkillCooldown_ = (std::max)(spearSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        greatswordThrowCooldown_ = (std::max)(greatswordThrowCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-        axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+        // 覚醒中は武器ごとの倍率（weapons.jsonのawakened.skillCooldownMult）ぶん早く回る
+        const float cooldownStep = GameConstants::kFrameDeltaTime
+            / (isAwakened_ ? wm->GetCurrent().awakened.skillCooldownMult : 1.0f);
+        daggerStingerCooldown_ = (std::max)(daggerStingerCooldown_ - cooldownStep, 0.0f);
+        swordSkillCooldown_ = (std::max)(swordSkillCooldown_ - cooldownStep, 0.0f);
+        spearSkillCooldown_ = (std::max)(spearSkillCooldown_ - cooldownStep, 0.0f);
+        greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - cooldownStep, 0.0f);
+        greatswordThrowCooldown_ = (std::max)(greatswordThrowCooldown_ - cooldownStep, 0.0f);
+        axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - cooldownStep, 0.0f);
         axeRageTimer_ = (std::max)(axeRageTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
         // グレートソード投げ回転斬りの進行も、装備武器を切り替えている間だけ凍結しないよう常に進める

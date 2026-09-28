@@ -16,10 +16,52 @@ enum class WeaponType { Sword,
     Scythe,
     Axe };
 
+/**
+ * @brief 武器種別名（weapons.jsonの"type"・レベルJSONのweaponType・game_rules.jsonと同じ文字列規約）をWeaponTypeへ変換する
+ * @param type "Sword" "Spear" "Hammer" "Dagger" "Ball" "Greatsword" "Scythe" "Axe" のいずれか
+ * @return 対応する種別。未知の文字列はSword
+ */
+inline WeaponType ParseWeaponTypeName(const std::string& type)
+{
+    if (type == "Spear") {
+        return WeaponType::Spear;
+    }
+    if (type == "Hammer") {
+        return WeaponType::Hammer;
+    }
+    if (type == "Dagger") {
+        return WeaponType::Dagger;
+    }
+    if (type == "Ball") {
+        return WeaponType::Ball;
+    }
+    if (type == "Greatsword") {
+        return WeaponType::Greatsword;
+    }
+    if (type == "Scythe") {
+        return WeaponType::Scythe;
+    }
+    if (type == "Axe") {
+        return WeaponType::Axe;
+    }
+    return WeaponType::Sword;
+}
+
 /** @brief 操作説明HUDに表示する1コマンドぶんのキー表示と説明 */
 struct WeaponCommand {
     std::string key; ///< ASCII キー表示（例: "Space"）
     std::wstring desc; ///< 日本語説明
+};
+
+/**
+ * @brief 覚醒（魔人化）中にその武器がどう強化されるかの倍率（weapons.jsonの"awakened"）
+ * @note 覚醒中は武器ごとに手触りが変わる、というコンセプトの最小単位。数値だけで武器ごとの個性を出す
+ */
+struct AwakenedWeaponMods {
+    float damageMult = 1.4f; ///< 近接・固有技・銃ダメージの倍率
+    float skillRadiusMult = 1.5f; ///< 固有技の判定範囲の倍率
+    float skillCooldownMult = 0.5f; ///< 固有技クールタイムの倍率（<1で短くなる）
+    float knockbackMult = 1.3f; ///< ノックバック倍率（覚醒中は敵が大きく飛ぶ）
 };
 
 /** @brief 1スタイルぶんの近接武器データ */
@@ -38,6 +80,7 @@ struct WeaponData {
     float effectColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; ///< ヒット時の属性色
     int effectBurstCount = 0; ///< ヒット時に放出する属性粒子数
     float effectRingRadius = 0.0f; ///< ヒット時に広げる属性リング半径
+    AwakenedWeaponMods awakened; ///< 覚醒中の強化倍率
     std::vector<WeaponCommand> commands;
 };
 

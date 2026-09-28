@@ -1,0 +1,24 @@
+{
+  "_comment": "本編ステージの進行ルール。clearFlagはノードグラフのRequestStageClearノードやSetFlagノードからも立てられる。finalFloorが0ならlevelPathsの数が最終フロアになる",
+  "requireBossWeaponSteal": true,
+  "clearFlag": "stage_clear",
+  "gameOverOnHpZero": true,
+  "resultDisplaySeconds": 2.5,
+  "finalFloor": 0,
+  "bossHp": {
+    "combat": 20,
+    "elite": 35,
+    "boss": 60
+  },
+  "weaponEnemyHp": 5,
+  "bossStealWeapon": "Hammer",
+  "bossColor": [0.9, 0.65, 0.15, 1.0],
+  "waterFloor": -1,
+  "levelPaths": [
+    "Resources/Levels/level01.json",
+    "Resources/Levels/level02.json"
+  ],
+  "bossTechnique": "slam_shockwave",
+  "bossTechniqueRadiusMult": 1.6,
+  "bossTechniqueBonusDamage": 3
+}

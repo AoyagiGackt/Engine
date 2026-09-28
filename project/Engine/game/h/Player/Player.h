@@ -152,8 +152,62 @@ public:
      * @note 敵の攻撃判定がヒットした際に GamePlayScene 側から呼ぶ
      */
     void OnHit() { invincibleTimer_ = kInvincibleDuration_; }
-    /** @brief 被弾直後の無敵時間中かどうかを返す */
-    bool IsInvincible() const { return invincibleTimer_ > 0.0f; }
+    /** @brief 被弾直後の無敵時間中、または回避の無敵中かどうかを返す */
+    bool IsInvincible() const { return invincibleTimer_ > 0.0f || dodgeActive_ || warpActive_; }
+
+    // ── 回避（前後ステップ。全区間無敵、コンボからキャンセル可）──
+    /**
+     * @brief 回避ボタンの押下を先行入力として記憶する
+     * @param input 入力マネージャー
+     * @note ヒットストップ中はUpdate()が呼ばれず押下が捨てられるため、シーン側から毎フレーム（停止中も）呼ぶ。
+     * 記憶した押下はkDodgeBufferFrames_の間だけ有効で、次にUpdate()が回った時に回避として消費される
+     */
+    void BufferDodgeInput(Input* input);
+    /** @brief 回避モーション中か（この間は敵の攻撃を受けない） */
+    bool IsDodging() const { return dodgeActive_; }
+    /** @brief このフレームに回避を開始したか */
+    bool JustDodged() const { return justDodged_; }
+    /**
+     * @brief 直近の回避で連続回避（スパム）が何回続いているかを返す
+     * @note 0なら間隔を空けた回避。2以上は危険のない場面での連打とみなしてスタイル評価を下げる材料にする
+     */
+    int GetDodgeSpamCount() const { return dodgeSpamCount_; }
+    /**
+     * @brief 回避中に敵の攻撃を紙一重で避けた（ジャスト回避）ことを1回だけ成立させる
+     * @return 今回の回避でまだ報酬を受け取っていなければtrue（呼び出し側が加点・演出を行う）
+     */
+    bool ConsumeJustDodge()
+    {
+        if (!dodgeActive_ || dodgeRewardClaimed_) {
+            return false;
+        }
+        dodgeRewardClaimed_ = true;
+        return true;
+    }
+    /**
+     * @brief ジャスト回避直後の強化窓を開く（この間の攻撃は威力が上がる。回避を攻めの起点にするため）
+     * @param seconds 強化が続く秒数
+     */
+    void BeginJustDodgeWindow(float seconds) { justDodgeWindowTimer_ = (std::max)(justDodgeWindowTimer_, seconds); }
+    /** @brief ジャスト回避直後の強化窓の中か */
+    bool IsJustDodgeWindowActive() const { return justDodgeWindowTimer_ > 0.0f; }
+
+    // ── テレポート斬り（機動アクション。通常時は覚醒ゲージ少量消費+クールタイム、
+    //    覚醒中はゲージ消費なし・距離延長・クールタイム短縮の強化版）──
+    /** @brief テレポート中か（この間は敵の攻撃を受けない） */
+    bool IsWarping() const { return warpActive_; }
+    /** @brief このフレームにテレポート斬りを開始したか（演出トリガー用） */
+    bool JustWarped() const { return justWarped_; }
+
+    /**
+     * @brief 現在の武器と覚醒状態から攻撃ダメージ倍率を返す（覚醒中はweapons.jsonのawakened.damageMult）
+     * @note 素手・非覚醒時は1.0
+     */
+    float GetAwakenedDamageMult() const;
+    /** @brief 現在の武器と覚醒状態から固有技の判定範囲倍率を返す（非覚醒時は1.0） */
+    float GetAwakenedSkillRadiusMult() const;
+    /** @brief 現在の武器と覚醒状態からノックバック倍率を返す（非覚醒時は1.0） */
+    float GetAwakenedKnockbackMult() const;
 
     bool IsOnGround() const { return onGround_; } ///< 地面に接触中か
     void SetVisualPreset(int preset) { visualPreset_ = std::clamp(preset, -1, 1); }
@@ -209,6 +263,11 @@ public:
     const MeleeAttackDef* GetActiveMeleeAttack() const { return meleeCombo_.GetActive(); }
     /** @brief 近接コンボのモーション中か */
     bool IsMeleeAttacking() const { return meleeCombo_.IsAttacking(); }
+    /**
+     * @brief 現在表示中の近接武器の手元ワールド座標を返す（武器トレイル演出用）
+     * @note 武器が表示されていない場合はプレイヤーの胸元あたりの位置を返す
+     */
+    Vector3 GetActiveWeaponWorldPosition() const;
 
     /**
      * @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
@@ -311,6 +370,40 @@ private:
     float invincibleTimer_ = 0.0f;
     static constexpr float kInvincibleDuration_ = 1.0f; // 被弾後の無敵時間（秒）
 
+    // 回避（レーン制なので前後のみ。移動入力があればその方向、無ければ向きの逆へバックステップ）
+    bool dodgeActive_ = false;
+    bool justDodged_ = false;
+    bool dodgeRewardClaimed_ = false; // 1回の回避でジャスト回避報酬を二重に受け取らないためのフラグ
+    float dodgeTimer_ = 0.0f;
+    float dodgeStartX_ = 0.0f;
+    float dodgeTargetX_ = 0.0f;
+    float dodgeCooldown_ = 0.0f;
+    float dodgeSpamTimer_ = 0.0f; // 前回の回避からの経過秒数（連打判定用）
+    int dodgeSpamCount_ = 0;
+    int dodgeBufferFrames_ = 0; // 先行入力した回避ボタンの残り有効フレーム数（0なら未入力）
+    static constexpr int kDodgeBufferFrames_ = 8; // 回避の先行入力を保持するフレーム数（ヒットストップとクールダウン明けの取りこぼし防止）
+    static constexpr float kDodgeDistance_ = 2.6f; // 回避で移動する距離（ワールド単位）
+    static constexpr float kDodgeDuration_ = 0.22f; // 回避モーションの長さ（秒、全区間無敵）
+    static constexpr float kDodgeCooldown_ = 0.30f; // 回避終了から次の回避までの間隔（秒）
+    static constexpr float kDodgeSpamWindow_ = 1.2f; // この秒数以内に次の回避を出すと連打扱い
+    static constexpr float kDodgeAnimSpeed_ = 2.4f; // 走りジャンプのモーションを高速再生して前転風に見せる
+    float justDodgeWindowTimer_ = 0.0f; // ジャスト回避直後の強化窓の残り秒数（長さと倍率はCombatTuning側）
+
+    // テレポート斬り（向いている方向へ短距離ワープする機動アクション。全区間無敵、コンボからキャンセル可）
+    bool warpActive_ = false;
+    bool justWarped_ = false;
+    float warpTimer_ = 0.0f;
+    float warpStartX_ = 0.0f;
+    float warpTargetX_ = 0.0f;
+    float warpCooldown_ = 0.0f;
+    static constexpr float kWarpDistance_ = 4.0f; // 通常時のワープ距離（ワールド単位、回避より長い）
+    static constexpr float kWarpAwakenedDistance_ = 6.0f; // 覚醒中の強化距離
+    static constexpr float kWarpDuration_ = 0.12f; // ワープモーションの長さ（秒、瞬間移動に近い速さ）
+    static constexpr float kWarpCooldown_ = 0.9f; // 通常時のクールタイム（乱発防止）
+    static constexpr float kWarpAwakenedCooldown_ = 0.35f; // 覚醒中は連続テレポート斬りができるよう短縮
+    static constexpr float kWarpGaugeCost_ = 0.08f; // 通常時に消費する覚醒ゲージ量（覚醒中は消費なし）
+    static constexpr float kWarpAnimSpeed_ = 2.0f; // 斬撃モーションを高速再生してテレポートらしく見せる
+
     // 向き（最後に入力した横方向+1=右 -1=左）
     float lastDirX_ = 1.0f;
 
@@ -373,6 +466,11 @@ private:
     float daggerStingerTimer_ = 0.0f;
     float daggerStingerCooldown_ = 0.0f;
     DashMotion daggerStingerDash_; ///< 1段目が突き刺さるまでの踏み込み
+
+    // ダガーの空中ダッシュ（機動力枠。空中で固有技を押すと水平に一度だけ滑る。着地で回復）
+    DashMotion airDash_;
+    bool airDashAvailable_ = true;
+    static constexpr float kDaggerAirDashDist_ = 3.4f;
     static constexpr float kDaggerStingerDashDist_ = 3.0f;
     static constexpr float kDaggerStingerHitInterval_ = 0.09f; // 刺突ごとの間隔（秒）
     static constexpr int kDaggerStingerHitCount_ = 3;
@@ -651,6 +749,20 @@ private:
     // Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照）
     /** @brief 毎フレーム冒頭でJust～系の単発フラグ（ジャンプ・着地・被弾等）を全てリセットする */
     void ResetFrameFlags();
+    /**
+     * @brief 回避入力の受付と回避移動の進行を処理する
+     * @param input 入力マネージャー
+     * @note 近接コンボ中でも受け付けてコンボを打ち切る（武器切替キャンセルと並ぶ逃げ道）。
+     * フィニッシャー溜め中・乱舞中・水中は受け付けない
+     */
+    void HandleDodge(Input* input);
+    /**
+     * @brief テレポート斬り入力の受付とワープ移動の進行を処理する
+     * @param input 入力マネージャー
+     * @note 覚醒ゲージがkWarpGaugeCost_未満の時は通常時は発動しない（覚醒中はゲージ消費なしで発動可）。
+     * 近接コンボ中でも受け付けてコンボを打ち切る回避と同じくフィニッシャー溜め中・乱舞中・水中は受け付けない
+     */
+    void HandleWarp(Input* input);
     /**
      * @brief 数字キー/十字キーによる武器スロット切り替えを処理する
      * @param input 入力マネージャー

@@ -87,6 +87,10 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.gimmickMotion = obj.value("gimmickMotion", "none");
         desc.motionAmount = obj.value("motionAmount", 3.0f);
         desc.motionSpeed = obj.value("motionSpeed", 1.0f);
+        desc.motionAxis = ReadVec3(obj.value("motionAxis", nlohmann::json::array()), { 1.0f, 0.0f, 0.0f });
+        desc.motionRotation = ReadVec3(obj.value("motionRotation", nlohmann::json::array()));
+        desc.motionMode = obj.value("motionMode", "loop");
+        desc.motionEase = obj.value("motionEase", "linear");
         desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", 0.5f);
         desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", 2.0f);
         desc.spawnType = obj.value("spawnType", "basic");
@@ -96,6 +100,15 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.meshCollider = obj.value("meshCollider", false);
         desc.weaponType = obj.value("weaponType", "");
         desc.isStageBoss = obj.value("isStageBoss", false);
+        desc.pickupRadius = obj.value("pickupRadius", 1.0f);
+        desc.pickupGaugeAmount = obj.value("pickupGaugeAmount", 0.2f);
+        desc.pickupColor = ReadVec4(obj.value("pickupColor", nlohmann::json::array()), desc.pickupColor);
+        desc.breakableHp = obj.value("breakableHp", 2);
+        desc.breakableRadius = obj.value("breakableRadius", 3.0f);
+        desc.breakablePlayerDamage = obj.value("breakablePlayerDamage", 4);
+        desc.breakableEnemyDamage = obj.value("breakableEnemyDamage", 3);
+        desc.breakableWeapon = obj.value("breakableWeapon", "");
+        desc.breakableColor = ReadVec4(obj.value("breakableColor", nlohmann::json::array()), desc.breakableColor);
 
         std::string ax = obj.value("axis", "x");
         desc.axis = ax.empty() ? 'x' : static_cast<char>(std::tolower(static_cast<unsigned char>(ax[0])));
@@ -130,6 +143,14 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.activationRadius = (std::max)(checkpoint.value("activationRadius", 2.0f), 0.1f);
         data.checkpoints.push_back(std::move(desc));
     }
+
+    data.graphPath = j.value("graphPath", "");
+    for (const auto& binding : j.value("flagGraphs", nlohmann::json::array())) {
+        FlagGraphBinding desc;
+        desc.flag = binding.value("flag", "");
+        desc.graphPath = binding.value("graphPath", "");
+        data.flagGraphs.push_back(std::move(desc));
+    }
     return data;
 }
 
@@ -163,6 +184,10 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["gimmickMotion"] = desc.gimmickMotion;
         oj["motionAmount"] = desc.motionAmount;
         oj["motionSpeed"] = desc.motionSpeed;
+        oj["motionAxis"] = WriteVec3(desc.motionAxis);
+        oj["motionRotation"] = WriteVec3(desc.motionRotation);
+        oj["motionMode"] = desc.motionMode;
+        oj["motionEase"] = desc.motionEase;
         oj["cameraBlendSeconds"] = desc.cameraBlendSeconds;
         oj["cameraHoldSeconds"] = desc.cameraHoldSeconds;
         oj["spawnType"] = desc.spawnType;
@@ -172,6 +197,15 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["meshCollider"] = desc.meshCollider;
         oj["weaponType"] = desc.weaponType;
         oj["isStageBoss"] = desc.isStageBoss;
+        oj["pickupRadius"] = desc.pickupRadius;
+        oj["pickupGaugeAmount"] = desc.pickupGaugeAmount;
+        oj["pickupColor"] = WriteVec4(desc.pickupColor);
+        oj["breakableHp"] = desc.breakableHp;
+        oj["breakableRadius"] = desc.breakableRadius;
+        oj["breakablePlayerDamage"] = desc.breakablePlayerDamage;
+        oj["breakableEnemyDamage"] = desc.breakableEnemyDamage;
+        oj["breakableWeapon"] = desc.breakableWeapon;
+        oj["breakableColor"] = WriteVec4(desc.breakableColor);
         oj["axis"] = std::string(1, desc.axis);
         oj["count"] = desc.count;
         oj["step"] = desc.step;
@@ -207,6 +241,16 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         checkpointsJson.push_back(std::move(checkpointJson));
     }
     j["checkpoints"] = std::move(checkpointsJson);
+
+    j["graphPath"] = data.graphPath;
+    nlohmann::json flagGraphsJson = nlohmann::json::array();
+    for (const auto& binding : data.flagGraphs) {
+        nlohmann::json bj;
+        bj["flag"] = binding.flag;
+        bj["graphPath"] = binding.graphPath;
+        flagGraphsJson.push_back(std::move(bj));
+    }
+    j["flagGraphs"] = std::move(flagGraphsJson);
 
     JsonHelper::Save(path, j);
 }
@@ -266,7 +310,7 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
 
     for (const auto& desc : data.objects) {
         // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
-        if (!desc.enabled || (desc.kind != "prop" && desc.kind != "gimmick" && desc.kind != "terrain") || desc.model.empty()) {
+        if (!desc.enabled || !IsVisualKind(desc.kind) || desc.model.empty()) {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);

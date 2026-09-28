@@ -10,6 +10,7 @@
 #include "EditorUI.h"
 #include "EnemyEntity.h"
 #include "GameFlags.h"
+#include "GraphEditor.h"
 #include "KnightEnemy.h"
 #include "StageEditorPanels.h"
 #include "StageEditorPrefabService.h"
@@ -60,6 +61,8 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         : (desc.kind == "enemy_basic")                  ? "[エネミー] "
         : (desc.kind == "ui_text")                      ? "[テキスト] "
         : (desc.kind == "hud_anchor")                   ? "[HUD位置] "
+        : (desc.kind == "pickup")                       ? "[収集物] "
+        : (desc.kind == "breakable")                    ? "[壊せる物] "
                                                         : "";
 
     // 深さぶんインデントして親子関係を視覚化する
@@ -79,6 +82,25 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         } else if (ImGui::GetIO().KeyCtrl) {
             selectedObjectIndices_.erase(selected);
         }
+    }
+    // ダブルクリックでその配置物へカメラを寄せる（画面外の物を探しに行く手間を省く）
+    const bool screenSpaceObject = (desc.kind == "ui_text" && desc.textSpace == "screen") || desc.kind == "hud_anchor";
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !screenSpaceObject) {
+        FocusCameraOn(WorldPositionOf(desc));
+    }
+
+    // 階層内のドラッグ＆ドロップで親子付け（他の項目へ落とすとその子になる。見た目の位置は変わらない）
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+        ImGui::SetDragDropPayload("STAGE_OBJECT", &index, sizeof(int));
+        ImGui::Text("%s を親にする物の上へ", desc.name.c_str());
+        ImGui::EndDragDropSource();
+    }
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("STAGE_OBJECT")) {
+            const int childIndex = *static_cast<const int*>(payload->Data);
+            SetParentPreservingWorld(childIndex, index);
+        }
+        ImGui::EndDragDropTarget();
     }
 
     // このエントリを親にしている子を直下に描く
@@ -109,11 +131,32 @@ void StageEditor::RenderEditorToolbar()
         SetPlayTestMode(!playTestMode_);
     }
     ImGui::SameLine();
+    // 変形ツール（選択中のものを強調表示。W/E/Rでも切り替わる）
+    auto toolButton = [&](const char* label, TransformTool tool) {
+        const bool active = transformTool_ == tool;
+        if (active) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.55f, 0.95f, 1.0f));
+        }
+        if (ImGui::Button(label)) {
+            transformTool_ = tool;
+        }
+        if (active) {
+            ImGui::PopStyleColor();
+        }
+        ImGui::SameLine();
+    };
+    toolButton("移動 W", TransformTool::Move);
+    toolButton("回転 E", TransformTool::Rotate);
+    toolButton("拡縮 R", TransformTool::Scale);
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
     ImGui::Checkbox("フラグ", &showFlagsPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("制作", &showWorkflowPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("イベント", &showNoCodeEventPanel_);
+    ImGui::SameLine();
+    ImGui::Checkbox("グラフ", &showGraphPanel_);
     ImGui::SameLine();
     ImGui::Checkbox("Wave", &showWavePanel_);
     ImGui::SameLine();
@@ -198,6 +241,36 @@ void StageEditor::RenderWorkflowPanel()
     }
     ImGui::TextDisabled(playTestMode_ ? "ゲーム更新中  F2で終了" : "ゲーム停止中  配置を安全に編集できます");
 
+    ImGui::SeparatorText("テスト");
+    if (ImGui::Button("画面中央からテスト", ImVec2(140.0f, 0.0f))) {
+        if (!StartPlayTestAt(ViewCenterOnGround())) {
+            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
+            statusTimer_ = 3.0f;
+        }
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(selKind_ == SelKind::None);
+    if (ImGui::Button("選択位置からテスト", ImVec2(140.0f, 0.0f))) {
+        Vector3 start = ViewCenterOnGround();
+        if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
+            start = WorldPositionOf(objects_[selIndex_].desc);
+        } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
+            start = triggers_[selIndex_].GetDesc().position;
+        }
+        if (!StartPlayTestAt(start)) {
+            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
+            statusTimer_ = 3.0f;
+        }
+    }
+    ImGui::EndDisabled();
+    EditorUI::HelpMarker("プレイヤーをその場所へ移してテストを始めます。後半の区画を何度も確かめる時に使います。F2で編集へ戻ります");
+    if (ImGui::Button("選択へカメラ (F)", ImVec2(140.0f, 0.0f))) {
+        FocusCameraOnSelection();
+    }
+    ImGui::SameLine();
+    ImGui::Checkbox("グリッド線", &showGrid_);
+    EditorUI::HelpMarker("スナップON中、スナップ間隔のグリッド線を表示します。矢印キーで選択物をスナップ間隔ぶん動かせます（Shift+上下で奥行き）");
+
     ImGui::SeparatorText("移動ギズモ");
     ImGui::RadioButton("自由", &gizmoAxis_, 0);
     ImGui::SameLine();
@@ -279,6 +352,8 @@ void StageEditor::RenderWorkflowPanel()
             snapshot.checkpoints = std::move(recovered.checkpoints);
             snapshot.playerSpawn = recovered.playerSpawn;
             snapshot.enemySpawn = recovered.enemySpawn;
+            snapshot.graphPath = recovered.graphPath;
+            snapshot.flagGraphs = recovered.flagGraphs;
             ApplySnapshot(snapshot);
             dirty_ = true;
             ImGui::CloseCurrentPopup();
@@ -340,11 +415,51 @@ void StageEditor::RenderNoCodeEventPanel()
     ImGui::TextDisabled("例  部屋へ入る  0秒後  敵を出現させる");
     if (ImGui::Button("戦闘部屋テンプレートを生成", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
-        Vector3 center = playerSpawn_;
-        MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
-        AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(center, nextSerial_));
+        AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(ViewCenterOnGround(), nextSerial_));
         statusMessage_ = "戦闘部屋テンプレートを生成しました";
         statusTimer_ = 3.0f;
+    }
+    if (ImGui::CollapsingHeader("部品テンプレート（画面中央に生成）")) {
+        constexpr float kTemplateStatusSeconds = 3.0f;
+        constexpr int kPickupRowCount = 3;
+        constexpr float kPickupRowSpacing = 1.5f;
+        constexpr const char* kWallWeapons[] = { "何でも", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
+        constexpr int kWallWeaponCount = static_cast<int>(sizeof(kWallWeapons) / sizeof(kWallWeapons[0]));
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##doorCondition", "開く条件のフラグ名（condition_xxx）", templateDoorCondition_, sizeof(templateDoorCondition_));
+        if (ImGui::Button("スライド扉", ImVec2(-1.0f, 0.0f))) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(ViewCenterOnGround(), templateDoorCondition_, nextSerial_));
+            statusMessage_ = "スライド扉を生成しました（条件フラグが立つとせり上がって消えます）";
+            statusTimer_ = kTemplateStatusSeconds;
+        }
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::Combo("##wallWeapon", &templateWallWeapon_, kWallWeapons, kWallWeaponCount);
+        if (ImGui::Button("壊せる壁", ImVec2(-1.0f, 0.0f))) {
+            RecordUndoSnapshotNow();
+            const std::string weapon = templateWallWeapon_ == 0 ? "" : kWallWeapons[templateWallWeapon_];
+            AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(ViewCenterOnGround(), weapon, nextSerial_));
+            statusMessage_ = "壊せる壁を生成しました";
+            statusTimer_ = kTemplateStatusSeconds;
+        }
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##guideText", "案内文", templateGuideText_, sizeof(templateGuideText_));
+        if (ImGui::Button("区画トリガー＋案内文", ImVec2(-1.0f, 0.0f))) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(ViewCenterOnGround(), templateGuideText_, nextSerial_));
+            statusMessage_ = "区画トリガーと案内文を生成しました（前の案内はグラフのSetObjectEnabledで消せます）";
+            statusTimer_ = kTemplateStatusSeconds;
+        }
+
+        if (ImGui::Button("収集物を3つ並べる", ImVec2(-1.0f, 0.0f))) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreatePickupRow(ViewCenterOnGround(), kPickupRowCount, kPickupRowSpacing, nextSerial_));
+            statusMessage_ = "収集物を生成しました";
+            statusTimer_ = kTemplateStatusSeconds;
+        }
     }
 
     const char* sourcePreview = "イベントトリガーを選択";
@@ -549,6 +664,231 @@ void StageEditor::RenderNoCodeEventPanel()
         RecordUndoSnapshotNow();
         eventConnection_.Disconnect(objects_[disconnectIndex].desc);
     }
+    ImGui::End();
+}
+
+void StageEditor::RenderViewportContextMenu()
+{
+    if (contextMenuRequested_) {
+        ImGui::OpenPopup("SceneContextMenu");
+        contextMenuRequested_ = false;
+    }
+    if (!ImGui::BeginPopup("SceneContextMenu")) {
+        return;
+    }
+
+    auto startTestHere = [&](const Vector3& position) {
+        if (!StartPlayTestAt(position)) {
+            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
+            statusTimer_ = 3.0f;
+        }
+    };
+
+    if (contextKind_ == SelKind::Object && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(objects_.size())) {
+        ObjectDesc& desc = objects_[contextIndex_].desc;
+        ImGui::TextDisabled("%s", desc.name.c_str());
+        ImGui::Separator();
+        if (ImGui::MenuItem("ここへカメラ (F)")) {
+            FocusCameraOn(WorldPositionOf(desc));
+        }
+        if (ImGui::MenuItem("複製 (Ctrl+D)")) {
+            DuplicateSelected();
+        }
+        if (ImGui::MenuItem("削除 (Delete)")) {
+            DeleteSelected();
+        }
+        ImGui::Separator();
+        if (!desc.parent.empty() && ImGui::MenuItem("親を外す")) {
+            SetParentPreservingWorld(contextIndex_, -1);
+        }
+        const bool hasOtherSelection = selectedObjectIndices_.size() > 1;
+        if (hasOtherSelection && ImGui::MenuItem("選択中の物をこの子にする")) {
+            const std::vector<int> children = selectedObjectIndices_;
+            for (int child : children) {
+                if (child != contextIndex_) {
+                    SetParentPreservingWorld(child, contextIndex_);
+                }
+            }
+        }
+        if (ImGui::MenuItem("クリックした物を親にする...")) {
+            parentLinkChildIndex_ = contextIndex_;
+            statusMessage_ = "親にしたい配置物をクリックしてください";
+            statusTimer_ = 4.0f;
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("この位置からテスト")) {
+            startTestHere(WorldPositionOf(desc));
+        }
+        ImGui::EndPopup();
+        return;
+    }
+
+    if (contextKind_ == SelKind::Trigger && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(triggers_.size())) {
+        const TriggerDesc& desc = triggers_[contextIndex_].GetDesc();
+        ImGui::TextDisabled("トリガー %s", desc.name.c_str());
+        ImGui::Separator();
+        if (ImGui::MenuItem("ここへカメラ (F)")) {
+            FocusCameraOn(desc.position);
+        }
+        if (ImGui::MenuItem("削除 (Delete)")) {
+            DeleteSelected();
+        }
+        if (ImGui::MenuItem("この位置からテスト")) {
+            startTestHere(desc.position);
+        }
+        ImGui::EndPopup();
+        return;
+    }
+
+    // 何も無い場所: ここに置く
+    const Vector3 at = contextWorldPos_;
+    ImGui::TextDisabled("ここに置く (%.1f, %.1f)", at.x, at.y);
+    ImGui::Separator();
+    if (ImGui::MenuItem("ブロック")) {
+        AddObjectAt("prop", at);
+    }
+    if (ImGui::MenuItem("収集物")) {
+        AddObjectAt("pickup", at);
+    }
+    if (ImGui::MenuItem("壊せる物")) {
+        AddObjectAt("breakable", at);
+    }
+    if (ImGui::MenuItem("敵（剣）")) {
+        AddObjectAt("enemy_basic", at);
+    }
+    if (ImGui::MenuItem("敵：ナイト")) {
+        AddObjectAt("enemy_knight", at);
+    }
+    if (ImGui::MenuItem("出現ポイント")) {
+        AddObjectAt("spawn_point", at);
+    }
+    if (ImGui::MenuItem("ギミック")) {
+        AddObjectAt("gimmick", at);
+    }
+    if (ImGui::MenuItem("トリガー")) {
+        AddTriggerAt(at);
+    }
+    if (ImGui::BeginMenu("その他")) {
+        if (ImGui::MenuItem("カメラポイント")) {
+            AddObjectAt("camera_point", at);
+        }
+        if (ImGui::MenuItem("巡回ポイント")) {
+            AddObjectAt("patrol_point", at);
+        }
+        if (ImGui::MenuItem("イベント条件")) {
+            AddObjectAt("event_condition", at);
+        }
+        if (ImGui::MenuItem("ワールドテキスト")) {
+            AddObjectAt("ui_text", at);
+        }
+        ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu("テンプレート")) {
+        if (ImGui::MenuItem("スライド扉")) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(at, templateDoorCondition_, nextSerial_));
+        }
+        if (ImGui::MenuItem("壊せる壁（ハンマー）")) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(at, "Hammer", nextSerial_));
+        }
+        if (ImGui::MenuItem("区画トリガー＋案内文")) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(at, templateGuideText_, nextSerial_));
+        }
+        if (ImGui::MenuItem("戦闘部屋")) {
+            RecordUndoSnapshotNow();
+            AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(at, nextSerial_));
+        }
+        ImGui::EndMenu();
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("ここからテスト")) {
+        startTestHere(at);
+    }
+    if (ImGui::MenuItem("ここへカメラ")) {
+        FocusCameraOn(at);
+    }
+    ImGui::EndPopup();
+}
+
+void StageEditor::RenderGraphPanel()
+{
+    constexpr float kPanelPosX = 600.0f;
+    constexpr float kPanelPosY = 320.0f;
+    constexpr float kPanelWidth = 380.0f;
+    constexpr float kPanelHeight = 300.0f;
+    constexpr float kRemoveButtonWidth = 24.0f;
+    constexpr float kStatusSeconds = 3.0f;
+    ImGui::SetNextWindowPos(ImVec2(kPanelPosX, kPanelPosY), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, kPanelHeight), ImGuiCond_Once);
+    ImGui::Begin("グラフ", &showGraphPanel_);
+    ImGui::TextWrapped("このレベルで動かすノードグラフ（F1で編集）を紐付けます。常駐グラフは読込直後から走り、フラグ起動グラフは指定フラグが立った瞬間に走ります。");
+
+    ImGui::SeparatorText("常駐グラフ");
+    ImGui::SetNextItemWidth(-1.0f);
+    const bool graphPathChanged = ImGui::InputTextWithHint("##graphPath", "Resources/Graphs/xxx.json（空なら無し）", graphPathBuffer_, sizeof(graphPathBuffer_));
+    if (ImGui::IsItemActivated()) {
+        BeginUndoCapture();
+    }
+    if (graphPathChanged) {
+        MarkUndoDirty();
+        graphPath_ = graphPathBuffer_;
+    }
+    if (ImGui::IsItemDeactivated()) {
+        CommitUndoCapture();
+    }
+    ImGui::BeginDisabled(graphPath_.empty());
+    if (ImGui::Button("ノードエディタで開く##main", ImVec2(-1.0f, 0.0f))) {
+        GraphEditor::GetInstance()->OpenAndShow(graphPath_);
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText("フラグ起動グラフ");
+    ImGui::TextDisabled("例  トリガーのフラグ room_start_0 → 敵出現の演出グラフ");
+    for (int i = 0; i < static_cast<int>(flagGraphs_.size()); ++i) {
+        ImGui::PushID(i);
+        if (ImGui::Button("x", ImVec2(kRemoveButtonWidth, 0.0f))) {
+            RecordUndoSnapshotNow();
+            flagGraphs_.erase(flagGraphs_.begin() + i);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("開く")) {
+            GraphEditor::GetInstance()->OpenAndShow(flagGraphs_[i].graphPath);
+        }
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s  →  %s", flagGraphs_[i].flag.c_str(), flagGraphs_[i].graphPath.c_str());
+        ImGui::PopID();
+    }
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##newFlag", "フラグ名（トリガー/条件のフラグ、pickup_<名前> 等）", newFlagGraphFlag_, sizeof(newFlagGraphFlag_));
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##newFlagPath", "グラフJSONのパス", newFlagGraphPath_, sizeof(newFlagGraphPath_));
+    const bool canAdd = newFlagGraphFlag_[0] != '\0' && newFlagGraphPath_[0] != '\0';
+    ImGui::BeginDisabled(!canAdd);
+    if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f))) {
+        RecordUndoSnapshotNow();
+        FlagGraphBinding binding;
+        binding.flag = newFlagGraphFlag_;
+        binding.graphPath = newFlagGraphPath_;
+        flagGraphs_.push_back(std::move(binding));
+        newFlagGraphFlag_[0] = '\0';
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText("実行状態");
+    ImGui::Text("実行中のグラフ: %d", levelGraphs_.GetRunningCount());
+    if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f))) {
+        LevelData data;
+        data.graphPath = graphPath_;
+        data.flagGraphs = flagGraphs_;
+        levelGraphs_.Start(data);
+        statusMessage_ = "レベルのグラフを再起動しました";
+        statusTimer_ = kStatusSeconds;
+    }
+    EditorUI::HelpMarker("グラフの編集はF1のノードエディタで行い、保存後にここで再起動すると反映されます");
     ImGui::End();
 }
 
@@ -771,6 +1111,8 @@ void StageEditor::RenderInspector() { }
 void StageEditor::RenderAssetPalette() { }
 void StageEditor::RenderWorkflowPanel() { }
 void StageEditor::RenderNoCodeEventPanel() { }
+void StageEditor::RenderGraphPanel() { }
+void StageEditor::RenderViewportContextMenu() { }
 void StageEditor::RenderWavePanel() { }
 void StageEditor::RenderStageAnalysisPanel() { }
 void StageEditor::RenderDiffPanel() { }

@@ -1,0 +1,208 @@
+{
+  "_comment": "ステージ2（探索寄り）。ステージ1で奪ったハンマーで壁を壊して進む。上段ルートに収集物、下段に戦闘部屋、最後は槍のミニボス",
+  "playerSpawn": [4.0, 0.4, 0.0],
+  "enemySpawn": [50.0, 0.4, 0.0],
+  "graphPath": "Resources/Graphs/level02_main.json",
+  "flagGraphs": [
+    { "flag": "broken_gate_wall", "graphPath": "Resources/Graphs/level02_gate_open.json" },
+    { "flag": "s2_zone_upper", "graphPath": "Resources/Graphs/level02_zone_upper.json" },
+    { "flag": "condition_s2_boss_defeated", "graphPath": "Resources/Graphs/level02_boss_down.json" }
+  ],
+  "checkpoints": [
+    { "name": "cp_gate", "position": [13.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_room", "position": [30.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_boss", "position": [44.0, 0.4, 0.0], "activationRadius": 1.5 }
+  ],
+  "triggers": [
+    { "name": "t_s2_upper", "position": [20.0, 5.6, 0.0], "radius": 1.5, "flag": "s2_zone_upper", "value": true, "once": true },
+    { "name": "t_s2_room", "position": [28.0, 0.4, 0.0], "radius": 1.5, "flag": "s2_zone_room", "value": true, "once": true },
+    { "name": "t_s2_boss", "position": [43.0, 0.4, 0.0], "radius": 1.5, "flag": "s2_zone_boss", "value": true, "once": true }
+  ],
+  "objects": [
+    {
+      "name": "floor", "type": "row", "kind": "prop", "axis": "x", "count": 52, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "ceiling", "type": "row", "kind": "prop", "axis": "x", "count": 52, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 13.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "wall_left", "type": "row", "kind": "prop", "axis": "y", "count": 13, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "wall_right", "type": "row", "kind": "prop", "axis": "y", "count": 14, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [54.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "bg_buildings", "type": "row", "kind": "background", "axis": "x", "count": 4, "step": 13.0,
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [8.0, -0.6, 6.0], "scale": [0.42, 0.42, 0.42], "lighting": true, "solid": false
+    },
+
+    {
+      "name": "guide_s2_a", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95],
+      "text": "探索区画  灰色の壁は奪ったハンマー(スロット切替 1-4)の攻撃で壊せる"
+    },
+    {
+      "name": "gate_wall", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [12.0, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
+      "breakableWeapon": "Hammer", "breakableColor": [0.7, 0.7, 0.75, 1.0]
+    },
+    {
+      "name": "barrel_s2_a", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [8.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+
+    {
+      "name": "stair_1", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [14.5, 1.2, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "stair_2", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [17.5, 3.2, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "upper_walk", "type": "row", "kind": "prop", "axis": "x", "count": 6, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [20.0, 5.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "upper_flying", "type": "static", "kind": "enemy_basic",
+      "position": [23.0, 7.4, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "s2_upper"
+    },
+    {
+      "name": "pickup_s2_1", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [25.0, 6.0, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.25
+    },
+    {
+      "name": "upper_swing", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [28.5, 5.0, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
+      "gimmickMotion": "custom", "motionMode": "pingpong", "motionEase": "smooth",
+      "motionAxis": [1.0, 0.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 3.0, "motionSpeed": 0.7
+    },
+    {
+      "name": "upper_fall", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [34.0, 5.0, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
+      "gimmickMotion": "fall", "motionAmount": 6.0, "motionSpeed": 0.9
+    },
+    {
+      "name": "pickup_s2_2", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [37.5, 6.4, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.25
+    },
+    {
+      "name": "upper_end", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [37.0, 5.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "guide_s2_upper", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_upper",
+      "text": "上段ルート  短剣なら空中で SPACE の空中ダッシュで足場を渡れる"
+    },
+
+    {
+      "name": "room_spear_1", "type": "static", "kind": "enemy_basic",
+      "position": [30.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Spear", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "room_dagger", "type": "static", "kind": "enemy_basic",
+      "position": [34.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "room_spear_2", "type": "static", "kind": "enemy_basic",
+      "position": [38.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Spear", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "room_cover", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [32.5, 1.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "barrel_s2_room", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [36.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "s2_room_clear", "type": "static", "kind": "event_condition",
+      "position": [34.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "door_s2", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [41.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "activationFlag": "condition_s2_room_clear", "activeWhenFlag": false, "activationDelay": 1.2,
+      "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
+      "motionAxis": [0.0, 1.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 5.5, "motionSpeed": 1.0
+    },
+    {
+      "name": "guide_s2_room", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_room",
+      "text": "槍の敵は遠くから投げてくる  I で紙一重に避けて踏み込め"
+    },
+
+    {
+      "name": "s2_boss", "type": "static", "kind": "enemy_basic",
+      "position": [48.0, -0.33, 0.0], "spawnType": "basic", "weaponType": "Spear", "isStageBoss": true, "enemyGroup": "s2_boss"
+    },
+    {
+      "name": "s2_boss_defeated", "type": "static", "kind": "event_condition",
+      "position": [48.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s2_boss"
+    },
+    {
+      "name": "boss_platform", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [45.0, 3.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "barrel_s2_boss", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [51.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "guide_s2_boss", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "s2_zone_boss",
+      "text": "槍のボス  投擲と範囲攻撃を避けて、覚醒 R で一気に削れ"
+    },
+    {
+      "name": "guide_s2_done", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_s2_boss_defeated",
+      "text": "撃破完了  J で槍を奪ってステージクリア"
+    },
+
+    {
+      "name": "hud_anchor_controls", "type": "", "kind": "hud_anchor",
+      "position": [1020.0, 12.0, 0.0], "text": "操作説明"
+    },
+    {
+      "name": "hud_anchor_weapon_list", "type": "", "kind": "hud_anchor",
+      "position": [12.0, 12.0, 0.0], "text": "武器選択"
+    }
+  ]
+}

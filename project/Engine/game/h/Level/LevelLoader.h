@@ -28,6 +28,8 @@ struct ObjectDesc {
     // | "hud_anchor"（Object3dを生成しないスクリーンpx位置マーカー。武器選択/操作説明のように中身が動的で
     //   コード側に残したままのHUDパネルについて、表示位置(position.x/y)だけをステージエディタで編集可能にする。
     //   StageEditor::GetHudAnchorPosition()で名前引きする。textは編集画面に出すラベルとしてのみ使う）
+    // | "pickup"（触れると回収される収集物。pickup系フィールド専用）
+    // | "breakable"（攻撃で壊れて周囲にダメージを撒く設置物。breakable系フィールド専用）
     // enemy系はStageEditorが実際にHPを持つ敵インスタンスとして生成する（model/texture/type/axis/count/stepは無視される）
     std::string kind = "prop";
     std::string model; // OBJ ファイルパス
@@ -43,9 +45,14 @@ struct ObjectDesc {
     std::string enemyGroup; // 敵生成と全滅条件をまとめるグループ名
     std::string conditionType = "manual"; // event_conditionの条件 manual、timer、enemy_group_defeated
     float conditionSeconds = 0.0f; // timer条件が成立するまでの秒数
-    std::string gimmickMotion = "none"; // none、move_y、rotate_y、rotate_z、fall、blink
+    std::string gimmickMotion = "none"; // none、move_x、move_y、rotate_y、rotate_z、fall、blink、custom
     float motionAmount = 3.0f; // ギミック移動量または回転量をワールド単位またはラジアンで指定する
     float motionSpeed = 1.0f; // ギミック演出速度を毎秒単位で指定する
+    // "custom"専用（任意方向の移動と回転を組み合わせた汎用モーション。新しい動きをコード無しで作る）
+    Vector3 motionAxis = { 1.0f, 0.0f, 0.0f }; // 移動方向（motionAmount倍して往復・周回する）
+    Vector3 motionRotation = { }; // 進行度1.0に対する回転量（ラジアン）
+    std::string motionMode = "loop"; // loop（sin波で往復）| pingpong（等速で往復）| once（一度だけ進んで止まる）
+    std::string motionEase = "linear"; // linear | smooth（加減速）
     float cameraBlendSeconds = 0.5f; // カメラポイントへ補間する秒数
     float cameraHoldSeconds = 2.0f; // カメラポイントを維持する秒数
     std::string spawnType = "basic"; // spawn_pointが生成する敵種類 basicまたはknight
@@ -56,6 +63,19 @@ struct ObjectDesc {
     // "enemy_basic" 専用（GamePlayScene等が武器奪取ギミックの対象を判別するのに使う）
     std::string weaponType; // 空なら武器を持たない一般敵。"Sword"等ならその武器を持ち、倒してJキーで奪取できる
     bool isStageBoss = false; // trueならこの敵を倒して奪取するとステージクリア条件が成立する（HPはRunDataのノード種別で自動調整）
+
+    // "pickup" 専用（プレイヤーが触れると回収され、覚醒ゲージが増える収集物。回収時にpickup_<name>フラグが立つ）
+    float pickupRadius = 1.0f; // 回収判定の半径
+    float pickupGaugeAmount = 0.2f; // 回収時に増える覚醒ゲージ量
+    Vector4 pickupColor = { 0.3f, 0.9f, 1.0f, 1.0f }; // 表示色（脈動の基準色）
+
+    // "breakable" 専用（攻撃で壊すと周囲にダメージを撒く設置物。破壊時にbroken_<name>フラグが立つ）
+    int breakableHp = 2; // 何回攻撃を当てると壊れるか
+    float breakableRadius = 3.0f; // 爆発が届く範囲の半径
+    int breakablePlayerDamage = 4; // 範囲内のプレイヤーが受けるダメージ
+    int breakableEnemyDamage = 3; // 範囲内の敵が受けるダメージ
+    std::string breakableWeapon; // 空なら何でも壊せる。"Hammer"等を指定するとその武器の近接攻撃でしか壊れない（壁ギミック用、solid=trueと組み合わせる）
+    Vector4 breakableColor = { 1.0f, 0.35f, 0.1f, 1.0f }; // 表示色（脈動の基準色）
     // "row" 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
@@ -148,14 +168,35 @@ private:
     int activeIndex_ = -1;
 };
 
+/**
+ * @brief GameFlagsのフラグがfalse→trueになった瞬間に起動するノードグラフの紐付け1件
+ * @note ステージのトリガー/条件がフラグを立てる → このグラフが走る、という分業でロジックをコード無しで組む
+ */
+struct FlagGraphBinding {
+    std::string flag; // 監視するGameFlagsのキー
+    std::string graphPath; // 起動するグラフJSONのパス
+};
+
+/**
+ * @brief 見た目のモデル（Object3d）を生成する配置種類かどうか
+ * @note prop/background/gimmick/terrainに加えて、pickup/breakableもモデルを持つ
+ */
+inline bool IsVisualKind(const std::string& kind)
+{
+    return kind == "prop" || kind == "background" || kind == "gimmick" || kind == "terrain"
+        || kind == "pickup" || kind == "breakable";
+}
+
 // ファイルから読み込んだレベル全体のデータ
-/** @brief レベルJSON1ファイルぶんの内容（配置物・トリガー・チェックポイント・プレイヤー/敵の初期スポーン位置） */
+/** @brief レベルJSON1ファイルぶんの内容（配置物・トリガー・チェックポイント・プレイヤー/敵の初期スポーン位置・グラフ紐付け） */
 struct LevelData {
     std::vector<ObjectDesc> objects;
     std::vector<TriggerDesc> triggers;
     std::vector<CheckpointDesc> checkpoints;
     Vector3 playerSpawn = { 8.0f, 0.4f, 0.0f };
     Vector3 enemySpawn = { 28.0f, 0.4f, 0.0f };
+    std::string graphPath; // レベル読込直後から常駐で走るグラフJSONのパス（空なら無し）
+    std::vector<FlagGraphBinding> flagGraphs; // フラグの立ち上がりで起動するグラフ一覧
 };
 
 // Spawn() の戻り値Model と Object3d の所有権を持つ

@@ -26,6 +26,22 @@ void Player::DaggerBehavior::Update(Player& player, Input* input) const
         return;
     }
 
+    // 空中ダッシュ（機動力枠）。滑っている間は落下を止め、足場から足場へ飛び移れるようにする
+    if (player.airDash_.active) {
+        player.velocityY_ = 0.0f;
+        player.AdvanceDash(player.airDash_);
+        return;
+    }
+    if (!player.onGround_ && player.daggerStingerHitIndex_ < 0) {
+        if (input->TriggerAction(Input::Action::Skill) && player.airDashAvailable_) {
+            player.airDashAvailable_ = false;
+            player.velocityY_ = 0.0f;
+            player.BeginDash(player.airDash_, player.lastDirX_ * kDaggerAirDashDist_ * player.skillMods_.blinkDistMult);
+            player.PlayAttackAnim(player.rig_->runningJumpAnim, 2.0f);
+        }
+        return;
+    }
+
     if (player.daggerStingerHitIndex_ < 0) {
         if (input->TriggerAction(Input::Action::Skill) && player.daggerStingerCooldown_ <= 0.0f) {
             player.BeginDash(player.daggerStingerDash_,

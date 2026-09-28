@@ -463,6 +463,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     };
     row("A / D  ", L": 移動");
     row("W      ", L": ジャンプ");
+    row("I      ", L": 回避 (全身無敵、コンボから割り込み可)");
     row("L      ", L": コンボ (x3)");
     row("K      ", L": 銃コンボ");
     row("G      ", L": 銃切替");

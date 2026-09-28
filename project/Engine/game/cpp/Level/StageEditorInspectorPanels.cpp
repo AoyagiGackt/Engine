@@ -8,6 +8,7 @@
 #include "Camera.h"
 #include "EditorUI.h"
 #include "EnemyEntity.h"
+#include "GameFlags.h"
 #include "KnightEnemy.h"
 #include "SceneShared.h"
 #include "StageEditor.h"
@@ -142,7 +143,7 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
 {
     auto& entry = editor.objects_[editor.selIndex_];
     auto& desc = entry.desc;
-    const bool visualKind = desc.kind == "prop" || desc.kind == "background" || desc.kind == "gimmick" || desc.kind == "terrain";
+    const bool visualKind = IsVisualKind(desc.kind);
     if (visualKind) {
         if (desc.kind == "background") {
             ImGui::TextDisabled("背景モデル（レベルJSONに保存）");
@@ -227,7 +228,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
     StageEditor& editor, bool& structuralDirty, bool& transformDirty)
 {
     auto& desc = editor.objects_[editor.selIndex_].desc;
-    const bool visualKind = desc.kind == "prop" || desc.kind == "background" || desc.kind == "gimmick" || desc.kind == "terrain";
+    const bool visualKind = IsVisualKind(desc.kind);
     auto captureItemUndo = [&](bool changed) {
         if (ImGui::IsItemActivated()) {
             editor.BeginUndoCapture();
@@ -279,8 +280,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             };
             for (int index : editor.selectedObjectIndices_) {
                 if (index < 0 || index >= static_cast<int>(editor.objects_.size()) || index == editor.selIndex_
-                    || (editor.objects_[index].desc.kind != "prop" && editor.objects_[index].desc.kind != "background" && editor.objects_[index].desc.kind != "gimmick"
-                        && editor.objects_[index].desc.kind != "terrain" && editor.objects_[index].desc.kind != "camera_point")) {
+                    || (!IsVisualKind(editor.objects_[index].desc.kind) && editor.objects_[index].desc.kind != "camera_point")) {
                     continue;
                 }
                 if (rotationChanged) {
@@ -349,7 +349,8 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
         }
         return changed;
     };
-    if (desc.kind == "gimmick" || desc.kind == "spawn_point" || desc.kind == "camera_point") {
+    if (desc.kind == "gimmick" || desc.kind == "spawn_point" || desc.kind == "camera_point"
+        || desc.kind == "pickup" || desc.kind == "breakable") {
         char flagBuffer[96] = { };
         strncpy_s(flagBuffer, desc.activationFlag.c_str(), _TRUNCATE);
         if (captureItemUndo(ImGui::InputText("有効化フラグ", flagBuffer, sizeof(flagBuffer)))) {
@@ -387,8 +388,9 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
             captureItemUndo(ImGui::DragFloat("巡回速度", &desc.patrolSpeed, 0.05f, 0.0f, 20.0f));
         }
     }
-    if (desc.kind == "enemy_basic") {
+    if (desc.kind == "enemy_basic" || desc.kind == "spawn_point") {
         // 空="武器を持たない一般敵"。指定すると倒してJキーで奪取できるようになる（GamePlayScene参照）
+        // spawn_pointも同じ設定を持ち、出現した敵がそのまま戦闘対象になる
         constexpr const char* kWeaponTypes[] = { "なし", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
         constexpr int kWeaponTypeCount = static_cast<int>(sizeof(kWeaponTypes) / sizeof(kWeaponTypes[0]));
         int weaponTypeIndex = 0;
@@ -403,8 +405,11 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
             desc.weaponType = weaponTypeIndex == 0 ? "" : kWeaponTypes[weaponTypeIndex];
             structuralDirty = true; // 武器種別はEnemyEntity生成時にしか反映できないため実体を作り直す
         }
-        // isStageBossはEnemyEntity生成には関わらないメタデータなのでstructuralDirtyは不要
-        captureItemUndo(ImGui::Checkbox("ステージボス（倒して奪取するとクリア）", &desc.isStageBoss));
+        EditorUI::HelpMarker("なしの敵はプレイヤーの攻撃対象になりません（本編の戦闘対象は武器持ちの敵だけです）");
+        if (desc.kind == "enemy_basic") {
+            // isStageBossはEnemyEntity生成には関わらないメタデータなのでstructuralDirtyは不要
+            captureItemUndo(ImGui::Checkbox("ステージボス（倒して奪取するとクリア）", &desc.isStageBoss));
+        }
     }
     if (desc.kind == "event_condition") {
         const char* conditionTypes[] = { "manual", "timer", "enemy_group_defeated" };
@@ -426,19 +431,77 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
         }
     }
     if (desc.kind == "gimmick") {
-        const char* motions[] = { "none", "move_y", "rotate_y", "rotate_z", "fall", "blink" };
-        int motionIndex = desc.gimmickMotion == "move_y" ? 1
-            : desc.gimmickMotion == "rotate_y"           ? 2
-            : desc.gimmickMotion == "rotate_z"           ? 3
-            : desc.gimmickMotion == "fall"               ? 4
-            : desc.gimmickMotion == "blink"              ? 5
-                                                         : 0;
-        if (ImGui::Combo("動作プリセット", &motionIndex, motions, 5)) {
-            editor.RecordUndoSnapshotNow();
-            desc.gimmickMotion = motions[motionIndex];
+        constexpr const char* kMotions[] = { "none", "move_x", "move_y", "rotate_y", "rotate_z", "fall", "blink", "custom" };
+        constexpr int kMotionCount = static_cast<int>(sizeof(kMotions) / sizeof(kMotions[0]));
+        int motionIndex = 0;
+        for (int i = 1; i < kMotionCount; ++i) {
+            if (desc.gimmickMotion == kMotions[i]) {
+                motionIndex = i;
+                break;
+            }
         }
+        if (ImGui::Combo("動作プリセット", &motionIndex, kMotions, kMotionCount)) {
+            editor.RecordUndoSnapshotNow();
+            desc.gimmickMotion = kMotions[motionIndex];
+        }
+        EditorUI::HelpMarker("customは移動方向・回転量・往復方式を自由に組み合わせる汎用動作です。プリセットに無い動きはここで作れます");
         captureItemUndo(ImGui::DragFloat("動作量", &desc.motionAmount, 0.1f));
         captureItemUndo(ImGui::DragFloat("動作速度", &desc.motionSpeed, 0.1f, 0.0f, 20.0f));
+        if (desc.gimmickMotion == "custom") {
+            captureItemUndo(ImGui::DragFloat3("移動方向", &desc.motionAxis.x, 0.05f));
+            EditorUI::HelpMarker("この方向へ動作量ぶん動きます。(0,0,0)なら移動しません");
+            captureItemUndo(ImGui::DragFloat3("回転量(rad)", &desc.motionRotation.x, 0.05f));
+            EditorUI::HelpMarker("進行度1.0に対する各軸の回転量です。(0,0,0)なら回転しません");
+            constexpr const char* kModes[] = { "loop", "pingpong", "once" };
+            constexpr int kModeCount = static_cast<int>(sizeof(kModes) / sizeof(kModes[0]));
+            int modeIndex = desc.motionMode == "pingpong" ? 1 : desc.motionMode == "once" ? 2 : 0;
+            if (ImGui::Combo("往復方式", &modeIndex, kModes, kModeCount)) {
+                editor.RecordUndoSnapshotNow();
+                desc.motionMode = kModes[modeIndex];
+            }
+            EditorUI::HelpMarker("loop: 波のように往復 / pingpong: 等速で往復 / once: 有効化から一度だけ動いて止まる（扉の開閉など）");
+            constexpr const char* kEases[] = { "linear", "smooth" };
+            int easeIndex = desc.motionEase == "smooth" ? 1 : 0;
+            if (ImGui::Combo("加減速", &easeIndex, kEases, 2)) {
+                editor.RecordUndoSnapshotNow();
+                desc.motionEase = kEases[easeIndex];
+            }
+        }
+    }
+    if (desc.kind == "pickup") {
+        captureItemUndo(ImGui::DragFloat("回収半径", &desc.pickupRadius, 0.05f, 0.1f, 10.0f));
+        captureItemUndo(ImGui::DragFloat("覚醒ゲージ増加量", &desc.pickupGaugeAmount, 0.01f, 0.0f, 1.0f));
+        captureItemUndo(ImGui::ColorEdit4("表示色", &desc.pickupColor.x));
+        EditorUI::HelpMarker("回収するとGameFlagsに pickup_<名前> が立ちます。ノードグラフのフラグ起動やGetFlagで反応できます");
+    }
+    if (desc.kind == "breakable") {
+        if (ImGui::InputInt("耐久(ヒット回数)", &desc.breakableHp)) {
+            editor.RecordUndoSnapshotNow();
+            structuralDirty = true; // 残りHPは実体生成時に初期化するため作り直す
+        }
+        captureItemUndo(ImGui::DragFloat("爆風半径", &desc.breakableRadius, 0.1f, 0.0f, 20.0f));
+        if (ImGui::InputInt("プレイヤーへのダメージ", &desc.breakablePlayerDamage)) {
+            editor.RecordUndoSnapshotNow();
+        }
+        if (ImGui::InputInt("敵へのダメージ", &desc.breakableEnemyDamage)) {
+            editor.RecordUndoSnapshotNow();
+        }
+        captureItemUndo(ImGui::ColorEdit4("表示色", &desc.breakableColor.x));
+        EditorUI::HelpMarker("壊すとGameFlagsに broken_<名前> が立ちます");
+        constexpr const char* kBreakWeapons[] = { "何でも", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
+        constexpr int kBreakWeaponCount = static_cast<int>(sizeof(kBreakWeapons) / sizeof(kBreakWeapons[0]));
+        int breakWeaponIndex = 0;
+        for (int i = 1; i < kBreakWeaponCount; ++i) {
+            if (desc.breakableWeapon == kBreakWeapons[i]) {
+                breakWeaponIndex = i;
+                break;
+            }
+        }
+        if (ImGui::Combo("壊せる武器", &breakWeaponIndex, kBreakWeapons, kBreakWeaponCount)) {
+            editor.RecordUndoSnapshotNow();
+            desc.breakableWeapon = breakWeaponIndex == 0 ? "" : kBreakWeapons[breakWeaponIndex];
+        }
+        EditorUI::HelpMarker("武器を指定すると、その武器の近接攻撃でしか壊れません。当たり判定ONと爆風半径0にすると壊せる壁になります");
     }
     if (desc.kind == "camera_point") {
         if (editor.camera_ && ImGui::Button("現在のビューをカメラポイントへ保存")) {
@@ -453,6 +516,38 @@ void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& 
         }
         captureItemUndo(ImGui::DragFloat("カメラ補間秒数", &desc.cameraBlendSeconds, 0.05f, 0.0f, 10.0f));
         captureItemUndo(ImGui::DragFloat("カメラ維持秒数", &desc.cameraHoldSeconds, 0.1f, 0.0f, 30.0f));
+    }
+
+    // テスト中に今どうなっているかを確認し、必要ならその場で初期状態へ戻す
+    if (ImGui::CollapsingHeader("ゲーム中の状態")) {
+        auto& entry = editor.objects_[editor.selIndex_];
+        ImGui::Text("有効: %s", entry.runtimeActive ? "はい" : "いいえ");
+        if (!desc.activationFlag.empty()) {
+            ImGui::Text("有効化フラグ %s: %s", desc.activationFlag.c_str(),
+                GameFlags::GetInstance()->GetFlag(desc.activationFlag) ? "ON" : "OFF");
+        }
+        if (entry.enabledOverride >= 0) {
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "グラフによる上書き: %s", entry.enabledOverride == 1 ? "有効" : "無効");
+        }
+        if (desc.kind == "pickup") {
+            ImGui::Text("回収: %s", entry.pickupCollected ? "済み" : "未");
+        }
+        if (desc.kind == "breakable") {
+            ImGui::Text("耐久: %d / %d  %s", entry.breakableHp, desc.breakableHp, entry.breakableDestroyed ? "(破壊済み)" : "");
+        }
+        if (entry.enemy) {
+            ImGui::Text("敵HP: %d / %d  %s", entry.enemy->GetHp(), entry.enemy->GetMaxHp(), entry.enemy->IsDefeated() ? "(撃破済み)" : "");
+        }
+        if (entry.knight) {
+            ImGui::Text("ナイトHP: %d / %d  %s", entry.knight->GetHp(), entry.knight->GetMaxHp(), entry.knight->IsAlive() ? "" : "(撃破済み)");
+        }
+        if (desc.kind == "gimmick") {
+            ImGui::Text("動作経過: %.2f 秒", entry.runtimeTimer);
+        }
+        if (ImGui::Button("この配置物を初期状態に戻す", ImVec2(-1.0f, 0.0f))) {
+            editor.RegenerateInstances(entry);
+        }
+        EditorUI::HelpMarker("回収済み・破壊済み・敵のHP・グラフによる上書きをリセットして実体を作り直します");
     }
 }
 
@@ -547,7 +642,7 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderHudAnchorInspector(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
-    const bool visualKind = entry.desc.kind == "prop" || entry.desc.kind == "background" || entry.desc.kind == "gimmick" || entry.desc.kind == "terrain";
+    const bool visualKind = IsVisualKind(entry.desc.kind);
     if (structuralDirty) {
         editor.RegenerateInstances(entry);
     } else if (transformDirty && visualKind) {

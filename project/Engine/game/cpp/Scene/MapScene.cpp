@@ -4,6 +4,8 @@
  */
 #include "MapScene.h"
 #include "GameConstants.h"
+#include "GameRules.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "SkinnedObject3d.h"
 #include "SrvManager.h"
@@ -89,9 +91,9 @@ static const wchar_t* NodeDesc(RunData::NodeType t)
 {
     switch (t) {
     case RunData::NodeType::Combat:
-        return L"敵を倒してゴールドを獲得　スタイルが高いほど報酬UP";
+        return L"ステージを進み、ボスの武器を奪ってクリア　スタイルが高いほど評価UP";
     case RunData::NodeType::Elite:
-        return L"手強い敵　倒せば多くのゴールドを獲得できる";
+        return L"手強い敵が待ち構えるステージ";
     case RunData::NodeType::Shop:
         return L"スキルを1つ選んで取得できる　スキルは永続効果";
     case RunData::NodeType::Rest:
@@ -117,8 +119,8 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
     InitializeUiSprites();
     InitializeRenderFoundationAndPlayer();
+    InitializeFloorsAndStartPosition(); // ポータルの本数がステージ数に依存するため先に決める
     InitializeStageObjects();
-    InitializeFloorsAndStartPosition();
 }
 
 void MapScene::InitializeUiSprites()
@@ -183,7 +185,7 @@ void MapScene::InitializeStageObjects()
         groundBlocks_.push_back(std::move(block));
     }
 
-    for (int i = 0; i < kStageCount; ++i) {
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
         auto portal = std::make_unique<Object3d>();
         portal->Initialize(modelCommon_.get());
         portal->SetModel(blockModel_.get());
@@ -209,20 +211,19 @@ void MapScene::InitializeStageObjects()
 
 void MapScene::InitializeFloorsAndStartPosition()
 {
-    floors_ = {
-        { RunData::NodeType::Combat },
-        { RunData::NodeType::Combat },
-        { RunData::NodeType::Combat },
-        { RunData::NodeType::Combat },
-        { RunData::NodeType::Elite },
-        { RunData::NodeType::Boss },
-    };
+    // ステージ数はgame_rules.jsonのlevelPathsに追従する（ローグライク時代のフロア構成は撤回済み）。
+    // 最後のステージだけボス扱いにしてHPを上げる。ポータルの座標はkStageWorldXの数までが上限
+    const int stageCount = std::clamp(static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()), 1, kStageCount);
+    floors_.clear();
+    for (int i = 0; i < stageCount; ++i) {
+        floors_.push_back({ i == stageCount - 1 ? RunData::NodeType::Boss : RunData::NodeType::Combat });
+    }
 
     selectedCol_ = -1;
 
     auto* rd = RunData::GetInstance();
     if (rd->GetFloor() >= static_cast<int>(floors_.size())) {
-        SceneManager::GetInstance()->ChangeScene("CLEAR");
+        SceneFlow::GetInstance()->Transition("MAP", "all_cleared", "CLEAR");
     } else {
         player_->SetPosition({ kStageWorldX[rd->GetFloor()], 0.4f, 0.0f });
     }
@@ -254,7 +255,7 @@ void MapScene::Update()
 
     selectedCol_ = -1;
     float nearestDistance = 2.5f;
-    for (int i = 0; i < kStageCount; ++i) {
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
         const float distance = std::abs(playerPos.x - kStageWorldX[i]);
         if (distance < nearestDistance) {
             nearestDistance = distance;
@@ -268,7 +269,7 @@ void MapScene::Update()
     for (auto& city : cityObjects_) {
         city->Update();
     }
-    for (int i = 0; i < kStageCount; ++i) {
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
         portalObjects_[i]->SetPosition({ kStageWorldX[i], 1.4f, 1.0f });
         Vector4 color = NodeColor(floors_[i][0], i == selectedCol_, i < curFloor);
         if (i > curFloor) {
@@ -279,7 +280,7 @@ void MapScene::Update()
     }
 
     if (input_->TriggerKey(DIK_T)) {
-        SceneManager::GetInstance()->ChangeScene("TRAINING");
+        SceneFlow::GetInstance()->Transition("MAP", "training", "TRAINING");
         return;
     }
 
@@ -291,7 +292,7 @@ void MapScene::Update()
         case RunData::NodeType::Combat:
         case RunData::NodeType::Elite:
         case RunData::NodeType::Boss:
-            SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+            SceneFlow::GetInstance()->Transition("MAP", "combat", "GAMEPLAY");
             break;
         case RunData::NodeType::Shop:
         case RunData::NodeType::Rest:
@@ -366,7 +367,7 @@ void MapScene::DrawWorld()
 
     const int floor = RunData::GetInstance()->GetFloor();
     if (floor < static_cast<int>(floors_.size())) {
-        const int count = kStageCount;
+        const int count = static_cast<int>(floors_.size());
         for (int i = 0; i < count; ++i) {
             portalObjects_[i]->Draw();
         }
@@ -376,7 +377,7 @@ void MapScene::DrawWorld()
 
 void MapScene::DrawStagePortalLabels(int floor)
 {
-    const int count = kStageCount;
+    const int count = static_cast<int>(floors_.size());
     const float* portalXs = kStageWorldX;
     const Vector3& cameraPos = camera_->GetTranslate();
     for (int i = 0; i < count; ++i) {

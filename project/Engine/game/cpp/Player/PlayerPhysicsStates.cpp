@@ -59,7 +59,8 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
     const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
     const float jumpMult = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
 
-    if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_) {
+    // 回避中は回避の移動が位置を決めるので、通常の左右移動とジャンプは受け付けない
+    if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_ && !player.dodgeActive_) {
         if (input->PushAction(Input::Action::MoveLeft)) {
             player.pos_.x -= kSpeed_ * speedMult;
             player.lastDirX_ = -1.0f;
@@ -70,7 +71,7 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
         }
     }
 
-    if (player.onGround_ && !player.finisherCharging_) {
+    if (player.onGround_ && !player.finisherCharging_ && !player.dodgeActive_) {
         if (input->TriggerAction(Input::Action::Jump)) {
             // 打ち上げ直後は追撃用に高く跳べる（浮かせた敵にジャンプで追いつく）
             float followMult = (player.launchFollowTimer_ > 0.0f) ? kLaunchFollowJumpMult_ : 1.0f;

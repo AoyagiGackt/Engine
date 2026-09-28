@@ -1,871 +1,277 @@
 {
-  "checkpoints": [],
-  "enemySpawn": [
-    35.5,
-    0.4000000059604645,
-    0.0
+  "_comment": "ステージ1。区画A(訓練) → B(戦闘部屋1) → C(足場渡り) → D(戦闘部屋2) → E(ボス)。案内文はui_text、区画切替はtriggers→flagGraphs",
+  "playerSpawn": [4.0, 0.4, 0.0],
+  "enemySpawn": [55.0, 0.4, 0.0],
+  "graphPath": "Resources/Graphs/level01_main.json",
+  "flagGraphs": [
+    { "flag": "zone_b", "graphPath": "Resources/Graphs/level01_zone_b.json" },
+    { "flag": "zone_c", "graphPath": "Resources/Graphs/level01_zone_c.json" },
+    { "flag": "zone_d", "graphPath": "Resources/Graphs/level01_zone_d.json" },
+    { "flag": "zone_e", "graphPath": "Resources/Graphs/level01_zone_e.json" },
+    { "flag": "condition_boss_defeated", "graphPath": "Resources/Graphs/level01_boss_down.json" },
+    { "flag": "pickup_pickup_core_3", "graphPath": "Resources/Graphs/level01_last_core.json" }
+  ],
+  "checkpoints": [
+    { "name": "cp_zone_b", "position": [14.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_zone_d", "position": [36.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_zone_e", "position": [48.0, 0.4, 0.0], "activationRadius": 1.5 }
+  ],
+  "triggers": [
+    { "name": "t_zone_b", "position": [13.0, 0.4, 0.0], "radius": 1.5, "flag": "zone_b", "value": true, "once": true },
+    { "name": "t_zone_c", "position": [25.0, 0.4, 0.0], "radius": 1.5, "flag": "zone_c", "value": true, "once": true },
+    { "name": "t_zone_d", "position": [35.5, 0.4, 0.0], "radius": 1.5, "flag": "zone_d", "value": true, "once": true },
+    { "name": "t_zone_e", "position": [47.5, 0.4, 0.0], "radius": 1.5, "flag": "zone_e", "value": true, "once": true }
   ],
   "objects": [
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 37,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_0",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        2.00445556640625,
-        -0.983892560005188,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/block/block.png",
-      "type": "row",
-      "weaponType": ""
+      "name": "floor", "type": "row", "kind": "prop", "axis": "x", "count": 62, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "y",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 13,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_1",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        2.0,
-        0.0,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/block/block.png",
-      "type": "row",
-      "weaponType": ""
+      "name": "ceiling", "type": "row", "kind": "prop", "axis": "x", "count": 62, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 13.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "y",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 13,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_2",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        37.999908447265625,
-        -0.013981282711029053,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/block/block.png",
-      "type": "row",
-      "weaponType": ""
+      "name": "wall_left", "type": "row", "kind": "prop", "axis": "y", "count": 13, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_3",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        8.047576904296875,
-        3.7336156368255615,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row",
-      "weaponType": ""
+      "name": "wall_right", "type": "row", "kind": "prop", "axis": "y", "count": 14, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [64.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 4,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_4",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        13.250701904296875,
-        7.288763999938965,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row",
-      "weaponType": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 3,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_5",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        20.73623275756836,
-        7.531302452087402,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row",
-      "weaponType": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 3,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_6",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        27.699565887451172,
-        3.30727219581604,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
-      "type": "row",
-      "weaponType": ""
-    },
-    {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 2,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": true,
-      "meshCollider": false,
+      "name": "bg_columns", "type": "row", "kind": "prop", "axis": "x", "count": 7, "step": 8.0,
       "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Brick_Column_Small.gltf",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_11",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        17.5,
-        -0.10000000149011612,
-        1.2000000476837158
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.5,
-        1.5,
-        1.5
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 8.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
-      "type": "row",
-      "weaponType": ""
+      "position": [9.5, -0.1, 1.2], "scale": [1.5, 1.5, 1.5], "lighting": true, "solid": false
+    },
+
+    {
+      "name": "a_step", "type": "row", "kind": "prop", "axis": "x", "count": 3, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [7.0, 1.5, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 37,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "prop",
-      "lighting": false,
-      "meshCollider": false,
-      "model": "Resources/block/block.obj",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "obj_12",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        1.9792033433914185,
-        12.998190879821777,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": true,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "Resources/block/block.png",
-      "type": "row",
-      "weaponType": ""
+      "name": "pickup_core_1", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [8.0, 2.4, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.2
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "enemy_basic",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "enemy_sword_guard",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        11.19830322265625,
-        -0.380590558052063,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "static",
-      "weaponType": "Sword"
+      "name": "barrel_a", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [11.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "enemy_basic",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "enemy_spear_guard",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        20.9542236328125,
-        -0.3195246458053589,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "static",
-      "weaponType": "Spear"
+      "name": "guide_a", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95],
+      "text": "訓練区画  移動 A D  ジャンプ W  攻撃 L  回避 I    赤い箱は攻撃で壊せる"
+    },
+
+    {
+      "name": "b_sword_1", "type": "static", "kind": "enemy_basic",
+      "position": [17.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "room_b"
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "enemy_basic",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "enemy_dagger_guard",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        31.015378952026367,
-        -0.3805903196334839,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "static",
-      "weaponType": "Dagger"
+      "name": "b_sword_2", "type": "static", "kind": "enemy_basic",
+      "position": [21.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "room_b"
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": true,
-      "kind": "enemy_basic",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "enemy_boss",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        35.24072265625,
-        -0.334814190864563,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "static",
-      "weaponType": "Hammer"
+      "name": "b_ledge", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [18.5, 2.2, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "hud_anchor",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "hud_anchor_controls",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        1020.0,
-        12.0,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "操作説明",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "",
-      "weaponType": ""
+      "name": "room_b_clear", "type": "static", "kind": "event_condition",
+      "position": [19.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "room_b"
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "isStageBoss": false,
-      "kind": "hud_anchor",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "hud_anchor_weapon_list",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
-      "position": [
-        12.0,
-        12.0,
-        0.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "武器選択",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": "",
-      "weaponType": ""
+      "name": "door_b", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [23.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "activationFlag": "condition_room_b_clear", "activeWhenFlag": false, "activationDelay": 1.2,
+      "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
+      "motionAxis": [0.0, 1.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 5.5, "motionSpeed": 1.0
+    },
+    {
+      "name": "guide_b", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_b",
+      "text": "戦闘部屋  剣の敵を倒して J で武器を奪え    全滅で扉が開く"
+    },
+
+    {
+      "name": "c_step", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [26.0, 0.5, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "c_platform_move", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [29.5, 2.0, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
+      "gimmickMotion": "move_y", "motionAmount": 1.2, "motionSpeed": 1.1
+    },
+    {
+      "name": "c_platform_fall", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [33.0, 3.2, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
+      "gimmickMotion": "fall", "motionAmount": 6.0, "motionSpeed": 1.0
+    },
+    {
+      "name": "pickup_core_2", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [29.5, 5.2, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.2
+    },
+    {
+      "name": "c_flying", "type": "static", "kind": "enemy_basic",
+      "position": [31.5, 4.6, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "zone_c"
+    },
+    {
+      "name": "barrel_c", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [27.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "guide_c", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_c",
+      "text": "足場を渡れ  崩れる床は光ってから落ちる    空中からのコンボは評価が上がる"
+    },
+
+    {
+      "name": "d_dagger", "type": "static", "kind": "enemy_basic",
+      "position": [37.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "room_d"
+    },
+    {
+      "name": "d_healer", "type": "static", "kind": "enemy_basic",
+      "position": [41.5, -0.38, 0.0], "spawnType": "healer", "weaponType": "Sword", "enemyGroup": "room_d"
+    },
+    {
+      "name": "d_sword", "type": "static", "kind": "enemy_basic",
+      "position": [43.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "room_d"
+    },
+    {
+      "name": "d_ledge", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [40.0, 2.4, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "barrel_d", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [39.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "room_d_wave1", "type": "static", "kind": "event_condition",
+      "position": [40.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "room_d"
+    },
+    {
+      "name": "sp_d_wave2_a", "type": "static", "kind": "spawn_point",
+      "position": [37.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "room_d_wave2",
+      "activationFlag": "condition_room_d_wave1", "activationDelay": 0.8
+    },
+    {
+      "name": "sp_d_wave2_b", "type": "static", "kind": "spawn_point",
+      "position": [43.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "room_d_wave2",
+      "activationFlag": "condition_room_d_wave1", "activationDelay": 1.4
+    },
+    {
+      "name": "room_d_clear", "type": "static", "kind": "event_condition",
+      "position": [40.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "room_d_wave2"
+    },
+    {
+      "name": "door_d", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [45.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "activationFlag": "condition_room_d_clear", "activeWhenFlag": false, "activationDelay": 1.2,
+      "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
+      "motionAxis": [0.0, 1.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 5.5, "motionSpeed": 1.0
+    },
+    {
+      "name": "guide_d", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_d",
+      "text": "回復役(緑)を先に倒せ  全滅すると第二波が来る    攻撃は I の回避で紙一重に避けると評価が上がる"
+    },
+
+    {
+      "name": "enemy_boss", "type": "static", "kind": "enemy_basic",
+      "position": [55.0, -0.33, 0.0], "spawnType": "basic", "weaponType": "Hammer", "isStageBoss": true, "enemyGroup": "boss"
+    },
+    {
+      "name": "barrel_e1", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [50.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "barrel_e2", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [60.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "e_platform", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [51.5, 3.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "pickup_core_3", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [52.0, 3.9, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.2
+    },
+    {
+      "name": "boss_defeated", "type": "static", "kind": "event_condition",
+      "position": [55.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "boss"
+    },
+    {
+      "name": "hammer_wall", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [61.0, 1.0, 0.0], "scale": [1.0, 4.0, 1.0], "lighting": true, "solid": true,
+      "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
+      "breakableWeapon": "Hammer", "breakableColor": [0.7, 0.7, 0.75, 1.0]
+    },
+    {
+      "name": "pickup_core_secret", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [62.7, 0.5, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.5, "pickupColor": [1.0, 0.85, 0.3, 1.0]
+    },
+    {
+      "name": "guide_wall", "type": "static", "kind": "ui_text",
+      "position": [61.0, 3.6, 0.0], "textSpace": "world", "textScale": 1.1,
+      "textColor": [0.9, 0.9, 0.95, 0.9], "activationFlag": "condition_boss_defeated",
+      "text": "奪ったハンマーで壊せる"
+    },
+    {
+      "name": "guide_e", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "zone_e",
+      "text": "戦闘区画  技と武器を切り替えてスタイルランクを上げろ    予告円は I で抜けろ"
+    },
+    {
+      "name": "guide_e_done", "type": "static", "kind": "ui_text",
+      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_boss_defeated",
+      "text": "撃破完了  J で武器を奪って区画クリア"
+    },
+
+    {
+      "name": "hud_anchor_controls", "type": "", "kind": "hud_anchor",
+      "position": [1020.0, 12.0, 0.0], "text": "操作説明"
+    },
+    {
+      "name": "hud_anchor_weapon_list", "type": "", "kind": "hud_anchor",
+      "position": [12.0, 12.0, 0.0], "text": "武器選択"
     }
-  ],
-  "playerSpawn": [
-    4.0,
-    0.4000000059604645,
-    0.0
-  ],
-  "triggers": []
+  ]
 }

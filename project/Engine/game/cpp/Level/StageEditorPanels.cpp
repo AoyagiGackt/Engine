@@ -13,7 +13,10 @@
 #include "WinApp.h"
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <imgui.h>
+#include <string>
+#include <vector>
 
 namespace engine::game {
 using namespace engine::graphics;
@@ -33,7 +36,7 @@ bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
 
 void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 {
-    ImGui::TextDisabled("F2: 表示/非表示    F4: 画面優先    WASD/QE: カメラ移動");
+    ImGui::TextDisabled("F2: 表示/非表示  F4: 画面優先  右ドラッグ+WASD/QE: カメラ  中ドラッグ: 平行移動");
     if (ImGui::Button("ゲーム画面を広く表示 (F4)", ImVec2(-1.0f, 0.0f))) {
         editor.viewportFocusMode_ = true;
     }
@@ -91,13 +94,20 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         ImGui::TextDisabled("最後に上部のテストで確認し、制作パネルから検証して保存する");
     }
     if (ImGui::CollapsingHeader("使い方")) {
-        ImGui::BulletText("WASD: カメラ移動    Q/E・マウスホイール: 奥/手前へズーム");
-        ImGui::BulletText("画面上のオブジェクトを左クリック: 選択");
-        ImGui::BulletText("そのまま左ドラッグ: つかんで移動（Shift+ドラッグ: 奥行き(Z)移動）");
+        ImGui::BulletText("右ボタンを押しながらWASD/QE: カメラ移動    中ドラッグ: 平行移動    ホイール: ズーム");
+        ImGui::BulletText("W/E/R: 移動・回転・拡縮ツール。選択物の矢印・リング・四角をつかんで操作");
+        ImGui::BulletText("画面上のオブジェクトを左クリック: 選択    何も無い所から左ドラッグ: 範囲選択");
+        ImGui::BulletText("本体をそのまま左ドラッグ: つかんで移動（Shift+ドラッグ: 奥行き(Z)移動）");
+        ImGui::BulletText("右クリック: その場に置く / 複製・削除・親子付け・ここからテスト のメニュー");
+        ImGui::BulletText("階層でドラッグ＆ドロップ: 落とした先の子になる（見出しへ落とすと親を外す）");
+        ImGui::BulletText("Ctrlを押しながらドラッグ: スナップOFFでも一時的に揃う    Esc: 選択解除    Ctrl+A: 全選択");
         ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存");
         ImGui::BulletText("Ctrl+D・複製ボタン: 選択中の物を複製    Deleteキー: 削除");
         ImGui::BulletText("Ctrl+C / Ctrl+V: 選択中の配置物をコピー・貼り付け");
         ImGui::BulletText("Ctrlを押しながら選択: 複数選択して一括移動・回転・拡縮");
+        ImGui::BulletText("矢印キー: 選択物を少しずつ移動（Shift+上下で奥行き）  F: 選択物へカメラ");
+        ImGui::BulletText("階層のダブルクリック: その配置物へカメラを寄せる");
+        ImGui::BulletText("制作パネルのテスト: 画面中央や選択位置にプレイヤーを置いてすぐ遊べる");
         ImGui::BulletText("スナップをONにすると、移動・配置・複製の座標が指定間隔の倍数に揃う");
         ImGui::BulletText("[+]ボタン: 配置物/敵(ナイト・汎用エネミー)を選んで画面中央に新規追加");
         ImGui::BulletText("敵は実際にHPを持って湧く本物の敵配置数・種類は自由に増減できる");
@@ -142,11 +152,84 @@ void StageEditorHierarchyPanel::RenderCameraSection(StageEditor& editor)
 
 void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
 {
+    // レベル切替: Resources/Levels 直下のJSONを列挙して選ぶ（自動保存ファイルは除外）
+    // 選んだ瞬間に読み込み直す。未保存の編集があれば下の「開くの確認」モーダルに回す
+    constexpr const char* kLevelsDirectory = "Resources/Levels";
+    constexpr const char* kAutoSaveSuffix = ".autosave.json";
+    bool requestOpen = false;
+    const std::string currentFile = std::filesystem::path(editor.levelPath_).filename().string();
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::BeginCombo("##levelFile", currentFile.empty() ? "レベルを選択" : currentFile.c_str())) {
+        std::error_code fileError;
+        std::vector<std::string> files;
+        for (const auto& entry : std::filesystem::directory_iterator(kLevelsDirectory, fileError)) {
+            const std::string name = entry.path().filename().string();
+            if (!entry.is_regular_file() || entry.path().extension() != ".json" || name.ends_with(kAutoSaveSuffix)) {
+                continue;
+            }
+            files.push_back(name);
+        }
+        std::sort(files.begin(), files.end());
+        for (const std::string& name : files) {
+            const bool selected = name == currentFile;
+            if (ImGui::Selectable(name.c_str(), selected) && !selected) {
+                editor.levelPath_ = std::string(kLevelsDirectory) + "/" + name;
+                requestOpen = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    EditorUI::HelpMarker("Resources/Levels のレベルを切り替えます。本編で使うレベルは game_rules.json の levelPaths で指定します");
+
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::InputTextWithHint("##newLevel", "新規レベル名", editor.newLevelName_, sizeof(editor.newLevelName_));
+    ImGui::SameLine();
+    ImGui::BeginDisabled(editor.newLevelName_[0] == '\0');
+    if (ImGui::Button("新規作成")) {
+        // 床・左右の壁・天井だけの土台を書き出してから開く（真っ白なレベルだと足場が無く落ちて始まらない）
+        constexpr int kNewLevelWidth = 40;
+        constexpr int kNewLevelHeight = 13;
+        constexpr float kFloorY = -0.98f;
+        constexpr float kCeilingY = 13.0f;
+        LevelData data;
+        data.playerSpawn = { 4.0f, 0.4f, 0.0f };
+        auto makeRow = [](const char* name, char axis, int count, const Vector3& position) {
+            ObjectDesc row;
+            row.name = name;
+            row.type = "row";
+            row.kind = "prop";
+            row.axis = axis;
+            row.count = count;
+            row.model = "Resources/block/block.obj";
+            row.texture = "Resources/block/block.png";
+            row.position = position;
+            row.lighting = false;
+            row.solid = true;
+            return row;
+        };
+        data.objects.push_back(makeRow("floor", 'x', kNewLevelWidth, { 2.0f, kFloorY, 0.0f }));
+        data.objects.push_back(makeRow("ceiling", 'x', kNewLevelWidth, { 2.0f, kCeilingY, 0.0f }));
+        data.objects.push_back(makeRow("wall_left", 'y', kNewLevelHeight, { 2.0f, 0.0f, 0.0f }));
+        data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + 2), kFloorY, 0.0f }));
+        const std::string newPath = std::string(kLevelsDirectory) + "/" + editor.newLevelName_ + ".json";
+        LevelLoader::Save(newPath, data);
+        editor.levelPath_ = newPath;
+        requestOpen = true;
+    }
+    ImGui::EndDisabled();
+
     char pathBuf[256];
     strncpy_s(pathBuf, editor.levelPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf))) {
         editor.levelPath_ = pathBuf;
+    }
+    if (requestOpen) {
+        if (editor.dirty_) {
+            ImGui::OpenPopup("開くの確認");
+        } else {
+            editor.Open(editor.levelPath_, editor.modelCommon_, editor.camera_);
+        }
     }
     if (ImGui::Button("開く", ImVec2(80, 0))) {
         // 未保存の編集がある時は黙って破棄せず、確認モーダルを挟む
@@ -235,6 +318,13 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
     char objHeader[48];
     snprintf(objHeader, sizeof(objHeader), "オブジェクト (%d)", static_cast<int>(editor.objects_.size()));
     bool objOpen = ImGui::TreeNodeEx(objHeader, ImGuiTreeNodeFlags_DefaultOpen);
+    // 見出しへ落とすと親を外す（一番上の階層へ戻す）
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("STAGE_OBJECT")) {
+            editor.SetParentPreservingWorld(*static_cast<const int*>(payload->Data), -1);
+        }
+        ImGui::EndDragDropTarget();
+    }
     ImGui::SameLine();
     if (ImGui::SmallButton("+##addObj")) {
         ImGui::OpenPopup("AddObjectPopup");
@@ -294,6 +384,26 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
         if (ImGui::MenuItem("カメラポイント")) {
             addEntry("camera", "camera_point");
             editor.objects_.back().desc.activationFlag = editor.objects_.back().desc.name + "_active";
+        }
+        if (ImGui::MenuItem("収集物（エネルギーコア）")) {
+            addEntry("pickup", "pickup");
+            auto& pickup = editor.objects_.back().desc;
+            pickup.model = "Resources/block/block.obj";
+            pickup.texture = "Resources/Effects/circle2.png";
+            pickup.scale = { 0.35f, 0.35f, 0.35f };
+            pickup.lighting = false;
+            pickup.solid = false;
+            editor.RegenerateInstances(editor.objects_.back());
+        }
+        if (ImGui::MenuItem("壊せる物（爆発バレル）")) {
+            addEntry("breakable", "breakable");
+            auto& breakable = editor.objects_.back().desc;
+            breakable.model = "Resources/block/block.obj";
+            breakable.texture = "Resources/block/block.png";
+            breakable.scale = { 0.9f, 0.9f, 0.9f };
+            breakable.lighting = true;
+            breakable.solid = false;
+            editor.RegenerateInstances(editor.objects_.back());
         }
         if (ImGui::MenuItem("巡回Waypoint")) {
             addEntry("waypoint", "patrol_point");

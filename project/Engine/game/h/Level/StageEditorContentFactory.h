@@ -45,6 +45,39 @@ public:
      * @return 生成した配置データを返す
      */
     static StageEditorGeneratedContent CreateWave(const StageEditorWaveConfig& config, int& nextSerial);
+
+    /**
+     * @brief 条件フラグが立つとせり上がって消えるスライド扉を生成する
+     * @param center 扉の中心位置（縦5ブロックぶんの壁）
+     * @param conditionFlag 開く条件のフラグ名（例: "condition_room_clear"）。空なら常時閉じたまま
+     * @param nextSerial 一意な名前の生成に使用して更新する連番
+     */
+    static StageEditorGeneratedContent CreateSlidingDoor(const Vector3& center, const std::string& conditionFlag, int& nextSerial);
+
+    /**
+     * @brief 指定武器の近接攻撃でしか壊れない壁を生成する（solid、爆風なし）
+     * @param center 壁の中心位置
+     * @param weaponType 壊せる武器種別名（"Hammer"等、空なら何でも壊せる）
+     * @param nextSerial 一意な名前の生成に使用して更新する連番
+     */
+    static StageEditorGeneratedContent CreateBreakableWall(const Vector3& center, const std::string& weaponType, int& nextSerial);
+
+    /**
+     * @brief 区画トリガーと、そのフラグで表示される画面下の案内文をセットで生成する
+     * @param center トリガーの位置
+     * @param text 案内文（UTF-8）
+     * @param nextSerial 一意な名前の生成に使用して更新する連番
+     */
+    static StageEditorGeneratedContent CreateZoneGuide(const Vector3& center, const std::string& text, int& nextSerial);
+
+    /**
+     * @brief 収集物を横一列に生成する
+     * @param center 列の中心位置
+     * @param count 個数
+     * @param spacing 間隔
+     * @param nextSerial 一意な名前の生成に使用して更新する連番
+     */
+    static StageEditorGeneratedContent CreatePickupRow(const Vector3& center, int count, float spacing, int& nextSerial);
 };
 
 } // namespace engine::game

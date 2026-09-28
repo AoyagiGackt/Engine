@@ -16,7 +16,8 @@ void StageEditorEventConnection::Reset()
 
 bool StageEditorEventConnection::SupportsTarget(const ObjectDesc& desc)
 {
-    return desc.kind == "spawn_point" || desc.kind == "gimmick" || desc.kind == "camera_point";
+    return desc.kind == "spawn_point" || desc.kind == "gimmick" || desc.kind == "camera_point"
+        || desc.kind == "pickup" || desc.kind == "breakable";
 }
 
 bool StageEditorEventConnection::CanConnect(int objectCount, const ObjectDesc* target) const

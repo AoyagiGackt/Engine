@@ -9,6 +9,7 @@
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
+#include "EnemyTuning.h"
 #include "FontRenderer.h"
 #include "GameFlags.h"
 #include "KnightEnemy.h"
@@ -16,43 +17,103 @@
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "ParticleManager.h"
+#include "Player.h"
+#include "PlayerBridge.h"
 #include "SceneShared.h"
+#include "ScreenFlash.h"
 #include "StringUtility.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <random>
 using namespace engine::game;
 using namespace engine;
 using namespace engine::graphics;
 
 namespace {
-// ObjectDesc::weaponType（Inspectorのコンボボックスと同じ文字列規約）をWeaponTypeへ変換する
-// WeaponManager.cpp内の同名パーサは無名namespace限定で外部から使えないため、ここだけ小さく複製する
-WeaponType ParseEnemyWeaponType(const std::string& type)
+constexpr float kFallFloorWarningEnd = 0.6f;
+constexpr float kFallFloorRespawnStart = 3.5f;
+constexpr float kFallFloorCycleEnd = 4.0f;
+constexpr float kFallFloorCrackLeadTime = 0.28f; // 崩落の何秒前からひび割れの砂ぼこりを出すか
+
+struct FallingFloorState {
+    float yOffset = 0.0f;
+    bool visible = true;
+    bool solid = true;
+    float phase = 0.0f; // サイクル内経過秒（0〜kFallFloorCycleEnd）。ひび割れ演出のタイミング判定に使う
+};
+
+// "fall" gimmicks repeatedly collapse, remain absent, then rise back into place.
+FallingFloorState GetFallingFloorState(float runtimeTimer, float motionSpeed, float motionAmount)
 {
-    if (type == "Spear") {
-        return WeaponType::Spear;
+    const float speed = (std::max)(motionSpeed, 0.01f);
+    const float phase = std::fmod(runtimeTimer * speed, kFallFloorCycleEnd);
+    (void)motionAmount;
+
+    FallingFloorState state;
+    state.phase = phase;
+    if (phase < kFallFloorWarningEnd) {
+        return state;
     }
-    if (type == "Hammer") {
-        return WeaponType::Hammer;
+    if (phase < kFallFloorRespawnStart) {
+        // 床だけが高速で下降すると、通常重力のプレイヤーが空中に取り残される。
+        // 壊れる床はその場で消し、同じフレームから当たり判定も無効にする。
+        state.visible = false;
+        state.solid = false;
+        return state;
     }
-    if (type == "Dagger") {
-        return WeaponType::Dagger;
+    // 復帰時も途中の高さに当たり判定を出さず、元の位置へ直接戻す。
+    return state;
+}
+
+std::mt19937& FallFloorDebrisRng()
+{
+    static std::mt19937 rng { std::random_device {}() };
+    return rng;
+}
+
+// 崩落ギミックの床に、崩れる直前のひび割れ粉塵と、崩落/復帰の瞬間の土煙をまとめて出す
+// （床が消えるだけだと壊れる床だと気付きにくいので、視覚的な予告と崩落感を補う）
+void EmitFallingFloorDebris(ParticleManager* pm, const Vector3& worldPos, const Vector3& halfExtent,
+    const FallingFloorState& state, bool& wasSolid)
+{
+    if (!pm) {
+        wasSolid = state.solid;
+        return;
     }
-    if (type == "Ball") {
-        return WeaponType::Ball;
+    auto& rng = FallFloorDebrisRng();
+    std::uniform_real_distribution<float> ox(-halfExtent.x, halfExtent.x);
+    std::uniform_real_distribution<float> oz(-halfExtent.z, halfExtent.z);
+    std::uniform_real_distribution<float> chance(0.0f, 1.0f);
+    const Vector4 kDustColor = { 0.8f, 0.72f, 0.56f, 0.75f };
+
+    if (wasSolid && !state.solid) {
+        // 崩落の瞬間：破片が飛び散り、土煙が広がる
+        std::uniform_real_distribution<float> vx(-1.8f, 1.8f);
+        std::uniform_real_distribution<float> vy(0.6f, 2.0f);
+        for (int i = 0; i < 14; ++i) {
+            const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
+            pm->EmitGravity("land_dust", p, { vx(rng), vy(rng), 0.0f },
+                kDustColor, 0.55f, 0.14f + chance(rng) * 0.1f);
+        }
+        pm->EmitRing("land_dust", worldPos + Vector3 { 0.0f, halfExtent.y, 0.0f },
+            1.2f, { kDustColor.x, kDustColor.y, kDustColor.z, 0.5f }, 14, 0.5f, 0.2f);
+    } else if (!wasSolid && state.solid) {
+        // 復帰の瞬間：着地のような軽い土煙
+        for (int i = 0; i < 6; ++i) {
+            const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
+            pm->EmitGravity("land_dust", p, { 0.0f, 0.2f + chance(rng) * 0.2f, 0.0f },
+                kDustColor, 0.3f, 0.12f);
+        }
+    } else if (state.solid && state.phase >= kFallFloorWarningEnd - kFallFloorCrackLeadTime
+        && state.phase < kFallFloorWarningEnd && chance(rng) < 0.35f) {
+        // 崩落直前：ひびの隙間から砂ぼこりが間欠的に噴く（崩れる床だと気付かせる警告演出）
+        const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y + 0.02f, worldPos.z + oz(rng) };
+        pm->EmitGravity("land_dust", p, { 0.0f, 0.3f + chance(rng) * 0.3f, 0.0f },
+            kDustColor, 0.35f, 0.08f + chance(rng) * 0.06f);
     }
-    if (type == "Greatsword") {
-        return WeaponType::Greatsword;
-    }
-    if (type == "Scythe") {
-        return WeaponType::Scythe;
-    }
-    if (type == "Axe") {
-        return WeaponType::Axe;
-    }
-    return WeaponType::Sword;
+    wasSolid = state.solid;
 }
 } // namespace
 
@@ -81,6 +142,13 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     }
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
+    // 実体を作り直す＝ゲーム内の状態もやり直す（回収済み/破壊済み/グラフによる一時状態を初期値へ戻す）
+    entry.pickupCollected = false;
+    entry.breakableHp = desc.breakableHp;
+    entry.breakableDestroyed = false;
+    entry.visibleOverride = true;
+    entry.enabledOverride = -1;
+    entry.graphMoveActive = false;
     if (!desc.enabled) {
         UnregisterEnemyEntity(entry);
         entry.knight.reset();
@@ -110,7 +178,8 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
         if (!entry.enemy) {
             entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseEnemyWeaponType(desc.weaponType));
+            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseWeaponTypeName(desc.weaponType));
+            entry.enemy->SetArchetype(desc.spawnType);
             entry.enemy->SetId(desc.name);
             EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
         }
@@ -300,11 +369,24 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
     std::vector<engine::AABB> result;
     for (const auto& entry : objects_) {
-        if (!entry.desc.solid || !entry.runtimeActive) {
+        if (!entry.desc.solid || !entry.runtimeActive || !entry.visibleOverride
+            || entry.pickupCollected || entry.breakableDestroyed) {
             continue;
         }
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
+        if (desc.kind == "gimmick") {
+            if (desc.gimmickMotion == "fall") {
+                const FallingFloorState state = GetFallingFloorState(
+                    entry.runtimeTimer, desc.motionSpeed, desc.motionAmount);
+                if (!state.solid) {
+                    continue;
+                }
+                basePos.y += state.yOffset;
+            } else {
+                basePos = basePos + ComputeGimmickOffset(entry).position;
+            }
+        }
         // Terrainは描画メッシュの各三角形をAABBへ変換し、表示形状の変更と同期する
         if (desc.kind == "terrain" && desc.meshCollider) {
             const std::string key = desc.model + '|' + desc.texture;
@@ -407,6 +489,232 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
     for (auto& entry : objects_) {
         UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
     }
+    // レベル紐付きグラフは配置物の状態が確定した後に進める（編集停止中はロジックも止める）
+    if (!ShouldPauseGame()) {
+        levelGraphs_.Update(kRuntimeDeltaSeconds);
+    }
+}
+
+StageEditor::GimmickOffset StageEditor::ComputeGimmickOffset(const ObjectEntry& entry) const
+{
+    GimmickOffset offset;
+    const ObjectDesc& desc = entry.desc;
+    if (desc.kind != "gimmick") {
+        return offset;
+    }
+    const float phase = entry.runtimeTimer * desc.motionSpeed;
+    if (desc.gimmickMotion == "move_y") {
+        offset.position.y = std::sin(phase) * desc.motionAmount;
+    } else if (desc.gimmickMotion == "move_x") {
+        offset.position.x = std::sin(phase) * desc.motionAmount;
+    } else if (desc.gimmickMotion == "rotate_y") {
+        offset.rotation.y = phase;
+    } else if (desc.gimmickMotion == "rotate_z") {
+        offset.rotation.z = phase;
+    } else if (desc.gimmickMotion == "custom") {
+        // 進行度t（-1〜1または0〜1）をモードごとに求め、移動方向×量と回転量へ同じtを掛ける
+        float t = 0.0f;
+        if (desc.motionMode == "pingpong") {
+            // 等速の三角波（0→1→0）。phaseは1周期=2として折り返す
+            constexpr float kPingPongPeriod = 2.0f;
+            const float cycle = std::fmod(std::abs(phase), kPingPongPeriod);
+            t = cycle <= 1.0f ? cycle : kPingPongPeriod - cycle;
+        } else if (desc.motionMode == "once") {
+            t = std::clamp(phase, 0.0f, 1.0f);
+        } else {
+            t = std::sin(phase);
+        }
+        if (desc.motionEase == "smooth") {
+            // 符号を保ったままsmoothstepで加減速を付ける（loopのsin波はそのまま滑らかなので対象外）
+            const float sign = t < 0.0f ? -1.0f : 1.0f;
+            const float mag = std::abs(t);
+            t = sign * (mag * mag * (3.0f - 2.0f * mag));
+        }
+        offset.position = desc.motionAxis * (desc.motionAmount * t);
+        offset.rotation = desc.motionRotation * t;
+    }
+    return offset;
+}
+
+void StageEditor::UpdateGraphMove(ObjectEntry& entry, float dt)
+{
+    if (!entry.graphMoveActive) {
+        return;
+    }
+    entry.graphMoveTimer += dt;
+    const float t = entry.graphMoveDuration <= 0.0f
+        ? 1.0f
+        : std::clamp(entry.graphMoveTimer / entry.graphMoveDuration, 0.0f, 1.0f);
+    entry.desc.position = {
+        entry.graphMoveFrom.x + (entry.graphMoveTo.x - entry.graphMoveFrom.x) * t,
+        entry.graphMoveFrom.y + (entry.graphMoveTo.y - entry.graphMoveFrom.y) * t,
+        entry.graphMoveFrom.z + (entry.graphMoveTo.z - entry.graphMoveFrom.z) * t
+    };
+    if (t >= 1.0f) {
+        entry.graphMoveActive = false;
+    }
+}
+
+void StageEditor::UpdatePickupEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
+{
+    constexpr float kPickupPulseSpeed = 5.0f; // 脈動の速さ
+    constexpr float kPickupPulseAmplitude = 0.15f; // 脈動によるスケールの揺れ幅
+    constexpr float kPickupSpinSpeed = 1.5f; // 回転の速さ（ラジアン毎秒）
+    constexpr float kPickupRingRadius = 3.0f; // 回収時に広がるリングの半径
+    constexpr int kPickupRingCount = 18;
+    constexpr float kPickupRingLifetime = 0.45f;
+    constexpr float kPickupRingSize = 0.3f;
+    constexpr float kPickupFlashAlpha = 0.2f;
+    constexpr float kPickupFlashSeconds = 0.08f;
+
+    const ObjectDesc& desc = entry.desc;
+    const Vector3 worldPos = WorldPositionOf(desc);
+    if (!ShouldPauseGame()) {
+        const float dx = playerPos.x - worldPos.x;
+        const float dy = playerPos.y - worldPos.y;
+        if (dx * dx + dy * dy <= desc.pickupRadius * desc.pickupRadius) {
+            entry.pickupCollected = true;
+            GameFlags::GetInstance()->SetFlag("pickup_" + desc.name, true);
+            if (Player* player = PlayerBridge::GetInstance()->Get()) {
+                player->ChargeAwakenGauge(desc.pickupGaugeAmount);
+            }
+            if (pm) {
+                pm->EmitRing("awaken_aura", worldPos, kPickupRingRadius, desc.pickupColor,
+                    kPickupRingCount, kPickupRingLifetime, kPickupRingSize);
+            }
+            ScreenFlash::GetInstance()->Request(
+                { desc.pickupColor.x, desc.pickupColor.y, desc.pickupColor.z, kPickupFlashAlpha }, kPickupFlashSeconds);
+            return;
+        }
+    }
+
+    // 未回収の間は回転と脈動で拾える物だと分かるようにする（位置は親子追従のためRefreshTransformsで先に反映する）
+    RefreshTransforms(entry);
+    const float pulse = 1.0f - kPickupPulseAmplitude + std::sin(entry.runtimeTimer * kPickupPulseSpeed) * kPickupPulseAmplitude;
+    for (auto& obj : entry.instances) {
+        obj->SetRotation({ desc.rotation.x, desc.rotation.y + entry.runtimeTimer * kPickupSpinSpeed, desc.rotation.z });
+        obj->SetScale(desc.scale * pulse);
+        obj->SetColor({ desc.pickupColor.x, desc.pickupColor.y * pulse, desc.pickupColor.z, desc.pickupColor.w });
+        obj->Update();
+    }
+}
+
+StageEditor::ObjectEntry* StageEditor::FindEntryByName(const std::string& name)
+{
+    for (auto& entry : objects_) {
+        if (entry.desc.name == name) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+bool StageEditor::SetObjectVisibleByName(const std::string& name, bool visible)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->visibleOverride = visible;
+    if (entry->enemy) {
+        entry->enemy->SetVisible(visible);
+    }
+    return true;
+}
+
+bool StageEditor::TeleportObjectByName(const std::string& name, const Vector3& position)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->graphMoveActive = false;
+    entry->desc.position = position;
+    entry->authoredPosition = position;
+    if (entry->knight) {
+        entry->knight->GetPositionRef() = WorldPositionOf(entry->desc);
+        entry->knight->RefreshVisualTransforms();
+    } else if (entry->enemy) {
+        entry->enemy->GetPositionRef() = WorldPositionOf(entry->desc);
+        entry->enemy->RefreshVisualTransforms();
+    } else {
+        RefreshTransforms(*entry);
+        for (auto& obj : entry->instances) {
+            obj->Update();
+        }
+    }
+    return true;
+}
+
+bool StageEditor::MoveObjectByName(const std::string& name, const Vector3& target, float seconds)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    if (seconds <= 0.0f) {
+        return TeleportObjectByName(name, target);
+    }
+    entry->graphMoveActive = true;
+    entry->graphMoveFrom = entry->desc.position;
+    entry->graphMoveTo = target;
+    entry->graphMoveTimer = 0.0f;
+    entry->graphMoveDuration = seconds;
+    return true;
+}
+
+bool StageEditor::SetObjectEnabledByName(const std::string& name, bool enabled)
+{
+    ObjectEntry* entry = FindEntryByName(name);
+    if (!entry) {
+        return false;
+    }
+    entry->enabledOverride = enabled ? 1 : 0;
+    return true;
+}
+
+bool StageEditor::FindObjectWorldPosition(const std::string& name, Vector3& outPosition) const
+{
+    for (const auto& entry : objects_) {
+        if (entry.desc.name == name) {
+            outPosition = WorldPositionOf(entry.desc);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<BreakableRef> StageEditor::GetBreakables()
+{
+    std::vector<BreakableRef> result;
+    for (auto& entry : objects_) {
+        if (entry.desc.kind != "breakable" || !entry.runtimeActive || entry.breakableDestroyed || entry.instances.empty()) {
+            continue;
+        }
+        BreakableRef ref;
+        ref.desc = &entry.desc;
+        ref.position = WorldPositionOf(entry.desc);
+        ref.hp = &entry.breakableHp;
+        ref.destroyed = &entry.breakableDestroyed;
+        ref.object = entry.instances.front().get();
+        result.push_back(ref);
+    }
+    return result;
+}
+
+void StageEditor::GetPickupCounts(int& outCollected, int& outTotal) const
+{
+    outCollected = 0;
+    outTotal = 0;
+    for (const auto& entry : objects_) {
+        if (entry.desc.kind != "pickup" || !entry.desc.enabled) {
+            continue;
+        }
+        ++outTotal;
+        if (entry.pickupCollected) {
+            ++outCollected;
+        }
+    }
 }
 
 void StageEditor::EvaluateEventConditions(float dt)
@@ -455,9 +763,17 @@ void StageEditor::UpdateRuntimeActivation(float dt)
             entry.runtimeActive = false;
             continue;
         }
+        // グラフのSetObjectEnabledによる上書きは有効化フラグより優先する
+        if (entry.enabledOverride >= 0) {
+            entry.runtimeActive = entry.enabledOverride == 1;
+            if (entry.runtimeActive) {
+                entry.runtimeTimer += dt;
+            }
+            continue;
+        }
         if (desc.activationFlag.empty()) {
             entry.runtimeActive = true;
-            if (desc.kind == "gimmick") {
+            if (desc.kind == "gimmick" || desc.kind == "pickup" || desc.kind == "breakable") {
                 entry.runtimeTimer += dt;
             }
             continue;
@@ -506,11 +822,30 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
         }
         return;
     }
-    if (entry.desc.kind == "patrol_point" || !IsRuntimeActive(entry.desc)) {
+    if (entry.desc.kind == "patrol_point" || (entry.enabledOverride < 0 && !IsRuntimeActive(entry.desc))) {
         return;
     }
     if (entry.knight || entry.enemy) {
         UpdateEnemyEntry(entry, pm, playerPos);
+        return;
+    }
+    if (!ShouldPauseGame()) {
+        UpdateGraphMove(entry, dt);
+    }
+    if (entry.desc.kind == "pickup") {
+        if (!entry.pickupCollected) {
+            UpdatePickupEntry(entry, pm, playerPos);
+        }
+        return;
+    }
+    if (entry.desc.kind == "breakable") {
+        // 見た目のトランスフォームだけ追従させる（ヒット判定と破壊はシーン側がGetBreakables()経由で行う）
+        if (!entry.breakableDestroyed) {
+            RefreshTransforms(entry);
+            for (auto& obj : entry.instances) {
+                obj->Update();
+            }
+        }
         return;
     }
 
@@ -528,15 +863,17 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     const Vector3 authoredPosition = entry.desc.position;
     const Vector3 authoredRotation = entry.desc.rotation;
     if (entry.desc.kind == "gimmick") {
-        const float phase = entry.runtimeTimer * entry.desc.motionSpeed;
-        if (entry.desc.gimmickMotion == "move_y") {
-            entry.desc.position.y += std::sin(phase) * entry.desc.motionAmount;
-        } else if (entry.desc.gimmickMotion == "fall") {
-            entry.desc.position.y -= (std::min)(entry.desc.motionAmount, phase * entry.desc.motionAmount);
-        } else if (entry.desc.gimmickMotion == "rotate_y") {
-            entry.desc.rotation.y += phase;
-        } else if (entry.desc.gimmickMotion == "rotate_z") {
-            entry.desc.rotation.z += phase;
+        if (entry.desc.gimmickMotion == "fall") {
+            const FallingFloorState fallState = GetFallingFloorState(entry.runtimeTimer,
+                entry.desc.motionSpeed, entry.desc.motionAmount);
+            entry.desc.position.y += fallState.yOffset;
+            const Vector3 halfExtent = { 0.5f * std::abs(entry.desc.scale.x),
+                0.5f * std::abs(entry.desc.scale.y), 0.5f * std::abs(entry.desc.scale.z) };
+            EmitFallingFloorDebris(pm, WorldPositionOf(entry.desc), halfExtent, fallState, entry.fallFloorWasSolid);
+        } else {
+            const GimmickOffset offset = ComputeGimmickOffset(entry);
+            entry.desc.position = entry.desc.position + offset.position;
+            entry.desc.rotation = entry.desc.rotation + offset.rotation;
         }
     }
     RefreshTransforms(entry);
@@ -559,6 +896,12 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
 
 void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, const Vector3& playerPos)
 {
+    // 詠唱（回復発動までのタメ）の間に被弾すると中断できる。数値はenemy_params.jsonのbasic節で調整する
+    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
+    const float kHealerPulseSeconds = tuning.healerPulseSeconds;
+    const float kHealerCastSeconds = tuning.healerCastSeconds;
+    const float kHealerRange = tuning.healerRange;
+    const int kHealerAmount = tuning.healerAmount;
     Vector3 worldPos = WorldPositionOf(entry.desc);
     if (!ShouldPauseGame() && UpdatePatrol(entry)) {
         return;
@@ -580,6 +923,65 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
         } else {
             entry.enemy->Update(playerPos.x);
             entry.desc.position = entry.enemy->GetPosition();
+            if (entry.enemy->IsHealer() && !entry.enemy->IsDefeated()) {
+                const int hpNow = entry.enemy->GetHp();
+                if (entry.healChanneling && hpNow < entry.healChannelHpAtStart) {
+                    // 詠唱中にHPが減った＝回復を中断された。サイクルを最初からやり直させる
+                    // （プレイヤーの直接攻撃に限らず、爆発バレルの爆風などダメージ源は問わない仕様）
+                    entry.healChanneling = false;
+                    entry.runtimeTimer = 0.0f;
+                    if (pm) {
+                        pm->EmitHitStar("hit_spark", entry.enemy->GetPosition() + Vector3 { 0.0f, 0.7f, 0.0f },
+                            { 1.0f, 0.9f, 0.35f, 1.0f });
+                    }
+                } else {
+                    entry.runtimeTimer += 1.0f / 60.0f;
+                    if (!entry.healChanneling && entry.runtimeTimer >= kHealerPulseSeconds - kHealerCastSeconds) {
+                        // 詠唱開始。ここから完了までの間に被弾すると上のブロックで中断される
+                        entry.healChanneling = true;
+                        entry.healChannelHpAtStart = hpNow;
+                        if (pm) {
+                            pm->EmitRing("heal_pulse", entry.enemy->GetPosition() + Vector3 { 0.0f, 0.7f, 0.0f },
+                                kHealerRange * 0.5f, { 0.3f, 1.0f, 0.4f, 0.4f }, 16, kHealerCastSeconds, 0.16f);
+                        }
+                    }
+                    if (entry.runtimeTimer >= kHealerPulseSeconds) {
+                        entry.runtimeTimer = 0.0f;
+                        entry.healChanneling = false;
+                        const Vector3 healerPos = entry.enemy->GetPosition();
+                        // 回復対象のHP状態にかかわらず、回復行動そのものを緑の波で知らせる。
+                        if (pm) {
+                            pm->EmitRing("heal_pulse", healerPos + Vector3 { 0.0f, 0.7f, 0.0f },
+                                kHealerRange, { 0.2f, 1.0f, 0.35f, 0.75f }, 24, 0.65f, 0.22f);
+                        }
+                        bool healedAnyAlly = false;
+                        for (auto& ally : objects_) {
+                            if (!ally.enemy || ally.enemy.get() == entry.enemy.get() || ally.enemy->IsDefeated()) continue;
+                            const Vector3 allyPos = ally.enemy->GetPosition();
+                            const float dx = allyPos.x - healerPos.x;
+                            const float dy = allyPos.y - healerPos.y;
+                            if (dx * dx + dy * dy <= kHealerRange * kHealerRange) {
+                                const int hpBefore = ally.enemy->GetHp();
+                                ally.enemy->Heal(kHealerAmount);
+                                if (ally.enemy->GetHp() > hpBefore) {
+                                    healedAnyAlly = true;
+                                    if (pm) {
+                                        const Vector3 effectPos = allyPos + Vector3 { 0.0f, 0.65f, 0.0f };
+                                        pm->EmitRing("heal_pulse", effectPos, 1.4f,
+                                            { 0.25f, 1.0f, 0.4f, 0.9f }, 12, 0.55f, 0.16f);
+                                        pm->EmitBurst("heal_pulse", effectPos,
+                                            { 0.55f, 1.0f, 0.65f, 0.85f }, 8, 0.7f, 0.12f, true);
+                                    }
+                                }
+                            }
+                        }
+                        if (healedAnyAlly && pm) {
+                            pm->EmitBurst("heal_pulse", healerPos + Vector3 { 0.0f, 0.7f, 0.0f },
+                                { 0.4f, 1.0f, 0.55f, 1.0f }, 14, 1.0f, 0.18f, true);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -646,11 +1048,16 @@ void StageEditor::DrawObjects()
     Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
 
     for (auto& entry : objects_) {
-        if (!entry.runtimeActive) {
+        if (!entry.runtimeActive || !entry.visibleOverride || entry.pickupCollected || entry.breakableDestroyed) {
             continue;
         }
         if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
             && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
+            continue;
+        }
+        if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "fall"
+            && !GetFallingFloorState(entry.runtimeTimer, entry.desc.motionSpeed,
+                entry.desc.motionAmount).visible) {
             continue;
         }
         for (auto& obj : entry.instances) {
@@ -709,12 +1116,14 @@ std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
 {
     std::vector<CombatEnemyRef> result;
     for (const auto& entry : objects_) {
-        if (!entry.enemy || !entry.runtimeActive || entry.desc.kind != "enemy_basic" || entry.desc.weaponType.empty()) {
+        // 直置きの敵に加えて、spawn_pointから生成された敵も戦闘対象にする（出現制御をレベル側で組めるように）
+        const bool combatKind = entry.desc.kind == "enemy_basic" || entry.desc.kind == "spawn_point";
+        if (!entry.enemy || !entry.runtimeActive || !combatKind || entry.desc.weaponType.empty()) {
             continue;
         }
         CombatEnemyRef ref;
         ref.name = entry.desc.name;
-        ref.weaponType = ParseEnemyWeaponType(entry.desc.weaponType);
+        ref.weaponType = ParseWeaponTypeName(entry.desc.weaponType);
         ref.isStageBoss = entry.desc.isStageBoss;
         ref.enemy = entry.enemy.get();
         result.push_back(ref);

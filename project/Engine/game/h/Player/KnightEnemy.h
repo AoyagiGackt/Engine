@@ -70,7 +70,7 @@ public:
     /** @brief 現在のHPを返す */
     int GetHp() const override { return hp_; }
     /** @brief 最大HPを返す */
-    int GetMaxHp() const override { return kMaxHp; }
+    int GetMaxHp() const override { return maxHp_; }
     /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
     bool IsAwaitingSteal() const { return state_ == State::Defeated; }
     /** @brief 吸収演出が完全に終わり消滅したか */
@@ -106,11 +106,11 @@ private:
     void UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos);
     void ApplyTransforms();
 
-    static constexpr int kMaxHp = 3;
+    int maxHp_ = 0; ///< Initialize()でEnemyTuning::Knight().maxHpから設定する
 
     State state_ = State::Idle;
     float stateTimer_ = 0.0f;
-    int hp_ = kMaxHp;
+    int hp_ = 0;
 
     Vector3 pos_ = { };
     float yaw_ = 0.0f;

@@ -4,6 +4,7 @@
  */
 #include "ShopScene.h"
 #include "GameConstants.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include <algorithm>
 #include <cstdio>
@@ -113,7 +114,7 @@ void ShopScene::Update()
         doneTimer_ -= GameConstants::kFrameDeltaTime;
         if (doneTimer_ <= 0.0f) {
             RunData::GetInstance()->AdvanceFloor();
-            SceneManager::GetInstance()->ChangeScene("MAP");
+            SceneFlow::GetInstance()->Transition("SHOP", "done", "MAP");
         }
         return;
     }

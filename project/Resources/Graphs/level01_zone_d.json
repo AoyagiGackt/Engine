@@ -1,0 +1,18 @@
+{
+  "comments": {
+    "c0": {
+      "text": "区画Dに入った瞬間（フラグ zone_d の立ち上がり）に走る。前の区画の案内文(guide_c)を消す。ここに区画ごとの演出を足せる",
+      "x": -20.0, "y": -120.0, "w": 560.0, "h": 90.0,
+      "colorR": 0.9, "colorG": 0.85, "colorB": 0.3
+    }
+  },
+  "start": "n_hide",
+  "nodes": {
+    "n_hide": {
+      "type": "SetObjectEnabled",
+      "params": { "target": "guide_c", "enabled": false },
+      "next": "",
+      "editorX": 0.0, "editorY": 0.0
+    }
+  }
+}

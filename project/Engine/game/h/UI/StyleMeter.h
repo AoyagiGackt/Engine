@@ -37,6 +37,13 @@ public:
      */
     void RegisterHit(const std::string& moveId, float basePoints);
 
+    /**
+     * @brief 外部で採点済みの正規化スタイル値(0.0〜1.0)を表示へ反映する
+     * @note 独自にスタイル値を管理するシーンが、採点ロジックはそのままに
+     *       同じ見た目のランクHUDだけを使うための入口。毎フレームUpdate()の前に呼ぶ
+     */
+    void SetNormalizedPoints(float t);
+
     /** @brief ポイント減衰・技の熱冷まし・表示アニメを1フレーム進める */
     void Update(float dt);
 
@@ -51,6 +58,11 @@ public:
 
     int GetRankIndex() const; ///< 0=D 〜 6=SSS
     int GetHitCount() const { return hitCount_; } ///< 現在のヒットチェーン数
+    int GetBestChain() const { return bestChain_; } ///< このメーター生成以降の最大ヒットチェーン数
+    /** @brief 現在のランクに対応する表示色を返す（ランクアップ演出の色をHUDと一致させるのに使う） */
+    Vector4 GetRankColor() const;
+    /** @brief 直前のUpdate()でランクが上がった瞬間ならtrue（1フレームだけ立つ、ランクアップ演出のトリガー用） */
+    bool JustRankedUp() const { return justRankedUp_; }
 
 private:
     float points_ = 0.0f; ///< スタイルポイント（0〜kMaxPoints）
@@ -66,6 +78,7 @@ private:
     float hudAlpha_ = 0.0f; ///< HUD全体のフェード
 
     int prevRank_ = 0;
+    bool justRankedUp_ = false; ///< 直前のUpdate()でランクが上がった瞬間か（1フレームのみ）
     float rankFlashTimer_ = 0.0f; ///< ランク変動時の演出タイマー
     float hitPopTimer_ = 0.0f; ///< ヒット加算時に文字を弾ませる
 
