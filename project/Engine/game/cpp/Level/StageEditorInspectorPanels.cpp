@@ -12,6 +12,7 @@
 #include "KnightEnemy.h"
 #include "SceneShared.h"
 #include "StageEditor.h"
+#include "StageEditorUiStyle.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <commdlg.h>
@@ -20,6 +21,11 @@
 #pragma comment(lib, "comdlg32.lib")
 
 namespace {
+namespace EditorUi = engine::game::StageEditorUiStyle;
+
+constexpr float kAssetPathFieldWidth = 180.0f;
+constexpr float kMaxTriggerRadius = 50.0f;
+
 std::string OpenFileDialog(const char* filter, const char* initialDirectory)
 {
     char path[MAX_PATH] = { };
@@ -51,14 +57,15 @@ using namespace engine::graphics;
 void StageEditorInspectorPanel::RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc)
 {
     constexpr float kVisibleAreaTopMargin = 40.0f; // ツールバーのすぐ下は掴みにくいので少し余白を空ける
-    const float visibleLeft = StageEditor::kLeftPanelWidth;
-    const float visibleRight = static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth;
-    const float visibleTop = StageEditor::kToolbarHeight;
+    const bool inWindow = editor.viewport_.IsImageMode();
+    const float visibleLeft = inWindow ? 0.0f : StageEditor::kLeftPanelWidth;
+    const float visibleRight = static_cast<float>(WinApp::kClientWidth) - (inWindow ? 0.0f : StageEditor::kRightPanelWidth);
+    const float visibleTop = inWindow ? 0.0f : StageEditor::kToolbarHeight;
     const bool hiddenByPanel = desc.position.x < visibleLeft || desc.position.x > visibleRight || desc.position.y < visibleTop;
     if (!hiddenByPanel) {
         return;
     }
-    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
+    ImGui::TextColored(EditorUi::kCautionColor, "この位置は編集パネルの下に隠れており、3Dビュー上ではドラッグできません");
     ImGui::TextDisabled("上の「位置」欄で直接数値を入力するか、下のボタンで一旦ドラッグできる位置へ移動してください");
     if (ImGui::Button("ドラッグできる位置へ移動")) {
         editor.RecordUndoSnapshotNow();
@@ -152,7 +159,7 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
         }
         char modelBuf[256];
         strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
-        ImGui::SetNextItemWidth(180.0f);
+        ImGui::SetNextItemWidth(kAssetPathFieldWidth);
         bool modelChanged = ImGui::InputText("モデル", modelBuf, sizeof(modelBuf));
         if (ImGui::IsItemActivated()) {
             editor.BeginUndoCapture();
@@ -177,7 +184,7 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
 
         char texBuf[256];
         strncpy_s(texBuf, desc.texture.c_str(), _TRUNCATE);
-        ImGui::SetNextItemWidth(180.0f);
+        ImGui::SetNextItemWidth(kAssetPathFieldWidth);
         bool texChanged = ImGui::InputText("テクスチャ", texBuf, sizeof(texBuf));
         if (ImGui::IsItemActivated()) {
             editor.BeginUndoCapture();
@@ -244,7 +251,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
     // ドラッグ系ウィジェットは操作開始で変更前を控え、離した時に1回分のUndoとして確定する
 
     const Vector3 previousPosition = desc.position;
-    const bool positionChanged = captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, 0.1f));
+    const bool positionChanged = captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, EditorUi::kDragStepPosition));
     transformDirty |= positionChanged;
     if (positionChanged && editor.selectedObjectIndices_.size() > 1) {
         const Vector3 delta = {
@@ -262,10 +269,10 @@ void StageEditorInspectorPanel::RenderObjectTransform(
 
     if (visualKind || desc.kind == "camera_point") {
         const Vector3 previousRotation = desc.rotation;
-        const bool rotationChanged = captureItemUndo(ImGui::DragFloat3("回転", &desc.rotation.x, 0.01f));
+        const bool rotationChanged = captureItemUndo(ImGui::DragFloat3("回転", &desc.rotation.x, EditorUi::kDragStepRotation));
         transformDirty |= rotationChanged;
         const Vector3 previousScale = desc.scale;
-        const bool scaleChanged = captureItemUndo(ImGui::DragFloat3("スケール", &desc.scale.x, 0.05f));
+        const bool scaleChanged = captureItemUndo(ImGui::DragFloat3("スケール", &desc.scale.x, EditorUi::kDragStepScale));
         transformDirty |= scaleChanged;
         if ((rotationChanged || scaleChanged) && editor.selectedObjectIndices_.size() > 1) {
             const Vector3 rotationDelta = {
@@ -329,290 +336,8 @@ void StageEditorInspectorPanel::RenderObjectTransform(
                 desc.count = (std::max)(1, count);
                 structuralDirty = true;
             }
-            transformDirty |= captureItemUndo(ImGui::DragFloat("間隔", &desc.step, 0.05f));
+            transformDirty |= captureItemUndo(ImGui::DragFloat("間隔", &desc.step, EditorUi::kDragStepFine));
         }
-    }
-}
-
-void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& structuralDirty)
-{
-    auto& desc = editor.objects_[editor.selIndex_].desc;
-    auto captureItemUndo = [&](bool changed) {
-        if (ImGui::IsItemActivated()) {
-            editor.BeginUndoCapture();
-        }
-        if (changed) {
-            editor.MarkUndoDirty();
-        }
-        if (ImGui::IsItemDeactivated()) {
-            editor.CommitUndoCapture();
-        }
-        return changed;
-    };
-    if (desc.kind == "gimmick" || desc.kind == "spawn_point" || desc.kind == "camera_point"
-        || desc.kind == "pickup" || desc.kind == "breakable") {
-        char flagBuffer[96] = { };
-        strncpy_s(flagBuffer, desc.activationFlag.c_str(), _TRUNCATE);
-        if (captureItemUndo(ImGui::InputText("有効化フラグ", flagBuffer, sizeof(flagBuffer)))) {
-            desc.activationFlag = flagBuffer;
-        }
-        EditorUI::HelpMarker("空なら常時有効です。イベントトリガーが同名のフラグを立てると有効になります");
-    }
-    if (desc.kind == "spawn_point") {
-        const char* spawnTypes[] = { "basic", "knight" };
-        int spawnTypeIndex = desc.spawnType == "knight" ? 1 : 0;
-        if (ImGui::Combo("発生する敵", &spawnTypeIndex, spawnTypes, 2)) {
-            editor.RecordUndoSnapshotNow();
-            desc.spawnType = spawnTypes[spawnTypeIndex];
-            structuralDirty = true;
-        }
-    }
-    if (desc.kind == "spawn_point" || desc.kind == "enemy_basic" || desc.kind == "enemy_knight") {
-        char groupBuffer[96] = { };
-        strncpy_s(groupBuffer, desc.enemyGroup.c_str(), _TRUNCATE);
-        if (captureItemUndo(ImGui::InputText("敵グループ", groupBuffer, sizeof(groupBuffer)))) {
-            desc.enemyGroup = groupBuffer;
-        }
-    }
-    if (desc.kind == "enemy_basic" || desc.kind == "enemy_knight" || desc.kind == "patrol_point") {
-        char routeBuffer[96] = { };
-        strncpy_s(routeBuffer, desc.patrolRoute.c_str(), _TRUNCATE);
-        if (captureItemUndo(ImGui::InputText("巡回ルート名", routeBuffer, sizeof(routeBuffer)))) {
-            desc.patrolRoute = routeBuffer;
-        }
-        if (desc.kind == "patrol_point") {
-            if (ImGui::InputInt("巡回順", &desc.routeOrder)) {
-                editor.RecordUndoSnapshotNow();
-            }
-        } else {
-            captureItemUndo(ImGui::DragFloat("巡回速度", &desc.patrolSpeed, 0.05f, 0.0f, 20.0f));
-        }
-    }
-    if (desc.kind == "enemy_basic" || desc.kind == "spawn_point") {
-        // 空="武器を持たない一般敵"。指定すると倒してJキーで奪取できるようになる（GamePlayScene参照）
-        // spawn_pointも同じ設定を持ち、出現した敵がそのまま戦闘対象になる
-        constexpr const char* kWeaponTypes[] = { "なし", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
-        constexpr int kWeaponTypeCount = static_cast<int>(sizeof(kWeaponTypes) / sizeof(kWeaponTypes[0]));
-        int weaponTypeIndex = 0;
-        for (int i = 1; i < kWeaponTypeCount; ++i) {
-            if (desc.weaponType == kWeaponTypes[i]) {
-                weaponTypeIndex = i;
-                break;
-            }
-        }
-        if (ImGui::Combo("奪取可能な武器", &weaponTypeIndex, kWeaponTypes, kWeaponTypeCount)) {
-            editor.RecordUndoSnapshotNow();
-            desc.weaponType = weaponTypeIndex == 0 ? "" : kWeaponTypes[weaponTypeIndex];
-            structuralDirty = true; // 武器種別はEnemyEntity生成時にしか反映できないため実体を作り直す
-        }
-        EditorUI::HelpMarker("なしの敵はプレイヤーの攻撃対象になりません（本編の戦闘対象は武器持ちの敵だけです）");
-        if (desc.kind == "enemy_basic") {
-            // isStageBossはEnemyEntity生成には関わらないメタデータなのでstructuralDirtyは不要
-            captureItemUndo(ImGui::Checkbox("ステージボス（倒して奪取するとクリア）", &desc.isStageBoss));
-        }
-    }
-    if (desc.kind == "event_condition") {
-        const char* conditionTypes[] = { "manual", "timer", "enemy_group_defeated" };
-        int conditionIndex = desc.conditionType == "timer" ? 1
-            : desc.conditionType == "enemy_group_defeated" ? 2
-                                                           : 0;
-        if (ImGui::Combo("条件", &conditionIndex, conditionTypes, 3)) {
-            editor.RecordUndoSnapshotNow();
-            desc.conditionType = conditionTypes[conditionIndex];
-        }
-        if (desc.conditionType == "timer") {
-            captureItemUndo(ImGui::DragFloat("成立までの秒数", &desc.conditionSeconds, 0.1f, 0.0f, 300.0f));
-        } else if (desc.conditionType == "enemy_group_defeated") {
-            char groupBuffer[96] = { };
-            strncpy_s(groupBuffer, desc.enemyGroup.c_str(), _TRUNCATE);
-            if (captureItemUndo(ImGui::InputText("監視する敵グループ", groupBuffer, sizeof(groupBuffer)))) {
-                desc.enemyGroup = groupBuffer;
-            }
-        }
-    }
-    if (desc.kind == "gimmick") {
-        constexpr const char* kMotions[] = { "none", "move_x", "move_y", "rotate_y", "rotate_z", "fall", "blink", "custom" };
-        constexpr int kMotionCount = static_cast<int>(sizeof(kMotions) / sizeof(kMotions[0]));
-        int motionIndex = 0;
-        for (int i = 1; i < kMotionCount; ++i) {
-            if (desc.gimmickMotion == kMotions[i]) {
-                motionIndex = i;
-                break;
-            }
-        }
-        if (ImGui::Combo("動作プリセット", &motionIndex, kMotions, kMotionCount)) {
-            editor.RecordUndoSnapshotNow();
-            desc.gimmickMotion = kMotions[motionIndex];
-        }
-        EditorUI::HelpMarker("customは移動方向・回転量・往復方式を自由に組み合わせる汎用動作です。プリセットに無い動きはここで作れます");
-        captureItemUndo(ImGui::DragFloat("動作量", &desc.motionAmount, 0.1f));
-        captureItemUndo(ImGui::DragFloat("動作速度", &desc.motionSpeed, 0.1f, 0.0f, 20.0f));
-        if (desc.gimmickMotion == "custom") {
-            captureItemUndo(ImGui::DragFloat3("移動方向", &desc.motionAxis.x, 0.05f));
-            EditorUI::HelpMarker("この方向へ動作量ぶん動きます。(0,0,0)なら移動しません");
-            captureItemUndo(ImGui::DragFloat3("回転量(rad)", &desc.motionRotation.x, 0.05f));
-            EditorUI::HelpMarker("進行度1.0に対する各軸の回転量です。(0,0,0)なら回転しません");
-            constexpr const char* kModes[] = { "loop", "pingpong", "once" };
-            constexpr int kModeCount = static_cast<int>(sizeof(kModes) / sizeof(kModes[0]));
-            int modeIndex = desc.motionMode == "pingpong" ? 1 : desc.motionMode == "once" ? 2 : 0;
-            if (ImGui::Combo("往復方式", &modeIndex, kModes, kModeCount)) {
-                editor.RecordUndoSnapshotNow();
-                desc.motionMode = kModes[modeIndex];
-            }
-            EditorUI::HelpMarker("loop: 波のように往復 / pingpong: 等速で往復 / once: 有効化から一度だけ動いて止まる（扉の開閉など）");
-            constexpr const char* kEases[] = { "linear", "smooth" };
-            int easeIndex = desc.motionEase == "smooth" ? 1 : 0;
-            if (ImGui::Combo("加減速", &easeIndex, kEases, 2)) {
-                editor.RecordUndoSnapshotNow();
-                desc.motionEase = kEases[easeIndex];
-            }
-        }
-    }
-    if (desc.kind == "pickup") {
-        captureItemUndo(ImGui::DragFloat("回収半径", &desc.pickupRadius, 0.05f, 0.1f, 10.0f));
-        captureItemUndo(ImGui::DragFloat("覚醒ゲージ増加量", &desc.pickupGaugeAmount, 0.01f, 0.0f, 1.0f));
-        captureItemUndo(ImGui::ColorEdit4("表示色", &desc.pickupColor.x));
-        EditorUI::HelpMarker("回収するとGameFlagsに pickup_<名前> が立ちます。ノードグラフのフラグ起動やGetFlagで反応できます");
-    }
-    if (desc.kind == "breakable") {
-        if (ImGui::InputInt("耐久(ヒット回数)", &desc.breakableHp)) {
-            editor.RecordUndoSnapshotNow();
-            structuralDirty = true; // 残りHPは実体生成時に初期化するため作り直す
-        }
-        captureItemUndo(ImGui::DragFloat("爆風半径", &desc.breakableRadius, 0.1f, 0.0f, 20.0f));
-        if (ImGui::InputInt("プレイヤーへのダメージ", &desc.breakablePlayerDamage)) {
-            editor.RecordUndoSnapshotNow();
-        }
-        if (ImGui::InputInt("敵へのダメージ", &desc.breakableEnemyDamage)) {
-            editor.RecordUndoSnapshotNow();
-        }
-        captureItemUndo(ImGui::ColorEdit4("表示色", &desc.breakableColor.x));
-        EditorUI::HelpMarker("壊すとGameFlagsに broken_<名前> が立ちます");
-        constexpr const char* kBreakWeapons[] = { "何でも", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
-        constexpr int kBreakWeaponCount = static_cast<int>(sizeof(kBreakWeapons) / sizeof(kBreakWeapons[0]));
-        int breakWeaponIndex = 0;
-        for (int i = 1; i < kBreakWeaponCount; ++i) {
-            if (desc.breakableWeapon == kBreakWeapons[i]) {
-                breakWeaponIndex = i;
-                break;
-            }
-        }
-        if (ImGui::Combo("壊せる武器", &breakWeaponIndex, kBreakWeapons, kBreakWeaponCount)) {
-            editor.RecordUndoSnapshotNow();
-            desc.breakableWeapon = breakWeaponIndex == 0 ? "" : kBreakWeapons[breakWeaponIndex];
-        }
-        EditorUI::HelpMarker("武器を指定すると、その武器の近接攻撃でしか壊れません。当たり判定ONと爆風半径0にすると壊せる壁になります");
-    }
-    if (desc.kind == "camera_point") {
-        if (editor.camera_ && ImGui::Button("現在のビューをカメラポイントへ保存")) {
-            editor.RecordUndoSnapshotNow();
-            desc.position = editor.camera_->GetTranslate();
-            desc.rotation = editor.camera_->GetRotate();
-            editor.RefreshTransforms(editor.objects_[editor.selIndex_]);
-        }
-        if (editor.camera_ && ImGui::Button("カメラポイントをプレビュー")) {
-            editor.camera_->SetTranslate(editor.WorldPositionOf(desc));
-            editor.camera_->SetRotate(desc.rotation);
-        }
-        captureItemUndo(ImGui::DragFloat("カメラ補間秒数", &desc.cameraBlendSeconds, 0.05f, 0.0f, 10.0f));
-        captureItemUndo(ImGui::DragFloat("カメラ維持秒数", &desc.cameraHoldSeconds, 0.1f, 0.0f, 30.0f));
-    }
-
-    // テスト中に今どうなっているかを確認し、必要ならその場で初期状態へ戻す
-    if (ImGui::CollapsingHeader("ゲーム中の状態")) {
-        auto& entry = editor.objects_[editor.selIndex_];
-        ImGui::Text("有効: %s", entry.runtimeActive ? "はい" : "いいえ");
-        if (!desc.activationFlag.empty()) {
-            ImGui::Text("有効化フラグ %s: %s", desc.activationFlag.c_str(),
-                GameFlags::GetInstance()->GetFlag(desc.activationFlag) ? "ON" : "OFF");
-        }
-        if (entry.enabledOverride >= 0) {
-            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "グラフによる上書き: %s", entry.enabledOverride == 1 ? "有効" : "無効");
-        }
-        if (desc.kind == "pickup") {
-            ImGui::Text("回収: %s", entry.pickupCollected ? "済み" : "未");
-        }
-        if (desc.kind == "breakable") {
-            ImGui::Text("耐久: %d / %d  %s", entry.breakableHp, desc.breakableHp, entry.breakableDestroyed ? "(破壊済み)" : "");
-        }
-        if (entry.enemy) {
-            ImGui::Text("敵HP: %d / %d  %s", entry.enemy->GetHp(), entry.enemy->GetMaxHp(), entry.enemy->IsDefeated() ? "(撃破済み)" : "");
-        }
-        if (entry.knight) {
-            ImGui::Text("ナイトHP: %d / %d  %s", entry.knight->GetHp(), entry.knight->GetMaxHp(), entry.knight->IsAlive() ? "" : "(撃破済み)");
-        }
-        if (desc.kind == "gimmick") {
-            ImGui::Text("動作経過: %.2f 秒", entry.runtimeTimer);
-        }
-        if (ImGui::Button("この配置物を初期状態に戻す", ImVec2(-1.0f, 0.0f))) {
-            editor.RegenerateInstances(entry);
-        }
-        EditorUI::HelpMarker("回収済み・破壊済み・敵のHP・グラフによる上書きをリセットして実体を作り直します");
-    }
-}
-
-void StageEditorInspectorPanel::RenderObjectText(StageEditor& editor)
-{
-    auto& desc = editor.objects_[editor.selIndex_].desc;
-    if (desc.kind != "ui_text") {
-        return;
-    }
-    auto captureItemUndo = [&](bool changed) {
-        if (ImGui::IsItemActivated()) {
-            editor.BeginUndoCapture();
-        }
-        if (changed) {
-            editor.MarkUndoDirty();
-        }
-        if (ImGui::IsItemDeactivated()) {
-            editor.CommitUndoCapture();
-        }
-        return changed;
-    };
-
-    char textBuf[512];
-    strncpy_s(textBuf, desc.text.c_str(), _TRUNCATE);
-    if (captureItemUndo(ImGui::InputTextMultiline("文字列", textBuf, sizeof(textBuf), ImVec2(-1.0f, 60.0f)))) {
-        desc.text = textBuf;
-    }
-
-    captureItemUndo(ImGui::ColorEdit4("色", &desc.textColor.x));
-    if (ImGui::Checkbox("太字", &desc.textBold)) {
-        editor.RecordUndoSnapshotNow();
-    }
-    captureItemUndo(ImGui::DragFloat("大きさ", &desc.textScale, 0.05f, 0.1f, 10.0f));
-
-    const char* spaces[] = { "screen", "world" };
-    const char* spaceLabels[] = { "画面座標(px)", "ワールド座標" };
-    int spaceIndex = (desc.textSpace == "world") ? 1 : 0;
-    if (ImGui::Combo("座標基準", &spaceIndex, spaceLabels, 2)) {
-        const std::string newSpace = spaces[spaceIndex];
-        if (newSpace != desc.textSpace) {
-            editor.RecordUndoSnapshotNow();
-            // 座標基準の切り替え時にposition(px⇔ワールド単位)を素通りさせると、
-            // 数値のスケールが噛み合わずカメラ範囲外へ飛んで見えなくなるため、その場でスクリーン上の見た目を保つよう変換する
-            if (newSpace == "world") {
-                Vector3 worldPos;
-                desc.position = editor.MouseToGround(desc.position.x, desc.position.y, worldPos) ? worldPos : Vector3 { };
-            } else {
-                float camX = 0.0f, camY = 0.0f;
-                if (editor.camera_) {
-                    const Vector3& camPos = editor.camera_->GetTranslate();
-                    camX = camPos.x;
-                    camY = camPos.y;
-                }
-                const Vector3 world = editor.WorldPositionOf(desc);
-                float screenX, screenY;
-                SceneShared::WorldToScreen(world.x, world.y, camX, camY, screenX, screenY);
-                desc.position = { screenX, screenY, 0.0f };
-            }
-            desc.textSpace = newSpace;
-        }
-    }
-    EditorUI::HelpMarker("画面座標: 位置のx/yをスクリーンピクセル座標として使います（カメラに影響されず常に同じ位置に表示）\nワールド座標: 位置をワールド座標として扱い、カメラに応じて画面へ投影します");
-
-    if (desc.textSpace == "screen") {
-        RenderScreenAnchorOcclusionWarning(editor, desc);
     }
 }
 
@@ -635,10 +360,11 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     bool structuralDirty = false;
     bool transformDirty = false;
     RenderObjectIdentity(editor, structuralDirty);
+    // 文章UIは入力欄を先に出し、3Dモデル用の設定へ埋もれないようにする。
+    RenderObjectText(editor);
     RenderObjectVisual(editor, structuralDirty);
     RenderObjectTransform(editor, structuralDirty, transformDirty);
     RenderObjectGameplay(editor, structuralDirty);
-    RenderObjectText(editor);
     RenderHudAnchorInspector(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
@@ -687,8 +413,8 @@ bool StageEditorInspectorPanel::RenderTriggerInspector(StageEditor& editor)
     }
     EditorUI::HelpMarker("プレイヤーが球に入ると、この名前のフラグが立ちます。\nノードエディタ(F1)のGetFlagノードで参照できます");
 
-    captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, 0.1f));
-    captureItemUndo(ImGui::DragFloat("半径", &desc.radius, 0.05f, 0.1f, 50.0f));
+    captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, EditorUi::kDragStepPosition));
+    captureItemUndo(ImGui::DragFloat("半径", &desc.radius, EditorUi::kDragStepFine, EditorUi::kMinRadius, kMaxTriggerRadius));
     {
         bool value = desc.value;
         if (ImGui::Checkbox("進入時に設定する値", &value)) {
@@ -721,12 +447,12 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     ImGui::Text("%s", ref.name.c_str());
     ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
     if (ref.position) {
-        ImGui::DragFloat3("位置", &ref.position->x, 0.1f);
+        ImGui::DragFloat3("位置", &ref.position->x, EditorUi::kDragStepPosition);
     }
     if (ref.object) {
         Transform& transform = ref.object->GetTransform();
-        ImGui::DragFloat3("回転", &transform.rotate.x, 0.01f);
-        ImGui::DragFloat3("スケール", &transform.scale.x, 0.05f);
+        ImGui::DragFloat3("回転", &transform.rotate.x, EditorUi::kDragStepRotation);
+        ImGui::DragFloat3("スケール", &transform.scale.x, EditorUi::kDragStepScale);
         ImGui::TextDisabled("シーン背景（実行中のみ編集）");
     }
     if (ref.getVisualPreset && ref.setVisualPreset) {
@@ -763,7 +489,7 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
                         const std::string keepTex = ref.getStaticVisualTexture ? ref.getStaticVisualTexture() : "";
                         ref.setStaticVisualModel(ToProjectRelativePath(selected), keepTex);
                         editor.statusMessage_ = "アニメーションなしの静的モデルとして読み込みました";
-                        editor.statusTimer_ = 4.0f;
+                        editor.statusTimer_ = StageEditor::kStatusLongSeconds;
                     }
                 }
             }
@@ -776,7 +502,7 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
                 if (!selectedTex.empty() && ref.setStaticVisualModel && ref.getStaticVisualModel) {
                     ref.setStaticVisualModel(ref.getStaticVisualModel(), ToProjectRelativePath(selectedTex));
                     editor.statusMessage_ = "テクスチャを差し替えました";
-                    editor.statusTimer_ = 4.0f;
+                    editor.statusTimer_ = StageEditor::kStatusLongSeconds;
                 }
             }
         }
@@ -793,11 +519,24 @@ void StageEditorInspectorPanel::Render(StageEditor& editor)
 {
     ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth, StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth, static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight), ImGuiCond_Always);
-    ImGui::Begin("詳細設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("選択した物の設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    const bool hasSelection = editor.selKind_ != StageEditor::SelKind::None;
+    if (hasSelection) {
+        if (ImGui::Button("選択した物へカメラを寄せる (F)", ImVec2(-1.0f, 0.0f))) {
+            editor.FocusCameraOnSelection();
+        }
+        ImGui::TextDisabled("数値はドラッグ、ダブルクリックで直接入力");
+        ImGui::Separator();
+    }
     if (!RenderObjectInspector(editor)
         && !RenderTriggerInspector(editor)
         && !RenderExternalInspector(editor)) {
-        ImGui::TextDisabled("左のステージエディタでオブジェクト/トリガーを選択してください");
+        ImGui::TextWrapped("編集したい物を、画面上か左の一覧でクリックしてください。");
+        ImGui::Spacing();
+        ImGui::TextWrapped("1. 左下の素材をクリックして配置\n2. 画面上でつかんで移動\n3. ここで大きさや動作を調整\n4. 上部のテストで確認して保存");
+        if (ImGui::Button("詳しい使い方を見る", ImVec2(-1.0f, 0.0f))) {
+            editor.showEditorHelp_ = true;
+        }
     }
     ImGui::End();
 }

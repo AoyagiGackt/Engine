@@ -15,6 +15,7 @@
  *   menu_.Draw();
  */
 #pragma once
+#include "Audio.h"
 #include "FontRenderer.h"
 #include "Input.h"
 #include "MakeAffine.h"
@@ -40,7 +41,7 @@ public:
      * @param spriteCommon ハイライト用Spriteの生成に使う共通設定
      * @param fontRenderer ラベル・カーソル記号の描画に使うFontRenderer
      */
-    void Initialize(SpriteCommon* spriteCommon, FontRenderer* fontRenderer);
+    void Initialize(SpriteCommon* spriteCommon, FontRenderer* fontRenderer, engine::Audio* audio = nullptr);
 
     /**
      * @brief 表示位置とレイアウトを設定する
@@ -82,6 +83,7 @@ private:
 
     SpriteCommon* spriteCommon_ = nullptr;
     FontRenderer* fontRenderer_ = nullptr;
+    engine::Audio* audio_ = nullptr;
 
     std::vector<UIButton> items_;
     std::vector<std::unique_ptr<Sprite>> boxes_;

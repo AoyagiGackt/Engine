@@ -7,15 +7,27 @@
 #include "Input.h"
 #include "Player.h"
 #include <algorithm>
+#include <limits>
 
 using namespace engine;
 using namespace engine::game;
 
 //  Physics State（水中/水上）
 
+namespace engine::game {
+class Player::GroundedPhysicsState : public IPhysicsState {
+    public:
+        void Update(Player& player, Input* input) const override;
+    };
+class Player::UnderwaterPhysicsState : public IPhysicsState {
+    public:
+        void Update(Player& player, Input* input) const override;
+    };
+}
+
 void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
 {
-    const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
+    const float speedMult = (player.isAwakened_ ? kAwakenedSpeedMult_ : 1.0f) * player.skillMods_.speedMult;
 
     // 横移動（水の抵抗で遅い）
     if (input->PushAction(Input::Action::MoveLeft)) {
@@ -39,7 +51,7 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
     player.pos_.y += player.velocityY_;
 
     // 床クランプ（水底でも止まる）
-    if (player.pos_.y <= kGroundY_) {
+    if (!player.useStageFloor_ && player.pos_.y <= kGroundY_) {
         player.pos_.y = kGroundY_;
         player.velocityY_ = 0.0f;
         player.onGround_ = true;
@@ -56,8 +68,8 @@ void Player::UnderwaterPhysicsState::Update(Player& player, Input* input) const
 
 void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
 {
-    const float speedMult = (player.isAwakened_ ? 1.5f : 1.0f) * player.skillMods_.speedMult;
-    const float jumpMult = (player.isAwakened_ ? 1.3f : 1.0f) * player.skillMods_.jumpMult;
+    const float speedMult = (player.isAwakened_ ? kAwakenedSpeedMult_ : 1.0f) * player.skillMods_.speedMult;
+    const float jumpMult = (player.isAwakened_ ? kAwakenedJumpMult_ : 1.0f) * player.skillMods_.jumpMult;
 
     // 回避中は回避の移動が位置を決めるので、通常の左右移動とジャンプは受け付けない
     if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_ && !player.dodgeActive_) {
@@ -81,7 +93,8 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
         }
     }
 
-    if (ApplyGravityAndClampY(player.pos_.y, player.velocityY_, kGravity_, kGroundY_, kCeilingY_)) {
+    const float groundY = player.useStageFloor_ ? (std::numeric_limits<float>::lowest)() : kGroundY_;
+    if (ApplyGravityAndClampY(player.pos_.y, player.velocityY_, kGravity_, groundY, kCeilingY_)) {
         player.onGround_ = true;
     }
 

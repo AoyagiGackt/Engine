@@ -12,8 +12,8 @@ namespace engine::game {
 /** @brief 1件ぶんの遷移先（シーン名とフェード秒数） */
 struct SceneTransition {
     std::string scene;
-    float fadeOut = 0.15f;
-    float fadeIn = 0.15f;
+    float fadeOut = 0.38f;
+    float fadeIn = 0.38f;
 };
 
 /**

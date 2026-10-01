@@ -739,6 +739,7 @@
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditor.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorUiStyle.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h" />
@@ -767,4 +768,44 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\AwakenGaugeHud.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\TrainingHud.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\WeaponSlotHud.cpp" />
+    <ClInclude Include="Engine\game\h\Level\EditorGamePreview.h" />
+    <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h" />
+    <ClInclude Include="Engine\game\h\Scene\GamePauseController.h" />
+    <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h" />
+    <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h" />
+    <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h" />
+    <ClInclude Include="Engine\game\h\UI\AwakenGaugeHud.h" />
+    <ClInclude Include="Engine\game\h\UI\HudLayer.h" />
+    <ClInclude Include="Engine\game\h\UI\TrainingHud.h" />
+    <ClInclude Include="Engine\game\h\UI\WeaponSlotHud.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneParticles.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneEnemyAttacks.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntimeBehavior.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntimeQueries.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorEventPanels.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorWorkflowPanels.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorPlacement.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorHistory.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorGameplayInspector.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerVisuals.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneFinisher.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorPalette.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\PlayerStatus.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\FallingFloorBehavior.cpp"></ClCompile>
+    <ClInclude Include="Engine\game\h\Level\FallingFloorBehavior.h"></ClInclude>
+  </ItemGroup>
 </Project>

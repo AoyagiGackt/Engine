@@ -270,8 +270,9 @@ void DirectXCommon::UpdateFixFPS()
 {
 
     static constexpr float kFpsMargin = 65.0f; // 60fps未達のチェック閾値
-    const std::chrono::microseconds kMinTime(uint64_t(1000000.0f / GameConstants::kTargetFps));
-    const std::chrono::microseconds kMinCheckTime(uint64_t(1000000.0f / kFpsMargin));
+    static constexpr float kMicrosecondsPerSecond = 1000000.0f;
+    const std::chrono::microseconds kMinTime(uint64_t(kMicrosecondsPerSecond / GameConstants::kTargetFps));
+    const std::chrono::microseconds kMinCheckTime(uint64_t(kMicrosecondsPerSecond / kFpsMargin));
     // 現在時間を取得
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     // 前回記録からの経過時間を取得する

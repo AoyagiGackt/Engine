@@ -4,6 +4,7 @@
  */
 #include "GunCombo.h"
 #include "Easing.h"
+#include "GameConstants.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "Weapon.h"
@@ -22,7 +23,8 @@ using namespace engine::game;
 //   Railgun … チャージ2段。長い構えから貫通の一撃、全銃最長射程
 namespace {
 
-constexpr float kDeg = 3.14159265f / 180.0f;
+constexpr float kDeg = GameConstants::kDegToRad;
+constexpr float kMinShotDuration = 0.05f; // JSONで0以下を書かれても段が進むようにする下限
 
 // ── Pistol（ハンドガン）  右→左→右のトリプルタップ + 2連射締め ─────
 constexpr GunShotDef kPistolSteps[] = {
@@ -88,7 +90,7 @@ void RefreshView(RuntimeGunComboSet& set)
 void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data)
 {
     shot.damageMult = (std::max)(data.value("damageMult", shot.damageMult), 0.0f);
-    shot.duration = (std::max)(data.value("duration", shot.duration), 0.05f);
+    shot.duration = (std::max)(data.value("duration", shot.duration), kMinShotDuration);
     shot.shotTime = std::clamp(data.value("shotTime", shot.shotTime), 0.0f, shot.duration);
     shot.cancelTime = std::clamp(data.value("cancelTime", shot.cancelTime), shot.shotTime, shot.duration);
     shot.rangeMult = (std::max)(data.value("rangeMult", shot.rangeMult), 0.0f);

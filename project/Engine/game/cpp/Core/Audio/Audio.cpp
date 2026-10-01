@@ -39,6 +39,8 @@ void Audio::Initialize()
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     Logger::Log("Audio System Initialized.");
+    GetCachedSound("Resources/SE/choice.mp3");
+    GetCachedSound("Resources/SE/select.mp3");
 }
 
 // 音声システムを終了するゲーム終了時に1度だけ呼ぶ
@@ -51,6 +53,7 @@ void Audio::Finalize()
     // 再生中の音声をすべて停止する
     StopBGM();
     StopAllSE();
+    soundCache_.clear();
 
     // マスタリングボイスを破棄する
     if (masteringVoice_) {
@@ -69,6 +72,30 @@ void Audio::Finalize()
 
 // 音声ファイル（MP3・WAV など）を読み込んでメモリに展開する
 // 戻り値の SoundData を PlayBGM / PlaySE に渡して再生する
+const SoundData& Audio::GetCachedSound(const std::string& filename)
+{
+    auto it = soundCache_.find(filename);
+    if (it == soundCache_.end()) {
+        it = soundCache_.emplace(filename, LoadAudio(filename)).first;
+    }
+    return it->second;
+}
+
+void Audio::PlayMenuChoice()
+{
+    PlaySE(GetCachedSound("Resources/SE/choice.mp3"));
+}
+
+void Audio::PlayMenuSelect()
+{
+    PlaySE(GetCachedSound("Resources/SE/select.mp3"));
+}
+
+void Audio::PlayTitleBGM()
+{
+    PlayBGM(GetCachedSound("Resources/bgm/titleBgm.mp3"));
+}
+
 SoundData Audio::LoadAudio(const std::string& filename)
 {
     HRESULT hr;
@@ -196,6 +223,8 @@ void Audio::PlayBGM(const SoundData& soundData, bool loop)
     StopBGM();
 
     bgmVoice_ = CreateSourceVoice(soundData);
+    bgmVoice_->SetVolume(bgmCurrentVolume_);
+    bgmFadeDuration_ = 0.0f;
 
     // 音声バッファを設定する
     XAUDIO2_BUFFER buffer = { };
@@ -223,8 +252,11 @@ void Audio::StopBGM()
 // BGM の音量を変更する（0.0f = 無音、1.0f = 標準、それ以上 = 増幅）
 void Audio::SetBGMVolume(float volume)
 {
+    bgmCurrentVolume_ = std::clamp(volume, 0.0f, 1.0f);
+    bgmTargetVolume_ = bgmCurrentVolume_;
+    bgmFadeDuration_ = 0.0f;
     if (bgmVoice_) {
-        bgmVoice_->SetVolume(volume);
+        bgmVoice_->SetVolume(bgmCurrentVolume_);
     }
 }
 

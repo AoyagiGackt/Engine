@@ -3,6 +3,7 @@
  * @brief BattleTestScene/TrainingScene/GamePlayScene間で共通の武器切替・カメラ追従・HUD描画処理（SceneShared名前空間）の実装
  */
 #include "SceneShared.h"
+#include "Audio.h"
 #include "BulletPool.h"
 #include "Camera.h"
 #include "FontRenderer.h"
@@ -32,6 +33,20 @@ namespace {
     // フィニッシャー演出共通の色（青白い剣閃）
     constexpr Vector4 kFinisherGlowColor = { 0.60f, 0.85f, 1.00f, 0.95f };
     constexpr Vector4 kFinisherSparkColor = { 0.80f, 0.95f, 1.00f, 1.00f };
+    constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アルファはGameConstants::kFinisherOverlayAlpha
+
+    constexpr float kDefaultIconScale = 0.2f; // weapon_icons.jsonにscaleがない時の既定値
+    constexpr int kWeaponSlotCount = 4;
+    constexpr float kWeaponCycleCooldown = 0.15f; // 武器切り替えの連打を抑える間隔（秒）
+
+    // HUDの行送り
+    constexpr float kHudSectionGap = 2.0f; // 見出しの下に空ける余白
+    constexpr float kHudHintGap = 4.0f; // 操作ヒントの前に空ける余白
+
+    // 逆さ状態のスピン連射
+    constexpr int kUpsideDownHitStopFrames = 3;
+    constexpr Vector4 kUpsideDownFlashColor = { 1.0f, 0.7f, 0.1f, 0.55f };
+    constexpr float kUpsideDownFlashSeconds = 0.10f;
 
     std::mt19937& FinisherRng()
     {
@@ -67,7 +82,7 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
             asset.type = ParseIconWeaponType(entry.value("type", std::string("Sword")));
             asset.modelPath = entry.value("model", std::string());
             asset.texturePath = entry.value("texture", std::string());
-            asset.scale = entry.value("scale", 0.2f);
+            asset.scale = entry.value("scale", kDefaultIconScale);
             asset.baseYaw = entry.value("baseYawDeg", 0.0f) * GameConstants::kDegToRad;
             assets.push_back(std::move(asset));
         }
@@ -87,113 +102,13 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
     return assets;
 }
 
-void InitializeWeaponSlotHud(SpriteCommon* spriteCommon, WeaponManager* weaponManager,
-    WeaponSlotUI* slots, Vector2* slotPos, int slotCount,
-    float slotSize, float slotGap, float marginX, float baseY, bool checkUnlockedForInitialColor,
-    std::unique_ptr<Sprite>& gunFrame, std::unique_ptr<Sprite>& gunIcon, Vector2& gunPos)
-{
-    const auto& list = weaponManager->GetList();
-    for (int i = 0; i < slotCount; ++i) {
-        const float x = marginX + static_cast<float>(i) * (slotSize + slotGap);
-        slotPos[i] = { x, baseY };
 
-        slots[i].frame = std::make_unique<Sprite>();
-        slots[i].frame->Initialize(spriteCommon, "Resources/white.png");
-        slots[i].frame->SetPosition({ x, baseY });
-        slots[i].frame->SetSize({ slotSize, slotSize });
 
-        slots[i].icon = std::make_unique<Sprite>();
-        slots[i].icon->Initialize(spriteCommon, "Resources/white.png");
-        slots[i].icon->SetPosition({ x + 6.0f, baseY + 6.0f });
-        slots[i].icon->SetSize({ slotSize - 12.0f, slotSize - 12.0f });
 
-        const bool showStyleColor = i < static_cast<int>(list.size())
-            && (!checkUnlockedForInitialColor || weaponManager->IsUnlocked(i));
-        if (showStyleColor) {
-            const float* c = list[i].styleColor;
-            slots[i].icon->SetColor({ c[0], c[1], c[2], 0.9f });
-        } else if (checkUnlockedForInitialColor) {
-            slots[i].icon->SetColor({ 0.2f, 0.2f, 0.2f, 0.35f }); // 未解放スロット
-        }
-    }
 
-    const float gunX = marginX + static_cast<float>(slotCount) * (slotSize + slotGap) + 24.0f;
-    gunPos = { gunX, baseY };
 
-    gunFrame = std::make_unique<Sprite>();
-    gunFrame->Initialize(spriteCommon, "Resources/white.png");
-    gunFrame->SetPosition({ gunX, baseY });
-    gunFrame->SetSize({ slotSize, slotSize });
 
-    gunIcon = std::make_unique<Sprite>();
-    gunIcon->Initialize(spriteCommon, "Resources/white.png");
-    gunIcon->SetAnchorPoint({ 0.5f, 0.5f });
-    gunIcon->SetPosition({ gunX + slotSize * 0.5f, baseY + slotSize * 0.5f });
-    gunIcon->SetSize({ slotSize - 20.0f, slotSize - 20.0f });
-    gunIcon->SetColor({ 0.6f, 0.85f, 1.0f, 0.9f });
-}
 
-void UpdateWeaponSlotHud(WeaponManager* weaponManager, WeaponSlotUI* slots, int slotCount,
-    float pulseTimer, float flash, Sprite* gunIcon, float gunIconAngle)
-{
-    const int activeIndex = weaponManager->GetSelectedSlot();
-    const float pulse = 0.7f + 0.3f * std::sin(pulseTimer * 6.0f);
-
-    const auto& list = weaponManager->GetList();
-    for (int i = 0; i < slotCount; ++i) {
-        const bool active = (i == activeIndex);
-        const float frameB = 0.08f + (active ? pulse * 0.35f : 0.0f) + flash * 0.5f;
-        slots[i].frame->SetColor({ frameB, frameB, frameB + (active ? 0.2f : 0.05f), 0.85f });
-        slots[i].frame->Update();
-
-        const int weaponIndex = weaponManager->GetSlotWeaponIndex(i);
-        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(list.size())
-            && weaponManager->IsUnlocked(weaponIndex);
-        if (unlocked) {
-            const float iconMul = (active ? (0.7f + pulse * 0.3f) : 0.5f) + flash * 0.5f;
-            const float* c = list[weaponIndex].styleColor;
-            slots[i].icon->SetColor({ c[0] * iconMul, c[1] * iconMul, c[2] * iconMul, 0.95f });
-        } else {
-            const float lockFlash = 0.2f + flash * 0.6f; // 新規解放の瞬間はロック中のスロットも一緒に光らせる
-            slots[i].icon->SetColor({ lockFlash, lockFlash, lockFlash, 0.35f + flash * 0.3f });
-        }
-        slots[i].icon->Update();
-    }
-
-    gunIcon->SetRotation(gunIconAngle);
-    gunIcon->Update();
-}
-
-void DrawWeaponSlotFrames(const WeaponSlotUI* slots, int slotCount, Sprite* gunFrame)
-{
-    for (int i = 0; i < slotCount; ++i) {
-        slots[i].frame->Draw();
-    }
-    gunFrame->Draw();
-}
-
-void DrawWeaponSlotIconsAndLabels(const WeaponSlotUI* slots, int slotCount, const Vector2* slotPos,
-    Sprite* gunIcon, const Vector2& gunPos, WeaponManager* weaponManager, FontRenderer& fontRenderer,
-    float slotSize)
-{
-    for (int i = 0; i < slotCount; ++i) {
-        slots[i].icon->Draw();
-    }
-    gunIcon->Draw();
-
-    const auto& list = weaponManager->GetList();
-    for (int i = 0; i < slotCount && i < static_cast<int>(list.size()); ++i) {
-        if (weaponManager->IsUnlocked(i)) {
-            continue;
-        }
-        fontRenderer.DrawStringW(L"?",
-            slotPos[i].x + slotSize * 0.5f - 6.0f,
-            slotPos[i].y + slotSize * 0.5f - 12.0f, 1.6f,
-            { 0.6f, 0.6f, 0.6f, 0.9f });
-    }
-    fontRenderer.DrawString("GUN", gunPos.x + 10.0f, gunPos.y + slotSize + 4.0f, 1.0f,
-        { 0.6f, 0.85f, 1.0f, 0.9f });
-}
 
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 {
@@ -202,7 +117,8 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
     overlay->SetPosition({ 0.0f, 0.0f });
     overlay->SetSize({ static_cast<float>(WinApp::kClientWidth),
         static_cast<float>(WinApp::kClientHeight) });
-    overlay->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
+    overlay->SetColor({ kFinisherOverlayTint.x, kFinisherOverlayTint.y, kFinisherOverlayTint.z,
+        GameConstants::kFinisherOverlayAlpha });
     return overlay;
 }
 
@@ -242,7 +158,7 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
             } else {
                 weaponManager->SelectPrev();
             }
-            weaponCycleTimer = 0.15f;
+            weaponCycleTimer = kWeaponCycleCooldown;
         }
         if (input->TriggerKey(DIK_E)) {
             if (cycleAllUnlocked) {
@@ -250,12 +166,12 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
             } else {
                 weaponManager->SelectNext();
             }
-            weaponCycleTimer = 0.15f;
+            weaponCycleTimer = kWeaponCycleCooldown;
         }
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < kWeaponSlotCount; ++i) {
             if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
                 weaponManager->SelectSlot(i);
-                weaponCycleTimer = 0.15f;
+                weaponCycleTimer = kWeaponCycleCooldown;
             }
         }
     }
@@ -273,14 +189,15 @@ void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
 
     if (player->IsUpsideDown()) {
         // 逆さ: 下方向中心に 5 方向ばらまき
-        constexpr float kBaseAngle = 270.0f * (3.14159265f / 180.0f); // 真下
-        constexpr float kSpread = 30.0f * (3.14159265f / 180.0f); // 30°間隔
-        for (int i = -2; i <= 2; ++i) {
+        constexpr float kBaseAngle = 270.0f * GameConstants::kDegToRad; // 真下
+        constexpr float kSpread = 30.0f * GameConstants::kDegToRad; // 30°間隔
+        constexpr int kSideShots = 2; // 中央の左右に撃つ本数
+        for (int i = -kSideShots; i <= kSideShots; ++i) {
             float angle = kBaseAngle + i * kSpread;
             bulletPool.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
         }
-        TimeManager::GetInstance()->RequestHitStop(3);
-        ScreenFlash::GetInstance()->Request({ 1.0f, 0.7f, 0.1f, 0.55f }, 0.10f);
+        TimeManager::GetInstance()->RequestHitStop(kUpsideDownHitStopFrames);
+        ScreenFlash::GetInstance()->Request(kUpsideDownFlashColor, kUpsideDownFlashSeconds);
     } else {
         // 通常: 向いている方向に 1 発
         bulletPool.Spawn(firePos, { player->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
@@ -289,10 +206,13 @@ void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
 
 engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
 {
+    // 縦方向の許容量。大きすぎると足場の上下に離れた（＝見た目では当たっていない）敵まで
+    // 判定に巻き込んでしまう（高低差のあるステージで顕在化する）
+    constexpr float kVerticalHalfHeight = 0.8f;
     const float left = (dirX >= 0.0f) ? backRange : frontRange;
     const float right = (dirX >= 0.0f) ? frontRange : backRange;
-    return { { playerPos.x - left, playerPos.y - 1.5f, -0.5f },
-        { playerPos.x + right, playerPos.y + 1.5f, 0.5f } };
+    return { { playerPos.x - left, playerPos.y - kVerticalHalfHeight, -0.5f },
+        { playerPos.x + right, playerPos.y + kVerticalHalfHeight, 0.5f } };
 }
 
 engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
@@ -362,10 +282,13 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
-    float portalX, float proximity, const char* targetSceneName)
+    float portalX, float proximity, const char* targetSceneName, Audio* audio)
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
     if (isNear && input->TriggerKey(DIK_RETURN)) {
+        if (audio) {
+            audio->PlayMenuSelect();
+        }
         SceneManager::GetInstance()->ChangeSceneWithLoading(targetSceneName);
     }
     return isNear;
@@ -397,12 +320,12 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     };
 
     drawShadowedW(headerText, px, py, kColorHeader);
-    py += kLineH + 2.0f;
+    py += kLineH + kHudSectionGap;
     drawShadowedW(L"-- 武器選択 --", px, py, kColorNormal);
-    py += kLineH + 2.0f;
+    py += kLineH + kHudSectionGap;
 
     const auto& weaponList = weaponManager->GetList();
-    for (int slot = 0; slot < 4; ++slot) {
+    for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
         const int weaponIndex = weaponManager->GetSlotWeaponIndex(slot);
         const bool occupied = weaponIndex >= 0;
         const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
@@ -421,13 +344,13 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     }
 
     // 選択中の銃（近接スタイルとは独立に G キーで循環）
-    py += 2.0f;
+    py += kHudSectionGap;
     const RangedWeaponData& gun = weaponManager->GetRanged();
     std::wstring gunLine = L"銃[G]: " + gun.nameJp;
     drawShadowedW(gunLine, px, py, kColorSel);
     py += kLineH;
 
-    py += 4.0f;
+    py += kHudHintGap;
     drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kColorHint);
     py += kLineH;
     return py;
@@ -440,7 +363,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
     const float kIx = anchor.x;
     constexpr float kIS = 1.05f;
-    constexpr float kILineH = FontRenderer::kCharH * kIS + 2.0f;
+    constexpr float kILineH = FontRenderer::kCharH * kIS + kHudSectionGap;
     constexpr Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
     constexpr Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
     constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
@@ -453,7 +376,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     };
 
     drawShadowed(L"-- 操作説明 --", iy, kCH);
-    iy += kILineH + 2.0f;
+    iy += kILineH + kHudSectionGap;
 
     auto row = [&](const char* key, const wchar_t* desc) {
         std::wstring line(key, key + std::strlen(key));
@@ -475,46 +398,23 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     row("F      ", L": フィニッシャー");
 }
 
-void DrawAwakenGaugeHud(FontRenderer& fontRenderer, Sprite* bgSprite, Sprite* fgSprite,
-    float gauge, bool awakened, float pulseTimer)
-{
-    constexpr float kScale = 1.5f;
-    constexpr float kBarW = 280.0f;
-    constexpr float kBarH = 14.0f;
-    constexpr float kBarX = 640.0f - kBarW * 0.5f;
-    constexpr float kBarY = 700.0f;
 
-    bgSprite->SetPosition({ kBarX, kBarY });
-    bgSprite->SetSize({ kBarW, kBarH });
-    bgSprite->Update();
-
-    float pulse = awakened ? (0.7f + 0.3f * std::sin(pulseTimer * 8.0f)) : 1.0f;
-    Vector4 fgColor = awakened
-        ? Vector4 { 0.05f * pulse, 0.6f * pulse, 1.0f, 0.95f }
-        : Vector4 { 0.10f, 0.45f, 0.95f, 0.85f };
-    fgSprite->SetColor(fgColor);
-    fgSprite->SetPosition({ kBarX, kBarY });
-    fgSprite->SetSize({ kBarW * gauge, kBarH });
-    fgSprite->Update();
-
-    constexpr Vector4 kLabelColor = { 0.6f, 0.8f, 1.0f, 0.9f };
-    fontRenderer.DrawString("AWAKEN", kBarX, kBarY - 18.0f, kScale, kLabelColor);
-    if (awakened) {
-        fontRenderer.DrawString("ACTIVE", kBarX + kBarW - 70.0f, kBarY - 18.0f, kScale,
-            { pulse, pulse, 1.0f, 1.0f });
-    } else if (gauge >= 0.3f) {
-        fontRenderer.DrawString("[R] Activate", kBarX + kBarW * 0.5f - 70.0f,
-            kBarY - 18.0f, kScale, { 0.8f, 0.9f, 1.0f, 0.8f });
-    }
-}
 
 void EmitFinisherCharge(ParticleManager* pm,
     const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
 {
     auto& rng = FinisherRng();
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-    std::uniform_real_distribution<float> radiusDist(2.2f, 3.4f);
-    std::uniform_real_distribution<float> scaleDist(0.10f, 0.20f);
+    constexpr float kMoteRadiusMin = 2.2f;
+    constexpr float kMoteRadiusMax = 3.4f;
+    constexpr float kMoteScaleMin = 0.10f;
+    constexpr float kMoteScaleMax = 0.20f;
+    constexpr float kChargeRingSpeed = 2.0f;
+    constexpr int kChargeRingCount = 10;
+    constexpr float kChargeRingLifetime = 0.30f;
+    constexpr float kChargeRingSize = 0.22f;
+    std::uniform_real_distribution<float> radiusDist(kMoteRadiusMin, kMoteRadiusMax);
+    std::uniform_real_distribution<float> scaleDist(kMoteScaleMin, kMoteScaleMax);
 
     // 周囲から中心へ吸い込まれる光粒溜め時間内に到達する速度を逆算する
     constexpr int kMoteCount = 20;
@@ -528,7 +428,7 @@ void EmitFinisherCharge(ParticleManager* pm,
             GameConstants::kFinisherChargeDelay, scaleDist(rng), true);
     }
 
-    pm->EmitRing(ringGroup, pos, 2.0f, kFinisherGlowColor, 10, 0.30f, 0.22f);
+    pm->EmitRing(ringGroup, pos, kChargeRingSpeed, kFinisherGlowColor, kChargeRingCount, kChargeRingLifetime, kChargeRingSize);
 }
 
 void EmitFinisherSlashLine(ParticleManager* pm,
@@ -537,11 +437,17 @@ void EmitFinisherSlashLine(ParticleManager* pm,
 {
     auto& rng = FinisherRng();
     std::uniform_real_distribution<float> tDist(-halfLength, halfLength);
-    std::uniform_real_distribution<float> driftDist(-0.8f, 0.8f);
-    std::uniform_real_distribution<float> scaleDist(0.08f, 0.16f);
+    constexpr float kGlintDrift = 0.8f;
+    constexpr float kGlintRise = 0.5f; // 煌めきをわずかに上へ流す速度
+    constexpr float kGlintScaleMin = 0.08f;
+    constexpr float kGlintScaleMax = 0.16f;
+    constexpr float kGlintLifetime = 0.25f;
+    constexpr Vector4 kSlashLineColor = { 0.60f, 0.85f, 1.0f, 0.9f };
+    std::uniform_real_distribution<float> driftDist(-kGlintDrift, kGlintDrift);
+    std::uniform_real_distribution<float> scaleDist(kGlintScaleMin, kGlintScaleMax);
 
     if (!slashGroup.empty()) {
-        pm->EmitSlash(slashGroup, center, angle, { 0.60f, 0.85f, 1.0f, 0.9f }, halfLength);
+        pm->EmitSlash(slashGroup, center, angle, kSlashLineColor, halfLength);
     }
 
     // 斬線に沿って散る煌めき
@@ -550,8 +456,8 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     for (int i = 0; i < kGlintCount; ++i) {
         const float t = tDist(rng);
         Vector3 spawn = { center.x + dir.x * t, center.y + dir.y * t, 0.0f };
-        Vector3 vel = { driftDist(rng), driftDist(rng) + 0.5f, 0.0f };
-        pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherSparkColor, 0.25f, scaleDist(rng), true);
+        Vector3 vel = { driftDist(rng), driftDist(rng) + kGlintRise, 0.0f };
+        pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherSparkColor, kGlintLifetime, scaleDist(rng), true);
     }
 
     // 交点の閃光（細い針状の光条）
@@ -561,33 +467,57 @@ void EmitFinisherSlashLine(ParticleManager* pm,
 void EmitFinisherRelease(ParticleManager* pm,
     const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
 {
+    constexpr float kOuterRingSpeed = 9.0f;
+    constexpr Vector4 kOuterRingColor = { 0.70f, 0.90f, 1.0f, 1.0f };
+    constexpr int kOuterRingCount = 28;
+    constexpr float kOuterRingLifetime = 0.55f;
+    constexpr float kOuterRingSize = 0.40f;
+    constexpr float kInnerRingSpeed = 4.5f;
+    constexpr int kInnerRingCount = 18;
+    constexpr float kInnerRingLifetime = 0.45f;
+    constexpr float kInnerRingSize = 0.26f;
+    constexpr float kSparkSpreadX = 7.0f;
+    constexpr float kSparkRiseMin = 4.0f;
+    constexpr float kSparkRiseMax = 11.0f;
+    constexpr int kSparkCount = 24;
+    constexpr float kSparkLifetime = 1.1f;
+    constexpr float kSparkSize = 0.22f;
+    constexpr float kEmberSpread = 1.5f;
+    constexpr float kEmberRiseMin = 1.2f;
+    constexpr float kEmberRiseMax = 2.8f;
+    constexpr float kEmberScaleMin = 0.10f;
+    constexpr float kEmberScaleMax = 0.22f;
+    constexpr int kEmberCount = 12;
+    constexpr float kEmberLifetime = 0.9f;
+    constexpr Vector4 kCenterStarColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
     auto& rng = FinisherRng();
 
     // 速度差のある二重リングで衝撃波の広がりを作る
-    pm->EmitRing(ringGroup, pos, 9.0f, { 0.70f, 0.90f, 1.0f, 1.0f }, 28, 0.55f, 0.40f);
-    pm->EmitRing(ringGroup, pos, 4.5f, kFinisherGlowColor, 18, 0.45f, 0.26f);
+    pm->EmitRing(ringGroup, pos, kOuterRingSpeed, kOuterRingColor, kOuterRingCount, kOuterRingLifetime, kOuterRingSize);
+    pm->EmitRing(ringGroup, pos, kInnerRingSpeed, kFinisherGlowColor, kInnerRingCount, kInnerRingLifetime, kInnerRingSize);
 
     // 放射状に飛び散る火花
-    std::uniform_real_distribution<float> vxDist(-7.0f, 7.0f);
-    std::uniform_real_distribution<float> vyDist(4.0f, 11.0f);
-    for (int i = 0; i < 24; ++i) {
+    std::uniform_real_distribution<float> vxDist(-kSparkSpreadX, kSparkSpreadX);
+    std::uniform_real_distribution<float> vyDist(kSparkRiseMin, kSparkRiseMax);
+    for (int i = 0; i < kSparkCount; ++i) {
         pm->EmitGravity(sparkGroup, pos,
             { vxDist(rng), vyDist(rng), 0.0f },
-            kFinisherSparkColor, 1.1f, 0.22f);
+            kFinisherSparkColor, kSparkLifetime, kSparkSize);
     }
 
     // ゆっくり立ち昇る余韻の光粒
-    std::uniform_real_distribution<float> offXDist(-1.5f, 1.5f);
-    std::uniform_real_distribution<float> riseDist(1.2f, 2.8f);
-    std::uniform_real_distribution<float> scaleDist(0.10f, 0.22f);
-    for (int i = 0; i < 12; ++i) {
+    std::uniform_real_distribution<float> offXDist(-kEmberSpread, kEmberSpread);
+    std::uniform_real_distribution<float> riseDist(kEmberRiseMin, kEmberRiseMax);
+    std::uniform_real_distribution<float> scaleDist(kEmberScaleMin, kEmberScaleMax);
+    for (int i = 0; i < kEmberCount; ++i) {
         Vector3 spawn = { pos.x + offXDist(rng), pos.y + offXDist(rng) * 0.5f, 0.0f };
         pm->EmitWithColor(sparkGroup, spawn, { 0.0f, riseDist(rng), 0.0f },
-            kFinisherGlowColor, 0.9f, scaleDist(rng), true);
+            kFinisherGlowColor, kEmberLifetime, scaleDist(rng), true);
     }
 
     // 中心の大きな光条
-    pm->EmitHitStar(sparkGroup, pos, { 1.0f, 1.0f, 1.0f, 1.0f });
+    pm->EmitHitStar(sparkGroup, pos, kCenterStarColor);
     pm->EmitHitStar(sparkGroup, pos, kFinisherSparkColor);
 }
 

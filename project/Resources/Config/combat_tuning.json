@@ -13,7 +13,7 @@
   "chainSkillRange": 5.0,
   "skillSlamRadius": 3.5,
   "skillDefaultRadius": 2.8,
-  "skillRangeHalfHeight": 2.0,
+  "skillRangeHalfHeight": 1.0,
   "weaponEnemySkillRadius": 3.0,
   "skillVarietyBonusRepeat": 0.06,
   "skillVarietyBonusFresh": 0.18,

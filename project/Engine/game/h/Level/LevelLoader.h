@@ -85,6 +85,7 @@ struct ObjectDesc {
     std::string text; // 表示文字列（UTF-8、複数行可）
     Vector4 textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
     bool textBold = false;
+    bool textShadow = true; // 明るい背景でも文章を読めるようにする
     float textScale = 1.5f;
     std::string textSpace = "screen"; // "screen"（position.x/yをスクリーンpx座標として使う）| "world"（ワールド座標をカメラ基準で画面へ投影する）
 };

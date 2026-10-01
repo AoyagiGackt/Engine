@@ -3,6 +3,8 @@
  * @brief アクション操作を自由に練習できるトレーニングシーンを定義するファイル
  */
 #pragma once
+#include "TrainingWeaponPickups.h"
+#include "HudLayer.h"
 #include <array>
 #include <memory>
 #include <vector>
@@ -111,6 +113,9 @@ private:
     void InitializeWeaponPickups();
     /** @brief Initialize()の下請け 覚醒ゲージUI・フォント・斬撃線・SSAO・プロファイラを初期化する */
     void InitializeHudAndEffects();
+    void InitializeWeaponSlotHud();
+    void UpdateWeaponSlotHud();
+    void DrawWeaponSlotHud();
 
     /** @brief プレイヤーとスピン連射弾を更新する */
     void UpdatePlayerAndBullets();
@@ -138,9 +143,9 @@ private:
     std::unique_ptr<Camera> camera_;
 
     // 境界ブロック
-    std::unique_ptr<Model> modelBlock_;
+    Model* modelBlock_ = nullptr; // 実体はModelManagerが所有・共有する
     std::vector<std::unique_ptr<Object3d>> borderBlocks_;
-    std::unique_ptr<Model> cityBackgroundModel_;
+    Model* cityBackgroundModel_ = nullptr; // 実体はModelManagerが所有・共有する
     std::vector<std::unique_ptr<Object3d>> cityBackgroundObjects_;
     int cityBuildingSerial_ = 0; ///< RegisterExternalObjectの名前衝突を避けるための連番（複製のたびに増やす）
 
@@ -157,22 +162,13 @@ private:
     WeaponManager* weaponManager_ = nullptr;
     float weaponCycleTimer_ = 0.0f;
 
-    struct WeaponPickup {
-        WeaponType type = WeaponType::Sword;
-        std::unique_ptr<Model> model;
-        std::unique_ptr<Object3d> object;
-        Vector3 position = { };
-        bool wasTouching = false;
-    };
-    std::array<WeaponPickup, 7> weaponPickups_;
-    float weaponPickupPulse_ = 0.0f;
+    TrainingWeaponPickups weaponPickups_;
 
     // ワープ演出タイマー（近づいたら点滅）
     float warpPulseTimer_ = 0.0f;
 
     // 覚醒ゲージ UI
-    std::unique_ptr<Sprite> awakenGaugeBg_;
-    std::unique_ptr<Sprite> awakenGaugeFg_;
+    HudLayer hud_;
 
     FontRenderer fontRenderer_;
 

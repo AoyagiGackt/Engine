@@ -8,6 +8,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <cmath>
+#include <map>
 using namespace engine;
 
 namespace engine::game {
@@ -16,6 +17,14 @@ namespace engine::game {
 
 Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename, const std::string& animationName)
 {
+    // 同じ敵種別を複数体・複数レベルで生成する際にassimpの再解析を避けるため、結果を使い回す
+    static std::map<std::string, Animation> cache;
+    const std::string cacheKey = directoryPath + "/" + filename + "|" + animationName;
+    auto cacheIt = cache.find(cacheKey);
+    if (cacheIt != cache.end()) {
+        return cacheIt->second;
+    }
+
     Animation animation;
 
     Assimp::Importer importer;
@@ -83,6 +92,7 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
         }
     }
 
+    cache[cacheKey] = animation;
     return animation;
 }
 

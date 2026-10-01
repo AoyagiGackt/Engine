@@ -70,11 +70,18 @@ class StageEditor {
     friend class StageEditorInspectorPanel;
 
 public:
-    // 編集パネルのレイアウト定数（ツールバー/左カラム/右インスペクタの各Beginで使う値と一致させる。
-    // screen座標のui_textがどの領域の下に隠れるかの判定にも使うため、パネル側の値とここを両方直さないと食い違う）
-    static constexpr float kToolbarHeight = 42.0f;
+    // 編集パネルと中央ビューの操作判定で共有するレイアウト定数。
+    // 画面座標のテキストがパネルに隠れるかの判定にも使う。
+    static constexpr float kToolbarHeight = 82.0f;
     static constexpr float kLeftPanelWidth = 280.0f; // ヒエラルキー＋アセットパレットの列
     static constexpr float kRightPanelWidth = 300.0f; // 詳細設定(インスペクタ)の列
+
+    // ステータスバーへ出すメッセージの表示秒数（内容の重要度に応じて使い分ける）
+    static constexpr float kStatusBriefSeconds = 1.5f;
+    static constexpr float kStatusShortSeconds = 2.0f;
+    static constexpr float kStatusNormalSeconds = 3.0f;
+    static constexpr float kStatusLongSeconds = 4.0f;
+    static constexpr float kStatusVeryLongSeconds = 5.0f;
 
     // unique_ptr<KnightEnemy>/<EnemyEntity>をObjectEntryが持つため、それらの完全な定義が無い
     // 翻訳単位（BaseScene経由でStageEditorを持つ全シーン等）でも安全にコンパイルできるよう、
@@ -209,6 +216,12 @@ public:
      * @return 編集UIが表示中の場合はtrue
      */
     bool IsVisible() const { return visible_; }
+    bool UsesGameWindow() const { return visible_ && !viewportFocusMode_; }
+    void SetGamePreview(uint64_t textureId, float u0, float v0, float u1, float v1)
+    {
+        previewTextureId_ = textureId;
+        previewU0_ = u0; previewV0_ = v0; previewU1_ = u1; previewV1_ = v1;
+    }
 
     /**
      * @brief エディタ表示中にゲーム更新を停止すべきか返す
@@ -284,8 +297,13 @@ private:
         Vector3 position = { };
         Vector3 rotation = { };
     };
-    /** @brief ギミック種別と経過時間から現在フレームの一時変形量を求める（UpdateRuntimeEntryとGetSolidCollidersで共用） */
-    GimmickOffset ComputeGimmickOffset(const ObjectEntry& entry) const;
+    /**
+     * @brief ギミック種別と経過時間から現在フレームの一時変形量を求める（UpdateRuntimeEntryとGetSolidCollidersで共用）
+     * @param timerOverride 負値なら entry.runtimeTimer をそのまま使う正値を渡すとその時刻として計算する
+     * （GetSolidColliders()が、この後UpdateObjects()で進む今フレーム分のタイマーを先読みし、
+     *   当たり判定と見た目の1フレームのズレ＝乗った時に浮いて見える現象を無くすために使う）
+     */
+    GimmickOffset ComputeGimmickOffset(const ObjectEntry& entry, float timerOverride = -1.0f) const;
     /** @brief pickup配置物の回収判定と演出（プレイヤーが半径内に入ったら回収し、覚醒ゲージを増やす） */
     void UpdatePickupEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
     /** @brief グラフのMoveObjectによる補間移動を1フレーム進める */
@@ -336,6 +354,7 @@ private:
     void HandleEditorShortcuts();
     /** @brief 現在のレイアウト状態に応じて編集パネルを表示する */
     void RenderEditorPanels();
+    void RenderGameViewport();
     /** @brief 編集停止とゲーム動作テストを切り替えて時間倍率を同期する */
     void SetPlayTestMode(bool enabled);
 
@@ -449,6 +468,7 @@ private:
      * @return 追加した配置物の添字
      */
     int AddObjectAt(const std::string& kind, const Vector3& position);
+    int AddUITextAt(const Vector3& position, bool screenSpace = true);
     /** @brief トリガーを指定位置へ追加して選択する */
     void AddTriggerAt(const Vector3& position);
     /**
@@ -476,6 +496,8 @@ private:
     SelKind contextKind_ = SelKind::None;
     int contextIndex_ = -1;
     Vector3 contextWorldPos_ = { }; // 右クリックした地面位置（生成メニューの配置先）
+    Vector3 contextScreenPos_ = {};
+    bool focusTextEditor_ = false;
 
     /** @brief Hierarchyツリーに1エントリ＋その子を再帰的に描く */
     void DrawHierarchyEntry(int index, int depthLevel);
@@ -508,7 +530,7 @@ private:
     // トリガーのspawnsWaterSplash成立時にシーン側の演出を呼ぶためのコールバック（SetWaterSplashCallback()で登録）
     std::function<void(const Vector3&)> onWaterSplashRequested_;
 
-    std::vector<std::unique_ptr<engine::graphics::Model>> modelStorage_;
+    // 実体はModelManagerが所有・共有する（GetOrLoadModel()参照）。ここは非所有の高速参照用
     std::map<std::string, engine::graphics::Model*> modelCache_;
 
     Vector3 playerSpawn_ = { };
@@ -524,6 +546,8 @@ private:
     // F2で表示/非表示（GraphEditorのF1と違い、ゲーム画面を隠さない小窓パネル構成）
     bool visible_ = false;
     bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
+    uint64_t previewTextureId_ = 0;
+    float previewU0_ = 0.0f, previewV0_ = 0.0f, previewU1_ = 1.0f, previewV1_ = 1.0f;
     bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
     float savedTimeScale_ = 1.0f;
     bool showUIText_ = true; // falseなら編集中だけui_textのマーカーと実表示を隠す（配置物の陰になって邪魔な時用）
@@ -614,6 +638,7 @@ private:
     float snapStep_ = 1.0f;
 
     int paletteMode_ = 0; // アセットパレットの動作 0=新規配置 1=選択中の配置物へ差し替え
+    char paletteSearch_[96] = {}; // 素材名の検索語
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
     // クリックした瞬間にオブジェクト原点へ位置が飛ばないよう、掴んだ時の

@@ -91,6 +91,7 @@ void Player::HandleStyleSwitch(Input* input)
         daggerStingerDash_.active = false;
         airDash_.active = false;
         swordDash_.active = false;
+        swordReleasePending_ = false;
         spearDash_.active = false;
         axeDash_.active = false;
         greatswordThrowActive_ = false; // 渦の途中で持ち替えても居残らないよう仕切り直す
@@ -264,10 +265,10 @@ void Player::HandleWeaponSkill(Input* input)
         GetWeaponBehavior(wtype).Update(*this, input);
 
         // Ball モード以外 / 着地時はスピン角をリセット
-        if (wtype != WeaponType::Ball || onGround_) {
+        if ((wtype != WeaponType::Ball && !spearDash_.active) || (wtype == WeaponType::Ball && onGround_)) {
             spinAngle_ = 0.0f;
         }
-        isUpsideDown_ = (spinAngle_ > 90.0f && spinAngle_ < 270.0f);
+        isUpsideDown_ = (spinAngle_ > kUpsideDownMinDegrees_ && spinAngle_ < kUpsideDownMaxDegrees_);
     }
 }
 
@@ -314,7 +315,7 @@ void Player::UpdateAwakenState(Input* input)
                                                   : (isAwakened_ ? &awakenedRig_ : &normalRig_);
     if (rig_ != desiredRig) {
         rig_ = desiredRig;
-        afterImageRenderer_.SetModel(rig_->staticModel.get(), rig_->modelScale);
+        afterImageRenderer_.SetModel(rig_->staticModel, rig_->modelScale);
         // 旧リグで再生中の攻撃モーションは持ち越せないため打ち切り、
         // 直後の UpdateAnimationState に新リグの通常モーションを選び直させる
         // （animState_ は移動系と必ず不一致になる Attack を番兵にする）

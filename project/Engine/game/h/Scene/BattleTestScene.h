@@ -3,6 +3,7 @@
  * @brief 訓練マネキンを相手にコンボや武器を試せるデバッグ用バトルシーン
  */
 #pragma once
+#include "HudLayer.h"
 #include <array>
 #include <memory>
 #include <vector>
@@ -302,9 +303,9 @@ private:
     std::unique_ptr<Camera> camera_;
 
     // 境界ブロック（level01.json から読み込む。本番ステージと共通の形状）
-    std::unique_ptr<Model> modelBlock_;
+    Model* modelBlock_ = nullptr; // 実体はModelManagerが所有・共有する
     // 背景の街並みはStageEditorのkind="background"配置物（battletest.json）として管理する
-    // （以前はここでC++側に3体決め打ちしていたが、エディタで削除しても保存できず復活する問題があったため撤去）
+    // C++側では生成しないため、エディタでの追加・削除がそのまま保存される
 
     // ワープポータル（トレーニングルームへ戻る）
     std::vector<std::unique_ptr<Object3d>> warpPortalBlocks_;
@@ -313,7 +314,7 @@ private:
     std::unique_ptr<Player> player_;
 
     // 訓練マネキン
-    std::unique_ptr<Model> modelDummy_;
+    Model* modelDummy_ = nullptr; // 実体はModelManagerが所有・共有する
     std::vector<Dummy> dummies_;
 
     // ロックオン（Shift長押し中だけ最寄りの生存ダミーを自動ロック乱舞/コンボの誘導先・プレイヤーの向き・カメラ寄せに使う）
@@ -336,36 +337,7 @@ private:
     StyleMeter styleMeter_;
 
     // 覚醒ゲージ UI
-    std::unique_ptr<Sprite> awakenGaugeBg_;
-    std::unique_ptr<Sprite> awakenGaugeFg_;
-
-    // 武器スロットUI（画面左下。使用中の枠が光る。テストシーンなので全武器ぶん並べる）
-    static constexpr int kWeaponSlotCount = 4;
-    static constexpr float kSlotFlashDuration = 0.35f;
-    std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
-    std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
-
-    // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
-    // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
-    /** @brief 武器スロットUIに表示する回転3Dアイコン1個分のモデルと演出状態 */
-    struct WeaponIcon3D {
-        std::unique_ptr<Model> model;
-        std::unique_ptr<Object3d> object;
-        int slotIndex = -1; // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
-        float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
-        float scale = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
-        float baseYaw = 0.0f; // モデルの正面がカメラを向くよう調整する基準角度（要目視調整）
-    };
-    std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
-
-    float slotPulseTimer_ = 0.0f; // 使用中スロットの明滅位相
-    float slotFlashTimer_ = 0.0f; // 武器奪取時に全スロットをパッと光らせる残り時間
-
-    // 常時装備の拳銃アイコン（4スロットとは別枠、アイドル時にゆっくり回転する）
-    std::unique_ptr<Sprite> gunFrame_;
-    std::unique_ptr<Sprite> gunIcon_;
-    Vector2 gunPos_ = { };
-    float gunIconAngle_ = 0.0f;
+    HudLayer hud_;
 
     // フィニッシャースラッシュ演出の進行状態
     bool finisherActive_ = false;

@@ -178,7 +178,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
 {
     char pathBuf[256];
     strncpy_s(pathBuf, editor.graphPath_.c_str(), _TRUNCATE);
-    ImGui::SetNextItemWidth(360.0f);
+    ImGui::SetNextItemWidth(GraphEditorDrawingStyle::kGraphPathFieldWidth);
     if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf))) {
         editor.graphPath_ = pathBuf;
     }
@@ -198,7 +198,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     }
     if (editor.dirty_) {
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "未保存");
+        ImGui::TextColored(GraphEditorDrawingStyle::kUnsavedTextColor, "未保存");
     }
 
     // Subgraphの開くボタン等、ウィンドウスコープ外で予約された分もここでモーダルを開く
@@ -257,7 +257,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
             editor.testRuntime_ = GraphRuntime { };
         }
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.6f, 1.0f), "実行中...");
+        ImGui::TextColored(GraphEditorDrawingStyle::kRunningTextColor, "実行中...");
     }
 
     if (editor.statusTimer_ > 0.0f) {
@@ -320,7 +320,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     const float nodeW = GraphEditorDrawingStyle::kBaseNodeWidth * editor.zoom_;
     const float pinR = GraphEditorDrawingStyle::kBasePinRadius * editor.zoom_;
     const float pinPad = GraphEditorDrawingStyle::kBasePinPad * editor.zoom_;
-    const float boxPad = 6.0f * editor.zoom_;
+    const float boxPad = GraphEditorDrawingStyle::kNodeBoxPadding * editor.zoom_;
 
     ImGui::PushID(id.c_str());
     dl->ChannelsSetCurrent(1);
@@ -373,7 +373,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
 
     // タイトルやパラメータを含むノード全体で右クリックメニューを開く
     // ノード走査中にコンテナを変更しないよう、複製と削除はキャンバス描画後に遅延実行する
-    const ImVec2 interactionMin(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f);
+    const ImVec2 interactionMin(nodeMin.x - boxPad, nodeMin.y - boxPad * GraphEditorDrawingStyle::kNodeTopPaddingRatio);
     const ImVec2 interactionMax(nodeMax.x + boxPad, nodeMax.y + boxPad);
     if (ImGui::IsMouseHoveringRect(interactionMin, interactionMax)) {
         state.hoveringNode = true;
@@ -401,27 +401,27 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     // 背景（枠・塗り、開始ノードは緑枠で強調）
     dl->ChannelsSetCurrent(0);
     ImU32 bg = (id == editor.selectedNodeId_) ? GraphEditorDrawingStyle::kSelectedBackgroundColor : GraphEditorDrawingStyle::kBackgroundColor;
-    dl->AddRectFilled(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), bg, 4.0f * editor.zoom_);
+    dl->AddRectFilled(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * GraphEditorDrawingStyle::kNodeTopPaddingRatio), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), bg, GraphEditorDrawingStyle::kNodeCornerRadius * editor.zoom_);
     ImU32 border = (id == editor.graph_.startNodeId) ? GraphEditorDrawingStyle::kStartColor : GraphEditorDrawingStyle::kBorderColor;
-    float borderThickness = 2.0f * editor.zoom_;
+    float borderThickness = GraphEditorDrawingStyle::kNodeBorderThickness * editor.zoom_;
     if (state.viewingActiveGraph && id == state.activeRunNodeId) {
         border = GraphEditorDrawingStyle::kRunningColor;
-        borderThickness = 3.5f * editor.zoom_; // Run中は太くして一目で分かるようにする
+        borderThickness = GraphEditorDrawingStyle::kRunningBorderThickness * editor.zoom_; // Run中は太くして一目で分かるようにする
     }
-    dl->AddRect(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), border, 4.0f * editor.zoom_, 0, borderThickness);
+    dl->AddRect(ImVec2(nodeMin.x - boxPad, nodeMin.y - boxPad * GraphEditorDrawingStyle::kNodeTopPaddingRatio), ImVec2(nodeMax.x + boxPad, nodeMax.y + boxPad), border, GraphEditorDrawingStyle::kNodeCornerRadius * editor.zoom_, 0, borderThickness);
 
     // 開始ノードは緑枠だけだと気づきにくいため、枠の上にラベルも出す
     if (id == editor.graph_.startNodeId) {
-        ImVec2 labelPos(nodeMin.x - boxPad, nodeMin.y - boxPad * 0.67f - ImGui::GetFontSize() - 2.0f * editor.zoom_);
+        ImVec2 labelPos(nodeMin.x - boxPad, nodeMin.y - boxPad * GraphEditorDrawingStyle::kNodeTopPaddingRatio - ImGui::GetFontSize() - GraphEditorDrawingStyle::kNodeLabelGap * editor.zoom_);
         dl->AddText(labelPos, GraphEditorDrawingStyle::kStartColor, "開始");
     }
 
     dl->ChannelsSetCurrent(1);
 
     // 実行入力ピン（左上。タイトル行の高さに合わせる）
-    ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + 10.0f * editor.zoom_);
+    ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_);
     dl->AddCircleFilled(inPin, pinR, GraphEditorDrawingStyle::kInputPinColor);
-    if (GraphEditorDrawingStyle::IsHoveringCircle(inPin, pinR + 2.0f)) {
+    if (GraphEditorDrawingStyle::IsHoveringCircle(inPin, pinR + GraphEditorDrawingStyle::kExecPinHoverPadding)) {
         state.hoveringAnyPin = true;
         if (editor.linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && editor.linkFromNodeId_ != id) {
             auto fromIt = editor.graph_.nodes.find(editor.linkFromNodeId_);
@@ -444,7 +444,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     // 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ）
     auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
         dl->AddCircleFilled(pos, pinR, col);
-        if (GraphEditorDrawingStyle::IsHoveringCircle(pos, pinR + 2.0f)) {
+        if (GraphEditorDrawingStyle::IsHoveringCircle(pos, pinR + GraphEditorDrawingStyle::kExecPinHoverPadding)) {
             state.hoveringAnyPin = true;
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
                 editor.linking_ = true;
@@ -459,21 +459,21 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     };
 
     if (node.type == "If") {
-        drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.33f), GraphEditorDrawingStyle::kTruePinColor);
-        drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * 0.66f), GraphEditorDrawingStyle::kFalsePinColor);
+        drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * GraphEditorDrawingStyle::kTruePinHeightRatio), GraphEditorDrawingStyle::kTruePinColor);
+        drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * GraphEditorDrawingStyle::kFalsePinHeightRatio), GraphEditorDrawingStyle::kFalsePinColor);
     } else {
-        drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + 10.0f * editor.zoom_), GraphEditorDrawingStyle::kOutputPinColor);
+        drawOutputPin("next", ImVec2(nodeMax.x + pinPad, nodeMin.y + GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_), GraphEditorDrawingStyle::kOutputPinColor);
     }
 
     // データ出力ピン（右下。値を出力するノードだけ）
     const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
     if (spec && spec->hasOutput) {
-        ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - 10.0f * editor.zoom_);
+        ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_);
         editor.dataOutPins_[id] = outPin;
 
-        float dataPinR = pinR * 0.75f;
+        float dataPinR = pinR * GraphEditorDrawingStyle::kDataPinRadiusRatio;
         dl->AddCircleFilled(outPin, dataPinR, GraphEditorDrawingStyle::ColorForType(spec->outputType));
-        if (GraphEditorDrawingStyle::IsHoveringCircle(outPin, dataPinR + 3.0f)) {
+        if (GraphEditorDrawingStyle::IsHoveringCircle(outPin, dataPinR + GraphEditorDrawingStyle::kPinHoverPadding)) {
             state.hoveringAnyPin = true;
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
                 editor.dataLinking_ = true;

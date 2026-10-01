@@ -22,6 +22,7 @@
  */
 #pragma once
 #include "CollisionConfig.h" // AABB, Sphere, Capsule, Collider, Ray
+#include "GameConstants.h"
 #include "MakeAffine.h"
 
 // USE_IMGUI が有効な場合のみ実装を提供する
@@ -55,9 +56,12 @@ constexpr ImU32 kColorOrange = IM_COL32(255, 150, 0, 255);
 // 内部状態（SetCamera で初期化）
 namespace _Internal {
     inline Matrix4x4 vp_ = { };
-    inline float screenW_ = 1280.0f;
-    inline float screenH_ = 720.0f;
+    inline float screenW_ = GameConstants::kScreenWidth;
+    inline float screenH_ = GameConstants::kScreenHeight;
     inline float thickness_ = 1.5f;
+    inline ImVec2 imageOrigin_ = { 0.0f, 0.0f };
+    inline ImVec2 imageSize_ = { 0.0f, 0.0f };
+    inline ImDrawList* imageDrawList_ = nullptr;
 
     /**
      * @brief ワールド座標 → ImGui スクリーン座標に変換する
@@ -80,9 +84,26 @@ namespace _Internal {
         // NDC [-1,1] → スクリーン [0, width/height]  (Y 反転)
         out.x = (ndcX + 1.0f) * 0.5f * screenW_;
         out.y = (1.0f - ndcY) * 0.5f * screenH_;
+        if (imageDrawList_) {
+            out.x = imageOrigin_.x + out.x * imageSize_.x / screenW_;
+            out.y = imageOrigin_.y + out.y * imageSize_.y / screenH_;
+        }
         return true;
     }
 } // namespace _Internal
+
+/** @brief 小窓に合わせて診断線の描画先と投影範囲を切り替える */
+inline void SetImageViewport(ImVec2 origin = {}, ImVec2 size = {}, ImDrawList* drawList = nullptr)
+{
+    _Internal::imageOrigin_ = origin;
+    _Internal::imageSize_ = size;
+    _Internal::imageDrawList_ = drawList;
+}
+
+inline ImDrawList* GetDrawList()
+{
+    return _Internal::imageDrawList_ ? _Internal::imageDrawList_ : ImGui::GetForegroundDrawList();
+}
 
 // 公開 API
 
@@ -118,10 +139,16 @@ inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen)
  */
 inline void DrawLine(const Vector3& from, const Vector3& to, ImU32 color = kColorGreen)
 {
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    ImDrawList* dl = GetDrawList();
     ImVec2 s, e;
     if (_Internal::WorldToScreen(from, s) && _Internal::WorldToScreen(to, e)) {
+        if (_Internal::imageDrawList_) {
+            const ImVec2 origin = _Internal::imageOrigin_;
+            const ImVec2 size = _Internal::imageSize_;
+            dl->PushClipRect(origin, { origin.x + size.x, origin.y + size.y }, true);
+        }
         dl->AddLine(s, e, color, _Internal::thickness_);
+        if (_Internal::imageDrawList_) { dl->PopClipRect(); }
     }
 }
 
@@ -159,7 +186,7 @@ inline void DrawSphere(const Sphere& sphere, ImU32 color = kColorGreen, int segm
 {
     const float r = sphere.radius;
     const Vector3& c = sphere.center;
-    const float step = 2.0f * 3.14159265f / static_cast<float>(segments);
+    const float step = GameConstants::kTwoPi / static_cast<float>(segments);
 
     for (int i = 0; i < segments; ++i) {
         float a0 = step * i;
@@ -210,7 +237,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
     Vector3 perp2 = Cross(axisN, perp1);
 
     const float r = capsule.radius;
-    const float pi2 = 2.0f * 3.14159265f;
+    const float pi2 = GameConstants::kTwoPi;
 
     // 胴体のライン（4 本）
     for (int i = 0; i < 4; ++i) {

@@ -37,6 +37,13 @@ using engine::graphics::SkinnedObject3d;
  */
 class KnightEnemy : public IEnemyEntity {
 public:
+    static constexpr float kDefaultKnockY = 0.09f; // 打ち上げ量を指定しない被弾時の垂直ノックバック
+    // 当たり判定（足元基準の箱。上方向は頭まで含めて高めに取る）
+    static constexpr float kHitBoxHalfWidth = 0.5f;
+    static constexpr float kHitBoxBelow = 0.5f;
+    static constexpr float kHitBoxAbove = 1.0f;
+    static constexpr float kHitBoxHalfDepth = 0.5f;
+
     void Initialize(ModelCommon* modelCommon, const Vector3& spawnPos);
 
     /** @brief AI（Idle/Telegraph/Dash/Recover）または吸収演出を1フレーム進める */
@@ -63,7 +70,7 @@ public:
      * @param knockY    垂直ノックバック初速（MeleeAttackDef::knockY等。打ち上げ技ほど大きい値を渡す）
      * @note 与えた分は毎フレーム重力で減衰し、地面(kGroundY)で自然に着地する（Update()参照）
      */
-    void TakeDamage(int damage, float knockDirX = 0.0f, float knockY = 0.09f);
+    void TakeDamage(int damage, float knockDirX = 0.0f, float knockY = kDefaultKnockY);
 
     /** @brief 通常行動中（攻撃で倒せる状態）か */
     bool IsAlive() const;
@@ -89,8 +96,8 @@ public:
     Vector3& GetPositionRef() override { return pos_; }
     AABB GetAABB() const
     {
-        return { { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },
-            { pos_.x + 0.5f, pos_.y + 1.0f, 0.5f } };
+        return { { pos_.x - kHitBoxHalfWidth, pos_.y - kHitBoxBelow, -kHitBoxHalfDepth },
+            { pos_.x + kHitBoxHalfWidth, pos_.y + kHitBoxAbove, kHitBoxHalfDepth } };
     }
 
 private:
@@ -101,6 +108,27 @@ private:
         Defeated,
         Absorbing,
         Consumed };
+
+    // AI State パターン
+    // 生存中の行動フェーズ（Idle/Telegraph/Dash/Recover）ごとに毎フレームの処理と遷移条件を切り替える
+    /** @brief 生存中の行動フェーズ固有処理を抽象化する状態 */
+    class IAIState {
+    public:
+        virtual ~IAIState() = default;
+        virtual void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const = 0;
+    };
+    /** @brief 次の突進までの待機状態 */
+    class IdleAIState;
+    /** @brief 突進前に剣を引く予備動作状態 */
+    class TelegraphAIState;
+    /** @brief プレイヤーへ向けて突進する状態 */
+    class DashAIState;
+    /** @brief 突進後の硬直状態 */
+    class RecoverAIState;
+    /** @brief 生存中の状態に対応するAI状態を返す（生存中以外はnullptr） */
+    static const IAIState* GetAIState(State state);
+    /** @brief 状態を切り替えて経過時間をリセットする */
+    void ChangeState(State next);
 
     void UpdateAI(ParticleManager* pm, const Vector3& playerPos);
     void UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos);
@@ -123,13 +151,14 @@ private:
     float knockVelY_ = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
     bool justAbsorbed_ = false;
 
+    // 本体・剣のモデル実体はModelManagerが所有・共有する（同種の敵なら読み込みは1回だけで済む）
     std::unique_ptr<SkinCommon> skinCommon_;
-    std::unique_ptr<SkinnedModel> model_;
+    SkinnedModel* model_ = nullptr;
     std::unique_ptr<SkinnedObject3d> object_;
     Animation idleAnimation_;
     Animation attackAnimation_;
     State animationState_ = State::Defeated;
-    std::unique_ptr<Model> swordModel_;
+    Model* swordModel_ = nullptr;
     std::unique_ptr<Object3d> swordObject_;
 };
 

@@ -63,6 +63,8 @@ public:
     void Draw();
 
 private:
+    /** @brief 必要な文字数に応じてスプライトを追加し、既存のものは再利用する */
+    Sprite& AcquireGlyphSprite(std::vector<Sprite>& pool, int& index, const char* atlas);
     /** @brief Draw()まで遅延させるASCII文字列描画コマンド1件（文字列・座標・スケール・色・太字指定） */
     struct DrawCmd {
         std::string text;

@@ -3,6 +3,7 @@
  * @brief Easingの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
  */
 #pragma once
+#include "GameConstants.h"
 #include <cmath>
 
 // イージング関数ライブラリ
@@ -35,9 +36,9 @@ namespace Easing {
     }
 
     // ── Sine ──
-    inline float EaseInSine(float t) { return 1.0f - std::cos(t * 1.5707963f); }
-    inline float EaseOutSine(float t) { return std::sin(t * 1.5707963f); }
-    inline float EaseInOutSine(float t) { return 0.5f * (1.0f - std::cos(t * 3.1415926f)); }
+    inline float EaseInSine(float t) { return 1.0f - std::cos(t * GameConstants::kHalfPi); }
+    inline float EaseOutSine(float t) { return std::sin(t * GameConstants::kHalfPi); }
+    inline float EaseInOutSine(float t) { return 0.5f * (1.0f - std::cos(t * GameConstants::kPi)); }
 
     // ── Expo ──
     inline float EaseInExpo(float t) { return (t <= 0.0f) ? 0.0f : std::pow(2.0f, 10.0f * t - 10.0f); }
@@ -72,7 +73,7 @@ namespace Easing {
         if (t >= 1.0f) {
             return 1.0f;
         }
-        constexpr float c4 = 2.0f * 3.1415926f / 3.0f;
+        constexpr float c4 = GameConstants::kTwoPi / 3.0f;
         return std::pow(2.0f, -10.0f * t) * std::sin((t * 10.0f - 0.75f) * c4) + 1.0f;
     }
     inline float EaseInElastic(float t)
@@ -83,7 +84,7 @@ namespace Easing {
         if (t >= 1.0f) {
             return 1.0f;
         }
-        constexpr float c4 = 2.0f * 3.1415926f / 3.0f;
+        constexpr float c4 = GameConstants::kTwoPi / 3.0f;
         return -std::pow(2.0f, 10.0f * t - 10.0f) * std::sin((t * 10.0f - 10.75f) * c4);
     }
 

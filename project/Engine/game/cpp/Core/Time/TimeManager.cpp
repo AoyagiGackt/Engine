@@ -29,7 +29,8 @@ float TimeManager::GetDeltaTime() const
 
 void TimeManager::SetTimeScale(float scale)
 {
-    timeScale_ = std::clamp(scale, 0.0f, 10.0f);
+    constexpr float kMaxTimeScale = 10.0f;
+    timeScale_ = std::clamp(scale, 0.0f, kMaxTimeScale);
 }
 
 void TimeManager::RequestHitStop(int frames)

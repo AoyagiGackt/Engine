@@ -10,6 +10,7 @@
 #include "GameFlags.h"
 #include "KnightEnemy.h"
 #include "StageEditor.h"
+#include "StageEditorUiStyle.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cstring>
@@ -21,6 +22,21 @@
 namespace engine::game {
 using namespace engine::graphics;
 namespace {
+namespace EditorUi = engine::game::StageEditorUiStyle;
+
+constexpr int kGuideStepCount = 4; // 制作手順の項目数（地面・敵・トリガー・イベント接続）
+constexpr float kNewLevelNameWidth = 150.0f;
+constexpr float kSnapStepWidth = 70.0f;
+constexpr Vector3 kNewLevelPlayerSpawn = { 4.0f, 0.4f, 0.0f };
+constexpr int kNewLevelLeftColumn = 2; // 新規レベルの床・天井・左壁を並べ始める列
+
+// 配置メニューから追加する物の初期見た目
+constexpr float kBackgroundScale = 0.42f;
+constexpr float kBackgroundY = -0.6f;
+constexpr float kBackgroundZ = 6.0f;
+constexpr float kPickupScale = 0.35f;
+constexpr float kBreakableScale = 0.9f;
+
 /** @brief 検索語(小文字化済み)がtext(小文字化して比較)に部分一致するか。空検索語は常にtrue */
 bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
 {
@@ -36,11 +52,7 @@ bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
 
 void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 {
-    ImGui::TextDisabled("F2: 表示/非表示  F4: 画面優先  右ドラッグ+WASD/QE: カメラ  中ドラッグ: 平行移動");
-    if (ImGui::Button("ゲーム画面を広く表示 (F4)", ImVec2(-1.0f, 0.0f))) {
-        editor.viewportFocusMode_ = true;
-    }
-    if (ImGui::CollapsingHeader("制作ガイド", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("制作ガイド")) {
         bool hasGround = false;
         bool hasEnemy = false;
         bool hasEventConnection = false;
@@ -52,7 +64,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         }
         const int completed = static_cast<int>(hasGround) + static_cast<int>(hasEnemy)
             + static_cast<int>(!editor.triggers_.empty()) + static_cast<int>(hasEventConnection);
-        ImGui::ProgressBar(static_cast<float>(completed) / 4.0f, ImVec2(-1.0f, 0.0f));
+        ImGui::ProgressBar(static_cast<float>(completed) / static_cast<float>(kGuideStepCount), ImVec2(-1.0f, 0.0f));
         ImGui::TextWrapped("上から順に進めると、配置からゲーム進行までコードを書かずに作成できます。");
         ImGui::BulletText("%s 1 地形を置き、詳細設定で当たり判定を有効にする",
             hasGround ? "[完了]" : "[次]  ");
@@ -73,7 +85,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         if (ImGui::SmallButton("水イベントを作る")) {
             editor.RecordUndoSnapshotNow();
             Vector3 center = editor.playerSpawn_;
-            editor.MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+            center = editor.ViewCenterOnGround();
             TriggerDesc desc;
             desc.name = "water_trigger_" + std::to_string(editor.nextSerial_++);
             desc.position = center;
@@ -84,7 +96,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
             editor.selKind_ = StageEditor::SelKind::Trigger;
             editor.selIndex_ = static_cast<int>(editor.triggers_.size()) - 1;
             editor.statusMessage_ = "水イベントを画面中央に作成しました。ドラッグして位置を調整してください";
-            editor.statusTimer_ = 3.0f;
+            editor.statusTimer_ = StageEditor::kStatusNormalSeconds;
         }
         EditorUI::HelpMarker("動作対象やイベントパネルでの接続を行わず、この場所に来たら水しぶきが出るトリガーを1回で作ります");
         ImGui::SameLine();
@@ -124,9 +136,6 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
 
 void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
 {
-    RenderCameraSection(editor);
-    RenderFileAndHistoryActions(editor);
-
     const std::string searchTextLower = RenderSearchBar(editor);
     RenderObjectTree(editor, searchTextLower);
     RenderExternalEntityList(editor, searchTextLower);
@@ -140,10 +149,10 @@ void StageEditorHierarchyPanel::RenderCameraSection(StageEditor& editor)
     if (editor.camera_ && ImGui::CollapsingHeader("ゲームカメラ", ImGuiTreeNodeFlags_DefaultOpen)) {
         Vector3 position = editor.camera_->GetTranslate();
         Vector3 rotation = editor.camera_->GetRotate();
-        if (ImGui::DragFloat3("カメラ位置", &position.x, 0.1f)) {
+        if (ImGui::DragFloat3("カメラ位置", &position.x, EditorUi::kDragStepPosition)) {
             editor.camera_->SetTranslate(position);
         }
-        if (ImGui::DragFloat3("カメラ回転", &rotation.x, 0.01f)) {
+        if (ImGui::DragFloat3("カメラ回転", &rotation.x, EditorUi::kDragStepRotation)) {
             editor.camera_->SetRotate(rotation);
         }
         ImGui::TextDisabled("WASD: XY移動 / Q,E: 奥行き移動");
@@ -181,7 +190,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     }
     EditorUI::HelpMarker("Resources/Levels のレベルを切り替えます。本編で使うレベルは game_rules.json の levelPaths で指定します");
 
-    ImGui::SetNextItemWidth(150.0f);
+    ImGui::SetNextItemWidth(kNewLevelNameWidth);
     ImGui::InputTextWithHint("##newLevel", "新規レベル名", editor.newLevelName_, sizeof(editor.newLevelName_));
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.newLevelName_[0] == '\0');
@@ -192,7 +201,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         constexpr float kFloorY = -0.98f;
         constexpr float kCeilingY = 13.0f;
         LevelData data;
-        data.playerSpawn = { 4.0f, 0.4f, 0.0f };
+        data.playerSpawn = kNewLevelPlayerSpawn;
         auto makeRow = [](const char* name, char axis, int count, const Vector3& position) {
             ObjectDesc row;
             row.name = name;
@@ -207,10 +216,10 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
             row.solid = true;
             return row;
         };
-        data.objects.push_back(makeRow("floor", 'x', kNewLevelWidth, { 2.0f, kFloorY, 0.0f }));
-        data.objects.push_back(makeRow("ceiling", 'x', kNewLevelWidth, { 2.0f, kCeilingY, 0.0f }));
-        data.objects.push_back(makeRow("wall_left", 'y', kNewLevelHeight, { 2.0f, 0.0f, 0.0f }));
-        data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + 2), kFloorY, 0.0f }));
+        data.objects.push_back(makeRow("floor", 'x', kNewLevelWidth, { static_cast<float>(kNewLevelLeftColumn), kFloorY, 0.0f }));
+        data.objects.push_back(makeRow("ceiling", 'x', kNewLevelWidth, { static_cast<float>(kNewLevelLeftColumn), kCeilingY, 0.0f }));
+        data.objects.push_back(makeRow("wall_left", 'y', kNewLevelHeight, { static_cast<float>(kNewLevelLeftColumn), 0.0f, 0.0f }));
+        data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + kNewLevelLeftColumn), kFloorY, 0.0f }));
         const std::string newPath = std::string(kLevelsDirectory) + "/" + editor.newLevelName_ + ".json";
         LevelLoader::Save(newPath, data);
         editor.levelPath_ = newPath;
@@ -251,7 +260,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     }
     if (editor.dirty_) {
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "未保存");
+        ImGui::TextColored(EditorUi::kWarningColor, "未保存");
     }
 
     ImGui::BeginDisabled(!editor.history_.CanUndo());
@@ -279,8 +288,8 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
 
     ImGui::Checkbox("スナップ", &editor.snapEnabled_);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.0f);
-    ImGui::DragFloat("##snapStep", &editor.snapStep_, 0.1f, 0.1f, 10.0f, "%.1f");
+    ImGui::SetNextItemWidth(kSnapStepWidth);
+    ImGui::DragFloat("##snapStep", &editor.snapStep_, EditorUi::kDragStepPosition, EditorUi::kMinSnapStep, EditorUi::kMaxSnapStep, "%.1f");
     const bool canLink = editor.selKind_ == StageEditor::SelKind::Object
         && editor.selIndex_ >= 0 && editor.selIndex_ < static_cast<int>(editor.objects_.size());
     ImGui::BeginDisabled(!canLink);
@@ -289,7 +298,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     }
     ImGui::EndDisabled();
     if (editor.parentLinkChildIndex_ >= 0) {
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "接続する親ブロックを画面上でクリック");
+        ImGui::TextColored(EditorUi::kNoticeColor, "接続する親ブロックを画面上でクリック");
     }
     EditorUI::HelpMarker("ドラッグ移動・新規配置・複製の座標を、この間隔の倍数に揃えます");
 
@@ -326,13 +335,13 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
         ImGui::EndDragDropTarget();
     }
     ImGui::SameLine();
-    if (ImGui::SmallButton("+##addObj")) {
+    if (ImGui::SmallButton("追加##addObj")) {
         ImGui::OpenPopup("AddObjectPopup");
     }
     if (ImGui::BeginPopup("AddObjectPopup")) {
         // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
         Vector3 center = editor.playerSpawn_;
-        editor.MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+        center = editor.ViewCenterOnGround();
 
         auto addEntry = [&](const std::string& namePrefix, const std::string& kind) {
             editor.RecordUndoSnapshotNow();
@@ -357,11 +366,11 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             auto& background = editor.objects_.back().desc;
             background.model = "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf";
             background.texture = "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png";
-            background.scale = { 0.42f, 0.42f, 0.42f };
-            background.position.y = -0.6f;
+            background.scale = { kBackgroundScale, kBackgroundScale, kBackgroundScale };
+            background.position.y = kBackgroundY;
             background.lighting = true;
             background.solid = false;
-            background.position.z = 6.0f;
+            background.position.z = kBackgroundZ;
             editor.RegenerateInstances(editor.objects_.back());
         }
         if (ImGui::MenuItem("敵：ナイト")) {
@@ -390,7 +399,7 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             auto& pickup = editor.objects_.back().desc;
             pickup.model = "Resources/block/block.obj";
             pickup.texture = "Resources/Effects/circle2.png";
-            pickup.scale = { 0.35f, 0.35f, 0.35f };
+            pickup.scale = { kPickupScale, kPickupScale, kPickupScale };
             pickup.lighting = false;
             pickup.solid = false;
             editor.RegenerateInstances(editor.objects_.back());
@@ -400,7 +409,7 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             auto& breakable = editor.objects_.back().desc;
             breakable.model = "Resources/block/block.obj";
             breakable.texture = "Resources/block/block.png";
-            breakable.scale = { 0.9f, 0.9f, 0.9f };
+            breakable.scale = { kBreakableScale, kBreakableScale, kBreakableScale };
             breakable.lighting = true;
             breakable.solid = false;
             editor.RegenerateInstances(editor.objects_.back());
@@ -411,12 +420,8 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
         if (ImGui::MenuItem("イベント条件")) {
             addEntry("condition", "event_condition");
         }
-        if (ImGui::MenuItem("テキスト")) {
-            addEntry("text", "ui_text");
-            ObjectDesc& text = editor.objects_.back().desc;
-            text.text = "テキスト";
-            text.textSpace = "screen";
-            text.position = { 100.0f, 100.0f, 0.0f }; // スクリーン座標(px)として使う
+        if (ImGui::MenuItem("文章UI（画面に固定）")) {
+            editor.AddUITextAt(EditorUi::kScreenCenterPosition);
         }
         if (ImGui::MenuItem("Terrain")) {
             addEntry("terrain", "terrain");
@@ -506,11 +511,11 @@ void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std
     snprintf(trgHeader, sizeof(trgHeader), "トリガー (%d)", static_cast<int>(editor.triggers_.size()));
     bool trgOpen = ImGui::TreeNodeEx(trgHeader, ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
-    if (ImGui::SmallButton("+##addTrg")) {
+    if (ImGui::SmallButton("追加##addTrg")) {
         editor.RecordUndoSnapshotNow();
         TriggerDesc desc;
         desc.name = "trigger_" + std::to_string(editor.nextSerial_++);
-        desc.position = editor.playerSpawn_;
+        desc.position = editor.ViewCenterOnGround();
         desc.flag = desc.name;
         TriggerVolume trg;
         trg.Init(desc);
@@ -562,12 +567,43 @@ void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
 void StageEditorHierarchyPanel::Render(StageEditor& editor)
 {
 
-    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight) * 0.62f;
+    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight) * EditorUi::kHierarchyHeightRatio;
     ImGui::SetNextWindowPos(ImVec2(0.0f, StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(StageEditor::kLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
-    ImGui::Begin("ステージエディタ", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    RenderGuideAndFileActions(editor);
+    ImGui::Begin("配置物一覧", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    // 一覧だけをスクロールさせ、選択中の操作を下端に固定する。
+    ImGui::BeginChild("配置物スクロール", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);
+    if (ImGui::CollapsingHeader("ファイル・制作ガイド")) {
+        RenderFileAndHistoryActions(editor);
+        RenderCameraSection(editor);
+        RenderGuideAndFileActions(editor);
+    }
+    if (ImGui::CollapsingHeader("文章UI", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::BeginDisabled(editor.playTestMode_);
+        if (ImGui::Button("文章を追加", ImVec2(-1.0f, 0.0f))) {
+            editor.AddUITextAt(EditorUi::kScreenCenterPosition);
+        }
+        ImGui::EndDisabled();
+        ImGui::TextWrapped("選択すると右側で文章を編集できます。改行も使えます。");
+        int textCount = 0;
+        for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
+            const auto& desc = editor.objects_[i].desc;
+            if (desc.kind != "ui_text") { continue; }
+            ++textCount;
+            ImGui::PushID(i);
+            const std::string label = std::string(desc.textSpace == "screen" ? "[画面] " : "[ステージ] ") + desc.name;
+            if (ImGui::Selectable(label.c_str(), editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ == i)) {
+                editor.selKind_ = StageEditor::SelKind::Object;
+                editor.selIndex_ = i;
+                editor.selectedObjectIndices_ = { i };
+            }
+            if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", desc.text.c_str()); }
+            ImGui::PopID();
+        }
+        if (textCount == 0) { ImGui::TextDisabled("まだ文章UIがありません"); }
+    }
     RenderEntityBrowser(editor);
+    ImGui::EndChild();
     RenderSelectionActions(editor);
     ImGui::End();
 }

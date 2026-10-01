@@ -87,8 +87,8 @@ private:
     std::unique_ptr<ShadowManager> shadowManager_;
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<Player> player_;
-    std::unique_ptr<Model> blockModel_;
-    std::unique_ptr<Model> cityModel_;
+    Model* blockModel_ = nullptr; // 実体はModelManagerが所有・共有する
+    Model* cityModel_ = nullptr; // 実体はModelManagerが所有・共有する
     std::vector<std::unique_ptr<Object3d>> groundBlocks_;
     std::vector<std::unique_ptr<Object3d>> portalObjects_;
     std::vector<std::unique_ptr<Object3d>> cityObjects_;

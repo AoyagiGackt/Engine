@@ -224,11 +224,11 @@ GraphDesc engine::game::GraphIO::Load(const std::string& path)
             c.text = cj.value("text", "Comment");
             c.x = cj.value("x", 0.0f);
             c.y = cj.value("y", 0.0f);
-            c.w = cj.value("w", 220.0f);
-            c.h = cj.value("h", 120.0f);
-            c.colorR = cj.value("colorR", 0.9f);
-            c.colorG = cj.value("colorG", 0.85f);
-            c.colorB = cj.value("colorB", 0.3f);
+            c.w = cj.value("w", c.w); // 省略時は構造体の既定値のまま
+            c.h = cj.value("h", c.h);
+            c.colorR = cj.value("colorR", c.colorR);
+            c.colorG = cj.value("colorG", c.colorG);
+            c.colorB = cj.value("colorB", c.colorB);
             graph.comments[commentId] = std::move(c);
         }
     }

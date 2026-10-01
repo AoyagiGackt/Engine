@@ -7,6 +7,7 @@
 #include "StageEditor.h"
 #ifdef USE_IMGUI
 #include "GameFlags.h"
+#include "StageEditorUiStyle.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <imgui.h>
@@ -16,13 +17,20 @@ using namespace engine;
 using namespace engine::graphics;
 
 #ifdef USE_IMGUI
+namespace {
+namespace EditorUi = engine::game::StageEditorUiStyle;
+constexpr ImVec2 kFlagsWindowSize = { 300.0f, 360.0f };
+constexpr float kFlagsWindowTop = 350.0f;
+constexpr float kMaxCheckpointRadius = 20.0f;
+}
+
 void StageEditor::RenderFlagsPanel()
 {
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - 300.0f, 350.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 360.0f), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - kFlagsWindowSize.x, kFlagsWindowTop), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(kFlagsWindowSize, ImGuiCond_Once);
     ImGui::Begin("フラグとチェックポイント");
     for (const auto& [name, value] : GameFlags::GetInstance()->GetAll()) {
-        ImGui::TextColored(value ? ImVec4(0.5f, 1.0f, 0.6f, 1.0f) : ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+        ImGui::TextColored(value ? EditorUi::kFlagOnColor : EditorUi::kFlagOffColor,
             "%s = %s", name.c_str(), value ? "true" : "false");
     }
 
@@ -54,7 +62,7 @@ void StageEditor::RenderFlagsPanel()
                 CommitUndoCapture();
             }
 
-            const bool positionChanged = ImGui::DragFloat3("復帰位置", &checkpoint.position.x, 0.1f);
+            const bool positionChanged = ImGui::DragFloat3("復帰位置", &checkpoint.position.x, EditorUi::kDragStepPosition);
             if (ImGui::IsItemActivated()) {
                 BeginUndoCapture();
             }
@@ -66,12 +74,12 @@ void StageEditor::RenderFlagsPanel()
             }
 
             const bool radiusChanged = ImGui::DragFloat(
-                "有効化半径", &checkpoint.activationRadius, 0.05f, 0.1f, 20.0f);
+                "有効化半径", &checkpoint.activationRadius, EditorUi::kDragStepFine, EditorUi::kMinRadius, kMaxCheckpointRadius);
             if (ImGui::IsItemActivated()) {
                 BeginUndoCapture();
             }
             if (radiusChanged) {
-                checkpoint.activationRadius = (std::max)(checkpoint.activationRadius, 0.1f);
+                checkpoint.activationRadius = (std::max)(checkpoint.activationRadius, EditorUi::kMinRadius);
                 MarkUndoDirty();
             }
             if (ImGui::IsItemDeactivatedAfterEdit()) {

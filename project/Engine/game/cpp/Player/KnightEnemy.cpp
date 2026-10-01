@@ -6,6 +6,7 @@
 #include "EnemyTuning.h"
 #include "GameConstants.h"
 #include "ModelCommon.h"
+#include "ModelManager.h"
 #include <algorithm>
 #include <cmath>
 using namespace engine;
@@ -29,6 +30,18 @@ constexpr Vector3 kSwordOffset = { 0.35f, 0.75f, 0.15f };
 constexpr float kSwordBaseTilt = 0.4f; // 基本の刀身傾き（ラジアン）
 constexpr float kSwordPullBack = 0.9f; // 溜め時に引く角度
 constexpr float kSwordSwingFwd = -1.3f; // 突進時に振り出す角度
+// 剣の振り角を目標角へ寄せる1フレームあたりの補間率（状態ごと）
+constexpr float kIdleSwordFollowRate = 0.15f;
+constexpr float kTelegraphSwordFollowRate = 0.3f;
+constexpr float kDashSwordFollowRate = 0.5f;
+constexpr float kRecoverSwordFollowRate = 0.12f;
+
+// 突進中に残す暗い靄の軌跡
+constexpr const char* kDashSmokeEmitterName = "bt_knight_dash_smoke";
+constexpr float kDashSmokeHeight = 0.5f; // 足元からの高さ
+constexpr Vector4 kDashSmokeColor = { 0.25f, 0.15f, 0.3f, 0.5f };
+constexpr float kDashSmokeSize = 0.6f;
+constexpr float kDashSmokeLifetime = 0.25f;
 
 // AI タイミング・被弾ノックバック・最大HPはResources/Config/enemy_params.jsonのknight節で調整する
 const KnightEnemyTuning& Tuning() { return EnemyTuning::GetInstance()->Knight(); }
@@ -36,6 +49,34 @@ const KnightEnemyTuning& Tuning() { return EnemyTuning::GetInstance()->Knight();
 constexpr float kGroundY = 0.4f; // Dummy等と同じ地面の高さ
 
 constexpr float kAbsorbDuration = 0.5f;
+
+constexpr float kInitialSwordPullRatio = 0.35f; // 生成直後に予備動作の途中から始めるための剣の引き具合
+
+// 抑制的な暗い紫のリムライト（本体・剣で共通）
+constexpr Vector3 kRimColor = { 0.35f, 0.2f, 0.45f };
+constexpr float kRimPower = 3.0f;
+constexpr float kRimIntensity = 0.6f;
+
+// 被弾・撃破
+constexpr float kHitFlashDuration = 0.12f;
+constexpr Vector4 kDefeatedColor = { 0.4f, 0.4f, 0.4f, 1.0f };
+constexpr float kKnockbackGravity = 0.02f;
+constexpr float kKnockbackStopSpeed = 0.001f; // これ未満の水平ノックバックは止める
+constexpr float kDefeatedBodyLean = 1.35f;
+constexpr float kDroppedSwordTilt = 1.45f;
+
+// 吸収演出
+constexpr float kBodyAbsorbDelay = 0.1f; // 剣より遅れて体が吸い込まれ始めるまでの割合
+constexpr float kAbsorbGlowStartRed = 0.5f; // 光の色の始まり。進行に応じて1.0へ寄せる
+constexpr float kAbsorbGlowStartGreen = 0.85f;
+constexpr float kSwordTrailScaleStart = 0.35f;
+constexpr float kSwordTrailScaleEnd = 0.12f;
+constexpr float kSwordTrailLifetime = 0.2f;
+constexpr float kBodyTrailScaleStart = 0.55f;
+constexpr float kBodyTrailScaleEnd = 0.1f;
+constexpr float kBodyTrailLifetime = 0.16f;
+constexpr float kSwordAbsorbShrink = 0.6f; // 吸収完了時に剣を縮める割合
+constexpr float kBodyAbsorbSpins = 3.0f; // 吸い込まれるまでの回転数
 
 float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
 float EaseInQuad(float t) { return t * t; }
@@ -52,7 +93,7 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     state_ = State::Telegraph;
     // 初回更新から攻撃の予備動作へ移り、生成直後の棒立ちをなくす
     stateTimer_ = Tuning().telegraphDuration;
-    swordSwing_ = kSwordPullBack * 0.35f;
+    swordSwing_ = kSwordPullBack * kInitialSwordPullRatio;
     maxHp_ = Tuning().maxHp;
     hp_ = maxHp_;
 
@@ -61,11 +102,11 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     SkinnedObject3d::SetCommonModelCommon(modelCommon);
     SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
 
-    model_ = std::make_unique<SkinnedModel>();
-    model_->Initialize(modelCommon->GetDxCommon(), kKnightModelPath, kKnightTexture);
+    model_ = ModelManager::GetInstance()->GetOrLoadSkinned(
+        modelCommon->GetDxCommon(), kKnightModelPath, kKnightTexture);
     object_ = std::make_unique<SkinnedObject3d>();
     object_->Initialize(skinCommon_.get());
-    object_->SetModel(model_.get());
+    object_->SetModel(model_);
     object_->SetSkeleton(Skeleton::Create(
         LoadNodeHierarchyFromFile(kKnightModelDirectory, kKnightModelFile)));
     idleAnimation_ = LoadAnimationFile(kKnightModelDirectory, kKnightModelFile, "Idle_swordRight");
@@ -74,20 +115,19 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     animationState_ = State::Telegraph;
     object_->SetEnableLighting(true);
     // Vを意識した抑制的な色  目立つ発光ではなく、わずかに暗い紫のリムに留める
-    object_->SetRimColor({ 0.35f, 0.2f, 0.45f });
-    object_->SetRimPower(3.0f);
-    object_->SetRimIntensity(0.6f);
+    object_->SetRimColor(kRimColor);
+    object_->SetRimPower(kRimPower);
+    object_->SetRimIntensity(kRimIntensity);
     object_->SetEnableRim(true);
 
-    swordModel_ = std::make_unique<Model>();
-    swordModel_->Initialize(modelCommon, kSwordModelPath, kSwordTexture);
+    swordModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon, kSwordModelPath, kSwordTexture);
     swordObject_ = std::make_unique<Object3d>();
     swordObject_->Initialize(modelCommon);
-    swordObject_->SetModel(swordModel_.get());
+    swordObject_->SetModel(swordModel_);
     swordObject_->SetEnableLighting(true);
-    swordObject_->SetRimColor({ 0.35f, 0.2f, 0.45f });
-    swordObject_->SetRimPower(3.0f);
-    swordObject_->SetRimIntensity(0.6f);
+    swordObject_->SetRimColor(kRimColor);
+    swordObject_->SetRimPower(kRimPower);
+    swordObject_->SetRimIntensity(kRimIntensity);
     swordObject_->SetEnableRim(true);
 
     ApplyTransforms();
@@ -95,8 +135,7 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
 
 bool KnightEnemy::IsAlive() const
 {
-    return state_ == State::Idle || state_ == State::Telegraph
-        || state_ == State::Dash || state_ == State::Recover;
+    return GetAIState(state_) != nullptr;
 }
 
 void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
@@ -105,15 +144,15 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
         return;
     }
     hp_ -= damage;
-    hitFlash_ = 0.12f;
+    hitFlash_ = kHitFlashDuration;
     knockVelX_ += knockDirX * Tuning().knockbackSpeed;
     knockVelY_ = knockY;
     if (hp_ <= 0) {
-        state_ = State::Defeated;
-        stateTimer_ = 0.0f;
-        object_->SetColor({ 0.4f, 0.4f, 0.4f, 1.0f });
+        ChangeState(State::Defeated);
+        object_->SetAnimSpeed(0.0f);
+        object_->SetColor(kDefeatedColor);
         object_->SetEnableRim(false);
-        swordObject_->SetColor({ 0.4f, 0.4f, 0.4f, 1.0f });
+        swordObject_->SetColor(kDefeatedColor);
         swordObject_->SetEnableRim(false);
     }
 }
@@ -123,8 +162,7 @@ bool KnightEnemy::TryBeginAbsorb()
     if (state_ != State::Defeated) {
         return false;
     }
-    state_ = State::Absorbing;
-    stateTimer_ = 0.0f;
+    ChangeState(State::Absorbing);
     return true;
 }
 
@@ -184,18 +222,18 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
         pos_.x += knockVelX_;
         pos_.y += knockVelY_;
         knockVelX_ *= Tuning().knockbackDecay;
-        knockVelY_ -= 0.02f; // 重力っぽく落ちる
+        knockVelY_ -= kKnockbackGravity; // 重力っぽく落ちる
         if (pos_.y <= kGroundY) {
             pos_.y = kGroundY;
             knockVelY_ = 0.0f;
         }
-        if (std::abs(knockVelX_) < 0.001f) {
+        if (std::abs(knockVelX_) < kKnockbackStopSpeed) {
             knockVelX_ = 0.0f;
         }
     }
 
     const State desiredAnimationState = (state_ == State::Telegraph || state_ == State::Dash) ? State::Dash : State::Idle;
-    if (desiredAnimationState != animationState_) {
+    if (IsAlive() && desiredAnimationState != animationState_) {
         object_->SetAnimation(desiredAnimationState == State::Dash ? attackAnimation_ : idleAnimation_);
         animationState_ = desiredAnimationState;
     }
@@ -203,60 +241,105 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
     ApplyTransforms();
 }
 
+//  AI State（生存中の行動フェーズ）
+
+namespace engine::game {
+class KnightEnemy::IdleAIState : public IAIState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+};
+class KnightEnemy::TelegraphAIState : public IAIState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+};
+class KnightEnemy::DashAIState : public IAIState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+};
+class KnightEnemy::RecoverAIState : public IAIState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+};
+}
+
+void KnightEnemy::IdleAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3& playerPos) const
+{
+    knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kIdleSwordFollowRate);
+    if (knight.stateTimer_ >= Tuning().idleDuration) {
+        knight.ChangeState(State::Telegraph);
+        knight.dashStart_ = knight.pos_;
+        float dx = std::clamp(playerPos.x - knight.pos_.x, -Tuning().maxDashDistance, Tuning().maxDashDistance);
+        knight.dashTarget_ = { knight.pos_.x + dx, knight.pos_.y, knight.pos_.z };
+    }
+}
+
+void KnightEnemy::TelegraphAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
+{
+    float t = std::clamp(knight.stateTimer_ / Tuning().telegraphDuration, 0.0f, 1.0f);
+    knight.swordSwing_ = LerpF(knight.swordSwing_, kSwordPullBack, kTelegraphSwordFollowRate);
+    if (t >= 1.0f) {
+        knight.ChangeState(State::Dash);
+    }
+}
+
+void KnightEnemy::DashAIState::Update(KnightEnemy& knight, ParticleManager* pm, const Vector3&) const
+{
+    float t = std::clamp(knight.stateTimer_ / Tuning().dashDuration, 0.0f, 1.0f);
+    float eased = EaseOutQuad(t);
+    knight.pos_.x = LerpF(knight.dashStart_.x, knight.dashTarget_.x, eased);
+    if (knight.dashTarget_.x != knight.dashStart_.x) {
+        knight.yaw_ = (knight.dashTarget_.x >= knight.dashStart_.x) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    }
+    knight.swordSwing_ = LerpF(knight.swordSwing_, kSwordSwingFwd, kDashSwordFollowRate);
+    // 派手な閃光とは対照的な、暗い靄の軌跡
+    if (pm) {
+        pm->EmitTrail(kDashSmokeEmitterName, { knight.pos_.x, knight.pos_.y + kDashSmokeHeight, knight.pos_.z },
+            kDashSmokeColor, kDashSmokeSize, kDashSmokeLifetime);
+    }
+    if (t >= 1.0f) {
+        knight.ChangeState(State::Recover);
+    }
+}
+
+void KnightEnemy::RecoverAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
+{
+    knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kRecoverSwordFollowRate);
+    if (knight.stateTimer_ >= Tuning().recoverDuration) {
+        knight.ChangeState(State::Idle);
+    }
+}
+
+const KnightEnemy::IAIState* KnightEnemy::GetAIState(State state)
+{
+    static IdleAIState idle;
+    static TelegraphAIState telegraph;
+    static DashAIState dash;
+    static RecoverAIState recover;
+    switch (state) {
+    case State::Idle:
+        return &idle;
+    case State::Telegraph:
+        return &telegraph;
+    case State::Dash:
+        return &dash;
+    case State::Recover:
+        return &recover;
+    default:
+        return nullptr;
+    }
+}
+
+void KnightEnemy::ChangeState(State next)
+{
+    state_ = next;
+    stateTimer_ = 0.0f;
+}
+
 void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
 {
     stateTimer_ += GameConstants::kFrameDeltaTime;
-
-    switch (state_) {
-    case State::Idle:
-        swordSwing_ = LerpF(swordSwing_, 0.0f, 0.15f);
-        if (stateTimer_ >= Tuning().idleDuration) {
-            state_ = State::Telegraph;
-            stateTimer_ = 0.0f;
-            dashStart_ = pos_;
-            float dx = std::clamp(playerPos.x - pos_.x, -Tuning().maxDashDistance, Tuning().maxDashDistance);
-            dashTarget_ = { pos_.x + dx, pos_.y, pos_.z };
-        }
-        break;
-
-    case State::Telegraph: {
-        float t = std::clamp(stateTimer_ / Tuning().telegraphDuration, 0.0f, 1.0f);
-        swordSwing_ = LerpF(swordSwing_, kSwordPullBack, 0.3f);
-        if (t >= 1.0f) {
-            state_ = State::Dash;
-            stateTimer_ = 0.0f;
-        }
-        break;
-    }
-    case State::Dash: {
-        float t = std::clamp(stateTimer_ / Tuning().dashDuration, 0.0f, 1.0f);
-        float eased = EaseOutQuad(t);
-        pos_.x = LerpF(dashStart_.x, dashTarget_.x, eased);
-        if (dashTarget_.x != dashStart_.x) {
-            yaw_ = (dashTarget_.x >= dashStart_.x) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
-        }
-        swordSwing_ = LerpF(swordSwing_, kSwordSwingFwd, 0.5f);
-        // 派手な閃光とは対照的な、暗い靄の軌跡
-        if (pm) {
-            pm->EmitTrail("bt_knight_dash_smoke", { pos_.x, pos_.y + 0.5f, pos_.z },
-                { 0.25f, 0.15f, 0.3f, 0.5f }, 0.6f, 0.25f);
-        }
-        if (t >= 1.0f) {
-            state_ = State::Recover;
-            stateTimer_ = 0.0f;
-        }
-        break;
-    }
-    case State::Recover:
-        swordSwing_ = LerpF(swordSwing_, 0.0f, 0.12f);
-        if (stateTimer_ >= Tuning().recoverDuration) {
-            state_ = State::Idle;
-            stateTimer_ = 0.0f;
-        }
-        break;
-
-    default:
-        break;
+    if (const IAIState* aiState = GetAIState(state_)) {
+        aiState->Update(*this, pm, playerPos);
     }
 }
 
@@ -281,7 +364,7 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
     };
 
     // 体は剣より少し遅れて発進し、丸まりながら吸い込まれていく(丸呑み演出)
-    float bodyEased = EaseInQuad(std::clamp((t - 0.1f) / 0.9f, 0.0f, 1.0f));
+    float bodyEased = EaseInQuad(std::clamp((t - kBodyAbsorbDelay) / (1.0f - kBodyAbsorbDelay), 0.0f, 1.0f));
     Vector3 bodyFlyPos = {
         LerpF(pos_.x, target.x, bodyEased),
         LerpF(pos_.y, target.y, bodyEased),
@@ -290,21 +373,22 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
     float bodyScale = kKnightModelScale * (1.0f - bodyEased);
 
     // 剣・体ともに光の粒に変わりながら吸い込まれていく軌跡
-    Vector4 glowColor = { 0.5f + 0.5f * t, 0.85f + 0.15f * t, 1.0f, 1.0f };
+    Vector4 glowColor = { LerpF(kAbsorbGlowStartRed, 1.0f, t), LerpF(kAbsorbGlowStartGreen, 1.0f, t), 1.0f, 1.0f };
     if (pm) {
-        pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, LerpF(0.35f, 0.12f, t), 0.2f);
-        pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, LerpF(0.55f, 0.1f, bodyEased), 0.16f);
+        pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, LerpF(kSwordTrailScaleStart, kSwordTrailScaleEnd, t), kSwordTrailLifetime);
+        pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, LerpF(kBodyTrailScaleStart, kBodyTrailScaleEnd, bodyEased), kBodyTrailLifetime);
     }
 
     swordObject_->SetPosition(swordFlyPos);
     swordObject_->SetRotation({ 0.0f, yaw_, facingSign * kSwordBaseTilt });
-    swordObject_->SetScale({ kSwordScale * (1.0f - 0.6f * t), kSwordScale * (1.0f - 0.6f * t), kSwordScale * (1.0f - 0.6f * t) });
+    const float swordAbsorbScale = kSwordScale * (1.0f - kSwordAbsorbShrink * t);
+    swordObject_->SetScale({ swordAbsorbScale, swordAbsorbScale, swordAbsorbScale });
     swordObject_->SetColor(glowColor);
     swordObject_->Update();
 
     // 体は高速回転させながら縮め、球状に丸まっていくように見せる
     object_->SetPosition(bodyFlyPos);
-    object_->SetRotation({ bodyEased * GameConstants::kTwoPi * 3.0f, yaw_ + bodyEased * GameConstants::kTwoPi * 3.0f, 0.0f });
+    object_->SetRotation({ bodyEased * GameConstants::kTwoPi * kBodyAbsorbSpins, yaw_ + bodyEased * GameConstants::kTwoPi * kBodyAbsorbSpins, 0.0f });
     object_->SetScale({ bodyScale, bodyScale, bodyScale });
     object_->SetColor(glowColor);
     object_->Update();
@@ -326,12 +410,13 @@ void KnightEnemy::ApplyTransforms()
 
     if (IsAlive()) {
         // 被弾直後は白く明滅させ、ヒットがはっきり伝わるようにする
-        float f = hitFlash_ / 0.12f;
+        float f = hitFlash_ / kHitFlashDuration;
         object_->SetColor({ 1.0f + f, 1.0f + f, 1.0f + f, 1.0f });
     }
 
     object_->SetPosition(pos_);
-    object_->SetRotation({ 0.0f, yaw_, 0.0f });
+    const float defeatedLean = state_ == State::Defeated ? facingSign * kDefeatedBodyLean : 0.0f;
+    object_->SetRotation({ 0.0f, yaw_, defeatedLean });
     object_->SetScale({ kKnightModelScale, kKnightModelScale, kKnightModelScale });
     object_->Update();
 
@@ -341,7 +426,8 @@ void KnightEnemy::ApplyTransforms()
         pos_.z + kSwordOffset.z
     };
     swordObject_->SetPosition(swordPos);
-    swordObject_->SetRotation({ 0.0f, yaw_, facingSign * (kSwordBaseTilt + swordSwing_) });
+    const float droppedSwordTilt = state_ == State::Defeated ? facingSign * kDroppedSwordTilt : facingSign * (kSwordBaseTilt + swordSwing_);
+    swordObject_->SetRotation({ 0.0f, yaw_, droppedSwordTilt });
     swordObject_->SetScale({ kSwordScale, kSwordScale, kSwordScale });
     swordObject_->Update();
 }

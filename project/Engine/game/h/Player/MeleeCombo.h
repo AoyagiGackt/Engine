@@ -110,7 +110,7 @@ private:
     float chainGraceTimer_ = 0.0f; ///< モーション終了後もコンボを継続できる猶予
     float lungeDelta_ = 0.0f;
 
-    static constexpr float kChainGrace_ = 0.45f; ///< 段間の入力猶予（秒）
+    static constexpr float kChainGrace_ = 0.75f; ///< 段間の入力猶予（秒）。位置調整を挟んでも次段へ繋げやすくする
 };
 
 } // namespace engine::game

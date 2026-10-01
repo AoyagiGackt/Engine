@@ -95,7 +95,7 @@ void WinApp::Initialize()
 
     hwnd = CreateWindowW(
         wc.lpszClassName, // 利用するクラス名
-        L"myGame", // タイトルバーの文字
+        L"コンボマン", // タイトルバーの文字
         WS_OVERLAPPEDWINDOW, // 通常ウィンドウ
         posX, // 表示x座標（画面中央）
         posY, // 表示y座標（画面中央）

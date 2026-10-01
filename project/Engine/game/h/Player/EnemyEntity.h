@@ -50,9 +50,9 @@ public:
     void SetArchetype(const std::string& archetype)
     {
         archetype_ = archetype;
-        const Vector4 color = archetype_ == "flying" ? Vector4 { 0.55f, 0.8f, 1.0f, 1.0f }
-            : archetype_ == "healer" ? Vector4 { 0.45f, 1.0f, 0.55f, 1.0f }
-                                      : Vector4 { 1.0f, 1.0f, 1.0f, 1.0f };
+        const Vector4 color = archetype_ == "flying" ? kFlyingColor_
+            : archetype_ == "healer"             ? kHealerColor_
+                                                 : kDefaultArchetypeColor_;
         SetColor(color);
     }
     /**
@@ -124,6 +124,10 @@ public:
         if (hp_ <= 0) {
             hp_ = 0;
             defeated_ = true;
+            // 撃破後もUpdate自体は落下・吸収演出のため続くが、歩行アニメだけはその場で完全停止する。
+            if (object_) {
+                object_->SetAnimSpeed(0.0f);
+            }
         }
     }
 
@@ -136,6 +140,9 @@ public:
         maxHp_ = v;
         hp_ = v;
         defeated_ = false;
+        if (object_) {
+            object_->SetAnimSpeed(1.0f);
+        }
     }
 
     /**
@@ -183,7 +190,7 @@ public:
     bool IsVisible() const { return visible_; }
 
     /** @brief 切断演出などが参照するモデルを返す */
-    Model* GetModel() const { return model_.get(); }
+    Model* GetModel() const { return model_; }
 
     /** @brief このフレームに着地したか */
     bool JustLanded() const { return justLanded_; }
@@ -221,6 +228,16 @@ private:
     static constexpr Vector4 kTelegraphTint_ = { 1.0f, 0.3f, 0.2f, 1.0f };
     static constexpr float kTelegraphTintStrength_ = 0.55f; // 基準色から警告色へ寄せる割合（0〜1）
 
+    // 撃破後の色（生存中の武器色と紛れないよう固定の灰色にする。KnightEnemyの撃破色と同じ配色）
+    static constexpr Vector4 kDefeatedColor_ = { 0.4f, 0.4f, 0.4f, 1.0f };
+    static constexpr Vector4 kFlyingColor_ = { 0.55f, 0.8f, 1.0f, 1.0f };
+    static constexpr Vector4 kHealerColor_ = { 0.45f, 1.0f, 0.55f, 1.0f };
+    static constexpr Vector4 kDefaultArchetypeColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+    static constexpr float kDefeatedBodyLean_ = 1.35f; // 撃破後に倒れ込む本体の傾き
+    static constexpr float kDefeatedWeaponTilt_ = 1.15f; // 撃破後に落とした武器の傾き
+    static constexpr float kKnockbackStopSpeed_ = 0.001f; // これ未満の水平ノックバックは止まっているとみなす
+    static constexpr float kCeilingBounceFactor_ = -0.1f; // 天井に当たった時の跳ね返り（負で下向きに返す）
+
     // 攻撃ステートマシン（Idle→Telegraph→Active→Idle を固定時間で巡回する）
     // Telegraph→Active の切り替わり瞬間が弾の発射トリガー実際の弾はGamePlayScene側が撃ち出して追跡する
     // 各時間はEnemyTuning::Basic()から読む
@@ -236,6 +253,25 @@ private:
      *  @param playerX プレイヤーのワールドX座標（持ち場基準の索敵判定に使う） */
     void UpdateAttack(float playerX);
 
+    // Attack State パターン
+    // 攻撃の進行フェーズ（AttackState）ごとに次フェーズへの遷移内容と構えの姿勢を切り替える
+    /** @brief 攻撃フェーズ固有処理を抽象化する状態 */
+    class IAttackState {
+    public:
+        virtual ~IAttackState() = default;
+        /** @brief フェーズのタイマーが尽きた時に次のフェーズへ進める */
+        virtual void Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float playerX) const = 0;
+        /** @brief フェーズに応じた本体の傾きと武器の振り角を書き込む */
+        virtual void ApplyPose(float& bodyLean, float& weaponSwing) const = 0;
+    };
+    /** @brief 次の攻撃までのクールダウン状態 */
+    class IdleAttackState;
+    /** @brief 攻撃前の予備動作状態 */
+    class TelegraphAttackState;
+    /** @brief 攻撃判定が発生している状態 */
+    class ActiveAttackState;
+    static const IAttackState& GetAttackState(AttackState state);
+
     /** @brief 表示アニメーションの種類（攻撃ステートと歩行状態の組み合わせから決まる） */
     enum class VisualAnim {
         Idle, ///< 立ち姿勢
@@ -243,15 +279,16 @@ private:
         Attack, ///< 予備動作〜攻撃中
     };
 
-    std::unique_ptr<Model> model_;
+    // 本体・武器のモデル実体はModelManagerが所有・共有する（同種の敵/同じ武器なら読み込みは1回だけで済む）
+    Model* model_ = nullptr;
     std::unique_ptr<SkinCommon> skinCommon_;
-    std::unique_ptr<SkinnedModel> animatedModel_;
+    SkinnedModel* animatedModel_ = nullptr;
     std::unique_ptr<SkinnedObject3d> object_;
     Animation idleAnimation_;
     Animation runAnimation_;
     Animation attackAnimation_;
     VisualAnim animationState_ = VisualAnim::Attack;
-    std::unique_ptr<Model> weaponModel_;
+    Model* weaponModel_ = nullptr;
     std::unique_ptr<Object3d> weaponObject_;
     Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };
 
