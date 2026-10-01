@@ -189,7 +189,11 @@ void Input::LoadActionBindings()
 
 bool Input::PushAction(Action action) const
 {
-    const ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
+    const size_t idx = static_cast<size_t>(action);
+    if (actionOverrideEnabled_[idx]) {
+        return actionOverridePressed_[idx];
+    }
+    const ActionBinding& binding = actionBindings_[idx];
     const bool keyboard = (binding.primaryKey && key_[binding.primaryKey])
         || (binding.secondaryKey && key_[binding.secondaryKey]);
     return keyboard || (binding.gamepadButton && (state_.Gamepad.wButtons & binding.gamepadButton));
@@ -197,7 +201,11 @@ bool Input::PushAction(Action action) const
 
 bool Input::TriggerAction(Action action) const
 {
-    const ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
+    const size_t idx = static_cast<size_t>(action);
+    if (actionOverrideEnabled_[idx]) {
+        return actionOverridePressed_[idx] && !actionOverridePressedPrev_[idx];
+    }
+    const ActionBinding& binding = actionBindings_[idx];
     const bool keyboard = (binding.primaryKey && key_[binding.primaryKey] && !keyPre_[binding.primaryKey])
         || (binding.secondaryKey && key_[binding.secondaryKey] && !keyPre_[binding.secondaryKey]);
     const bool gamepad = binding.gamepadButton
@@ -206,10 +214,26 @@ bool Input::TriggerAction(Action action) const
     return keyboard || gamepad;
 }
 
+void Input::SetActionOverride(Action action, bool pressed)
+{
+    actionOverrideEnabled_[static_cast<size_t>(action)] = true;
+    actionOverridePressed_[static_cast<size_t>(action)] = pressed;
+}
+
+void Input::ClearActionOverrides()
+{
+    actionOverrideEnabled_.fill(false);
+    actionOverridePressed_.fill(false);
+    actionOverridePressedPrev_.fill(false);
+}
+
 void Input::Update()
 {
     // ゲームコントローラー更新
     UpdateGamepad();
+
+    // オーバーライド版のTrigger判定用（実機キーのkey_/keyPre_と同じ前後関係を保つ）
+    actionOverridePressedPrev_ = actionOverridePressed_;
 
     // 前回のキー入力を保存
     memcpy(keyPre_, key_, sizeof(key_));
@@ -275,8 +299,9 @@ void Input::UpdateGamepad()
  */
 Input::Stick Input::GetLeftStick() const
 {
-    float x = (float)state_.Gamepad.sThumbLX / 32767.0f;
-    float y = (float)state_.Gamepad.sThumbLY / 32767.0f;
+    constexpr float kStickMax = 32767.0f; // XInputのスティック値の最大値
+    float x = (float)state_.Gamepad.sThumbLX / kStickMax;
+    float y = (float)state_.Gamepad.sThumbLY / kStickMax;
 
     // デッドゾーンの処理
     if (std::abs(x) < deadzone_) {

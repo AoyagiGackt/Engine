@@ -139,7 +139,7 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
             > std::filesystem::last_write_time(levelPath_, fileError);
 #endif
     statusMessage_ = "読み込みました: " + levelPath_;
-    statusTimer_ = 2.0f;
+    statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
 StageEditor::~StageEditor()
@@ -166,20 +166,20 @@ void StageEditor::Finalize()
 void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
 {
     // 描画に使用した実体を解放する前にGPUからの参照完了を保証する
-    if ((!objects_.empty() || !modelStorage_.empty()) && modelCommon_ && modelCommon_->GetDxCommon()) {
+    if (!objects_.empty() && modelCommon_ && modelCommon_->GetDxCommon()) {
         modelCommon_->GetDxCommon()->WaitForGpu();
     }
 
     // グラフは配置物を名前で参照するため、実体より先に止める
     levelGraphs_.Stop();
 
-    // レジストリ参照、描画実体、参照キャッシュ、所有モデルの順に破棄する
+    // レジストリ参照、描画実体の順に破棄する
+    // （モデルの実体はModelManagerが所有・共有するのでここでは破棄しない。GetOrLoadModel()参照）
     for (auto& entry : objects_) {
         DestroyObjectRuntime(entry, false);
     }
     objects_.clear();
     modelCache_.clear();
-    modelStorage_.clear();
     triggers_.clear();
     checkpoints_.clear();
     if (releaseExternalEntities) {
@@ -291,7 +291,8 @@ void StageEditor::SetPlayTestMode(bool enabled)
 Vector3 StageEditor::ViewCenterOnGround() const
 {
     Vector3 center = playerSpawn_;
-    MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+    const Vector3 screen = viewport_.ViewCenter();
+    MouseToGround(screen.x, screen.y, center);
     return center;
 }
 
@@ -392,7 +393,7 @@ void StageEditor::Save()
     validationIssues_ = ValidateLevel();
     if (!validationIssues_.empty()) {
         statusMessage_ = "保存前検証で問題が見つかりました";
-        statusTimer_ = 4.0f;
+        statusTimer_ = StageEditor::kStatusLongSeconds;
         return;
     }
 #endif
@@ -403,7 +404,7 @@ void StageEditor::Save()
     lastSavedSnapshot_ = MakeSnapshot();
 #endif
     statusMessage_ = "保存しました: " + levelPath_;
-    statusTimer_ = 2.0f;
+    statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
 void StageEditor::SaveToPath(const std::string& path) const
@@ -436,6 +437,8 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 #ifdef USE_IMGUI
     UpdateEditorVisibility(input);
     if (!visible_) {
+        viewport_.ClearImageRect();
+        DiagnosticsDraw::SetImageViewport();
         return;
     }
 
@@ -444,6 +447,7 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
     if (ImGui::IsKeyPressed(ImGuiKey_F4, false)) {
         viewportFocusMode_ = !viewportFocusMode_;
     }
+    RenderGameViewport();
 
     const float realDt = ImGui::GetIO().DeltaTime;
     UpdateAutoSave(realDt);
@@ -462,8 +466,15 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 
     HandleEditorShortcuts();
     RenderEditorPanels();
-    DrawGridOverlay();
-    DrawGizmos();
+    ImDrawList* overlay = DiagnosticsDraw::GetDrawList();
+    const Vector3 topLeft = viewport_.ScreenToImage(0.0f, 0.0f);
+    const Vector3 bottomRight = viewport_.ScreenToImage(WinApp::kClientWidth, WinApp::kClientHeight);
+    overlay->PushClipRect({ topLeft.x, topLeft.y }, { bottomRight.x, bottomRight.y }, true);
+    if (!playTestMode_) {
+        DrawGridOverlay();
+        DrawGizmos();
+    }
+    overlay->PopClipRect();
 #else
     (void)input;
 #endif
@@ -490,6 +501,7 @@ void StageEditor::UpdateEditorVisibility(Input* input)
 
 void StageEditor::HandleEditorShortcuts()
 {
+    if (playTestMode_) { return; }
     ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput) {
         return;
@@ -666,215 +678,4 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
     return snap;
 }
 
-void StageEditor::ApplySnapshot(const LevelSnapshot& snap)
-{
-    // UndoとRedoで配置実体を破棄する前に、GPUからの参照完了を保証する
-    if (!objects_.empty() && modelCommon_ && modelCommon_->GetDxCommon()) {
-        modelCommon_->GetDxCommon()->WaitForGpu();
-    }
-    // Open()のファイル読み込み抜き版。実体はdescから作り直す
-    for (auto& entry : objects_) {
-        UnregisterEnemyEntity(entry);
-    }
-    objects_.clear();
-    for (const auto& desc : snap.objects) {
-        ObjectEntry entry;
-        entry.desc = desc;
-        entry.authoredPosition = entry.desc.position;
-        entry.runtimeActive = IsRuntimeActive(entry.desc) && entry.desc.activationDelay <= 0.0f;
-        objects_.push_back(std::move(entry));
-    }
-    for (auto& entry : objects_) {
-        RegenerateInstances(entry);
-    }
-
-    triggers_.clear();
-    for (const auto& desc : snap.triggers) {
-        TriggerVolume trg;
-        trg.Init(desc);
-        triggers_.push_back(std::move(trg));
-    }
-    checkpoints_ = snap.checkpoints;
-
-    playerSpawn_ = snap.playerSpawn;
-    enemySpawn_ = snap.enemySpawn;
-    graphPath_ = snap.graphPath;
-    flagGraphs_ = snap.flagGraphs;
-    strncpy_s(graphPathBuffer_, graphPath_.c_str(), _TRUNCATE);
-
-    selKind_ = SelKind::None;
-    selIndex_ = -1;
-    viewportDragging_ = false;
-}
-
-void StageEditor::RecordUndoSnapshotNow()
-{
-    history_.Record(MakeSnapshot());
-    dirty_ = true;
-}
-
-void StageEditor::BeginUndoCapture()
-{
-    if (!history_.IsCapturing()) {
-        history_.Begin(MakeSnapshot());
-    }
-}
-
-void StageEditor::MarkUndoDirty()
-{
-    history_.MarkChanged();
-    dirty_ = true;
-}
-
-void StageEditor::CommitUndoCapture()
-{
-    history_.Commit();
-}
-
-void StageEditor::Undo()
-{
-    std::optional<LevelSnapshot> snapshot = history_.Undo(MakeSnapshot());
-    if (!snapshot) {
-        return;
-    }
-    ApplySnapshot(*snapshot);
-    dirty_ = true;
-    statusMessage_ = "元に戻しました";
-    statusTimer_ = 1.5f;
-}
-
-void StageEditor::Redo()
-{
-    std::optional<LevelSnapshot> snapshot = history_.Redo(MakeSnapshot());
-    if (!snapshot) {
-        return;
-    }
-    ApplySnapshot(*snapshot);
-    dirty_ = true;
-    statusMessage_ = "やり直しました";
-    statusTimer_ = 1.5f;
-}
-
-float StageEditor::SnapValue(float v) const
-{
-    // Ctrlを押している間はスナップOFFでも一時的に揃える
-    const bool snapActive = snapEnabled_ || ImGui::GetIO().KeyCtrl;
-    if (!snapActive || snapStep_ <= 0.0f) {
-        return v;
-    }
-    return std::round(v / snapStep_) * snapStep_;
-}
-
-std::vector<std::string> StageEditor::ValidateLevel() const
-{
-    std::vector<std::string> issues;
-    std::unordered_set<std::string> names;
-    for (const auto& entry : objects_) {
-        const ObjectDesc& desc = entry.desc;
-        if (desc.name.empty()) {
-            issues.push_back("名前が空のオブジェクトがあります");
-        } else if (!names.insert(desc.name).second) {
-            issues.push_back("オブジェクト名が重複しています: " + desc.name);
-        }
-        if (IsVisualKind(desc.kind) && desc.kind != "background" && desc.model.empty()) {
-            issues.push_back("モデル未設定: " + desc.name);
-        }
-        if (desc.kind == "breakable" && desc.breakableHp <= 0) {
-            issues.push_back("壊せる物のHPが0以下です: " + desc.name);
-        }
-        if (desc.kind == "gimmick" && desc.gimmickMotion == "custom"
-            && desc.motionAxis.x == 0.0f && desc.motionAxis.y == 0.0f && desc.motionAxis.z == 0.0f
-            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f) {
-            issues.push_back("カスタム動作の移動方向と回転量が両方0です: " + desc.name);
-        }
-        if (desc.scale.x <= 0.0f || desc.scale.y <= 0.0f || desc.scale.z <= 0.0f) {
-            issues.push_back("スケールが0以下です: " + desc.name);
-        }
-        if (desc.type == "row" && (desc.count <= 0 || desc.step == 0.0f)) {
-            issues.push_back("列配置の個数または間隔が無効です: " + desc.name);
-        }
-        if (!desc.parent.empty()) {
-            const bool parentExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& other) {
-                return other.desc.name == desc.parent;
-            });
-            if (!parentExists) {
-                issues.push_back("親が見つかりません: " + desc.name + " -> " + desc.parent);
-            } else if (desc.parent == desc.name || IsDescendantOf(desc.parent, desc.name)) {
-                issues.push_back("親子関係が循環しています: " + desc.name);
-            }
-        }
-        if (desc.kind == "spawn_point" && desc.spawnType != "basic" && desc.spawnType != "knight") {
-            issues.push_back("SpawnPointの敵種類が不正です: " + desc.name);
-        }
-        if (desc.kind == "patrol_point" && desc.patrolRoute.empty()) {
-            issues.push_back("巡回ルート名が空です: " + desc.name);
-        }
-        if (desc.kind == "terrain" && !desc.solid) {
-            issues.push_back("Terrainの当たり判定が無効です: " + desc.name);
-        }
-        if (desc.kind == "ui_text" && desc.text.empty()) {
-            issues.push_back("表示文字列が空です: " + desc.name);
-        }
-        if (!desc.activationFlag.empty()) {
-            bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
-                return trigger.GetDesc().flag == desc.activationFlag;
-            });
-            if (!sourceExists && desc.activationFlag.starts_with("condition_")) {
-                const std::string conditionName = desc.activationFlag.substr(10);
-                sourceExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& condition) {
-                    return condition.desc.kind == "event_condition" && condition.desc.name == conditionName;
-                });
-            }
-            if (!sourceExists) {
-                issues.push_back("イベント接続元が見つかりません: " + desc.name);
-            }
-        }
-    }
-
-    std::unordered_set<std::string> triggerNames;
-    for (const auto& trigger : triggers_) {
-        const TriggerDesc& desc = trigger.GetDesc();
-        if (desc.name.empty() || !triggerNames.insert(desc.name).second) {
-            issues.push_back("トリガー名が空または重複しています: " + desc.name);
-        }
-        if (desc.flag.empty() || desc.radius <= 0.0f) {
-            issues.push_back("トリガー設定が不正です: " + desc.name);
-        }
-    }
-
-    for (const auto& binding : flagGraphs_) {
-        if (binding.flag.empty() || binding.graphPath.empty()) {
-            issues.push_back("フラグ起動グラフのフラグ名またはパスが空です");
-            continue;
-        }
-        std::error_code fileError;
-        if (!std::filesystem::exists(binding.graphPath, fileError)) {
-            issues.push_back("フラグ起動グラフのファイルが見つかりません: " + binding.graphPath);
-        }
-    }
-    if (!graphPath_.empty()) {
-        std::error_code fileError;
-        if (!std::filesystem::exists(graphPath_, fileError)) {
-            issues.push_back("常駐グラフのファイルが見つかりません: " + graphPath_);
-        }
-    }
-    return issues;
-}
-
-void StageEditor::UpdateAutoSave(float realDt)
-{
-    if (!autoSaveEnabled_ || !dirty_ || levelPath_.empty()) {
-        autoSaveElapsed_ = 0.0f;
-        return;
-    }
-    autoSaveElapsed_ += realDt;
-    if (autoSaveElapsed_ < kAutoSaveIntervalSeconds) {
-        return;
-    }
-    recoveryPath_ = levelPath_ + ".autosave.json";
-    SaveToPath(recoveryPath_);
-    autoSaveElapsed_ = 0.0f;
-    statusMessage_ = "自動保存しました: " + recoveryPath_;
-    statusTimer_ = 2.0f;
-}
 #endif

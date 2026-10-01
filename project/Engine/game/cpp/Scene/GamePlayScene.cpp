@@ -13,6 +13,7 @@
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
 #include "ImageFilter.h"
+#include "ModelManager.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
@@ -39,6 +40,67 @@ using namespace engine::game;
 namespace {
 constexpr const char* kSceneName = "GAMEPLAY"; // scene_flow.jsonのキー（SceneFactoryの登録名と同じ）
 constexpr const char* kDefaultLevelPath = "Resources/Levels/level01.json";
+
+constexpr Vector3 kInitialCameraPosition = { 19.0f, 6.0f, 0.0f }; // zはGameConstants::kCameraDistanceZを使う
+constexpr Vector4 kHpBarBackgroundColor = { 0.2f, 0.2f, 0.2f, 0.8f };
+constexpr float kFinisherShatterSeconds = 0.9f;
+constexpr float kMinClipW = 0.0001f; // これ以下のw成分ではスクリーン座標へ変換しない（カメラの背後）
+
+// 乱舞 打ち上げヒット
+constexpr float kLaunchRingSpeed = 5.5f;
+constexpr Vector4 kLaunchRingColor = { 1.0f, 0.55f, 0.1f, 1.0f };
+constexpr int kLaunchRingCount = 20;
+constexpr float kLaunchRingLifetime = 0.45f;
+constexpr float kLaunchRingSize = 0.28f;
+constexpr float kLaunchSparkSpreadX = 4.0f;
+constexpr float kLaunchSparkRiseMin = 3.0f;
+constexpr float kLaunchSparkRiseMax = 7.0f;
+constexpr int kLaunchSparkCount = 10;
+constexpr Vector4 kLaunchSparkColor = { 1.0f, 0.65f, 0.15f, 1.0f };
+constexpr float kLaunchSparkLifetime = 0.8f;
+constexpr float kLaunchSparkSize = 0.18f;
+
+// 乱舞 ジャグルスラッシュ（回数を重ねるほど大きく、色を暖色へ寄せる）
+constexpr float kJuggleSlashRadiusBase = 1.2f;
+constexpr float kJuggleSlashRadiusStep = 0.12f;
+constexpr float kJuggleSlashGreenFade = 0.06f;
+constexpr float kJuggleSlashBlueFade = 0.09f;
+constexpr float kJuggleRingSpeedBase = 2.5f;
+constexpr float kJuggleRingSpeedStep = 0.2f;
+constexpr Vector4 kJuggleRingColor = { 1.0f, 0.9f, 0.5f, 0.8f };
+constexpr int kJuggleRingCount = 8;
+constexpr float kJuggleRingLifetime = 0.25f;
+constexpr float kJuggleRingSize = 0.15f;
+constexpr float kJuggleShakeBase = 0.12f;
+constexpr float kJuggleShakeStep = 0.01f;
+constexpr float kJuggleShakeSeconds = 0.10f;
+
+// 乱舞 フィニッシュ
+constexpr float kFinishOuterRingSpeed = 8.0f;
+constexpr Vector4 kFinishOuterRingColor = { 1.0f, 0.3f, 0.3f, 1.0f };
+constexpr int kFinishOuterRingCount = 24;
+constexpr float kFinishOuterRingLifetime = 0.5f;
+constexpr float kFinishOuterRingSize = 0.35f;
+constexpr float kFinishInnerRingSpeed = 5.0f;
+constexpr Vector4 kFinishInnerRingColor = { 1.0f, 1.0f, 0.5f, 1.0f };
+constexpr int kFinishInnerRingCount = 16;
+constexpr float kFinishInnerRingLifetime = 0.45f;
+constexpr float kFinishInnerRingSize = 0.30f;
+constexpr float kFinishSparkSpreadX = 6.0f;
+constexpr float kFinishSparkRiseMin = 4.0f;
+constexpr float kFinishSparkRiseMax = 10.0f;
+constexpr int kFinishSparkCount = 16;
+constexpr float kFinishSparkGreenBase = 0.4f;
+constexpr float kFinishSparkGreenStep = 0.04f;
+constexpr float kFinishSparkBlue = 0.1f;
+constexpr float kFinishSparkLifetime = 1.0f;
+constexpr float kFinishSparkSize = 0.20f;
+
+// フィニッシャー発動
+constexpr float kFinisherLaunchRatio = 0.7f; // 通常の打ち上げ速度に対する比率
+constexpr float kFinisherStartShakeAmount = 0.20f;
+constexpr float kFinisherStartShakeSeconds = 0.15f;
+constexpr float kFinisherStartWarpImpulse = 0.4f;
 }
 
 std::string GamePlayScene::GetEditorLevelPath() const
@@ -99,16 +161,15 @@ void GamePlayScene::InitializeRenderFoundation()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 19.0f, 6.0f, GameConstants::kCameraDistanceZ });
+    camera_->SetTranslate({ kInitialCameraPosition.x, kInitialCameraPosition.y, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 
-    modelSkydome_ = std::make_unique<Model>();
-    modelSkydome_->Initialize(modelCommon_.get(),
+    modelSkydome_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/SkyDome/SkyDome.obj",
         "Resources/SkyDome/skySphere.png");
 
     skydome_ = std::make_unique<Skydome>();
-    skydome_->Initialize(modelCommon_.get(), modelSkydome_.get());
+    skydome_->Initialize(modelCommon_.get(), modelSkydome_);
 }
 
 void GamePlayScene::InitializeStageActorsAndScore()
@@ -157,24 +218,20 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
     fontRenderer_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
-    awakenGaugeBg_ = std::make_unique<Sprite>();
-    awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    awakenGaugeBg_->SetColor({ 0.04f, 0.06f, 0.10f, 0.85f });
-    awakenGaugeFg_ = std::make_unique<Sprite>();
-    awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
+
     styleRankHud_.Initialize(spriteCommon_.get());
 
     // ボス頭上のHPバー（道中の武器敵ぶんはOnEditorLevelLoaded()でレベル読込のたびに生成する）
     bossHpBarBg_ = std::make_unique<Sprite>();
     bossHpBarBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    bossHpBarBg_->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+    bossHpBarBg_->SetColor(kHpBarBackgroundColor);
     bossHpBarFg_ = std::make_unique<Sprite>();
     bossHpBarFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
     // プレイヤーHPゲージ（左下、既存の数値表示のすぐ上に置く）
     playerHpBarBg_ = std::make_unique<Sprite>();
     playerHpBarBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    playerHpBarBg_->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+    playerHpBarBg_->SetColor(kHpBarBackgroundColor);
     playerHpBarFg_ = std::make_unique<Sprite>();
     playerHpBarFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
@@ -204,7 +261,7 @@ void GamePlayScene::InitializeGhostEditorAndEffects()
     bladeFlash_.Initialize(dxCommon_);
     spaceWarp_.Initialize(dxCommon_, srvManager_);
     finisherShatter_.Initialize(dxCommon_, srvManager_);
-    finisherShatter_.SetDuration(0.9f);
+    finisherShatter_.SetDuration(kFinisherShatterSeconds);
 
     ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
     // ノードグラフのShakeCameraノードからこのシーンのカメラシェイクを呼べるようにする
@@ -298,13 +355,10 @@ void GamePlayScene::Update()
         return;
     }
 
-    if (input_->TriggerKey(DIK_ESCAPE) && !WeaponManager::GetInstance()->HasPendingWeapon()) {
-        paused_ = !paused_;
-        if (paused_) {
-            return; // 開いた瞬間のフレームはメニュー入力もゲーム進行も行わない
-        }
-    }
-    if (paused_) {
+    const auto updateMode = pauseController_.Advance(input_->TriggerKey(DIK_ESCAPE)
+        && !WeaponManager::GetInstance()->HasPendingWeapon());
+    if (updateMode == GamePauseController::UpdateMode::SkipFrame) { return; }
+    if (updateMode == GamePauseController::UpdateMode::Menu) {
         UpdatePauseMenu();
         return;
     }
@@ -338,7 +392,7 @@ void GamePlayScene::Update()
         const float cx = epos.x * vp.m[0][0] + epos.y * vp.m[1][0] + epos.z * vp.m[2][0] + vp.m[3][0];
         const float cy = epos.x * vp.m[0][1] + epos.y * vp.m[1][1] + epos.z * vp.m[2][1] + vp.m[3][1];
         const float cw = epos.x * vp.m[0][3] + epos.y * vp.m[1][3] + epos.z * vp.m[2][3] + vp.m[3][3];
-        if (cw > 0.0001f) {
+        if (cw > kMinClipW) {
             spaceWarp_.SetCenterUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
         }
     }
@@ -431,13 +485,13 @@ void GamePlayScene::UpdateCombatEvents()
         const Vector3& epos = enemy_->GetPosition();
         tm->RequestHitStop(GameConstants::kHitStopLaunch);
         cameraShaker_.Request(GameConstants::kShakeLaunchAmt, GameConstants::kShakeLaunchDur);
-        pm_->EmitRing("hit_ring", epos, 5.5f, { 1.0f, 0.55f, 0.1f, 1.0f }, 20, 0.45f, 0.28f);
-        std::uniform_real_distribution<float> vxL(-4.0f, 4.0f);
-        std::uniform_real_distribution<float> vyL(3.0f, 7.0f);
-        for (int i = 0; i < 10; ++i) {
+        pm_->EmitRing("hit_ring", epos, kLaunchRingSpeed, kLaunchRingColor, kLaunchRingCount, kLaunchRingLifetime, kLaunchRingSize);
+        std::uniform_real_distribution<float> vxL(-kLaunchSparkSpreadX, kLaunchSparkSpreadX);
+        std::uniform_real_distribution<float> vyL(kLaunchSparkRiseMin, kLaunchSparkRiseMax);
+        for (int i = 0; i < kLaunchSparkCount; ++i) {
             pm_->EmitGravity("hit_spark", epos,
                 { vxL(rng_), vyL(rng_), 0.0f },
-                { 1.0f, 0.65f, 0.15f, 1.0f }, 0.8f, 0.18f);
+                kLaunchSparkColor, kLaunchSparkLifetime, kLaunchSparkSize);
         }
     }
 
@@ -446,14 +500,14 @@ void GamePlayScene::UpdateCombatEvents()
         int cnt = player_->GetJuggleCount();
         float dir = player_->GetLastDirX();
         float slashAng = (dir > 0.0f) ? 0.0f : GameConstants::kPi;
-        float rad = 1.2f + cnt * 0.12f;
+        float rad = kJuggleSlashRadiusBase + cnt * kJuggleSlashRadiusStep;
         const Vector3& epos = enemy_->GetPosition();
         pm_->EmitSlash("sword_slash", epos, slashAng,
-            { 1.0f, 1.0f - cnt * 0.06f, 1.0f - cnt * 0.09f, 1.0f }, rad);
-        pm_->EmitRing("hit_ring", epos, 2.5f + cnt * 0.2f,
-            { 1.0f, 0.9f, 0.5f, 0.8f }, 8, 0.25f, 0.15f);
+            { 1.0f, 1.0f - cnt * kJuggleSlashGreenFade, 1.0f - cnt * kJuggleSlashBlueFade, 1.0f }, rad);
+        pm_->EmitRing("hit_ring", epos, kJuggleRingSpeedBase + cnt * kJuggleRingSpeedStep,
+            kJuggleRingColor, kJuggleRingCount, kJuggleRingLifetime, kJuggleRingSize);
         tm->RequestHitStop(GameConstants::kHitStopJuggle);
-        cameraShaker_.Request(0.12f + cnt * 0.01f, 0.10f);
+        cameraShaker_.Request(kJuggleShakeBase + cnt * kJuggleShakeStep, kJuggleShakeSeconds);
     }
 
     // 乱舞 フィニッシュ
@@ -461,14 +515,17 @@ void GamePlayScene::UpdateCombatEvents()
         const Vector3& epos = enemy_->GetPosition();
         tm->RequestHitStop(GameConstants::kHitStopFinish);
         cameraShaker_.Request(GameConstants::kShakeFinishAmt, GameConstants::kShakeFinishDur);
-        pm_->EmitRing("hit_ring", epos, 8.0f, { 1.0f, 0.3f, 0.3f, 1.0f }, 24, 0.5f, 0.35f);
-        pm_->EmitRing("hit_ring", epos, 5.0f, { 1.0f, 1.0f, 0.5f, 1.0f }, 16, 0.45f, 0.30f);
-        std::uniform_real_distribution<float> vxF(-6.0f, 6.0f);
-        std::uniform_real_distribution<float> vyF(4.0f, 10.0f);
-        for (int i = 0; i < 16; ++i) {
+        pm_->EmitRing("hit_ring", epos, kFinishOuterRingSpeed, kFinishOuterRingColor,
+            kFinishOuterRingCount, kFinishOuterRingLifetime, kFinishOuterRingSize);
+        pm_->EmitRing("hit_ring", epos, kFinishInnerRingSpeed, kFinishInnerRingColor,
+            kFinishInnerRingCount, kFinishInnerRingLifetime, kFinishInnerRingSize);
+        std::uniform_real_distribution<float> vxF(-kFinishSparkSpreadX, kFinishSparkSpreadX);
+        std::uniform_real_distribution<float> vyF(kFinishSparkRiseMin, kFinishSparkRiseMax);
+        for (int i = 0; i < kFinishSparkCount; ++i) {
             pm_->EmitGravity("hit_spark", epos,
                 { vxF(rng_), vyF(rng_), 0.0f },
-                { 1.0f, 0.4f + i * 0.04f, 0.1f, 1.0f }, 1.0f, 0.20f);
+                { 1.0f, kFinishSparkGreenBase + i * kFinishSparkGreenStep, kFinishSparkBlue, 1.0f },
+                kFinishSparkLifetime, kFinishSparkSize);
         }
     }
 
@@ -480,11 +537,11 @@ void GamePlayScene::UpdateCombatEvents()
         finisherBeatTimer_ = GameConstants::kFinisherChargeDelay;
 
         // 敵を打ち上げて空中に拘束し、暗転とともに溜めを作る
-        enemy_->Launch(GameConstants::kLaunchSpeed * 0.7f);
+        enemy_->Launch(GameConstants::kLaunchSpeed * kFinisherLaunchRatio);
         tm->RequestHitStop(GameConstants::kHitStopJuggle);
-        cameraShaker_.Request(0.20f, 0.15f);
+        cameraShaker_.Request(kFinisherStartShakeAmount, kFinisherStartShakeSeconds);
         SceneShared::EmitFinisherCharge(pm_, "hit_ring", "hit_spark", epos);
-        spaceWarp_.AddImpulse(0.4f);
+        spaceWarp_.AddImpulse(kFinisherStartWarpImpulse);
     }
 }
 
@@ -498,11 +555,11 @@ void GamePlayScene::UpdateCombat()
     if (!tm->IsHitStopped()) {
         SyncCombatEnemies(); // spawn_pointが出した敵をこのフレームから戦闘対象に含める
         UpdateTargetLock();
-        player_->Update(input_, enemy_->GetPosition());
+        std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
+        player_->Update(input_, enemy_->GetPosition(), !enemy_->IsDefeated() && enemy_->IsVisible(), !activeColliders.empty());
 
         // 移動後に足場との接触を解決し、補正が入ったフレームは見た目も同期する
         // エディタの現在状態から毎フレーム判定を作り、移動・追加・削除を即時反映する
-        std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
         player_->ResolveBlockCollision(activeColliders);
         player_->RefreshVisualTransforms();
         UpdateWeaponTrail();

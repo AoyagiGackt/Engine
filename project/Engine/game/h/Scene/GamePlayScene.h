@@ -3,6 +3,8 @@
  * @brief メインの戦闘シーン（ローグライト／サンドボックス両対応）
  */
 #pragma once
+#include "GamePauseController.h"
+#include "HudLayer.h"
 
 // 標準ライブラリ
 #include <array>
@@ -324,13 +326,18 @@ private:
      * @param color 演出の色（武器の属性色など）
      * @param strength 演出の大きさ倍率（1.0が通常ヒット。強い技ほど大きく）
      */
-    void EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& color, float strength);
+    void EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& color, float strength,
+        int extraBurstCount = 0, float ringRadius = 0.0f);
+    /** @brief 武器属性ごとに形・運動の異なる追加命中演出を出す */
+    void EmitElementalHitEffect(const WeaponData& weapon, const Vector3& enemyPos, int comboStep);
     /** @brief 敵が予備動作に入った瞬間に警告リングを出す（攻撃が来ることを事前に伝え、回避を狙えるようにする） */
     void EmitEnemyTelegraphCue(const EnemyEntity* enemy);
     /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
     void EmitGunFireParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 瞬歩トレイル・覚醒ゲージ加算時のパーティクルを発生させる */
     void EmitBlinkAndGaugeParticles(const Vector3& ppos);
+    /** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガーのスティンガー以外）発動時に技ごとの見た目を出す */
+    void EmitWeaponSkillCastParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 覚醒中の継続オーラと発動瞬間の衝撃波を発生させる */
     void EmitAwakenParticles(const Vector3& ppos, float dt);
     /** @brief UpdateStyleTechniqueParticles()の下請け styleRankHud_のランクが上がった瞬間にリング・火花・カメラシェイク・画面フラッシュを出す */
@@ -365,36 +372,15 @@ private:
     ParticleManager* pm_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
-    std::unique_ptr<Sprite> awakenGaugeBg_;
-    std::unique_ptr<Sprite> awakenGaugeFg_;
-    static constexpr int kWeaponSlotCount = 4;
-    std::array<SceneShared::WeaponSlotUI, kWeaponSlotCount> weaponSlots_;
-    std::array<Vector2, kWeaponSlotCount> weaponSlotPos_;
-    std::unique_ptr<Sprite> gunFrame_;
-    std::unique_ptr<Sprite> gunIcon_;
-    Vector2 gunPos_ = { };
-    float weaponSlotPulse_ = 0.0f;
-    float gunIconAngle_ = 0.0f;
+    HudLayer hud_;
 
-    // 各スロットは色付き四角の代わりに実物の3Dモデルをゆっくり回転させて表示する
-    // カメラは回転しないため、カメラ位置からのワールドオフセットで画面左下に固定表示する
-    /** @brief 武器スロットUIに表示する回転3Dアイコン1個分のモデルと演出状態 */
-    struct WeaponIcon3D {
-        std::unique_ptr<Model> model;
-        std::unique_ptr<Object3d> object;
-        int slotIndex = -1; // weaponManager_ のリスト内で対応する武器が何番目か（無ければ-1）
-        float wobbleTime = 0.0f; // 揺れのタイマー（フルスピンだと必ず背面を向く瞬間が来るので往復にする）
-        float scale = 0.2f; // モデルごとの実寸差を吸収し、見た目のアイコンサイズを揃える倍率
-        float baseYaw = 0.0f; // モデルの正面がカメラを向くよう調整する基準角度（要目視調整）
-    };
-    std::array<WeaponIcon3D, kWeaponSlotCount> weaponIcons3D_;
     std::unique_ptr<ModelCommon> modelCommon_;
     std::unique_ptr<Object3dCommon> objectCommon_;
     std::unique_ptr<ShadowManager> shadowManager_;
     std::unique_ptr<Camera> camera_;
 
     std::unique_ptr<Skydome> skydome_;
-    std::unique_ptr<Model> modelSkydome_;
+    Model* modelSkydome_ = nullptr; // 実体はModelManagerが所有・共有する
 
     std::unique_ptr<Player> player_;
     // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
@@ -415,6 +401,7 @@ private:
         WeaponType weaponType = WeaponType::Sword;
         bool weaponAcquired = false;
         bool absorbing = false;
+        bool defeatEffectEmitted = false;
         float absorbTimer = 0.0f;
         std::unique_ptr<Sprite> hpBarBg; // OnEditorLevelLoaded()で生成（レベル再読込のたびに作り直す）
         std::unique_ptr<Sprite> hpBarFg;
@@ -524,6 +511,7 @@ private:
 
     bool clearTriggered_ = false;
     bool weaponStealTriggered_ = false;
+    bool mainEnemyDefeatEffectEmitted_ = false;
     bool mainWeaponAbsorbing_ = false;
     float mainWeaponAbsorbTimer_ = 0.0f;
     bool requestClear_ = false;
@@ -533,7 +521,7 @@ private:
     std::unique_ptr<WaterPool> waterPool_;
 
     // 一時停止メニュー（ESCで開閉、ゲームプレイ中限定。クリア演出中・武器交換中は開けない）
-    bool paused_ = false;
+    GamePauseController pauseController_;
     UIMenu pauseMenu_;
     std::unique_ptr<Sprite> pauseOverlay_;
     static constexpr int kPauseRowResume = 0;

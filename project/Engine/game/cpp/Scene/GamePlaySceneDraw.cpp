@@ -36,6 +36,69 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+// フィニッシャーの斬り刻み（1本ごと）
+constexpr float kSlashLineLengthMin = 4.0f;
+constexpr float kSlashLineLengthMax = 9.0f;
+constexpr float kSlashLineThicknessMin = 3.0f;
+constexpr float kSlashLineThicknessMax = 7.0f;
+constexpr float kSlashLineLingerSeconds = 0.25f; // 解放の瞬間からさらに残す時間
+constexpr Vector4 kSlashLineColor = { 0.75f, 0.95f, 1.0f, 1.0f };
+constexpr float kBeatLaunchSpeed = 0.10f; // 1本ごとに敵を浮かせ続ける打ち上げ量
+constexpr float kBeatStyleGain = 0.02f;
+constexpr float kBeatShakeAmount = 0.06f;
+constexpr float kBeatShakeSeconds = 0.05f;
+constexpr int kBeatBladeCount = 3;
+constexpr float kBeatBladeRadius = 4.0f;
+constexpr float kBeatBladeSpeedMin = 1.2f;
+constexpr float kBeatBladeSpeedMax = 2.8f;
+constexpr float kBeatWarpImpulse = 0.12f;
+
+// フィニッシャーの解放
+constexpr float kReleaseStyleGain = 0.35f;
+constexpr int kReleaseBladeCount = 30;
+constexpr float kReleaseBladeSpeedMin = 2.0f;
+constexpr float kReleaseBladeSpeedMax = 5.0f;
+constexpr float kReleaseWarpImpulse = 1.0f;
+constexpr Vector4 kReleaseFlashColor = { 0.75f, 0.95f, 1.0f, 0.5f };
+constexpr float kReleaseFlashSeconds = 0.15f;
+constexpr float kMinClipW = 0.0001f; // これ以下のw成分ではスクリーン座標へ変換しない（カメラの背後）
+constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr float kSlashFlashSeconds = 0.22f;
+constexpr int kReleaseSlashCount = 8;
+constexpr float kReleaseSlashThickness = 9.0f;
+constexpr float kReleaseSlashSeconds = 0.15f;
+
+// ボスの武器吸収
+constexpr float kAbsorbTargetHeight = 0.5f; // プレイヤーの足元からこの高さへ吸い寄せる
+constexpr float kMinAbsorbDirectionLength = 0.001f;
+constexpr Vector4 kAbsorbGlowColor = { 0.5f, 0.85f, 1.0f, 1.0f };
+constexpr int kAbsorbOrbCount = 10;
+constexpr float kAbsorbOrbSpeedBase = 4.0f;
+constexpr float kAbsorbOrbSpeedStep = 0.3f;
+constexpr float kAbsorbOrbLifetime = 0.35f;
+constexpr float kAbsorbOrbSize = 0.22f;
+constexpr float kAbsorbPullRate = 0.16f; // 1フレームでプレイヤーへ寄せる割合
+
+// クリア結果画面
+constexpr Vector2 kClearTitlePosition = { 490.0f, 200.0f };
+constexpr float kClearTitleScale = 4.0f;
+constexpr Vector4 kClearTitleColor = { 1.0f, 1.0f, 0.3f, 1.0f };
+constexpr Vector2 kStyleLabelPosition = { 420.0f, 310.0f };
+constexpr float kStyleLabelScale = 3.0f;
+constexpr Vector4 kStyleLabelColor = { 0.8f, 0.8f, 0.8f, 1.0f };
+constexpr Vector2 kRankPosition = { 580.0f, 305.0f };
+constexpr float kRankScale = 4.0f;
+constexpr Vector4 kRankColor = { 1.0f, 0.5f, 0.1f, 1.0f };
+constexpr Vector2 kGoldPosition = { 540.0f, 400.0f };
+constexpr float kGoldScale = 3.0f;
+constexpr Vector4 kGoldColor = { 0.9f, 0.85f, 0.2f, 1.0f };
+
+// 覚醒中の残像
+constexpr float kGhostMaxAlpha = 0.5f;
+constexpr Vector3 kGhostColor = { 0.4f, 0.75f, 1.0f };
+}
+
 // ══════════════════════════════════════════════════════
 
 void GamePlayScene::UpdateFinisherSlash(float dt)
@@ -58,8 +121,8 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
         std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
         std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
-        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
-        std::uniform_real_distribution<float> thickDist(3.0f, 7.0f);
+        std::uniform_real_distribution<float> lenDist(kSlashLineLengthMin, kSlashLineLengthMax);
+        std::uniform_real_distribution<float> thickDist(kSlashLineThicknessMin, kSlashLineThicknessMax);
         const float ang = angleDist(rng_);
         const Vector2 dir = { std::cos(ang), std::sin(ang) };
         const Vector2 center = { cam.x + offXDist(rng_), cam.y + offYDist(rng_) };
@@ -67,25 +130,25 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
 
         // 解放の瞬間まで全ての斬撃線を画面に残す
         const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-            + GameConstants::kFinisherImpactDelay + 0.25f;
+            + GameConstants::kFinisherImpactDelay + kSlashLineLingerSeconds;
         SceneShared::SpawnSlashMarkWorld(
             { center.x - dir.x * len, center.y - dir.y * len },
             { center.x + dir.x * len, center.y + dir.y * len },
-            cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, thickDist(rng_), duration);
+            cam.x, cam.y, kSlashLineColor, thickDist(rng_), duration);
 
         // 1本ごとに実際にヒットさせ、敵を空中に拘束し続ける
         enemy_->TakeDamage(GameConstants::kFinisherLineDamage);
-        enemy_->Launch(0.10f);
-        styleMeter_ = std::clamp(styleMeter_ + 0.02f, 0.0f, 1.0f);
+        enemy_->Launch(kBeatLaunchSpeed);
+        styleMeter_ = std::clamp(styleMeter_ + kBeatStyleGain, 0.0f, 1.0f);
 
         tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
-        cameraShaker_.Request(0.06f, 0.05f);
+        cameraShaker_.Request(kBeatShakeAmount, kBeatShakeSeconds);
         SceneShared::EmitFinisherSlashLine(pm_, "sword_slash", "hit_spark",
             { center.x, center.y, 0.0f }, ang, len);
 
         // 空間にガラス質の刃を明滅させ、歪みを脈動させる
-        bladeFlash_.Emit({ center.x, center.y, epos.z }, 3, 4.0f, 1.2f, 2.8f);
-        spaceWarp_.AddImpulse(0.12f);
+        bladeFlash_.Emit({ center.x, center.y, epos.z }, kBeatBladeCount, kBeatBladeRadius, kBeatBladeSpeedMin, kBeatBladeSpeedMax);
+        spaceWarp_.AddImpulse(kBeatWarpImpulse);
 
         finisherLineIdx_++;
         finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
@@ -98,7 +161,7 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     finisherActive_ = false;
     tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
     cameraShaker_.Request(GameConstants::kShakeFinisherSlashAmt, GameConstants::kShakeFinisherSlashDur);
-    styleMeter_ = std::clamp(styleMeter_ + 0.35f, 0.0f, 1.0f);
+    styleMeter_ = std::clamp(styleMeter_ + kReleaseStyleGain, 0.0f, 1.0f);
     enemy_->TakeDamage(GameConstants::kFinisherSlashDamage);
     enemy_->Launch(GameConstants::kLaunchSpeed);
 
@@ -107,17 +170,17 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     enemy_->SetVisible(false);
 
     // 解放の瞬間 刃の一斉放出と空間歪みの最大化
-    bladeFlash_.Emit(epos, 30, GameConstants::kFinisherSlashRadius, 2.0f, 5.0f);
-    spaceWarp_.AddImpulse(1.0f);
+    bladeFlash_.Emit(epos, kReleaseBladeCount, GameConstants::kFinisherSlashRadius, kReleaseBladeSpeedMin, kReleaseBladeSpeedMax);
+    spaceWarp_.AddImpulse(kReleaseWarpImpulse);
 
     // 白閃光とともに暗転+斬撃線ごと凍った画面を敵位置から砕き、素の世界を見せる
-    ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.5f }, 0.15f);
+    ScreenFlash::GetInstance()->Request(kReleaseFlashColor, kReleaseFlashSeconds);
     {
         const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
         const float cx = epos.x * vp.m[0][0] + epos.y * vp.m[1][0] + epos.z * vp.m[2][0] + vp.m[3][0];
         const float cy = epos.x * vp.m[0][1] + epos.y * vp.m[1][1] + epos.z * vp.m[2][1] + vp.m[3][1];
         const float cw = epos.x * vp.m[0][3] + epos.y * vp.m[1][3] + epos.z * vp.m[2][3] + vp.m[3][3];
-        if (cw > 0.0001f) {
+        if (cw > kMinClipW) {
             finisherShatter_.SetImpactUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
         }
     }
@@ -125,10 +188,10 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
     finisherShatter_.Start();
 
     // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
-    SlashMark::GetInstance()->FlashAll({ 1.0f, 1.0f, 1.0f, 1.0f }, 0.22f);
+    SlashMark::GetInstance()->FlashAll(kWhite, kSlashFlashSeconds);
     std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
     const Vector3& cam = camera_->GetTranslate();
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kReleaseSlashCount; ++i) {
         const float ang = angleDist(rng_);
         const Vector2 dir = { std::cos(ang), std::sin(ang) };
         SceneShared::SpawnSlashMarkWorld(
@@ -136,7 +199,7 @@ void GamePlayScene::UpdateFinisherSlash(float dt)
                 epos.y - dir.y * GameConstants::kFinisherSlashRadius },
             { epos.x + dir.x * GameConstants::kFinisherSlashRadius,
                 epos.y + dir.y * GameConstants::kFinisherSlashRadius },
-            cam.x, cam.y, { 1.0f, 1.0f, 1.0f, 1.0f }, 9.0f, 0.15f);
+            cam.x, cam.y, kWhite, kReleaseSlashThickness, kReleaseSlashSeconds);
     }
 
     SceneShared::EmitFinisherRelease(pm_, "hit_ring", "hit_spark", epos);
@@ -160,26 +223,25 @@ void GamePlayScene::CheckClearCondition()
             mainWeaponAbsorbing_ = true;
             mainWeaponAbsorbTimer_ = kAbsorbDuration;
             player_->PlayStealStab();
-            Vector3 toPlayer = { ppos.x - epos.x, ppos.y + 0.5f - epos.y, 0.0f };
+            Vector3 toPlayer = { ppos.x - epos.x, ppos.y + kAbsorbTargetHeight - epos.y, 0.0f };
             float len = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
-            if (len > 0.001f) {
+            if (len > kMinAbsorbDirectionLength) {
                 toPlayer.x /= len;
                 toPlayer.y /= len;
             }
-            Vector4 glowColor = { 0.5f, 0.85f, 1.0f, 1.0f };
-            for (int i = 0; i < 10; ++i) {
-                float speed = 4.0f + static_cast<float>(i) * 0.3f;
+            for (int i = 0; i < kAbsorbOrbCount; ++i) {
+                float speed = kAbsorbOrbSpeedBase + static_cast<float>(i) * kAbsorbOrbSpeedStep;
                 pm_->EmitGravity("weapon_orb",
-                    { epos.x, epos.y + 0.5f, 0.0f },
+                    { epos.x, epos.y + kAbsorbTargetHeight, 0.0f },
                     { toPlayer.x * speed, toPlayer.y * speed, 0.0f },
-                    glowColor, 0.35f, 0.22f);
+                    kAbsorbGlowColor, kAbsorbOrbLifetime, kAbsorbOrbSize);
             }
         }
         if (mainWeaponAbsorbing_) {
             mainWeaponAbsorbTimer_ -= GameConstants::kFrameDeltaTime;
             Vector3& absorbPos = enemy_->GetPositionRef();
-            absorbPos.x += (ppos.x - absorbPos.x) * 0.16f;
-            absorbPos.y += (ppos.y + 0.5f - absorbPos.y) * 0.16f;
+            absorbPos.x += (ppos.x - absorbPos.x) * kAbsorbPullRate;
+            absorbPos.y += (ppos.y + kAbsorbTargetHeight - absorbPos.y) * kAbsorbPullRate;
             enemy_->RefreshVisualTransforms();
             if (mainWeaponAbsorbTimer_ <= 0.0f) {
                 weaponStealTriggered_ = true;
@@ -267,12 +329,12 @@ bool GamePlayScene::DrawClearOverlayIfNeeded()
         clearBgSprite_->Draw();
         const char* rank = RunData::CalcRank(peakStyle_);
         fontRenderer_.Reset();
-        fontRenderer_.DrawString("CLEAR!", 490.0f, 200.0f, 4.0f, { 1.0f, 1.0f, 0.3f, 1.0f });
-        fontRenderer_.DrawString("Style:", 420.0f, 310.0f, 3.0f, { 0.8f, 0.8f, 0.8f, 1.0f });
-        fontRenderer_.DrawString(rank, 580.0f, 305.0f, 4.0f, { 1.0f, 0.5f, 0.1f, 1.0f });
+        fontRenderer_.DrawString("CLEAR!", kClearTitlePosition.x, kClearTitlePosition.y, kClearTitleScale, kClearTitleColor);
+        fontRenderer_.DrawString("Style:", kStyleLabelPosition.x, kStyleLabelPosition.y, kStyleLabelScale, kStyleLabelColor);
+        fontRenderer_.DrawString(rank, kRankPosition.x, kRankPosition.y, kRankScale, kRankColor);
         char goldBuf[32];
         snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
-        fontRenderer_.DrawString(goldBuf, 540.0f, 400.0f, 3.0f, { 0.9f, 0.85f, 0.2f, 1.0f });
+        fontRenderer_.DrawString(goldBuf, kGoldPosition.x, kGoldPosition.y, kGoldScale, kGoldColor);
         fontRenderer_.Draw();
         return true;
     }
@@ -316,9 +378,9 @@ void GamePlayScene::DrawWorldAndActors()
         SetupModelRenderState();
         ghostObject_->SetModel(player_->GetModel()); // 覚醒フォーム切り替えに残像の見た目を追従させる
         for (const auto& g : ghostTrail_) {
-            float alpha = (1.0f - g.age / kGhostLifetime) * 0.5f;
+            float alpha = (1.0f - g.age / kGhostLifetime) * kGhostMaxAlpha;
             ghostObject_->SetPosition(g.pos);
-            ghostObject_->SetColor({ 0.4f, 0.75f, 1.0f, alpha });
+            ghostObject_->SetColor({ kGhostColor.x, kGhostColor.y, kGhostColor.z, alpha });
             ghostObject_->Update();
             ghostObject_->Draw();
         }

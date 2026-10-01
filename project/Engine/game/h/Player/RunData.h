@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <iterator>
 #include <string>
 #include <vector>
 namespace engine::game {
@@ -186,25 +187,7 @@ public:
      */
     static const char* CalcRank(float peak)
     {
-        if (peak >= 0.95f) {
-            return "SSS";
-        }
-        if (peak >= 0.90f) {
-            return "SS";
-        }
-        if (peak >= 0.80f) {
-            return "S";
-        }
-        if (peak >= 0.65f) {
-            return "A";
-        }
-        if (peak >= 0.45f) {
-            return "B";
-        }
-        if (peak >= 0.25f) {
-            return "C";
-        }
-        return "D";
+        return FindRankReward(peak).rank;
     }
 
     /**
@@ -214,28 +197,35 @@ public:
      */
     static int CalcGold(float peak)
     {
-        if (peak >= 0.95f) {
-            return 50;
-        }
-        if (peak >= 0.90f) {
-            return 35;
-        }
-        if (peak >= 0.80f) {
-            return 25;
-        }
-        if (peak >= 0.65f) {
-            return 18;
-        }
-        if (peak >= 0.45f) {
-            return 12;
-        }
-        if (peak >= 0.25f) {
-            return 8;
-        }
-        return 5;
+        return FindRankReward(peak).gold;
     }
 
 private:
+    /** @brief スタイルゲージのピーク値ごとのランクと報酬（閾値の高い順に並べる） */
+    struct RankReward {
+        float minPeak;
+        const char* rank;
+        int gold;
+    };
+    static constexpr RankReward kRankRewards[] = {
+        { 0.95f, "SSS", 50 },
+        { 0.90f, "SS", 35 },
+        { 0.80f, "S", 25 },
+        { 0.65f, "A", 18 },
+        { 0.45f, "B", 12 },
+        { 0.25f, "C", 8 },
+        { 0.0f, "D", 5 },
+    };
+    static const RankReward& FindRankReward(float peak)
+    {
+        for (const RankReward& reward : kRankRewards) {
+            if (peak >= reward.minPeak) {
+                return reward;
+            }
+        }
+        return kRankRewards[std::size(kRankRewards) - 1];
+    }
+
     RunData() = default;
 
     bool isRunActive_ = false; ///< ラン進行中かどうか

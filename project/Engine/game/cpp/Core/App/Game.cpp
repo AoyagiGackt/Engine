@@ -41,18 +41,18 @@ void MyGame::Initialize()
     // SceneManagerに工場を教える
     SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
 
+    // 最初のBGMが鳴る前に、保存済みの音量設定を反映する。
+    GameSettingsManager::GetInstance()->Load();
+    const GameSettings& s = GameSettingsManager::GetInstance()->Get();
+    audio_->SetBGMVolume(s.bgmVolume);
+    audio_->SetSEVolume(s.seVolume);
+
     // 最初のシーンを工場経由でセットする
     SceneManager::GetInstance()->Initialize(
         dxCommon_.get(),
         input_.get(),
         audio_.get(),
         imguiManager_.get());
-
-    // ゲーム設定を読み込んで音量に反映する
-    GameSettingsManager::GetInstance()->Load();
-    const GameSettings& s = GameSettingsManager::GetInstance()->Get();
-    audio_->SetBGMVolume(s.bgmVolume);
-    audio_->SetSEVolume(s.seVolume);
 
     // コンティニューデータ・通算記録を読み込む
     SaveDataManager::GetInstance()->Load();
@@ -184,6 +184,8 @@ void MyGame::Draw()
 
     graph.AddPass("Vignette", [] { VignetteEffect::GetInstance()->Apply(); });
     graph.AddPass("Screen Flash", [] { ScreenFlash::GetInstance()->Draw(); });
+    graph.AddPass("Scene Transition", [] { SceneManager::GetInstance()->DrawTransition(); });
+    graph.AddPass("Editor Preview", [] { SceneManager::GetInstance()->CaptureEditorPreview(); });
     graph.AddPass("Diagnostics UI", [this] { imguiManager_->Draw(dxCommon_.get()); });
     graph.Execute();
 

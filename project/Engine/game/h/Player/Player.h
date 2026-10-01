@@ -1,7 +1,5 @@
-/**
- * @file Player.h
- * @brief プレイヤーキャラクターの物理・アクション・スタイルシステムを定義するファイル
- */
+/// @file Player.h
+/// @brief プレイヤーキャラクターの物理・アクション・スタイルシステムを定義するファイル
 #pragma once
 #include "AfterImageRenderer.h"
 #include "Animation.h"
@@ -39,11 +37,9 @@ using engine::graphics::SkinnedObject3d;
 enum class WeaponType; // Weapon.h で定義
 enum class GunType; // Weapon.h で定義
 
-/**
- * @brief プレイヤーキャラクターを制御するクラス
- * @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
- * ローグライト用のスキル補正（SkillMods）を統合管理する
- */
+/// @brief プレイヤーキャラクターを制御するクラス
+/// @note スタイリッシュアクション（コンボ・ブリンク・連射・覚醒乱舞）と
+/// ローグライト用のスキル補正（SkillMods）を統合管理する
 class Player {
 public:
     // ══════════════════════════════════════════════════════
@@ -55,10 +51,8 @@ public:
         Launch,
         Juggle };
 
-    /**
-     * @brief ローグライトのスキルによる各種パラメータ補正を保持する構造体
-     * @note RunData のスキル一覧を ApplySkillMods() に渡して適用する
-     */
+    /// @brief ローグライトのスキルによる各種パラメータ補正を保持する構造体
+    /// @note RunData のスキル一覧を ApplySkillMods() に渡して適用する
     struct SkillMods {
         float blinkDistMult = 1.0f; ///< ブリンク距離の倍率
         int comboMaxBonus = 0; ///< コンボ最大数への加算
@@ -69,125 +63,79 @@ public:
         int juggleMaxBonus = 0; ///< 乱舞スラッシュ数への加算
     };
 
-    /**
-     * @brief プレイヤーを初期化する
-     * @param modelCommon モデル共通設定のポインタ
-     */
+    /// @brief プレイヤーを初期化する
+    /// @param modelCommon モデル共通設定のポインタ
     void Initialize(ModelCommon* modelCommon);
 
-    /**
-     * @brief 入力に基づいてプレイヤーの物理とアクションを毎フレーム更新する
-     * @param input    入力マネージャー
-     * @param enemyPos 乱舞スラッシュのターゲット座標（デフォルトは原点）
-     */
-    void Update(Input* input, const Vector3& enemyPos = { });
+    /// @brief 入力に基づいてプレイヤーの物理とアクションを毎フレーム更新する
+    /// @param input    入力マネージャー
+    /// @param enemyPos 乱舞スラッシュのターゲット座標（デフォルトは原点）
+    void Update(Input* input, const Vector3& enemyPos = { }, bool enemySolid = false, bool useStageFloor = false);
 
     /** @brief プレイヤーモデルを描画する */
     void Draw();
 
-    /**
-     * @brief 見た目のトランスフォーム行列だけを再計算する（ゲームロジックは一切進めない）
-     * @note Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
-     * ステージエディタ中など本体Updateを止めたままカメラだけ動く状況でこれを呼ばないと
-     * 古いカメラ行列のまま描画されて、モデルが画面に張り付いて見える
-     */
+    /// @brief 見た目のトランスフォーム行列だけを再計算する（ゲームロジックは一切進めない）
+    /// @note Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
+    /// ステージエディタ中など本体Updateを止めたままカメラだけ動く状況でこれを呼ばないと
+    /// 古いカメラ行列のまま描画されて、モデルが画面に張り付いて見える
     void RefreshVisualTransforms();
 
-    /**
-     * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
-     * @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
-     * @note 上に乗れば着地・横から当たれば壁として押し出す。ブロックを動かせば次フレームから追従する
-     */
+    /// @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
+    /// @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
+    /// @note 上に乗れば着地・横から当たれば壁として押し出す。ブロックを動かせば次フレームから追従する
     void ResolveBlockCollision(const std::vector<AABB>& blocks);
 
     /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
-    void EndRampage()
-    {
-        if (rampagePhase_ == RampagePhase::Juggle) {
-            rampagePhase_ = RampagePhase::Inactive;
-        }
-    }
+    void EndRampage();
 
     /** @brief 武器奪取の刺突モーションを頭から再生する（外部トリガー用、既存の斬撃を流用） */
     void PlayStealStab();
 
-    /**
-     * @brief ローグライトのスキル補正を適用する
-     * @param mods RunData のスキル一覧から計算した補正値
-     */
+    /// @brief ローグライトのスキル補正を適用する
+    /// @param mods RunData のスキル一覧から計算した補正値
     void ApplySkillMods(const SkillMods& mods) { skillMods_ = mods; }
 
     /** @brief 現在のワールド座標を返す */
     const Vector3& GetPosition() const { return pos_; }
     /** @brief スポーン位置を上書きする（Initialize 直後に呼ぶこと） */
     void SetPosition(const Vector3& pos) { pos_ = pos; }
-    void SetHorizontalBounds(float minX, float maxX)
-    {
-        minX_ = minX;
-        maxX_ = maxX;
-    }
+    void SetHorizontalBounds(float minX, float maxX);
     /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
     Vector3& GetPositionRef() { return pos_; }
-    /**
-     * @brief 水面のY座標を設定する（WaterPool::GetSurfaceY() の値を渡す）
-     * @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
-     */
+    /// @brief 水面のY座標を設定する（WaterPool::GetSurfaceY() の値を渡す）
+    /// @note 呼ばない場合は水中判定が無効のまま（水なしステージ用のデフォルト）
     void SetWaterLevel(float waterLevelY) { waterLevel_ = waterLevelY; }
     /** @brief 残像・分身演出用の静的モデル（ボーンなし、現在のフォームの見た目）のポインタを返す */
-    Model* GetModel() const { return rig_->staticModel.get(); }
+    Model* GetModel() const { return rig_->staticModel; }
 
-    /**
-     * @brief プレイヤーの現在位置から AABB コライダーを生成して返す
-     * @return 当たり判定に使用する Collider
-     */
-    Collider GetCollider() const
-    {
-        Collider c;
-        c.SetAsAABB({ { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },
-            { pos_.x + 0.5f, pos_.y + 0.5f, 0.5f } });
-        return c;
-    }
-    /**
-     * @brief 被弾時の無敵時間を開始する
-     * @note 敵の攻撃判定がヒットした際に GamePlayScene 側から呼ぶ
-     */
+    /// @brief プレイヤーの現在位置から AABB コライダーを生成して返す
+    /// @return 当たり判定に使用する Collider
+    Collider GetCollider() const;
+    /// @brief 被弾時の無敵時間を開始する
+    /// @note 敵の攻撃判定がヒットした際に GamePlayScene 側から呼ぶ
     void OnHit() { invincibleTimer_ = kInvincibleDuration_; }
     /** @brief 被弾直後の無敵時間中、または回避の無敵中かどうかを返す */
     bool IsInvincible() const { return invincibleTimer_ > 0.0f || dodgeActive_ || warpActive_; }
 
     // ── 回避（前後ステップ。全区間無敵、コンボからキャンセル可）──
-    /**
-     * @brief 回避ボタンの押下を先行入力として記憶する
-     * @param input 入力マネージャー
-     * @note ヒットストップ中はUpdate()が呼ばれず押下が捨てられるため、シーン側から毎フレーム（停止中も）呼ぶ。
-     * 記憶した押下はkDodgeBufferFrames_の間だけ有効で、次にUpdate()が回った時に回避として消費される
-     */
+    /// @brief 回避ボタンの押下を先行入力として記憶する
+    /// @param input 入力マネージャー
+    /// @note ヒットストップ中はUpdate()が呼ばれず押下が捨てられるため、シーン側から毎フレーム（停止中も）呼ぶ。
+    /// 記憶した押下はkDodgeBufferFrames_の間だけ有効で、次にUpdate()が回った時に回避として消費される
     void BufferDodgeInput(Input* input);
     /** @brief 回避モーション中か（この間は敵の攻撃を受けない） */
     bool IsDodging() const { return dodgeActive_; }
     /** @brief このフレームに回避を開始したか */
     bool JustDodged() const { return justDodged_; }
-    /**
-     * @brief 直近の回避で連続回避（スパム）が何回続いているかを返す
-     * @note 0なら間隔を空けた回避。2以上は危険のない場面での連打とみなしてスタイル評価を下げる材料にする
-     */
+    /// @brief 直近の回避で連続回避（スパム）が何回続いているかを返す
+    /// @note 0なら間隔を空けた回避。2以上は危険のない場面での連打とみなしてスタイル評価を下げる材料にする
     int GetDodgeSpamCount() const { return dodgeSpamCount_; }
-    /**
-     * @brief 回避中に敵の攻撃を紙一重で避けた（ジャスト回避）ことを1回だけ成立させる
-     * @return 今回の回避でまだ報酬を受け取っていなければtrue（呼び出し側が加点・演出を行う）
-     */
-    bool ConsumeJustDodge()
-    {
-        if (!dodgeActive_ || dodgeRewardClaimed_) {
-            return false;
-        }
-        dodgeRewardClaimed_ = true;
-        return true;
-    }
-    /**
-     * @brief ジャスト回避直後の強化窓を開く（この間の攻撃は威力が上がる。回避を攻めの起点にするため）
-     * @param seconds 強化が続く秒数
-     */
+    /// @brief 回避中に敵の攻撃を紙一重で避けた（ジャスト回避）ことを1回だけ成立させる
+    /// @return 今回の回避でまだ報酬を受け取っていなければtrue（呼び出し側が加点・演出を行う）
+    bool ConsumeJustDodge();
+    /// @brief ジャスト回避直後の強化窓を開く（この間の攻撃は威力が上がる。回避を攻めの起点にするため）
+    /// @param seconds 強化が続く秒数
     void BeginJustDodgeWindow(float seconds) { justDodgeWindowTimer_ = (std::max)(justDodgeWindowTimer_, seconds); }
     /** @brief ジャスト回避直後の強化窓の中か */
     bool IsJustDodgeWindowActive() const { return justDodgeWindowTimer_ > 0.0f; }
@@ -199,10 +147,8 @@ public:
     /** @brief このフレームにテレポート斬りを開始したか（演出トリガー用） */
     bool JustWarped() const { return justWarped_; }
 
-    /**
-     * @brief 現在の武器と覚醒状態から攻撃ダメージ倍率を返す（覚醒中はweapons.jsonのawakened.damageMult）
-     * @note 素手・非覚醒時は1.0
-     */
+    /// @brief 現在の武器と覚醒状態から攻撃ダメージ倍率を返す（覚醒中はweapons.jsonのawakened.damageMult）
+    /// @note 素手・非覚醒時は1.0
     float GetAwakenedDamageMult() const;
     /** @brief 現在の武器と覚醒状態から固有技の判定範囲倍率を返す（非覚醒時は1.0） */
     float GetAwakenedSkillRadiusMult() const;
@@ -229,17 +175,10 @@ public:
     /** @brief 覚醒状態かどうかを返す */
     bool IsAwakened() const { return isAwakened_; }
 
-    /**
-     * @brief 攻撃が実際に命中した際にシーン側の当たり判定から呼び、覚醒ゲージを加算する
-     * @note 空振りでは溜まらないよう、振った瞬間ではなく命中確定フレームで呼ぶこと
-     * @param amount 加算量（skillMods_.gaugeChargeMult 込みで計算される）
-     */
-    void ChargeAwakenGauge(float amount)
-    {
-        if (!isAwakened_) {
-            awakenGauge_ = (std::min)(awakenGauge_ + amount * skillMods_.gaugeChargeMult, 1.0f);
-        }
-    }
+    /// @brief 攻撃が実際に命中した際にシーン側の当たり判定から呼び、覚醒ゲージを加算する
+    /// @note 空振りでは溜まらないよう、振った瞬間ではなく命中確定フレームで呼ぶこと
+    /// @param amount 加算量（skillMods_.gaugeChargeMult 込みで計算される）
+    void ChargeAwakenGauge(float amount);
 
     // スタイル技フラグ（その1フレームだけ true）
     bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
@@ -256,23 +195,17 @@ public:
     /** @brief スキル補正込みのコンボ最大数を返す（現在の武器の地上コンボ段数基準） */
     int GetComboMax() const;
 
-    /**
-     * @brief 進行中の近接攻撃の定義を返す（攻撃していなければ nullptr）
-     * @note JustComboHit() のフレームにダメージ・ノックバック・打ち上げ・技IDの参照に使う
-     */
+    /// @brief 進行中の近接攻撃の定義を返す（攻撃していなければ nullptr）
+    /// @note JustComboHit() のフレームにダメージ・ノックバック・打ち上げ・技IDの参照に使う
     const MeleeAttackDef* GetActiveMeleeAttack() const { return meleeCombo_.GetActive(); }
     /** @brief 近接コンボのモーション中か */
     bool IsMeleeAttacking() const { return meleeCombo_.IsAttacking(); }
-    /**
-     * @brief 現在表示中の近接武器の手元ワールド座標を返す（武器トレイル演出用）
-     * @note 武器が表示されていない場合はプレイヤーの胸元あたりの位置を返す
-     */
+    /// @brief 現在表示中の近接武器の手元ワールド座標を返す（武器トレイル演出用）
+    /// @note 武器が表示されていない場合はプレイヤーの胸元あたりの位置を返す
     Vector3 GetActiveWeaponWorldPosition() const;
 
-    /**
-     * @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
-     * @note JustFired() のフレームに弾数・拡散・射程倍率・ノックバック・技IDの参照に使う
-     */
+    /// @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
+    /// @note JustFired() のフレームに弾数・拡散・射程倍率・ノックバック・技IDの参照に使う
     const GunShotDef* GetActiveGunShot() const { return gunCombo_.GetActive(); }
     /** @brief 射撃コンボのモーション中か */
     bool IsGunShooting() const { return gunCombo_.IsShooting(); }
@@ -285,18 +218,13 @@ public:
     float GetSpinAngle() const { return spinAngle_; } ///< スピン角度（度、0=正立, 180=逆さ）
 
     // 固有技（スペースキー、武器種別ごと。Dagger/Hammer/Ball は上の Just～ を使う）
-    bool JustSwordDash() const { return justSwordDash_; } ///< ソード: 瞬迅斬り（ダッシュ斬り）発生フレーム
-    bool JustSpearRetreat() const { return justSpearRetreat_; } ///< スピア: 間合い外し（後退突き）発生フレーム
+    bool JustSwordDash() const { return justSwordDash_; } ///< ソード: 通過後の遅延斬撃が発生したフレーム
+    const Vector3& GetSwordSkillImpactPosition() const { return swordImpactPosition_; }
+    bool JustSpearRetreat() const { return justSpearRetreat_; } ///< スピア: 回転突撃の命中フレーム
+    bool IsSpearSpinningCharge() const { return spearDash_.active; }
     bool JustGreatswordSlam() const { return justGreatswordSlam_; } ///< グレートソード/ハンマー共通: 大地砕き発生フレーム
     /** @brief グレートソード: 投げ回転斬りで大剣が静止し渦を巻いている最中か（飛行中・帰還中はfalse） */
-    bool IsGreatswordSpinning() const
-    {
-        if (!greatswordThrowActive_) {
-            return false;
-        }
-        const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
-        return spinElapsed >= 0.0f && spinElapsed < kGreatswordVortexMaxDuration_;
-    }
+    bool IsGreatswordSpinning() const;
     bool JustGreatswordSpinHit() const { return justGreatswordSpinHit_; } ///< グレートソード: 渦の多段ヒット発生フレーム
     bool JustGreatswordThrown() const { return justGreatswordThrown_; } ///< グレートソード: 投げた瞬間のフレーム（発射エフェクト用）
     const Vector3& GetGreatswordThrowPos() const { return greatswordThrowPos_; } ///< 投げた大剣が静止している位置（渦の中心）
@@ -355,6 +283,7 @@ private:
     float waterLevel_ = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
     float velocityY_ = 0.0f;
     float groundVisualCorrection_ = 0.0f; // 実ブロック床と通常地面の高さ差を見た目だけへ反映
+    bool useStageFloor_ = false; // 配置床がある場合は固定高さの地面で着地させない
     bool onGround_ = true;
     int visualPreset_ = -1; // -1=自動、0=Alien、1=Mech
     bool prevOnGround_ = true;
@@ -433,9 +362,9 @@ private:
     // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
     GunComboController gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
-    static constexpr float kLaunchFollowWindow_ = 0.45f;
-    static constexpr float kLaunchFollowJumpMult_ = 1.35f;
-    static constexpr float kAirAttackFallDamping_ = 0.5f; // 空中攻撃中の落下速度減衰倍率（エアコンボを繋ぎやすくする）
+    static constexpr float kLaunchFollowWindow_ = 0.75f;
+    static constexpr float kLaunchFollowJumpMult_ = 1.5f;
+    static constexpr float kAirAttackFallDamping_ = 0.35f; // 空中攻撃中は落下を強く抑え、敵と高度を合わせやすくする
 
     // スペースキー スピン連射
     bool justSpinShot_ = false;
@@ -475,18 +404,22 @@ private:
     static constexpr float kDaggerStingerHitInterval_ = 0.09f; // 刺突ごとの間隔（秒）
     static constexpr int kDaggerStingerHitCount_ = 3;
     static constexpr float kDaggerStingerCooldown_ = 0.9f;
-    // ソード: 瞬迅斬り（短距離ダッシュ斬り、全能武器らしく癖のない攻守一体の一撃）
+    // ソード: 敵を通過し、納刀の間を置いて斬撃を発生させる
     bool justSwordDash_ = false;
+    bool swordReleasePending_ = false;
+    float swordReleaseTimer_ = 0.0f;
+    Vector3 swordImpactPosition_ { };
     float swordSkillCooldown_ = 0.0f;
     DashMotion swordDash_;
-    static constexpr float kSwordDashDist_ = 2.0f;
-    static constexpr float kSwordSkillCooldown_ = 0.55f;
-    // スピア: 間合い外し（後退しながら突く、牽制役らしいヒットアンドアウェイ）
+    static constexpr float kSwordDashDist_ = 5.2f;
+    static constexpr float kSwordReleaseDelay_ = 0.20f;
+    static constexpr float kSwordSkillCooldown_ = 0.72f;
+    // スピア: 武器ごと全身を回転させながら前方へ突撃する
     bool justSpearRetreat_ = false;
     float spearSkillCooldown_ = 0.0f;
     DashMotion spearDash_;
-    static constexpr float kSpearRetreatDist_ = 2.2f;
-    static constexpr float kSpearSkillCooldown_ = 0.75f;
+    static constexpr float kSpearChargeDist_ = 4.0f;
+    static constexpr float kSpearSkillCooldown_ = 0.65f;
     // グレートソード/ハンマー共通: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
     bool justGreatswordSlam_ = false;
     float greatswordSkillCooldown_ = 0.0f;
@@ -537,6 +470,28 @@ private:
     static constexpr float kRampageSpeed_ = 0.45f; // 打ち上げ突進速度
     static constexpr float kJuggleRadius_ = 2.5f; // 敵からのスラッシュ距離
     static constexpr int kJuggleMaxSlashes_ = 8; // 乱舞の最大回数
+    static constexpr float kRampageLaunchSpeed_ = 0.25f; // 突進が届いた瞬間に跳ね上がる初速
+    static constexpr float kRampageReachDistance_ = 1.0f; // この距離まで近づいたら打ち上げる
+
+    // 覚醒中の移動補正
+    static constexpr float kAwakenedSpeedMult_ = 1.5f;
+    static constexpr float kAwakenedJumpMult_ = 1.3f;
+
+    // リムライト（本体・手持ち武器で共通）
+    static constexpr Vector3 kRimColor_ = { 0.4f, 0.9f, 1.0f };
+    static constexpr float kRimPower_ = 2.5f;
+    static constexpr float kRimIntensity_ = 1.2f;
+    static constexpr float kFinisherRimBoost_ = 3.0f; // フィニッシャーの溜めが深まるほど足すリムの強さ
+
+    // ブロックとの当たり判定の許容値
+    static constexpr float kTopCrossTolerance_ = 0.01f; // 上面を跨いだとみなす高さの誤差
+    static constexpr float kSideOverlapMargin_ = 0.05f; // 側面判定で上下の縁を無視する幅
+    static constexpr float kLandingSnapTolerance_ = 0.05f; // 上面へ吸着させる高さの許容
+
+    // 球スタイルの旋回（度）
+    static constexpr float kFullTurnDegrees_ = 360.0f;
+    static constexpr float kUpsideDownMinDegrees_ = 90.0f; // この範囲の角度では逆さとみなす
+    static constexpr float kUpsideDownMaxDegrees_ = 270.0f;
 
     // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
     bool justFinisherSlash_ = false;
@@ -553,15 +508,9 @@ private:
         virtual void Update(Player& player, Input* input) const = 0;
     };
     /** @brief 地上環境の移動と重力処理を適用する物理状態 */
-    class GroundedPhysicsState : public IPhysicsState {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class GroundedPhysicsState;
     /** @brief 水中環境の浮力と移動処理を適用する物理状態 */
-    class UnderwaterPhysicsState : public IPhysicsState {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class UnderwaterPhysicsState;
     static const IPhysicsState& GetPhysicsState(bool inWater);
 
     // Rampage State パターン
@@ -575,23 +524,11 @@ private:
         virtual void UpdatePhysics(Player& player, const Vector3& enemyPos) const = 0;
     };
     /** @brief 覚醒乱舞を開始していない通常状態 */
-    class InactiveRampageState : public IRampageState {
-    public:
-        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
-        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override { }
-    };
+    class InactiveRampageState;
     /** @brief 覚醒乱舞の打ち上げ段階を処理する状態 */
-    class LaunchRampageState : public IRampageState {
-    public:
-        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override { }
-        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
-    };
+    class LaunchRampageState;
     /** @brief 覚醒乱舞の空中追撃段階を処理する状態 */
-    class JuggleRampageState : public IRampageState {
-    public:
-        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
-        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
-    };
+    class JuggleRampageState;
     static const IRampageState& GetRampageState(RampagePhase phase);
 
     // Weapon Behavior Strategy パターン
@@ -603,50 +540,23 @@ private:
         virtual void Update(Player& player, Input* input) const = 0;
     };
     /** @brief 短剣の高速移動と攻撃挙動を適用するStrategy */
-    class DaggerBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class DaggerBehavior;
     /** @brief ハンマーの重量攻撃挙動を適用するStrategy */
-    class HammerBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class HammerBehavior;
     /** @brief ボール武器の固有挙動を適用するStrategy */
-    class BallBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class BallBehavior;
     /** @brief 剣の突進攻撃挙動を適用するStrategy */
-    class SwordBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class SwordBehavior;
     /** @brief 槍の間合い制御を適用するStrategy */
-    class SpearBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class SpearBehavior;
     /** @brief 大剣の叩きつけ挙動を適用するStrategy */
-    class GreatswordBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class GreatswordBehavior;
     /** @brief 鎌の広範囲攻撃挙動を適用するStrategy */
-    class ScytheBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class ScytheBehavior;
     /** @brief 斧の溜め攻撃挙動を適用するStrategy */
-    class AxeBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player& player, Input* input) const override;
-    };
+    class AxeBehavior;
     /** @brief 固有処理を持たない武器へ共通挙動を適用するStrategy */
-    class DefaultWeaponBehavior : public IWeaponBehavior {
-    public:
-        void Update(Player&, Input*) const override { }
-    };
+    class DefaultWeaponBehavior;
     static const IWeaponBehavior& GetWeaponBehavior(WeaponType type);
 
     // 覚醒残像
@@ -654,7 +564,7 @@ private:
 
     // アウトラインパス後に通常描画 PSO へ戻すために保持（Player::Draw() で使用）
     ModelCommon* modelCommon_ = nullptr;
-    std::unique_ptr<Model> staticOverrideModel_;
+    Model* staticOverrideModel_ = nullptr; // 実体はModelManagerが所有・共有する
     std::unique_ptr<Object3d> staticOverrideObject_;
     float staticOverrideFootOffset_ = 0.0f; // モデル原点から最下点までの距離（スケール後）中心原点のモデルでも足元を合わせる
     std::string staticOverrideModelPath_;
@@ -669,8 +579,8 @@ private:
     // （アセットパス・アニメ名の定義は CharacterVisuals.h の kNormalRigVisual / kAwakenedRigVisual）
     /** @brief 通常/覚醒フォーム1体ぶんのモデル・アニメーション・武器アタッチ用ボーン名一式 */
     struct CharacterRig {
-        std::unique_ptr<Model> staticModel; ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）
-        std::unique_ptr<SkinnedModel> skinnedModel; ///< 本体描画（ボーンアニメーション付き）
+        Model* staticModel = nullptr; ///< 残像・分身演出用（ボーンなし、本体と同じ見た目）。実体はModelManagerが所有・共有する
+        SkinnedModel* skinnedModel = nullptr; ///< 本体描画（ボーンアニメーション付き）。実体はModelManagerが所有・共有する
         std::unique_ptr<SkinnedObject3d> object;
         float modelScale = 1.0f;
         float modelOffsetY = 0.0f; ///< モデル原点（足元）を AABB 中心の pos_ に合わせる下げ幅
@@ -695,7 +605,7 @@ private:
     /** @brief 右手に持たせる近接武器1種ぶんのモデルと、握らせる際のローカルスケール/回転/位置 */
     struct HeldWeaponSlot {
         WeaponType type;
-        std::unique_ptr<Model> model;
+        Model* model = nullptr; // 実体はModelManagerが所有・共有する
         std::unique_ptr<Object3d> object;
         Vector3 gripScale;
         Vector3 gripRotate;
@@ -716,7 +626,7 @@ private:
     // 近接の heldWeapons_ と同じテーブル方式（追加は CharacterVisuals.h の kGunVisuals）
     struct GunSlot {
         GunType type;
-        std::unique_ptr<Model> model;
+        Model* model = nullptr; // 実体はModelManagerが所有・共有する
         std::unique_ptr<Object3d> object;
         Vector3 gripScale;
         Vector3 gripRotate;
@@ -733,6 +643,27 @@ private:
         Swim,
         Attack };
     AnimState animState_ = AnimState::Idle;
+
+    // Anim State パターン
+    // 移動系のアニメーション状態ごとに、遷移した瞬間に再生するモーションを切り替える
+    /** @brief アニメーション状態ごとのモーション選択を抽象化する状態 */
+    class IAnimState {
+    public:
+        virtual ~IAnimState() = default;
+        /** @brief この状態へ遷移した瞬間に対応するモーションを再生する */
+        virtual void Enter(Player& player, bool hold, bool isMoving) const = 0;
+    };
+    /** @brief 立ち姿勢のモーションを再生する状態 */
+    class IdleAnimState;
+    /** @brief 走りモーションを再生する状態 */
+    class RunAnimState;
+    /** @brief ジャンプモーションを再生する状態 */
+    class JumpAnimState;
+    /** @brief 泳ぎモーションを再生する状態 */
+    class SwimAnimState;
+    /** @brief 攻撃モーション再生中の状態（モーションはPlayAttackAnim側で設定済み） */
+    class AttackAnimState;
+    static const IAnimState& GetAnimState(AnimState state);
     bool animHold_ = false; ///< 武器持ちバリエーション（IdleHold/RunHold）を再生中か
     float attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 
@@ -749,75 +680,51 @@ private:
     // Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照）
     /** @brief 毎フレーム冒頭でJust～系の単発フラグ（ジャンプ・着地・被弾等）を全てリセットする */
     void ResetFrameFlags();
-    /**
-     * @brief 回避入力の受付と回避移動の進行を処理する
-     * @param input 入力マネージャー
-     * @note 近接コンボ中でも受け付けてコンボを打ち切る（武器切替キャンセルと並ぶ逃げ道）。
-     * フィニッシャー溜め中・乱舞中・水中は受け付けない
-     */
+    /// @brief 回避入力の受付と回避移動の進行を処理する
+    /// @param input 入力マネージャー
+    /// @note 近接コンボ中でも受け付けてコンボを打ち切る（武器切替キャンセルと並ぶ逃げ道）。
+    /// フィニッシャー溜め中・乱舞中・水中は受け付けない
     void HandleDodge(Input* input);
-    /**
-     * @brief テレポート斬り入力の受付とワープ移動の進行を処理する
-     * @param input 入力マネージャー
-     * @note 覚醒ゲージがkWarpGaugeCost_未満の時は通常時は発動しない（覚醒中はゲージ消費なしで発動可）。
-     * 近接コンボ中でも受け付けてコンボを打ち切る回避と同じくフィニッシャー溜め中・乱舞中・水中は受け付けない
-     */
+    /// @brief テレポート斬り入力の受付とワープ移動の進行を処理する
+    /// @param input 入力マネージャー
+    /// @note 覚醒ゲージがkWarpGaugeCost_未満の時は通常時は発動しない（覚醒中はゲージ消費なしで発動可）。
+    /// 近接コンボ中でも受け付けてコンボを打ち切る回避と同じくフィニッシャー溜め中・乱舞中・水中は受け付けない
     void HandleWarp(Input* input);
-    /**
-     * @brief 数字キー/十字キーによる武器スロット切り替えを処理する
-     * @param input 入力マネージャー
-     */
+    /// @brief 数字キー/十字キーによる武器スロット切り替えを処理する
+    /// @param input 入力マネージャー
     void HandleStyleSwitch(Input* input);
-    /**
-     * @brief 銃切り替え（Gキー）と射撃コンボ（Kキー）の入力、および射撃反動の移動を処理する
-     * @param input 入力マネージャー
-     */
+    /// @brief 銃切り替え（Gキー）と射撃コンボ（Kキー）の入力、および射撃反動の移動を処理する
+    /// @param input 入力マネージャー
     void HandleRangedCombat(Input* input);
-    /**
-     * @brief 近接攻撃コンボ・打ち上げ・乱舞（Lキー）の入力受付とコンボ進行を処理する
-     * @param input 入力マネージャー
-     * @param enemyPos 乱舞攻撃のターゲット座標
-     */
+    /// @brief 近接攻撃コンボ・打ち上げ・乱舞（Lキー）の入力受付とコンボ進行を処理する
+    /// @param input 入力マネージャー
+    /// @param enemyPos 乱舞攻撃のターゲット座標
     void HandleMeleeCombat(Input* input, const Vector3& enemyPos);
-    /**
-     * @brief フィニッシャースラッシュ（Fキー）の発動条件判定と、静止溜め→解放までの進行を処理する
-     * @param input 入力マネージャー
-     */
+    /// @brief フィニッシャースラッシュ（Fキー）の発動条件判定と、静止溜め→解放までの進行を処理する
+    /// @param input 入力マネージャー
     void HandleFinisherSlash(Input* input);
-    /**
-     * @brief スペースキーによる武器固有技（ダッシュ斬り・間合い外し・大地砕き等）の入力とクールダウンを処理する
-     * @param input 入力マネージャー
-     */
+    /// @brief スペースキーによる武器固有技（ダッシュ斬り・間合い外し・大地砕き等）の入力とクールダウンを処理する
+    /// @param input 入力マネージャー
     void HandleWeaponSkill(Input* input);
-    /**
-     * @brief グレートソード投げ回転斬りの飛行→渦→帰還の進行を、武器を持ち替えていても止めずに進める
-     * @note 元々はGreatswordBehavior::Update内で進めていたが、そこは現在装備中の武器がグレートソードの
-     *       時しか呼ばれないため、渦の最中に他の武器へ持ち替えるとタイマーが凍結し、モデルは表示されたまま
-     *       回転や帰還だけ止まって見える不具合があった。装備武器に関係なく毎フレーム呼ぶことで解決する
-     * @param input 入力マネージャー（渦の最中の再スペース入力で早期帰還させるために使う）
-     */
+    /// @brief グレートソード投げ回転斬りの飛行→渦→帰還の進行を、武器を持ち替えていても止めずに進める
+    /// @note 元々はGreatswordBehavior::Update内で進めていたが、そこは現在装備中の武器がグレートソードの
+    ///       時しか呼ばれないため、渦の最中に他の武器へ持ち替えるとタイマーが凍結し、モデルは表示されたまま
+    ///       回転や帰還だけ止まって見える不具合があった。装備武器に関係なく毎フレーム呼ぶことで解決する
+    /// @param input 入力マネージャー（渦の最中の再スペース入力で早期帰還させるために使う）
     void UpdateGreatswordThrowState(Input* input);
-    /**
-     * @brief 覚醒乱舞の現フェーズに応じた突進/追撃物理を進め、ヒットフレームで斬撃モーションを再生する
-     * @param enemyPos 乱舞スラッシュのターゲット座標
-     */
+    /// @brief 覚醒乱舞の現フェーズに応じた突進/追撃物理を進め、ヒットフレームで斬撃モーションを再生する
+    /// @param enemyPos 乱舞スラッシュのターゲット座標
     void UpdateRampagePhysics(const Vector3& enemyPos);
-    /**
-     * @brief 覚醒の発動判定（Rキー）とゲージ消費、時間切れ/ゲージ切れによる覚醒終了を処理する
-     * @param input 入力マネージャー
-     */
+    /// @brief 覚醒の発動判定（Rキー）とゲージ消費、時間切れ/ゲージ切れによる覚醒終了を処理する
+    /// @param input 入力マネージャー
     void UpdateAwakenState(Input* input);
-    /**
-     * @brief 乱舞中でない時、敵と一定距離以上重ならないようX座標を押し出す
-     * @param enemyPos 押し出し判定に使う敵の座標
-     */
+    /// @brief 乱舞中でない時、敵と一定距離以上重ならないようX座標を押し出す
+    /// @param enemyPos 押し出し判定に使う敵の座標
     void ResolveEnemyOverlap(const Vector3& enemyPos);
     /** @brief 水面Yとの比較で入水/出水を判定し、入水時は落下速度を減衰させる */
     void UpdateWaterState();
-    /**
-     * @brief 覚醒残像・アニメーション状態・プレイヤー色などUpdate()末尾の表示関連処理をまとめて更新する
-     * @param input 入力マネージャー（移動入力の参照に使用）
-     */
+    /// @brief 覚醒残像・アニメーション状態・プレイヤー色などUpdate()末尾の表示関連処理をまとめて更新する
+    /// @param input 入力マネージャー（移動入力の参照に使用）
     void UpdateVisualState(Input* input);
     /** @brief 現在のスタイルに対応する近接武器と銃を、それぞれの手ボーンへ追従させる */
     void AttachActiveWeapons();

@@ -5,6 +5,7 @@
 #include "EnemyEntity.h"
 #include "GameConstants.h"
 #include "GravityBody.h"
+#include "ModelManager.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -26,8 +27,7 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     attackTimer_ = 0.0f;
     justFiredAttack_ = false;
 
-    model_ = std::make_unique<Model>();
-    model_->Initialize(modelCommon,
+    model_ = ModelManager::GetInstance()->GetOrLoad(modelCommon,
         "Resources/Knight/OBJ/KnightCharacter.obj",
         "Resources/Knight/OBJ/KnightCharacterPalette.png");
 
@@ -35,11 +35,11 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     skinCommon_->Initialize(modelCommon->GetDxCommon());
     SkinnedObject3d::SetCommonModelCommon(modelCommon);
     SkinnedObject3d::SetCommonCamera(Object3d::GetCommonCamera());
-    animatedModel_ = std::make_unique<SkinnedModel>();
-    animatedModel_->Initialize(modelCommon->GetDxCommon(), kAnimatedKnightPath, kKnightTexture);
+    animatedModel_ = ModelManager::GetInstance()->GetOrLoadSkinned(
+        modelCommon->GetDxCommon(), kAnimatedKnightPath, kKnightTexture);
     object_ = std::make_unique<SkinnedObject3d>();
     object_->Initialize(skinCommon_.get());
-    object_->SetModel(animatedModel_.get());
+    object_->SetModel(animatedModel_);
     object_->SetSkeleton(Skeleton::Create(
         LoadNodeHierarchyFromFile(kAnimatedKnightDirectory, kAnimatedKnightFile)));
     idleAnimation_ = LoadAnimationFile(
@@ -66,11 +66,10 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
         weaponTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
         weaponScale_ = kHeavyWeaponScale_;
     }
-    weaponModel_ = std::make_unique<Model>();
-    weaponModel_->Initialize(modelCommon, weaponPath, weaponTexture);
+    weaponModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon, weaponPath, weaponTexture);
     weaponObject_ = std::make_unique<Object3d>();
     weaponObject_->Initialize(modelCommon);
-    weaponObject_->SetModel(weaponModel_.get());
+    weaponObject_->SetModel(weaponModel_);
     weaponObject_->SetEnableLighting(true);
     weaponObject_->SetScale(weaponScale_);
     weaponObject_->SetPosition({ pos_.x + facingSign_ * kWeaponOffsetX_, pos_.y + kWeaponOffsetY_, pos_.z + kWeaponOffsetZ_ });
@@ -85,10 +84,13 @@ void EnemyEntity::Update(float playerX)
     justLanded_ = false;
     slowTimer_ = (std::max)(slowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
 
-    facingSign_ = (playerX >= pos_.x) ? 1.0f : -1.0f;
+    // 撃破後は倒れた時の向きを保ち、プレイヤーの移動に反応しない。
+    if (!defeated_) {
+        facingSign_ = (playerX >= pos_.x) ? 1.0f : -1.0f;
+    }
 
     bool walkedThisFrame = false;
-    if (std::abs(knockVelX_) > 0.001f) {
+    if (std::abs(knockVelX_) > kKnockbackStopSpeed_) {
         pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? tuning.knockbackSlowMultiplier : 1.0f);
         knockVelX_ *= tuning.knockbackDecay;
     } else if (!defeated_ && !isLaunched_ && attackState_ == AttackState::Idle) {
@@ -106,7 +108,7 @@ void EnemyEntity::Update(float playerX)
     if (isLaunched_) {
         airComboTimer_ = (std::max)(airComboTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
         const float gravity = airComboTimer_ > 0.0f ? tuning.gravity * tuning.airComboGravityScale : tuning.gravity;
-        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, launchOriginY_, tuning.ceilingY, -0.1f)) {
+        if (ApplyGravityAndClampY(pos_.y, velY_, gravity, launchOriginY_, tuning.ceilingY, kCeilingBounceFactor_)) {
             isLaunched_ = false;
             justLanded_ = true;
         }
@@ -132,28 +134,17 @@ void EnemyEntity::Update(float playerX)
     const VisualAnim desiredAnimationState = attackState_ != AttackState::Idle ? VisualAnim::Attack
         : walkedThisFrame                                                      ? VisualAnim::Run
                                                                                : VisualAnim::Idle;
-    if (desiredAnimationState != animationState_) {
+    if (!defeated_ && desiredAnimationState != animationState_) {
         object_->SetAnimation(desiredAnimationState == VisualAnim::Attack ? attackAnimation_
                 : desiredAnimationState == VisualAnim::Run                ? runAnimation_
                                                                           : idleAnimation_);
         animationState_ = desiredAnimationState;
     }
 
-    float bodyLean = 0.0f;
-    float weaponSwing = kWeaponRestTilt_;
+    float bodyLean = defeated_ ? facingSign_ * kDefeatedBodyLean_ : 0.0f;
+    float weaponSwing = defeated_ ? facingSign_ * kDefeatedWeaponTilt_ : kWeaponRestTilt_;
     if (!defeated_ && !isLaunched_) {
-        switch (attackState_) {
-        case AttackState::Idle:
-            break;
-        case AttackState::Telegraph:
-            bodyLean = kTelegraphBodyLean_;
-            weaponSwing = kTelegraphWeaponSwing_;
-            break;
-        case AttackState::Active:
-            bodyLean = kActiveBodyLean_;
-            weaponSwing = kActiveWeaponSwing_;
-            break;
-        }
+        GetAttackState(attackState_).ApplyPose(bodyLean, weaponSwing);
     }
     const float facingYaw = facingSign_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
     object_->SetRotation({ 0.0f, facingYaw, bodyLean });
@@ -165,20 +156,23 @@ void EnemyEntity::Update(float playerX)
         hitFlashTimer_ = (std::max)(hitFlashTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
         flash = hitFlashTimer_ / kHitFlashDuration_;
     }
-    // 予備動作中は基準色を警告色へ寄せる（被弾フラッシュはその上から白へ寄せる）
-    const float warn = IsTelegraphing() ? kTelegraphTintStrength_ : 0.0f;
-    const Vector4 tintedColor = {
-        baseColor_.x + (kTelegraphTint_.x - baseColor_.x) * warn,
-        baseColor_.y + (kTelegraphTint_.y - baseColor_.y) * warn,
-        baseColor_.z + (kTelegraphTint_.z - baseColor_.z) * warn,
-        baseColor_.w
-    };
-    const Vector4 flashColor = {
-        tintedColor.x + (1.0f - tintedColor.x) * flash,
-        tintedColor.y + (1.0f - tintedColor.y) * flash,
-        tintedColor.z + (1.0f - tintedColor.z) * flash,
-        tintedColor.w
-    };
+    Vector4 flashColor = kDefeatedColor_;
+    if (!defeated_) {
+        // 予備動作中は基準色を警告色へ寄せる（被弾フラッシュはその上から白へ寄せる）
+        const float warn = IsTelegraphing() ? kTelegraphTintStrength_ : 0.0f;
+        const Vector4 tintedColor = {
+            baseColor_.x + (kTelegraphTint_.x - baseColor_.x) * warn,
+            baseColor_.y + (kTelegraphTint_.y - baseColor_.y) * warn,
+            baseColor_.z + (kTelegraphTint_.z - baseColor_.z) * warn,
+            baseColor_.w
+        };
+        flashColor = {
+            tintedColor.x + (1.0f - tintedColor.x) * flash,
+            tintedColor.y + (1.0f - tintedColor.y) * flash,
+            tintedColor.z + (1.0f - tintedColor.z) * flash,
+            tintedColor.w
+        };
+    }
     object_->SetColor(flashColor);
     weaponObject_->SetColor(flashColor);
     const float bodyScale = kBodyScale_ * (1.0f + kHitScalePunch_ * flash);
@@ -203,38 +197,86 @@ void EnemyEntity::UpdateAttack(float playerX)
         return;
     }
 
-    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
-    switch (attackState_) {
-    case AttackState::Idle: {
-        // 遠隔の敵は持ち場基準の索敵距離、近接の敵は自分からの間合いで攻撃開始を判定する
-        // （遠くの敵が延々と素振り・発砲を繰り返さないように。近接敵は届く距離でしか振らない）
-        const bool inStartRange = IsMeleeAttacker()
-            ? std::abs(playerX - pos_.x) <= tuning.meleeAttackRange
-            : std::abs(playerX - spawnX_) <= tuning.aggroRange;
-        if (!inStartRange) {
-            attackTimer_ = 0.0f;
-            break;
-        }
-        attackState_ = AttackState::Telegraph;
-        justStartedTelegraph_ = true;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? tuning.daggerTelegraph
-            : weaponType_ == WeaponType::Spear                                      ? tuning.spearTelegraph
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? tuning.heavyTelegraph
-                                                                                    : tuning.attackTelegraph;
-        break;
+    GetAttackState(attackState_).Advance(*this, EnemyTuning::GetInstance()->Basic(), playerX);
+}
+
+//  Attack State（攻撃の進行フェーズ）
+
+namespace engine::game {
+class EnemyEntity::IdleAttackState : public IAttackState {
+public:
+    void Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float playerX) const override;
+    void ApplyPose(float&, float&) const override { }
+};
+class EnemyEntity::TelegraphAttackState : public IAttackState {
+public:
+    void Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float playerX) const override;
+    void ApplyPose(float& bodyLean, float& weaponSwing) const override
+    {
+        bodyLean = kTelegraphBodyLean_;
+        weaponSwing = kTelegraphWeaponSwing_;
     }
+};
+class EnemyEntity::ActiveAttackState : public IAttackState {
+public:
+    void Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float playerX) const override;
+    void ApplyPose(float& bodyLean, float& weaponSwing) const override
+    {
+        bodyLean = kActiveBodyLean_;
+        weaponSwing = kActiveWeaponSwing_;
+    }
+};
+}
+
+void EnemyEntity::IdleAttackState::Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float playerX) const
+{
+    // 遠隔の敵は持ち場基準の索敵距離、近接の敵は自分からの間合いで攻撃開始を判定する
+    // （遠くの敵が延々と素振り・発砲を繰り返さないように。近接敵は届く距離でしか振らない）
+    const bool inStartRange = enemy.IsMeleeAttacker()
+        ? std::abs(playerX - enemy.pos_.x) <= tuning.meleeAttackRange
+        : std::abs(playerX - enemy.spawnX_) <= tuning.aggroRange;
+    if (!inStartRange) {
+        enemy.attackTimer_ = 0.0f;
+        return;
+    }
+    const WeaponType type = enemy.weaponType_;
+    enemy.attackState_ = AttackState::Telegraph;
+    enemy.justStartedTelegraph_ = true;
+    enemy.attackTimer_ = type == WeaponType::Dagger                     ? tuning.daggerTelegraph
+        : type == WeaponType::Spear                                     ? tuning.spearTelegraph
+        : (type == WeaponType::Hammer || type == WeaponType::Axe)       ? tuning.heavyTelegraph
+                                                                        : tuning.attackTelegraph;
+}
+
+void EnemyEntity::TelegraphAttackState::Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float) const
+{
+    enemy.attackState_ = AttackState::Active;
+    enemy.attackTimer_ = tuning.attackActive;
+    enemy.justFiredAttack_ = true;
+}
+
+void EnemyEntity::ActiveAttackState::Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float) const
+{
+    const WeaponType type = enemy.weaponType_;
+    enemy.attackState_ = AttackState::Idle;
+    enemy.attackTimer_ = type == WeaponType::Dagger                     ? tuning.daggerRecovery
+        : type == WeaponType::Spear                                     ? tuning.spearRecovery
+        : (type == WeaponType::Hammer || type == WeaponType::Axe)       ? tuning.heavyRecovery
+                                                                        : tuning.attackInterval;
+}
+
+const EnemyEntity::IAttackState& EnemyEntity::GetAttackState(AttackState state)
+{
+    static IdleAttackState idle;
+    static TelegraphAttackState telegraph;
+    static ActiveAttackState active;
+    switch (state) {
     case AttackState::Telegraph:
-        attackState_ = AttackState::Active;
-        attackTimer_ = tuning.attackActive;
-        justFiredAttack_ = true;
-        break;
+        return telegraph;
     case AttackState::Active:
-        attackState_ = AttackState::Idle;
-        attackTimer_ = weaponType_ == WeaponType::Dagger                            ? tuning.daggerRecovery
-            : weaponType_ == WeaponType::Spear                                      ? tuning.spearRecovery
-            : (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe) ? tuning.heavyRecovery
-                                                                                    : tuning.attackInterval;
-        break;
+        return active;
+    default:
+        return idle;
     }
 }
 

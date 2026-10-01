@@ -29,12 +29,13 @@ void SlashMark::Spawn(const SlashMarkParams& params)
     // 太く淡い残光の上に細く明るい芯を重ねて剣閃らしく見せる
     constexpr float kGlowWidthMult = 3.4f;
     constexpr float kGlowAlpha = 0.40f;
+    constexpr float kCoreWhiteBlend = 0.7f; // 芯の色を白へ寄せる割合
     Vector4 glowColor = params.color;
     glowColor.w *= kGlowAlpha;
     SpawnLayer(params, params.thickness * kGlowWidthMult, glowColor);
 
-    Vector4 coreColor = { params.color.x * 0.3f + 0.7f, params.color.y * 0.3f + 0.7f,
-        params.color.z * 0.3f + 0.7f, params.color.w };
+    Vector4 coreColor = { params.color.x * (1.0f - kCoreWhiteBlend) + kCoreWhiteBlend, params.color.y * (1.0f - kCoreWhiteBlend) + kCoreWhiteBlend,
+        params.color.z * (1.0f - kCoreWhiteBlend) + kCoreWhiteBlend, params.color.w };
     SpawnLayer(params, params.thickness, coreColor);
 }
 

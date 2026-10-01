@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <wrl/client.h>
 #include <xaudio2.h>
 
@@ -57,6 +58,12 @@ public:
      * @return ロード済みの SoundData
      */
     SoundData LoadAudio(const std::string& filename);
+    /** @brief メニューの選択移動音を再生する */
+    void PlayMenuChoice();
+    /** @brief メニューの決定音を再生する */
+    void PlayMenuSelect();
+    /** @brief タイトル用BGMをループ再生する */
+    void PlayTitleBGM();
 
     // BGM（1チャンネル、ループ再生）
 
@@ -133,6 +140,9 @@ public:
     void SetPlaybackSpeed(float speed) { SetBGMSpeed(speed); }
 
 private:
+    const SoundData& GetCachedSound(const std::string& filename);
+    // シーンを離れた後も再生中のSEが参照できるよう、音声システム側で保持する。
+    std::unordered_map<std::string, SoundData> soundCache_;
     /** @brief SourceVoice を生成するヘルパー */
     IXAudio2SourceVoice* CreateSourceVoice(const SoundData& soundData);
 

@@ -13,6 +13,24 @@ using namespace engine::game;
 
 //  Rampage State（覚醒乱舞の進行フェーズ）
 
+namespace engine::game {
+class Player::InactiveRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override { }
+    };
+class Player::LaunchRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override { }
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
+    };
+class Player::JuggleRampageState : public IRampageState {
+    public:
+        void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
+        void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
+    };
+}
+
 void Player::InactiveRampageState::HandleAttackInput(Player&, Input*, const Vector3&) const
 {
     // 通常時の攻撃入力は MeleeComboController（Player::Update 内）が担当するため何もしない
@@ -32,9 +50,9 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
     player.pos_.x = std::clamp(player.pos_.x, player.minX_, player.maxX_);
 
     // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
-    if (std::abs(dx) < 1.0f) {
+    if (std::abs(dx) < kRampageReachDistance_) {
         player.justLaunched_ = true;
-        player.velocityY_ = 0.25f;
+        player.velocityY_ = kRampageLaunchSpeed_;
         player.rampagePhase_ = RampagePhase::Juggle;
     }
 }

@@ -250,7 +250,7 @@ NodeResult ExecScreenFlash(GraphRuntime& rt, const GraphNode& node, std::string&
     float g = AsFloat(rt.ResolveParam(node, "g", GraphValue { 1.0f }));
     float b = AsFloat(rt.ResolveParam(node, "b", GraphValue { 1.0f }));
     float a = AsFloat(rt.ResolveParam(node, "a", GraphValue { 0.5f }));
-    float duration = AsFloat(rt.ResolveParam(node, "duration", GraphValue { 0.15f }));
+    float duration = AsFloat(rt.ResolveParam(node, "duration", GraphValue { GraphNodeDefaults::kFlashDuration }));
     ScreenFlash::GetInstance()->Request({ r, g, b, a }, duration);
     outNextId = node.next;
     return NodeResult::Continue;
@@ -259,7 +259,7 @@ NodeResult ExecScreenFlash(GraphRuntime& rt, const GraphNode& node, std::string&
 // framesフレームぶんゲーム内時間を止める演出用（Wait秒数指定とは別物、TimeManagerのヒットストップ機構を使う）
 NodeResult ExecHitStop(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    int frames = static_cast<int>(AsFloat(rt.ResolveParam(node, "frames", GraphValue { 3.0f })));
+    int frames = static_cast<int>(AsFloat(rt.ResolveParam(node, "frames", GraphValue { GraphNodeDefaults::kHitStopFrames })));
     TimeManager::GetInstance()->RequestHitStop(frames);
     outNextId = node.next;
     return NodeResult::Continue;
@@ -415,7 +415,7 @@ NodeResult ExecMoveObject(GraphRuntime& rt, const GraphNode& node, std::string& 
 // sceneはSceneFactoryの登録名（"TITLE" "MAP" "GAMEPLAY" 等）。フェード秒数は省略可
 NodeResult ExecChangeScene(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    constexpr float kDefaultFadeSeconds = 0.15f;
+    constexpr float kDefaultFadeSeconds = GraphNodeDefaults::kSceneFadeSeconds;
     std::string scene = AsString(rt.ResolveParam(node, "scene", std::string { }));
     float fadeOut = AsFloat(rt.ResolveParam(node, "fadeOut", GraphValue { kDefaultFadeSeconds }));
     float fadeIn = AsFloat(rt.ResolveParam(node, "fadeIn", GraphValue { kDefaultFadeSeconds }));

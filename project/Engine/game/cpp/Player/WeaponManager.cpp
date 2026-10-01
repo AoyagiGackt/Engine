@@ -10,6 +10,8 @@ using namespace engine;
 using namespace engine::game;
 
 namespace {
+constexpr float kMinSkillCooldownMult = 0.05f; // 覚醒中に固有技を連打できなくなる下限
+constexpr size_t kColorChannels = 4;
 
 constexpr const char* kWeaponDataPath = "Resources/Config/weapons.json";
 
@@ -87,6 +89,10 @@ WeaponManager::WeaponManager()
         data.name = r.value("name", "");
         data.nameJp = StringUtility::ConvertString(r.value("nameJp", ""));
         data.type = ParseGunType(r.value("type", ""));
+        // 遠距離用の補助武器は、役割が重なる複数の銃から一つに集約する。
+        if (data.type != GunType::Pistol) {
+            continue;
+        }
         data.damage = r.value("damage", 0.0f);
         data.range = r.value("range", 0.0f);
         data.attackInterval = r.value("attackInterval", 0.0f);
@@ -96,7 +102,7 @@ WeaponManager::WeaponManager()
         data.color[0] = data.color[1] = data.color[2] = 1.0f;
         data.color[3] = 1.0f;
         auto color = r.value("color", nlohmann::json::array());
-        for (size_t i = 0; i < 4 && i < color.size(); ++i) {
+        for (size_t i = 0; i < kColorChannels && i < color.size(); ++i) {
             data.color[i] = color[i].get<float>();
         }
 
@@ -115,6 +121,14 @@ WeaponManager::WeaponManager()
         data.styleName = w.value("styleName", "");
         data.styleNameJp = StringUtility::ConvertString(w.value("styleNameJp", ""));
         data.type = ParseWeaponType(w.value("type", ""));
+        // 四つの基本戦闘スタイルを、四つの装備枠に対応させる。
+        const bool isCoreWeapon = data.type == WeaponType::Sword
+            || data.type == WeaponType::Spear
+            || data.type == WeaponType::Dagger
+            || data.type == WeaponType::Hammer;
+        if (!isCoreWeapon) {
+            continue;
+        }
         data.damage = w.value("damage", 0.0f);
         data.range = w.value("range", 0.0f);
         data.attackInterval = w.value("attackInterval", 0.0f);
@@ -133,7 +147,7 @@ WeaponManager::WeaponManager()
         const auto awakened = w.value("awakened", nlohmann::json::object());
         data.awakened.damageMult = awakened.value("damageMult", data.awakened.damageMult);
         data.awakened.skillRadiusMult = awakened.value("skillRadiusMult", data.awakened.skillRadiusMult);
-        data.awakened.skillCooldownMult = (std::max)(awakened.value("skillCooldownMult", data.awakened.skillCooldownMult), 0.05f);
+        data.awakened.skillCooldownMult = (std::max)(awakened.value("skillCooldownMult", data.awakened.skillCooldownMult), kMinSkillCooldownMult);
         data.awakened.knockbackMult = awakened.value("knockbackMult", data.awakened.knockbackMult);
 
         const auto effect = w.value("effect", nlohmann::json::object());
@@ -370,4 +384,19 @@ void WeaponManager::Reset()
     pendingWeaponIndex_ = -1;
     index_ = 0;
     rangedIndex_ = 0;
+}
+
+WeaponManager::Snapshot WeaponManager::SaveSnapshot() const
+{
+    return { unlocked_, slots_, index_, selectedSlot_, pendingWeaponIndex_, rangedIndex_ };
+}
+
+void WeaponManager::RestoreSnapshot(const Snapshot& snapshot)
+{
+    unlocked_ = snapshot.unlocked;
+    slots_ = snapshot.slots;
+    index_ = snapshot.index;
+    selectedSlot_ = snapshot.selectedSlot;
+    pendingWeaponIndex_ = snapshot.pendingWeaponIndex;
+    rangedIndex_ = snapshot.rangedIndex;
 }

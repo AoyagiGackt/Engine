@@ -189,6 +189,10 @@ private:
 
     std::string statusMessage_; // Save後などに表示する一時メッセージ
     float statusTimer_ = 0.0f;
+    // 一時メッセージの表示秒数（内容の重要度に応じて使い分ける）
+    static constexpr float kStatusBriefSeconds = 1.5f;
+    static constexpr float kStatusShortSeconds = 2.0f;
+    static constexpr float kStatusNormalSeconds = 3.0f;
 
     // Runボタンで動かす簡易実行インスタンス（表示・操作専用、GraphRuntime本体はGraphTypes.h参照）
     GraphRuntime testRuntime_;

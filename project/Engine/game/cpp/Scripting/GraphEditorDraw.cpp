@@ -20,7 +20,6 @@
 using namespace engine::game;
 using namespace engine;
 
-
 namespace {
 constexpr float kBaseLinkCtrl = 60.0f; // ベジエ曲線の制御点オフセット
 constexpr ImU32 kColLink = IM_COL32(220, 220, 220, 200);
@@ -128,7 +127,7 @@ void GraphEditor::UpdateCanvasView(bool canvasHovered)
     if (canvasHovered) {
         float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f) {
-            zoom_ = std::clamp(zoom_ + wheel * 0.1f, 0.3f, 2.5f);
+            zoom_ = std::clamp(zoom_ + wheel * GraphEditorDrawingStyle::kZoomStep, GraphEditorDrawingStyle::kMinZoom, GraphEditorDrawingStyle::kMaxZoom);
         }
     }
     ImGui::SetWindowFontScale(zoom_);
@@ -206,19 +205,19 @@ void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNod
         dataInPins_[id][key] = pinPos;
 
         GraphValueType paramType = ParamTypeOf(node.type, key);
-        float dataPinR = pinR * 0.75f;
+        float dataPinR = pinR * GraphEditorDrawingStyle::kDataPinRadiusRatio;
         dl->AddCircleFilled(pinPos, dataPinR, GraphEditorDrawingStyle::ColorForType(paramType));
-        if (GraphEditorDrawingStyle::IsHoveringCircle(pinPos, dataPinR + 3.0f)) {
+        if (GraphEditorDrawingStyle::IsHoveringCircle(pinPos, dataPinR + GraphEditorDrawingStyle::kPinHoverPadding)) {
             state.hoveringAnyPin = true;
             // ドロップで接続（型が合うときだけ自分自身への接続は不可）
             // つなげない場合も無反応にせず、理由をステータス表示する
             if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 if (dataLinkFromNodeId_ == id) {
                     statusMessage_ = "自分自身のピンへは接続できません";
-                    statusTimer_ = 3.0f;
+                    statusTimer_ = kStatusNormalSeconds;
                 } else if (!TypesCompatible(dataLinkFromType_, paramType)) {
                     statusMessage_ = "型が違うため接続できません。同じ色のピン同士をつないでください";
-                    statusTimer_ = 3.0f;
+                    statusTimer_ = kStatusNormalSeconds;
                 } else {
                     RecordUndoSnapshotNow();
                     node.paramLinks[key] = dataLinkFromNodeId_;
@@ -249,7 +248,7 @@ void GraphEditor::DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state
         ImVec2 mouse = ImGui::GetIO().MousePos;
         ImVec2 c1(state.linkFromScreenPos.x + linkCtrl, state.linkFromScreenPos.y);
         ImVec2 c2(mouse.x - linkCtrl, mouse.y);
-        dl->AddBezierCubic(state.linkFromScreenPos, c1, c2, mouse, kColLink, 2.5f);
+        dl->AddBezierCubic(state.linkFromScreenPos, c1, c2, mouse, kColLink, GraphEditorDrawingStyle::kLinkThickness);
     }
     if (linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !state.linkCompletedThisFrame) {
         linking_ = false; // ピン以外の場所で離したらキャンセル
@@ -260,7 +259,7 @@ void GraphEditor::DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state
         ImVec2 mouse = ImGui::GetIO().MousePos;
         ImVec2 c1(state.dataLinkFromScreenPos.x + linkCtrl, state.dataLinkFromScreenPos.y);
         ImVec2 c2(mouse.x - linkCtrl, mouse.y);
-        dl->AddBezierCubic(state.dataLinkFromScreenPos, c1, c2, mouse, GraphEditorDrawingStyle::ColorForType(dataLinkFromType_), 2.0f);
+        dl->AddBezierCubic(state.dataLinkFromScreenPos, c1, c2, mouse, GraphEditorDrawingStyle::ColorForType(dataLinkFromType_), GraphEditorDrawingStyle::kDataLinkThickness);
     }
     if (dataLinking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !state.dataLinkCompletedThisFrame) {
         dataLinking_ = false; // ピン以外の場所で離したらキャンセル
@@ -317,15 +316,15 @@ void GraphEditor::DrawLinks(ImDrawList* dl)
         const ImVec2& nMin = it->second.first;
         const ImVec2& nMax = it->second.second;
         if (std::strcmp(pinKind, "in") == 0) {
-            return ImVec2(nMin.x - pinPad, nMin.y + 10.0f * zoom_);
+            return ImVec2(nMin.x - pinPad, nMin.y + GraphEditorDrawingStyle::kPinRowOffset * zoom_);
         }
         if (std::strcmp(pinKind, "true") == 0) {
-            return ImVec2(nMax.x + pinPad, nMin.y + (nMax.y - nMin.y) * 0.33f);
+            return ImVec2(nMax.x + pinPad, nMin.y + (nMax.y - nMin.y) * GraphEditorDrawingStyle::kTruePinHeightRatio);
         }
         if (std::strcmp(pinKind, "false") == 0) {
-            return ImVec2(nMax.x + pinPad, nMin.y + (nMax.y - nMin.y) * 0.66f);
+            return ImVec2(nMax.x + pinPad, nMin.y + (nMax.y - nMin.y) * GraphEditorDrawingStyle::kFalsePinHeightRatio);
         }
-        return ImVec2(nMax.x + pinPad, nMin.y + 10.0f * zoom_); // "next"
+        return ImVec2(nMax.x + pinPad, nMin.y + GraphEditorDrawingStyle::kPinRowOffset * zoom_); // "next"
     };
 
     auto drawLink = [&](const std::string& fromId, const char* fromPin, const std::string& toId) {
@@ -339,7 +338,7 @@ void GraphEditor::DrawLinks(ImDrawList* dl)
         }
         ImVec2 c1(from->x + linkCtrl, from->y);
         ImVec2 c2(to->x - linkCtrl, to->y);
-        dl->AddBezierCubic(*from, c1, c2, *to, kColLink, 2.5f);
+        dl->AddBezierCubic(*from, c1, c2, *to, kColLink, GraphEditorDrawingStyle::kLinkThickness);
     };
 
     for (const auto& [id, node] : graph_.nodes) {
@@ -373,7 +372,7 @@ void GraphEditor::DrawDataLinks(ImDrawList* dl)
             const ImVec2& to = toIt->second;
             ImVec2 c1(from.x + linkCtrl, from.y);
             ImVec2 c2(to.x - linkCtrl, to.y);
-            dl->AddBezierCubic(from, c1, c2, to, GraphEditorDrawingStyle::ColorForType(ParamTypeOf(node.type, key)), 2.0f);
+            dl->AddBezierCubic(from, c1, c2, to, GraphEditorDrawingStyle::ColorForType(ParamTypeOf(node.type, key)), GraphEditorDrawingStyle::kDataLinkThickness);
         }
     }
 }
@@ -382,323 +381,4 @@ void GraphEditor::DrawDataLinks(ImDrawList* dl)
 // ノード生成
 // ══════════════════════════════════════════════════════
 
-void GraphEditor::AddNodeOfType(const std::string& type)
-{
-    std::string id = "node_" + std::to_string(nextNodeSerial_++);
-    GraphNode node;
-    node.id = id;
-    node.type = type;
-    node.editorX = pendingAddX_;
-    node.editorY = pendingAddY_;
-
-    // 型ごとの初期パラメータ（空だと編集の取っ掛かりが無いため最低限入れておく）
-    if (type == "SetVariable") {
-        node.params["name"] = std::string("var");
-        node.params["value"] = 0.0f;
-    } else if (type == "If") {
-        node.params["var"] = std::string("var");
-        node.params["op"] = std::string("==");
-        node.params["value"] = 0.0f;
-    } else if (type == "Wait") {
-        node.params["seconds"] = 1.0f;
-    } else if (type == "EmitEvent") {
-        node.params["event"] = std::string("event_name");
-    } else if (type == "SetFlag") {
-        node.params["flag"] = std::string("flag_name");
-        node.params["value"] = false;
-    } else if (type == "GetFlag") {
-        node.params["flag"] = std::string("flag_name");
-        node.params["into"] = std::string("var");
-    } else if (type == "Subgraph") {
-        node.params["path"] = std::string("Resources/Graphs/sub_graph.json");
-    } else if (type == "Math") {
-        node.params["a"] = 0.0f;
-        node.params["b"] = 0.0f;
-        node.params["op"] = std::string("+");
-    } else if (type == "Compare") {
-        node.params["a"] = 0.0f;
-        node.params["b"] = 0.0f;
-        node.params["op"] = std::string("==");
-    } else if (type == "Random") {
-        node.params["min"] = 0.0f;
-        node.params["max"] = 1.0f;
-    } else if (type == "DamagePlayer" || type == "HealPlayer") {
-        node.params["amount"] = 1.0f;
-    } else if (type == "DamageEnemy" || type == "HealEnemy") {
-        node.params["target"] = std::string("enemy");
-        node.params["amount"] = 1.0f;
-    } else if (type == "PlaySE" || type == "PlayBGM") {
-        node.params["path"] = std::string("Resources/sound/se.wav");
-        if (type == "PlayBGM") {
-            node.params["loop"] = true;
-        } else {
-            node.params["volume"] = 1.0f;
-        }
-    } else if (type == "ScreenFlash") {
-        node.params["r"] = 1.0f;
-        node.params["g"] = 1.0f;
-        node.params["b"] = 1.0f;
-        node.params["a"] = 0.5f;
-        node.params["duration"] = 0.15f;
-    } else if (type == "HitStop") {
-        node.params["frames"] = 3.0f;
-    } else if (type == "SetEnemyVisible") {
-        node.params["target"] = std::string("enemy");
-        node.params["visible"] = true;
-    } else if (type == "TeleportEnemy") {
-        node.params["target"] = std::string("enemy");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-    } else if (type == "TeleportPlayer") {
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-    } else if (type == "And" || type == "Or") {
-        node.params["a"] = false;
-        node.params["b"] = false;
-    } else if (type == "Not") {
-        node.params["a"] = false;
-    } else if (type == "SetObjectVisible") {
-        node.params["target"] = std::string("obj_0");
-        node.params["visible"] = true;
-    } else if (type == "SetObjectEnabled") {
-        node.params["target"] = std::string("obj_0");
-        node.params["enabled"] = true;
-    } else if (type == "TeleportObject" || type == "MoveObject") {
-        node.params["target"] = std::string("obj_0");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-        if (type == "MoveObject") {
-            node.params["seconds"] = 1.0f;
-        }
-    } else if (type == "ChangeScene") {
-        node.params["scene"] = std::string("MAP");
-        node.params["fadeOut"] = 0.15f;
-        node.params["fadeIn"] = 0.15f;
-    } else if (type == "SpawnEnemy") {
-        node.params["target"] = std::string("spawn_0");
-    } else if (type == "ShakeCamera") {
-        node.params["amount"] = 0.25f;
-        node.params["seconds"] = 0.2f;
-    } else if (type == "EmitRing") {
-        node.params["group"] = std::string("hit_ring");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-        node.params["radius"] = 3.0f;
-        node.params["r"] = 1.0f;
-        node.params["g"] = 1.0f;
-        node.params["b"] = 1.0f;
-    }
-
-    RecordUndoSnapshotNow();
-    graph_.nodes[id] = std::move(node);
-    if (graph_.startNodeId.empty()) {
-        graph_.startNodeId = id;
-    }
-    selectedNodeId_ = id;
-    selectedCommentId_.clear();
-}
-
-void GraphEditor::DrawAddNodeMenu()
-{
-    if (ImGui::BeginPopup("AddNodePopup")) {
-        // メニューを開いた直後は検索欄へフォーカスし、そのままタイプして絞り込めるようにする
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::SetKeyboardFocusHere();
-        }
-        ImGui::SetNextItemWidth(200.0f);
-        ImGui::InputTextWithHint("##nodeSearch", "検索...", nodeSearchBuf_, sizeof(nodeSearchBuf_));
-        ImGui::Separator();
-
-        auto drawItem = [&](const std::string& type) {
-            bool clicked = ImGui::MenuItem(type.c_str());
-            if (ImGui::IsItemHovered()) {
-                const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
-                if (spec && !spec->description.empty()) {
-                    ImGui::SetTooltip("%s", spec->description.c_str());
-                }
-            }
-            if (clicked) {
-                AddNodeOfType(type);
-            }
-        };
-
-        if (nodeSearchBuf_[0] != '\0') {
-            // 検索中はカテゴリ分けをやめ、名前・ジャンル・説明のどれかに一致した物をフラットに並べる
-            const std::string query = nodeSearchBuf_;
-            bool anyMatch = false;
-            for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes()) {
-                const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
-                bool match = ContainsCI(type, query)
-                    || (spec && (ContainsCI(spec->category, query) || ContainsCI(spec->description, query)));
-                if (match) {
-                    drawItem(type);
-                    anyMatch = true;
-                }
-            }
-            if (!anyMatch) {
-                ImGui::TextDisabled("該当なし");
-            }
-            ImGui::EndPopup();
-            return;
-        }
-
-        // カテゴリごとにグループ化する（よく使う分類は直接、他はサブメニューにまとめる）
-        std::map<std::string, std::vector<std::string>> byCategory;
-        for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes()) {
-            const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
-            std::string cat = (spec && !spec->category.empty()) ? spec->category : "その他";
-            byCategory[cat].push_back(type);
-        }
-
-        auto itFreq = byCategory.find("よく使う");
-        if (itFreq != byCategory.end()) {
-            for (const std::string& type : itFreq->second) {
-                drawItem(type);
-            }
-            byCategory.erase(itFreq);
-            ImGui::Separator();
-        }
-
-        for (auto& [cat, types] : byCategory) {
-            if (ImGui::BeginMenu(cat.c_str())) {
-                for (const std::string& type : types) {
-                    drawItem(type);
-                }
-                ImGui::EndMenu();
-            }
-        }
-
-        ImGui::Separator();
-        if (ImGui::MenuItem("コメント枠")) {
-            RecordUndoSnapshotNow();
-            std::string id = "comment_" + std::to_string(nextCommentSerial_++);
-            GraphComment c;
-            c.id = id;
-            c.x = pendingAddX_;
-            c.y = pendingAddY_;
-            graph_.comments[id] = std::move(c);
-            selectedCommentId_ = id;
-            selectedNodeId_.clear();
-        }
-        ImGui::EndPopup();
-    }
-}
-
-
-void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
-{
-    constexpr float kHeaderH = 20.0f;
-    constexpr float kHandleSize = 10.0f;
-
-    for (auto& [id, c] : graph_.comments) {
-        ImGui::PushID(id.c_str());
-
-        ImVec2 screenMin(origin.x + (panOffsetX_ + c.x) * zoom_, origin.y + (panOffsetY_ + c.y) * zoom_);
-        ImVec2 screenMax(screenMin.x + c.w * zoom_, screenMin.y + c.h * zoom_);
-
-        ImU32 baseCol = IM_COL32(
-            static_cast<int>(c.colorR * 255.0f), static_cast<int>(c.colorG * 255.0f), static_cast<int>(c.colorB * 255.0f), 255);
-        ImU32 fillCol = IM_COL32(static_cast<int>(c.colorR * 255.0f), static_cast<int>(c.colorG * 255.0f), static_cast<int>(c.colorB * 255.0f), 45);
-        ImU32 borderCol = (id == selectedCommentId_) ? IM_COL32(255, 255, 255, 255) : baseCol;
-
-        dl->AddRectFilled(screenMin, screenMax, fillCol, 4.0f * zoom_);
-        dl->AddRect(screenMin, screenMax, borderCol, 4.0f * zoom_, 0, 2.0f * zoom_);
-
-        // ヘッダー（ドラッグハンドル兼選択領域）
-        ImGui::SetCursorScreenPos(screenMin);
-        ImGui::InvisibleButton("##commentDrag", ImVec2(c.w * zoom_, kHeaderH * zoom_));
-        if (ImGui::IsItemActivated()) {
-            selectedCommentId_ = id;
-            selectedNodeId_.clear();
-            BeginUndoCapture();
-        }
-        if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-            ImVec2 d = ImGui::GetIO().MouseDelta;
-            c.x += d.x / zoom_;
-            c.y += d.y / zoom_;
-            MarkUndoDirty();
-        }
-        if (ImGui::IsItemDeactivated()) {
-            CommitUndoCapture();
-        }
-
-        // テキスト編集欄（ヘッダーの下、ボックス幅いっぱい）
-        ImGui::SetCursorScreenPos(ImVec2(screenMin.x + 4.0f, screenMin.y + kHeaderH * zoom_));
-        char buf[256];
-        strncpy_s(buf, c.text.c_str(), _TRUNCATE);
-        ImGui::SetNextItemWidth(c.w * zoom_ - 8.0f);
-        bool textChanged = ImGui::InputText("##commentText", buf, sizeof(buf));
-        if (ImGui::IsItemActivated()) {
-            BeginUndoCapture();
-        }
-        if (textChanged) {
-            MarkUndoDirty();
-            c.text = buf;
-        }
-        if (ImGui::IsItemDeactivated()) {
-            CommitUndoCapture();
-        }
-
-        // リサイズハンドル（右下角）
-        ImVec2 handleMin(screenMax.x - kHandleSize * zoom_, screenMax.y - kHandleSize * zoom_);
-        ImGui::SetCursorScreenPos(handleMin);
-        ImGui::InvisibleButton("##commentResize", ImVec2(kHandleSize * zoom_, kHandleSize * zoom_));
-        if (ImGui::IsItemActivated()) {
-            BeginUndoCapture();
-        }
-        if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-            ImVec2 d = ImGui::GetIO().MouseDelta;
-            c.w = (std::max)(80.0f, c.w + d.x / zoom_);
-            c.h = (std::max)(60.0f, c.h + d.y / zoom_);
-            MarkUndoDirty();
-        }
-        if (ImGui::IsItemDeactivated()) {
-            CommitUndoCapture();
-        }
-        dl->AddRectFilled(handleMin, screenMax, borderCol);
-
-        ImGui::PopID();
-    }
-}
-
-void GraphEditor::DrawVariablesPanel()
-{
-    if (!testRuntime_.IsRunning()) {
-        return;
-    }
-
-    ImGui::SetNextWindowPos(ImVec2(20.0f, 470.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 220.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("グラフ変数（実行中）");
-    ImGui::TextDisabled("実行中の変数一覧値を直接書き換えて上書きテストできます");
-    ImGui::Separator();
-
-    for (const auto& [name, value] : testRuntime_.GetVariables()) {
-        ImGui::PushID(name.c_str());
-        if (std::holds_alternative<float>(value)) {
-            float f = std::get<float>(value);
-            if (ImGui::InputFloat(name.c_str(), &f)) {
-                testRuntime_.SetVariable(name, f);
-            }
-        } else if (std::holds_alternative<bool>(value)) {
-            bool b = std::get<bool>(value);
-            if (ImGui::Checkbox(name.c_str(), &b)) {
-                testRuntime_.SetVariable(name, b);
-            }
-        } else {
-            std::string s = std::get<std::string>(value);
-            char buf[256];
-            strncpy_s(buf, s.c_str(), _TRUNCATE);
-            if (ImGui::InputText(name.c_str(), buf, sizeof(buf))) {
-                testRuntime_.SetVariable(name, std::string(buf));
-            }
-        }
-        ImGui::PopID();
-    }
-    ImGui::End();
-}
 #endif // USE_IMGUI

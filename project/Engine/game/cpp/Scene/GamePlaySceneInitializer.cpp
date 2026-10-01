@@ -20,6 +20,24 @@ using namespace engine::graphics;
 
 namespace engine::game {
 
+namespace {
+// ショップで取得したスキルの効果量
+constexpr float kBlinkPlusDistanceMult = 1.5f;
+constexpr int kComboExtendBonus = 1;
+constexpr float kFastFireIntervalMult = 0.5f;
+constexpr float kAwakenBoostChargeMult = 1.5f;
+constexpr float kSpeedUpMult = 1.2f;
+constexpr float kHighJumpMult = 1.25f;
+constexpr int kJuggleExtendBonus = 4;
+
+// 武器種別ごとの敵の色（倒せば何が手に入るかを見た目で予測できるように）
+constexpr Vector4 kSpearEnemyColor = { 0.25f, 0.75f, 1.0f, 1.0f };
+constexpr Vector4 kDaggerEnemyColor = { 0.15f, 0.85f, 1.0f, 1.0f };
+constexpr Vector4 kHeavyEnemyColor = { 0.85f, 0.45f, 1.0f, 1.0f };
+constexpr Vector4 kSwordEnemyColor = { 1.0f, 0.3f, 0.15f, 1.0f };
+constexpr Vector4 kHpBarBackgroundColor = { 0.2f, 0.2f, 0.2f, 0.8f };
+}
+
 void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
 {
     const LevelData levelData = LevelLoader::Load(scene.GetEditorLevelPath());
@@ -33,13 +51,13 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
     auto* runData = RunData::GetInstance();
     if (runData->IsRunActive()) {
         Player::SkillMods mods;
-        mods.blinkDistMult = runData->HasSkill(RunData::Skill::BlinkPlus) ? 1.5f : 1.0f;
-        mods.comboMaxBonus = runData->HasSkill(RunData::Skill::ComboExtend) ? 1 : 0;
-        mods.fireIntervalMult = runData->HasSkill(RunData::Skill::FastFire) ? 0.5f : 1.0f;
-        mods.gaugeChargeMult = runData->HasSkill(RunData::Skill::AwakenBoost) ? 1.5f : 1.0f;
-        mods.speedMult = runData->HasSkill(RunData::Skill::SpeedUp) ? 1.2f : 1.0f;
-        mods.jumpMult = runData->HasSkill(RunData::Skill::HighJump) ? 1.25f : 1.0f;
-        mods.juggleMaxBonus = runData->HasSkill(RunData::Skill::JuggleExtend) ? 4 : 0;
+        mods.blinkDistMult = runData->HasSkill(RunData::Skill::BlinkPlus) ? kBlinkPlusDistanceMult : 1.0f;
+        mods.comboMaxBonus = runData->HasSkill(RunData::Skill::ComboExtend) ? kComboExtendBonus : 0;
+        mods.fireIntervalMult = runData->HasSkill(RunData::Skill::FastFire) ? kFastFireIntervalMult : 1.0f;
+        mods.gaugeChargeMult = runData->HasSkill(RunData::Skill::AwakenBoost) ? kAwakenBoostChargeMult : 1.0f;
+        mods.speedMult = runData->HasSkill(RunData::Skill::SpeedUp) ? kSpeedUpMult : 1.0f;
+        mods.jumpMult = runData->HasSkill(RunData::Skill::HighJump) ? kHighJumpMult : 1.0f;
+        mods.juggleMaxBonus = runData->HasSkill(RunData::Skill::JuggleExtend) ? kJuggleExtendBonus : 0;
         scene.player_->ApplySkillMods(mods);
     }
 
@@ -95,15 +113,15 @@ void GamePlayScene::SyncCombatEnemies()
     auto colorForWeapon = [](WeaponType type) -> Vector4 {
         switch (type) {
         case WeaponType::Spear:
-            return { 0.25f, 0.75f, 1.0f, 1.0f };
+            return kSpearEnemyColor;
         case WeaponType::Dagger:
-            return { 0.15f, 0.85f, 1.0f, 1.0f };
+            return kDaggerEnemyColor;
         case WeaponType::Hammer:
         case WeaponType::Axe:
-            return { 0.85f, 0.45f, 1.0f, 1.0f };
+            return kHeavyEnemyColor;
         case WeaponType::Sword:
         default:
-            return { 1.0f, 0.3f, 0.15f, 1.0f };
+            return kSwordEnemyColor;
         }
     };
 
@@ -142,7 +160,7 @@ void GamePlayScene::SyncCombatEnemies()
         }
         entry.hpBarBg = std::make_unique<Sprite>();
         entry.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
-        entry.hpBarBg->SetColor({ 0.2f, 0.2f, 0.2f, 0.8f });
+        entry.hpBarBg->SetColor(kHpBarBackgroundColor);
         entry.hpBarFg = std::make_unique<Sprite>();
         entry.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
         weaponEnemies_.push_back(std::move(entry));

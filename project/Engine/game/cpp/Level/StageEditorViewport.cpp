@@ -3,6 +3,7 @@
  * @brief ステージエディタの中央ビューと編集カメラ操作を実装するファイル
  */
 #include "StageEditorViewport.h"
+#include "StageEditor.h"
 #include "Camera.h"
 #include "Input.h"
 #include "Matrix4x4.h"
@@ -18,21 +19,50 @@ using namespace engine::game;
 using namespace engine::graphics;
 
 namespace {
-constexpr float kLeftPanelWidth = 280.0f;
-constexpr float kRightPanelWidth = 300.0f;
-constexpr float kToolbarHeight = 42.0f;
+constexpr float kLeftPanelWidth = StageEditor::kLeftPanelWidth;
+constexpr float kRightPanelWidth = StageEditor::kRightPanelWidth;
+constexpr float kToolbarHeight = StageEditor::kToolbarHeight;
 constexpr float kCameraSpeedPerSecond = 8.0f;
 }
 
 void StageEditorViewport::Reset()
 {
     camera_ = nullptr;
+    imageMode_ = false;
+}
+
+void StageEditorViewport::SetImageRect(float x, float y, float width, float height, bool hovered)
+{
+    imageMode_ = true;
+    imageHovered_ = hovered;
+    imageX_ = x; imageY_ = y;
+    imageWidth_ = (std::max)(width, 1.0f);
+    imageHeight_ = (std::max)(height, 1.0f);
+}
+
+Vector3 StageEditorViewport::ImageToScreen(float x, float y) const
+{
+    if (!imageMode_) { return { x, y, 0.0f }; }
+    return { (x - imageX_) * WinApp::kClientWidth / imageWidth_,
+        (y - imageY_) * WinApp::kClientHeight / imageHeight_, 0.0f };
+}
+
+Vector3 StageEditorViewport::ScreenToImage(float x, float y) const
+{
+    if (!imageMode_) { return { x, y, 0.0f }; }
+    return { imageX_ + x * imageWidth_ / WinApp::kClientWidth,
+        imageY_ + y * imageHeight_ / WinApp::kClientHeight, 0.0f };
+}
+
+Vector3 StageEditorViewport::ViewCenter() const
+{
+    return ScreenToImage(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f);
 }
 
 void StageEditorViewport::UpdateCamera(Input* input, float deltaTime, bool focusMode)
 {
 #ifdef USE_IMGUI
-    if (!camera_ || !input || ImGui::GetIO().WantCaptureKeyboard) {
+    if (!camera_ || !input || (ImGui::GetIO().WantCaptureKeyboard && !imageHovered_)) {
         return;
     }
 
@@ -83,6 +113,10 @@ void StageEditorViewport::UpdateCamera(Input* input, float deltaTime, bool focus
 
 bool StageEditorViewport::Contains(float mouseX, float mouseY, bool focusMode) const
 {
+    if (imageMode_) {
+        return imageHovered_ && mouseX >= imageX_ && mouseX < imageX_ + imageWidth_
+            && mouseY >= imageY_ && mouseY < imageY_ + imageHeight_;
+    }
     if (focusMode) {
         return mouseX >= 0.0f && mouseX < static_cast<float>(WinApp::kClientWidth)
             && mouseY >= 0.0f && mouseY < static_cast<float>(WinApp::kClientHeight);
@@ -101,8 +135,9 @@ bool StageEditorViewport::ScreenToGround(float mouseX, float mouseY, Vector3& ou
 
     // 画面のレイを逆ビュー射影行列で復元し、ゲーム平面との交点を求める
     const Matrix4x4 inverseViewProjection = Inverse(camera_->GetViewProjectionMatrix());
-    const float ndcX = mouseX / static_cast<float>(WinApp::kClientWidth) * 2.0f - 1.0f;
-    const float ndcY = 1.0f - mouseY / static_cast<float>(WinApp::kClientHeight) * 2.0f;
+    const Vector3 screen = ImageToScreen(mouseX, mouseY);
+    const float ndcX = screen.x / static_cast<float>(WinApp::kClientWidth) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - screen.y / static_cast<float>(WinApp::kClientHeight) * 2.0f;
 
     auto unproject = [&](float ndcZ) -> Vector3 {
         float x = ndcX * inverseViewProjection.m[0][0] + ndcY * inverseViewProjection.m[1][0]
@@ -135,5 +170,6 @@ bool StageEditorViewport::ScreenToGround(float mouseX, float mouseY, Vector3& ou
         nearPoint.y + (farPoint.y - nearPoint.y) * intersectionDistance,
         0.0f
     };
+
     return true;
 }

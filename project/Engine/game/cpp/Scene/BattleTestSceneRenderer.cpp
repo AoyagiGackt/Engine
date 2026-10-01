@@ -68,10 +68,6 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
                 dummy.hpBarFg->Draw();
             }
         }
-        scene.awakenGaugeBg_->Draw();
-        if (scene.player_->GetAwakenGauge() > 0.0f) {
-            scene.awakenGaugeFg_->Draw();
-        }
         scene.styleMeter_.DrawHud();
         scene.DrawWeaponSlotHud();
     }
@@ -79,7 +75,9 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
     // フィニッシャーの暗転と凍結画面をHUDより手前へ合成する
     const bool captureFrame = scene.finisherShatter_.IsActive() && scene.finisherShatter_.NeedCapture();
     if (scene.finisherActive_ || captureFrame) {
-        scene.finisherOverlay_->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
+        constexpr Vector3 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f };
+        scene.finisherOverlay_->SetColor({ kFinisherOverlayTint.x, kFinisherOverlayTint.y, kFinisherOverlayTint.z,
+            GameConstants::kFinisherOverlayAlpha });
         scene.finisherOverlay_->Update();
         scene.finisherOverlay_->Draw();
     }

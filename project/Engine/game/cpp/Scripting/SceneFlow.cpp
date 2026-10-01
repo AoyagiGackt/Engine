@@ -11,7 +11,7 @@ using namespace engine;
 
 namespace {
 constexpr const char* kSceneFlowPath = "Resources/Config/scene_flow.json";
-constexpr float kDefaultFadeSeconds = 0.15f;
+constexpr float kDefaultFadeSeconds = SceneManager::kDefaultFadeSeconds;
 }
 
 SceneFlow* SceneFlow::GetInstance()

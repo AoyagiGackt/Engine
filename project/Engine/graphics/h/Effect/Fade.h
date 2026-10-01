@@ -5,6 +5,7 @@
 #pragma once
 #include "Sprite.h"
 #include <memory>
+#include <array>
 namespace engine::graphics {
 /**
  * @brief 画面のフェードイン・フェードアウトを管理するクラス
@@ -48,7 +49,12 @@ public:
     Status GetStatus() const { return status_; }
 
 private:
-    std::unique_ptr<Sprite> sprite_; /// 画面を覆う板
+    void UpdateSprites();
+    static constexpr size_t kBandCount = 8;
+    SpriteCommon* spriteCommon_ = nullptr;
+    std::array<std::unique_ptr<Sprite>, kBandCount> bands_;
+    std::array<std::unique_ptr<Sprite>, kBandCount> edges_;
+    bool covered_ = false;
     Status status_ = Status::None; /// 現在の状態
     float duration_ = 0.0f; /// 目標時間
     float counter_ = 0.0f; /// 経過時間タイマー

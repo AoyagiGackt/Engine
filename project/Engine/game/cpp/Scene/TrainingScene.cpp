@@ -3,10 +3,14 @@
  * @brief アクション操作練習用シーン（TrainingScene）の初期化と基本更新フローの実装
  */
 #include "TrainingScene.h"
+#include "WeaponSlotHud.h"
+#include "AwakenGaugeHud.h"
+#include "TrainingHud.h"
 #include "AudioBridge.h"
 #include "BorderBlockBuilder.h"
 #include "FrameProfiler.h"
 #include "GameConstants.h"
+#include "ModelManager.h"
 #include "PlayerBridge.h"
 #include "SSAOEffect.h"
 #include "SceneFlow.h"
@@ -35,10 +39,44 @@ using namespace engine::game;
 static constexpr float kWarpX = 25.5f;
 static constexpr float kWarpProximity = 3.0f;
 
-static constexpr float kMapHintX = 12.0f;
-static constexpr float kMapHintY = 690.0f;
-static constexpr float kMapHintScale = 1.2f;
-static constexpr Vector4 kMapHintColor = { 0.75f, 0.90f, 1.0f, 0.9f };
+static constexpr Vector3 kInitialCameraPosition = { 14.5f, 6.0f, 0.0f }; // zはGameConstants::kCameraDistanceZを使う
+static constexpr float kGroundY = 0.4f;
+static constexpr float kPlayerFacingTargetDistance = 8.0f; // 向きを決めるために渡す前方の注視点までの距離
+
+// 背景の街並み
+static constexpr float kCityXs[] = { 5.0f, 16.0f, 27.0f };
+static constexpr float kCityY = -0.6f;
+static constexpr float kCityZ = 6.0f;
+static constexpr float kCityScale = 0.42f;
+
+// バトルテストへのワープポータル
+static constexpr int kWarpPortalBlockCount = 5;
+static constexpr float kWarpPortalBlockSpacing = 1.0f;
+static constexpr Vector4 kWarpPortalColor = { 0.1f, 0.9f, 1.0f, 0.9f };
+static constexpr float kWarpPulseBase = 0.6f;
+static constexpr float kWarpPulseAmplitude = 0.4f;
+static constexpr float kWarpPulseSpeed = 4.0f;
+static constexpr float kWarpPulseAlpha = 0.85f;
+static constexpr float kWarpLabelWorldY = 5.0f;
+static constexpr Vector2 kWarpLabelOffset = { 110.0f, 36.0f };
+
+// フィニッシャー
+static constexpr Vector4 kFinisherFlashColor = { 0.75f, 0.95f, 1.0f, 0.65f };
+static constexpr float kSlashLineLengthMin = 4.0f;
+static constexpr float kSlashLineLengthMax = 9.0f;
+static constexpr Vector4 kSlashLineColor = { 0.75f, 0.95f, 1.0f, 1.0f };
+static constexpr float kSlashLineThickness = 5.0f;
+static constexpr float kSlashLineSeconds = 0.22f;
+
+// 武器を拾った時のフラッシュ
+static constexpr Vector4 kPickupFlashColor = { 0.55f, 0.9f, 1.0f, 0.22f };
+static constexpr float kPickupFlashSeconds = 0.08f;
+
+// デバッグ表示
+static constexpr Vector2 kDebugTextPosition = { 1140.0f, 4.0f };
+static constexpr float kDebugTextScale = 1.2f;
+static constexpr Vector4 kDebugTextColor = { 0.6f, 1.0f, 0.6f, 0.85f };
+
 
 void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -80,34 +118,32 @@ void TrainingScene::InitializeCoreSystems()
     SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
 
     camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ 14.5f, 6.0f, GameConstants::kCameraDistanceZ });
+    camera_->SetTranslate({ kInitialCameraPosition.x, kInitialCameraPosition.y, GameConstants::kCameraDistanceZ });
     Object3d::SetCommonCamera(camera_.get());
 }
 
 void TrainingScene::InitializeStageModels()
 {
-    modelBlock_ = std::make_unique<Model>();
-    modelBlock_->Initialize(modelCommon_.get(),
+    modelBlock_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/block/block.obj",
         "Resources/block/block.png");
 
-    BuildBorderBlocks(modelCommon_.get(), modelBlock_.get(), borderBlocks_);
+    BuildBorderBlocks(modelCommon_.get(), modelBlock_, borderBlocks_);
 
-    cityBackgroundModel_ = std::make_unique<Model>();
-    cityBackgroundModel_->Initialize(modelCommon_.get(),
+    cityBackgroundModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
         "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
-    for (float x : { 5.0f, 16.0f, 27.0f }) {
-        SpawnCityBuilding({ x, -0.6f, 6.0f }, { 0.42f, 0.42f, 0.42f });
+    for (float x : kCityXs) {
+        SpawnCityBuilding({ x, kCityY, kCityZ }, { kCityScale, kCityScale, kCityScale });
     }
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < kWarpPortalBlockCount; ++i) {
         auto p = std::make_unique<Object3d>();
         p->Initialize(modelCommon_.get());
-        p->SetModel(modelBlock_.get());
+        p->SetModel(modelBlock_);
         p->SetEnableLighting(false);
-        p->SetPosition({ kWarpX, 0.4f + static_cast<float>(i) * 1.0f, 0.0f });
-        p->SetColor({ 0.1f, 0.9f, 1.0f, 0.9f });
+        p->SetPosition({ kWarpX, kGroundY + static_cast<float>(i) * kWarpPortalBlockSpacing, 0.0f });
+        p->SetColor(kWarpPortalColor);
         p->Update();
         warpPortalBlocks_.push_back(std::move(p));
     }
@@ -117,7 +153,7 @@ void TrainingScene::SpawnCityBuilding(const Vector3& position, const Vector3& sc
 {
     auto city = std::make_unique<Object3d>();
     city->Initialize(modelCommon_.get());
-    city->SetModel(cityBackgroundModel_.get());
+    city->SetModel(cityBackgroundModel_);
     city->SetPosition(position);
     city->SetScale(scale);
     city->Update();
@@ -154,53 +190,20 @@ void TrainingScene::InitializePlayerAndBullets()
     PlayerBridge::GetInstance()->SetPlayer(player_.get());
     AudioBridge::GetInstance()->SetAudio(audio_);
 
-    bulletPool_.Initialize(modelCommon_.get(), modelBlock_.get());
+    bulletPool_.Initialize(modelCommon_.get(), modelBlock_);
 }
 
 void TrainingScene::InitializeWeaponPickups()
 {
-    struct PickupAsset {
-        WeaponType type;
-        const char* modelPath;
-        const char* texturePath;
-        float scale;
-    };
-    static constexpr PickupAsset kPickupAssets[] = {
-        { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.28f },
-        { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.13f },
-        { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.27f },
-        { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.42f },
-        { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.20f },
-        { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.22f },
-        { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.22f },
-    };
-    for (int i = 0; i < static_cast<int>(weaponPickups_.size()); ++i) {
-        const PickupAsset& asset = kPickupAssets[i];
-        WeaponPickup& pickup = weaponPickups_[i];
-        pickup.type = asset.type;
-        pickup.position = { 4.5f + static_cast<float>(i) * 3.0f, 3.0f, 0.0f };
-        pickup.model = std::make_unique<Model>();
-        pickup.model->Initialize(modelCommon_.get(), asset.modelPath, asset.texturePath);
-        pickup.object = std::make_unique<Object3d>();
-        pickup.object->Initialize(modelCommon_.get());
-        pickup.object->SetModel(pickup.model.get());
-        pickup.object->SetPosition(pickup.position);
-        pickup.object->SetScale({ asset.scale, asset.scale, asset.scale });
-        pickup.object->SetEnableLighting(true);
-        pickup.object->Update();
-    }
+    weaponPickups_.Initialize(modelCommon_.get());
 }
 
 void TrainingScene::InitializeHudAndEffects()
 {
-    awakenGaugeBg_ = std::make_unique<Sprite>();
-    awakenGaugeBg_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    awakenGaugeBg_->SetColor({ 0.05f, 0.05f, 0.15f, 0.75f });
 
-    awakenGaugeFg_ = std::make_unique<Sprite>();
-    awakenGaugeFg_->Initialize(spriteCommon_.get(), "Resources/white.png");
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    InitializeWeaponSlotHud();
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     SSAOEffect::GetInstance()->Initialize(dxCommon_, srvManager_);
@@ -208,15 +211,39 @@ void TrainingScene::InitializeHudAndEffects()
     GpuProfiler::GetInstance()->Initialize(dxCommon_);
 }
 
+void TrainingScene::InitializeWeaponSlotHud()
+{
+    hud_.Add(std::make_unique<TrainingHud>());
+    hud_.Add(std::make_unique<AwakenGaugeHud>());
+    hud_.Add(std::make_unique<WeaponSlotHud>(true));
+    hud_.Initialize({ *spriteCommon_, *modelCommon_, *dxCommon_, *weaponManager_ });
+    UpdateWeaponSlotHud();
+}
+
+void TrainingScene::UpdateWeaponSlotHud()
+{
+    HudFrame frame { *camera_, GameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
+    frame.weaponAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", kDefaultHudWeaponAnchor);
+    frame.controlsAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", kDefaultHudControlsAnchor);
+    hud_.Update(frame);
+}
+
+void TrainingScene::DrawWeaponSlotHud()
+{
+    hud_.Draw();
+}
+
 void TrainingScene::Update()
 {
     fontRenderer_.Reset();
 
     if (input_->TriggerKey(DIK_BACK)) {
+        audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
         return;
     }
     if (input_->TriggerKey(DIK_TAB)) {
+        audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("TRAINING", "map", "MAP");
         return;
     }
@@ -228,17 +255,19 @@ void TrainingScene::Update()
     UpdatePlayerAndBullets();
     UpdateWeaponPickups();
     UpdateCameraAndEnvironment();
+    UpdateWeaponSlotHud();
 
 #ifdef _DEBUG
     testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
 #endif
 
-    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, SceneFlow::GetInstance()->Resolve("TRAINING", "battle_test", "BATTLETEST").scene.c_str());
+    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, SceneFlow::GetInstance()->Resolve("TRAINING", "battle_test", "BATTLETEST").scene.c_str(), audio_);
     DrawHud(nearWarp);
 }
 
 void TrainingScene::RefreshVisualTransformsForEditor()
 {
+    fontRenderer_.Reset();
     // ステージエディタ表示中はゲームプレイ（プレイヤー操作・カメラ追従）を丸ごと止める
     // （BattleTestSceneと同じ規約。TimeManagerのタイムスケールだけでは
     // このシーンの各種Updateが固定dtで動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ）
@@ -252,9 +281,9 @@ void TrainingScene::RefreshVisualTransformsForEditor()
     for (auto& portal : warpPortalBlocks_) {
         portal->Update();
     }
-    for (auto& pickup : weaponPickups_) {
-        pickup.object->Update();
-    }
+    weaponPickups_.RefreshVisuals();
+    UpdateWeaponSlotHud();
+    DrawHud(false);
 }
 
 void TrainingScene::UpdatePlayerAndBullets()
@@ -262,8 +291,9 @@ void TrainingScene::UpdatePlayerAndBullets()
     // 乱舞用ダミーターゲット（正面 8 ユニット先）
     {
         const Vector3& pp = player_->GetPosition();
-        player_->Update(input_, { pp.x + player_->GetLastDirX() * 8.0f, pp.y, 0.0f });
-        player_->ResolveBlockCollision(GetStageEditor().GetSolidColliders());
+        const auto stageColliders = GetStageEditor().GetSolidColliders();
+        player_->Update(input_, { pp.x + player_->GetLastDirX() * kPlayerFacingTargetDistance, pp.y, 0.0f }, false, !stageColliders.empty());
+        player_->ResolveBlockCollision(stageColliders);
         player_->RefreshVisualTransforms();
 
         // 境界ブロックは描画専用なので、幅1のプレイヤー判定が
@@ -277,13 +307,13 @@ void TrainingScene::UpdatePlayerAndBullets()
     // ── フィニッシャースラッシュ（ゲージ満タン消費）───────────────────
     if (player_->JustFinisherSlash()) {
         TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopFinisherSlash);
-        ScreenFlash::GetInstance()->Request({ 0.75f, 0.95f, 1.0f, 0.65f }, GameConstants::kShakeFinisherSlashDur);
+        ScreenFlash::GetInstance()->Request(kFinisherFlashColor, GameConstants::kShakeFinisherSlashDur);
 
         static std::mt19937 rng { std::random_device { }() };
         std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
         std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
         std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
-        std::uniform_real_distribution<float> lenDist(4.0f, 9.0f);
+        std::uniform_real_distribution<float> lenDist(kSlashLineLengthMin, kSlashLineLengthMax);
         const Vector3& cam = camera_->GetTranslate();
         for (int i = 0; i < GameConstants::kFinisherSlashLines; ++i) {
             const float ang = angleDist(rng);
@@ -293,7 +323,7 @@ void TrainingScene::UpdatePlayerAndBullets()
             SceneShared::SpawnSlashMarkWorld(
                 { center.x - dir.x * len, center.y - dir.y * len },
                 { center.x + dir.x * len, center.y + dir.y * len },
-                cam.x, cam.y, { 0.75f, 0.95f, 1.0f, 1.0f }, 5.0f, 0.22f);
+                cam.x, cam.y, kSlashLineColor, kSlashLineThickness, kSlashLineSeconds);
         }
     }
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
@@ -319,63 +349,39 @@ void TrainingScene::UpdateCameraAndEnvironment()
     }
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
-    float pulse = 0.6f + 0.4f * std::sin(warpPulseTimer_ * 4.0f);
+    float pulse = kWarpPulseBase + kWarpPulseAmplitude * std::sin(warpPulseTimer_ * kWarpPulseSpeed);
     for (auto& p : warpPortalBlocks_) {
-        p->SetColor({ 0.1f * pulse, 0.9f * pulse, 1.0f * pulse, 0.85f });
+        p->SetColor({ kWarpPortalColor.x * pulse, kWarpPortalColor.y * pulse, kWarpPortalColor.z * pulse, kWarpPulseAlpha });
         p->Update();
     }
 }
 
 void TrainingScene::UpdateWeaponPickups()
 {
-    weaponPickupPulse_ += GameConstants::kFrameDeltaTime;
-    const Vector3& playerPosition = player_->GetPosition();
-    for (int i = 0; i < static_cast<int>(weaponPickups_.size()); ++i) {
-        WeaponPickup& pickup = weaponPickups_[i];
-        const float dx = playerPosition.x - pickup.position.x;
-        const float dy = playerPosition.y - pickup.position.y;
-        const bool touching = dx * dx + dy * dy <= 1.0f;
-        if (touching && !pickup.wasTouching) {
-            weaponManager_->EquipForTraining(pickup.type);
-            ScreenFlash::GetInstance()->Request({ 0.55f, 0.9f, 1.0f, 0.22f }, 0.08f);
-        }
-        pickup.wasTouching = touching;
-
-        const float hover = std::sin(weaponPickupPulse_ * 2.5f + static_cast<float>(i)) * 0.15f;
-        pickup.object->SetPosition({ pickup.position.x, pickup.position.y + hover, pickup.position.z });
-        pickup.object->SetRotation({ 0.2f, weaponPickupPulse_ * 0.8f, 0.0f });
-        pickup.object->SetColor(touching
-                ? Vector4 { 1.0f, 1.0f, 1.0f, 1.0f }
-                : Vector4 { 0.75f, 0.85f, 1.0f, 1.0f });
-        pickup.object->Update();
+    if (weaponPickups_.Update(player_->GetPosition(), *weaponManager_, GameConstants::kFrameDeltaTime)) {
+        hud_.Notify(HudEvent::WeaponAcquired);
+        ScreenFlash::GetInstance()->Request(kPickupFlashColor, kPickupFlashSeconds);
     }
 }
 
 void TrainingScene::DrawHud(bool nearWarpPortal)
 {
+    hud_.QueueText(fontRenderer_);
     DrawWeaponHud(nearWarpPortal);
     DrawDebugHud();
-    SceneShared::DrawControlsHud(fontRenderer_,
-        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": バトルテストへ移動");
-    SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
-        player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_);
-    fontRenderer_.DrawStringW(L"[ TAB ] ステージ選択へ", kMapHintX, kMapHintY, kMapHintScale, kMapHintColor);
 }
 
 void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
 {
     constexpr float kScale = 1.5f;
 
-    SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"トレーニングルーム",
-        GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f }));
-
     // ワープラベル（ポータルの上）
     if (nearWarpPortal) {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
-        SceneShared::WorldToScreen(kWarpX, 5.0f, cam.x, cam.y, sx, sy);
+        SceneShared::WorldToScreen(kWarpX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
         constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
-        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - 110.0f, sy - 36.0f, kScale, kColorWarp);
+        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y, kScale, kColorWarp);
     }
 }
 
@@ -388,7 +394,7 @@ void TrainingScene::DrawDebugHud()
         float fps = FrameProfiler::GetInstance()->GetFPS();
         float ms = FrameProfiler::GetInstance()->GetMs();
         std::snprintf(dbgBuf, sizeof(dbgBuf), "%.0f FPS  %.2f ms", fps, ms);
-        fontRenderer_.DrawString(dbgBuf, 1140.0f, 4.0f, 1.2f, { 0.6f, 1.0f, 0.6f, 0.85f });
+        fontRenderer_.DrawString(dbgBuf, kDebugTextPosition.x, kDebugTextPosition.y, kDebugTextScale, kDebugTextColor);
     }
 #endif
 
@@ -448,9 +454,7 @@ void TrainingScene::Draw()
     for (auto& p : warpPortalBlocks_) {
         p->Draw();
     }
-    for (auto& pickup : weaponPickups_) {
-        pickup.object->Draw();
-    }
+    weaponPickups_.Draw();
     bulletPool_.Draw();
     player_->Draw();
 
@@ -472,10 +476,7 @@ void TrainingScene::Draw()
 
     // 2D スプライト（テキスト UI）
     spriteCommon_->CommonDrawSettings();
-    awakenGaugeBg_->Draw();
-    if (player_->GetAwakenGauge() > 0.0f) {
-        awakenGaugeFg_->Draw();
-    }
+    DrawWeaponSlotHud();
     SlashMark::GetInstance()->Draw();
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();

@@ -8,6 +8,21 @@
 using namespace engine;
 using namespace engine::game;
 
+namespace {
+// 周期の異なるsin/cosを重ねて擬似ランダムな揺れを作る係数
+constexpr float kSeedPhaseScale = 2.7f;
+constexpr float kPhaseSpeed = 60.0f;
+constexpr float kMajorWeight = 0.6f; // 主となる低い周波数の揺れの比重
+constexpr float kMinorWeight = 0.4f;
+constexpr float kXMajorFreq = 1.7f;
+constexpr float kXMinorFreq = 3.1f;
+constexpr float kXMinorSeedScale = 2.1f;
+constexpr float kYMajorFreq = 1.3f;
+constexpr float kYMajorSeedScale = 1.5f;
+constexpr float kYMinorFreq = 2.9f;
+constexpr float kYMinorSeedScale = 0.7f;
+}
+
 void CameraShaker::Request(float intensity, float duration)
 {
     if (intensity > intensity_ || timer_ <= 0.0f) {
@@ -34,10 +49,10 @@ Vector3 CameraShaker::Update(float dt)
     float mag = intensity_ * t;
 
     // sin 重ね合わせによる擬似ランダム揺れ
-    float s = static_cast<float>(seed_) * 2.7f;
-    float phase = timer_ * 60.0f;
-    float ox = mag * (std::sin(phase * 1.7f + s) * 0.6f + std::sin(phase * 3.1f + s * 2.1f) * 0.4f);
-    float oy = mag * (std::cos(phase * 1.3f + s * 1.5f) * 0.6f + std::cos(phase * 2.9f + s * 0.7f) * 0.4f);
+    float s = static_cast<float>(seed_) * kSeedPhaseScale;
+    float phase = timer_ * kPhaseSpeed;
+    float ox = mag * (std::sin(phase * kXMajorFreq + s) * kMajorWeight + std::sin(phase * kXMinorFreq + s * kXMinorSeedScale) * kMinorWeight);
+    float oy = mag * (std::cos(phase * kYMajorFreq + s * kYMajorSeedScale) * kMajorWeight + std::cos(phase * kYMinorFreq + s * kYMinorSeedScale) * kMinorWeight);
 
     return { ox, oy, 0.0f };
 }

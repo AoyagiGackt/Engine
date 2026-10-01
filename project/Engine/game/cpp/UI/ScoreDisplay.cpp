@@ -10,6 +10,14 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr int kRankColumnDigits = 2; // 順位番号の最大桁数
+constexpr float kRankColumnGap = 8.0f;
+constexpr float kScoreColumnGap = 16.0f;
+constexpr float kDigitGap = 2.0f;
+constexpr Vector4 kHighlightColor = { 1.0f, 0.9f, 0.2f, 1.0f };
+}
+
 // 数字画像のパスを返す
 static std::string DigitPath(int digit)
 {
@@ -70,27 +78,27 @@ void ScoreDisplay::DrawRanking(const std::vector<int>& ranking,
     float rowSpacing)
 {
     // 順位番号列の幅（最大2桁 + gap）
-    const float rankColW = digitSize.x * 2.f + 8.f;
+    const float rankColW = digitSize.x * kRankColumnDigits + kRankColumnGap;
     // スコア列の開始 X オフセット
-    const float scoreOffX = rankColW + 16.f;
+    const float scoreOffX = rankColW + kScoreColumnGap;
 
     for (int i = 0; i < (int)ranking.size(); ++i) {
         float y = topLeft.y + i * rowSpacing;
 
         // 順位番号
-        DrawNumber(i + 1, { topLeft.x, y }, digitSize, 2.f);
+        DrawNumber(i + 1, { topLeft.x, y }, digitSize, kDigitGap);
 
         // スコア
         bool isCurrentScore = (ranking[i] == currentScore);
 
         // ハイライト用にスコア描画前のプール位置を記録
         int scoreStartIdx = poolUsed_;
-        DrawNumber(ranking[i], { topLeft.x + scoreOffX, y }, digitSize, 2.f);
+        DrawNumber(ranking[i], { topLeft.x + scoreOffX, y }, digitSize, kDigitGap);
 
         // 現在スコアと一致するエントリを黄色でハイライト
         if (isCurrentScore) {
             for (int k = scoreStartIdx; k < poolUsed_; ++k) {
-                pool_[k]->SetColor({ 1.f, 0.9f, 0.2f, 1.f });
+                pool_[k]->SetColor(kHighlightColor);
             }
         }
     }
@@ -103,6 +111,6 @@ Sprite* ScoreDisplay::AllocSprite()
     if (poolUsed_ >= kPoolSize) {
         return nullptr;
     }
-    pool_[poolUsed_]->SetColor({ 1.f, 1.f, 1.f, 1.f });
+    pool_[poolUsed_]->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     return pool_[poolUsed_++].get();
 }

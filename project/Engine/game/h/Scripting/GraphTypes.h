@@ -81,6 +81,17 @@ struct GraphDesc {
     const GraphNode* FindNode(const std::string& id) const;
 };
 
+/** @brief ノードを新しく置いた時、または引数が未接続の時に使う既定値（パレットと実行側で共有する） */
+namespace GraphNodeDefaults {
+    inline constexpr float kFlashAlpha = 0.5f;
+    inline constexpr float kFlashDuration = 0.15f;
+    inline constexpr float kHitStopFrames = 3.0f;
+    inline constexpr float kSceneFadeSeconds = 0.15f;
+    inline constexpr float kShakeAmount = 0.25f;
+    inline constexpr float kShakeSeconds = 0.2f;
+    inline constexpr float kRingRadius = 3.0f;
+} // namespace GraphNodeDefaults
+
 namespace GraphIO {
     /** @brief JSONファイルからグラフを読み込む（読み込み失敗時は空のGraphDescを返す） */
     GraphDesc Load(const std::string& path);

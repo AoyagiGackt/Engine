@@ -33,6 +33,32 @@ public:
     static constexpr ImU32 kFalsePinColor = IM_COL32(210, 90, 90, 255);
     static constexpr ImU32 kRunningColor = IM_COL32(255, 210, 60, 255);
 
+    // ノードとピンの配置（ズーム1倍時の寸法）
+    static constexpr float kPinRowOffset = 10.0f; // ノード上端（下端）から実行ピンまでの距離
+    static constexpr float kTruePinHeightRatio = 0.33f; // 分岐ノードのtrueピンを置く高さ（ノード高さ比）
+    static constexpr float kFalsePinHeightRatio = 0.66f;
+    static constexpr float kDataPinRadiusRatio = 0.75f; // 実行ピンに対するデータピンの大きさ
+    static constexpr float kPinHoverPadding = 3.0f; // ピンの見た目より広く取る当たり判定の余白
+    static constexpr float kLinkThickness = 2.5f;
+    static constexpr float kNodeCornerRadius = 4.0f;
+    static constexpr float kNodeBoxPadding = 6.0f;
+    static constexpr float kNodeTopPaddingRatio = 0.67f; // 上側の余白（左右下の余白比）
+    static constexpr float kRunningBorderThickness = 3.5f;
+    static constexpr float kNodeLabelGap = 2.0f;
+    static constexpr float kNodeBorderThickness = 2.0f;
+    static constexpr float kExecPinHoverPadding = 2.0f; // 実行ピンの当たり判定の余白
+    static constexpr float kDataLinkThickness = 2.0f;
+
+    // キャンバスのズーム
+    static constexpr float kZoomStep = 0.1f; // ホイール1目盛りあたりの変化量
+    static constexpr float kMinZoom = 0.3f;
+    static constexpr float kMaxZoom = 2.5f;
+
+    // ツールバー
+    static constexpr float kGraphPathFieldWidth = 360.0f;
+    static constexpr ImVec4 kUnsavedTextColor = { 1.0f, 0.85f, 0.4f, 1.0f };
+    static constexpr ImVec4 kRunningTextColor = { 0.5f, 1.0f, 0.6f, 1.0f };
+
     /**
      * @brief 値型に対応するピン色を返す
      * @param type グラフ値の型

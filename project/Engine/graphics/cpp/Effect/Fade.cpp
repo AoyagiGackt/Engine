@@ -1,85 +1,98 @@
-/**
+﻿/**
  * @file Fade.cpp
- * @brief フェードイン・フェードアウト処理
- *
- * 画面全体を覆う黒いスプライトのアルファ値（透明度）を時間に応じて変化させる
- * フェードイン: 黒い画面 → 透明（ゲーム画面が見えてくる）
- * フェードアウト: 透明 → 黒い画面（画面が暗くなる）
+ * @brief 濃紺の帯と金色のラインによる画面遷移演出
  */
 #include "Fade.h"
 #include "GameConstants.h"
 #include "WinApp.h"
+#include <algorithm>
+#include <cmath>
 using namespace engine;
 using namespace engine::graphics;
 
-// フェード用スプライトを初期化する
-// spriteCommon  2D描画の共通設定（シェーダーなど）
 void Fade::Initialize(SpriteCommon* spriteCommon)
 {
-    // 画面全体を覆う黒いスプライトを作成する
-    // テクスチャは白い画像を使い、スプライトの色設定で黒にする
-    sprite_ = std::make_unique<Sprite>();
-    sprite_->Initialize(spriteCommon, "Resources/uvChecker.png");
-
-    sprite_->SetPosition({ 0.0f, 0.0f }); // 左上を起点にして
-    sprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) }); // 画面いっぱいに広げる
-    sprite_->SetColor({ 0.0f, 0.0f, 0.0f, 0.0f }); // 最初は完全に透明な黒
+    spriteCommon_ = spriteCommon;
+    status_ = Status::None;
+    covered_ = false;
+    for (size_t i = 0; i < kBandCount; ++i) {
+        bands_[i] = std::make_unique<Sprite>();
+        bands_[i]->Initialize(spriteCommon, "Resources/white.png");
+        edges_[i] = std::make_unique<Sprite>();
+        edges_[i]->Initialize(spriteCommon, "Resources/white.png");
+    }
+    UpdateSprites();
 }
 
-// フェードを開始する
-// status  フェードの種類（FadeIn = 明るくなる、FadeOut = 暗くなる）
-// duration  フェードにかかる時間（秒）
 void Fade::Start(Status status, float duration)
 {
     status_ = status;
-    duration_ = duration;
-    counter_ = 0.0f; // タイマーをリセット
+    duration_ = std::isfinite(duration) ? (std::max)(duration, 0.0f) : 0.0f;
+    counter_ = 0.0f;
+    if (status == Status::None) {
+        covered_ = false;
+    }
+    UpdateSprites();
 }
 
-// 毎フレーム呼ぶフェードの進行度に応じてアルファ値を更新する
 void Fade::Update()
 {
-    // フェード中でなければ何もしない
     if (status_ == Status::None) {
         return;
     }
-
-    // タイマーを1フレーム分（約0.0167秒）進める
-    counter_ += GameConstants::kFrameDeltaTime;
-
-    // 進捗率（0.0f = 開始直後 、1.0f = 完了）を計算する
-    float progress = counter_ / duration_;
-    if (progress > 1.0f) {
-        progress = 1.0f; // 1.0 を超えないようにクランプ
-    }
-
-    float alpha = 0.0f;
-    if (status_ == Status::FadeIn) {
-        // フェードイン  アルファが 1.0（黒）→ 0.0（透明）に変化する
-        alpha = 1.0f - progress;
-    } else if (status_ == Status::FadeOut) {
-        // フェードアウト  アルファが 0.0（透明）→ 1.0（黒）に変化する
-        alpha = progress;
-    }
-
-    // 計算したアルファ値をスプライトの色に反映する（RGB は黒のまま）
-    sprite_->SetColor({ 0.0f, 0.0f, 0.0f, alpha });
-    sprite_->Update();
-
-    // 進捗が完了したらフェードを終了状態にする（色反映の後に判定することが重要）
-    if (progress >= 1.0f) {
+    counter_ = (std::min)(counter_ + GameConstants::kFrameDeltaTime, duration_);
+    UpdateSprites();
+    if (counter_ >= duration_) {
+        covered_ = status_ == Status::FadeOut;
         status_ = Status::None;
     }
 }
 
-// フェードスプライトを描画する
+void Fade::UpdateSprites()
+{
+    const float width = static_cast<float>(WinApp::kClientWidth);
+    const float height = static_cast<float>(WinApp::kClientHeight) / kBandCount;
+    const float progress = duration_ > 0.0f ? std::clamp(counter_ / duration_, 0.0f, 1.0f) : 1.0f;
+    constexpr float stagger = 0.22f;
+    constexpr float edgeWidth = 3.0f;
+    for (size_t i = 0; i < kBandCount; ++i) {
+        // 上から順に開始をずらし、加速と減速を滑らかにする。
+        const float delay = stagger * static_cast<float>(i) / (kBandCount - 1);
+        const float t = std::clamp((progress - delay) / (1.0f - stagger), 0.0f, 1.0f);
+        const float eased = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+        float x = covered_ ? 0.0f : -width;
+        if (status_ == Status::FadeOut) {
+            x = -width * (1.0f - eased);
+        } else if (status_ == Status::FadeIn) {
+            x = width * eased;
+        }
+        const float shade = static_cast<float>(i) * 0.002f;
+        bands_[i]->SetPosition({ x, height * i });
+        bands_[i]->SetSize({ width, height + 1.0f });
+        bands_[i]->SetColor({ 0.018f + shade, 0.026f + shade, 0.045f + shade, 1.0f });
+        bands_[i]->Update();
+
+        // 金色の縁は帯の内側に置き、開始・終了時には消す。
+        const float edgeX = status_ == Status::FadeOut ? x + width - edgeWidth : x;
+        edges_[i]->SetPosition({ edgeX, height * i });
+        edges_[i]->SetSize({ edgeWidth, height + 1.0f });
+        edges_[i]->SetColor({ 0.82f, 0.66f, 0.38f, (t > 0.0f && t < 1.0f) ? 0.85f : 0.0f });
+        edges_[i]->Update();
+    }
+}
+
 void Fade::Draw()
 {
-    // アルファが 0.0（完全に透明）なら描画をスキップして処理負荷を下げる
-    if (sprite_->GetColor().w <= 0.0f) {
+    if (!spriteCommon_ || (status_ == Status::None && !covered_)) {
         return;
     }
-
-    // アルファブレンドを使って黒いスプライトを画面に重ねる
-    sprite_->Draw();
+    spriteCommon_->CommonDrawSettings();
+    for (size_t i = 0; i < kBandCount; ++i) {
+        bands_[i]->Draw();
+    }
+    for (size_t i = 0; i < kBandCount; ++i) {
+        if (edges_[i]->GetColor().w > 0.0f) {
+            edges_[i]->Draw();
+        }
+    }
 }

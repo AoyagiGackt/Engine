@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
+#include <map>
 
 #ifdef USE_IMGUI
 #include "imgui.h"
@@ -40,10 +41,20 @@ static Node ConvertAiNode(const aiNode* ainode)
 
 Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::string& filename)
 {
+    // 同じ敵種別を複数体・複数レベルで生成する際にassimpの再解析を避けるため、結果を使い回す
+    static std::map<std::string, Node> cache;
+    const std::string key = directoryPath + "/" + filename;
+    auto it = cache.find(key);
+    if (it != cache.end()) {
+        return it->second;
+    }
+
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile((directoryPath + "/" + filename).c_str(), 0);
+    const aiScene* scene = importer.ReadFile(key.c_str(), 0);
     ENGINE_ASSERT(scene && scene->mRootNode);
-    return ConvertAiNode(scene->mRootNode);
+    Node node = ConvertAiNode(scene->mRootNode);
+    cache[key] = node;
+    return node;
 }
 
 // Skeleton 生成

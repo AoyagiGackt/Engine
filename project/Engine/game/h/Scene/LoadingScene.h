@@ -31,8 +31,9 @@ public:
 private:
     DirectXCommon* dxCommon_ = nullptr;
     std::unique_ptr<SpriteCommon> spriteCommon_;
+    static constexpr int kDotCount = 3;
     std::unique_ptr<Sprite> bgSprite_;
-    std::unique_ptr<Sprite> dotSprites_[3];
+    std::unique_ptr<Sprite> dotSprites_[kDotCount];
     std::unique_ptr<Sprite> progressBg_;
     std::unique_ptr<Sprite> progressFg_;
 

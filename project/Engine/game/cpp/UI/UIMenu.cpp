@@ -13,12 +13,17 @@ constexpr Vector4 kIdleColor = { 0.4f, 0.4f, 0.4f, 0.7f };
 constexpr Vector4 kDisabledColor = { 0.25f, 0.25f, 0.25f, 0.5f };
 constexpr Vector4 kTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr Vector4 kTextDisabledColor = { 0.5f, 0.5f, 0.5f, 0.8f };
+constexpr float kLabelTopRatio = 0.3f; // 項目の高さに対する文字の上端位置
+constexpr float kLabelPaddingX = 24.0f;
+constexpr float kLabelScale = 1.5f;
+constexpr float kCursorGap = 8.0f;
 } // namespace
 
-void UIMenu::Initialize(SpriteCommon* spriteCommon, FontRenderer* fontRenderer)
+void UIMenu::Initialize(SpriteCommon* spriteCommon, FontRenderer* fontRenderer, Audio* audio)
 {
     spriteCommon_ = spriteCommon;
     fontRenderer_ = fontRenderer;
+    audio_ = audio;
 }
 
 void UIMenu::SetLayout(float x, float y, float itemWidth, float itemHeight)
@@ -66,6 +71,7 @@ void UIMenu::Update(Input* input)
         return;
     }
 
+    const int previousCursor = cursor_;
     if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
         for (int i = cursor_ - 1; i >= 0; --i) {
             if (items_[i].enabled) {
@@ -83,6 +89,9 @@ void UIMenu::Update(Input* input)
         }
     }
 
+    if (audio_ && cursor_ != previousCursor) {
+        audio_->PlayMenuChoice();
+    }
     for (size_t i = 0; i < boxes_.size(); ++i) {
         Vector4 color = kIdleColor;
         if (!items_[i].enabled) {
@@ -100,7 +109,11 @@ bool UIMenu::ConsumeConfirm(Input* input)
     if (items_.empty() || !items_[cursor_].enabled) {
         return false;
     }
-    return input->TriggerKey(DIK_SPACE) || input->TriggerKey(DIK_RETURN);
+    const bool confirmed = input->TriggerKey(DIK_SPACE) || input->TriggerKey(DIK_RETURN);
+    if (confirmed && audio_) {
+        audio_->PlayMenuSelect();
+    }
+    return confirmed;
 }
 
 void UIMenu::Draw()
@@ -111,12 +124,12 @@ void UIMenu::Draw()
 
     for (size_t i = 0; i < items_.size(); ++i) {
         const Vector4 textColor = items_[i].enabled ? kTextColor : kTextDisabledColor;
-        const float labelY = y_ + itemHeight_ * static_cast<float>(i) + itemHeight_ * 0.3f;
-        fontRenderer_->DrawString(items_[i].label, x_ + 24.0f, labelY, 1.5f, textColor);
+        const float labelY = y_ + itemHeight_ * static_cast<float>(i) + itemHeight_ * kLabelTopRatio;
+        fontRenderer_->DrawString(items_[i].label, x_ + kLabelPaddingX, labelY, kLabelScale, textColor);
 
         if (static_cast<int>(i) == cursor_) {
-            fontRenderer_->DrawString(">", x_ - 24.0f, labelY, 1.5f, kSelectedColor);
-            fontRenderer_->DrawString("<", x_ + itemWidth_ + 8.0f, labelY, 1.5f, kSelectedColor);
+            fontRenderer_->DrawString(">", x_ - kLabelPaddingX, labelY, kLabelScale, kSelectedColor);
+            fontRenderer_->DrawString("<", x_ + itemWidth_ + kCursorGap, labelY, kLabelScale, kSelectedColor);
         }
     }
 }

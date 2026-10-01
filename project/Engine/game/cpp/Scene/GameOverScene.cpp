@@ -13,6 +13,15 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr Vector4 kOverlayColor = { 0.0f, 0.0f, 0.0f, 0.85f };
+constexpr Vector2 kRestartOptionPosition = { 440.0f, 310.0f };
+constexpr Vector2 kTitleOptionPosition = { 440.0f, 390.0f };
+constexpr Vector2 kOptionSize = { 400.0f, 60.0f };
+constexpr Vector4 kSelectedOptionColor = { 0.2f, 0.8f, 0.2f, 0.9f };
+constexpr Vector4 kIdleOptionColor = { 0.4f, 0.4f, 0.4f, 0.7f };
+}
+
 // 初期化
 
 void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
@@ -24,19 +33,19 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     overlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
     overlay_->SetPosition({ 0.0f, 0.0f });
     overlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
-    overlay_->SetColor({ 0.0f, 0.0f, 0.0f, 0.85f });
+    overlay_->SetColor(kOverlayColor);
 
     // 選択肢1: リスタート
     option1_ = std::make_unique<Sprite>();
     option1_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    option1_->SetPosition({ 440.0f, 310.0f });
-    option1_->SetSize({ 400.0f, 60.0f });
+    option1_->SetPosition(kRestartOptionPosition);
+    option1_->SetSize(kOptionSize);
 
     // 選択肢2: タイトルに戻る
     option2_ = std::make_unique<Sprite>();
     option2_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    option2_->SetPosition({ 440.0f, 390.0f });
-    option2_->SetSize({ 400.0f, 60.0f });
+    option2_->SetPosition(kTitleOptionPosition);
+    option2_->SetSize(kOptionSize);
 
     cursor_ = 0;
 
@@ -79,12 +88,8 @@ void GameOverScene::Update()
     }
 
     // 選択中=緑、非選択=グレー
-    option1_->SetColor(cursor_ == 0
-            ? Vector4 { 0.2f, 0.8f, 0.2f, 0.9f }
-            : Vector4 { 0.4f, 0.4f, 0.4f, 0.7f });
-    option2_->SetColor(cursor_ == 1
-            ? Vector4 { 0.2f, 0.8f, 0.2f, 0.9f }
-            : Vector4 { 0.4f, 0.4f, 0.4f, 0.7f });
+    option1_->SetColor(cursor_ == 0 ? kSelectedOptionColor : kIdleOptionColor);
+    option2_->SetColor(cursor_ == 1 ? kSelectedOptionColor : kIdleOptionColor);
 
     overlay_->Update();
     option1_->Update();

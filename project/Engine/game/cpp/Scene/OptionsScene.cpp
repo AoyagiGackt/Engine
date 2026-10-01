@@ -14,6 +14,21 @@ using namespace engine::game;
 
 namespace {
 constexpr float kVolumeStep = 0.1f;
+constexpr Vector4 kBackgroundColor = { 0.05f, 0.05f, 0.08f, 1.0f };
+constexpr float kMenuX = 440.0f;
+constexpr float kMenuY = 300.0f;
+constexpr float kMenuWidth = 400.0f;
+constexpr float kMenuItemHeight = 70.0f;
+constexpr float kPercentScale = 100.0f;
+constexpr float kRoundingOffset = 0.5f;
+constexpr float kVolumeTextX = 900.0f;
+constexpr float kBgmVolumeTextY = 321.0f;
+constexpr float kSeVolumeTextY = 391.0f;
+constexpr float kVolumeTextScale = 1.5f;
+constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr Vector2 kHelpTextPosition = { 340.0f, 560.0f };
+constexpr float kHelpTextScale = 1.0f;
+constexpr Vector4 kHelpTextColor = { 0.7f, 0.7f, 0.7f, 1.0f };
 }
 
 void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
@@ -24,12 +39,12 @@ void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     bgSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     bgSprite_->SetPosition({ 0.0f, 0.0f });
     bgSprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) });
-    bgSprite_->SetColor({ 0.05f, 0.05f, 0.08f, 1.0f });
+    bgSprite_->SetColor(kBackgroundColor);
 
     fontRenderer_.Initialize(spriteCommon_.get());
 
-    menu_.Initialize(spriteCommon_.get(), &fontRenderer_);
-    menu_.SetLayout(440.0f, 300.0f, 400.0f, 70.0f);
+    menu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
+    menu_.SetLayout(kMenuX, kMenuY, kMenuWidth, kMenuItemHeight);
     menu_.SetItems({
         { "BGM VOLUME" },
         { "SE VOLUME" },
@@ -51,6 +66,7 @@ void OptionsScene::AdjustVolumeAtCursor(float delta)
     }
 
     GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+    const float previousVolume = row == kRowBgmVolume ? settings.bgmVolume : settings.seVolume;
     if (row == kRowBgmVolume) {
         settings.bgmVolume = std::clamp(settings.bgmVolume + delta, 0.0f, 1.0f);
         audio_->SetBGMVolume(settings.bgmVolume);
@@ -58,7 +74,11 @@ void OptionsScene::AdjustVolumeAtCursor(float delta)
         settings.seVolume = std::clamp(settings.seVolume + delta, 0.0f, 1.0f);
         audio_->SetSEVolume(settings.seVolume);
     }
-    GameSettingsManager::GetInstance()->Save();
+    const float currentVolume = row == kRowBgmVolume ? settings.bgmVolume : settings.seVolume;
+    if (currentVolume != previousVolume) {
+        audio_->PlayMenuChoice();
+        GameSettingsManager::GetInstance()->Save();
+    }
 }
 
 void OptionsScene::Update()
@@ -78,6 +98,7 @@ void OptionsScene::Update()
         SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
     }
     if (input_->TriggerKey(DIK_ESCAPE) || input_->TriggerKey(DIK_BACKSPACE)) {
+        audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
     }
 
@@ -93,12 +114,12 @@ void OptionsScene::Draw()
     const auto& settings = GameSettingsManager::GetInstance()->Get();
     char bgmBuf[32];
     char seBuf[32];
-    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * 100.0f + 0.5f));
-    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * 100.0f + 0.5f));
-    fontRenderer_.DrawString(bgmBuf, 900.0f, 321.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
-    fontRenderer_.DrawString(seBuf, 900.0f, 391.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
+    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * kPercentScale + kRoundingOffset));
+    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * kPercentScale + kRoundingOffset));
+    fontRenderer_.DrawString(bgmBuf, kVolumeTextX, kBgmVolumeTextY, kVolumeTextScale, kVolumeTextColor);
+    fontRenderer_.DrawString(seBuf, kVolumeTextX, kSeVolumeTextY, kVolumeTextScale, kVolumeTextColor);
     fontRenderer_.DrawString("A/D or Left/Right: adjust   Space: confirm   ESC: back",
-        340.0f, 560.0f, 1.0f, { 0.7f, 0.7f, 0.7f, 1.0f });
+        kHelpTextPosition.x, kHelpTextPosition.y, kHelpTextScale, kHelpTextColor);
 
     fontRenderer_.Draw();
 }

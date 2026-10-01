@@ -127,8 +127,9 @@ void DirectXCommon::PreDraw()
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
     commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, &dsvHandle);
 
-    // 画面クリア
-    static constexpr float kClearColor[] = { 0.1f, 0.25f, 0.5f, 1.0f };
+    // 画面クリア（固定解像度をバックバッファ中央に配置する構成のため、ウィンドウ/フルスクリーンの
+    // 解像度が1280x720と異なる時は余白が生じる。目立たない黒にしてレターボックスに見せる）
+    static constexpr float kClearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], kClearColor, 0, nullptr);
 
     // 深度クリア

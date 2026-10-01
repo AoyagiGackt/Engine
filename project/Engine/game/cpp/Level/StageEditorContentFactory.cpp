@@ -6,6 +6,18 @@
 
 using namespace engine::game;
 
+namespace {
+// 戦闘部屋テンプレートの配置（部屋の中心からの相対位置）
+constexpr int kRoomSpawnCount = 2;
+constexpr float kRoomFirstSpawnX = 3.0f;
+constexpr float kRoomSpawnSpacing = 2.0f;
+constexpr engine::Vector3 kRoomExitDoorOffset = { 8.0f, 1.5f, 0.0f };
+constexpr engine::Vector3 kRoomCameraOffset = { 4.0f, 4.0f, -24.0f };
+constexpr float kRoomCameraHoldSeconds = 2.0f;
+constexpr engine::Vector4 kBreakableWallColor = { 0.7f, 0.7f, 0.75f, 1.0f };
+constexpr engine::Vector4 kGuideTextColor = { 0.85f, 0.95f, 1.0f, 0.95f };
+}
+
 StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Vector3& center, int& nextSerial)
 {
     StageEditorGeneratedContent result;
@@ -19,11 +31,11 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     entryTrigger.flag = startFlag;
     result.triggers.push_back(std::move(entryTrigger));
 
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < kRoomSpawnCount; ++i) {
         ObjectDesc spawn;
         spawn.name = "room_spawn_" + serial + "_" + std::to_string(i + 1);
         spawn.kind = "spawn_point";
-        spawn.position = center + Vector3 { 3.0f + i * 2.0f, 0.0f, 0.0f };
+        spawn.position = center + Vector3 { kRoomFirstSpawnX + i * kRoomSpawnSpacing, 0.0f, 0.0f };
         spawn.activationFlag = startFlag;
         spawn.enemyGroup = enemyGroup;
         result.objects.push_back(std::move(spawn));
@@ -39,7 +51,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     result.objects.push_back(std::move(clearCondition));
 
     // 出口の扉は全滅条件でせり上がって消えるスライド扉にする
-    StageEditorGeneratedContent door = CreateSlidingDoor(center + Vector3 { 8.0f, 1.5f, 0.0f }, "condition_" + clearConditionName, nextSerial);
+    StageEditorGeneratedContent door = CreateSlidingDoor(center + kRoomExitDoorOffset, "condition_" + clearConditionName, nextSerial);
     for (ObjectDesc& desc : door.objects) {
         result.objects.push_back(std::move(desc));
     }
@@ -47,9 +59,9 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     ObjectDesc cameraPoint;
     cameraPoint.name = "room_camera_" + serial;
     cameraPoint.kind = "camera_point";
-    cameraPoint.position = center + Vector3 { 4.0f, 4.0f, -24.0f };
+    cameraPoint.position = center + kRoomCameraOffset;
     cameraPoint.activationFlag = startFlag;
-    cameraPoint.cameraHoldSeconds = 2.0f;
+    cameraPoint.cameraHoldSeconds = kRoomCameraHoldSeconds;
     result.objects.push_back(std::move(cameraPoint));
     return result;
 }
@@ -106,7 +118,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const
     wall.breakablePlayerDamage = 0;
     wall.breakableEnemyDamage = 0;
     wall.breakableWeapon = weaponType;
-    wall.breakableColor = { 0.7f, 0.7f, 0.75f, 1.0f };
+    wall.breakableColor = kBreakableWallColor;
     result.objects.push_back(std::move(wall));
     return result;
 }
@@ -135,7 +147,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vec
     guide.position = { kGuideScreenX, kGuideScreenY, 0.0f };
     guide.textSpace = "screen";
     guide.textScale = kGuideScale;
-    guide.textColor = { 0.85f, 0.95f, 1.0f, 0.95f };
+    guide.textColor = kGuideTextColor;
     guide.text = text;
     guide.activationFlag = "zone_" + serial;
     result.objects.push_back(std::move(guide));

@@ -19,6 +19,10 @@
 using namespace engine::game;
 using namespace engine;
 
+namespace {
+constexpr float kDuplicateOffset = 30.0f; // 複製したノードを元からずらして置く距離
+}
+
 
 // ══════════════════════════════════════════════════════
 // ファイル操作とエディタ更新
@@ -54,7 +58,7 @@ void GraphEditor::Open(const std::string& path)
     dirty_ = false;
 
     statusMessage_ = "Opened: " + path;
-    statusTimer_ = 2.0f;
+    statusTimer_ = kStatusShortSeconds;
 }
 
 void GraphEditor::OpenAndShow(const std::string& path)
@@ -78,7 +82,7 @@ void GraphEditor::Save()
     GraphIO::Save(graphPath_, graph_);
     dirty_ = false;
     statusMessage_ = "Saved: " + graphPath_;
-    statusTimer_ = 2.0f;
+    statusTimer_ = kStatusShortSeconds;
 }
 
 void GraphEditor::Update(Input* input)
@@ -125,7 +129,7 @@ void GraphEditor::Undo()
     selectedCommentId_.clear();
     dirty_ = true;
     statusMessage_ = "元に戻しました";
-    statusTimer_ = 1.5f;
+    statusTimer_ = kStatusBriefSeconds;
 }
 
 void GraphEditor::Redo()
@@ -139,7 +143,7 @@ void GraphEditor::Redo()
     selectedCommentId_.clear();
     dirty_ = true;
     statusMessage_ = "やり直しました";
-    statusTimer_ = 1.5f;
+    statusTimer_ = kStatusBriefSeconds;
 }
 
 // ══════════════════════════════════════════════════════
@@ -185,8 +189,8 @@ void GraphEditor::DuplicateNode(const std::string& id)
     std::string newId = "node_" + std::to_string(nextNodeSerial_++);
     GraphNode copy = *src; // params/paramLinks/next系も含めてまるごと複製する
     copy.id = newId;
-    copy.editorX = src->editorX + 30.0f; // 元と重ならないよう少しずらして置く
-    copy.editorY = src->editorY + 30.0f;
+    copy.editorX = src->editorX + kDuplicateOffset; // 元と重ならないよう少しずらして置く
+    copy.editorY = src->editorY + kDuplicateOffset;
 
     graph_.nodes[newId] = std::move(copy);
     selectedNodeId_ = newId;
@@ -262,7 +266,7 @@ void GraphEditor::ArrangeNodes()
     }
 
     statusMessage_ = "Arranged";
-    statusTimer_ = 2.0f;
+    statusTimer_ = kStatusShortSeconds;
 }
 
 #endif // USE_IMGUI

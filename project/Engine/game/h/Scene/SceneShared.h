@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 namespace engine {
+class Audio;
 class DirectXCommon;
 class Input;
 }
@@ -28,12 +29,6 @@ class BulletPool;
 
 namespace SceneShared {
 
-    /** @brief 武器スロットHUD1枠ぶんのスプライト(枠+色アイコン) */
-    struct WeaponSlotUI {
-        std::unique_ptr<engine::graphics::Sprite> frame; // 枠背景
-        std::unique_ptr<engine::graphics::Sprite> icon; // スタイルカラーで塗った中身
-    };
-
     /** @brief 武器スロットUIの3Dアイコン1個分の素材（モデル・テクスチャ・表示調整値） */
     struct WeaponIconAsset {
         WeaponType type;
@@ -50,30 +45,6 @@ namespace SceneShared {
      * @return 読み込んだ素材一覧。ファイルが無い・読み込めない場合は既存互換の既定値を返す
      */
     std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath);
-
-    /**
-     * @brief 武器スロットHUD(枠+色アイコン+常時装備銃)のスプライトを初期化して配置する
-     * @param checkUnlockedForInitialColor 初期色を決める際にロック状態も見るか(未解放スロットを初手から暗く表示したいシーンでtrue)
-     */
-    void InitializeWeaponSlotHud(engine::graphics::SpriteCommon* spriteCommon, WeaponManager* weaponManager,
-        WeaponSlotUI* slots, Vector2* slotPos, int slotCount,
-        float slotSize, float slotGap, float marginX, float baseY, bool checkUnlockedForInitialColor,
-        std::unique_ptr<engine::graphics::Sprite>& gunFrame, std::unique_ptr<engine::graphics::Sprite>& gunIcon, Vector2& gunPos);
-
-    /**
-     * @brief 武器スロットの枠明滅とアイコン色(未解放/選択中)、銃アイコンの回転を毎フレーム更新する
-     * @param flash 全スロットを一時的に光らせる演出量。使わないシーンは0を渡す
-     */
-    void UpdateWeaponSlotHud(WeaponManager* weaponManager, WeaponSlotUI* slots, int slotCount,
-        float pulseTimer, float flash, engine::graphics::Sprite* gunIcon, float gunIconAngle);
-
-    /** @brief 武器スロットの枠(+常時装備銃の枠)だけを描画する3D武器モデルを枠とアイコンの間に挟みたい場合は、この後に挟んでからDrawWeaponSlotIconsAndLabelsを呼ぶ */
-    void DrawWeaponSlotFrames(const WeaponSlotUI* slots, int slotCount, engine::graphics::Sprite* gunFrame);
-
-    /** @brief 武器スロットのアイコン・未解放"?"ラベル・GUNラベルを描画する */
-    void DrawWeaponSlotIconsAndLabels(const WeaponSlotUI* slots, int slotCount, const Vector2* slotPos,
-        engine::graphics::Sprite* gunIcon, const Vector2& gunPos, WeaponManager* weaponManager, FontRenderer& fontRenderer,
-        float slotSize);
 
     /** @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する */
     std::unique_ptr<engine::graphics::Sprite> CreateFinisherOverlay(engine::graphics::SpriteCommon* spriteCommon);
@@ -135,7 +106,7 @@ namespace SceneShared {
 
     /** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
     bool UpdatePortalTransition(engine::Input* input, const Vector3& playerPos,
-        float portalX, float proximity, const char* targetSceneName);
+        float portalX, float proximity, const char* targetSceneName, engine::Audio* audio = nullptr);
 
     /**
      * @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す
@@ -148,10 +119,6 @@ namespace SceneShared {
      * @param anchor 描画開始位置（スクリーンpx）ステージエディタのhud_anchor("hud_anchor_controls")で編集する
      */
     void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel);
-
-    /** @brief 覚醒ゲージUIを描画する */
-    void DrawAwakenGaugeHud(FontRenderer& fontRenderer, engine::graphics::Sprite* bgSprite, engine::graphics::Sprite* fgSprite,
-        float gauge, bool awakened, float pulseTimer);
 
 } // namespace SceneShared
 } // namespace engine::game

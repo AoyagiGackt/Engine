@@ -27,6 +27,13 @@ public:
 
     /** @brief 保持している参照とドラッグ状態を破棄する */
     void Reset();
+    void SetImageRect(float x, float y, float width, float height, bool hovered);
+    void ClearImageRect() { imageMode_ = false; imageHovered_ = false; }
+    bool IsImageMode() const { return imageMode_; }
+    bool IsImageHovered() const { return imageHovered_; }
+    Vector3 ImageToScreen(float x, float y) const;
+    Vector3 ScreenToImage(float x, float y) const;
+    Vector3 ViewCenter() const;
 
     /**
      * @brief キーボード入力で編集カメラを移動する
@@ -56,6 +63,10 @@ public:
 
 private:
     engine::graphics::Camera* camera_ = nullptr;
+    bool imageMode_ = false;
+    bool imageHovered_ = false;
+    float imageX_ = 0.0f, imageY_ = 0.0f;
+    float imageWidth_ = 1280.0f, imageHeight_ = 720.0f;
 };
 
 } // namespace engine::game

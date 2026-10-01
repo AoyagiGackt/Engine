@@ -4,6 +4,8 @@
  * @note GamePlayScene.cppからの分割ファイルクラス自体はGamePlaySceneのまま、定義の置き場所だけを分けている
  */
 #include "GamePlayScene.h"
+#include "WeaponSlotHud.h"
+#include "AwakenGaugeHud.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
 #include "GamePlaySceneInitializer.h"
@@ -12,6 +14,7 @@
 #include "HsvFilter.h"
 #include "ImGuiControl.h"
 #include "ImageFilter.h"
+#include "ModelManager.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
@@ -37,6 +40,90 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アルファはGameConstants::kFinisherOverlayAlpha
+
+// 敵体力の数値表示
+constexpr float kEnemyHpTextX = 460.0f;
+constexpr float kEnemyHpTextY = 10.0f;
+constexpr float kEnemyHpTextScale = 1.5f;
+constexpr Vector4 kEnemyHpTextColor = { 1.0f, 0.35f, 0.35f, 1.0f };
+
+// プレイヤーHP・ゴールドの数値表示（画面下端からの距離で置く）
+constexpr float kInfoBottomOffset = 120.0f;
+constexpr float kInfoScale = 1.5f;
+constexpr Vector4 kInfoColor = { 0.3f, 1.0f, 0.4f, 1.0f };
+
+// HPバーの色（残量が減るほど緑から赤へ）
+constexpr float kHpBarGreenScale = 0.85f;
+constexpr float kHpBarGreenBase = 0.15f;
+constexpr float kEnemyHpBarAlpha = 0.9f;
+constexpr float kPlayerHpBarAlpha = 0.95f;
+constexpr float kPlayerHpBarBottomOffset = 150.0f;
+
+// コンボルート案内
+constexpr float kGuideTitleScale = 1.15f;
+constexpr Vector4 kGuideTitleColor = { 1.0f, 0.82f, 0.2f, 0.82f };
+constexpr float kGuideRouteOffsetY = 25.0f;
+constexpr float kGuideRouteScale = 1.0f;
+constexpr Vector4 kGuideRouteColor = { 0.78f, 0.84f, 0.92f, 0.8f };
+constexpr float kGuideProgressScale = 1.35f;
+constexpr Vector4 kGuideProgressColor = { 1.0f, 0.82f, 0.2f, 0.95f };
+constexpr float kGuideNextOffsetY = 28.0f;
+constexpr float kGuideNextScale = 1.15f;
+constexpr Vector4 kGuideNextAirColor = { 0.45f, 0.95f, 1.0f, 1.0f };
+constexpr Vector4 kGuideNextOpenerColor = { 1.0f, 1.0f, 1.0f, 0.98f };
+constexpr Vector4 kGuideNextLauncherColor = { 1.0f, 0.85f, 0.25f, 1.0f };
+constexpr Vector4 kGuideFinishColor = { 1.0f, 0.42f, 0.16f, 1.0f };
+constexpr int kGuideOpenerSteps = 2; // この段数に達するまでは追撃を案内する
+
+// 本編の操作説明パネルの既定位置（レベルにアンカーがない時）
+constexpr Vector2 kGameplayControlsAnchor = { 1020.0f, 12.0f };
+
+// 武器回収の操作表示
+constexpr float kWeaponStealPromptScale = 1.3f;
+constexpr Vector4 kWeaponStealPromptColor = { 0.55f, 0.9f, 1.0f, 1.0f };
+
+// ロックオンマーカー
+constexpr float kLockMarkerHeight = 1.6f;
+constexpr float kLockMarkerHalfWidth = 46.0f;
+constexpr float kLockMarkerScale = 1.3f;
+constexpr Vector4 kLockMarkerColor = { 1.0f, 0.35f, 0.2f, 1.0f };
+
+// 武器スロット満杯時の交換案内
+constexpr int kWeaponSlotCount = 4;
+constexpr Vector2 kExchangeTitlePosition = { 360.0f, 220.0f };
+constexpr float kExchangeTitleScale = 2.0f;
+constexpr Vector4 kExchangeTitleColor = { 1.0f, 0.85f, 0.2f, 1.0f };
+constexpr Vector2 kExchangeWeaponPosition = { 410.0f, 270.0f };
+constexpr float kExchangeWeaponScale = 1.6f;
+constexpr Vector4 kExchangeWeaponColor = { 0.8f, 0.95f, 1.0f, 1.0f };
+constexpr Vector2 kExchangeHelpPosition = { 245.0f, 330.0f };
+constexpr float kExchangeHelpScale = 1.35f;
+constexpr Vector4 kExchangeHelpColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+// 一時停止メニュー
+constexpr Vector4 kPauseOverlayColor = { 0.0f, 0.0f, 0.0f, 0.75f };
+constexpr float kPauseMenuX = 440.0f;
+constexpr float kPauseMenuY = 220.0f;
+constexpr float kPauseMenuWidth = 400.0f;
+constexpr float kPauseMenuItemHeight = 60.0f;
+constexpr float kVolumeStep = 0.1f;
+constexpr float kPercentScale = 100.0f;
+constexpr float kRoundingOffset = 0.5f;
+constexpr float kVolumeTextX = 900.0f;
+constexpr float kBgmVolumeTextY = 291.0f;
+constexpr float kSeVolumeTextY = 351.0f;
+constexpr float kVolumeTextScale = 1.5f;
+constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr Vector2 kPausedTitlePosition = { 560.0f, 130.0f };
+constexpr float kPausedTitleScale = 2.0f;
+constexpr Vector4 kPausedTitleColor = { 1.0f, 1.0f, 0.6f, 1.0f };
+
+// 武器一覧パネル下の操作ヒント
+constexpr float kHintLineHeight = 24.0f;
+}
+
 void GamePlayScene::DrawOverlaysAndUI()
 {
     spriteCommon_->CommonDrawSettings();
@@ -61,10 +148,6 @@ void GamePlayScene::DrawOverlaysAndUI()
         bossSlamWarningSprite_->Draw();
     }
 
-    awakenGaugeBg_->Draw();
-    if (player_->GetAwakenGauge() > 0.0f) {
-        awakenGaugeFg_->Draw();
-    }
     styleRankHud_.DrawHud(); // 右上ランクの進捗バー（BattleTestSceneと同じ見た目）
     DrawWeaponSlotHud();
 
@@ -77,7 +160,8 @@ void GamePlayScene::DrawOverlaysAndUI()
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
     const bool captureFrame = finisherShatter_.IsActive() && finisherShatter_.NeedCapture();
     if (finisherActive_ || captureFrame) {
-        finisherOverlay_->SetColor({ 0.0f, 0.0f, 0.05f, GameConstants::kFinisherOverlayAlpha });
+        finisherOverlay_->SetColor({ kFinisherOverlayTint.x, kFinisherOverlayTint.y, kFinisherOverlayTint.z,
+            GameConstants::kFinisherOverlayAlpha });
         finisherOverlay_->Update();
         finisherOverlay_->Draw();
     }
@@ -97,7 +181,7 @@ void GamePlayScene::DrawOverlaysAndUI()
         finisherShatter_.Apply();
     }
 
-    if (paused_) {
+    if (pauseController_.IsPaused()) {
         DrawPauseOverlay();
     }
 
@@ -130,15 +214,14 @@ void GamePlayScene::DrawRogueliteHUD()
     const int enemyMaxHp = enemy_->GetMaxHp();
     const std::wstring enemyHpText = L"敵体力  "
         + std::to_wstring(enemyHp) + L" / " + std::to_wstring(enemyMaxHp);
-    fontRenderer_.DrawStringW(enemyHpText, 460.0f, 10.0f, 1.5f,
-        { 1.0f, 0.35f, 0.35f, 1.0f });
+    fontRenderer_.DrawStringW(enemyHpText, kEnemyHpTextX, kEnemyHpTextY, kEnemyHpTextScale, kEnemyHpTextColor);
 
     // プレイヤーHP + ゴールド左上は武器一覧パネルと被るため、左下の武器スロットHUDの真上に置く
     std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp())
         + "  G:" + std::to_string(rd->GetGold());
     constexpr float kInfoX = 24.0f;
-    const float infoY = static_cast<float>(WinApp::kClientHeight) - 120.0f;
-    fontRenderer_.DrawString(info.c_str(), kInfoX, infoY, 1.5f, { 0.3f, 1.0f, 0.4f, 1.0f });
+    const float infoY = static_cast<float>(WinApp::kClientHeight) - kInfoBottomOffset;
+    fontRenderer_.DrawString(info.c_str(), kInfoX, infoY, kInfoScale, kInfoColor);
 }
 
 void GamePlayScene::UpdateEnemyHpBars()
@@ -152,7 +235,7 @@ void GamePlayScene::UpdateEnemyHpBars()
     auto layoutBar = [&](Sprite* bg, Sprite* fg, const Vector3& pos, float ratio) {
         float sx, sy;
         SceneShared::WorldToScreen(pos.x, pos.y, cam.x, cam.y, sx, sy);
-        fg->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.9f });
+        fg->SetColor({ 1.0f - ratio, ratio * kHpBarGreenScale + kHpBarGreenBase, 0.0f, kEnemyHpBarAlpha });
         bg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
         bg->SetSize({ kBarW, kBarH });
         bg->Update();
@@ -184,14 +267,14 @@ void GamePlayScene::UpdatePlayerHpBar()
     constexpr float kBarW = 200.0f;
     constexpr float kBarH = 16.0f;
     constexpr float kBarX = 24.0f;
-    const float barY = static_cast<float>(WinApp::kClientHeight) - 150.0f;
+    const float barY = static_cast<float>(WinApp::kClientHeight) - kPlayerHpBarBottomOffset;
 
     const float ratio = std::clamp(static_cast<float>(rd->GetHp()) / static_cast<float>(rd->GetMaxHp()), 0.0f, 1.0f);
     playerHpBarBg_->SetPosition({ kBarX, barY });
     playerHpBarBg_->SetSize({ kBarW, kBarH });
     playerHpBarBg_->Update();
 
-    playerHpBarFg_->SetColor({ 1.0f - ratio, ratio * 0.85f + 0.15f, 0.0f, 0.95f });
+    playerHpBarFg_->SetColor({ 1.0f - ratio, ratio * kHpBarGreenScale + kHpBarGreenBase, 0.0f, kPlayerHpBarAlpha });
     playerHpBarFg_->SetPosition({ kBarX, barY });
     playerHpBarFg_->SetSize({ kBarW * ratio, kBarH });
     playerHpBarFg_->Update();
@@ -206,14 +289,63 @@ void GamePlayScene::DrawStyleUI()
     DrawStageGuide();
     DrawRogueliteHUD();
     styleRankHud_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク（BattleTestSceneと同じ体裁）
+
+    // 基本ルートは常時見せ、コンボ開始後は現在地点と次の入力へ表示を切り替える。
+    // トレーニングで覚えた操作を本編でも同じ順番で再確認できる導線にする。
+    if (WeaponManager::GetInstance()->HasEquippedWeapon()) {
+        constexpr float kGuideX = 355.0f;
+        constexpr float kGuideY = 574.0f;
+        const bool chainActive = styleRankHud_.GetHitCount() > 0 || player_->IsMeleeAttacking();
+        const int step = (std::max)(player_->GetComboStep(), 1);
+        const int maxStep = (std::max)(player_->GetComboMax(), 1);
+        if (!chainActive) {
+            fontRenderer_.DrawStringW(L"推奨コンボルート",
+                kGuideX, kGuideY, kGuideTitleScale, kGuideTitleColor);
+            fontRenderer_.DrawStringW(L"[L] x2  >  [S+L] 打ち上げ  >  [W] ジャンプ  >  [L] 空中追撃  >  [K] 射撃",
+                kGuideX, kGuideY + kGuideRouteOffsetY, kGuideRouteScale, kGuideRouteColor);
+        } else {
+            std::wstring progress = L"COMBO  ";
+            for (int i = 1; i <= maxStep; ++i) {
+                progress += i <= step ? L"● " : L"○ ";
+            }
+            fontRenderer_.DrawStringW(progress, kGuideX, kGuideY, kGuideProgressScale, kGuideProgressColor);
+
+            if (!player_->IsOnGround()) {
+                fontRenderer_.DrawStringW(L"NEXT  [L] 空中追撃   [K] 射撃   [SPACE] 固有技",
+                    kGuideX, kGuideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextAirColor);
+            } else if (step < kGuideOpenerSteps) {
+                fontRenderer_.DrawStringW(L"NEXT  [L] もう一撃   または  [S+L] 打ち上げ",
+                    kGuideX, kGuideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextOpenerColor);
+            } else if (step < maxStep) {
+                fontRenderer_.DrawStringW(L"NEXT  [S+L] 打ち上げ   [1-4] 武器切替",
+                    kGuideX, kGuideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextLauncherColor);
+            } else {
+                fontRenderer_.DrawStringW(L"FINISH!   [S+L] 打ち上げ   [1-4] 別武器へ",
+                    kGuideX, kGuideY + kGuideNextOffsetY, kGuideNextScale, kGuideFinishColor);
+            }
+        }
+    }
     DrawWeaponListPanel();
     SceneShared::DrawControlsHud(fontRenderer_,
-        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", { 1020.0f, 12.0f }), L": ステージを進む");
-    SceneShared::DrawAwakenGaugeHud(fontRenderer_, awakenGaugeBg_.get(), awakenGaugeFg_.get(),
-        player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_);
-    if (enemy_->IsDefeated() && !weaponStealTriggered_) {
-        fontRenderer_.DrawStringW(L"[ J ] 敵の武器を吸収", 500.0f, 500.0f, 1.6f,
-            { 0.55f, 0.9f, 1.0f, 1.0f });
+        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", kGameplayControlsAnchor), L": ステージを進む");
+    hud_.QueueText(fontRenderer_);
+    // 倒した敵の頭上に武器回収の操作を出す（死んだかどうか・奪えるかが遠目にも分かるように）
+    constexpr float kWeaponStealPromptHeight = 2.0f; // ロックオンマーカー（y+1.6）と重ならない高さ
+    constexpr float kWeaponStealPromptHalfWidth = 60.0f; // 文字列の見た目の半幅ぶんだけ左へずらして中央寄せする
+    auto drawWeaponStealPrompt = [&](const Vector3& enemyPos) {
+        const Vector3& cam = camera_->GetTranslate();
+        float sx, sy;
+        SceneShared::WorldToScreen(enemyPos.x, enemyPos.y + kWeaponStealPromptHeight, cam.x, cam.y, sx, sy);
+        fontRenderer_.DrawStringW(L"[J] 武器を回収", sx - kWeaponStealPromptHalfWidth, sy, kWeaponStealPromptScale,
+            kWeaponStealPromptColor);
+    };
+    if (enemy_->IsDefeated() && !weaponStealTriggered_ && !mainWeaponAbsorbing_) {
+        drawWeaponStealPrompt(enemy_->GetPosition());
+    }
+    for (const auto& weaponEnemy : weaponEnemies_) {
+        if (weaponEnemy.enemy->IsDefeated() && !weaponEnemy.weaponAcquired && !weaponEnemy.absorbing) {
+            drawWeaponStealPrompt(weaponEnemy.enemy->GetPosition());
+        }
     }
 
     // ── ロックオン中の対象にマーカーを出す ────────────────────────
@@ -230,8 +362,8 @@ void GamePlayScene::DrawStyleUI()
         if (valid) {
             const Vector3& cam = camera_->GetTranslate();
             float sx, sy;
-            SceneShared::WorldToScreen(tpos.x, tpos.y + 1.6f, cam.x, cam.y, sx, sy);
-            fontRenderer_.DrawString("v LOCK v", sx - 46.0f, sy, 1.3f, { 1.0f, 0.35f, 0.2f, 1.0f });
+            SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
+            fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy, kLockMarkerScale, kLockMarkerColor);
         }
     }
 
@@ -240,133 +372,21 @@ void GamePlayScene::DrawStyleUI()
 
 void GamePlayScene::InitializeWeaponSlotHud()
 {
-    constexpr float size = 56.0f;
-    constexpr float gap = 10.0f;
-    constexpr float marginX = 24.0f;
-    const float y = static_cast<float>(WinApp::kClientHeight) - 90.0f;
-
-    SceneShared::InitializeWeaponSlotHud(spriteCommon_.get(), WeaponManager::GetInstance(),
-        weaponSlots_.data(), weaponSlotPos_.data(), kWeaponSlotCount,
-        size, gap, marginX, y, /*checkUnlockedForInitialColor=*/false,
-        gunFrame_, gunIcon_, gunPos_);
-
-    // 各スタイルに対応する実物3Dモデル（色塗り四角だけでは何の武器か分からないため、BattleTestSceneと同じ仕組みで重ねて表示する）
-    const std::vector<SceneShared::WeaponIconAsset> kIconAssets = SceneShared::LoadWeaponIconAssets("Resources/Config/weapon_icons.json");
-
-    const auto& list = WeaponManager::GetInstance()->GetList();
-    for (int i = 0; i < kWeaponSlotCount && i < static_cast<int>(list.size()); ++i) {
-        for (const auto& asset : kIconAssets) {
-            if (list[i].type != asset.type) {
-                continue;
-            }
-            auto& icon3d = weaponIcons3D_[i];
-            icon3d.slotIndex = i;
-            icon3d.scale = asset.scale;
-            icon3d.baseYaw = asset.baseYaw;
-            icon3d.model = std::make_unique<Model>();
-            icon3d.model->Initialize(modelCommon_.get(), asset.modelPath, asset.texturePath);
-            icon3d.object = std::make_unique<Object3d>();
-            icon3d.object->Initialize(modelCommon_.get());
-            icon3d.object->SetModel(icon3d.model.get());
-            icon3d.object->SetEnableLighting(true);
-            break;
-        }
-    }
+    hud_.Add(std::make_unique<AwakenGaugeHud>());
+    hud_.Add(std::make_unique<WeaponSlotHud>());
+    hud_.Initialize({ *spriteCommon_, *modelCommon_, *dxCommon_, *WeaponManager::GetInstance() });
+    UpdateWeaponSlotHud();
 }
 
 void GamePlayScene::UpdateWeaponSlotHud()
 {
-    weaponSlotPulse_ += GameConstants::kFrameDeltaTime;
-    gunIconAngle_ += GameConstants::kFrameDeltaTime * 0.6f;
-
-    auto* wm = WeaponManager::GetInstance();
-    const int activeIndex = wm->GetSelectedSlot();
-    const float pulse = 0.7f + 0.3f * std::sin(weaponSlotPulse_ * 6.0f);
-
-    SceneShared::UpdateWeaponSlotHud(wm, weaponSlots_.data(), kWeaponSlotCount,
-        weaponSlotPulse_, /*flash=*/0.0f, gunIcon_.get(), gunIconAngle_);
-
-    gunFrame_->SetColor({ 0.08f, 0.08f, 0.15f, 0.85f });
-    gunFrame_->Update();
-
-    // 3Dモデルで表示中のスロットは、下地の色四角を隠して実物モデルだけ見せる
-    for (int i = 0; i < kWeaponSlotCount; ++i) {
-        const int weaponIndex = wm->GetSlotWeaponIndex(i);
-        const bool unlocked = weaponIndex >= 0 && weaponIndex < static_cast<int>(wm->GetList().size())
-            && wm->IsUnlocked(weaponIndex);
-        const bool show3DIcon = unlocked && weaponIndex == i
-            && (weaponIcons3D_[i].slotIndex == i) && weaponIcons3D_[i].object;
-        if (show3DIcon) {
-            Vector4 c = weaponSlots_[i].icon->GetColor();
-            weaponSlots_[i].icon->SetColor({ c.x, c.y, c.z, 0.0f });
-            weaponSlots_[i].icon->Update();
-        }
-    }
-
-    // ── 各スロットの3Dアイコン（画面左下に固定表示、ゆっくり回転） ────────
-    // カメラは回転しないので、スロットの画面位置をワールド座標へ逆算して張り付ける
-    // カメラのすぐ手前(奥行き6)に置き、WorldToScreenの基準距離(24)に対する比率でオフセット/スケールを縮小する
-    constexpr float kSlotSize = 56.0f;
-    constexpr float kIconDepth = 6.0f; // カメラからの距離
-    constexpr float kIconDepthScale = kIconDepth / 24.0f; // WorldToScreen基準距離(24)との比
-    for (int i = 0; i < kWeaponSlotCount; ++i) {
-        auto& icon3d = weaponIcons3D_[i];
-        if (icon3d.slotIndex != i || !icon3d.object) {
-            continue;
-        }
-        if (wm->GetSlotWeaponIndex(i) != i || !wm->IsUnlocked(i)) {
-            continue;
-        }
-
-        float sx = weaponSlotPos_[i].x + kSlotSize * 0.5f;
-        float sy = weaponSlotPos_[i].y + kSlotSize * 0.5f;
-        const Vector3& cam = camera_->GetTranslate();
-        Vector3 iconPos = {
-            cam.x + (sx - GameConstants::kScreenCenterX) / GameConstants::kScreenCenterX * GameConstants::kCameraHalfW * kIconDepthScale,
-            cam.y - (sy - GameConstants::kScreenCenterY) / GameConstants::kScreenCenterY * GameConstants::kCameraHalfH * kIconDepthScale,
-            cam.z + kIconDepth
-        };
-        float iconScale = icon3d.scale * kIconDepthScale;
-        // フルスピンだと必ず背面がカメラを向く瞬間が来て武器が判別できなくなるため、正面(baseYaw)を中心に小さく揺らすだけにする
-        icon3d.wobbleTime += GameConstants::kFrameDeltaTime;
-        float yaw = icon3d.baseYaw + std::sin(icon3d.wobbleTime * 0.8f) * 0.35f;
-        icon3d.object->SetPosition(iconPos);
-        icon3d.object->SetRotation({ 0.3f, yaw, 0.0f });
-        icon3d.object->SetScale({ iconScale, iconScale, iconScale });
-        const bool active = (i == activeIndex);
-        const float b = active ? (0.9f + pulse * 0.1f) : 0.6f;
-        icon3d.object->SetColor({ b, b, b, 1.0f });
-        icon3d.object->Update();
-    }
+    HudFrame frame { *camera_, GameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), auraTimer_ };
+    hud_.Update(frame);
 }
 
 void GamePlayScene::DrawWeaponSlotHud()
 {
-    constexpr float kSlotSize = 56.0f;
-
-    // 背景の枠を先に描く（3Dモデルがこの手前に来るようにする）
-    SceneShared::DrawWeaponSlotFrames(weaponSlots_.data(), kWeaponSlotCount, gunFrame_.get());
-
-    // 枠の中身 実物3Dモデルのスロットは、いったん3D描画パイプラインに切り替えて
-    // 枠より手前に描画する（2Dの枠と同じパスで描くと後から描かれる枠に隠れてしまう）
-    {
-        ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-        modelCommon_->CommonDrawSettings();
-        Object3d::RebindCommonLighting(cmd);
-        auto* wm = WeaponManager::GetInstance();
-        for (int i = 0; i < kWeaponSlotCount; ++i) {
-            auto& icon3d = weaponIcons3D_[i];
-            if (wm->GetSlotWeaponIndex(i) == i
-                && icon3d.slotIndex == i && icon3d.object && wm->IsUnlocked(i)) {
-                icon3d.object->Draw();
-            }
-        }
-        spriteCommon_->CommonDrawSettings(); // 以降のスプライト描画のため2Dへ戻す
-    }
-
-    // 色四角のアイコン（3Dモデル未対応のスタイル用。3Dモデル表示中のスロットはアルファ0で透明）
-    SceneShared::DrawWeaponSlotIconsAndLabels(weaponSlots_.data(), kWeaponSlotCount, weaponSlotPos_.data(),
-        gunIcon_.get(), gunPos_, WeaponManager::GetInstance(), fontRenderer_, kSlotSize);
+    hud_.Draw();
 }
 
 void GamePlayScene::UpdateWeaponExchange()
@@ -376,7 +396,7 @@ void GamePlayScene::UpdateWeaponExchange()
         return;
     }
 
-    for (int slot = 0; slot < 4; ++slot) {
+    for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
         if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + slot))) {
             wm->ReplacePendingWeapon(slot);
             return;
@@ -395,14 +415,14 @@ void GamePlayScene::DrawWeaponExchange()
     }
 
     fontRenderer_.DrawStringW(
-        L"武器スロットが満杯です", 360.0f, 220.0f, 2.0f,
-        { 1.0f, 0.85f, 0.2f, 1.0f });
+        L"武器スロットが満杯です", kExchangeTitlePosition.x, kExchangeTitlePosition.y, kExchangeTitleScale,
+        kExchangeTitleColor);
     fontRenderer_.DrawStringW(
         L"入手武器  " + StringUtility::ConvertString(wm->GetPendingWeapon().name),
-        410.0f, 270.0f, 1.6f, { 0.8f, 0.95f, 1.0f, 1.0f });
+        kExchangeWeaponPosition.x, kExchangeWeaponPosition.y, kExchangeWeaponScale, kExchangeWeaponColor);
     fontRenderer_.DrawStringW(
         L"1から4で交換するスロットを選択  Backspaceで破棄",
-        245.0f, 330.0f, 1.35f, { 1.0f, 1.0f, 1.0f, 1.0f });
+        kExchangeHelpPosition.x, kExchangeHelpPosition.y, kExchangeHelpScale, kExchangeHelpColor);
 }
 
 // ══════════════════════════════════════════════════════
@@ -415,10 +435,10 @@ void GamePlayScene::SetupPauseMenu()
     pauseOverlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
     pauseOverlay_->SetPosition({ 0.0f, 0.0f });
     pauseOverlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
-    pauseOverlay_->SetColor({ 0.0f, 0.0f, 0.0f, 0.75f });
+    pauseOverlay_->SetColor(kPauseOverlayColor);
 
-    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_);
-    pauseMenu_.SetLayout(440.0f, 220.0f, 400.0f, 60.0f);
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
+    pauseMenu_.SetLayout(kPauseMenuX, kPauseMenuY, kPauseMenuWidth, kPauseMenuItemHeight);
     pauseMenu_.SetItems({
         { "RESUME" },
         { "BGM VOLUME" },
@@ -436,12 +456,13 @@ void GamePlayScene::UpdatePauseMenu()
     if (row == kPauseRowBgmVolume || row == kPauseRowSeVolume) {
         float delta = 0.0f;
         if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
-            delta = -0.1f;
+            delta = -kVolumeStep;
         } else if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
-            delta = 0.1f;
+            delta = kVolumeStep;
         }
         if (delta != 0.0f) {
             GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+            const float previousVolume = row == kPauseRowBgmVolume ? settings.bgmVolume : settings.seVolume;
             if (row == kPauseRowBgmVolume) {
                 settings.bgmVolume = std::clamp(settings.bgmVolume + delta, 0.0f, 1.0f);
                 audio_->SetBGMVolume(settings.bgmVolume);
@@ -449,7 +470,11 @@ void GamePlayScene::UpdatePauseMenu()
                 settings.seVolume = std::clamp(settings.seVolume + delta, 0.0f, 1.0f);
                 audio_->SetSEVolume(settings.seVolume);
             }
-            GameSettingsManager::GetInstance()->Save();
+            const float currentVolume = row == kPauseRowBgmVolume ? settings.bgmVolume : settings.seVolume;
+            if (currentVolume != previousVolume) {
+                audio_->PlayMenuChoice();
+                GameSettingsManager::GetInstance()->Save();
+            }
         }
     }
 
@@ -458,14 +483,14 @@ void GamePlayScene::UpdatePauseMenu()
     }
     switch (row) {
     case kPauseRowResume:
-        paused_ = false;
+        pauseController_.Resume();
         break;
     case kPauseRowQuit: {
         auto* rd = RunData::GetInstance();
         if (rd->IsRunActive()) {
             SaveDataManager::GetInstance()->SaveContinue(*rd);
         }
-        paused_ = false;
+        pauseController_.Resume();
         SceneFlow::GetInstance()->Transition("GAMEPLAY", "pause_quit", "TITLE");
         break;
     }
@@ -483,11 +508,11 @@ void GamePlayScene::DrawPauseOverlay()
     const auto& settings = GameSettingsManager::GetInstance()->Get();
     char bgmBuf[32];
     char seBuf[32];
-    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * 100.0f + 0.5f));
-    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * 100.0f + 0.5f));
-    fontRenderer_.DrawString(bgmBuf, 900.0f, 291.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
-    fontRenderer_.DrawString(seBuf, 900.0f, 351.0f, 1.5f, { 1.0f, 1.0f, 1.0f, 1.0f });
-    fontRenderer_.DrawString("PAUSED", 560.0f, 130.0f, 2.0f, { 1.0f, 1.0f, 0.6f, 1.0f });
+    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * kPercentScale + kRoundingOffset));
+    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * kPercentScale + kRoundingOffset));
+    fontRenderer_.DrawString(bgmBuf, kVolumeTextX, kBgmVolumeTextY, kVolumeTextScale, kVolumeTextColor);
+    fontRenderer_.DrawString(seBuf, kVolumeTextX, kSeVolumeTextY, kVolumeTextScale, kVolumeTextColor);
+    fontRenderer_.DrawString("PAUSED", kPausedTitlePosition.x, kPausedTitlePosition.y, kPausedTitleScale, kPausedTitleColor);
 }
 
 void GamePlayScene::DrawStageGuide()
@@ -522,11 +547,11 @@ void GamePlayScene::DrawWeaponListPanel()
         fontRenderer_.DrawStringW(text, x, y, kScale, kColorHint);
     };
 
-    const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", { 12.0f, 12.0f });
+    const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", kDefaultHudWeaponAnchor);
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, WeaponManager::GetInstance(),
         L"メインステージ", weaponHudAnchor);
     drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ  [I] 回避", weaponHudAnchor.x, py);
-    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + 24.0f);
+    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + kHintLineHeight);
 }
 
 bool GamePlayScene::IsGlassShatterFlow() const

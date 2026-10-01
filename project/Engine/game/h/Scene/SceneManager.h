@@ -3,6 +3,8 @@
  * @brief シーンの切り替え、更新、描画を一括管理するクラスを定義するファイル
  */
 #pragma once
+#include "SceneTransitionOverlay.h"
+#include "EditorGamePreview.h"
 #include "AbstractSceneFactory.h"
 #include "Audio.h"
 #include "BaseScene.h"
@@ -10,6 +12,7 @@
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "SpriteCommon.h"
+#include "FontRenderer.h"
 #include <Fade.h>
 #include <atomic>
 #include <memory>
@@ -66,12 +69,23 @@ public:
      */
     void Draw();
 
+    /** @brief ポストエフェクトの後に画面遷移を重ねる */
+    void DrawTransition();
+    /** @brief 編集中のゲーム映像を小窓用テクスチャに転送する */
+    void CaptureEditorPreview();
+    /** @brief 次回のDebug起動で表示するシーン */
+    const std::string& GetDebugStartScene() const { return debugStartScene_; }
+    /** @brief Debug開始シーンを設定ファイルへ保存する。失敗時はfalse */
+    bool SetDebugStartScene(const std::string& sceneName);
+
+    static constexpr float kDefaultFadeSeconds = 0.38f; // シーン切り替えの既定のフェード秒数
+
     /**
      * @brief 次のシーンを予約する
      * @param sceneName 生成したいシーンの名前（例: "TITLE", "GAMEPLAY"）
      * @note この関数を呼ぶと、次フレームの Update() の冒頭でシーンが切り替わります
      */
-    void ChangeScene(const std::string& sceneName, float fadeOut = 0.15f, float fadeIn = 0.15f);
+    void ChangeScene(const std::string& sceneName, float fadeOut = kDefaultFadeSeconds, float fadeIn = kDefaultFadeSeconds);
 
     /**
      * @brief ロード画面を経由してシーンを切り替える
@@ -119,6 +133,8 @@ private:
     void PerformSceneSwitch();
     /** @brief LOADINGシーンへの切替時、遷移先シーンをバックグラウンドスレッドで事前生成する */
     void StartBackgroundLoad();
+    void PrepareEditorPreview();
+    EditorGamePreview editorPreview_;
 
     // 外部から提供される基盤システム
     DirectXCommon* dxCommon_ = nullptr;
@@ -151,20 +167,15 @@ private:
     AbstractSceneFactory* sceneFactory_ = nullptr;
 
     /** @brief フェード管理 **/
-    std::unique_ptr<SpriteCommon> spriteCommon_;
-    Fade fade_;
+    SceneTransitionOverlay transition_;
 
     /** @brief 次に読み込むシーン名 **/
     std::string nextSceneName_;
+    std::string debugStartScene_ = "TITLE";
 
     /** @brief ChangeSceneWithLoading で指定した最終遷移先シーン名 **/
     std::string loadingTargetScene_;
 
-    /** @brief 現在遷移中かどうかのフラグ **/
-    bool isChanging_ = false;
-
-    /** @brief フェードイン時間（ChangeScene で設定） **/
-    float fadeInDuration_ = 0.15f;
 };
 
 } // namespace engine::game

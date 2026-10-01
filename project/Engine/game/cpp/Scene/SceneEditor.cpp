@@ -23,6 +23,42 @@ namespace engine::game {
 
 // 内部ヘルパー
 
+namespace {
+// ImGuiのドラッグ操作1pxあたりの変化量
+constexpr float kDragStepPosition = 0.1f;
+constexpr float kDragStepFinePosition = 0.05f;
+constexpr float kDragStepRotation = 0.01f;
+constexpr float kDragStepScale = 0.01f;
+constexpr float kDragStepRadius = 0.05f;
+constexpr float kDragStepPixel = 1.0f;
+// 編集値の下限・上限
+constexpr float kMinEditableSize = 0.01f;
+constexpr float kMinEditableHumanScale = 0.001f;
+constexpr float kMaxObjectScale = 20.0f;
+constexpr float kMaxRadius = 50.0f;
+constexpr float kMaxHumanScale = 100.0f;
+constexpr float kMaxAnimSpeed = 5.0f;
+constexpr float kMaxParticleScale = 10.0f;
+constexpr int kMaxParticleCount = 1024;
+constexpr float kMinSpritePixels = 1.0f;
+constexpr float kMaxSpritePixels = 4096.0f;
+constexpr float kRadiusGap = 0.01f; // 内径と外径が重ならないように空ける最小差
+#ifdef USE_IMGUI
+// 見出し色
+constexpr ImVec4 kSavedTextColor = { 0.2f, 1.0f, 0.4f, 1.0f };
+constexpr ImVec4 kRingHeaderColor = { 0.4f, 1.0f, 0.8f, 1.0f };
+constexpr ImVec4 kCylinderHeaderColor = { 0.8f, 0.6f, 1.0f, 1.0f };
+constexpr ImVec4 kSkydomeHeaderColor = { 0.5f, 0.8f, 1.0f, 1.0f };
+constexpr ImVec4 kHumanHeaderColor = { 0.4f, 0.8f, 1.0f, 1.0f };
+#endif
+constexpr float kSavedMessageSeconds = 1.5f;
+constexpr Vector2 kNewUIElementSize = { 100.0f, 100.0f };
+// 白パーティクルの再放出
+constexpr float kWhiteParticleSpread = 20.0f;
+constexpr float kWhiteParticleSpeedMin = 2.0f;
+constexpr float kWhiteParticleSpeedMax = 5.0f;
+}
+
 #ifdef USE_IMGUI
 // Windows のファイル選択ダイアログを開き、ユーザーが選んだファイルのパスを返す
 // filter  = 表示するファイルの種類の説明（例: "PNG Files\0*.png\0..."）
@@ -143,7 +179,7 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
         entry.sprite = std::make_unique<Sprite>();
         entry.sprite->Initialize(ctx.spriteCommon, entry.texPath);
         entry.sprite->SetPosition({ GameConstants::kScreenCenterX, GameConstants::kScreenCenterY }); // 画面中央に配置
-        entry.sprite->SetSize({ 100.0f, 100.0f });
+        entry.sprite->SetSize(kNewUIElementSize);
         uiElements_.push_back(std::move(entry));
     }
     if (uiOpen) {
@@ -166,16 +202,16 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx)
     if (savedTimer_ > 0.0f) {
         // 保存直後は "Saved!" と表示してフェードアウトする
         savedTimer_ -= GameConstants::kFrameDeltaTime;
-        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "Saved!");
+        ImGui::TextColored(kSavedTextColor, "Saved!");
     } else {
         if (ImGui::Button("Save", ImVec2(-1, 0))) {
             if (selection_ == Selection::Camera) {
                 SaveCameraParams(ctx);
-                savedTimer_ = 1.5f;
+                savedTimer_ = kSavedMessageSeconds;
             }
             if (selection_ == Selection::UIElement) {
                 SaveUILayout();
-                savedTimer_ = 1.5f;
+                savedTimer_ = kSavedMessageSeconds;
             }
         }
     }
@@ -271,8 +307,8 @@ void SceneEditor::RenderCameraControl(const EditContext& ctx)
     ImGui::Begin("Camera Control");
 
     // ドラッグスライダーで目標座標・角度を変更する
-    ImGui::DragFloat3("Pos", &ctx.cameraTargetPos->x, 0.1f);
-    ImGui::DragFloat3("Rot", &ctx.cameraTargetRot->x, 0.01f);
+    ImGui::DragFloat3("Pos", &ctx.cameraTargetPos->x, kDragStepPosition);
+    ImGui::DragFloat3("Rot", &ctx.cameraTargetRot->x, kDragStepRotation);
 
     // スムージングのフレーム数を変えたら履歴をクリアする（古い平均が混入しないように）
     if (ImGui::SliderInt("Smooth Frames", ctx.cameraSmoothFrames, 1, 60)) {
@@ -429,8 +465,8 @@ void SceneEditor::CameraState::RenderInspector(const EditContext& ctx, SceneEdit
 #ifdef USE_IMGUI
     ImGui::TextColored(ImVec4(1, 1, 0, 1), "[Camera]");
     ImGui::Separator();
-    ImGui::DragFloat3("Position", &ctx.cameraTargetPos->x, 0.1f); // ドラッグで位置を変更
-    ImGui::DragFloat3("Rotation", &ctx.cameraTargetRot->x, 0.01f); // ドラッグで角度を変更
+    ImGui::DragFloat3("Position", &ctx.cameraTargetPos->x, kDragStepPosition); // ドラッグで位置を変更
+    ImGui::DragFloat3("Rotation", &ctx.cameraTargetRot->x, kDragStepRotation); // ドラッグで角度を変更
     // スムージングフレーム数を変えたら履歴をリセットしないと古い平均が残ってしまう
     if (ImGui::SliderInt("Smooth Frames", ctx.cameraSmoothFrames, 1, 60)) {
         ctx.cameraPosHistory->clear();
@@ -447,26 +483,26 @@ void SceneEditor::CameraState::RenderInspector(const EditContext& ctx, SceneEdit
 void SceneEditor::RingState::RenderInspector(const EditContext& ctx, SceneEditor&)
 {
 #ifdef USE_IMGUI
-    ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.8f, 1), "[Ring]");
+    ImGui::TextColored(kRingHeaderColor, "[Ring]");
     ImGui::Separator();
     if (!ctx.ring || !ctx.ringPosition) {
         ImGui::TextDisabled("Ring is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.ringPosition->x, 0.1f)) {
+    if (ImGui::DragFloat3("Position", &ctx.ringPosition->x, kDragStepPosition)) {
         ctx.ring->SetPosition(*ctx.ringPosition);
     }
-    if (ImGui::DragFloat3("Rotation", &ctx.ringRotation->x, 0.01f)) {
+    if (ImGui::DragFloat3("Rotation", &ctx.ringRotation->x, kDragStepRotation)) {
         ctx.ring->SetRotation(*ctx.ringRotation);
     }
-    if (ImGui::DragFloat("Scale", ctx.ringScale, 0.01f, 0.01f, 20.0f)) {
+    if (ImGui::DragFloat("Scale", ctx.ringScale, kDragStepScale, kMinEditableSize, kMaxObjectScale)) {
         ctx.ring->SetScale(*ctx.ringScale);
     }
     ImGui::Separator();
-    if (ImGui::DragFloat("Inner Radius", ctx.ringInnerRadius, 0.05f, 0.01f, *ctx.ringOuterRadius - 0.01f)) {
+    if (ImGui::DragFloat("Inner Radius", ctx.ringInnerRadius, kDragStepRadius, kMinEditableSize, *ctx.ringOuterRadius - kRadiusGap)) {
         ctx.ring->SetInnerRadius(*ctx.ringInnerRadius);
     }
-    if (ImGui::DragFloat("Outer Radius", ctx.ringOuterRadius, 0.05f, *ctx.ringInnerRadius + 0.01f, 50.0f)) {
+    if (ImGui::DragFloat("Outer Radius", ctx.ringOuterRadius, kDragStepRadius, *ctx.ringInnerRadius + kRadiusGap, kMaxRadius)) {
         ctx.ring->SetOuterRadius(*ctx.ringOuterRadius);
     }
     ImGui::Separator();
@@ -480,29 +516,29 @@ void SceneEditor::RingState::RenderInspector(const EditContext& ctx, SceneEditor
 void SceneEditor::CylinderState::RenderInspector(const EditContext& ctx, SceneEditor&)
 {
 #ifdef USE_IMGUI
-    ImGui::TextColored(ImVec4(0.8f, 0.6f, 1.0f, 1), "[Cylinder]");
+    ImGui::TextColored(kCylinderHeaderColor, "[Cylinder]");
     ImGui::Separator();
     if (!ctx.cylinder || !ctx.cylinderPosition) {
         ImGui::TextDisabled("Cylinder is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.cylinderPosition->x, 0.1f)) {
+    if (ImGui::DragFloat3("Position", &ctx.cylinderPosition->x, kDragStepPosition)) {
         ctx.cylinder->SetPosition(*ctx.cylinderPosition);
     }
-    if (ImGui::DragFloat3("Rotation", &ctx.cylinderRotation->x, 0.01f)) {
+    if (ImGui::DragFloat3("Rotation", &ctx.cylinderRotation->x, kDragStepRotation)) {
         ctx.cylinder->SetRotation(*ctx.cylinderRotation);
     }
-    if (ImGui::DragFloat("Scale", ctx.cylinderScale, 0.01f, 0.01f, 20.0f)) {
+    if (ImGui::DragFloat("Scale", ctx.cylinderScale, kDragStepScale, kMinEditableSize, kMaxObjectScale)) {
         ctx.cylinder->SetScale(*ctx.cylinderScale);
     }
     ImGui::Separator();
-    if (ImGui::DragFloat("Top Radius", ctx.cylinderTopRadius, 0.05f, 0.01f, 50.0f)) {
+    if (ImGui::DragFloat("Top Radius", ctx.cylinderTopRadius, kDragStepRadius, kMinEditableSize, kMaxRadius)) {
         ctx.cylinder->SetTopRadius(*ctx.cylinderTopRadius);
     }
-    if (ImGui::DragFloat("Bottom Radius", ctx.cylinderBottomRadius, 0.05f, 0.01f, 50.0f)) {
+    if (ImGui::DragFloat("Bottom Radius", ctx.cylinderBottomRadius, kDragStepRadius, kMinEditableSize, kMaxRadius)) {
         ctx.cylinder->SetBottomRadius(*ctx.cylinderBottomRadius);
     }
-    if (ImGui::DragFloat("Height", ctx.cylinderHeight, 0.05f, 0.01f, 50.0f)) {
+    if (ImGui::DragFloat("Height", ctx.cylinderHeight, kDragStepRadius, kMinEditableSize, kMaxRadius)) {
         ctx.cylinder->SetHeight(*ctx.cylinderHeight);
     }
     ImGui::Separator();
@@ -519,7 +555,7 @@ void SceneEditor::CylinderState::RenderInspector(const EditContext& ctx, SceneEd
 void SceneEditor::SkydomeState::RenderInspector(const EditContext& ctx, SceneEditor&)
 {
 #ifdef USE_IMGUI
-    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1), "[Skydome]");
+    ImGui::TextColored(kSkydomeHeaderColor, "[Skydome]");
     ImGui::Separator();
     if (ctx.skydome) {
         if (ImGui::ColorEdit4("Sky Color", &ctx.skyColor->x)) {
@@ -543,23 +579,23 @@ void SceneEditor::SkydomeState::RenderInspector(const EditContext& ctx, SceneEdi
 void SceneEditor::HumanState::RenderInspector(const EditContext& ctx, SceneEditor&)
 {
 #ifdef USE_IMGUI
-    ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1), "[Human]");
+    ImGui::TextColored(kHumanHeaderColor, "[Human]");
     ImGui::Separator();
     if (!ctx.human || !ctx.humanPosition) {
         ImGui::TextDisabled("Human is disabled.");
         return;
     }
-    if (ImGui::DragFloat3("Position", &ctx.humanPosition->x, 0.05f)) {
+    if (ImGui::DragFloat3("Position", &ctx.humanPosition->x, kDragStepFinePosition)) {
         ctx.human->SetPosition(*ctx.humanPosition);
     }
-    if (ImGui::DragFloat3("Rotation", &ctx.humanRotation->x, 0.01f)) {
+    if (ImGui::DragFloat3("Rotation", &ctx.humanRotation->x, kDragStepRotation)) {
         ctx.human->SetRotation(*ctx.humanRotation);
     }
-    if (ImGui::DragFloat3("Scale", &ctx.humanScale->x, 0.01f, 0.001f, 100.0f)) {
+    if (ImGui::DragFloat3("Scale", &ctx.humanScale->x, kDragStepScale, kMinEditableHumanScale, kMaxHumanScale)) {
         ctx.human->SetScale(*ctx.humanScale);
     }
     ImGui::Separator();
-    if (ImGui::SliderFloat("Anim Speed", ctx.humanAnimSpeed, 0.0f, 5.0f)) {
+    if (ImGui::SliderFloat("Anim Speed", ctx.humanAnimSpeed, 0.0f, kMaxAnimSpeed)) {
         ctx.human->SetAnimSpeed(*ctx.humanAnimSpeed);
     }
     ImGui::Separator();
@@ -588,16 +624,16 @@ void SceneEditor::ParticlesState::RenderInspector(const EditContext& ctx, SceneE
         ImGui::TextDisabled("White Particles are disabled.");
         return;
     }
-    ImGui::DragFloat3("Position", &ctx.whiteParticlePos->x, 0.1f);
+    ImGui::DragFloat3("Position", &ctx.whiteParticlePos->x, kDragStepPosition);
     ImGui::ColorEdit4("Color", &ctx.whiteParticleColor->x);
-    ImGui::DragFloat("Scale", ctx.whiteParticleScale, 0.01f, 0.01f, 10.0f);
-    ImGui::SliderInt("Count", ctx.whiteParticleCount, 1, 1024);
+    ImGui::DragFloat("Scale", ctx.whiteParticleScale, kDragStepScale, kMinEditableSize, kMaxParticleScale);
+    ImGui::SliderInt("Count", ctx.whiteParticleCount, 1, kMaxParticleCount);
     ImGui::Separator();
     if (ImGui::Button("Re-emit", ImVec2(-1, 0))) {
         ParticleManager::GetInstance()->EmitScatterLoop(
-            "white", *ctx.whiteParticlePos, 20.0f,
+            "white", *ctx.whiteParticlePos, kWhiteParticleSpread,
             static_cast<uint32_t>(*ctx.whiteParticleCount),
-            *ctx.whiteParticleColor, 2.0f, 5.0f, *ctx.whiteParticleScale);
+            *ctx.whiteParticleColor, kWhiteParticleSpeedMin, kWhiteParticleSpeedMax, *ctx.whiteParticleScale);
     }
 #endif
 }
@@ -632,15 +668,15 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
 
     // 位置・サイズ・回転・色を編集する
     Vector2 pos = sp->GetPosition();
-    if (ImGui::DragFloat2("Position", &pos.x, 1.0f)) {
+    if (ImGui::DragFloat2("Position", &pos.x, kDragStepPixel)) {
         sp->SetPosition(pos);
     }
     Vector2 sz = sp->GetSize();
-    if (ImGui::DragFloat2("Size", &sz.x, 1.0f, 1.0f, 4096.0f)) {
+    if (ImGui::DragFloat2("Size", &sz.x, kDragStepPixel, kMinSpritePixels, kMaxSpritePixels)) {
         sp->SetSize(sz);
     }
     float rot = sp->GetRotation();
-    if (ImGui::DragFloat("Rotation", &rot, 0.01f)) {
+    if (ImGui::DragFloat("Rotation", &rot, kDragStepRotation)) {
         sp->SetRotation(rot);
     }
     Vector4 col = sp->GetColor();

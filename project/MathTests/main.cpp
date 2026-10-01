@@ -278,6 +278,8 @@ void TestCollisionShapes()
 
 } // namespace
 
+int RunArchitectureTests();
+
 int main()
 {
     // ソースはUTF-8だが、コンソールの既定コードページ（日本語環境ではShift-JIS）のままだと
@@ -298,5 +300,5 @@ int main()
     }
 
     std::printf("\n%d / %d tests passed\n", g_testCount - g_failCount, g_testCount);
-    return g_failCount == 0 ? 0 : 1;
+    return (RunArchitectureTests() == 0 && g_failCount == 0) ? 0 : 1;
 }

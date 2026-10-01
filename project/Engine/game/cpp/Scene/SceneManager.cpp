@@ -8,17 +8,37 @@
 #include "StageEditor.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
+#include "SrvManager.h"
+#include "EngineAssert.h"
+#include "JsonHelper.h"
+#include "RunData.h"
+#include <fstream>
+#include <array>
+#include <algorithm>
+#include <chrono>
 #include <stdexcept>
-#ifdef _DEBUG
-#include "BattleTestScene.h"
-#endif
 #ifdef USE_IMGUI
 #include "EditorUI.h"
+#include "DiagnosticsDraw.h"
 #include "GraphEditor.h"
 #endif
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
+
+namespace {
+// 非同期ロードの進捗表示に使う段階ごとの値（0〜1）
+constexpr float kProgressCreating = 0.1f; // シーンの生成を始めた
+constexpr float kProgressCreated = 0.4f; // シーンを生成し、メインスレッドでの初期化を待っている
+constexpr float kProgressInitializing = 0.5f; // メインスレッドで初期化中
+constexpr float kProgressInitialized = 0.9f; // 初期化が終わり、切り替えを待っている
+constexpr const char* kDebugStartupPath = "Resources/Config/debug_startup.json";
+constexpr std::array<const char*, 6> kDebugStartScenes = { "TITLE", "MAP", "GAMEPLAY", "TRAINING", "BATTLETEST", "OPTIONS" };
+bool IsDebugStartScene(const std::string& scene)
+{
+    return std::find(kDebugStartScenes.begin(), kDebugStartScenes.end(), scene) != kDebugStartScenes.end();
+}
+}
 
 SceneManager* SceneManager::GetInstance()
 {
@@ -42,36 +62,49 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     dxCommon_->SetDiagnosticContext("TitleScene");
     CrashHandler::SetContext("TitleScene");
 
-    // 最初のシーン（デバッグ時は撮影・テストしやすいようBattleTestSceneへ直行、それ以外はタイトルから）
+    // 通常はタイトルから開始し、Debugだけエディターで保存した開始シーンを使う。
+    std::string startupScene = "TITLE";
 #ifdef _DEBUG
-    currentScene_ = std::make_unique<BattleTestScene>();
-#else
-    currentScene_ = std::make_unique<TitleScene>();
+    const auto settings = JsonHelper::Load(kDebugStartupPath);
+    if (settings.is_object() && settings.contains("scene") && settings["scene"].is_string()) {
+        const auto candidate = settings["scene"].get<std::string>();
+        if (IsDebugStartScene(candidate)) { startupScene = candidate; }
+    }
+    debugStartScene_ = startupScene;
+    if (startupScene == "MAP" || startupScene == "GAMEPLAY") {
+        RunData::GetInstance()->StartNewRun();
+    }
 #endif
-    currentScene_->Init(dxCommon_, input_, audio_);
-    // シーン初期化中にロードされたテクスチャを一括転送・同期する
+    currentScene_ = sceneFactory_ ? sceneFactory_->CreateScene(startupScene) : nullptr;
+    if (!currentScene_) {
+        startupScene = "TITLE";
+        currentScene_ = std::make_unique<TitleScene>();
+    }
+    nextSceneName_ = startupScene;
+    dxCommon_->SetDiagnosticContext(startupScene);
+    CrashHandler::SetContext(startupScene);
+    transition_.Initialize(dxCommon_);
     TextureManager::GetInstance()->FlushUploads();
 
-    spriteCommon_ = std::make_unique<SpriteCommon>();
-    spriteCommon_->Initialize(dxCommon_);
-
-    // フェードの初期化
-    fade_.Initialize(spriteCommon_.get());
-
+    const auto loadingStarted = std::chrono::steady_clock::now();
+    currentScene_->Init(dxCommon_, input_, audio_);
+    TextureManager::GetInstance()->FlushUploads();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - loadingStarted).count();
+    Logger::Log("Startup scene load " + startupScene + ": " + std::to_string(elapsed) + " ms");
     currentScene_->SetImGuiManager(imguiManager_);
 }
 
 void SceneManager::Update()
 {
-    fade_.Update(); // フェードのタイマー更新
-
-    // シーン切り替えの予約（FadeOutが終わったタイミング）
-    if (isChanging_ && fade_.IsFinished()) {
-        PerformSceneSwitch();
-    }
+#ifdef USE_IMGUI
+    DiagnosticsDraw::SetImageViewport();
+#endif
+    if (transition_.Update()) { PerformSceneSwitch(); }
 
     // フェード中であっても、今のシーンの更新は続ける
-    if (currentScene_) {
+    if (currentScene_ && !transition_.IsLoading()) {
+        PrepareEditorPreview();
         // F2トグル・パネル・トリガー判定は先に処理してから、Tick()内のIsVisible()分岐に反映させる
         currentScene_->GetStageEditor().Update(input_, currentScene_->GetEditorPlayerPos());
         // Tick()がUpdate()呼び出し・エディタ表示中の一時停止・UpdateObjects()を一括して面倒を見る
@@ -96,6 +129,7 @@ void SceneManager::Update()
 
 void SceneManager::PerformSceneSwitch()
 {
+    const auto loadingStarted = std::chrono::steady_clock::now();
     audio_->StopWave(); // 前のシーンの音を止める
 
     // PostDraw は複数フレームを並行実行するため、直前まで描画していた
@@ -116,10 +150,10 @@ void SceneManager::PerformSceneSwitch()
         if (loadingThread_.joinable()) {
             loadingThread_.join();
         }
-        asyncLoadProgress_.store(0.5f);
+        asyncLoadProgress_.store(kProgressInitializing);
         try {
             preloadedScene_->Init(dxCommon_, input_, audio_);
-            asyncLoadProgress_.store(0.9f);
+            asyncLoadProgress_.store(kProgressInitialized);
             currentScene_ = std::move(preloadedScene_);
             TextureManager::GetInstance()->FlushUploads();
             asyncLoadProgress_.store(1.0f);
@@ -156,8 +190,10 @@ void SceneManager::PerformSceneSwitch()
     CrashHandler::SetContext(nextSceneName_);
 
     // シーンが切り替わったので、画面を明るくし始める
-    fade_.Start(Fade::Status::FadeIn, fadeInDuration_);
-    isChanging_ = false;
+    transition_.FinishSwitch();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - loadingStarted).count();
+    Logger::Log("Scene load " + nextSceneName_ + ": " + std::to_string(elapsed) + " ms");
 }
 
 void SceneManager::StartBackgroundLoad()
@@ -170,14 +206,14 @@ void SceneManager::StartBackgroundLoad()
     std::string target = loadingTargetScene_;
     loadingThread_ = std::thread([this, target]() {
         try {
-            asyncLoadProgress_.store(0.1f);
+            asyncLoadProgress_.store(kProgressCreating);
             auto scene = sceneFactory_->CreateScene(target);
             if (!scene) {
                 throw std::runtime_error("Unknown scene: " + target);
             }
             // GPUリソース生成を含むInitはメインスレッド側で実行する
             // ワーカーは共有描画状態へ触れず、生成済みシーンの受け渡しだけを担当する
-            asyncLoadProgress_.store(0.4f);
+            asyncLoadProgress_.store(kProgressCreated);
             preloadedScene_ = std::move(scene);
             asyncLoadReady_.store(true);
         } catch (const std::exception& error) {
@@ -207,7 +243,23 @@ void SceneManager::Draw()
         currentScene_->Render();
     }
 
-    fade_.Draw();
+}
+
+void SceneManager::DrawTransition()
+{
+    transition_.Draw();
+}
+
+void SceneManager::PrepareEditorPreview()
+{
+    editorPreview_.Prepare(*dxCommon_, currentScene_->GetStageEditor());
+}
+
+void SceneManager::CaptureEditorPreview()
+{
+    if (currentScene_ && !transition_.IsLoading()) {
+        editorPreview_.Capture(*dxCommon_, currentScene_->GetStageEditor());
+    }
 }
 
 void SceneManager::Finalize()
@@ -226,6 +278,8 @@ void SceneManager::Finalize()
 
     preloadedScene_.reset();
 
+    editorPreview_.Finalize();
+
     if (currentScene_) {
         currentScene_->Shutdown();
     }
@@ -233,10 +287,8 @@ void SceneManager::Finalize()
     currentScene_.reset();
     nextScene_.reset();
 
-    // Fade内のSpriteが持つD3D12リソースを解放する
-    fade_ = Fade { };
-    // SpriteCommonのPSO・ルートシグネチャ・バッファを解放する
-    spriteCommon_.reset();
+    transition_ = SceneTransitionOverlay {};
+
 }
 
 // ロード画面経由でシーン切り替え
@@ -263,14 +315,30 @@ std::string SceneManager::GetAsyncLoadError() const
 // シーン切り替え予約
 void SceneManager::ChangeScene(const std::string& sceneName, float fadeOut, float fadeIn)
 {
-    if (isChanging_) {
-        return;
-    }
-
+    if (transition_.IsChanging()) { return; }
     nextSceneName_ = sceneName;
-    isChanging_ = true;
-    fadeInDuration_ = fadeIn;
+    transition_.Begin(fadeOut, fadeIn);
+}
 
-    // 暗転開始
-    fade_.Start(Fade::Status::FadeOut, fadeOut);
+bool SceneManager::SetDebugStartScene(const std::string& sceneName)
+{
+#ifdef _DEBUG
+    if (!IsDebugStartScene(sceneName)) { return false; }
+    try {
+        const nlohmann::json settings = { { "scene", sceneName } };
+        std::ofstream file(kDebugStartupPath, std::ios::trunc);
+        if (!file) { return false; }
+        file << settings.dump(2) << '\n';
+        file.flush();
+        if (!file) { return false; }
+        debugStartScene_ = sceneName;
+        return true;
+    } catch (const std::exception& error) {
+        Logger::LogError("Debug startup settings: " + std::string(error.what()));
+        return false;
+    }
+#else
+    (void)sceneName;
+    return false;
+#endif
 }

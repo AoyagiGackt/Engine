@@ -863,6 +863,9 @@
     <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorUiStyle.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
@@ -1271,5 +1274,69 @@
     <None Include="Resources\shaders\Particle\Particle.hlsli">
       <Filter>Shader\Particle</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\AwakenGaugeHud.cpp"><Filter>ソースファイル\Engine\game\cpp\UI</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\TrainingHud.cpp"><Filter>ソースファイル\Engine\game\cpp\UI</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\WeaponSlotHud.cpp"><Filter>ソースファイル\Engine\game\cpp\UI</Filter></ClCompile>
+    <ClInclude Include="Engine\game\h\Level\EditorGamePreview.h"><Filter>ヘッダーファイル\Engine\game\h\Level</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\GamePauseController.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\UI\AwakenGaugeHud.h"><Filter>ヘッダーファイル\Engine\game\h\UI</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\UI\HudLayer.h"><Filter>ヘッダーファイル\Engine\game\h\UI</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\UI\TrainingHud.h"><Filter>ヘッダーファイル\Engine\game\h\UI</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\UI\WeaponSlotHud.h"><Filter>ヘッダーファイル\Engine\game\h\UI</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneParticles.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneEnemyAttacks.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntimeBehavior.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntimeQueries.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorEventPanels.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorWorkflowPanels.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorPlacement.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorHistory.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorGameplayInspector.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerVisuals.cpp"><Filter>ソースファイル\Engine\game\cpp\Player</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneFinisher.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scripting\GraphEditorPalette.cpp"><Filter>ソースファイル\Engine\game\cpp\Scripting</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerStatus.cpp"><Filter>ソースファイル\Engine\game\cpp\Player</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Level\FallingFloorBehavior.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
+    <ClInclude Include="Engine\game\h\Level\FallingFloorBehavior.h"><Filter>ヘッダーファイル\Engine\game\h\Level</Filter></ClInclude>
   </ItemGroup>
 </Project>

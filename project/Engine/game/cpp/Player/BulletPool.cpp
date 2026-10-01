@@ -7,6 +7,18 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
+namespace {
+constexpr float kBulletScale = 0.35f;
+constexpr Vector4 kBulletColor = { 1.0f, 0.85f, 0.1f, 1.0f };
+constexpr Vector3 kHiddenPosition = { 0.0f, -999.0f, 0.0f }; // 未使用の弾を画面外へ退避させる位置
+constexpr float kBulletLifeFrames = 90.0f;
+// この範囲を出た弾は消す（ステージの外枠）
+constexpr float kBoundsMinX = 2.0f;
+constexpr float kBoundsMaxX = 28.0f;
+constexpr float kBoundsMinY = -1.0f;
+constexpr float kBoundsMaxY = 14.0f;
+}
+
 void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
 {
     for (auto& s : slots_) {
@@ -14,9 +26,9 @@ void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
         s.obj->Initialize(modelCommon);
         s.obj->SetModel(model);
         s.obj->SetEnableLighting(false);
-        s.obj->SetScale({ 0.35f, 0.35f, 0.35f });
-        s.obj->SetColor({ 1.0f, 0.85f, 0.1f, 1.0f });
-        s.obj->SetPosition({ 0.0f, -999.0f, 0.0f });
+        s.obj->SetScale({ kBulletScale, kBulletScale, kBulletScale });
+        s.obj->SetColor(kBulletColor);
+        s.obj->SetPosition(kHiddenPosition);
         s.obj->Update();
     }
 }
@@ -27,7 +39,7 @@ void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
         if (!s.active) {
             s.pos = pos;
             s.vel = vel;
-            s.life = 90.0f;
+            s.life = kBulletLifeFrames;
             s.active = true;
             s.obj->SetPosition(pos);
             s.obj->Update();
@@ -47,7 +59,7 @@ void BulletPool::Update()
         s.pos.y += s.vel.y;
         s.life -= 1.0f;
 
-        if (s.pos.x < 2.0f || s.pos.x > 28.0f || s.pos.y < -1.0f || s.pos.y > 14.0f || s.life <= 0.0f) {
+        if (s.pos.x < kBoundsMinX || s.pos.x > kBoundsMaxX || s.pos.y < kBoundsMinY || s.pos.y > kBoundsMaxY || s.life <= 0.0f) {
             s.active = false;
             continue;
         }

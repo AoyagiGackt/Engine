@@ -5,6 +5,7 @@
 #pragma once
 #include "Model.h"
 #include "ModelCommon.h"
+#include "SkinnedModel.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -45,6 +46,23 @@ public:
     Model* FindModel(const std::string& filePath);
 
     /**
+     * @brief モデル+テクスチャの組み合わせで読み込み済みなら共有し、無ければ読み込んで登録する
+     * @param modelCommon モデル生成に使う共通描画設定
+     * @param modelFilePath 読み込むモデルファイルのパス（OBJ/glTF）
+     * @param textureFilePath 貼り付けるテクスチャのパス
+     * @note 同じ敵/配置物を複数体・複数レベルで使い回す際に、頂点解析とGPUバッファ生成を1回だけで済ませる
+     */
+    Model* GetOrLoad(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath);
+
+    /**
+     * @brief GetOrLoad()のSkinnedModel版（アニメーション付きモデルの静的メッシュ・ボーン情報を共有する）
+     * @note アニメーション再生位置やスケルトンの現在姿勢はSkinnedObject3d側が個体ごとに持つため、
+     * ここで共有するSkinnedModelは不変のメッシュ・逆バインド行列だけで安全に使い回せる
+     */
+    SkinnedModel* GetOrLoadSkinned(engine::DirectXCommon* dxCommon,
+        const std::string& gltfFilePath, const std::string& textureFilePath);
+
+    /**
      * @brief マネージャーの終了処理保持しているすべてのモデルデータを破棄する
      */
     void Finalize();
@@ -63,6 +81,11 @@ private:
      * @note キーにファイルパス（std::string）、値にモデルの実体（std::unique_ptr<Model>）を保持
      */
     std::map<std::string, std::unique_ptr<Model>> models_;
+
+    /** @brief GetOrLoad()用のキャッシュ（キー モデルパス+'|'+テクスチャパス） */
+    std::map<std::string, std::unique_ptr<Model>> sharedModels_;
+    /** @brief GetOrLoadSkinned()用のキャッシュ（キー モデルパス+'|'+テクスチャパス） */
+    std::map<std::string, std::unique_ptr<SkinnedModel>> sharedSkinnedModels_;
 };
 
 } // namespace engine::graphics

@@ -106,6 +106,20 @@ public:
      */
     void Reset();
 
+    /** @brief 解放状況・装備状態の実行時スナップショット（タイトルデモ等、一時的にUnlockAll()する場面の退避・復元用） */
+    struct Snapshot {
+        std::vector<bool> unlocked;
+        std::array<int, 4> slots { -1, -1, -1, -1 };
+        int index = 0;
+        int selectedSlot = -1;
+        int pendingWeaponIndex = -1;
+        int rangedIndex = 0;
+    };
+    /** @brief 現在の解放状況・装備状態を退避する */
+    Snapshot SaveSnapshot() const;
+    /** @brief SaveSnapshot()で退避した状態へ戻す */
+    void RestoreSnapshot(const Snapshot& snapshot);
+
 private:
     WeaponManager();
 

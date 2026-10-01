@@ -96,6 +96,17 @@ public: // メンバ関数
     /** @brief 指定アクションが押された瞬間かを返す */
     bool TriggerAction(Action action) const;
 
+    /**
+     * @brief 指定アクションの押下状態を実機入力の代わりに強制する（タイトルデモ等の自動操作用）
+     * @note 呼んだアクションだけ実機入力を無視するようになる（PushKey/TriggerKey等の生キー参照や、
+     * オーバーライドしていない他のActionには一切影響しない）。毎フレーム希望する状態で呼び直すこと
+     * （1フレームだけtrueにしてTriggerAction()へパルスを起こしたい場合、次フレームは明示的にfalseで呼ぶ）
+     */
+    void SetActionOverride(Action action, bool pressed);
+
+    /** @brief 全アクションのオーバーライドを解除し、実機入力の参照に戻す */
+    void ClearActionOverrides();
+
     /** @brief ゲームパッドが現在接続されているかを返す */
     bool IsGamepadConnected() const { return gamepadConnected_; }
 
@@ -107,6 +118,19 @@ public: // メンバ関数
 
     // マウス関連
     bool TriggerMouseButton(int32_t buttonNumber);
+    /** @brief マウスボタンが押されている間trueを返す */
+    bool PushMouseButton(int32_t buttonNumber) const
+    {
+        return buttonNumber >= 0 && buttonNumber < 8 && (mouseState_.rgbButtons[buttonNumber] & 0x80) != 0;
+    }
+    /** @brief クライアント領域を基準にしたマウス座標を取得する */
+    POINT GetMouseClientPosition() const
+    {
+        POINT point = {};
+        GetCursorPos(&point);
+        if (winApp_) { ScreenToClient(winApp_->GetHwnd(), &point); }
+        return point;
+    }
 
     /** @brief マウスのホイールスクロール量を取得する */
     int32_t GetWheel() const { return mouseState_.lZ; }
@@ -145,6 +169,11 @@ private:
     bool gamepadConnected_ = false; ///< 現在の接続状態
     bool gamepadConnectedPrevious_ = false; ///< 前フレームの接続状態
     std::array<ActionBinding, static_cast<size_t>(Action::Count)> actionBindings_ { };
+
+    // アクションオーバーライド（SetActionOverride参照）。有効なアクションだけ実機入力より優先する
+    std::array<bool, static_cast<size_t>(Action::Count)> actionOverrideEnabled_ { };
+    std::array<bool, static_cast<size_t>(Action::Count)> actionOverridePressed_ { };
+    std::array<bool, static_cast<size_t>(Action::Count)> actionOverridePressedPrev_ { };
 
     // マウス状態管理用
 

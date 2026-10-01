@@ -4,6 +4,7 @@
  */
 #include "MeleeCombo.h"
 #include "Easing.h"
+#include "GameConstants.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "Weapon.h"
@@ -24,7 +25,14 @@ using namespace engine::game;
 //   Axe        … 荒々しい3段。締めの大車輪で纏めて吹き飛ばす
 namespace {
 
-constexpr float kDeg = 3.14159265f / 180.0f;
+constexpr float kDeg = GameConstants::kDegToRad;
+constexpr float kMinAttackDuration = 0.05f; // JSONで0以下を書かれても段が進むようにする下限
+constexpr float kMinAnimSpeed = 0.05f;
+// 体の傾きを振りかぶり・振り抜き・構え直しの3相に分ける時刻（ヒットタイミング・段の長さに対する比）
+constexpr float kWindupEndRatio = 0.6f;
+constexpr float kStrikeEndHitRatio = 1.3f;
+constexpr float kStrikeEndDurationRatio = 0.75f;
+constexpr float kRecoverBeginRatio = 0.8f;
 
 // bodyLeanFrom/To の付け方（体=rig_->objectの傾き。武器スイングとは独立した軸で同じ動きの繰り返し感を消す）
 //   ・横振り(武器スイングがZ軸)   → 体もZ軸で振りと同方向に、振りの約1/4の角度で追従して傾く
@@ -164,7 +172,7 @@ void RefreshView(RuntimeComboSet& set)
 void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
 {
     attack.damageMult = (std::max)(data.value("damageMult", attack.damageMult), 0.0f);
-    attack.duration = (std::max)(data.value("duration", attack.duration), 0.05f);
+    attack.duration = (std::max)(data.value("duration", attack.duration), kMinAttackDuration);
     attack.hitTime = std::clamp(data.value("hitTime", attack.hitTime), 0.0f, attack.duration);
     attack.cancelTime = std::clamp(data.value("cancelTime", attack.cancelTime), attack.hitTime, attack.duration);
     attack.lungeDist = data.value("lungeDist", attack.lungeDist);
@@ -172,7 +180,7 @@ void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
     attack.knockX = data.value("knockX", attack.knockX);
     attack.knockY = data.value("knockY", attack.knockY);
     attack.hitStop = (std::max)(data.value("hitStop", attack.hitStop), 0);
-    attack.animSpeed = (std::max)(data.value("animSpeed", attack.animSpeed), 0.05f);
+    attack.animSpeed = (std::max)(data.value("animSpeed", attack.animSpeed), kMinAnimSpeed);
 }
 
 std::array<RuntimeComboSet, 8>& GetRuntimeComboSets()
@@ -371,9 +379,9 @@ void MeleeComboController::Reset()
 Vector3 MeleeComboController::BlendPhase(const Vector3& from, const Vector3& to) const
 {
     // 振りかぶり → 振り抜き → 構え直し の3相をヒットタイミング基準で組む
-    const float windupEnd = active_->hitTime * 0.6f; // 振りかぶり完了
-    const float strikeEnd = (std::min)(active_->hitTime * 1.3f, active_->duration * 0.75f); // 振り抜き完了
-    const float recoverBeg = active_->duration * 0.8f; // 構え直し開始
+    const float windupEnd = active_->hitTime * kWindupEndRatio; // 振りかぶり完了
+    const float strikeEnd = (std::min)(active_->hitTime * kStrikeEndHitRatio, active_->duration * kStrikeEndDurationRatio); // 振り抜き完了
+    const float recoverBeg = active_->duration * kRecoverBeginRatio; // 構え直し開始
 
     auto lerp3 = [](const Vector3& a, const Vector3& b, float t) -> Vector3 {
         return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t };

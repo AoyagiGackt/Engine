@@ -7,15 +7,20 @@
 #include "StageEditor.h"
 #ifdef USE_IMGUI
 #include "Camera.h"
+#include "DiagnosticsDraw.h"
 #include "EditorUI.h"
 #include "EnemyEntity.h"
 #include "GameFlags.h"
 #include "GraphEditor.h"
 #include "KnightEnemy.h"
 #include "StageEditorPanels.h"
+#include "SceneManager.h"
 #include "StageEditorPrefabService.h"
+#include "StageEditorUiStyle.h"
 #include "WinApp.h"
 #include <algorithm>
+#include <cfloat>
+#include <iterator>
 #include <imgui.h>
 #endif
 using namespace engine::game;
@@ -25,6 +30,21 @@ using namespace engine::graphics;
 #ifdef USE_IMGUI
 
 namespace {
+namespace EditorUi = engine::game::StageEditorUiStyle;
+
+constexpr ImVec2 kContentWindowSize = { 700.0f, 470.0f };
+constexpr ImVec2 kContentWindowMinSize = { 320.0f, 240.0f };
+constexpr ImVec4 kModeLabelColor = { 0.55f, 0.78f, 1.0f, 1.0f };
+constexpr ImVec4 kUnsavedColor = { 1.0f, 0.8f, 0.35f, 1.0f };
+constexpr ImVec4 kSavedColor = { 0.5f, 0.8f, 0.65f, 1.0f };
+constexpr ImVec4 kActiveToolColor = { 0.2f, 0.46f, 0.75f, 1.0f };
+constexpr ImVec4 kStopPlayTestColor = { 0.65f, 0.32f, 0.15f, 1.0f };
+constexpr ImVec4 kStartPlayTestColor = { 0.16f, 0.48f, 0.34f, 1.0f };
+constexpr float kToolbarSnapStepWidth = 55.0f;
+constexpr float kDebugStartSceneComboWidth = 240.0f;
+constexpr ImVec2 kPlayTestOverlayPos = { 10.0f, 10.0f };
+constexpr float kPlayTestOverlayAlpha = 0.85f;
+constexpr float kAssetTileHeight = 34.0f;
 // アセットパレットに並べる配置物プリセット（モデル+テクスチャが対応済みの組み合わせのみ収録）
 struct AssetPreset {
     const char* label;
@@ -34,15 +54,15 @@ struct AssetPreset {
 
 constexpr AssetPreset kAssetPresets[] = {
     { "ブロック", "Resources/block/block.obj", "Resources/block/block.png" },
-    { "剣（Sword）", "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png" },
-    { "刀（Katana）", "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png" },
+    { "剣", "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png" },
+    { "刀", "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png" },
     { "ナイト像", "Resources/Knight/OBJ/KnightCharacter.obj", "Resources/Knight/OBJ/KnightCharacterPalette.png" },
-    { "短剣（Dagger）", "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png" },
-    { "大槌（Hammer）", "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png" },
-    { "槍（Spear）", "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png" },
-    { "大剣（Claymore）", "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png" },
-    { "大鎌（Scythe）", "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png" },
-    { "両手斧（Axe）", "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png" },
+    { "短剣", "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png" },
+    { "大槌", "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png" },
+    { "槍", "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png" },
+    { "大剣", "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png" },
+    { "大鎌", "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png" },
+    { "両手斧", "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png" },
 };
 } // namespace
 
@@ -116,64 +136,136 @@ void StageEditor::RenderHierarchy()
     StageEditorHierarchyPanel::Render(*this);
 }
 
+void StageEditor::RenderGameViewport()
+{
+    viewport_.ClearImageRect();
+    DiagnosticsDraw::SetImageViewport();
+    if (viewportFocusMode_ || previewTextureId_ == 0) { return; }
+
+    ImGui::SetNextWindowPos(ImVec2(kLeftPanelWidth, kToolbarHeight), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(kContentWindowSize, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(kContentWindowMinSize, ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::Begin("ゲームビュー", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::TextDisabled("タイトルバーで移動 / 右下でサイズ変更 / F4で大きく表示");
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const float ratio = static_cast<float>(WinApp::kClientWidth) / WinApp::kClientHeight;
+    const float width = (std::max)(1.0f, (std::min)(available.x, available.y * ratio));
+    const ImVec2 size(width, width / ratio);
+    const ImVec2 cursor = ImGui::GetCursorScreenPos();
+    const ImVec2 origin(cursor.x + (std::max)(0.0f, (available.x - size.x) * 0.5f),
+        cursor.y + (std::max)(0.0f, (available.y - size.y) * 0.5f));
+    ImGui::SetCursorScreenPos(origin);
+    ImGui::Image((ImTextureID)previewTextureId_, size, { previewU0_, previewV0_ }, { previewU1_, previewV1_ });
+    viewport_.SetImageRect(origin.x, origin.y, size.x, size.y, ImGui::IsItemHovered());
+    DiagnosticsDraw::SetImageViewport(origin, size, ImGui::GetWindowDrawList());
+    ImGui::End();
+}
 void StageEditor::RenderEditorToolbar()
 {
-    const float toolbarWidth = static_cast<float>(WinApp::kClientWidth) - kLeftPanelWidth - kRightPanelWidth;
-
-    ImGui::SetNextWindowPos(ImVec2(kLeftPanelWidth, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(toolbarWidth, kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(static_cast<float>(WinApp::kClientWidth), kToolbarHeight), ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
-        | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+        | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
     ImGui::Begin("シーンビューツールバー", nullptr, flags);
-    ImGui::TextUnformatted("シーンビュー");
+
+    ImGui::TextColored(kModeLabelColor, playTestMode_ ? "テスト中" : "ステージ編集");
     ImGui::SameLine();
-    if (ImGui::Button(playTestMode_ ? "編集へ戻る" : "テスト")) {
-        SetPlayTestMode(!playTestMode_);
+    if (ImGui::Button("保存 (Ctrl+S)")) {
+        Save();
     }
     ImGui::SameLine();
-    // 変形ツール（選択中のものを強調表示。W/E/Rでも切り替わる）
+    ImGui::TextColored(dirty_ ? kUnsavedColor : kSavedColor,
+        dirty_ ? "未保存" : "保存済み");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!history_.CanUndo());
+    if (ImGui::Button("戻す")) { Undo(); }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!history_.CanRedo());
+    if (ImGui::Button("やり直す")) { Redo(); }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
     auto toolButton = [&](const char* label, TransformTool tool) {
         const bool active = transformTool_ == tool;
         if (active) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.55f, 0.95f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, kActiveToolColor);
         }
-        if (ImGui::Button(label)) {
-            transformTool_ = tool;
-        }
-        if (active) {
-            ImGui::PopStyleColor();
-        }
+        if (ImGui::Button(label)) { transformTool_ = tool; }
+        if (active) { ImGui::PopStyleColor(); }
         ImGui::SameLine();
     };
+    ImGui::BeginDisabled(playTestMode_);
     toolButton("移動 W", TransformTool::Move);
     toolButton("回転 E", TransformTool::Rotate);
     toolButton("拡縮 R", TransformTool::Scale);
-    ImGui::TextDisabled("|");
+    ImGui::Checkbox("座標を揃える", &snapEnabled_);
     ImGui::SameLine();
-    ImGui::Checkbox("フラグ", &showFlagsPanel_);
+    ImGui::SetNextItemWidth(kToolbarSnapStepWidth);
+    ImGui::DragFloat("##toolbarSnapStep", &snapStep_, EditorUi::kDragStepPosition, EditorUi::kMinSnapStep, EditorUi::kMaxSnapStep, "%.1f");
+    ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::Checkbox("制作", &showWorkflowPanel_);
+    ImGui::PushStyleColor(ImGuiCol_Button, playTestMode_ ? kStopPlayTestColor : kStartPlayTestColor);
+    if (ImGui::Button(playTestMode_ ? "編集へ戻る" : "遊んで確認")) { SetPlayTestMode(!playTestMode_); }
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    ImGui::BeginDisabled(playTestMode_);
+    if (ImGui::Button("文章UIを追加")) { AddUITextAt(EditorUi::kScreenCenterPosition); }
+    ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::Checkbox("イベント", &showNoCodeEventPanel_);
+    if (ImGui::Button("追加機能")) { ImGui::OpenPopup("編集追加機能"); }
+    if (ImGui::BeginPopup("編集追加機能")) {
+#ifdef _DEBUG
+        ImGui::SeparatorText("Debugの開始位置");
+        constexpr const char* scenes[] = { "TITLE", "MAP", "GAMEPLAY", "TRAINING", "BATTLETEST", "OPTIONS" };
+        constexpr const char* labels[] = { "タイトル", "マップ選択", "本編の最初のステージ", "トレーニング", "戦闘テスト", "オプション" };
+        auto* manager = SceneManager::GetInstance();
+        constexpr int kSceneCount = static_cast<int>(std::size(scenes));
+        int selected = 0;
+        for (int i = 0; i < kSceneCount; ++i) {
+            if (manager->GetDebugStartScene() == scenes[i]) { selected = i; }
+        }
+        ImGui::SetNextItemWidth(kDebugStartSceneComboWidth);
+        if (ImGui::Combo("開始画面", &selected, labels, kSceneCount)) {
+            const bool saved = manager->SetDebugStartScene(scenes[selected]);
+            statusMessage_ = saved ? std::string("次回のDebug起動は「") + labels[selected] + "」から開始します"
+                                   : "Debugの開始位置を保存できませんでした";
+            statusTimer_ = StageEditor::kStatusLongSeconds;
+        }
+        ImGui::TextDisabled("自動保存され、次回のDebug起動に反映します");
+        ImGui::Separator();
+#endif
+        ImGui::MenuItem("制作・保存前チェック", nullptr, &showWorkflowPanel_);
+        ImGui::MenuItem("イベントをつなぐ", nullptr, &showNoCodeEventPanel_);
+        ImGui::MenuItem("敵の出現を作る", nullptr, &showWavePanel_);
+        ImGui::Separator();
+        ImGui::MenuItem("フラグを確認", nullptr, &showFlagsPanel_);
+        ImGui::MenuItem("グラフを編集", nullptr, &showGraphPanel_);
+        ImGui::MenuItem("配置したテキストを表示", nullptr, &showUIText_);
+        ImGui::MenuItem("グリッド線を表示", nullptr, &showGrid_);
+        ImGui::EndPopup();
+    }
     ImGui::SameLine();
-    ImGui::Checkbox("グラフ", &showGraphPanel_);
+    if (ImGui::Button("使い方")) { showEditorHelp_ = true; }
     ImGui::SameLine();
-    ImGui::Checkbox("Wave", &showWavePanel_);
+    if (ImGui::Button("広く見る F4")) { viewportFocusMode_ = true; }
+
     ImGui::SameLine();
-    ImGui::Checkbox("テキスト表示", &showUIText_);
-    EditorUI::HelpMarker("配置物の邪魔になる時、ui_textのマーカーと表示だけを一時的に隠します（保存内容には影響しません）");
-    ImGui::SameLine();
-    if (ImGui::Button("最大化 F4")) {
-        viewportFocusMode_ = true;
+    if (statusTimer_ > 0.0f) {
+        ImGui::TextUnformatted(statusMessage_.c_str());
+    } else if (playTestMode_) {
+        ImGui::TextUnformatted("ゲーム操作で確認 / 「編集へ戻る」で調整を再開");
+    } else if (selKind_ == SelKind::None) {
+        ImGui::TextUnformatted("素材で配置 / クリックで選択 / 右ボタン+WASDでカメラ / ホイールでズーム");
+    } else {
+        ImGui::TextUnformatted("つかんで移動 / Fでカメラ / Ctrl+Dで複製 / Ctrl+Zで戻す");
     }
     ImGui::End();
 }
-
 void StageEditor::RenderViewportFocusBar()
 {
     // ゲーム画面を遮る範囲を抑えつつ、通常レイアウトへ戻る操作だけを残す
-    ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.85f);
+    ImGui::SetNextWindowPos(kPlayTestOverlayPos, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(kPlayTestOverlayAlpha);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize
         | ImGuiWindowFlags_NoCollapse
         | ImGuiWindowFlags_NoSavedSettings;
@@ -193,10 +285,10 @@ void StageEditor::RenderInspector()
 void StageEditor::RenderAssetPalette()
 {
     const float availableHeight = static_cast<float>(WinApp::kClientHeight) - kToolbarHeight;
-    const float hierarchyHeight = availableHeight * 0.62f;
+    const float hierarchyHeight = availableHeight * EditorUi::kHierarchyHeightRatio;
     ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(kLeftPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
-    ImGui::Begin("アセットパレット", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("素材を配置", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる
     bool hasPropSel = (selKind_ == SelKind::Object && selIndex_ >= 0
@@ -206,15 +298,26 @@ void StageEditor::RenderAssetPalette()
     ImGui::RadioButton("新規配置", &paletteMode_, 0);
     ImGui::SameLine();
     ImGui::BeginDisabled(!hasPropSel);
-    ImGui::RadioButton("選択へ差し替え", &paletteMode_, 1);
+    ImGui::RadioButton("見た目を変更", &paletteMode_, 1);
     ImGui::EndDisabled();
     EditorUI::HelpMarker("新規配置: クリックしたプリセットを画面中央に追加します\n選択へ差し替え: 選択中の配置物のモデルを置き換えます（配置物を選択中のみ有効）");
 
+    // 差し替え対象がなくなった時に、意図せず新規配置しないようモードを戻す。
+    if (!hasPropSel) { paletteMode_ = 0; }
     bool applyToSelection = (paletteMode_ == 1 && hasPropSel);
     ImGui::TextDisabled(applyToSelection ? "クリックで選択中の配置物のモデルを差し替え" : "クリックで画面中央に新規配置");
 
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##素材検索", "素材名で検索", paletteSearch_, sizeof(paletteSearch_));
+    const float tileWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    int visibleCount = 0;
+    ImGui::BeginDisabled(playTestMode_);
     for (const auto& preset : kAssetPresets) {
-        if (ImGui::Button(preset.label, ImVec2(-1, 0))) {
+        if (paletteSearch_[0] != '\0' && std::string(preset.label).find(paletteSearch_) == std::string::npos) {
+            continue;
+        }
+        if (visibleCount++ % 2 != 0) { ImGui::SameLine(); }
+        if (ImGui::Button(preset.label, ImVec2(tileWidth, kAssetTileHeight))) {
             if (applyToSelection) {
                 RecordUndoSnapshotNow();
                 ObjectEntry& entry = objects_[selIndex_];
@@ -226,144 +329,11 @@ void StageEditor::RenderAssetPalette()
             }
         }
     }
-
-    ImGui::End();
-}
-
-void StageEditor::RenderWorkflowPanel()
-{
-    ImGui::SetNextWindowPos(ImVec2(290.0f, 0.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 230.0f), ImGuiCond_Once);
-    ImGui::Begin("編集ワークフロー");
-
-    if (ImGui::Button(playTestMode_ ? "編集モードへ戻る" : "現在の配置でテスト", ImVec2(-1.0f, 0.0f))) {
-        SetPlayTestMode(!playTestMode_);
-    }
-    ImGui::TextDisabled(playTestMode_ ? "ゲーム更新中  F2で終了" : "ゲーム停止中  配置を安全に編集できます");
-
-    ImGui::SeparatorText("テスト");
-    if (ImGui::Button("画面中央からテスト", ImVec2(140.0f, 0.0f))) {
-        if (!StartPlayTestAt(ViewCenterOnGround())) {
-            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
-            statusTimer_ = 3.0f;
-        }
-    }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(selKind_ == SelKind::None);
-    if (ImGui::Button("選択位置からテスト", ImVec2(140.0f, 0.0f))) {
-        Vector3 start = ViewCenterOnGround();
-        if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-            start = WorldPositionOf(objects_[selIndex_].desc);
-        } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-            start = triggers_[selIndex_].GetDesc().position;
-        }
-        if (!StartPlayTestAt(start)) {
-            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
-            statusTimer_ = 3.0f;
-        }
-    }
     ImGui::EndDisabled();
-    EditorUI::HelpMarker("プレイヤーをその場所へ移してテストを始めます。後半の区画を何度も確かめる時に使います。F2で編集へ戻ります");
-    if (ImGui::Button("選択へカメラ (F)", ImVec2(140.0f, 0.0f))) {
-        FocusCameraOnSelection();
-    }
-    ImGui::SameLine();
-    ImGui::Checkbox("グリッド線", &showGrid_);
-    EditorUI::HelpMarker("スナップON中、スナップ間隔のグリッド線を表示します。矢印キーで選択物をスナップ間隔ぶん動かせます（Shift+上下で奥行き）");
-
-    ImGui::SeparatorText("移動ギズモ");
-    ImGui::RadioButton("自由", &gizmoAxis_, 0);
-    ImGui::SameLine();
-    ImGui::RadioButton("X", &gizmoAxis_, 1);
-    ImGui::SameLine();
-    ImGui::RadioButton("Y", &gizmoAxis_, 2);
-    ImGui::SameLine();
-    ImGui::RadioButton("Z", &gizmoAxis_, 3);
-
-    ImGui::SeparatorText("プレハブ");
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##prefabName", "英数字のプレハブ名", prefabName_, sizeof(prefabName_));
-    ImGui::BeginDisabled(selKind_ != SelKind::Object);
-    if (ImGui::Button("選択物を保存", ImVec2(140.0f, 0.0f))) {
-        SaveSelectedPrefab();
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button("配置", ImVec2(140.0f, 0.0f))) {
-        InstantiatePrefab();
+    if (visibleCount == 0) {
+        ImGui::TextWrapped("一致する素材がありません。検索語を短くしてみてください。");
     }
 
-    ImGui::Checkbox("30秒ごとに自動保存", &autoSaveEnabled_);
-    if (ImGui::Button("ステージ解析")) {
-        showStageAnalysis_ = true;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("保存差分")) {
-        showSavedDiff_ = true;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("ヘルプ")) {
-        showEditorHelp_ = true;
-    }
-    if (ImGui::Button("保存前検証", ImVec2(-1.0f, 0.0f))) {
-        validationIssues_ = ValidateLevel();
-        statusMessage_ = validationIssues_.empty()
-            ? "検証完了: 問題はありません"
-            : "検証完了: " + std::to_string(validationIssues_.size()) + "件の問題があります";
-        statusTimer_ = 4.0f;
-    }
-    if (!validationIssues_.empty() && ImGui::TreeNode("検証結果")) {
-        for (int issueIndex = 0; issueIndex < static_cast<int>(validationIssues_.size()); ++issueIndex) {
-            const std::string& issue = validationIssues_[issueIndex];
-            ImGui::PushID(issueIndex);
-            if (ImGui::SmallButton("移動")) {
-                for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
-                    if (!objects_[objectIndex].desc.name.empty()
-                        && issue.find(objects_[objectIndex].desc.name) != std::string::npos) {
-                        selKind_ = SelKind::Object;
-                        selIndex_ = objectIndex;
-                        selectedObjectIndices_ = { objectIndex };
-                        if (camera_) {
-                            const Vector3 target = WorldPositionOf(objects_[objectIndex].desc);
-                            camera_->SetTranslate({ target.x, target.y, camera_->GetTranslate().z });
-                        }
-                        break;
-                    }
-                }
-            }
-            ImGui::SameLine();
-            ImGui::TextWrapped("%s", issue.c_str());
-            ImGui::PopID();
-        }
-        ImGui::TreePop();
-    }
-
-    if (recoveryAvailable_) {
-        ImGui::OpenPopup("自動保存の復旧");
-        recoveryAvailable_ = false;
-    }
-    if (ImGui::BeginPopupModal("自動保存の復旧", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("通常保存より新しい自動保存データがあります。");
-        if (ImGui::Button("復旧する", ImVec2(120.0f, 0.0f))) {
-            LevelData recovered = LevelLoader::Load(recoveryPath_);
-            LevelSnapshot snapshot;
-            snapshot.objects = std::move(recovered.objects);
-            snapshot.triggers = std::move(recovered.triggers);
-            snapshot.checkpoints = std::move(recovered.checkpoints);
-            snapshot.playerSpawn = recovered.playerSpawn;
-            snapshot.enemySpawn = recovered.enemySpawn;
-            snapshot.graphPath = recovered.graphPath;
-            snapshot.flagGraphs = recovered.flagGraphs;
-            ApplySnapshot(snapshot);
-            dirty_ = true;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("使用しない", ImVec2(120.0f, 0.0f))) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
     ImGui::End();
 }
 
@@ -374,7 +344,7 @@ void StageEditor::SaveSelectedPrefab()
     }
     const std::string path = StageEditorPrefabService::Save(prefabName_, objects_[selIndex_].desc);
     statusMessage_ = "プレハブを保存しました: " + path;
-    statusTimer_ = 2.0f;
+    statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
 void StageEditor::InstantiatePrefab()
@@ -383,13 +353,13 @@ void StageEditor::InstantiatePrefab()
     std::vector<ObjectDesc> prefabObjects = StageEditorPrefabService::Load(prefabName_);
     if (prefabObjects.empty()) {
         statusMessage_ = "プレハブが見つかりません: " + path;
-        statusTimer_ = 2.0f;
+        statusTimer_ = StageEditor::kStatusShortSeconds;
         return;
     }
 
     RecordUndoSnapshotNow();
     Vector3 center = playerSpawn_;
-    MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
+    center = ViewCenterOnGround();
     for (ObjectDesc desc : prefabObjects) {
         ObjectEntry entry;
         entry.desc = std::move(desc);
@@ -403,719 +373,25 @@ void StageEditor::InstantiatePrefab()
     selIndex_ = static_cast<int>(objects_.size()) - 1;
     selectedObjectIndices_ = { selIndex_ };
     statusMessage_ = "プレハブを配置しました";
-    statusTimer_ = 2.0f;
+    statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
-void StageEditor::RenderNoCodeEventPanel()
-{
-    ImGui::SetNextWindowPos(ImVec2(600.0f, 0.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(360.0f, 310.0f), ImGuiCond_Once);
-    ImGui::Begin("イベント");
-    ImGui::TextWrapped("条件が成立したとき、敵・扉・カメラなどへ動作を伝える設定です。上から条件、対象、動作の順に選びます。");
-    ImGui::TextDisabled("例  部屋へ入る  0秒後  敵を出現させる");
-    if (ImGui::Button("戦闘部屋テンプレートを生成", ImVec2(-1.0f, 0.0f))) {
-        RecordUndoSnapshotNow();
-        AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(ViewCenterOnGround(), nextSerial_));
-        statusMessage_ = "戦闘部屋テンプレートを生成しました";
-        statusTimer_ = 3.0f;
-    }
-    if (ImGui::CollapsingHeader("部品テンプレート（画面中央に生成）")) {
-        constexpr float kTemplateStatusSeconds = 3.0f;
-        constexpr int kPickupRowCount = 3;
-        constexpr float kPickupRowSpacing = 1.5f;
-        constexpr const char* kWallWeapons[] = { "何でも", "Sword", "Spear", "Hammer", "Dagger", "Ball", "Greatsword", "Scythe", "Axe" };
-        constexpr int kWallWeaponCount = static_cast<int>(sizeof(kWallWeapons) / sizeof(kWallWeapons[0]));
-
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##doorCondition", "開く条件のフラグ名（condition_xxx）", templateDoorCondition_, sizeof(templateDoorCondition_));
-        if (ImGui::Button("スライド扉", ImVec2(-1.0f, 0.0f))) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(ViewCenterOnGround(), templateDoorCondition_, nextSerial_));
-            statusMessage_ = "スライド扉を生成しました（条件フラグが立つとせり上がって消えます）";
-            statusTimer_ = kTemplateStatusSeconds;
-        }
-
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::Combo("##wallWeapon", &templateWallWeapon_, kWallWeapons, kWallWeaponCount);
-        if (ImGui::Button("壊せる壁", ImVec2(-1.0f, 0.0f))) {
-            RecordUndoSnapshotNow();
-            const std::string weapon = templateWallWeapon_ == 0 ? "" : kWallWeapons[templateWallWeapon_];
-            AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(ViewCenterOnGround(), weapon, nextSerial_));
-            statusMessage_ = "壊せる壁を生成しました";
-            statusTimer_ = kTemplateStatusSeconds;
-        }
-
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##guideText", "案内文", templateGuideText_, sizeof(templateGuideText_));
-        if (ImGui::Button("区画トリガー＋案内文", ImVec2(-1.0f, 0.0f))) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(ViewCenterOnGround(), templateGuideText_, nextSerial_));
-            statusMessage_ = "区画トリガーと案内文を生成しました（前の案内はグラフのSetObjectEnabledで消せます）";
-            statusTimer_ = kTemplateStatusSeconds;
-        }
-
-        if (ImGui::Button("収集物を3つ並べる", ImVec2(-1.0f, 0.0f))) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreatePickupRow(ViewCenterOnGround(), kPickupRowCount, kPickupRowSpacing, nextSerial_));
-            statusMessage_ = "収集物を生成しました";
-            statusTimer_ = kTemplateStatusSeconds;
-        }
-    }
-
-    const char* sourcePreview = "イベントトリガーを選択";
-    const int sourceIndex = eventConnection_.SourceIndex();
-    if (sourceIndex >= 0 && sourceIndex < static_cast<int>(triggers_.size())) {
-        sourcePreview = triggers_[sourceIndex].GetDesc().name.c_str();
-    } else if (sourceIndex >= static_cast<int>(triggers_.size())) {
-        const int objectIndex = sourceIndex - static_cast<int>(triggers_.size());
-        if (objectIndex >= 0 && objectIndex < static_cast<int>(objects_.size())
-            && objects_[objectIndex].desc.kind == "event_condition") {
-            sourcePreview = objects_[objectIndex].desc.name.c_str();
-        }
-    }
-    if (ImGui::BeginCombo("発生条件", sourcePreview)) {
-        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
-            const TriggerDesc& trigger = triggers_[i].GetDesc();
-            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.SourceIndex() == i)) {
-                eventConnection_.SourceIndex() = i;
-            }
-        }
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-            if (objects_[i].desc.kind != "event_condition") {
-                continue;
-            }
-            std::string label = objects_[i].desc.name + "  [" + objects_[i].desc.conditionType + "]";
-            const int encodedIndex = static_cast<int>(triggers_.size()) + i;
-            if (ImGui::Selectable(label.c_str(), eventConnection_.SourceIndex() == encodedIndex)) {
-                eventConnection_.SourceIndex() = encodedIndex;
-            }
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::SameLine();
-    {
-        // 3Dビューでトリガー/イベント条件を選択中なら、それをそのまま発生条件に使えるようにする
-        int selectedSourceIndex = -1;
-        if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-            selectedSourceIndex = selIndex_;
-        } else if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
-            && objects_[selIndex_].desc.kind == "event_condition") {
-            selectedSourceIndex = static_cast<int>(triggers_.size()) + selIndex_;
-        }
-        ImGui::BeginDisabled(selectedSourceIndex < 0);
-        if (ImGui::SmallButton("選択中を使う##sourceUseSelection")) {
-            eventConnection_.SourceIndex() = selectedSourceIndex;
-        }
-        ImGui::EndDisabled();
-    }
-    EditorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。3Dビューでトリガー/条件を選択中なら「選択中を使う」で反映できます。");
-
-    const char* targetPreview = "動作対象を選択";
-    if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())) {
-        targetPreview = objects_[eventConnection_.TargetIndex()].desc.name.c_str();
-    }
-    if (ImGui::BeginCombo("動作対象", targetPreview)) {
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-            if (!StageEditorEventConnection::SupportsTarget(objects_[i].desc)) {
-                continue;
-            }
-            const ObjectDesc& object = objects_[i].desc;
-            std::string label = object.name + "  [" + object.kind + "]";
-            if (ImGui::Selectable(label.c_str(), eventConnection_.TargetIndex() == i)) {
-                eventConnection_.TargetIndex() = i;
-            }
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::SameLine();
-    {
-        // 3Dビューで動作対象になれる配置物を選択中なら、それをそのまま動作対象に使えるようにする
-        const bool hasValidSelection = selKind_ == SelKind::Object && selIndex_ >= 0
-            && selIndex_ < static_cast<int>(objects_.size())
-            && StageEditorEventConnection::SupportsTarget(objects_[selIndex_].desc);
-        ImGui::BeginDisabled(!hasValidSelection);
-        if (ImGui::SmallButton("選択中を使う##targetUseSelection")) {
-            eventConnection_.TargetIndex() = selIndex_;
-        }
-        ImGui::EndDisabled();
-    }
-    EditorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。3Dビューで対象を選択中なら「選択中を使う」で反映できます。");
-
-    const char* actions[] = { "対象を有効化", "対象を無効化" };
-    ImGui::Combo("実行する動作", &eventConnection_.ActionIndex(), actions, 2);
-    EditorUI::HelpMarker("有効化は対象を出現または動作させます。無効化は対象を消す、または停止する用途に使います。");
-    ImGui::DragFloat("実行までの遅延 秒", &eventConnection_.DelaySeconds(), 0.1f, 0.0f, 30.0f, "%.1f");
-    EditorUI::HelpMarker("条件成立から動作開始まで待つ秒数です。0なら即座に実行します。");
-
-    ObjectDesc* selectedTarget = eventConnection_.TargetIndex() >= 0
-            && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())
-        ? &objects_[eventConnection_.TargetIndex()].desc
-        : nullptr;
-    const bool canConnect = eventConnection_.CanConnect(static_cast<int>(objects_.size()), selectedTarget);
-    ImGui::BeginDisabled(!canConnect);
-    if (ImGui::Button("接続する", ImVec2(-1.0f, 0.0f))) {
-        RecordUndoSnapshotNow();
-        std::string sourceName;
-        if (eventConnection_.SourceIndex() < static_cast<int>(triggers_.size())) {
-            TriggerDesc& trigger = triggers_[eventConnection_.SourceIndex()].GetDesc();
-            sourceName = eventConnection_.Connect(trigger, *selectedTarget);
-        } else {
-            const int conditionIndex = eventConnection_.SourceIndex() - static_cast<int>(triggers_.size());
-            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size())) {
-                sourceName = eventConnection_.Connect(objects_[conditionIndex].desc, *selectedTarget);
-            }
-        }
-        statusMessage_ = sourceName + " から " + selectedTarget->name + " へ接続しました";
-        statusTimer_ = 2.0f;
-    }
-    ImGui::EndDisabled();
-
-    ImGui::SeparatorText("現在の接続");
-    int disconnectIndex = -1;
-    auto renderConnectionTarget = [&](int objectIndex) {
-        const ObjectDesc& target = objects_[objectIndex].desc;
-        ImGui::PushID(objectIndex);
-        ImGui::Bullet();
-        ImGui::SameLine();
-        ImGui::TextWrapped("%.1f秒 -> %s -> %s", target.activationDelay,
-            target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
-        ImGui::SameLine();
-        if (ImGui::SmallButton("解除")) {
-            disconnectIndex = objectIndex;
-        }
-        ImGui::PopID();
-    };
-
-    // 1つの発生条件から複数へ繋げているケースが一目で分かるよう、対象ごとではなく発生条件ごとにまとめて表示する
-    for (const auto& triggerEntry : triggers_) {
-        const TriggerDesc& trigger = triggerEntry.GetDesc();
-        std::vector<int> targetIndices;
-        for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
-            const ObjectDesc& target = objects_[objectIndex].desc;
-            if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == trigger.flag) {
-                targetIndices.push_back(objectIndex);
-            }
-        }
-        if (targetIndices.empty()) {
-            continue;
-        }
-        ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, 1.0f), "%s (%d件)", trigger.name.c_str(),
-            static_cast<int>(targetIndices.size()));
-        for (int objectIndex : targetIndices) {
-            renderConnectionTarget(objectIndex);
-        }
-    }
-    for (const auto& conditionEntry : objects_) {
-        if (conditionEntry.desc.kind != "event_condition") {
-            continue;
-        }
-        const std::string conditionFlag = "condition_" + conditionEntry.desc.name;
-        std::vector<int> targetIndices;
-        for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
-            const ObjectDesc& target = objects_[objectIndex].desc;
-            if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == conditionFlag) {
-                targetIndices.push_back(objectIndex);
-            }
-        }
-        if (targetIndices.empty()) {
-            continue;
-        }
-        ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, 1.0f), "%s [%s] (%d件)",
-            conditionEntry.desc.name.c_str(), conditionEntry.desc.conditionType.c_str(),
-            static_cast<int>(targetIndices.size()));
-        for (int objectIndex : targetIndices) {
-            renderConnectionTarget(objectIndex);
-        }
-    }
-    // トリガー/条件が削除された等で接続元が見つからないものは最後にまとめて警告表示する
-    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
-        const ObjectDesc& target = objects_[objectIndex].desc;
-        if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty()) {
-            continue;
-        }
-        bool matched = false;
-        for (const auto& trigger : triggers_) {
-            if (trigger.GetDesc().flag == target.activationFlag) {
-                matched = true;
-                break;
-            }
-        }
-        if (!matched && target.activationFlag.starts_with("condition_")) {
-            const std::string conditionName = target.activationFlag.substr(10);
-            for (const auto& condition : objects_) {
-                if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
-                    matched = true;
-                    break;
-                }
-            }
-        }
-        if (matched) {
-            continue;
-        }
-        ImGui::PushID(objectIndex);
-        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "接続元なし -> %s", target.name.c_str());
-        ImGui::SameLine();
-        if (ImGui::SmallButton("解除")) {
-            disconnectIndex = objectIndex;
-        }
-        ImGui::PopID();
-    }
-    if (disconnectIndex >= 0) {
-        RecordUndoSnapshotNow();
-        eventConnection_.Disconnect(objects_[disconnectIndex].desc);
-    }
-    ImGui::End();
-}
-
-void StageEditor::RenderViewportContextMenu()
-{
-    if (contextMenuRequested_) {
-        ImGui::OpenPopup("SceneContextMenu");
-        contextMenuRequested_ = false;
-    }
-    if (!ImGui::BeginPopup("SceneContextMenu")) {
-        return;
-    }
-
-    auto startTestHere = [&](const Vector3& position) {
-        if (!StartPlayTestAt(position)) {
-            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
-            statusTimer_ = 3.0f;
-        }
-    };
-
-    if (contextKind_ == SelKind::Object && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(objects_.size())) {
-        ObjectDesc& desc = objects_[contextIndex_].desc;
-        ImGui::TextDisabled("%s", desc.name.c_str());
-        ImGui::Separator();
-        if (ImGui::MenuItem("ここへカメラ (F)")) {
-            FocusCameraOn(WorldPositionOf(desc));
-        }
-        if (ImGui::MenuItem("複製 (Ctrl+D)")) {
-            DuplicateSelected();
-        }
-        if (ImGui::MenuItem("削除 (Delete)")) {
-            DeleteSelected();
-        }
-        ImGui::Separator();
-        if (!desc.parent.empty() && ImGui::MenuItem("親を外す")) {
-            SetParentPreservingWorld(contextIndex_, -1);
-        }
-        const bool hasOtherSelection = selectedObjectIndices_.size() > 1;
-        if (hasOtherSelection && ImGui::MenuItem("選択中の物をこの子にする")) {
-            const std::vector<int> children = selectedObjectIndices_;
-            for (int child : children) {
-                if (child != contextIndex_) {
-                    SetParentPreservingWorld(child, contextIndex_);
-                }
-            }
-        }
-        if (ImGui::MenuItem("クリックした物を親にする...")) {
-            parentLinkChildIndex_ = contextIndex_;
-            statusMessage_ = "親にしたい配置物をクリックしてください";
-            statusTimer_ = 4.0f;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("この位置からテスト")) {
-            startTestHere(WorldPositionOf(desc));
-        }
-        ImGui::EndPopup();
-        return;
-    }
-
-    if (contextKind_ == SelKind::Trigger && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(triggers_.size())) {
-        const TriggerDesc& desc = triggers_[contextIndex_].GetDesc();
-        ImGui::TextDisabled("トリガー %s", desc.name.c_str());
-        ImGui::Separator();
-        if (ImGui::MenuItem("ここへカメラ (F)")) {
-            FocusCameraOn(desc.position);
-        }
-        if (ImGui::MenuItem("削除 (Delete)")) {
-            DeleteSelected();
-        }
-        if (ImGui::MenuItem("この位置からテスト")) {
-            startTestHere(desc.position);
-        }
-        ImGui::EndPopup();
-        return;
-    }
-
-    // 何も無い場所: ここに置く
-    const Vector3 at = contextWorldPos_;
-    ImGui::TextDisabled("ここに置く (%.1f, %.1f)", at.x, at.y);
-    ImGui::Separator();
-    if (ImGui::MenuItem("ブロック")) {
-        AddObjectAt("prop", at);
-    }
-    if (ImGui::MenuItem("収集物")) {
-        AddObjectAt("pickup", at);
-    }
-    if (ImGui::MenuItem("壊せる物")) {
-        AddObjectAt("breakable", at);
-    }
-    if (ImGui::MenuItem("敵（剣）")) {
-        AddObjectAt("enemy_basic", at);
-    }
-    if (ImGui::MenuItem("敵：ナイト")) {
-        AddObjectAt("enemy_knight", at);
-    }
-    if (ImGui::MenuItem("出現ポイント")) {
-        AddObjectAt("spawn_point", at);
-    }
-    if (ImGui::MenuItem("ギミック")) {
-        AddObjectAt("gimmick", at);
-    }
-    if (ImGui::MenuItem("トリガー")) {
-        AddTriggerAt(at);
-    }
-    if (ImGui::BeginMenu("その他")) {
-        if (ImGui::MenuItem("カメラポイント")) {
-            AddObjectAt("camera_point", at);
-        }
-        if (ImGui::MenuItem("巡回ポイント")) {
-            AddObjectAt("patrol_point", at);
-        }
-        if (ImGui::MenuItem("イベント条件")) {
-            AddObjectAt("event_condition", at);
-        }
-        if (ImGui::MenuItem("ワールドテキスト")) {
-            AddObjectAt("ui_text", at);
-        }
-        ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("テンプレート")) {
-        if (ImGui::MenuItem("スライド扉")) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(at, templateDoorCondition_, nextSerial_));
-        }
-        if (ImGui::MenuItem("壊せる壁（ハンマー）")) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(at, "Hammer", nextSerial_));
-        }
-        if (ImGui::MenuItem("区画トリガー＋案内文")) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(at, templateGuideText_, nextSerial_));
-        }
-        if (ImGui::MenuItem("戦闘部屋")) {
-            RecordUndoSnapshotNow();
-            AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(at, nextSerial_));
-        }
-        ImGui::EndMenu();
-    }
-    ImGui::Separator();
-    if (ImGui::MenuItem("ここからテスト")) {
-        startTestHere(at);
-    }
-    if (ImGui::MenuItem("ここへカメラ")) {
-        FocusCameraOn(at);
-    }
-    ImGui::EndPopup();
-}
-
-void StageEditor::RenderGraphPanel()
-{
-    constexpr float kPanelPosX = 600.0f;
-    constexpr float kPanelPosY = 320.0f;
-    constexpr float kPanelWidth = 380.0f;
-    constexpr float kPanelHeight = 300.0f;
-    constexpr float kRemoveButtonWidth = 24.0f;
-    constexpr float kStatusSeconds = 3.0f;
-    ImGui::SetNextWindowPos(ImVec2(kPanelPosX, kPanelPosY), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, kPanelHeight), ImGuiCond_Once);
-    ImGui::Begin("グラフ", &showGraphPanel_);
-    ImGui::TextWrapped("このレベルで動かすノードグラフ（F1で編集）を紐付けます。常駐グラフは読込直後から走り、フラグ起動グラフは指定フラグが立った瞬間に走ります。");
-
-    ImGui::SeparatorText("常駐グラフ");
-    ImGui::SetNextItemWidth(-1.0f);
-    const bool graphPathChanged = ImGui::InputTextWithHint("##graphPath", "Resources/Graphs/xxx.json（空なら無し）", graphPathBuffer_, sizeof(graphPathBuffer_));
-    if (ImGui::IsItemActivated()) {
-        BeginUndoCapture();
-    }
-    if (graphPathChanged) {
-        MarkUndoDirty();
-        graphPath_ = graphPathBuffer_;
-    }
-    if (ImGui::IsItemDeactivated()) {
-        CommitUndoCapture();
-    }
-    ImGui::BeginDisabled(graphPath_.empty());
-    if (ImGui::Button("ノードエディタで開く##main", ImVec2(-1.0f, 0.0f))) {
-        GraphEditor::GetInstance()->OpenAndShow(graphPath_);
-    }
-    ImGui::EndDisabled();
-
-    ImGui::SeparatorText("フラグ起動グラフ");
-    ImGui::TextDisabled("例  トリガーのフラグ room_start_0 → 敵出現の演出グラフ");
-    for (int i = 0; i < static_cast<int>(flagGraphs_.size()); ++i) {
-        ImGui::PushID(i);
-        if (ImGui::Button("x", ImVec2(kRemoveButtonWidth, 0.0f))) {
-            RecordUndoSnapshotNow();
-            flagGraphs_.erase(flagGraphs_.begin() + i);
-            ImGui::PopID();
-            break;
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("開く")) {
-            GraphEditor::GetInstance()->OpenAndShow(flagGraphs_[i].graphPath);
-        }
-        ImGui::SameLine();
-        ImGui::TextWrapped("%s  →  %s", flagGraphs_[i].flag.c_str(), flagGraphs_[i].graphPath.c_str());
-        ImGui::PopID();
-    }
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##newFlag", "フラグ名（トリガー/条件のフラグ、pickup_<名前> 等）", newFlagGraphFlag_, sizeof(newFlagGraphFlag_));
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##newFlagPath", "グラフJSONのパス", newFlagGraphPath_, sizeof(newFlagGraphPath_));
-    const bool canAdd = newFlagGraphFlag_[0] != '\0' && newFlagGraphPath_[0] != '\0';
-    ImGui::BeginDisabled(!canAdd);
-    if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f))) {
-        RecordUndoSnapshotNow();
-        FlagGraphBinding binding;
-        binding.flag = newFlagGraphFlag_;
-        binding.graphPath = newFlagGraphPath_;
-        flagGraphs_.push_back(std::move(binding));
-        newFlagGraphFlag_[0] = '\0';
-    }
-    ImGui::EndDisabled();
-
-    ImGui::SeparatorText("実行状態");
-    ImGui::Text("実行中のグラフ: %d", levelGraphs_.GetRunningCount());
-    if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f))) {
-        LevelData data;
-        data.graphPath = graphPath_;
-        data.flagGraphs = flagGraphs_;
-        levelGraphs_.Start(data);
-        statusMessage_ = "レベルのグラフを再起動しました";
-        statusTimer_ = kStatusSeconds;
-    }
-    EditorUI::HelpMarker("グラフの編集はF1のノードエディタで行い、保存後にここで再起動すると反映されます");
-    ImGui::End();
-}
-
-void StageEditor::RenderWavePanel()
-{
-    ImGui::SetNextWindowPos(ImVec2(290.0f, 240.0f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300.0f, 245.0f), ImGuiCond_Once);
-    ImGui::Begin("Wave作成");
-    ImGui::TextWrapped("同じグループの敵をまとめて生成します。生成後は各出現地点を個別に移動できます。");
-    ImGui::TextDisabled("例  room_1、敵数 3、開始条件 room_entry");
-    ImGui::InputText("グループ名", waveGroupName_, sizeof(waveGroupName_));
-    EditorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
-    const char* enemyTypes[] = { "汎用エネミー", "ナイト" };
-    ImGui::Combo("敵種類", &waveEnemyType_, enemyTypes, 2);
-    ImGui::InputInt("敵数", &waveEnemyCount_);
-    waveEnemyCount_ = std::clamp(waveEnemyCount_, 1, 32);
-    ImGui::DragFloat("配置間隔", &waveSpacing_, 0.1f, 0.5f, 20.0f);
-    EditorUI::HelpMarker("生成する敵同士の横方向の間隔です。単位はワールド座標です。");
-
-    const char* triggerPreview = "開始直後";
-    if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
-        triggerPreview = triggers_[waveStartTrigger_].GetDesc().name.c_str();
-    }
-    if (ImGui::BeginCombo("開始条件", triggerPreview)) {
-        if (ImGui::Selectable("開始直後", waveStartTrigger_ < 0)) {
-            waveStartTrigger_ = -1;
-        }
-        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
-            if (ImGui::Selectable(triggers_[i].GetDesc().name.c_str(), waveStartTrigger_ == i)) {
-                waveStartTrigger_ = i;
-            }
-        }
-        ImGui::EndCombo();
-    }
-    EditorUI::HelpMarker("開始直後ならステージ開始時に出現します。トリガーを選ぶとプレイヤーが範囲へ入った時に出現します。");
-
-    if (ImGui::Button("Waveを生成", ImVec2(-1.0f, 0.0f))) {
-        RecordUndoSnapshotNow();
-        Vector3 center = playerSpawn_;
-        MouseToGround(WinApp::kClientWidth * 0.5f, WinApp::kClientHeight * 0.5f, center);
-        std::string startFlag;
-        if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
-            startFlag = triggers_[waveStartTrigger_].GetDesc().flag;
-        }
-        StageEditorWaveConfig config;
-        config.groupName = waveGroupName_;
-        config.spawnType = waveEnemyType_ == 1 ? "knight" : "basic";
-        config.activationFlag = startFlag;
-        config.enemyCount = waveEnemyCount_;
-        config.spacing = waveSpacing_;
-        config.center = center;
-        AppendGeneratedContent(StageEditorContentFactory::CreateWave(config, nextSerial_));
-        statusMessage_ = std::string(waveGroupName_) + "を生成しました";
-        statusTimer_ = 2.0f;
-    }
-    ImGui::TextDisabled("生成後も各SpawnPointを個別に移動できます");
-    ImGui::End();
-}
-
-void StageEditor::RenderStageAnalysisPanel()
-{
-    if (!showStageAnalysis_) {
-        return;
-    }
-    ImGui::SetNextWindowSize(ImVec2(520.0f, 420.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("ステージ解析", &showStageAnalysis_);
-    std::vector<std::string> findings = ValidateLevel();
-
-    std::map<std::string, int> groupEnemyCounts;
-    std::map<std::string, int> groupConditionCounts;
-    for (const auto& entry : objects_) {
-        if (!entry.desc.enemyGroup.empty()
-            && (entry.desc.kind == "spawn_point" || entry.desc.kind == "enemy_basic" || entry.desc.kind == "enemy_knight")) {
-            ++groupEnemyCounts[entry.desc.enemyGroup];
-        }
-        if (entry.desc.kind == "event_condition" && entry.desc.conditionType == "enemy_group_defeated") {
-            ++groupConditionCounts[entry.desc.enemyGroup];
-        }
-    }
-    for (const auto& [group, count] : groupConditionCounts) {
-        if (group.empty() || !groupEnemyCounts.contains(group)) {
-            findings.push_back("敵が存在しない全滅条件です: " + group);
-        }
-    }
-    for (const auto& [group, count] : groupEnemyCounts) {
-        if (!groupConditionCounts.contains(group)) {
-            findings.push_back("全滅後の処理がない敵グループです: " + group);
-        }
-    }
-    for (size_t i = 0; i < objects_.size(); ++i) {
-        for (size_t j = i + 1; j < objects_.size(); ++j) {
-            const Vector3 a = WorldPositionOf(objects_[i].desc);
-            const Vector3 b = WorldPositionOf(objects_[j].desc);
-            if (std::abs(a.x - b.x) < 0.01f && std::abs(a.y - b.y) < 0.01f
-                && std::abs(a.z - b.z) < 0.01f) {
-                findings.push_back("同じ位置に配置されています: " + objects_[i].desc.name + " / " + objects_[j].desc.name);
-            }
-        }
-    }
-
-    if (findings.empty()) {
-        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.5f, 1.0f), "問題は見つかりませんでした");
-    } else {
-        ImGui::Text("%d件の確認項目", static_cast<int>(findings.size()));
-        for (const std::string& finding : findings) {
-            ImGui::BulletText("%s", finding.c_str());
-        }
-    }
-    ImGui::Separator();
-    ImGui::BeginDisabled(selKind_ != SelKind::Object || selIndex_ < 0);
-    if (ImGui::Button("選択位置からテスト開始", ImVec2(-1.0f, 0.0f))) {
-        for (auto& entity : externalEntities_) {
-            if (entity.name == "Player" && entity.position) {
-                *entity.position = WorldPositionOf(objects_[selIndex_].desc);
-                SetPlayTestMode(true);
-                break;
-            }
-        }
-    }
-    ImGui::EndDisabled();
-    ImGui::End();
-}
-
-void StageEditor::RenderDiffPanel()
-{
-    if (!showSavedDiff_) {
-        return;
-    }
-    ImGui::SetNextWindowSize(ImVec2(480.0f, 400.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("保存内容との差分", &showSavedDiff_);
-    std::map<std::string, const ObjectDesc*> saved;
-    for (const auto& desc : lastSavedSnapshot_.objects) {
-        saved[desc.name] = &desc;
-    }
-    int differenceCount = 0;
-    for (const auto& entry : objects_) {
-        auto found = saved.find(entry.desc.name);
-        if (found == saved.end()) {
-            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.5f, 1.0f), "+ 追加  %s", entry.desc.name.c_str());
-            ++differenceCount;
-            continue;
-        }
-        const ObjectDesc& old = *found->second;
-        const ObjectDesc& now = entry.desc;
-        if (old.position.x != now.position.x || old.position.y != now.position.y || old.position.z != now.position.z
-            || old.rotation.x != now.rotation.x || old.rotation.y != now.rotation.y || old.rotation.z != now.rotation.z
-            || old.scale.x != now.scale.x || old.scale.y != now.scale.y || old.scale.z != now.scale.z
-            || old.enabled != now.enabled || old.kind != now.kind || old.activationFlag != now.activationFlag) {
-            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "~ 変更  %s", now.name.c_str());
-            ++differenceCount;
-        }
-        saved.erase(found);
-    }
-    for (const auto& [name, desc] : saved) {
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "- 削除  %s", name.c_str());
-        ++differenceCount;
-    }
-    if (differenceCount == 0) {
-        ImGui::TextDisabled("最後の保存から変更はありません");
-    }
-    ImGui::End();
-}
-
-void StageEditor::RenderEditorHelpPanel()
-{
-    if (!showEditorHelp_) {
-        return;
-    }
-    ImGui::SetNextWindowSize(ImVec2(520.0f, 500.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("ステージ制作ヘルプ", &showEditorHelp_);
-    ImGui::SeparatorText("最初のステージを作る手順");
-    ImGui::TextWrapped("この手順では、部屋に入ると敵が出現し、全滅すると出口が開く場面を作成します。");
-    ImGui::BulletText("1  アセットパレットから床と壁を配置する");
-    ImGui::TextWrapped("   配置物を選択し、詳細設定の当たり判定を有効にします。床や壁はプレイヤーが通り抜けないsolid配置物にします。");
-    ImGui::BulletText("2  イベントパネルの戦闘部屋テンプレートを生成する");
-    ImGui::TextWrapped("   進入トリガー、敵の出現地点、全滅条件、出口、カメラ演出が一括で作られます。初回はここから始めるのが簡単です。");
-    ImGui::BulletText("3  中央ビューで各部品を選択して位置を調整する");
-    ImGui::TextWrapped("   入口に水色のトリガー、戦闘場所に敵の出現地点、奥に出口を移動します。右の詳細設定で数値も直接変更できます。");
-    ImGui::BulletText("4  上部のテストを押し、実際に入口から通して遊ぶ");
-    ImGui::TextWrapped("   敵が出ない場合はイベントの現在の接続を確認します。出口が開かない場合は敵グループ名と全滅条件のグループ名を揃えます。");
-    ImGui::BulletText("5  制作パネルで保存前検証を行い、問題がなければ保存する");
-
-    if (ImGui::CollapsingHeader("配置物の種類")) {
-        ImGui::BulletText("地形  見た目と当たり判定を持つ床や壁を作る");
-        ImGui::BulletText("敵  ステージ開始時から存在する敵を置く");
-        ImGui::BulletText("出現地点  条件成立後に敵を出現させる");
-        ImGui::BulletText("ギミック  扉、足場、点滅、移動など条件で動く物を作る");
-        ImGui::BulletText("イベント条件  敵グループ全滅などを次の動作へつなぐ");
-        ImGui::BulletText("カメラ地点  条件成立時に指定位置と角度へカメラを移動する");
-        ImGui::BulletText("トリガー  プレイヤーが範囲へ入ったことを条件にする");
-    }
-    if (ImGui::CollapsingHeader("イベントの考え方")) {
-        ImGui::TextWrapped("イベントは、いつ、何を、どうするの3項目で作ります。");
-        ImGui::BulletText("いつ  進入トリガー、敵グループ全滅などを選ぶ");
-        ImGui::BulletText("何を  敵の出現地点、扉、カメラ地点を選ぶ");
-        ImGui::BulletText("どうする  有効化または無効化と、実行までの秒数を選ぶ");
-        ImGui::TextWrapped("一つの条件から複数の対象へ接続できます。敵を出し、扉を閉め、カメラを動かす処理を同じ進入トリガーから作れます。");
-    }
-    if (ImGui::CollapsingHeader("困ったとき")) {
-        ImGui::BulletText("敵が出ない  開始条件と出現地点の接続、対象の有効設定を確認する");
-        ImGui::BulletText("出口が開かない  敵と全滅条件のグループ名を確認する");
-        ImGui::BulletText("選択できない  中央シーンビュー内でクリックし、パネル上では操作しない");
-        ImGui::BulletText("カメラが戻らない  カメラ地点の保持時間と次のカメラ演出を確認する");
-        ImGui::BulletText("変更が消えた  未保存表示を確認し、Ctrl+Sで保存する");
-        ImGui::BulletText("原因が分からない  制作パネルの保存前検証とステージ解析を実行する");
-    }
-    ImGui::SeparatorText("制作チェックリスト");
-    ImGui::Checkbox("開始地点から出口まで移動できる", &helpChecklist_[0]);
-    ImGui::Checkbox("すべての敵グループに全滅後の処理がある", &helpChecklist_[1]);
-    ImGui::Checkbox("カメラ演出後に操作画面へ戻る", &helpChecklist_[2]);
-    ImGui::Checkbox("ギミックでプレイヤーを閉じ込めない", &helpChecklist_[3]);
-    ImGui::Checkbox("保存前検証に問題がない", &helpChecklist_[4]);
-    ImGui::End();
-}
 #else
-void StageEditor::RenderHierarchy() { }
-void StageEditor::RenderEditorToolbar() { }
-void StageEditor::RenderViewportFocusBar() { }
-void StageEditor::RenderInspector() { }
-void StageEditor::RenderAssetPalette() { }
+
 void StageEditor::RenderWorkflowPanel() { }
-void StageEditor::RenderNoCodeEventPanel() { }
-void StageEditor::RenderGraphPanel() { }
 void StageEditor::RenderViewportContextMenu() { }
-void StageEditor::RenderWavePanel() { }
 void StageEditor::RenderStageAnalysisPanel() { }
 void StageEditor::RenderDiffPanel() { }
 void StageEditor::RenderEditorHelpPanel() { }
+void StageEditor::RenderNoCodeEventPanel() { }
+void StageEditor::RenderGraphPanel() { }
+void StageEditor::RenderWavePanel() { }
+void StageEditor::RenderHierarchy() { }
+void StageEditor::RenderEditorToolbar() { }
+void StageEditor::RenderViewportFocusBar() { }
+void StageEditor::RenderGameViewport() { }
+void StageEditor::RenderInspector() { }
+void StageEditor::RenderAssetPalette() { }
+
 void StageEditor::DrawHierarchyEntry(int, int) { }
 #endif

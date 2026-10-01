@@ -17,6 +17,18 @@ namespace engine::game {
 
 namespace {
 
+    // レベルJSONで省略された項目の既定値
+    constexpr float kDefaultMotionAmount = 3.0f;
+    constexpr float kDefaultCameraBlendSeconds = 0.5f;
+    constexpr float kDefaultCameraHoldSeconds = 2.0f;
+    constexpr float kDefaultPatrolSpeed = 1.5f;
+    constexpr float kDefaultPickupGaugeAmount = 0.2f;
+    constexpr float kDefaultBreakableRadius = 3.0f;
+    constexpr float kDefaultTextScale = 1.5f;
+    constexpr float kDefaultTriggerRadius = 2.0f;
+    constexpr float kDefaultCheckpointRadius = 2.0f;
+    constexpr float kMinCheckpointRadius = 0.1f;
+
     Vector3 ReadVec3(const nlohmann::json& arr, Vector3 def = { })
     {
         if (arr.is_array() && arr.size() >= 3) {
@@ -85,26 +97,26 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.conditionType = obj.value("conditionType", "manual");
         desc.conditionSeconds = obj.value("conditionSeconds", 0.0f);
         desc.gimmickMotion = obj.value("gimmickMotion", "none");
-        desc.motionAmount = obj.value("motionAmount", 3.0f);
+        desc.motionAmount = obj.value("motionAmount", kDefaultMotionAmount);
         desc.motionSpeed = obj.value("motionSpeed", 1.0f);
         desc.motionAxis = ReadVec3(obj.value("motionAxis", nlohmann::json::array()), { 1.0f, 0.0f, 0.0f });
         desc.motionRotation = ReadVec3(obj.value("motionRotation", nlohmann::json::array()));
         desc.motionMode = obj.value("motionMode", "loop");
         desc.motionEase = obj.value("motionEase", "linear");
-        desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", 0.5f);
-        desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", 2.0f);
+        desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", kDefaultCameraBlendSeconds);
+        desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", kDefaultCameraHoldSeconds);
         desc.spawnType = obj.value("spawnType", "basic");
         desc.patrolRoute = obj.value("patrolRoute", "");
         desc.routeOrder = obj.value("routeOrder", 0);
-        desc.patrolSpeed = obj.value("patrolSpeed", 1.5f);
+        desc.patrolSpeed = obj.value("patrolSpeed", kDefaultPatrolSpeed);
         desc.meshCollider = obj.value("meshCollider", false);
         desc.weaponType = obj.value("weaponType", "");
         desc.isStageBoss = obj.value("isStageBoss", false);
         desc.pickupRadius = obj.value("pickupRadius", 1.0f);
-        desc.pickupGaugeAmount = obj.value("pickupGaugeAmount", 0.2f);
+        desc.pickupGaugeAmount = obj.value("pickupGaugeAmount", kDefaultPickupGaugeAmount);
         desc.pickupColor = ReadVec4(obj.value("pickupColor", nlohmann::json::array()), desc.pickupColor);
         desc.breakableHp = obj.value("breakableHp", 2);
-        desc.breakableRadius = obj.value("breakableRadius", 3.0f);
+        desc.breakableRadius = obj.value("breakableRadius", kDefaultBreakableRadius);
         desc.breakablePlayerDamage = obj.value("breakablePlayerDamage", 4);
         desc.breakableEnemyDamage = obj.value("breakableEnemyDamage", 3);
         desc.breakableWeapon = obj.value("breakableWeapon", "");
@@ -118,7 +130,8 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.text = obj.value("text", "");
         desc.textColor = ReadVec4(obj.value("textColor", nlohmann::json::array()), { 1.0f, 1.0f, 1.0f, 1.0f });
         desc.textBold = obj.value("textBold", false);
-        desc.textScale = obj.value("textScale", 1.5f);
+        desc.textShadow = obj.value("textShadow", true);
+        desc.textScale = obj.value("textScale", kDefaultTextScale);
         desc.textSpace = obj.value("textSpace", "screen");
 
         data.objects.push_back(std::move(desc));
@@ -128,7 +141,7 @@ LevelData LevelLoader::Load(const std::string& path)
         TriggerDesc desc;
         desc.name = trg.value("name", "");
         desc.position = ReadVec3(trg.value("position", nlohmann::json::array()));
-        desc.radius = trg.value("radius", 2.0f);
+        desc.radius = trg.value("radius", kDefaultTriggerRadius);
         desc.flag = trg.value("flag", "");
         desc.value = trg.value("value", true);
         desc.once = trg.value("once", true);
@@ -140,7 +153,7 @@ LevelData LevelLoader::Load(const std::string& path)
         CheckpointDesc desc;
         desc.name = checkpoint.value("name", "");
         desc.position = ReadVec3(checkpoint.value("position", nlohmann::json::array()));
-        desc.activationRadius = (std::max)(checkpoint.value("activationRadius", 2.0f), 0.1f);
+        desc.activationRadius = (std::max)(checkpoint.value("activationRadius", kDefaultCheckpointRadius), kMinCheckpointRadius);
         data.checkpoints.push_back(std::move(desc));
     }
 
@@ -212,6 +225,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["text"] = desc.text;
         oj["textColor"] = WriteVec4(desc.textColor);
         oj["textBold"] = desc.textBold;
+        oj["textShadow"] = desc.textShadow;
         oj["textScale"] = desc.textScale;
         oj["textSpace"] = desc.textSpace;
         objectsJson.push_back(std::move(oj));
