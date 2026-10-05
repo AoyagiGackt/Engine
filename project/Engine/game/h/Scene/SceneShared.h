@@ -104,19 +104,31 @@ namespace SceneShared {
     void UpdateCameraFollow(engine::graphics::Camera* camera, const Vector3& playerPos,
         const std::vector<engine::AABB>& stageSolids, const Vector3* lockTarget = nullptr);
 
-    /** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
+    /**
+     * @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す
+     * @note 遷移先とフェード秒数はSceneFlow（scene_flow.json）の sceneName/outcome から解決する
+     */
     bool UpdatePortalTransition(engine::Input* input, const Vector3& playerPos,
-        float portalX, float proximity, const char* targetSceneName, engine::Audio* audio = nullptr);
+        float portalX, float proximity, const char* sceneName, const char* outcome,
+        const char* fallbackScene, engine::Audio* audio = nullptr);
+
+    /**
+     * @brief BGMまたはSEの音量を0〜1の範囲で増減し、Audioへ反映して設定ファイルへ保存する
+     * @param bgm trueならBGM、falseならSEの音量を変える
+     * @param delta 音量の増減量
+     * @note 値が変わったときだけ選択音を鳴らして保存する
+     */
+    void AdjustVolume(engine::Audio* audio, bool bgm, float delta);
 
     /**
      * @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す
-     * @param anchor 描画開始位置（スクリーンpx）ステージエディタのhud_anchor("hud_anchor_weapon_list")で編集する
+     * @param anchor 描画開始位置（スクリーンpx）各シーンのUILayoutの "weapon_list.pos" で編集する
      */
     float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor);
 
     /**
      * @brief 右側の操作説明パネルを描画する
-     * @param anchor 描画開始位置（スクリーンpx）ステージエディタのhud_anchor("hud_anchor_controls")で編集する
+     * @param anchor 描画開始位置（スクリーンpx）各シーンのUILayoutの "controls.pos" で編集する
      */
     void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel);
 

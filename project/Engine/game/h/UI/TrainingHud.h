@@ -17,6 +17,7 @@ private:
     WeaponManager* weapons_ = nullptr;
     Vector2 weaponAnchor_ = {};
     Vector2 controlsAnchor_ = {};
+    Vector2 navigationPosition_ = {};
     std::unique_ptr<engine::graphics::Sprite> navigation_;
     std::unique_ptr<engine::graphics::Sprite> accent_;
     std::unique_ptr<engine::graphics::Sprite> weaponPanel_;

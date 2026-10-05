@@ -291,6 +291,10 @@ void GamePlayScene::RefreshVisualTransformsForEditor()
     if (ghostObject_ && !ghostTrail_.empty()) {
         ghostObject_->Update();
     }
+
+    // HUDの文字はUpdate()内で組み立てているため、エディタでUIを動かした結果を止まった画面にも反映する
+    UpdateWeaponSlotHud();
+    DrawStyleUI();
 }
 
 SceneEditor::EditContext GamePlayScene::BuildEditContext()

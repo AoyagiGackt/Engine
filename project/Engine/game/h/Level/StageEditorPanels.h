@@ -70,10 +70,8 @@ private:
     static void RenderObjectGameplay(StageEditor& editor, bool& structuralDirty);
     /** @brief kind=="ui_text"の表示文字列・色・太字・大きさ・座標基準を編集するセクションを描画する */
     static void RenderObjectText(StageEditor& editor);
-    /** @brief kind=="hud_anchor"（武器選択/操作説明パネル等の位置マーカー）の説明表示を描画する */
-    static void RenderHudAnchorInspector(StageEditor& editor);
     /**
-     * @brief screen座標のui_text/hud_anchorが編集パネルの下に隠れてドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
+     * @brief screen座標のui_textが編集パネルの下に隠れてドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
      * @note RecordUndoSnapshotNow()がStageEditorのprivateなので、friendのこのクラスのメンバーとして実装する
      */
     static void RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc);

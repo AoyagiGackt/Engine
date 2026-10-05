@@ -33,6 +33,8 @@ private:
         float baseYaw = 0.0f;
     };
     void InitializeFrames();
+    /** @brief UILayoutから枠の位置・間隔を読み、枠とアイコンを並べ直す（エディタで動かした結果を毎フレーム反映する） */
+    void ApplyLayout();
     bool HasModelIcon(int weaponIndex) const;
     engine::graphics::SpriteCommon* sprites_ = nullptr;
     engine::graphics::ModelCommon* models_ = nullptr;

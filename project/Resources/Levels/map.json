@@ -1,0 +1,122 @@
+{
+  "_comment": "ステージ選択マップの舞台。入口ポータルの位置はコード側（ステージ数に追従）",
+  "objects": [
+    {
+      "name": "floor",
+      "type": "row",
+      "kind": "prop",
+      "axis": "x",
+      "count": 67,
+      "step": 1,
+      "model": "Resources/block/block.obj",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [
+        0,
+        -0.6,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "lighting": false,
+      "solid": false
+    },
+    {
+      "name": "city_1",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        5,
+        -0.6,
+        6
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "lighting": true,
+      "solid": false
+    },
+    {
+      "name": "city_2",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        19,
+        -0.6,
+        6
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "lighting": true,
+      "solid": false
+    },
+    {
+      "name": "city_3",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        33,
+        -0.6,
+        6
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "lighting": true,
+      "solid": false
+    },
+    {
+      "name": "city_4",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        47,
+        -0.6,
+        6
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "lighting": true,
+      "solid": false
+    },
+    {
+      "name": "city_5",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        61,
+        -0.6,
+        6
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ],
+      "lighting": true,
+      "solid": false
+    }
+  ]
+}

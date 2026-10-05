@@ -543,13 +543,9 @@ void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std
 
 void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
 {
-    // エンティティ(Player/Enemy等)はエディタが生成したものではないため複製の対象外
-    // ただし onDelete が設定されているエンティティ（シーン所有の背景オブジェクト等）だけは削除できる
+    // エンティティ(Player/Enemy等)はエディタが生成したものではないため複製・削除の対象外
     bool canDuplicate = (editor.selKind_ == StageEditor::SelKind::Object || editor.selKind_ == StageEditor::SelKind::Trigger);
-    bool canDelete = canDuplicate
-        || (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ >= 0
-            && editor.selIndex_ < static_cast<int>(editor.externalEntities_.size())
-            && editor.externalEntities_[editor.selIndex_].onDelete);
+    bool canDelete = canDuplicate;
     float halfWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     ImGui::BeginDisabled(!canDuplicate);
     if (ImGui::Button("複製 (Ctrl+D)", ImVec2(halfWidth, 0))) {

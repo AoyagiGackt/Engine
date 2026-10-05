@@ -8,18 +8,30 @@
 #include "SaveData.h"
 #include "SceneFlow.h"
 #include "SceneManager.h"
+#include "UILayout.h"
 #include "WeaponManager.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
+// 既定の配置（F2のエディタで動かした値は Resources/Config/UI/gameover.json に保存される）
+constexpr const char* kLayoutName = "gameover";
 constexpr Vector4 kOverlayColor = { 0.0f, 0.0f, 0.0f, 0.85f };
-constexpr Vector2 kRestartOptionPosition = { 440.0f, 310.0f };
-constexpr Vector2 kTitleOptionPosition = { 440.0f, 390.0f };
-constexpr Vector2 kOptionSize = { 400.0f, 60.0f };
-constexpr Vector4 kSelectedOptionColor = { 0.2f, 0.8f, 0.2f, 0.9f };
-constexpr Vector4 kIdleOptionColor = { 0.4f, 0.4f, 0.4f, 0.7f };
+constexpr Vector2 kMenuPosition = { 440.0f, 310.0f };
+constexpr Vector2 kMenuItemSize = { 400.0f, 60.0f };
+constexpr float kMenuLabelScale = 2.0f;
+
+constexpr Vector2 kTitleTextPosition = { 496.0f, 170.0f }; // 文言の幅から求めた画面中央
+constexpr float kTitleTextScale = 4.0f;
+constexpr Vector4 kTitleTextColor = { 1.0f, 0.25f, 0.25f, 1.0f };
+constexpr Vector2 kHintTextPosition = { 524.0f, 480.0f }; // 文言の幅から求めた画面中央
+constexpr float kHintTextScale = 1.0f;
+constexpr Vector4 kHintTextColor = { 0.8f, 0.8f, 0.8f, 1.0f };
+constexpr const wchar_t* kTitleText = L"GAME OVER";
+constexpr const wchar_t* kHintText = L"W/S: 選択   Space/Enter: 決定";
+
+constexpr int kRowRestart = 0;
 }
 
 // 初期化
@@ -33,21 +45,15 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     overlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
     overlay_->SetPosition({ 0.0f, 0.0f });
     overlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
-    overlay_->SetColor(kOverlayColor);
 
-    // 選択肢1: リスタート
-    option1_ = std::make_unique<Sprite>();
-    option1_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    option1_->SetPosition(kRestartOptionPosition);
-    option1_->SetSize(kOptionSize);
+    fontRenderer_.Initialize(spriteCommon_.get());
 
-    // 選択肢2: タイトルに戻る
-    option2_ = std::make_unique<Sprite>();
-    option2_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    option2_->SetPosition(kTitleOptionPosition);
-    option2_->SetSize(kOptionSize);
-
-    cursor_ = 0;
+    UIMenuStyle menuStyle;
+    menuStyle.labelScale = kMenuLabelScale;
+    menuStyle.centerLabels = true;
+    menu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
+    menu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize, menuStyle);
+    menu_.SetItems({ { "リスタート" }, { "タイトルに戻る" } });
 
     // ローグライトのラン中に力尽きた場合のみ通算記録へ反映し、コンティニューデータを破棄する
     auto* rd = RunData::GetInstance();
@@ -67,41 +73,39 @@ void GameOverScene::Finalize()
 
 void GameOverScene::Update()
 {
-    // カーソル移動
-    if (input_->TriggerKey(DIK_W)) {
-        cursor_ = 0;
+    menu_.Update(input_);
+    if (!menu_.ConsumeConfirm(input_)) {
+        return;
     }
-    if (input_->TriggerKey(DIK_S)) {
-        cursor_ = 1;
+    if (menu_.GetSelectedIndex() == kRowRestart) {
+        // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
+        RunData::GetInstance()->StartNewRun();
+        WeaponManager::GetInstance()->Reset();
+        SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
+    } else {
+        SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
     }
-
-    // 決定
-    if (input_->TriggerKey(DIK_SPACE) || input_->TriggerKey(DIK_RETURN)) {
-        if (cursor_ == 0) {
-            // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
-            RunData::GetInstance()->StartNewRun();
-            WeaponManager::GetInstance()->Reset();
-            SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
-        } else {
-            SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
-        }
-    }
-
-    // 選択中=緑、非選択=グレー
-    option1_->SetColor(cursor_ == 0 ? kSelectedOptionColor : kIdleOptionColor);
-    option2_->SetColor(cursor_ == 1 ? kSelectedOptionColor : kIdleOptionColor);
-
-    overlay_->Update();
-    option1_->Update();
-    option2_->Update();
 }
 
 // 描画
 
 void GameOverScene::Draw()
 {
+    // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄と配置の反映は毎フレーム必ず通るここで行う
+    fontRenderer_.Reset();
+    UILayout& layout = UILayout::Get(kLayoutName);
+    overlay_->SetColor(layout.Color("background.color", kOverlayColor));
+    overlay_->Update();
+
     spriteCommon_->CommonDrawSettings();
     overlay_->Draw();
-    option1_->Draw();
-    option2_->Draw();
+    menu_.Draw();
+
+    const Vector2 titlePosition = layout.Pos("title.pos", kTitleTextPosition);
+    fontRenderer_.DrawStringW(kTitleText, titlePosition.x, titlePosition.y,
+        layout.Float("title.scale", kTitleTextScale), layout.Color("title.color", kTitleTextColor));
+    const Vector2 hintPosition = layout.Pos("hint.pos", kHintTextPosition);
+    fontRenderer_.DrawStringW(kHintText, hintPosition.x, hintPosition.y,
+        layout.Float("hint.scale", kHintTextScale), layout.Color("hint.color", kHintTextColor));
+    fontRenderer_.Draw();
 }

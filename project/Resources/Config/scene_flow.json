@@ -34,6 +34,9 @@
   "TRAINING": {
     "title": { "scene": "TITLE", "fadeOut": 0.4, "fadeIn": 0.4 },
     "map": { "scene": "MAP", "fadeOut": 0.4, "fadeIn": 0.4 },
-    "battle_test": { "scene": "BATTLETEST" }
+    "battle_test": { "scene": "BATTLETEST", "fadeOut": 0.4, "fadeIn": 0.4 }
+  },
+  "BATTLETEST": {
+    "back": { "scene": "TRAINING", "fadeOut": 0.4, "fadeIn": 0.4 }
   }
 }

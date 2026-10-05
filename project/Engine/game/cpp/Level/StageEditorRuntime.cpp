@@ -5,7 +5,6 @@
  * 敵/巡回/イベント条件の評価）をまとめている。クラス自体はStageEditorのまま、定義の置き場所だけを分けている
  */
 #include "StageEditor.h"
-#include "StageEditorUiStyle.h"
 #include "FallingFloorBehavior.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -193,37 +192,6 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     selectedObjectIndices_ = { selIndex_ };
 }
 
-void StageEditor::EnsureHudAnchors()
-{
-    auto ensureAnchor = [&](const std::string& name, const std::string& label, const Vector3& defaultPos) {
-        for (const auto& entry : objects_) {
-            if (entry.desc.name == name) {
-                return;
-            }
-        }
-        ObjectEntry entry;
-        entry.desc.name = name;
-        entry.desc.kind = "hud_anchor";
-        entry.desc.text = label;
-        entry.desc.position = defaultPos;
-        entry.runtimeActive = true;
-        objects_.push_back(std::move(entry));
-    };
-    // 既定位置は、これまでコード側に直書きされていた各HUDの原点座標と同じにする
-    ensureAnchor("hud_anchor_controls", "操作説明", StageEditorUiStyle::kControlsHudAnchorPosition);
-    ensureAnchor("hud_anchor_weapon_list", "武器選択", StageEditorUiStyle::kWeaponListHudAnchorPosition);
-}
-
-Vector2 StageEditor::GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const
-{
-    for (const auto& entry : objects_) {
-        if (entry.desc.kind == "hud_anchor" && entry.desc.name == anchorName) {
-            return { entry.desc.position.x, entry.desc.position.y };
-        }
-    }
-    return fallback;
-}
-
 void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
     std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
     std::function<void(const std::string&, const std::string&)> setStaticVisualModel,
@@ -248,31 +216,6 @@ void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* posit
     ref.setStaticVisualModel = std::move(setStaticVisualModel);
     ref.getStaticVisualModel = std::move(getStaticVisualModel);
     ref.getStaticVisualTexture = std::move(getStaticVisualTexture);
-    externalEntities_.push_back(std::move(ref));
-}
-
-void StageEditor::RegisterExternalObject(const std::string& name, Object3d* object,
-    std::function<void()> onDelete, std::function<void()> onDuplicate)
-{
-    if (!object) {
-        return;
-    }
-    Vector3* position = &object->GetTransform().translate;
-    for (auto& ref : externalEntities_) {
-        if (ref.name == name) {
-            ref.position = position;
-            ref.object = object;
-            ref.onDelete = std::move(onDelete);
-            ref.onDuplicate = std::move(onDuplicate);
-            return;
-        }
-    }
-    ExternalEntityRef ref;
-    ref.name = name;
-    ref.position = position;
-    ref.object = object;
-    ref.onDelete = std::move(onDelete);
-    ref.onDuplicate = std::move(onDuplicate);
     externalEntities_.push_back(std::move(ref));
 }
 

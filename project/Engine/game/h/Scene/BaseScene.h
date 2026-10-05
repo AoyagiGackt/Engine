@@ -148,7 +148,6 @@ public:
     virtual const char* GetHotkeyOverlayExtra() const { return nullptr; }
     /** @brief 画面端のF1/F2/F3操作ガイドを表示するか */
     virtual bool ShouldShowHotkeyOverlay() const { return true; }
-
     // ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全）
 
     /**

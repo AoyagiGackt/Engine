@@ -91,7 +91,21 @@ public:
      */
     void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
+    // 背景デモの床とビルは Resources/Levels/title.json に置き、F2のステージエディタで編集する
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/title.json"; }
+    engine::graphics::ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    engine::graphics::Camera* GetEditorCamera() override { return camera_.get(); }
+    /** @brief エディタ表示中（デモ停止中）もカメラ移動に合わせてデモの見た目の行列だけ更新する */
+    void RefreshVisualTransformsForEditor() override;
+
 private:
+    /** @brief NEW GAME等の選択と決定（OPTIONSでは画面を切り替えず設定メニューを開く） */
+    void UpdateMainMenu();
+    /** @brief 設定メニューの音量調整と、BACK/ESCでメインメニューへ戻る処理 */
+    void UpdateOptionsMenu();
+    /** @brief 設定メニューの音量行の右側に現在の音量を百分率で描く */
+    void DrawVolumeValue(int row, float volume);
+
     // 外部から提供される基盤システム（借りてくるもの）
 
     /** @brief DirectX基盤のポインタ */
@@ -116,8 +130,14 @@ private:
 
     FontRenderer fontRenderer_;
 
-    /** @brief NEW GAME / CONTINUE / TRAINING を選択するメニュー */
+    /** @brief NEW GAME / CONTINUE / TRAINING / OPTIONS を選択するメニュー */
     UIMenu menu_;
+
+    /** @brief OPTIONSを選んだときにメインメニューと入れ替えて出す BGM / SE / BACK のメニュー */
+    UIMenu optionsMenu_;
+
+    /** @brief 設定メニューを表示中か */
+    bool optionsOpen_ = false;
 
     /** @brief シーン終了フラグ（trueになるとシーンが切り替わる） */
     bool finished_ = false;
@@ -133,14 +153,6 @@ private:
     /** @brief デモを演じるプレイヤー本体（本編と同じPlayerクラス、Inputのアクションオーバーライドで自動操作する） */
     std::unique_ptr<Player> player_;
     ParticleManager* particleManager_ = nullptr;
-
-    /** @brief 足場・左右の壁の飾りブロック（無いとプレイヤーが宙に浮いて見える） */
-    Model* groundModel_ = nullptr;
-    std::vector<std::unique_ptr<Object3d>> groundBlocks_;
-
-    /** @brief 奥に置く背景のビル（TrainingScene/MapSceneと同じ、地面と壁だけだと寂しいための奥行き演出） */
-    Model* cityModel_ = nullptr;
-    std::vector<std::unique_ptr<Object3d>> cityObjects_;
 
     /** @brief 背景の天球（GamePlaySceneと同じモデル、カメラに追従する） */
     Model* modelSkydome_ = nullptr;

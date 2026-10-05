@@ -186,6 +186,35 @@ void StageEditor::GetPickupCounts(int& outCollected, int& outTotal) const
     }
 }
 
+bool StageEditor::IsEntryDrawable(const ObjectEntry& entry) const
+{
+    if (!entry.runtimeActive || !entry.visibleOverride || entry.pickupCollected || entry.breakableDestroyed) {
+        return false;
+    }
+    if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
+        && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
+        return false;
+    }
+    if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "fall"
+        && !FallingFloorBehavior::Evaluate(entry.runtimeTimer, entry.desc.motionSpeed,
+            entry.desc.motionAmount).visible) {
+        return false;
+    }
+    return true;
+}
+
+void StageEditor::DrawObjectShadows()
+{
+    for (auto& entry : objects_) {
+        if (!IsEntryDrawable(entry)) {
+            continue;
+        }
+        for (auto& obj : entry.instances) {
+            obj->DrawShadow();
+        }
+    }
+}
+
 void StageEditor::DrawObjects()
 {
     // BaseScene::Render()がシーンのDraw()の直後に自動で呼ぶため自己完結させる
@@ -204,16 +233,7 @@ void StageEditor::DrawObjects()
     Object3d::RebindCommonLighting(modelCommon_->GetDxCommon()->GetCommandList());
 
     for (auto& entry : objects_) {
-        if (!entry.runtimeActive || !entry.visibleOverride || entry.pickupCollected || entry.breakableDestroyed) {
-            continue;
-        }
-        if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
-            && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
-            continue;
-        }
-        if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "fall"
-            && !FallingFloorBehavior::Evaluate(entry.runtimeTimer, entry.desc.motionSpeed,
-                entry.desc.motionAmount).visible) {
+        if (!IsEntryDrawable(entry)) {
             continue;
         }
         for (auto& obj : entry.instances) {

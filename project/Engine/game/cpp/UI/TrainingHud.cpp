@@ -5,6 +5,7 @@
 #include "TrainingHud.h"
 #include "FontRenderer.h"
 #include "SceneShared.h"
+#include "UILayout.h"
 #include <algorithm>
 namespace engine::game {
 namespace {
@@ -38,13 +39,17 @@ constexpr float kHintScale = 1.05f;
 constexpr float kHintLineHeight = 23.0f;
 constexpr Vector4 kHintColor = { 0.88f, 0.9f, 0.96f, 1.0f };
 
-// ナビゲーション枠内の文字
-constexpr Vector2 kStageSelectTextPosition = { 872.0f, 666.0f };
+// ナビゲーション枠内の文字（枠の左上からの位置）
+constexpr Vector2 kStageSelectTextOffset = { 20.0f, 12.0f };
 constexpr float kStageSelectTextScale = 1.1f;
 constexpr Vector4 kStageSelectTextColor = { 1.0f, 0.9f, 0.65f, 1.0f };
-constexpr Vector2 kTitleTextPosition = { 872.0f, 689.0f };
+constexpr Vector2 kTitleTextOffset = { 20.0f, 35.0f };
 constexpr float kTitleTextScale = 0.9f;
 constexpr Vector4 kTitleTextColor = { 0.82f, 0.86f, 0.95f, 1.0f };
+
+// 既定の配置（F2のエディタで動かした値は Resources/Config/UI/training.json に保存される）
+constexpr const char* kLayoutName = "training";
+constexpr Vector2 kControlsAnchor = { 800.0f, 12.0f };
 }
 
 void TrainingHud::Initialize(const HudServices& services)
@@ -64,32 +69,58 @@ void TrainingHud::Initialize(const HudServices& services)
     weaponPanel_ = create(kWeaponPanelPosition, kWeaponPanelSize, kPanelBackgroundColor);
     controlsPanel_ = create(kControlsPanelPosition, kControlsPanelSize, kPanelBackgroundColor);
 }
-void TrainingHud::Update(const HudFrame& frame)
+void TrainingHud::Update(const HudFrame&)
 {
-    weaponAnchor_ = frame.weaponAnchor;
-    controlsAnchor_ = { std::clamp(frame.controlsAnchor.x, kControlsAnchorMin, kControlsAnchorMaxX),
-        std::clamp(frame.controlsAnchor.y, kControlsAnchorMin, kControlsAnchorMaxY) };
-    weaponPanel_->SetPosition({ weaponAnchor_.x - kPanelPadding, weaponAnchor_.y - kPanelPadding });
+    // 位置はエディタで動かされても止まった画面に反映できるよう、毎フレームUILayoutから読む
+    UILayout& layout = UILayout::Get(kLayoutName);
+    weaponAnchor_ = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
+    const Vector2 controls = layout.Pos("controls.pos", kControlsAnchor);
+    controlsAnchor_ = { std::clamp(controls.x, kControlsAnchorMin, kControlsAnchorMaxX),
+        std::clamp(controls.y, kControlsAnchorMin, kControlsAnchorMaxY) };
+    navigationPosition_ = layout.Pos("navigation.pos", kNavigationPosition);
+
+    const float padding = layout.Float("panel.padding", kPanelPadding);
+    const Vector4 panelColor = layout.Color("panel.color", kPanelBackgroundColor);
+    weaponPanel_->SetPosition({ weaponAnchor_.x - padding, weaponAnchor_.y - padding });
+    weaponPanel_->SetSize(layout.Vec2("weapon_list.panel_size", kWeaponPanelSize));
+    weaponPanel_->SetColor(panelColor);
     weaponPanel_->Update();
-    controlsPanel_->SetPosition({ controlsAnchor_.x - kPanelPadding, controlsAnchor_.y - kPanelPadding });
+    controlsPanel_->SetPosition({ controlsAnchor_.x - padding, controlsAnchor_.y - padding });
+    controlsPanel_->SetSize(layout.Vec2("controls.panel_size", kControlsPanelSize));
+    controlsPanel_->SetColor(panelColor);
     controlsPanel_->Update();
+    navigation_->SetPosition(navigationPosition_);
+    navigation_->SetSize(layout.Vec2("navigation.size", kNavigationSize));
+    navigation_->SetColor(panelColor);
+    navigation_->Update();
+    accent_->SetPosition(navigationPosition_);
+    accent_->SetSize(layout.Vec2("navigation.accent_size", kAccentSize));
+    accent_->SetColor(layout.Color("navigation.accent_color", kAccentColor));
+    accent_->Update();
 }
 void TrainingHud::QueueText(FontRenderer& font) const
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
+    const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
     const float y = SceneShared::DrawWeaponListHud(font, weapons_, L"トレーニングルーム", weaponAnchor_);
     auto hint = [&](const wchar_t* text, float py) {
-        font.DrawStringW(text, weaponAnchor_.x + kShadowOffset, py + kShadowOffset, kHintScale, kShadowColor);
-        font.DrawStringW(text, weaponAnchor_.x, py, kHintScale, kHintColor);
+        font.DrawStringW(text, weaponAnchor_.x + kShadowOffset, py + kShadowOffset, hintScale, kShadowColor);
+        font.DrawStringW(text, weaponAnchor_.x, py, hintScale, hintColor);
     };
     hint(L"L：コンボ　S+L：打ち上げ　空中L：追撃", y);
     hint(L"I：回避　Space：武器固有技", y + kHintLineHeight);
     SceneShared::DrawControlsHud(font, controlsAnchor_, L": バトルテストへ移動");
-    font.DrawStringW(L"[ TAB ] ステージ選択へ", kStageSelectTextPosition.x + kShadowOffset,
-        kStageSelectTextPosition.y + kShadowOffset, kStageSelectTextScale, kShadowColor);
-    font.DrawStringW(L"[ TAB ] ステージ選択へ", kStageSelectTextPosition.x, kStageSelectTextPosition.y,
-        kStageSelectTextScale, kStageSelectTextColor);
-    font.DrawStringW(L"[ Backspace ] タイトルへ", kTitleTextPosition.x, kTitleTextPosition.y,
-        kTitleTextScale, kTitleTextColor);
+
+    const Vector2 stageSelect = { navigationPosition_.x + kStageSelectTextOffset.x, navigationPosition_.y + kStageSelectTextOffset.y };
+    const float stageSelectScale = layout.Float("navigation.stage_select_scale", kStageSelectTextScale);
+    font.DrawStringW(L"[ TAB ] ステージ選択へ", stageSelect.x + kShadowOffset, stageSelect.y + kShadowOffset,
+        stageSelectScale, kShadowColor);
+    font.DrawStringW(L"[ TAB ] ステージ選択へ", stageSelect.x, stageSelect.y,
+        stageSelectScale, layout.Color("navigation.stage_select_color", kStageSelectTextColor));
+    const Vector2 title = { navigationPosition_.x + kTitleTextOffset.x, navigationPosition_.y + kTitleTextOffset.y };
+    font.DrawStringW(L"[ Backspace ] タイトルへ", title.x, title.y,
+        layout.Float("navigation.title_scale", kTitleTextScale), layout.Color("navigation.title_color", kTitleTextColor));
 }
 void TrainingHud::Draw()
 {

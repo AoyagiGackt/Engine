@@ -4,6 +4,7 @@
  */
 #include "TitleScene.h"
 #include "GameConstants.h"
+#include "GameSettings.h"
 #include "ModelManager.h"
 #include "RunData.h"
 #include "SaveData.h"
@@ -11,6 +12,7 @@
 #include "SceneManager.h"
 #include "SceneShared.h"
 #include "StageEditor.h"
+#include "UILayout.h"
 #include "SkinnedObject3d.h"
 #include "SrvManager.h"
 #include "WeaponManager.h"
@@ -18,6 +20,7 @@
 #include <array>
 #include <cmath>
 #include <cfloat>
+#include <cstdio>
 #include <numbers>
 #include <random>
 #ifdef USE_IMGUI
@@ -31,7 +34,6 @@ namespace {
 // ステージの実際の広さに近い規模にする（level01基準、幅60前後の想定）
 constexpr float kDemoStageMinX = 0.0f;
 constexpr float kDemoStageMaxX = 44.0f;
-constexpr float kDemoFloorY = -0.6f;
 constexpr float kDemoGroundY = 0.4f; // プレイヤー・的の立ち位置Y
 constexpr float kDemoCameraY = 4.8f;
 constexpr float kDemoStartX = 22.0f;
@@ -51,20 +53,33 @@ constexpr float kDummyModelFootOffsetY = -0.65f;
 constexpr float kDummyHitFlashDuration = 0.12f;
 constexpr float kDummyDefeatSinkDepth = 0.8f; // 倒した的は地面へ沈めて退場させる
 
-// タイトル背景は遊べない舞台なので、当たり判定のない壁や足場を置かず、地面と背景だけで構成する。
-constexpr float kDemoCityX[] = { 6.0f, 18.0f, 30.0f, 42.0f };
-constexpr float kDemoCityZ = 6.0f;
-constexpr float kDemoCityScale = 0.42f;
+// メニューの既定の配置（F2のエディタで動かした値は Resources/Config/UI/title.json に保存される）
+constexpr const char* kLayoutName = "title";
+constexpr Vector2 kMenuPosition = { 440.0f, 470.0f };
+constexpr Vector2 kMenuItemSize = { 400.0f, 48.0f };
 
-// 床は舞台の外側まで敷き詰める（カメラ端で画面下に隙間を出さない）
-constexpr int kDemoFloorLayers = 2;
-constexpr int kDemoFloorOuterMargin = 11;
+// メニューの行番号
+constexpr int kRowNewGame = 0;
+constexpr int kRowContinue = 1;
+constexpr int kRowTraining = 2;
+constexpr int kRowOptions = 3;
 
-// メニューの配置
-constexpr float kMenuX = 440.0f;
-constexpr float kMenuY = 520.0f;
-constexpr float kMenuWidth = 400.0f;
-constexpr float kMenuItemHeight = 60.0f;
+// 設定メニュー（タイトル上でメニューの中身だけ入れ替えて表示する）
+constexpr int kOptionsRowBgm = 0;
+constexpr int kOptionsRowSe = 1;
+constexpr int kOptionsRowBack = 2;
+constexpr float kVolumeStep = 0.1f;
+constexpr float kPercentScale = 100.0f;
+constexpr float kRoundingOffset = 0.5f;
+constexpr float kVolumeTextOffsetX = 260.0f; // メニュー左端から音量表示までの距離
+constexpr float kVolumeTextTopRatio = 0.3f; // UIMenuのラベルと同じ高さに揃える
+constexpr float kVolumeTextScale = 1.5f;
+constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+std::vector<UIButton> OptionsMenuItems()
+{
+    return { { "BGM VOLUME" }, { "SE VOLUME" }, { "BACK" } };
+}
 
 // 初期配置する的ごとの動きのばらつき（インデックスに比例して変える）
 constexpr float kDummyAirborneHeight = 2.4f;
@@ -205,13 +220,17 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     fontRenderer_.Initialize(spriteCommon_.get());
 
     menu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
-    menu_.SetLayout(kMenuX, kMenuY, kMenuWidth, kMenuItemHeight);
+    optionsMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
+    menu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize);
+    optionsMenu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize);
     menu_.SetItems({
         { "NEW GAME" },
         { "CONTINUE", SaveDataManager::GetInstance()->HasContinue() },
         { "TRAINING" },
         { "OPTIONS" },
     });
+    optionsMenu_.SetItems(OptionsMenuItems());
+    optionsOpen_ = false;
 
     InitializeDemo();
     floatingTitle_.Initialize(dxCommon_, input_, modelCommon_.get(), shadowManager_.get());
@@ -256,34 +275,7 @@ void TitleScene::InitializeDemo()
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_);
 
-    groundModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
-        "Resources/block/block.obj",
-        "Resources/block/block.png");
-    // カメラが端で止まっても画面下に隙間が出ないよう、舞台の外側まで連続した二段の床を敷く。
-    for (int y = 0; y < kDemoFloorLayers; ++y) {
-        for (int x = -kDemoFloorOuterMargin; x <= static_cast<int>(kDemoStageMaxX - kDemoStageMinX) + kDemoFloorOuterMargin; ++x) {
-            auto block = std::make_unique<Object3d>();
-            block->Initialize(modelCommon_.get());
-            block->SetModel(groundModel_);
-            block->SetPosition({ kDemoStageMinX + static_cast<float>(x), kDemoFloorY - static_cast<float>(y), 0.0f });
-            block->SetEnableLighting(false);
-            block->Update();
-            groundBlocks_.push_back(std::move(block));
-        }
-    }
-
-    cityModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
-        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
-    for (float x : kDemoCityX) {
-        auto city = std::make_unique<Object3d>();
-        city->Initialize(modelCommon_.get());
-        city->SetModel(cityModel_);
-        city->SetPosition({ x, kDemoFloorY, kDemoCityZ });
-        city->SetScale({ kDemoCityScale, kDemoCityScale, kDemoCityScale });
-        city->Update();
-        cityObjects_.push_back(std::move(city));
-    }
+    // 床と背景のビルはレベルJSON（Resources/Levels/title.json）に置き、F2のステージエディタで編集する
 
     dummyModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj",
@@ -333,37 +325,80 @@ void TitleScene::InitializeDemo()
 
 void TitleScene::Update()
 {
-    fontRenderer_.Reset();
-
-    menu_.Update(input_);
-    if (menu_.ConsumeConfirm(input_)) {
-        switch (menu_.GetSelectedIndex()) {
-        case 0: // NEW GAME
-            RunData::GetInstance()->StartNewRun();
-            WeaponManager::GetInstance()->Reset();
-            SaveDataManager::GetInstance()->ClearContinue();
-            SceneFlow::GetInstance()->Transition("TITLE", "new_game", "MAP");
-            break;
-        case 1: // CONTINUE
-            WeaponManager::GetInstance()->RestoreSnapshot(weaponManagerSnapshot_);
-            SaveDataManager::GetInstance()->LoadContinue(*RunData::GetInstance());
-            SceneFlow::GetInstance()->Transition("TITLE", "continue", "MAP");
-            break;
-        case 2: // TRAINING
-            WeaponManager::GetInstance()->RestoreSnapshot(weaponManagerSnapshot_);
-            SceneFlow::GetInstance()->Transition("TITLE", "training", "TRAINING");
-            break;
-        case 3: // OPTIONS
-            SceneFlow::GetInstance()->Transition("TITLE", "options", "OPTIONS");
-            break;
-        default:
-            break;
-        }
+    if (optionsOpen_) {
+        UpdateOptionsMenu();
+    } else {
+        UpdateMainMenu();
     }
 
     UpdateDemo();
 
     floatingTitle_.Update(!GetStageEditor().IsVisible());
+}
+
+void TitleScene::UpdateMainMenu()
+{
+    menu_.Update(input_);
+    if (menu_.ConsumeConfirm(input_)) {
+        switch (menu_.GetSelectedIndex()) {
+        case kRowNewGame:
+            RunData::GetInstance()->StartNewRun();
+            WeaponManager::GetInstance()->Reset();
+            SaveDataManager::GetInstance()->ClearContinue();
+            SceneFlow::GetInstance()->Transition("TITLE", "new_game", "MAP");
+            break;
+        case kRowContinue:
+            WeaponManager::GetInstance()->RestoreSnapshot(weaponManagerSnapshot_);
+            SaveDataManager::GetInstance()->LoadContinue(*RunData::GetInstance());
+            SceneFlow::GetInstance()->Transition("TITLE", "continue", "MAP");
+            break;
+        case kRowTraining:
+            WeaponManager::GetInstance()->RestoreSnapshot(weaponManagerSnapshot_);
+            SceneFlow::GetInstance()->Transition("TITLE", "training", "TRAINING");
+            break;
+        case kRowOptions:
+            // 画面は切り替えず、メニューの中身だけ設定項目に入れ替える
+            optionsOpen_ = true;
+            optionsMenu_.SetItems(OptionsMenuItems()); // 開くたびにカーソルを先頭へ戻す
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+void TitleScene::UpdateOptionsMenu()
+{
+    optionsMenu_.Update(input_);
+
+    const int row = optionsMenu_.GetSelectedIndex();
+    if (row == kOptionsRowBgm || row == kOptionsRowSe) {
+        if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
+            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -kVolumeStep);
+        }
+        if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
+            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, kVolumeStep);
+        }
+    }
+
+    const bool backSelected = optionsMenu_.ConsumeConfirm(input_) && row == kOptionsRowBack;
+    const bool cancelPressed = input_->TriggerKey(DIK_ESCAPE) || input_->TriggerKey(DIK_BACKSPACE);
+    if (cancelPressed) {
+        audio_->PlayMenuSelect();
+    }
+    if (backSelected || cancelPressed) {
+        optionsOpen_ = false;
+    }
+}
+
+void TitleScene::RefreshVisualTransformsForEditor()
+{
+    // エディタの自由カメラで視点を動かしても、止まっているデモの見た目が画面に張り付かないようにする
+    skydome_->Update(camera_.get());
+    player_->RefreshVisualTransforms();
+    for (auto& dummy : demoDummies_) {
+        dummy.object->Update();
+    }
 }
 
 void TitleScene::UpdateDemo()
@@ -743,6 +778,8 @@ void TitleScene::UpdateDemo()
 
 void TitleScene::Draw()
 {
+    // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄は毎フレーム必ず通るここで行う
+    fontRenderer_.Reset();
     DrawDemoShadowPass();
     DrawDemoWorld();
     GetStageEditor().DrawObjects();
@@ -750,9 +787,31 @@ void TitleScene::Draw()
 
     spriteCommon_->CommonDrawSettings();
 
-    menu_.Draw();
+    if (optionsOpen_) {
+        optionsMenu_.Draw();
+        const GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+        DrawVolumeValue(kOptionsRowBgm, settings.bgmVolume);
+        DrawVolumeValue(kOptionsRowSe, settings.seVolume);
+    } else {
+        menu_.Draw();
+    }
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
+}
+
+void TitleScene::DrawVolumeValue(int row, float volume)
+{
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float offsetX = layout.Float("options.volume_offset_x", kVolumeTextOffsetX);
+    const float scale = layout.Float("options.volume_scale", kVolumeTextScale);
+    const Vector4 color = layout.Color("options.volume_color", kVolumeTextColor);
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "< %3d%% >", static_cast<int>(volume * kPercentScale + kRoundingOffset));
+    const Vector2 menuPosition = optionsMenu_.GetPosition();
+    const float itemHeight = optionsMenu_.GetItemSize().y;
+    const float y = menuPosition.y + itemHeight * (static_cast<float>(row) + kVolumeTextTopRatio);
+    fontRenderer_.DrawString(buf, menuPosition.x + offsetX, y, scale, color);
 }
 
 void TitleScene::DrawDemoShadowPass()
@@ -779,12 +838,6 @@ void TitleScene::DrawDemoWorld()
     objectCommon_->SetDefaultLight(commandList);
     shadowManager_->SetShadowMap(commandList, SrvManager::GetInstance());
     skydome_->Draw();
-    for (auto& city : cityObjects_) {
-        city->Draw();
-    }
-    for (auto& block : groundBlocks_) {
-        block->Draw();
-    }
     for (auto& dummy : demoDummies_) {
         if (!dummy.defeated) {
             dummy.object->Draw();

@@ -55,7 +55,7 @@ std::string ToProjectRelativePath(const std::string& absolutePath)
 namespace engine::game {
 using namespace engine::graphics;
 
-// screen座標のui_text/hud_anchorが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
+// screen座標のui_textが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
 // 3Dビュー上でドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
 void StageEditorInspectorPanel::RenderObjectGameplay(StageEditor& editor, bool& structuralDirty)
 {

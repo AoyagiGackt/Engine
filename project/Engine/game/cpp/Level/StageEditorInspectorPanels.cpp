@@ -52,7 +52,7 @@ std::string ToProjectRelativePath(const std::string& absolutePath)
 namespace engine::game {
 using namespace engine::graphics;
 
-// screen座標のui_text/hud_anchorが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
+// screen座標のui_textが編集パネル（ツールバー/左カラム/右インスペクタ）の下に隠れて
 // 3Dビュー上でドラッグできない場合に警告し、見える位置へ逃がすボタンを出す
 void StageEditorInspectorPanel::RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc)
 {
@@ -86,9 +86,7 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
     }
 
     // 名前（親子参照のキーなので、変更時は子の親参照も追従させる）
-    // hud_anchorは固定名でシーン側から検索されるため、名前変更を許すと位置指定が無効化されてしまう
     {
-        ImGui::BeginDisabled(desc.kind == "hud_anchor");
         char nameBuf[96];
         strncpy_s(nameBuf, desc.name.c_str(), _TRUNCATE);
         bool changed = ImGui::InputText("名前", nameBuf, sizeof(nameBuf));
@@ -110,7 +108,6 @@ void StageEditorInspectorPanel::RenderObjectIdentity(StageEditor& editor, bool& 
         if (ImGui::IsItemDeactivated()) {
             editor.CommitUndoCapture();
         }
-        ImGui::EndDisabled();
     }
 
     // 親の選択（自分自身と自分の子孫は循環になるため選択肢から除外する）
@@ -341,16 +338,6 @@ void StageEditorInspectorPanel::RenderObjectTransform(
     }
 }
 
-void StageEditorInspectorPanel::RenderHudAnchorInspector(StageEditor& editor)
-{
-    auto& desc = editor.objects_[editor.selIndex_].desc;
-    if (desc.kind != "hud_anchor") {
-        return;
-    }
-    ImGui::TextDisabled("「%s」パネルの表示位置マーカーです（文言はコード側で管理、位置だけ上の「位置」欄で編集できます）", desc.text.c_str());
-    RenderScreenAnchorOcclusionWarning(editor, desc);
-}
-
 bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
 {
     if (editor.selKind_ != StageEditor::SelKind::Object || editor.selIndex_ < 0
@@ -365,7 +352,6 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectVisual(editor, structuralDirty);
     RenderObjectTransform(editor, structuralDirty, transformDirty);
     RenderObjectGameplay(editor, structuralDirty);
-    RenderHudAnchorInspector(editor);
 
     auto& entry = editor.objects_[editor.selIndex_];
     const bool visualKind = IsVisualKind(entry.desc.kind);
@@ -448,12 +434,6 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
     if (ref.position) {
         ImGui::DragFloat3("位置", &ref.position->x, EditorUi::kDragStepPosition);
-    }
-    if (ref.object) {
-        Transform& transform = ref.object->GetTransform();
-        ImGui::DragFloat3("回転", &transform.rotate.x, EditorUi::kDragStepRotation);
-        ImGui::DragFloat3("スケール", &transform.scale.x, EditorUi::kDragStepScale);
-        ImGui::TextDisabled("シーン背景（実行中のみ編集）");
     }
     if (ref.getVisualPreset && ref.setVisualPreset) {
         const int preset = ref.getVisualPreset();

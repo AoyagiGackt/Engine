@@ -18,6 +18,7 @@
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
+#include "UILayout.h"
 #include "TimeManager.h"
 #include <algorithm>
 #include <cmath>
@@ -44,10 +45,6 @@ static constexpr float kGroundY = 0.4f;
 static constexpr float kPlayerFacingTargetDistance = 8.0f; // 向きを決めるために渡す前方の注視点までの距離
 
 // 背景の街並み
-static constexpr float kCityXs[] = { 5.0f, 16.0f, 27.0f };
-static constexpr float kCityY = -0.6f;
-static constexpr float kCityZ = 6.0f;
-static constexpr float kCityScale = 0.42f;
 
 // バトルテストへのワープポータル
 static constexpr int kWarpPortalBlockCount = 5;
@@ -59,6 +56,9 @@ static constexpr float kWarpPulseSpeed = 4.0f;
 static constexpr float kWarpPulseAlpha = 0.85f;
 static constexpr float kWarpLabelWorldY = 5.0f;
 static constexpr Vector2 kWarpLabelOffset = { 110.0f, 36.0f };
+static constexpr float kWarpLabelScale = 1.5f;
+static constexpr Vector4 kWarpLabelColor = { 0.2f, 1.0f, 1.0f, 1.0f };
+static constexpr const char* kLayoutName = "training";
 
 // フィニッシャー
 static constexpr Vector4 kFinisherFlashColor = { 0.75f, 0.95f, 1.0f, 0.65f };
@@ -130,12 +130,7 @@ void TrainingScene::InitializeStageModels()
 
     BuildBorderBlocks(modelCommon_.get(), modelBlock_, borderBlocks_);
 
-    cityBackgroundModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
-        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
-    for (float x : kCityXs) {
-        SpawnCityBuilding({ x, kCityY, kCityZ }, { kCityScale, kCityScale, kCityScale });
-    }
+    // 背景のビルはレベルJSON（Resources/Levels/training.json）に置き、F2のステージエディタで編集する
 
     for (int i = 0; i < kWarpPortalBlockCount; ++i) {
         auto p = std::make_unique<Object3d>();
@@ -147,36 +142,6 @@ void TrainingScene::InitializeStageModels()
         p->Update();
         warpPortalBlocks_.push_back(std::move(p));
     }
-}
-
-void TrainingScene::SpawnCityBuilding(const Vector3& position, const Vector3& scale)
-{
-    auto city = std::make_unique<Object3d>();
-    city->Initialize(modelCommon_.get());
-    city->SetModel(cityBackgroundModel_);
-    city->SetPosition(position);
-    city->SetScale(scale);
-    city->Update();
-
-    Object3d* rawCity = city.get();
-    cityBackgroundObjects_.push_back(std::move(city));
-
-    const std::string name = "Background Building " + std::to_string(++cityBuildingSerial_);
-    GetStageEditor().RegisterExternalObject(
-        name, rawCity,
-        [this, rawCity]() {
-            // Hierarchyの「選択を削除」から呼ばれる。描画中のGPUリソースをそのまま破棄しないよう待つ
-            if (dxCommon_) {
-                dxCommon_->WaitForGpu();
-            }
-            std::erase_if(cityBackgroundObjects_,
-                [rawCity](const std::unique_ptr<Object3d>& obj) { return obj.get() == rawCity; });
-        },
-        [this, rawCity]() {
-            // Hierarchyの「複製」から呼ばれる。同じ見た目をXへ少しずらして増やす（複製もさらに複製/削除できる）
-            const engine::Transform& t = rawCity->GetTransform();
-            SpawnCityBuilding({ t.translate.x + 1.0f, t.translate.y, t.translate.z }, t.scale);
-        });
 }
 
 void TrainingScene::InitializePlayerAndBullets()
@@ -223,8 +188,6 @@ void TrainingScene::InitializeWeaponSlotHud()
 void TrainingScene::UpdateWeaponSlotHud()
 {
     HudFrame frame { *camera_, GameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
-    frame.weaponAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", kDefaultHudWeaponAnchor);
-    frame.controlsAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", kDefaultHudControlsAnchor);
     hud_.Update(frame);
 }
 
@@ -261,7 +224,7 @@ void TrainingScene::Update()
     testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
 #endif
 
-    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, SceneFlow::GetInstance()->Resolve("TRAINING", "battle_test", "BATTLETEST").scene.c_str(), audio_);
+    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpX, kWarpProximity, "TRAINING", "battle_test", "BATTLETEST", audio_);
     DrawHud(nearWarp);
 }
 
@@ -274,9 +237,6 @@ void TrainingScene::RefreshVisualTransformsForEditor()
     player_->RefreshVisualTransforms();
     for (auto& b : borderBlocks_) {
         b->Update();
-    }
-    for (auto& city : cityBackgroundObjects_) {
-        city->Update();
     }
     for (auto& portal : warpPortalBlocks_) {
         portal->Update();
@@ -344,9 +304,6 @@ void TrainingScene::UpdateCameraAndEnvironment()
     for (auto& b : borderBlocks_) {
         b->Update();
     }
-    for (auto& city : cityBackgroundObjects_) {
-        city->Update();
-    }
 
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
     float pulse = kWarpPulseBase + kWarpPulseAmplitude * std::sin(warpPulseTimer_ * kWarpPulseSpeed);
@@ -373,15 +330,14 @@ void TrainingScene::DrawHud(bool nearWarpPortal)
 
 void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
 {
-    constexpr float kScale = 1.5f;
-
     // ワープラベル（ポータルの上）
     if (nearWarpPortal) {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(kWarpX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
-        constexpr Vector4 kColorWarp = { 0.2f, 1.0f, 1.0f, 1.0f };
-        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y, kScale, kColorWarp);
+        UILayout& layout = UILayout::Get(kLayoutName);
+        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
+            layout.Float("portal.label_scale", kWarpLabelScale), layout.Color("portal.label_color", kWarpLabelColor));
     }
 }
 
@@ -447,9 +403,6 @@ void TrainingScene::Draw()
 
     for (auto& b : borderBlocks_) {
         b->Draw();
-    }
-    for (auto& city : cityBackgroundObjects_) {
-        city->Draw();
     }
     for (auto& p : warpPortalBlocks_) {
         p->Draw();

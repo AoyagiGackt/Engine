@@ -7,7 +7,6 @@
 #include "ClearScene.h"
 #include "GameOverScene.h"
 #include "GamePlayScene.h"
-#include "LoadingScene.h"
 #include "MapScene.h"
 #include "OptionsScene.h"
 #include "ShopScene.h"
@@ -34,8 +33,6 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
         newScene = std::make_unique<ClearScene>();
     } else if (sceneName == "GAMEOVER") {
         newScene = std::make_unique<GameOverScene>();
-    } else if (sceneName == "LOADING") {
-        newScene = std::make_unique<LoadingScene>();
     } else if (sceneName == "MAP") {
         newScene = std::make_unique<MapScene>();
     } else if (sceneName == "SHOP") {

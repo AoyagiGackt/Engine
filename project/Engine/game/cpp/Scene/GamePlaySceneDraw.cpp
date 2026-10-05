@@ -27,6 +27,7 @@
 #include "StageEditor.h"
 #include "StringUtility.h"
 #include "TextureManager.h"
+#include "UILayout.h"
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
@@ -329,12 +330,19 @@ bool GamePlayScene::DrawClearOverlayIfNeeded()
         clearBgSprite_->Draw();
         const char* rank = RunData::CalcRank(peakStyle_);
         fontRenderer_.Reset();
-        fontRenderer_.DrawString("CLEAR!", kClearTitlePosition.x, kClearTitlePosition.y, kClearTitleScale, kClearTitleColor);
-        fontRenderer_.DrawString("Style:", kStyleLabelPosition.x, kStyleLabelPosition.y, kStyleLabelScale, kStyleLabelColor);
-        fontRenderer_.DrawString(rank, kRankPosition.x, kRankPosition.y, kRankScale, kRankColor);
+        // 本編HUDと同じレイアウト（Resources/Config/UI/gameplay.json）の result グループで調整する
+        UILayout& layout = UILayout::Get("gameplay");
+        auto drawResultText = [&](const char* text, const char* key, const Vector2& position, float scale, const Vector4& color) {
+            const std::string group = std::string("result.") + key;
+            const Vector2 p = layout.Pos(group + "_pos", position);
+            fontRenderer_.DrawString(text, p.x, p.y, layout.Float(group + "_scale", scale), layout.Color(group + "_color", color));
+        };
+        drawResultText("CLEAR!", "title", kClearTitlePosition, kClearTitleScale, kClearTitleColor);
+        drawResultText("Style:", "style_label", kStyleLabelPosition, kStyleLabelScale, kStyleLabelColor);
+        drawResultText(rank, "rank", kRankPosition, kRankScale, kRankColor);
         char goldBuf[32];
         snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
-        fontRenderer_.DrawString(goldBuf, kGoldPosition.x, kGoldPosition.y, kGoldScale, kGoldColor);
+        drawResultText(goldBuf, "gold", kGoldPosition, kGoldScale, kGoldColor);
         fontRenderer_.Draw();
         return true;
     }

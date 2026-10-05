@@ -475,9 +475,6 @@
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -658,6 +655,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\UILayout.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp">
@@ -920,9 +920,6 @@
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Scene\LoadingScene.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\OptionsScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
@@ -1127,6 +1124,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\UIMenu.h">
+      <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\UILayout.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\RunData.h">

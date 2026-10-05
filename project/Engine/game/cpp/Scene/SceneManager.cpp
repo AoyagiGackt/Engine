@@ -1,6 +1,6 @@
 /**
  * @file SceneManager.cpp
- * @brief シーンの切替・更新・描画・非同期ロードを統括するマネージャー（SceneManager）の実装
+ * @brief シーンの切替・更新・描画を統括するマネージャー（SceneManager）の実装
  */
 #include "SceneManager.h"
 #include "CrashHandler.h"
@@ -9,6 +9,7 @@
 #include "TextureManager.h"
 #include "TitleScene.h"
 #include "SrvManager.h"
+#include "UILayout.h"
 #include "EngineAssert.h"
 #include "JsonHelper.h"
 #include "RunData.h"
@@ -27,11 +28,6 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-// 非同期ロードの進捗表示に使う段階ごとの値（0〜1）
-constexpr float kProgressCreating = 0.1f; // シーンの生成を始めた
-constexpr float kProgressCreated = 0.4f; // シーンを生成し、メインスレッドでの初期化を待っている
-constexpr float kProgressInitializing = 0.5f; // メインスレッドで初期化中
-constexpr float kProgressInitialized = 0.9f; // 初期化が終わり、切り替えを待っている
 constexpr const char* kDebugStartupPath = "Resources/Config/debug_startup.json";
 constexpr std::array<const char*, 6> kDebugStartScenes = { "TITLE", "MAP", "GAMEPLAY", "TRAINING", "BATTLETEST", "OPTIONS" };
 bool IsDebugStartScene(const std::string& scene)
@@ -44,13 +40,6 @@ SceneManager* SceneManager::GetInstance()
 {
     static SceneManager instance;
     return &instance;
-}
-
-SceneManager::~SceneManager()
-{
-    if (loadingThread_.joinable()) {
-        loadingThread_.join();
-    }
 }
 
 void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio, ImGuiManager* imgui)
@@ -117,6 +106,11 @@ void SceneManager::Update()
     // Draw()ではなくここで呼ぶシーンに関係なく常に開けるようにする
     GraphEditor::GetInstance()->Update(input_);
 
+    // 画面UIの位置・サイズ・色の調整パネル（各シーンがUILayoutで参照した項目が自動で並ぶ）
+    if (currentScene_ && !transition_.IsLoading() && currentScene_->GetStageEditor().IsVisible()) {
+        UILayout::DrawEditorPanel();
+    }
+
     // エディタ起動キーの一覧を常に画面左下へ出す（開き方が画面のどこにも出ていないと気づけないため）
     if (!currentScene_ || currentScene_->ShouldShowHotkeyOverlay()) {
         EditorUI::ShowHotkeyOverlay(
@@ -143,46 +137,14 @@ void SceneManager::PerformSceneSwitch()
         currentScene_->Shutdown();
     }
 
-    if (preloadedScene_ && nextSceneName_ == loadingTargetScene_) {
-        // ワーカー側はシーンオブジェクトの生成までに限定する
-        // D3D12、SRV、TextureManager等の共有状態へ触れるInitは、ロード画面が暗転した後に
-        // メインスレッドで実行して描画スレッドとの競合を防ぐ
-        if (loadingThread_.joinable()) {
-            loadingThread_.join();
-        }
-        asyncLoadProgress_.store(kProgressInitializing);
-        try {
-            preloadedScene_->Init(dxCommon_, input_, audio_);
-            asyncLoadProgress_.store(kProgressInitialized);
-            currentScene_ = std::move(preloadedScene_);
-            TextureManager::GetInstance()->FlushUploads();
-            asyncLoadProgress_.store(1.0f);
-        } catch (const std::exception& error) {
-            {
-                std::scoped_lock lock(asyncLoadErrorMutex_);
-                asyncLoadError_ = error.what();
-            }
-            asyncLoadFailed_.store(true);
-            Logger::LogError("Scene GPU initialization failed: " + std::string(error.what()));
-            preloadedScene_.reset();
-            currentScene_ = std::make_unique<TitleScene>();
-            currentScene_->Init(dxCommon_, input_, audio_);
-            TextureManager::GetInstance()->FlushUploads();
-            nextSceneName_ = "TITLE";
-        }
-        loadingTargetScene_.clear();
-    } else {
-        // 工場を使って新しいシーンを作成・初期化
-        currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
-        currentScene_->Init(dxCommon_, input_, audio_);
-        // シーン切り替え時にロードされたテクスチャを一括転送・同期する
-        TextureManager::GetInstance()->FlushUploads();
+    // UIレイアウトの編集パネルには、新しいシーンが参照した項目だけを並べる
+    UILayout::ResetUsedLayouts();
 
-        // LOADINGシーンへの切り替え時にバックグラウンドロードを開始する
-        if (nextSceneName_ == "LOADING" && !loadingTargetScene_.empty()) {
-            StartBackgroundLoad();
-        }
-    }
+    // 工場を使って新しいシーンを作成・初期化
+    currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
+    currentScene_->Init(dxCommon_, input_, audio_);
+    // シーン切り替え時にロードされたテクスチャを一括転送・同期する
+    TextureManager::GetInstance()->FlushUploads();
 
     // ImGuiのセット
     currentScene_->SetImGuiManager(imguiManager_);
@@ -194,44 +156,6 @@ void SceneManager::PerformSceneSwitch()
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - loadingStarted).count();
     Logger::Log("Scene load " + nextSceneName_ + ": " + std::to_string(elapsed) + " ms");
-}
-
-void SceneManager::StartBackgroundLoad()
-{
-    // 前回のロードスレッドが残っていれば先に片付ける（本来は起こらないはずの安全策）
-    if (loadingThread_.joinable()) {
-        loadingThread_.join();
-    }
-
-    std::string target = loadingTargetScene_;
-    loadingThread_ = std::thread([this, target]() {
-        try {
-            asyncLoadProgress_.store(kProgressCreating);
-            auto scene = sceneFactory_->CreateScene(target);
-            if (!scene) {
-                throw std::runtime_error("Unknown scene: " + target);
-            }
-            // GPUリソース生成を含むInitはメインスレッド側で実行する
-            // ワーカーは共有描画状態へ触れず、生成済みシーンの受け渡しだけを担当する
-            asyncLoadProgress_.store(kProgressCreated);
-            preloadedScene_ = std::move(scene);
-            asyncLoadReady_.store(true);
-        } catch (const std::exception& error) {
-            {
-                std::scoped_lock lock(asyncLoadErrorMutex_);
-                asyncLoadError_ = error.what();
-            }
-            asyncLoadFailed_.store(true);
-            Logger::LogError("Async scene load failed: " + std::string(error.what()));
-        } catch (...) {
-            {
-                std::scoped_lock lock(asyncLoadErrorMutex_);
-                asyncLoadError_ = "Unknown exception";
-            }
-            asyncLoadFailed_.store(true);
-            Logger::LogError("Async scene load failed: unknown exception");
-        }
-    });
 }
 
 void SceneManager::Draw()
@@ -264,19 +188,11 @@ void SceneManager::CaptureEditorPreview()
 
 void SceneManager::Finalize()
 {
-    // バックグラウンドロードスレッドが dxCommon_ 等を参照し続けている間に
-    // 破棄処理へ進まないよう、終了前に必ず合流させる
-    if (loadingThread_.joinable()) {
-        loadingThread_.join();
-    }
-
     // 最終フレームで使用したシーンのGPUリソースを安全に破棄できるまで待機する
     // ステージエディタ表示中は配置モデルとギズモも描画するため、シーン破棄より前に同期する
     if (dxCommon_) {
         dxCommon_->WaitForGpu();
     }
-
-    preloadedScene_.reset();
 
     editorPreview_.Finalize();
 
@@ -289,27 +205,6 @@ void SceneManager::Finalize()
 
     transition_ = SceneTransitionOverlay {};
 
-}
-
-// ロード画面経由でシーン切り替え
-void SceneManager::ChangeSceneWithLoading(const std::string& targetScene)
-{
-    loadingTargetScene_ = targetScene;
-    asyncLoadReady_.store(false);
-    asyncLoadProgress_.store(0.0f);
-    asyncLoadFailed_.store(false);
-    {
-        std::scoped_lock lock(asyncLoadErrorMutex_);
-        asyncLoadError_.clear();
-    }
-    preloadedScene_.reset();
-    ChangeScene("LOADING");
-}
-
-std::string SceneManager::GetAsyncLoadError() const
-{
-    std::scoped_lock lock(asyncLoadErrorMutex_);
-    return asyncLoadError_;
 }
 
 // シーン切り替え予約
