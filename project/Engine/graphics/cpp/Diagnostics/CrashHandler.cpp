@@ -35,6 +35,7 @@ LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
     const std::string context = CrashContext::GetInstance().Get();
     Logger::LogError("Crash context: " + context);
 
+#ifndef ENGINE_RELEASE
     std::error_code ec;
     std::filesystem::create_directories("crash", ec);
 
@@ -67,6 +68,7 @@ LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
         }
         CloseHandle(file);
     }
+#endif
 
     return EXCEPTION_EXECUTE_HANDLER;
 }
