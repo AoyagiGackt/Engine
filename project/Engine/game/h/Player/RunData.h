@@ -136,6 +136,9 @@ public:
         currentNode_ = NodeType::Combat;
     }
 
+    /** @brief ランを終了扱いにする（素材の事前記録で一時的に開始したランを、タイトル前の状態へ戻すため） */
+    void EndRun() { isRunActive_ = false; }
+
     /**
      * @brief セーブデータからラン状態を復元する
      * @note SaveDataManager::LoadContinue から呼び出される

@@ -8,16 +8,19 @@
 #include "Camera.h"
 #include "FontRenderer.h"
 #include "GameConstants.h"
+#include "GameSettings.h"
 #include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
 #include "Player.h"
 #include "PostEffectRenderTarget.h"
 #include "ScreenFlash.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "SlashMark.h"
 #include "Sprite.h"
 #include "TimeManager.h"
+#include "UILayout.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
@@ -42,6 +45,7 @@ namespace {
     // HUDの行送り
     constexpr float kHudSectionGap = 2.0f; // 見出しの下に空ける余白
     constexpr float kHudHintGap = 4.0f; // 操作ヒントの前に空ける余白
+    constexpr const char* kSharedHudLayoutName = "hud"; // 武器一覧・操作説明の文字の見た目（全シーン共通）
 
     // 逆さ状態のスピン連射
     constexpr int kUpsideDownHitStopFrames = 3;
@@ -282,47 +286,75 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
 }
 
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
-    float portalX, float proximity, const char* targetSceneName, Audio* audio)
+    float portalX, float proximity, const char* sceneName, const char* outcome,
+    const char* fallbackScene, Audio* audio)
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
     if (isNear && input->TriggerKey(DIK_RETURN)) {
         if (audio) {
             audio->PlayMenuSelect();
         }
-        SceneManager::GetInstance()->ChangeSceneWithLoading(targetSceneName);
+        SceneFlow::GetInstance()->Transition(sceneName, outcome, fallbackScene);
     }
     return isNear;
 }
 
+void AdjustVolume(Audio* audio, bool bgm, float delta)
+{
+    GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+    float& volume = bgm ? settings.bgmVolume : settings.seVolume;
+    const float previousVolume = volume;
+    volume = std::clamp(volume + delta, 0.0f, 1.0f);
+    if (volume == previousVolume) {
+        return;
+    }
+    if (bgm) {
+        audio->SetBGMVolume(volume);
+    } else {
+        audio->SetSEVolume(volume);
+    }
+    audio->PlayMenuChoice();
+    GameSettingsManager::GetInstance()->Save();
+}
+
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor)
 {
-    constexpr float kScale = 1.15f;
-    constexpr float kLineH = FontRenderer::kCharH * kScale;
+    constexpr float kDefaultScale = 1.15f;
     // 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
-    constexpr Vector4 kColorHeader = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
-    constexpr Vector4 kColorNormal = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
-    constexpr Vector4 kColorSel = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
-    constexpr Vector4 kColorLocked = { 0.55f, 0.50f, 0.40f, 0.85f };
-    constexpr Vector4 kColorHint = { 0.80f, 0.76f, 0.65f, 1.0f };
+    constexpr Vector4 kDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
+    constexpr Vector4 kDefaultNormalColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
+    constexpr Vector4 kDefaultSelectedColor = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
+    constexpr Vector4 kDefaultLockedColor = { 0.55f, 0.50f, 0.40f, 0.85f };
+    constexpr Vector4 kDefaultHintColor = { 0.80f, 0.76f, 0.65f, 1.0f };
     constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
     constexpr float kShadowOffset = 1.6f;
+
+    // 文字の大きさと色は全シーン共通のHUDレイアウト（Resources/Config/UI/hud.json）で調整する
+    UILayout& layout = UILayout::Get(kSharedHudLayoutName);
+    const float scale = layout.Float("weapon_list.scale", kDefaultScale);
+    const float lineHeight = FontRenderer::kCharH * scale;
+    const Vector4 headerColor = layout.Color("weapon_list.header_color", kDefaultHeaderColor);
+    const Vector4 textColor = layout.Color("weapon_list.text_color", kDefaultNormalColor);
+    const Vector4 selectedColor = layout.Color("weapon_list.selected_color", kDefaultSelectedColor);
+    const Vector4 emptyColor = layout.Color("weapon_list.empty_color", kDefaultLockedColor);
+    const Vector4 hintColor = layout.Color("weapon_list.hint_color", kDefaultHintColor);
 
     const float px = anchor.x;
     float py = anchor.y;
 
     auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
-        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
-        fontRenderer.DrawStringW(text, x, y, kScale, color);
+        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
+        fontRenderer.DrawStringW(text, x, y, scale, color);
     };
     auto drawShadowed = [&](const std::string& text, float x, float y, const Vector4& color) {
-        fontRenderer.DrawString(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
-        fontRenderer.DrawString(text, x, y, kScale, color);
+        fontRenderer.DrawString(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
+        fontRenderer.DrawString(text, x, y, scale, color);
     };
 
-    drawShadowedW(headerText, px, py, kColorHeader);
-    py += kLineH + kHudSectionGap;
-    drawShadowedW(L"-- 武器選択 --", px, py, kColorNormal);
-    py += kLineH + kHudSectionGap;
+    drawShadowedW(headerText, px, py, headerColor);
+    py += lineHeight + kHudSectionGap;
+    drawShadowedW(L"-- 武器選択 --", px, py, textColor);
+    py += lineHeight + kHudSectionGap;
 
     const auto& weaponList = weaponManager->GetList();
     for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
@@ -338,21 +370,21 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
             std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
         drawShadowed(buf, px, py,
-            selected ? kColorSel : occupied ? kColorNormal
-                                            : kColorLocked);
-        py += kLineH;
+            selected ? selectedColor : occupied ? textColor
+                                            : emptyColor);
+        py += lineHeight;
     }
 
     // 選択中の銃（近接スタイルとは独立に G キーで循環）
     py += kHudSectionGap;
     const RangedWeaponData& gun = weaponManager->GetRanged();
     std::wstring gunLine = L"銃[G]: " + gun.nameJp;
-    drawShadowedW(gunLine, px, py, kColorSel);
-    py += kLineH;
+    drawShadowedW(gunLine, px, py, selectedColor);
+    py += lineHeight;
 
     py += kHudHintGap;
-    drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, kColorHint);
-    py += kLineH;
+    drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, hintColor);
+    py += lineHeight;
     return py;
 }
 
@@ -361,28 +393,32 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     // ── 操作説明（右パネル） ─────────────────────────────────────────
     // 明るいブロックの上に乗ると薄い色の文字が背景に埋もれるため、色自体を変えるだけでなく
     // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
-    const float kIx = anchor.x;
-    constexpr float kIS = 1.05f;
-    constexpr float kILineH = FontRenderer::kCharH * kIS + kHudSectionGap;
-    constexpr Vector4 kCH = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
-    constexpr Vector4 kCD = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
+    constexpr float kDefaultScale = 1.05f;
+    constexpr Vector4 kDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
+    constexpr Vector4 kDefaultTextColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
+    UILayout& layout = UILayout::Get(kSharedHudLayoutName);
+    const float x = anchor.x;
+    const float scale = layout.Float("controls.scale", kDefaultScale);
+    const float lineHeight = FontRenderer::kCharH * scale + kHudSectionGap;
+    const Vector4 headerColor = layout.Color("controls.header_color", kDefaultHeaderColor);
+    const Vector4 textColor = layout.Color("controls.text_color", kDefaultTextColor);
     constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
     constexpr float kShadowOffset = 1.6f;
     float iy = anchor.y;
 
     auto drawShadowed = [&](const std::wstring& text, float y, const Vector4& color) {
-        fontRenderer.DrawStringW(text, kIx + kShadowOffset, y + kShadowOffset, kIS, kShadow);
-        fontRenderer.DrawStringW(text, kIx, y, kIS, color);
+        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
+        fontRenderer.DrawStringW(text, x, y, scale, color);
     };
 
-    drawShadowed(L"-- 操作説明 --", iy, kCH);
-    iy += kILineH + kHudSectionGap;
+    drawShadowed(L"-- 操作説明 --", iy, headerColor);
+    iy += lineHeight + kHudSectionGap;
 
     auto row = [&](const char* key, const wchar_t* desc) {
         std::wstring line(key, key + std::strlen(key));
         line += desc;
-        drawShadowed(line, iy, kCD);
-        iy += kILineH;
+        drawShadowed(line, iy, textColor);
+        iy += lineHeight;
     };
     row("A / D  ", L": 移動");
     row("W      ", L": ジャンプ");

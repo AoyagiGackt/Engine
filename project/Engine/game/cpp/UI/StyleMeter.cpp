@@ -6,6 +6,7 @@
 #include "Easing.h"
 #include "FontRenderer.h"
 #include "GameConstants.h"
+#include "UILayout.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -29,12 +30,11 @@ constexpr RankDef kRanks[StyleMeter::kRankCount] = {
     { "SSS", 940.0f, { 1.00f, 0.30f, 0.30f, 1.0f } },
 };
 
-// HUD レイアウト（右上アンカー）
-constexpr float kRightEdge = 1256.0f;
-constexpr float kRankY = 56.0f;
+// HUD レイアウト（既定値。全シーン共通のHUDレイアウト Resources/Config/UI/hud.json で上書きできる）
+constexpr const char* kLayoutName = "hud";
+constexpr Vector2 kRankAnchor = { 1256.0f, 56.0f }; // ランク文字の右端X・上端Y
 constexpr float kRankScale = 5.0f;
-constexpr float kBarW = 190.0f;
-constexpr float kBarH = 7.0f;
+constexpr Vector2 kBarSize = { 190.0f, 7.0f };
 constexpr float kBarOffsetY = 84.0f; // ランク文字の上端から進捗バーまでの距離
 constexpr Vector4 kBarBackgroundColor = { 0.08f, 0.08f, 0.12f, 0.8f };
 constexpr float kBarForegroundAlpha = 0.95f;
@@ -158,6 +158,12 @@ void StyleMeter::Update(float dt)
 
 void StyleMeter::UpdateHud(FontRenderer& font)
 {
+    // 表示していない間もエディタで位置を動かせるよう、早期リターンより前に読んで登録しておく
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 anchor = layout.Pos("style_rank.pos", kRankAnchor);
+    const float rankScale = layout.Float("style_rank.scale", kRankScale);
+    const Vector2 barSize = layout.Vec2("style_rank.bar_size", kBarSize);
+    const float barOffsetY = layout.Float("style_rank.bar_offset_y", kBarOffsetY);
     if (hudAlpha_ <= 0.0f) {
         return;
     }
@@ -167,7 +173,7 @@ void StyleMeter::UpdateHud(FontRenderer& font)
 
     // ランク文字（ランクアップ直後は大きく弾む）
     float pop = (rankFlashTimer_ > 0.0f) ? Easing::EaseOutBack(1.0f - rankFlashTimer_ / kRankUpFlashSeconds) : 1.0f;
-    float scale = kRankScale * (kRankPopMinScale + (1.0f - kRankPopMinScale) * pop);
+    float scale = rankScale * (kRankPopMinScale + (1.0f - kRankPopMinScale) * pop);
     Vector4 rc = def.color;
     // 弾んでいる間は白へ寄せて発光しているように見せる
     float flash = (rankFlashTimer_ > kRankWhiteFlashStart)
@@ -176,7 +182,7 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     rc = { rc.x + (1.0f - rc.x) * flash, rc.y + (1.0f - rc.y) * flash, rc.z + (1.0f - rc.z) * flash, hudAlpha_ };
 
     float rankW = FontRenderer::kCharW * scale * static_cast<float>(std::strlen(def.letter));
-    font.DrawString(def.letter, kRightEdge - rankW, kRankY, scale, rc);
+    font.DrawString(def.letter, anchor.x - rankW, anchor.y, scale, rc);
 
     // ヒットチェーン数（加算の瞬間だけ少し大きく）
     if (hitCount_ > 0) {
@@ -188,13 +194,13 @@ void StyleMeter::UpdateHud(FontRenderer& font)
         const Vector4 hitColor = hitCount_ >= kHitHighlightCount
             ? Vector4 { kHitHighlightColor.x, kHitHighlightColor.y, kHitHighlightColor.z, hudAlpha_ }
             : Vector4 { 1.0f, 1.0f, 1.0f, hudAlpha_ };
-        font.DrawString(buf, kRightEdge - hw, kRankY + kHitTextOffsetY, hs, hitColor);
+        font.DrawString(buf, anchor.x - hw, anchor.y + kHitTextOffsetY, hs, hitColor);
     }
     if (bestChain_ > 0) {
         char buf[32];
         std::snprintf(buf, sizeof(buf), "BEST %d", bestChain_);
         float bw = FontRenderer::kCharW * kBestChainScale * static_cast<float>(std::strlen(buf));
-        font.DrawString(buf, kRightEdge - bw, kRankY + kBestChainOffsetY, kBestChainScale,
+        font.DrawString(buf, anchor.x - bw, anchor.y + kBestChainOffsetY, kBestChainScale,
             { kBestChainGray, kBestChainGray, kBestChainGray, hudAlpha_ * kBestChainAlpha });
     }
 
@@ -203,14 +209,14 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     float hi = (rank + 1 < kRankCount) ? kRanks[rank + 1].threshold : kMaxPoints;
     float t = std::clamp((points_ - lo) / (std::max)(hi - lo, 1.0f), 0.0f, 1.0f);
 
-    barBg_->SetPosition({ kRightEdge - kBarW, kRankY + kBarOffsetY });
-    barBg_->SetSize({ kBarW, kBarH });
+    barBg_->SetPosition({ anchor.x - barSize.x, anchor.y + barOffsetY });
+    barBg_->SetSize({ barSize.x, barSize.y });
     Vector4 bg = { kBarBackgroundColor.x, kBarBackgroundColor.y, kBarBackgroundColor.z, kBarBackgroundColor.w * hudAlpha_ };
     barBg_->SetColor(bg);
     barBg_->Update();
 
-    barFg_->SetPosition({ kRightEdge - kBarW, kRankY + kBarOffsetY });
-    barFg_->SetSize({ kBarW * t, kBarH });
+    barFg_->SetPosition({ anchor.x - barSize.x, anchor.y + barOffsetY });
+    barFg_->SetSize({ barSize.x * t, barSize.y });
     barFg_->SetColor({ def.color.x, def.color.y, def.color.z, kBarForegroundAlpha * hudAlpha_ });
     barFg_->Update();
 }

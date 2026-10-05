@@ -45,17 +45,17 @@ constexpr ImU32 kParentLinkLineColor = IM_COL32(255, 255, 255, 90);
 // PickViewportTarget()の最大ピック距離（画面px）これより遠いものはクリック対象にしない
 constexpr float kPickRadiusPx = 40.0f;
 
-// "screen"座標ui_text/hud_anchorのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
+// "screen"座標ui_textのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
 constexpr float kScreenTextMarkerSize = 10.0f;
 constexpr float kScreenTextMarkerLineThickness = 2.0f;
 constexpr float kScreenTextMarkerRectPadding = 3.0f;
 constexpr float kScreenTextLabelGapX = 6.0f;
 constexpr float kScreenTextLabelOffsetY = 8.0f;
 
-// 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text、および武器選択/操作説明の位置マーカーhud_anchor）
+// 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text）
 bool IsScreenAnchorObject(const ObjectDesc& d)
 {
-    return (d.kind == "ui_text" && d.textSpace == "screen") || d.kind == "hud_anchor";
+    return d.kind == "ui_text" && d.textSpace == "screen";
 }
 } // namespace
 
@@ -130,31 +130,13 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
         }
     };
 
-    auto considerExternalObjectBounds = [&](const ExternalEntityRef& ref, int index) {
-        if (!ref.object || !ref.object->GetModel()) {
-            return;
-        }
-        const auto& vertices = ref.object->GetModel()->GetVertices();
-        const Transform& transform = ref.object->GetTransform();
-        const Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
-        float minX, minY, maxX, maxY;
-        constexpr float kPickPadding = 4.0f;
-        if (projectedBounds(vertices, worldMatrix, minX, minY, maxX, maxY)
-            && mouseX >= minX - kPickPadding && mouseX <= maxX + kPickPadding
-            && mouseY >= minY - kPickPadding && mouseY <= maxY + kPickPadding && bestDist > 0.0f) {
-            bestDist = 0.0f;
-            bestKind = SelKind::External;
-            bestIdx = index;
-        }
-    };
-
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
         const ObjectDesc& d = objects_[i].desc;
         // テキスト表示を隠している間は、見えていないui_textを誤って選択できないようにする
         if (d.kind == "ui_text" && !showUIText_) {
             continue;
         }
-        // "screen"座標のui_text/hud_anchorはpositionが既にスクリーンpx座標なので、3D投影せずマウスと直接比較する
+        // "screen"座標のui_textはpositionが既にスクリーンpx座標なので、3D投影せずマウスと直接比較する
         if (IsScreenAnchorObject(d)) {
             const Vector3 image = viewport_.ScreenToImage(d.position.x, d.position.y);
             float dx = image.x - mouseX;
@@ -174,7 +156,6 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
         consider(triggers_[i].GetDesc().position, SelKind::Trigger, i);
     }
     for (int i = 0; i < static_cast<int>(externalEntities_.size()); ++i) {
-        considerExternalObjectBounds(externalEntities_[i], i);
         if (externalEntities_[i].position) {
             consider(*externalEntities_[i].position, SelKind::External, i);
         }
@@ -258,7 +239,7 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY)
     // （エンティティはスナップショット対象外なので、動かしても確定時に捨てられる）
     BeginUndoCapture();
 
-    // "screen"座標のui_text/hud_anchorはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
+    // "screen"座標のui_textはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
     const bool screenSpaceText = (bestKind == SelKind::Object && IsScreenAnchorObject(objects_[bestIdx].desc));
     if (screenSpaceText) {
         const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
@@ -301,7 +282,7 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY)
 
     if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
         && IsScreenAnchorObject(objects_[selIndex_].desc)) {
-        // スクリーン座標のテキスト/hud_anchorはワールド平面と無関係なので、マウスのピクセル位置へそのまま追従させる（Z移動もない）
+        // スクリーン座標のテキストはワールド平面と無関係なので、マウスのピクセル位置へそのまま追従させる（Z移動もない）
         ObjectDesc& desc = objects_[selIndex_].desc;
         const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
         desc.position.x = logicalMouse.x + dragGrabOffsetX_;

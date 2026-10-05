@@ -3,6 +3,8 @@
  * @brief カーソル移動で選択する縦一列メニュー（UIMenu）の実装
  */
 #include "UIMenu.h"
+#include "StringUtility.h"
+#include "UILayout.h"
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -15,7 +17,18 @@ constexpr Vector4 kTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr Vector4 kTextDisabledColor = { 0.5f, 0.5f, 0.5f, 0.8f };
 constexpr float kLabelTopRatio = 0.3f; // 項目の高さに対する文字の上端位置
 constexpr float kLabelPaddingX = 24.0f;
-constexpr float kLabelScale = 1.5f;
+constexpr float kHalf = 0.5f;
+constexpr wchar_t kAsciiLimit = 128;
+
+/** @brief DrawStringWで描いたときの横幅（ASCIIは半角、それ以外は全角幅） */
+float MeasureTextWidth(const std::wstring& text, float scale)
+{
+    float width = 0.0f;
+    for (wchar_t c : text) {
+        width += static_cast<float>(c < kAsciiLimit ? FontRenderer::kCharW : FontRenderer::kJpCharW) * scale;
+    }
+    return width;
+}
 constexpr float kCursorGap = 8.0f;
 } // namespace
 
@@ -26,18 +39,54 @@ void UIMenu::Initialize(SpriteCommon* spriteCommon, FontRenderer* fontRenderer, 
     audio_ = audio;
 }
 
-void UIMenu::SetLayout(float x, float y, float itemWidth, float itemHeight)
+void UIMenu::BindLayout(const std::string& layoutName, const std::string& group,
+    const Vector2& defaultPosition, const Vector2& defaultItemSize, const UIMenuStyle& style)
 {
-    x_ = x;
-    y_ = y;
-    itemWidth_ = itemWidth;
-    itemHeight_ = itemHeight;
-    RebuildBoxes();
+    layoutName_ = layoutName;
+    group_ = group;
+    defaultPosition_ = defaultPosition;
+    defaultItemSize_ = defaultItemSize;
+    defaultStyle_ = style;
+    ApplyBoundLayout();
+}
+
+void UIMenu::ApplyBoundLayout()
+{
+    if (layoutName_.empty()) {
+        return;
+    }
+    UILayout& layout = UILayout::Get(layoutName_);
+    const Vector2 position = layout.Pos(group_ + ".pos", defaultPosition_);
+    const Vector2 itemSize = layout.Vec2(group_ + ".item_size", defaultItemSize_);
+    selectedColor_ = layout.Color(group_ + ".selected_color", kSelectedColor);
+    idleColor_ = layout.Color(group_ + ".idle_color", kIdleColor);
+    disabledColor_ = layout.Color(group_ + ".disabled_color", kDisabledColor);
+    textColor_ = layout.Color(group_ + ".text_color", kTextColor);
+    textDisabledColor_ = layout.Color(group_ + ".text_disabled_color", kTextDisabledColor);
+    labelScale_ = layout.Float(group_ + ".label_scale", defaultStyle_.labelScale);
+    centerLabels_ = layout.Float(group_ + ".label_center", defaultStyle_.centerLabels ? 1.0f : 0.0f) >= kHalf;
+    labelPaddingX_ = layout.Float(group_ + ".label_padding_x", kLabelPaddingX);
+
+    // 位置や大きさが変わった時だけハイライト枠を作り直す（毎フレーム作り直さない）
+    const bool moved = position.x != x_ || position.y != y_ || itemSize.x != itemWidth_ || itemSize.y != itemHeight_;
+    x_ = position.x;
+    y_ = position.y;
+    itemWidth_ = itemSize.x;
+    itemHeight_ = itemSize.y;
+    if (moved || boxes_.size() != items_.size()) {
+        RebuildBoxes();
+    } else {
+        RefreshBoxColors();
+    }
 }
 
 void UIMenu::SetItems(const std::vector<UIButton>& items)
 {
     items_ = items;
+    labels_.clear();
+    for (const UIButton& item : items_) {
+        labels_.push_back(StringUtility::ConvertString(item.label));
+    }
     cursor_ = 0;
     for (size_t i = 0; i < items_.size(); ++i) {
         if (items_[i].enabled) {
@@ -62,6 +111,21 @@ void UIMenu::RebuildBoxes()
         box->SetPosition({ x_, y_ + itemHeight_ * static_cast<float>(i) });
         box->SetSize({ itemWidth_, itemHeight_ });
         boxes_.push_back(std::move(box));
+    }
+    RefreshBoxColors();
+}
+
+void UIMenu::RefreshBoxColors()
+{
+    for (size_t i = 0; i < boxes_.size(); ++i) {
+        Vector4 color = idleColor_;
+        if (!items_[i].enabled) {
+            color = disabledColor_;
+        } else if (static_cast<int>(i) == cursor_) {
+            color = selectedColor_;
+        }
+        boxes_[i]->SetColor(color);
+        boxes_[i]->Update();
     }
 }
 
@@ -92,16 +156,7 @@ void UIMenu::Update(Input* input)
     if (audio_ && cursor_ != previousCursor) {
         audio_->PlayMenuChoice();
     }
-    for (size_t i = 0; i < boxes_.size(); ++i) {
-        Vector4 color = kIdleColor;
-        if (!items_[i].enabled) {
-            color = kDisabledColor;
-        } else if (static_cast<int>(i) == cursor_) {
-            color = kSelectedColor;
-        }
-        boxes_[i]->SetColor(color);
-        boxes_[i]->Update();
-    }
+    RefreshBoxColors();
 }
 
 bool UIMenu::ConsumeConfirm(Input* input)
@@ -118,18 +173,24 @@ bool UIMenu::ConsumeConfirm(Input* input)
 
 void UIMenu::Draw()
 {
+    // エディタで位置・色を変えた結果を、ゲームが一時停止していてもその場で反映する
+    ApplyBoundLayout();
+
     for (auto& box : boxes_) {
         box->Draw();
     }
 
     for (size_t i = 0; i < items_.size(); ++i) {
-        const Vector4 textColor = items_[i].enabled ? kTextColor : kTextDisabledColor;
+        const Vector4 textColor = items_[i].enabled ? textColor_ : textDisabledColor_;
         const float labelY = y_ + itemHeight_ * static_cast<float>(i) + itemHeight_ * kLabelTopRatio;
-        fontRenderer_->DrawString(items_[i].label, x_ + kLabelPaddingX, labelY, kLabelScale, textColor);
+        const float labelX = centerLabels_
+            ? x_ + (itemWidth_ - MeasureTextWidth(labels_[i], labelScale_)) * kHalf
+            : x_ + labelPaddingX_;
+        fontRenderer_->DrawStringW(labels_[i], labelX, labelY, labelScale_, textColor);
 
         if (static_cast<int>(i) == cursor_) {
-            fontRenderer_->DrawString(">", x_ - kLabelPaddingX, labelY, kLabelScale, kSelectedColor);
-            fontRenderer_->DrawString("<", x_ + itemWidth_ + kCursorGap, labelY, kLabelScale, kSelectedColor);
+            fontRenderer_->DrawStringW(L">", x_ - labelPaddingX_, labelY, labelScale_, selectedColor_);
+            fontRenderer_->DrawStringW(L"<", x_ + itemWidth_ + kCursorGap, labelY, labelScale_, selectedColor_);
         }
     }
 }

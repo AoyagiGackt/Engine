@@ -10,10 +10,13 @@
  * 【SE】 : 複数同時再生可能1つのSEが複数の SourceVoice を持てる再生終了したものは自動削除する
  */
 #include "Audio.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include "Logger.h"
 #include "StringUtility.h"
 #include <algorithm>
+#include <shlwapi.h>
+#pragma comment(lib, "Shlwapi.lib")
 using namespace engine;
 
 using namespace Microsoft::WRL;
@@ -96,6 +99,28 @@ void Audio::PlayTitleBGM()
     PlayBGM(GetCachedSound("Resources/bgm/titleBgm.mp3"));
 }
 
+/** @brief pakから読んだ音声ファイルのバイト列を、Media Foundationで読めるストリームにして開く */
+static HRESULT CreateSourceReaderFromMemory(const std::vector<uint8_t>& bytes, const std::wstring& fileName,
+    ComPtr<IMFSourceReader>& outReader)
+{
+    ComPtr<IStream> memoryStream;
+    memoryStream.Attach(SHCreateMemStream(bytes.data(), static_cast<UINT>(bytes.size())));
+    if (!memoryStream) {
+        return E_OUTOFMEMORY;
+    }
+    ComPtr<IMFByteStream> byteStream;
+    HRESULT hr = MFCreateMFByteStreamOnStream(memoryStream.Get(), &byteStream);
+    if (FAILED(hr)) {
+        return hr;
+    }
+    // ファイル名が無いと形式を判別できないことがあるため、元のファイル名を手がかりとして渡す
+    ComPtr<IMFAttributes> streamAttributes;
+    if (SUCCEEDED(byteStream.As(&streamAttributes))) {
+        streamAttributes->SetString(MF_BYTESTREAM_ORIGIN_NAME, fileName.c_str());
+    }
+    return MFCreateSourceReaderFromByteStream(byteStream.Get(), nullptr, &outReader);
+}
+
 SoundData Audio::LoadAudio(const std::string& filename)
 {
     HRESULT hr;
@@ -104,9 +129,14 @@ SoundData Audio::LoadAudio(const std::string& filename)
     // ファイルパスを string から wstring に変換する（Windows API が wstring を要求するため）
     std::wstring wFilename = StringUtility::ConvertString(filename);
 
-    // Media Foundation でファイルを開く
+    // Media Foundation でファイルを開く（配布時はResourcesが無いので、pakへそのまま入れた元ファイルをメモリから開く）
     ComPtr<IMFSourceReader> pSourceReader;
-    hr = MFCreateSourceReaderFromURL(wFilename.c_str(), nullptr, &pSourceReader);
+    std::vector<uint8_t> packed;
+    if (AssetPack::GetInstance()->ReadRawIfMissing(filename, packed)) {
+        hr = CreateSourceReaderFromMemory(packed, wFilename, pSourceReader);
+    } else {
+        hr = MFCreateSourceReaderFromURL(wFilename.c_str(), nullptr, &pSourceReader);
+    }
     if (FAILED(hr)) {
         Logger::LogError("Failed to open audio file: " + filename);
         ENGINE_ASSERT(false);

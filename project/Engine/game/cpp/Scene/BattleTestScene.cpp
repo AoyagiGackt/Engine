@@ -20,6 +20,7 @@
 #include "SlashMark.h"
 #include "StageEditor.h"
 #include "TimeManager.h"
+#include "UILayout.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -87,8 +88,14 @@ static constexpr float kSplashDropSize = 0.1f;
 static constexpr float kMinClipW = 0.0001f; // これ以下のw成分ではスクリーン座標へ変換しない（カメラの背後）
 static constexpr float kRampageDefaultTargetDistance = 6.0f; // 対象がいない時に乱舞が向かう前方の距離
 
-// HUD
+// HUD（既定の配置。F2のエディタで動かした値は Resources/Config/UI/battletest.json に保存される）
+static constexpr const char* kLayoutName = "battletest";
 static constexpr Vector2 kBattleControlsAnchor = { 1020.0f, 12.0f };
+static constexpr float kHintScale = 1.5f;
+static constexpr Vector4 kHintColor = { 0.80f, 0.76f, 0.65f, 1.0f };
+static constexpr Vector4 kHintShadowColor = { 0.05f, 0.04f, 0.02f, 0.9f };
+static constexpr float kHintShadowOffset = 1.6f;
+static constexpr Vector4 kReturnLabelColor = { 1.0f, 0.6f, 0.1f, 1.0f };
 static constexpr float kLockMarkerHeight = 1.6f;
 static constexpr float kLockMarkerHalfWidth = 46.0f;
 static constexpr float kLockMarkerScale = 1.3f;
@@ -374,7 +381,7 @@ void BattleTestScene::UpdateSceneFlow()
 
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
-    bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpRetX, kReturnProx, "TRAINING", audio_);
+    bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpRetX, kReturnProx, "BATTLETEST", "back", "TRAINING", audio_);
     if (showHud_) {
         DrawHud(nearReturn);
     }
@@ -515,7 +522,7 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     DrawWeaponHud(nearReturnPortal);
     SceneShared::DrawControlsHud(fontRenderer_,
-        GetStageEditor().GetHudAnchorPosition("hud_anchor_controls", kBattleControlsAnchor), L": トレーニングへ戻る");
+        UILayout::Get(kLayoutName).Pos("controls.pos", kBattleControlsAnchor), L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     hud_.QueueText(fontRenderer_);
 
@@ -532,24 +539,25 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
             const Vector3& cam = camera_->GetTranslate();
             float sx, sy;
             SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
-            fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy, kLockMarkerScale, kLockMarkerColor);
+            UILayout& layout = UILayout::Get(kLayoutName);
+            fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy,
+                layout.Float("lock_marker.scale", kLockMarkerScale), layout.Color("lock_marker.color", kLockMarkerColor));
         }
     }
 }
 
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 {
-    constexpr float kScale = 1.5f;
+    UILayout& layout = UILayout::Get(kLayoutName);
     // 明るいブロックの上でも埋もれないよう暖色＋影付きにする（武器選択パネルと揃える）
-    constexpr Vector4 kColorHint = { 0.80f, 0.76f, 0.65f, 1.0f };
-    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
-    constexpr float kShadowOffset = 1.6f;
+    const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
+    const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
     auto drawShadowedHint = [&](const std::wstring& text, float x, float y) {
-        fontRenderer_.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, kScale, kShadow);
-        fontRenderer_.DrawStringW(text, x, y, kScale, kColorHint);
+        fontRenderer_.DrawStringW(text, x + kHintShadowOffset, y + kHintShadowOffset, hintScale, kHintShadowColor);
+        fontRenderer_.DrawStringW(text, x, y, hintScale, hintColor);
     };
 
-    const Vector2 weaponHudAnchor = GetStageEditor().GetHudAnchorPosition("hud_anchor_weapon_list", kDefaultHudWeaponAnchor);
+    const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
     drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
     drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + kHintLineHeight);
@@ -559,12 +567,14 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(kWarpRetX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
-        constexpr Vector4 kColorReturn = { 1.0f, 0.6f, 0.1f, 1.0f };
-        fontRenderer_.DrawStringW(L"[ ENTER ] トレーニングへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y, kScale, kColorReturn);
+        fontRenderer_.DrawStringW(L"[ ENTER ] トレーニングへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
+            hintScale, layout.Color("portal.label_color", kReturnLabelColor));
     }
 
     if (showColliders_) {
-        fontRenderer_.DrawString("[ F3 ] Colliders: ON", kColliderLabelPosition.x, kColliderLabelPosition.y, kScale, kColliderLabelColor);
+        const Vector2 colliderLabelPosition = layout.Pos("collider_label.pos", kColliderLabelPosition);
+        fontRenderer_.DrawString("[ F3 ] Colliders: ON", colliderLabelPosition.x, colliderLabelPosition.y,
+            hintScale, layout.Color("collider_label.color", kColliderLabelColor));
     }
 }
 

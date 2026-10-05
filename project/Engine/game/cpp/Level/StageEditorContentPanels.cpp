@@ -80,7 +80,6 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
     const char* kindTag = (desc.kind == "enemy_knight") ? "[ナイト] "
         : (desc.kind == "enemy_basic")                  ? "[エネミー] "
         : (desc.kind == "ui_text")                      ? "[テキスト] "
-        : (desc.kind == "hud_anchor")                   ? "[HUD位置] "
         : (desc.kind == "pickup")                       ? "[収集物] "
         : (desc.kind == "breakable")                    ? "[壊せる物] "
                                                         : "";
@@ -104,7 +103,7 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         }
     }
     // ダブルクリックでその配置物へカメラを寄せる（画面外の物を探しに行く手間を省く）
-    const bool screenSpaceObject = (desc.kind == "ui_text" && desc.textSpace == "screen") || desc.kind == "hud_anchor";
+    const bool screenSpaceObject = desc.kind == "ui_text" && desc.textSpace == "screen";
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !screenSpaceObject) {
         FocusCameraOn(WorldPositionOf(desc));
     }

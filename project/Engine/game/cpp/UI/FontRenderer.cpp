@@ -7,6 +7,7 @@
 #define NOMINMAX
 #include "EngineAssert.h"
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 #include <windows.h>
 using namespace engine;
@@ -19,7 +20,7 @@ static constexpr const char* kJpAtlasKey = "__fontAtlasJp__";
 static constexpr const char* kJpAtlasKeyRegular = "__fontAtlasJpRegular__";
 
 // ひらがな 0x3041-0x3096 (86文字), カタカナ 0x30A0-0x30FF (96文字) は範囲カバー
-// それ以外でゲームUIに使う文字を追加
+// Shift_JIS範囲（後述）に含まれない文字でゲームUIに使うものを追加（範囲内の文字は重複しても無視される）
 static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護者射撃段斬★" // 既存
                                   L"格闘連玉" // 武器UI
                                   L"武器操作説明" // TrainingScene
@@ -34,14 +35,77 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"了交体備入前区口合固壁壊変外奪完左技接換攻有杯棄槍画直瞬破練装解訓赤迅間障青"
                                   L"寄押" // ロックオンUI（最寄り・長押し）
                                   L"収避無身可割価待構評吸" // 回避/無敵・武器吸収・マップ評価UIの不足分
-                                  L"空中追撃段別推奨順番"; // コンボルートガイド
+                                  L"空中追撃段別推奨順番" // コンボルートガイド
+                                  L"擲" // レベル2の案内文（JIS第二水準のため範囲外）
+                                  // 以下はShift_JIS範囲にも含まれるが、範囲の一括追加を外しても画面の文章が欠けないよう明示しておく
+                                  L"→○●　、。々（）：？" // HUD・マップ・ショップ・案内文の記号
+                                  L"一予二先光内円再出制削告呼囲型基場実寸屋崩帰常広床役径後必快扉投抜探揺文時来桁案機正殺気波消渡渦準"
+                                  L"溜滅滞演灰特牽生目着短秒程立第箱範約紙索緑能色荒見読起超足車転軽輪近退逆遅違遠還部量面駐"; // 武器説明・レベル案内文・グラフの文章
 static constexpr uint32_t kHiraganaStart = 0x3041;
 static constexpr uint32_t kHiraganaEnd = 0x3096;
 static constexpr uint32_t kKatakanaStart = 0x30A0;
 static constexpr uint32_t kKatakanaEnd = 0x30FF;
 static constexpr int kHiraganaCount = static_cast<int>(kHiraganaEnd - kHiraganaStart + 1); // 86
 static constexpr int kKatakanaCount = static_cast<int>(kKatakanaEnd - kKatakanaStart + 1); // 96
-static constexpr int kKanaTotal = kHiraganaCount + kKatakanaCount; // 182
+
+// Shift_JIS の全角記号・英数字・JIS第一水準漢字（0x8140-0x9872）をまとめて焼き込み、
+// レベルデータ等で自由に書かれた文章でも文字が欠けないようにする
+static constexpr UINT kShiftJisCodePage = 932;
+static constexpr int kSjisLeadFirst = 0x81;
+static constexpr int kSjisLeadLast = 0x98;
+static constexpr int kSjisTrailFirst = 0x40;
+static constexpr int kSjisTrailLast = 0xFC;
+static constexpr int kSjisTrailInvalid = 0x7F;
+static constexpr int kSjisLastCode = 0x9872;
+static constexpr int kSjisByteShift = 8;
+static constexpr uint32_t kAsciiLimit = 128;
+
+namespace {
+/** @brief JPアトラスに焼く文字の並び（かな→Shift_JIS範囲→kJpExtraの残り）と文字→グリフ番号の対応表 */
+struct JpGlyphTable {
+    std::vector<wchar_t> glyphs;
+    std::unordered_map<wchar_t, int> indexOf;
+
+    void Add(wchar_t ch)
+    {
+        if (static_cast<uint32_t>(ch) < kAsciiLimit || indexOf.count(ch)) {
+            return;
+        }
+        indexOf.emplace(ch, static_cast<int>(glyphs.size()));
+        glyphs.push_back(ch);
+    }
+};
+
+const JpGlyphTable& GetJpGlyphTable()
+{
+    static const JpGlyphTable table = [] {
+        JpGlyphTable t;
+        for (int i = 0; i < kHiraganaCount; ++i) {
+            t.Add(static_cast<wchar_t>(kHiraganaStart + i));
+        }
+        for (int i = 0; i < kKatakanaCount; ++i) {
+            t.Add(static_cast<wchar_t>(kKatakanaStart + i));
+        }
+        for (int lead = kSjisLeadFirst; lead <= kSjisLeadLast; ++lead) {
+            for (int trail = kSjisTrailFirst; trail <= kSjisTrailLast; ++trail) {
+                if (trail == kSjisTrailInvalid || ((lead << kSjisByteShift) | trail) > kSjisLastCode) {
+                    continue;
+                }
+                const char bytes[2] = { static_cast<char>(lead), static_cast<char>(trail) };
+                wchar_t wc = 0;
+                if (MultiByteToWideChar(kShiftJisCodePage, MB_ERR_INVALID_CHARS, bytes, 2, &wc, 1) == 1) {
+                    t.Add(wc);
+                }
+            }
+        }
+        for (int i = 0; kJpExtra[i]; ++i) {
+            t.Add(kJpExtra[i]);
+        }
+        return t;
+    }();
+    return table;
+}
+} // namespace
 
 void FontRenderer::BuildAtlas(bool bold)
 {
@@ -128,19 +192,9 @@ void FontRenderer::BuildAtlas(bool bold)
 
 int FontRenderer::GetJpGlyphIdx(wchar_t c) const
 {
-    uint32_t u = static_cast<uint32_t>(c);
-    if (u >= kHiraganaStart && u <= kHiraganaEnd) {
-        return static_cast<int>(u - kHiraganaStart);
-    }
-    if (u >= kKatakanaStart && u <= kKatakanaEnd) {
-        return kHiraganaCount + static_cast<int>(u - kKatakanaStart);
-    }
-    for (int i = 0; kJpExtra[i]; ++i) {
-        if (static_cast<wchar_t>(kJpExtra[i]) == c) {
-            return kKanaTotal + i;
-        }
-    }
-    return -1;
+    const auto& indexOf = GetJpGlyphTable().indexOf;
+    auto it = indexOf.find(c);
+    return it != indexOf.end() ? it->second : -1;
 }
 
 void FontRenderer::BuildJpAtlas(bool bold)
@@ -150,8 +204,8 @@ void FontRenderer::BuildJpAtlas(bool bold)
         return;
     }
 
-    int extraCount = static_cast<int>(wcslen(kJpExtra));
-    int totalGlyphs = kKanaTotal + extraCount;
+    const auto& glyphs = GetJpGlyphTable().glyphs;
+    int totalGlyphs = static_cast<int>(glyphs.size());
     int atlasRows = (totalGlyphs + kJpCols - 1) / kJpCols;
     (bold ? jpAtlasRows_ : jpAtlasRowsRegular_) = atlasRows;
     int atlasW = kJpCols * kJpCharW; // 256
@@ -197,14 +251,8 @@ void FontRenderer::BuildJpAtlas(bool bold)
         TextOutW(hdcMem, col * kJpCharW, row * kJpCharH, wbuf, 1);
     };
 
-    for (int i = 0; i < kHiraganaCount; ++i) {
-        renderAt(i, static_cast<wchar_t>(kHiraganaStart + i));
-    }
-    for (int i = 0; i < kKatakanaCount; ++i) {
-        renderAt(kHiraganaCount + i, static_cast<wchar_t>(kKatakanaStart + i));
-    }
-    for (int i = 0; kJpExtra[i]; ++i) {
-        renderAt(kKanaTotal + i, kJpExtra[i]);
+    for (int i = 0; i < totalGlyphs; ++i) {
+        renderAt(i, glyphs[i]);
     }
 
     GdiFlush();

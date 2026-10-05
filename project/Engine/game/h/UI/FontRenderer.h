@@ -86,7 +86,7 @@ private:
     void BuildJpAtlas(bool bold);
     /**
      * @brief 文字がJPアトラス内のどのグリフ番号に対応するかを返す
-     * @param c 判定する文字（ひらがな/カタカナ/kJpExtra内の追加漢字）
+     * @param c 判定する文字（ひらがな/カタカナ/全角記号/第一水準漢字/kJpExtra内の追加文字）
      * @return グリフ番号（アトラス内の並び順）対応外の文字なら-1
      */
     int GetJpGlyphIdx(wchar_t c) const;

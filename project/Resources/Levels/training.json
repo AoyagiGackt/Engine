@@ -7,114 +7,61 @@
   ],
   "objects": [
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "hud_anchor",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "hud_anchor_controls",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
+      "name": "city_1",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
       "position": [
-        1020.0,
-        12.0,
-        0.0
+        5,
+        -0.6,
+        6
       ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
       "scale": [
-        1.0,
-        1.0,
-        1.0
+        0.42,
+        0.42,
+        0.42
       ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "操作説明",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
-      ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": ""
+      "lighting": true,
+      "solid": false
     },
     {
-      "activationDelay": 0.0,
-      "activationFlag": "",
-      "activeWhenFlag": true,
-      "axis": "x",
-      "cameraBlendSeconds": 0.5,
-      "cameraHoldSeconds": 2.0,
-      "conditionSeconds": 0.0,
-      "conditionType": "manual",
-      "count": 1,
-      "enabled": true,
-      "enemyGroup": "",
-      "gimmickMotion": "none",
-      "kind": "hud_anchor",
-      "lighting": true,
-      "meshCollider": false,
-      "model": "",
-      "motionAmount": 3.0,
-      "motionSpeed": 1.0,
-      "name": "hud_anchor_weapon_list",
-      "parent": "",
-      "patrolRoute": "",
-      "patrolSpeed": 1.5,
+      "name": "city_2",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
       "position": [
-        12.0,
-        12.0,
-        0.0
+        16,
+        -0.6,
+        6
       ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "routeOrder": 0,
       "scale": [
-        1.0,
-        1.0,
-        1.0
+        0.42,
+        0.42,
+        0.42
       ],
-      "solid": false,
-      "spawnType": "basic",
-      "step": 1.0,
-      "text": "武器選択",
-      "textBold": false,
-      "textColor": [
-        1.0,
-        1.0,
-        1.0,
-        1.0
+      "lighting": true,
+      "solid": false
+    },
+    {
+      "name": "city_3",
+      "type": "static",
+      "kind": "prop",
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [
+        27,
+        -0.6,
+        6
       ],
-      "textScale": 1.5,
-      "textSpace": "screen",
-      "texture": "",
-      "type": ""
+      "scale": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "lighting": true,
+      "solid": false
     }
   ],
   "playerSpawn": [

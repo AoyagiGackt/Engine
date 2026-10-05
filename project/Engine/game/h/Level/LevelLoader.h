@@ -25,9 +25,6 @@ struct ObjectDesc {
     std::string type; // "static" | "row"
     // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
     // | "ui_text"（Object3dを生成せず、StageEditor::DrawUITextがFontRendererで文字列を描画する。以下のtext系フィールド専用）
-    // | "hud_anchor"（Object3dを生成しないスクリーンpx位置マーカー。武器選択/操作説明のように中身が動的で
-    //   コード側に残したままのHUDパネルについて、表示位置(position.x/y)だけをステージエディタで編集可能にする。
-    //   StageEditor::GetHudAnchorPosition()で名前引きする。textは編集画面に出すラベルとしてのみ使う）
     // | "pickup"（触れると回収される収集物。pickup系フィールド専用）
     // | "breakable"（攻撃で壊れて周囲にダメージを撒く設置物。breakable系フィールド専用）
     // enemy系はStageEditorが実際にHPを持つ敵インスタンスとして生成する（model/texture/type/axis/count/stepは無視される）

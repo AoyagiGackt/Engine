@@ -25,7 +25,9 @@ private:
         bool wasTouching = false;
     };
     engine::graphics::ModelCommon* modelCommon_ = nullptr;
-    std::array<Pickup, 7> pickups_;
+    /** @brief 並べる武器の数（本編で敵から奪える剣・槍・ハンマー・短剣だけ） */
+    static constexpr int kPickupCount = 4;
+    std::array<Pickup, kPickupCount> pickups_;
     float pulseTime_ = 0.0f;
 };
 }

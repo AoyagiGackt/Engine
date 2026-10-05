@@ -29,10 +29,6 @@ inline constexpr float kMaxSnapStep = 10.0f;
 // 画面中央（文章UIの初期配置）
 inline constexpr Vector3 kScreenCenterPosition = { GameConstants::kScreenCenterX, GameConstants::kScreenCenterY, 0.0f };
 
-// HUDアンカーの既定位置（画面左上基準のピクセル座標）
-inline constexpr Vector3 kControlsHudAnchorPosition = { 1020.0f, 12.0f, 0.0f };
-inline constexpr Vector3 kWeaponListHudAnchorPosition = { 12.0f, 12.0f, 0.0f };
-
 // ヒエラルキーとアセットパレットの高さ配分（左列の高さに対するヒエラルキーの割合）
 inline constexpr float kHierarchyHeightRatio = 0.62f;
 

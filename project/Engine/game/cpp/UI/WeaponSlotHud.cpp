@@ -6,6 +6,7 @@
 #include "ModelManager.h"
 #include "SceneShared.h"
 #include "SpriteCommon.h"
+#include "UILayout.h"
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
@@ -14,8 +15,8 @@ using namespace engine::graphics;
 namespace engine::game {
 namespace {
 // 枠の配置（画面左下から横に並べる）
-constexpr float kSlotsLeft = 24.0f;
-constexpr float kSlotsTop = 630.0f;
+constexpr const char* kLayoutName = "hud"; // 全シーン共通のHUDレイアウト（Resources/Config/UI/hud.json）
+constexpr Vector2 kSlotsPosition = { 24.0f, 630.0f }; // 一番左の枠の左上
 constexpr float kSlotPitch = 66.0f; // 隣の枠までの間隔
 constexpr float kGunFrameGap = 24.0f; // 武器枠の列と銃枠の間の余白
 constexpr float kIconInset = 6.0f; // 枠の内側に色アイコンを置く余白
@@ -109,21 +110,36 @@ void WeaponSlotHud::InitializeFrames()
     const float iconSize = kSlotSize - kIconInset * 2.0f;
     for (int i = 0; i < kSlotCount; ++i) {
         auto& slot = slots_[i];
-        slot.position = { kSlotsLeft + i * kSlotPitch, kSlotsTop };
-        slot.frame = create(slot.position, { kSlotSize, kSlotSize });
+        slot.frame = create({}, { kSlotSize, kSlotSize });
         slot.frame->SetColor(kSlotFrameColor);
-        slot.frame->Update();
-        slot.icon = create({ slot.position.x + kIconInset, slot.position.y + kIconInset }, { iconSize, iconSize });
+        slot.icon = create({}, { iconSize, iconSize });
         slot.icon->SetColor(kEmptyIconColor);
-        slot.icon->Update();
     }
-    gunPosition_ = { kSlotsLeft + kSlotCount * kSlotPitch + kGunFrameGap, kSlotsTop };
-    gunFrame_ = create(gunPosition_, { kSlotSize, kSlotSize });
+    gunFrame_ = create({}, { kSlotSize, kSlotSize });
     gunFrame_->SetColor(kGunFrameColor);
-    gunFrame_->Update();
-    gunIcon_ = create({ gunPosition_.x + kSlotSize * 0.5f, gunPosition_.y + kSlotSize * 0.5f }, { kGunIconSize, kGunIconSize });
+    gunIcon_ = create({}, { kGunIconSize, kGunIconSize });
     gunIcon_->SetAnchorPoint({ 0.5f, 0.5f });
     gunIcon_->SetColor(kGunIconColor);
+    ApplyLayout();
+}
+void WeaponSlotHud::ApplyLayout()
+{
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 origin = layout.Pos("weapon_slots.pos", kSlotsPosition);
+    const float pitch = layout.Float("weapon_slots.pitch", kSlotPitch);
+    const float gunGap = layout.Float("weapon_slots.gun_gap", kGunFrameGap);
+    for (int i = 0; i < kSlotCount; ++i) {
+        auto& slot = slots_[i];
+        slot.position = { origin.x + i * pitch, origin.y };
+        slot.frame->SetPosition(slot.position);
+        slot.frame->Update();
+        slot.icon->SetPosition({ slot.position.x + kIconInset, slot.position.y + kIconInset });
+        slot.icon->Update();
+    }
+    gunPosition_ = { origin.x + kSlotCount * pitch + gunGap, origin.y };
+    gunFrame_->SetPosition(gunPosition_);
+    gunFrame_->Update();
+    gunIcon_->SetPosition({ gunPosition_.x + kSlotSize * 0.5f, gunPosition_.y + kSlotSize * 0.5f });
     gunIcon_->Update();
 }
 bool WeaponSlotHud::HasModelIcon(int index) const
@@ -137,6 +153,7 @@ void WeaponSlotHud::Notify(HudEvent event)
 }
 void WeaponSlotHud::Update(const HudFrame& frame)
 {
+    ApplyLayout();
     pulseTime_ += frame.deltaSeconds;
     flashRemaining_ = (std::max)(0.0f, flashRemaining_ - frame.deltaSeconds);
     const float flash = flashRemaining_ / kFlashDuration;

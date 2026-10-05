@@ -51,6 +51,13 @@ public:
     /** @brief ImGui マネージャーを設定する */
     void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
+    // 床と背景のビルは Resources/Levels/map.json に置き、F2のステージエディタで編集する
+    std::string GetEditorLevelPath() const override { return "Resources/Levels/map.json"; }
+    engine::graphics::ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    engine::graphics::Camera* GetEditorCamera() override { return camera_.get(); }
+    /** @brief エディタ表示中（移動停止中）もカメラ移動に合わせてプレイヤーと入口ポータルの行列だけ更新する */
+    void RefreshVisualTransformsForEditor() override;
+
 private:
     /** @brief Initialize()の下請け 背景・ノード・地面のUIスプライトを初期化する */
     void InitializeUiSprites();
@@ -67,8 +74,6 @@ private:
     void DrawWorld();
     /** @brief Draw()の下請け 各ステージ入口ポータルの上に番号ラベルとENTER案内を描画する */
     void DrawStagePortalLabels(int floor);
-    /** @brief フロアごとのマップノードを描画する選択中ノードの種類を返す */
-    RunData::NodeType DrawFloorNodes(int curFloor);
     /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
 
@@ -79,19 +84,15 @@ private:
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> bgSprite_; // 黒背景
-    std::unique_ptr<Sprite> nodeSprite_; // ノードボックス（都度色変え）
-    std::unique_ptr<Sprite> groundSprite_;
+    std::unique_ptr<Sprite> nodeSprite_; // 選択中ステージの説明パネル
 
     std::unique_ptr<ModelCommon> modelCommon_;
     std::unique_ptr<Object3dCommon> objectCommon_;
     std::unique_ptr<ShadowManager> shadowManager_;
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<Player> player_;
-    Model* blockModel_ = nullptr; // 実体はModelManagerが所有・共有する
-    Model* cityModel_ = nullptr; // 実体はModelManagerが所有・共有する
-    std::vector<std::unique_ptr<Object3d>> groundBlocks_;
+    Model* blockModel_ = nullptr; // 入口ポータルの見た目（実体はModelManagerが所有・共有する）
     std::vector<std::unique_ptr<Object3d>> portalObjects_;
-    std::vector<std::unique_ptr<Object3d>> cityObjects_;
 
     FontRenderer fontRenderer_;
 

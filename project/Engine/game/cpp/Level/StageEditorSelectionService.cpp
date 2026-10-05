@@ -48,13 +48,6 @@ void StageEditorSelectionService::DeleteSelected(StageEditor& editor)
         && editor.selIndex_ < static_cast<int>(editor.triggers_.size())) {
         editor.RecordUndoSnapshotNow();
         editor.triggers_.erase(editor.triggers_.begin() + editor.selIndex_);
-    } else if (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.externalEntities_.size())
-        && editor.externalEntities_[editor.selIndex_].onDelete) {
-        // シーン所有の背景オブジェクト等onDeleteが設定されたエンティティのみ削除できる
-        // （JSON/Undoの管理対象外なので、実体の破棄は登録元シーンのコールバックに委ねる）
-        editor.externalEntities_[editor.selIndex_].onDelete();
-        editor.externalEntities_.erase(editor.externalEntities_.begin() + editor.selIndex_);
     } else {
         return;
     }
@@ -103,14 +96,6 @@ void StageEditorSelectionService::DuplicateSelected(StageEditor& editor)
         editor.triggers_.push_back(std::move(trigger));
         editor.selKind_ = StageEditor::SelKind::Trigger;
         editor.selIndex_ = static_cast<int>(editor.triggers_.size()) - 1;
-        editor.statusMessage_ = "複製しました";
-        editor.statusTimer_ = StageEditor::kStatusBriefSeconds;
-    } else if (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.externalEntities_.size())
-        && editor.externalEntities_[editor.selIndex_].onDuplicate) {
-        // シーン所有の背景オブジェクト等onDuplicateが設定されたエンティティのみ複製できる
-        // （新しい実体の生成・登録は登録元シーンのコールバックに委ねる。選択状態はそちらでは変えないので維持する）
-        editor.externalEntities_[editor.selIndex_].onDuplicate();
         editor.statusMessage_ = "複製しました";
         editor.statusTimer_ = StageEditor::kStatusBriefSeconds;
     }

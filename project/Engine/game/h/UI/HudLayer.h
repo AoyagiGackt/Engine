@@ -20,9 +20,8 @@ struct HudServices {
     engine::DirectXCommon& graphics;
     WeaponManager& weapons;
 };
-// レベル側にHUDアンカーが置かれていない時の既定表示位置（画面左上基準のピクセル座標）
+// 武器一覧パネルの既定表示位置（画面左上基準のピクセル座標。各シーンのUILayoutで上書きできる）
 inline constexpr Vector2 kDefaultHudWeaponAnchor = { 12.0f, 12.0f };
-inline constexpr Vector2 kDefaultHudControlsAnchor = { 800.0f, 12.0f };
 
 // そのフレームの表示に必要な値だけを渡す。
 struct HudFrame {
@@ -31,8 +30,6 @@ struct HudFrame {
     float awakenGauge = 0.0f;
     bool awakened = false;
     float pulseTime = 0.0f;
-    Vector2 weaponAnchor = kDefaultHudWeaponAnchor;
-    Vector2 controlsAnchor = kDefaultHudControlsAnchor;
 };
 enum class HudEvent { WeaponAcquired };
 

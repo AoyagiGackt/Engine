@@ -239,7 +239,6 @@
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp" />
-    <ClCompile Include="Engine\game\cpp\Scene\LoadingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
@@ -280,6 +279,7 @@
     <ClCompile Include="Engine\graphics\cpp\2D\SpriteCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\2D\Sprite.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\TextureManager.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Manager\AssetPack.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Model.cpp" />
@@ -301,6 +301,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\OutlineEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\InputBuffer.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\UILayout.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
@@ -653,7 +654,6 @@
     <ClInclude Include="Engine\game\h\Scene\SceneShared.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h" />
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h" />
-    <ClInclude Include="Engine\game\h\Scene\LoadingScene.h" />
     <ClInclude Include="Engine\game\h\Scene\OptionsScene.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
@@ -692,6 +692,7 @@
     <ClInclude Include="Engine\graphics\h\2D\SpriteCommon.h" />
     <ClInclude Include="Engine\graphics\h\2D\Sprite.h" />
     <ClInclude Include="Engine\graphics\h\Manager\TextureManager.h" />
+    <ClInclude Include="Engine\graphics\h\Manager\AssetPack.h" />
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h" />
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h" />
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h" />
@@ -749,6 +750,7 @@
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />
     <ClInclude Include="Engine\game\h\UI\UIButton.h" />
     <ClInclude Include="Engine\game\h\UI\UIMenu.h" />
+    <ClInclude Include="Engine\game\h\UI\UILayout.h" />
     <ClInclude Include="Engine\game\h\Player\RunData.h" />
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />

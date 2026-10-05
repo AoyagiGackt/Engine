@@ -6,10 +6,12 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
+#include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
+#include "UIMenu.h"
 #include <memory>
 namespace engine::game {
 using engine::Audio;
@@ -21,8 +23,7 @@ using engine::graphics::SpriteCommon;
 
 /**
  * @brief ゲームオーバー画面のシーンクラス
- * @note ↑キー=リスタート(GAMEPLAY)、↓キー=タイトルに戻る(TITLE)
- *       Space/Enterキーで選択を確定する
+ * @note W/S・↑/↓で選び、Space/Enterで確定する（リスタート=MAP、タイトルに戻る=TITLE）
  */
 class GameOverScene : public BaseScene {
 public:
@@ -45,14 +46,11 @@ private:
     /** @brief 半透明の黒背景 */
     std::unique_ptr<Sprite> overlay_;
 
-    /** @brief 選択肢1: リスタート（↑） */
-    std::unique_ptr<Sprite> option1_;
+    /** @brief GAME OVER表記・選択肢ラベル・操作説明の文字描画 */
+    FontRenderer fontRenderer_;
 
-    /** @brief 選択肢2: タイトルに戻る（↓） */
-    std::unique_ptr<Sprite> option2_;
-
-    /** @brief カーソル位置（0=リスタート, 1=タイトル） */
-    int cursor_ = 0;
+    /** @brief リスタート / タイトルに戻る の選択肢 */
+    UIMenu menu_;
 };
 
 } // namespace engine::game

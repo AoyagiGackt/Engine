@@ -11,6 +11,7 @@
 #include "StageEditor.h"
 #include "SkinnedObject3d.h"
 #include "SrvManager.h"
+#include "UILayout.h"
 #include "WeaponManager.h"
 #include "WinApp.h"
 #include <algorithm>
@@ -22,16 +23,6 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-// フロアごとのY座標（上=boss, 下=floor0）
-static constexpr float kFloorY[4] = { 530.0f, 410.0f, 290.0f, 150.0f };
-
-// ノードの列X座標
-static constexpr float kColX3[3] = { 280.0f, 640.0f, 1000.0f };
-static constexpr float kColX2[2] = { 430.0f, 850.0f };
-static constexpr float kColX1[1] = { 640.0f };
-
-static constexpr float kNodeW = 130.0f;
-static constexpr float kNodeH = 44.0f;
 static constexpr int kStageCount = 6;
 static constexpr float kStageWorldX[kStageCount] = { 8.0f, 18.0f, 28.0f, 38.0f, 48.0f, 58.0f };
 
@@ -48,9 +39,6 @@ static constexpr Vector4 kPortalLockedColor = { 0.12f, 0.12f, 0.16f, 1.0f };
 
 // 背景・地面
 static constexpr Vector4 kBackgroundColor = { 0.05f, 0.05f, 0.08f, 1.0f };
-static constexpr float kGroundSpriteY = 560.0f;
-static constexpr float kGroundSpriteHeight = 160.0f;
-static constexpr Vector4 kGroundSpriteColor = { 0.12f, 0.42f, 0.2f, 1.0f };
 
 // 3Dの舞台
 static constexpr float kCameraY = 4.8f;
@@ -61,19 +49,16 @@ static constexpr float kPlayerMinX = 2.5f;
 static constexpr float kPlayerMaxX = 63.5f;
 static constexpr float kPlayerGroundY = 0.4f;
 static constexpr float kPlayerFacingTargetDistance = 8.0f; // 向きを決めるために渡す前方の注視点までの距離
-static constexpr float kFloorBlockY = -0.6f;
-static constexpr int kFloorBlockLastX = 66;
 static constexpr Vector3 kPortalScale = { 2.5f, 4.0f, 1.0f };
 static constexpr float kPortalY = 1.4f;
 static constexpr float kPortalZ = 1.0f;
 static constexpr float kPortalSelectDistance = 2.5f; // この距離以内のポータルを選択中にする
-static constexpr float kCityXs[] = { 5.0f, 19.0f, 33.0f, 47.0f, 61.0f };
-static constexpr float kCityZ = 6.0f;
-static constexpr float kCityScale = 0.45f;
+
+// 以下は既定の配置（F2のエディタで動かした値は Resources/Config/UI/map.json に保存される）
+static constexpr const char* kLayoutName = "map";
 
 // 画面下の操作説明
-static constexpr float kHelpTextX = 20.0f;
-static constexpr float kHelpTextY = 690.0f;
+static constexpr Vector2 kHelpTextPosition = { 20.0f, 690.0f };
 static constexpr float kHelpTextScale = 1.1f;
 static constexpr Vector4 kHelpTextColor = { 0.88f, 0.90f, 1.0f, 1.0f };
 
@@ -85,42 +70,20 @@ static constexpr Vector2 kLabelShadowOffset = { 2.0f, 3.0f };
 static constexpr Vector4 kLabelShadowColor = { 0.02f, 0.02f, 0.04f, 0.95f };
 static constexpr Vector4 kLabelNearColor = { 1.0f, 1.0f, 0.2f, 1.0f };
 static constexpr Vector4 kLabelColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-static constexpr float kEnterHintJpOffsetX = 62.0f;
-static constexpr float kEnterHintJpScale = 1.2f;
-static constexpr Vector4 kEnterHintJpColor = { 1.0f, 0.9f, 0.3f, 0.0f }; // 透明（英字表記に統一したため非表示）
 static constexpr float kEnterHintOffsetX = 43.0f;
 static constexpr float kEnterHintY = 225.0f;
 static constexpr float kEnterHintScale = 1.35f;
 static constexpr Vector4 kEnterHintShadowColor = { 0.02f, 0.02f, 0.03f, 0.95f };
 static constexpr Vector4 kEnterHintColor = { 1.0f, 0.92f, 0.22f, 1.0f };
 
-// フロアノード一覧
-static constexpr int kBossFloorIndex = 3;
-static constexpr Vector4 kFloorLabelActiveColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-static constexpr Vector4 kFloorLabelCompletedColor = { 0.35f, 0.35f, 0.35f, 1.0f };
-static constexpr Vector4 kFloorLabelLockedColor = { 0.5f, 0.5f, 0.5f, 1.0f };
-static constexpr float kFloorLabelX = 30.0f;
-static constexpr float kFloorLabelOffsetY = 8.0f;
-static constexpr float kFloorLabelScale = 1.2f;
-static constexpr float kNodeLabelScale = 1.3f;
-static constexpr Vector4 kNodeLabelCompletedColor = { 0.45f, 0.45f, 0.45f, 1.0f };
-static constexpr Vector4 kNodeLabelSelectedColor = { 1.0f, 1.0f, 0.15f, 1.0f };
-static constexpr Vector4 kNodeLabelColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-static constexpr float kCursorLeftOffsetX = 16.0f;
-static constexpr float kCursorRightOffsetX = 2.0f;
-static constexpr float kCursorOffsetY = 4.0f;
-static constexpr float kCursorScale = 1.4f;
-static constexpr Vector4 kCursorColor = { 1.0f, 1.0f, 0.2f, 1.0f };
-
 // 選択中ノードの説明パネル
 static constexpr Vector2 kInfoPanelPosition = { 875.0f, 350.0f };
 static constexpr Vector2 kInfoPanelSize = { 365.0f, 118.0f };
 static constexpr Vector4 kInfoPanelColor = { 0.015f, 0.02f, 0.04f, 0.84f };
-static constexpr float kInfoTextX = 900.0f;
-static constexpr float kInfoTitleY = 370.0f;
+static constexpr Vector2 kInfoTitleOffset = { 25.0f, 20.0f }; // 説明パネル左上からの位置
 static constexpr float kInfoTitleScale = 1.8f;
 static constexpr Vector4 kInfoTitleColor = { 1.0f, 0.85f, 0.2f, 1.0f };
-static constexpr float kInfoDescY = 410.0f;
+static constexpr Vector2 kInfoDescOffset = { 25.0f, 60.0f };
 static constexpr float kInfoDescLineHeight = 25.0f;
 static constexpr float kInfoDescScale = 1.15f;
 static constexpr Vector4 kInfoDescColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -226,13 +189,6 @@ void MapScene::InitializeUiSprites()
 
     nodeSprite_ = std::make_unique<Sprite>();
     nodeSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    nodeSprite_->SetSize({ kNodeW, kNodeH });
-
-    groundSprite_ = std::make_unique<Sprite>();
-    groundSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    groundSprite_->SetPosition({ 0.0f, kGroundSpriteY });
-    groundSprite_->SetSize({ GameConstants::kScreenWidth, kGroundSpriteHeight });
-    groundSprite_->SetColor(kGroundSpriteColor);
 
     fontRenderer_.Initialize(spriteCommon_.get());
 }
@@ -264,18 +220,11 @@ void MapScene::InitializeRenderFoundationAndPlayer()
 
 void MapScene::InitializeStageObjects()
 {
+    // 床と背景のビルはレベルJSON（Resources/Levels/map.json）に置き、F2のステージエディタで編集する
+    // 入口ポータルはステージ数に追従させるためコード側で並べる
     blockModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/block/block.obj",
         "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png");
-    for (int x = 0; x <= kFloorBlockLastX; ++x) {
-        auto block = std::make_unique<Object3d>();
-        block->Initialize(modelCommon_.get());
-        block->SetModel(blockModel_);
-        block->SetPosition({ static_cast<float>(x), kFloorBlockY, 0.0f });
-        block->SetEnableLighting(false);
-        block->Update();
-        groundBlocks_.push_back(std::move(block));
-    }
 
     for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
         auto portal = std::make_unique<Object3d>();
@@ -284,19 +233,6 @@ void MapScene::InitializeStageObjects()
         portal->SetScale(kPortalScale);
         portal->SetEnableLighting(false);
         portalObjects_.push_back(std::move(portal));
-    }
-
-    cityModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
-        "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
-        "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png");
-    for (float x : kCityXs) {
-        auto city = std::make_unique<Object3d>();
-        city->Initialize(modelCommon_.get());
-        city->SetModel(cityModel_);
-        city->SetPosition({ x, kFloorBlockY, kCityZ });
-        city->SetScale({ kCityScale, kCityScale, kCityScale });
-        city->Update();
-        cityObjects_.push_back(std::move(city));
     }
 }
 
@@ -358,12 +294,6 @@ void MapScene::Update()
     if (selectedCol_ >= 0 && selectedCol_ != previousSelectedCol) {
         audio_->PlayMenuChoice();
     }
-    for (auto& block : groundBlocks_) {
-        block->Update();
-    }
-    for (auto& city : cityObjects_) {
-        city->Update();
-    }
     for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
         portalObjects_[i]->SetPosition({ kStageWorldX[i], kPortalY, kPortalZ });
         Vector4 color = NodeColor(floors_[i][0], i == selectedCol_, i < curFloor);
@@ -414,11 +344,21 @@ void MapScene::Draw()
         DrawStagePortalLabels(floor);
     }
 
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
     fontRenderer_.DrawStringW(L"A Dまたは左スティックで移動  入口の前でEnterまたはAボタン  Tでトレーニング",
-        kHelpTextX, kHelpTextY, kHelpTextScale, kHelpTextColor);
+        helpPosition.x, helpPosition.y, layout.Float("help.scale", kHelpTextScale), layout.Color("help.color", kHelpTextColor));
 
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
+}
+
+void MapScene::RefreshVisualTransformsForEditor()
+{
+    player_->RefreshVisualTransforms();
+    for (auto& portal : portalObjects_) {
+        portal->Update();
+    }
 }
 
 void MapScene::DrawShadowPass()
@@ -427,12 +367,7 @@ void MapScene::DrawShadowPass()
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     shadowManager_->BeginShadowPass(commandList);
     modelCommon_->BeginShadowPass();
-    for (auto& city : cityObjects_) {
-        city->DrawShadow();
-    }
-    for (auto& block : groundBlocks_) {
-        block->DrawShadow();
-    }
+    GetStageEditor().DrawObjectShadows();
     shadowManager_->EndShadowPass(commandList);
 }
 
@@ -457,12 +392,6 @@ void MapScene::DrawWorld()
     modelCommon_->CommonDrawSettings();
     objectCommon_->SetDefaultLight(commandList);
     shadowManager_->SetShadowMap(commandList, SrvManager::GetInstance());
-    for (auto& city : cityObjects_) {
-        city->Draw();
-    }
-    for (auto& block : groundBlocks_) {
-        block->Draw();
-    }
 
     const int floor = RunData::GetInstance()->GetFloor();
     if (floor < static_cast<int>(floors_.size())) {
@@ -479,6 +408,14 @@ void MapScene::DrawStagePortalLabels(int floor)
     const int count = static_cast<int>(floors_.size());
     const float* portalXs = kStageWorldX;
     const Vector3& cameraPos = camera_->GetTranslate();
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float labelY = layout.Float("portal_label.y", kLabelY);
+    const float labelScale = layout.Float("portal_label.scale", kLabelScale);
+    const Vector4 labelColor = layout.Color("portal_label.color", kLabelColor);
+    const Vector4 labelNearColor = layout.Color("portal_label.near_color", kLabelNearColor);
+    const float enterHintY = layout.Float("enter_hint.y", kEnterHintY);
+    const float enterHintScale = layout.Float("enter_hint.scale", kEnterHintScale);
+    const Vector4 enterHintColor = layout.Color("enter_hint.color", kEnterHintColor);
     for (int i = 0; i < count; ++i) {
         const bool isNear = i == selectedCol_;
         const float screenX = (portalXs[i] - cameraPos.x)
@@ -488,93 +425,27 @@ void MapScene::DrawStagePortalLabels(int floor)
         wchar_t stageLabel[32];
         swprintf_s(stageLabel, L"ステージ %d", i + 1);
         const wchar_t* label = stageLabel;
-        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX + kLabelShadowOffset.x, kLabelY + kLabelShadowOffset.y,
-            kLabelScale, kLabelShadowColor);
-        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX, kLabelY, kLabelScale,
-            isNear ? kLabelNearColor : kLabelColor);
+        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX + kLabelShadowOffset.x, labelY + kLabelShadowOffset.y,
+            labelScale, kLabelShadowColor);
+        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX, labelY, labelScale,
+            isNear ? labelNearColor : labelColor);
         if (isNear) {
-            fontRenderer_.DrawStringW(L"ENTERで入る", screenX - kEnterHintJpOffsetX, kEnterHintY, kEnterHintJpScale,
-                kEnterHintJpColor);
             fontRenderer_.DrawString("ENTER / A", screenX - kEnterHintOffsetX + kLabelShadowOffset.x,
-                kEnterHintY + kLabelShadowOffset.y, kEnterHintScale, kEnterHintShadowColor);
-            fontRenderer_.DrawString("ENTER / A", screenX - kEnterHintOffsetX, kEnterHintY, kEnterHintScale,
-                kEnterHintColor);
+                enterHintY + kLabelShadowOffset.y, enterHintScale, kEnterHintShadowColor);
+            fontRenderer_.DrawString("ENTER / A", screenX - kEnterHintOffsetX, enterHintY, enterHintScale,
+                enterHintColor);
             DrawSelectedNodeInfo(floor, floors_[i][0]);
         }
     }
 }
 
-RunData::NodeType MapScene::DrawFloorNodes(int curFloor)
-{
-    RunData::NodeType hoveredNode = RunData::NodeType::Combat;
-
-    for (int f = 0; f < static_cast<int>(floors_.size()); ++f) {
-        const auto& row = floors_[f];
-        int nCols = static_cast<int>(row.size());
-        const float* colXs = (nCols == 3) ? kColX3 : (nCols == 2) ? kColX2
-                                                                  : kColX1;
-        float rowY = kFloorY[f];
-
-        bool isActive = (f == curFloor);
-        bool isCompleted = (f < curFloor);
-
-        // フロアラベル
-        {
-            wchar_t lbl[16];
-            if (f == kBossFloorIndex) {
-                swprintf_s(lbl, L"BOSS");
-            } else {
-                swprintf_s(lbl, L"フロア %d", f + 1);
-            }
-            Vector4 lblCol = isActive ? kFloorLabelActiveColor
-                : isCompleted         ? kFloorLabelCompletedColor
-                                      : kFloorLabelLockedColor;
-            fontRenderer_.DrawStringW(lbl, kFloorLabelX, rowY + kFloorLabelOffsetY, kFloorLabelScale, lblCol);
-        }
-
-        for (int c = 0; c < nCols; ++c) {
-            float nx = colXs[c] - kNodeW * 0.5f;
-            float ny = rowY;
-            bool selected = isActive && (c == selectedCol_);
-
-            if (selected) {
-                hoveredNode = row[c];
-            }
-
-            Vector4 col = NodeColor(row[c], selected, isCompleted);
-            nodeSprite_->SetPosition({ nx, ny });
-            nodeSprite_->SetColor(col);
-            nodeSprite_->Update();
-            nodeSprite_->Draw();
-
-            // 日本語ノードラベル
-            const wchar_t* wlbl = NodeLabelW(row[c]);
-            float charW = FontRenderer::kJpCharW * kNodeLabelScale;
-            float textW = static_cast<float>(wcslen(wlbl)) * charW;
-            float tx = nx + (kNodeW - textW) * 0.5f;
-            float ty = ny + (kNodeH - FontRenderer::kJpCharH * kNodeLabelScale) * 0.5f;
-
-            Vector4 textCol = isCompleted ? kNodeLabelCompletedColor
-                : selected                ? kNodeLabelSelectedColor
-                                          : kNodeLabelColor;
-            fontRenderer_.DrawStringW(wlbl, tx, ty, kNodeLabelScale, textCol);
-
-            // 選択カーソル
-            if (selected) {
-                fontRenderer_.DrawString(">", nx - kCursorLeftOffsetX, ty + kCursorOffsetY, kCursorScale, kCursorColor);
-                fontRenderer_.DrawString("<", nx + kNodeW + kCursorRightOffsetX, ty + kCursorOffsetY, kCursorScale, kCursorColor);
-            }
-        }
-    }
-
-    return hoveredNode;
-}
-
 void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
 {
-    nodeSprite_->SetPosition(kInfoPanelPosition);
-    nodeSprite_->SetSize(kInfoPanelSize);
-    nodeSprite_->SetColor(kInfoPanelColor);
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 panelPosition = layout.Pos("info_panel.pos", kInfoPanelPosition);
+    nodeSprite_->SetPosition(panelPosition);
+    nodeSprite_->SetSize(layout.Vec2("info_panel.size", kInfoPanelSize));
+    nodeSprite_->SetColor(layout.Color("info_panel.color", kInfoPanelColor));
     nodeSprite_->Update();
     nodeSprite_->Draw();
     // ── 選択中ノードの説明（右側）──
@@ -586,15 +457,17 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
     const bool isStage = hoveredNode == RunData::NodeType::Combat
         || hoveredNode == RunData::NodeType::Elite || hoveredNode == RunData::NodeType::Boss;
     fontRenderer_.DrawStringW(isStage ? L"ステージ入口" : NodeLabelW(hoveredNode),
-        kInfoTextX, kInfoTitleY, kInfoTitleScale, kInfoTitleColor);
+        panelPosition.x + kInfoTitleOffset.x, panelPosition.y + kInfoTitleOffset.y, kInfoTitleScale, kInfoTitleColor);
+    const float descX = panelPosition.x + kInfoDescOffset.x;
+    const float descY = panelPosition.y + kInfoDescOffset.y;
     // 説明を2行に折り返して表示
     std::wstring descStr(desc);
     size_t br = descStr.find(L'　'); // 全角スペースで折り返しポイントを探す
     if (br != std::wstring::npos && br > kInfoDescMinWrapIndex) {
-        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), kInfoTextX, kInfoDescY, kInfoDescScale, kInfoDescColor);
-        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), kInfoTextX, kInfoDescY + kInfoDescLineHeight,
+        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), descX, descY, kInfoDescScale, kInfoDescColor);
+        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), descX, descY + kInfoDescLineHeight,
             kInfoDescScale, kInfoDescColor);
     } else {
-        fontRenderer_.DrawStringW(desc, kInfoTextX, kInfoDescY, kInfoDescScale, kInfoDescColor);
+        fontRenderer_.DrawStringW(desc, descX, descY, kInfoDescScale, kInfoDescColor);
     }
 }

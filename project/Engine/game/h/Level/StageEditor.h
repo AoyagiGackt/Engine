@@ -36,6 +36,7 @@ namespace engine::game {
 class KnightEnemy;
 class EnemyEntity;
 class FontRenderer;
+class UILayout;
 class StageEditorSelectionService;
 class StageEditorHierarchyPanel;
 class StageEditorInspectorPanel;
@@ -137,20 +138,17 @@ public:
     void DrawObjects();
 
     /**
+     * @brief 配置物の見た目モデルをシャドウマップへ描く
+     * @note シーンのシャドウパス内（ModelCommon::BeginShadowPass()の後）で呼ぶこと。敵は対象外
+     */
+    void DrawObjectShadows();
+
+    /**
      * @brief kind=="ui_text"の配置物をFontRendererへ描画コマンドとして積む
      * @param font 呼び出し元シーンが所有するFontRendererfontRenderer_.Reset()後、Draw()前に呼ぶこと
      * @note textSpace=="world"の配置物はcamera_の現在位置を基準にスクリーン座標へ投影する（SceneShared::WorldToScreenと同じ変換）
      */
     void DrawUIText(FontRenderer& font) const;
-
-    /**
-     * @brief kind=="hud_anchor"かつ指定nameの位置マーカーのスクリーンpx座標を返す
-     * @param anchorName EnsureHudAnchors()で使う固定名（例: "hud_anchor_controls"）
-     * @param fallback 該当マーカーが無い場合（未対応の古いレベル等）に返す既定位置
-     * @note 武器選択パネル/操作説明パネルのように中身が動的なHUDの「表示位置だけ」を
-     * ステージエディタでドラッグ編集できるようにするための仕組み。文言自体はコード側のまま
-     */
-    Vector2 GetHudAnchorPosition(const std::string& anchorName, const Vector2& fallback) const;
 
     /**
      * @brief このフレーム中にDrawObjects()が呼ばれ済みかどうか
@@ -242,16 +240,6 @@ public:
         std::function<void(const std::string&, const std::string&)> setStaticVisualModel = { },
         std::function<std::string()> getStaticVisualModel = { },
         std::function<std::string()> getStaticVisualTexture = { });
-    /**
-     * @brief シーン側が所有する背景オブジェクト等を、エディタで選択・位置調整できるように登録する
-     * @param onDelete    指定するとHierarchyから「選択を削除」で削除可能になる（呼び出し側が実体を破棄する）
-     *                    省略時はPlayer等と同様に削除不可のまま位置調整のみ可能
-     * @param onDuplicate 指定するとHierarchyから「複製」で複製可能になる（呼び出し側が新しい実体を生成・登録する）
-     *                    省略時は複製不可のまま位置調整のみ可能
-     */
-    void RegisterExternalObject(const std::string& name, engine::graphics::Object3d* object,
-        std::function<void()> onDelete = { }, std::function<void()> onDuplicate = { });
-
     /**
      * @brief トリガーのspawnsWaterSplashが成立した瞬間に呼ぶコールバックを登録する
      * @note 水しぶきの実体（パーティクル発生）はシーン側の責務のため、StageEditorはここでは何もしない
@@ -460,6 +448,15 @@ private:
     void UpdateRotateScaleDrag(float deltaX, float deltaY);
     /** @brief 範囲選択の矩形を確定し、内側の配置物を選択する（小さすぎる矩形はクリック扱いで選択解除） */
     void FinishBoxSelect(float mouseX, float mouseY);
+    /**
+     * @brief 画面UI（UILayoutの位置項目）の印をクリック位置から探す
+     * @param outLayout 見つかった項目のレイアウト
+     * @param outIndex 見つかった項目のレイアウト内番号
+     * @return 印の上をクリックしていたらtrue
+     */
+    bool PickUILayoutHandle(float mouseX, float mouseY, UILayout*& outLayout, size_t& outIndex) const;
+    /** @brief 画面UIの位置項目を四角い印と名前で描く（DrawGizmosから呼ぶ） */
+    void DrawUILayoutHandles();
     /** @brief 右クリックメニューを描く（RenderEditorPanelsから毎フレーム呼ぶ） */
     void RenderViewportContextMenu();
     /**
@@ -516,14 +513,11 @@ private:
     struct ExternalEntityRef {
         std::string name;
         Vector3* position = nullptr;
-        engine::graphics::Object3d* object = nullptr;
         std::function<int()> getVisualPreset;
         std::function<void(int)> setVisualPreset;
         std::function<void(const std::string&, const std::string&)> setStaticVisualModel; // (モデルパス, テクスチャパス)
         std::function<std::string()> getStaticVisualModel;
         std::function<std::string()> getStaticVisualTexture;
-        std::function<void()> onDelete; // 設定されている時だけHierarchyから削除できる（例: シーン所有の背景オブジェクト）
-        std::function<void()> onDuplicate; // 設定されている時だけHierarchyから複製できる（呼び出し側が新しい実体を生成・登録する）
     };
     std::vector<ExternalEntityRef> externalEntities_;
 
@@ -560,6 +554,11 @@ private:
 
     bool viewportDragging_ = false; // 3Dビュー上で選択物をドラッグ移動中か
 
+    UILayout* uiDragLayout_ = nullptr; // ドラッグ中の画面UI位置項目（nullptrならUIを掴んでいない）
+    size_t uiDragIndex_ = 0;
+    float uiDragGrabOffsetX_ = 0.0f; // 掴んだ瞬間の(項目の位置 - マウスの画面座標)
+    float uiDragGrabOffsetY_ = 0.0f;
+
     bool objectsDrawnThisFrame_ = false; // DrawObjects()の二重呼び出し防止用（UpdateObjects()で毎フレームリセット）
 
     std::string statusMessage_;
@@ -571,8 +570,9 @@ private:
     /** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
     void ReleaseLevelResources(bool releaseExternalEntities);
 
-    /** @brief 操作説明/武器選択パネルの位置マーカー(hud_anchor)が無ければ既定位置で追加する（Open()から呼ぶ） */
-    void EnsureHudAnchors();
+    /** @brief 配置物を今フレーム描くか（回収済み・破壊済み・点滅で消えている間・落下中の床などは描かない） */
+    bool IsEntryDrawable(const ObjectEntry& entry) const;
+
 
     /**
      * @brief このレベルが自分で立てるフラグ（トリガーのflag、condition_<名前>、pickup_<名前>、broken_<名前>）をfalseへ戻す

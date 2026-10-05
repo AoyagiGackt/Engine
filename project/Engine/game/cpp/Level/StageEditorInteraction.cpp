@@ -13,6 +13,7 @@
 #include "KnightEnemy.h"
 #include "Matrix4x4.h"
 #include "Object3d.h"
+#include "UILayout.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -47,17 +48,26 @@ constexpr ImU32 kParentLinkLineColor = IM_COL32(255, 255, 255, 90);
 // PickViewportTarget()の最大ピック距離（画面px）これより遠いものはクリック対象にしない
 constexpr float kPickRadiusPx = 40.0f;
 
-// "screen"座標ui_text/hud_anchorのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
+// 画面UI（UILayoutの位置項目）の印
+constexpr float kUIHandleHalfSize = 6.0f; // 四角い印の半分の大きさ（表示上のpx）
+constexpr float kUIHandlePickRadiusPx = 12.0f; // これより近ければ印を掴める
+constexpr float kUIHandleLabelGapX = 4.0f;
+constexpr float kUIHandleLineThickness = 2.0f;
+constexpr ImU32 kUIHandleColor = IM_COL32(255, 150, 40, 230);
+constexpr ImU32 kUIHandleSelectedColor = IM_COL32(255, 230, 60, 255);
+constexpr ImU32 kUIHandleFill = IM_COL32(255, 150, 40, 70);
+
+// "screen"座標ui_textのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
 constexpr float kScreenTextMarkerSize = 10.0f;
 constexpr float kScreenTextMarkerLineThickness = 2.0f;
 constexpr float kScreenTextMarkerRectPadding = 3.0f;
 constexpr float kScreenTextLabelGapX = 6.0f;
 constexpr float kScreenTextLabelOffsetY = 8.0f;
 
-// 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text、および武器選択/操作説明の位置マーカーhud_anchor）
+// 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text）
 bool IsScreenAnchorObject(const ObjectDesc& d)
 {
-    return (d.kind == "ui_text" && d.textSpace == "screen") || d.kind == "hud_anchor";
+    return d.kind == "ui_text" && d.textSpace == "screen";
 }
 } // namespace
 
@@ -90,11 +100,11 @@ void StageEditor::DrawGizmos()
             continue;
         }
 
-        // "screen"座標のui_text/hud_anchorはスクリーンpx座標を3Dワールド座標として扱うと、
+        // "screen"座標のui_textはスクリーンpx座標を3Dワールド座標として扱うと、
         // カメラ投影で画面外/後方に飛んでしまい見えなくなるため、ここだけ2Dで直接描く
         if (IsScreenAnchorObject(d)) {
             ImDrawList* dl = DiagnosticsDraw::GetDrawList();
-            const ImU32 color = sel ? DiagnosticsDraw::kColorYellow : (d.kind == "hud_anchor" ? DiagnosticsDraw::kColorMagenta : DiagnosticsDraw::kColorCyan);
+            const ImU32 color = sel ? DiagnosticsDraw::kColorYellow : DiagnosticsDraw::kColorCyan;
             const Vector3 image = viewport_.ScreenToImage(d.position.x, d.position.y);
             const ImVec2 p(image.x, image.y);
             dl->AddLine({ p.x - kScreenTextMarkerSize, p.y }, { p.x + kScreenTextMarkerSize, p.y }, color, kScreenTextMarkerLineThickness);
@@ -233,6 +243,9 @@ void StageEditor::DrawGizmos()
     // 選択物の変形ハンドル（ツールごとに矢印/リング/四角）
     DrawTransformHandles();
 
+    // 画面UIの位置（3Dの配置物より手前に出す）
+    DrawUILayoutHandles();
+
     // 範囲選択中の矩形
     if (boxSelecting_) {
         const ImVec2 mouse = ImGui::GetIO().MousePos;
@@ -268,11 +281,45 @@ void StageEditor::UpdateViewportInteraction()
                 CommitUndoCapture(); // パネル上で離した場合もドラッグ分をここで確定する
             }
             viewportDragging_ = false;
+            uiDragLayout_ = nullptr;
         }
         return;
     }
 
     const ImVec2 m = io.MousePos;
+
+    // 画面UIの位置項目は3Dの配置物より優先して掴む（UIは常に手前に表示されているため）
+    if (uiDragLayout_) {
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const Vector3 logicalMouse = viewport_.ImageToScreen(m.x, m.y);
+            uiDragLayout_->SetPosition(uiDragIndex_,
+                { std::round(logicalMouse.x + uiDragGrabOffsetX_), std::round(logicalMouse.y + uiDragGrabOffsetY_) });
+        } else {
+            uiDragLayout_ = nullptr;
+        }
+        return;
+    }
+    {
+        UILayout* layout = nullptr;
+        size_t index = 0;
+        if (PickUILayoutHandle(m.x, m.y, layout, index)) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
+                    if (handle.layout == layout && handle.index == index) {
+                        const Vector3 logicalMouse = viewport_.ImageToScreen(m.x, m.y);
+                        uiDragGrabOffsetX_ = handle.position.x - logicalMouse.x;
+                        uiDragGrabOffsetY_ = handle.position.y - logicalMouse.y;
+                        break;
+                    }
+                }
+                uiDragLayout_ = layout;
+                uiDragIndex_ = index;
+                UILayout::SetSelectedHandle(layout, index);
+                return;
+            }
+        }
+    }
 
     // マウスホイール  カメラを奥/手前へ移動（Q/Eと同じ軸、手前に回すと近づく）
     if (camera_ && io.MouseWheel != 0.0f) {
@@ -604,6 +651,40 @@ void StageEditor::FinishBoxSelect(float mouseX, float mouseY)
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
+bool StageEditor::PickUILayoutHandle(float mouseX, float mouseY, UILayout*& outLayout, size_t& outIndex) const
+{
+    float bestDistanceSq = kUIHandlePickRadiusPx * kUIHandlePickRadiusPx;
+    bool found = false;
+    for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
+        const Vector3 image = viewport_.ScreenToImage(handle.position.x, handle.position.y);
+        const float dx = image.x - mouseX;
+        const float dy = image.y - mouseY;
+        const float distanceSq = dx * dx + dy * dy;
+        if (distanceSq <= bestDistanceSq) {
+            bestDistanceSq = distanceSq;
+            outLayout = handle.layout;
+            outIndex = handle.index;
+            found = true;
+        }
+    }
+    return found;
+}
+
+void StageEditor::DrawUILayoutHandles()
+{
+    ImDrawList* dl = DiagnosticsDraw::GetDrawList();
+    for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
+        const bool selected = UILayout::IsSelectedHandle(handle.layout, handle.index);
+        const ImU32 color = selected ? kUIHandleSelectedColor : kUIHandleColor;
+        const Vector3 image = viewport_.ScreenToImage(handle.position.x, handle.position.y);
+        const ImVec2 minCorner = { image.x - kUIHandleHalfSize, image.y - kUIHandleHalfSize };
+        const ImVec2 maxCorner = { image.x + kUIHandleHalfSize, image.y + kUIHandleHalfSize };
+        dl->AddRectFilled(minCorner, maxCorner, kUIHandleFill);
+        dl->AddRect(minCorner, maxCorner, color, 0.0f, 0, kUIHandleLineThickness);
+        dl->AddText({ maxCorner.x + kUIHandleLabelGapX, minCorner.y }, color, handle.label.c_str());
+    }
+}
+
 #else
 void StageEditor::SetParentPreservingWorld(int, int) { }
 int StageEditor::AddObjectAt(const std::string&, const Vector3&) { return -1; }
@@ -619,5 +700,7 @@ bool StageEditor::PickTransformHandle(float, float, int&, bool&) const { return 
 void StageEditor::DrawTransformHandles() { }
 void StageEditor::UpdateRotateScaleDrag(float, float) { }
 void StageEditor::FinishBoxSelect(float, float) { }
+bool StageEditor::PickUILayoutHandle(float, float, UILayout*&, size_t&) const { return false; }
+void StageEditor::DrawUILayoutHandles() { }
 
 #endif

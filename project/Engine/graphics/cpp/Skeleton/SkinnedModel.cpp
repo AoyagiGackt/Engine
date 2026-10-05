@@ -3,6 +3,7 @@
  * @brief SkinnedModelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "SkinnedModel.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include "TextureManager.h"
 #include <assimp/Importer.hpp>
@@ -38,7 +39,37 @@ void SkinnedModel::Initialize(DirectXCommon* dxCommon,
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
-    LoadGltfFile(dxCommon, gltfFilePath);
+    // pakにボーン付き頂点・逆バインド行列・ボーン名があれば、assimpの解析を省く
+    const std::string packKey = "skin:" + gltfFilePath;
+    std::vector<uint8_t> packed;
+    bool loadedFromPack = false;
+    if (AssetPack::GetInstance()->Read(packKey, packed)) {
+        BinaryReader reader(packed);
+        vertices_ = reader.ReadVector<VertexData>();
+        inverseBindMatrices_ = reader.ReadVector<Matrix4x4>();
+        const uint64_t boneCount = reader.Read<uint64_t>();
+        boneNames_.clear();
+        for (uint64_t i = 0; i < boneCount && reader.IsValid(); ++i) {
+            boneNames_.push_back(reader.ReadString());
+        }
+        loadedFromPack = reader.IsValid() && !vertices_.empty();
+    }
+    if (!loadedFromPack) {
+        vertices_.clear();
+        inverseBindMatrices_.clear();
+        boneNames_.clear();
+        LoadGltfFile(dxCommon, gltfFilePath);
+        if (AssetPack::GetInstance()->IsCooking()) {
+            BinaryWriter writer;
+            writer.WriteVector(vertices_);
+            writer.WriteVector(inverseBindMatrices_);
+            writer.Write(static_cast<uint64_t>(boneNames_.size()));
+            for (const std::string& name : boneNames_) {
+                writer.WriteString(name);
+            }
+            AssetPack::GetInstance()->Record(packKey, std::move(writer.Bytes()));
+        }
+    }
 
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
     ENGINE_ASSERT(sizeInBytes > 0);

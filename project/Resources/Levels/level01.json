@@ -49,7 +49,6 @@
       "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
       "position": [9.5, -0.1, 1.2], "scale": [1.5, 1.5, 1.5], "lighting": true, "solid": false
     },
-
     {
       "name": "a_step", "type": "row", "kind": "prop", "axis": "x", "count": 3, "step": 1.0,
       "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
@@ -73,7 +72,6 @@
       "textColor": [0.85, 0.95, 1.0, 0.95],
       "text": "訓練区画  移動 A D  ジャンプ W  攻撃 L  回避 I    赤い箱は攻撃で壊せる"
     },
-
     {
       "name": "b_sword_1", "type": "static", "kind": "enemy_basic",
       "position": [17.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "room_b"
@@ -105,7 +103,6 @@
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_b",
       "text": "戦闘部屋  剣の敵を倒して J で武器を奪え    全滅で扉が開く"
     },
-
     {
       "name": "c_step", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
       "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
@@ -145,7 +142,6 @@
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_c",
       "text": "足場を渡れ  崩れる床は光ってから落ちる    空中からのコンボは評価が上がる"
     },
-
     {
       "name": "d_dagger", "type": "static", "kind": "enemy_basic",
       "position": [37.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "room_d"
@@ -201,7 +197,6 @@
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "zone_d",
       "text": "回復役(緑)を先に倒せ  全滅すると第二波が来る    攻撃は I の回避で紙一重に避けると評価が上がる"
     },
-
     {
       "name": "enemy_boss", "type": "static", "kind": "enemy_basic",
       "position": [55.0, -0.33, 0.0], "spawnType": "basic", "weaponType": "Hammer", "isStageBoss": true, "enemyGroup": "boss"
@@ -263,15 +258,6 @@
       "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_boss_defeated",
       "text": "撃破完了  J で武器を奪って区画クリア"
-    },
-
-    {
-      "name": "hud_anchor_controls", "type": "", "kind": "hud_anchor",
-      "position": [1020.0, 12.0, 0.0], "text": "操作説明"
-    },
-    {
-      "name": "hud_anchor_weapon_list", "type": "", "kind": "hud_anchor",
-      "position": [12.0, 12.0, 0.0], "text": "武器選択"
     }
   ]
 }

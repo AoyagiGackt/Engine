@@ -14,11 +14,8 @@
 #include "SpriteCommon.h"
 #include "FontRenderer.h"
 #include <Fade.h>
-#include <atomic>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <thread>
 namespace engine::game {
 using engine::Audio;
 using engine::DirectXCommon;
@@ -88,25 +85,6 @@ public:
     void ChangeScene(const std::string& sceneName, float fadeOut = kDefaultFadeSeconds, float fadeIn = kDefaultFadeSeconds);
 
     /**
-     * @brief ロード画面を経由してシーンを切り替える
-     * @param targetScene 最終的に遷移したいシーン名
-     */
-    void ChangeSceneWithLoading(const std::string& targetScene);
-
-    /**
-     * @brief ロード画面が遷移すべき先のシーン名を返す
-     */
-    const std::string& GetLoadingTarget() const { return loadingTargetScene_; }
-
-    bool IsAsyncLoadReady() const { return asyncLoadReady_.load(); }
-    /** @brief 非同期ロードの進捗率を0.0から1.0で返す */
-    float GetAsyncLoadProgress() const { return asyncLoadProgress_.load(); }
-    /** @brief 非同期ロードが失敗したかを返す */
-    bool HasAsyncLoadFailed() const { return asyncLoadFailed_.load(); }
-    /** @brief 非同期ロードの失敗理由を返す */
-    std::string GetAsyncLoadError() const;
-
-    /**
      * @brief シーン生成用工場をセットする
      * @param factory AbstractSceneFactoryを継承した具体的な工場のポインタ
      * @note シーン名から実際のクラスを生成するために必要です
@@ -124,15 +102,14 @@ public:
 
 private:
     SceneManager() = default;
-    /** @brief バックグラウンドロードスレッドが残っていれば合流させてから破棄する */
-    ~SceneManager();
+    ~SceneManager() = default;
     SceneManager(const SceneManager&) = delete;
     const SceneManager& operator=(const SceneManager&) = delete;
 
     /** @brief フェードアウト完了後のシーン切替本体（Update()の冒頭から呼ばれる） */
     void PerformSceneSwitch();
-    /** @brief LOADINGシーンへの切替時、遷移先シーンをバックグラウンドスレッドで事前生成する */
-    void StartBackgroundLoad();
+    /** @brief cookモードで、全シーンを一度ずつ初期化・破棄して使う素材をpakへ記録させる（起動シーンを作る前に呼ぶ） */
+    void CookAllScenes();
     void PrepareEditorPreview();
     EditorGamePreview editorPreview_;
 
@@ -150,19 +127,6 @@ private:
     /** @brief 次のフレームで切り替える予定のシーン */
     std::unique_ptr<BaseScene> nextScene_;
 
-    /** @brief バックグラウンドで事前初期化済みのシーン */
-    std::unique_ptr<BaseScene> preloadedScene_;
-
-    /** @brief 非同期ロードスレッド */
-    std::thread loadingThread_;
-
-    /** @brief バックグラウンドロード完了フラグ */
-    std::atomic<bool> asyncLoadReady_ { false };
-    std::atomic<float> asyncLoadProgress_ { 0.0f };
-    std::atomic<bool> asyncLoadFailed_ { false };
-    mutable std::mutex asyncLoadErrorMutex_;
-    std::string asyncLoadError_;
-
     /** @brief シーンを生成するための工場ポインタ（外部からセットされる） */
     AbstractSceneFactory* sceneFactory_ = nullptr;
 
@@ -172,9 +136,6 @@ private:
     /** @brief 次に読み込むシーン名 **/
     std::string nextSceneName_;
     std::string debugStartScene_ = "TITLE";
-
-    /** @brief ChangeSceneWithLoading で指定した最終遷移先シーン名 **/
-    std::string loadingTargetScene_;
 
 };
 

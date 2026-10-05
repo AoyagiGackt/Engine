@@ -18,6 +18,7 @@ private:
     std::unique_ptr<engine::graphics::Sprite> background_;
     std::unique_ptr<engine::graphics::Sprite> foreground_;
     float gauge_ = 0.0f;
+    Vector2 position_ = {}; ///< ゲージ左上（UILayoutから毎フレーム読む）
     bool awakened_ = false;
     float pulse_ = 1.0f;
 };
