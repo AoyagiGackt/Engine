@@ -43,6 +43,7 @@ void Logger::Log(const std::string& message, LogLevel level)
 
     OutputDebugStringA(line.c_str());
 
+#ifndef ENGINE_RELEASE
     auto parent = std::filesystem::path(kLogFilePath).parent_path();
     if (!parent.empty()) {
         std::filesystem::create_directories(parent);
@@ -56,6 +57,7 @@ void Logger::Log(const std::string& message, LogLevel level)
     if (file) {
         file << line;
     }
+#endif
 }
 
 } // namespace engine

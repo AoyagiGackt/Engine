@@ -16,6 +16,7 @@ class Logger {
 public:
     /**
      * @brief ログメッセージをデバッグ出力ウィンドウとログファイル（log/engine.log）の両方に出力する
+     * @note Releaseビルド（ENGINE_RELEASE）ではログファイルへは書き込まない
      * @param message 出力するメッセージ
      * @param level   重要度（省略時はInfo）
      */

@@ -26,6 +26,15 @@ std::string CurrentTimestamp()
 void PlaytestLog::RecordRunResult(bool cleared, int floor, float elapsedSeconds,
     float peakStyle01, int bestChain, const Vector3& position)
 {
+#ifdef ENGINE_RELEASE
+    (void)cleared;
+    (void)floor;
+    (void)elapsedSeconds;
+    (void)peakStyle01;
+    (void)bestChain;
+    (void)position;
+    return;
+#else
     if (!headerWritten_) {
         std::ifstream check(kLogFile);
         const bool needsHeader = !check.good() || check.peek() == std::ifstream::traits_type::eof();
@@ -49,4 +58,5 @@ void PlaytestLog::RecordRunResult(bool cleared, int floor, float elapsedSeconds,
          << RunData::CalcRank(peakStyle01) << ','
          << bestChain << ','
          << position.x << ',' << position.y << ',' << position.z << '\n';
+#endif
 }
