@@ -594,6 +594,9 @@
     <ClCompile Include="Engine\graphics\cpp\Manager\TextureManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Manager\AssetPack.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Manager</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\3D</Filter>
     </ClCompile>
@@ -1031,6 +1034,9 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\2D</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Manager\TextureManager.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Manager\AssetPack.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h">

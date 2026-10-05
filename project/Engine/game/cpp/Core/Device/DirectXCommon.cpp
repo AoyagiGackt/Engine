@@ -4,6 +4,7 @@
  * @note デバイス・コマンド・スワップチェーン等の生成処理はDirectXCommonInit.cppに分割されている
  */
 #include "DirectXCommon.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"
 #include "Input.h"
@@ -210,6 +211,20 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
         }
     }
 
+    // pakにコンパイル済みのバイトコードがあれば、DXCでのコンパイルを省く
+    const std::string packKey = "shader:" + StringUtility::ConvertString(cacheKey);
+    std::vector<uint8_t> packed;
+    if (AssetPack::GetInstance()->Read(packKey, packed)) {
+        Microsoft::WRL::ComPtr<IDxcBlobEncoding> packedBlob;
+        if (SUCCEEDED(dxcUtils_->CreateBlob(packed.data(), static_cast<UINT32>(packed.size()), DXC_CP_ACP, &packedBlob))) {
+            Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob;
+            packedBlob.As(&shaderBlob);
+            std::scoped_lock lock(shaderCacheMutex_);
+            shaderCache_[cacheKey] = shaderBlob;
+            return shaderBlob;
+        }
+    }
+
     // hlslファイルを読む
     Logger::Log(StringUtility::ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}", filePath, profile)));
 
@@ -262,6 +277,11 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring
 
     shaderSource->Release();
     shaderResult->Release();
+
+    if (AssetPack::GetInstance()->IsCooking()) {
+        const auto* begin = static_cast<const uint8_t*>(shaderBlob->GetBufferPointer());
+        AssetPack::GetInstance()->Record(packKey, std::vector<uint8_t>(begin, begin + shaderBlob->GetBufferSize()));
+    }
 
     {
         std::scoped_lock lock(shaderCacheMutex_);

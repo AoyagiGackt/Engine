@@ -279,6 +279,7 @@
     <ClCompile Include="Engine\graphics\cpp\2D\SpriteCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\2D\Sprite.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\TextureManager.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Manager\AssetPack.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Model.cpp" />
@@ -691,6 +692,7 @@
     <ClInclude Include="Engine\graphics\h\2D\SpriteCommon.h" />
     <ClInclude Include="Engine\graphics\h\2D\Sprite.h" />
     <ClInclude Include="Engine\graphics\h\Manager\TextureManager.h" />
+    <ClInclude Include="Engine\graphics\h\Manager\AssetPack.h" />
     <ClInclude Include="Engine\graphics\h\3D\Object3dCommon.h" />
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h" />
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h" />

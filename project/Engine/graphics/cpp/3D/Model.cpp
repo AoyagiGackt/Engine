@@ -3,6 +3,7 @@
  * @brief Modelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Model.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"
@@ -35,10 +36,30 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     std::string ext = modelFilePath.substr(dotPos + 1);
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
 
-    if (ext == "obj") {
-        LoadObjFile(modelFilePath);
-    } else {
-        LoadGltfFile(modelFilePath);
+    // pakに頂点・インデックスがあれば、assimpやOBJの解析と法線・接線の計算を丸ごと省く
+    const std::string packKey = "model:" + modelFilePath;
+    std::vector<uint8_t> packed;
+    bool loadedFromPack = false;
+    if (AssetPack::GetInstance()->Read(packKey, packed)) {
+        BinaryReader reader(packed);
+        vertices_ = reader.ReadVector<VertexData>();
+        indices_ = reader.ReadVector<uint32_t>();
+        loadedFromPack = reader.IsValid() && !vertices_.empty();
+    }
+    if (!loadedFromPack) {
+        vertices_.clear();
+        indices_.clear();
+        if (ext == "obj") {
+            LoadObjFile(modelFilePath);
+        } else {
+            LoadGltfFile(modelFilePath);
+        }
+        if (AssetPack::GetInstance()->IsCooking()) {
+            BinaryWriter writer;
+            writer.WriteVector(vertices_);
+            writer.WriteVector(indices_);
+            AssetPack::GetInstance()->Record(packKey, std::move(writer.Bytes()));
+        }
     }
 
     ID3D12Device* device = modelCommon_->GetDxCommon()->GetDevice();

@@ -3,6 +3,8 @@
  * @brief Frameworkを継承したゲーム固有の初期化・更新・描画・シーン遷移制御（MyGame）の実装
  */
 #include "Game.h"
+#include "AssetPack.h"
+#include "Logger.h"
 #include "DelayTimer.h"
 #include "FrameProfiler.h"
 #include "GameConstants.h"
@@ -28,6 +30,31 @@
 #endif
 using namespace engine;
 using namespace engine::graphics;
+
+namespace {
+constexpr double kFileTimeTicksPerMillisecond = 10000.0; // FILETIMEは100ナノ秒単位
+
+/** @brief exeのプロセスが作られてからの経過ミリ秒（main()より前の起動処理も含めて測るため） */
+double MillisecondsSinceProcessStart()
+{
+    FILETIME creation {}, exitTime {}, kernel {}, user {};
+    GetProcessTimes(GetCurrentProcess(), &creation, &exitTime, &kernel, &user);
+    FILETIME now {};
+    GetSystemTimePreciseAsFileTime(&now);
+    const ULARGE_INTEGER start { { creation.dwLowDateTime, creation.dwHighDateTime } };
+    const ULARGE_INTEGER current { { now.dwLowDateTime, now.dwHighDateTime } };
+    return static_cast<double>(current.QuadPart - start.QuadPart) / kFileTimeTicksPerMillisecond;
+}
+
+/** @brief ロード時間の比較用に、目印付きでログへ出す（素材の読み方のモードも添える） */
+void LogLoadProfile(const std::string& label)
+{
+    const char* mode = AssetPack::GetInstance()->GetMode() == AssetPack::Mode::Use ? "use"
+        : AssetPack::GetInstance()->IsCooking() ? "cook" : "off";
+    Logger::Log("[LoadProfile] " + label + ": " + std::to_string(static_cast<int>(MillisecondsSinceProcessStart()))
+        + " ms（exe起動から, pak=" + mode + "）");
+}
+} // namespace
 using namespace engine::game;
 
 void MyGame::Initialize()
@@ -48,11 +75,13 @@ void MyGame::Initialize()
     audio_->SetSEVolume(s.seVolume);
 
     // 最初のシーンを工場経由でセットする
+    LogLoadProfile("エンジン初期化完了");
     SceneManager::GetInstance()->Initialize(
         dxCommon_.get(),
         input_.get(),
         audio_.get(),
         imguiManager_.get());
+    LogLoadProfile("タイトル準備完了");
 
     // コンティニューデータ・通算記録を読み込む
     SaveDataManager::GetInstance()->Load();

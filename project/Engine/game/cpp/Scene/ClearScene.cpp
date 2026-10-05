@@ -3,6 +3,7 @@
  * @brief ゲームクリア画面の表示・スコア確定・タイトルへの遷移（ClearScene）の実装
  */
 #include "ClearScene.h"
+#include "AssetPack.h"
 #include "GameConstants.h"
 #include "ImGuiManager.h"
 #include "RunData.h"
@@ -65,6 +66,11 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
     // スコア数字表示
     scoreDisplay_.Initialize(spriteCommon_.get());
+
+    // cook中（素材をpakへ記録するために画面を開いているだけ）はスコアや通算記録を書き換えない
+    if (AssetPack::GetInstance()->IsCooking()) {
+        return;
+    }
 
     ScoreManager::GetInstance()->SubmitAndSave();
 

@@ -3,6 +3,7 @@
  * @brief アプリケーションのメインループ・基盤システム初期化と終了処理（Framework）の実装
  */
 #include "Framework.h"
+#include "AssetPack.h"
 #include "FrameProfiler.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -40,6 +41,9 @@ void Framework::Run()
 
 void Framework::Initialize()
 {
+    // シェーダーのコンパイルやテクスチャの読み込みより前に、変換済み素材pakの使い方を決める
+    AssetPack::GetInstance()->Initialize();
+
     winApp_ = std::make_unique<WinApp>();
     winApp_->Initialize();
 
@@ -124,4 +128,7 @@ void Framework::Finalize()
     dxCommon_->Finalize();
     dxCommon_.reset();
     winApp_.reset();
+
+    // cookモードなら、このプレイ中に読み込んだ素材を変換済みの形でpakへ書き出す
+    AssetPack::GetInstance()->Finalize();
 }

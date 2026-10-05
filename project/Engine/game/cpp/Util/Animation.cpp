@@ -3,6 +3,7 @@
  * @brief glTF/FBXアニメーションの読み込みとキーフレーム補間（Animation）の実装
  */
 #include "Animation.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -12,6 +13,38 @@
 using namespace engine;
 
 namespace engine::game {
+
+namespace {
+/** @brief pakへ入れるため、アニメーション1本をノード名とキーフレーム配列の並びに変換する */
+std::vector<uint8_t> SerializeAnimation(const Animation& animation)
+{
+    BinaryWriter writer;
+    writer.Write(animation.duration);
+    writer.Write(static_cast<uint64_t>(animation.nodeAnimations.size()));
+    for (const auto& [nodeName, nodeAnimation] : animation.nodeAnimations) {
+        writer.WriteString(nodeName);
+        writer.WriteVector(nodeAnimation.translate.keyframes);
+        writer.WriteVector(nodeAnimation.rotate.keyframes);
+        writer.WriteVector(nodeAnimation.scale.keyframes);
+    }
+    return std::move(writer.Bytes());
+}
+
+/** @brief SerializeAnimationの逆。壊れていればfalse */
+bool DeserializeAnimation(const std::vector<uint8_t>& bytes, Animation& animation)
+{
+    BinaryReader reader(bytes);
+    animation.duration = reader.Read<float>();
+    const uint64_t nodeCount = reader.Read<uint64_t>();
+    for (uint64_t i = 0; i < nodeCount && reader.IsValid(); ++i) {
+        NodeAnimation& nodeAnimation = animation.nodeAnimations[reader.ReadString()];
+        nodeAnimation.translate.keyframes = reader.ReadVector<KeyframeVector3>();
+        nodeAnimation.rotate.keyframes = reader.ReadVector<KeyframeQuaternion>();
+        nodeAnimation.scale.keyframes = reader.ReadVector<KeyframeVector3>();
+    }
+    return reader.IsValid();
+}
+} // namespace
 
 // ファイル読み込み
 
@@ -26,6 +59,16 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
     }
 
     Animation animation;
+
+    // pakに変換済みのキーフレームがあれば、数MBあるglbファイル全体のassimp解析を省く
+    // （1つのファイルからアニメを何本も読むため、元ファイルからだと本数ぶん解析し直していた）
+    const std::string packKey = "anim:" + cacheKey;
+    std::vector<uint8_t> packed;
+    if (AssetPack::GetInstance()->Read(packKey, packed) && DeserializeAnimation(packed, animation)) {
+        cache[cacheKey] = animation;
+        return animation;
+    }
+    animation = Animation {};
 
     Assimp::Importer importer;
     std::string filePath = directoryPath + "/" + filename;
@@ -92,6 +135,9 @@ Animation LoadAnimationFile(const std::string& directoryPath, const std::string&
         }
     }
 
+    if (AssetPack::GetInstance()->IsCooking()) {
+        AssetPack::GetInstance()->Record(packKey, SerializeAnimation(animation));
+    }
     cache[cacheKey] = animation;
     return animation;
 }

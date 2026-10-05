@@ -3,6 +3,7 @@
  * @brief TextureManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "TextureManager.h"
+#include "AssetPack.h"
 #include "DirectXTex.h"
 #include "EngineAssert.h"
 #include "Logger.h"
@@ -90,7 +91,14 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     DirectX::ScratchImage finalImage { };
     HRESULT hr;
 
-    if (ext == "dds") {
+    // pakにミップマップ生成済みの変換結果があれば、PNGの展開とミップマップ生成を丸ごと省く
+    const std::string packKey = "tex:" + filePath;
+    std::vector<uint8_t> packed;
+    const bool loadedFromPack = AssetPack::GetInstance()->Read(packKey, packed)
+        && SUCCEEDED(DirectX::LoadFromDDSMemory(packed.data(), packed.size(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage));
+    if (loadedFromPack) {
+        // 変換済みデータをそのまま使う
+    } else if (ext == "dds") {
         // DDSファイルはミップマップが埋め込み済みのためそのまま読み込む
         hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage);
         ENGINE_ASSERT(SUCCEEDED(hr));
@@ -107,6 +115,16 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
         if (FAILED(hr)) {
             hr = finalImage.InitializeFromImage(*image.GetImages());
             ENGINE_ASSERT(SUCCEEDED(hr));
+        }
+    }
+
+    // cook中は、展開とミップマップ生成を終えた結果をDDSとしてpakへ記録する（元がDDSのキューブマップ等もそのまま入れる）
+    if (!loadedFromPack && AssetPack::GetInstance()->IsCooking()) {
+        DirectX::Blob blob;
+        if (SUCCEEDED(DirectX::SaveToDDSMemory(finalImage.GetImages(), finalImage.GetImageCount(),
+                finalImage.GetMetadata(), DirectX::DDS_FLAGS_NONE, blob))) {
+            const auto* begin = static_cast<const uint8_t*>(blob.GetBufferPointer());
+            AssetPack::GetInstance()->Record(packKey, std::vector<uint8_t>(begin, begin + blob.GetBufferSize()));
         }
     }
 
@@ -247,7 +265,7 @@ void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePa
         if (textureDatas_.contains(path)) {
             continue;
         }
-        if (!std::filesystem::exists(path)) {
+        if (!std::filesystem::exists(path) && !AssetPack::GetInstance()->Contains("tex:" + path)) {
             // 欠落パス名のまま登録して、呼び出し側を変更せず警告表示へ差し替える
             static constexpr uint8_t kMissingTexture[] = {
                 255, 0, 255, 255, 32, 32, 32, 255,
@@ -304,7 +322,7 @@ void TextureManager::LoadTexture(const std::string& filePath)
         return;
     }
 
-    if (!std::filesystem::exists(filePath)) {
+    if (!std::filesystem::exists(filePath) && !AssetPack::GetInstance()->Contains("tex:" + filePath)) {
         // ピンクと黒の市松模様にして、欠落箇所を実行画面から特定できるようにする
         static constexpr uint8_t kMissingTexture[] = {
             255, 0, 255, 255, 32, 32, 32, 255,

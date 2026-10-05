@@ -3,6 +3,9 @@
  * @brief シーンの切替・更新・描画を統括するマネージャー（SceneManager）の実装
  */
 #include "SceneManager.h"
+#include "AssetPack.h"
+#include "GameRules.h"
+#include "WeaponManager.h"
 #include "CrashHandler.h"
 #include "Logger.h"
 #include "StageEditor.h"
@@ -29,6 +32,8 @@ using namespace engine::game;
 
 namespace {
 constexpr const char* kDebugStartupPath = "Resources/Config/debug_startup.json";
+// cook時に素材を記録するため一度ずつ開く画面（ランを始めずに開けるもの。MAP/GAMEPLAYはフロアごとに別途開く）
+constexpr const char* kCookScenesWithoutRun[] = { "TITLE", "OPTIONS", "TRAINING", "BATTLETEST", "GAMEOVER", "CLEAR" };
 constexpr std::array<const char*, 6> kDebugStartScenes = { "TITLE", "MAP", "GAMEPLAY", "TRAINING", "BATTLETEST", "OPTIONS" };
 bool IsDebugStartScene(const std::string& scene)
 {
@@ -50,6 +55,12 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     imguiManager_ = imgui;
     dxCommon_->SetDiagnosticContext("TitleScene");
     CrashHandler::SetContext("TitleScene");
+
+    // cook中は、遊ばなかった画面の素材もpakへ入るよう、起動シーンを作る前に全シーンを一度ずつ読み込む
+    // （起動シーンより後に行うと、破棄したシーンのカメラ等が共通設定に残ってしまうため先に済ませる）
+    if (AssetPack::GetInstance()->IsCooking()) {
+        CookAllScenes();
+    }
 
     // 通常はタイトルから開始し、Debugだけエディターで保存した開始シーンを使う。
     std::string startupScene = "TITLE";
@@ -119,6 +130,54 @@ void SceneManager::Update()
             currentScene_ ? currentScene_->GetHotkeyOverlayExtra() : nullptr);
     }
 #endif
+}
+
+void SceneManager::CookAllScenes()
+{
+    if (!sceneFactory_) {
+        return;
+    }
+    const auto started = std::chrono::steady_clock::now();
+    auto* runData = RunData::GetInstance();
+    auto* weapons = WeaponManager::GetInstance();
+
+    // 作って初期化し、読み込みが終わったらすぐ破棄する（素材の記録はAssetPack側で自動的に行われる）
+    auto loadOnce = [&](const char* sceneName) {
+        std::unique_ptr<BaseScene> scene = sceneFactory_->CreateScene(sceneName);
+        if (!scene) {
+            return;
+        }
+        scene->Init(dxCommon_, input_, audio_);
+        TextureManager::GetInstance()->FlushUploads();
+        dxCommon_->WaitForGpu();
+        scene->Shutdown();
+    };
+
+    // ランを始めていない状態で開く画面（ゲームオーバーはランを始めていなければ記録を書き換えない）
+    for (const char* sceneName : kCookScenesWithoutRun) {
+        loadOnce(sceneName);
+    }
+    // ランが必要な画面。本編はフロアごとにレベルが違うため、全フロアぶん開く
+    const int floorCount = (std::max)(1, static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()));
+    for (int floor = 0; floor < floorCount; ++floor) {
+        runData->StartNewRun();
+        for (int i = 0; i < floor; ++i) {
+            runData->AdvanceFloor();
+        }
+        weapons->Reset();
+        loadOnce("MAP");
+        loadOnce("GAMEPLAY");
+    }
+
+    // タイトルを開く前の状態（ラン無し・武器無し・無音）へ戻す
+    runData->StartNewRun();
+    runData->EndRun();
+    weapons->Reset();
+    audio_->StopWave();
+    UILayout::ResetUsedLayouts();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    Logger::Log("[AssetPack] 全シーンの素材を読み込んで記録しました: " + std::to_string(elapsed) + " ms");
 }
 
 void SceneManager::PerformSceneSwitch()

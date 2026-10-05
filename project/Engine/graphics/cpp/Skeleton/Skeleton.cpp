@@ -3,6 +3,7 @@
  * @brief Skeletonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "Skeleton/Skeleton.h"
+#include "AssetPack.h"
 #include "EngineAssert.h"
 #include <algorithm>
 #include <assimp/Importer.hpp>
@@ -39,6 +40,32 @@ static Node ConvertAiNode(const aiNode* ainode)
     return node;
 }
 
+/** @brief pakへ入れるため、ノード階層を親→子の順に並べる */
+static void SerializeNode(const Node& node, BinaryWriter& writer)
+{
+    writer.WriteString(node.name);
+    writer.Write(node.transform);
+    writer.Write(node.localMatrix);
+    writer.Write(static_cast<uint64_t>(node.children.size()));
+    for (const Node& child : node.children) {
+        SerializeNode(child, writer);
+    }
+}
+
+/** @brief SerializeNodeの逆 */
+static Node DeserializeNode(BinaryReader& reader)
+{
+    Node node;
+    node.name = reader.ReadString();
+    node.transform = reader.Read<QuaternionTransform>();
+    node.localMatrix = reader.Read<Matrix4x4>();
+    const uint64_t childCount = reader.Read<uint64_t>();
+    for (uint64_t i = 0; i < childCount && reader.IsValid(); ++i) {
+        node.children.push_back(DeserializeNode(reader));
+    }
+    return node;
+}
+
 Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::string& filename)
 {
     // 同じ敵種別を複数体・複数レベルで生成する際にassimpの再解析を避けるため、結果を使い回す
@@ -49,10 +76,27 @@ Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::stri
         return it->second;
     }
 
+    // pakに骨の階層があれば、glbファイル全体のassimp解析を省く
+    const std::string packKey = "skel:" + key;
+    std::vector<uint8_t> packed;
+    if (AssetPack::GetInstance()->Read(packKey, packed)) {
+        BinaryReader reader(packed);
+        Node packedNode = DeserializeNode(reader);
+        if (reader.IsValid()) {
+            cache[key] = packedNode;
+            return packedNode;
+        }
+    }
+
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(key.c_str(), 0);
     ENGINE_ASSERT(scene && scene->mRootNode);
     Node node = ConvertAiNode(scene->mRootNode);
+    if (AssetPack::GetInstance()->IsCooking()) {
+        BinaryWriter writer;
+        SerializeNode(node, writer);
+        AssetPack::GetInstance()->Record(packKey, std::move(writer.Bytes()));
+    }
     cache[key] = node;
     return node;
 }

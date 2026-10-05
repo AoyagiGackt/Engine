@@ -44,21 +44,21 @@ constexpr float kSpinDamping = 3.0f; // 慣性回転の減衰率（1/秒）
 
 // 操作していない間の漂い（周期の異なる2つの揺れを重ねる）
 constexpr float kDriftPitchFreqA = 0.63f;
-constexpr float kDriftPitchAmpA = 0.085f;
+constexpr float kDriftPitchAmpA = 0.12f;
 constexpr float kDriftPitchFreqB = 1.07f;
-constexpr float kDriftPitchAmpB = 0.025f;
+constexpr float kDriftPitchAmpB = 0.035f;
 constexpr float kDriftYawFreqA = 0.47f;
-constexpr float kDriftYawAmpA = 0.14f;
+constexpr float kDriftYawAmpA = 0.20f;
 constexpr float kDriftYawFreqB = 0.83f;
-constexpr float kDriftYawAmpB = 0.045f;
+constexpr float kDriftYawAmpB = 0.06f;
 constexpr float kDriftRollFreqA = 0.39f;
-constexpr float kDriftRollAmpA = 0.025f;
+constexpr float kDriftRollAmpA = 0.04f;
 constexpr float kDriftRollFreqB = 0.91f;
 constexpr float kDriftRollAmpB = 0.009f;
 constexpr float kFloatFreqA = 0.78f;
-constexpr float kFloatAmpA = 0.065f;
+constexpr float kFloatAmpA = 0.10f;
 constexpr float kFloatFreqB = 1.31f;
-constexpr float kFloatAmpB = 0.022f;
+constexpr float kFloatAmpB = 0.03f;
 
 // カメラ距離の算出
 constexpr float kMaxFloatOffset = kFloatAmpA + kFloatAmpB; // 上下の漂いぶんの余白
@@ -146,11 +146,11 @@ void FloatingTitle::Update(bool allowInteraction)
     // 異なる周期の揺れを重ね、操作していない間も滑らかな漂いを続ける。
     const float driftPitch = std::sin(floatTime_ * kDriftPitchFreqA) * kDriftPitchAmpA
         + std::sin(floatTime_ * kDriftPitchFreqB) * kDriftPitchAmpB;
-    const float driftYaw = std::sin(floatTime_ * kDriftYawFreqA) * kDriftYawAmpA
+    const float driftYaw = std::sin(floatTime_ * kDriftYawFreqA + 0.8f) * kDriftYawAmpA
         + std::sin(floatTime_ * kDriftYawFreqB) * kDriftYawAmpB;
-    const float driftRoll = std::sin(floatTime_ * kDriftRollFreqA) * kDriftRollAmpA
+    const float driftRoll = std::sin(floatTime_ * kDriftRollFreqA + 1.6f) * kDriftRollAmpA
         + std::sin(floatTime_ * kDriftRollFreqB) * kDriftRollAmpB;
-    const float floatOffset = std::sin(floatTime_ * kFloatFreqA) * kFloatAmpA
+    const float floatOffset = std::sin(floatTime_ * kFloatFreqA + 0.4f) * kFloatAmpA
         + std::sin(floatTime_ * kFloatFreqB) * kFloatAmpB;
     const Vector3 rotation = { pitch_ + driftPitch, yaw_ + driftYaw, driftRoll };
     Matrix4x4 local = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, rotation, {});

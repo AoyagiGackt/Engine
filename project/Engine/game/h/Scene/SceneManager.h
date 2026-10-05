@@ -108,6 +108,8 @@ private:
 
     /** @brief フェードアウト完了後のシーン切替本体（Update()の冒頭から呼ばれる） */
     void PerformSceneSwitch();
+    /** @brief cookモードで、全シーンを一度ずつ初期化・破棄して使う素材をpakへ記録させる（起動シーンを作る前に呼ぶ） */
+    void CookAllScenes();
     void PrepareEditorPreview();
     EditorGamePreview editorPreview_;
 
