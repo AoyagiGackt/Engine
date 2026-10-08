@@ -34,11 +34,19 @@ static constexpr Vector4 kBackgroundColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 static constexpr Vector2 kRankLabelPos = { 470.f, 345.f };
 static constexpr Vector2 kRankLabelSize = { 340.f, 60.f };
 
-// ランキング数字
+// ランキング数字（10件を5件ずつ2列に並べて画面下端に収める）
 static constexpr Vector2 kRankDigitSize = { 36.f, 52.f };
 static constexpr float kRankDigitGap = 3.f;
-static constexpr float kRankRowSpacing = 60.f;
-static constexpr Vector2 kRankPosition = { 430.f, 420.f };
+static constexpr float kRankRowSpacing = 56.f;
+static constexpr int kRankRowsPerColumn = 5;
+static constexpr float kRankColumnSpacing = 310.f;
+static constexpr Vector2 kRankPosition = { 360.f, 420.f };
+
+// 通算記録（左下に縦並び）
+static constexpr Vector2 kRecordsPosition = { 60.f, 420.f };
+static constexpr float kRecordsScale = 1.5f;
+static constexpr float kRecordsRowSpacing = 40.f;
+static constexpr Vector4 kRecordsColor = { 0.2f, 0.2f, 0.25f, 1.0f };
 
 // 初期化
 
@@ -66,17 +74,19 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
     // スコア数字表示
     scoreDisplay_.Initialize(spriteCommon_.get());
+    fontRenderer_.Initialize(spriteCommon_.get());
+
+    // ローグライトのランを完走した場合のみスコアと通算記録を扱う（サンドボックステスト経由は対象外）
+    auto* rd = RunData::GetInstance();
+    runScore_ = rd->IsRunActive() ? rd->GetScore() : 0;
 
     // cook中（素材をpakへ記録するために画面を開いているだけ）はスコアや通算記録を書き換えない
     if (AssetPack::GetInstance()->IsCooking()) {
         return;
     }
 
-    ScoreManager::GetInstance()->SubmitAndSave();
-
-    // ローグライトのランを完走した場合のみ通算記録へ反映する（サンドボックステスト経由は対象外）
-    auto* rd = RunData::GetInstance();
     if (rd->IsRunActive()) {
+        ScoreManager::GetInstance()->SubmitAndSave(runScore_);
         SaveDataManager::GetInstance()->RecordRunResult(true, rd->GetFloor(), rd->GetGold());
     }
 }
@@ -124,14 +134,13 @@ void ClearScene::Draw()
     // 現在スコア数字（中央揃え）
     scoreDisplay_.Reset();
     {
-        int currentScore = ScoreManager::GetInstance()->GetCurrentScore();
-        std::string s = std::to_string(currentScore < 0 ? 0 : currentScore);
+        std::string s = std::to_string(runScore_ < 0 ? 0 : runScore_);
         const Vector2 digitSize = layout.Vec2("score.digit_size", kScoreDigitSize);
         const float digitGap = layout.Float("score.digit_gap", kScoreDigitGap);
         const float scoreY = layout.Float("score.y", kScoreY);
         float totalW = s.size() * (digitSize.x + digitGap) - digitGap;
         float startX = (GameConstants::kScreenWidth - totalW) * 0.5f;
-        scoreDisplay_.DrawNumber(currentScore, { startX, scoreY }, digitSize, digitGap);
+        scoreDisplay_.DrawNumber(runScore_, { startX, scoreY }, digitSize, digitGap);
     }
 
     // "RANKING" ラベル
@@ -140,9 +149,36 @@ void ClearScene::Draw()
     // ランキング数字
     const auto& ranking = ScoreManager::GetInstance()->GetRanking();
     scoreDisplay_.DrawRanking(ranking,
-        ScoreManager::GetInstance()->GetCurrentScore(),
+        runScore_,
         layout.Pos("ranking.pos", kRankPosition),
-        layout.Vec2("ranking.digit_size", kRankDigitSize), layout.Float("ranking.row_spacing", kRankRowSpacing));
+        layout.Vec2("ranking.digit_size", kRankDigitSize), layout.Float("ranking.row_spacing", kRankRowSpacing),
+        kRankRowsPerColumn, layout.Float("ranking.column_spacing", kRankColumnSpacing));
+
+    DrawRecords(layout);
+}
+
+void ClearScene::DrawRecords(UILayout& layout)
+{
+    const SaveRecords& records = SaveDataManager::GetInstance()->GetRecords();
+    const std::wstring lines[] = {
+        L"通算記録",
+        L"最高到達フロア  " + std::to_wstring(records.bestFloorReached),
+        L"プレイ回数  " + std::to_wstring(records.totalRuns),
+        L"クリア回数  " + std::to_wstring(records.totalClears),
+        L"獲得ゴールド累計  " + std::to_wstring(records.totalGoldEarned),
+    };
+    const Vector2 position = layout.Pos("records.pos", kRecordsPosition);
+    const float scale = layout.Float("records.scale", kRecordsScale);
+    const float rowSpacing = layout.Float("records.row_spacing", kRecordsRowSpacing);
+    const Vector4 color = layout.Color("records.color", kRecordsColor);
+
+    fontRenderer_.Reset();
+    float y = position.y;
+    for (const std::wstring& line : lines) {
+        fontRenderer_.DrawStringW(line, position.x, y, scale, color);
+        y += rowSpacing;
+    }
+    fontRenderer_.Draw();
 }
 
 // デバッグ UI（ImGui）
@@ -158,7 +194,7 @@ void ClearScene::DrawScoreUI()
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
     ImGui::Begin("Diagnostics", nullptr,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-    ImGui::Text("Score : %d", ScoreManager::GetInstance()->GetCurrentScore());
+    ImGui::Text("Score : %d", runScore_);
     ImGui::Separator();
     if (ImGui::Button("Reset All Scores")) {
         ScoreManager::GetInstance()->ResetAllScores();

@@ -4,6 +4,7 @@
  */
 #include "TrainingHud.h"
 #include "FontRenderer.h"
+#include "Input.h"
 #include "SceneShared.h"
 #include "UILayout.h"
 #include <algorithm>
@@ -104,19 +105,21 @@ void TrainingHud::QueueText(FontRenderer& font) const
     const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
     const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
     const float y = SceneShared::DrawWeaponListHud(font, weapons_, L"トレーニングルーム", weaponAnchor_);
-    auto hint = [&](const wchar_t* text, float py) {
+    const Input* input = Input::GetCurrent();
+    auto prompt = [&](const wchar_t* text) { return input ? input->ExpandPrompts(text) : std::wstring(text); };
+    auto hint = [&](const std::wstring& text, float py) {
         font.DrawStringW(text, weaponAnchor_.x + kShadowOffset, py + kShadowOffset, hintScale, kShadowColor);
         font.DrawStringW(text, weaponAnchor_.x, py, hintScale, hintColor);
     };
-    hint(L"L：コンボ　S+L：打ち上げ　空中L：追撃", y);
-    hint(L"I：回避　Space：武器固有技", y + kHintLineHeight);
+    hint(prompt(L"{Attack}：コンボ　{Down}+{Attack}：打ち上げ　空中{Attack}：追撃"), y);
+    hint(prompt(L"{Dodge}：回避　{Skill}：武器固有技"), y + kHintLineHeight);
     SceneShared::DrawControlsHud(font, controlsAnchor_, L": バトルテストへ移動");
 
     const Vector2 stageSelect = { navigationPosition_.x + kStageSelectTextOffset.x, navigationPosition_.y + kStageSelectTextOffset.y };
     const float stageSelectScale = layout.Float("navigation.stage_select_scale", kStageSelectTextScale);
-    font.DrawStringW(L"[ TAB ] ステージ選択へ", stageSelect.x + kShadowOffset, stageSelect.y + kShadowOffset,
+    font.DrawStringW(input && input->IsUsingGamepad() ? L"[ BACK ] ステージ選択へ" : L"[ TAB ] ステージ選択へ", stageSelect.x + kShadowOffset, stageSelect.y + kShadowOffset,
         stageSelectScale, kShadowColor);
-    font.DrawStringW(L"[ TAB ] ステージ選択へ", stageSelect.x, stageSelect.y,
+    font.DrawStringW(input && input->IsUsingGamepad() ? L"[ BACK ] ステージ選択へ" : L"[ TAB ] ステージ選択へ", stageSelect.x, stageSelect.y,
         stageSelectScale, layout.Color("navigation.stage_select_color", kStageSelectTextColor));
     const Vector2 title = { navigationPosition_.x + kTitleTextOffset.x, navigationPosition_.y + kTitleTextOffset.y };
     font.DrawStringW(L"[ Backspace ] タイトルへ", title.x, title.y,

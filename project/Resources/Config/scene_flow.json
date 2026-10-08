@@ -10,6 +10,7 @@
     "back": { "scene": "TITLE", "fadeOut": 0.38, "fadeIn": 0.38 }
   },
   "MAP": {
+    "title": { "scene": "TITLE", "fadeOut": 0.3, "fadeIn": 0.3 },
     "combat": { "scene": "GAMEPLAY" },
     "all_cleared": { "scene": "CLEAR" },
     "training": { "scene": "TRAINING" }

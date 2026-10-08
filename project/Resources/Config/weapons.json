@@ -9,6 +9,8 @@
             "attackInterval": 0.18,
             "description": "軽快な速射コンボの基準銃",
             "color": [0.75, 0.75, 0.80, 1.0],
+            "element": "Water",
+            "effectColor": [0.2, 0.6, 1.0, 1.0],
             "commands": [
                 { "key": "K", "desc": "4段速射" },
                 { "key": "G", "desc": "銃切替" }
@@ -89,7 +91,7 @@
             "commands": [
                 { "key": "L",     "desc": "4段コンボ" },
                 { "key": "S+L",   "desc": "打ち上げ" },
-                { "key": "Space", "desc": "瞬迅斬り(ダッシュ斬り)" },
+                { "key": "Space", "desc": "剣舞(回転連撃、締めで打ち飛ばす)" },
                 { "key": "K",     "desc": "銃コンボ" },
                 { "key": "R",     "desc": "覚醒" }
             ]
@@ -111,7 +113,7 @@
             "commands": [
                 { "key": "L",     "desc": "突き3段" },
                 { "key": "S+L",   "desc": "掬い上げ" },
-                { "key": "Space", "desc": "間合い外し(後退突き)" },
+                { "key": "Space", "desc": "百裂突き(連続突き、締めで打ち飛ばす)" },
                 { "key": "K",     "desc": "銃コンボ" }
             ]
         },
@@ -132,7 +134,7 @@
             "commands": [
                 { "key": "L",     "desc": "高速5段" },
                 { "key": "S+L",   "desc": "打ち上げ" },
-                { "key": "Space", "desc": "ブリンク" },
+                { "key": "Space", "desc": "乱れ斬り(地上) / 空中ダッシュ(空中)" },
                 { "key": "K",     "desc": "銃コンボ" }
             ]
         },
@@ -154,7 +156,7 @@
                 { "key": "L",     "desc": "剛撃2段" },
                 { "key": "S+L",   "desc": "ゴルフスイング" },
                 { "key": "空中L", "desc": "叩き落とし" },
-                { "key": "Space", "desc": "ゲージチャージ" }
+                { "key": "Space", "desc": "大車輪(回転連撃、締めで叩きつけ衝撃波)" }
             ]
         },
         {

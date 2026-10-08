@@ -1,6 +1,6 @@
 /**
  * @file ScoreManager.cpp
- * @brief スコアの加算・ランキング保存とファイル読み書き（ScoreManager）の実装
+ * @brief スコアランキングの保存とファイル読み書き（ScoreManager）の実装
  */
 #include "ScoreManager.h"
 #include <algorithm>
@@ -15,19 +15,9 @@ ScoreManager* ScoreManager::GetInstance()
     return &instance;
 }
 
-void ScoreManager::ResetCurrentScore()
+void ScoreManager::SubmitAndSave(int score)
 {
-    currentScore_ = 0;
-}
-
-void ScoreManager::AddScore(int points)
-{
-    currentScore_ += points;
-}
-
-void ScoreManager::SubmitAndSave()
-{
-    ranking_.push_back(currentScore_);
+    ranking_.push_back(score);
     std::sort(ranking_.begin(), ranking_.end(), std::greater<int>());
     if ((int)ranking_.size() > kMaxRank) {
         ranking_.resize(kMaxRank);

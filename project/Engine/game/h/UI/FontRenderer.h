@@ -28,16 +28,17 @@ public:
     // HUDの文字に影を重ねて描く箇所が増え、1文字あたり2スプライト消費するようになったため、
     // 512のままだと1フレームの文字数上限に達して途中から文字が消える(描画スキップされる)ようになった。
     // ASCII/JPそれぞれのプールに余裕を持たせておく
-    static constexpr int kMaxChars = 2048;
+    // （プールは使った分だけ伸びるので、上限を上げても普段のメモリは増えない）
+    static constexpr int kMaxChars = 4096;
 
     // JP アトラス定数（ひらがな・カタカナ・漢字）
     static constexpr int kJpCharW = 16;
     static constexpr int kJpCharH = 16;
-    static constexpr int kJpCols = 16;
+    static constexpr int kJpCols = 64; // JIS第二水準まで焼くため横長にして縦の行数を抑える
 
-    // Regular（非Bold）用スプライトプール文字数上限UIテキスト等の短いラベル用途を想定し、
-    // 常時大量に使われるBold側(kMaxChars)より小さい枠で確保する
-    static constexpr int kMaxRegularChars = 512;
+    // Regular（非Bold）用スプライトプール文字数上限
+    // 案内文や警告が重なると512では足りずに文字が抜けたため、Bold側と同じ桁まで上げている
+    static constexpr int kMaxRegularChars = 2048;
 
     /**
      * @brief ASCII/JP各2種(Bold/Regular)のアトラスを構築（未生成なら）し、描画用スプライトプールを確保する
@@ -56,6 +57,18 @@ public:
         float scale = 1.0f,
         const Vector4& color = { 1.0f, 1.0f, 1.0f, 1.0f },
         bool bold = true);
+
+    /**
+     * @brief 文字の下に敷く単色の板を積む（Draw()で文字より先に描く）
+     * @note 明るい背景の上でも案内文が読めるようにするための下敷き
+     */
+    void DrawPanel(float x, float y, float width, float height, const Vector4& color);
+
+    /**
+     * @brief DrawStringWで描いた時の大きさを返す（改行は行数として数える）
+     * @return x=最も長い行の幅、y=全行の高さ
+     */
+    static Vector2 MeasureStringW(const std::wstring& text, float scale);
 
     /** @brief 積んだ描画コマンドとスプライト使用数をクリアする（毎フレーム、DrawString系を呼ぶ前に呼ぶ） */
     void Reset();
@@ -105,6 +118,15 @@ private:
     int jpSpriteRegularIdx_ = 0;
     int jpAtlasRows_ = 0;
     int jpAtlasRowsRegular_ = 0;
+
+    /** @brief Draw()まで遅延させる下敷きの板1枚 */
+    struct PanelCmd {
+        float x, y, width, height;
+        Vector4 color;
+    };
+    std::vector<PanelCmd> panelCmds_;
+    std::vector<Sprite> panelSprites_;
+    int panelSpriteIdx_ = 0;
 };
 
 } // namespace engine::game

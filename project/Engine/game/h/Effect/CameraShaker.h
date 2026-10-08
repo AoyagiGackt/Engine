@@ -14,9 +14,6 @@ public:
     /** @brief 振動時間を進めて現在の位置オフセットを返す @param dt フレーム間隔  単位は秒 @return カメラ位置へ加算するオフセット */
     Vector3 Update(float dt);
 
-    /** @brief 振動中か返す @return 残り時間がある場合はtrue */
-    bool IsShaking() const { return timer_ > 0.0f; }
-
 private:
     float timer_ = 0.0f;
     float duration_ = 0.0f;

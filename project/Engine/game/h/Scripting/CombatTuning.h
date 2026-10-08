@@ -42,6 +42,13 @@ struct CombatTuningData {
     float justDodgeDamageMult = 1.3f; ///< 強化窓中のダメージ倍率
     float airborneHitStyleBonus = 0.03f; ///< 空中で近接ヒットを当てた時の追加スタイル加点
     float duplicateWeaponAwakenBonus = 0.15f; ///< 所持済み武器タイプを再度奪った時に覚醒ゲージへ転用する量
+    float styleRankAwakenGaugeBonus = 0.1f; ///< スタイルランク1段ごとに攻撃・ジャスト回避の覚醒ゲージ量へ足す倍率（D=1.0倍、SSS=1.6倍）
+    // 武器の疲労（同じ武器で当て続けるとダメージが落ち、他の武器や銃で当てている間に回復する）
+    float weaponFatiguePerHit = 0.1f; ///< 近接で当てるたびにその武器へたまる疲労（0〜1）
+    float gunFatiguePerHit = 0.04f; ///< 銃で当てるたびに銃へたまる疲労（連射が速いぶん近接より小さい）
+    float weaponFatigueRecoverPerSecond = 0.35f; ///< 最後に当てた武器以外の疲労が1秒あたりに抜ける量
+    float weaponFatigueFreeRatio = 0.3f; ///< この疲労まではダメージが落ちない（コンボ1周ぶんは気持ちよく殴れる）
+    float weaponFatigueMinDamageMult = 0.3f; ///< 疲労が上限の時のダメージ倍率
 };
 
 /**

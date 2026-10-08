@@ -3,8 +3,8 @@ using namespace engine::game;
 
 void Player::EndRampage()
 {
-        if (rampagePhase_ == RampagePhase::Juggle) {
-            rampagePhase_ = RampagePhase::Inactive;
+        if (rampage_->IsJuggling()) {
+            rampage_ = &InactiveRampage();
         }
     }
 

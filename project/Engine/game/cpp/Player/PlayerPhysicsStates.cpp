@@ -72,7 +72,7 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
     const float jumpMult = (player.isAwakened_ ? kAwakenedJumpMult_ : 1.0f) * player.skillMods_.jumpMult;
 
     // 回避中は回避の移動が位置を決めるので、通常の左右移動とジャンプは受け付けない
-    if (player.rampagePhase_ == RampagePhase::Inactive && !player.finisherCharging_ && !player.dodgeActive_) {
+    if (!player.IsRampaging() && !player.finisherCharging_ && !player.dodgeActive_) {
         if (input->PushAction(Input::Action::MoveLeft)) {
             player.pos_.x -= kSpeed_ * speedMult;
             player.lastDirX_ = -1.0f;

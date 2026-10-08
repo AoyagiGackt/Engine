@@ -57,9 +57,9 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         bool hasEnemy = false;
         bool hasEventConnection = false;
         for (const auto& entry : editor.objects_) {
-            hasGround |= entry.desc.solid || entry.desc.kind == "terrain";
-            hasEnemy |= entry.desc.kind == "spawn_point" || entry.desc.kind == "enemy_basic"
-                || entry.desc.kind == "enemy_knight";
+            const ObjectKind& kind = ObjectKind::Of(entry.desc.kind);
+            hasGround |= entry.desc.solid || kind.CountsAsGround();
+            hasEnemy |= kind.PlacesEnemy();
             hasEventConnection |= !entry.desc.activationFlag.empty();
         }
         const int completed = static_cast<int>(hasGround) + static_cast<int>(hasEnemy)
@@ -205,7 +205,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         auto makeRow = [](const char* name, char axis, int count, const Vector3& position) {
             ObjectDesc row;
             row.name = name;
-            row.type = "row";
+            row.type = PlacementType::Row;
             row.kind = "prop";
             row.axis = axis;
             row.count = count;
@@ -563,8 +563,9 @@ void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
 void StageEditorHierarchyPanel::Render(StageEditor& editor)
 {
 
-    const float hierarchyHeight = (static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight) * EditorUi::kHierarchyHeightRatio;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, StageEditor::kToolbarHeight), ImGuiCond_Always);
+    const auto* display = ImGui::GetMainViewport();
+    const float hierarchyHeight = (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight) * EditorUi::kHierarchyHeightRatio;
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x, display->Pos.y + StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(StageEditor::kLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("配置物一覧", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
     // 一覧だけをスクロールさせ、選択中の操作を下端に固定する。
@@ -584,10 +585,10 @@ void StageEditorHierarchyPanel::Render(StageEditor& editor)
         int textCount = 0;
         for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
             const auto& desc = editor.objects_[i].desc;
-            if (desc.kind != "ui_text") { continue; }
+            if (desc.kind != ObjectKindName::kUIText) { continue; }
             ++textCount;
             ImGui::PushID(i);
-            const std::string label = std::string(desc.textSpace == "screen" ? "[画面] " : "[ステージ] ") + desc.name;
+            const std::string label = std::string(desc.textSpace == TextSpace::Screen ? "[画面] " : "[ステージ] ") + desc.name;
             if (ImGui::Selectable(label.c_str(), editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ == i)) {
                 editor.selKind_ = StageEditor::SelKind::Object;
                 editor.selIndex_ = i;

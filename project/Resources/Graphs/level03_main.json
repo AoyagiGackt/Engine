@@ -1,0 +1,40 @@
+{
+  "comments": {
+    "c0": {
+      "text": "level03の常駐グラフ。読込直後に走る。ステージ開始のフラッシュと開始フラグ",
+      "x": -20,
+      "y": -120,
+      "w": 560,
+      "h": 90,
+      "colorR": 0.9,
+      "colorG": 0.85,
+      "colorB": 0.3
+    }
+  },
+  "start": "n_start",
+  "nodes": {
+    "n_start": {
+      "type": "SetFlag",
+      "params": {
+        "flag": "stage_started",
+        "value": true
+      },
+      "next": "n_flash",
+      "editorX": 0,
+      "editorY": 0
+    },
+    "n_flash": {
+      "type": "ScreenFlash",
+      "params": {
+        "r": 0.6,
+        "g": 0.85,
+        "b": 1,
+        "a": 0.15,
+        "duration": 0.3
+      },
+      "next": "",
+      "editorX": 260,
+      "editorY": 0
+    }
+  }
+}

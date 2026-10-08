@@ -21,6 +21,7 @@
     <RootNamespace>CG21</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>Engine</ProjectName>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -95,7 +96,12 @@
       <AdditionalDependencies>imgui.lib;assimp-vc143-mdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+if errorlevel 1 exit /b 1
+cd /d "$(ProjectDir)"
+if errorlevel 1 exit /b 1
+"$(TargetPath)" --prepare-assets
+if errorlevel 1 exit /b 1
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -123,7 +129,12 @@
       <AdditionalDependencies>assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+if errorlevel 1 exit /b 1
+cd /d "$(ProjectDir)"
+if errorlevel 1 exit /b 1
+"$(TargetPath)" --prepare-assets
+if errorlevel 1 exit /b 1
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -152,7 +163,12 @@
       <AdditionalDependencies>assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+if errorlevel 1 exit /b 1
+cd /d "$(ProjectDir)"
+if errorlevel 1 exit /b 1
+"$(TargetPath)" --prepare-assets
+if errorlevel 1 exit /b 1
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -161,7 +177,6 @@
     <ClCompile Include="Engine\game\cpp\Core\Audio\Audio.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ClearScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GameOverScene.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Time\GameTime.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp" />
     <ClCompile Include="Engine\game\cpp\Collision\Collision.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\Framework.cpp" />
@@ -177,6 +192,7 @@
     <ClCompile Include="Engine\game\cpp\Player\KnightEnemy.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\ElementEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCombat.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneDraw.cpp" />
@@ -191,7 +207,6 @@
     <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp" />
@@ -225,11 +240,14 @@
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentPanels.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorFlagsPanel.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionKinds.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPanels.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorInspectorPanels.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorPrefabService.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKind.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\GimmickMotion.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorViewport.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Lighting\LightingMode.cpp" />
@@ -620,6 +638,7 @@
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
+    <ClInclude Include="Engine\game\h\Effect\ElementEffect.h" />
     <ClInclude Include="Engine\game\h\Effect\Easing.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlaySceneInitializer.h" />
@@ -627,7 +646,6 @@
     <ClInclude Include="Engine\game\h\Core\App\SaveData.h" />
     <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h" />
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h" />
-    <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h" />
     <ClInclude Include="Engine\game\h\Player\Player.h" />
     <ClInclude Include="Engine\game\h\Player\CharacterVisuals.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingScene.h" />
@@ -638,7 +656,6 @@
     <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
     <ClInclude Include="Engine\game\h\Player\ComboTable.h" />
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
-    <ClInclude Include="Engine\game\h\Core\Time\GameTime.h" />
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />
     <ClInclude Include="Engine\game\h\Util\PlaytestLog.h" />
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h" />
@@ -745,6 +762,8 @@
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h" />
+    <ClInclude Include="Engine\game\h\Level\ObjectKind.h" />
+    <ClInclude Include="Engine\game\h\Level\GimmickMotion.h" />
     <ClInclude Include="Engine\game\h\Level\EditorHistory.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorViewport.h" />
     <ClInclude Include="Engine\game\h\Effect\InputBuffer.h" />

@@ -55,6 +55,9 @@ public:
     /** @brief 所持ゴールド */
     int GetGold() const { return gold_; }
 
+    /** @brief このランで積み上げたスコア */
+    int GetScore() const { return score_; }
+
     /** @brief 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss） */
     int GetFloor() const { return floor_; }
 
@@ -88,6 +91,9 @@ public:
 
     /** @brief ゴールドを加算する */
     void AddGold(int amount) { gold_ += amount; }
+
+    /** @brief スコアを加算する */
+    void AddScore(int amount) { score_ += amount; }
 
     /**
      * @brief HPを回復する（maxHpを超えない）
@@ -130,6 +136,7 @@ public:
         isRunActive_ = true;
         hp_ = maxHp_ = 30;
         gold_ = 0;
+        score_ = 0;
         floor_ = 0;
         skills_.clear();
         bossTechniques_.clear();
@@ -143,15 +150,46 @@ public:
      * @brief セーブデータからラン状態を復元する
      * @note SaveDataManager::LoadContinue から呼び出される
      */
-    void RestoreFromSave(int hp, int maxHp, int gold, int floor, NodeType node, const std::vector<Skill>& skills)
+    void RestoreFromSave(int hp, int maxHp, int gold, int score, int floor, NodeType node, const std::vector<Skill>& skills)
     {
         isRunActive_ = true;
         hp_ = hp;
         maxHp_ = maxHp;
         gold_ = gold;
+        score_ = score;
         floor_ = floor;
         currentNode_ = node;
         skills_ = skills;
+    }
+
+    /** @brief スキル1つ分の表示文字列 */
+    struct SkillText {
+        const char* label; ///< 英字の短い表示名と効果
+        const wchar_t* nameJp; ///< 日本語名
+        const wchar_t* descJp; ///< 日本語説明
+    };
+
+    /**
+     * @brief スキルの表示文字列をまとめて返す
+     * @param s 文字列を取得したいスキル
+     * @return 範囲外のスキルには不明表示を返す
+     */
+    static const SkillText& GetSkillText(Skill s)
+    {
+        // Skill の並び順と一致させる
+        static constexpr SkillText kTexts[kSkillCount] = {
+            { "BLINK+    dist x1.5", L"ブリンク強化", L"ブリンク距離が 1.5倍になる" },
+            { "COMBO+    max +1", L"コンボ延長", L"コンボ最大数が 1段階増加" },
+            { "FASTFIRE  rate x2", L"速射", L"弾の連射速度が 2倍になる" },
+            { "AWAKEN+   gauge x1.5", L"覚醒促進", L"覚醒ゲージの蓄積速度が 1.5倍" },
+            { "SPEED+    move x1.2", L"疾走", L"移動速度が 1.2倍になる" },
+            { "HIGHJUMP  jump x1.25", L"跳躍強化", L"ジャンプ力が 1.25倍になる" },
+            { "JUGGLE+   +4 slashes", L"乱舞強化", L"乱舞スラッシュ回数が 4回増加" },
+            { "STYLEKEEP decay x0.6", L"スタイル維持", L"スタイルメーターの減衰が 0.6倍" },
+        };
+        static constexpr SkillText kUnknown = { "???", L"？？？", L"" };
+        const int index = static_cast<int>(s);
+        return (index >= 0 && index < kSkillCount) ? kTexts[index] : kUnknown;
     }
 
     /**
@@ -159,29 +197,7 @@ public:
      * @param s 名前を取得したいスキル
      * @return スキルの表示文字列
      */
-    static const char* SkillName(Skill s)
-    {
-        switch (s) {
-        case Skill::BlinkPlus:
-            return "BLINK+    dist x1.5";
-        case Skill::ComboExtend:
-            return "COMBO+    max +1";
-        case Skill::FastFire:
-            return "FASTFIRE  rate x2";
-        case Skill::AwakenBoost:
-            return "AWAKEN+   gauge x1.5";
-        case Skill::SpeedUp:
-            return "SPEED+    move x1.2";
-        case Skill::HighJump:
-            return "HIGHJUMP  jump x1.25";
-        case Skill::JuggleExtend:
-            return "JUGGLE+   +4 slashes";
-        case Skill::StylePersist:
-            return "STYLEKEEP decay x0.6";
-        default:
-            return "???";
-        }
-    }
+    static const char* SkillName(Skill s) { return GetSkillText(s).label; }
 
     /**
      * @brief スタイルゲージのピーク値からランク文字列を返す
@@ -235,6 +251,7 @@ private:
     int hp_ = 30; ///< 現在 HP
     int maxHp_ = 30; ///< 最大 HP
     int gold_ = 0; ///< 所持ゴールド
+    int score_ = 0; ///< このランのスコア（フロアクリア時のランクに応じて加算）
     int floor_ = 0; ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
     NodeType currentNode_ = NodeType::Combat; ///< 現在選択されているノード種別
 

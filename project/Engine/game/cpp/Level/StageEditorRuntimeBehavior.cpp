@@ -3,7 +3,7 @@
  * @brief 配置物・敵・イベントの実行時更新
  */
 #include "StageEditor.h"
-#include "FallingFloorBehavior.h"
+#include "GimmickMotion.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
@@ -127,37 +127,10 @@ void StageEditor::UpdatePickupEntry(ObjectEntry& entry, ParticleManager* pm, con
 void StageEditor::EvaluateEventConditions(float dt)
 {
     // ノーコード条件を先に評価し、接続先が参照するゲームフラグへ反映する
-    for (auto& condition : objects_) {
-        if (!condition.desc.enabled || condition.desc.kind != "event_condition") {
-            continue;
+    for (int index = 0; index < static_cast<int>(objects_.size()); ++index) {
+        if (objects_[index].desc.enabled) {
+            ObjectKind::Of(objects_[index].desc.kind).UpdateCondition(*this, index, dt);
         }
-        bool met = condition.desc.conditionType == "manual"
-            ? GameFlags::GetInstance()->GetFlag("condition_" + condition.desc.name)
-            : false;
-        if (condition.desc.conditionType == "timer") {
-            condition.runtimeTimer += dt;
-            met = condition.runtimeTimer >= condition.desc.conditionSeconds;
-        } else if (condition.desc.conditionType == "enemy_group_defeated") {
-            bool foundEnemy = false;
-            met = true;
-            for (const auto& enemyEntry : objects_) {
-                if (enemyEntry.desc.enemyGroup != condition.desc.enemyGroup) {
-                    continue;
-                }
-                if (enemyEntry.knight) {
-                    foundEnemy = true;
-                    met &= !enemyEntry.knight->IsAlive();
-                } else if (enemyEntry.enemy) {
-                    foundEnemy = true;
-                    met &= enemyEntry.enemy->IsDefeated();
-                } else if (enemyEntry.desc.kind == "spawn_point") {
-                    foundEnemy = true;
-                    met = false;
-                }
-            }
-            met &= foundEnemy;
-        }
-        GameFlags::GetInstance()->SetFlag("condition_" + condition.desc.name, met);
     }
 }
 
@@ -180,7 +153,7 @@ void StageEditor::UpdateRuntimeActivation(float dt)
         }
         if (desc.activationFlag.empty()) {
             entry.runtimeActive = true;
-            if (desc.kind == "gimmick" || desc.kind == "pickup" || desc.kind == "breakable") {
+            if (ObjectKind::Of(desc.kind).AlwaysAdvancesTimer()) {
                 entry.runtimeTimer += dt;
             }
             continue;
@@ -194,8 +167,7 @@ void StageEditor::UpdateRuntimeActivation(float dt)
         entry.runtimeActive = desc.activeWhenFlag
             ? flagValue && entry.runtimeTimer >= desc.activationDelay
             : !flagValue || entry.runtimeTimer < desc.activationDelay;
-        if (desc.kind == "camera_point" && desc.activeWhenFlag && desc.cameraHoldSeconds > 0.0f
-            && entry.runtimeTimer > desc.activationDelay + desc.cameraHoldSeconds) {
+        if (!ObjectKind::Of(desc.kind).StaysActive(desc, entry.runtimeTimer)) {
             entry.runtimeActive = false;
         }
     }
@@ -207,29 +179,9 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     if (!entry.runtimeActive) {
         return;
     }
-    if (entry.desc.kind == "spawn_point" && !entry.knight && !entry.enemy) {
-        RegenerateInstances(entry);
-        return;
-    }
-    if (entry.desc.kind == "camera_point") {
-        // 編集中は演出用カメラポイントで自由カメラを上書きしない
-        if (visible_ && !playTestMode_) {
-            return;
-        }
-        if (camera_) {
-            const Vector3 targetPosition = WorldPositionOf(entry.desc);
-            Vector3& cameraPosition = camera_->GetTranslate();
-            const float blend = entry.desc.cameraBlendSeconds <= 0.0f
-                ? 1.0f
-                : (std::min)(1.0f, dt / entry.desc.cameraBlendSeconds);
-            cameraPosition.x += (targetPosition.x - cameraPosition.x) * blend;
-            cameraPosition.y += (targetPosition.y - cameraPosition.y) * blend;
-            cameraPosition.z += (targetPosition.z - cameraPosition.z) * blend;
-            camera_->SetRotate(entry.desc.rotation);
-        }
-        return;
-    }
-    if (entry.desc.kind == "patrol_point" || (entry.enabledOverride < 0 && !IsRuntimeActive(entry.desc))) {
+    const ObjectKind& kind = ObjectKind::Of(entry.desc.kind);
+    const int index = IndexOf(entry);
+    if (kind.UpdateBeforeEnemy(*this, index, dt)) {
         return;
     }
     if (entry.knight || entry.enemy) {
@@ -239,28 +191,15 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     if (!ShouldPauseGame()) {
         UpdateGraphMove(entry, dt);
     }
-    if (entry.desc.kind == "pickup") {
-        if (!entry.pickupCollected) {
-            UpdatePickupEntry(entry, pm, playerPos);
-        }
-        return;
-    }
-    if (entry.desc.kind == "breakable") {
-        // 見た目のトランスフォームだけ追従させる（ヒット判定と破壊はシーン側がGetBreakables()経由で行う）
-        if (!entry.breakableDestroyed) {
-            RefreshTransforms(entry);
-            for (auto& obj : entry.instances) {
-                obj->Update();
-            }
-        }
+    if (kind.UpdateOwnRuntime(*this, index, pm, playerPos)) {
         return;
     }
 
-    // rotate_z の子は親側で同じ一時回転中に更新する。ここで更新し直すと元位置へ戻ってしまう。
+    // 子も一緒に回す仕掛けの子は、親側で同じ一時回転中に更新する。ここで更新し直すと元位置へ戻ってしまう。
     if (!entry.desc.parent.empty()) {
         for (const auto& candidate : objects_) {
-            if (candidate.desc.name == entry.desc.parent && candidate.desc.kind == "gimmick"
-                && candidate.desc.gimmickMotion == "rotate_z") {
+            const GimmickMotion* parentMotion = ObjectKind::Of(candidate.desc.kind).MotionOf(candidate.desc);
+            if (candidate.desc.name == entry.desc.parent && parentMotion && parentMotion->CarriesChildren()) {
                 return;
             }
         }
@@ -269,22 +208,15 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     // 一時的なギミック変形だけを描画実体へ渡し、保存対象の編集値は維持する
     const Vector3 authoredPosition = entry.desc.position;
     const Vector3 authoredRotation = entry.desc.rotation;
-    if (entry.desc.kind == "gimmick") {
-        if (entry.desc.gimmickMotion == "fall") {
-            const FallingFloorBehavior::Snapshot fallState = FallingFloorBehavior::Evaluate(entry.runtimeTimer,
-                entry.desc.motionSpeed, entry.desc.motionAmount);
-            entry.desc.position.y += fallState.yOffset;
-            const Vector3 halfExtent = { 0.5f * std::abs(entry.desc.scale.x),
-                0.5f * std::abs(entry.desc.scale.y), 0.5f * std::abs(entry.desc.scale.z) };
-            FallingFloorBehavior::EmitDebris(pm, WorldPositionOf(entry.desc), halfExtent, fallState, entry.fallFloorWasSolid);
-        } else {
-            const GimmickOffset offset = ComputeGimmickOffset(entry);
-            entry.desc.position = entry.desc.position + offset.position;
-            entry.desc.rotation = entry.desc.rotation + offset.rotation;
-        }
+    const GimmickMotion* motion = kind.MotionOf(entry.desc);
+    if (motion) {
+        const GimmickPose pose = motion->Evaluate(entry.desc, entry.runtimeTimer);
+        entry.desc.position = entry.desc.position + pose.position;
+        entry.desc.rotation = entry.desc.rotation + pose.rotation;
+        motion->EmitEffects(pm, entry.desc, WorldPositionOf(entry.desc), entry.runtimeTimer, entry.fallFloorWasSolid);
     }
     RefreshTransforms(entry);
-    if (entry.desc.gimmickMotion == "rotate_z") {
+    if (motion && motion->CarriesChildren()) {
         for (auto& child : objects_) {
             if (child.desc.parent == entry.desc.name) {
                 RefreshTransforms(child);
@@ -400,7 +332,7 @@ bool StageEditor::UpdatePatrol(ObjectEntry& entry)
     }
     std::vector<const ObjectDesc*> points;
     for (const auto& candidate : objects_) {
-        if (candidate.desc.enabled && candidate.desc.kind == "patrol_point"
+        if (candidate.desc.enabled && candidate.desc.kind == ObjectKindName::kPatrolPoint
             && candidate.desc.patrolRoute == entry.desc.patrolRoute) {
             points.push_back(&candidate.desc);
         }

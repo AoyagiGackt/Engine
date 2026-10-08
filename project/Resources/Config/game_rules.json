@@ -6,19 +6,31 @@
   "resultDisplaySeconds": 2.5,
   "finalFloor": 0,
   "bossHp": {
-    "combat": 20,
-    "elite": 35,
-    "boss": 60
+    "combat": 30,
+    "elite": 50,
+    "boss": 80
   },
-  "weaponEnemyHp": 5,
+  "weaponEnemyHp": 10,
+  "flyingWeaponEnemyHp": 5,
+  "starterWeapon": "Sword",
   "bossStealWeapon": "Hammer",
   "bossColor": [0.9, 0.65, 0.15, 1.0],
   "waterFloor": -1,
   "levelPaths": [
     "Resources/Levels/level01.json",
-    "Resources/Levels/level02.json"
+    "Resources/Levels/level02.json",
+    "Resources/Levels/level03.json"
   ],
   "bossTechnique": "slam_shockwave",
   "bossTechniqueRadiusMult": 1.6,
-  "bossTechniqueBonusDamage": 3
+  "bossTechniqueBonusDamage": 3,
+  "rankScore": {
+    "SSS": 5000,
+    "SS": 3500,
+    "S": 2500,
+    "A": 1800,
+    "B": 1200,
+    "C": 800,
+    "D": 500
+  }
 }

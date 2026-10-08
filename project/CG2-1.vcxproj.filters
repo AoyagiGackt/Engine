@@ -241,9 +241,6 @@
     <ClCompile Include="Engine\game\cpp\Scene\GameOverScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\GameTime.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
@@ -289,6 +286,9 @@
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\ElementEffect.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -330,9 +330,6 @@
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\Time\DelayTimer.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Core\Time</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
@@ -421,6 +418,9 @@
     <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionService.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\StageEditorSelectionKinds.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntime.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
@@ -446,6 +446,12 @@
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorEventConnection.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKind.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\GimmickMotion.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Level\StageEditorViewport.cpp">
@@ -743,6 +749,9 @@
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\ElementEffect.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\Easing.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
@@ -763,9 +772,6 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\DelayTimer.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\Player.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
@@ -796,9 +802,6 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\Time\GameTime.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Core\Time</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
@@ -879,6 +882,12 @@
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\ObjectKind.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\GimmickMotion.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\EditorHistory.h">

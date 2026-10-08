@@ -3,7 +3,7 @@
  * @brief 配置物の描画・衝突形状・実行時情報の取得
  */
 #include "StageEditor.h"
-#include "FallingFloorBehavior.h"
+#include "GimmickMotion.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "EnemyEntity.h"
@@ -12,6 +12,7 @@
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "GameFlags.h"
+#include "Input.h"
 #include "KnightEnemy.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -48,27 +49,20 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
         const ObjectDesc& desc = entry.desc;
         Vector3 basePos = WorldPositionOf(desc);
         Vector3 colliderRotation = desc.rotation;
-        if (desc.kind == "gimmick") {
+        if (const GimmickMotion* motion = ObjectKind::Of(desc.kind).MotionOf(desc)) {
             // GetSolidColliders()はUpdateObjects()より前（このフレームのruntimeTimer加算前）に呼ばれるため、
             // そのまま使うと当たり判定が見た目より1フレーム遅れ、動く床に乗った瞬間に浮いて見える。
             // このフレーム分をあらかじめ足した時刻で計算し、見た目（UpdateRuntimeEntry側）と揃える
             const float motionDelta = ShouldPauseGame() ? GameConstants::kFrameDeltaTime : TimeManager::GetInstance()->GetDeltaTime();
-            const float lookaheadTimer = entry.runtimeTimer + motionDelta;
-            if (desc.gimmickMotion == "fall") {
-                const FallingFloorBehavior::Snapshot state = FallingFloorBehavior::Evaluate(
-                    lookaheadTimer, desc.motionSpeed, desc.motionAmount);
-                if (!state.solid) {
-                    continue;
-                }
-                basePos.y += state.yOffset;
-            } else {
-                const GimmickOffset offset = ComputeGimmickOffset(entry, lookaheadTimer);
-                basePos = basePos + offset.position;
-                colliderRotation = colliderRotation + offset.rotation;
+            const GimmickPose pose = motion->Evaluate(desc, entry.runtimeTimer + motionDelta);
+            if (!pose.solid) {
+                continue;
             }
+            basePos = basePos + pose.position;
+            colliderRotation = colliderRotation + pose.rotation;
         }
         // Terrainは描画メッシュの各三角形をAABBへ変換し、表示形状の変更と同期する
-        if (desc.kind == "terrain" && desc.meshCollider) {
+        if (desc.kind == ObjectKindName::kTerrain && desc.meshCollider) {
             const std::string key = desc.model + '|' + desc.texture;
             auto modelIt = modelCache_.find(key);
             if (modelIt != modelCache_.end()) {
@@ -115,7 +109,7 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
         int instanceCount = static_cast<int>(entry.instances.size());
         for (int i = 0; i < instanceCount; ++i) {
             Vector3 pos = basePos;
-            if (desc.type == "row") {
+            if (desc.type == PlacementType::Row) {
                 float offset = desc.step * static_cast<float>(i);
                 if (desc.axis == 'y') {
                     pos.y += offset;
@@ -142,22 +136,11 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
     return result;
 }
 
-bool StageEditor::FindObjectWorldPosition(const std::string& name, Vector3& outPosition) const
-{
-    for (const auto& entry : objects_) {
-        if (entry.desc.name == name) {
-            outPosition = WorldPositionOf(entry.desc);
-            return true;
-        }
-    }
-    return false;
-}
-
 std::vector<BreakableRef> StageEditor::GetBreakables()
 {
     std::vector<BreakableRef> result;
     for (auto& entry : objects_) {
-        if (entry.desc.kind != "breakable" || !entry.runtimeActive || entry.breakableDestroyed || entry.instances.empty()) {
+        if (entry.desc.kind != ObjectKindName::kBreakable || !entry.runtimeActive || entry.breakableDestroyed || entry.instances.empty()) {
             continue;
         }
         BreakableRef ref;
@@ -176,7 +159,7 @@ void StageEditor::GetPickupCounts(int& outCollected, int& outTotal) const
     outCollected = 0;
     outTotal = 0;
     for (const auto& entry : objects_) {
-        if (entry.desc.kind != "pickup" || !entry.desc.enabled) {
+        if (entry.desc.kind != ObjectKindName::kPickup || !entry.desc.enabled) {
             continue;
         }
         ++outTotal;
@@ -191,16 +174,8 @@ bool StageEditor::IsEntryDrawable(const ObjectEntry& entry) const
     if (!entry.runtimeActive || !entry.visibleOverride || entry.pickupCollected || entry.breakableDestroyed) {
         return false;
     }
-    if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "blink"
-        && std::sin(entry.runtimeTimer * entry.desc.motionSpeed) < 0.0f) {
-        return false;
-    }
-    if (entry.desc.kind == "gimmick" && entry.desc.gimmickMotion == "fall"
-        && !FallingFloorBehavior::Evaluate(entry.runtimeTimer, entry.desc.motionSpeed,
-            entry.desc.motionAmount).visible) {
-        return false;
-    }
-    return true;
+    const GimmickMotion* motion = ObjectKind::Of(entry.desc.kind).MotionOf(entry.desc);
+    return motion == nullptr || motion->Evaluate(entry.desc, entry.runtimeTimer).visible;
 }
 
 void StageEditor::DrawObjectShadows()
@@ -262,19 +237,19 @@ void StageEditor::DrawUIText(FontRenderer& font) const
         camY = camPos.y;
     }
     auto isDrawableText = [](const ObjectEntry& entry) {
-        return entry.desc.kind == "ui_text" && entry.runtimeActive && entry.visibleOverride && !entry.desc.text.empty();
+        return entry.desc.kind == ObjectKindName::kUIText && entry.runtimeActive && entry.visibleOverride && !entry.desc.text.empty();
     };
     // 画面固定の文章が同じ位置に複数有効なときは、後に置いたもの（進行の先の案内）だけを出す。
     // 区画ごとの案内を同じ場所に並べても、前の区画の文章と重なって読めなくならないようにする
     constexpr float kSameAnchorEpsilon = 0.5f;
     auto isReplacedByLaterText = [&](size_t index) {
         const ObjectDesc& desc = objects_[index].desc;
-        if (desc.textSpace == "world") {
+        if (desc.textSpace == TextSpace::World) {
             return false;
         }
         for (size_t later = index + 1; later < objects_.size(); ++later) {
             const ObjectEntry& other = objects_[later];
-            if (!isDrawableText(other) || other.desc.textSpace == "world") {
+            if (!isDrawableText(other) || other.desc.textSpace == TextSpace::World) {
                 continue;
             }
             if (std::abs(other.desc.position.x - desc.position.x) < kSameAnchorEpsilon
@@ -293,10 +268,19 @@ void StageEditor::DrawUIText(FontRenderer& font) const
         const Vector3 pos = WorldPositionOf(desc);
         float screenX = pos.x;
         float screenY = pos.y;
-        if (desc.textSpace == "world") {
+        if (desc.textSpace == TextSpace::World) {
             SceneShared::WorldToScreen(pos.x, pos.y, camX, camY, screenX, screenY);
         }
-        const auto text = StringUtility::ConvertString(desc.text);
+        // {Steal} などの操作名は、最後に使った機器（キーボード/パッド）のボタン名へ置き換える
+        const std::wstring rawText = StringUtility::ConvertString(desc.text);
+        const Input* input = Input::GetCurrent();
+        const std::wstring text = input ? input->ExpandPrompts(rawText) : rawText;
+        // 明るい空やブロックの上でも読めるよう、文章の後ろに半透明の暗い板を敷く
+        constexpr float kPanelPadding = 8.0f;
+        constexpr Vector4 kPanelColor = { 0.0f, 0.0f, 0.05f, 0.6f }; // アルファは本文の不透明度に掛ける
+        const Vector2 textSize = FontRenderer::MeasureStringW(text, desc.textScale);
+        font.DrawPanel(screenX - kPanelPadding, screenY - kPanelPadding, textSize.x + kPanelPadding * 2.0f, textSize.y + kPanelPadding * 2.0f,
+            { kPanelColor.x, kPanelColor.y, kPanelColor.z, kPanelColor.w * desc.textColor.w });
         constexpr Vector4 kTextShadowColor = { 0.02f, 0.025f, 0.04f, 0.9f }; // アルファは本文の不透明度に掛ける
         if (desc.textShadow) {
             const float offset = (std::max)(1.0f, desc.textScale);
@@ -324,13 +308,16 @@ std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const
     std::vector<CombatEnemyRef> result;
     for (const auto& entry : objects_) {
         // 直置きの敵に加えて、spawn_pointから生成された敵も戦闘対象にする（出現制御をレベル側で組めるように）
-        const bool combatKind = entry.desc.kind == "enemy_basic" || entry.desc.kind == "spawn_point";
-        if (!entry.enemy || !entry.runtimeActive || !combatKind || entry.desc.weaponType.empty()) {
+        const bool combatKind = ObjectKind::Of(entry.desc.kind).SpawnsCombatEnemy();
+        // 武器持ちの敵に加え、武器を持たないモンスターも戦闘対象にする（武器なしの騎士だけは従来どおり対象外）
+        const bool hasWeapon = !entry.desc.weaponType.empty();
+        if (!entry.enemy || !entry.runtimeActive || !combatKind || (!hasWeapon && !entry.enemy->IsMonster())) {
             continue;
         }
         CombatEnemyRef ref;
         ref.name = entry.desc.name;
         ref.weaponType = ParseWeaponTypeName(entry.desc.weaponType);
+        ref.hasWeapon = hasWeapon;
         ref.isStageBoss = entry.desc.isStageBoss;
         ref.enemy = entry.enemy.get();
         result.push_back(ref);

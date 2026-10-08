@@ -217,7 +217,7 @@ bool BattleTestScene::UpdateMeleeComboHit()
         if (d.hp <= 0.0f) {
             continue;
         }
-        bool isLocked = (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ == di);
+        bool isLocked = (lockedDummyIndex_ == di);
         bool hit = Collision::CheckCollision(isLocked ? assistRange : meleeRange, DummyBounds(d));
         if (hit && atk != nullptr) {
             hitConfirmed = true;

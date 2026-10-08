@@ -17,38 +17,7 @@ namespace engine::game {
 
 void StageEditorSelectionService::DeleteSelected(StageEditor& editor)
 {
-    if (editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.objects_.size())) {
-        editor.RecordUndoSnapshotNow();
-        if (editor.modelCommon_ && editor.modelCommon_->GetDxCommon()) {
-            editor.modelCommon_->GetDxCommon()->WaitForGpu();
-        }
-        std::vector<int> targets = editor.selectedObjectIndices_.empty()
-            ? std::vector<int> { editor.selIndex_ }
-            : editor.selectedObjectIndices_;
-        std::sort(targets.begin(), targets.end());
-        targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
-        for (auto iterator = targets.rbegin(); iterator != targets.rend(); ++iterator) {
-            const int index = *iterator;
-            if (index < 0 || index >= static_cast<int>(editor.objects_.size())) {
-                continue;
-            }
-            // 子のワールド位置を維持してから削除対象への親参照を解除する
-            const std::string deletedName = editor.objects_[index].desc.name;
-            for (auto& other : editor.objects_) {
-                if (other.desc.parent == deletedName) {
-                    other.desc.position = editor.WorldPositionOf(other.desc);
-                    other.desc.parent.clear();
-                }
-            }
-            editor.DestroyObjectRuntime(editor.objects_[index], true);
-            editor.objects_.erase(editor.objects_.begin() + index);
-        }
-    } else if (editor.selKind_ == StageEditor::SelKind::Trigger && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.triggers_.size())) {
-        editor.RecordUndoSnapshotNow();
-        editor.triggers_.erase(editor.triggers_.begin() + editor.selIndex_);
-    } else {
+    if (!StageEditor::SelectionKindOf(editor.selKind_).Delete(editor, editor.selIndex_)) {
         return;
     }
     editor.selKind_ = StageEditor::SelKind::None;
@@ -58,47 +27,7 @@ void StageEditorSelectionService::DeleteSelected(StageEditor& editor)
 
 void StageEditorSelectionService::DuplicateSelected(StageEditor& editor)
 {
-    if (editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.objects_.size())) {
-        editor.RecordUndoSnapshotNow();
-        const std::vector<int> sources = editor.selectedObjectIndices_.empty()
-            ? std::vector<int> { editor.selIndex_ }
-            : editor.selectedObjectIndices_;
-        std::vector<ObjectDesc> copies;
-        for (int index : sources) {
-            if (index >= 0 && index < static_cast<int>(editor.objects_.size())) {
-                copies.push_back(editor.objects_[index].desc);
-            }
-        }
-        editor.selectedObjectIndices_.clear();
-        for (ObjectDesc& desc : copies) {
-            StageEditor::ObjectEntry entry;
-            entry.desc = std::move(desc);
-            entry.desc.name = "obj_" + std::to_string(editor.nextSerial_++);
-            entry.desc.parent.clear();
-            entry.desc.position.x += editor.snapEnabled_ ? editor.snapStep_ : 1.0f;
-            editor.objects_.push_back(std::move(entry));
-            editor.RegenerateInstances(editor.objects_.back());
-            editor.selectedObjectIndices_.push_back(static_cast<int>(editor.objects_.size()) - 1);
-        }
-        editor.selKind_ = StageEditor::SelKind::Object;
-        editor.selIndex_ = static_cast<int>(editor.objects_.size()) - 1;
-        editor.statusMessage_ = "複製しました";
-        editor.statusTimer_ = StageEditor::kStatusBriefSeconds;
-    } else if (editor.selKind_ == StageEditor::SelKind::Trigger && editor.selIndex_ >= 0
-        && editor.selIndex_ < static_cast<int>(editor.triggers_.size())) {
-        editor.RecordUndoSnapshotNow();
-        TriggerDesc desc = editor.triggers_[editor.selIndex_].GetDesc();
-        desc.name = "trigger_" + std::to_string(editor.nextSerial_++);
-        desc.position.x += editor.snapEnabled_ ? editor.snapStep_ : 1.0f;
-        TriggerVolume trigger;
-        trigger.Init(desc);
-        editor.triggers_.push_back(std::move(trigger));
-        editor.selKind_ = StageEditor::SelKind::Trigger;
-        editor.selIndex_ = static_cast<int>(editor.triggers_.size()) - 1;
-        editor.statusMessage_ = "複製しました";
-        editor.statusTimer_ = StageEditor::kStatusBriefSeconds;
-    }
+    StageEditor::SelectionKindOf(editor.selKind_).Duplicate(editor, editor.selIndex_);
 }
 
 void StageEditorSelectionService::CopySelected(StageEditor& editor)

@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "MakeAffine.h"
+#include "ObjectKind.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,13 +17,58 @@ class Model;
 
 namespace engine::game {
 
+/** @brief 配置物の並べ方 */
+enum class PlacementType { Static, ///< 1個だけ置く
+    Row }; ///< axis方向へcount個並べる
+/** @brief カスタム動作の往復方式 */
+enum class MotionMode { Loop, ///< sin波で往復
+    PingPong, ///< 等速で往復
+    Once }; ///< 一度だけ進んで止まる
+/** @brief カスタム動作の加減速 */
+enum class MotionEase { Linear,
+    Smooth };
+/** @brief ui_textの座標系 */
+enum class TextSpace { Screen, ///< position.x/yをスクリーンpx座標として使う
+    World }; ///< ワールド座標をカメラ基準で画面へ投影する
+
+// レベルJSONに書く文字列（enum の並び順と一致させる。エディタのコンボ表示にも使う）
+inline constexpr const char* kPlacementTypeNames[] = { "static", "row" };
+inline constexpr const char* kMotionModeNames[] = { "loop", "pingpong", "once" };
+inline constexpr const char* kMotionEaseNames[] = { "linear", "smooth" };
+inline constexpr const char* kTextSpaceNames[] = { "screen", "world" };
+
+/**
+ * @brief レベルJSONの文字列を enum へ変換する
+ * @param name     JSONに書かれた文字列
+ * @param names    enum の並び順に並べた文字列表
+ * @param fallback 未知の文字列だった時の値
+ */
+template <class E, size_t N>
+E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallback)
+{
+    for (size_t i = 0; i < N; ++i) {
+        if (name == names[i]) {
+            return static_cast<E>(i);
+        }
+    }
+    return fallback;
+}
+
+/** @brief enum をレベルJSONに書く文字列へ変換する */
+template <class E, size_t N>
+const char* LevelEnumName(E value, const char* const (&names)[N])
+{
+    const size_t index = static_cast<size_t>(value);
+    return index < N ? names[index] : names[0];
+}
+
 // JSON の1エントリに対応するオブジェクト定義
 /** @brief レベルJSONの配置物1件ぶんの編集データ（見た目・当たり判定・ギミック・敵生成設定をすべて保持） */
 struct ObjectDesc {
     bool enabled = true; // falseなら保存は維持するが生成・更新・描画・当たり判定から除外する
     std::string name; // 親子参照・エディタ表示用の一意な名前（空ならロード時に自動命名）
     std::string parent; // 親オブジェクトのname（空なら親なし）子のpositionは親からの相対位置になる
-    std::string type; // "static" | "row"
+    PlacementType type = PlacementType::Static;
     // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
     // | "ui_text"（Object3dを生成せず、StageEditor::DrawUITextがFontRendererで文字列を描画する。以下のtext系フィールド専用）
     // | "pickup"（触れると回収される収集物。pickup系フィールド専用）
@@ -48,8 +94,8 @@ struct ObjectDesc {
     // "custom"専用（任意方向の移動と回転を組み合わせた汎用モーション。新しい動きをコード無しで作る）
     Vector3 motionAxis = { 1.0f, 0.0f, 0.0f }; // 移動方向（motionAmount倍して往復・周回する）
     Vector3 motionRotation = { }; // 進行度1.0に対する回転量（ラジアン）
-    std::string motionMode = "loop"; // loop（sin波で往復）| pingpong（等速で往復）| once（一度だけ進んで止まる）
-    std::string motionEase = "linear"; // linear | smooth（加減速）
+    MotionMode motionMode = MotionMode::Loop;
+    MotionEase motionEase = MotionEase::Linear;
     float cameraBlendSeconds = 0.5f; // カメラポイントへ補間する秒数
     float cameraHoldSeconds = 2.0f; // カメラポイントを維持する秒数
     std::string spawnType = "basic"; // spawn_pointが生成する敵種類 basicまたはknight
@@ -60,6 +106,7 @@ struct ObjectDesc {
     // "enemy_basic" 専用（GamePlayScene等が武器奪取ギミックの対象を判別するのに使う）
     std::string weaponType; // 空なら武器を持たない一般敵。"Sword"等ならその武器を持ち、倒してJキーで奪取できる
     bool isStageBoss = false; // trueならこの敵を倒して奪取するとステージクリア条件が成立する（HPはRunDataのノード種別で自動調整）
+    std::string enemyModel; // 敵の見た目。空なら騎士、"Slime" "Bat" "Dragon" "Skeleton" ならそのモンスター（武器を持たない敵になる）
 
     // "pickup" 専用（プレイヤーが触れると回収され、覚醒ゲージが増える収集物。回収時にpickup_<name>フラグが立つ）
     float pickupRadius = 1.0f; // 回収判定の半径
@@ -73,7 +120,7 @@ struct ObjectDesc {
     int breakableEnemyDamage = 3; // 範囲内の敵が受けるダメージ
     std::string breakableWeapon; // 空なら何でも壊せる。"Hammer"等を指定するとその武器の近接攻撃でしか壊れない（壁ギミック用、solid=trueと組み合わせる）
     Vector4 breakableColor = { 1.0f, 0.35f, 0.1f, 1.0f }; // 表示色（脈動の基準色）
-    // "row" 専用
+    // PlacementType::Row 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
     float step = 1.0f; // 間隔
@@ -84,7 +131,7 @@ struct ObjectDesc {
     bool textBold = false;
     bool textShadow = true; // 明るい背景でも文章を読めるようにする
     float textScale = 1.5f;
-    std::string textSpace = "screen"; // "screen"（position.x/yをスクリーンpx座標として使う）| "world"（ワールド座標をカメラ基準で画面へ投影する）
+    TextSpace textSpace = TextSpace::Screen;
 };
 
 // JSON の1エントリに対応するトリガー定義
@@ -174,16 +221,6 @@ struct FlagGraphBinding {
     std::string flag; // 監視するGameFlagsのキー
     std::string graphPath; // 起動するグラフJSONのパス
 };
-
-/**
- * @brief 見た目のモデル（Object3d）を生成する配置種類かどうか
- * @note prop/background/gimmick/terrainに加えて、pickup/breakableもモデルを持つ
- */
-inline bool IsVisualKind(const std::string& kind)
-{
-    return kind == "prop" || kind == "background" || kind == "gimmick" || kind == "terrain"
-        || kind == "pickup" || kind == "breakable";
-}
 
 // ファイルから読み込んだレベル全体のデータ
 /** @brief レベルJSON1ファイルぶんの内容（配置物・トリガー・チェックポイント・プレイヤー/敵の初期スポーン位置・グラフ紐付け） */

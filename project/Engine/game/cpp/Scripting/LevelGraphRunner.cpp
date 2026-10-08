@@ -67,11 +67,6 @@ void LevelGraphRunner::Update(float dt)
     }
 }
 
-bool LevelGraphRunner::IsAnyRunning() const
-{
-    return !running_.empty();
-}
-
 int LevelGraphRunner::GetRunningCount() const
 {
     return static_cast<int>(running_.size());

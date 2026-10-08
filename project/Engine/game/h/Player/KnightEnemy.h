@@ -44,6 +44,7 @@ public:
     static constexpr float kHitBoxAbove = 1.0f;
     static constexpr float kHitBoxHalfDepth = 0.5f;
 
+    KnightEnemy();
     void Initialize(ModelCommon* modelCommon, const Vector3& spawnPos);
 
     /** @brief AI（Idle/Telegraph/Dash/Recover）または吸収演出を1フレーム進める */
@@ -79,11 +80,7 @@ public:
     /** @brief 最大HPを返す */
     int GetMaxHp() const override { return maxHp_; }
     /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
-    bool IsAwaitingSteal() const { return state_ == State::Defeated; }
-    /** @brief 吸収演出が完全に終わり消滅したか */
-    bool IsConsumed() const { return state_ == State::Consumed; }
-    /** @brief 吸収が完了した瞬間のフレームだけ true（武器付与などのフックに使う） */
-    bool JustAbsorbed() const { return justAbsorbed_; }
+    bool IsAwaitingSteal() const;
 
     /**
      * @brief 武器の吸収を開始するIsAwaitingSteal() が true の時だけ受理する
@@ -101,42 +98,45 @@ public:
     }
 
 private:
-    enum class State { Idle,
-        Telegraph,
-        Dash,
-        Recover,
-        Defeated,
-        Absorbing,
-        Consumed };
-
-    // AI State パターン
-    // 生存中の行動フェーズ（Idle/Telegraph/Dash/Recover）ごとに毎フレームの処理と遷移条件を切り替える
-    /** @brief 生存中の行動フェーズ固有処理を抽象化する状態 */
-    class IAIState {
+    // State パターン
+    // 行動フェーズ（待機/予備動作/突進/硬直）と撃破後（凍結/吸収/消滅）を状態クラスに分け、
+    // 毎フレームの処理・見た目の更新・外から見た性質を状態ごとに切り替える
+    /** @brief ナイトの状態を抽象化する基底（状態はステートレスで、全ナイトが同じインスタンスを共有する） */
+    class IState {
     public:
-        virtual ~IAIState() = default;
+        virtual ~IState() = default;
+        /** @brief 状態固有の1フレーム分の処理と遷移判定 */
         virtual void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const = 0;
+        /** @brief 攻撃で倒せる生存中の状態か */
+        virtual bool IsAlive() const { return true; }
+        /** @brief 攻撃モーションを再生する状態か（それ以外は待機モーション） */
+        virtual bool PlaysAttackAnimation() const { return false; }
+        /** @brief 撃破後、武器を奪われるのを待っている状態か */
+        virtual bool IsAwaitingSteal() const { return false; }
+        /** @brief 本体と剣を立ち位置へ配置する（吸収演出中のように独自の軌道で動かす状態は何もしない） */
+        virtual void ApplyTransforms(KnightEnemy& knight) const { knight.ApplyStandingTransforms(false); }
+        /** @brief 描画するか */
+        virtual bool IsVisible() const { return true; }
     };
-    /** @brief 次の突進までの待機状態 */
-    class IdleAIState;
-    /** @brief 突進前に剣を引く予備動作状態 */
-    class TelegraphAIState;
-    /** @brief プレイヤーへ向けて突進する状態 */
-    class DashAIState;
-    /** @brief 突進後の硬直状態 */
-    class RecoverAIState;
-    /** @brief 生存中の状態に対応するAI状態を返す（生存中以外はnullptr） */
-    static const IAIState* GetAIState(State state);
+    class IdleState;
+    class TelegraphState;
+    class DashState;
+    class RecoverState;
+    class DefeatedState;
+    class AbsorbingState;
+    class ConsumedState;
+    /** @brief 状態の共有インスタンスを返す */
+    template <class T>
+    static const IState& StateOf();
     /** @brief 状態を切り替えて経過時間をリセットする */
-    void ChangeState(State next);
+    void ChangeState(const IState& next);
 
-    void UpdateAI(ParticleManager* pm, const Vector3& playerPos);
     void UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos);
-    void ApplyTransforms();
+    void ApplyStandingTransforms(bool defeatedPose);
 
     int maxHp_ = 0; ///< Initialize()でEnemyTuning::Knight().maxHpから設定する
 
-    State state_ = State::Idle;
+    const IState* state_ = nullptr;
     float stateTimer_ = 0.0f;
     int hp_ = 0;
 
@@ -149,7 +149,6 @@ private:
     float hitFlash_ = 0.0f; ///< 被弾時に白く光らせる残り秒数
     float knockVelX_ = 0.0f; ///< 被弾ノックバックの水平速度（毎フレーム減衰）
     float knockVelY_ = 0.0f; ///< 被弾ノックバックの垂直速度（毎フレーム重力減衰）
-    bool justAbsorbed_ = false;
 
     // 本体・剣のモデル実体はModelManagerが所有・共有する（同種の敵なら読み込みは1回だけで済む）
     std::unique_ptr<SkinCommon> skinCommon_;
@@ -157,7 +156,7 @@ private:
     std::unique_ptr<SkinnedObject3d> object_;
     Animation idleAnimation_;
     Animation attackAnimation_;
-    State animationState_ = State::Defeated;
+    bool playingAttackAnimation_ = false; ///< いま攻撃モーションを再生中か（切り替わった時だけSetAnimationし直す）
     Model* swordModel_ = nullptr;
     std::unique_ptr<Object3d> swordObject_;
 };

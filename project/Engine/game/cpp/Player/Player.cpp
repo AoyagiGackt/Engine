@@ -98,7 +98,7 @@ void Player::Initialize(ModelCommon* modelCommon)
     initRig(normalRig_, kNormalRigVisual);
     initRig(awakenedRig_, kAwakenedRigVisual);
     rig_ = &normalRig_;
-    animState_ = AnimState::Idle;
+    animState_ = &IdleAnim();
 
     afterImageRenderer_.Initialize(modelCommon, rig_->staticModel, rig_->modelScale);
 
@@ -205,19 +205,26 @@ void Player::HandleDodge(Input* input)
         return;
     }
 
-    const bool blocked = inWater_ || finisherCharging_ || rampagePhase_ != RampagePhase::Inactive
+    const bool blocked = inWater_ || finisherCharging_ || IsRampaging()
         || dodgeCooldown_ > 0.0f || warpActive_;
     if (blocked || !dodgeRequested) {
         return;
     }
     dodgeBufferFrames_ = 0; // 消費した先行入力で二重に回避しない
 
-    // 方向は移動入力優先、無ければ向いている方向の逆へバックステップ（向き自体は変えない＝敵を見たまま退く）
+    // 方向は移動入力優先で、その方向を向いて前転する
+    // 無ければ向いている方向の逆へバックステップ（向き自体は変えない＝敵を見たまま退く）
     float dirX = -lastDirX_;
+    dodgeBackward_ = true;
     if (input->PushAction(Input::Action::MoveLeft)) {
         dirX = -1.0f;
+        dodgeBackward_ = false;
     } else if (input->PushAction(Input::Action::MoveRight)) {
         dirX = 1.0f;
+        dodgeBackward_ = false;
+    }
+    if (!dodgeBackward_) {
+        lastDirX_ = dirX;
     }
 
     // 短い間隔で繰り返した回避は連打として数える（危険の無い場面での乱用をスタイル評価で咎めるため）
@@ -239,7 +246,11 @@ void Player::HandleDodge(Input* input)
     swordDash_.active = false;
     spearDash_.active = false;
     axeDash_.active = false;
-    PlayAttackAnim(rig_->runningJumpAnim, kDodgeAnimSpeed_);
+    if (dodgeBackward_) {
+        PlayAttackAnim(rig_->jumpAnim, kBackDodgeAnimSpeed_);
+    } else {
+        PlayAttackAnim(rig_->runningJumpAnim, kDodgeAnimSpeed_);
+    }
 }
 
 void Player::HandleWarp(Input* input)
@@ -258,7 +269,7 @@ void Player::HandleWarp(Input* input)
         return;
     }
 
-    const bool blocked = inWater_ || finisherCharging_ || rampagePhase_ != RampagePhase::Inactive
+    const bool blocked = inWater_ || finisherCharging_ || IsRampaging()
         || warpCooldown_ > 0.0f || dodgeActive_;
     const bool hasGauge = isAwakened_ || awakenGauge_ >= kWarpGaugeCost_;
     if (blocked || !hasGauge || !input->TriggerAction(Input::Action::Warp)) {
@@ -270,7 +281,6 @@ void Player::HandleWarp(Input* input)
     }
 
     warpActive_ = true;
-    justWarped_ = true;
     warpTimer_ = 0.0f;
     warpStartX_ = pos_.x;
     const float distance = isAwakened_ ? kWarpAwakenedDistance_ : kWarpDistance_;
@@ -291,7 +301,7 @@ void Player::PlayAttackAnim(const Animation& anim, float speed)
 {
     rig_->object->SetAnimation(anim);
     rig_->object->SetAnimSpeed(speed);
-    animState_ = AnimState::Attack;
+    animState_ = &AttackAnim();
     attackAnimTimer_ = anim.duration / speed;
 }
 

@@ -367,3 +367,4 @@ externals/**/Release/
 # ログとスコアファイルの除外
 project/log.txt
 project/scores.txt
+project/playtest_log.csv

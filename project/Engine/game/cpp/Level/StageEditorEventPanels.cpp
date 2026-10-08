@@ -122,7 +122,7 @@ void StageEditor::RenderNoCodeEventPanel()
     } else if (sourceIndex >= static_cast<int>(triggers_.size())) {
         const int objectIndex = sourceIndex - static_cast<int>(triggers_.size());
         if (objectIndex >= 0 && objectIndex < static_cast<int>(objects_.size())
-            && objects_[objectIndex].desc.kind == "event_condition") {
+            && objects_[objectIndex].desc.kind == ObjectKindName::kEventCondition) {
             sourcePreview = objects_[objectIndex].desc.name.c_str();
         }
     }
@@ -134,7 +134,7 @@ void StageEditor::RenderNoCodeEventPanel()
             }
         }
         for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
-            if (objects_[i].desc.kind != "event_condition") {
+            if (objects_[i].desc.kind != ObjectKindName::kEventCondition) {
                 continue;
             }
             std::string label = objects_[i].desc.name + "  [" + objects_[i].desc.conditionType + "]";
@@ -148,13 +148,7 @@ void StageEditor::RenderNoCodeEventPanel()
     ImGui::SameLine();
     {
         // 3Dビューでトリガー/イベント条件を選択中なら、それをそのまま発生条件に使えるようにする
-        int selectedSourceIndex = -1;
-        if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-            selectedSourceIndex = selIndex_;
-        } else if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
-            && objects_[selIndex_].desc.kind == "event_condition") {
-            selectedSourceIndex = static_cast<int>(triggers_.size()) + selIndex_;
-        }
+        const int selectedSourceIndex = SelectionKindOf(selKind_).EventSourceIndex(*this, selIndex_);
         ImGui::BeginDisabled(selectedSourceIndex < 0);
         if (ImGui::SmallButton("選択中を使う##sourceUseSelection")) {
             eventConnection_.SourceIndex() = selectedSourceIndex;
@@ -259,7 +253,7 @@ void StageEditor::RenderNoCodeEventPanel()
         }
     }
     for (const auto& conditionEntry : objects_) {
-        if (conditionEntry.desc.kind != "event_condition") {
+        if (conditionEntry.desc.kind != ObjectKindName::kEventCondition) {
             continue;
         }
         const std::string conditionFlag = "condition_" + conditionEntry.desc.name;
@@ -296,7 +290,7 @@ void StageEditor::RenderNoCodeEventPanel()
         if (!matched && target.activationFlag.starts_with("condition_")) {
             const std::string conditionName = target.activationFlag.substr(10);
             for (const auto& condition : objects_) {
-                if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
+                if (condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName) {
                     matched = true;
                     break;
                 }

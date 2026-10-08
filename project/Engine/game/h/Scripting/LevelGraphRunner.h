@@ -36,14 +36,9 @@ public:
      */
     void Update(float dt);
 
-    /** @brief 常駐グラフを含めて何かが実行中か */
-    bool IsAnyRunning() const;
-
     /** @brief 実行中のグラフ本数（エディタの状態表示用） */
     int GetRunningCount() const;
 
-    /** @brief 常駐グラフのパス（未設定なら空） */
-    const std::string& GetMainGraphPath() const { return mainPath_; }
 
 private:
     /** @brief 実行中のグラフ1本ぶん（定義と実行状態を一緒に所有する） */

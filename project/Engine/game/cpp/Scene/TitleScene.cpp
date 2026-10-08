@@ -196,22 +196,123 @@ constexpr int kDaggerComboLength = 5;
 constexpr int kHammerComboLength = 2;
 constexpr int kDefaultComboLength = 3;
 
-int DemoComboLength(WeaponType type)
+/** @brief デモの命中演出に渡す位置と色 */
+struct DemoHitContext {
+    ParticleManager& particles;
+    Vector3 weaponPos; ///< 武器の位置（演出用Z適用済み）
+    Vector3 targetPos; ///< 的の位置（演出用Z適用済み）
+    float facing; ///< 的のある向き（右=+1, 左=-1）
+    Vector4 color; ///< 武器の演出色
+    bool skillPulse; ///< 武器固有技として演出するか
+};
+
+/** @brief タイトルデモでの武器ごとの振る舞い（コンボ段数・固有技の出し所・演出） */
+class DemoWeaponStyle {
+public:
+    virtual ~DemoWeaponStyle() = default;
+    /** @brief デモで振るコンボ段数 */
+    virtual int ComboLength() const { return kDefaultComboLength; }
+    /** @brief この段を武器固有技として出すか */
+    virtual bool IsSkillPulse(int, int) const { return false; }
+    /** @brief 命中時に撒く軌跡の大きさ */
+    virtual float HitTrailScale() const { return kDefaultTrailScale; }
+    /** @brief 常時出す軌跡の大きさ */
+    virtual float IdleTrailScale() const { return kDefaultIdleTrailScale; }
+    /** @brief 武器ごとの追加命中演出 */
+    virtual void EmitHit(const DemoHitContext&) const { }
+
+    /** @brief 武器種に対応する振る舞いを取得する */
+    static const DemoWeaponStyle& For(WeaponType type);
+};
+
+/** @brief 剣: 素早い交差斬りと、幅の広い締め攻撃 */
+class SwordDemoStyle final : public DemoWeaponStyle {
+public:
+    int ComboLength() const override { return kSwordComboLength; }
+    bool IsSkillPulse(int pulseIndex, int attackCount) const override { return pulseIndex == attackCount - 1; }
+    void EmitHit(const DemoHitContext& ctx) const override
+    {
+        ctx.particles.EmitSlash("sword_slash", ctx.weaponPos,
+            ctx.facing > 0.0f ? kSwordSlashAngle : GameConstants::kPi - kSwordSlashAngle, ctx.color,
+            ctx.skillPulse ? kSwordSkillSlashRadius : kSwordSlashRadius);
+        ctx.particles.EmitSlash("sword_slash", { ctx.targetPos.x, ctx.targetPos.y + kSwordCrossOffsetY, ctx.targetPos.z },
+            ctx.facing > 0.0f ? -kSwordCrossAngle : GameConstants::kPi + kSwordCrossAngle, ctx.color,
+            ctx.skillPulse ? kSwordSkillCrossRadius : kSwordCrossRadius);
+    }
+};
+
+/** @brief 槍: 細く長い突きの軌跡と、命中点に集中する衝撃リング */
+class SpearDemoStyle final : public DemoWeaponStyle {
+public:
+    int ComboLength() const override { return kSpearComboLength; }
+    float IdleTrailScale() const override { return kSpearIdleTrailScale; }
+    void EmitHit(const DemoHitContext& ctx) const override
+    {
+        ctx.particles.EmitTrail("weapon_trail",
+            { (ctx.weaponPos.x + ctx.targetPos.x) * 0.5f, ctx.weaponPos.y, ctx.weaponPos.z }, ctx.color,
+            kSpearTrailScale, kSpearTrailLifetime);
+        ctx.particles.EmitSlash("sword_slash", ctx.targetPos,
+            ctx.facing > 0.0f ? 0.0f : GameConstants::kPi, ctx.color, kSpearThrustRadius);
+        ctx.particles.EmitRing("hit_ring", ctx.targetPos,
+            kSpearRingSpeed, ctx.color, kSpearRingCount, kSpearRingLifetime, kSpearRingSize);
+    }
+};
+
+/** @brief 短剣: 小さな斬線を重ねて攻撃の速さを見せる */
+class DaggerDemoStyle final : public DemoWeaponStyle {
+public:
+    int ComboLength() const override { return kDaggerComboLength; }
+    bool IsSkillPulse(int pulseIndex, int) const override { return pulseIndex == 0; }
+    float IdleTrailScale() const override { return kDaggerIdleTrailScale; }
+    void EmitHit(const DemoHitContext& ctx) const override
+    {
+        for (int cut = 0; cut < kDaggerCutCount; ++cut) {
+            const float offset = (static_cast<float>(cut) - 1.0f) * kDaggerCutSpacing;
+            ctx.particles.EmitSlash("sword_slash",
+                { ctx.targetPos.x + offset, ctx.targetPos.y + offset, ctx.targetPos.z },
+                (ctx.facing > 0.0f ? 0.0f : GameConstants::kPi) + offset, ctx.color, kDaggerCutRadius);
+        }
+    }
+};
+
+/** @brief 槌: 地面への重い衝撃を強調する */
+class HammerDemoStyle final : public DemoWeaponStyle {
+public:
+    int ComboLength() const override { return kHammerComboLength; }
+    bool IsSkillPulse(int pulseIndex, int attackCount) const override { return pulseIndex == attackCount - 1; }
+    float HitTrailScale() const override { return kHammerTrailScale; }
+    float IdleTrailScale() const override { return kHammerIdleTrailScale; }
+    void EmitHit(const DemoHitContext& ctx) const override
+    {
+        ctx.particles.EmitRing("hit_ring", { ctx.targetPos.x, kDemoGroundY, ctx.targetPos.z },
+            ctx.skillPulse ? kHammerSkillRingSpeed : kHammerRingSpeed, ctx.color,
+            ctx.skillPulse ? kHammerSkillRingCount : kHammerRingCount, kHammerRingLifetime,
+            ctx.skillPulse ? kHammerSkillRingSize : kHammerRingSize);
+        ctx.particles.EmitHitStar("hit_spark", { ctx.targetPos.x, kDemoGroundY + kHammerStarHeight, ctx.targetPos.z }, ctx.color);
+    }
+};
+
+const DemoWeaponStyle& DemoWeaponStyle::For(WeaponType type)
 {
+    static const SwordDemoStyle sword {};
+    static const SpearDemoStyle spear {};
+    static const DaggerDemoStyle dagger {};
+    static const HammerDemoStyle hammer {};
+    static const DemoWeaponStyle def {};
     switch (type) {
     case WeaponType::Sword:
-        return kSwordComboLength;
+        return sword;
     case WeaponType::Spear:
-        return kSpearComboLength;
+        return spear;
     case WeaponType::Dagger:
-        return kDaggerComboLength;
+        return dagger;
     case WeaponType::Hammer:
-        return kHammerComboLength;
+        return hammer;
     default:
-        return kDefaultComboLength;
+        return def;
     }
 }
-}
+} // namespace
 
 void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
@@ -319,7 +420,7 @@ void TitleScene::InitializeDemo()
     demoWeaponIndex_ = 0;
     if (!WeaponManager::GetInstance()->GetList().empty()) {
         WeaponManager::GetInstance()->EquipForTraining(WeaponManager::GetInstance()->GetList()[0].type);
-        demoAttackCount_ = DemoComboLength(WeaponManager::GetInstance()->GetCurrent().type);
+        demoAttackCount_ = DemoWeaponStyle::For(WeaponManager::GetInstance()->GetCurrent().type).ComboLength();
     }
 }
 
@@ -343,7 +444,7 @@ void TitleScene::UpdateMainMenu()
         switch (menu_.GetSelectedIndex()) {
         case kRowNewGame:
             RunData::GetInstance()->StartNewRun();
-            WeaponManager::GetInstance()->Reset();
+            WeaponManager::GetInstance()->ResetForNewRun();
             SaveDataManager::GetInstance()->ClearContinue();
             SceneFlow::GetInstance()->Transition("TITLE", "new_game", "MAP");
             break;
@@ -373,16 +474,16 @@ void TitleScene::UpdateOptionsMenu()
 
     const int row = optionsMenu_.GetSelectedIndex();
     if (row == kOptionsRowBgm || row == kOptionsRowSe) {
-        if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
+        if (input_->TriggerMenuLeft()) {
             SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -kVolumeStep);
         }
-        if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
+        if (input_->TriggerMenuRight()) {
             SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, kVolumeStep);
         }
     }
 
     const bool backSelected = optionsMenu_.ConsumeConfirm(input_) && row == kOptionsRowBack;
-    const bool cancelPressed = input_->TriggerKey(DIK_ESCAPE) || input_->TriggerKey(DIK_BACKSPACE);
+    const bool cancelPressed = input_->TriggerMenuCancel();
     if (cancelPressed) {
         audio_->PlayMenuSelect();
     }
@@ -543,7 +644,8 @@ void TitleScene::UpdateDemo()
         }
     }
     DemoDummy* target = demoTargetIndex_ >= 0 ? &demoDummies_[demoTargetIndex_] : nullptr;
-    if (target != nullptr) {
+    // 回避中は回避方向を向いたままにする。前転モーションのまま後ろへ動くと滑って見える
+    if (target != nullptr && !player_->IsDodging()) {
         player_->FaceTarget({ target->x, target->currentY, 0.0f });
     }
     const bool inRange = target != nullptr && std::abs(target->x - playerX) <= kDemoApproachStopDistance;
@@ -602,17 +704,15 @@ void TitleScene::UpdateDemo()
             || std::abs(player_->GetPosition().y - target->currentY) <= kDemoHitHeightTolerance);
     if (target != nullptr && inRange && heightAligned && demoBackstepTimer_ <= 0.0f) {
         demoAttackTimer_ += GameConstants::kFrameDeltaTime;
-        const WeaponType weaponType = WeaponManager::GetInstance()->GetCurrent().type;
-        const int attackCount = DemoComboLength(weaponType);
+        const DemoWeaponStyle& style = DemoWeaponStyle::For(WeaponManager::GetInstance()->GetCurrent().type);
+        const int attackCount = style.ComboLength();
         const int pulseIndex = static_cast<int>(demoAttackTimer_ / kDemoAttackPulseInterval);
         const bool onPulseFrame = std::fmod(demoAttackTimer_, kDemoAttackPulseInterval) < GameConstants::kFrameDeltaTime;
         if (onPulseFrame && pulseIndex < attackCount) {
             // 敵と周回に応じて通常コンボと武器固有技を織り交ぜる。
             if (target->airborne) {
                 shootPulse = true;
-            } else if ((weaponType == WeaponType::Dagger && pulseIndex == 0)
-                || ((weaponType == WeaponType::Sword || weaponType == WeaponType::Hammer)
-                    && pulseIndex == attackCount - 1)) {
+            } else if (style.IsSkillPulse(pulseIndex, attackCount)) {
                 skillPulse = true;
             } else {
                 attackPulse = true;
@@ -624,49 +724,11 @@ void TitleScene::UpdateDemo()
                 const float facing = targetDeltaX >= 0.0f ? 1.0f : -1.0f;
                 Vector3 weaponPos = player_->GetActiveWeaponWorldPosition();
                 weaponPos.z = kDemoEffectZ;
+                const Vector3 targetPos = { target->x, target->currentY, kDemoEffectZ };
                 // 武器ごとの軌跡で、命中前から装備中の戦闘スタイルを見せる。
-                particleManager_->EmitTrail("weapon_trail", weaponPos, color,
-                    weapon.type == WeaponType::Hammer ? kHammerTrailScale : kDefaultTrailScale, kHitTrailLifetime);
-                particleManager_->EmitHitStar("hit_spark", { target->x, target->currentY, kDemoEffectZ }, color);
-                switch (weapon.type) {
-                case WeaponType::Sword:
-                    // 素早い交差斬りと、幅の広い赤色の締め攻撃。
-                    particleManager_->EmitSlash("sword_slash", weaponPos,
-                        facing > 0.0f ? kSwordSlashAngle : GameConstants::kPi - kSwordSlashAngle, color,
-                        skillPulse ? kSwordSkillSlashRadius : kSwordSlashRadius);
-                    particleManager_->EmitSlash("sword_slash", { target->x, target->currentY + kSwordCrossOffsetY, kDemoEffectZ },
-                        facing > 0.0f ? -kSwordCrossAngle : GameConstants::kPi + kSwordCrossAngle, color,
-                        skillPulse ? kSwordSkillCrossRadius : kSwordCrossRadius);
-                    break;
-                case WeaponType::Spear:
-                    // 細く長い突きの軌跡と、命中点に集中する衝撃リング。
-                    particleManager_->EmitTrail("weapon_trail",
-                        { (weaponPos.x + target->x) * 0.5f, weaponPos.y, kDemoEffectZ }, color, kSpearTrailScale, kSpearTrailLifetime);
-                    particleManager_->EmitSlash("sword_slash", { target->x, target->currentY, kDemoEffectZ },
-                        facing > 0.0f ? 0.0f : GameConstants::kPi, color, kSpearThrustRadius);
-                    particleManager_->EmitRing("hit_ring", { target->x, target->currentY, kDemoEffectZ },
-                        kSpearRingSpeed, color, kSpearRingCount, kSpearRingLifetime, kSpearRingSize);
-                    break;
-                case WeaponType::Dagger:
-                    // 小さな水色の斬線を重ねて、攻撃の速さを表現する。
-                    for (int cut = 0; cut < kDaggerCutCount; ++cut) {
-                        const float offset = (static_cast<float>(cut) - 1.0f) * kDaggerCutSpacing;
-                        particleManager_->EmitSlash("sword_slash",
-                            { target->x + offset, target->currentY + offset, kDemoEffectZ },
-                            (facing > 0.0f ? 0.0f : GameConstants::kPi) + offset, color, kDaggerCutRadius);
-                    }
-                    break;
-                case WeaponType::Hammer:
-                    // 重い攻撃は地面への衝撃を強調する。
-                    particleManager_->EmitRing("hit_ring", { target->x, kDemoGroundY, kDemoEffectZ },
-                        skillPulse ? kHammerSkillRingSpeed : kHammerRingSpeed, color,
-                        skillPulse ? kHammerSkillRingCount : kHammerRingCount, kHammerRingLifetime,
-                        skillPulse ? kHammerSkillRingSize : kHammerRingSize);
-                    particleManager_->EmitHitStar("hit_spark", { target->x, kDemoGroundY + kHammerStarHeight, kDemoEffectZ }, color);
-                    break;
-                default:
-                    break;
-                }
+                particleManager_->EmitTrail("weapon_trail", weaponPos, color, style.HitTrailScale(), kHitTrailLifetime);
+                particleManager_->EmitHitStar("hit_spark", targetPos, color);
+                style.EmitHit({ *particleManager_, weaponPos, targetPos, facing, color, skillPulse });
                 if (shootPulse) {
                     particleManager_->EmitRing("hit_ring", weaponPos, kShotRingSpeed,
                         kShotRingColor, kShotRingCount, kShotRingLifetime, kShotRingSize);
@@ -694,7 +756,7 @@ void TitleScene::UpdateDemo()
             if (weaponCount > 0) {
                 demoWeaponIndex_ = (demoWeaponIndex_ + 1) % weaponCount;
                 wm->EquipForTraining(wm->GetList()[demoWeaponIndex_].type);
-                demoAttackCount_ = DemoComboLength(wm->GetCurrent().type);
+                demoAttackCount_ = DemoWeaponStyle::For(wm->GetCurrent().type).ComboLength();
             }
             demoUseSkillFinisher_ = true;
         }
@@ -753,10 +815,7 @@ void TitleScene::UpdateDemo()
         const WeaponData& weapon = WeaponManager::GetInstance()->GetCurrent();
         const Vector4 trailColor = { weapon.effectColor[0], weapon.effectColor[1],
             weapon.effectColor[2], weapon.effectColor[3] };
-        const float baseScale = weapon.type == WeaponType::Hammer ? kHammerIdleTrailScale
-            : weapon.type == WeaponType::Spear                    ? kSpearIdleTrailScale
-            : weapon.type == WeaponType::Dagger                   ? kDaggerIdleTrailScale
-                                                                   : kDefaultIdleTrailScale;
+        const float baseScale = DemoWeaponStyle::For(weapon.type).IdleTrailScale();
         Vector3 trailPos = player_->GetActiveWeaponWorldPosition();
         trailPos.z = kDemoEffectZ;
         const float trailScale = player_->IsMeleeAttacking() ? baseScale : baseScale * kIdleTrailScaleRatio;
@@ -827,7 +886,7 @@ void TitleScene::DrawDemoWorld()
 {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetBackBufferDsvHandle();
     commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
     D3D12_VIEWPORT viewport = dxCommon_->GetCenteredClientViewport();
     D3D12_RECT scissor = dxCommon_->GetCenteredClientScissorRect();

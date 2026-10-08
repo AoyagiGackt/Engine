@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "Vector4.h"
+#include <map>
 #include <string>
 #include <vector>
 namespace engine::game {
@@ -19,7 +20,9 @@ struct GameRulesData {
     int bossHpCombat = 20;
     int bossHpElite = 35;
     int bossHpBoss = 60;
-    int weaponEnemyHp = 5; ///< 道中の武器持ち雑魚のHP
+    int weaponEnemyHp = 10; ///< 道中の武器持ち雑魚のHP
+    int flyingWeaponEnemyHp = 5; ///< 道中の飛行型雑魚のHP（空中にいて殴りにくいため地上の雑魚より低くする）
+    std::string starterWeapon = "Sword"; ///< 新規ラン開始時に最初から持っている近接武器の種別名（空文字なら素手で開始）
     std::string bossStealWeapon = "Hammer"; ///< ボスから奪取する武器種別名
     Vector4 bossColor = { 0.9f, 0.65f, 0.15f, 1.0f };
     int waterFloor = 3; ///< 水面演出を有効にするフロア番号（負なら無効）
@@ -27,6 +30,10 @@ struct GameRulesData {
     std::string bossTechnique = "slam_shockwave"; ///< ボス武器奪取時に習得する技の名前（RunData::AddBossTechnique）
     float bossTechniqueRadiusMult = 1.6f; ///< 習得後、叩きつけ系固有技の判定半径に掛かる倍率
     int bossTechniqueBonusDamage = 3; ///< 習得後、叩きつけ系固有技に上乗せするダメージ
+    /** @brief フロアクリア時のスタイルランクごとの加算スコア（キーはRunData::CalcRankのランク文字列） */
+    std::map<std::string, int> rankScores = {
+        { "SSS", 5000 }, { "SS", 3500 }, { "S", 2500 }, { "A", 1800 }, { "B", 1200 }, { "C", 800 }, { "D", 500 },
+    };
 };
 
 /**
@@ -53,6 +60,13 @@ public:
      * @return レベルJSONのパス（levelPathsの範囲外なら最後の要素）
      */
     std::string LevelPathForFloor(int floor, const std::string& fallback) const;
+
+    /**
+     * @brief フロアクリア時に加算するスコアを返す
+     * @param rank RunData::CalcRankが返すランク文字列
+     * @return 加算スコア（表に無いランクなら0）
+     */
+    int ScoreForRank(const std::string& rank) const;
 
 private:
     GameRules();

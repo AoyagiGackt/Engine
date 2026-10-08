@@ -88,8 +88,8 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     door.activeWhenFlag = false;
     door.activationDelay = kOpenDelaySeconds;
     door.gimmickMotion = "custom";
-    door.motionMode = "once";
-    door.motionEase = "smooth";
+    door.motionMode = MotionMode::Once;
+    door.motionEase = MotionEase::Smooth;
     door.motionAxis = { 0.0f, 1.0f, 0.0f };
     door.motionRotation = { };
     door.motionAmount = kSlideAmount;
@@ -143,9 +143,9 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vec
     ObjectDesc guide;
     guide.name = "guide_" + serial;
     guide.kind = "ui_text";
-    guide.type = "static";
+    guide.type = PlacementType::Static;
     guide.position = { kGuideScreenX, kGuideScreenY, 0.0f };
-    guide.textSpace = "screen";
+    guide.textSpace = TextSpace::Screen;
     guide.textScale = kGuideScale;
     guide.textColor = kGuideTextColor;
     guide.text = text;

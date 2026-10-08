@@ -28,15 +28,16 @@ inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
 
 // RTV/DSVとビューポート・シザーをセットしてメイン描画先を確定する
 // rtv がバックバッファそのものの場合（＝ポストエフェクトが無効で直接描画するケース）は、
-// 深度バッファ（固定解像度）を併用するため拡大はせず、バックバッファ中央に配置する
+// バックバッファ用深度を使い、縦横比を保って画面内の最大サイズへ拡大する
 // （オフスクリーンテクスチャへ描く場合は元々サイズが一致しているので内部解像度のまま）
 inline void SetupSceneRenderTarget(engine::DirectXCommon* dxCommon, D3D12_CPU_DESCRIPTOR_HANDLE rtv)
 {
     ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon->GetDsvHandle();
+    const bool targetsBackBuffer = (rtv.ptr == dxCommon->GetCurrentBackBufferHandle().ptr);
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = targetsBackBuffer
+        ? dxCommon->GetBackBufferDsvHandle() : dxCommon->GetDsvHandle();
     commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-    const bool targetsBackBuffer = (rtv.ptr == dxCommon->GetCurrentBackBufferHandle().ptr);
     if (targetsBackBuffer) {
         D3D12_VIEWPORT vp = dxCommon->GetCenteredClientViewport();
         D3D12_RECT scissor = dxCommon->GetCenteredClientScissorRect();

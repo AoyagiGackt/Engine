@@ -56,8 +56,6 @@ public:
      */
     void Update(engine::Input* input);
 
-    /** @brief 現在編集中のグラフ（GraphRuntime::Start()に渡して実行確認する用） */
-    const GraphDesc& GetGraph() const { return graph_; }
 
     /** @brief エディタが表示中か（ホットキーオーバーレイの表示中マーク用） */
     bool IsVisible() const { return visible_; }

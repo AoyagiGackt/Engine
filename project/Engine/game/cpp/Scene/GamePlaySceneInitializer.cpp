@@ -14,6 +14,7 @@
 #include "RunData.h"
 #include "StageEditor.h"
 #include <algorithm>
+#include <iterator>
 
 using namespace engine;
 using namespace engine::graphics;
@@ -73,7 +74,7 @@ void GamePlayScene::OnEditorLevelLoaded()
     bossSlamWarningActive_ = false;
     floorElapsedSeconds_ = 0.0f;
     bossSlamTimer_ = EnemyTuning::GetInstance()->BossSlam().interval;
-    lockedKind_ = LockTargetKind::None;
+    lockedEnemy_ = nullptr;
 
     const GameRulesData& rules = GameRules::GetInstance()->Get();
     const std::string levelPath = GetEditorLevelPath();
@@ -110,19 +111,20 @@ void GamePlayScene::OnEditorLevelLoaded()
 void GamePlayScene::SyncCombatEnemies()
 {
     // 見た目の色分けは武器種別ごとに固定（倒せば何が手に入るかを見た目で予測できるように）
+    // WeaponType の並び順と一致させる
+    static constexpr Vector4 kEnemyColorByWeapon[] = {
+        kSwordEnemyColor, // Sword
+        kSpearEnemyColor, // Spear
+        kHeavyEnemyColor, // Hammer
+        kDaggerEnemyColor, // Dagger
+        kSwordEnemyColor, // Ball
+        kSwordEnemyColor, // Greatsword
+        kSwordEnemyColor, // Scythe
+        kHeavyEnemyColor, // Axe
+    };
     auto colorForWeapon = [](WeaponType type) -> Vector4 {
-        switch (type) {
-        case WeaponType::Spear:
-            return kSpearEnemyColor;
-        case WeaponType::Dagger:
-            return kDaggerEnemyColor;
-        case WeaponType::Hammer:
-        case WeaponType::Axe:
-            return kHeavyEnemyColor;
-        case WeaponType::Sword:
-        default:
-            return kSwordEnemyColor;
-        }
+        const size_t index = static_cast<size_t>(type);
+        return index < std::size(kEnemyColorByWeapon) ? kEnemyColorByWeapon[index] : kSwordEnemyColor;
     };
 
     const std::vector<CombatEnemyRef> refs = GetStageEditor().GetCombatEnemies();
@@ -135,8 +137,8 @@ void GamePlayScene::SyncCombatEnemies()
                                      [&](const CombatEnemyRef& ref) { return !ref.isStageBoss && ref.enemy == entry.enemy; });
                              }),
         weaponEnemies_.end());
-    if (weaponEnemies_.size() != beforeCount && lockedKind_ == LockTargetKind::WeaponEnemy) {
-        lockedKind_ = LockTargetKind::None; // 添字がずれるためロックは張り直させる
+    if (weaponEnemies_.size() != beforeCount) {
+        lockedEnemy_ = nullptr; // 外れた敵を指したままにならないよう、ロックは張り直させる
     }
 
     // 新しく現れた敵を取り込む
@@ -153,7 +155,8 @@ void GamePlayScene::SyncCombatEnemies()
         WeaponEnemyEntry entry;
         entry.enemy = ref.enemy;
         entry.weaponType = ref.weaponType;
-        entry.enemy->SetMaxHp(rules.weaponEnemyHp);
+        entry.hasWeapon = ref.hasWeapon;
+        entry.enemy->SetMaxHp(entry.enemy->IsFlying() ? rules.flyingWeaponEnemyHp : rules.weaponEnemyHp);
         // flying/healerはSetArchetype()で付けた種別色（水色/緑）を優先し、武器色で上書きしない
         if (!entry.enemy->HasArchetypeColor()) {
             entry.enemy->SetColor(colorForWeapon(ref.weaponType));

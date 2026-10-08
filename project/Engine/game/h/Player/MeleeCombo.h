@@ -31,6 +31,8 @@ struct MeleeAttackDef {
     Vector3 swingTo; ///< 武器グリップ回転オフセットの振り抜き側（ラジアン）
     Vector3 bodyLeanFrom; ///< 体（rig_->object）の傾きオフセットの振りかぶり側（ラジアン、X=前後/Z=左右）
     Vector3 bodyLeanTo; ///< 体の傾きオフセットの振り抜き側（ラジアン）
+    float bodyTurns = 0.0f; ///< 振り抜きまでに体をその場で何回転させるか（負で逆回り、回転斬り用）
+    bool finisher = false; ///< コンボ表の位置に関係なく締めとして扱うか（固有技の連撃の最終段など）
 };
 
 /** @brief 1武器タイプぶんのコンボ一式（地上コンボ・空中コンボ・打ち上げ技） */
@@ -42,6 +44,19 @@ struct MeleeComboSet {
 
 /** @brief 武器タイプに対応するコンボ一式を返す（未定義タイプは Sword のセット） */
 const MeleeComboSet& GetMeleeComboSet(WeaponType type);
+
+/**
+ * @brief 段がその武器のコンボの締め（地上/空中の最終段、または打ち上げ技）かを返す
+ * @param type   武器タイプ
+ * @param attack 判定する段（nullptrならfalse）
+ */
+bool IsMeleeFinisher(WeaponType type, const MeleeAttackDef* attack);
+
+/**
+ * @brief 武器の固有技の連撃表を返す（入力なしで先頭から最後まで自動で進み、最終段で敵を打ち飛ばす）
+ * @note 刀=剣舞 / 槍=百裂突き / 短剣=乱れ斬り / ハンマー=大車輪。連撃を持たない武器は要素数0
+ */
+const ComboArray<MeleeAttackDef>& GetSkillSequence(WeaponType type);
 
 /**
  * @brief 近接コンボの進行を管理するコントローラ
@@ -65,6 +80,17 @@ public:
 
     /** @brief コンボを強制的に打ち切る（被弾・乱舞開始時など） */
     void Reset();
+
+    /**
+     * @brief 連撃表を先頭から自動で最後まで出し切る（固有技用。途中の攻撃入力は受け付けない）
+     * @param sequence 連撃表（関数の外で生存し続ける配列を渡すこと）
+     */
+    void StartSequence(const ComboArray<MeleeAttackDef>& sequence);
+    /** @brief 連撃表を自動で進めている最中か */
+    bool IsSequenceActive() const { return sequence_.data != nullptr && active_ != nullptr; }
+
+    /** @brief 段の定義に従った体のその場回転（ラジアン、体の向きに足す） */
+    float GetBodyTurnOffset() const;
 
     bool IsAttacking() const { return active_ != nullptr; }
     bool JustHit() const { return justHit_; } ///< このフレームに攻撃判定が発生したか
@@ -91,6 +117,8 @@ private:
      * @param isLauncher 打ち上げ技として発生させるか（trueなら表示段数を0扱いにする）
      */
     void StartStep(const MeleeAttackDef* def, int tableIdx, bool airMode, bool isLauncher);
+    /** @brief Update()の本体。段の時間を進め、ヒット発火・先行入力の消化・連撃表の自動進行・終了処理を行う */
+    void AdvanceStep(float dt);
     /** @brief 現在の状態から次に出すべき段を返す（テーブル末尾は先頭へループ） */
     const MeleeAttackDef* NextStep(bool launcherInput, bool airborne, int& outIdx, bool& outLauncher) const;
 
@@ -104,10 +132,12 @@ private:
     bool hitDone_ = false;
     bool justHit_ = false;
     bool justStarted_ = false;
+    bool startPending_ = false; ///< StartStep()で段が始まり、次のUpdate()の終わりにjustStarted_として公開する
     bool buffered_ = false; ///< cancelTime 前に押された次段入力を保持
     bool bufferedLauncher_ = false;
     bool bufferedAir_ = false;
     float chainGraceTimer_ = 0.0f; ///< モーション終了後もコンボを継続できる猶予
+    ComboArray<MeleeAttackDef> sequence_ { }; ///< 自動で進めている連撃表（使っていなければdataがnullptr）
     float lungeDelta_ = 0.0f;
 
     static constexpr float kChainGrace_ = 0.75f; ///< 段間の入力猶予（秒）。位置調整を挟んでも次段へ繋げやすくする

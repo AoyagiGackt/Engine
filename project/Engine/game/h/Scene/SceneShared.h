@@ -123,8 +123,10 @@ namespace SceneShared {
     /**
      * @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す
      * @param anchor 描画開始位置（スクリーンpx）各シーンのUILayoutの "weapon_list.pos" で編集する
+     * @param powerRatios 武器ごとの今の威力倍率（WeaponManager::GetList()順）。渡すと各スロットに威力%を出し、落ちている武器を赤くする
      */
-    float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor);
+    float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
+        const std::vector<float>* powerRatios = nullptr);
 
     /**
      * @brief 右側の操作説明パネルを描画する

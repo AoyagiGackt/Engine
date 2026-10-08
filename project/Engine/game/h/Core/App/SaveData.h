@@ -15,6 +15,7 @@ struct ContinueData {
     int hp = 0; ///< 保存時点のHP
     int maxHp = 0; ///< 保存時点の最大HP
     int gold = 0; ///< 保存時点のゴールド
+    int score = 0; ///< 保存時点のスコア
     int floor = 0; ///< 保存時点のフロア番号
 
     RunData::NodeType currentNode = RunData::NodeType::Combat; ///< 保存時点のノード種別

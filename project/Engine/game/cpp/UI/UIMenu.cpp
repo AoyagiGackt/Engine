@@ -136,7 +136,7 @@ void UIMenu::Update(Input* input)
     }
 
     const int previousCursor = cursor_;
-    if (input->TriggerKey(DIK_W) || input->TriggerKey(DIK_UP)) {
+    if (input->TriggerMenuUp()) {
         for (int i = cursor_ - 1; i >= 0; --i) {
             if (items_[i].enabled) {
                 cursor_ = i;
@@ -144,7 +144,7 @@ void UIMenu::Update(Input* input)
             }
         }
     }
-    if (input->TriggerKey(DIK_S) || input->TriggerKey(DIK_DOWN)) {
+    if (input->TriggerMenuDown()) {
         for (int i = cursor_ + 1; i < static_cast<int>(items_.size()); ++i) {
             if (items_[i].enabled) {
                 cursor_ = i;
@@ -164,7 +164,7 @@ bool UIMenu::ConsumeConfirm(Input* input)
     if (items_.empty() || !items_[cursor_].enabled) {
         return false;
     }
-    const bool confirmed = input->TriggerKey(DIK_SPACE) || input->TriggerKey(DIK_RETURN);
+    const bool confirmed = input->TriggerMenuConfirm();
     if (confirmed && audio_) {
         audio_->PlayMenuSelect();
     }

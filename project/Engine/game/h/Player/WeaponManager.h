@@ -11,7 +11,10 @@ namespace engine::game {
 /// @brief スタイル別近接武器と射撃武器の定義を保持し、選択中スタイルを管理する
 class WeaponManager {
 public:
-    /** @brief 武器入手を4スロットへ反映した結果 */
+    /** @brief 同時に持てる近接武器の数（HUD・数字キー・交換画面もこの数に追従する） */
+    static constexpr int kSlotCount = 3;
+
+    /** @brief 武器入手をスロットへ反映した結果 */
     enum class AcquireResult {
         Added,
         Duplicate,
@@ -32,17 +35,9 @@ public:
     /// @brief 全スタイルのリストを返す
     const std::vector<WeaponData>& GetList() const { return weapons_; }
 
-    /// @brief 選択中の銃のインデックスを返す（0始まり）
-    int GetRangedIndex() const { return rangedIndex_; }
-    /// @brief 銃の総数を返す
-    int GetRangedCount() const { return static_cast<int>(rangedWeapons_.size()); }
-    /// @brief 全銃のリストを返す
-    const std::vector<RangedWeaponData>& GetRangedList() const { return rangedWeapons_; }
     /// @brief 次の銃へ切り替える（循環。銃は近接と違い最初から全部使える）
     void SelectNextRanged() { rangedIndex_ = (rangedIndex_ + 1) % static_cast<int>(rangedWeapons_.size()); }
 
-    /// @brief 指定インデックスのスタイルを選択する（範囲外はクランプ、未解放スロットは無視）
-    void SelectIndex(int i);
     /// @brief 次の解放済みスタイルへ切り替える（循環、未解放はスキップ）
     void SelectNext();
     /// @brief 前の解放済みスタイルへ切り替える（循環、未解放はスキップ）
@@ -57,7 +52,7 @@ public:
     /// @brief 指定インデックスのスタイルが解放済みか
     bool IsUnlocked(int i) const { return i >= 0 && i < static_cast<int>(unlocked_.size()) && unlocked_[i]; }
 
-    /** @brief 指定した4スロットを選択する */
+    /** @brief 指定したスロットを選択する */
     void SelectSlot(int slot);
     /** @brief スロットに登録された武器インデックスを返す */
     int GetSlotWeaponIndex(int slot) const;
@@ -91,7 +86,7 @@ public:
      */
     bool Unlock(WeaponType type);
 
-    /** @brief 全武器を解放し、先頭4種をスロットへ登録する */
+    /** @brief 全武器を解放し、先頭からスロット数ぶんを登録する */
     void UnlockAll();
 
     /**
@@ -106,10 +101,16 @@ public:
      */
     void Reset();
 
+    /**
+     * @brief 新しいランの開始時に呼ぶ。Reset()した上でgame_rules.jsonのstarterWeaponを最初のスロットへ装備する
+     * @note starterWeaponが空文字なら素手のまま開始する
+     */
+    void ResetForNewRun();
+
     /** @brief 解放状況・装備状態の実行時スナップショット（タイトルデモ等、一時的にUnlockAll()する場面の退避・復元用） */
     struct Snapshot {
         std::vector<bool> unlocked;
-        std::array<int, 4> slots { -1, -1, -1, -1 };
+        std::array<int, kSlotCount> slots { -1, -1, -1 };
         int index = 0;
         int selectedSlot = -1;
         int pendingWeaponIndex = -1;
@@ -125,7 +126,7 @@ private:
 
     std::vector<WeaponData> weapons_;
     std::vector<bool> unlocked_;
-    std::array<int, 4> slots_ { -1, -1, -1, -1 };
+    std::array<int, kSlotCount> slots_ { -1, -1, -1 };
     std::vector<RangedWeaponData> rangedWeapons_;
     int index_ = 0;
     int selectedSlot_ = -1;

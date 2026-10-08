@@ -45,6 +45,8 @@ void GameRules::Reload()
         data_.bossHpBoss = hp.value("boss", defaults.bossHpBoss);
     }
     data_.weaponEnemyHp = root.value("weaponEnemyHp", defaults.weaponEnemyHp);
+    data_.flyingWeaponEnemyHp = root.value("flyingWeaponEnemyHp", defaults.flyingWeaponEnemyHp);
+    data_.starterWeapon = root.value("starterWeapon", defaults.starterWeapon);
     data_.bossStealWeapon = root.value("bossStealWeapon", defaults.bossStealWeapon);
     if (root.contains("bossColor") && root["bossColor"].is_array() && root["bossColor"].size() >= 4) {
         const auto& c = root["bossColor"];
@@ -63,6 +65,19 @@ void GameRules::Reload()
     data_.bossTechnique = root.value("bossTechnique", defaults.bossTechnique);
     data_.bossTechniqueRadiusMult = root.value("bossTechniqueRadiusMult", defaults.bossTechniqueRadiusMult);
     data_.bossTechniqueBonusDamage = root.value("bossTechniqueBonusDamage", defaults.bossTechniqueBonusDamage);
+    if (root.contains("rankScore") && root["rankScore"].is_object()) {
+        for (const auto& [rank, score] : root["rankScore"].items()) {
+            if (score.is_number_integer()) {
+                data_.rankScores[rank] = score.get<int>();
+            }
+        }
+    }
+}
+
+int GameRules::ScoreForRank(const std::string& rank) const
+{
+    const auto it = data_.rankScores.find(rank);
+    return it != data_.rankScores.end() ? it->second : 0;
 }
 
 std::string GameRules::LevelPathForFloor(int floor, const std::string& fallback) const

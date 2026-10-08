@@ -57,9 +57,15 @@ public:
      */
     static void Render(StageEditor& editor);
 
-private:
+    // 選択種別ごとの詳細パネル（StageEditor::ISelectionKind::DrawInspectorから呼ぶ）
     /** @brief 選択中が配置物(Object)の場合の詳細パネルをまとめて描画する（下記Render*の呼び出し元） */
     static bool RenderObjectInspector(StageEditor& editor);
+    /** @brief 選択中がトリガーの場合の詳細パネル（位置・半径・フラグ・成立条件）を描画する */
+    static bool RenderTriggerInspector(StageEditor& editor);
+    /** @brief 選択中が外部登録エンティティ(Player/Enemy等)の場合の詳細パネル（位置のみ）を描画する */
+    static bool RenderExternalInspector(StageEditor& editor);
+
+private:
     /** @brief 有効/無効・名前・親子関係を編集するセクションを描画する */
     static void RenderObjectIdentity(StageEditor& editor, bool& structuralDirty);
     /** @brief モデル/テクスチャ/種類（static・row）等、見た目に関するセクションを描画する */
@@ -75,9 +81,5 @@ private:
      * @note RecordUndoSnapshotNow()がStageEditorのprivateなので、friendのこのクラスのメンバーとして実装する
      */
     static void RenderScreenAnchorOcclusionWarning(StageEditor& editor, ObjectDesc& desc);
-    /** @brief 選択中がトリガーの場合の詳細パネル（位置・半径・フラグ・成立条件）を描画する */
-    static bool RenderTriggerInspector(StageEditor& editor);
-    /** @brief 選択中が外部登録エンティティ(Player/Enemy等)の場合の詳細パネル（位置のみ）を描画する */
-    static bool RenderExternalInspector(StageEditor& editor);
 };
 } // namespace engine::game

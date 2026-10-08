@@ -67,7 +67,7 @@ constexpr float kScreenTextLabelOffsetY = 8.0f;
 // 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text）
 bool IsScreenAnchorObject(const ObjectDesc& d)
 {
-    return d.kind == "ui_text" && d.textSpace == "screen";
+    return ObjectKind::Of(d.kind).IsScreenSpace(d);
 }
 } // namespace
 
@@ -96,7 +96,7 @@ void StageEditor::DrawGizmos()
         const ObjectDesc& d = objects_[i].desc;
 
         // 配置物の陰になって邪魔な時は、テキスト表示チェックボックスでui_textだけ一時的に隠せる
-        if (d.kind == "ui_text" && !showUIText_) {
+        if (d.kind == ObjectKindName::kUIText && !showUIText_) {
             continue;
         }
 
@@ -116,7 +116,7 @@ void StageEditor::DrawGizmos()
             continue;
         }
 
-        bool isEnemy = (d.kind != "prop");
+        bool isEnemy = !ObjectKind::Of(d.kind).IsDecoration();
         Vector3 world = WorldPositionOf(d);
         ImU32 baseColor = isEnemy ? DiagnosticsDraw::kColorRed : DiagnosticsDraw::kColorWhite;
         DiagnosticsDraw::DrawCross(world, sel ? kObjectCrossRadiusSelected : (isEnemy ? kObjectCrossRadiusEnemy : kObjectCrossRadiusProp), sel ? DiagnosticsDraw::kColorYellow : baseColor);
@@ -136,35 +136,7 @@ void StageEditor::DrawGizmos()
         }
 
         // 種類ごとの判定範囲と動作範囲を見せる（数値だけでは掴みにくい半径・可動域を画面上で確認できるように）
-        if (d.kind == "pickup") {
-            DiagnosticsDraw::DrawSphere({ world, d.pickupRadius }, DiagnosticsDraw::kColorCyan);
-        } else if (d.kind == "breakable" && d.breakableRadius > 0.0f) {
-            DiagnosticsDraw::DrawSphere({ world, d.breakableRadius }, DiagnosticsDraw::kColorOrange);
-        } else if (d.kind == "spawn_point") {
-            DiagnosticsDraw::DrawAABB({ { world.x - kSpawnMarkerHalf, world.y - kSpawnMarkerHalf, world.z - kSpawnMarkerHalf },
-                                          { world.x + kSpawnMarkerHalf, world.y + kSpawnMarkerHalf, world.z + kSpawnMarkerHalf } },
-                DiagnosticsDraw::kColorRed);
-        } else if (d.kind == "gimmick") {
-            // 可動域: 往復系は両端、onceは終点まで線で示す
-            Vector3 axis = { };
-            if (d.gimmickMotion == "move_x") {
-                axis = { d.motionAmount, 0.0f, 0.0f };
-            } else if (d.gimmickMotion == "move_y") {
-                axis = { 0.0f, d.motionAmount, 0.0f };
-            } else if (d.gimmickMotion == "custom") {
-                axis = d.motionAxis * d.motionAmount;
-            }
-            if (axis.x != 0.0f || axis.y != 0.0f || axis.z != 0.0f) {
-                const bool oneWay = d.gimmickMotion == "custom" && d.motionMode == "once";
-                const Vector3 from = oneWay ? world : world + axis * -1.0f;
-                const Vector3 to = world + axis;
-                DiagnosticsDraw::DrawLine(from, to, DiagnosticsDraw::kColorMagenta);
-                DiagnosticsDraw::DrawCross(to, kMotionEndMarkerRadius, DiagnosticsDraw::kColorMagenta);
-                if (!oneWay) {
-                    DiagnosticsDraw::DrawCross(from, kMotionEndMarkerRadius, DiagnosticsDraw::kColorMagenta);
-                }
-            }
-        }
+        ObjectKind::Of(d.kind).DrawDebugRange(d, world);
 
         // 親子関係を白線で可視化する（親→子）
         const std::string& parentName = objects_[i].desc.parent;
@@ -196,7 +168,7 @@ void StageEditor::DrawGizmos()
         if (!sourceFound && target.activationFlag.starts_with("condition_")) {
             const std::string conditionName = target.activationFlag.substr(10);
             for (const auto& condition : objects_) {
-                if (condition.desc.kind == "event_condition" && condition.desc.name == conditionName) {
+                if (condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName) {
                     sourcePosition = WorldPositionOf(condition.desc);
                     sourceFound = true;
                     break;
@@ -221,21 +193,9 @@ void StageEditor::DrawGizmos()
 
     // マウス直下の対象を明るい十字で示す（クリックしたら何が選ばれるかを先に見せる）
     if (!viewportDragging_ && hoverKind_ != SelKind::None) {
+        const ISelectionKind& hovered = SelectionKindOf(hoverKind_);
         Vector3 hoverWorld;
-        bool hasHover = false;
-        if (hoverKind_ == SelKind::Object && hoverIndex_ >= 0 && hoverIndex_ < static_cast<int>(objects_.size())
-            && !IsScreenAnchorObject(objects_[hoverIndex_].desc)) {
-            hoverWorld = WorldPositionOf(objects_[hoverIndex_].desc);
-            hasHover = true;
-        } else if (hoverKind_ == SelKind::Trigger && hoverIndex_ >= 0 && hoverIndex_ < static_cast<int>(triggers_.size())) {
-            hoverWorld = triggers_[hoverIndex_].GetDesc().position;
-            hasHover = true;
-        } else if (hoverKind_ == SelKind::External && hoverIndex_ >= 0 && hoverIndex_ < static_cast<int>(externalEntities_.size())
-            && externalEntities_[hoverIndex_].position) {
-            hoverWorld = *externalEntities_[hoverIndex_].position;
-            hasHover = true;
-        }
-        if (hasHover) {
+        if (!hovered.IsScreenAnchor(*this, hoverIndex_) && hovered.WorldPosition(*this, hoverIndex_, hoverWorld)) {
             DiagnosticsDraw::DrawCross(hoverWorld, kHoverCrossRadius, kHoverColor);
         }
     }
@@ -379,17 +339,7 @@ void StageEditor::UpdateViewportInteraction()
             if (!MouseToGround(m.x, m.y, contextWorldPos_)) {
                 contextWorldPos_ = ViewCenterOnGround();
             }
-            if (contextKind_ == SelKind::Object) {
-                selKind_ = SelKind::Object;
-                selIndex_ = contextIndex_;
-                if (std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), contextIndex_) == selectedObjectIndices_.end()) {
-                    selectedObjectIndices_ = { contextIndex_ };
-                }
-            } else if (contextKind_ == SelKind::Trigger) {
-                selKind_ = SelKind::Trigger;
-                selIndex_ = contextIndex_;
-                selectedObjectIndices_.clear();
-            }
+            SelectionKindOf(contextKind_).SelectFromContext(*this, contextIndex_);
             contextMenuRequested_ = true;
         }
     }
@@ -397,23 +347,8 @@ void StageEditor::UpdateViewportInteraction()
 
 bool StageEditor::SelectionWorldPosition(Vector3& outWorld) const
 {
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-        if (IsScreenAnchorObject(objects_[selIndex_].desc)) {
-            return false;
-        }
-        outWorld = WorldPositionOf(objects_[selIndex_].desc);
-        return true;
-    }
-    if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-        outWorld = triggers_[selIndex_].GetDesc().position;
-        return true;
-    }
-    if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())
-        && externalEntities_[selIndex_].position) {
-        outWorld = *externalEntities_[selIndex_].position;
-        return true;
-    }
-    return false;
+    const ISelectionKind& selected = SelectionKindOf(selKind_);
+    return !selected.IsScreenAnchor(*this, selIndex_) && selected.WorldPosition(*this, selIndex_, outWorld);
 }
 
 namespace {
@@ -594,7 +529,7 @@ void StageEditor::UpdateRotateScaleDrag(float deltaX, float deltaY)
             desc.scale.y = (std::max)(desc.scale.y, kMinScale);
             desc.scale.z = (std::max)(desc.scale.z, kMinScale);
         }
-        if (IsVisualKind(desc.kind)) {
+        if (ObjectKind::Of(desc.kind).IsVisual()) {
             RefreshTransforms(entry);
         }
     }
@@ -623,7 +558,7 @@ void StageEditor::FinishBoxSelect(float mouseX, float mouseY)
     }
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
         const ObjectDesc& desc = objects_[i].desc;
-        if (desc.kind == "ui_text" && !showUIText_) {
+        if (desc.kind == ObjectKindName::kUIText && !showUIText_) {
             continue;
         }
         ImVec2 screen;

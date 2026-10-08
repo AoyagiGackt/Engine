@@ -9,8 +9,12 @@
         "Skill":     { "primary": "Space", "secondary": "",      "gamepad": "B" },
         "Awaken":    { "primary": "R",     "secondary": "",      "gamepad": "RB" },
         "Finisher":  { "primary": "F",     "secondary": "",      "gamepad": "LB" },
-        "GunSwitch": { "primary": "G",     "secondary": "",      "gamepad": "" },
+        "GunSwitch": { "primary": "G",     "secondary": "",      "gamepad": "DpadLeft" },
         "Dodge":     { "primary": "I",     "secondary": "",      "gamepad": "RS" },
-        "Warp":      { "primary": "C",     "secondary": "",      "gamepad": "LS" }
+        "Warp":      { "primary": "C",     "secondary": "",      "gamepad": "LS" },
+        "Steal":     { "primary": "J",     "secondary": "",      "gamepad": "LT" },
+        "Interact":  { "primary": "Enter", "secondary": "",      "gamepad": "LT" },
+        "LockOn":    { "primary": "LShift", "secondary": "",    "gamepad": "RT" },
+        "Pause":     { "primary": "Escape", "secondary": "",     "gamepad": "Start" }
     }
 }

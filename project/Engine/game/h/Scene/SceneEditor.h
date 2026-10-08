@@ -106,9 +106,6 @@ public:
         float* whiteParticleScale = nullptr;
         int* whiteParticleCount = nullptr; // 粒の個数
 
-        // ゲーム内時刻（読み取り専用の値コピー表示目的）
-        int gameHour = 0;
-        int gameMinute = 0;
 
         // ImGui の "Game Clear" ボタン用リクエストフラグ
         // true にすると GamePlayScene 側でガラス割れ演出を経由してシーン遷移する
@@ -154,9 +151,6 @@ public:
     /** @brief 読み取り専用のUI要素一覧を返す @return UI要素一覧の参照 */
     const std::vector<UIEntry>& GetUIElements() const { return uiElements_; }
 
-    // 現在の選択状態を返す
-    /** @brief 現在の選択種別を返す @return 選択種別 */
-    Selection GetSelection() const { return selection_; }
 
 private:
     // State パターンの基底クラス

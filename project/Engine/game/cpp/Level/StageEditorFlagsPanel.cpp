@@ -26,7 +26,9 @@ constexpr float kMaxCheckpointRadius = 20.0f;
 
 void StageEditor::RenderFlagsPanel()
 {
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - kFlagsWindowSize.x, kFlagsWindowTop), ImGuiCond_Once);
+    const auto* display = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + display->Size.x - kFlagsWindowSize.x,
+        display->Pos.y + kFlagsWindowTop), ImGuiCond_Once);
     ImGui::SetNextWindowSize(kFlagsWindowSize, ImGuiCond_Once);
     ImGui::Begin("フラグとチェックポイント");
     for (const auto& [name, value] : GameFlags::GetInstance()->GetAll()) {

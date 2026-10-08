@@ -1,0 +1,27 @@
+{
+  "comments": {
+    "c0": {
+      "text": "区画Bの戦闘部屋に入った瞬間（フラグ s3_zone_b）に走る。導入の案内文を消す",
+      "x": -20,
+      "y": -120,
+      "w": 560,
+      "h": 90,
+      "colorR": 0.9,
+      "colorG": 0.85,
+      "colorB": 0.3
+    }
+  },
+  "start": "n_hide_0",
+  "nodes": {
+    "n_hide_0": {
+      "type": "SetObjectEnabled",
+      "params": {
+        "target": "guide_s3_a",
+        "enabled": false
+      },
+      "next": "",
+      "editorX": 0,
+      "editorY": 0
+    }
+  }
+}

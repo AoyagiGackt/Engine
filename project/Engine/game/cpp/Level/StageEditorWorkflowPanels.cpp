@@ -80,16 +80,11 @@ void StageEditor::RenderWorkflowPanel()
     ImGui::SameLine();
     ImGui::BeginDisabled(selKind_ == SelKind::None);
     if (ImGui::Button("選択位置からテスト", kWideButtonSize)) {
-        Vector3 start = ViewCenterOnGround();
-        if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-            start = WorldPositionOf(objects_[selIndex_].desc);
-        } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-            start = triggers_[selIndex_].GetDesc().position;
+        Vector3 start;
+        if (!SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, start)) {
+            start = ViewCenterOnGround();
         }
-        if (!StartPlayTestAt(start)) {
-            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
-            statusTimer_ = StageEditor::kStatusNormalSeconds;
-        }
+        StartPlayTestOrWarn(start);
     }
     ImGui::EndDisabled();
     EditorUI::HelpMarker("プレイヤーをその場所へ移してテストを始めます。後半の区画を何度も確かめる時に使います。F2で編集へ戻ります");
@@ -206,65 +201,7 @@ void StageEditor::RenderViewportContextMenu()
         return;
     }
 
-    auto startTestHere = [&](const Vector3& position) {
-        if (!StartPlayTestAt(position)) {
-            statusMessage_ = "このシーンにはプレイヤーが登録されていません";
-            statusTimer_ = StageEditor::kStatusNormalSeconds;
-        }
-    };
-
-    if (contextKind_ == SelKind::Object && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(objects_.size())) {
-        ObjectDesc& desc = objects_[contextIndex_].desc;
-        ImGui::TextDisabled("%s", desc.name.c_str());
-        ImGui::Separator();
-        if (ImGui::MenuItem("ここへカメラ (F)")) {
-            FocusCameraOn(WorldPositionOf(desc));
-        }
-        if (ImGui::MenuItem("複製 (Ctrl+D)")) {
-            DuplicateSelected();
-        }
-        if (ImGui::MenuItem("削除 (Delete)")) {
-            DeleteSelected();
-        }
-        ImGui::Separator();
-        if (!desc.parent.empty() && ImGui::MenuItem("親を外す")) {
-            SetParentPreservingWorld(contextIndex_, -1);
-        }
-        const bool hasOtherSelection = selectedObjectIndices_.size() > 1;
-        if (hasOtherSelection && ImGui::MenuItem("選択中の物をこの子にする")) {
-            const std::vector<int> children = selectedObjectIndices_;
-            for (int child : children) {
-                if (child != contextIndex_) {
-                    SetParentPreservingWorld(child, contextIndex_);
-                }
-            }
-        }
-        if (ImGui::MenuItem("クリックした物を親にする...")) {
-            parentLinkChildIndex_ = contextIndex_;
-            statusMessage_ = "親にしたい配置物をクリックしてください";
-            statusTimer_ = StageEditor::kStatusLongSeconds;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("この位置からテスト")) {
-            startTestHere(WorldPositionOf(desc));
-        }
-        ImGui::EndPopup();
-        return;
-    }
-
-    if (contextKind_ == SelKind::Trigger && contextIndex_ >= 0 && contextIndex_ < static_cast<int>(triggers_.size())) {
-        const TriggerDesc& desc = triggers_[contextIndex_].GetDesc();
-        ImGui::TextDisabled("トリガー %s", desc.name.c_str());
-        ImGui::Separator();
-        if (ImGui::MenuItem("ここへカメラ (F)")) {
-            FocusCameraOn(desc.position);
-        }
-        if (ImGui::MenuItem("削除 (Delete)")) {
-            DeleteSelected();
-        }
-        if (ImGui::MenuItem("この位置からテスト")) {
-            startTestHere(desc.position);
-        }
+    if (SelectionKindOf(contextKind_).DrawContextMenu(*this, contextIndex_)) {
         ImGui::EndPopup();
         return;
     }
@@ -336,7 +273,7 @@ void StageEditor::RenderViewportContextMenu()
     }
     ImGui::Separator();
     if (ImGui::MenuItem("ここからテスト")) {
-        startTestHere(at);
+        StartPlayTestOrWarn(at);
     }
     if (ImGui::MenuItem("ここへカメラ")) {
         FocusCameraOn(at);
@@ -357,10 +294,10 @@ void StageEditor::RenderStageAnalysisPanel()
     std::map<std::string, int> groupConditionCounts;
     for (const auto& entry : objects_) {
         if (!entry.desc.enemyGroup.empty()
-            && (entry.desc.kind == "spawn_point" || entry.desc.kind == "enemy_basic" || entry.desc.kind == "enemy_knight")) {
+            && ObjectKind::Of(entry.desc.kind).PlacesEnemy()) {
             ++groupEnemyCounts[entry.desc.enemyGroup];
         }
-        if (entry.desc.kind == "event_condition" && entry.desc.conditionType == "enemy_group_defeated") {
+        if (ObjectKind::Of(entry.desc.kind).WatchesEnemyGroup(entry.desc)) {
             ++groupConditionCounts[entry.desc.enemyGroup];
         }
     }

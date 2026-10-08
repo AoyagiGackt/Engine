@@ -1,0 +1,258 @@
+{
+  "_comment": "ステージ3（持ち替え）。A(導入) → B(混成部隊の戦闘部屋) → C(上段に槍の壁と鎚の壁が続く宝物庫、下段は素通り可) → D(2波の連戦) → E(短剣のボス)。武器が無いと進めない壁は寄り道側だけに置く",
+  "playerSpawn": [4.0, 0.4, 0.0],
+  "enemySpawn": [61.0, 0.4, 0.0],
+  "graphPath": "Resources/Graphs/level03_main.json",
+  "flagGraphs": [
+    { "flag": "s3_zone_b", "graphPath": "Resources/Graphs/level03_zone_b.json" },
+    { "flag": "s3_zone_upper", "graphPath": "Resources/Graphs/level03_zone_upper.json" },
+    { "flag": "s3_zone_d", "graphPath": "Resources/Graphs/level03_zone_d.json" },
+    { "flag": "s3_zone_boss", "graphPath": "Resources/Graphs/level03_zone_boss.json" },
+    { "flag": "broken_s3_wall_hammer", "graphPath": "Resources/Graphs/level03_vault_open.json" },
+    { "flag": "condition_s3_boss_defeated", "graphPath": "Resources/Graphs/level03_boss_down.json" }
+  ],
+  "checkpoints": [
+    { "name": "cp_s3_room_b", "position": [15.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_s3_room_d", "position": [42.0, 0.4, 0.0], "activationRadius": 1.5 },
+    { "name": "cp_s3_boss", "position": [56.0, 0.4, 0.0], "activationRadius": 1.5 }
+  ],
+  "triggers": [
+    { "name": "t_s3_room_b", "position": [15.0, 0.4, 0.0], "radius": 1.5, "flag": "s3_zone_b", "value": true, "once": true },
+    { "name": "t_s3_upper", "position": [35.0, 5.6, 0.0], "radius": 1.5, "flag": "s3_zone_upper", "value": true, "once": true },
+    { "name": "t_s3_room_d", "position": [42.0, 0.4, 0.0], "radius": 1.5, "flag": "s3_zone_d", "value": true, "once": true },
+    { "name": "t_s3_boss", "position": [56.0, 0.4, 0.0], "radius": 1.5, "flag": "s3_zone_boss", "value": true, "once": true }
+  ],
+  "objects": [
+    {
+      "name": "floor", "type": "row", "kind": "prop", "axis": "x", "count": 62, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "ceiling", "type": "row", "kind": "prop", "axis": "x", "count": 62, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 13.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "wall_left", "type": "row", "kind": "prop", "axis": "y", "count": 13, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [2.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "wall_right", "type": "row", "kind": "prop", "axis": "y", "count": 14, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [64.0, -0.98, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "bg_buildings", "type": "row", "kind": "background", "axis": "x", "count": 5, "step": 13.0,
+      "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+      "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+      "position": [8.0, -0.6, 6.0], "scale": [0.42, 0.42, 0.42], "lighting": true, "solid": false
+    },
+
+    {
+      "name": "guide_s3_a", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95],
+      "text": "持ち替えの試練  武器を替えた直後の {Attack} は踏み込み追撃  {Slot} で替えながら殴るとスタイル大"
+    },
+    {
+      "name": "start_slime", "type": "static", "kind": "enemy_basic",
+      "position": [9.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Slime", "enemyGroup": "s3_start"
+    },
+    {
+      "name": "start_skeleton", "type": "static", "kind": "enemy_basic",
+      "position": [11.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Skeleton", "enemyGroup": "s3_start"
+    },
+    {
+      "name": "barrel_s3_a", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [7.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+
+    {
+      "name": "guide_s3_b", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_b",
+      "text": "混成部隊  倒した敵の武器は {Steal} で奪える  スロットが満杯なら入れ替える武器を選べ"
+    },
+    {
+      "name": "room_b_sword", "type": "static", "kind": "enemy_basic",
+      "position": [18.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "s3_room_b"
+    },
+    {
+      "name": "room_b_dragon", "type": "static", "kind": "enemy_basic",
+      "position": [20.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Dragon", "enemyGroup": "s3_room_b"
+    },
+    {
+      "name": "room_b_dagger", "type": "static", "kind": "enemy_basic",
+      "position": [22.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "s3_room_b"
+    },
+    {
+      "name": "room_b_spear", "type": "static", "kind": "enemy_basic",
+      "position": [25.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Spear", "enemyGroup": "s3_room_b"
+    },
+    {
+      "name": "room_b_cover", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [20.0, 1.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "barrel_s3_b", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [24.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "s3_room_b_clear", "type": "static", "kind": "event_condition",
+      "position": [21.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s3_room_b"
+    },
+    {
+      "name": "door_s3_b", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [28.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "activationFlag": "condition_s3_room_b_clear", "activeWhenFlag": false, "activationDelay": 1.2,
+      "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
+      "motionAxis": [0.0, 1.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 5.5, "motionSpeed": 1.0
+    },
+
+    {
+      "name": "stair_s3_1", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [30.5, 1.2, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "stair_s3_2", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [33.0, 3.2, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "vault_walk", "type": "row", "kind": "prop", "axis": "x", "count": 6, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [35.0, 5.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "guide_s3_upper", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_upper",
+      "text": "宝物庫  槍の壁と鎚の壁が続く  持ち替えて一気に壊せ  下の道からも先へ進める"
+    },
+    {
+      "name": "s3_wall_spear", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [37.0, 7.0, 0.0], "scale": [1.0, 3.0, 1.0], "lighting": true, "solid": true,
+      "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
+      "breakableWeapon": "Spear", "breakableColor": [0.55, 0.75, 0.95, 1.0]
+    },
+    {
+      "name": "s3_wall_hammer", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [38.3, 7.0, 0.0], "scale": [1.0, 3.0, 1.0], "lighting": true, "solid": true,
+      "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
+      "breakableWeapon": "Hammer", "breakableColor": [0.7, 0.7, 0.75, 1.0]
+    },
+    {
+      "name": "vault_bat", "type": "static", "kind": "enemy_basic",
+      "position": [36.0, 8.0, 0.0], "spawnType": "flying", "weaponType": "", "enemyModel": "Bat", "enemyGroup": "s3_upper"
+    },
+    {
+      "name": "pickup_s3_vault_1", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [39.3, 6.2, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.3
+    },
+    {
+      "name": "pickup_s3_vault_2", "type": "static", "kind": "pickup",
+      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "position": [40.2, 6.2, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
+      "pickupRadius": 1.0, "pickupGaugeAmount": 0.5, "pickupColor": [1.0, 0.85, 0.3, 1.0]
+    },
+
+    {
+      "name": "guide_s3_d", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_d",
+      "text": "連戦  倒すと第2波が来る  回復役を先に狙い、持ち替え追撃でつなげ"
+    },
+    {
+      "name": "room_d_sword", "type": "static", "kind": "enemy_basic",
+      "position": [45.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Sword", "enemyGroup": "s3_room_d"
+    },
+    {
+      "name": "room_d_skeleton", "type": "static", "kind": "enemy_basic",
+      "position": [47.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Skeleton", "enemyGroup": "s3_room_d"
+    },
+    {
+      "name": "room_d_flying", "type": "static", "kind": "enemy_basic",
+      "position": [49.0, 4.6, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "s3_room_d"
+    },
+    {
+      "name": "room_d_healer", "type": "static", "kind": "enemy_basic",
+      "position": [51.0, -0.38, 0.0], "spawnType": "healer", "weaponType": "Sword", "enemyGroup": "s3_room_d"
+    },
+    {
+      "name": "room_d_ledge", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [47.5, 2.4, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "s3_room_d_wave1", "type": "static", "kind": "event_condition",
+      "position": [48.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s3_room_d"
+    },
+    {
+      "name": "sp_s3_d_wave2_a", "type": "static", "kind": "spawn_point",
+      "position": [44.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Dagger", "enemyGroup": "s3_room_d_wave2",
+      "activationFlag": "condition_s3_room_d_wave1", "activationDelay": 0.8
+    },
+    {
+      "name": "sp_s3_d_wave2_b", "type": "static", "kind": "spawn_point",
+      "position": [51.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "Hammer", "enemyGroup": "s3_room_d_wave2",
+      "activationFlag": "condition_s3_room_d_wave1", "activationDelay": 1.4
+    },
+    {
+      "name": "s3_room_d_clear", "type": "static", "kind": "event_condition",
+      "position": [48.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s3_room_d_wave2"
+    },
+    {
+      "name": "door_s3_d", "type": "static", "kind": "gimmick",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [54.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
+      "activationFlag": "condition_s3_room_d_clear", "activeWhenFlag": false, "activationDelay": 1.2,
+      "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
+      "motionAxis": [0.0, 1.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 5.5, "motionSpeed": 1.0
+    },
+
+    {
+      "name": "guide_s3_boss", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "s3_zone_boss",
+      "text": "短剣のボス  素早い踏み込みを {Dodge} で避け、持ち替え追撃で崩せ"
+    },
+    {
+      "name": "s3_boss", "type": "static", "kind": "enemy_basic",
+      "position": [61.0, -0.33, 0.0], "spawnType": "basic", "weaponType": "Dagger", "isStageBoss": true, "enemyGroup": "s3_boss"
+    },
+    {
+      "name": "s3_boss_defeated", "type": "static", "kind": "event_condition",
+      "position": [61.0, 0.0, 0.0], "conditionType": "enemy_group_defeated", "enemyGroup": "s3_boss"
+    },
+    {
+      "name": "boss_platform_s3", "type": "row", "kind": "prop", "axis": "x", "count": 2, "step": 1.0,
+      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "position": [58.0, 3.0, 0.0], "scale": [1.0, 1.0, 1.0], "lighting": false, "solid": true
+    },
+    {
+      "name": "barrel_s3_boss", "type": "static", "kind": "breakable",
+      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "position": [62.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
+      "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
+    },
+    {
+      "name": "guide_s3_done", "type": "static", "kind": "ui_text",
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_s3_boss_defeated",
+      "text": "撃破完了  {Steal} で短剣を奪ってステージクリア"
+    }
+  ]
+}

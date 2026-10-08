@@ -205,7 +205,7 @@ void TrainingScene::Update()
         SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
         return;
     }
-    if (input_->TriggerKey(DIK_TAB)) {
+    if (input_->TriggerKey(DIK_TAB) || input_->TriggerButton(XINPUT_GAMEPAD_BACK)) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("TRAINING", "map", "MAP");
         return;
@@ -336,7 +336,7 @@ void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
         float sx, sy;
         SceneShared::WorldToScreen(kWarpX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
         UILayout& layout = UILayout::Get(kLayoutName);
-        fontRenderer_.DrawStringW(L"[ ENTER ] バトルテストへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
+        fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] バトルテストへ"), sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
             layout.Float("portal.label_scale", kWarpLabelScale), layout.Color("portal.label_color", kWarpLabelColor));
     }
 }
@@ -390,7 +390,7 @@ void TrainingScene::Draw()
     // メイン3D描画
     gpuProfiler->BeginScope(GpuProfiler::Main3D, cmd);
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetBackBufferDsvHandle();
     cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
     D3D12_VIEWPORT vp = dxCommon_->GetCenteredClientViewport();
     D3D12_RECT scissor = dxCommon_->GetCenteredClientScissorRect();
@@ -420,6 +420,8 @@ void TrainingScene::Draw()
         ssao->Compute(dxCommon_, camera_.get());
         ssao->Blur(dxCommon_);
         cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv); // バックバッファに戻す
+        cmd->RSSetViewports(1, &vp);
+        cmd->RSSetScissorRects(1, &scissor);
         ssao->Apply(dxCommon_, srvManager_);
     }
     gpuProfiler->EndScope(GpuProfiler::Main3D, cmd);
