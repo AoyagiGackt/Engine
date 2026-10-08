@@ -1,5 +1,5 @@
 {
-  "_comment": "mode: off=元ファイルを毎回変換して読む（ビフォー計測用） / cook=遊んだ範囲の素材を変換済みの形で記録し、終了時にexeと同じフォルダへpathの名前で書き出す / use=pakの変換済み素材を使う（アフター計測用）",
-  "mode": "use",
-  "path": "game.pak"
+  "_comment": "auto=元素材の追加・変更・削除があればcook、それ以外はuse。元素材のない提出先はuse。pakはexeの隣のResourcesへ出力。off/cook/useの明示指定も可能。",
+  "mode": "auto",
+  "path": "Resources/game.pak"
 }

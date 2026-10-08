@@ -22,7 +22,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -130,7 +129,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 void GamePlayScene::InitializeCoreSystems()
 {
     InitializeRenderFoundation();
-    InitializeStageActorsAndScore();
+    GamePlaySceneInitializer::InitializeStageActors(*this);
     InitializeRenderTargetsAndOverlays();
     InitializeParticlesWaterAndHud();
     InitializeGhostEditorAndEffects();
@@ -146,7 +145,6 @@ void GamePlayScene::InitializeRenderFoundation()
     objectCommon_->Initialize(dxCommon_);
 
     srvManager_ = SrvManager::GetInstance();
-    scoreManager_ = ScoreManager::GetInstance();
     grayscaleEffect_ = GrayscaleEffect::GetInstance();
     imageFilter_ = ImageFilter::GetInstance();
     hsvFilter_ = HsvFilter::GetInstance();
@@ -170,16 +168,6 @@ void GamePlayScene::InitializeRenderFoundation()
 
     skydome_ = std::make_unique<Skydome>();
     skydome_->Initialize(modelCommon_.get(), modelSkydome_);
-}
-
-void GamePlayScene::InitializeStageActorsAndScore()
-{
-    GamePlaySceneInitializer::InitializeStageActors(*this);
-
-    scoreManager_->LoadScores();
-    scoreManager_->ResetCurrentScore();
-
-    gameTime_.Initialize();
 }
 
 void GamePlayScene::InitializeRenderTargetsAndOverlays()
@@ -314,8 +302,6 @@ SceneEditor::EditContext GamePlayScene::BuildEditContext()
     ctx.skyColor = &skyColor_;
     ctx.skyRotOffsetY = &skyRotOffsetY_;
 
-    ctx.gameHour = gameTime_.GetHour();
-    ctx.gameMinute = gameTime_.GetMinute();
 
     ctx.requestClear = &requestClear_;
     return ctx;
@@ -359,7 +345,9 @@ void GamePlayScene::Update()
         return;
     }
 
-    const auto updateMode = pauseController_.Advance(input_->TriggerKey(DIK_ESCAPE)
+    const bool pauseToggle = input_->TriggerAction(Input::Action::Pause)
+        || (pauseController_.IsPaused() && input_->TriggerMenuCancel());
+    const auto updateMode = pauseController_.Advance(pauseToggle
         && !WeaponManager::GetInstance()->HasPendingWeapon());
     if (updateMode == GamePauseController::UpdateMode::SkipFrame) { return; }
     if (updateMode == GamePauseController::UpdateMode::Menu) {
@@ -376,7 +364,6 @@ void GamePlayScene::Update()
 
     auto* tm = TimeManager::GetInstance();
     const float dt = tm->GetDeltaTime(); // ヒットストップ中 = 0、スロー時は比例値
-    gameTime_.Update(1.0f);
     floorElapsedSeconds_ += GameConstants::kFrameDeltaTime; // プレイログ用。ヒットストップの影響を受けない実時間換算
 
     UpdateCombat();
@@ -446,6 +433,8 @@ bool GamePlayScene::UpdateClearState()
             resultTimer_ = rules.resultDisplaySeconds;
             lastGold_ = RunData::CalcGold(peakStyle_);
             rd->AddGold(lastGold_);
+            lastScore_ = GameRules::GetInstance()->ScoreForRank(RunData::CalcRank(peakStyle_));
+            rd->AddScore(lastScore_);
             PlaytestLog::GetInstance()->RecordRunResult(true, rd->GetFloor(), floorElapsedSeconds_,
                 peakStyle_, styleRankHud_.GetBestChain(), player_->GetPosition());
             rd->AdvanceFloor();
@@ -569,14 +558,14 @@ void GamePlayScene::UpdateCombat()
         UpdateWeaponTrail();
 
         // ロック中は移動入力に関係なく対象の方を向かせる（コンボ判定より前でないと今フレームに反映されない）
-        if (lockedKind_ == LockTargetKind::MainEnemy) {
-            player_->FaceTarget(enemy_->GetPosition());
-        } else if (lockedKind_ == LockTargetKind::WeaponEnemy && lockedWeaponEnemyIndex_ < weaponEnemies_.size()) {
-            player_->FaceTarget(weaponEnemies_[lockedWeaponEnemyIndex_].enemy->GetPosition());
+        if (lockedEnemy_ != nullptr) {
+            player_->FaceTarget(lockedEnemy_->GetPosition());
         }
 
         UpdateCombatEvents();
         UpdateWeaponEnemies();
+        // 雑魚へのヒットは直前のUpdateWeaponEnemies()、ボスへのヒットは前フレームのUpdateStyleAndUI()で記録済み
+        UpdateWeaponFatigue();
         UpdateExplosiveBarrels();
 
         // enemy_の物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()

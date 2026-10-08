@@ -7,6 +7,7 @@
 #include "Input.h"
 #include "JsonHelper.h"
 #include "ParticleManager.h"
+#include "RunData.h"
 #include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
@@ -260,7 +261,7 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
 
     // スコアランキングの表示（折りたたみ）
     if (ImGui::CollapsingHeader("Score")) {
-        ImGui::Text("Current : %d", ScoreManager::GetInstance()->GetCurrentScore());
+        ImGui::Text("Current : %d", RunData::GetInstance()->GetScore());
         const auto& ranking = ScoreManager::GetInstance()->GetRanking();
         if (ranking.empty()) {
             ImGui::TextDisabled("  (no records)");
@@ -271,11 +272,6 @@ void SceneEditor::RenderSceneControls(const EditContext& ctx)
         if (ImGui::Button("Reset All Scores")) {
             ScoreManager::GetInstance()->ResetAllScores();
         }
-    }
-
-    // ゲーム内時刻の表示（折りたたみ）
-    if (ImGui::CollapsingHeader("Game Time")) {
-        ImGui::Text("Time : %02d:%02d", ctx.gameHour, ctx.gameMinute);
     }
 
     // シーン切り替えボタン（折りたたみ）

@@ -32,7 +32,6 @@ using namespace engine::graphics;
 namespace {
 namespace EditorUi = engine::game::StageEditorUiStyle;
 
-constexpr ImVec2 kContentWindowSize = { 700.0f, 470.0f };
 constexpr ImVec2 kContentWindowMinSize = { 320.0f, 240.0f };
 constexpr ImVec4 kModeLabelColor = { 0.55f, 0.78f, 1.0f, 1.0f };
 constexpr ImVec4 kUnsavedColor = { 1.0f, 0.8f, 0.35f, 1.0f };
@@ -77,12 +76,7 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         != selectedObjectIndices_.end();
 
     // 種類が一目で分かるようタグを付ける（配置物はタグ無し）
-    const char* kindTag = (desc.kind == "enemy_knight") ? "[ナイト] "
-        : (desc.kind == "enemy_basic")                  ? "[エネミー] "
-        : (desc.kind == "ui_text")                      ? "[テキスト] "
-        : (desc.kind == "pickup")                       ? "[収集物] "
-        : (desc.kind == "breakable")                    ? "[壊せる物] "
-                                                        : "";
+    const char* kindTag = ObjectKind::Of(desc.kind).ListTag();
 
     // 深さぶんインデントして親子関係を視覚化する
     char label[128];
@@ -103,7 +97,7 @@ void StageEditor::DrawHierarchyEntry(int index, int depthLevel)
         }
     }
     // ダブルクリックでその配置物へカメラを寄せる（画面外の物を探しに行く手間を省く）
-    const bool screenSpaceObject = desc.kind == "ui_text" && desc.textSpace == "screen";
+    const bool screenSpaceObject = ObjectKind::Of(desc.kind).IsScreenSpace(desc);
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !screenSpaceObject) {
         FocusCameraOn(WorldPositionOf(desc));
     }
@@ -139,10 +133,32 @@ void StageEditor::RenderGameViewport()
 {
     viewport_.ClearImageRect();
     DiagnosticsDraw::SetImageViewport();
-    if (viewportFocusMode_ || previewTextureId_ == 0) { return; }
+    const auto* display = ImGui::GetMainViewport();
+    if (viewportFocusMode_) {
+        const float scale = (std::min)(display->Size.x / WinApp::kClientWidth,
+            display->Size.y / WinApp::kClientHeight);
+        const ImVec2 size(WinApp::kClientWidth * scale, WinApp::kClientHeight * scale);
+        const ImVec2 origin(display->Pos.x + (display->Size.x - size.x) * 0.5f,
+            display->Pos.y + (display->Size.y - size.y) * 0.5f);
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        const bool hovered = mouse.x >= origin.x && mouse.x < origin.x + size.x
+            && mouse.y >= origin.y && mouse.y < origin.y + size.y;
+        viewport_.SetImageRect(origin.x, origin.y, size.x, size.y, hovered);
+        DiagnosticsDraw::SetImageViewport(origin, size, ImGui::GetForegroundDrawList());
+        return;
+    }
+    if (previewTextureId_ == 0) { return; }
 
-    ImGui::SetNextWindowPos(ImVec2(kLeftPanelWidth, kToolbarHeight), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(kContentWindowSize, ImGuiCond_FirstUseEver);
+    // 解像度変更時は中央領域に合わせ、同じ解像度では手動の移動・サイズ変更を維持する。
+    if (gameViewDisplayWidth_ != display->Size.x || gameViewDisplayHeight_ != display->Size.y) {
+        ImGui::SetNextWindowPos(ImVec2(display->Pos.x + kLeftPanelWidth,
+            display->Pos.y + kToolbarHeight), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(
+            (std::max)(kContentWindowMinSize.x, display->Size.x - kLeftPanelWidth - kRightPanelWidth),
+            (std::max)(kContentWindowMinSize.y, display->Size.y - kToolbarHeight)), ImGuiCond_Always);
+        gameViewDisplayWidth_ = display->Size.x;
+        gameViewDisplayHeight_ = display->Size.y;
+    }
     ImGui::SetNextWindowSizeConstraints(kContentWindowMinSize, ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("ゲームビュー", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::TextDisabled("タイトルバーで移動 / 右下でサイズ変更 / F4で大きく表示");
@@ -161,8 +177,9 @@ void StageEditor::RenderGameViewport()
 }
 void StageEditor::RenderEditorToolbar()
 {
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(static_cast<float>(WinApp::kClientWidth), kToolbarHeight), ImGuiCond_Always);
+    const auto* display = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(display->Pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display->Size.x, kToolbarHeight), ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
         | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
     ImGui::Begin("シーンビューツールバー", nullptr, flags);
@@ -283,27 +300,28 @@ void StageEditor::RenderInspector()
 
 void StageEditor::RenderAssetPalette()
 {
-    const float availableHeight = static_cast<float>(WinApp::kClientHeight) - kToolbarHeight;
+    const auto* display = ImGui::GetMainViewport();
+    const float availableHeight = (std::max)(1.0f, display->Size.y - kToolbarHeight);
     const float hierarchyHeight = availableHeight * EditorUi::kHierarchyHeightRatio;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x, display->Pos.y + kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(kLeftPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("素材を配置", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる
     bool hasPropSel = (selKind_ == SelKind::Object && selIndex_ >= 0
         && selIndex_ < static_cast<int>(objects_.size())
-        && objects_[selIndex_].desc.kind == "prop");
+        && ObjectKind::Of(objects_[selIndex_].desc.kind).IsDecoration());
 
-    ImGui::RadioButton("新規配置", &paletteMode_, 0);
+    if (ImGui::RadioButton("新規配置", paletteMode_ == PaletteMode::PlaceNew)) { paletteMode_ = PaletteMode::PlaceNew; }
     ImGui::SameLine();
     ImGui::BeginDisabled(!hasPropSel);
-    ImGui::RadioButton("見た目を変更", &paletteMode_, 1);
+    if (ImGui::RadioButton("見た目を変更", paletteMode_ == PaletteMode::ReplaceSelection)) { paletteMode_ = PaletteMode::ReplaceSelection; }
     ImGui::EndDisabled();
     EditorUI::HelpMarker("新規配置: クリックしたプリセットを画面中央に追加します\n選択へ差し替え: 選択中の配置物のモデルを置き換えます（配置物を選択中のみ有効）");
 
     // 差し替え対象がなくなった時に、意図せず新規配置しないようモードを戻す。
-    if (!hasPropSel) { paletteMode_ = 0; }
-    bool applyToSelection = (paletteMode_ == 1 && hasPropSel);
+    if (!hasPropSel) { paletteMode_ = PaletteMode::PlaceNew; }
+    bool applyToSelection = (paletteMode_ == PaletteMode::ReplaceSelection && hasPropSel);
     ImGui::TextDisabled(applyToSelection ? "クリックで選択中の配置物のモデルを差し替え" : "クリックで画面中央に新規配置");
 
     ImGui::SetNextItemWidth(-1.0f);

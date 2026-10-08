@@ -6,6 +6,7 @@
 #include "HudLayer.h"
 #include <array>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "Audio.h"
@@ -318,10 +319,12 @@ private:
     std::vector<Dummy> dummies_;
 
     // ロックオン（Shift長押し中だけ最寄りの生存ダミーを自動ロック乱舞/コンボの誘導先・プレイヤーの向き・カメラ寄せに使う）
-    enum class LockTargetKind { None,
-        Dummy };
-    LockTargetKind lockedKind_ = LockTargetKind::None;
-    size_t lockedDummyIndex_ = 0;
+    std::optional<size_t> lockedDummyIndex_; ///< ロック中のダミーの添字（ロックしていなければ空）
+    /** @brief ロック中のダミーを返す（ロックしていないか添字が範囲外ならnullptr） */
+    const Dummy* LockedDummy() const
+    {
+        return lockedDummyIndex_ && *lockedDummyIndex_ < dummies_.size() ? &dummies_[*lockedDummyIndex_] : nullptr;
+    }
 
     // 武器
     WeaponManager* weaponManager_ = nullptr;

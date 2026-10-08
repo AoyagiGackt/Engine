@@ -81,7 +81,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.enabled = obj.value("enabled", true);
         desc.name = obj.value("name", "");
         desc.parent = obj.value("parent", "");
-        desc.type = obj.value("type", "static");
+        desc.type = ParseLevelEnum(obj.value("type", std::string()), kPlacementTypeNames, PlacementType::Static);
         desc.kind = obj.value("kind", "prop");
         desc.model = obj.value("model", "");
         desc.texture = obj.value("texture", "");
@@ -101,8 +101,8 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.motionSpeed = obj.value("motionSpeed", 1.0f);
         desc.motionAxis = ReadVec3(obj.value("motionAxis", nlohmann::json::array()), { 1.0f, 0.0f, 0.0f });
         desc.motionRotation = ReadVec3(obj.value("motionRotation", nlohmann::json::array()));
-        desc.motionMode = obj.value("motionMode", "loop");
-        desc.motionEase = obj.value("motionEase", "linear");
+        desc.motionMode = ParseLevelEnum(obj.value("motionMode", std::string()), kMotionModeNames, MotionMode::Loop);
+        desc.motionEase = ParseLevelEnum(obj.value("motionEase", std::string()), kMotionEaseNames, MotionEase::Linear);
         desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", kDefaultCameraBlendSeconds);
         desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", kDefaultCameraHoldSeconds);
         desc.spawnType = obj.value("spawnType", "basic");
@@ -112,6 +112,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.meshCollider = obj.value("meshCollider", false);
         desc.weaponType = obj.value("weaponType", "");
         desc.isStageBoss = obj.value("isStageBoss", false);
+        desc.enemyModel = obj.value("enemyModel", "");
         desc.pickupRadius = obj.value("pickupRadius", 1.0f);
         desc.pickupGaugeAmount = obj.value("pickupGaugeAmount", kDefaultPickupGaugeAmount);
         desc.pickupColor = ReadVec4(obj.value("pickupColor", nlohmann::json::array()), desc.pickupColor);
@@ -132,7 +133,7 @@ LevelData LevelLoader::Load(const std::string& path)
         desc.textBold = obj.value("textBold", false);
         desc.textShadow = obj.value("textShadow", true);
         desc.textScale = obj.value("textScale", kDefaultTextScale);
-        desc.textSpace = obj.value("textSpace", "screen");
+        desc.textSpace = ParseLevelEnum(obj.value("textSpace", std::string()), kTextSpaceNames, TextSpace::Screen);
 
         data.objects.push_back(std::move(desc));
     }
@@ -179,7 +180,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["enabled"] = desc.enabled;
         oj["name"] = desc.name;
         oj["parent"] = desc.parent;
-        oj["type"] = desc.type;
+        oj["type"] = LevelEnumName(desc.type, kPlacementTypeNames);
         oj["kind"] = desc.kind;
         oj["model"] = desc.model;
         oj["texture"] = desc.texture;
@@ -199,8 +200,8 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["motionSpeed"] = desc.motionSpeed;
         oj["motionAxis"] = WriteVec3(desc.motionAxis);
         oj["motionRotation"] = WriteVec3(desc.motionRotation);
-        oj["motionMode"] = desc.motionMode;
-        oj["motionEase"] = desc.motionEase;
+        oj["motionMode"] = LevelEnumName(desc.motionMode, kMotionModeNames);
+        oj["motionEase"] = LevelEnumName(desc.motionEase, kMotionEaseNames);
         oj["cameraBlendSeconds"] = desc.cameraBlendSeconds;
         oj["cameraHoldSeconds"] = desc.cameraHoldSeconds;
         oj["spawnType"] = desc.spawnType;
@@ -210,6 +211,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["meshCollider"] = desc.meshCollider;
         oj["weaponType"] = desc.weaponType;
         oj["isStageBoss"] = desc.isStageBoss;
+        oj["enemyModel"] = desc.enemyModel;
         oj["pickupRadius"] = desc.pickupRadius;
         oj["pickupGaugeAmount"] = desc.pickupGaugeAmount;
         oj["pickupColor"] = WriteVec4(desc.pickupColor);
@@ -227,7 +229,7 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
         oj["textBold"] = desc.textBold;
         oj["textShadow"] = desc.textShadow;
         oj["textScale"] = desc.textScale;
-        oj["textSpace"] = desc.textSpace;
+        oj["textSpace"] = LevelEnumName(desc.textSpace, kTextSpaceNames);
         objectsJson.push_back(std::move(oj));
     }
     j["objects"] = std::move(objectsJson);
@@ -324,15 +326,15 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
 
     for (const auto& desc : data.objects) {
         // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
-        if (!desc.enabled || !IsVisualKind(desc.kind) || desc.model.empty()) {
+        if (!desc.enabled || !ObjectKind::Of(desc.kind).IsVisual() || desc.model.empty()) {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);
         Vector3 basePos = worldPositionOf(desc);
 
-        if (desc.type == "static") {
+        if (desc.type == PlacementType::Static) {
             spawnOne(model, desc, basePos);
-        } else if (desc.type == "row") {
+        } else if (desc.type == PlacementType::Row) {
             for (int i = 0; i < desc.count; ++i) {
                 Vector3 pos = basePos;
                 float offset = desc.step * static_cast<float>(i);

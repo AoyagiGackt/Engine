@@ -105,10 +105,10 @@ void Player::UpdateAnimationState(bool isMoving)
         rig_->object->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
     }
 
-    AnimState newState = inWater_ ? AnimState::Swim
-        : !onGround_              ? AnimState::Jump
-        : isMoving                ? AnimState::Run
-                                  : AnimState::Idle;
+    const IAnimState* newState = inWater_ ? &SwimAnim()
+        : !onGround_                      ? &JumpAnim()
+        : isMoving                        ? &RunAnim()
+                                          : &IdleAnim();
     // 構え系の近接武器、または銃を左手に構えている間は武器持ちバリエーション（IdleHold/RunHold）を使う
     // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
     const Skeleton& skel = rig_->object->GetSkeleton();
@@ -122,7 +122,7 @@ void Player::UpdateAnimationState(bool isMoving)
     }
     animState_ = newState;
     animHold_ = hold;
-    GetAnimState(animState_).Enter(*this, hold, isMoving);
+    animState_->Enter(*this, hold, isMoving);
 }
 
 //  Anim State（移動系アニメーション状態）
@@ -162,25 +162,34 @@ public:
 };
 }
 
-const Player::IAnimState& Player::GetAnimState(AnimState state)
+const Player::IAnimState& Player::IdleAnim()
 {
-    static IdleAnimState idle;
-    static RunAnimState run;
-    static JumpAnimState jump;
-    static SwimAnimState swim;
-    static AttackAnimState attack;
-    switch (state) {
-    case AnimState::Run:
-        return run;
-    case AnimState::Jump:
-        return jump;
-    case AnimState::Swim:
-        return swim;
-    case AnimState::Attack:
-        return attack;
-    default:
-        return idle;
-    }
+    static const IdleAnimState instance;
+    return instance;
+}
+
+const Player::IAnimState& Player::RunAnim()
+{
+    static const RunAnimState instance;
+    return instance;
+}
+
+const Player::IAnimState& Player::JumpAnim()
+{
+    static const JumpAnimState instance;
+    return instance;
+}
+
+const Player::IAnimState& Player::SwimAnim()
+{
+    static const SwimAnimState instance;
+    return instance;
+}
+
+const Player::IAnimState& Player::AttackAnim()
+{
+    static const AttackAnimState instance;
+    return instance;
 }
 
 void Player::RefreshVisualTransforms()
@@ -213,9 +222,18 @@ void Player::UpdateVisualState(Input* input)
 
     // ── 覚醒残像スポーン＆フェード ──
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
-    bool isRampage = (rampagePhase_ != RampagePhase::Inactive);
+    // バックステップは後ろへ反りながら小さく跳ねる弧で見せる（当たり判定の位置は動かさない）
+    float backDodgeLean = 0.0f;
+    if (dodgeActive_ && dodgeBackward_) {
+        const float arc = std::sin(std::clamp(dodgeTimer_ / kDodgeDuration_, 0.0f, 1.0f) * GameConstants::kPi);
+        backDodgeLean = kBackDodgeLean_ * arc;
+        modelPos.y += kBackDodgeHopHeight_ * arc;
+    }
+    bool isRampage = IsRampaging();
     // 回避中も薄い残像を出して、瞬間的に位置が飛んだのではなく素早く動いたことを見せる
-    afterImageRenderer_.Update(isRampage || dodgeActive_, isRampage, modelPos, yaw, spinAngle_);
+    // 固有技の連撃中も残像を引き、回転の軌跡を見せる
+    afterImageRenderer_.Update(isRampage || dodgeActive_ || meleeCombo_.IsSequenceActive(), isRampage, modelPos,
+        yaw + meleeCombo_.GetBodyTurnOffset(), spinAngle_);
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushAction(Input::Action::MoveLeft)
@@ -225,7 +243,7 @@ void Player::UpdateVisualState(Input* input)
     // ── プレイヤー色 ──
     if (finisherCharging_) {
         rig_->object->SetColor(kWhite); // 色自体は白のまま、リムの発光だけで魅せる
-    } else if (rampagePhase_ != RampagePhase::Inactive) {
+    } else if (IsRampaging()) {
         float t = std::sin(juggleSlashCount_ * kRampageBlinkSpeed) * 0.5f + 0.5f;
         rig_->object->SetColor({ 1.0f, 1.0f - t * kRampageGreenFade, 1.0f - t * kRampageBlueFade, 1.0f }); // 白→青白点滅
     } else if (justChargedGauge_) {
@@ -253,7 +271,8 @@ void Player::UpdateVisualState(Input* input)
     // 両者は排他（旋回はBall選択中のみ、攻撃レンはコンボ中のみ）なので単純加算でよい
     Vector3 bodyLean = meleeCombo_.GetBodyLeanOffset();
     rig_->object->SetPosition(modelPos);
-    rig_->object->SetRotation({ bodyLean.x, yaw, spinAngle_ * GameConstants::kDegToRad + bodyLean.z });
+    // 回転斬りの段では体ごとその場で回る（向きに足すので、武器もボーン追従でいっしょに回る）
+    rig_->object->SetRotation({ bodyLean.x + backDodgeLean, yaw + meleeCombo_.GetBodyTurnOffset(), spinAngle_ * GameConstants::kDegToRad + bodyLean.z });
     rig_->object->Update();
 }
 
@@ -365,7 +384,7 @@ void Player::AttachHeldWeapon(Object3d* obj, const char* boneName,
 
 Vector3 Player::GetActiveWeaponWorldPosition() const
 {
-    if (weaponsVisible_ && activeHeldIndex_ >= 0) {
+    if (activeHeldIndex_ >= 0) {
         return heldWeapons_[activeHeldIndex_].object->GetWorldPosition();
     }
     return { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
@@ -397,26 +416,26 @@ void Player::Draw()
             }
         });
         outline->BeginOutlinePass();
-        if (weaponsVisible_ && activeHeldIndex_ >= 0) {
+        if (activeHeldIndex_ >= 0) {
             heldWeapons_[activeHeldIndex_].object->DrawOutline(outline);
         }
-        if (weaponsVisible_ && thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
+        if (thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
             heldWeapons_[thrownGreatswordIndex_].object->DrawOutline(outline);
         }
-        if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
+        if (gunVisible_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
         }
         rig_->object->DrawOutline(outline);
     }
 
     // 通常描画
-    if (weaponsVisible_ && activeHeldIndex_ >= 0) {
+    if (activeHeldIndex_ >= 0) {
         heldWeapons_[activeHeldIndex_].object->Draw();
     }
-    if (weaponsVisible_ && thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
+    if (thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
         heldWeapons_[thrownGreatswordIndex_].object->Draw();
     }
-    if (weaponsVisible_ && gunVisible_ && activeGunIndex_ >= 0) {
+    if (gunVisible_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();
     }
     rig_->object->Draw();

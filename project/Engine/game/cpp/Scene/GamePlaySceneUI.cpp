@@ -7,6 +7,7 @@
 #include "WeaponSlotHud.h"
 #include "AwakenGaugeHud.h"
 #include "AudioBridge.h"
+#include "CombatTuning.h"
 #include "GameConstants.h"
 #include "GamePlaySceneInitializer.h"
 #include "GameSettings.h"
@@ -24,7 +25,6 @@
 #include "SceneEffectBridge.h"
 #include "SceneFlow.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -46,6 +46,18 @@ constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アル�
 
 // 以下は既定の配置（F2のエディタで動かした値は Resources/Config/UI/gameplay.json に保存される）
 constexpr const char* kLayoutName = "gameplay";
+
+// 武器の疲労警告（敵体力の数値表示の下、画面上部中央）
+constexpr Vector2 kFatigueWarningPosition = { 420.0f, 110.0f };
+constexpr float kFatigueTitleScale = 1.6f;
+constexpr float kFatigueDetailScale = 1.2f;
+constexpr float kFatigueDetailOffsetY = 34.0f;
+constexpr Vector4 kFatigueMildColor = { 1.0f, 0.85f, 0.25f, 1.0f }; // 効きが落ち始めた
+constexpr Vector4 kFatigueSevereColor = { 1.0f, 0.3f, 0.2f, 1.0f }; // ほとんど効かない
+constexpr float kFatigueSevereThreshold = 0.5f; // 落ち幅がこの割合を超えたら強い警告に切り替える
+constexpr float kFatigueBlinkSpeed = 10.0f;
+constexpr float kFatigueBlinkMinAlpha = 0.45f;
+constexpr float kPercent = 100.0f;
 
 // 敵体力の数値表示
 constexpr Vector2 kEnemyHpTextPosition = { 460.0f, 10.0f };
@@ -98,7 +110,7 @@ constexpr float kLockMarkerScale = 1.3f;
 constexpr Vector4 kLockMarkerColor = { 1.0f, 0.35f, 0.2f, 1.0f };
 
 // 武器スロット満杯時の交換案内
-constexpr int kWeaponSlotCount = 4;
+constexpr int kWeaponSlotCount = WeaponManager::kSlotCount;
 constexpr Vector2 kExchangeTitlePosition = { 360.0f, 220.0f };
 constexpr float kExchangeTitleScale = 2.0f;
 constexpr Vector4 kExchangeTitleColor = { 1.0f, 0.85f, 0.2f, 1.0f };
@@ -317,7 +329,7 @@ void GamePlayScene::DrawStyleUI()
         if (!chainActive) {
             fontRenderer_.DrawStringW(L"推奨コンボルート",
                 guideX, guideY, kGuideTitleScale, kGuideTitleColor);
-            fontRenderer_.DrawStringW(L"[L] x2  >  [S+L] 打ち上げ  >  [W] ジャンプ  >  [L] 空中追撃  >  [K] 射撃",
+            fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[{Attack}] x2  >  [{Down}+{Attack}] 打ち上げ  >  [{Jump}] ジャンプ  >  [{Attack}] 空中追撃  >  [{Shoot}] 射撃"),
                 guideX, guideY + kGuideRouteOffsetY, kGuideRouteScale, kGuideRouteColor);
         } else {
             std::wstring progress = L"COMBO  ";
@@ -327,20 +339,21 @@ void GamePlayScene::DrawStyleUI()
             fontRenderer_.DrawStringW(progress, guideX, guideY, kGuideProgressScale, kGuideProgressColor);
 
             if (!player_->IsOnGround()) {
-                fontRenderer_.DrawStringW(L"NEXT  [L] 空中追撃   [K] 射撃   [SPACE] 固有技",
+                fontRenderer_.DrawStringW(input_->ExpandPrompts(L"NEXT  [{Attack}] 空中追撃   [{Shoot}] 射撃   [{Skill}] 固有技"),
                     guideX, guideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextAirColor);
             } else if (step < kGuideOpenerSteps) {
-                fontRenderer_.DrawStringW(L"NEXT  [L] もう一撃   または  [S+L] 打ち上げ",
+                fontRenderer_.DrawStringW(input_->ExpandPrompts(L"NEXT  [{Attack}] もう一撃   または  [{Down}+{Attack}] 打ち上げ"),
                     guideX, guideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextOpenerColor);
             } else if (step < maxStep) {
-                fontRenderer_.DrawStringW(L"NEXT  [S+L] 打ち上げ   [1-4] 武器切替",
+                fontRenderer_.DrawStringW(input_->ExpandPrompts(L"NEXT  [{Down}+{Attack}] 打ち上げ   [{Slot}] 武器切替"),
                     guideX, guideY + kGuideNextOffsetY, kGuideNextScale, kGuideNextLauncherColor);
             } else {
-                fontRenderer_.DrawStringW(L"FINISH!   [S+L] 打ち上げ   [1-4] 別武器へ",
+                fontRenderer_.DrawStringW(input_->ExpandPrompts(L"FINISH!   [{Down}+{Attack}] 打ち上げ   [{Slot}] 別武器へ"),
                     guideX, guideY + kGuideNextOffsetY, kGuideNextScale, kGuideFinishColor);
             }
         }
     }
+    DrawWeaponFatigueWarning();
     DrawWeaponListPanel();
     SceneShared::DrawControlsHud(fontRenderer_,
         UILayout::Get(kLayoutName).Pos("controls.pos", kGameplayControlsAnchor), L": ステージを進む");
@@ -352,35 +365,25 @@ void GamePlayScene::DrawStyleUI()
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(enemyPos.x, enemyPos.y + kWeaponStealPromptHeight, cam.x, cam.y, sx, sy);
-        fontRenderer_.DrawStringW(L"[J] 武器を回収", sx - kWeaponStealPromptHalfWidth, sy, kWeaponStealPromptScale,
+        fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[{Steal}] 武器を回収"), sx - kWeaponStealPromptHalfWidth, sy, kWeaponStealPromptScale,
             kWeaponStealPromptColor);
     };
     if (enemy_->IsDefeated() && !weaponStealTriggered_ && !mainWeaponAbsorbing_) {
-        drawWeaponStealPrompt(enemy_->GetPosition());
+        drawWeaponStealPrompt(enemy_->GetWeaponPickupPosition());
     }
     for (const auto& weaponEnemy : weaponEnemies_) {
-        if (weaponEnemy.enemy->IsDefeated() && !weaponEnemy.weaponAcquired && !weaponEnemy.absorbing) {
-            drawWeaponStealPrompt(weaponEnemy.enemy->GetPosition());
+        if (weaponEnemy.hasWeapon && weaponEnemy.enemy->IsDefeated() && !weaponEnemy.weaponAcquired && !weaponEnemy.absorbing) {
+            drawWeaponStealPrompt(weaponEnemy.enemy->GetWeaponPickupPosition());
         }
     }
 
     // ── ロックオン中の対象にマーカーを出す ────────────────────────
-    if (lockedKind_ != LockTargetKind::None) {
-        Vector3 tpos { };
-        bool valid = true;
-        if (lockedKind_ == LockTargetKind::MainEnemy) {
-            tpos = enemy_->GetPosition();
-        } else if (lockedKind_ == LockTargetKind::WeaponEnemy && lockedWeaponEnemyIndex_ < weaponEnemies_.size()) {
-            tpos = weaponEnemies_[lockedWeaponEnemyIndex_].enemy->GetPosition();
-        } else {
-            valid = false;
-        }
-        if (valid) {
-            const Vector3& cam = camera_->GetTranslate();
-            float sx, sy;
-            SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
-            fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy, kLockMarkerScale, kLockMarkerColor);
-        }
+    if (lockedEnemy_ != nullptr) {
+        const Vector3 tpos = lockedEnemy_->GetPosition();
+        const Vector3& cam = camera_->GetTranslate();
+        float sx, sy;
+        SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
+        fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy, kLockMarkerScale, kLockMarkerColor);
     }
 
     DrawWeaponExchange();
@@ -412,13 +415,19 @@ void GamePlayScene::UpdateWeaponExchange()
         return;
     }
 
+    // 十字キーは通常の武器切替と同じ並び（上=1、右=2、下=3）
+    constexpr WORD kSlotPadButtons[kWeaponSlotCount] = {
+        XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_DOWN
+    };
     for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
-        if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + slot))) {
+        if (input_->TriggerKey(static_cast<uint8_t>(DIK_1 + slot)) || input_->TriggerButton(kSlotPadButtons[slot])) {
             wm->ReplacePendingWeapon(slot);
+            pendingWeaponMandatory_ = false;
+            hud_.Notify(HudEvent::WeaponAcquired);
             return;
         }
     }
-    if (input_->TriggerKey(DIK_BACK) || input_->TriggerButton(XINPUT_GAMEPAD_B)) {
+    if (!pendingWeaponMandatory_ && (input_->TriggerKey(DIK_BACK) || input_->TriggerButton(XINPUT_GAMEPAD_B))) {
         wm->DiscardPendingWeapon();
     }
 }
@@ -439,7 +448,12 @@ void GamePlayScene::DrawWeaponExchange()
         weaponPosition.x, weaponPosition.y,
         layout.Float("exchange.weapon_scale", kExchangeWeaponScale), layout.Color("exchange.weapon_color", kExchangeWeaponColor));
     const Vector2 helpPosition = layout.Pos("exchange.help_pos", kExchangeHelpPosition);
-    fontRenderer_.DrawStringW(L"1から4で交換するスロットを選択  Backspaceで破棄", helpPosition.x, helpPosition.y,
+    const bool pad = input_->IsUsingGamepad();
+    const std::wstring slotKeys = pad ? L"十字キー(上・右・下)" : L"1から3";
+    const std::wstring discard = pad ? L"Bで破棄" : L"Backspaceで破棄";
+    fontRenderer_.DrawStringW(slotKeys + L"で交換するスロットを選択  "
+            + (pendingWeaponMandatory_ ? std::wstring(L"ボスの武器は破棄できない") : discard),
+        helpPosition.x, helpPosition.y,
         layout.Float("exchange.help_scale", kExchangeHelpScale), layout.Color("exchange.help_color", kExchangeHelpColor));
 }
 
@@ -472,9 +486,9 @@ void GamePlayScene::UpdatePauseMenu()
     const int row = pauseMenu_.GetSelectedIndex();
     if (row == kPauseRowBgmVolume || row == kPauseRowSeVolume) {
         float delta = 0.0f;
-        if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
+        if (input_->TriggerMenuLeft()) {
             delta = -kVolumeStep;
-        } else if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
+        } else if (input_->TriggerMenuRight()) {
             delta = kVolumeStep;
         }
         if (delta != 0.0f) {
@@ -545,6 +559,51 @@ void GamePlayScene::DrawStageGuide()
         layout.Float("pickup_counter.scale", kPickupCounterScale), layout.Color("pickup_counter.color", kPickupCounterColor));
 }
 
+void GamePlayScene::DrawWeaponFatigueWarning()
+{
+    const float mult = WeaponFatigueDamageMult(lastFatigueIndex_);
+    if (mult >= 1.0f) {
+        return;
+    }
+    const float minMult = CombatTuning::GetInstance()->Get().weaponFatigueMinDamageMult;
+    const float severity = minMult < 1.0f ? std::clamp((1.0f - mult) / (1.0f - minMult), 0.0f, 1.0f) : 0.0f;
+    const bool severe = severity >= kFatigueSevereThreshold;
+
+    // 持ち替え先として一番休めている武器（銃を含む）を探し、押すボタンまで具体的に示す
+    const auto* wm = WeaponManager::GetInstance();
+    int bestSlot = -1;
+    float bestFatigue = 1.0f;
+    for (int slot = 0; slot < WeaponManager::kSlotCount; ++slot) {
+        const int weaponIndex = wm->GetSlotWeaponIndex(slot);
+        if (weaponIndex < 0 || weaponIndex == lastFatigueIndex_ || weaponIndex >= static_cast<int>(weaponFatigue_.size())) {
+            continue;
+        }
+        if (weaponFatigue_[weaponIndex] < bestFatigue) {
+            bestFatigue = weaponFatigue_[weaponIndex];
+            bestSlot = slot;
+        }
+    }
+    const int gunIndex = GunFatigueIndex();
+    const bool suggestGun = gunIndex != lastFatigueIndex_ && gunIndex < static_cast<int>(weaponFatigue_.size())
+        && (bestSlot < 0 || weaponFatigue_[gunIndex] < bestFatigue);
+    const std::wstring suggestion = (!suggestGun && bestSlot >= 0)
+        ? L"[" + std::to_wstring(bestSlot + 1) + L"] に持ち替えろ"
+        : std::wstring(L"[K] 射撃を混ぜろ");
+
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 pos = layout.Pos("fatigue.pos", kFatigueWarningPosition);
+    Vector4 color = severe ? kFatigueSevereColor : kFatigueMildColor;
+    if (severe) {
+        const float blink = 0.5f + 0.5f * std::sin(floorElapsedSeconds_ * kFatigueBlinkSpeed);
+        color.w = kFatigueBlinkMinAlpha + (1.0f - kFatigueBlinkMinAlpha) * blink;
+    }
+    fontRenderer_.DrawStringW(severe ? L"同じ武器ではもう効かない!" : L"同じ武器で効きが落ちてきた",
+        pos.x, pos.y, layout.Float("fatigue.title_scale", kFatigueTitleScale), color);
+    const int percent = static_cast<int>(std::round(mult * kPercent));
+    fontRenderer_.DrawStringW(L"威力 " + std::to_wstring(percent) + L"%    " + suggestion,
+        pos.x, pos.y + kFatigueDetailOffsetY, layout.Float("fatigue.detail_scale", kFatigueDetailScale), color);
+}
+
 void GamePlayScene::DrawWeaponListPanel()
 {
     // BattleTestScene::DrawWeaponHud()と同じ体裁左上アンカーに武器スロット一覧＋操作ヒント
@@ -557,10 +616,14 @@ void GamePlayScene::DrawWeaponListPanel()
     };
 
     const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
+    std::vector<float> powerRatios(WeaponManager::GetInstance()->GetList().size(), 1.0f);
+    for (int i = 0; i < static_cast<int>(powerRatios.size()); ++i) {
+        powerRatios[i] = WeaponFatigueDamageMult(i);
+    }
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, WeaponManager::GetInstance(),
-        L"メインステージ", weaponHudAnchor);
-    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ  [I] 回避", weaponHudAnchor.x, py);
-    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + kHintLineHeight);
+        L"メインステージ", weaponHudAnchor, &powerRatios);
+    drawShadowedHint(input_->ExpandPrompts(L"[{Attack}] コンボ  [{Down}+{Attack}] 打ち上げ  [空中{Attack}] 空中コンボ  [{Dodge}] 回避"), weaponHudAnchor.x, py);
+    drawShadowedHint(input_->ExpandPrompts(L"[{Shoot}] 射撃  [{Awaken}] 覚醒  [{LockOn}長押し] ロックオン（最寄りの敵）  [{Pause}] ポーズ"), weaponHudAnchor.x, py + kHintLineHeight);
 }
 
 bool GamePlayScene::IsGlassShatterFlow() const

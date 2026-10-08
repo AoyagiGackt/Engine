@@ -40,12 +40,14 @@ class UILayout;
 class StageEditorSelectionService;
 class StageEditorHierarchyPanel;
 class StageEditorInspectorPanel;
+class ObjectKind;
 enum class WeaponType; // Weapon.h で定義
 
 /** @brief kind=="enemy_basic"かつ武器種別を持つ配置物1件ぶんの参照（GetCombatEnemies()の戻り値） */
 struct CombatEnemyRef {
     std::string name;
     WeaponType weaponType;
+    bool hasWeapon = true; ///< falseなら武器を持たないモンスター（倒しても奪う物が無く、消えて覚醒ゲージになる）
     bool isStageBoss = false;
     EnemyEntity* enemy = nullptr; // 非所有。StageEditorのobjects_が生存させる
 };
@@ -69,6 +71,7 @@ class StageEditor {
     friend class StageEditorSelectionService;
     friend class StageEditorHierarchyPanel;
     friend class StageEditorInspectorPanel;
+    friend class ObjectKind;
 
 public:
     // 編集パネルと中央ビューの操作判定で共有するレイアウト定数。
@@ -196,11 +199,7 @@ public:
     bool MoveObjectByName(const std::string& name, const Vector3& target, float seconds);
     /** @brief 配置物の有効/無効を上書きする（activationFlagより優先。レベルJSONには保存しない） @return 名前が見つかればtrue */
     bool SetObjectEnabledByName(const std::string& name, bool enabled);
-    /** @brief 配置物のワールド位置を返す @return 名前が見つかればtrue */
-    bool FindObjectWorldPosition(const std::string& name, Vector3& outPosition) const;
 
-    /** @brief レベルに紐付いたグラフ実行（常駐グラフ＋フラグ起動グラフ）の状態を返す */
-    const LevelGraphRunner& GetLevelGraphs() const { return levelGraphs_; }
 
     /**
      * @brief solid=trueのオブジェクトのワールドAABB一覧を返す（毎フレーム呼ぶ想定）
@@ -280,18 +279,8 @@ private:
         float graphMoveDuration = 0.0f;
     };
 
-    /** @brief ギミックの一時変形量（位置と回転のオフセット。保存対象の編集値には加えない） */
-    struct GimmickOffset {
-        Vector3 position = { };
-        Vector3 rotation = { };
-    };
-    /**
-     * @brief ギミック種別と経過時間から現在フレームの一時変形量を求める（UpdateRuntimeEntryとGetSolidCollidersで共用）
-     * @param timerOverride 負値なら entry.runtimeTimer をそのまま使う正値を渡すとその時刻として計算する
-     * （GetSolidColliders()が、この後UpdateObjects()で進む今フレーム分のタイマーを先読みし、
-     *   当たり判定と見た目の1フレームのズレ＝乗った時に浮いて見える現象を無くすために使う）
-     */
-    GimmickOffset ComputeGimmickOffset(const ObjectEntry& entry, float timerOverride = -1.0f) const;
+    /** @brief objects_ 内の配置物の番号を返す（種類クラスへ配置物を渡す時に使う） */
+    int IndexOf(const ObjectEntry& entry) const { return static_cast<int>(&entry - objects_.data()); }
     /** @brief pickup配置物の回収判定と演出（プレイヤーが半径内に入ったら回収し、覚醒ゲージを増やす） */
     void UpdatePickupEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
     /** @brief グラフのMoveObjectによる補間移動を1フレーム進める */
@@ -541,6 +530,8 @@ private:
     bool visible_ = false;
     bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
     uint64_t previewTextureId_ = 0;
+    float gameViewDisplayWidth_ = 0.0f;
+    float gameViewDisplayHeight_ = 0.0f;
     float previewU0_ = 0.0f, previewV0_ = 0.0f, previewU1_ = 1.0f, previewV1_ = 1.0f;
     bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
     float savedTimeScale_ = 1.0f;
@@ -623,6 +614,54 @@ private:
     /** @brief エディタ内クリップボードの配置物を複製して貼り付ける */
     void PasteClipboard();
 
+    /**
+     * @brief 選択対象の種類ごとの編集操作（配置物・トリガー・外部実体で振る舞いを切り替えるStrategy）
+     * @note 既定実装は何もしない（未選択を表す）。indexが範囲外なら各派生も何もしない
+     */
+    class ISelectionKind {
+    public:
+        virtual ~ISelectionKind() = default;
+        /** @brief 対象のワールド位置を返す（位置を持たなければfalse） */
+        virtual bool WorldPosition(const StageEditor&, int, Vector3&) const { return false; }
+        /** @brief 画面座標で置かれていて3D空間上の位置を持たないか */
+        virtual bool IsScreenAnchor(const StageEditor&, int) const { return false; }
+        /** @brief Shift+ドラッグの基準にする現在のZ（親からの相対値） */
+        virtual float LocalZ(const StageEditor&, int) const { return 0.0f; }
+        /** @brief Shift+ドラッグでZを書き換える */
+        virtual void SetLocalZ(StageEditor&, int, float, bool) const { }
+        /**
+         * @brief 3Dビューのドラッグでワールド位置を追従させる
+         * @param axis 0=XY 1=Xのみ 2=Yのみ
+         */
+        virtual void DragTo(StageEditor&, int, float, float, int, bool) const { }
+        /** @brief 矢印キーで少しずつ動かす */
+        virtual void Nudge(StageEditor&, int, const Vector3&) const { }
+        /** @brief 削除する（削除したらtrue） */
+        virtual bool Delete(StageEditor&, int) const { return false; }
+        /** @brief 複製して選択を移す */
+        virtual void Duplicate(StageEditor&, int) const { }
+        /**
+         * @brief 3Dビューでクリックした対象を選択状態にする
+         * @param additive Ctrl押下中なら既存の選択に加える
+         */
+        virtual void SelectFromClick(StageEditor&, int, bool) const { }
+        /** @brief 右クリックした対象を選択状態にする */
+        virtual void SelectFromContext(StageEditor&, int) const { }
+        /** @brief 右クリックメニューの中身を描く（描いたらtrue。falseなら配置メニューを出す） */
+        virtual bool DrawContextMenu(StageEditor&, int) const { return false; }
+        /** @brief 詳細パネルを描く（描いたらtrue） */
+        virtual bool DrawInspector(StageEditor&) const { return false; }
+        /** @brief イベント接続の発生元として使う番号（使えなければ-1） */
+        virtual int EventSourceIndex(const StageEditor&, int) const { return -1; }
+    };
+    class ObjectSelectionKind;
+    class TriggerSelectionKind;
+    class ExternalSelectionKind;
+    /** @brief 選択種別に対応する操作を取得する */
+    static const ISelectionKind& SelectionKindOf(SelKind kind);
+    /** @brief 指定位置からテストを始め、プレイヤー未登録なら警告を出す */
+    void StartPlayTestOrWarn(const Vector3& worldPosition);
+
     /** @brief スナップ有効時、値をsnapStep_の倍数へ丸める（無効時はそのまま返す） */
     float SnapValue(float v) const;
 
@@ -637,7 +676,9 @@ private:
     bool snapEnabled_ = false; // グリッドスナップ（ドラッグ移動・新規配置・複製に効く）
     float snapStep_ = 1.0f;
 
-    int paletteMode_ = 0; // アセットパレットの動作 0=新規配置 1=選択中の配置物へ差し替え
+    /** @brief アセットパレットでクリックした時の動作 */
+    enum class PaletteMode { PlaceNew, ReplaceSelection };
+    PaletteMode paletteMode_ = PaletteMode::PlaceNew;
     char paletteSearch_[96] = {}; // 素材名の検索語
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値

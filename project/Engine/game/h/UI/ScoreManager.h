@@ -1,6 +1,7 @@
 /**
  * @file ScoreManager.h
- * @brief スコアの管理・保存・ランキングを行うクラス
+ * @brief スコアランキングの保存・読み込みを行うクラス
+ * @note ラン中のスコア自体は RunData が持つ
  */
 #pragma once
 #include <vector>
@@ -9,23 +10,8 @@ class ScoreManager {
 public:
     static ScoreManager* GetInstance();
 
-    // 現セッション
-
-    /** @brief 現在のスコアを0にリセット（ゲーム開始時に呼ぶ） */
-    void ResetCurrentScore();
-
-    /**
-     * @brief スコアを加算する
-     * @param points 加算するポイント（デフォルト200）
-     */
-    void AddScore(int points = 200);
-
-    int GetCurrentScore() const { return currentScore_; }
-
-    // ランキング
-
-    /** @brief 現在スコアをランキングに登録してファイル保存（ゲームクリア時に呼ぶ） */
-    void SubmitAndSave();
+    /** @brief スコアをランキングに登録してファイル保存（ゲームクリア時に呼ぶ） @param score 登録するスコア */
+    void SubmitAndSave(int score);
 
     /** @brief ランキングを全消去してファイルにも反映 */
     void ResetAllScores();
@@ -38,7 +24,6 @@ public:
 private:
     ScoreManager() = default;
 
-    int currentScore_ = 0;
     std::vector<int> ranking_;
 
     static constexpr int kMaxRank = 10;

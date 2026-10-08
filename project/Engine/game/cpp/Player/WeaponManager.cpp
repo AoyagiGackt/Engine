@@ -3,6 +3,7 @@
  * @brief WeaponManagerのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
  */
 #include "WeaponManager.h"
+#include "GameRules.h"
 #include "JsonHelper.h"
 #include "StringUtility.h"
 #include <algorithm>
@@ -15,48 +16,22 @@ constexpr size_t kColorChannels = 4;
 
 constexpr const char* kWeaponDataPath = "Resources/Config/weapons.json";
 
-WeaponType ParseWeaponType(const std::string& type)
-{
-    if (type == "Sword") {
-        return WeaponType::Sword;
-    }
-    if (type == "Spear") {
-        return WeaponType::Spear;
-    }
-    if (type == "Hammer") {
-        return WeaponType::Hammer;
-    }
-    if (type == "Dagger") {
-        return WeaponType::Dagger;
-    }
-    if (type == "Ball") {
-        return WeaponType::Ball;
-    }
-    if (type == "Greatsword") {
-        return WeaponType::Greatsword;
-    }
-    if (type == "Scythe") {
-        return WeaponType::Scythe;
-    }
-    if (type == "Axe") {
-        return WeaponType::Axe;
-    }
-    return WeaponType::Sword;
-}
-
 GunType ParseGunType(const std::string& type)
 {
-    if (type == "Magnum") {
-        return GunType::Magnum;
-    }
-    if (type == "SMG") {
-        return GunType::SMG;
-    }
-    if (type == "Shotgun") {
-        return GunType::Shotgun;
-    }
-    if (type == "Railgun") {
-        return GunType::Railgun;
+    struct NamedGunType {
+        const char* name;
+        GunType type;
+    };
+    static constexpr NamedGunType kNames[] = {
+        { "Magnum", GunType::Magnum },
+        { "SMG", GunType::SMG },
+        { "Shotgun", GunType::Shotgun },
+        { "Railgun", GunType::Railgun },
+    };
+    for (const NamedGunType& entry : kNames) {
+        if (type == entry.name) {
+            return entry.type;
+        }
     }
     return GunType::Pistol;
 }
@@ -105,6 +80,12 @@ WeaponManager::WeaponManager()
         for (size_t i = 0; i < kColorChannels && i < color.size(); ++i) {
             data.color[i] = color[i].get<float>();
         }
+        data.element = r.value("element", "None");
+        std::copy(std::begin(data.color), std::end(data.color), std::begin(data.effectColor));
+        auto effectColor = r.value("effectColor", nlohmann::json::array());
+        for (size_t i = 0; i < kColorChannels && i < effectColor.size(); ++i) {
+            data.effectColor[i] = effectColor[i].get<float>();
+        }
 
         rangedWeapons_.push_back(std::move(data));
     }
@@ -120,8 +101,8 @@ WeaponManager::WeaponManager()
         data.name = w.value("name", "");
         data.styleName = w.value("styleName", "");
         data.styleNameJp = StringUtility::ConvertString(w.value("styleNameJp", ""));
-        data.type = ParseWeaponType(w.value("type", ""));
-        // 四つの基本戦闘スタイルを、四つの装備枠に対応させる。
+        data.type = ParseWeaponTypeName(w.value("type", ""));
+        // 本編で使う四つの基本戦闘スタイルだけを読み込む（同時に持てるのはkSlotCount個まで）
         const bool isCoreWeapon = data.type == WeaponType::Sword
             || data.type == WeaponType::Spear
             || data.type == WeaponType::Dagger
@@ -163,24 +144,9 @@ WeaponManager::WeaponManager()
         weapons_.push_back(std::move(data));
     }
 
-    // 4スロットは倒した敵から奪って埋めていく想定なので、初期状態は全ロック。
+    // スロットは倒した敵から奪って埋めていく想定なので、初期状態は全ロック。
     // ただし何も使えないと詰むため、機動力型（奇術師/Dagger）だけ最初から解放しておく
     unlocked_.assign(weapons_.size(), false);
-}
-
-void WeaponManager::SelectIndex(int i)
-{
-    int n = static_cast<int>(weapons_.size());
-    i = std::clamp(i, 0, n - 1);
-    if (IsUnlocked(i)) {
-        index_ = i;
-        for (int slot = 0; slot < static_cast<int>(slots_.size()); ++slot) {
-            if (slots_[slot] == i) {
-                selectedSlot_ = slot;
-                break;
-            }
-        }
-    }
 }
 
 void WeaponManager::SelectSlot(int slot)
@@ -384,6 +350,15 @@ void WeaponManager::Reset()
     pendingWeaponIndex_ = -1;
     index_ = 0;
     rangedIndex_ = 0;
+}
+
+void WeaponManager::ResetForNewRun()
+{
+    Reset();
+    const std::string& starter = GameRules::GetInstance()->Get().starterWeapon;
+    if (!starter.empty()) {
+        Acquire(ParseWeaponTypeName(starter));
+    }
 }
 
 WeaponManager::Snapshot WeaponManager::SaveSnapshot() const

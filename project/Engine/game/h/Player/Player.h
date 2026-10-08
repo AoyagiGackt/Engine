@@ -46,11 +46,6 @@ public:
     // 公開型とライフサイクル
     // ══════════════════════════════════════════════════════
 
-    /** @brief 覚醒乱舞の進行フェーズ */
-    enum class RampagePhase { Inactive,
-        Launch,
-        Juggle };
-
     /// @brief ローグライトのスキルによる各種パラメータ補正を保持する構造体
     /// @note RunData のスキル一覧を ApplySkillMods() に渡して適用する
     struct SkillMods {
@@ -144,8 +139,6 @@ public:
     //    覚醒中はゲージ消費なし・距離延長・クールタイム短縮の強化版）──
     /** @brief テレポート中か（この間は敵の攻撃を受けない） */
     bool IsWarping() const { return warpActive_; }
-    /** @brief このフレームにテレポート斬りを開始したか（演出トリガー用） */
-    bool JustWarped() const { return justWarped_; }
 
     /// @brief 現在の武器と覚醒状態から攻撃ダメージ倍率を返す（覚醒中はweapons.jsonのawakened.damageMult）
     /// @note 素手・非覚醒時は1.0
@@ -162,9 +155,6 @@ public:
     void SetStaticVisualModel(const std::string& modelPath, const std::string& texturePath = "");
     const std::string& GetStaticVisualModelPath() const { return staticOverrideModelPath_; }
     const std::string& GetStaticVisualTexturePath() const { return staticOverrideTexturePath_; }
-    /** @brief 手持ち武器（近接・銃）の描画有無を切り替える（撮影用に一時的に隠したい場合など） */
-    void SetWeaponsVisible(bool visible) { weaponsVisible_ = visible; }
-    bool IsInWater() const { return inWater_; } ///< 水中にいるか
     bool JustJumped() const { return justJumped_; } ///< このフレームにジャンプしたか
     bool JustLanded() const { return justLanded_; } ///< このフレームに着地したか
     bool JustEnteredWater() const { return justEnteredWater_; } ///< このフレームに入水したか
@@ -200,6 +190,8 @@ public:
     const MeleeAttackDef* GetActiveMeleeAttack() const { return meleeCombo_.GetActive(); }
     /** @brief 近接コンボのモーション中か */
     bool IsMeleeAttacking() const { return meleeCombo_.IsAttacking(); }
+    /** @brief 固有技の連撃（剣舞など）を自動で出し切っている最中か（武器の疲労の対象外にする判定に使う） */
+    bool IsSkillSequenceActive() const { return meleeCombo_.IsSequenceActive(); }
     /// @brief 現在表示中の近接武器の手元ワールド座標を返す（武器トレイル演出用）
     /// @note 武器が表示されていない場合はプレイヤーの胸元あたりの位置を返す
     Vector3 GetActiveWeaponWorldPosition() const;
@@ -207,8 +199,6 @@ public:
     /// @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
     /// @note JustFired() のフレームに弾数・拡散・射程倍率・ノックバック・技IDの参照に使う
     const GunShotDef* GetActiveGunShot() const { return gunCombo_.GetActive(); }
-    /** @brief 射撃コンボのモーション中か */
-    bool IsGunShooting() const { return gunCombo_.IsShooting(); }
     /** @brief 現在の射撃コンボの段数を返す（1始まり） */
     int GetGunComboStep() const { return gunCombo_.GetStep(); }
 
@@ -232,17 +222,14 @@ public:
     bool IsAxeEnraged() const { return axeRageTimer_ > 0.0f; } ///< アックス: 突進後の怒り強化中か
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
     float GetAxeRageMult() const { return IsAxeEnraged() ? kAxeRageDamageMult_ : 1.0f; }
-    bool IsScytheHovering() const { return isScytheHovering_; } ///< シザー: 滞空ホバー中か
     bool JustScytheSpin() const { return justScytheSpin_; }
 
     // 覚醒乱舞（Sword + 覚醒 + L）
-    bool IsRampaging() const { return rampagePhase_ != RampagePhase::Inactive; } ///< 乱舞中か
+    bool IsRampaging() const { return rampage_->IsActive(); } ///< 乱舞中か
     bool JustLaunched() const { return justLaunched_; } ///< 打ち上げ発生フレーム
     bool JustRampageHit() const { return justRampageHit_; } ///< 乱舞スラッシュヒットフレーム
     bool JustRampageFinish() const { return justRampageFinish_; } ///< 乱舞終了フレーム
     int GetJuggleCount() const { return juggleSlashCount_; } ///< 現在の乱舞スラッシュ回数
-    /** @brief スキル補正込みの乱舞最大スラッシュ数を返す */
-    int GetJuggleMax() const { return kJuggleMaxSlashes_ + skillMods_.juggleMaxBonus; }
 
     // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
     bool JustFinisherSlash() const { return justFinisherSlash_; } ///< フィニッシャースラッシュ発動フレーム
@@ -316,11 +303,14 @@ private:
     static constexpr float kDodgeCooldown_ = 0.30f; // 回避終了から次の回避までの間隔（秒）
     static constexpr float kDodgeSpamWindow_ = 1.2f; // この秒数以内に次の回避を出すと連打扱い
     static constexpr float kDodgeAnimSpeed_ = 2.4f; // 走りジャンプのモーションを高速再生して前転風に見せる
+    bool dodgeBackward_ = false; // 向きを変えずに後ろへ下がる回避か（前転モーションだと滑って見えるので専用の見せ方にする）
+    static constexpr float kBackDodgeAnimSpeed_ = 1.6f; // バックステップ時の立ちジャンプモーションの再生速度
+    static constexpr float kBackDodgeLean_ = -0.45f; // バックステップで後ろへ反る最大角度（ラジアン、X軸の負が後ろ）
+    static constexpr float kBackDodgeHopHeight_ = 0.25f; // バックステップで見た目だけ浮かせる高さ（ワールド単位）
     float justDodgeWindowTimer_ = 0.0f; // ジャスト回避直後の強化窓の残り秒数（長さと倍率はCombatTuning側）
 
     // テレポート斬り（向いている方向へ短距離ワープする機動アクション。全区間無敵、コンボからキャンセル可）
     bool warpActive_ = false;
-    bool justWarped_ = false;
     float warpTimer_ = 0.0f;
     float warpStartX_ = 0.0f;
     float warpTargetX_ = 0.0f;
@@ -403,7 +393,7 @@ private:
     static constexpr float kDaggerStingerDashDist_ = 3.0f;
     static constexpr float kDaggerStingerHitInterval_ = 0.09f; // 刺突ごとの間隔（秒）
     static constexpr int kDaggerStingerHitCount_ = 3;
-    static constexpr float kDaggerStingerCooldown_ = 0.9f;
+    static constexpr float kDaggerStingerCooldown_ = 4.0f; // 乱れ斬り（地上のSpace）を次に出せるまでの秒数
     // ソード: 敵を通過し、納刀の間を置いて斬撃を発生させる
     bool justSwordDash_ = false;
     bool swordReleasePending_ = false;
@@ -413,17 +403,17 @@ private:
     DashMotion swordDash_;
     static constexpr float kSwordDashDist_ = 5.2f;
     static constexpr float kSwordReleaseDelay_ = 0.20f;
-    static constexpr float kSwordSkillCooldown_ = 0.72f;
+    static constexpr float kSwordSkillCooldown_ = 5.0f; // 剣舞は連撃が長く強力なので、次に出せるまで間を空ける
     // スピア: 武器ごと全身を回転させながら前方へ突撃する
     bool justSpearRetreat_ = false;
     float spearSkillCooldown_ = 0.0f;
     DashMotion spearDash_;
     static constexpr float kSpearChargeDist_ = 4.0f;
-    static constexpr float kSpearSkillCooldown_ = 0.65f;
+    static constexpr float kSpearSkillCooldown_ = 4.5f; // 百裂突きを次に出せるまでの秒数
     // グレートソード/ハンマー共通: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
     bool justGreatswordSlam_ = false;
     float greatswordSkillCooldown_ = 0.0f;
-    static constexpr float kGreatswordSkillCooldown_ = 1.3f;
+    static constexpr float kGreatswordSkillCooldown_ = 5.0f; // ハンマーの大車輪を次に出せるまでの秒数
     // グレートソード専用: 投げ回転斬り（自身を投げ、途中で静止して渦のように回転し周囲を吸い込みながら多段ヒット）
     bool justGreatswordSpinHit_ = false;
     bool justGreatswordThrown_ = false;
@@ -444,7 +434,6 @@ private:
     bool greatswordReturnCaptured_ = false;
     static constexpr float kGreatswordReturnTime_ = 0.2f; ///< 渦の終了後、手元へ飛んで戻るまでの時間（秒）
     // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
-    bool isScytheHovering_ = false;
     bool justScytheSpin_ = false;
     float scytheHoverTimer_ = kScytheHoverMax_;
     static constexpr float kScytheHoverMax_ = 0.9f; // 最大連続ホバー時間（秒）
@@ -461,7 +450,6 @@ private:
     static constexpr float kAxeRageDamageMult_ = 1.3f;
 
     // 覚醒乱舞（Sword + 覚醒 + L）
-    RampagePhase rampagePhase_ = RampagePhase::Inactive;
     bool justLaunched_ = false;
     bool justRampageHit_ = false;
     bool justRampageFinish_ = false;
@@ -514,7 +502,7 @@ private:
     static const IPhysicsState& GetPhysicsState(bool inWater);
 
     // Rampage State パターン
-    // 覚醒乱舞の進行フェーズ（RampagePhase）ごとに L キー入力の意味と
+    // 覚醒乱舞の進行フェーズ（未発動/打ち上げ/空中追撃）ごとに攻撃入力の意味と
     // 毎フレームの物理更新内容を切り替える
     /** @brief 覚醒乱舞の段階固有処理を抽象化する状態 */
     class IRampageState {
@@ -522,6 +510,10 @@ private:
         virtual ~IRampageState() = default;
         virtual void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const = 0;
         virtual void UpdatePhysics(Player& player, const Vector3& enemyPos) const = 0;
+        /** @brief 乱舞中か（未発動状態だけfalse） */
+        virtual bool IsActive() const { return true; }
+        /** @brief 空中追撃の段階か */
+        virtual bool IsJuggling() const { return false; }
     };
     /** @brief 覚醒乱舞を開始していない通常状態 */
     class InactiveRampageState;
@@ -529,7 +521,11 @@ private:
     class LaunchRampageState;
     /** @brief 覚醒乱舞の空中追撃段階を処理する状態 */
     class JuggleRampageState;
-    static const IRampageState& GetRampageState(RampagePhase phase);
+    // 各段階の共有インスタンス（段階はステートレスで、状態クラスの定義はPlayerRampageStates.cppに閉じる）
+    static const IRampageState& InactiveRampage();
+    static const IRampageState& LaunchRampage();
+    static const IRampageState& JuggleRampage();
+    const IRampageState* rampage_ = &InactiveRampage(); ///< 覚醒乱舞の進行フェーズ
 
     // Weapon Behavior Strategy パターン
     // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
@@ -559,6 +555,16 @@ private:
     class DefaultWeaponBehavior;
     static const IWeaponBehavior& GetWeaponBehavior(WeaponType type);
 
+    /**
+     * @brief Spaceが押され、クールタイムが明けていれば、武器の固有技の連撃を始める
+     * @param input           入力
+     * @param type            武器タイプ（連撃表の選択に使う）
+     * @param cooldown        その武器の固有技クールタイム（始めたらcooldownSecondsを入れる）
+     * @param cooldownSeconds 次に出せるまでの秒数
+     * @return 連撃を始めたらtrue
+     */
+    bool TryStartSkillSequence(Input* input, WeaponType type, float& cooldown, float cooldownSeconds);
+
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;
 
@@ -569,7 +575,6 @@ private:
     float staticOverrideFootOffset_ = 0.0f; // モデル原点から最下点までの距離（スケール後）中心原点のモデルでも足元を合わせる
     std::string staticOverrideModelPath_;
     std::string staticOverrideTexturePath_;
-    bool weaponsVisible_ = true; // falseなら近接武器・銃の描画をスキップする
 
     // スキンメッシュ描画の共通設定（両フォームのリグで共有）
     std::unique_ptr<SkinCommon> skinCommon_;
@@ -636,14 +641,6 @@ private:
     int activeGunIndex_ = -1; ///< 現在表示中の guns_ インデックス（-1=非表示）
     bool gunVisible_ = true; ///< 銃のアタッチ先ボーンが見つかったか
 
-    /** @brief 再生中のアニメーション状態 */
-    enum class AnimState { Idle,
-        Run,
-        Jump,
-        Swim,
-        Attack };
-    AnimState animState_ = AnimState::Idle;
-
     // Anim State パターン
     // 移動系のアニメーション状態ごとに、遷移した瞬間に再生するモーションを切り替える
     /** @brief アニメーション状態ごとのモーション選択を抽象化する状態 */
@@ -663,7 +660,13 @@ private:
     class SwimAnimState;
     /** @brief 攻撃モーション再生中の状態（モーションはPlayAttackAnim側で設定済み） */
     class AttackAnimState;
-    static const IAnimState& GetAnimState(AnimState state);
+    // 各状態の共有インスタンス（状態の定義はPlayerVisuals.cppに閉じる）
+    static const IAnimState& IdleAnim();
+    static const IAnimState& RunAnim();
+    static const IAnimState& JumpAnim();
+    static const IAnimState& SwimAnim();
+    static const IAnimState& AttackAnim();
+    const IAnimState* animState_ = &IdleAnim(); ///< 再生中のアニメーション状態
     bool animHold_ = false; ///< 武器持ちバリエーション（IdleHold/RunHold）を再生中か
     float attackAnimTimer_ = 0.0f; ///< 攻撃モーションの残り再生秒数（0以下で通常状態へ復帰）
 

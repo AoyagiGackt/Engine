@@ -66,5 +66,11 @@ void CombatTuning::Reload()
     data_.justDodgeBonusSeconds = root.value("justDodgeBonusSeconds", defaults.justDodgeBonusSeconds);
     data_.justDodgeDamageMult = root.value("justDodgeDamageMult", defaults.justDodgeDamageMult);
     data_.airborneHitStyleBonus = root.value("airborneHitStyleBonus", defaults.airborneHitStyleBonus);
+    data_.weaponFatiguePerHit = root.value("weaponFatiguePerHit", defaults.weaponFatiguePerHit);
+    data_.gunFatiguePerHit = root.value("gunFatiguePerHit", defaults.gunFatiguePerHit);
+    data_.weaponFatigueRecoverPerSecond = root.value("weaponFatigueRecoverPerSecond", defaults.weaponFatigueRecoverPerSecond);
+    data_.weaponFatigueFreeRatio = root.value("weaponFatigueFreeRatio", defaults.weaponFatigueFreeRatio);
+    data_.weaponFatigueMinDamageMult = root.value("weaponFatigueMinDamageMult", defaults.weaponFatigueMinDamageMult);
     data_.duplicateWeaponAwakenBonus = root.value("duplicateWeaponAwakenBonus", defaults.duplicateWeaponAwakenBonus);
+    data_.styleRankAwakenGaugeBonus = root.value("styleRankAwakenGaugeBonus", defaults.styleRankAwakenGaugeBonus);
 }

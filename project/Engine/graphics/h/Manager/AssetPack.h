@@ -3,6 +3,7 @@
  * @brief 読み込み済みの形へ変換（クック）した素材を1つのpakファイルにまとめ、起動時の変換処理を省くための仕組み
  *
  * 【動作モード】Resources/Config/asset_pack.json の "mode" で切り替える（設定ファイルが無く pak だけある配布時は use）
+ *   "auto" : 元素材の追加・変更・削除があればcook、それ以外と提出先ではuse
  *   "off"  : 今まで通り Resources の元ファイルを毎回変換して読む（ビフォー計測用）
  *   "cook" : 元ファイルから読みつつ、変換結果を記録し、終了時に exe と同じフォルダへ pak を書き出す
  *   "use"  : pak に入っている素材は変換済みデータをそのまま使う（入っていない素材は元ファイルから読む）
@@ -121,7 +122,7 @@ public:
     static AssetPack* GetInstance();
 
     /** @brief 設定ファイルを読み、useならpakの目次を開く（最初の素材読み込みより前に呼ぶ） */
-    void Initialize();
+    void Initialize(bool forceCook = false, bool prepareAssets = false);
     /** @brief cookなら記録した素材をpakへ書き出す（終了時に呼ぶ） */
     void Finalize();
 
@@ -163,6 +164,7 @@ private:
 
     Mode mode_ = Mode::Off;
     std::wstring packPath_;
+    std::string sourceSnapshot_;
     std::ifstream file_;
     std::unordered_map<std::string, Entry> entries_;
     std::vector<std::pair<std::string, std::vector<uint8_t>>> recorded_;

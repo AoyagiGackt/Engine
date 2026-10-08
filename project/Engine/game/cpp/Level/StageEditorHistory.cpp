@@ -160,21 +160,15 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         } else if (!names.insert(desc.name).second) {
             issues.push_back("オブジェクト名が重複しています: " + desc.name);
         }
-        if (IsVisualKind(desc.kind) && desc.kind != "background" && desc.model.empty()) {
+        const ObjectKind& kind = ObjectKind::Of(desc.kind);
+        if (kind.RequiresModel() && desc.model.empty()) {
             issues.push_back("モデル未設定: " + desc.name);
         }
-        if (desc.kind == "breakable" && desc.breakableHp <= 0) {
-            issues.push_back("壊せる物のHPが0以下です: " + desc.name);
-        }
-        if (desc.kind == "gimmick" && desc.gimmickMotion == "custom"
-            && desc.motionAxis.x == 0.0f && desc.motionAxis.y == 0.0f && desc.motionAxis.z == 0.0f
-            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f) {
-            issues.push_back("カスタム動作の移動方向と回転量が両方0です: " + desc.name);
-        }
+        kind.Validate(desc, issues);
         if (desc.scale.x <= 0.0f || desc.scale.y <= 0.0f || desc.scale.z <= 0.0f) {
             issues.push_back("スケールが0以下です: " + desc.name);
         }
-        if (desc.type == "row" && (desc.count <= 0 || desc.step == 0.0f)) {
+        if (desc.type == PlacementType::Row && (desc.count <= 0 || desc.step == 0.0f)) {
             issues.push_back("列配置の個数または間隔が無効です: " + desc.name);
         }
         if (!desc.parent.empty()) {
@@ -187,18 +181,6 @@ std::vector<std::string> StageEditor::ValidateLevel() const
                 issues.push_back("親子関係が循環しています: " + desc.name);
             }
         }
-        if (desc.kind == "spawn_point" && desc.spawnType != "basic" && desc.spawnType != "knight") {
-            issues.push_back("SpawnPointの敵種類が不正です: " + desc.name);
-        }
-        if (desc.kind == "patrol_point" && desc.patrolRoute.empty()) {
-            issues.push_back("巡回ルート名が空です: " + desc.name);
-        }
-        if (desc.kind == "terrain" && !desc.solid) {
-            issues.push_back("Terrainの当たり判定が無効です: " + desc.name);
-        }
-        if (desc.kind == "ui_text" && desc.text.empty()) {
-            issues.push_back("表示文字列が空です: " + desc.name);
-        }
         if (!desc.activationFlag.empty()) {
             bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
                 return trigger.GetDesc().flag == desc.activationFlag;
@@ -206,7 +188,7 @@ std::vector<std::string> StageEditor::ValidateLevel() const
             if (!sourceExists && desc.activationFlag.starts_with("condition_")) {
                 const std::string conditionName = desc.activationFlag.substr(10);
                 sourceExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& condition) {
-                    return condition.desc.kind == "event_condition" && condition.desc.name == conditionName;
+                    return condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName;
                 });
             }
             if (!sourceExists) {

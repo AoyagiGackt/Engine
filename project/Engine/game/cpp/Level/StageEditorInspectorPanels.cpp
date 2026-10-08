@@ -147,13 +147,9 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
 {
     auto& entry = editor.objects_[editor.selIndex_];
     auto& desc = entry.desc;
-    const bool visualKind = IsVisualKind(desc.kind);
+    const bool visualKind = ObjectKind::Of(desc.kind).IsVisual();
     if (visualKind) {
-        if (desc.kind == "background") {
-            ImGui::TextDisabled("背景モデル（レベルJSONに保存）");
-            ImGui::SameLine();
-            EditorUI::HelpMarker("モデル・テクスチャ・位置・回転・スケールを通常のオブジェクトと同様に調整できます。当たり判定は初期状態で無効です。");
-        }
+        ObjectKind::Of(desc.kind).DrawVisualNote();
         char modelBuf[256];
         strncpy_s(modelBuf, desc.model.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(kAssetPathFieldWidth);
@@ -204,12 +200,12 @@ void StageEditorInspectorPanel::RenderObjectVisual(StageEditor& editor, bool& st
             }
         }
 
-        const char* kTypes[] = { "static", "row" };
+        // PlacementType の並び順と一致させる
         const char* kTypeLabels[] = { "単体配置(static)", "並べて配置(row)" };
-        int typeIdx = (desc.type == "row") ? 1 : 0;
+        int typeIdx = static_cast<int>(desc.type);
         if (ImGui::Combo("種類", &typeIdx, kTypeLabels, 2)) {
             editor.RecordUndoSnapshotNow();
-            desc.type = kTypes[typeIdx];
+            desc.type = static_cast<PlacementType>(typeIdx);
             structuralDirty = true;
         }
         EditorUI::HelpMarker("単体配置: 1つだけ置く\n並べて配置: 同じモデルを一定間隔で複数並べる（階段や壁に便利）");
@@ -232,7 +228,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
     StageEditor& editor, bool& structuralDirty, bool& transformDirty)
 {
     auto& desc = editor.objects_[editor.selIndex_].desc;
-    const bool visualKind = IsVisualKind(desc.kind);
+    const bool visualKind = ObjectKind::Of(desc.kind).IsVisual();
     auto captureItemUndo = [&](bool changed) {
         if (ImGui::IsItemActivated()) {
             editor.BeginUndoCapture();
@@ -264,7 +260,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
         }
     }
 
-    if (visualKind || desc.kind == "camera_point") {
+    if (ObjectKind::Of(desc.kind).HasRotationAndScale()) {
         const Vector3 previousRotation = desc.rotation;
         const bool rotationChanged = captureItemUndo(ImGui::DragFloat3("回転", &desc.rotation.x, EditorUi::kDragStepRotation));
         transformDirty |= rotationChanged;
@@ -284,7 +280,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             };
             for (int index : editor.selectedObjectIndices_) {
                 if (index < 0 || index >= static_cast<int>(editor.objects_.size()) || index == editor.selIndex_
-                    || (!IsVisualKind(editor.objects_[index].desc.kind) && editor.objects_[index].desc.kind != "camera_point")) {
+                    || !ObjectKind::Of(editor.objects_[index].desc.kind).HasRotationAndScale()) {
                     continue;
                 }
                 if (rotationChanged) {
@@ -311,14 +307,9 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             EditorUI::HelpMarker("ONにするとプレイヤーや敵が乗れる・ぶつかる足場になります（オレンジの枠で表示）");
         }
 
-        if (desc.kind == "terrain") {
-            if (ImGui::Checkbox("メッシュ同期コライダー", &desc.meshCollider)) {
-                editor.RecordUndoSnapshotNow();
-                desc.solid = desc.meshCollider || desc.solid;
-            }
-        }
+        ObjectKind::Of(desc.kind).DrawVisualExtras(editor, desc);
 
-        if (desc.type == "row") {
+        if (desc.type == PlacementType::Row) {
             const char* axes[] = { "x", "y", "z" };
             int axisIndex = desc.axis == 'y' ? 1 : desc.axis == 'z' ? 2
                                                                     : 0;
@@ -354,7 +345,7 @@ bool StageEditorInspectorPanel::RenderObjectInspector(StageEditor& editor)
     RenderObjectGameplay(editor, structuralDirty);
 
     auto& entry = editor.objects_[editor.selIndex_];
-    const bool visualKind = IsVisualKind(entry.desc.kind);
+    const bool visualKind = ObjectKind::Of(entry.desc.kind).IsVisual();
     if (structuralDirty) {
         editor.RegenerateInstances(entry);
     } else if (transformDirty && visualKind) {
@@ -497,8 +488,11 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
 
 void StageEditorInspectorPanel::Render(StageEditor& editor)
 {
-    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(WinApp::kClientWidth) - StageEditor::kRightPanelWidth, StageEditor::kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth, static_cast<float>(WinApp::kClientHeight) - StageEditor::kToolbarHeight), ImGuiCond_Always);
+    const auto* display = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + display->Size.x - StageEditor::kRightPanelWidth,
+        display->Pos.y + StageEditor::kToolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth,
+        (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight)), ImGuiCond_Always);
     ImGui::Begin("選択した物の設定", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
     const bool hasSelection = editor.selKind_ != StageEditor::SelKind::None;
     if (hasSelection) {
@@ -508,9 +502,7 @@ void StageEditorInspectorPanel::Render(StageEditor& editor)
         ImGui::TextDisabled("数値はドラッグ、ダブルクリックで直接入力");
         ImGui::Separator();
     }
-    if (!RenderObjectInspector(editor)
-        && !RenderTriggerInspector(editor)
-        && !RenderExternalInspector(editor)) {
+    if (!StageEditor::SelectionKindOf(editor.selKind_).DrawInspector(editor)) {
         ImGui::TextWrapped("編集したい物を、画面上か左の一覧でクリックしてください。");
         ImGui::Spacing();
         ImGui::TextWrapped("1. 左下の素材をクリックして配置\n2. 画面上でつかんで移動\n3. ここで大きさや動作を調整\n4. 上部のテストで確認して保存");

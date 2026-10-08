@@ -39,7 +39,7 @@ namespace {
     constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アルファはGameConstants::kFinisherOverlayAlpha
 
     constexpr float kDefaultIconScale = 0.2f; // weapon_icons.jsonにscaleがない時の既定値
-    constexpr int kWeaponSlotCount = 4;
+    constexpr int kWeaponSlotCount = WeaponManager::kSlotCount;
     constexpr float kWeaponCycleCooldown = 0.15f; // 武器切り替えの連打を抑える間隔（秒）
 
     // HUDの行送り
@@ -57,23 +57,6 @@ namespace {
         static std::mt19937 rng { std::random_device { }() };
         return rng;
     }
-
-    WeaponType ParseIconWeaponType(const std::string& type)
-    {
-        if (type == "Dagger")
-            return WeaponType::Dagger;
-        if (type == "Hammer")
-            return WeaponType::Hammer;
-        if (type == "Spear")
-            return WeaponType::Spear;
-        if (type == "Greatsword")
-            return WeaponType::Greatsword;
-        if (type == "Scythe")
-            return WeaponType::Scythe;
-        if (type == "Axe")
-            return WeaponType::Axe;
-        return WeaponType::Sword;
-    }
 } // namespace
 
 std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
@@ -83,7 +66,7 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
     if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
         for (const auto& entry : j["icons"]) {
             WeaponIconAsset asset;
-            asset.type = ParseIconWeaponType(entry.value("type", std::string("Sword")));
+            asset.type = ParseWeaponTypeName(entry.value("type", std::string("Sword")));
             asset.modelPath = entry.value("model", std::string());
             asset.texturePath = entry.value("texture", std::string());
             asset.scale = entry.value("scale", kDefaultIconScale);
@@ -153,7 +136,7 @@ void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPa
 void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
     float& weaponCycleTimer, bool cycleAllUnlocked)
 {
-    // 武器切り替え（Q/E、数字キー 1〜4）
+    // 武器切り替え（Q/E、数字キー 1〜スロット数）
     weaponCycleTimer -= GameConstants::kFrameDeltaTime;
     if (weaponCycleTimer <= 0.0f) {
         if (input->TriggerKey(DIK_Q)) {
@@ -290,7 +273,7 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     const char* fallbackScene, Audio* audio)
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
-    if (isNear && input->TriggerKey(DIK_RETURN)) {
+    if (isNear && input->TriggerAction(Input::Action::Interact)) {
         if (audio) {
             audio->PlayMenuSelect();
         }
@@ -317,9 +300,12 @@ void AdjustVolume(Audio* audio, bool bgm, float delta)
     GameSettingsManager::GetInstance()->Save();
 }
 
-float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor)
+float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
+    const std::vector<float>* powerRatios)
 {
     constexpr float kDefaultScale = 1.15f;
+    constexpr Vector4 kWeakenedColor = { 1.0f, 0.4f, 0.3f, 1.0f }; // 疲労で威力が落ちている武器
+    constexpr float kPercent = 100.0f;
     // 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
     constexpr Vector4 kDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
     constexpr Vector4 kDefaultNormalColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
@@ -362,28 +348,38 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         const bool occupied = weaponIndex >= 0;
         const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
         char buf[80];
+        bool weakened = false;
         if (occupied) {
             const auto& weapon = weaponList[weaponIndex];
-            std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  DMG %.0f  RNG %.1f",
-                selected ? ">" : " ", slot + 1, weapon.name.c_str(), weapon.damage, weapon.range);
+            if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size())) {
+                const float power = (*powerRatios)[weaponIndex];
+                weakened = power < 1.0f;
+                std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  PWR %3d%%",
+                    selected ? ">" : " ", slot + 1, weapon.name.c_str(), static_cast<int>(std::round(power * kPercent)));
+            } else {
+                std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  DMG %.0f  RNG %.1f",
+                    selected ? ">" : " ", slot + 1, weapon.name.c_str(), weapon.damage, weapon.range);
+            }
         } else {
             std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
         }
         drawShadowed(buf, px, py,
-            selected ? selectedColor : occupied ? textColor
-                                            : emptyColor);
+            weakened ? kWeakenedColor : selected ? selectedColor : occupied ? textColor
+                                                                            : emptyColor);
         py += lineHeight;
     }
 
     // 選択中の銃（近接スタイルとは独立に G キーで循環）
     py += kHudSectionGap;
     const RangedWeaponData& gun = weaponManager->GetRanged();
-    std::wstring gunLine = L"銃[G]: " + gun.nameJp;
+    std::wstring gunLine = L"銃: " + gun.nameJp;
     drawShadowedW(gunLine, px, py, selectedColor);
     py += lineHeight;
 
     py += kHudHintGap;
-    drawShadowedW(L"Q E または 1から4  武器切替    G  銃切替", px, py, hintColor);
+    const Input* hintInput = Input::GetCurrent();
+    const std::wstring slotHint = L"{Slot}  武器切替    {GunSwitch}  銃切替";
+    drawShadowedW(hintInput ? hintInput->ExpandPrompts(slotHint) : slotHint, px, py, hintColor);
     py += lineHeight;
     return py;
 }
@@ -414,24 +410,25 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     drawShadowed(L"-- 操作説明 --", iy, headerColor);
     iy += lineHeight + kHudSectionGap;
 
-    auto row = [&](const char* key, const wchar_t* desc) {
-        std::wstring line(key, key + std::strlen(key));
-        line += desc;
-        drawShadowed(line, iy, textColor);
+    // {操作名} は最後に使った機器（キーボード/パッド）のボタン名へ置き換わる
+    const Input* input = Input::GetCurrent();
+    auto row = [&](const wchar_t* key, const wchar_t* desc) {
+        const std::wstring keyText = input ? input->ExpandPrompts(key) : std::wstring(key);
+        drawShadowed(keyText + L"  " + desc, iy, textColor);
         iy += lineHeight;
     };
-    row("A / D  ", L": 移動");
-    row("W      ", L": ジャンプ");
-    row("I      ", L": 回避 (全身無敵、コンボから割り込み可)");
-    row("L      ", L": コンボ (x3)");
-    row("K      ", L": 銃コンボ");
-    row("G      ", L": 銃切替");
-    row("SPACE  ", L": 武器固有技");
-    row("Q / E  ", L": 武器切替");
-    row("1 - 4  ", L": スロット直接選択");
-    row("ENTER  ", portalActionLabel);
-    row("R      ", L": 覚醒発動");
-    row("F      ", L": フィニッシャー");
+    row(L"{Move}", L": 移動");
+    row(L"{Jump}", L": ジャンプ");
+    row(L"{Dodge}", L": 回避 (全身無敵、コンボから割り込み可)");
+    row(L"{Attack}", L": コンボ (x3)");
+    row(L"{Shoot}", L": 銃コンボ");
+    row(L"{GunSwitch}", L": 銃切替");
+    row(L"{Skill}", L": 武器固有技");
+    row(L"{Slot}", L": 武器スロット選択");
+    row(L"{Interact}", portalActionLabel);
+    row(L"{Awaken}", L": 覚醒発動");
+    row(L"{Finisher}", L": フィニッシャー");
+    row(L"{Pause}", L": ポーズ・音量設定");
 }
 
 

@@ -6,6 +6,7 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "DirectXCommon.h"
+#include "FontRenderer.h"
 #include "ImGuiManager.h"
 #include "Input.h"
 #include "ScoreDisplay.h"
@@ -19,6 +20,8 @@ using engine::Input;
 using engine::graphics::ImGuiManager;
 using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
+
+class UILayout;
 
 /**
  * @brief クリア画面のシーンクラス
@@ -52,6 +55,13 @@ private:
     std::unique_ptr<Sprite> rankingLabel_;
 
     ScoreDisplay scoreDisplay_;
+    FontRenderer fontRenderer_;
+
+    /** @brief 表示・ランキング登録するこのランのスコア（ランを経由しない時は0） */
+    int runScore_ = 0;
+
+    /** @brief セーブデータの通算記録を左下へ描画する */
+    void DrawRecords(UILayout& layout);
 };
 
 } // namespace engine::game

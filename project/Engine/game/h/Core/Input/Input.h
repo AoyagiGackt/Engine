@@ -11,6 +11,7 @@
 
 #include "WinApp.h"
 #include <array>
+#include <string>
 #include <wrl/client.h>
 
 #pragma comment(lib, "xinput.lib")
@@ -36,8 +37,16 @@ public: // メンバ関数
         GunSwitch,
         Dodge,
         Warp,
+        Steal,
+        Interact,
+        LockOn,
+        Pause,
         Count
     };
+
+    /** @brief XInputが使っていないビットへ割り当てたトリガー（wButtonsと同じ扱いで押下判定できる） */
+    static constexpr WORD kGamepadLeftTrigger = 0x0400;
+    static constexpr WORD kGamepadRightTrigger = 0x0800;
     // namespace省略
     template <class T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -116,6 +125,32 @@ public: // メンバ関数
     /** @brief このフレームでゲームパッドが切断されたかを返す */
     bool WasGamepadDisconnected() const { return !gamepadConnected_ && gamepadConnectedPrevious_; }
 
+    /** @brief 最後に操作した機器がゲームパッドか（操作説明の表記切り替えに使う） */
+    bool IsUsingGamepad() const { return usingGamepad_; }
+
+    // メニュー操作（キーボード・十字キー・左スティックのどれでも反応する）
+    bool TriggerMenuUp() const;
+    bool TriggerMenuDown() const;
+    bool TriggerMenuLeft() const;
+    bool TriggerMenuRight() const;
+    /** @brief 決定（Space/Enter/Aボタン） */
+    bool TriggerMenuConfirm() const;
+    /** @brief 戻る（Esc/Backspace/Bボタン） */
+    bool TriggerMenuCancel() const;
+
+    /** @brief 操作の表示名を、最後に使った機器に合わせて返す（例: キーボードなら "J"、パッドなら "LT"） */
+    std::wstring GetActionLabel(Action action) const;
+
+    /**
+     * @brief 文章中の {操作名} を、最後に使った機器のボタン名へ置き換える
+     * @param text {Steal} や {Dodge} などを含む文章。Action名のほかに {Move} {Slot} {Confirm} {Back} が使える
+     * @return 置き換え後の文章（知らない名前はそのまま残す）
+     */
+    std::wstring ExpandPrompts(const std::wstring& text) const;
+
+    /** @brief 最後に初期化した入力（シーンから入力を渡されないHUD等が操作説明を作るために使う） */
+    static const Input* GetCurrent() { return current_; }
+
     // マウス関連
     bool TriggerMouseButton(int32_t buttonNumber);
     /** @brief マウスボタンが押されている間trueを返す */
@@ -168,7 +203,15 @@ private:
     const float deadzone_ = 0.2f; /// デッドゾーン
     bool gamepadConnected_ = false; ///< 現在の接続状態
     bool gamepadConnectedPrevious_ = false; ///< 前フレームの接続状態
+    bool usingGamepad_ = false; ///< 最後に操作した機器がゲームパッドか
     std::array<ActionBinding, static_cast<size_t>(Action::Count)> actionBindings_ { };
+
+    static inline const Input* current_ = nullptr;
+
+    /** @brief 左スティックが指定方向へこのフレームに倒されたか（倒しっぱなしでは連続しない） */
+    bool TriggerStick(int axisX, int axisY) const;
+    /** @brief このフレームの入力から、最後に使った機器を更新する */
+    void UpdateLastDevice();
 
     // アクションオーバーライド（SetActionOverride参照）。有効なアクションだけ実機入力より優先する
     std::array<bool, static_cast<size_t>(Action::Count)> actionOverrideEnabled_ { };

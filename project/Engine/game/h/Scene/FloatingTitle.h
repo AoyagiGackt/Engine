@@ -31,6 +31,6 @@ private:
     float yaw_ = 0.0f, pitch_ = 0.0f;
     float yawVelocity_ = 0.0f, pitchVelocity_ = 0.0f;
     bool dragging_ = false;
-    POINT lastMouse_ = {};
+    Vector2 lastMouse_ = {};
 };
 }

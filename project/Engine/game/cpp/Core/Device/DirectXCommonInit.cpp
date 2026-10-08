@@ -212,6 +212,34 @@ void DirectXCommon::CreateDepthBuffer()
         dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
 }
 
+void DirectXCommon::CreateBackBufferDepthBuffer()
+{
+    // 直接描画は中央へオフセットするため、深度もバックバッファ全体を覆う。
+    // ポストエフェクト用の固定解像度深度は別に保持する。
+    DXGI_SWAP_CHAIN_DESC1 swapDesc = {};
+    HRESULT hr = swapChain_->GetDesc1(&swapDesc);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    D3D12_RESOURCE_DESC desc = depthStencilResource_->GetDesc();
+    desc.Width = swapDesc.Width;
+    desc.Height = swapDesc.Height;
+    D3D12_HEAP_PROPERTIES heap = {};
+    heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    D3D12_CLEAR_VALUE clear = {};
+    clear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    clear.DepthStencil.Depth = 1.0f;
+    backBufferDepthResource_.Reset();
+    hr = device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&backBufferDepthResource_));
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    if (!backBufferDsvHeap_) {
+        backBufferDsvHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+    }
+    D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
+    view.Format = clear.Format;
+    view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    device_->CreateDepthStencilView(backBufferDepthResource_.Get(), &view, GetBackBufferDsvHandle());
+}
+
 void DirectXCommon::CreateRTV()
 {
     HRESULT hr;

@@ -47,9 +47,9 @@
     },
     {
       "name": "guide_s2_a", "type": "static", "kind": "ui_text",
-      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95],
-      "text": "探索区画  灰色の壁は奪ったハンマー(スロット切替 1-4)の攻撃で壊せる"
+      "text": "探索区画  灰色の壁は奪ったハンマー(スロット切替 {Slot})の攻撃で壊せる"
     },
     {
       "name": "gate_wall", "type": "static", "kind": "breakable",
@@ -84,6 +84,14 @@
       "position": [23.0, 7.4, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "s2_upper"
     },
     {
+      "name": "upper_bat", "type": "static", "kind": "enemy_basic",
+      "position": [31.0, 7.2, 0.0], "spawnType": "flying", "weaponType": "", "enemyModel": "Bat", "enemyGroup": "s2_upper"
+    },
+    {
+      "name": "start_slime", "type": "static", "kind": "enemy_basic",
+      "position": [9.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Slime", "enemyGroup": "s2_start"
+    },
+    {
       "name": "pickup_s2_1", "type": "static", "kind": "pickup",
       "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
       "position": [25.0, 6.0, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
@@ -115,13 +123,21 @@
     },
     {
       "name": "guide_s2_upper", "type": "static", "kind": "ui_text",
-      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_upper",
-      "text": "上段ルート  短剣なら空中で SPACE の空中ダッシュで足場を渡れる"
+      "text": "上段ルート  短剣なら空中で {Skill} の空中ダッシュで足場を渡れる"
     },
     {
       "name": "room_spear_1", "type": "static", "kind": "enemy_basic",
       "position": [30.0, -0.38, 0.0], "spawnType": "basic", "weaponType": "Spear", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "room_skeleton", "type": "static", "kind": "enemy_basic",
+      "position": [32.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Skeleton", "enemyGroup": "s2_room"
+    },
+    {
+      "name": "room_dragon", "type": "static", "kind": "enemy_basic",
+      "position": [36.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Dragon", "enemyGroup": "s2_room"
     },
     {
       "name": "room_dagger", "type": "static", "kind": "enemy_basic",
@@ -156,9 +172,9 @@
     },
     {
       "name": "guide_s2_room", "type": "static", "kind": "ui_text",
-      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_room",
-      "text": "槍の敵は遠くから投げてくる  I で紙一重に避けて踏み込め"
+      "text": "槍の敵は遠くから投げてくる  {Dodge} で紙一重に避けて踏み込め"
     },
     {
       "name": "s2_boss", "type": "static", "kind": "enemy_basic",
@@ -181,15 +197,15 @@
     },
     {
       "name": "guide_s2_boss", "type": "static", "kind": "ui_text",
-      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "s2_zone_boss",
-      "text": "槍のボス  投擲と範囲攻撃を避けて、覚醒 R で一気に削れ"
+      "text": "槍のボス  投擲と範囲攻撃を避けて、覚醒 {Awaken} で一気に削れ"
     },
     {
       "name": "guide_s2_done", "type": "static", "kind": "ui_text",
-      "position": [24.0, 575.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_s2_boss_defeated",
-      "text": "撃破完了  J で槍を奪ってステージクリア"
+      "text": "撃破完了  {Steal} で槍を奪ってステージクリア"
     }
   ]
 }

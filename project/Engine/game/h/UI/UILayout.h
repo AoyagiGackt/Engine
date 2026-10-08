@@ -68,8 +68,6 @@ public:
     /** @brief 位置項目をエディタから書き換える */
     void SetPosition(size_t index, const Vector2& position);
 
-    /** @brief エディタで値が変わるたびに増える番号（生成時にだけ配置するスプライト等の再配置判定に使う） */
-    uint32_t GetRevision() const { return revision_; }
 
     /** @brief 既定値と違う項目だけをJSONへ書き出す */
     void Save();
@@ -106,7 +104,6 @@ private:
     nlohmann::json loaded_;
     std::vector<Entry> entries_;
     std::unordered_map<std::string, size_t> indexOf_;
-    uint32_t revision_ = 0;
     bool unsaved_ = false;
     bool usedInScene_ = false;
 };

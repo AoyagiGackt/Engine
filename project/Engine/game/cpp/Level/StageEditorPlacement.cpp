@@ -55,7 +55,7 @@ constexpr float kScreenTextLabelOffsetY = 8.0f;
 // 3D投影せず2Dスクリーン座標のまま扱うべき配置物か（"screen"座標のui_text）
 bool IsScreenAnchorObject(const ObjectDesc& d)
 {
-    return d.kind == "ui_text" && d.textSpace == "screen";
+    return ObjectKind::Of(d.kind).IsScreenSpace(d);
 }
 } // namespace
 
@@ -133,7 +133,7 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
     for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
         const ObjectDesc& d = objects_[i].desc;
         // テキスト表示を隠している間は、見えていないui_textを誤って選択できないようにする
-        if (d.kind == "ui_text" && !showUIText_) {
+        if (d.kind == ObjectKindName::kUIText && !showUIText_) {
             continue;
         }
         // "screen"座標のui_textはpositionが既にスクリーンpx座標なので、3D投影せずマウスと直接比較する
@@ -219,20 +219,8 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY)
         return;
     }
 
-    ImGuiIO& io = ImGui::GetIO();
-    selKind_ = bestKind;
-    selIndex_ = bestIdx;
-    if (bestKind == SelKind::Object) {
-        if (!io.KeyCtrl) {
-            selectedObjectIndices_.clear();
-        }
-        auto selected = std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), bestIdx);
-        if (selected == selectedObjectIndices_.end()) {
-            selectedObjectIndices_.push_back(bestIdx);
-        }
-    } else {
-        selectedObjectIndices_.clear();
-    }
+    const ISelectionKind& grabbed = SelectionKindOf(bestKind);
+    grabbed.SelectFromClick(*this, bestIdx, ImGui::GetIO().KeyCtrl);
     viewportDragging_ = true;
 
     // ドラッグ1回ぶんを1つのUndoにまとめるため、変更前をここで控える
@@ -240,8 +228,7 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY)
     BeginUndoCapture();
 
     // "screen"座標のui_textはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
-    const bool screenSpaceText = (bestKind == SelKind::Object && IsScreenAnchorObject(objects_[bestIdx].desc));
-    if (screenSpaceText) {
+    if (grabbed.IsScreenAnchor(*this, bestIdx)) {
         const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
         dragGrabOffsetX_ = objects_[bestIdx].desc.position.x - logicalMouse.x;
         dragGrabOffsetY_ = objects_[bestIdx].desc.position.y - logicalMouse.y;
@@ -250,18 +237,9 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY)
 
     // Shift+ドラッグ(Z移動)用に、選択物の現在のZをスナップ前の生値として持つ
     Vector3 grabWorldPos { };
-    bool hasGrabWorldPos = true;
-    if (bestKind == SelKind::Object) {
-        dragRawZ_ = objects_[bestIdx].desc.position.z;
-        grabWorldPos = WorldPositionOf(objects_[bestIdx].desc);
-    } else if (bestKind == SelKind::Trigger) {
-        dragRawZ_ = triggers_[bestIdx].GetDesc().position.z;
-        grabWorldPos = triggers_[bestIdx].GetDesc().position;
-    } else if (externalEntities_[bestIdx].position) {
-        dragRawZ_ = externalEntities_[bestIdx].position->z;
-        grabWorldPos = *externalEntities_[bestIdx].position;
-    } else {
-        hasGrabWorldPos = false;
+    const bool hasGrabWorldPos = grabbed.WorldPosition(*this, bestIdx, grabWorldPos);
+    if (hasGrabWorldPos) {
+        dragRawZ_ = grabbed.LocalZ(*this, bestIdx);
     }
 
     // クリックした位置がオブジェクト原点とずれていても、その場で原点まで飛ばないよう、
@@ -280,8 +258,8 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY)
     ImGuiIO& io = ImGui::GetIO();
     const bool mouseMoved = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
 
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())
-        && IsScreenAnchorObject(objects_[selIndex_].desc)) {
+    const ISelectionKind& selected = SelectionKindOf(selKind_);
+    if (selected.IsScreenAnchor(*this, selIndex_)) {
         // スクリーン座標のテキストはワールド平面と無関係なので、マウスのピクセル位置へそのまま追従させる（Z移動もない）
         ObjectDesc& desc = objects_[selIndex_].desc;
         const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
@@ -303,23 +281,7 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY)
             camDist = (std::max)(1.0f, std::abs(camera_->GetTranslate().z));
         }
         dragRawZ_ += -io.MouseDelta.y * camDist * kZDragPerPixel;
-        const float snappedZ = SnapValue(dragRawZ_);
-        if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-            objects_[selIndex_].desc.position.z = snappedZ;
-            if (mouseMoved) {
-                MarkUndoDirty();
-            }
-        } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-            triggers_[selIndex_].GetDesc().position.z = snappedZ;
-            if (mouseMoved) {
-                MarkUndoDirty();
-            }
-        } else if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())) {
-            Vector3* pos = externalEntities_[selIndex_].position;
-            if (pos) {
-                pos->z = snappedZ;
-            }
-        }
+        selected.SetLocalZ(*this, selIndex_, SnapValue(dragRawZ_), mouseMoved);
         return;
     }
 
@@ -331,36 +293,7 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY)
     // スナップはワールド座標側で丸めてから、親がいる場合はローカル座標へ逆算する
     const float wx = SnapValue(ground.x + dragGrabOffsetX_);
     const float wy = SnapValue(ground.y + dragGrabOffsetY_);
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-        ObjectDesc& desc = objects_[selIndex_].desc;
-        Vector3 parentW = ParentWorldPositionOf(desc);
-        if (axis == 0 || axis == 1) {
-            desc.position.x = wx - parentW.x;
-        }
-        if (axis == 0 || axis == 2) {
-            desc.position.y = wy - parentW.y;
-        }
-        if (mouseMoved) {
-            MarkUndoDirty();
-        }
-    } else if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-        TriggerDesc& desc = triggers_[selIndex_].GetDesc();
-        if (axis == 0 || axis == 1) {
-            desc.position.x = wx;
-        }
-        if (axis == 0 || axis == 2) {
-            desc.position.y = wy;
-        }
-        if (mouseMoved) {
-            MarkUndoDirty();
-        }
-    } else if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())) {
-        Vector3* pos = externalEntities_[selIndex_].position;
-        if (pos) {
-            pos->x = wx;
-            pos->y = wy;
-        }
-    }
+    selected.DragTo(*this, selIndex_, wx, wy, axis, mouseMoved);
 }
 
 void StageEditor::SetParentPreservingWorld(int childIndex, int parentIndex)
@@ -409,53 +342,9 @@ int StageEditor::AddObjectAt(const std::string& kind, const Vector3& position)
     ObjectEntry entry;
     ObjectDesc& desc = entry.desc;
     desc.kind = kind;
-    desc.type = "static";
+    desc.type = PlacementType::Static;
     desc.position = { SnapValue(position.x), SnapValue(position.y), position.z };
-    if (kind == "prop" || kind == "gimmick" || kind == "breakable") {
-        desc.name = (kind == "prop" ? "obj_" : kind == "gimmick" ? "gimmick_" : "breakable_") + std::to_string(nextSerial_++);
-        desc.model = "Resources/block/block.obj";
-        desc.texture = "Resources/block/block.png";
-        desc.solid = kind != "breakable";
-        desc.lighting = kind != "prop";
-        if (kind == "gimmick") {
-            desc.activationFlag = desc.name + "_active";
-        }
-        if (kind == "breakable") {
-            constexpr float kBarrelScale = 0.9f;
-            desc.scale = { kBarrelScale, kBarrelScale, kBarrelScale };
-        }
-    } else if (kind == "pickup") {
-        constexpr float kPickupScale = 0.35f;
-        desc.name = "pickup_" + std::to_string(nextSerial_++);
-        desc.model = "Resources/block/block.obj";
-        desc.texture = "Resources/Effects/circle2.png";
-        desc.scale = { kPickupScale, kPickupScale, kPickupScale };
-        desc.lighting = false;
-        desc.solid = false;
-    } else if (kind == "enemy_basic" || kind == "spawn_point") {
-        desc.name = (kind == "enemy_basic" ? "enemy_" : "spawn_") + std::to_string(nextSerial_++);
-        desc.weaponType = "Sword";
-        if (kind == "spawn_point") {
-            desc.activationFlag = desc.name + "_active";
-        }
-    } else if (kind == "enemy_knight") {
-        desc.name = "knight_" + std::to_string(nextSerial_++);
-    } else if (kind == "camera_point") {
-        desc.name = "camera_" + std::to_string(nextSerial_++);
-        desc.activationFlag = desc.name + "_active";
-    } else if (kind == "patrol_point") {
-        desc.name = "waypoint_" + std::to_string(nextSerial_++);
-    } else if (kind == "event_condition") {
-        desc.name = "condition_" + std::to_string(nextSerial_++);
-    } else if (kind == "ui_text") {
-        constexpr float kWorldTextScale = 1.1f;
-        desc.name = "text_" + std::to_string(nextSerial_++);
-        desc.textSpace = "world";
-        desc.textScale = kWorldTextScale;
-        desc.text = "テキスト";
-    } else {
-        desc.name = kind + "_" + std::to_string(nextSerial_++);
-    }
+    ObjectKind::Of(kind).InitializeNewDesc(desc, nextSerial_++);
     entry.authoredPosition = desc.position;
     objects_.push_back(std::move(entry));
     const int index = static_cast<int>(objects_.size()) - 1;
@@ -470,7 +359,7 @@ int StageEditor::AddUITextAt(const Vector3& position, bool screenSpace)
 {
     const int index = AddObjectAt("ui_text", position);
     auto& entry = objects_[index];
-    entry.desc.textSpace = screenSpace ? "screen" : "world";
+    entry.desc.textSpace = screenSpace ? TextSpace::Screen : TextSpace::World;
     entry.desc.position = position;
     entry.authoredPosition = position;
     entry.desc.text = "ここに文章を入力";

@@ -1,0 +1,27 @@
+{
+  "comments": {
+    "c0": {
+      "text": "ボス区画に入った瞬間（フラグ s3_zone_boss）に走る。連戦の案内文を消す",
+      "x": -20,
+      "y": -120,
+      "w": 560,
+      "h": 90,
+      "colorR": 0.9,
+      "colorG": 0.85,
+      "colorB": 0.3
+    }
+  },
+  "start": "n_hide_0",
+  "nodes": {
+    "n_hide_0": {
+      "type": "SetObjectEnabled",
+      "params": {
+        "target": "guide_s3_d",
+        "enabled": false
+      },
+      "next": "",
+      "editorX": 0,
+      "editorY": 0
+    }
+  }
+}

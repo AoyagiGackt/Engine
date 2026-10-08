@@ -193,7 +193,6 @@ void UILayout::SetPosition(size_t index, const Vector2& position)
 
 void UILayout::MarkChanged()
 {
-    ++revision_;
     unsaved_ = true;
 }
 
@@ -257,7 +256,6 @@ void UILayout::Reload()
         std::copy(entry.defaultValue, entry.defaultValue + count, entry.value);
         ApplyLoadedValue(entry);
     }
-    ++revision_;
     unsaved_ = false;
 }
 

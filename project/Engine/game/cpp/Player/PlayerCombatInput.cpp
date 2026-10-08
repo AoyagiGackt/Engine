@@ -40,7 +40,6 @@ constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも
 void Player::ResetFrameFlags()
 {
     justJumped_ = false;
-    justWarped_ = false;
     justLanded_ = false;
     justEnteredWater_ = false;
     justExitedWater_ = false;
@@ -68,10 +67,10 @@ void Player::ResetFrameFlags()
 
 void Player::HandleStyleSwitch(Input* input)
 {
-    // 数字キーと十字キーを4つの武器スロットへ対応させる
+    // 数字キーと十字キー（上・右・下）を武器スロットへ対応させる
     auto* wm = WeaponManager::GetInstance();
     const int oldSlot = wm->GetSelectedSlot();
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < WeaponManager::kSlotCount; ++i) {
         if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
             wm->SelectSlot(i);
         }
@@ -82,8 +81,6 @@ void Player::HandleStyleSwitch(Input* input)
         wm->SelectSlot(1);
     } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_DOWN)) {
         wm->SelectSlot(2);
-    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_LEFT)) {
-        wm->SelectSlot(3);
     }
     if (wm->HasEquippedWeapon() && wm->GetSelectedSlot() != oldSlot) {
         meleeCombo_.Reset();
@@ -144,13 +141,13 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
 
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
     // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
-    if (!inWater_ && !finisherCharging_ && input->TriggerAction(Input::Action::Attack)) {
-        if (rampagePhase_ != RampagePhase::Inactive) {
-            GetRampageState(rampagePhase_).HandleAttackInput(*this, input, enemyPos);
+    if (!inWater_ && !finisherCharging_ && !meleeCombo_.IsSequenceActive() && input->TriggerAction(Input::Action::Attack)) {
+        if (IsRampaging()) {
+            rampage_->HandleAttackInput(*this, input, enemyPos);
         } else if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
             // 乱舞開始 まず敵に向かって突進（打ち上げフェーズ）
             meleeCombo_.Reset();
-            rampagePhase_ = RampagePhase::Launch;
+            rampage_ = &LaunchRampage();
             juggleSlashCount_ = 0;
             juggleAngleIdx_ = 0;
         } else {
@@ -178,6 +175,10 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
             comboStep_ = meleeCombo_.GetStep();
             if (atk->launcher) {
                 launchFollowTimer_ = kLaunchFollowWindow_;
+            }
+            // ハンマーの大車輪は締めで地面を叩き、周囲へ衝撃波を出す（習得したボス技の強化もここに乗る）
+            if (meleeCombo_.IsSequenceActive() && atk->finisher && wm->GetCurrent().type == WeaponType::Hammer) {
+                justGreatswordSlam_ = true;
             }
         }
         // 踏み込み（斬りながら前へ出ることで空振り感を減らす）
@@ -279,7 +280,7 @@ void Player::HandleWeaponSkill(Input* input)
 void Player::UpdateRampagePhysics(const Vector3& enemyPos)
 {
     // ── 乱舞フェーズ更新 ──────────────────────────────────────────
-    GetRampageState(rampagePhase_).UpdatePhysics(*this, enemyPos);
+    rampage_->UpdatePhysics(*this, enemyPos);
 
     // 乱舞中の自動スラッシュにも斬撃モーションを合わせる（フィニッシャーは溜め→解放側で再生する）
     if (justRampageHit_ || justRampageFinish_) {
@@ -321,7 +322,7 @@ void Player::UpdateAwakenState(Input* input)
         // （animState_ は移動系と必ず不一致になる Attack を番兵にする）
         attackAnimTimer_ = 0.0f;
         rig_->object->SetAnimSpeed(1.0f);
-        animState_ = AnimState::Attack;
+        animState_ = &AttackAnim();
     }
 }
 
@@ -329,7 +330,7 @@ void Player::ResolveEnemyOverlap(const Vector3& enemyPos)
 {
     // ── 敵とのめり込み防止（乱舞の突進/ジャグルは意図的に密着させる演出なので対象外）──
     // Y距離も見て、ジャンプで頭上を飛び越えている間は押し出さないようにする
-    if (rampagePhase_ == RampagePhase::Inactive) {
+    if (!IsRampaging()) {
         float dx = pos_.x - enemyPos.x;
         float dy = pos_.y - enemyPos.y;
         if (std::abs(dx) < kMinEnemyDistanceX_ && std::abs(dy) < kMinEnemyDistanceY_) {

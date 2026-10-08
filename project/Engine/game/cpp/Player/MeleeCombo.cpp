@@ -10,6 +10,7 @@
 #include "Weapon.h"
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <unordered_map>
 using namespace engine;
 using namespace engine::game;
@@ -129,6 +130,68 @@ constexpr MeleeAttackDef kAxeAir[] = {
 };
 constexpr MeleeAttackDef kAxeLauncher = { "axe_lau", 1.2f, 0.55f, 0.20f, 0.38f, 0.55f, 1.0f, 0.06f, 0.32f, true, 8, 1.2f, true, { 0, 0, -130 * kDeg }, { 0, 0, 130 * kDeg }, { -20 * kDeg, 0, 0 }, { 26 * kDeg, 0, 0 } };
 
+// ── 剣舞（刀の固有技）  回転を織り交ぜた十連撃を自動で出し切り、溜めた一太刀で締める ──
+// 末尾2項目は bodyTurns（体のその場回転数）と finisher（締め扱い）。cancelTime は使わないので duration と同じにする
+constexpr MeleeAttackDef kBladeDance[] = {
+    // 回転斬り
+    { "dnc1", 0.7f, 0.24f, 0.09f, 0.24f, 0.35f, 1.1f, 0.10f, 0.02f, false, 2, 2.2f, true, { 0, 0, 120 * kDeg }, { 0, 0, -100 * kDeg }, { 0, 0, 20 * kDeg }, { 0, 0, -18 * kDeg }, 1.0f, false },
+    // 返し斬り
+    { "dnc2", 0.7f, 0.20f, 0.07f, 0.20f, 0.20f, 1.1f, 0.10f, 0.02f, false, 2, 2.4f, true, { 0, 0, -110 * kDeg }, { 0, 0, 100 * kDeg }, { 0, 0, -20 * kDeg }, { 0, 0, 18 * kDeg }, 0.0f, false },
+    // 二回転斬り
+    { "dnc3", 0.8f, 0.30f, 0.12f, 0.30f, 0.30f, 1.15f, 0.12f, 0.02f, false, 3, 2.0f, true, { 0, 0, 150 * kDeg }, { 0, 0, -150 * kDeg }, { 0, 0, 26 * kDeg }, { 0, 0, -26 * kDeg }, 2.0f, false },
+    // 踏み込み突き
+    { "dnc4", 0.8f, 0.20f, 0.08f, 0.20f, 0.60f, 1.2f, 0.12f, 0.02f, false, 2, 2.4f, true, { -70 * kDeg, 0, 0 }, { 70 * kDeg, 0, 0 }, { -14 * kDeg, 0, 0 }, { 22 * kDeg, 0, 0 }, 0.0f, false },
+    // 斬り上げ
+    { "dnc5", 0.8f, 0.24f, 0.09f, 0.24f, 0.10f, 1.1f, 0.08f, 0.04f, false, 3, 2.2f, true, { 80 * kDeg, 0, 0 }, { -110 * kDeg, 0, 0 }, { -20 * kDeg, 0, 0 }, { 26 * kDeg, 0, 0 }, 0.0f, false },
+    // 逆回転斬り
+    { "dnc6", 0.7f, 0.24f, 0.09f, 0.24f, 0.25f, 1.1f, 0.10f, 0.02f, false, 2, 2.2f, true, { 0, 0, -120 * kDeg }, { 0, 0, 100 * kDeg }, { 0, 0, -20 * kDeg }, { 0, 0, 18 * kDeg }, -1.0f, false },
+    // 二段斬り（一の太刀）
+    { "dnc7", 0.6f, 0.16f, 0.06f, 0.16f, 0.10f, 1.1f, 0.08f, 0.02f, false, 2, 2.6f, true, { 0, 0, 90 * kDeg }, { 0, 0, -80 * kDeg }, { 0, 0, 16 * kDeg }, { 0, 0, -14 * kDeg }, 0.0f, false },
+    // 二段斬り（二の太刀）
+    { "dnc8", 0.6f, 0.16f, 0.06f, 0.16f, 0.10f, 1.1f, 0.08f, 0.02f, false, 2, 2.6f, true, { 0, 0, -90 * kDeg }, { 0, 0, 80 * kDeg }, { 0, 0, -16 * kDeg }, { 0, 0, 14 * kDeg }, 0.0f, false },
+    // 大回転斬り
+    { "dnc9", 0.9f, 0.34f, 0.14f, 0.34f, 0.35f, 1.2f, 0.12f, 0.02f, false, 4, 1.9f, true, { 0, 0, 170 * kDeg }, { 0, 0, -170 * kDeg }, { 0, 0, 32 * kDeg }, { 0, 0, -32 * kDeg }, 2.0f, false },
+    // 溜めて一太刀で斬り払う締め
+    { "dnc_fin", 2.2f, 0.62f, 0.30f, 0.62f, 0.80f, 1.4f, 0.50f, 0.12f, false, 14, 1.3f, true, { 0, 0, 175 * kDeg }, { 0, 0, -175 * kDeg }, { -16 * kDeg, 0, 30 * kDeg }, { 20 * kDeg, 0, -34 * kDeg }, 1.0f, true },
+};
+
+// ── 百裂突き（槍の固有技）  目にも止まらぬ連続突きから薙ぎ払いで回り、渾身の一突きで締める ──
+constexpr MeleeAttackDef kSpearRush[] = {
+    { "rsh1", 0.4f, 0.12f, 0.05f, 0.12f, 0.20f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -80 * kDeg, 0, 0 }, { 75 * kDeg, 0, 0 }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh2", 0.4f, 0.12f, 0.05f, 0.12f, 0.05f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -70 * kDeg, 0, 10 * kDeg }, { 80 * kDeg, 0, -10 * kDeg }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh3", 0.4f, 0.12f, 0.05f, 0.12f, 0.05f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -85 * kDeg, 0, -10 * kDeg }, { 70 * kDeg, 0, 10 * kDeg }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh4", 0.4f, 0.12f, 0.05f, 0.12f, 0.15f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -80 * kDeg, 0, 0 }, { 75 * kDeg, 0, 0 }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh5", 0.4f, 0.12f, 0.05f, 0.12f, 0.05f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -70 * kDeg, 0, 10 * kDeg }, { 80 * kDeg, 0, -10 * kDeg }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh6", 0.4f, 0.12f, 0.05f, 0.12f, 0.05f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -85 * kDeg, 0, -10 * kDeg }, { 70 * kDeg, 0, 10 * kDeg }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    { "rsh7", 0.4f, 0.12f, 0.05f, 0.12f, 0.15f, 1.15f, 0.06f, 0.01f, false, 1, 2.8f, true, { -80 * kDeg, 0, 0 }, { 75 * kDeg, 0, 0 }, { -10 * kDeg, 0, 0 }, { 16 * kDeg, 0, 0 }, 0.0f, false },
+    // 薙ぎ払いながら一回転
+    { "rsh8", 0.8f, 0.32f, 0.13f, 0.32f, 0.20f, 1.25f, 0.12f, 0.02f, false, 3, 2.0f, true, { 0, 0, 160 * kDeg }, { 0, 0, -150 * kDeg }, { 0, 0, 26 * kDeg }, { 0, 0, -24 * kDeg }, 1.0f, false },
+    // 溜めて渾身の一突き
+    { "rsh_fin", 2.0f, 0.55f, 0.26f, 0.55f, 1.20f, 1.4f, 0.50f, 0.10f, false, 12, 1.4f, true, { -100 * kDeg, 0, 0 }, { 85 * kDeg, 0, 0 }, { -24 * kDeg, 0, 0 }, { 30 * kDeg, 0, 0 }, 0.0f, true },
+};
+
+// ── 乱れ斬り（短剣の固有技）  回転を挟んだ高速の斬撃を重ね、回りながら斬り上げて締める ──
+constexpr MeleeAttackDef kDaggerFlurry[] = {
+    { "flr1", 0.5f, 0.15f, 0.05f, 0.15f, 0.30f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { 0, 0, 80 * kDeg }, { 0, 0, -70 * kDeg }, { 0, 0, 15 * kDeg }, { 0, 0, -12 * kDeg }, 0.0f, false },
+    { "flr2", 0.5f, 0.18f, 0.07f, 0.18f, 0.10f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { 0, 0, -80 * kDeg }, { 0, 0, 70 * kDeg }, { 0, 0, -15 * kDeg }, { 0, 0, 12 * kDeg }, 1.0f, false },
+    { "flr3", 0.5f, 0.15f, 0.05f, 0.15f, 0.10f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { -60 * kDeg, 0, 0 }, { 60 * kDeg, 0, 0 }, { -10 * kDeg, 0, 0 }, { 15 * kDeg, 0, 0 }, 0.0f, false },
+    { "flr4", 0.5f, 0.18f, 0.07f, 0.18f, 0.20f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { 0, 0, 90 * kDeg }, { 0, 0, -80 * kDeg }, { 0, 0, 16 * kDeg }, { 0, 0, -14 * kDeg }, -1.0f, false },
+    { "flr5", 0.5f, 0.15f, 0.05f, 0.15f, 0.10f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { 0, 0, -70 * kDeg }, { 0, 0, 60 * kDeg }, { 0, 0, -15 * kDeg }, { 0, 0, 12 * kDeg }, 0.0f, false },
+    { "flr6", 0.5f, 0.15f, 0.05f, 0.15f, 0.10f, 1.0f, 0.06f, 0.01f, false, 1, 2.6f, true, { 0, 0, 70 * kDeg }, { 0, 0, -60 * kDeg }, { 0, 0, 15 * kDeg }, { 0, 0, -12 * kDeg }, 0.0f, false },
+    { "flr7", 0.6f, 0.22f, 0.09f, 0.22f, 0.20f, 1.05f, 0.08f, 0.02f, false, 2, 2.3f, true, { 0, 0, -120 * kDeg }, { 0, 0, 120 * kDeg }, { 0, 0, -20 * kDeg }, { 0, 0, 20 * kDeg }, 2.0f, false },
+    // 回りながら斬り上げる
+    { "flr_fin", 1.8f, 0.48f, 0.20f, 0.48f, 0.40f, 1.2f, 0.40f, 0.12f, false, 12, 1.6f, true, { 80 * kDeg, 0, 0 }, { -120 * kDeg, 0, 0 }, { -20 * kDeg, 0, 0 }, { 28 * kDeg, 0, 0 }, 1.0f, true },
+};
+
+// ── 大車輪（ハンマーの固有技）  体ごと回る重い振り回しを重ね、地面へ叩きつけて衝撃波で締める ──
+constexpr MeleeAttackDef kHammerWheel[] = {
+    { "whl1", 0.8f, 0.42f, 0.18f, 0.42f, 0.25f, 1.1f, 0.15f, 0.03f, false, 4, 1.4f, false, { 0, 0, -150 * kDeg }, { 0, 0, 120 * kDeg }, { 0, 0, -24 * kDeg }, { 0, 0, 24 * kDeg }, 1.0f, false },
+    { "whl2", 0.8f, 0.38f, 0.16f, 0.38f, 0.25f, 1.1f, 0.15f, 0.03f, false, 4, 1.5f, false, { 0, 0, -150 * kDeg }, { 0, 0, 120 * kDeg }, { 0, 0, -24 * kDeg }, { 0, 0, 24 * kDeg }, 1.0f, false },
+    { "whl3", 1.0f, 0.50f, 0.22f, 0.50f, 0.30f, 1.15f, 0.18f, 0.04f, false, 6, 1.4f, false, { 0, 0, -170 * kDeg }, { 0, 0, 150 * kDeg }, { 0, 0, -30 * kDeg }, { 0, 0, 30 * kDeg }, 2.0f, false },
+    // 振りかぶって地面へ叩きつける
+    { "whl_fin", 2.4f, 0.80f, 0.38f, 0.80f, 0.50f, 1.3f, 0.50f, 0.14f, false, 14, 1.0f, false, { 0, 0, -160 * kDeg }, { 0, 0, 130 * kDeg }, { -32 * kDeg, 0, 0 }, { 42 * kDeg, 0, 0 }, 0.0f, true },
+};
+
 template <int N, int M>
 constexpr MeleeComboSet MakeSet(const MeleeAttackDef (&ground)[N], const MeleeAttackDef (&air)[M],
     const MeleeAttackDef& launcher)
@@ -235,6 +298,43 @@ const MeleeComboSet& engine::game::GetMeleeComboSet(WeaponType type)
     return sets[index < sets.size() ? index : 0].view;
 }
 
+bool engine::game::IsMeleeFinisher(WeaponType type, const MeleeAttackDef* attack)
+{
+    if (attack == nullptr) {
+        return false;
+    }
+    if (attack->launcher || attack->finisher) {
+        return true;
+    }
+    // 段はRuntimeComboSetの要素を指すが、JSON再読込で配列が作り直されても判定できるよう技IDで比べる
+    const MeleeComboSet& set = GetMeleeComboSet(type);
+    const auto isLast = [attack](const ComboArray<MeleeAttackDef>& combo) {
+        return combo.count > 0 && std::strcmp(combo.data[combo.count - 1].id, attack->id) == 0;
+    };
+    return isLast(set.ground) || isLast(set.air);
+}
+
+const ComboArray<MeleeAttackDef>& engine::game::GetSkillSequence(WeaponType type)
+{
+    static constexpr ComboArray<MeleeAttackDef> kSwordSequence = MakeComboArray(kBladeDance);
+    static constexpr ComboArray<MeleeAttackDef> kSpearSequence = MakeComboArray(kSpearRush);
+    static constexpr ComboArray<MeleeAttackDef> kDaggerSequence = MakeComboArray(kDaggerFlurry);
+    static constexpr ComboArray<MeleeAttackDef> kHammerSequence = MakeComboArray(kHammerWheel);
+    static constexpr ComboArray<MeleeAttackDef> kNoSequence { };
+    switch (type) {
+    case WeaponType::Sword:
+        return kSwordSequence;
+    case WeaponType::Spear:
+        return kSpearSequence;
+    case WeaponType::Dagger:
+        return kDaggerSequence;
+    case WeaponType::Hammer:
+        return kHammerSequence;
+    default:
+        return kNoSequence;
+    }
+}
+
 //  MeleeComboController
 
 const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool airborne,
@@ -265,6 +365,10 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
 
 bool MeleeComboController::TryAttack(WeaponType type, bool launcherInput, bool airborne)
 {
+    // 固有技の連撃を出し切るまでは通常の攻撃入力で割り込ませない
+    if (IsSequenceActive()) {
+        return false;
+    }
     // 武器が切り替わっていたらコンボは仕切り直し
     if (active_ != nullptr && type != type_) {
         Reset();
@@ -309,7 +413,7 @@ void MeleeComboController::StartStep(const MeleeAttackDef* def, int tableIdx, bo
     launcherMode_ = isLauncher;
     timer_ = 0.0f;
     hitDone_ = false;
-    justStarted_ = true;
+    startPending_ = true;
     buffered_ = false;
     chainGraceTimer_ = 0.0f;
 }
@@ -319,7 +423,14 @@ void MeleeComboController::Update(float dt)
     justHit_ = false;
     justStarted_ = false;
     lungeDelta_ = 0.0f;
+    AdvanceStep(dt);
+    // TryAttack()/StartSequence()でUpdate()より前に始まった段も、このフレームの開始として拾えるようにする
+    justStarted_ = startPending_;
+    startPending_ = false;
+}
 
+void MeleeComboController::AdvanceStep(float dt)
+{
     if (active_ == nullptr) {
         chainGraceTimer_ = (std::max)(chainGraceTimer_ - dt, 0.0f);
         return;
@@ -353,6 +464,18 @@ void MeleeComboController::Update(float dt)
         buffered_ = false;
     }
 
+    // 連撃表を自動で進めている間は、段が終わるたびに次の段を出し、最後まで出し切ったら終える
+    if (sequence_.data != nullptr && timer_ >= active_->duration) {
+        const int next = stepIdx_ + 1;
+        if (next < sequence_.count) {
+            StartStep(&sequence_[next], next, airMode_, false);
+        } else {
+            sequence_ = { };
+            active_ = nullptr;
+        }
+        return;
+    }
+
     // モーション終了
     if (timer_ >= active_->duration) {
         // 打ち上げ技の後は仕切り直し、通常段は猶予内なら次の段へ繋がる
@@ -370,10 +493,33 @@ void MeleeComboController::Reset()
     hitDone_ = false;
     justHit_ = false;
     justStarted_ = false;
+    startPending_ = false;
     buffered_ = false;
     chainGraceTimer_ = 0.0f;
     lungeDelta_ = 0.0f;
     launcherMode_ = false;
+    sequence_ = { };
+}
+
+void MeleeComboController::StartSequence(const ComboArray<MeleeAttackDef>& sequence)
+{
+    Reset();
+    if (sequence.count <= 0) {
+        return;
+    }
+    sequence_ = sequence;
+    StartStep(&sequence_[0], 0, false, false);
+}
+
+float MeleeComboController::GetBodyTurnOffset() const
+{
+    if (active_ == nullptr || active_->bodyTurns == 0.0f) {
+        return 0.0f;
+    }
+    // 振り抜きの終わりまでに回り切り、その後は正面へ戻った状態（整数回転なら見た目は元の向き）で構え直す
+    const float strikeEnd = (std::min)(active_->hitTime * kStrikeEndHitRatio, active_->duration * kStrikeEndDurationRatio);
+    const float t = Easing::EaseOutCubic((std::min)(timer_ / strikeEnd, 1.0f));
+    return active_->bodyTurns * GameConstants::kTwoPi * t;
 }
 
 Vector3 MeleeComboController::BlendPhase(const Vector3& from, const Vector3& to) const

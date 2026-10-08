@@ -15,18 +15,11 @@ using namespace engine::game;
 namespace {
 // 固有技ごとのモーション再生速度
 constexpr float kDaggerAirDashAnimSpeed = 2.0f;
-constexpr float kDaggerStingerAnimSpeed = 1.8f;
-constexpr float kHammerSlamAnimSpeed = 0.7f;
 constexpr float kBallSpinShotAnimSpeed = 2.2f;
-constexpr float kSwordReleaseAnimSpeed = 2.2f;
-constexpr float kSwordDashAnimSpeed = 2.4f;
-constexpr float kSpearChargeAnimSpeed = 2.2f;
 constexpr float kGreatswordThrowAnimSpeed = 1.3f;
 constexpr float kScytheHoverAnimSpeed = 1.25f;
 constexpr float kAxeChargeAnimSpeed = 1.1f;
 
-constexpr float kSwordImpactHeight = 0.25f; // 剣の高速移動で斬撃を置く高さ（足元から）
-constexpr float kSpearSpinDegreesPerFrame = 54.0f;
 }
 
 //  Weapon Behavior Strategy（武器種別ごとのスペースキー挙動）
@@ -100,12 +93,8 @@ void Player::DaggerBehavior::Update(Player& player, Input* input) const
     }
 
     if (player.daggerStingerHitIndex_ < 0) {
-        if (input->TriggerAction(Input::Action::Skill) && player.daggerStingerCooldown_ <= 0.0f) {
-            player.BeginDash(player.daggerStingerDash_,
-                player.lastDirX_ * kDaggerStingerDashDist_ * player.skillMods_.blinkDistMult);
-            player.daggerStingerCooldown_ = kDaggerStingerCooldown_;
-            player.PlayAttackAnim(player.rig_->slashAnim, kDaggerStingerAnimSpeed);
-        }
+        // 地上では乱れ斬り: 回転を挟んだ高速の斬撃を重ね、回りながら斬り上げて敵を打ち飛ばす
+        player.TryStartSkillSequence(input, WeaponType::Dagger, player.daggerStingerCooldown_, kDaggerStingerCooldown_);
         return;
     }
 
@@ -124,11 +113,9 @@ void Player::DaggerBehavior::Update(Player& player, Input* input) const
 
 void Player::HammerBehavior::Update(Player& player, Input* input) const
 {
-    // 地上でハンマーを叩きつけ、障害物と周囲の敵をまとめて破壊する
-    if (input->TriggerAction(Input::Action::Skill) && player.greatswordSkillCooldown_ <= 0.0f && player.onGround_) {
-        player.justGreatswordSlam_ = true;
-        player.greatswordSkillCooldown_ = kGreatswordSkillCooldown_;
-        player.PlayAttackAnim(player.rig_->slashAnim, kHammerSlamAnimSpeed);
+    // 大車輪: 体ごと回る振り回しを重ね、最後に地面へ叩きつけて衝撃波を出す（叩きつけはHandleMeleeCombatで最終段のヒットに合わせて発生）
+    if (player.onGround_) {
+        player.TryStartSkillSequence(input, WeaponType::Hammer, player.greatswordSkillCooldown_, kGreatswordSkillCooldown_);
     }
 }
 
@@ -154,48 +141,30 @@ void Player::BallBehavior::Update(Player& player, Input* input) const
 
 void Player::SwordBehavior::Update(Player& player, Input* input) const
 {
-    // 高速で敵を通過した後、納刀の間を置いて斬撃を解放する
-    if (player.swordDash_.active) {
-        if (player.AdvanceDash(player.swordDash_)) {
-            player.swordReleasePending_ = true;
-            player.swordReleaseTimer_ = kSwordReleaseDelay_;
-            player.PlayAttackAnim(player.rig_->idleHoldAnim, kSwordReleaseAnimSpeed);
-        }
-        return;
+    // 剣舞: 回転を織り交ぜた連撃を自動で出し切り、最後の一太刀で敵を打ち飛ばす
+    player.TryStartSkillSequence(input, WeaponType::Sword, player.swordSkillCooldown_, kSwordSkillCooldown_);
+}
+
+bool Player::TryStartSkillSequence(Input* input, WeaponType type, float& cooldown, float cooldownSeconds)
+{
+    // 段の進行・ヒット・振りの見た目は通常コンボと同じ仕組み（MeleeComboController）に乗せる
+    if (!input->TriggerAction(Input::Action::Skill) || cooldown > 0.0f || meleeCombo_.IsSequenceActive()) {
+        return false;
     }
-    if (player.swordReleasePending_) {
-        player.swordReleaseTimer_ -= GameConstants::kFrameDeltaTime;
-        if (player.swordReleaseTimer_ <= 0.0f) {
-            player.swordReleasePending_ = false;
-            player.justSwordDash_ = true;
-        }
-        return;
+    const ComboArray<MeleeAttackDef>& sequence = GetSkillSequence(type);
+    if (sequence.count <= 0) {
+        return false;
     }
-    if (input->TriggerAction(Input::Action::Skill) && player.swordSkillCooldown_ <= 0.0f) {
-        player.BeginDash(player.swordDash_, player.lastDirX_ * kSwordDashDist_);
-        player.swordImpactPosition_ = { (player.swordDash_.startX + player.swordDash_.targetX) * 0.5f,
-            player.pos_.y + kSwordImpactHeight, player.pos_.z };
-        player.swordSkillCooldown_ = kSwordSkillCooldown_;
-        player.PlayAttackAnim(player.rig_->runHoldAnim, kSwordDashAnimSpeed);
-    }
+    // 1段目のモーションは次フレームのHandleMeleeCombat()で段の開始として再生される
+    meleeCombo_.StartSequence(sequence);
+    cooldown = cooldownSeconds;
+    return true;
 }
 
 void Player::SpearBehavior::Update(Player& player, Input* input) const
 {
-    // 槍と全身を回転させながら前方へ突撃する
-    if (player.spearDash_.active) {
-        player.spinAngle_ = std::fmod(player.spinAngle_ + kSpearSpinDegreesPerFrame, kFullTurnDegrees_);
-        if (player.AdvanceDash(player.spearDash_)) {
-            player.justSpearRetreat_ = true;
-            player.spinAngle_ = 0.0f;
-        }
-        return;
-    }
-    if (input->TriggerAction(Input::Action::Skill) && player.spearSkillCooldown_ <= 0.0f) {
-        player.BeginDash(player.spearDash_, player.lastDirX_ * kSpearChargeDist_);
-        player.spearSkillCooldown_ = kSpearSkillCooldown_;
-        player.PlayAttackAnim(player.rig_->slashAnim, kSpearChargeAnimSpeed);
-    }
+    // 百裂突き: 連続突きから薙ぎ払いで回り、渾身の一突きで敵を打ち飛ばす
+    player.TryStartSkillSequence(input, WeaponType::Spear, player.spearSkillCooldown_, kSpearSkillCooldown_);
 }
 
 void Player::GreatswordBehavior::Update(Player& player, Input* input) const
@@ -262,7 +231,6 @@ void Player::UpdateGreatswordThrowState(Input* input)
 void Player::ScytheBehavior::Update(Player& player, Input* input) const
 {
     // 滞空ホバー 空中限定で降下を抑える。時間制のリソースで無限滞空を防ぎ、着地で回復する
-    player.isScytheHovering_ = false;
     if (player.onGround_) {
         player.scytheHoverTimer_ = (std::min)(player.scytheHoverTimer_ + GameConstants::kFrameDeltaTime * kScytheHoverRecoverRate_, kScytheHoverMax_);
         return;
@@ -272,7 +240,6 @@ void Player::ScytheBehavior::Update(Player& player, Input* input) const
             player.PlayAttackAnim(player.rig_->slashAnim, kScytheHoverAnimSpeed);
             player.justScytheSpin_ = true;
         }
-        player.isScytheHovering_ = true;
         player.velocityY_ = (std::max)(player.velocityY_, kScytheHoverVYCap_);
         player.scytheHoverTimer_ -= GameConstants::kFrameDeltaTime;
     }

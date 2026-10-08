@@ -110,10 +110,14 @@ void FloatingTitle::Update(bool allowInteraction)
 {
     const float dt = GameConstants::kFrameDeltaTime;
     floatTime_ += dt;
-    const POINT mouse = input_->GetMouseClientPosition();
+    const POINT clientMouse = input_->GetMouseClientPosition();
     const auto client = dxCommon_->GetCenteredClientViewport();
-    const float x = mouse.x - client.TopLeftX;
-    const float y = mouse.y - client.TopLeftY;
+    const Vector2 mouse = {
+        (clientMouse.x - client.TopLeftX) * GameConstants::kScreenWidth / client.Width,
+        (clientMouse.y - client.TopLeftY) * GameConstants::kScreenHeight / client.Height
+    };
+    const float x = mouse.x;
+    const float y = mouse.y;
     const bool hovered = x >= kViewportX && x <= kViewportX + kViewportWidth
         && y >= kViewportY && y <= kViewportY + kViewportHeight;
     bool canDrag = allowInteraction;
@@ -178,12 +182,15 @@ void FloatingTitle::Draw()
 {
     auto* cmd = dxCommon_->GetCommandList();
     const auto client = dxCommon_->GetCenteredClientViewport();
-    const D3D12_VIEWPORT viewport = { client.TopLeftX + kViewportX, client.TopLeftY + kViewportY,
-        kViewportWidth, kViewportHeight, 0.0f, 1.0f };
+    const float scaleX = client.Width / GameConstants::kScreenWidth;
+    const float scaleY = client.Height / GameConstants::kScreenHeight;
+    const D3D12_VIEWPORT viewport = { client.TopLeftX + kViewportX * scaleX,
+        client.TopLeftY + kViewportY * scaleY,
+        kViewportWidth * scaleX, kViewportHeight * scaleY, 0.0f, 1.0f };
     const D3D12_RECT scissor = { static_cast<LONG>(viewport.TopLeftX), static_cast<LONG>(viewport.TopLeftY),
         static_cast<LONG>(viewport.TopLeftX + viewport.Width), static_cast<LONG>(viewport.TopLeftY + viewport.Height) };
     // ロゴの専用範囲だけ深度を消し、背景デモに隠れず常に同じ場所へ表示する。
-    cmd->ClearDepthStencilView(dxCommon_->GetDsvHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &scissor);
+    cmd->ClearDepthStencilView(dxCommon_->GetBackBufferDsvHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &scissor);
     cmd->RSSetViewports(1, &viewport);
     cmd->RSSetScissorRects(1, &scissor);
     modelCommon_->CommonDrawSettings();

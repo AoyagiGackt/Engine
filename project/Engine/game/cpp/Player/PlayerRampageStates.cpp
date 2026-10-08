@@ -18,6 +18,7 @@ class Player::InactiveRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override { }
+        bool IsActive() const override { return false; }
     };
 class Player::LaunchRampageState : public IRampageState {
     public:
@@ -28,6 +29,7 @@ class Player::JuggleRampageState : public IRampageState {
     public:
         void HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const override;
         void UpdatePhysics(Player& player, const Vector3& enemyPos) const override;
+        bool IsJuggling() const override { return true; }
     };
 }
 
@@ -53,7 +55,7 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
     if (std::abs(dx) < kRampageReachDistance_) {
         player.justLaunched_ = true;
         player.velocityY_ = kRampageLaunchSpeed_;
-        player.rampagePhase_ = RampagePhase::Juggle;
+        player.rampage_ = &JuggleRampage();
     }
 }
 void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
@@ -78,7 +80,7 @@ void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input,
     player.justRampageHit_ = true;
     player.justRampageFinish_ = isLast;
     if (isLast) {
-        player.rampagePhase_ = RampagePhase::Inactive;
+        player.rampage_ = &InactiveRampage();
     }
 }
 
@@ -88,17 +90,20 @@ void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& en
     player.velocityY_ = 0.0f;
 }
 
-const Player::IRampageState& Player::GetRampageState(RampagePhase phase)
+const Player::IRampageState& Player::InactiveRampage()
 {
-    static InactiveRampageState inactive;
-    static LaunchRampageState launch;
-    static JuggleRampageState juggle;
-    switch (phase) {
-    case RampagePhase::Launch:
-        return launch;
-    case RampagePhase::Juggle:
-        return juggle;
-    default:
-        return inactive;
-    }
+    static const InactiveRampageState instance;
+    return instance;
+}
+
+const Player::IRampageState& Player::LaunchRampage()
+{
+    static const LaunchRampageState instance;
+    return instance;
+}
+
+const Player::IRampageState& Player::JuggleRampage()
+{
+    static const JuggleRampageState instance;
+    return instance;
 }

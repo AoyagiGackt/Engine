@@ -219,10 +219,7 @@ void StageEditor::ResetLevelLocalFlags(const LevelData& data)
         if (desc.name.empty()) {
             continue;
         }
-        const char* prefix = desc.kind == "event_condition" ? "condition_"
-            : desc.kind == "pickup"                         ? "pickup_"
-            : desc.kind == "breakable"                      ? "broken_"
-                                                            : nullptr;
+        const char* prefix = ObjectKind::Of(desc.kind).RuntimeFlagPrefix();
         if (!prefix) {
             continue;
         }
@@ -244,19 +241,12 @@ void StageEditor::FocusCameraOn(const Vector3& worldPosition)
     cameraPosition.y = worldPosition.y + kFocusOffsetY;
 }
 
+#ifdef USE_IMGUI
 void StageEditor::FocusCameraOnSelection()
 {
-    if (selKind_ == SelKind::Object && selIndex_ >= 0 && selIndex_ < static_cast<int>(objects_.size())) {
-        FocusCameraOn(WorldPositionOf(objects_[selIndex_].desc));
-        return;
-    }
-    if (selKind_ == SelKind::Trigger && selIndex_ >= 0 && selIndex_ < static_cast<int>(triggers_.size())) {
-        FocusCameraOn(triggers_[selIndex_].GetDesc().position);
-        return;
-    }
-    if (selKind_ == SelKind::External && selIndex_ >= 0 && selIndex_ < static_cast<int>(externalEntities_.size())
-        && externalEntities_[selIndex_].position) {
-        FocusCameraOn(*externalEntities_[selIndex_].position);
+    Vector3 selectionPosition;
+    if (SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, selectionPosition)) {
+        FocusCameraOn(selectionPosition);
         return;
     }
     for (const ExternalEntityRef& ref : externalEntities_) {
@@ -266,6 +256,7 @@ void StageEditor::FocusCameraOnSelection()
         }
     }
 }
+#endif
 
 bool StageEditor::StartPlayTestAt(const Vector3& worldPosition)
 {
@@ -561,38 +552,7 @@ void StageEditor::HandleEditorShortcuts()
 
 void StageEditor::NudgeSelection(float dx, float dy, float dz)
 {
-    if (selKind_ == SelKind::Trigger) {
-        if (selIndex_ < 0 || selIndex_ >= static_cast<int>(triggers_.size())) {
-            return;
-        }
-        RecordUndoSnapshotNow();
-        Vector3& position = triggers_[selIndex_].GetDesc().position;
-        position = position + Vector3 { dx, dy, dz };
-        return;
-    }
-    if (selKind_ == SelKind::External) {
-        if (selIndex_ < 0 || selIndex_ >= static_cast<int>(externalEntities_.size()) || !externalEntities_[selIndex_].position) {
-            return;
-        }
-        Vector3& position = *externalEntities_[selIndex_].position;
-        position = position + Vector3 { dx, dy, dz };
-        return;
-    }
-    if (selKind_ != SelKind::Object || selectedObjectIndices_.empty()) {
-        return;
-    }
-    RecordUndoSnapshotNow();
-    for (int index : selectedObjectIndices_) {
-        if (index < 0 || index >= static_cast<int>(objects_.size())) {
-            continue;
-        }
-        ObjectEntry& entry = objects_[index];
-        entry.desc.position = entry.desc.position + Vector3 { dx, dy, dz };
-        entry.authoredPosition = entry.desc.position;
-        if (IsVisualKind(entry.desc.kind)) {
-            RefreshTransforms(entry);
-        }
-    }
+    SelectionKindOf(selKind_).Nudge(*this, selIndex_, { dx, dy, dz });
 }
 
 void StageEditor::DrawGridOverlay()

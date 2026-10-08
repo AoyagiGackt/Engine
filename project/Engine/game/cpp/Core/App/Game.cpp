@@ -5,7 +5,6 @@
 #include "Game.h"
 #include "AssetPack.h"
 #include "Logger.h"
-#include "DelayTimer.h"
 #include "FrameProfiler.h"
 #include "GameConstants.h"
 #include "GamePlayScene.h"
@@ -19,6 +18,7 @@
 #include "SaveData.h"
 #include "SceneFactory.h"
 #include "SceneManager.h"
+#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "TextureManager.h"
 #include "TimeManager.h"
@@ -83,8 +83,9 @@ void MyGame::Initialize()
         imguiManager_.get());
     LogLoadProfile("タイトル準備完了");
 
-    // コンティニューデータ・通算記録を読み込む
+    // コンティニューデータ・通算記録・スコアランキングを読み込む
     SaveDataManager::GetInstance()->Load();
+    ScoreManager::GetInstance()->LoadScores();
 
     // スクリーンフラッシュ初期化
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
@@ -103,7 +104,6 @@ void MyGame::Update()
     audio_->Update(GameConstants::kFrameDeltaTime);
 
     // 遅延コールバック・スクリーンフラッシュを毎フレーム更新
-    DelayTimer::GetInstance()->Update(GameConstants::kFrameDeltaTime);
     ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
 
 #ifdef _DEBUG

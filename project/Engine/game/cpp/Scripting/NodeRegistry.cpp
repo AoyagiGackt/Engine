@@ -180,7 +180,7 @@ NodeResult ExecHealPlayer(GraphRuntime& rt, const GraphNode& node, std::string& 
     return NodeResult::Continue;
 }
 
-// targetはEnemyRegistryに登録されたid（Scene側がEnemyEntity::SetId+Register済みであること）
+// targetはEnemyRegistryに登録されたid（Scene側がRegister済みであること）
 NodeResult ExecDamageEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));

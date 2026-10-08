@@ -66,6 +66,7 @@ void DirectXCommon::Initialize(WinApp* winApp)
     CreateRTV();
     // 深度バッファ作成
     CreateDepthBuffer();
+    CreateBackBufferDepthBuffer();
     // フェンス作成
     CreateFence();
     // DXCコンパイラ初期化
@@ -125,19 +126,19 @@ void DirectXCommon::PreDraw()
         D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // 描画先と深度を設定
-    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = GetBackBufferDsvHandle();
     commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, &dsvHandle);
 
-    // 画面クリア（固定解像度をバックバッファ中央に配置する構成のため、ウィンドウ/フルスクリーンの
-    // 解像度が1280x720と異なる時は余白が生じる。目立たない黒にしてレターボックスに見せる）
+    // 縦横比が異なる画面のレターボックス部分は黒でクリアする。
     static constexpr float kClearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], kClearColor, 0, nullptr);
 
     // 深度クリア
     commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+    commandList_->ClearDepthStencilView(GetDsvHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
     // ビューポートとシザー矩形の設定
-    // 深度バッファ（固定解像度）を併用するため拡大はせず、バックバッファ中央に配置する
+    // 縦横比を保ち、バックバッファに収まる最大サイズで描画する。
     D3D12_VIEWPORT viewport = GetCenteredClientViewport();
     commandList_->RSSetViewports(1, &viewport);
 
@@ -320,6 +321,7 @@ void DirectXCommon::OnResize(uint32_t width, uint32_t height)
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     CreateRTV();
+    CreateBackBufferDepthBuffer();
 }
 
 D3D12_VIEWPORT DirectXCommon::GetBackBufferViewport() const
@@ -371,24 +373,7 @@ D3D12_RECT DirectXCommon::GetBackBufferScissorRect() const
 
 D3D12_VIEWPORT DirectXCommon::GetCenteredClientViewport() const
 {
-    uint32_t backBufferWidth = winApp_->kClientWidth;
-    uint32_t backBufferHeight = winApp_->kClientHeight;
-    if (swapChain_) {
-        DXGI_SWAP_CHAIN_DESC1 desc = { };
-        if (SUCCEEDED(swapChain_->GetDesc1(&desc)) && desc.Width > 0 && desc.Height > 0) {
-            backBufferWidth = desc.Width;
-            backBufferHeight = desc.Height;
-        }
-    }
-
-    D3D12_VIEWPORT viewport = { };
-    viewport.TopLeftX = (static_cast<float>(backBufferWidth) - static_cast<float>(winApp_->kClientWidth)) * 0.5f;
-    viewport.TopLeftY = (static_cast<float>(backBufferHeight) - static_cast<float>(winApp_->kClientHeight)) * 0.5f;
-    viewport.Width = static_cast<float>(winApp_->kClientWidth);
-    viewport.Height = static_cast<float>(winApp_->kClientHeight);
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
-    return viewport;
+    return GetBackBufferViewport();
 }
 
 D3D12_RECT DirectXCommon::GetCenteredClientScissorRect() const

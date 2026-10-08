@@ -5,6 +5,7 @@
 #include "GamePlayScene.h"
 #include "AudioBridge.h"
 #include "CombatTuning.h"
+#include "ElementEffect.h"
 #include "EnemyTuning.h"
 #include "GameConstants.h"
 #include "GameFlags.h"
@@ -21,7 +22,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -78,6 +78,25 @@ void GamePlayScene::EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& c
     constexpr float kExtraRingLifetimeScale = 1.5f;
     constexpr float kExtraRingSizeScale = 1.15f;
 
+    // 当て続けるほど盛る（途切れずに当てた手応えを命中演出の量で返す）
+    constexpr float kHitEscalationKeepSeconds = 2.0f; // この秒数ヒットが無いと盛り度合いが初撃に戻る
+    constexpr float kEscalationStrengthGain = 0.6f; // 上限時に大きさへ足す割合
+    constexpr int kEscalationExtraSparks = 18; // 上限時に足す火花の数
+    constexpr float kEscalationExtraBurstGain = 1.0f; // 上限時に武器固有の追加バーストへ足す割合
+    constexpr float kEscalationOuterRingThreshold = 0.4f; // この盛り度合い以上で外側のリングを重ねる
+    constexpr float kEscalationOuterRingSpeed = 4.2f;
+    constexpr int kEscalationOuterRingCount = 14;
+    constexpr float kEscalationOuterRingLifetime = 0.26f;
+    constexpr float kEscalationOuterRingSize = 0.11f;
+    constexpr float kEscalationMaxThreshold = 1.0f; // 上限に達したら星をもう1つ重ねる
+
+    ++hitEscalationCount_;
+    hitEscalationTimer_ = kHitEscalationKeepSeconds;
+    const float escalation = HitEscalationRatio();
+    strength *= 1.0f + kEscalationStrengthGain * escalation;
+    extraBurstCount += static_cast<int>(static_cast<float>(extraBurstCount) * kEscalationExtraBurstGain * escalation);
+    const int sparkCount = kSparkCount + static_cast<int>(static_cast<float>(kEscalationExtraSparks) * escalation);
+
     const Vector3& ppos = player_->GetPosition();
     const Vector3 hitPos = {
         enemyPos.x + (ppos.x - enemyPos.x) * kSurfaceLerp,
@@ -88,10 +107,17 @@ void GamePlayScene::EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& c
     // 白い芯→属性色の星→広がるリング→散る火花の順に重ねて、当たった一点をはっきり見せる
     pm_->EmitWithColor("hit_spark", hitPos, { 0.0f, 0.0f, 0.0f }, kCoreColor, kCoreLifetime, kCoreScale * strength);
     pm_->EmitHitStar("hit_spark", hitPos, color);
+    if (escalation >= kEscalationMaxThreshold) {
+        pm_->EmitHitStar("hit_spark", hitPos, kCoreColor);
+    }
     pm_->EmitRing("hit_ring", hitPos, kRingSpeed * strength, color, kRingCount, kRingLifetime, kRingSize * strength);
+    if (escalation >= kEscalationOuterRingThreshold) {
+        pm_->EmitRing("hit_ring", hitPos, kEscalationOuterRingSpeed * strength, color, kEscalationOuterRingCount,
+            kEscalationOuterRingLifetime, kEscalationOuterRingSize * strength);
+    }
     std::uniform_real_distribution<float> vxD(-kSparkSpreadX, kSparkSpreadX);
     std::uniform_real_distribution<float> vyD(kSparkRiseMin, kSparkRiseMax);
-    for (int i = 0; i < kSparkCount; ++i) {
+    for (int i = 0; i < sparkCount; ++i) {
         pm_->EmitGravity("hit_spark", hitPos, { vxD(rng_) * strength, vyD(rng_) * strength, 0.0f },
             color, kSparkLifetime, kSparkSize * strength);
     }
@@ -114,147 +140,28 @@ void GamePlayScene::EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& c
     }
 }
 
+float GamePlayScene::HitEscalationRatio() const
+{
+    constexpr int kEscalationMaxHits = 20; // この連続ヒット数で盛り度合いが上限になる
+    const int hits = (std::max)(hitEscalationCount_ - 1, 0);
+    return (std::min)(static_cast<float>(hits) / static_cast<float>(kEscalationMaxHits), 1.0f);
+}
+
 void GamePlayScene::EmitElementalHitEffect(const WeaponData& weapon, const Vector3& enemyPos, int comboStep)
 {
     constexpr float kStepScalePerCombo = 0.12f; // コンボ段が1上がるごとの演出拡大率
-
     const Vector4 color = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
-    const float stepScale = 1.0f + kStepScalePerCombo * static_cast<float>((std::max)(comboStep - 1, 0));
-    const float dir = player_->GetLastDirX();
+    EmitElementalHitEffect(weapon.element, color, enemyPos,
+        1.0f + kStepScalePerCombo * static_cast<float>((std::max)(comboStep - 1, 0)));
+}
 
-    if (weapon.element == "Fire") {
-        // 炎: 命中点から赤橙色の火の粉が上へ噴き上がる。
-        constexpr int kEmberCount = 10;
-        constexpr int kEmberColumns = 5; // 横方向に並べる列数
-        constexpr int kEmberCenterColumn = 2;
-        constexpr float kEmberColumnSpacing = 0.65f;
-        constexpr float kEmberRiseBase = 3.2f;
-        constexpr int kEmberRiseSteps = 3;
-        constexpr float kEmberRiseStep = 0.9f;
-        constexpr Vector4 kEmberSubColor = { 1.0f, 0.55f, 0.05f, 1.0f };
-        constexpr float kEmberLifetime = 0.5f;
-        constexpr float kEmberSize = 0.18f;
-        for (int i = 0; i < kEmberCount; ++i) {
-            const float side = static_cast<float>((i % kEmberColumns) - kEmberCenterColumn) * kEmberColumnSpacing;
-            pm_->EmitGravity("hit_spark", enemyPos, { side, kEmberRiseBase + (i % kEmberRiseSteps) * kEmberRiseStep, 0.0f },
-                i % 2 == 0 ? color : kEmberSubColor, kEmberLifetime, kEmberSize * stepScale);
-        }
-    } else if (weapon.element == "Lightning") {
-        // 雷: 白い芯を持つ高速の十字放電。
-        constexpr float kBoltSpeedX = 2.0f;
-        constexpr float kHorizontalBoltLifetime = 0.16f;
-        constexpr float kHorizontalBoltLength = 3.4f;
-        constexpr float kHorizontalBoltThickness = 0.12f;
-        constexpr Vector4 kBoltCoreColor = { 1.0f, 1.0f, 0.85f, 1.0f };
-        constexpr float kVerticalBoltLifetime = 0.12f;
-        constexpr float kVerticalBoltThickness = 0.14f;
-        constexpr float kVerticalBoltLength = 3.0f;
-        constexpr float kBoltRingSpeed = 4.5f;
-        constexpr int kBoltRingCount = 8;
-        constexpr float kBoltRingLifetime = 0.14f;
-        constexpr float kBoltRingSize = 0.1f;
-        pm_->EmitEllipse("hit_spark", enemyPos, { dir * kBoltSpeedX, 0.0f, 0.0f }, color,
-            kHorizontalBoltLifetime, kHorizontalBoltLength * stepScale, kHorizontalBoltThickness);
-        pm_->EmitEllipse("hit_spark", enemyPos, { 0.0f, 1.0f, 0.0f }, kBoltCoreColor,
-            kVerticalBoltLifetime, kVerticalBoltThickness, kVerticalBoltLength * stepScale);
-        pm_->EmitRing("hit_ring", enemyPos, kBoltRingSpeed, color, kBoltRingCount, kBoltRingLifetime, kBoltRingSize);
-    } else if (weapon.element == "Ice") {
-        // 氷: 水色の破片が扇状に飛び、薄い冷気の輪が残る。
-        constexpr int kShardCount = 12;
-        constexpr int kShardColumns = 7;
-        constexpr int kShardCenterColumn = 3;
-        constexpr float kShardColumnSpacing = 0.75f;
-        constexpr float kShardRiseBase = 2.0f;
-        constexpr int kShardRiseSteps = 4;
-        constexpr float kShardRiseStep = 0.8f;
-        constexpr float kShardLifetime = 0.65f;
-        constexpr float kShardSize = 0.14f;
-        constexpr float kFrostRingSpeed = 1.3f;
-        constexpr Vector4 kFrostRingColor = { 0.65f, 0.95f, 1.0f, 0.75f };
-        constexpr int kFrostRingCount = 20;
-        constexpr float kFrostRingLifetime = 0.5f;
-        constexpr float kFrostRingSize = 0.12f;
-        for (int i = 0; i < kShardCount; ++i) {
-            const float vx = static_cast<float>((i % kShardColumns) - kShardCenterColumn) * kShardColumnSpacing;
-            pm_->EmitGravity("hit_spark", enemyPos, { vx, kShardRiseBase + (i % kShardRiseSteps) * kShardRiseStep, 0.0f },
-                color, kShardLifetime, kShardSize * stepScale);
-        }
-        pm_->EmitRing("hit_ring", enemyPos, kFrostRingSpeed, kFrostRingColor, kFrostRingCount, kFrostRingLifetime, kFrostRingSize);
-    } else if (weapon.element == "Gravity") {
-        // 重力: 密度の違う紫の同心円と明滅する重い核。
-        constexpr float kInnerRingSpeed = 0.8f;
-        constexpr int kInnerRingCount = 24;
-        constexpr float kInnerRingLifetime = 0.55f;
-        constexpr float kInnerRingSize = 0.28f;
-        constexpr float kOuterRingSpeed = 2.0f;
-        constexpr Vector4 kOuterRingColor = { 0.35f, 0.08f, 0.6f, 0.8f };
-        constexpr int kOuterRingCount = 18;
-        constexpr float kOuterRingLifetime = 0.38f;
-        constexpr float kOuterRingSize = 0.18f;
-        constexpr Vector4 kCoreColor = { 0.95f, 0.7f, 1.0f, 1.0f };
-        constexpr float kCoreLifetime = 0.35f;
-        constexpr float kCoreSize = 0.8f;
-        pm_->EmitRing("hit_ring", enemyPos, kInnerRingSpeed, color, kInnerRingCount, kInnerRingLifetime, kInnerRingSize * stepScale);
-        pm_->EmitRing("hit_ring", enemyPos, kOuterRingSpeed, kOuterRingColor, kOuterRingCount, kOuterRingLifetime, kOuterRingSize);
-        pm_->EmitWithColor("hit_spark", enemyPos, { 0.0f, 0.0f, 0.0f },
-            kCoreColor, kCoreLifetime, kCoreSize * stepScale, true);
-    } else if (weapon.element == "Blood") {
-        // 血: 深紅の斬線と重い飛沫。
-        constexpr float kSlashAngleRight = 0.45f;
-        constexpr float kSlashAngleLeft = 2.69f;
-        constexpr float kSlashRadius = 1.8f;
-        constexpr int kSplatterCount = 9;
-        constexpr float kSplatterSpeedBase = 0.5f;
-        constexpr float kSplatterSpeedStep = 0.25f;
-        constexpr float kSplatterRiseBase = 1.0f;
-        constexpr int kSplatterRiseSteps = 4;
-        constexpr float kSplatterRiseStep = 0.7f;
-        constexpr float kSplatterLifetime = 0.55f;
-        constexpr float kSplatterSize = 0.2f;
-        pm_->EmitSlash("sword_slash", enemyPos, dir > 0.0f ? kSlashAngleRight : kSlashAngleLeft, color, kSlashRadius * stepScale);
-        for (int i = 0; i < kSplatterCount; ++i) {
-            pm_->EmitGravity("hit_spark", enemyPos,
-                { -dir * (kSplatterSpeedBase + i * kSplatterSpeedStep), kSplatterRiseBase + (i % kSplatterRiseSteps) * kSplatterRiseStep, 0.0f },
-                color, kSplatterLifetime, kSplatterSize);
-        }
-    } else if (weapon.element == "Void") {
-        // 虚無: 暗紫の二重リングと不規則に明滅する粒子。
-        constexpr float kInnerRingSpeed = 1.4f;
-        constexpr int kInnerRingCount = 28;
-        constexpr float kInnerRingLifetime = 0.65f;
-        constexpr float kInnerRingSize = 0.2f;
-        constexpr float kOuterRingSpeed = 3.0f;
-        constexpr Vector4 kOuterRingColor = { 0.12f, 0.02f, 0.24f, 0.9f };
-        constexpr int kOuterRingCount = 16;
-        constexpr float kOuterRingLifetime = 0.3f;
-        constexpr float kOuterRingSize = 0.15f;
-        constexpr int kMoteCount = 7;
-        constexpr int kMoteColumnsX = 3;
-        constexpr int kMoteColumnsY = 4;
-        constexpr float kMoteSpeedX = 1.4f;
-        constexpr float kMoteSpeedY = 1.1f;
-        constexpr float kMoteLifetime = 0.45f;
-        constexpr float kMoteSize = 0.2f;
-        pm_->EmitRing("hit_ring", enemyPos, kInnerRingSpeed, color, kInnerRingCount, kInnerRingLifetime, kInnerRingSize * stepScale);
-        pm_->EmitRing("hit_ring", enemyPos, kOuterRingSpeed, kOuterRingColor, kOuterRingCount, kOuterRingLifetime, kOuterRingSize);
-        for (int i = 0; i < kMoteCount; ++i) {
-            pm_->EmitWithColor("hit_spark", enemyPos,
-                { static_cast<float>((i % kMoteColumnsX) - 1) * kMoteSpeedX, static_cast<float>((i % kMoteColumnsY) - 1) * kMoteSpeedY, 0.0f },
-                color, kMoteLifetime, kMoteSize, true);
-        }
-    } else if (weapon.element == "Wind") {
-        // 風: 緑の交差する風刃と外へ抜ける軽い渦。
-        constexpr float kBladeAngle = 0.55f;
-        constexpr float kMainBladeRadius = 2.0f;
-        constexpr Vector4 kSubBladeColor = { 0.75f, 1.0f, 0.65f, 0.8f };
-        constexpr float kSubBladeRadius = 1.7f;
-        constexpr float kVortexRingSpeed = 3.8f;
-        constexpr int kVortexRingCount = 18;
-        constexpr float kVortexRingLifetime = 0.28f;
-        constexpr float kVortexRingSize = 0.1f;
-        pm_->EmitSlash("sword_slash", enemyPos, kBladeAngle, color, kMainBladeRadius * stepScale);
-        pm_->EmitSlash("sword_slash", enemyPos, -kBladeAngle, kSubBladeColor, kSubBladeRadius * stepScale);
-        pm_->EmitRing("hit_ring", enemyPos, kVortexRingSpeed, color, kVortexRingCount, kVortexRingLifetime, kVortexRingSize);
+void GamePlayScene::EmitElementalHitEffect(const std::string& element, const Vector4& color, const Vector3& enemyPos, float scale)
+{
+    constexpr float kEscalationScaleGain = 0.8f; // 連続ヒットが上限の時に足す拡大率
+
+    const float stepScale = scale * (1.0f + kEscalationScaleGain * HitEscalationRatio());
+    if (const IElementEffect* effect = IElementEffect::Find(element)) {
+        effect->EmitHit(ElementContext(), enemyPos, color, stepScale);
     }
 }
 
@@ -468,6 +375,33 @@ void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos)
         pm_->EmitSlash("sword_slash", { impact.x - dir * kThirdSlashOffset.x, impact.y + kThirdSlashOffset.y, impact.z },
             angle + kThirdSlashAngle, { color.x, color.y, color.z, kThirdSlashAlpha }, kDashSlashRadius * kThirdSlashRadiusScale);
         pm_->EmitRing("hit_ring", impact, kImpactRingSpeed, color, kImpactRingCount, kImpactRingLifetime, kImpactRingSize);
+        EmitWeaponSkillImpact(impact, color, true);
+    }
+    if (player_->IsSkillSequenceActive() && player_->JustComboHit()) {
+        // 固有技の連撃: 段ごとに向きを変えた斬線を重ね、回転斬りの段は輪を広げる。締めは大きな一閃で打ち飛ばしを見せる
+        constexpr float kSequenceCenterHeight = 0.5f;
+        constexpr float kSequenceSlashRadius = 1.9f;
+        constexpr float kSequenceSlashAngleStep = 1.1f; // 段ごとに斬線の向きを散らす角度（ラジアン）
+        constexpr float kTurnRingSpeed = 3.4f;
+        constexpr int kTurnRingCount = 16;
+        constexpr float kTurnRingLifetime = 0.22f;
+        constexpr float kTurnRingSize = 0.12f;
+        const MeleeAttackDef* step = player_->GetActiveMeleeAttack();
+        const Vector3 center = { ppos.x, ppos.y + kSequenceCenterHeight, ppos.z };
+        if (step != nullptr && step->finisher) {
+            EmitWeaponSkillImpact(center, color, true);
+        } else {
+            const float angle = static_cast<float>(player_->GetComboStep()) * kSequenceSlashAngleStep;
+            pm_->EmitSlash("sword_slash", center, angle, color, kSequenceSlashRadius);
+            if (step != nullptr && step->bodyTurns != 0.0f) {
+                pm_->EmitRing("hit_ring", center, kTurnRingSpeed, color, kTurnRingCount, kTurnRingLifetime, kTurnRingSize);
+            }
+        }
+    }
+    if (player_->JustSpearRetreat() || player_->JustGreatswordSlam() || player_->JustAxeCharge()
+        || player_->JustScytheSpin() || player_->JustDaggerStingerHit()) {
+        constexpr float kImpactCenterHeight = 0.5f; // 他の命中演出と同じ胸の高さ
+        EmitWeaponSkillImpact({ ppos.x, ppos.y + kImpactCenterHeight, ppos.z }, color, false);
     }
     if (player_->JustSpearRetreat()) {
         // 回転突撃の終点で、螺旋の余韻と前方への衝撃をまとめて見せる
@@ -517,6 +451,63 @@ void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos)
         constexpr float kChargeTrailScale = 0.42f;
         constexpr float kChargeTrailLifetime = 0.22f;
         pm_->EmitTrail("weapon_trail", ppos, color, kChargeTrailScale, kChargeTrailLifetime);
+    }
+}
+
+void GamePlayScene::EmitWeaponSkillImpact(const Vector3& center, const Vector4& color, bool slashLine)
+{
+    constexpr float kFlashAlpha = 0.32f;
+    constexpr float kFlashSeconds = 0.12f;
+    constexpr int kImpactHitStopFrames = 5;
+    constexpr float kImpactShakeAmount = 0.24f;
+    constexpr float kImpactShakeSeconds = 0.2f;
+    constexpr int kBladeCount = 12;
+    constexpr float kBladeRadius = 2.6f;
+    constexpr float kBladeSpeedMin = 1.5f;
+    constexpr float kBladeSpeedMax = 3.5f;
+    constexpr Vector4 kCoreColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    constexpr float kCoreLifetime = 0.14f;
+    constexpr float kCoreScale = 1.4f;
+    constexpr float kWhiteRingSpeed = 6.5f;
+    constexpr int kWhiteRingCount = 28;
+    constexpr float kWhiteRingLifetime = 0.22f;
+    constexpr float kWhiteRingSize = 0.14f;
+    constexpr float kColorRingSpeed = 3.2f;
+    constexpr int kColorRingCount = 24;
+    constexpr float kColorRingLifetime = 0.42f;
+    constexpr float kColorRingSize = 0.24f;
+    constexpr int kSparkCount = 26;
+    constexpr float kSparkSpreadX = 6.0f;
+    constexpr float kSparkRiseMin = 1.0f;
+    constexpr float kSparkRiseMax = 7.0f;
+    constexpr float kSparkLifetime = 0.55f;
+    constexpr float kSparkSize = 0.12f;
+    constexpr float kSlashLineHalfLength = 3.2f; // 刀の突進距離の半分強（通過した跡を丸ごと一閃で覆う）
+    constexpr Vector4 kSlashLineColor = { 0.85f, 0.97f, 1.0f, 1.0f };
+    constexpr float kSlashLineThickness = 8.0f;
+    constexpr float kSlashLineSeconds = 0.32f;
+
+    ScreenFlash::GetInstance()->Request({ color.x, color.y, color.z, kFlashAlpha }, kFlashSeconds);
+    TimeManager::GetInstance()->RequestHitStop(kImpactHitStopFrames);
+    cameraShaker_.Request(kImpactShakeAmount, kImpactShakeSeconds);
+    bladeFlash_.Emit(center, kBladeCount, kBladeRadius, kBladeSpeedMin, kBladeSpeedMax);
+
+    pm_->EmitWithColor("hit_spark", center, { 0.0f, 0.0f, 0.0f }, kCoreColor, kCoreLifetime, kCoreScale);
+    pm_->EmitHitStar("hit_spark", center, kCoreColor);
+    pm_->EmitHitStar("hit_spark", center, color);
+    pm_->EmitRing("hit_ring", center, kWhiteRingSpeed, kCoreColor, kWhiteRingCount, kWhiteRingLifetime, kWhiteRingSize);
+    pm_->EmitRing("hit_ring", center, kColorRingSpeed, color, kColorRingCount, kColorRingLifetime, kColorRingSize);
+    std::uniform_real_distribution<float> vxD(-kSparkSpreadX, kSparkSpreadX);
+    std::uniform_real_distribution<float> vyD(kSparkRiseMin, kSparkRiseMax);
+    for (int i = 0; i < kSparkCount; ++i) {
+        pm_->EmitGravity("hit_spark", center, { vxD(rng_), vyD(rng_), 0.0f }, color, kSparkLifetime, kSparkSize);
+    }
+
+    if (slashLine) {
+        const Vector3& cam = camera_->GetTranslate();
+        SceneShared::SpawnSlashMarkWorld({ center.x - kSlashLineHalfLength, center.y },
+            { center.x + kSlashLineHalfLength, center.y },
+            cam.x, cam.y, kSlashLineColor, kSlashLineThickness, kSlashLineSeconds);
     }
 }
 
@@ -605,6 +596,25 @@ void GamePlayScene::UpdateWeaponTrail()
     const WeaponData& weapon = wm->GetCurrent();
     const Vector4 color = { weapon.effectColor[0], weapon.effectColor[1],
         weapon.effectColor[2], weapon.effectColor[3] };
-    pm_->EmitTrail("weapon_trail", player_->GetActiveWeaponWorldPosition(), color,
-        kWeaponTrailScale, kWeaponTrailLifetime);
+    const Vector3 weaponPos = player_->GetActiveWeaponWorldPosition();
+    pm_->EmitTrail("weapon_trail", weaponPos, color, kWeaponTrailScale, kWeaponTrailLifetime);
+    EmitWeaponElementAura(weapon.element, color, weaponPos);
+}
+
+void GamePlayScene::EmitWeaponElementAura(const std::string& element, const Vector4& color, const Vector3& weaponPos)
+{
+    // 毎フレーム1〜2粒だけ零し、振りの軌跡に属性の手触りを添える（命中演出の邪魔をしない量に抑える）
+    constexpr float kJitter = 0.15f; // 武器位置からのばらつき
+    std::uniform_real_distribution<float> jitterD(-kJitter, kJitter);
+    const IElementEffect* effect = IElementEffect::Find(element);
+    if (effect == nullptr) {
+        return;
+    }
+    const Vector3 pos = { weaponPos.x + jitterD(rng_), weaponPos.y + jitterD(rng_), weaponPos.z };
+    effect->EmitAura(ElementContext(), pos, color);
+}
+
+ElementEffectContext GamePlayScene::ElementContext()
+{
+    return { *pm_, rng_, player_->GetLastDirX() };
 }

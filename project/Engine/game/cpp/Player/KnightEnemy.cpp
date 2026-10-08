@@ -86,11 +86,16 @@ float EaseInQuad(float t) { return t * t; }
 float LerpF(float a, float b, float t) { return a + (b - a) * t; }
 } // namespace
 
+KnightEnemy::KnightEnemy()
+    : state_(&StateOf<IdleState>())
+{
+}
+
 void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
 {
     pos_ = spawnPos;
     pos_.y = kGroundY;
-    state_ = State::Telegraph;
+    state_ = &StateOf<TelegraphState>();
     // 初回更新から攻撃の予備動作へ移り、生成直後の棒立ちをなくす
     stateTimer_ = Tuning().telegraphDuration;
     swordSwing_ = kSwordPullBack * kInitialSwordPullRatio;
@@ -112,7 +117,7 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     idleAnimation_ = LoadAnimationFile(kKnightModelDirectory, kKnightModelFile, "Idle_swordRight");
     attackAnimation_ = LoadAnimationFile(kKnightModelDirectory, kKnightModelFile, "Run_swordAttack");
     object_->SetAnimation(attackAnimation_);
-    animationState_ = State::Telegraph;
+    playingAttackAnimation_ = true;
     object_->SetEnableLighting(true);
     // Vを意識した抑制的な色  目立つ発光ではなく、わずかに暗い紫のリムに留める
     object_->SetRimColor(kRimColor);
@@ -130,12 +135,17 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
     swordObject_->SetRimIntensity(kRimIntensity);
     swordObject_->SetEnableRim(true);
 
-    ApplyTransforms();
+    state_->ApplyTransforms(*this);
 }
 
 bool KnightEnemy::IsAlive() const
 {
-    return GetAIState(state_) != nullptr;
+    return state_->IsAlive();
+}
+
+bool KnightEnemy::IsAwaitingSteal() const
+{
+    return state_->IsAwaitingSteal();
 }
 
 void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
@@ -148,7 +158,7 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
     knockVelX_ += knockDirX * Tuning().knockbackSpeed;
     knockVelY_ = knockY;
     if (hp_ <= 0) {
-        ChangeState(State::Defeated);
+        ChangeState(StateOf<DefeatedState>());
         object_->SetAnimSpeed(0.0f);
         object_->SetColor(kDefeatedColor);
         object_->SetEnableRim(false);
@@ -159,18 +169,18 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
 
 bool KnightEnemy::TryBeginAbsorb()
 {
-    if (state_ != State::Defeated) {
+    if (!state_->IsAwaitingSteal()) {
         return false;
     }
-    ChangeState(State::Absorbing);
+    ChangeState(StateOf<AbsorbingState>());
     return true;
 }
 
 void KnightEnemy::RefreshVisualTransforms()
 {
     // 位置・AI状態は変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
-    // （ApplyTransforms()はpos_/yaw_等の現在値を読むだけでAIやタイマーは一切進めない）
-    ApplyTransforms();
+    // （状態のApplyTransforms()はpos_/yaw_等の現在値を読むだけでAIやタイマーは一切進めない）
+    state_->ApplyTransforms(*this);
 }
 
 void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
@@ -202,19 +212,15 @@ void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
 void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
 {
-    justAbsorbed_ = false;
     if (hitFlash_ > 0.0f) {
         hitFlash_ = (std::max)(0.0f, hitFlash_ - GameConstants::kFrameDeltaTime);
     }
 
     // 打ち上げ等でノックバック中はAIを一時停止する（さもないと空中でDash等の地上移動が割り込む）
     bool inKnockback = (knockVelX_ != 0.0f || knockVelY_ != 0.0f);
-    if (IsAlive()) {
-        if (!inKnockback) {
-            UpdateAI(pm, playerPos);
-        }
-    } else if (state_ == State::Absorbing) {
-        UpdateAbsorb(pm, playerPos);
+    if (!(IsAlive() && inKnockback)) {
+        stateTimer_ += GameConstants::kFrameDeltaTime;
+        state_->Update(*this, pm, playerPos);
     }
 
     // 被弾ノックバック（AIの位置更新の後に上乗せし、時間で減衰させる）
@@ -232,57 +238,82 @@ void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
         }
     }
 
-    const State desiredAnimationState = (state_ == State::Telegraph || state_ == State::Dash) ? State::Dash : State::Idle;
-    if (IsAlive() && desiredAnimationState != animationState_) {
-        object_->SetAnimation(desiredAnimationState == State::Dash ? attackAnimation_ : idleAnimation_);
-        animationState_ = desiredAnimationState;
+    const bool wantsAttackAnimation = state_->PlaysAttackAnimation();
+    if (IsAlive() && wantsAttackAnimation != playingAttackAnimation_) {
+        object_->SetAnimation(wantsAttackAnimation ? attackAnimation_ : idleAnimation_);
+        playingAttackAnimation_ = wantsAttackAnimation;
     }
 
-    ApplyTransforms();
+    state_->ApplyTransforms(*this);
 }
 
-//  AI State（生存中の行動フェーズ）
+//  State（行動フェーズと撃破後の演出）
 
 namespace engine::game {
-class KnightEnemy::IdleAIState : public IAIState {
+class KnightEnemy::IdleState : public IState {
 public:
     void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
 };
-class KnightEnemy::TelegraphAIState : public IAIState {
+class KnightEnemy::TelegraphState : public IState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+    bool PlaysAttackAnimation() const override { return true; }
+};
+class KnightEnemy::DashState : public IState {
+public:
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+    bool PlaysAttackAnimation() const override { return true; }
+};
+class KnightEnemy::RecoverState : public IState {
 public:
     void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
 };
-class KnightEnemy::DashAIState : public IAIState {
+/** @brief 撃破後に灰色で凍結し、武器を奪われるのを待つ状態 */
+class KnightEnemy::DefeatedState : public IState {
 public:
-    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+    void Update(KnightEnemy&, ParticleManager*, const Vector3&) const override { }
+    bool IsAlive() const override { return false; }
+    bool IsAwaitingSteal() const override { return true; }
+    void ApplyTransforms(KnightEnemy& knight) const override { knight.ApplyStandingTransforms(true); }
 };
-class KnightEnemy::RecoverAIState : public IAIState {
+/** @brief 本体と剣が光になってプレイヤーへ吸い込まれていく状態 */
+class KnightEnemy::AbsorbingState : public IState {
 public:
-    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override;
+    void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const override { knight.UpdateAbsorb(pm, playerPos); }
+    bool IsAlive() const override { return false; }
+    void ApplyTransforms(KnightEnemy&) const override { }
+};
+/** @brief 吸収し終えて消えた状態 */
+class KnightEnemy::ConsumedState : public IState {
+public:
+    void Update(KnightEnemy&, ParticleManager*, const Vector3&) const override { }
+    bool IsAlive() const override { return false; }
+    void ApplyTransforms(KnightEnemy&) const override { }
+    bool IsVisible() const override { return false; }
 };
 }
 
-void KnightEnemy::IdleAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3& playerPos) const
+void KnightEnemy::IdleState::Update(KnightEnemy& knight, ParticleManager*, const Vector3& playerPos) const
 {
     knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kIdleSwordFollowRate);
     if (knight.stateTimer_ >= Tuning().idleDuration) {
-        knight.ChangeState(State::Telegraph);
+        knight.ChangeState(StateOf<TelegraphState>());
         knight.dashStart_ = knight.pos_;
         float dx = std::clamp(playerPos.x - knight.pos_.x, -Tuning().maxDashDistance, Tuning().maxDashDistance);
         knight.dashTarget_ = { knight.pos_.x + dx, knight.pos_.y, knight.pos_.z };
     }
 }
 
-void KnightEnemy::TelegraphAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
+void KnightEnemy::TelegraphState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
 {
     float t = std::clamp(knight.stateTimer_ / Tuning().telegraphDuration, 0.0f, 1.0f);
     knight.swordSwing_ = LerpF(knight.swordSwing_, kSwordPullBack, kTelegraphSwordFollowRate);
     if (t >= 1.0f) {
-        knight.ChangeState(State::Dash);
+        knight.ChangeState(StateOf<DashState>());
     }
 }
 
-void KnightEnemy::DashAIState::Update(KnightEnemy& knight, ParticleManager* pm, const Vector3&) const
+void KnightEnemy::DashState::Update(KnightEnemy& knight, ParticleManager* pm, const Vector3&) const
 {
     float t = std::clamp(knight.stateTimer_ / Tuning().dashDuration, 0.0f, 1.0f);
     float eased = EaseOutQuad(t);
@@ -297,55 +328,33 @@ void KnightEnemy::DashAIState::Update(KnightEnemy& knight, ParticleManager* pm, 
             kDashSmokeColor, kDashSmokeSize, kDashSmokeLifetime);
     }
     if (t >= 1.0f) {
-        knight.ChangeState(State::Recover);
+        knight.ChangeState(StateOf<RecoverState>());
     }
 }
 
-void KnightEnemy::RecoverAIState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
+void KnightEnemy::RecoverState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
 {
     knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kRecoverSwordFollowRate);
     if (knight.stateTimer_ >= Tuning().recoverDuration) {
-        knight.ChangeState(State::Idle);
+        knight.ChangeState(StateOf<IdleState>());
     }
 }
 
-const KnightEnemy::IAIState* KnightEnemy::GetAIState(State state)
+template <class T>
+const KnightEnemy::IState& KnightEnemy::StateOf()
 {
-    static IdleAIState idle;
-    static TelegraphAIState telegraph;
-    static DashAIState dash;
-    static RecoverAIState recover;
-    switch (state) {
-    case State::Idle:
-        return &idle;
-    case State::Telegraph:
-        return &telegraph;
-    case State::Dash:
-        return &dash;
-    case State::Recover:
-        return &recover;
-    default:
-        return nullptr;
-    }
+    static const T instance;
+    return instance;
 }
 
-void KnightEnemy::ChangeState(State next)
+void KnightEnemy::ChangeState(const IState& next)
 {
-    state_ = next;
+    state_ = &next;
     stateTimer_ = 0.0f;
-}
-
-void KnightEnemy::UpdateAI(ParticleManager* pm, const Vector3& playerPos)
-{
-    stateTimer_ += GameConstants::kFrameDeltaTime;
-    if (const IAIState* aiState = GetAIState(state_)) {
-        aiState->Update(*this, pm, playerPos);
-    }
 }
 
 void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
 {
-    stateTimer_ += GameConstants::kFrameDeltaTime;
     float t = std::clamp(stateTimer_ / kAbsorbDuration, 0.0f, 1.0f);
     float eased = EaseInQuad(t);
 
@@ -394,28 +403,22 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
     object_->Update();
 
     if (t >= 1.0f) {
-        state_ = State::Consumed;
-        justAbsorbed_ = true;
+        ChangeState(StateOf<ConsumedState>());
     }
 }
 
-void KnightEnemy::ApplyTransforms()
+void KnightEnemy::ApplyStandingTransforms(bool defeatedPose)
 {
     float facingSign = (yaw_ >= 0.0f) ? 1.0f : -1.0f;
 
-    // 吸収中は体・剣を独立した軌道で飛ばすため、通常のアタッチ計算は上書きしない
-    if (state_ == State::Absorbing || state_ == State::Consumed) {
-        return;
-    }
-
-    if (IsAlive()) {
+    if (!defeatedPose) {
         // 被弾直後は白く明滅させ、ヒットがはっきり伝わるようにする
         float f = hitFlash_ / kHitFlashDuration;
         object_->SetColor({ 1.0f + f, 1.0f + f, 1.0f + f, 1.0f });
     }
 
     object_->SetPosition(pos_);
-    const float defeatedLean = state_ == State::Defeated ? facingSign * kDefeatedBodyLean : 0.0f;
+    const float defeatedLean = defeatedPose ? facingSign * kDefeatedBodyLean : 0.0f;
     object_->SetRotation({ 0.0f, yaw_, defeatedLean });
     object_->SetScale({ kKnightModelScale, kKnightModelScale, kKnightModelScale });
     object_->Update();
@@ -426,7 +429,7 @@ void KnightEnemy::ApplyTransforms()
         pos_.z + kSwordOffset.z
     };
     swordObject_->SetPosition(swordPos);
-    const float droppedSwordTilt = state_ == State::Defeated ? facingSign * kDroppedSwordTilt : facingSign * (kSwordBaseTilt + swordSwing_);
+    const float droppedSwordTilt = defeatedPose ? facingSign * kDroppedSwordTilt : facingSign * (kSwordBaseTilt + swordSwing_);
     swordObject_->SetRotation({ 0.0f, yaw_, droppedSwordTilt });
     swordObject_->SetScale({ kSwordScale, kSwordScale, kSwordScale });
     swordObject_->Update();
@@ -434,7 +437,7 @@ void KnightEnemy::ApplyTransforms()
 
 void KnightEnemy::Draw()
 {
-    if (state_ == State::Consumed) {
+    if (!state_->IsVisible()) {
         return;
     }
     object_->Draw();

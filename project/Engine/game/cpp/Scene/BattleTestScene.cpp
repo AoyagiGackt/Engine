@@ -425,9 +425,9 @@ void BattleTestScene::UpdatePlayerAndCamera()
         Vector3 rampTarget = { pp.x + player_->GetLastDirX() * kRampageDefaultTargetDistance, pp.y, 0.0f };
 
         bool targetSolid = false;
-        if (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ < dummies_.size()
-            && dummies_[lockedDummyIndex_].hp > 0.0f) {
-            rampTarget = dummies_[lockedDummyIndex_].pos;
+        const Dummy* locked = LockedDummy();
+        if (locked != nullptr && locked->hp > 0.0f) {
+            rampTarget = locked->pos;
             targetSolid = true;
         } else {
             float minDist = FLT_MAX;
@@ -454,8 +454,8 @@ void BattleTestScene::UpdatePlayerAndCamera()
 
     // ロック中は移動入力に関係なく対象の方を向かせ、カメラも少しだけ対象側へ寄せて気付きやすくする
     const Vector3* lockTargetPos = nullptr;
-    if (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ < dummies_.size()) {
-        lockTargetPos = &dummies_[lockedDummyIndex_].pos;
+    if (const Dummy* locked = LockedDummy()) {
+        lockTargetPos = &locked->pos;
         player_->FaceTarget(*lockTargetPos);
     }
     SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders(), lockTargetPos);
@@ -480,8 +480,8 @@ void BattleTestScene::UpdateTargetLock()
 {
     // Shiftを押している間だけロックオンし、その間は常に一番近いダミーを対象にし続ける
     // （押した瞬間の対象に固定するのではなく、離れたら別の敵が近くなるような場面でも自然に切り替わる）
-    if (!input_->PushKey(DIK_LSHIFT)) {
-        lockedKind_ = LockTargetKind::None;
+    if (!input_->PushAction(Input::Action::LockOn)) {
+        lockedDummyIndex_.reset();
         return;
     }
 
@@ -507,10 +507,9 @@ void BattleTestScene::UpdateTargetLock()
     }
 
     if (nearest < 0) {
-        lockedKind_ = LockTargetKind::None;
+        lockedDummyIndex_.reset();
         return;
     }
-    lockedKind_ = LockTargetKind::Dummy;
     lockedDummyIndex_ = static_cast<size_t>(nearest);
 }
 
@@ -527,22 +526,14 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
     hud_.QueueText(fontRenderer_);
 
     // ── ロックオン中の対象にマーカーを出す ────────────────────────
-    if (lockedKind_ != LockTargetKind::None) {
-        Vector3 tpos { };
-        bool valid = true;
-        if (lockedKind_ == LockTargetKind::Dummy && lockedDummyIndex_ < dummies_.size()) {
-            tpos = dummies_[lockedDummyIndex_].pos;
-        } else {
-            valid = false;
-        }
-        if (valid) {
-            const Vector3& cam = camera_->GetTranslate();
-            float sx, sy;
-            SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
-            UILayout& layout = UILayout::Get(kLayoutName);
-            fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy,
-                layout.Float("lock_marker.scale", kLockMarkerScale), layout.Color("lock_marker.color", kLockMarkerColor));
-        }
+    if (const Dummy* locked = LockedDummy()) {
+        const Vector3& tpos = locked->pos;
+        const Vector3& cam = camera_->GetTranslate();
+        float sx, sy;
+        SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
+        UILayout& layout = UILayout::Get(kLayoutName);
+        fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy,
+            layout.Float("lock_marker.scale", kLockMarkerScale), layout.Color("lock_marker.color", kLockMarkerColor));
     }
 }
 
@@ -567,7 +558,7 @@ void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(kWarpRetX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
-        fontRenderer_.DrawStringW(L"[ ENTER ] トレーニングへ", sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
+        fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] トレーニングへ"), sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
             hintScale, layout.Color("portal.label_color", kReturnLabelColor));
     }
 

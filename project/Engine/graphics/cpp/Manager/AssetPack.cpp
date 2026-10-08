@@ -6,16 +6,19 @@
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "StringUtility.h"
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <iterator>
+#include <stdexcept>
 #define NOMINMAX
 #include <windows.h>
 using namespace engine;
 
 namespace {
 constexpr const char* kSettingsPath = "Resources/Config/asset_pack.json";
-constexpr const char* kDefaultPackName = "game.pak";
+constexpr const char* kDefaultPackName = "Resources/game.pak";
+constexpr const char* kSourceSnapshotKey = "manifest:resources";
 constexpr char kMagic[4] = { 'E', 'P', 'A', 'K' };
 constexpr uint32_t kVersion = 1;
 constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
@@ -28,6 +31,30 @@ constexpr const char* kRawExtensions[] = { ".json", ".mp3", ".wav" };
 constexpr uint64_t kHeaderSize = sizeof(kMagic) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t);
 // 目次1件: キー長(8) + キー + データ位置(8) + データの大きさ(8)
 constexpr uint64_t kIndexFixedSize = sizeof(uint64_t) * 3;
+
+std::string ResourceSnapshot()
+{
+    std::vector<std::string> files;
+    for (const auto& item : std::filesystem::recursive_directory_iterator(kResourceRoot)) {
+        if (!item.is_regular_file()) { continue; }
+        const std::string path = item.path().generic_string();
+        std::string extension = item.path().extension().string();
+        for (char& c : extension) { c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
+        if (extension == ".pak" || extension == ".dll" || extension == ".tmp"
+            || path.find(".autosave.") != std::string::npos) { continue; }
+        files.push_back(path + ":" + std::to_string(item.file_size()) + ":"
+            + std::to_string(item.last_write_time().time_since_epoch().count()));
+    }
+    std::sort(files.begin(), files.end());
+    std::string snapshot;
+    // 実行ファイルが変わった場合も、バイナリ形式の変化に備えて作り直す。
+    wchar_t executable[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, executable, MAX_PATH);
+    snapshot += "exe:" + std::to_string(std::filesystem::file_size(executable)) + ":"
+        + std::to_string(std::filesystem::last_write_time(executable).time_since_epoch().count()) + "\n";
+    for (const auto& file : files) { snapshot += file + "\n"; }
+    return snapshot;
+}
 
 template <typename T>
 void WriteRaw(std::ofstream& out, const T& value)
@@ -58,22 +85,57 @@ std::wstring AssetPack::ResolvePackPath(const std::string& fileName) const
     return (directory / StringUtility::ConvertString(fileName)).wstring();
 }
 
-void AssetPack::Initialize()
+void AssetPack::Initialize(bool forceCook, bool prepareAssets)
 {
     const nlohmann::json settings = JsonHelper::Load(kSettingsPath);
-    // 設定ファイルが無い（pakだけを配布した）場合は、exeの隣にpakがあればそれを使う
-    const std::string mode = settings.is_object() ? settings.value("mode", "off") : "use";
+    // 提出用フォルダーには元素材が無いので、設定ファイルが無ければ必ずuse。
+    std::string mode = forceCook ? "cook" : settings.is_object() ? settings.value("mode", "auto") : "use";
+    if (prepareAssets && !forceCook) { mode = "auto"; }
     const std::string fileName = settings.is_object() ? settings.value("path", kDefaultPackName) : kDefaultPackName;
     packPath_ = ResolvePackPath(fileName);
 
+    const bool hasSources = std::filesystem::is_directory("Resources/shaders");
+    if (prepareAssets && !hasSources) {
+        throw std::runtime_error("Asset preparation requires the source Resources folder");
+    }
+    if (mode == "auto") {
+        if (hasSources) {
+            sourceSnapshot_ = ResourceSnapshot();
+            if (OpenPack(packPath_)) {
+                mode_ = Mode::Use;
+                std::vector<uint8_t> previous;
+                if (Read(kSourceSnapshotKey, previous)
+                    && std::string(previous.begin(), previous.end()) == sourceSnapshot_) {
+                    Logger::Log("[AssetPack] auto: 素材に変更がないためuseで起動します");
+                    return;
+                }
+                file_.close();
+                file_.clear();
+                entries_.clear();
+            }
+            mode = "cook";
+        } else {
+            mode = "use";
+        }
+    }
+
     if (mode == "cook") {
+        if (!hasSources) { throw std::runtime_error("Asset cook requires the source Resources folder"); }
+        sourceSnapshot_ = ResourceSnapshot();
         mode_ = Mode::Cook;
         Logger::Log("[AssetPack] cook: 読み込んだ素材を変換済みの形で記録し、終了時に "
             + StringUtility::ConvertString(packPath_) + " へ書き出します");
         return;
     }
     if (mode == "use") {
-        if (OpenPack(packPath_)) {
+        bool opened = OpenPack(packPath_);
+        // 以前の3ファイル構成も読み込み可能にしておく。
+        if (!opened && fileName == kDefaultPackName) {
+            const auto legacyPath = ResolvePackPath("game.pak");
+            opened = OpenPack(legacyPath);
+            if (opened) { packPath_ = legacyPath; }
+        }
+        if (opened) {
             mode_ = Mode::Use;
             Logger::Log("[AssetPack] use: " + std::to_string(entries_.size()) + " 件の変換済み素材を "
                 + StringUtility::ConvertString(packPath_) + " から読みます");
@@ -89,6 +151,8 @@ void AssetPack::Initialize()
 
 bool AssetPack::OpenPack(const std::wstring& path)
 {
+    if (file_.is_open()) { file_.close(); }
+    file_.clear();
     file_.open(path, std::ios::binary);
     if (!file_) {
         return false;
@@ -225,6 +289,7 @@ void AssetPack::Finalize()
         return;
     }
     RecordRawFiles();
+    Record(kSourceSnapshotKey, std::vector<uint8_t>(sourceSnapshot_.begin(), sourceSnapshot_.end()));
     if (recorded_.empty()) {
         return;
     }
@@ -236,11 +301,12 @@ void AssetPack::Finalize()
 
     // 書き出し途中で落ちても前回のpakを壊さないよう、一時ファイルに書いてから置き換える
     const std::wstring tempPath = packPath_ + L".tmp";
+    std::filesystem::create_directories(std::filesystem::path(packPath_).parent_path());
     {
         std::ofstream out(tempPath, std::ios::binary | std::ios::trunc);
         if (!out) {
             Logger::LogError("[AssetPack] pakを書き出せませんでした: " + StringUtility::ConvertString(tempPath));
-            return;
+            throw std::runtime_error("Failed to write asset pack");
         }
         out.write(kMagic, sizeof(kMagic));
         WriteRaw(out, kVersion);
@@ -257,12 +323,12 @@ void AssetPack::Finalize()
         for (const auto& [key, data] : recorded_) {
             out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         }
+        out.flush();
+        if (!out) { throw std::runtime_error("Failed to finish writing asset pack"); }
     }
     std::error_code error;
-    std::filesystem::rename(tempPath, packPath_, error);
-    if (error) {
-        Logger::LogError("[AssetPack] pakの置き換えに失敗しました: " + error.message());
-        return;
+    if (!MoveFileExW(tempPath.c_str(), packPath_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        throw std::runtime_error("Failed to replace asset pack, Windows error " + std::to_string(GetLastError()));
     }
     const double megabytes = static_cast<double>(std::filesystem::file_size(packPath_, error)) / kBytesPerMegabyte;
     Logger::Log("[AssetPack] " + std::to_string(recorded_.size()) + " 件の素材を書き出しました（"

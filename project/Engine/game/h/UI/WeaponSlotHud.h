@@ -6,6 +6,7 @@
 #include "HudLayer.h"
 #include "Object3d.h"
 #include "Sprite.h"
+#include "WeaponManager.h"
 #include <array>
 
 namespace engine::game {
@@ -19,7 +20,7 @@ public:
     void Draw() override;
     void Notify(HudEvent event) override;
 private:
-    static constexpr int kSlotCount = 4;
+    static constexpr int kSlotCount = WeaponManager::kSlotCount;
     static constexpr float kSlotSize = 56.0f;
     static constexpr float kFlashDuration = 0.35f;
     struct Slot {

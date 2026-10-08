@@ -23,7 +23,22 @@ using namespace engine::graphics;
 
 void Framework::Run()
 {
+    const std::wstring commandLine = GetCommandLineW();
+    const bool forceCook = commandLine.find(L"--cook-assets") != std::wstring::npos;
+    const bool prepareAssets = commandLine.find(L"--prepare-assets") != std::wstring::npos;
+    auto* assetPack = AssetPack::GetInstance();
+    assetPack->Initialize(forceCook, prepareAssets);
+    // 変更がなければ、ビルド後の素材準備はウィンドウやGPUを作らず終了する。
+    if (prepareAssets && !assetPack->IsCooking()) {
+        assetPack->Finalize();
+        return;
+    }
     Initialize();
+    // 素材準備専用の起動では、全シーンを収集してpakを書き出したら終了する。
+    if (forceCook || prepareAssets) {
+        Finalize();
+        return;
+    }
     while (true) {
         FrameProfiler::GetInstance()->BeginFrame();
         Update();
@@ -41,9 +56,6 @@ void Framework::Run()
 
 void Framework::Initialize()
 {
-    // シェーダーのコンパイルやテクスチャの読み込みより前に、変換済み素材pakの使い方を決める
-    AssetPack::GetInstance()->Initialize();
-
     winApp_ = std::make_unique<WinApp>();
     winApp_->Initialize();
 

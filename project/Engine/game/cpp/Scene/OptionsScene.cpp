@@ -71,17 +71,17 @@ void OptionsScene::Update()
 {
     menu_.Update(input_);
 
-    if (input_->TriggerKey(DIK_A) || input_->TriggerKey(DIK_LEFT)) {
+    if (input_->TriggerMenuLeft()) {
         AdjustVolumeAtCursor(-kVolumeStep);
     }
-    if (input_->TriggerKey(DIK_D) || input_->TriggerKey(DIK_RIGHT)) {
+    if (input_->TriggerMenuRight()) {
         AdjustVolumeAtCursor(kVolumeStep);
     }
 
     if (menu_.ConsumeConfirm(input_) && menu_.GetSelectedIndex() == kRowBack) {
         SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
     }
-    if (input_->TriggerKey(DIK_ESCAPE) || input_->TriggerKey(DIK_BACKSPACE)) {
+    if (input_->TriggerMenuCancel()) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
     }
@@ -112,7 +112,7 @@ void OptionsScene::Draw()
     fontRenderer_.DrawString(seBuf, sePosition.x, sePosition.y, volumeScale, volumeColor);
 
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
-    fontRenderer_.DrawString("A/D or Left/Right: adjust   Space: confirm   ESC: back",
+    fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   ESC: back",
         helpPosition.x, helpPosition.y, layout.Float("help.scale", kHelpTextScale), layout.Color("help.color", kHelpTextColor));
 
     fontRenderer_.Draw();

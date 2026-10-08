@@ -34,6 +34,7 @@ void SaveDataManager::Load()
         continue_.maxHp = (std::max)(c.value("max_hp", 0), 0);
         continue_.hp = std::clamp(c.value("hp", 0), 0, continue_.maxHp);
         continue_.gold = (std::max)(c.value("gold", 0), 0);
+        continue_.score = (std::max)(c.value("score", 0), 0);
         continue_.floor = (std::max)(c.value("floor", 0), 0);
         continue_.currentNode = static_cast<RunData::NodeType>(c.value("current_node", 0));
 
@@ -64,6 +65,7 @@ void SaveDataManager::Save()
     j["continue"]["hp"] = continue_.hp;
     j["continue"]["max_hp"] = continue_.maxHp;
     j["continue"]["gold"] = continue_.gold;
+    j["continue"]["score"] = continue_.score;
     j["continue"]["floor"] = continue_.floor;
     j["continue"]["current_node"] = static_cast<int>(continue_.currentNode);
 
@@ -96,6 +98,7 @@ void SaveDataManager::SaveContinue(const RunData& rd)
     continue_.hp = rd.GetHp();
     continue_.maxHp = rd.GetMaxHp();
     continue_.gold = rd.GetGold();
+    continue_.score = rd.GetScore();
     continue_.floor = rd.GetFloor();
     continue_.currentNode = rd.GetCurrentNode();
     continue_.skills = rd.GetSkills();
@@ -104,7 +107,7 @@ void SaveDataManager::SaveContinue(const RunData& rd)
 
 void SaveDataManager::LoadContinue(RunData& rd) const
 {
-    rd.RestoreFromSave(continue_.hp, continue_.maxHp, continue_.gold, continue_.floor,
+    rd.RestoreFromSave(continue_.hp, continue_.maxHp, continue_.gold, continue_.score, continue_.floor,
         continue_.currentNode, continue_.skills);
 }
 

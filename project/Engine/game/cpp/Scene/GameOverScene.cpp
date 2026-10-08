@@ -30,6 +30,7 @@ constexpr float kHintTextScale = 1.0f;
 constexpr Vector4 kHintTextColor = { 0.8f, 0.8f, 0.8f, 1.0f };
 constexpr const wchar_t* kTitleText = L"GAME OVER";
 constexpr const wchar_t* kHintText = L"W/S: 選択   Space/Enter: 決定";
+constexpr const wchar_t* kHintTextGamepad = L"十字キー/スティック: 選択   A: 決定";
 
 constexpr int kRowRestart = 0;
 }
@@ -80,7 +81,7 @@ void GameOverScene::Update()
     if (menu_.GetSelectedIndex() == kRowRestart) {
         // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
         RunData::GetInstance()->StartNewRun();
-        WeaponManager::GetInstance()->Reset();
+        WeaponManager::GetInstance()->ResetForNewRun();
         SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
     } else {
         SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
@@ -105,7 +106,7 @@ void GameOverScene::Draw()
     fontRenderer_.DrawStringW(kTitleText, titlePosition.x, titlePosition.y,
         layout.Float("title.scale", kTitleTextScale), layout.Color("title.color", kTitleTextColor));
     const Vector2 hintPosition = layout.Pos("hint.pos", kHintTextPosition);
-    fontRenderer_.DrawStringW(kHintText, hintPosition.x, hintPosition.y,
+    fontRenderer_.DrawStringW(input_->IsUsingGamepad() ? kHintTextGamepad : kHintText, hintPosition.x, hintPosition.y,
         layout.Float("hint.scale", kHintTextScale), layout.Color("hint.color", kHintTextColor));
     fontRenderer_.Draw();
 }

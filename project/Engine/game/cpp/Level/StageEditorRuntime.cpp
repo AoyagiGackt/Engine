@@ -66,37 +66,9 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
         return;
     }
 
-    const bool wantsKnight = desc.kind == "enemy_knight"
-        || (desc.kind == "spawn_point" && desc.spawnType == "knight");
-    const bool wantsBasic = desc.kind == "enemy_basic"
-        || (desc.kind == "spawn_point" && desc.spawnType != "knight");
-    if (!wantsKnight) {
-        entry.knight.reset();
-    }
-    if (!wantsBasic) {
-        UnregisterEnemyEntity(entry);
-        entry.enemy.reset();
-    }
-
-    if (desc.kind == "enemy_knight" || (desc.kind == "spawn_point" && desc.spawnType == "knight" && IsRuntimeActive(desc))) {
-        if (!entry.knight) {
-            entry.knight = std::make_unique<KnightEnemy>();
-            entry.knight->Initialize(modelCommon_, WorldPositionOf(desc));
-        }
-        return;
-    }
-    if (desc.kind == "enemy_basic" || (desc.kind == "spawn_point" && desc.spawnType != "knight" && IsRuntimeActive(desc))) {
-        if (!entry.enemy) {
-            entry.enemy = std::make_unique<EnemyEntity>();
-            entry.enemy->Initialize(modelCommon_, WorldPositionOf(desc), ParseWeaponTypeName(desc.weaponType));
-            entry.enemy->SetArchetype(desc.spawnType);
-            entry.enemy->SetId(desc.name);
-            EnemyRegistry::GetInstance()->Register(desc.name, entry.enemy.get());
-        }
-        return;
-    }
-
-    if (desc.kind == "spawn_point" || desc.kind == "camera_point" || desc.kind == "patrol_point") {
+    const ObjectKind& kind = ObjectKind::Of(desc.kind);
+    kind.PrepareEnemyInstance(*this, IndexOf(entry));
+    if (kind.PlacesEnemy() || kind.IsMarker()) {
         return;
     }
 
@@ -119,7 +91,7 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     };
 
     // 位置はRefreshTransforms()が毎フレーム上書きするため、ここでは個数分の生成だけが本質
-    int instanceCount = (desc.type == "row") ? (std::max)(1, desc.count) : 1;
+    int instanceCount = (desc.type == PlacementType::Row) ? (std::max)(1, desc.count) : 1;
     for (int i = 0; i < instanceCount; ++i) {
         spawnOne(desc.position);
     }
@@ -149,7 +121,7 @@ void StageEditor::RefreshTransforms(ObjectEntry& entry)
 
     for (int i = 0; i < static_cast<int>(entry.instances.size()); ++i) {
         Vector3 pos = basePos;
-        if (desc.type == "row") {
+        if (desc.type == PlacementType::Row) {
             float offset = desc.step * static_cast<float>(i);
             if (desc.axis == 'y') {
                 pos.y += offset;
@@ -181,7 +153,7 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     ObjectEntry entry;
     entry.desc.name = "obj_" + std::to_string(nextSerial_++);
     entry.desc.kind = "prop";
-    entry.desc.type = "static";
+    entry.desc.type = PlacementType::Static;
     entry.desc.position = center;
     entry.desc.model = model;
     entry.desc.texture = texture;
@@ -258,48 +230,6 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
     if (!ShouldPauseGame()) {
         levelGraphs_.Update(kRuntimeDeltaSeconds);
     }
-}
-
-StageEditor::GimmickOffset StageEditor::ComputeGimmickOffset(const ObjectEntry& entry, float timerOverride) const
-{
-    GimmickOffset offset;
-    const ObjectDesc& desc = entry.desc;
-    if (desc.kind != "gimmick") {
-        return offset;
-    }
-    const float timer = timerOverride >= 0.0f ? timerOverride : entry.runtimeTimer;
-    const float phase = timer * desc.motionSpeed;
-    if (desc.gimmickMotion == "move_y") {
-        offset.position.y = std::sin(phase) * desc.motionAmount;
-    } else if (desc.gimmickMotion == "move_x") {
-        offset.position.x = std::sin(phase) * desc.motionAmount;
-    } else if (desc.gimmickMotion == "rotate_y") {
-        offset.rotation.y = phase;
-    } else if (desc.gimmickMotion == "rotate_z") {
-        offset.rotation.z = phase;
-    } else if (desc.gimmickMotion == "custom") {
-        // 進行度t（-1〜1または0〜1）をモードごとに求め、移動方向×量と回転量へ同じtを掛ける
-        float t = 0.0f;
-        if (desc.motionMode == "pingpong") {
-            // 等速の三角波（0→1→0）。phaseは1周期=2として折り返す
-            constexpr float kPingPongPeriod = 2.0f;
-            const float cycle = std::fmod(std::abs(phase), kPingPongPeriod);
-            t = cycle <= 1.0f ? cycle : kPingPongPeriod - cycle;
-        } else if (desc.motionMode == "once") {
-            t = std::clamp(phase, 0.0f, 1.0f);
-        } else {
-            t = std::sin(phase);
-        }
-        if (desc.motionEase == "smooth") {
-            // 符号を保ったままsmoothstepで加減速を付ける（loopのsin波はそのまま滑らかなので対象外）
-            const float sign = t < 0.0f ? -1.0f : 1.0f;
-            const float mag = std::abs(t);
-            t = sign * (mag * mag * (3.0f - 2.0f * mag));
-        }
-        offset.position = desc.motionAxis * (desc.motionAmount * t);
-        offset.rotation = desc.motionRotation * t;
-    }
-    return offset;
 }
 
 StageEditor::ObjectEntry* StageEditor::FindEntryByName(const std::string& name)

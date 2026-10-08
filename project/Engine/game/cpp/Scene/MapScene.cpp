@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cwchar>
+#include <iterator>
 #include <string>
 using namespace engine;
 using namespace engine::graphics;
@@ -59,8 +60,11 @@ static constexpr const char* kLayoutName = "map";
 
 // 画面下の操作説明
 static constexpr Vector2 kHelpTextPosition = { 20.0f, 690.0f };
+static constexpr Vector2 kBackHintPosition = { 20.0f, 650.0f };
 static constexpr float kHelpTextScale = 1.1f;
 static constexpr Vector4 kHelpTextColor = { 0.88f, 0.90f, 1.0f, 1.0f };
+static constexpr float kHintPanelPadding = 8.0f;
+static constexpr Vector4 kHintPanelColor = { 0.0f, 0.0f, 0.05f, 0.65f };
 
 // ポータル上のラベル
 static constexpr float kLabelOffsetX = 42.0f;
@@ -89,76 +93,42 @@ static constexpr float kInfoDescScale = 1.15f;
 static constexpr Vector4 kInfoDescColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 static constexpr size_t kInfoDescMinWrapIndex = 10; // これより手前の全角スペースでは折り返さない
 
+/** @brief ノード種別ごとの見た目と遷移先 */
+struct NodeInfo {
+    Vector4 color; ///< マップ上の表示色
+    const wchar_t* label; ///< 日本語ラベル
+    const wchar_t* desc; ///< 右下に出す説明
+    bool entersCombat; ///< 決定時に戦闘シーンへ遷移するか
+};
+
+// RunData::NodeType の並び順と一致させる
+static constexpr NodeInfo kNodeInfos[] = {
+    { kNodeCombatColor, L"戦 闘", L"ステージを進み、ボスの武器を奪ってクリア　スタイルが高いほど評価UP", true },
+    { kNodeEliteColor, L"強敵", L"手強い敵が待ち構えるステージ", true },
+    { kNodeShopColor, L"ショップ", L"スキルを1つ選んで取得できる　スキルは永続効果", false },
+    { kNodeRestColor, L"休 憩", L"HP を10回復する　のんびり休もう", false },
+    { kNodeBossColor, L"ボ ス", L"最終決戦  倒せばクリア! 全力で挑め", true },
+};
+static constexpr NodeInfo kUnknownNodeInfo = { kNodeDefaultColor, L"？？？", L"", false };
+
+static const NodeInfo& GetNodeInfo(RunData::NodeType t)
+{
+    const size_t index = static_cast<size_t>(t);
+    return index < std::size(kNodeInfos) ? kNodeInfos[index] : kUnknownNodeInfo;
+}
+
 static Vector4 NodeColor(RunData::NodeType t, bool selected, bool completed)
 {
     if (completed) {
         return kNodeCompletedColor;
     }
-    Vector4 c;
-    switch (t) {
-    case RunData::NodeType::Combat:
-        c = kNodeCombatColor;
-        break;
-    case RunData::NodeType::Elite:
-        c = kNodeEliteColor;
-        break;
-    case RunData::NodeType::Shop:
-        c = kNodeShopColor;
-        break;
-    case RunData::NodeType::Rest:
-        c = kNodeRestColor;
-        break;
-    case RunData::NodeType::Boss:
-        c = kNodeBossColor;
-        break;
-    default:
-        c = kNodeDefaultColor;
-        break;
-    }
+    Vector4 c = GetNodeInfo(t).color;
     if (selected) {
         c.x = (std::min)(c.x + kNodeSelectedBrighten, 1.0f);
         c.y = (std::min)(c.y + kNodeSelectedBrighten, 1.0f);
         c.z = (std::min)(c.z + kNodeSelectedBrighten, 1.0f);
     }
     return c;
-}
-
-// ノードの日本語ラベル（表示用）
-static const wchar_t* NodeLabelW(RunData::NodeType t)
-{
-    switch (t) {
-    case RunData::NodeType::Combat:
-        return L"戦 闘";
-    case RunData::NodeType::Elite:
-        return L"強敵";
-    case RunData::NodeType::Shop:
-        return L"ショップ";
-    case RunData::NodeType::Rest:
-        return L"休 憩";
-    case RunData::NodeType::Boss:
-        return L"ボ ス";
-    default:
-        return L"？？？";
-    }
-}
-
-// ノードの説明（右下に表示）
-static const wchar_t* NodeDesc(RunData::NodeType t)
-{
-    switch (t) {
-    case RunData::NodeType::Combat:
-        return L"ステージを進み、ボスの武器を奪ってクリア　スタイルが高いほど評価UP";
-    case RunData::NodeType::Elite:
-        return L"手強い敵が待ち構えるステージ";
-    case RunData::NodeType::Shop:
-        return L"スキルを1つ選んで取得できる　スキルは永続効果";
-    case RunData::NodeType::Rest:
-        return L"HP を10回復する　のんびり休もう";
-    case RunData::NodeType::Boss:
-        return L"最終決戦  倒せばクリア! 全力で挑め";
-    default:
-        return L"";
-    }
 }
 
 void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
@@ -170,7 +140,7 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     // 武器もトレーニング等で装備したものがシングルトン経由で残ってしまうためあわせてリセットする
     if (!RunData::GetInstance()->IsRunActive()) {
         RunData::GetInstance()->StartNewRun();
-        WeaponManager::GetInstance()->Reset();
+        WeaponManager::GetInstance()->ResetForNewRun();
     }
 
     InitializeUiSprites();
@@ -239,11 +209,18 @@ void MapScene::InitializeStageObjects()
 void MapScene::InitializeFloorsAndStartPosition()
 {
     // ステージ数はgame_rules.jsonのlevelPathsに追従する（ローグライク時代のフロア構成は撤回済み）。
-    // 最後のステージだけボス扱いにしてHPを上げる。ポータルの座標はkStageWorldXの数までが上限
+    // 最初のステージは通常、途中は強敵、最後はボス扱いにして、先へ進むほどボスのHPを上げる。
+    // ポータルの座標はkStageWorldXの数までが上限
     const int stageCount = std::clamp(static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()), 1, kStageCount);
     floors_.clear();
     for (int i = 0; i < stageCount; ++i) {
-        floors_.push_back({ i == stageCount - 1 ? RunData::NodeType::Boss : RunData::NodeType::Combat });
+        RunData::NodeType type = RunData::NodeType::Elite;
+        if (i == stageCount - 1) {
+            type = RunData::NodeType::Boss;
+        } else if (i == 0) {
+            type = RunData::NodeType::Combat;
+        }
+        floors_.push_back({ type });
     }
 
     selectedCol_ = -1;
@@ -262,6 +239,12 @@ void MapScene::Finalize()
 
 void MapScene::Update()
 {
+    if (input_->TriggerMenuCancel()) {
+        audio_->PlayMenuSelect();
+        SceneFlow::GetInstance()->Transition("MAP", "title", "TITLE");
+        return;
+    }
+
     auto* rd = RunData::GetInstance();
 
     int curFloor = rd->GetFloor();
@@ -304,7 +287,7 @@ void MapScene::Update()
         portalObjects_[i]->Update();
     }
 
-    if (input_->TriggerKey(DIK_T)) {
+    if (input_->TriggerKey(DIK_T) || input_->TriggerButton(XINPUT_GAMEPAD_Y)) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("MAP", "training", "TRAINING");
         return;
@@ -315,15 +298,8 @@ void MapScene::Update()
         RunData::NodeType chosen = floors_[selectedCol_][0];
         rd->SetCurrentNode(chosen);
 
-        switch (chosen) {
-        case RunData::NodeType::Combat:
-        case RunData::NodeType::Elite:
-        case RunData::NodeType::Boss:
+        if (GetNodeInfo(chosen).entersCombat) {
             SceneFlow::GetInstance()->Transition("MAP", "combat", "GAMEPLAY");
-            break;
-        case RunData::NodeType::Shop:
-        case RunData::NodeType::Rest:
-            break;
         }
     }
 }
@@ -346,8 +322,18 @@ void MapScene::Draw()
 
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
-    fontRenderer_.DrawStringW(L"A Dまたは左スティックで移動  入口の前でEnterまたはAボタン  Tでトレーニング",
-        helpPosition.x, helpPosition.y, layout.Float("help.scale", kHelpTextScale), layout.Color("help.color", kHelpTextColor));
+    const bool pad = input_->IsUsingGamepad();
+    const std::wstring helpText = pad
+        ? L"左スティックで移動  入口の前でAボタン  Yボタンでトレーニング"
+        : L"A Dで移動  入口の前でEnter  Tでトレーニング";
+    const std::wstring backText = pad ? L"Bボタンでタイトルへ戻る" : L"Esc / Backspaceでタイトルへ戻る";
+    const float helpScale = layout.Float("help.scale", kHelpTextScale);
+    const float backScale = layout.Float("back_hint.scale", kHelpTextScale);
+    const Vector2 backPosition = layout.Pos("back_hint.pos", kBackHintPosition);
+    DrawHintPanel(helpText, helpPosition, helpScale);
+    DrawHintPanel(backText, backPosition, backScale);
+    fontRenderer_.DrawStringW(helpText, helpPosition.x, helpPosition.y, helpScale, layout.Color("help.color", kHelpTextColor));
+    fontRenderer_.DrawStringW(backText, backPosition.x, backPosition.y, backScale, layout.Color("back_hint.color", kHelpTextColor));
 
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
@@ -377,7 +363,7 @@ void MapScene::DrawWorld()
 
     // シャドウパスが設定した専用DSVから通常画面のRTVとDSVへ描画先を戻す
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDsvHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetBackBufferDsvHandle();
     commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
     D3D12_VIEWPORT viewport = dxCommon_->GetCenteredClientViewport();
     D3D12_RECT scissor = dxCommon_->GetCenteredClientScissorRect();
@@ -403,6 +389,13 @@ void MapScene::DrawWorld()
     player_->Draw();
 }
 
+void MapScene::DrawHintPanel(const std::wstring& text, const Vector2& position, float scale)
+{
+    const Vector2 size = FontRenderer::MeasureStringW(text, scale);
+    fontRenderer_.DrawPanel(position.x - kHintPanelPadding, position.y - kHintPanelPadding,
+        size.x + kHintPanelPadding * 2.0f, size.y + kHintPanelPadding * 2.0f, kHintPanelColor);
+}
+
 void MapScene::DrawStagePortalLabels(int floor)
 {
     const int count = static_cast<int>(floors_.size());
@@ -416,6 +409,7 @@ void MapScene::DrawStagePortalLabels(int floor)
     const float enterHintY = layout.Float("enter_hint.y", kEnterHintY);
     const float enterHintScale = layout.Float("enter_hint.scale", kEnterHintScale);
     const Vector4 enterHintColor = layout.Color("enter_hint.color", kEnterHintColor);
+    const char* enterHint = input_->IsUsingGamepad() ? "A" : "ENTER";
     for (int i = 0; i < count; ++i) {
         const bool isNear = i == selectedCol_;
         const float screenX = (portalXs[i] - cameraPos.x)
@@ -430,9 +424,9 @@ void MapScene::DrawStagePortalLabels(int floor)
         fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX, labelY, labelScale,
             isNear ? labelNearColor : labelColor);
         if (isNear) {
-            fontRenderer_.DrawString("ENTER / A", screenX - kEnterHintOffsetX + kLabelShadowOffset.x,
+            fontRenderer_.DrawString(enterHint, screenX - kEnterHintOffsetX + kLabelShadowOffset.x,
                 enterHintY + kLabelShadowOffset.y, enterHintScale, kEnterHintShadowColor);
-            fontRenderer_.DrawString("ENTER / A", screenX - kEnterHintOffsetX, enterHintY, enterHintScale,
+            fontRenderer_.DrawString(enterHint, screenX - kEnterHintOffsetX, enterHintY, enterHintScale,
                 enterHintColor);
             DrawSelectedNodeInfo(floor, floors_[i][0]);
         }
@@ -453,10 +447,10 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
         return;
     }
 
-    const wchar_t* desc = NodeDesc(hoveredNode);
+    const wchar_t* desc = GetNodeInfo(hoveredNode).desc;
     const bool isStage = hoveredNode == RunData::NodeType::Combat
         || hoveredNode == RunData::NodeType::Elite || hoveredNode == RunData::NodeType::Boss;
-    fontRenderer_.DrawStringW(isStage ? L"ステージ入口" : NodeLabelW(hoveredNode),
+    fontRenderer_.DrawStringW(isStage ? L"ステージ入口" : GetNodeInfo(hoveredNode).label,
         panelPosition.x + kInfoTitleOffset.x, panelPosition.y + kInfoTitleOffset.y, kInfoTitleScale, kInfoTitleColor);
     const float descX = panelPosition.x + kInfoDescOffset.x;
     const float descY = panelPosition.y + kInfoDescOffset.y;

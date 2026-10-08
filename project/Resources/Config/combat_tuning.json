@@ -34,5 +34,11 @@
   "justDodgeBonusSeconds": 1.5,
   "justDodgeDamageMult": 1.3,
   "airborneHitStyleBonus": 0.03,
-  "duplicateWeaponAwakenBonus": 0.15
+  "duplicateWeaponAwakenBonus": 0.15,
+  "styleRankAwakenGaugeBonus": 0.1,
+  "weaponFatiguePerHit": 0.1,
+  "gunFatiguePerHit": 0.04,
+  "weaponFatigueRecoverPerSecond": 0.35,
+  "weaponFatigueFreeRatio": 0.3,
+  "weaponFatigueMinDamageMult": 0.3
 }

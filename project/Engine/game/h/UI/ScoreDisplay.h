@@ -50,12 +50,16 @@ public:
      * @param topLeft      リスト左上座標
      * @param digitSize    1桁あたりのサイズ
      * @param rowSpacing   行の高さ（次の行までの距離）
+     * @param rowsPerColumn 1列に並べる件数（超えた分は右の列へ折り返す）
+     * @param columnSpacing 列の幅（次の列までの距離）
      */
     void DrawRanking(const std::vector<int>& ranking,
         int currentScore,
         Vector2 topLeft,
-        Vector2 digitSize = { 32.f, 48.f },
-        float rowSpacing = 58.f);
+        Vector2 digitSize,
+        float rowSpacing,
+        int rowsPerColumn,
+        float columnSpacing);
 
 private:
     /**

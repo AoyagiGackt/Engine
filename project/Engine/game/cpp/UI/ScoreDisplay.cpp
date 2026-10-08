@@ -4,6 +4,7 @@
  */
 #include "ScoreDisplay.h"
 #include "TextureManager.h"
+#include <algorithm>
 #include <cassert>
 #include <string>
 using namespace engine;
@@ -75,25 +76,29 @@ void ScoreDisplay::DrawRanking(const std::vector<int>& ranking,
     int currentScore,
     Vector2 topLeft,
     Vector2 digitSize,
-    float rowSpacing)
+    float rowSpacing,
+    int rowsPerColumn,
+    float columnSpacing)
 {
+    rowsPerColumn = (std::max)(rowsPerColumn, 1);
     // 順位番号列の幅（最大2桁 + gap）
     const float rankColW = digitSize.x * kRankColumnDigits + kRankColumnGap;
     // スコア列の開始 X オフセット
     const float scoreOffX = rankColW + kScoreColumnGap;
 
     for (int i = 0; i < (int)ranking.size(); ++i) {
-        float y = topLeft.y + i * rowSpacing;
+        const float x = topLeft.x + (i / rowsPerColumn) * columnSpacing;
+        const float y = topLeft.y + (i % rowsPerColumn) * rowSpacing;
 
         // 順位番号
-        DrawNumber(i + 1, { topLeft.x, y }, digitSize, kDigitGap);
+        DrawNumber(i + 1, { x, y }, digitSize, kDigitGap);
 
         // スコア
         bool isCurrentScore = (ranking[i] == currentScore);
 
         // ハイライト用にスコア描画前のプール位置を記録
         int scoreStartIdx = poolUsed_;
-        DrawNumber(ranking[i], { topLeft.x + scoreOffX, y }, digitSize, kDigitGap);
+        DrawNumber(ranking[i], { x + scoreOffX, y }, digitSize, kDigitGap);
 
         // 現在スコアと一致するエントリを黄色でハイライト
         if (isCurrentScore) {

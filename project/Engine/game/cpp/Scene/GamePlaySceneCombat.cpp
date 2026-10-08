@@ -22,7 +22,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -45,14 +44,85 @@ namespace {
 constexpr float kStageHalfDepth = 0.5f; // 2.5Dステージの奥行き半分
 constexpr float kDefaultKnockY = 0.05f; // 段定義がない時の打ち上げ量
 constexpr int kDefaultHitStopFrames = 3;
+
+/** @brief 近接ヒット時の武器固有効果に渡す対象 */
+struct WeaponHitBonusContext {
+    EnemyEntity& target; ///< 今回殴った敵
+    int comboStep; ///< 現在のコンボ段
+    const std::vector<EnemyEntity*>& weaponEnemies; ///< 連鎖の対象になりうる武器持ちの敵
+    float chainRange; ///< 連鎖が届く横距離
+};
+
+/** @brief 近接ヒット時に武器ごとに乗る追加効果 */
+class WeaponHitBonus {
+public:
+    virtual ~WeaponHitBonus() = default;
+    virtual void Apply(const WeaponHitBonusContext&) const { }
+    /** @brief 武器種に対応する追加効果を取得する */
+    static const WeaponHitBonus& For(WeaponType type);
+};
+
+/** @brief 剣: コンボ後半で追加ダメージ */
+class SwordHitBonus final : public WeaponHitBonus {
+public:
+    void Apply(const WeaponHitBonusContext& ctx) const override
+    {
+        constexpr int kFinisherStep = 3; // 追加ダメージが乗り始める段
+        if (ctx.comboStep >= kFinisherStep) {
+            ctx.target.TakeDamage(1);
+        }
+    }
+};
+
+/** @brief 短剣: 行動速度を落とす */
+class DaggerHitBonus final : public WeaponHitBonus {
+public:
+    void Apply(const WeaponHitBonusContext& ctx) const override
+    {
+        constexpr float kSlowSeconds = 0.9f;
+        ctx.target.ApplySlow(kSlowSeconds);
+    }
+};
+
+/** @brief 槍: 周囲の武器持ちの敵へ連鎖する */
+class SpearHitBonus final : public WeaponHitBonus {
+public:
+    void Apply(const WeaponHitBonusContext& ctx) const override
+    {
+        const float targetX = ctx.target.GetPosition().x;
+        for (EnemyEntity* enemy : ctx.weaponEnemies) {
+            if (!enemy->IsDefeated() && std::abs(enemy->GetPosition().x - targetX) < ctx.chainRange) {
+                enemy->TakeDamage(1);
+            }
+        }
+    }
+};
+
+const WeaponHitBonus& WeaponHitBonus::For(WeaponType type)
+{
+    static const SwordHitBonus sword {};
+    static const DaggerHitBonus dagger {};
+    static const SpearHitBonus spear {};
+    static const WeaponHitBonus none {};
+    switch (type) {
+    case WeaponType::Sword:
+        return sword;
+    case WeaponType::Dagger:
+        return dagger;
+    case WeaponType::Spear:
+        return spear;
+    default:
+        return none;
+    }
 }
+} // namespace
 
 void GamePlayScene::UpdateTargetLock()
 {
     // Shiftを押している間だけロックオンし、その間は常に一番近い敵を対象にし続ける
     // （BattleTestSceneのダミーロックオンと同じ規約。押した瞬間の対象に固定しない）
-    if (!input_->PushKey(DIK_LSHIFT)) {
-        lockedKind_ = LockTargetKind::None;
+    if (!input_->PushAction(Input::Action::LockOn)) {
+        lockedEnemy_ = nullptr;
         return;
     }
 
@@ -62,30 +132,22 @@ void GamePlayScene::UpdateTargetLock()
 
     const Vector3& pp = player_->GetPosition();
     float minDist = FLT_MAX;
-    LockTargetKind nearestKind = LockTargetKind::None;
-    size_t nearestWeaponIndex = 0;
-
-    if (!enemy_->IsDefeated()) {
-        const float dist = std::abs(enemy_->GetPosition().x - pp.x);
+    const EnemyEntity* nearest = nullptr;
+    auto consider = [&](const EnemyEntity* candidate) {
+        if (candidate->IsDefeated()) {
+            return;
+        }
+        const float dist = std::abs(candidate->GetPosition().x - pp.x);
         if (dist <= kMaxLockRange && dist < minDist) {
             minDist = dist;
-            nearestKind = LockTargetKind::MainEnemy;
+            nearest = candidate;
         }
+    };
+    consider(enemy_);
+    for (const auto& weaponEnemy : weaponEnemies_) {
+        consider(weaponEnemy.enemy);
     }
-    for (size_t i = 0; i < weaponEnemies_.size(); ++i) {
-        if (weaponEnemies_[i].enemy->IsDefeated()) {
-            continue;
-        }
-        const float dist = std::abs(weaponEnemies_[i].enemy->GetPosition().x - pp.x);
-        if (dist <= kMaxLockRange && dist < minDist) {
-            minDist = dist;
-            nearestKind = LockTargetKind::WeaponEnemy;
-            nearestWeaponIndex = i;
-        }
-    }
-
-    lockedKind_ = nearestKind;
-    lockedWeaponEnemyIndex_ = nearestWeaponIndex;
+    lockedEnemy_ = nearest;
 }
 
 void GamePlayScene::UpdateCamera()
@@ -98,12 +160,18 @@ void GamePlayScene::UpdateCamera()
     constexpr float kDefaultStageRight = 36.5f;
     float stageLeft = kDefaultStageLeft;
     float stageRight = kDefaultStageRight;
+    float stageBottom = 0.0f;
+    float stageTop = 0.0f;
     if (!stageSolids.empty()) {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;
+        stageBottom = stageSolids.front().min.y;
+        stageTop = stageSolids.front().max.y;
         for (const AABB& solid : stageSolids) {
             stageLeft = (std::min)(stageLeft, solid.min.x);
             stageRight = (std::max)(stageRight, solid.max.x);
+            stageBottom = (std::min)(stageBottom, solid.min.y);
+            stageTop = (std::max)(stageTop, solid.max.y);
         }
     }
     const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
@@ -115,25 +183,24 @@ void GamePlayScene::UpdateCamera()
     // ロック中はカメラをほんの少しだけ対象側へ寄せて、狙っていることに気付きやすくする
     // （BattleTestScene/SceneShared::UpdateCameraFollowと同じ控えめな比率）
     constexpr float kLockOnCameraShiftRatio = 0.15f;
-    const Vector3* lockTargetPos = nullptr;
-    Vector3 lockTargetPosValue { };
-    if (lockedKind_ == LockTargetKind::MainEnemy) {
-        lockTargetPosValue = enemy_->GetPosition();
-        lockTargetPos = &lockTargetPosValue;
-    } else if (lockedKind_ == LockTargetKind::WeaponEnemy && lockedWeaponEnemyIndex_ < weaponEnemies_.size()) {
-        lockTargetPosValue = weaponEnemies_[lockedWeaponEnemyIndex_].enemy->GetPosition();
-        lockTargetPos = &lockTargetPosValue;
-    }
-    if (lockTargetPos != nullptr) {
-        cameraX += (lockTargetPos->x - ppos.x) * kLockOnCameraShiftRatio;
+    if (lockedEnemy_ != nullptr) {
+        cameraX += (lockedEnemy_->GetPosition().x - ppos.x) * kLockOnCameraShiftRatio;
         if (cameraMinX <= cameraMaxX) {
             cameraX = std::clamp(cameraX, cameraMinX, cameraMaxX);
         }
     }
 
+    // 縦も床の下・天井の上の何も無い空間が映らないよう、当たり判定ブロックの上下端で止める
+    float cameraY = ppos.y + GameConstants::kCameraFollowOffsetY;
+    const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
+    const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
+    if (!stageSolids.empty() && cameraMinY <= cameraMaxY) {
+        cameraY = std::clamp(cameraY, cameraMinY, cameraMaxY);
+    }
+
     cameraTargetPos_ = {
         cameraX,
-        ppos.y + GameConstants::kCameraFollowOffsetY,
+        cameraY,
         GameConstants::kCameraDistanceZ
     };
 
@@ -195,7 +262,7 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
     styleMeter_ = std::clamp(styleMeter_ + Tune().meleeBaseStyleGain
             + player_->GetComboStep() * Tune().meleeComboStepStyleGain + switchBonus + airborneBonus - repeatPenalty,
         0.0f, 1.0f);
-    player_->ChargeAwakenGauge(Tune().meleeAwakenGaugeGain);
+    ChargeAwakenGaugeByStyle(Tune().meleeAwakenGaugeGain);
     const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
     const WeaponData& weapon = wm->GetCurrent();
     const float damageMult = attack != nullptr ? attack->damageMult : 1.0f;
@@ -203,37 +270,44 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
         static_cast<int>(std::round(weapon.damage * damageMult / Tune().meleeDamageDivisor * CurrentDamageMult())));
     constexpr float kGameplayKnockbackScale = 0.72f;
     const float knockbackMult = weapon.knockbackMult * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale;
-    enemy_->TakeDamage(damage);
-    enemy_->ApplyComboReaction(player_->GetLastDirX() * knockbackMult,
-        (attack != nullptr ? attack->knockY : kDefaultKnockY) * knockbackMult,
-        player_->JustWeaponSwitchHit(), ppos.x);
+    const bool comboFinisher = IsMeleeFinisher(weapon.type, attack);
+    // 固有技の連撃（剣舞など）は武器の疲労の対象外
+    const bool skillSequence = player_->IsSkillSequenceActive();
+    const int fatigueIndex = skillSequence ? -1 : HeldMeleeFatigueIndex();
+    const float fatigueMult = WeaponFatigueDamageMult(fatigueIndex);
+    enemy_->TakeDamageScaled(static_cast<float>(damage) * fatigueMult);
+    RegisterFatigueHit(fatigueIndex, Tune().weaponFatiguePerHit);
+    if (skillSequence && attack != nullptr && attack->finisher) {
+        enemy_->ApplyHomeRun(player_->GetLastDirX());
+    } else {
+        enemy_->ApplyComboReaction(player_->GetLastDirX() * knockbackMult,
+            (attack != nullptr ? attack->knockY : kDefaultKnockY) * knockbackMult,
+            player_->JustWeaponSwitchHit(), ppos.x, comboFinisher);
+    }
+    // ボスは長く拘束しすぎると一方的になるため、雑魚より硬直を短くする
+    constexpr float kBossHitstunScale = 0.6f;
+    enemy_->ApplyHitstun(MeleeHitstunSeconds(attack) * kBossHitstunScale, true);
     styleRankHud_.RegisterHit(attack != nullptr ? attack->id : "melee", 1.0f);
     const int chainHits = styleRankHud_.GetHitCount();
 
     // 段が進むほど敵側の弾け方も大きくする（コンボの伸びを敵の見た目でも返す）
     constexpr float kComboStepStrengthGain = 0.2f;
     constexpr float kWeaponSwitchHitStrength = 1.8f;
-    const float hitStrength = player_->JustWeaponSwitchHit()
+    float hitStrength = player_->JustWeaponSwitchHit()
         ? kWeaponSwitchHitStrength
         : 1.0f + static_cast<float>((std::max)(player_->GetComboStep() - 1, 0)) * kComboStepStrengthGain;
-    EmitEnemyHitEffect(enemy_->GetPosition(),
-        { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] }, hitStrength,
+    Vector4 hitColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
+    ApplyFatigueToHitEffect(fatigueMult, hitColor, hitStrength);
+    EmitEnemyHitEffect(enemy_->GetPosition(), hitColor, hitStrength,
         weapon.effectBurstCount, weapon.effectRingRadius);
-    EmitElementalHitEffect(weapon, enemy_->GetPosition(), player_->GetComboStep());
+    // 属性の弾けは効きが落ちていない武器でだけ出す（持ち替えた瞬間に派手さが戻るのを見せる）
+    if (fatigueMult >= 1.0f) {
+        EmitElementalHitEffect(weapon, enemy_->GetPosition(), player_->GetComboStep());
+    }
 
-    // 段ごとのhitStop（MeleeCombo.cppで武器・段別に調整済み）をヒットストップとカメラ揺れへ反映する
-    constexpr float kHitStopShakeScale = 0.028f;
-    constexpr float kHitStopShakeDurationBase = 0.06f;
-    constexpr float kHitStopShakeDurationScale = 0.01f;
-    const int hitStopFrames = attack != nullptr
-        ? (attack->launcher ? GameConstants::kHitStopLaunch : attack->hitStop)
-        : kDefaultHitStopFrames;
-    TimeManager::GetInstance()->RequestHitStop(hitStopFrames);
-    cameraShaker_.Request(kHitStopShakeScale * static_cast<float>(hitStopFrames),
-        kHitStopShakeDurationBase + kHitStopShakeDurationScale * static_cast<float>(hitStopFrames));
+    RequestMeleeHitStopAndShake(attack, comboFinisher, kDefaultHitStopFrames);
 
-    // 段の締めと5ヒット刻みを明確な「山」にして、連続攻撃の途中と成功時の手応えを分ける。
-    constexpr int kComboFinisherStep = 3;
+    // 段の締めと5ヒット刻みを明確な山にして、連続攻撃の途中と成功時の手応えを分ける。
     constexpr int kChainMilestoneInterval = 5;
     constexpr float kFinisherFlashAlpha = 0.16f;
     constexpr float kMilestoneFlashAlpha = 0.10f;
@@ -253,8 +327,6 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
     constexpr float kFinisherSlashAngleLeft = 3.59f;
     constexpr float kFinisherSlashAlpha = 0.9f;
     constexpr float kFinisherSlashRadius = 2.2f;
-    constexpr float kDaggerSlowSeconds = 0.9f;
-    const bool comboFinisher = player_->GetComboStep() >= kComboFinisherStep;
     const bool chainMilestone = chainHits > 0 && (chainHits % kChainMilestoneInterval) == 0;
     if (comboFinisher || chainMilestone) {
         const Vector4 impactColor = { weapon.effectColor[0], weapon.effectColor[1],
@@ -271,20 +343,13 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
         }
     }
 
-    const WeaponType element = wm->GetCurrent().type;
-    if (element == WeaponType::Sword && player_->GetComboStep() >= kComboFinisherStep) {
-        enemy_->TakeDamage(1); // 炎: コンボ後半で追加ダメージ
-    } else if (element == WeaponType::Dagger) {
-        enemy_->ApplySlow(kDaggerSlowSeconds); // 氷: 行動速度を落とす
-    } else if (element == WeaponType::Spear) {
-        // 雷: 周囲の武器敵へ連鎖する。
-        for (auto& entry : weaponEnemies_) {
-            if (!entry.enemy->IsDefeated()
-                && std::abs(entry.enemy->GetPosition().x - enemy_->GetPosition().x) < Tune().chainSkillRange) {
-                entry.enemy->TakeDamage(1);
-            }
-        }
+    std::vector<EnemyEntity*> chainCandidates;
+    chainCandidates.reserve(weaponEnemies_.size());
+    for (const auto& entry : weaponEnemies_) {
+        chainCandidates.push_back(entry.enemy);
     }
+    WeaponHitBonus::For(wm->GetCurrent().type)
+        .Apply({ *enemy_, player_->GetComboStep(), chainCandidates, Tune().chainSkillRange });
 }
 
 void GamePlayScene::ApplyWeaponSkillStyleHit(const AABB& enemyAABB)
@@ -321,12 +386,17 @@ void GamePlayScene::ApplyWeaponSkillStyleHit(const AABB& enemyAABB)
     const float varietyBonus = techniqueId == lastTechniqueId_ ? Tune().skillVarietyBonusRepeat : Tune().skillVarietyBonusFresh;
     lastTechniqueId_ = techniqueId;
     styleMeter_ = std::clamp(styleMeter_ + varietyBonus, 0.0f, 1.0f);
-    player_->ChargeAwakenGauge(Tune().skillAwakenGaugeGain);
-    constexpr int kSlamBaseDamage = 3;
-    constexpr int kSkillBaseDamage = 2;
+    ChargeAwakenGaugeByStyle(Tune().skillAwakenGaugeGain);
+    constexpr int kSlamBaseDamage = 5;
+    constexpr int kSkillBaseDamage = 4;
     const int slamBonus = (slam && HasBossSlamTechnique()) ? GameRules::GetInstance()->Get().bossTechniqueBonusDamage : 0;
     const float rawDamage = static_cast<float>((slam ? kSlamBaseDamage : kSkillBaseDamage) + slamBonus);
     enemy_->TakeDamage((std::max)(1, static_cast<int>(std::round(rawDamage * CurrentDamageMult()))));
+    constexpr float kSkillHitstunSeconds = 0.5f;
+    constexpr float kSkillKnockY = 0.18f; // 固有技は浮かせて吹き飛ばし、通常段との格の違いを見せる
+    enemy_->ApplyHitstun(kSkillHitstunSeconds, true);
+    enemy_->ApplyComboReaction(player_->GetLastDirX() * wm->GetCurrent().knockbackMult, kSkillKnockY,
+        false, ppos.x, true);
     styleRankHud_.RegisterHit("skill_" + std::to_string(static_cast<int>(wm->GetCurrent().type)), 1.0f);
 
     // 固有技は通常段より大きく弾けさせる（叩きつけはさらに大きく）
@@ -337,12 +407,16 @@ void GamePlayScene::ApplyWeaponSkillStyleHit(const AABB& enemyAABB)
         { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] },
         slam ? kSlamHitStrength : kSkillHitStrength,
         weapon.effectBurstCount, weapon.effectRingRadius);
+    constexpr float kSkillElementScale = 1.6f;
+    EmitElementalHitEffect(weapon.element,
+        { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] },
+        enemy_->GetPosition(), kSkillElementScale);
 
     // 固有技は通常コンボより一段大きいヒットストップ・カメラ揺れにする（叩きつけはさらに大きく）
-    constexpr int kSkillHitStopFrames = 7;
-    constexpr int kSlamHitStopFrames = 12;
-    constexpr float kSkillShakeAmount = 0.16f;
-    constexpr float kSlamShakeAmount = 0.26f;
+    constexpr int kSkillHitStopFrames = 10;
+    constexpr int kSlamHitStopFrames = 14;
+    constexpr float kSkillShakeAmount = 0.3f;
+    constexpr float kSlamShakeAmount = 0.4f;
     constexpr float kSkillShakeSeconds = 0.14f;
     constexpr float kSlamShakeSeconds = 0.22f;
     const int hitStopFrames = slam ? kSlamHitStopFrames : kSkillHitStopFrames;
@@ -363,6 +437,105 @@ float GamePlayScene::SkillRadiusFor(float baseRadius, bool slam) const
         radius *= GameRules::GetInstance()->Get().bossTechniqueRadiusMult;
     }
     return radius;
+}
+
+int GamePlayScene::GunFatigueIndex() const
+{
+    return static_cast<int>(WeaponManager::GetInstance()->GetList().size());
+}
+
+int GamePlayScene::HeldMeleeFatigueIndex() const
+{
+    const auto* wm = WeaponManager::GetInstance();
+    return wm->HasEquippedWeapon() ? wm->GetIndex() : -1;
+}
+
+float GamePlayScene::WeaponFatigueDamageMult(int fatigueIndex) const
+{
+    if (fatigueIndex < 0 || fatigueIndex >= static_cast<int>(weaponFatigue_.size())) {
+        return 1.0f;
+    }
+    constexpr float kMinFatigueRange = 0.01f; // 無料区間を1以上に設定されても0除算しないための下限
+    const float freeRatio = Tune().weaponFatigueFreeRatio;
+    const float t = std::clamp((weaponFatigue_[fatigueIndex] - freeRatio) / (std::max)(1.0f - freeRatio, kMinFatigueRange),
+        0.0f, 1.0f);
+    return 1.0f + (Tune().weaponFatigueMinDamageMult - 1.0f) * t;
+}
+
+void GamePlayScene::RegisterFatigueHit(int fatigueIndex, float amount)
+{
+    if (fatigueIndex < 0) {
+        return;
+    }
+    pendingFatigueIndex_ = fatigueIndex;
+    pendingFatigueAmount_ = (std::max)(pendingFatigueAmount_, amount);
+}
+
+void GamePlayScene::UpdateWeaponFatigue()
+{
+    constexpr float kLastWeaponRestDelay = 1.5f; // 戦闘から離れてこの秒数たてば、最後に使った武器も休ませている扱いにする
+
+    weaponFatigue_.resize(static_cast<size_t>(GunFatigueIndex()) + 1, 0.0f);
+    if (pendingFatigueIndex_ >= 0 && pendingFatigueIndex_ < static_cast<int>(weaponFatigue_.size())) {
+        float& fatigue = weaponFatigue_[pendingFatigueIndex_];
+        fatigue = (std::min)(fatigue + pendingFatigueAmount_, 1.0f);
+        lastFatigueIndex_ = pendingFatigueIndex_;
+        fatigueIdleTimer_ = 0.0f;
+    } else {
+        fatigueIdleTimer_ += GameConstants::kFrameDeltaTime;
+    }
+    pendingFatigueIndex_ = -1;
+    pendingFatigueAmount_ = 0.0f;
+
+    // 最後に当てた武器以外は休ませている扱いで回復する（近接と銃を交互に使うのも持ち替えになる）
+    const float recover = Tune().weaponFatigueRecoverPerSecond * GameConstants::kFrameDeltaTime;
+    const bool lastWeaponResting = fatigueIdleTimer_ >= kLastWeaponRestDelay;
+    for (int i = 0; i < static_cast<int>(weaponFatigue_.size()); ++i) {
+        if (i != lastFatigueIndex_ || lastWeaponResting) {
+            weaponFatigue_[i] = (std::max)(weaponFatigue_[i] - recover, 0.0f);
+        }
+    }
+}
+
+void GamePlayScene::ApplyFatigueToHitEffect(float damageMult, Vector4& color, float& strength) const
+{
+    constexpr Vector4 kDullHitColor = { 0.55f, 0.55f, 0.6f, 1.0f }; // 効きが落ちた時に寄せる鈍い灰色
+    constexpr float kDullStrengthMin = 0.45f; // 疲労が上限の時の弾けの大きさ倍率
+    const float minMult = Tune().weaponFatigueMinDamageMult;
+    if (damageMult >= 1.0f || minMult >= 1.0f) {
+        return;
+    }
+    const float dull = std::clamp((1.0f - damageMult) / (1.0f - minMult), 0.0f, 1.0f);
+    color = { color.x + (kDullHitColor.x - color.x) * dull, color.y + (kDullHitColor.y - color.y) * dull,
+        color.z + (kDullHitColor.z - color.z) * dull, color.w };
+    strength *= 1.0f + (kDullStrengthMin - 1.0f) * dull;
+}
+
+float GamePlayScene::MeleeHitstunSeconds(const MeleeAttackDef* attack) const
+{
+    constexpr float kHitstunPadding = 0.2f; // 段の長さに足す余裕（次の段の発生までは確実に拘束する）
+    constexpr float kDefaultHitstunSeconds = 0.4f;
+    return attack != nullptr ? attack->duration + kHitstunPadding : kDefaultHitstunSeconds;
+}
+
+void GamePlayScene::RequestMeleeHitStopAndShake(const MeleeAttackDef* attack, bool finisher, int defaultFrames)
+{
+    // 途中の段は揺れを控えめにして刻みを軽く、締めだけ停止も揺れも大きくして山を作る
+    constexpr float kMidStepShakeScale = 0.014f;
+    constexpr float kFinisherShakeScale = 0.032f;
+    constexpr float kShakeDurationBase = 0.06f;
+    constexpr float kShakeDurationScale = 0.01f;
+    constexpr int kFinisherMinHitStopFrames = 10;
+    int hitStopFrames = attack != nullptr
+        ? (attack->launcher ? GameConstants::kHitStopLaunch : attack->hitStop)
+        : defaultFrames;
+    if (finisher) {
+        hitStopFrames = (std::max)(hitStopFrames, kFinisherMinHitStopFrames);
+    }
+    TimeManager::GetInstance()->RequestHitStop(hitStopFrames);
+    const float frames = static_cast<float>(hitStopFrames);
+    cameraShaker_.Request((finisher ? kFinisherShakeScale : kMidStepShakeScale) * frames,
+        kShakeDurationBase + kShakeDurationScale * frames);
 }
 
 bool GamePlayScene::HasBossSlamTechnique() const
@@ -389,15 +562,30 @@ void GamePlayScene::ApplyGunShotStyleHit(const AABB& enemyAABB)
     // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
     float gain = Tune().gunBaseStyleGain + ((shot != nullptr) ? player_->GetGunComboStep() * Tune().gunComboStepStyleGain : 0.0f);
     styleMeter_ = std::clamp(styleMeter_ + gain, 0.0f, 1.0f);
-    player_->ChargeAwakenGauge(Tune().gunAwakenGaugeGain);
+    ChargeAwakenGaugeByStyle(Tune().gunAwakenGaugeGain);
     constexpr int kGunBaseDamage = 1;
-    enemy_->TakeDamage((std::max)(1, static_cast<int>(std::round(kGunBaseDamage * CurrentDamageMult()))));
+    const float gunFatigueMult = WeaponFatigueDamageMult(GunFatigueIndex());
+    enemy_->TakeDamageScaled(static_cast<float>((std::max)(1, static_cast<int>(std::round(kGunBaseDamage * CurrentDamageMult()))))
+        * gunFatigueMult);
+    RegisterFatigueHit(GunFatigueIndex(), Tune().gunFatiguePerHit);
+    // 連射で一方的にならないよう、銃は怯ませるだけで攻撃は潰さない
+    constexpr float kGunHitstunSeconds = 0.12f;
+    enemy_->ApplyHitstun(kGunHitstunSeconds, false);
     styleRankHud_.RegisterHit(shot != nullptr ? shot->id : "shot", 1.0f);
 
     // 銃は連射するので小さめの弾けで着弾を示す
     constexpr Vector4 kGunHitColor = { 1.0f, 0.85f, 0.4f, 1.0f };
     constexpr float kGunHitStrength = 0.7f;
-    EmitEnemyHitEffect(enemy_->GetPosition(), kGunHitColor, kGunHitStrength);
+    Vector4 gunHitColor = kGunHitColor;
+    float gunHitStrength = kGunHitStrength;
+    ApplyFatigueToHitEffect(gunFatigueMult, gunHitColor, gunHitStrength);
+    EmitEnemyHitEffect(enemy_->GetPosition(), gunHitColor, gunHitStrength);
+    constexpr float kGunElementScale = 0.6f; // 連射で画面が埋まらないよう近接より小さく
+    if (gunFatigueMult >= 1.0f) {
+        EmitElementalHitEffect(gun.element,
+            { gun.effectColor[0], gun.effectColor[1], gun.effectColor[2], gun.effectColor[3] },
+            enemy_->GetPosition(), kGunElementScale);
+    }
 }
 
 void GamePlayScene::ApplyDaggerStingerStyleBonus()
@@ -439,6 +627,12 @@ void GamePlayScene::DecayStyleMeter(float dt)
     peakStyle_ = (std::max)(peakStyle_, styleMeter_);
 }
 
+void GamePlayScene::ChargeAwakenGaugeByStyle(float amount)
+{
+    const float rankMult = 1.0f + static_cast<float>(styleRankHud_.GetRankIndex()) * Tune().styleRankAwakenGaugeBonus;
+    player_->ChargeAwakenGauge(amount * rankMult);
+}
+
 void GamePlayScene::UpdateDodgeStyle()
 {
     // 回避そのものは加点しない。危険の無い場面での連打だけスタイルを削る（引きこもり回避の抑止）
@@ -471,7 +665,7 @@ bool GamePlayScene::TryJustDodge(const Vector3& hitPos)
         return true; // 同じ回避の2発目以降は無効化だけ
     }
     styleMeter_ = std::clamp(styleMeter_ + Tune().justDodgeStyleGain, 0.0f, 1.0f);
-    player_->ChargeAwakenGauge(Tune().justDodgeGaugeGain);
+    ChargeAwakenGaugeByStyle(Tune().justDodgeGaugeGain);
     player_->BeginJustDodgeWindow(Tune().justDodgeBonusSeconds); // 直後の攻撃を強化し、回避を攻めの起点にする
     TimeManager::GetInstance()->RequestHitStop(Tune().justDodgeHitStopFrames);
     cameraShaker_.Request(kJustDodgeShakeAmount, kJustDodgeShakeSeconds);
@@ -517,6 +711,11 @@ void GamePlayScene::UpdateParticles(float dt)
 {
     if (dt <= 0.0f) {
         return;
+    }
+
+    hitEscalationTimer_ = (std::max)(hitEscalationTimer_ - dt, 0.0f);
+    if (hitEscalationTimer_ <= 0.0f) {
+        hitEscalationCount_ = 0;
     }
 
     UpdateLandingAndJumpDustParticles();
@@ -612,8 +811,7 @@ void GamePlayScene::UpdateGhostTrail(float dt)
 
     // 残像: 覚醒中/乱舞中の横移動 or 空中 → プレイヤーモデルのゴーストを一定間隔でスポーン
     // （Player::afterImageRenderer_ と同じ、残像=覚醒時だけの演出という前提に揃える）
-    bool movingX = input_->PushKey(DIK_A) || input_->PushKey(DIK_LEFT)
-        || input_->PushKey(DIK_D) || input_->PushKey(DIK_RIGHT);
+    bool movingX = input_->PushAction(Input::Action::MoveLeft) || input_->PushAction(Input::Action::MoveRight);
     bool awakenActive = player_->IsRampaging();
     if (player_->IsWarping() || (awakenActive && (movingX || !player_->IsOnGround()))) {
         ghostSpawnTimer_ -= dt;

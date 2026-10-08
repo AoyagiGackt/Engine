@@ -74,6 +74,8 @@ private:
     void DrawWorld();
     /** @brief Draw()の下請け 各ステージ入口ポータルの上に番号ラベルとENTER案内を描画する */
     void DrawStagePortalLabels(int floor);
+    /** @brief 操作説明の後ろに暗い板を敷く（明るい背景でも読めるように） */
+    void DrawHintPanel(const std::wstring& text, const Vector2& position, float scale);
     /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
 

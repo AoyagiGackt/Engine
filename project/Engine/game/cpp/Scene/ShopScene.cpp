@@ -81,56 +81,6 @@ constexpr float kHelpScale = 1.05f;
 constexpr Vector4 kHelpColor = { 0.42f, 0.42f, 0.42f, 1.0f };
 }
 
-// スキルの日本語名
-static const wchar_t* SkillNameJP(RunData::Skill s)
-{
-    switch (s) {
-    case RunData::Skill::BlinkPlus:
-        return L"ブリンク強化";
-    case RunData::Skill::ComboExtend:
-        return L"コンボ延長";
-    case RunData::Skill::FastFire:
-        return L"速射";
-    case RunData::Skill::AwakenBoost:
-        return L"覚醒促進";
-    case RunData::Skill::SpeedUp:
-        return L"疾走";
-    case RunData::Skill::HighJump:
-        return L"跳躍強化";
-    case RunData::Skill::JuggleExtend:
-        return L"乱舞強化";
-    case RunData::Skill::StylePersist:
-        return L"スタイル維持";
-    default:
-        return L"？？？";
-    }
-}
-
-// スキルの日本語説明
-static const wchar_t* SkillDescJP(RunData::Skill s)
-{
-    switch (s) {
-    case RunData::Skill::BlinkPlus:
-        return L"ブリンク距離が 1.5倍になる";
-    case RunData::Skill::ComboExtend:
-        return L"コンボ最大数が 1段階増加";
-    case RunData::Skill::FastFire:
-        return L"弾の連射速度が 2倍になる";
-    case RunData::Skill::AwakenBoost:
-        return L"覚醒ゲージの蓄積速度が 1.5倍";
-    case RunData::Skill::SpeedUp:
-        return L"移動速度が 1.2倍になる";
-    case RunData::Skill::HighJump:
-        return L"ジャンプ力が 1.25倍になる";
-    case RunData::Skill::JuggleExtend:
-        return L"乱舞スラッシュ回数が 4回増加";
-    case RunData::Skill::StylePersist:
-        return L"スタイルメーターの減衰が 0.6倍";
-    default:
-        return L"";
-    }
-}
-
 void ShopScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -236,7 +186,7 @@ void ShopScene::Draw()
     if (done_) {
         if (chosen_ >= 0) {
             fontRenderer_.DrawStringW(L"スキルを取得した!", kAcquiredTextPosition.x, kAcquiredTextPosition.y, kResultTextScale, kGreenText);
-            fontRenderer_.DrawStringW(SkillNameJP(offered_[chosen_]), kAcquiredSkillPosition.x, kAcquiredSkillPosition.y,
+            fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[chosen_]).nameJp, kAcquiredSkillPosition.x, kAcquiredSkillPosition.y,
                 kAcquiredSkillScale, kGoldText);
         } else {
             fontRenderer_.DrawStringW(L"スキップした", kSkippedTextPosition.x, kSkippedTextPosition.y, kResultTextScale, kGrayText);
@@ -276,11 +226,11 @@ void ShopScene::Draw()
         fontRenderer_.DrawString(key, cx + kCardTextPaddingX, kCardY + kCardKeyOffsetY, kCardKeyScale, kGreenText);
 
         // スキル名（日本語）
-        fontRenderer_.DrawStringW(SkillNameJP(offered_[i]),
+        fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[i]).nameJp,
             cx + kCardTextPaddingX, kCardY + kCardNameOffsetY, kCardNameScale, kGoldText);
 
         // スキル効果説明（日本語）
-        fontRenderer_.DrawStringW(SkillDescJP(offered_[i]),
+        fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[i]).descJp,
             cx + kCardTextPaddingX, kCardY + kCardDescOffsetY, kCardDescScale, kCardDescColor);
 
         // 英語コード名（小さく・補足として）
@@ -296,7 +246,7 @@ void ShopScene::Draw()
         } else {
             float sx = kOwnedListX;
             for (auto sk : rd->GetSkills()) {
-                const wchar_t* jn = SkillNameJP(sk);
+                const wchar_t* jn = RunData::GetSkillText(sk).nameJp;
                 fontRenderer_.DrawStringW(jn, sx, kOwnedListY, kOwnedSkillScale, kOwnedSkillColor);
                 sx += static_cast<float>(wcslen(jn) + 1) * FontRenderer::kJpCharW * kOwnedSkillScale;
             }

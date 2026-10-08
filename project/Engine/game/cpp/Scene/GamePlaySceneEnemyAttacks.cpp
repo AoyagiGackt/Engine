@@ -21,7 +21,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -73,6 +72,9 @@ void GamePlayScene::UpdateWeaponEnemies()
             };
 
             bool hit = false;
+            bool meleeHit = false;
+            bool gunHit = false;
+            bool skillHit = false;
             if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
                 const AABB range = SceneShared::MakeDirectionalShotRange(
                     playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
@@ -88,11 +90,13 @@ void GamePlayScene::UpdateWeaponEnemies()
                     airFriendlyRange.max.x += kAirRangeWidthPadding;
                 }
                 hit = Collision::CheckCollision(airFriendlyRange, enemyBounds);
+                meleeHit = hit;
             }
             if (!hit && player_->JustFired()) {
                 const AABB range = SceneShared::MakeDirectionalRange(
                     playerPos, player_->GetLastDirX(), wm->GetRanged().range, Tune().gunBackRange);
                 hit = Collision::CheckCollision(range, enemyBounds);
+                gunHit = hit;
             }
             if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
                 const float skillRadius = SkillRadiusFor(Tune().weaponEnemySkillRadius, player_->JustGreatswordSlam());
@@ -102,6 +106,9 @@ void GamePlayScene::UpdateWeaponEnemies()
                     { skillCenter.x + skillRadius, skillCenter.y + Tune().skillRangeHalfHeight, kStageHalfDepth }
                 };
                 hit = Collision::CheckCollision(range, enemyBounds);
+                // スピン連射は手数の多い射撃扱い、それ以外の固有技は必殺の一撃として扱う
+                skillHit = hit && !player_->JustSpinShot();
+                gunHit = hit && player_->JustSpinShot();
             }
             if (hit) {
                 const MeleeAttackDef* attack = player_->GetActiveMeleeAttack();
@@ -112,49 +119,107 @@ void GamePlayScene::UpdateWeaponEnemies()
                 const int slamBonus = (player_->JustGreatswordSlam() && HasBossSlamTechnique())
                     ? GameRules::GetInstance()->Get().bossTechniqueBonusDamage
                     : 0;
+                constexpr float kSkillDamageMult = 2.5f; // 固有技は通常段より大きく削る
                 const float rawDamage = player_->JustGreatswordSlam()
                     ? static_cast<float>(kSlamBaseDamage + slamBonus)
-                    : baseDamage * damageMult / Tune().meleeDamageDivisor;
+                    : baseDamage * damageMult / Tune().meleeDamageDivisor * (skillHit ? kSkillDamageMult : 1.0f);
                 const int damage = (std::max)(1, static_cast<int>(std::round(rawDamage * CurrentDamageMult())));
                 constexpr float kGameplayKnockbackScale = 0.72f;
                 const float knockbackMult = (wm->HasEquippedWeapon()
                                                 ? wm->GetCurrent().knockbackMult
                                                 : 1.0f)
                     * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale;
-                entry.enemy->TakeDamage(damage);
+                const bool comboFinisher = meleeHit && IsMeleeFinisher(wm->GetCurrent().type, attack);
+                // 固有技は締めと同じく大きく吹き飛ばす
+                const bool blowAway = comboFinisher || skillHit;
+                // 近接と銃は武器ごとの疲労でダメージが落ちる（固有技はクールタイムがあるので対象外）
+                const bool firedHit = gunHit && player_->JustFired();
+                const bool skillSequence = meleeHit && player_->IsSkillSequenceActive();
+                const int fatigueIndex = skillSequence ? -1 : meleeHit ? HeldMeleeFatigueIndex() : (firedHit ? GunFatigueIndex() : -1);
+                const float fatigueMult = WeaponFatigueDamageMult(fatigueIndex);
+                entry.enemy->TakeDamageScaled(static_cast<float>(damage) * fatigueMult);
+                RegisterFatigueHit(fatigueIndex, meleeHit ? Tune().weaponFatiguePerHit : Tune().gunFatiguePerHit);
                 constexpr float kDefaultKnockY = 0.05f;
-                const float knockY = (attack != nullptr ? attack->knockY : kDefaultKnockY) * knockbackMult;
-                entry.enemy->ApplyComboReaction(player_->GetLastDirX() * knockbackMult, knockY,
-                    player_->JustWeaponSwitchHit(), playerPos.x);
+                constexpr float kSkillKnockY = 0.18f;
+                const float knockY = (skillHit ? kSkillKnockY : (attack != nullptr ? attack->knockY : kDefaultKnockY)) * knockbackMult;
+                if (skillSequence && attack != nullptr && attack->finisher) {
+                    entry.enemy->ApplyHomeRun(player_->GetLastDirX());
+                } else {
+                    entry.enemy->ApplyComboReaction(player_->GetLastDirX() * knockbackMult, knockY,
+                        player_->JustWeaponSwitchHit(), playerPos.x, blowAway);
+                }
+                constexpr float kGunHitstunSeconds = 0.12f;
+                constexpr float kSkillHitstunSeconds = 0.5f;
+                if (meleeHit) {
+                    entry.enemy->ApplyHitstun(MeleeHitstunSeconds(attack), true);
+                } else {
+                    entry.enemy->ApplyHitstun(gunHit ? kGunHitstunSeconds : kSkillHitstunSeconds, !gunHit);
+                }
                 if (wm->HasEquippedWeapon() && wm->GetCurrent().type == WeaponType::Dagger) {
                     constexpr float kDaggerSlowSeconds = 0.8f;
                     entry.enemy->ApplySlow(kDaggerSlowSeconds);
                 }
                 constexpr Vector4 kUnarmedHitColor = { 1.0f, 0.8f, 0.25f, 1.0f };
-                const Vector4 hitColor = wm->HasEquippedWeapon()
+                Vector4 hitColor = wm->HasEquippedWeapon()
                     ? Vector4 { wm->GetCurrent().effectColor[0], wm->GetCurrent().effectColor[1],
                           wm->GetCurrent().effectColor[2], wm->GetCurrent().effectColor[3] }
                     : kUnarmedHitColor;
                 const int extraBurstCount = wm->HasEquippedWeapon() ? wm->GetCurrent().effectBurstCount : 0;
                 const float ringRadius = wm->HasEquippedWeapon() ? wm->GetCurrent().effectRingRadius : 0.0f;
-                EmitEnemyHitEffect(enemyPos, hitColor, 1.0f, extraBurstCount, ringRadius);
+                constexpr float kSkillHitStrength = 1.8f;
+                float hitStrength = skillHit ? kSkillHitStrength : 1.0f;
+                const Vector4 elementColor = hitColor;
+                ApplyFatigueToHitEffect(fatigueMult, hitColor, hitStrength);
+                EmitEnemyHitEffect(enemyPos, hitColor, hitStrength, extraBurstCount, ringRadius);
+                // 属性ごとの追加演出（銃は銃の属性、それ以外は手持ち武器の属性）。効きが落ちた武器では出さない
+                constexpr float kGunElementScale = 0.6f;
+                constexpr float kSkillElementScale = 1.6f;
+                const bool fresh = fatigueMult >= 1.0f;
+                if (fresh && firedHit) {
+                    const RangedWeaponData& gun = wm->GetRanged();
+                    EmitElementalHitEffect(gun.element,
+                        { gun.effectColor[0], gun.effectColor[1], gun.effectColor[2], gun.effectColor[3] },
+                        enemyPos, kGunElementScale);
+                } else if (fresh && skillHit) {
+                    EmitElementalHitEffect(wm->GetCurrent().element, elementColor, enemyPos, kSkillElementScale);
+                } else if (fresh && meleeHit) {
+                    EmitElementalHitEffect(wm->GetCurrent(), enemyPos, player_->GetComboStep());
+                }
 
                 // 段ごとのhitStop（MeleeCombo.cppで武器・段別に調整済み）をヒットストップとカメラ揺れへ反映する
-                constexpr float kHitStopShakeScale = 0.028f;
-                constexpr float kHitStopShakeDurationBase = 0.06f;
-                constexpr float kHitStopShakeDurationScale = 0.01f;
+                // 固有技は段定義を持たないため、締め扱いの大きな停止と揺れにする
                 constexpr int kDefaultHitStopFrames = 3;
-                const int hitStopFrames = attack != nullptr
-                    ? (attack->launcher ? GameConstants::kHitStopLaunch : attack->hitStop)
-                    : kDefaultHitStopFrames;
-                TimeManager::GetInstance()->RequestHitStop(hitStopFrames);
-                cameraShaker_.Request(kHitStopShakeScale * static_cast<float>(hitStopFrames),
-                    kHitStopShakeDurationBase + kHitStopShakeDurationScale * static_cast<float>(hitStopFrames));
+                RequestMeleeHitStopAndShake(skillHit ? nullptr : attack, blowAway, kDefaultHitStopFrames);
             }
         }
 
+        if (!entry.weaponAcquired && entry.enemy->IsDefeated() && !entry.hasWeapon) {
+            // モンスターは奪う武器が無いので、倒れた姿を少し見せてから弾けて消え、覚醒ゲージになる
+            constexpr float kMonsterVanishDelay = 0.6f;
+            constexpr float kMonsterVanishGauge = 0.06f;
+            constexpr Vector4 kMonsterVanishColor = { 0.85f, 0.7f, 1.0f, 1.0f };
+            constexpr float kMonsterVanishRingSpeed = 3.0f;
+            constexpr int kMonsterVanishRingCount = 20;
+            constexpr float kMonsterVanishRingLifetime = 0.35f;
+            constexpr float kMonsterVanishRingSize = 0.2f;
+            if (entry.vanishTimer <= 0.0f) {
+                entry.vanishTimer = kMonsterVanishDelay;
+            }
+            entry.vanishTimer -= GameConstants::kFrameDeltaTime;
+            if (entry.vanishTimer <= 0.0f) {
+                const Vector3 vanishPos = entry.enemy->GetPosition();
+                pm_->EmitRing("weapon_orb", vanishPos, kMonsterVanishRingSpeed, kMonsterVanishColor,
+                    kMonsterVanishRingCount, kMonsterVanishRingLifetime, kMonsterVanishRingSize);
+                pm_->EmitHitStar("hit_spark", vanishPos, kMonsterVanishColor);
+                entry.enemy->SetVisible(false);
+                player_->ChargeAwakenGauge(kMonsterVanishGauge);
+                entry.weaponAcquired = true;
+            }
+            continue;
+        }
         if (!entry.weaponAcquired && entry.enemy->IsDefeated()) {
-            const Vector3 enemyPos = entry.enemy->GetPosition();
+            // 打ち飛ばされて武器を落としていれば、本体ではなく落ちた武器の場所で奪う
+            const Vector3 enemyPos = entry.enemy->GetWeaponPickupPosition();
             const float dx = playerPos.x - enemyPos.x;
             const float dy = playerPos.y - enemyPos.y;
             constexpr float kAbsorbRange = 2.0f;
@@ -169,7 +234,7 @@ void GamePlayScene::UpdateWeaponEnemies()
             constexpr float kAbsorbPullRate = 0.16f; // 1フレームでプレイヤーへ寄せる割合
             constexpr float kAbsorbTargetHeight = 0.5f;
             if (!entry.absorbing && dx * dx + dy * dy <= kAbsorbRange * kAbsorbRange
-                && input_->TriggerKey(DIK_J)) {
+                && input_->TriggerAction(Input::Action::Steal)) {
                 entry.absorbing = true;
                 entry.absorbTimer = kAbsorbDuration;
                 player_->PlayStealStab();
@@ -179,15 +244,23 @@ void GamePlayScene::UpdateWeaponEnemies()
             }
             if (entry.absorbing) {
                 entry.absorbTimer -= GameConstants::kFrameDeltaTime;
-                Vector3& absorbPos = entry.enemy->GetPositionRef();
-                absorbPos.x += (playerPos.x - absorbPos.x) * kAbsorbPullRate;
-                absorbPos.y += (playerPos.y + kAbsorbTargetHeight - absorbPos.y) * kAbsorbPullRate;
-                entry.enemy->RefreshVisualTransforms();
+                const Vector3 absorbTarget = { playerPos.x, playerPos.y + kAbsorbTargetHeight, playerPos.z };
+                if (entry.enemy->HasDroppedWeapon()) {
+                    entry.enemy->PullDroppedWeaponToward(absorbTarget, kAbsorbPullRate);
+                } else {
+                    Vector3& absorbPos = entry.enemy->GetPositionRef();
+                    absorbPos.x += (absorbTarget.x - absorbPos.x) * kAbsorbPullRate;
+                    absorbPos.y += (absorbTarget.y - absorbPos.y) * kAbsorbPullRate;
+                    entry.enemy->RefreshVisualTransforms();
+                }
                 if (entry.absorbTimer <= 0.0f) {
                     entry.weaponAcquired = true;
                     entry.enemy->SetVisible(false);
-                    if (WeaponManager::GetInstance()->Acquire(entry.weaponType) == WeaponManager::AcquireResult::Duplicate) {
+                    const WeaponManager::AcquireResult acquired = WeaponManager::GetInstance()->Acquire(entry.weaponType);
+                    if (acquired == WeaponManager::AcquireResult::Duplicate) {
                         player_->ChargeAwakenGauge(CombatTuning::GetInstance()->Get().duplicateWeaponAwakenBonus);
+                    } else if (acquired == WeaponManager::AcquireResult::Added) {
+                        hud_.Notify(HudEvent::WeaponAcquired);
                     }
                 }
             }

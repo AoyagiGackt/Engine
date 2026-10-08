@@ -58,7 +58,6 @@ public:
     /** @brief コンボを強制的に打ち切る（被弾・銃切替・乱舞開始時など） */
     void Reset();
 
-    bool IsShooting() const { return active_ != nullptr; }
     bool JustShot() const { return justShot_; } ///< このフレームに発砲したか
     bool JustStartedStep() const { return justStarted_; } ///< このフレームに段が開始したか
     const GunShotDef* GetActive() const { return active_; } ///< 進行中の段（無ければ nullptr）

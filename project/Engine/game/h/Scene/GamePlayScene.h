@@ -33,10 +33,10 @@
 #include "BladeFlashEffect.h"
 #include "CameraShaker.h"
 #include "Collision.h"
+#include "ElementEffect.h"
 #include "EnemyEntity.h"
 #include "EnemyRegistry.h"
 #include "FontRenderer.h"
-#include "GameTime.h"
 #include "GlassShatterEffect.h"
 #include "ImageFilter.h"
 #include "LevelLoader.h"
@@ -63,7 +63,6 @@ using engine::AABB;
 using engine::Audio;
 using engine::Collision;
 using engine::DirectXCommon;
-using engine::GameTime;
 using engine::Input;
 using engine::TimeManager;
 using engine::graphics::BladeFlashEffect;
@@ -87,7 +86,6 @@ using engine::graphics::Sprite;
 using engine::graphics::SpriteCommon;
 using engine::graphics::SrvManager;
 
-class ScoreManager;
 class GamePlaySceneInitializer;
 
 /**
@@ -198,8 +196,6 @@ private:
     void InitializeCoreSystems();
     /** @brief InitializeCoreSystems()の下請け 描画基盤(Common類・シャドウ・カメラ)とスカイドームを初期化する */
     void InitializeRenderFoundation();
-    /** @brief InitializeCoreSystems()の下請け ステージ実体(プレイヤー/敵等)とスコアシステムを初期化する */
-    void InitializeStageActorsAndScore();
     /** @brief InitializeCoreSystems()の下請け レンダーテクスチャとクリア演出用オーバーレイスプライトを初期化する */
     void InitializeRenderTargetsAndOverlays();
     /** @brief InitializeCoreSystems()の下請け パーティクル・水面・武器スロットHUDを初期化する */
@@ -279,6 +275,8 @@ private:
     void ApplyRampageStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け スタイルメーターの時間経過による減衰を処理する */
     void DecayStyleMeter(float dt);
+    /** @brief 現在のスタイルランクが高いほど多く覚醒ゲージを溜める（攻撃ヒット・ジャスト回避用） */
+    void ChargeAwakenGaugeByStyle(float amount);
     /** @brief UpdateStyleAndUI()の下請け 回避の連打ペナルティを処理する（ジャスト回避の加点はTryJustDodge側） */
     void UpdateDodgeStyle();
     /** @brief 覚醒中の武器倍率とジャスト回避直後の強化窓を合わせた、現在の攻撃ダメージ倍率 */
@@ -289,6 +287,32 @@ private:
      * @param slam 叩きつけ系（大剣/ハンマー）の技か
      */
     float SkillRadiusFor(float baseRadius, bool slam) const;
+    /**
+     * @brief 近接ヒットで敵に与える被弾硬直の秒数（次の段が出るまで拘束できる長さ）
+     * @param attack ヒットした段（nullptrなら既定値）
+     */
+    float MeleeHitstunSeconds(const MeleeAttackDef* attack) const;
+    /** @brief 銃の疲労の添字（近接武器の後ろ） */
+    int GunFatigueIndex() const;
+    /** @brief 手に持っている近接武器の疲労の添字（素手なら-1） */
+    int HeldMeleeFatigueIndex() const;
+    /** @brief 指定した武器の疲労から、今のダメージ倍率を返す（1.0=万全〜weaponFatigueMinDamageMult） */
+    float WeaponFatigueDamageMult(int fatigueIndex) const;
+    /** @brief このフレームに当てた武器を記録する（疲労の加算はUpdateWeaponFatigue()でまとめて1回だけ行う） */
+    void RegisterFatigueHit(int fatigueIndex, float amount);
+    /** @brief 当てた武器へ疲労を足し、それ以外の武器の疲労を抜く（ヒット判定の後に毎フレーム呼ぶ） */
+    void UpdateWeaponFatigue();
+    /** @brief 疲労で効きが落ちた命中の弾けを、威力に合わせて小さく灰色に寄せる */
+    void ApplyFatigueToHitEffect(float damageMult, Vector4& color, float& strength) const;
+    /** @brief 同じ武器で当て続けて効きが落ちている時に、持ち替えを促す警告を出す */
+    void DrawWeaponFatigueWarning();
+    /**
+     * @brief 近接ヒットのヒットストップとカメラ揺れを要求する（途中の段は控えめ、締めだけ大きく）
+     * @param attack        ヒットした段（nullptrなら既定値）
+     * @param finisher      コンボの締めか
+     * @param defaultFrames 段定義がない時のヒットストップフレーム数
+     */
+    void RequestMeleeHitStopAndShake(const MeleeAttackDef* attack, bool finisher, int defaultFrames);
     /** @brief 叩きつけ系固有技が習得済みボス技で強化されているか */
     bool HasBossSlamTechnique() const;
     /**
@@ -328,8 +352,22 @@ private:
      */
     void EmitEnemyHitEffect(const Vector3& enemyPos, const Vector4& color, float strength,
         int extraBurstCount = 0, float ringRadius = 0.0f);
+    /** @brief 連続ヒット数に応じた命中演出の盛り度合い（0.0=初撃〜1.0=上限） */
+    float HitEscalationRatio() const;
     /** @brief 武器属性ごとに形・運動の異なる追加命中演出を出す */
     void EmitElementalHitEffect(const WeaponData& weapon, const Vector3& enemyPos, int comboStep);
+    /**
+     * @brief 属性名ごとの追加命中演出を出す（近接・固有技・銃で共通）
+     * @param element  属性名（Water/Fire/Lightning/Ice/Gravity/Blood/Void/Wind、それ以外は何も出さない）
+     * @param color    属性色
+     * @param enemyPos 命中した敵の位置
+     * @param scale    演出の大きさ倍率（連続ヒットによる盛りはこの上に掛かる）
+     */
+    void EmitElementalHitEffect(const std::string& element, const Vector4& color, const Vector3& enemyPos, float scale);
+    /** @brief 近接モーション中、武器の先から属性ごとの粒子を零す（火の粉・水滴・冷気など） */
+    void EmitWeaponElementAura(const std::string& element, const Vector4& color, const Vector3& weaponPos);
+    /** @brief 属性エフェクトに渡す粒子の発生先・乱数・プレイヤーの向きをまとめる */
+    ElementEffectContext ElementContext();
     /** @brief 敵が予備動作に入った瞬間に警告リングを出す（攻撃が来ることを事前に伝え、回避を狙えるようにする） */
     void EmitEnemyTelegraphCue(const EnemyEntity* enemy);
     /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
@@ -338,6 +376,13 @@ private:
     void EmitBlinkAndGaugeParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガーのスティンガー以外）発動時に技ごとの見た目を出す */
     void EmitWeaponSkillCastParticles(const Vector3& ppos);
+    /**
+     * @brief 固有技が決まった瞬間の共通演出（閃光・停止・揺れ・刃の明滅・大きな弾け）を当たり外れに関係なく出す
+     * @param center    演出の中心（技の着弾点）
+     * @param color     武器の属性色
+     * @param slashLine 進行方向へ画面を横切る一閃を引くか（居合系の突進技用）
+     */
+    void EmitWeaponSkillImpact(const Vector3& center, const Vector4& color, bool slashLine);
     /** @brief UpdateStyleTechniqueParticles()の下請け 覚醒中の継続オーラと発動瞬間の衝撃波を発生させる */
     void EmitAwakenParticles(const Vector3& ppos, float dt);
     /** @brief UpdateStyleTechniqueParticles()の下請け styleRankHud_のランクが上がった瞬間にリング・火花・カメラシェイク・画面フラッシュを出す */
@@ -364,7 +409,6 @@ private:
     Audio* audio_ = nullptr;
     ImGuiManager* imguiManager_ = nullptr;
 
-    ScoreManager* scoreManager_ = nullptr;
     SrvManager* srvManager_ = nullptr;
     GrayscaleEffect* grayscaleEffect_ = nullptr;
     ImageFilter* imageFilter_ = nullptr;
@@ -399,7 +443,9 @@ private:
     struct WeaponEnemyEntry {
         EnemyEntity* enemy = nullptr; // 非所有。StageEditorの配置物が実体を所有する
         WeaponType weaponType = WeaponType::Sword;
-        bool weaponAcquired = false;
+        bool hasWeapon = true; ///< falseなら武器を持たないモンスター（倒すと消えて覚醒ゲージになる）
+        float vanishTimer = 0.0f; ///< モンスターが倒れてから消えるまでの残り秒数
+        bool weaponAcquired = false; ///< 武器を奪い終えた（モンスターは消え終えた）
         bool absorbing = false;
         bool defeatEffectEmitted = false;
         float absorbTimer = 0.0f;
@@ -408,18 +454,13 @@ private:
     };
     std::vector<WeaponEnemyEntry> weaponEnemies_;
 
-    /** @brief ロックオン中の対象種別（BattleTestSceneと同じくShift長押し中は最寄りの敵を自動追従する） */
-    enum class LockTargetKind { None,
-        MainEnemy,
-        WeaponEnemy };
-    LockTargetKind lockedKind_ = LockTargetKind::None;
-    size_t lockedWeaponEnemyIndex_ = 0;
+    /** @brief ロックオン中の敵（ボスも道中の敵も同じ扱い。ロックオン長押し中は最寄りの敵を自動追従し、離すとnullptr） */
+    const EnemyEntity* lockedEnemy_ = nullptr;
 
     // 収集物（pickup）と壊せる物（breakable）はレベルJSONの配置物としてStageEditorが所有する。
     // ここでは壊せる物の脈動表示に使うタイマーだけを持つ
     float explosiveBarrelPulse_ = 0.0f;
 
-    GameTime gameTime_;
 
     Vector4 skyColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
     float skyRotOffsetY_ = 0.0f;
@@ -479,6 +520,15 @@ private:
     StyleMeter styleRankHud_;
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;
+    /** @brief 武器ごとの疲労（0〜1）。添字は近接武器のWeaponManager::GetList()順、末尾が銃 */
+    std::vector<float> weaponFatigue_;
+    int lastFatigueIndex_ = -1; ///< 最後に当てた武器の添字（この武器だけは疲労が抜けない）
+    int pendingFatigueIndex_ = -1; ///< このフレームに当てた武器の添字（複数の敵に同時に当てても1回ぶんにする）
+    float pendingFatigueAmount_ = 0.0f;
+    float fatigueIdleTimer_ = 0.0f; ///< 最後に何かへ当ててからの経過秒数
+    /** @brief 途切れずに当て続けたヒット数（雑魚・ボス・銃・近接を問わない。命中演出を段々派手にする） */
+    int hitEscalationCount_ = 0;
+    float hitEscalationTimer_ = 0.0f; ///< 連続ヒットが途切れるまでの残り秒数
 
     // フィニッシャースラッシュ演出の進行状態
     bool finisherActive_ = false;
@@ -500,6 +550,7 @@ private:
     bool showResult_ = false;
     float resultTimer_ = 0.0f;
     int lastGold_ = 0;
+    int lastScore_ = 0; ///< 直近のフロアクリアで加算したスコア（結果表示用）
 
     FontRenderer fontRenderer_;
     CameraShaker cameraShaker_;
@@ -511,6 +562,7 @@ private:
 
     bool clearTriggered_ = false;
     bool weaponStealTriggered_ = false;
+    bool pendingWeaponMandatory_ = false; ///< 交換待ちの武器が破棄できないボス武器か
     bool mainEnemyDefeatEffectEmitted_ = false;
     bool mainWeaponAbsorbing_ = false;
     float mainWeaponAbsorbTimer_ = 0.0f;

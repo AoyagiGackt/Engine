@@ -1,0 +1,43 @@
+{
+  "comments": {
+    "c0": {
+      "text": "宝物庫の鎚の壁(s3_wall_hammer)を壊した瞬間に走る。揺れとリングで開通を見せる",
+      "x": -20,
+      "y": -120,
+      "w": 560,
+      "h": 90,
+      "colorR": 0.6,
+      "colorG": 0.8,
+      "colorB": 0.9
+    }
+  },
+  "start": "n_shake",
+  "nodes": {
+    "n_shake": {
+      "type": "ShakeCamera",
+      "params": {
+        "amount": 0.3,
+        "seconds": 0.25
+      },
+      "next": "n_ring",
+      "editorX": 0,
+      "editorY": 0
+    },
+    "n_ring": {
+      "type": "EmitRing",
+      "params": {
+        "group": "hit_ring",
+        "x": 38.3,
+        "y": 7,
+        "z": 0,
+        "radius": 3,
+        "r": 1,
+        "g": 0.85,
+        "b": 0.4
+      },
+      "next": "",
+      "editorX": 260,
+      "editorY": 0
+    }
+  }
+}

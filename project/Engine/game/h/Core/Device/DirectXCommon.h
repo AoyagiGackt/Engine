@@ -64,9 +64,8 @@ public: // メンバ関数
      * アスペクト比を保ったまま最大表示するためのビューポートを取得する（レターボックス）
      * @note フルスクリーンやウィンドウリサイズでバックバッファが内部解像度と異なるサイズに
      * なった場合でも、ゲーム画面が中央に拡大表示されるようにするためのもの
-     * 深度バッファを併用しない合成パス（ポストエフェクトの最終合成等）専用
-     * 深度バッファは常にWinApp::kClientWidth/Height固定サイズのため、これと併用すると
-     * ビューポートが深度バッファの範囲を超えて表示崩壊する恐れがある
+     * 直接描画で深度を使う場合はGetBackBufferDsvHandle()と組み合わせる。
+     * 固定解像度のGetDsvHandle()はオフスクリーン描画用。
      */
     D3D12_VIEWPORT GetBackBufferViewport() const;
 
@@ -74,9 +73,8 @@ public: // メンバ関数
     D3D12_RECT GetBackBufferScissorRect() const;
 
     /**
-     * @brief 内部解像度(WinApp::kClientWidth/Height)のまま、実際のバックバッファ中央に
-     * 配置するビューポートを取得する（拡大はしない）
-     * @note 深度バッファ（固定サイズ）を併用する直接描画パスはこちらを使う
+     * @brief 縦横比を保って画面内の最大サイズへ拡大し、中央に配置するビューポートを取得する。
+     * @note GetBackBufferViewport()と同じ領域。直接描画にはGetBackBufferDsvHandle()を使う。
      */
     D3D12_VIEWPORT GetCenteredClientViewport() const;
 
@@ -195,6 +193,8 @@ public: // メンバ関数
 
     /** @brief DSV（深度バッファ）のハンドルを取得 */
     D3D12_CPU_DESCRIPTOR_HANDLE GetDsvHandle() { return dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(); }
+    /** @brief バックバッファへの直接描画用深度ビューを取得する */
+    D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferDsvHandle() { return backBufferDsvHeap_->GetCPUDescriptorHandleForHeapStart(); }
 
     /** @brief 深度ステンシルリソースを取得（SRV生成に使用） */
     ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
@@ -233,6 +233,7 @@ private:
 
     // 深度バッファリソースとDSVの生成
     void CreateDepthBuffer();
+    void CreateBackBufferDepthBuffer();
 
     // GPU同期用フェンスの生成
     void CreateFence();
@@ -274,6 +275,8 @@ private:
     // リソース
     Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResources_[2];
     Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> backBufferDepthResource_;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> backBufferDsvHeap_;
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
 
     // DXC (Shader Compiler)

@@ -21,7 +21,6 @@
 #include "RunData.h"
 #include "SaveData.h"
 #include "SceneManager.h"
-#include "ScoreManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
 #include "StageEditor.h"
@@ -94,6 +93,9 @@ constexpr Vector4 kRankColor = { 1.0f, 0.5f, 0.1f, 1.0f };
 constexpr Vector2 kGoldPosition = { 540.0f, 400.0f };
 constexpr float kGoldScale = 3.0f;
 constexpr Vector4 kGoldColor = { 0.9f, 0.85f, 0.2f, 1.0f };
+constexpr Vector2 kScorePosition = { 500.0f, 470.0f };
+constexpr float kScoreScale = 2.5f;
+constexpr Vector4 kScoreColor = { 0.85f, 0.95f, 1.0f, 1.0f };
 
 // 覚醒中の残像
 constexpr float kGhostMaxAlpha = 0.5f;
@@ -213,14 +215,15 @@ void GamePlayScene::CheckClearCondition()
     // 最終敵の撃破後にgame_rules.jsonで指定した武器を奪い、スロットを完成させる
     if (!weaponStealTriggered_ && enemy_->IsDefeated()
         && !finisherActive_ && !enemySlice_.IsActive()) {
-        const Vector3& epos = enemy_->GetPosition();
+        // 打ち飛ばされて武器を落としていれば、本体ではなく落ちた武器の場所で奪う
+        const Vector3 epos = enemy_->GetWeaponPickupPosition();
         const Vector3& ppos = player_->GetPosition();
         const float dx = ppos.x - epos.x;
         const float dy = ppos.y - epos.y;
         constexpr float kAbsorbRange = 2.0f;
         constexpr float kAbsorbDuration = 0.5f;
         if (!mainWeaponAbsorbing_ && dx * dx + dy * dy <= kAbsorbRange * kAbsorbRange
-            && input_->TriggerKey(DIK_J)) {
+            && input_->TriggerAction(Input::Action::Steal)) {
             mainWeaponAbsorbing_ = true;
             mainWeaponAbsorbTimer_ = kAbsorbDuration;
             player_->PlayStealStab();
@@ -240,17 +243,27 @@ void GamePlayScene::CheckClearCondition()
         }
         if (mainWeaponAbsorbing_) {
             mainWeaponAbsorbTimer_ -= GameConstants::kFrameDeltaTime;
-            Vector3& absorbPos = enemy_->GetPositionRef();
-            absorbPos.x += (ppos.x - absorbPos.x) * kAbsorbPullRate;
-            absorbPos.y += (ppos.y + kAbsorbTargetHeight - absorbPos.y) * kAbsorbPullRate;
-            enemy_->RefreshVisualTransforms();
+            const Vector3 absorbTarget = { ppos.x, ppos.y + kAbsorbTargetHeight, ppos.z };
+            if (enemy_->HasDroppedWeapon()) {
+                enemy_->PullDroppedWeaponToward(absorbTarget, kAbsorbPullRate);
+            } else {
+                Vector3& absorbPos = enemy_->GetPositionRef();
+                absorbPos.x += (absorbTarget.x - absorbPos.x) * kAbsorbPullRate;
+                absorbPos.y += (absorbTarget.y - absorbPos.y) * kAbsorbPullRate;
+                enemy_->RefreshVisualTransforms();
+            }
             if (mainWeaponAbsorbTimer_ <= 0.0f) {
                 weaponStealTriggered_ = true;
                 enemy_->SetVisible(false);
                 // ボスの配置物に設定された武器を奪う（未設定ならgame_rules.jsonの既定）。あわせてボス技を習得する
-                if (WeaponManager::GetInstance()->Acquire(bossWeaponType_) == WeaponManager::AcquireResult::Duplicate) {
+                const WeaponManager::AcquireResult acquired = WeaponManager::GetInstance()->Acquire(bossWeaponType_);
+                if (acquired == WeaponManager::AcquireResult::Duplicate) {
                     player_->ChargeAwakenGauge(CombatTuning::GetInstance()->Get().duplicateWeaponAwakenBonus);
+                } else if (acquired == WeaponManager::AcquireResult::Added) {
+                    hud_.Notify(HudEvent::WeaponAcquired);
                 }
+                // ボスの武器は次のステージの専用の壁を壊す鍵になるため、満杯でも破棄させず必ずどれかと交換させる
+                pendingWeaponMandatory_ = acquired == WeaponManager::AcquireResult::NeedsReplacement;
                 RunData::GetInstance()->AddBossTechnique(rules.bossTechnique);
             }
         }
@@ -270,7 +283,7 @@ void GamePlayScene::CheckClearCondition()
         requestClear_ = true;
     }
 
-    if (requestClear_ || gameTime_.IsCleared()) {
+    if (requestClear_) {
         requestClear_ = false;
         clearTriggered_ = true;
         if (!RunData::GetInstance()->IsRunActive()) {
@@ -343,6 +356,9 @@ bool GamePlayScene::DrawClearOverlayIfNeeded()
         char goldBuf[32];
         snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
         drawResultText(goldBuf, "gold", kGoldPosition, kGoldScale, kGoldColor);
+        char scoreBuf[32];
+        snprintf(scoreBuf, sizeof(scoreBuf), "+%d pts", lastScore_);
+        drawResultText(scoreBuf, "score", kScorePosition, kScoreScale, kScoreColor);
         fontRenderer_.Draw();
         return true;
     }

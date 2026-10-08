@@ -1,0 +1,27 @@
+{
+  "comments": {
+    "c0": {
+      "text": "上段の宝物庫に入った瞬間（フラグ s3_zone_upper）に走る。戦闘部屋の案内文を消す",
+      "x": -20,
+      "y": -120,
+      "w": 560,
+      "h": 90,
+      "colorR": 0.9,
+      "colorG": 0.85,
+      "colorB": 0.3
+    }
+  },
+  "start": "n_hide_0",
+  "nodes": {
+    "n_hide_0": {
+      "type": "SetObjectEnabled",
+      "params": {
+        "target": "guide_s3_b",
+        "enabled": false
+      },
+      "next": "",
+      "editorX": 0,
+      "editorY": 0
+    }
+  }
+}

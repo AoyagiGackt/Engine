@@ -23,26 +23,24 @@ enum class WeaponType { Sword,
  */
 inline WeaponType ParseWeaponTypeName(const std::string& type)
 {
-    if (type == "Spear") {
-        return WeaponType::Spear;
-    }
-    if (type == "Hammer") {
-        return WeaponType::Hammer;
-    }
-    if (type == "Dagger") {
-        return WeaponType::Dagger;
-    }
-    if (type == "Ball") {
-        return WeaponType::Ball;
-    }
-    if (type == "Greatsword") {
-        return WeaponType::Greatsword;
-    }
-    if (type == "Scythe") {
-        return WeaponType::Scythe;
-    }
-    if (type == "Axe") {
-        return WeaponType::Axe;
+    struct NamedWeaponType {
+        const char* name;
+        WeaponType type;
+    };
+    static constexpr NamedWeaponType kNames[] = {
+        { "Sword", WeaponType::Sword },
+        { "Spear", WeaponType::Spear },
+        { "Hammer", WeaponType::Hammer },
+        { "Dagger", WeaponType::Dagger },
+        { "Ball", WeaponType::Ball },
+        { "Greatsword", WeaponType::Greatsword },
+        { "Scythe", WeaponType::Scythe },
+        { "Axe", WeaponType::Axe },
+    };
+    for (const NamedWeaponType& entry : kNames) {
+        if (type == entry.name) {
+            return entry.type;
+        }
     }
     return WeaponType::Sword;
 }
@@ -102,6 +100,8 @@ struct RangedWeaponData {
     std::string description;
     float color[4]; ///< RGBA 0.0~1.0（マズルフラッシュ・弾エフェクトの色）
     std::vector<WeaponCommand> commands;
+    std::string element = "None"; ///< 着弾演出の属性名（近接武器のelementと同じ規約）
+    float effectColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; ///< 着弾演出の属性色（未指定ならcolorを使う）
 };
 
 } // namespace engine::game
