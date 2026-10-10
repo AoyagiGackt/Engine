@@ -212,6 +212,7 @@ void GamePlayScene::UpdateCamera()
         Vector3 cam = camera_->GetTranslate();
         camera_->SetTranslate({ cam.x + shake.x, cam.y + shake.y, cam.z });
     }
+    comboFeel_.ApplyCameraZoom(camera_.get());
 
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
@@ -269,8 +270,11 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
     const int damage = (std::max)(1,
         static_cast<int>(std::round(weapon.damage * damageMult / Tune().meleeDamageDivisor * CurrentDamageMult())));
     constexpr float kGameplayKnockbackScale = 0.72f;
-    const float knockbackMult = weapon.knockbackMult * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale;
-    const bool comboFinisher = IsMeleeFinisher(weapon.type, attack);
+    // 覚醒中の多段ヒットの2発目以降は、押し出し・止め・締め演出を軽くして刻みの速さを見せる
+    const bool extraHit = player_->JustComboExtraHit();
+    const float knockbackMult = weapon.knockbackMult * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale
+        * (extraHit ? GameConstants::kAwakenExtraHitKnockScale : 1.0f);
+    const bool comboFinisher = !extraHit && IsMeleeFinisher(weapon.type, attack);
     // 固有技の連撃（剣舞など）は武器の疲労の対象外
     const bool skillSequence = player_->IsSkillSequenceActive();
     const int fatigueIndex = skillSequence ? -1 : HeldMeleeFatigueIndex();
@@ -300,12 +304,19 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB)
     ApplyFatigueToHitEffect(fatigueMult, hitColor, hitStrength);
     EmitEnemyHitEffect(enemy_->GetPosition(), hitColor, hitStrength,
         weapon.effectBurstCount, weapon.effectRingRadius);
+    comboFeel_.OnMeleeHit(attack, comboFinisher, enemy_->GetPosition(),
+        { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] },
+        player_->GetLastDirX(), camera_.get());
     // 属性の弾けは効きが落ちていない武器でだけ出す（持ち替えた瞬間に派手さが戻るのを見せる）
     if (fatigueMult >= 1.0f) {
         EmitElementalHitEffect(weapon, enemy_->GetPosition(), player_->GetComboStep());
     }
 
-    RequestMeleeHitStopAndShake(attack, comboFinisher, kDefaultHitStopFrames);
+    if (extraHit) {
+        RequestMeleeHitStopAndShake(nullptr, false, GameConstants::kHitStopAwakenExtra);
+    } else {
+        RequestMeleeHitStopAndShake(attack, comboFinisher, kDefaultHitStopFrames);
+    }
 
     // 段の締めと5ヒット刻みを明確な山にして、連続攻撃の途中と成功時の手応えを分ける。
     constexpr int kChainMilestoneInterval = 5;
@@ -543,20 +554,16 @@ bool GamePlayScene::HasBossSlamTechnique() const
     return RunData::GetInstance()->HasBossTechnique(GameRules::GetInstance()->Get().bossTechnique);
 }
 
-void GamePlayScene::ApplyGunShotStyleHit(const AABB& enemyAABB)
+void GamePlayScene::ApplyGunShotStyleHit()
 {
     if (!player_->JustFired()) {
         return;
     }
     const auto* wm = WeaponManager::GetInstance();
-    const Vector3& ppos = player_->GetPosition();
     const GunShotDef* shot = player_->GetActiveGunShot();
     const RangedWeaponData& gun = wm->GetRanged();
-    const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
-    // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
-    AABB shotRange = SceneShared::MakeDirectionalShotRange(
-        ppos, player_->GetLastDirX(), rangeX, Tune().gunBackRange);
-    if (!Collision::CheckCollision(shotRange, enemyAABB)) {
+    // 弾は手前の相手で止まるので、射撃の的に選ばれた時だけ当たる（BuildGunShotTarget()で選択済み）
+    if (!gunShotPicker_.IsTarget(enemy_)) {
         return;
     }
     // 段が進むほどスタイルが伸びる（銃コンボを回す動機付け）
@@ -689,7 +696,7 @@ void GamePlayScene::UpdateStyleAndUI(float dt)
     const AABB enemyAABB = GetEnemyHitBox();
     ApplyMeleeComboStyleHit(enemyAABB);
     ApplyWeaponSkillStyleHit(enemyAABB);
-    ApplyGunShotStyleHit(enemyAABB);
+    ApplyGunShotStyleHit();
     ApplyDaggerStingerStyleBonus();
     ApplyRampageStyleHit(enemyAABB);
     UpdateDodgeStyle();

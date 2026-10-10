@@ -191,6 +191,8 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\EnemyEntity.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\KnightEnemy.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\ComboFeelDirector.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\ElementEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
@@ -211,6 +213,8 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\ComboMotion.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\ComboMotionEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp" />
@@ -270,6 +274,8 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\GpuProfiler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BladeFlashEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\WeaponTrailEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\ImpactRadialBlurEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\MeshSliceEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SpaceDistortionEffect.cpp" />
@@ -637,6 +643,9 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Player\IEnemyEntity.h" />
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
+    <ClInclude Include="Engine\game\h\Effect\ComboFeelDirector.h" />
+    <ClInclude Include="Engine\game\h\Scene\ShotTargetPicker.h" />
+    <ClInclude Include="Engine\game\h\UI\CommandListView.h" />
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
     <ClInclude Include="Engine\game\h\Effect\ElementEffect.h" />
     <ClInclude Include="Engine\game\h\Effect\Easing.h" />
@@ -653,6 +662,8 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Player\WaterPool.h" />
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h" />
+    <ClInclude Include="Engine\game\h\Player\ComboMotion.h" />
+    <ClInclude Include="Engine\game\h\Player\ComboMotionEditor.h" />
     <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
     <ClInclude Include="Engine\game\h\Player\ComboTable.h" />
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
@@ -687,6 +698,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\Manager\MeshManager.h" />
     <ClInclude Include="Engine\graphics\h\Manager\PipelineHelper.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h" />
+    <ClInclude Include="Engine\graphics\h\Skeleton\PoseLayer.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonOverlayRenderer.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\SkinCS.h" />
     <ClInclude Include="Engine\graphics\h\Skeleton\SkinnedModel.h" />
@@ -723,6 +735,8 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\3D\Ring.h" />
     <ClInclude Include="Engine\graphics\h\3D\RevolvedMeshBase.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BladeFlashEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\WeaponTrailEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\ImpactRadialBlurEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\MeshSliceEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SpaceDistortionEffect.h" />

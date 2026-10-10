@@ -247,6 +247,7 @@ void GamePlayScene::InitializeGhostEditorAndEffects()
     glassShatter_.Initialize(dxCommon_, srvManager_);
     enemySlice_.Initialize(dxCommon_);
     bladeFlash_.Initialize(dxCommon_);
+    comboFeel_.Initialize(dxCommon_, srvManager_);
     spaceWarp_.Initialize(dxCommon_, srvManager_);
     finisherShatter_.Initialize(dxCommon_, srvManager_);
     finisherShatter_.SetDuration(kFinisherShatterSeconds);
@@ -545,7 +546,9 @@ void GamePlayScene::UpdateCombat()
     // ヒットストップ中も回避ボタンの押下は記憶しておく（停止明けに回避へつなげ、押した感触が消えないように）
     player_->BufferDodgeInput(input_);
 
-    if (!tm->IsHitStopped()) {
+    // ヒットが入るとこのフレーム内でヒットストップが始まるため、進んだかどうかは先に確定させておく
+    const bool gameAdvanced = !tm->IsHitStopped();
+    if (gameAdvanced) {
         SyncCombatEnemies(); // spawn_pointが出した敵をこのフレームから戦闘対象に含める
         UpdateTargetLock();
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
@@ -556,6 +559,8 @@ void GamePlayScene::UpdateCombat()
         player_->ResolveBlockCollision(activeColliders);
         player_->RefreshVisualTransforms();
         UpdateWeaponTrail();
+        UpdateComboFeel(true);
+        BuildGunShotTarget();
 
         // ロック中は移動入力に関係なく対象の方を向かせる（コンボ判定より前でないと今フレームに反映されない）
         if (lockedEnemy_ != nullptr) {
@@ -576,6 +581,9 @@ void GamePlayScene::UpdateCombat()
         }
 
         skydome_->Update(camera_.get());
+    } else {
+        // 止まっている間も締め演出の時間は進め、軌跡はその場に留める
+        UpdateComboFeel(false);
     }
 
     // 水エフェクト更新（ヒットストップに関係なく毎フレーム）

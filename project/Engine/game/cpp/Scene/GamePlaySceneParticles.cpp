@@ -272,9 +272,9 @@ void GamePlayScene::EmitGunFireParticles(const Vector3& ppos)
     constexpr int kMinBullets = 2;
     constexpr int kFallbackBullets = 4; // 段定義がない時の見た目の弾数
     constexpr float kFallbackSpread = 0.15f;
-    // 命中判定は着弾を待たない即着弾（ApplyGunShotStyleHit参照）なので、見た目の弾も
-    // 同じ射程まで短時間で届かせる（届く前に消えると、画面奥の敵に当たった時だけ
-    // 貫通したように見えてしまう）
+    // 命中判定は着弾を待たない即着弾（BuildGunShotTarget参照）なので、見た目の弾も
+    // 着弾点まで短時間で届かせる（届く前に消えると当たっていないように、
+    // 着弾点を越えて飛ぶと貫通したように見えてしまう）
     constexpr float kGunShotVisualLifetime = 0.12f;
     constexpr float kFanSpeedBase = 7.0f; // 扇状の広がり方（縦方向の速度成分）
     constexpr float kFanSpeedStep = 1.0f;
@@ -292,7 +292,9 @@ void GamePlayScene::EmitGunFireParticles(const Vector3& ppos)
     int n = (shot != nullptr) ? (std::max)(shot->bullets, kMinBullets) : kFallbackBullets;
     float spread = (shot != nullptr) ? shot->spreadDeg * GameConstants::kDegToRad : kFallbackSpread;
     const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
-    const float travelSpeed = rangeX / kGunShotVisualLifetime;
+    // 弾は的（銃口に一番近い相手）で止まる。的が無ければ射程の端まで飛ぶ
+    const float travel = gunShotPicker_.HasTarget() ? gunShotPicker_.GetHitDistance() : rangeX;
+    const float travelSpeed = travel / kGunShotVisualLifetime;
     for (int i = 0; i < n; ++i) {
         float t = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
         float speed = kFanSpeedBase + i * kFanSpeedStep;
@@ -599,6 +601,19 @@ void GamePlayScene::UpdateWeaponTrail()
     const Vector3 weaponPos = player_->GetActiveWeaponWorldPosition();
     pm_->EmitTrail("weapon_trail", weaponPos, color, kWeaponTrailScale, kWeaponTrailLifetime);
     EmitWeaponElementAura(weapon.element, color, weaponPos);
+}
+
+void GamePlayScene::UpdateComboFeel(bool gameAdvanced)
+{
+    constexpr Vector4 kUnarmedTrailColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    const auto* wm = WeaponManager::GetInstance();
+    const Vector4 weaponColor = wm->HasEquippedWeapon()
+        ? Vector4 { wm->GetCurrent().effectColor[0], wm->GetCurrent().effectColor[1],
+              wm->GetCurrent().effectColor[2], wm->GetCurrent().effectColor[3] }
+        : kUnarmedTrailColor;
+    comboFeel_.SetAwakened(player_->IsAwakened());
+    comboFeel_.Update(*player_, weaponColor, camera_.get(), gameAdvanced);
+    comboFeel_.UpdateDebugPanel(input_);
 }
 
 void GamePlayScene::EmitWeaponElementAura(const std::string& element, const Vector4& color, const Vector3& weaponPos)

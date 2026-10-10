@@ -50,6 +50,7 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
     scene.pm_->Update(scene.camera_.get());
     scene.pm_->Draw(scene.camera_.get());
     scene.bladeFlash_.Draw();
+    scene.comboFeel_.DrawTrail();
     scene.GetStageEditor().DrawObjects();
 
     // バックバッファへ直接描画する場合だけUIより先に空間歪みを合成する
@@ -57,6 +58,11 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
         && scene.GetActiveRTVHandle().ptr == scene.dxCommon_->GetCurrentBackBufferHandle().ptr) {
         PipelineStateGuard restoreTarget([&scene] { scene.SetupMainRenderTarget(); });
         scene.spaceWarp_.CaptureAndApply();
+    }
+    if (scene.comboFeel_.HasScreenEffects()
+        && scene.GetActiveRTVHandle().ptr == scene.dxCommon_->GetCurrentBackBufferHandle().ptr) {
+        PipelineStateGuard restoreTarget([&scene] { scene.SetupMainRenderTarget(); });
+        scene.comboFeel_.ApplyScreenEffects();
     }
 
     // 画面座標で管理する訓練HUDをまとめて描画する

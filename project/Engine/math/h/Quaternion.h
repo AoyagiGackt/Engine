@@ -84,4 +84,29 @@ inline Quaternion Slerp(const Quaternion& q1, Quaternion q2, float t)
     };
 }
 
+/**
+ * @brief クォータニオンの積（ハミルトン積）
+ * @note 結果は q2 の回転を先に、q1 の回転を後に適用する合成になる（MakeRotateXYZQuaternion と同じ規約）
+ */
+inline Quaternion Multiply(const Quaternion& q1, const Quaternion& q2)
+{
+    return {
+        q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y,
+        q1.w * q2.y - q1.x * q2.z + q1.y * q2.w + q1.z * q2.x,
+        q1.w * q2.z + q1.x * q2.y - q1.y * q2.x + q1.z * q2.w,
+        q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
+    };
+}
+
+/** @brief 長さ1に正規化したクォータニオンを返す（長さがほぼ0なら単位回転を返す） */
+inline Quaternion Normalize(const Quaternion& q)
+{
+    constexpr float kMinLength = 1.0e-6f;
+    const float len = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+    if (len < kMinLength) {
+        return { 0.0f, 0.0f, 0.0f, 1.0f };
+    }
+    return { q.x / len, q.y / len, q.z / len, q.w / len };
+}
+
 } // namespace engine

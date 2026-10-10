@@ -20,6 +20,19 @@ void SlashMark::Initialize(SpriteCommon* spriteCommon)
     spriteCommon_ = spriteCommon;
 }
 
+std::unique_ptr<Sprite> SlashMark::AcquireSprite()
+{
+    if (!spritePool_.empty()) {
+        std::unique_ptr<Sprite> sprite = std::move(spritePool_.back());
+        spritePool_.pop_back();
+        return sprite;
+    }
+    auto sprite = std::make_unique<Sprite>();
+    sprite->Initialize(spriteCommon_, "Resources/white.png");
+    sprite->SetAnchorPoint({ 0.0f, 0.5f }); // 始点を基準に長さ方向へ伸ばす
+    return sprite;
+}
+
 void SlashMark::Spawn(const SlashMarkParams& params)
 {
     if (!spriteCommon_) {
@@ -47,9 +60,7 @@ void SlashMark::SpawnLayer(const SlashMarkParams& params, float thickness, const
     const float angle = std::atan2(dy, dx);
 
     Entry entry;
-    entry.sprite = std::make_unique<Sprite>();
-    entry.sprite->Initialize(spriteCommon_, "Resources/white.png");
-    entry.sprite->SetAnchorPoint({ 0.0f, 0.5f }); // 始点を基準に長さ方向へ伸ばす
+    entry.sprite = AcquireSprite();
     entry.sprite->SetPosition(params.start);
     entry.sprite->SetRotation(angle);
     entry.sprite->SetSize({ length, thickness });
@@ -72,7 +83,13 @@ void SlashMark::Update(float dt)
         entry.sprite->Update();
     }
 
-    std::erase_if(entries_, [](const Entry& e) { return e.timer >= e.duration; });
+    // 時間切れの線はスプライトを破棄せずプールへ戻す
+    for (auto& entry : entries_) {
+        if (entry.timer >= entry.duration) {
+            spritePool_.push_back(std::move(entry.sprite));
+        }
+    }
+    std::erase_if(entries_, [](const Entry& e) { return e.sprite == nullptr; });
 }
 
 void SlashMark::Draw()
@@ -95,5 +112,7 @@ void SlashMark::FlashAll(const Vector4& color, float duration)
 
 void SlashMark::Clear()
 {
+    // シーン終了時（SceneManagerがGPUの完了を待った後）に呼ばれるので、プールごと解放してよい
     entries_.clear();
+    spritePool_.clear();
 }

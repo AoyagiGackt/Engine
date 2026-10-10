@@ -653,6 +653,7 @@ void GamePlayScene::Finalize()
     finisherShatter_.Finalize();
     spaceWarp_.Finalize();
     bladeFlash_.Clear();
+    comboFeel_.Finalize();
     SlashMark::GetInstance()->Clear();
 
     // 音を全部止める（BGM・SE どちらも）

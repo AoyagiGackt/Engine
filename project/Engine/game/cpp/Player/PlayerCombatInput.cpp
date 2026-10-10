@@ -44,6 +44,7 @@ void Player::ResetFrameFlags()
     justEnteredWater_ = false;
     justExitedWater_ = false;
     justComboHit_ = false;
+    justComboExtraHit_ = false;
     justWeaponSwitchHit_ = false;
     justFired_ = false;
     justDaggerStingerHit_ = false;
@@ -162,6 +163,8 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
     }
 
     // ── 近接コンボ進行（段の開始・ヒット発火・前進・打ち上げ追撃猶予）──
+    // 覚醒中は1段の振りで多段ヒットさせる
+    meleeCombo_.SetExtraHits(isAwakened_ ? kAwakenExtraHits_ : 0, kAwakenExtraHitInterval_);
     meleeCombo_.Update(GameConstants::kFrameDeltaTime);
     if (const MeleeAttackDef* atk = meleeCombo_.GetActive()) {
         if (meleeCombo_.JustStartedStep()) {
@@ -170,6 +173,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         if (meleeCombo_.JustHit()) {
             justComboHit_ = true;
+            justComboExtraHit_ = meleeCombo_.JustExtraHit();
             justWeaponSwitchHit_ = weaponSwitchAttackActive_;
             weaponSwitchAttackActive_ = false;
             comboStep_ = meleeCombo_.GetStep();
