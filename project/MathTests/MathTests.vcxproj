@@ -83,6 +83,15 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>"$(TargetPath)"
+if errorlevel 1 (
+echo MathTests: テストに失敗しました。上の error MATHTEST の行（ダブルクリックでその行へ飛べます）を確認してください
+exit /b 1
+)
+</Command>
+      <Message>MathTests を実行</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -112,6 +121,9 @@
     <ClCompile Include="..\Engine\game\cpp\Scene\GamePauseController.cpp" />
     <ClCompile Include="..\Engine\game\cpp\Scene\SceneTransitionFlow.cpp" />
     <ClCompile Include="..\Engine\game\cpp\Collision\Collision.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="TestReport.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

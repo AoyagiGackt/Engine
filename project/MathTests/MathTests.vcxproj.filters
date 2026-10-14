@@ -12,4 +12,7 @@
     <ClCompile Include="..\Engine\game\cpp\Scene\SceneTransitionFlow.cpp"><Filter>ゲーム状態</Filter></ClCompile>
     <ClCompile Include="..\Engine\game\cpp\Collision\Collision.cpp"><Filter>当たり判定</Filter></ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="TestReport.h"><Filter>テスト</Filter></ClInclude>
+  </ItemGroup>
 </Project>
