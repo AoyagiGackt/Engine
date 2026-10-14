@@ -98,10 +98,12 @@
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
 if errorlevel 1 exit /b 1
+if not defined GITHUB_ACTIONS (
 cd /d "$(ProjectDir)"
 if errorlevel 1 exit /b 1
 "$(TargetPath)" --prepare-assets
 if errorlevel 1 exit /b 1
+)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -131,10 +133,12 @@ if errorlevel 1 exit /b 1
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
 if errorlevel 1 exit /b 1
+if not defined GITHUB_ACTIONS (
 cd /d "$(ProjectDir)"
 if errorlevel 1 exit /b 1
 "$(TargetPath)" --prepare-assets
 if errorlevel 1 exit /b 1
+)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -165,10 +169,12 @@ if errorlevel 1 exit /b 1
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
 if errorlevel 1 exit /b 1
+if not defined GITHUB_ACTIONS (
 cd /d "$(ProjectDir)"
 if errorlevel 1 exit /b 1
 "$(TargetPath)" --prepare-assets
 if errorlevel 1 exit /b 1
+)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
