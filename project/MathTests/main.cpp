@@ -2,7 +2,10 @@
 // 外部テストフレームワークは使わず、assert相当の比較関数と手動のテストランナーのみで構成する
 #include "MakeAffine.h"
 #include "Collision.h"
+#include "TestReport.h"
+#include <cmath>
 #include <cstdio>
+#include <source_location>
 #include <string>
 #include <vector>
 #include <Windows.h>
@@ -21,37 +24,42 @@ bool NearlyEqual(float a, float b, float epsilon = kEpsilon)
     return std::fabs(a - b) <= epsilon;
 }
 
-void Check(bool condition, const std::string& testName)
+void Check(bool condition, const std::string& testName,
+    const std::source_location& where = std::source_location::current())
 {
     ++g_testCount;
     if (!condition) {
         ++g_failCount;
         g_failedNames.push_back(testName);
-        std::printf("[FAIL] %s\n", testName.c_str());
+        TestReport::Failure(testName.c_str(), nullptr, where);
     }
 }
 
 // 数値比較用。失敗時に期待値と実測値を表示する
-void CheckNear(float actual, float expected, const std::string& testName, float epsilon = kEpsilon)
+void CheckNear(float actual, float expected, const std::string& testName, float epsilon = kEpsilon,
+    const std::source_location& where = std::source_location::current())
 {
     ++g_testCount;
     if (!NearlyEqual(actual, expected, epsilon)) {
         ++g_failCount;
         g_failedNames.push_back(testName);
-        std::printf("[FAIL] %s (expected %.4f, got %.4f)\n", testName.c_str(), expected, actual);
+        char detail[128];
+        std::snprintf(detail, sizeof(detail), "正しい値は %.4f なのに、実際は %.4f（ずれ %.4f）",
+            expected, actual, std::fabs(actual - expected));
+        TestReport::Failure(testName.c_str(), detail, where);
     }
 }
 
 // テスト関数をカテゴリ単位で実行し、区切りと通過数を表示する
 void RunSection(const char* name, void(*fn)())
 {
-    std::printf("\n-- %s --\n", name);
+    TestReport::Print("\n-- %s --\n", name);
     int beforeTotal = g_testCount;
     int beforeFail  = g_failCount;
     fn();
     int total = g_testCount - beforeTotal;
     int fail  = g_failCount - beforeFail;
-    std::printf("   %d / %d passed\n", total - fail, total);
+    TestReport::Print("   %d / %d 件成功\n", total - fail, total);
 }
 
 void TestVector3()
@@ -282,10 +290,8 @@ int RunArchitectureTests();
 
 int main()
 {
-    // ソースはUTF-8だが、コンソールの既定コードページ（日本語環境ではShift-JIS）のままだと
-    // 日本語のテスト名が文字化けするため、コンソール出力をUTF-8として解釈させる
-    SetConsoleOutputCP(CP_UTF8);
-
+    // 日本語の出力は TestReport::Print が出力先の文字コードに合わせて変換する
+    // （コンソールの文字コードを UTF-8 に切り替えると、ビルド後イベントの出力ウィンドウで化ける）
     RunSection("Vector3", TestVector3);
     RunSection("Matrix4x4", TestMatrix4x4);
     RunSection("Quaternion", TestQuaternion);
@@ -293,12 +299,12 @@ int main()
     RunSection("Collision (Sphere/AABB/Capsule/Raycast)", TestCollisionShapes);
 
     if (!g_failedNames.empty()) {
-        std::printf("\n[FAILED TESTS]\n");
+        TestReport::Print("\n[失敗したテスト]\n");
         for (const auto& name : g_failedNames) {
-            std::printf("  - %s\n", name.c_str());
+            TestReport::Print("  - %s\n", name.c_str());
         }
     }
 
-    std::printf("\n%d / %d tests passed\n", g_testCount - g_failCount, g_testCount);
+    TestReport::Print("\n数学まわり 合計: %d / %d 件成功\n", g_testCount - g_failCount, g_testCount);
     return (RunArchitectureTests() == 0 && g_failCount == 0) ? 0 : 1;
 }
