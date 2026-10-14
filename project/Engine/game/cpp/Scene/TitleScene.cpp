@@ -20,7 +20,6 @@
 #include <array>
 #include <cmath>
 #include <cfloat>
-#include <cstdio>
 #include <numbers>
 #include <random>
 #ifdef USE_IMGUI
@@ -67,10 +66,8 @@ constexpr int kRowOptions = 3;
 // 設定メニュー（タイトル上でメニューの中身だけ入れ替えて表示する）
 constexpr int kOptionsRowBgm = 0;
 constexpr int kOptionsRowSe = 1;
-constexpr int kOptionsRowBack = 2;
-constexpr float kVolumeStep = 0.1f;
-constexpr float kPercentScale = 100.0f;
-constexpr float kRoundingOffset = 0.5f;
+constexpr int kOptionsRowCommandList = 2;
+constexpr int kOptionsRowBack = 3;
 constexpr float kVolumeTextOffsetX = 260.0f; // メニュー左端から音量表示までの距離
 constexpr float kVolumeTextTopRatio = 0.3f; // UIMenuのラベルと同じ高さに揃える
 constexpr float kVolumeTextScale = 1.5f;
@@ -78,7 +75,7 @@ constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 std::vector<UIButton> OptionsMenuItems()
 {
-    return { { "BGM VOLUME" }, { "SE VOLUME" }, { "BACK" } };
+    return { { "BGM VOLUME" }, { "SE VOLUME" }, { "COMMAND LIST" }, { "BACK" } };
 }
 
 // 初期配置する的ごとの動きのばらつき（インデックスに比例して変える）
@@ -331,7 +328,8 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
         { "OPTIONS" },
     });
     optionsMenu_.SetItems(OptionsMenuItems());
-    optionsOpen_ = false;
+    commandList_.Initialize(&fontRenderer_, audio_);
+    menuPage_ = &MainMenu();
 
     InitializeDemo();
     floatingTitle_.Initialize(dxCommon_, input_, modelCommon_.get(), shadowManager_.get());
@@ -424,13 +422,60 @@ void TitleScene::InitializeDemo()
     }
 }
 
+// ══════════════════════════════════════════════════════
+// メニューのページ（メイン / 設定 / コマンド表）
+// ══════════════════════════════════════════════════════
+
+class TitleScene::MainMenuPage : public TitleScene::IMenuPage {
+public:
+    void Update(TitleScene& scene) const override { scene.UpdateMainMenu(); }
+    void Draw(TitleScene& scene) const override { scene.menu_.Draw(); }
+};
+
+class TitleScene::OptionsMenuPage : public TitleScene::IMenuPage {
+public:
+    void Update(TitleScene& scene) const override { scene.UpdateOptionsMenu(); }
+    void Draw(TitleScene& scene) const override
+    {
+        scene.optionsMenu_.Draw();
+        const GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+        scene.DrawVolumeValue(kOptionsRowBgm, settings.bgmVolume);
+        scene.DrawVolumeValue(kOptionsRowSe, settings.seVolume);
+    }
+};
+
+class TitleScene::CommandListPage : public TitleScene::IMenuPage {
+public:
+    void Update(TitleScene& scene) const override
+    {
+        if (scene.commandList_.Update(scene.input_)) {
+            scene.menuPage_ = &OptionsMenu();
+        }
+    }
+    void Draw(TitleScene& scene) const override { scene.commandList_.Draw(scene.input_); }
+};
+
+const TitleScene::IMenuPage& TitleScene::MainMenu()
+{
+    static const MainMenuPage page;
+    return page;
+}
+
+const TitleScene::IMenuPage& TitleScene::OptionsMenu()
+{
+    static const OptionsMenuPage page;
+    return page;
+}
+
+const TitleScene::IMenuPage& TitleScene::CommandListMenu()
+{
+    static const CommandListPage page;
+    return page;
+}
+
 void TitleScene::Update()
 {
-    if (optionsOpen_) {
-        UpdateOptionsMenu();
-    } else {
-        UpdateMainMenu();
-    }
+    menuPage_->Update(*this);
 
     UpdateDemo();
 
@@ -459,7 +504,7 @@ void TitleScene::UpdateMainMenu()
             break;
         case kRowOptions:
             // 画面は切り替えず、メニューの中身だけ設定項目に入れ替える
-            optionsOpen_ = true;
+            menuPage_ = &OptionsMenu();
             optionsMenu_.SetItems(OptionsMenuItems()); // 開くたびにカーソルを先頭へ戻す
             break;
         default:
@@ -475,20 +520,26 @@ void TitleScene::UpdateOptionsMenu()
     const int row = optionsMenu_.GetSelectedIndex();
     if (row == kOptionsRowBgm || row == kOptionsRowSe) {
         if (input_->TriggerMenuLeft()) {
-            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -kVolumeStep);
+            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -SceneShared::kVolumeStep);
         }
         if (input_->TriggerMenuRight()) {
-            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, kVolumeStep);
+            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, SceneShared::kVolumeStep);
         }
     }
 
-    const bool backSelected = optionsMenu_.ConsumeConfirm(input_) && row == kOptionsRowBack;
+    const bool confirmed = optionsMenu_.ConsumeConfirm(input_);
+    if (confirmed && row == kOptionsRowCommandList) {
+        commandList_.Open();
+        menuPage_ = &CommandListMenu();
+        return;
+    }
+    const bool backSelected = confirmed && row == kOptionsRowBack;
     const bool cancelPressed = input_->TriggerMenuCancel();
     if (cancelPressed) {
         audio_->PlayMenuSelect();
     }
     if (backSelected || cancelPressed) {
-        optionsOpen_ = false;
+        menuPage_ = &MainMenu();
     }
 }
 
@@ -846,14 +897,7 @@ void TitleScene::Draw()
 
     spriteCommon_->CommonDrawSettings();
 
-    if (optionsOpen_) {
-        optionsMenu_.Draw();
-        const GameSettings& settings = GameSettingsManager::GetInstance()->Get();
-        DrawVolumeValue(kOptionsRowBgm, settings.bgmVolume);
-        DrawVolumeValue(kOptionsRowSe, settings.seVolume);
-    } else {
-        menu_.Draw();
-    }
+    menuPage_->Draw(*this);
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
 }
@@ -865,12 +909,10 @@ void TitleScene::DrawVolumeValue(int row, float volume)
     const float scale = layout.Float("options.volume_scale", kVolumeTextScale);
     const Vector4 color = layout.Color("options.volume_color", kVolumeTextColor);
 
-    char buf[16];
-    snprintf(buf, sizeof(buf), "< %3d%% >", static_cast<int>(volume * kPercentScale + kRoundingOffset));
     const Vector2 menuPosition = optionsMenu_.GetPosition();
     const float itemHeight = optionsMenu_.GetItemSize().y;
     const float y = menuPosition.y + itemHeight * (static_cast<float>(row) + kVolumeTextTopRatio);
-    fontRenderer_.DrawString(buf, menuPosition.x + offsetX, y, scale, color);
+    fontRenderer_.DrawString(SceneShared::VolumeLabel(volume), menuPosition.x + offsetX, y, scale, color);
 }
 
 void TitleScene::DrawDemoShadowPass()

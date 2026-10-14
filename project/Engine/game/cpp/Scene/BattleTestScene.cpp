@@ -15,6 +15,7 @@
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
 #include "PostEffectRenderTarget.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
@@ -233,6 +234,8 @@ void BattleTestScene::InitializeHud()
     styleMeter_.Initialize(spriteCommon_.get());
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
+        { "BACK TO TRAINING", [] { SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING"); } });
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
@@ -248,6 +251,7 @@ void BattleTestScene::InitializeEffects()
 {
     glassShatter_.Initialize(dxCommon_, srvManager_);
     bladeFlash_.Initialize(dxCommon_);
+    comboFeel_.Initialize(dxCommon_, srvManager_);
     spaceWarp_.Initialize(dxCommon_, srvManager_);
     dummySlice_.Initialize(dxCommon_);
     finisherShatter_.Initialize(dxCommon_, srvManager_);
@@ -318,6 +322,19 @@ void BattleTestScene::Update()
         return;
     }
 
+    // 一時停止中はゲームを止め、文字コマンドの破棄だけ行う（HUDは描画側で隠す）
+    if (pauseMenu_.Update(input_)) {
+        fontRenderer_.Reset();
+        return;
+    }
+
+    // モーション編集のプレビュー中はゲームを止め、見た目と武器の持ち替えだけ進める
+    if (motionEditor_.Update(input_, *player_, weaponManager_->GetCurrent().type)) {
+        SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
+        RefreshVisualTransformsForEditor();
+        return;
+    }
+
     UpdateSceneFlow();
 }
 
@@ -341,6 +358,14 @@ void BattleTestScene::UpdateSceneFlow()
     SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
     UpdateTargetLock();
     UpdatePlayerAndCamera();
+    {
+        // 刃の位置はプレイヤー更新後・当たり判定前に積む（斬撃線の向きにこのフレームの振りを使うため）
+        const WeaponData& weapon = weaponManager_->GetCurrent();
+        const Vector4 weaponColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
+        comboFeel_.SetAwakened(player_->IsAwakened());
+        comboFeel_.Update(*player_, weaponColor, camera_.get(), true);
+        comboFeel_.UpdateDebugPanel(input_);
+    }
     UpdateEnvironment();
 
     UpdateCombat();
@@ -459,6 +484,7 @@ void BattleTestScene::UpdatePlayerAndCamera()
         player_->FaceTarget(*lockTargetPos);
     }
     SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders(), lockTargetPos);
+    comboFeel_.ApplyCameraZoom(camera_.get());
     player_->RefreshVisualTransforms();
 }
 
@@ -614,6 +640,8 @@ void BattleTestScene::Finalize()
     finisherShatter_.Finalize();
     spaceWarp_.Finalize();
     bladeFlash_.Clear();
+    comboFeel_.Finalize();
+    motionEditor_.Close(*player_);
     SlashMark::GetInstance()->Clear();
 }
 

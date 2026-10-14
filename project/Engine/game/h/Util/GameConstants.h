@@ -33,6 +33,8 @@ namespace GameConstants {
 
     // ヒットストップ（フレーム数）
     inline constexpr int kHitStopLaunch = 8; // 打ち上げ
+    inline constexpr int kHitStopAwakenExtra = 2; // 覚醒中の多段ヒットの2発目以降（刻みを速く見せるため短く）
+    inline constexpr float kAwakenExtraHitKnockScale = 0.25f; // 多段ヒットの2発目以降のノックバック倍率（敵が押し出されすぎないように）
     inline constexpr int kHitStopJuggle = 4; // ジャグル
     inline constexpr int kHitStopFinish = 12; // フィニッシュ
     inline constexpr int kHitStopFinisherSlash = 20; // 大技 本命ヒット

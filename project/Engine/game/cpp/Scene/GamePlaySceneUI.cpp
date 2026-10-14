@@ -121,21 +121,6 @@ constexpr Vector2 kExchangeHelpPosition = { 245.0f, 330.0f };
 constexpr float kExchangeHelpScale = 1.35f;
 constexpr Vector4 kExchangeHelpColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-// 一時停止メニュー
-constexpr Vector4 kPauseOverlayColor = { 0.0f, 0.0f, 0.0f, 0.75f };
-constexpr Vector2 kPauseMenuPosition = { 440.0f, 220.0f };
-constexpr Vector2 kPauseMenuItemSize = { 400.0f, 60.0f };
-constexpr float kVolumeStep = 0.1f;
-constexpr float kPercentScale = 100.0f;
-constexpr float kRoundingOffset = 0.5f;
-constexpr Vector2 kBgmVolumeTextPosition = { 900.0f, 291.0f };
-constexpr Vector2 kSeVolumeTextPosition = { 900.0f, 351.0f };
-constexpr float kVolumeTextScale = 1.5f;
-constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-constexpr Vector2 kPausedTitlePosition = { 560.0f, 130.0f };
-constexpr float kPausedTitleScale = 2.0f;
-constexpr Vector4 kPausedTitleColor = { 1.0f, 1.0f, 0.6f, 1.0f };
-
 // 武器一覧パネル下の操作ヒント
 constexpr float kHintLineHeight = 24.0f;
 constexpr float kHintScale = 1.5f;
@@ -149,10 +134,8 @@ constexpr float kPickupCounterScale = 1.35f;
 constexpr Vector4 kPickupCounterColor = { 0.3f, 0.9f, 1.0f, 1.0f };
 }
 
-void GamePlayScene::DrawOverlaysAndUI()
+void GamePlayScene::DrawHudSprites()
 {
-    spriteCommon_->CommonDrawSettings();
-
     // 敵頭上のHPバー（BattleTestSceneのダミーHPバーと同じ描画順序位置はUpdateEnemyHpBars()が
     // DrawStyleUI()内で毎フレーム更新している）
     if (enemy_ && !enemy_->IsDefeated()) {
@@ -180,6 +163,16 @@ void GamePlayScene::DrawOverlaysAndUI()
         e.sprite->Update();
         e.sprite->Draw();
     }
+}
+
+void GamePlayScene::DrawOverlaysAndUI()
+{
+    spriteCommon_->CommonDrawSettings();
+
+    // 一時停止中はHUDを隠してポーズメニューだけを見せる
+    if (!pauseMenu_.IsPaused()) {
+        DrawHudSprites();
+    }
 
     // 大技中と解放フレーム（凍結画面のキャプチャ前）だけ暗転を重ねる
     // 解放後の暗さは砕け散る凍結画面が持ち去るので、素の世界には重ねない
@@ -206,12 +199,12 @@ void GamePlayScene::DrawOverlaysAndUI()
         finisherShatter_.Apply();
     }
 
-    if (pauseController_.IsPaused()) {
-        DrawPauseOverlay();
+    if (pauseMenu_.IsPaused()) {
+        pauseMenu_.Draw(input_);
+    } else {
+        // ゲームプレイ UI テキスト（レベルJSONの案内文）
+        GetStageEditor().DrawUIText(fontRenderer_);
     }
-
-    // ゲームプレイ UI テキスト
-    GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
 
     // ガラス割れエフェクト（サンドボックスのクリア演出 / デバッグテスト再生時のみ）
@@ -463,82 +456,14 @@ void GamePlayScene::DrawWeaponExchange()
 
 void GamePlayScene::SetupPauseMenu()
 {
-    pauseOverlay_ = std::make_unique<Sprite>();
-    pauseOverlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
-    pauseOverlay_->SetPosition({ 0.0f, 0.0f });
-    pauseOverlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
-
-    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
-    pauseMenu_.BindLayout(kLayoutName, "pause_menu", kPauseMenuPosition, kPauseMenuItemSize);
-    pauseMenu_.SetItems({
-        { "RESUME" },
-        { "BGM VOLUME" },
-        { "SE VOLUME" },
-        { "QUIT TO TITLE" },
-    });
-}
-
-void GamePlayScene::UpdatePauseMenu()
-{
-    // ESCでの開閉自体はGamePlayScene::Update()側のトグルで処理済み（このフレームには来ない）
-    pauseMenu_.Update(input_);
-
-    const int row = pauseMenu_.GetSelectedIndex();
-    if (row == kPauseRowBgmVolume || row == kPauseRowSeVolume) {
-        float delta = 0.0f;
-        if (input_->TriggerMenuLeft()) {
-            delta = -kVolumeStep;
-        } else if (input_->TriggerMenuRight()) {
-            delta = kVolumeStep;
-        }
-        if (delta != 0.0f) {
-            SceneShared::AdjustVolume(audio_, row == kPauseRowBgmVolume, delta);
-        }
-    }
-
-    if (!pauseMenu_.ConsumeConfirm(input_)) {
-        return;
-    }
-    switch (row) {
-    case kPauseRowResume:
-        pauseController_.Resume();
-        break;
-    case kPauseRowQuit: {
-        auto* rd = RunData::GetInstance();
-        if (rd->IsRunActive()) {
-            SaveDataManager::GetInstance()->SaveContinue(*rd);
-        }
-        pauseController_.Resume();
-        SceneFlow::GetInstance()->Transition("GAMEPLAY", "pause_quit", "TITLE");
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-void GamePlayScene::DrawPauseOverlay()
-{
-    UILayout& layout = UILayout::Get(kLayoutName);
-    pauseOverlay_->SetColor(layout.Color("pause.background_color", kPauseOverlayColor));
-    pauseOverlay_->Update();
-    pauseOverlay_->Draw();
-    pauseMenu_.Draw();
-
-    const float volumeScale = layout.Float("pause.volume_scale", kVolumeTextScale);
-    const Vector4 volumeColor = layout.Color("pause.volume_color", kVolumeTextColor);
-    const Vector2 bgmPosition = layout.Pos("pause.bgm_volume_pos", kBgmVolumeTextPosition);
-    const Vector2 sePosition = layout.Pos("pause.se_volume_pos", kSeVolumeTextPosition);
-    const auto& settings = GameSettingsManager::GetInstance()->Get();
-    char bgmBuf[32];
-    char seBuf[32];
-    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * kPercentScale + kRoundingOffset));
-    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * kPercentScale + kRoundingOffset));
-    fontRenderer_.DrawString(bgmBuf, bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
-    fontRenderer_.DrawString(seBuf, sePosition.x, sePosition.y, volumeScale, volumeColor);
-    const Vector2 titlePosition = layout.Pos("pause.title_pos", kPausedTitlePosition);
-    fontRenderer_.DrawString("PAUSED", titlePosition.x, titlePosition.y,
-        layout.Float("pause.title_scale", kPausedTitleScale), layout.Color("pause.title_color", kPausedTitleColor));
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
+        { "STAGE SELECT", [] {
+             auto* rd = RunData::GetInstance();
+             if (rd->IsRunActive()) {
+                 SaveDataManager::GetInstance()->SaveContinue(*rd);
+             }
+             SceneFlow::GetInstance()->Transition("GAMEPLAY", "pause_quit", "MAP");
+         } });
 }
 
 void GamePlayScene::DrawStageGuide()
@@ -653,6 +578,7 @@ void GamePlayScene::Finalize()
     finisherShatter_.Finalize();
     spaceWarp_.Finalize();
     bladeFlash_.Clear();
+    comboFeel_.Finalize();
     SlashMark::GetInstance()->Clear();
 
     // 音を全部止める（BGM・SE どちらも）

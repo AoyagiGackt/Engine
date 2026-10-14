@@ -8,24 +8,20 @@
 #include "SceneShared.h"
 #include "UILayout.h"
 #include "WinApp.h"
-#include <cstdio>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-constexpr float kVolumeStep = 0.1f;
 constexpr Vector4 kBackgroundColor = { 0.05f, 0.05f, 0.08f, 1.0f };
 constexpr const char* kLayoutName = "options";
 constexpr Vector2 kMenuPosition = { 440.0f, 300.0f };
 constexpr Vector2 kMenuItemSize = { 400.0f, 70.0f };
-constexpr float kPercentScale = 100.0f;
-constexpr float kRoundingOffset = 0.5f;
 constexpr Vector2 kBgmVolumeTextPosition = { 900.0f, 321.0f };
 constexpr Vector2 kSeVolumeTextPosition = { 900.0f, 391.0f };
 constexpr float kVolumeTextScale = 1.5f;
 constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-constexpr Vector2 kHelpTextPosition = { 340.0f, 560.0f };
+constexpr Vector2 kHelpTextPosition = { 340.0f, 630.0f }; // メニュー4行の下に置く
 constexpr float kHelpTextScale = 1.0f;
 constexpr Vector4 kHelpTextColor = { 0.7f, 0.7f, 0.7f, 1.0f };
 }
@@ -41,16 +37,19 @@ void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
     bgSprite_->SetColor(kBackgroundColor);
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    commandList_.Initialize(&fontRenderer_, audio_);
 
     menu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_);
     menu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize);
     menu_.SetItems({
         { "BGM VOLUME" },
         { "SE VOLUME" },
+        { "COMMAND LIST" },
         { "BACK" },
     });
 
     finished_ = false;
+    page_ = &Settings();
 }
 
 void OptionsScene::Finalize()
@@ -67,19 +66,63 @@ void OptionsScene::AdjustVolumeAtCursor(float delta)
     SceneShared::AdjustVolume(audio_, row == kRowBgmVolume, delta);
 }
 
+// ══════════════════════════════════════════════════════
+// ページ（設定の一覧 / コマンド表）
+// ══════════════════════════════════════════════════════
+
+class OptionsScene::SettingsPage : public OptionsScene::IPage {
+public:
+    void Update(OptionsScene& scene) const override { scene.UpdateSettings(); }
+    void Draw(OptionsScene& scene) const override { scene.DrawSettings(); }
+};
+
+class OptionsScene::CommandListPage : public OptionsScene::IPage {
+public:
+    void Update(OptionsScene& scene) const override
+    {
+        if (scene.commandList_.Update(scene.input_)) {
+            scene.page_ = &Settings();
+        }
+    }
+    void Draw(OptionsScene& scene) const override { scene.commandList_.Draw(scene.input_); }
+};
+
+const OptionsScene::IPage& OptionsScene::Settings()
+{
+    static const SettingsPage page;
+    return page;
+}
+
+const OptionsScene::IPage& OptionsScene::CommandList()
+{
+    static const CommandListPage page;
+    return page;
+}
+
 void OptionsScene::Update()
+{
+    page_->Update(*this);
+}
+
+void OptionsScene::UpdateSettings()
 {
     menu_.Update(input_);
 
     if (input_->TriggerMenuLeft()) {
-        AdjustVolumeAtCursor(-kVolumeStep);
+        AdjustVolumeAtCursor(-SceneShared::kVolumeStep);
     }
     if (input_->TriggerMenuRight()) {
-        AdjustVolumeAtCursor(kVolumeStep);
+        AdjustVolumeAtCursor(SceneShared::kVolumeStep);
     }
 
-    if (menu_.ConsumeConfirm(input_) && menu_.GetSelectedIndex() == kRowBack) {
-        SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
+    if (menu_.ConsumeConfirm(input_)) {
+        if (menu_.GetSelectedIndex() == kRowBack) {
+            SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
+        } else if (menu_.GetSelectedIndex() == kRowCommandList) {
+            commandList_.Open();
+            page_ = &CommandList();
+            return;
+        }
     }
     if (input_->TriggerMenuCancel()) {
         audio_->PlayMenuSelect();
@@ -97,6 +140,13 @@ void OptionsScene::Draw()
 
     spriteCommon_->CommonDrawSettings();
     bgSprite_->Draw();
+    page_->Draw(*this);
+    fontRenderer_.Draw();
+}
+
+void OptionsScene::DrawSettings()
+{
+    UILayout& layout = UILayout::Get(kLayoutName);
     menu_.Draw();
 
     const float volumeScale = layout.Float("volume.scale", kVolumeTextScale);
@@ -104,16 +154,10 @@ void OptionsScene::Draw()
     const Vector2 bgmPosition = layout.Pos("volume.bgm_pos", kBgmVolumeTextPosition);
     const Vector2 sePosition = layout.Pos("volume.se_pos", kSeVolumeTextPosition);
     const auto& settings = GameSettingsManager::GetInstance()->Get();
-    char bgmBuf[32];
-    char seBuf[32];
-    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * kPercentScale + kRoundingOffset));
-    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * kPercentScale + kRoundingOffset));
-    fontRenderer_.DrawString(bgmBuf, bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
-    fontRenderer_.DrawString(seBuf, sePosition.x, sePosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.bgmVolume), bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.seVolume), sePosition.x, sePosition.y, volumeScale, volumeColor);
 
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
-    fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   ESC: back",
+    fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   Backspace: back",
         helpPosition.x, helpPosition.y, layout.Float("help.scale", kHelpTextScale), layout.Color("help.color", kHelpTextColor));
-
-    fontRenderer_.Draw();
 }

@@ -94,11 +94,47 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
 #endif
 }
 
+void SkinnedObject3d::RestoreLayerRotations()
+{
+    // 同じ骨に複数回掛けた場合でも最初の回転へ戻るよう、記録と逆順に戻す
+    std::vector<Joint>& joints = skeleton_.GetJoints();
+    for (auto it = appliedLayerRotations_.rbegin(); it != appliedLayerRotations_.rend(); ++it) {
+        if (it->jointIndex >= 0 && it->jointIndex < static_cast<int32_t>(joints.size())) {
+            joints[it->jointIndex].transform.rotate = it->rotate;
+        }
+    }
+    appliedLayerRotations_.clear();
+}
+
+void SkinnedObject3d::ApplyPoseLayer()
+{
+    if (poseLayer_ == nullptr) {
+        return;
+    }
+    layerScratch_.clear();
+    poseLayer_->Collect(skeleton_, layerScratch_);
+
+    std::vector<Joint>& joints = skeleton_.GetJoints();
+    for (const PoseLayerRotation& layer : layerScratch_) {
+        if (layer.jointIndex < 0 || layer.jointIndex >= static_cast<int32_t>(joints.size())) {
+            continue;
+        }
+        Joint& joint = joints[layer.jointIndex];
+        appliedLayerRotations_.push_back({ layer.jointIndex, joint.transform.rotate });
+        // 差分はボーンのローカル軸で先に掛ける（ベースの姿勢を保ったまま、その骨だけを捻る）
+        joint.transform.rotate = Normalize(Multiply(joint.transform.rotate, layer.delta));
+    }
+}
+
 void SkinnedObject3d::Update()
 {
     if (!model_) {
         return;
     }
+
+    // 前回レイヤーで書き換えた回転を戻してからベースを評価する
+    // （ベースアニメにキーの無いボーンは上書きされないため、戻さないと差分が毎回積み重なる）
+    RestoreLayerRotations();
 
     // アニメーション時刻を進める
     if (animation_.duration > 0.0f) {
@@ -124,6 +160,7 @@ void SkinnedObject3d::Update()
         }
     }
 
+    ApplyPoseLayer();
     skeleton_.Update();
 
     // スキニングパレット = inverseBindMatrix * skeletonSpaceMatrix

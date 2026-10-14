@@ -18,6 +18,7 @@ void GameSettingsManager::Load()
     if (j.is_object()) {
         settings_.bgmVolume = j.value("bgm_volume", settings_.bgmVolume);
         settings_.seVolume = j.value("se_volume", settings_.seVolume);
+        settings_.autoCombo = j.value("auto_combo", settings_.autoCombo);
     } else {
         // ログ出力やデフォルト維持
     }
@@ -28,5 +29,6 @@ void GameSettingsManager::Save()
     nlohmann::json j;
     j["bgm_volume"] = settings_.bgmVolume;
     j["se_volume"] = settings_.seVolume;
+    j["auto_combo"] = settings_.autoCombo;
     JsonHelper::Save(kFilePath, j);
 }

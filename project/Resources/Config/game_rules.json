@@ -6,12 +6,12 @@
   "resultDisplaySeconds": 2.5,
   "finalFloor": 0,
   "bossHp": {
-    "combat": 30,
-    "elite": 50,
-    "boss": 80
+    "combat": 22,
+    "elite": 36,
+    "boss": 56
   },
-  "weaponEnemyHp": 10,
-  "flyingWeaponEnemyHp": 5,
+  "weaponEnemyHp": 7,
+  "flyingWeaponEnemyHp": 4,
   "starterWeapon": "Sword",
   "bossStealWeapon": "Hammer",
   "bossColor": [0.9, 0.65, 0.15, 1.0],

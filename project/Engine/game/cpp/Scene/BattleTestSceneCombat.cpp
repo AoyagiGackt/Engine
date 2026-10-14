@@ -357,6 +357,7 @@ bool BattleTestScene::UpdateGunShotHit()
     // 発砲はボタン押下の瞬間ではなく、段の shotTime で発生する（GunComboController 管理）。
     // 弾数・射程倍率・ノックバック・打ち上げ・ヒットストップは全て銃種別の GunShotDef が持つ
     if (!player_->JustFired()) {
+        gunShotPicker_.Clear();
         return false;
     }
 
@@ -370,11 +371,22 @@ bool BattleTestScene::UpdateGunShotHit()
     const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
     // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
     AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, kGunShotRearReach);
-    for (auto& d : dummies_) {
-        if (d.hp <= 0.0f) {
-            continue;
+
+    // 弾は最初に当たった相手で止まる（ダミーと配置ナイトの中から銃口に一番近い1体だけに当てる）
+    gunShotPicker_.Begin(pp, player_->GetLastDirX(), shotRange);
+    for (const auto& d : dummies_) {
+        if (d.hp > 0.0f) {
+            gunShotPicker_.Consider(&d, DummyBounds(d));
         }
-        if (shot != nullptr && Collision::CheckCollision(shotRange, DummyBounds(d))) {
+    }
+    for (KnightEnemy* knight : GetStageEditor().GetKnights()) {
+        if (knight->IsAlive()) {
+            gunShotPicker_.Consider(knight, knight->GetAABB());
+        }
+    }
+
+    for (auto& d : dummies_) {
+        if (shot != nullptr && gunShotPicker_.IsTarget(&d)) {
             hitConfirmed = true;
             d.hp = d.maxHp;
             d.hitFlash = kGunHitFlash;
@@ -397,9 +409,9 @@ bool BattleTestScene::UpdateGunShotHit()
         const Vector3 firePos = { pp.x, pp.y, 0.0f }; // 銃口高さ＝手の高さ付近（頭から出ているように見えないよう低めに）
         const Vector4 col = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
         const int n = (std::max)(shot->bullets, 2);
-        // ヒット判定はrangeXの距離まで即座に通るのに、演出弾が固定速度だと寿命内にその距離まで
-        // 届かず敵の手前で消えてしまい「当たっていない」ように見える。実際の射程まで届く速度にする
-        const float reachSpeed = rangeX / kMuzzleLifeTime;
+        // 演出弾は寿命の間に着弾点まで届く速さで飛ばす（的がいればそこで止め、いなければ射程の端まで）
+        const float travel = gunShotPicker_.HasTarget() ? gunShotPicker_.GetHitDistance() : rangeX;
+        const float reachSpeed = travel / kMuzzleLifeTime;
         for (int i = 0; i < n; ++i) {
             float t = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
             float speed = reachSpeed + i * kMuzzleSpeedStep;
@@ -524,8 +536,11 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     d.hpDisplay = 0.0f;
     d.returnTimer = kDummyReturnDelay;
 
+    // 覚醒中の多段ヒットの2発目以降は、押し出しと止めを小さくして刻みの速さを見せる
+    const bool extraHit = player_->JustComboExtraHit();
+
     // ノックバックは段の定義 × 武器の重さ × 覚醒倍率
-    const float kb = weapon.knockbackMult * atkMult;
+    const float kb = weapon.knockbackMult * atkMult * (extraHit ? GameConstants::kAwakenExtraHitKnockScale : 1.0f);
     d.knockVelX += player_->GetLastDirX() * atk->knockX * kb;
     d.knockVelY += atk->knockY * kb;
 
@@ -545,8 +560,12 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
         pm_->EmitRing("bt_hit_ring", hitPosition, weapon.effectRingRadius,
             effectColor, kEffectRingBaseCount + weapon.effectBurstCount, kEffectRingLifetime, kEffectRingSize);
     }
+    comboFeel_.OnMeleeHit(atk, !extraHit && IsMeleeFinisher(weapon.type, atk), hitPosition, effectColor,
+        player_->GetLastDirX(), camera_.get());
 
-    if (atk->launcher) {
+    if (extraHit) {
+        tm->RequestHitStop(GameConstants::kHitStopAwakenExtra);
+    } else if (atk->launcher) {
         // 打ち上げ: 長めのヒットストップ + 画面フラッシュで浮かせた手応えを出す
         tm->RequestHitStop(GameConstants::kHitStopLaunch);
         ScreenFlash::GetInstance()->Request(kLauncherFlashColor, kLauncherFlashDuration);
@@ -636,7 +655,9 @@ void BattleTestScene::UpdatePlacedKnights()
                 if (Collision::CheckCollision(meleeRange, knight->GetAABB())) {
                     knight->TakeDamage(1, dirX, atk->knockY);
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + kKnightHitEffectHeight, 0.0f });
-                    tm->RequestHitStop(atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
+                    const int hitStop = player_->JustComboExtraHit() ? GameConstants::kHitStopAwakenExtra
+                        : (atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
+                    tm->RequestHitStop(hitStop);
                     styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * kMeleeStyleScoreScale);
                     player_->ChargeAwakenGauge(kMeleeAwakenGain);
                 }
@@ -646,9 +667,8 @@ void BattleTestScene::UpdatePlacedKnights()
             const GunShotDef* shot = player_->GetActiveGunShot();
             const RangedWeaponData& gun = weaponManager_->GetRanged();
             if (shot != nullptr) {
-                const float rangeX = gun.range * shot->rangeMult;
-                AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, kGunShotRearReach);
-                if (Collision::CheckCollision(shotRange, knight->GetAABB())) {
+                // 的選びは UpdateGunShotHit() で済んでいる（ダミーとナイトのうち銃口に一番近い1体だけに当てる）
+                if (gunShotPicker_.IsTarget(knight)) {
                     knight->TakeDamage(1, player_->GetLastDirX(), shot->knockY);
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + kKnightHitEffectHeight, 0.0f });
                     tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);

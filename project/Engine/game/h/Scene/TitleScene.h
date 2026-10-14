@@ -7,6 +7,7 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "Camera.h"
+#include "CommandListView.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
 #include "ImGuiManager.h"
@@ -99,9 +100,25 @@ public:
     void RefreshVisualTransformsForEditor() override;
 
 private:
+    /** @brief タイトルのメニューの1ページ（メイン / 設定 / コマンド表） */
+    class IMenuPage {
+    public:
+        virtual ~IMenuPage() = default;
+        /** @brief 入力を受け付ける（ページの切り替えもここで行う） */
+        virtual void Update(TitleScene& scene) const = 0;
+        /** @brief メニューや文字を積む */
+        virtual void Draw(TitleScene& scene) const = 0;
+    };
+    class MainMenuPage;
+    class OptionsMenuPage;
+    class CommandListPage;
+    static const IMenuPage& MainMenu();
+    static const IMenuPage& OptionsMenu();
+    static const IMenuPage& CommandListMenu();
+
     /** @brief NEW GAME等の選択と決定（OPTIONSでは画面を切り替えず設定メニューを開く） */
     void UpdateMainMenu();
-    /** @brief 設定メニューの音量調整と、BACK/ESCでメインメニューへ戻る処理 */
+    /** @brief 設定メニューの音量調整と、BACK/Backspaceでメインメニューへ戻る処理 */
     void UpdateOptionsMenu();
     /** @brief 設定メニューの音量行の右側に現在の音量を百分率で描く */
     void DrawVolumeValue(int row, float volume);
@@ -133,11 +150,14 @@ private:
     /** @brief NEW GAME / CONTINUE / TRAINING / OPTIONS を選択するメニュー */
     UIMenu menu_;
 
-    /** @brief OPTIONSを選んだときにメインメニューと入れ替えて出す BGM / SE / BACK のメニュー */
+    /** @brief OPTIONSを選んだときにメインメニューと入れ替えて出す BGM / SE / COMMAND LIST / BACK のメニュー */
     UIMenu optionsMenu_;
 
-    /** @brief 設定メニューを表示中か */
-    bool optionsOpen_ = false;
+    /** @brief 設定メニューの COMMAND LIST から開くコマンド表 */
+    CommandListView commandList_;
+
+    /** @brief 表示中のメニューのページ */
+    const IMenuPage* menuPage_ = nullptr;
 
     /** @brief シーン終了フラグ（trueになるとシーンが切り替わる） */
     bool finished_ = false;

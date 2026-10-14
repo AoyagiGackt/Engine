@@ -2,9 +2,11 @@
 /// @brief プレイヤーキャラクターの物理・アクション・スタイルシステムを定義するファイル
 #pragma once
 #include "AfterImageRenderer.h"
+#include "AutoComboAssist.h"
 #include "Animation.h"
 #include "CollisionConfig.h"
 #include "GunCombo.h"
+#include "ComboMotion.h"
 #include "MeleeCombo.h"
 #include "Model.h"
 #include "Object3d.h"
@@ -172,6 +174,8 @@ public:
 
     // スタイル技フラグ（その1フレームだけ true）
     bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
+    /** @brief このフレームのコンボヒットが覚醒中の追加ヒット（多段の2発目以降）か */
+    bool JustComboExtraHit() const { return justComboExtraHit_; }
     bool JustWeaponSwitchHit() const { return justWeaponSwitchHit_; }
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
     bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
@@ -195,6 +199,33 @@ public:
     /// @brief 現在表示中の近接武器の手元ワールド座標を返す（武器トレイル演出用）
     /// @note 武器が表示されていない場合はプレイヤーの胸元あたりの位置を返す
     Vector3 GetActiveWeaponWorldPosition() const;
+    /**
+     * @brief 手に持っている近接武器の種類と、武器モデル空間→ワールドの行列を返す（刃の軌跡演出用）
+     * @param outType   表示中の武器の種類
+     * @param outMatrix 武器モデルのローカル座標に掛けるとワールド座標になる行列
+     * @return 武器を手のボーンに持っている時だけtrue（非表示・投擲中はfalse）
+     */
+    bool GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) const;
+
+    /**
+     * @brief 近接の段を指定時刻の姿勢で見せる（モーション編集のプレビュー用）
+     * @param attack         見せる段
+     * @param normalizedTime 段の経過割合（0〜1）
+     * @note Update() を呼ばずに見た目だけを評価する。ヒット・前進・入力は一切発生しない
+     */
+    void PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime);
+    /** @brief プレビューを終えて攻撃していない状態へ戻す */
+    void EndMeleePreview();
+    /** @brief 加算モーションの保存キー（今表示しているリグのモデルファイル名） */
+    const char* GetMotionRigId() const { return rig_->motionRigId; }
+    /** @brief 加算モーションの掛かり具合（確認表示用）。トラック数と、そのうちリグにボーンが見つかった数 */
+    void GetMotionLayerStats(int& outTracks, int& outApplied) const
+    {
+        outTracks = motionLayer_.GetLastTrackCount();
+        outApplied = motionLayer_.GetLastAppliedCount();
+    }
+    /** @brief 今表示しているリグのスケルトン（ボーン一覧の表示用） */
+    const engine::graphics::Skeleton& GetRigSkeleton() const { return rig_->object->GetSkeleton(); }
 
     /// @brief 進行中の射撃コンボ段の定義を返す（撃っていなければ nullptr）
     /// @note JustFired() のフレームに弾数・拡散・射程倍率・ノックバック・技IDの参照に使う
@@ -335,6 +366,9 @@ private:
 
     // スタイル技（L / K キー）
     bool justComboHit_ = false;
+    bool justComboExtraHit_ = false;
+    static constexpr int kAwakenExtraHits_ = 2; ///< 覚醒中に1段ごとに出す追加ヒットの回数
+    static constexpr float kAwakenExtraHitInterval_ = 0.045f; ///< 覚醒中の追加ヒットの間隔（秒）
     bool justWeaponSwitchHit_ = false;
     bool weaponSwitchAttackPending_ = false;
     bool weaponSwitchAttackActive_ = false;
@@ -349,6 +383,12 @@ private:
 
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
     MeleeComboController meleeCombo_;
+    AutoComboAssist autoCombo_; ///< オプションのオートコンボ（GameSettings::autoComboを毎フレーム反映）
+    /// 段ごとの加算モーション（両リグの SkinnedObject3d が参照するので、リグより先に宣言して長く生存させる）
+    ComboMotionLayer motionLayer_;
+    /** @brief 今の段と経過割合を加算モーションのレイヤーへ渡す（リグを評価する直前に呼ぶ） */
+    void SyncMotionLayer();
+    const Animation* previewAnim_ = nullptr; ///< プレビュー中に設定済みのベースアニメ（毎フレームのクリップ複製を避ける）
     // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
     GunComboController gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
@@ -591,6 +631,7 @@ private:
         float modelOffsetY = 0.0f; ///< モデル原点（足元）を AABB 中心の pos_ に合わせる下げ幅
         const char* meleeBoneName = ""; ///< 近接武器のアタッチ先ボーン
         const char* gunBoneName = ""; ///< 銃のアタッチ先ボーン
+        const char* motionRigId = ""; ///< 加算モーションの保存キー（リグのモデルファイル名）
         Animation idleAnim;
         Animation runAnim;
         Animation jumpAnim;

@@ -12,6 +12,9 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "BladeFlashEffect.h"
+#include "ComboFeelDirector.h"
+#include "ComboMotionEditor.h"
+#include "ShotTargetPicker.h"
 #include "BulletPool.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -27,6 +30,7 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "PauseMenu.h"
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
@@ -104,7 +108,7 @@ public:
      * @brief 追加ホットキーの案内文字列を返す
      * @return コライダー表示のホットキー文字列
      */
-    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
+    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示\nF6: コンボ演出の調整\nF7: モーションエディタ"; }
     bool ShouldShowHotkeyOverlay() const override { return showHud_; }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
@@ -292,6 +296,12 @@ private:
 
     /** @brief 空間に走るガラス質の刃パーティクル */
     BladeFlashEffect bladeFlash_;
+    /** @brief 近接コンボの手応え演出（刃の軌跡・締めの重さ・振りの向きの斬撃線、F6で調整） */
+    ComboFeelDirector comboFeel_;
+    /** @brief 段ごとの加算モーションの編集パネル（F7、プレビュー中はゲームを止める） */
+    ComboMotionEditor motionEditor_;
+    /** @brief 射撃が当たる相手（銃口に一番近い1体。弾が敵を貫通しないようにする） */
+    ShotTargetPicker gunShotPicker_;
     /** @brief プレイヤー中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
     /** @brief 解放時にダミーを切断破片へ差し替える演出 */
@@ -355,6 +365,7 @@ private:
     bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
 
     FontRenderer fontRenderer_;
+    PauseMenu pauseMenu_; ///< Pauseキーで開く一時停止画面（退出項目はトレーニングへ戻る）
 };
 
 } // namespace engine::game

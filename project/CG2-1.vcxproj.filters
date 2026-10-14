@@ -283,6 +283,12 @@
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\ComboFeelDirector.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
@@ -340,7 +346,16 @@
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\AutoComboAssist.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\ComboMotion.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\ComboMotionEditor.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp">
@@ -524,6 +539,12 @@
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\BladeFlashEffect.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\WeaponTrailEffect.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\Effect\ImpactRadialBlurEffect.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\SpaceDistortionEffect.cpp">
@@ -746,6 +767,15 @@
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\ComboFeelDirector.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\ShotTargetPicker.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\CommandListView.h">
+      <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
@@ -791,7 +821,16 @@
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\AutoComboAssist.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\ComboMotion.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\ComboMotionEditor.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\GunCombo.h">
@@ -979,6 +1018,9 @@
     <ClInclude Include="Engine\graphics\h\Skeleton\Skeleton.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Skeleton</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Skeleton\PoseLayer.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Skeleton</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Skeleton\SkeletonOverlayRenderer.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Skeleton</Filter>
     </ClInclude>
@@ -1091,6 +1133,12 @@
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BladeFlashEffect.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\WeaponTrailEffect.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\ImpactRadialBlurEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\SpaceDistortionEffect.h">
@@ -1294,6 +1342,7 @@
     <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\PauseMenu.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
@@ -1303,6 +1352,7 @@
     <ClInclude Include="Engine\game\h\Level\EditorGamePreview.h"><Filter>ヘッダーファイル\Engine\game\h\Level</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\GamePauseController.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\PauseMenu.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>

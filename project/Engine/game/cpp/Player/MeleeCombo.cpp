@@ -413,14 +413,26 @@ void MeleeComboController::StartStep(const MeleeAttackDef* def, int tableIdx, bo
     launcherMode_ = isLauncher;
     timer_ = 0.0f;
     hitDone_ = false;
+    extraHitsFired_ = 0;
     startPending_ = true;
     buffered_ = false;
     chainGraceTimer_ = 0.0f;
 }
 
+bool MeleeComboController::CanFireExtraHit() const
+{
+    // 打ち上げ技は追加ヒットのたびに浮かせ直してしまい、固有技の連撃は元から手数が多いので対象外
+    if (extraHitsFired_ >= extraHits_ || launcherMode_ || active_->launcher || sequence_.data != nullptr) {
+        return false;
+    }
+    const float nextHitTime = active_->hitTime + extraHitInterval_ * static_cast<float>(extraHitsFired_ + 1);
+    return timer_ >= nextHitTime && timer_ < active_->duration;
+}
+
 void MeleeComboController::Update(float dt)
 {
     justHit_ = false;
+    justExtraHit_ = false;
     justStarted_ = false;
     lungeDelta_ = 0.0f;
     AdvanceStep(dt);
@@ -450,6 +462,11 @@ void MeleeComboController::AdvanceStep(float dt)
     if (!hitDone_ && timer_ >= active_->hitTime) {
         hitDone_ = true;
         justHit_ = true;
+    } else if (hitDone_ && CanFireExtraHit()) {
+        // 追加ヒットは本ヒットから一定間隔ごとに1フレーム1回ずつ出す
+        ++extraHitsFired_;
+        justHit_ = true;
+        justExtraHit_ = true;
     }
 
     // 先行入力の消化
@@ -491,7 +508,9 @@ void MeleeComboController::Reset()
     stepDisplay_ = 0;
     timer_ = 0.0f;
     hitDone_ = false;
+    extraHitsFired_ = 0;
     justHit_ = false;
+    justExtraHit_ = false;
     justStarted_ = false;
     startPending_ = false;
     buffered_ = false;
@@ -499,6 +518,26 @@ void MeleeComboController::Reset()
     lungeDelta_ = 0.0f;
     launcherMode_ = false;
     sequence_ = { };
+}
+
+float MeleeComboController::GetProgress() const
+{
+    if (active_ == nullptr || active_->duration <= 0.0f) {
+        return 0.0f;
+    }
+    return std::clamp(timer_ / active_->duration, 0.0f, 1.0f);
+}
+
+void MeleeComboController::SetPreviewPose(const MeleeAttackDef* def, float normalizedTime)
+{
+    Reset();
+    if (def == nullptr) {
+        return;
+    }
+    // 見た目の計算（スイング・体の傾き・その場回転）は active_ と timer_ だけを読むので、それだけ合わせる
+    active_ = def;
+    timer_ = std::clamp(normalizedTime, 0.0f, 1.0f) * def->duration;
+    hitDone_ = true; // プレビュー中にヒット扱いの処理が走らないようにする
 }
 
 void MeleeComboController::StartSequence(const ComboArray<MeleeAttackDef>& sequence)

@@ -54,6 +54,54 @@ constexpr int kHitRingCount = 16;
 constexpr float kHitRingLifetime = 0.3f;
 constexpr float kHitRingSize = 0.2f;
 constexpr Vector4 kPlayerHitSparkColor = { 1.0f, 0.15f, 0.15f, 1.0f };
+
+// 壊せる設置物の当たり判定（攻撃判定と射撃の的選びで同じ大きさを使う）
+constexpr float kBreakableHalfDepth = 0.5f;
+constexpr float kBreakableHitPadding = 0.1f; // 見た目の箱よりわずかに広く当たりを取り、かすった攻撃も拾う
+
+AABB BreakableBounds(const BreakableRef& barrel)
+{
+    const ObjectDesc& desc = *barrel.desc;
+    const float halfExtentX = 0.5f * std::abs(desc.scale.x) + kBreakableHitPadding;
+    const float halfExtentY = 0.5f * std::abs(desc.scale.y) + kBreakableHitPadding;
+    return {
+        { barrel.position.x - halfExtentX, barrel.position.y - halfExtentY, -kBreakableHalfDepth },
+        { barrel.position.x + halfExtentX, barrel.position.y + halfExtentY, kBreakableHalfDepth }
+    };
+}
+}
+
+void GamePlayScene::BuildGunShotTarget()
+{
+    if (!player_->JustFired()) {
+        gunShotPicker_.Clear();
+        return;
+    }
+    const auto* wm = WeaponManager::GetInstance();
+    const GunShotDef* shot = player_->GetActiveGunShot();
+    const Vector3& playerPos = player_->GetPosition();
+    const float rangeX = wm->GetRanged().range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
+    gunShotPicker_.Begin(playerPos, player_->GetLastDirX(),
+        SceneShared::MakeDirectionalShotRange(playerPos, player_->GetLastDirX(), rangeX, Tune().gunBackRange));
+
+    // 弾は最初に当たった相手で止まる（ボス・道中の敵・壊せる物の中から銃口に一番近い1つだけが的）
+    if (!enemy_->IsDefeated() && enemy_->IsVisible()) {
+        gunShotPicker_.Consider(enemy_, GetEnemyHitBox());
+    }
+    for (const auto& entry : weaponEnemies_) {
+        if (entry.enemy->IsDefeated()) {
+            continue;
+        }
+        const Vector3& enemyPos = entry.enemy->GetPosition();
+        const AABB enemyBounds = {
+            { enemyPos.x - Tune().enemyHitBoxHalfExtent, enemyPos.y - Tune().enemyHitBoxHalfExtent, -kStageHalfDepth },
+            { enemyPos.x + Tune().enemyHitBoxHalfExtent, enemyPos.y + Tune().enemyHitBoxHalfExtent, kStageHalfDepth }
+        };
+        gunShotPicker_.Consider(entry.enemy, enemyBounds);
+    }
+    for (const BreakableRef& barrel : GetStageEditor().GetBreakables()) {
+        gunShotPicker_.Consider(barrel.desc, BreakableBounds(barrel));
+    }
 }
 
 void GamePlayScene::UpdateWeaponEnemies()
@@ -93,9 +141,8 @@ void GamePlayScene::UpdateWeaponEnemies()
                 meleeHit = hit;
             }
             if (!hit && player_->JustFired()) {
-                const AABB range = SceneShared::MakeDirectionalRange(
-                    playerPos, player_->GetLastDirX(), wm->GetRanged().range, Tune().gunBackRange);
-                hit = Collision::CheckCollision(range, enemyBounds);
+                // 弾は手前の相手で止まるので、射撃の的に選ばれた時だけ当たる
+                hit = gunShotPicker_.IsTarget(entry.enemy);
                 gunHit = hit;
             }
             if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit() || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
@@ -125,11 +172,14 @@ void GamePlayScene::UpdateWeaponEnemies()
                     : baseDamage * damageMult / Tune().meleeDamageDivisor * (skillHit ? kSkillDamageMult : 1.0f);
                 const int damage = (std::max)(1, static_cast<int>(std::round(rawDamage * CurrentDamageMult())));
                 constexpr float kGameplayKnockbackScale = 0.72f;
+                // 覚醒中の多段ヒットの2発目以降は、押し出し・止め・締め演出を軽くして刻みの速さを見せる
+                const bool extraHit = meleeHit && player_->JustComboExtraHit();
                 const float knockbackMult = (wm->HasEquippedWeapon()
                                                 ? wm->GetCurrent().knockbackMult
                                                 : 1.0f)
-                    * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale;
-                const bool comboFinisher = meleeHit && IsMeleeFinisher(wm->GetCurrent().type, attack);
+                    * player_->GetAwakenedKnockbackMult() * kGameplayKnockbackScale
+                    * (extraHit ? GameConstants::kAwakenExtraHitKnockScale : 1.0f);
+                const bool comboFinisher = meleeHit && !extraHit && IsMeleeFinisher(wm->GetCurrent().type, attack);
                 // 固有技は締めと同じく大きく吹き飛ばす
                 const bool blowAway = comboFinisher || skillHit;
                 // 近接と銃は武器ごとの疲労でダメージが落ちる（固有技はクールタイムがあるので対象外）
@@ -171,6 +221,9 @@ void GamePlayScene::UpdateWeaponEnemies()
                 const Vector4 elementColor = hitColor;
                 ApplyFatigueToHitEffect(fatigueMult, hitColor, hitStrength);
                 EmitEnemyHitEffect(enemyPos, hitColor, hitStrength, extraBurstCount, ringRadius);
+                if (meleeHit) {
+                    comboFeel_.OnMeleeHit(attack, comboFinisher, enemyPos, elementColor, player_->GetLastDirX(), camera_.get());
+                }
                 // 属性ごとの追加演出（銃は銃の属性、それ以外は手持ち武器の属性）。効きが落ちた武器では出さない
                 constexpr float kGunElementScale = 0.6f;
                 constexpr float kSkillElementScale = 1.6f;
@@ -189,7 +242,11 @@ void GamePlayScene::UpdateWeaponEnemies()
                 // 段ごとのhitStop（MeleeCombo.cppで武器・段別に調整済み）をヒットストップとカメラ揺れへ反映する
                 // 固有技は段定義を持たないため、締め扱いの大きな停止と揺れにする
                 constexpr int kDefaultHitStopFrames = 3;
-                RequestMeleeHitStopAndShake(skillHit ? nullptr : attack, blowAway, kDefaultHitStopFrames);
+                if (extraHit) {
+                    RequestMeleeHitStopAndShake(nullptr, false, GameConstants::kHitStopAwakenExtra);
+                } else {
+                    RequestMeleeHitStopAndShake(skillHit ? nullptr : attack, blowAway, kDefaultHitStopFrames);
+                }
             }
         }
 
@@ -273,8 +330,6 @@ void GamePlayScene::UpdateExplosiveBarrels()
     // 収集物（pickup）の回収はStageEditor側が行う。ここでは壊せる物（breakable）のヒット判定と爆風ダメージだけを担当する
     constexpr float kBreakablePulseSpeed = 4.0f;
     constexpr float kBreakablePulseAmplitude = 0.25f;
-    constexpr float kBreakableHalfDepth = 0.5f;
-    constexpr float kBreakableHitPadding = 0.1f; // 見た目の箱よりわずかに広く当たりを取り、かすった攻撃も拾う
     constexpr int kBreakableHitStopFrames = 8;
     constexpr float kBreakableShakeAmount = 0.28f;
     constexpr float kBreakableShakeSeconds = 0.2f;
@@ -304,12 +359,7 @@ void GamePlayScene::UpdateExplosiveBarrels()
         barrel.object->SetColor({ desc.breakableColor.x, desc.breakableColor.y * pulse, desc.breakableColor.z, desc.breakableColor.w });
         barrel.object->Update();
 
-        const float halfExtentX = 0.5f * std::abs(desc.scale.x) + kBreakableHitPadding;
-        const float halfExtentY = 0.5f * std::abs(desc.scale.y) + kBreakableHitPadding;
-        const AABB barrelBounds = {
-            { barrel.position.x - halfExtentX, barrel.position.y - halfExtentY, -kBreakableHalfDepth },
-            { barrel.position.x + halfExtentX, barrel.position.y + halfExtentY, kBreakableHalfDepth }
-        };
+        const AABB barrelBounds = BreakableBounds(barrel);
 
         // ヒット判定は道中の武器敵(UpdateWeaponEnemies)と同じ3つの攻撃窓（近接コンボ/射撃/固有技）を流用する
         bool hit = false;
@@ -320,9 +370,8 @@ void GamePlayScene::UpdateExplosiveBarrels()
             hit = Collision::CheckCollision(range, barrelBounds);
         }
         if (!hit && player_->JustFired()) {
-            const AABB range = SceneShared::MakeDirectionalRange(
-                playerPos, player_->GetLastDirX(), wm->GetRanged().range, Tune().gunBackRange);
-            hit = Collision::CheckCollision(range, barrelBounds);
+            // 弾は手前の相手で止まるので、射撃の的に選ばれた時だけ当たる
+            hit = gunShotPicker_.IsTarget(barrel.desc);
         }
         if (!hit && (player_->JustSwordDash() || player_->JustSpearRetreat() || player_->JustDaggerStingerHit()
                 || player_->JustGreatswordSlam() || player_->JustSpinShot() || player_->JustScytheSpin() || player_->JustAxeCharge())) {
@@ -412,8 +461,11 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
     auto* tm = TimeManager::GetInstance();
     const Vector3& ppos = player_->GetPosition();
 
-    // 敵との当たり判定
+    // 敵との当たり判定（倒れた敵・消えた敵の体には当たらない。倒した後も判定が残って止めと揺れが出続けないように）
     hitCooldown_ -= dt;
+    if (enemy_->IsDefeated() || !enemy_->IsVisible()) {
+        return;
+    }
     {
         Collider playerCol = player_->GetCollider();
         const Vector3& epos = enemy_->GetPosition();

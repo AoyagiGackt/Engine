@@ -20,7 +20,7 @@
     "next": { "scene": "MAP" },
     "clear": { "scene": "CLEAR" },
     "sandbox_clear": { "scene": "CLEAR" },
-    "pause_quit": { "scene": "TITLE", "fadeOut": 0.3, "fadeIn": 0.3 }
+    "pause_quit": { "scene": "MAP", "fadeOut": 0.3, "fadeIn": 0.3 }
   },
   "SHOP": {
     "done": { "scene": "MAP" }

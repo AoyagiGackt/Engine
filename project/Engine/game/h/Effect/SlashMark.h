@@ -57,7 +57,7 @@ public:
      */
     void FlashAll(const Vector4& color, float duration);
 
-    /** @brief 全斬撃線を即座に削除する（シーン切り替え時などに呼ぶ） */
+    /** @brief 全斬撃線とプールを解放する（GPUの完了を待った後、シーン終了時にだけ呼ぶ） */
     void Clear();
 
 private:
@@ -74,8 +74,15 @@ private:
     /** @brief 1枚分のスプライトを生成してエントリに登録する */
     void SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color);
 
+    /** @brief プールから空きスプライトを取り出す（無ければ新しく作る） */
+    std::unique_ptr<Sprite> AcquireSprite();
+
     SpriteCommon* spriteCommon_ = nullptr;
     std::vector<Entry> entries_;
+    /// 消えた斬撃線のスプライト置き場
+    /// @note 前のフレームの描画がGPUで実行中のうちにSpriteのバッファを解放すると壊れるため、
+    ///       時間切れでも破棄せずここへ戻して使い回す
+    std::vector<std::unique_ptr<Sprite>> spritePool_;
 };
 
 } // namespace engine::game

@@ -7,6 +7,7 @@
 #include "MakeAffine.h"
 #include "ModelCommon.h"
 #include "ObjectMaterialLayout.h"
+#include "PoseLayer.h"
 #include "Skeleton.h"
 #include "SkinCS.h"
 #include "SkinCommon.h"
@@ -75,7 +76,17 @@ public:
         animation_ = std::move(anim);
         animTime_ = 0.0f;
     }
-    void SetSkeleton(Skeleton skeleton) { skeleton_ = std::move(skeleton); }
+    void SetSkeleton(Skeleton skeleton)
+    {
+        skeleton_ = std::move(skeleton);
+        appliedLayerRotations_.clear(); // 添字が別のスケルトンを指さないよう巻き戻し情報を捨てる
+    }
+
+    /**
+     * @brief ベースアニメの上に重ねるポーズレイヤーを設定する（nullptrで解除）
+     * @note レイヤーの寿命は呼び出し側が管理する（このオブジェクトより長く生存させること）
+     */
+    void SetPoseLayer(const IPoseLayer* layer) { poseLayer_ = layer; }
     void SetEnvCubemapFilePath(const std::string& path) { envCubemapFilePath_ = path; }
 
     void SetPosition(const Vector3& pos) { transform_.translate = pos; }
@@ -191,6 +202,23 @@ private:
     Animation animation_;
     float animTime_ = 0.0f;
     float animSpeed_ = 1.0f;
+
+    /** @brief レイヤーを掛ける前のボーン回転 */
+    struct SavedJointRotation {
+        int32_t jointIndex;
+        Quaternion rotate;
+    };
+
+    const IPoseLayer* poseLayer_ = nullptr;
+    /// 前回の評価でレイヤーを掛ける前の回転（次の評価の頭で戻し、差分が積み重ならないようにする）
+    std::vector<SavedJointRotation> appliedLayerRotations_;
+    /// レイヤーから集めた差分回転の作業領域（毎フレーム確保し直さないよう保持する）
+    std::vector<PoseLayerRotation> layerScratch_;
+
+    /** @brief 前回レイヤーで書き換えたボーンの回転を元に戻す */
+    void RestoreLayerRotations();
+    /** @brief レイヤーの差分回転をボーンへ掛け、戻すための元の回転を記録する */
+    void ApplyPoseLayer();
 
     Transform transform_ { { 1, 1, 1 }, { 0, 0, 0 }, { 0, 0, 0 } };
     Matrix4x4 worldMatrix_ = MakeIdentity4x4();

@@ -135,7 +135,7 @@ public: // メンバ関数
     bool TriggerMenuRight() const;
     /** @brief 決定（Space/Enter/Aボタン） */
     bool TriggerMenuConfirm() const;
-    /** @brief 戻る（Esc/Backspace/Bボタン） */
+    /** @brief 戻る（Backspace/Bボタン。Escはアプリ終了なので含めない） */
     bool TriggerMenuCancel() const;
 
     /** @brief 操作の表示名を、最後に使った機器に合わせて返す（例: キーボードなら "J"、パッドなら "LT"） */

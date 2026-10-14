@@ -67,6 +67,7 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.modelOffsetY = def.offsetY;
         rig.meleeBoneName = def.meleeBone;
         rig.gunBoneName = def.gunBone;
+        rig.motionRigId = def.file;
 
         rig.idleAnim = LoadAnimationFile(def.dir, def.file, def.idle);
         rig.runAnim = LoadAnimationFile(def.dir, def.file, def.run);
@@ -84,6 +85,7 @@ void Player::Initialize(ModelCommon* modelCommon)
         rig.object->Initialize(skinCommon_.get());
         rig.object->SetModel(rig.skinnedModel);
         rig.object->SetSkeleton(Skeleton::Create(LoadNodeHierarchyFromFile(def.dir, def.file)));
+        rig.object->SetPoseLayer(&motionLayer_);
         rig.object->SetAnimation(rig.idleAnim);
         // ライティング有効 + リムライトで背景からシルエットを分離させる
         rig.object->SetEnableLighting(true);

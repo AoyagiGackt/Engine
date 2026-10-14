@@ -419,6 +419,7 @@ void GamePlayScene::DrawWorldAndActors()
     pm_->Draw(camera_.get());
 
     bladeFlash_.Draw();
+    comboFeel_.DrawTrail();
 
     // 空間歪み（バックバッファ直描き時のみUIより先に画面をキャプチャして歪ませる）
     if (spaceWarp_.IsActive()
@@ -426,6 +427,12 @@ void GamePlayScene::DrawWorldAndActors()
         // スコープを抜けた瞬間に必ずレンダーターゲット設定を戻す（歪み描画がRTを変えるため）
         PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
         spaceWarp_.CaptureAndApply();
+    }
+    // 締めのラジアルブラーも同じくバックバッファ直描き時だけ、UIより先に掛ける
+    if (comboFeel_.HasScreenEffects()
+        && GetActiveRTVHandle().ptr == dxCommon_->GetCurrentBackBufferHandle().ptr) {
+        PipelineStateGuard restoreGuard([this] { SetupMainRenderTarget(); });
+        comboFeel_.ApplyScreenEffects();
     }
 }
 

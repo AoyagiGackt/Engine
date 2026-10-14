@@ -202,6 +202,7 @@ void Player::RefreshVisualTransforms()
     // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
     float savedSpeed = rig_->object->GetAnimSpeed();
     rig_->object->SetAnimSpeed(0.0f);
+    SyncMotionLayer();
     rig_->object->Update();
     rig_->object->SetAnimSpeed(savedSpeed);
 
@@ -273,7 +274,63 @@ void Player::UpdateVisualState(Input* input)
     rig_->object->SetPosition(modelPos);
     // 回転斬りの段では体ごとその場で回る（向きに足すので、武器もボーン追従でいっしょに回る）
     rig_->object->SetRotation({ bodyLean.x + backDodgeLean, yaw + meleeCombo_.GetBodyTurnOffset(), spinAngle_ * GameConstants::kDegToRad + bodyLean.z });
+    SyncMotionLayer();
     rig_->object->Update();
+}
+
+void Player::SyncMotionLayer()
+{
+    // コンボの段タイマーを唯一の時計にして、加算キーを段の経過割合で評価する
+    const MeleeAttackDef* attack = meleeCombo_.GetActive();
+    const ComboMotionLibrary* library = ComboMotionLibrary::GetInstance();
+    const MotionClip* clip = (attack != nullptr && library->IsEnabled())
+        ? library->Find(rig_->motionRigId, attack->id)
+        : nullptr;
+    motionLayer_.SetClip(clip, meleeCombo_.GetProgress());
+}
+
+void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime)
+{
+    if (attack == nullptr) {
+        EndMeleePreview();
+        return;
+    }
+    meleeCombo_.SetPreviewPose(attack, normalizedTime);
+
+    // ベースアニメもゲーム中と同じ対応（段の経過秒 × 再生速度）で同じ時刻に合わせる
+    const Animation& anim = attack->slashAnim ? rig_->slashAnim : rig_->punchAnim;
+    if (previewAnim_ != &anim) {
+        rig_->object->SetAnimation(anim);
+        previewAnim_ = &anim;
+    }
+    float animTime = std::clamp(normalizedTime, 0.0f, 1.0f) * attack->duration * attack->animSpeed;
+    if (anim.duration > 0.0f) {
+        animTime = std::fmod(animTime, anim.duration);
+    }
+    rig_->object->SetAnimTime(animTime);
+
+    // 体の傾き・その場回転も同じ段時刻で評価する
+    const float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    const Vector3 bodyLean = meleeCombo_.GetBodyLeanOffset();
+    rig_->object->SetRotation({ bodyLean.x, yaw + meleeCombo_.GetBodyTurnOffset(), bodyLean.z });
+    RefreshVisualTransforms();
+}
+
+void Player::EndMeleePreview()
+{
+    meleeCombo_.Reset();
+    if (previewAnim_ != nullptr) {
+        // 攻撃の残り時間と速度を戻し、今の接地・構えの条件から移動系アニメへ入り直させる
+        // （状態を攻撃扱いにしておくと、UpdateAnimationState()が同じ状態とみなして入り直しを省かない）
+        attackAnimTimer_ = 0.0f;
+        rig_->object->SetAnimSpeed(1.0f);
+        animState_ = &AttackAnim();
+        UpdateAnimationState(false);
+        previewAnim_ = nullptr;
+    }
+    const float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    rig_->object->SetRotation({ 0.0f, yaw, 0.0f });
+    RefreshVisualTransforms();
 }
 
 void Player::AttachActiveWeapons()
@@ -388,6 +445,21 @@ Vector3 Player::GetActiveWeaponWorldPosition() const
         return heldWeapons_[activeHeldIndex_].object->GetWorldPosition();
     }
     return { pos_.x, pos_.y + rig_->modelOffsetY, pos_.z };
+}
+
+bool Player::GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) const
+{
+    if (activeHeldIndex_ < 0 || activeHeldIndex_ == thrownGreatswordIndex_) {
+        return false;
+    }
+    const HeldWeaponSlot& slot = heldWeapons_[activeHeldIndex_];
+    // 手のボーン追従中はSetLocalMatrix()の行列がそのままワールド行列になっている
+    if (!slot.object->IsUsingLocalMatrix()) {
+        return false;
+    }
+    outType = slot.type;
+    outMatrix = slot.object->GetLocalMatrix();
+    return true;
 }
 
 void Player::Draw()

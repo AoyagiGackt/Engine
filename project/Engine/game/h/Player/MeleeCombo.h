@@ -94,8 +94,32 @@ public:
 
     bool IsAttacking() const { return active_ != nullptr; }
     bool JustHit() const { return justHit_; } ///< このフレームに攻撃判定が発生したか
+    /** @brief このフレームの攻撃判定が追加ヒット（本ヒットの後の多段ぶん）か */
+    bool JustExtraHit() const { return justExtraHit_; }
+
+    /**
+     * @brief 1段ごとに本ヒットの後で出す追加ヒットを設定する（覚醒中の多段ヒット用）
+     * @param count    追加ヒットの回数（0で多段なし）
+     * @param interval 追加ヒット同士の間隔（秒）
+     * @note 段の長さを超える分は出ない。打ち上げ技と固有技の連撃には付かない
+     */
+    void SetExtraHits(int count, float interval)
+    {
+        extraHits_ = count;
+        extraHitInterval_ = interval;
+    }
     bool JustStartedStep() const { return justStarted_; } ///< このフレームに段が開始したか（アニメ再生用）
     const MeleeAttackDef* GetActive() const { return active_; } ///< 進行中の段（無ければ nullptr）
+    /** @brief 進行中の段の経過割合（0〜1、段の長さに対する経過時間。攻撃していなければ0） */
+    float GetProgress() const;
+
+    /**
+     * @brief 段を指定した時刻の姿勢で止めて見せる（モーション編集のプレビュー用）
+     * @param def              見せる段（nullptrでプレビューを終えて攻撃していない状態へ戻す）
+     * @param normalizedTime   段の経過割合（0〜1）
+     * @note ヒット発火・前進・先行入力などの進行処理は一切行わない（Update()を呼ばない前提）
+     */
+    void SetPreviewPose(const MeleeAttackDef* def, float normalizedTime);
     int GetStep() const { return stepDisplay_; } ///< 表示用の段数（1始まり、打ち上げ技は0）
     float GetLungeDelta() const { return lungeDelta_; } ///< このフレームぶんの前進量
 
@@ -131,6 +155,13 @@ private:
     float timer_ = 0.0f;
     bool hitDone_ = false;
     bool justHit_ = false;
+    bool justExtraHit_ = false;
+    int extraHits_ = 0; ///< 1段で出す追加ヒットの回数
+    float extraHitInterval_ = 0.0f; ///< 追加ヒットの間隔（秒）
+    int extraHitsFired_ = 0; ///< この段で出し終えた追加ヒットの回数
+
+    /** @brief 今のフレームに次の追加ヒットを出せるか */
+    bool CanFireExtraHit() const;
     bool justStarted_ = false;
     bool startPending_ = false; ///< StartStep()で段が始まり、次のUpdate()の終わりにjustStarted_として公開する
     bool buffered_ = false; ///< cancelTime 前に押された次段入力を保持

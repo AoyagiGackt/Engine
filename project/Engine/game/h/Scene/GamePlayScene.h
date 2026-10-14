@@ -3,7 +3,6 @@
  * @brief メインの戦闘シーン（ローグライト／サンドボックス両対応）
  */
 #pragma once
-#include "GamePauseController.h"
 #include "HudLayer.h"
 
 // 標準ライブラリ
@@ -31,6 +30,8 @@
 
 // ゲームロジック・オブジェクト
 #include "BladeFlashEffect.h"
+#include "ComboFeelDirector.h"
+#include "ShotTargetPicker.h"
 #include "CameraShaker.h"
 #include "Collision.h"
 #include "ElementEffect.h"
@@ -50,6 +51,7 @@
 #include "SpaceDistortionEffect.h"
 #include "StyleMeter.h"
 #include "TimeManager.h"
+#include "PauseMenu.h"
 #include "UIMenu.h"
 #include "WaterPool.h"
 namespace engine::graphics {
@@ -189,7 +191,7 @@ public:
      * @brief 追加ホットキーの案内文字列を返す
      * @return シーン調整パネルのホットキー文字列
      */
-    const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル"; }
+    const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル\nF6: コンボ演出の調整"; }
 
 private:
     /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
@@ -218,12 +220,8 @@ private:
     void UpdateWeaponExchange();
     /** @brief 満杯時の武器交換画面を描画する */
     void DrawWeaponExchange();
-    /** @brief 一時停止メニュー（RESUME/音量/タイトルへ戻る）の初期化 */
+    /** @brief 一時停止メニューの初期化（退出項目はステージセレクトへ戻る） */
     void SetupPauseMenu();
-    /** @brief 一時停止中の入力処理（ESCで再開、カーソル移動、音量調整、タイトルへ戻る） */
-    void UpdatePauseMenu();
-    /** @brief 一時停止中の暗転オーバーレイとメニューを描画する */
-    void DrawPauseOverlay();
     /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
     void UpdateWeaponEnemies();
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
@@ -268,7 +266,7 @@ private:
     /** @brief UpdateStyleAndUI()の下請け 武器固有技（SPACE）のヒット判定とスタイル加点を処理する */
     void ApplyWeaponSkillStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け 銃コンボのヒット判定とスタイル加点を処理する */
-    void ApplyGunShotStyleHit(const AABB& enemyAABB);
+    void ApplyGunShotStyleHit();
     /** @brief UpdateStyleAndUI()の下請け ダガー スティンガー刺突のスタイル加点を処理する */
     void ApplyDaggerStingerStyleBonus();
     /** @brief UpdateStyleAndUI()の下請け 覚醒乱舞ラッシュのヒット判定とスタイル加点を処理する */
@@ -389,6 +387,10 @@ private:
     void EmitStyleRankUpParticles(const Vector3& ppos);
     /** @brief 近接コンボのモーション中、装備武器の色で手元にトレイル残像を発生させ続ける */
     void UpdateWeaponTrail();
+    /** @brief 刃の軌跡・締め演出・F6調整パネルを更新する @param gameAdvanced このフレームにプレイヤーが動いたか */
+    void UpdateComboFeel(bool gameAdvanced);
+    /** @brief 撃ったフレームに、ボス・道中の敵・壊せる物から銃口に一番近い1体を射撃の的に選ぶ */
+    void BuildGunShotTarget();
     // フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）の更新
     void UpdateFinisherSlash(float dt);
     // 敵撃破などのクリア条件判定
@@ -403,6 +405,8 @@ private:
     void DrawWorldAndActors();
     /** @brief Draw()の下請け エディタUI・フィニッシャー演出・フォントなど2D上乗せ描画をまとめて行う */
     void DrawOverlaysAndUI();
+    /** @brief HPバー・ランク・武器欄・エディタ配置UIなどHUDのスプライトを描く（一時停止中は呼ばない） */
+    void DrawHudSprites();
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -543,6 +547,10 @@ private:
 
     /** @brief 空間に走るガラス質の刃パーティクル */
     BladeFlashEffect bladeFlash_;
+    /** @brief 近接コンボの手応え演出（刃の軌跡・締めの重さ・振りの向きの斬撃線、F6で調整） */
+    ComboFeelDirector comboFeel_;
+    /** @brief 射撃が当たる相手（銃口に一番近い1体。弾が敵を貫通しないようにする） */
+    ShotTargetPicker gunShotPicker_;
 
     /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
@@ -572,14 +580,8 @@ private:
     std::unique_ptr<Sprite> clearBgSprite_;
     std::unique_ptr<WaterPool> waterPool_;
 
-    // 一時停止メニュー（ESCで開閉、ゲームプレイ中限定。クリア演出中・武器交換中は開けない）
-    GamePauseController pauseController_;
-    UIMenu pauseMenu_;
-    std::unique_ptr<Sprite> pauseOverlay_;
-    static constexpr int kPauseRowResume = 0;
-    static constexpr int kPauseRowBgmVolume = 1;
-    static constexpr int kPauseRowSeVolume = 2;
-    static constexpr int kPauseRowQuit = 3;
+    // 一時停止メニュー（Pauseキーで開閉、ゲームプレイ中限定。クリア演出中・武器交換中は開けない）
+    PauseMenu pauseMenu_;
 };
 
 } // namespace engine::game

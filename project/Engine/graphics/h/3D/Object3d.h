@@ -130,6 +130,12 @@ public:
 
     void ClearLocalMatrix() { useLocalMatrix_ = false; }
 
+    /** @brief SetLocalMatrix()で直接指定された行列を使っているか（ボーン追従中か） */
+    bool IsUsingLocalMatrix() const { return useLocalMatrix_; }
+
+    /** @brief SetLocalMatrix()で指定された行列を返す（IsUsingLocalMatrix()がfalseの間は意味を持たない） */
+    const Matrix4x4& GetLocalMatrix() const { return localMatrix_; }
+
     /**
      * @brief オブジェクトの回転角を設定する
      * @param rotation X, Y, Z軸の回転角度（ラジアン）
