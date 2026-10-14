@@ -96,6 +96,12 @@ public:
     void EquipForTraining(WeaponType type);
 
     /**
+     * @brief タイトルデモ用に指定武器を装備する（スロットから押し出した武器も解放済みのまま残す）
+     * @param type 装備する武器種別
+     */
+    void EquipForDemo(WeaponType type);
+
+    /**
      * @brief 全武器を未解放状態へ戻す（新しいランの開始時に呼ぶ）
      * @note シングルトンのためトレーニング等で装備した武器がシーンをまたいで残ってしまうのを防ぐ
      */

@@ -261,7 +261,7 @@ void StageEditor::RenderEditorToolbar()
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("使い方")) { showEditorHelp_ = true; }
+    if (ImGui::Button("? 操作・使い方")) { showEditorHelp_ = true; }
     ImGui::SameLine();
     if (ImGui::Button("広く見る F4")) { viewportFocusMode_ = true; }
 

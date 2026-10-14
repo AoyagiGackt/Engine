@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <imgui.h>
+#include <iterator>
 #endif
 using namespace engine::game;
 using namespace engine;
@@ -57,6 +58,88 @@ constexpr AssetPreset kAssetPresets[] = {
     { "大鎌", "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png" },
     { "両手斧", "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png" },
 };
+
+// ヘルプの操作一覧に並べるキー割り当て（HandleEditorShortcuts・StageEditorViewport::UpdateCamera等の実装と揃える）
+struct ControlBinding {
+    const char* key;
+    const char* action;
+};
+
+struct ControlSection {
+    const char* title;
+    const ControlBinding* bindings;
+    int count;
+};
+
+constexpr ControlBinding kGeneralControls[] = {
+    { "F2", "エディタの表示/非表示" },
+    { "F4", "編集パネルを隠してゲーム画面を広く見る" },
+    { "Ctrl+S", "保存" },
+    { "Ctrl+Z / Ctrl+Y", "元に戻す / やり直す" },
+};
+
+constexpr ControlBinding kCameraControls[] = {
+    { "右ボタン押しながら WASD", "カメラを上下左右へ移動" },
+    { "右ボタン押しながら Q / E", "カメラを奥 / 手前へ移動" },
+    { "マウスホイール", "ズーム" },
+    { "中ボタンドラッグ", "カメラを平行移動" },
+    { "F", "選択物へカメラを寄せる（未選択ならプレイヤー）" },
+};
+
+constexpr ControlBinding kSelectionControls[] = {
+    { "左クリック", "選択" },
+    { "Ctrl+左クリック", "選択に追加" },
+    { "何も無い所から左ドラッグ", "範囲選択" },
+    { "Ctrl+A", "すべての配置物を選択" },
+    { "右クリック", "その場のメニュー（配置・テスト開始など）" },
+};
+
+constexpr ControlBinding kTransformControls[] = {
+    { "W / E / R", "移動 / 回転 / 拡縮ツールに切り替え" },
+    { "左ドラッグ", "選択物を動かす（ハンドルの軸を掴むとその軸だけ）" },
+    { "Shift+ドラッグ", "奥行き(Z)方向へ移動" },
+    { "Ctrl+ドラッグ", "グリッドに揃える / 回転は15度刻み" },
+    { "矢印キー", "少しずつ動かす（Shift+上下で奥行き）" },
+};
+
+constexpr ControlBinding kEditControls[] = {
+    { "Ctrl+D", "複製" },
+    { "Ctrl+C / Ctrl+V", "コピー / 貼り付け" },
+    { "Delete", "削除" },
+};
+
+constexpr ControlSection kControlSections[] = {
+    { "全体", kGeneralControls, static_cast<int>(std::size(kGeneralControls)) },
+    { "カメラ", kCameraControls, static_cast<int>(std::size(kCameraControls)) },
+    { "選択", kSelectionControls, static_cast<int>(std::size(kSelectionControls)) },
+    { "移動・回転・拡縮", kTransformControls, static_cast<int>(std::size(kTransformControls)) },
+    { "編集", kEditControls, static_cast<int>(std::size(kEditControls)) },
+};
+
+constexpr int kControlTableColumns = 2;
+constexpr float kControlKeyColumnWidth = 190.0f;
+
+/** @brief 操作一覧を項目ごとの表で描く */
+void DrawControlsReference()
+{
+    ImGui::TextDisabled("カメラとマウス操作は中央のシーンビュー上で行う / 文字入力中はショートカット無効");
+    for (const ControlSection& section : kControlSections) {
+        ImGui::SeparatorText(section.title);
+        if (!ImGui::BeginTable(section.title, kControlTableColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+            continue;
+        }
+        ImGui::TableSetupColumn("キー", ImGuiTableColumnFlags_WidthFixed, kControlKeyColumnWidth);
+        ImGui::TableSetupColumn("動作", ImGuiTableColumnFlags_WidthStretch);
+        for (int i = 0; i < section.count; ++i) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextColored(EditorUi::kChangedColor, "%s", section.bindings[i].key);
+            ImGui::TableNextColumn();
+            ImGui::TextWrapped("%s", section.bindings[i].action);
+        }
+        ImGui::EndTable();
+    }
+}
 } // namespace
 
 void StageEditor::RenderWorkflowPanel()
@@ -392,6 +475,19 @@ void StageEditor::RenderEditorHelpPanel()
     }
     ImGui::SetNextWindowSize(kHelpWindowSize, ImGuiCond_FirstUseEver);
     ImGui::Begin("ステージ制作ヘルプ", &showEditorHelp_);
+    if (!ImGui::BeginTabBar("##helpTabs")) {
+        ImGui::End();
+        return;
+    }
+    if (ImGui::BeginTabItem("操作一覧")) {
+        DrawControlsReference();
+        ImGui::EndTabItem();
+    }
+    if (!ImGui::BeginTabItem("制作手順")) {
+        ImGui::EndTabBar();
+        ImGui::End();
+        return;
+    }
     ImGui::SeparatorText("最初のステージを作る手順");
     ImGui::TextWrapped("この手順では、部屋に入ると敵が出現し、全滅すると出口が開く場面を作成します。");
     ImGui::BulletText("1  アセットパレットから床と壁を配置する");
@@ -434,6 +530,8 @@ void StageEditor::RenderEditorHelpPanel()
     ImGui::Checkbox("カメラ演出後に操作画面へ戻る", &helpChecklist_[2]);
     ImGui::Checkbox("ギミックでプレイヤーを閉じ込めない", &helpChecklist_[3]);
     ImGui::Checkbox("保存前検証に問題がない", &helpChecklist_[4]);
+    ImGui::EndTabItem();
+    ImGui::EndTabBar();
     ImGui::End();
 }
 
