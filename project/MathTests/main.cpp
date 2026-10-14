@@ -72,9 +72,9 @@ void TestVector3()
     CheckNear(Length({ 3.0f, 4.0f, 0.0f }), 5.0f, "Length (3-4-5)");
     CheckNear(Distance({ 0.0f, 0.0f, 0.0f }, { 3.0f, 4.0f, 0.0f }), 5.0f, "Distance");
 
-    Vector3 n = Normalize({ 0.0f, 5.0f, 0.0f });
+    Vector3 n = Normalize(Vector3 { 0.0f, 5.0f, 0.0f });
     CheckNear(n.y, 1.0f, "Normalize");
-    Vector3 zero = Normalize({ 0.0f, 0.0f, 0.0f });
+    Vector3 zero = Normalize(Vector3 { 0.0f, 0.0f, 0.0f });
     CheckNear(zero.x, 0.0f, "Normalize(zero vector) は 0 のまま (x)");
     CheckNear(zero.y, 0.0f, "Normalize(zero vector) は 0 のまま (y)");
     CheckNear(zero.z, 0.0f, "Normalize(zero vector) は 0 のまま (z)");
