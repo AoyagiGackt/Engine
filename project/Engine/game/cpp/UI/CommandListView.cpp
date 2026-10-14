@@ -275,6 +275,9 @@ void CommandListView::Draw(const Input* input)
 
     // ── 操作の案内 ──
     const Vector2 helpPos = layout.Pos("help.pos", kHelpPos);
-    font.DrawStringW(expand(L"←→: 武器を切り替え    ↑↓: 技を選ぶ    {Back}: 戻る"), helpPos.x, helpPos.y,
+    // 戻るは Backspace（パッドは B）。ESC はアプリの終了に使われているので案内しない
+    const bool gamepad = (input != nullptr) && input->IsUsingGamepad();
+    const std::wstring backLabel = gamepad ? L"B" : L"Backspace";
+    font.DrawStringW(L"←→: 武器を切り替え    ↑↓: 技を選ぶ    " + backLabel + L": 戻る", helpPos.x, helpPos.y,
         layout.Float("help.scale", kHelpScale), kHelpColor);
 }

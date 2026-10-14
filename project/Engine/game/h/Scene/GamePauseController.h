@@ -4,18 +4,35 @@
  */
 #pragma once
 namespace engine::game {
+
 /** @brief プレイ・ポーズの入力方針を状態オブジェクトへ委譲する。 */
 class GamePauseController {
 public:
-    enum class UpdateMode { Play, Menu, SkipFrame };
+    /** @brief このフレームにシーンが何を更新するか */
+    enum class UpdateMode {
+        Play,      ///< ゲームを進める
+        Menu,      ///< ポーズメニューだけ操作する
+        SkipFrame, ///< ポーズを開いたフレーム（どちらも操作しない）
+    };
+
     GamePauseController();
+
+    /**
+     * @brief 開閉入力を受けて状態を進める
+     * @param togglePressed 開閉ボタンが押されたか
+     */
     UpdateMode Advance(bool togglePressed);
+
+    /** @brief ポーズを解除してプレイ中に戻す */
     void Resume();
+
     bool IsPaused() const;
+
 private:
     class State;
     class Playing;
     class Paused;
     const State* state_;
 };
-}
+
+} // namespace engine::game

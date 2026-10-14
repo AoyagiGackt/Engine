@@ -213,6 +213,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\AutoComboAssist.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\ComboMotion.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\ComboMotionEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp" />
@@ -662,6 +663,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Player\WaterPool.h" />
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h" />
+    <ClInclude Include="Engine\game\h\Player\AutoComboAssist.h" />
     <ClInclude Include="Engine\game\h\Player\ComboMotion.h" />
     <ClInclude Include="Engine\game\h\Player\ComboMotionEditor.h" />
     <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
@@ -807,6 +809,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\PauseMenu.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp" />
@@ -816,6 +819,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Level\EditorGamePreview.h" />
     <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePauseController.h" />
+    <ClInclude Include="Engine\game\h\Scene\PauseMenu.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h" />

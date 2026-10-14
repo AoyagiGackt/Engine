@@ -8,19 +8,15 @@
 #include "SceneShared.h"
 #include "UILayout.h"
 #include "WinApp.h"
-#include <cstdio>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-constexpr float kVolumeStep = 0.1f;
 constexpr Vector4 kBackgroundColor = { 0.05f, 0.05f, 0.08f, 1.0f };
 constexpr const char* kLayoutName = "options";
 constexpr Vector2 kMenuPosition = { 440.0f, 300.0f };
 constexpr Vector2 kMenuItemSize = { 400.0f, 70.0f };
-constexpr float kPercentScale = 100.0f;
-constexpr float kRoundingOffset = 0.5f;
 constexpr Vector2 kBgmVolumeTextPosition = { 900.0f, 321.0f };
 constexpr Vector2 kSeVolumeTextPosition = { 900.0f, 391.0f };
 constexpr float kVolumeTextScale = 1.5f;
@@ -113,10 +109,10 @@ void OptionsScene::UpdateSettings()
     menu_.Update(input_);
 
     if (input_->TriggerMenuLeft()) {
-        AdjustVolumeAtCursor(-kVolumeStep);
+        AdjustVolumeAtCursor(-SceneShared::kVolumeStep);
     }
     if (input_->TriggerMenuRight()) {
-        AdjustVolumeAtCursor(kVolumeStep);
+        AdjustVolumeAtCursor(SceneShared::kVolumeStep);
     }
 
     if (menu_.ConsumeConfirm(input_)) {
@@ -158,14 +154,10 @@ void OptionsScene::DrawSettings()
     const Vector2 bgmPosition = layout.Pos("volume.bgm_pos", kBgmVolumeTextPosition);
     const Vector2 sePosition = layout.Pos("volume.se_pos", kSeVolumeTextPosition);
     const auto& settings = GameSettingsManager::GetInstance()->Get();
-    char bgmBuf[32];
-    char seBuf[32];
-    snprintf(bgmBuf, sizeof(bgmBuf), "< %3d%% >", static_cast<int>(settings.bgmVolume * kPercentScale + kRoundingOffset));
-    snprintf(seBuf, sizeof(seBuf), "< %3d%% >", static_cast<int>(settings.seVolume * kPercentScale + kRoundingOffset));
-    fontRenderer_.DrawString(bgmBuf, bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
-    fontRenderer_.DrawString(seBuf, sePosition.x, sePosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.bgmVolume), bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.seVolume), sePosition.x, sePosition.y, volumeScale, volumeColor);
 
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
-    fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   ESC: back",
+    fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   Backspace: back",
         helpPosition.x, helpPosition.y, layout.Float("help.scale", kHelpTextScale), layout.Color("help.color", kHelpTextColor));
 }

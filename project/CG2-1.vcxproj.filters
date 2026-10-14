@@ -346,6 +346,9 @@
     <ClCompile Include="Engine\game\cpp\UI\FontRenderer.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\AutoComboAssist.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
@@ -817,6 +820,9 @@
     </ClInclude>
     <ClInclude Include="Engine\game\h\UI\FontRenderer.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\AutoComboAssist.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
@@ -1336,6 +1342,7 @@
     <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\PauseMenu.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp"><Filter>ソースファイル\Engine\game\cpp\Scene</Filter></ClCompile>
@@ -1345,6 +1352,7 @@
     <ClInclude Include="Engine\game\h\Level\EditorGamePreview.h"><Filter>ヘッダーファイル\Engine\game\h\Level</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\GamePauseController.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\PauseMenu.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>
     <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h"><Filter>ヘッダーファイル\Engine\game\h\Scene</Filter></ClInclude>

@@ -8,6 +8,7 @@ namespace engine {
 struct GameSettings {
     float bgmVolume = 0.7f;
     float seVolume = 1.0f;
+    bool autoCombo = false; ///< 攻撃ボタンの連打/長押しだけで打ち上げ→追撃ジャンプまで出し分けるアシスト
 };
 
 // 設定の読み込み・保存を管理するシングルトン

@@ -461,8 +461,11 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
     auto* tm = TimeManager::GetInstance();
     const Vector3& ppos = player_->GetPosition();
 
-    // 敵との当たり判定
+    // 敵との当たり判定（倒れた敵・消えた敵の体には当たらない。倒した後も判定が残って止めと揺れが出続けないように）
     hitCooldown_ -= dt;
+    if (enemy_->IsDefeated() || !enemy_->IsVisible()) {
+        return;
+    }
     {
         Collider playerCol = player_->GetCollider();
         const Vector3& epos = enemy_->GetPosition();

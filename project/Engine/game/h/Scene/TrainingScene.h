@@ -22,6 +22,7 @@
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
+#include "PauseMenu.h"
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
@@ -163,6 +164,7 @@ private:
     HudLayer hud_;
 
     FontRenderer fontRenderer_;
+    PauseMenu pauseMenu_; ///< Pauseキーで開く一時停止画面（退出項目はタイトルへ戻る）
 
 #ifdef _DEBUG
     // ビジュアルスクリプティングVMの動作確認用（Resources/Graphs/test_graph.jsonを読み込んで実行する）

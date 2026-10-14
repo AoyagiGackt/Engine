@@ -15,6 +15,6 @@
         "Steal":     { "primary": "J",     "secondary": "",      "gamepad": "LT" },
         "Interact":  { "primary": "Enter", "secondary": "",      "gamepad": "LT" },
         "LockOn":    { "primary": "LShift", "secondary": "",    "gamepad": "RT" },
-        "Pause":     { "primary": "Escape", "secondary": "",     "gamepad": "Start" }
+        "Pause":     { "primary": "P",     "secondary": "",      "gamepad": "Start" }
     }
 }

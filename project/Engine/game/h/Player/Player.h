@@ -2,6 +2,7 @@
 /// @brief プレイヤーキャラクターの物理・アクション・スタイルシステムを定義するファイル
 #pragma once
 #include "AfterImageRenderer.h"
+#include "AutoComboAssist.h"
 #include "Animation.h"
 #include "CollisionConfig.h"
 #include "GunCombo.h"
@@ -217,6 +218,12 @@ public:
     void EndMeleePreview();
     /** @brief 加算モーションの保存キー（今表示しているリグのモデルファイル名） */
     const char* GetMotionRigId() const { return rig_->motionRigId; }
+    /** @brief 加算モーションの掛かり具合（確認表示用）。トラック数と、そのうちリグにボーンが見つかった数 */
+    void GetMotionLayerStats(int& outTracks, int& outApplied) const
+    {
+        outTracks = motionLayer_.GetLastTrackCount();
+        outApplied = motionLayer_.GetLastAppliedCount();
+    }
     /** @brief 今表示しているリグのスケルトン（ボーン一覧の表示用） */
     const engine::graphics::Skeleton& GetRigSkeleton() const { return rig_->object->GetSkeleton(); }
 
@@ -376,6 +383,7 @@ private:
 
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
     MeleeComboController meleeCombo_;
+    AutoComboAssist autoCombo_; ///< オプションのオートコンボ（GameSettings::autoComboを毎フレーム反映）
     /// 段ごとの加算モーション（両リグの SkinnedObject3d が参照するので、リグより先に宣言して長く生存させる）
     ComboMotionLayer motionLayer_;
     /** @brief 今の段と経過割合を加算モーションのレイヤーへ渡す（リグを評価する直前に呼ぶ） */

@@ -84,7 +84,7 @@ void Player::GroundedPhysicsState::Update(Player& player, Input* input) const
     }
 
     if (player.onGround_ && !player.finisherCharging_ && !player.dodgeActive_) {
-        if (input->TriggerAction(Input::Action::Jump)) {
+        if (input->TriggerAction(Input::Action::Jump) || player.autoCombo_.ConsumeJumpRequest()) {
             // 打ち上げ直後は追撃用に高く跳べる（浮かせた敵にジャンプで追いつく）
             float followMult = (player.launchFollowTimer_ > 0.0f) ? kLaunchFollowJumpMult_ : 1.0f;
             player.velocityY_ = kJumpPower_ * jumpMult * followMult;

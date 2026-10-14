@@ -225,7 +225,7 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
 
     for (int i = 0; i < kPlaneCount; ++i) {
         const float ang = angDist(rng);
-        const Vector3 n = Normalize({ std::cos(ang), std::sin(ang), tiltDist(rng) });
+        const Vector3 n = Normalize(Vector3 { std::cos(ang), std::sin(ang), tiltDist(rng) });
         const Vector3 p0 = meshCenter + Vector3 { offDist(rng) * radius, offDist(rng) * radius, 0.0f };
         planes.emplace_back(n, p0);
 

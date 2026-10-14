@@ -325,15 +325,19 @@ MotionClip& ComboMotionLibrary::GetOrCreate(const std::string& rigId, const std:
 
 void ComboMotionLayer::Collect(const Skeleton& skeleton, std::vector<PoseLayerRotation>& out) const
 {
+    lastTrackCount_ = 0;
+    lastAppliedCount_ = 0;
     if (clip_ == nullptr) {
         return;
     }
     const auto& jointMap = skeleton.GetJointMap();
+    lastTrackCount_ = static_cast<int>(clip_->tracks.size());
     for (const MotionTrack& track : clip_->tracks) {
         const auto it = jointMap.find(track.bone);
         if (it == jointMap.end()) {
             continue; // このリグに無いボーンは無視する（別リグ向けのデータを誤って読んでも崩れない）
         }
         out.push_back({ it->second, track.Evaluate(time_) });
+        ++lastAppliedCount_;
     }
 }

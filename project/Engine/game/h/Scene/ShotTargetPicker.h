@@ -30,7 +30,7 @@ public:
         dirX_ = (dirX >= 0.0f) ? 1.0f : -1.0f;
         shotRange_ = shotRange;
         target_ = nullptr;
-        hitDistance_ = std::numeric_limits<float>::max();
+        hitDistance_ = (std::numeric_limits<float>::max)();
     }
 
     /**

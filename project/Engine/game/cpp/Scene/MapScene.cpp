@@ -326,7 +326,7 @@ void MapScene::Draw()
     const std::wstring helpText = pad
         ? L"左スティックで移動  入口の前でAボタン  Yボタンでトレーニング"
         : L"A Dで移動  入口の前でEnter  Tでトレーニング";
-    const std::wstring backText = pad ? L"Bボタンでタイトルへ戻る" : L"Esc / Backspaceでタイトルへ戻る";
+    const std::wstring backText = pad ? L"Bボタンでタイトルへ戻る" : L"Backspaceでタイトルへ戻る";
     const float helpScale = layout.Float("help.scale", kHelpTextScale);
     const float backScale = layout.Float("back_hint.scale", kHelpTextScale);
     const Vector2 backPosition = layout.Pos("back_hint.pos", kBackHintPosition);

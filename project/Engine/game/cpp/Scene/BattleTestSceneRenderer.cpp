@@ -67,7 +67,8 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
 
     // 画面座標で管理する訓練HUDをまとめて描画する
     scene.spriteCommon_->CommonDrawSettings();
-    if (scene.showHud_) {
+    const bool paused = scene.pauseMenu_.IsPaused();
+    if (scene.showHud_ && !paused) {
         for (auto& dummy : scene.dummies_) {
             if (dummy.hp > 0.0f) {
                 dummy.hpBarBg->Draw();
@@ -100,7 +101,11 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene)
         scene.finisherShatter_.Apply();
     }
 
-    if (scene.showHud_) {
+    // 一時停止中はHUDを隠してポーズメニューだけを見せる
+    if (paused) {
+        scene.pauseMenu_.Draw(scene.input_);
+        scene.fontRenderer_.Draw();
+    } else if (scene.showHud_) {
         scene.GetStageEditor().DrawUIText(scene.fontRenderer_);
         scene.fontRenderer_.Draw();
     }

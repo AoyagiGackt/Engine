@@ -168,6 +168,8 @@ void TrainingScene::InitializeHudAndEffects()
 
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
+        { "QUIT TO TITLE", [] { SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE"); } });
     InitializeWeaponSlotHud();
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
@@ -199,6 +201,11 @@ void TrainingScene::DrawWeaponSlotHud()
 void TrainingScene::Update()
 {
     fontRenderer_.Reset();
+
+    // 一時停止中はゲームを止める（HUDは描画側で隠す）。Backspaceもポーズを閉じるのに使うため先に判定する
+    if (pauseMenu_.Update(input_)) {
+        return;
+    }
 
     if (input_->TriggerKey(DIK_BACK)) {
         audio_->PlayMenuSelect();
@@ -431,9 +438,14 @@ void TrainingScene::Draw()
 
     // 2D スプライト（テキスト UI）
     spriteCommon_->CommonDrawSettings();
-    DrawWeaponSlotHud();
-    SlashMark::GetInstance()->Draw();
-    GetStageEditor().DrawUIText(fontRenderer_);
+    if (pauseMenu_.IsPaused()) {
+        // 一時停止中はHUDを隠してポーズメニューだけを見せる
+        pauseMenu_.Draw(input_);
+    } else {
+        DrawWeaponSlotHud();
+        SlashMark::GetInstance()->Draw();
+        GetStageEditor().DrawUIText(fontRenderer_);
+    }
     fontRenderer_.Draw();
 }
 

@@ -31,6 +31,8 @@ constexpr float kMinPlaySpeed = 0.05f;
 constexpr float kMaxPlaySpeed = 2.0f;
 constexpr float kPlaySpeedWidthRatio = 0.5f; // 再生の速さスライダーを行の何割の幅にするか
 constexpr size_t kKeyLabelSize = 96; // キー一覧の1行の文字数上限
+constexpr Vector4 kStatsOkColor = { 0.5f, 1.0f, 0.5f, 1.0f }; // 全トラックが掛かっている
+constexpr Vector4 kStatsWarnColor = { 1.0f, 0.6f, 0.2f, 1.0f }; // 掛かっていないトラックがある
 
 /** @brief 段の一覧の1行（表示名と段の定義） */
 struct StepEntry {
@@ -107,6 +109,16 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
                 library->SetEnabled(enabled);
             }
             ImGui::TextDisabled("武器はQ/Eで切り替え。角度を動かすと今の時刻にキーが打たれます");
+
+            // 掛かり具合の確認（データが読めていない・ボーン名が合わない時はここが0になる）
+            int trackCount = 0;
+            int appliedCount = 0;
+            player.GetMotionLayerStats(trackCount, appliedCount);
+            const MeleeAttackDef* playing = player.GetActiveMeleeAttack();
+            const Vector4 statsColor = (trackCount > 0 && appliedCount == trackCount) ? kStatsOkColor : kStatsWarnColor;
+            ImGui::TextColored({ statsColor.x, statsColor.y, statsColor.z, statsColor.w },
+                "リグ %s / 段 %s / トラック %d / 掛かったボーン %d",
+                player.GetMotionRigId(), playing != nullptr ? playing->id : "(攻撃していない)", trackCount, appliedCount);
 
             attack = DrawStepList(weaponType);
             if (attack != nullptr) {

@@ -5,6 +5,7 @@
  */
 #include "Player.h"
 #include "CharacterVisuals.h"
+#include "GameSettings.h"
 #include "GameConstants.h"
 #include "GravityBody.h"
 #include "Input.h"
@@ -140,19 +141,30 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         return;
     }
 
+    autoCombo_.SetEnabled(GameSettingsManager::GetInstance()->Get().autoCombo);
+    autoCombo_.Update(GameConstants::kFrameDeltaTime);
+
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────
     // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
-    if (!inWater_ && !finisherCharging_ && !meleeCombo_.IsSequenceActive() && input->TriggerAction(Input::Action::Attack)) {
+    // 乱舞は押した瞬間の入力で段を進めるため、オートコンボの長押し連続入力は通常コンボにだけ使う
+    const bool attackTriggered = input->TriggerAction(Input::Action::Attack);
+    const bool startsRampage = wm->GetCurrent().type == WeaponType::Sword && isAwakened_;
+    const bool rampageAttack = IsRampaging() || startsRampage;
+    const bool attackPressed = rampageAttack
+        ? attackTriggered
+        : autoCombo_.WantsAttack(attackTriggered, input->PushAction(Input::Action::Attack));
+    if (!inWater_ && !finisherCharging_ && !meleeCombo_.IsSequenceActive() && attackPressed) {
         if (IsRampaging()) {
             rampage_->HandleAttackInput(*this, input, enemyPos);
-        } else if (wm->GetCurrent().type == WeaponType::Sword && isAwakened_) {
+        } else if (startsRampage) {
             // 乱舞開始 まず敵に向かって突進（打ち上げフェーズ）
             meleeCombo_.Reset();
             rampage_ = &LaunchRampage();
             juggleSlashCount_ = 0;
             juggleAngleIdx_ = 0;
         } else {
-            bool launcherInput = input->PushAction(Input::Action::Down);
+            const bool launcherInput = input->PushAction(Input::Action::Down)
+                || autoCombo_.WantsLauncher(wm->GetCurrent().type, meleeCombo_, !onGround_);
             const bool accepted = meleeCombo_.TryAttack(wm->GetCurrent().type, launcherInput, !onGround_);
             if (accepted && weaponSwitchAttackPending_) {
                 weaponSwitchAttackPending_ = false;
@@ -170,6 +182,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         if (meleeCombo_.JustStartedStep()) {
             // 段ごとにモーションを頭から再生（速度も段の定義に従う）
             PlayAttackAnim(atk->slashAnim ? rig_->slashAnim : rig_->punchAnim, atk->animSpeed);
+            autoCombo_.OnStepStarted(wm->GetCurrent().type, meleeCombo_, !onGround_);
         }
         if (meleeCombo_.JustHit()) {
             justComboHit_ = true;
@@ -177,8 +190,12 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
             justWeaponSwitchHit_ = weaponSwitchAttackActive_;
             weaponSwitchAttackActive_ = false;
             comboStep_ = meleeCombo_.GetStep();
+            if (!justComboExtraHit_) {
+                autoCombo_.OnStepHit(wm->GetCurrent().type, meleeCombo_, !onGround_);
+            }
             if (atk->launcher) {
                 launchFollowTimer_ = kLaunchFollowWindow_;
+                autoCombo_.OnLauncherHit();
             }
             // ハンマーの大車輪は締めで地面を叩き、周囲へ衝撃波を出す（習得したボス技の強化もここに乗る）
             if (meleeCombo_.IsSequenceActive() && atk->finisher && wm->GetCurrent().type == WeaponType::Hammer) {

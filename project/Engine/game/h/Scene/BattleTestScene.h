@@ -30,6 +30,7 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "PauseMenu.h"
 #include "Player.h"
 #include "SceneShared.h"
 #include "ShadowManager.h"
@@ -107,7 +108,7 @@ public:
      * @brief 追加ホットキーの案内文字列を返す
      * @return コライダー表示のホットキー文字列
      */
-    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示"; }
+    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示\nF6: コンボ演出の調整\nF7: モーションエディタ"; }
     bool ShouldShowHotkeyOverlay() const override { return showHud_; }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
@@ -364,6 +365,7 @@ private:
     bool showHud_ = true; // F4でテスト用HUDを一括表示・非表示
 
     FontRenderer fontRenderer_;
+    PauseMenu pauseMenu_; ///< Pauseキーで開く一時停止画面（退出項目はトレーニングへ戻る）
 };
 
 } // namespace engine::game

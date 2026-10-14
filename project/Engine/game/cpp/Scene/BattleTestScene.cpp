@@ -15,6 +15,7 @@
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
 #include "PostEffectRenderTarget.h"
+#include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScreenFlash.h"
 #include "SlashMark.h"
@@ -233,6 +234,8 @@ void BattleTestScene::InitializeHud()
     styleMeter_.Initialize(spriteCommon_.get());
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
+        { "BACK TO TRAINING", [] { SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING"); } });
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
@@ -316,6 +319,12 @@ void BattleTestScene::Update()
 {
     if (glassShatter_.IsActive()) {
         glassShatter_.Update(GameConstants::kFrameDeltaTime);
+        return;
+    }
+
+    // 一時停止中はゲームを止め、文字コマンドの破棄だけ行う（HUDは描画側で隠す）
+    if (pauseMenu_.Update(input_)) {
+        fontRenderer_.Reset();
         return;
     }
 

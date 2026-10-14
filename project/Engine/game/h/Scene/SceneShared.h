@@ -120,6 +120,21 @@ namespace SceneShared {
      */
     void AdjustVolume(engine::Audio* audio, bool bgm, float delta);
 
+    /** @brief オプション欄で左右キー1回ぶんに増減する音量 */
+    inline constexpr float kVolumeStep = 0.1f;
+
+    /** @brief オプション欄に出す音量の表示（< 100% > の形） */
+    std::string VolumeLabel(float volume);
+
+    /**
+     * @brief オートコンボのON/OFFを切り替えて保存する
+     * @param audio 切り替え音を鳴らすAudio
+     */
+    void ToggleAutoCombo(engine::Audio* audio);
+
+    /** @brief オプション欄に出すオートコンボの状態表示（< ON > / < OFF >） */
+    const char* AutoComboLabel();
+
     /**
      * @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す
      * @param anchor 描画開始位置（スクリーンpx）各シーンのUILayoutの "weapon_list.pos" で編集する

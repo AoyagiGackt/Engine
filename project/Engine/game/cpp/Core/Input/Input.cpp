@@ -35,6 +35,7 @@ constexpr KeyName kKeyNames[] = {
     { "I", DIK_I, L"I" },
     { "Q", DIK_Q, L"Q" },
     { "C", DIK_C, L"C" },
+    { "P", DIK_P, L"P" },
     { "Left", DIK_LEFT, L"←" },
     { "Right", DIK_RIGHT, L"→" },
     { "Up", DIK_UP, L"↑" },
@@ -92,6 +93,18 @@ constexpr std::pair<const char*, Input::Action> kActionNames[] = {
 };
 static_assert(std::size(kActionNames) == static_cast<size_t>(Input::Action::Count), "操作名の表にActionの追加漏れがある");
 
+/** @brief 操作の割り当てに依らず表記が決まっている {名前}（パッド時とキーボード時の表記） */
+struct FixedPrompt {
+    const wchar_t* name;
+    const wchar_t* padLabel;
+    const wchar_t* keyLabel;
+};
+constexpr FixedPrompt kFixedPrompts[] = {
+    { L"Slot", L"十字キー", L"1-3" },
+    { L"Confirm", L"A", L"Enter" },
+    { L"Back", L"B", L"Backspace" },
+};
+
 BYTE ParseKey(const std::string& name)
 {
     for (const KeyName& entry : kKeyNames) {
@@ -134,26 +147,39 @@ std::wstring PadButtonLabel(WORD button)
 
 constexpr SHORT kStickMenuThreshold = 16000; // メニュー操作でスティックを倒したとみなす量（最大32767）
 constexpr float kStickMax = 32767.0f; // XInputのスティック値の最大値
+// 下入力は打ち上げ技の条件になるため、移動中に少し下へ傾いただけで出ないよう深めに倒した時だけにする
+constexpr float kStickDownThreshold = 0.6f;
 
-/**
- * @brief 左スティックの倒し方が移動系の操作に当たるか
- * @note 下入力は打ち上げ技の条件になるため、移動中に少し下へ傾いただけで出ないよう深めに倒した時だけにする
- */
+/** @brief 左スティックでも入力できる操作と、その判定・操作説明の表記 */
+struct StickAction {
+    Input::Action action;
+    const wchar_t* label;
+    bool (*held)(float x, float y, float deadzone); ///< 正規化したスティック値で倒れているか
+};
+constexpr StickAction kStickActions[] = {
+    { Input::Action::MoveLeft, L"左スティック←", [](float x, float, float deadzone) { return x <= -deadzone; } },
+    { Input::Action::MoveRight, L"左スティック→", [](float x, float, float deadzone) { return x >= deadzone; } },
+    { Input::Action::Down, L"左スティック↓", [](float, float y, float) { return y <= -kStickDownThreshold; } },
+};
+
+const StickAction* FindStickAction(Input::Action action)
+{
+    for (const StickAction& entry : kStickActions) {
+        if (entry.action == action) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+/** @brief 左スティックの倒し方が移動系の操作に当たるか */
 bool StickHeld(Input::Action action, const XINPUT_STATE& state, float deadzone)
 {
-    const float x = state.Gamepad.sThumbLX / kStickMax;
-    const float y = state.Gamepad.sThumbLY / kStickMax;
-    constexpr float kStickDownThreshold = 0.6f;
-    switch (action) {
-    case Input::Action::MoveLeft:
-        return x <= -deadzone;
-    case Input::Action::MoveRight:
-        return x >= deadzone;
-    case Input::Action::Down:
-        return y <= -kStickDownThreshold;
-    default:
+    const StickAction* entry = FindStickAction(action);
+    if (entry == nullptr) {
         return false;
     }
+    return entry->held(state.Gamepad.sThumbLX / kStickMax, state.Gamepad.sThumbLY / kStickMax, deadzone);
 }
 
 } // namespace
@@ -213,7 +239,7 @@ void Input::LoadActionBindings()
     actionBindings_[static_cast<size_t>(Action::Steal)] = { DIK_J, 0, kGamepadLeftTrigger };
     actionBindings_[static_cast<size_t>(Action::Interact)] = { DIK_RETURN, 0, kGamepadLeftTrigger };
     actionBindings_[static_cast<size_t>(Action::LockOn)] = { DIK_LSHIFT, 0, kGamepadRightTrigger };
-    actionBindings_[static_cast<size_t>(Action::Pause)] = { DIK_ESCAPE, 0, XINPUT_GAMEPAD_START };
+    actionBindings_[static_cast<size_t>(Action::Pause)] = { DIK_P, 0, XINPUT_GAMEPAD_START };
 
     const nlohmann::json root = JsonHelper::Load("Resources/Config/input_bindings.json");
     const auto actions = root.value("actions", nlohmann::json::object());
@@ -362,8 +388,7 @@ bool Input::TriggerMenuConfirm() const
 
 bool Input::TriggerMenuCancel() const
 {
-    return (key_[DIK_ESCAPE] && !keyPre_[DIK_ESCAPE]) || (key_[DIK_BACK] && !keyPre_[DIK_BACK])
-        || TriggerButton(XINPUT_GAMEPAD_B);
+    return (key_[DIK_BACK] && !keyPre_[DIK_BACK]) || TriggerButton(XINPUT_GAMEPAD_B);
 }
 
 std::wstring Input::GetActionLabel(Action action) const
@@ -373,15 +398,8 @@ std::wstring Input::GetActionLabel(Action action) const
         return PadButtonLabel(binding.gamepadButton);
     }
     if (usingGamepad_) {
-        switch (action) {
-        case Action::MoveLeft:
-            return L"左スティック←";
-        case Action::MoveRight:
-            return L"左スティック→";
-        case Action::Down:
-            return L"左スティック↓";
-        default:
-            break;
+        if (const StickAction* stick = FindStickAction(action)) {
+            return stick->label;
         }
     }
     return binding.primaryKey ? KeyLabel(binding.primaryKey) : L"?";
@@ -394,17 +412,11 @@ std::wstring Input::ExpandPrompts(const std::wstring& text) const
             out = usingGamepad_ ? L"左スティック" : GetActionLabel(Action::MoveLeft) + L" " + GetActionLabel(Action::MoveRight);
             return true;
         }
-        if (name == L"Slot") {
-            out = usingGamepad_ ? L"十字キー" : L"1-3";
-            return true;
-        }
-        if (name == L"Confirm") {
-            out = usingGamepad_ ? L"A" : L"Enter";
-            return true;
-        }
-        if (name == L"Back") {
-            out = usingGamepad_ ? L"B" : L"Esc";
-            return true;
+        for (const FixedPrompt& prompt : kFixedPrompts) {
+            if (name == prompt.name) {
+                out = usingGamepad_ ? prompt.padLabel : prompt.keyLabel;
+                return true;
+            }
         }
         for (const auto& [actionName, action] : kActionNames) {
             const std::string narrow(actionName);

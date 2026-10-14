@@ -89,14 +89,6 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
     return assets;
 }
 
-
-
-
-
-
-
-
-
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 {
     auto overlay = std::make_unique<Sprite>();
@@ -298,6 +290,28 @@ void AdjustVolume(Audio* audio, bool bgm, float delta)
     }
     audio->PlayMenuChoice();
     GameSettingsManager::GetInstance()->Save();
+}
+
+std::string VolumeLabel(float volume)
+{
+    constexpr float kPercentScale = 100.0f;
+    constexpr float kRoundingOffset = 0.5f;
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "< %3d%% >", static_cast<int>(volume * kPercentScale + kRoundingOffset));
+    return buf;
+}
+
+void ToggleAutoCombo(Audio* audio)
+{
+    GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+    settings.autoCombo = !settings.autoCombo;
+    audio->PlayMenuChoice();
+    GameSettingsManager::GetInstance()->Save();
+}
+
+const char* AutoComboLabel()
+{
+    return GameSettingsManager::GetInstance()->Get().autoCombo ? "< ON >" : "< OFF >";
 }
 
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,

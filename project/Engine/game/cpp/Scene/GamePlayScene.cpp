@@ -346,13 +346,10 @@ void GamePlayScene::Update()
         return;
     }
 
-    const bool pauseToggle = input_->TriggerAction(Input::Action::Pause)
-        || (pauseController_.IsPaused() && input_->TriggerMenuCancel());
-    const auto updateMode = pauseController_.Advance(pauseToggle
-        && !WeaponManager::GetInstance()->HasPendingWeapon());
-    if (updateMode == GamePauseController::UpdateMode::SkipFrame) { return; }
-    if (updateMode == GamePauseController::UpdateMode::Menu) {
-        UpdatePauseMenu();
+    // 一時停止中はHUDを出さないが、文字コマンドの破棄だけは毎フレーム行う
+    // （破棄はふだんDrawStyleUI()が行うため、飛ばすとポーズ画面の文字が溜まり続けて上限を超えた分から消える）
+    if (pauseMenu_.Update(input_, !WeaponManager::GetInstance()->HasPendingWeapon())) {
+        fontRenderer_.Reset();
         return;
     }
 

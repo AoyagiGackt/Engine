@@ -122,9 +122,17 @@ public:
     void Collect(const engine::graphics::Skeleton& skeleton,
         std::vector<engine::graphics::PoseLayerRotation>& out) const override;
 
+    /** @brief 直近の評価で掛けたクリップのトラック数（クリップが無ければ0） */
+    int GetLastTrackCount() const { return lastTrackCount_; }
+    /** @brief 直近の評価で、リグにボーンが見つかって実際に掛けたトラック数 */
+    int GetLastAppliedCount() const { return lastAppliedCount_; }
+
 private:
     const MotionClip* clip_ = nullptr;
     float time_ = 0.0f;
+    // 確認用の数（ボーン名の食い違いなどで掛かっていない時に気付けるようにする）
+    mutable int lastTrackCount_ = 0;
+    mutable int lastAppliedCount_ = 0;
 };
 
 } // namespace engine::game

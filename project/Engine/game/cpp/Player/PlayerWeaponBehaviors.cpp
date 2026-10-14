@@ -148,7 +148,9 @@ void Player::SwordBehavior::Update(Player& player, Input* input) const
 bool Player::TryStartSkillSequence(Input* input, WeaponType type, float& cooldown, float cooldownSeconds)
 {
     // 段の進行・ヒット・振りの見た目は通常コンボと同じ仕組み（MeleeComboController）に乗せる
-    if (!input->TriggerAction(Input::Action::Skill) || cooldown > 0.0f || meleeCombo_.IsSequenceActive()) {
+    // オートコンボのルートが固有技で締める回なら、ボタンを押さなくても出す
+    const bool requested = input->TriggerAction(Input::Action::Skill) || autoCombo_.ConsumeSkillRequest();
+    if (!requested || cooldown > 0.0f || meleeCombo_.IsSequenceActive()) {
         return false;
     }
     const ComboArray<MeleeAttackDef>& sequence = GetSkillSequence(type);
