@@ -342,6 +342,14 @@ void WeaponManager::EquipForTraining(WeaponType type)
     }
 }
 
+void WeaponManager::EquipForDemo(WeaponType type)
+{
+    const std::vector<bool> unlocked = unlocked_;
+    EquipForTraining(type);
+    unlocked_ = unlocked;
+    unlocked_[index_] = true;
+}
+
 void WeaponManager::Reset()
 {
     std::fill(unlocked_.begin(), unlocked_.end(), false);

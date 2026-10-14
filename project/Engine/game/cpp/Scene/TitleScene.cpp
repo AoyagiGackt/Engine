@@ -417,7 +417,7 @@ void TitleScene::InitializeDemo()
     WeaponManager::GetInstance()->UnlockAll();
     demoWeaponIndex_ = 0;
     if (!WeaponManager::GetInstance()->GetList().empty()) {
-        WeaponManager::GetInstance()->EquipForTraining(WeaponManager::GetInstance()->GetList()[0].type);
+        WeaponManager::GetInstance()->EquipForDemo(WeaponManager::GetInstance()->GetList()[0].type);
         demoAttackCount_ = DemoWeaponStyle::For(WeaponManager::GetInstance()->GetCurrent().type).ComboLength();
     }
 }
@@ -601,7 +601,7 @@ void TitleScene::UpdateDemo()
                 nextWeapon = (nextWeapon + 1) % count;
             }
             demoWeaponIndex_ = nextWeapon;
-            wm->EquipForTraining(wm->GetList()[demoWeaponIndex_].type);
+            wm->EquipForDemo(wm->GetList()[demoWeaponIndex_].type);
         }
         // 同じ順番を繰り返さないよう、4つのレーンを毎周シャッフルして少しだけ位置を揺らす。
         std::array<float, 4> spawnLanes = kLapSpawnLanes;
@@ -806,7 +806,7 @@ void TitleScene::UpdateDemo()
             const int weaponCount = wm->GetCount();
             if (weaponCount > 0) {
                 demoWeaponIndex_ = (demoWeaponIndex_ + 1) % weaponCount;
-                wm->EquipForTraining(wm->GetList()[demoWeaponIndex_].type);
+                wm->EquipForDemo(wm->GetList()[demoWeaponIndex_].type);
                 demoAttackCount_ = DemoWeaponStyle::For(wm->GetCurrent().type).ComboLength();
             }
             demoUseSkillFinisher_ = true;
