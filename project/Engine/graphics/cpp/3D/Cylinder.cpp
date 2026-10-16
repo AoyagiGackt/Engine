@@ -6,6 +6,13 @@
 #include "DirectXCommon.h"
 #include <cmath>
 #include <numbers>
+
+namespace {
+
+// 分割あたりの頂点数
+constexpr int kVerticesPerDivision = 6;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -45,7 +52,7 @@ void Cylinder::RebuildVertices()
         Vector3 nCur = { -s, 0.0f, c };
         Vector3 nNext = { -sNext, 0.0f, cNext };
 
-        int idx = index * 6;
+        int idx = index * kVerticesPerDivision;
         // 三角形1: topCur, topNext, botCur
         vertexData_[idx + 0] = { topCur, { u, 0.0f }, nCur };
         vertexData_[idx + 1] = { topNext, { uNext, 0.0f }, nNext };

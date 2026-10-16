@@ -5,6 +5,7 @@
 #include "UILayout.h"
 #include "JsonHelper.h"
 #include <algorithm>
+#include <iterator>
 #include <memory>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -90,14 +91,15 @@ UILayout::UILayout(const std::string& name)
 
 int UILayout::ComponentsOf(Kind kind)
 {
-    switch (kind) {
-    case Kind::Float:
-        return kScalarComponents;
-    case Kind::Color:
-        return kColorComponents;
-    default:
-        return kVectorComponents;
-    }
+    // Kind の並び順
+    static constexpr int kComponents[] = {
+        kScalarComponents, // Float
+        kVectorComponents, // Vec2
+        kVectorComponents, // Pos
+        kColorComponents, // Color
+    };
+    const size_t index = static_cast<size_t>(kind);
+    return index < std::size(kComponents) ? kComponents[index] : kVectorComponents;
 }
 
 UILayout::Entry& UILayout::FindOrRegister(const std::string& key, Kind kind, const float* defaultValue)
@@ -325,19 +327,17 @@ void UILayout::DrawEntries()
             if (selected) {
                 ImGui::PushStyleColor(ImGuiCol_Text, kSelectedLabelColor);
             }
-            bool changed = false;
-            switch (entry.kind) {
-            case Kind::Float:
-                changed = ImGui::DragFloat(label.c_str(), entry.value, kDragSpeed);
-                break;
-            case Kind::Vec2:
-            case Kind::Pos:
-                changed = ImGui::DragFloat2(label.c_str(), entry.value, kDragSpeed);
-                break;
-            case Kind::Color:
-                changed = ImGui::ColorEdit4(label.c_str(), entry.value, ImGuiColorEditFlags_AlphaBar);
-                break;
-            }
+            // Kind の並び順に、値を編集するウィジェット
+            using ValueWidget = bool (*)(const char*, float*);
+            static constexpr ValueWidget kValueWidgets[] = {
+                [](const char* l, float* v) { return ImGui::DragFloat(l, v, kDragSpeed); }, // Float
+                [](const char* l, float* v) { return ImGui::DragFloat2(l, v, kDragSpeed); }, // Vec2
+                [](const char* l, float* v) { return ImGui::DragFloat2(l, v, kDragSpeed); }, // Pos
+                [](const char* l, float* v) { return ImGui::ColorEdit4(l, v, ImGuiColorEditFlags_AlphaBar); }, // Color
+            };
+            const size_t kindIndex = static_cast<size_t>(entry.kind);
+            bool changed = kindIndex < std::size(kValueWidgets)
+                && kValueWidgets[kindIndex](label.c_str(), entry.value);
             if (selected) {
                 ImGui::PopStyleColor();
             }

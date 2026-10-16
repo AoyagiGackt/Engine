@@ -155,6 +155,20 @@ private:
         uint64_t size = 0;
     };
 
+    /** @brief 起動時のモード判定に使う、素材フォルダの状態と設定 */
+    struct StartContext {
+        bool hasSources = false; ///< 元素材（Resources/shaders）があるか
+        std::string fileName; ///< 設定ファイルの pak 名
+    };
+    /** @brief 元素材に変更が無ければ use、あれば cook で起動する */
+    void StartAuto(const StartContext& context);
+    /** @brief 元ファイルから読みつつ変換結果を記録する */
+    void StartCook(const StartContext& context);
+    /** @brief pak を開いて変換済みデータを使う（開けなければ off） */
+    void StartUse(const StartContext& context);
+    /** @brief 元ファイルを毎回変換して読む */
+    void StartOff(const StartContext& context);
+
     /** @brief pakの目次（キー・位置・大きさ）を読み込む。形式が違えばfalse */
     bool OpenPack(const std::wstring& path);
     /** @brief exeと同じフォルダを基準にした pak のパス */

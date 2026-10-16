@@ -297,13 +297,14 @@ public:
     void SetShadingTypePBR()
     {
         if (materialData_) {
-            materialData_->shadingType = 5;
+            materialData_->shadingType = kPbrShadingType;
             lockShadingType_ = true;
         }
     }
     void LockShadingType(bool lock = true) { lockShadingType_ = lock; }
 
 private:
+    static constexpr int kPbrShadingType = 5;
     /**
      * @brief GPUに送るための座標変換行列データ
      */

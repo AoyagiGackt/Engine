@@ -3,9 +3,23 @@
  * @brief GlassShatterEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "GlassShatterEffect.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "WinApp.h"
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+// 演出時間の下限
+constexpr float kMinDuration = 0.01f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -18,9 +32,14 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // 定数バッファ
-    cbResource_ = dxCommon_->CreateBufferResource(256);
+    cbResource_ = dxCommon_->CreateBufferResource(kConstantBufferAlignment);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = ShatterParams { };
+    cbData_->crackWidth = GraphicsTuning::Float("glassShatter.crackWidth", cbData_->crackWidth);
+    cbData_->impactU = GraphicsTuning::Float("glassShatter.impactU", cbData_->impactU, 0.0f, 1.0f);
+    cbData_->impactV = GraphicsTuning::Float("glassShatter.impactV", cbData_->impactV, 0.0f, 1.0f);
+    cbData_->shardSpeed = GraphicsTuning::Float("glassShatter.shardSpeed", cbData_->shardSpeed);
+    duration_ = GraphicsTuning::Float("glassShatter.duration", kDefaultDuration, kMinDuration);
 
     // フリーズテクスチャ（バックバッファと同フォーマット）
     DXGI_FORMAT bbFormat = dxCommon_->GetCurrentBackBufferResource()->GetDesc().Format;
@@ -230,7 +249,7 @@ void GlassShatterEffect::Apply()
     }
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void GlassShatterEffect::Start()
@@ -279,5 +298,5 @@ void GlassShatterEffect::SetShardSpeed(float s)
 
 void GlassShatterEffect::SetDuration(float seconds)
 {
-    duration_ = seconds > 0.01f ? seconds : 0.01f;
+    duration_ = seconds > kMinDuration ? seconds : kMinDuration;
 }

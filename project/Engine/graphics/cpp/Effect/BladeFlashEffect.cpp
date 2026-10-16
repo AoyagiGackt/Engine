@@ -3,10 +3,38 @@
  * @brief BladeFlashEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "BladeFlashEffect.h"
+#include "GraphicsTuning.h"
 #include "Camera.h"
 #include "EngineAssert.h"
 #include <algorithm>
 #include <cmath>
+
+namespace {
+
+// 刃の配色
+constexpr engine::Vector4 kBlueCoreColor = { 0.95f, 1.0f, 1.0f, 1.0f };
+constexpr engine::Vector4 kBlueEdgeColor = { 0.35f, 0.7f, 1.0f, 1.0f };
+constexpr engine::Vector4 kPurpleCoreColor = { 0.9f, 0.8f, 1.0f, 1.0f };
+constexpr engine::Vector4 kPurpleEdgeColor = { 0.55f, 0.3f, 1.0f, 1.0f };
+
+// 三角形の頂点数
+constexpr int kTriangleVertexCount = 3;
+
+// 刃の生成範囲と伸長・減衰
+constexpr float kFullTurn = 6.2831853f;
+constexpr float kDepthSpread = 0.4f;
+constexpr float kWidthRatioMin = 0.045f;
+constexpr float kWidthRatioMax = 0.09f;
+constexpr float kLifeMin = 0.14f;
+constexpr float kLifeMax = 0.30f;
+constexpr float kDriftSpeed = 1.5f;
+constexpr float kBlueProbability = 0.8f;
+constexpr float kGrowthRate = 5.0f;
+constexpr float kFadeInRate = 8.0f;
+constexpr float kInitialOpacity = 0.35f;
+constexpr float kMinLife = 0.001f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -32,13 +60,24 @@ void BladeFlashEffect::Initialize(DirectXCommon* dxCommon)
 
 void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, float minLen, float maxLen)
 {
-    std::uniform_real_distribution<float> angDist(0.0f, 6.2831853f);
+    const float depthSpread = GraphicsTuning::Float("bladeFlash.depthSpread", kDepthSpread);
+    const float widthMin = GraphicsTuning::Float("bladeFlash.widthRatioMin", kWidthRatioMin);
+    const float widthMax = (std::max)(widthMin, GraphicsTuning::Float("bladeFlash.widthRatioMax", kWidthRatioMax));
+    const float lifeMin = GraphicsTuning::Float("bladeFlash.lifeMin", kLifeMin, kMinLife);
+    const float lifeMax = (std::max)(lifeMin, GraphicsTuning::Float("bladeFlash.lifeMax", kLifeMax, kMinLife));
+    const float driftSpeed = GraphicsTuning::Float("bladeFlash.driftSpeed", kDriftSpeed);
+    const float blueProbability = GraphicsTuning::Float("bladeFlash.blueProbability", kBlueProbability, 0.0f, 1.0f);
+    const Vector4 blueCore = GraphicsTuning::Color("bladeFlash.blueCoreColor", kBlueCoreColor);
+    const Vector4 blueEdge = GraphicsTuning::Color("bladeFlash.blueEdgeColor", kBlueEdgeColor);
+    const Vector4 purpleCore = GraphicsTuning::Color("bladeFlash.purpleCoreColor", kPurpleCoreColor);
+    const Vector4 purpleEdge = GraphicsTuning::Color("bladeFlash.purpleEdgeColor", kPurpleEdgeColor);
+    std::uniform_real_distribution<float> angDist(0.0f, kFullTurn);
     std::uniform_real_distribution<float> radDist(0.0f, radius);
-    std::uniform_real_distribution<float> zDist(-0.4f, 0.4f);
+    std::uniform_real_distribution<float> zDist(-depthSpread, depthSpread);
     std::uniform_real_distribution<float> lenDist(minLen, maxLen);
-    std::uniform_real_distribution<float> widthDist(0.045f, 0.09f);
-    std::uniform_real_distribution<float> lifeDist(0.14f, 0.30f);
-    std::uniform_real_distribution<float> driftDist(-1.5f, 1.5f);
+    std::uniform_real_distribution<float> widthDist(widthMin, widthMax);
+    std::uniform_real_distribution<float> lifeDist(lifeMin, lifeMax);
+    std::uniform_real_distribution<float> driftDist(-driftSpeed, driftSpeed);
     std::uniform_real_distribution<float> hueDist(0.0f, 1.0f);
 
     for (int i = 0; i < count; ++i) {
@@ -60,12 +99,12 @@ void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, floa
         b.drift = Vector3 { std::cos(b.angle), std::sin(b.angle), 0.0f } * driftDist(rng_);
 
         // 大半は氷青、たまに紫がかった刃を混ぜる
-        if (hueDist(rng_) < 0.8f) {
-            b.coreColor = { 0.95f, 1.0f, 1.0f, 1.0f };
-            b.edgeColor = { 0.35f, 0.7f, 1.0f, 1.0f };
+        if (hueDist(rng_) < blueProbability) {
+            b.coreColor = blueCore;
+            b.edgeColor = blueEdge;
         } else {
-            b.coreColor = { 0.9f, 0.8f, 1.0f, 1.0f };
-            b.edgeColor = { 0.55f, 0.3f, 1.0f, 1.0f };
+            b.coreColor = purpleCore;
+            b.edgeColor = purpleEdge;
         }
 
         blades_.push_back(b);
@@ -74,6 +113,9 @@ void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, floa
 
 void BladeFlashEffect::Update(float dt, Camera* camera)
 {
+    const float growthRate = GraphicsTuning::Float("bladeFlash.growthRate", kGrowthRate);
+    const float fadeInRate = GraphicsTuning::Float("bladeFlash.fadeInRate", kFadeInRate);
+    const float initialOpacity = GraphicsTuning::Float("bladeFlash.initialOpacity", kInitialOpacity, 0.0f, 1.0f);
     if (camera != nullptr) {
         sceneCBData_->viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
     }
@@ -93,8 +135,8 @@ void BladeFlashEffect::Update(float dt, Camera* camera)
         const float t = b.age / b.life;
 
         // 出現直後に一気に伸び、余韻で消える
-        const float grow = (std::min)(1.0f, t * 5.0f);
-        const float fade = (1.0f - t) * (1.0f - t) * (std::min)(1.0f, t * 8.0f + 0.35f);
+        const float grow = (std::min)(1.0f, t * growthRate);
+        const float fade = (1.0f - t) * (1.0f - t) * (std::min)(1.0f, t * fadeInRate + initialOpacity);
         const float width = b.halfWidth * (1.0f - t * 0.5f);
 
         const Vector3 dir = Vector3 { std::cos(b.angle), std::sin(b.angle), 0.0f } * (b.halfLen * grow);
@@ -105,8 +147,8 @@ void BladeFlashEffect::Update(float dt, Camera* camera)
         const Vector3 sideA = b.pos + perp;
         const Vector3 sideB = { b.pos.x - perp.x, b.pos.y - perp.y, b.pos.z - perp.z };
 
-        const Vector4 core = { b.coreColor.x, b.coreColor.y, b.coreColor.z, fade };
-        const Vector4 side = { b.edgeColor.x, b.edgeColor.y, b.edgeColor.z, fade * 0.5f };
+        const Vector4 core = { b.coreColor.x, b.coreColor.y, b.coreColor.z, fade * b.coreColor.w };
+        const Vector4 side = { b.edgeColor.x, b.edgeColor.y, b.edgeColor.z, fade * b.edgeColor.w * 0.5f };
         const Vector4 tip = { b.edgeColor.x, b.edgeColor.y, b.edgeColor.z, 0.0f };
 
         auto pushTri = [this](const Vector3& p0, const Vector4& c0,
@@ -115,7 +157,7 @@ void BladeFlashEffect::Update(float dt, Camera* camera)
             vertexData_[vertexCount_ + 0] = { { p0.x, p0.y, p0.z, 1.0f }, c0 };
             vertexData_[vertexCount_ + 1] = { { p1.x, p1.y, p1.z, 1.0f }, c1 };
             vertexData_[vertexCount_ + 2] = { { p2.x, p2.y, p2.z, 1.0f }, c2 };
-            vertexCount_ += 3;
+            vertexCount_ += kTriangleVertexCount;
         };
         pushTri(b.pos, core, tipA, tip, sideA, side);
         pushTri(b.pos, core, sideA, side, tipB, tip);

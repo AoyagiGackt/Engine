@@ -227,6 +227,15 @@
     <Filter Include="ヘッダーファイル\Engine\graphics\h\Offscreen">
       <UniqueIdentifier>{c6fcb3e6-5a6b-467c-9b65-f073d7379c81}</UniqueIdentifier>
     </Filter>
+      <Filter Include="JSON">
+      <UniqueIdentifier>{55f993dd-aaa3-4fa6-b93c-1a69a0fc2fac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="JSON\調整値">
+      <UniqueIdentifier>{5a88cd76-8693-468e-83d9-15e53b066e4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="JSON\演出">
+      <UniqueIdentifier>{8cfdd7fa-3bc1-4137-b702-0356a6970272}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Util\Animation.cpp">
@@ -286,6 +295,9 @@
     <ClCompile Include="Engine\game\cpp\Effect\ComboFeelDirector.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\HitEffectLibrary.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
@@ -329,6 +341,9 @@
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Player\PlayerTuning.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp">
@@ -497,6 +512,9 @@
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\StageIntro.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
@@ -749,6 +767,15 @@
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\StageIntro.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\TitleDemoTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\BattleTestTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
@@ -765,6 +792,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\HitEffectLibrary.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\ComboFeelDirector.h">
@@ -806,6 +836,9 @@
     <ClInclude Include="Engine\game\h\Player\Player.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\PlayerTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Player\CharacterVisuals.h">
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
@@ -843,6 +876,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\JsonHelper.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Util\JsonFieldTable.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Util\PlaytestLog.h">
@@ -1132,6 +1168,9 @@
     <ClInclude Include="Engine\graphics\h\Effect\MeshSliceEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Effect\GraphicsTuning.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BladeFlashEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect</Filter>
     </ClInclude>
@@ -1403,5 +1442,46 @@
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Level\FallingFloorBehavior.cpp"><Filter>ソースファイル\Engine\game\cpp\Level</Filter></ClCompile>
     <ClInclude Include="Engine\game\h\Level\FallingFloorBehavior.h"><Filter>ヘッダーファイル\Engine\game\h\Level</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Config\combat_tuning.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\enemy_params.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\player_params.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\game_rules.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\weapons.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\combos.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\battle_test.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\title_demo.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\style_meter.json">
+      <Filter>JSON\調整値</Filter>
+    </None>
+    <None Include="Resources\Config\hit_effects.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\element_effects.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\stage_intro.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\graphics_tuning.json">
+      <Filter>JSON\演出</Filter>
+    </None>
   </ItemGroup>
 </Project>

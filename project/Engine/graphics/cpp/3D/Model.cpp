@@ -14,9 +14,22 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <functional>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <tuple>
+
+namespace {
+
+// 三角形のインデックス数とOBJの参照成分数
+constexpr size_t kTriangleIndexCount = 3;
+constexpr size_t kObjReferenceComponentCount = 3;
+
+// 接線の縮退判定
+constexpr float kTangentEpsilon = 1e-6f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -49,11 +62,17 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     if (!loadedFromPack) {
         vertices_.clear();
         indices_.clear();
-        if (ext == "obj") {
-            LoadObjFile(modelFilePath);
-        } else {
-            LoadGltfFile(modelFilePath);
-        }
+        // 拡張子と読み込み関数の対応（載っていない拡張子は assimp 経由で読む）
+        struct Loader {
+            const char* extension;
+            void (Model::*load)(const std::string&);
+        };
+        static constexpr Loader kLoaders[] = {
+            { "obj", &Model::LoadObjFile },
+        };
+        const auto loader = std::find_if(std::begin(kLoaders), std::end(kLoaders),
+            [&ext](const Loader& entry) { return ext == entry.extension; });
+        (this->*(loader != std::end(kLoaders) ? loader->load : &Model::LoadGltfFile))(modelFilePath);
         if (AssetPack::GetInstance()->IsCooking()) {
             BinaryWriter writer;
             writer.WriteVector(vertices_);
@@ -168,33 +187,36 @@ void Model::ParseObjFile(const std::string& filePath)
     // (v, vt, vn) の組み合わせ → vertices_ 内のインデックスへのマップ
     std::map<std::tuple<int, int, int>, uint32_t> indexMap;
 
-    while (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::string identifier;
-        ss >> identifier;
-
-        if (identifier == "v") {
+    struct ObjLineHandler {
+        const char* identifier;
+        std::function<void(std::stringstream&)> parse;
+    };
+    const ObjLineHandler handlers[] = {
+        { "v", [&](std::stringstream& ss) {
             Vector4 position;
             ss >> position.x >> position.y >> position.z;
             position.w = 1.0f;
             positions.push_back(position);
-        } else if (identifier == "vt") {
+        } },
+        { "vt", [&](std::stringstream& ss) {
             Vector2 texcoord;
             ss >> texcoord.x >> texcoord.y;
             texcoord.y = 1.0f - texcoord.y;
             texcoords.push_back(texcoord);
-        } else if (identifier == "vn") {
+        } },
+        { "vn", [&](std::stringstream& ss) {
             Vector3 normal;
             ss >> normal.x >> normal.y >> normal.z;
             normals.push_back(normal);
-        } else if (identifier == "f") {
+        } },
+        { "f", [&](std::stringstream& ss) {
             std::vector<uint32_t> faceIndices;
             std::string s;
 
             while (ss >> s) {
                 std::stringstream ss2(s);
                 std::string indexStr;
-                int idx[3] = { 0, 0, 0 };
+                int idx[kObjReferenceComponentCount] = { 0, 0, 0 };
                 int count = 0;
 
                 while (std::getline(ss2, indexStr, '/')) {
@@ -233,6 +255,17 @@ void Model::ParseObjFile(const std::string& filePath)
                 indices_.push_back(faceIndices[i]);
                 indices_.push_back(faceIndices[i + 1]);
             }
+        } },
+    };
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string identifier;
+        ss >> identifier;
+        for (const auto& handler : handlers) {
+            if (identifier == handler.identifier) {
+                handler.parse(ss);
+                break;
+            }
         }
     }
 }
@@ -241,7 +274,7 @@ void Model::ComputeTangents()
 {
     // タンジェント計算（三角形ごとに dPos/dUV から求めてアキュムレート）
     std::vector<Vector3> tangentAccum(vertices_.size(), { 0.0f, 0.0f, 0.0f });
-    for (size_t i = 0; i + 2 < indices_.size(); i += 3) {
+    for (size_t i = 0; i + 2 < indices_.size(); i += kTriangleIndexCount) {
         uint32_t i0 = indices_[i], i1 = indices_[i + 1], i2 = indices_[i + 2];
         Vector3 p0 = { vertices_[i0].position.x, vertices_[i0].position.y, vertices_[i0].position.z };
         Vector3 p1 = { vertices_[i1].position.x, vertices_[i1].position.y, vertices_[i1].position.z };
@@ -254,7 +287,7 @@ void Model::ComputeTangents()
         float du2 = uv2.x - uv0.x, dv2 = uv2.y - uv0.y;
 
         float denom = du1 * dv2 - du2 * dv1;
-        if (std::abs(denom) < 1e-6f) {
+        if (std::abs(denom) < kTangentEpsilon) {
             continue;
         }
         float invR = 1.0f / denom;
@@ -276,7 +309,7 @@ void Model::ComputeTangents()
         float dot = n.x * t.x + n.y * t.y + n.z * t.z;
         t = { t.x - n.x * dot, t.y - n.y * dot, t.z - n.z * dot };
         float len = std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
-        if (len > 1e-6f) {
+        if (len > kTangentEpsilon) {
             t.x /= len;
             t.y /= len;
             t.z /= len;

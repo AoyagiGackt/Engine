@@ -86,14 +86,14 @@ public:
             outlineCb_->threshold = t;
         }
     }
-    float GetOutlineThreshold() const { return outlineCb_ ? outlineCb_->threshold : 0.05f; }
+    float GetOutlineThreshold() const { return outlineCb_ ? outlineCb_->threshold : kDefaultOutlineThreshold; }
     void SetOutlineStrength(float s)
     {
         if (outlineCb_) {
             outlineCb_->edgeStrength = s;
         }
     }
-    float GetOutlineStrength() const { return outlineCb_ ? outlineCb_->edgeStrength : 5.0f; }
+    float GetOutlineStrength() const { return outlineCb_ ? outlineCb_->edgeStrength : kDefaultOutlineStrength; }
     void SetOutlineColor(float r, float g, float b, float a = 1.0f)
     {
         if (!outlineCb_) {
@@ -124,7 +124,7 @@ public:
             outlineCb_->depthScale = s;
         }
     }
-    float GetDepthScale() const { return outlineCb_ ? outlineCb_->depthScale : 100.0f; }
+    float GetDepthScale() const { return outlineCb_ ? outlineCb_->depthScale : kDefaultDepthScale; }
 
     // ラジアルブラーパラメータ
     void SetRadialCenter(float x, float y)
@@ -143,14 +143,14 @@ public:
             radialBlurCb_->strength = s;
         }
     }
-    float GetRadialStrength() const { return radialBlurCb_ ? radialBlurCb_->strength : 0.1f; }
+    float GetRadialStrength() const { return radialBlurCb_ ? radialBlurCb_->strength : kDefaultRadialStrength; }
     void SetRadialSampleCount(int n)
     {
         if (radialBlurCb_) {
             radialBlurCb_->sampleCount = n;
         }
     }
-    int GetRadialSampleCount() const { return radialBlurCb_ ? radialBlurCb_->sampleCount : 16; }
+    int GetRadialSampleCount() const { return radialBlurCb_ ? radialBlurCb_->sampleCount : kDefaultRadialSampleCount; }
 
     // ディゾルブパラメータ
     void SetDissolveThreshold(float t)
@@ -166,7 +166,7 @@ public:
             dissolveCb_->edgeWidth = w;
         }
     }
-    float GetDissolveEdgeWidth() const { return dissolveCb_ ? dissolveCb_->edgeWidth : 0.05f; }
+    float GetDissolveEdgeWidth() const { return dissolveCb_ ? dissolveCb_->edgeWidth : kDefaultDissolveEdgeWidth; }
     void SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f)
     {
         if (!dissolveCb_) {
@@ -203,8 +203,8 @@ public:
         noiseGenCb_->scaleX = x;
         noiseGenCb_->scaleY = y;
     }
-    float GetNoiseScaleX() const { return noiseGenCb_ ? noiseGenCb_->scaleX : 4.0f; }
-    float GetNoiseScaleY() const { return noiseGenCb_ ? noiseGenCb_->scaleY : 4.0f; }
+    float GetNoiseScaleX() const { return noiseGenCb_ ? noiseGenCb_->scaleX : kDefaultNoiseScale; }
+    float GetNoiseScaleY() const { return noiseGenCb_ ? noiseGenCb_->scaleY : kDefaultNoiseScale; }
     // seed は CPU 側の manualSeed を見せる（アニメーション時も表示値は変わらない）
     void SetNoiseSeed(float s) { noiseManualSeed_ = s; }
     float GetNoiseSeed() const { return noiseManualSeed_; }
@@ -214,7 +214,7 @@ public:
             noiseGenCb_->octaves = n;
         }
     }
-    int GetNoiseOctaves() const { return noiseGenCb_ ? noiseGenCb_->octaves : 4; }
+    int GetNoiseOctaves() const { return noiseGenCb_ ? noiseGenCb_->octaves : kDefaultNoiseOctaves; }
     void SetNoisePersistence(float p)
     {
         if (noiseGenCb_) {
@@ -253,6 +253,16 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const override { return sceneRtvHandle_; }
 
 private:
+    // フィルタの既定値
+    static constexpr float kDefaultOutlineThreshold = 0.05f;
+    static constexpr float kDefaultOutlineStrength = 5.0f;
+    static constexpr float kDefaultDepthScale = 100.0f;
+    static constexpr float kDefaultRadialStrength = 0.1f;
+    static constexpr int kDefaultRadialSampleCount = 16;
+    static constexpr float kDefaultDissolveEdgeWidth = 0.05f;
+    static constexpr float kDefaultNoiseScale = 4.0f;
+    static constexpr int kDefaultNoiseOctaves = 4;
+
     ImageFilter() = default;
     ~ImageFilter() = default;
     ImageFilter(const ImageFilter&) = delete;
@@ -275,12 +285,15 @@ private:
         virtual ~IFilterMode() = default;
         virtual void Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
             const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const = 0;
+        /** @brief ぼかしカーネル（半径・シグマから作る重み）を使うモードか */
+        virtual bool UsesBlurKernel() const { return false; }
     };
     /**
      * @brief ボックス/ガウシアンぼかしを水平パス→垂直パスの2パスで適用する
      */
     class BoxGaussianFilterMode : public IFilterMode {
     public:
+        bool UsesBlurKernel() const override { return true; }
         /** @brief 水平パス（sceneTexture→intermediateTexture）→垂直パス（intermediateTexture→backbuffer）の順に描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
     };

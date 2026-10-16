@@ -257,11 +257,7 @@ void GamePlayScene::CheckClearCondition()
                 enemy_->SetVisible(false);
                 // ボスの配置物に設定された武器を奪う（未設定ならgame_rules.jsonの既定）。あわせてボス技を習得する
                 const WeaponManager::AcquireResult acquired = WeaponManager::GetInstance()->Acquire(bossWeaponType_);
-                if (acquired == WeaponManager::AcquireResult::Duplicate) {
-                    player_->ChargeAwakenGauge(CombatTuning::GetInstance()->Get().duplicateWeaponAwakenBonus);
-                } else if (acquired == WeaponManager::AcquireResult::Added) {
-                    hud_.Notify(HudEvent::WeaponAcquired);
-                }
+                ApplyWeaponAcquireResult(acquired);
                 // ボスの武器は次のステージの専用の壁を壊す鍵になるため、満杯でも破棄させず必ずどれかと交換させる
                 pendingWeaponMandatory_ = acquired == WeaponManager::AcquireResult::NeedsReplacement;
                 RunData::GetInstance()->AddBossTechnique(rules.bossTechnique);

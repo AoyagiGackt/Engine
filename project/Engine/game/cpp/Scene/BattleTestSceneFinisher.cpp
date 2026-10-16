@@ -3,6 +3,7 @@
  * @brief バトルテストのフィニッシャー演出と判定
  */
 #include "BattleTestScene.h"
+#include "BattleTestTuning.h"
 #include "AudioBridge.h"
 #include "BattleTestSceneRenderer.h"
 #include "Collision.h"
@@ -36,7 +37,6 @@ constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
 // 発動
 constexpr Vector4 kChargeFlashColor = { 0.75f, 0.95f, 1.0f, 0.35f };
 constexpr float kChargeFlashSeconds = 0.10f;
-constexpr float kChargeWarpImpulse = 0.4f;
 
 // 1本ごとの斬り刻み
 constexpr float kSlashLineLengthMin = 4.0f;
@@ -49,23 +49,13 @@ constexpr int kBeatBladeCount = 3;
 constexpr float kBeatBladeRadius = 4.0f;
 constexpr float kBeatBladeSpeedMin = 1.2f;
 constexpr float kBeatBladeSpeedMax = 2.8f;
-constexpr float kBeatWarpImpulse = 0.12f;
-constexpr float kBeatHitFlash = 0.10f;
-constexpr float kBeatKnockX = 0.06f;
-constexpr float kBeatKnockY = 0.06f;
-constexpr float kBeatStyleScore = 6.0f;
-constexpr float kDummyReturnDelay = 1.5f;
 
 // 解放
-constexpr float kReleaseHitFlash = 0.22f;
-constexpr float kReleaseKnockX = 0.5f;
-constexpr float kReleaseKnockY = 0.20f;
 constexpr float kSlashFlashSeconds = 0.22f;
 constexpr int kReleaseSlashCount = 8;
 constexpr float kReleaseSlashThickness = 9.0f;
 constexpr float kReleaseSlashSeconds = 0.15f;
 constexpr Vector4 kReleaseFlashColor = { 0.75f, 0.95f, 1.0f, 0.65f };
-constexpr float kReleaseStyleScore = 120.0f;
 constexpr int kReleaseBladeCount = 30;
 constexpr float kReleaseBladeSpeedMin = 2.0f;
 constexpr float kReleaseBladeSpeedMax = 5.0f;
@@ -91,7 +81,7 @@ void BattleTestScene::TriggerFinisherSlash()
     SpawnHitEffect({ pp.x, pp.y + kEffectHeight, 0.0f });
     SceneShared::EmitFinisherCharge(pm_, "bt_hit_ring", "bt_hit_spark",
         { pp.x, pp.y + kEffectHeight, 0.0f });
-    spaceWarp_.AddImpulse(kChargeWarpImpulse);
+    spaceWarp_.AddImpulse(BattleTestTune().chargeWarpImpulse);
 }
 
 bool BattleTestScene::UpdateFinisherSlash()
@@ -149,22 +139,22 @@ void BattleTestScene::UpdateFinisherSlashLine()
 
     // 空間にガラス質の刃を明滅させ、歪みを脈動させる
     bladeFlash_.Emit({ center.x, center.y, 0.0f }, kBeatBladeCount, kBeatBladeRadius, kBeatBladeSpeedMin, kBeatBladeSpeedMax);
-    spaceWarp_.AddImpulse(kBeatWarpImpulse);
+    spaceWarp_.AddImpulse(BattleTestTune().beatWarpImpulse);
 
     tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
 
     // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
     for (auto& d : dummies_) {
         d.hp = d.maxHp;
-        d.hitFlash = kBeatHitFlash;
+        d.hitFlash = BattleTestTune().beatHitFlash;
         d.hpDisplay = 0.0f;
-        d.returnTimer = kDummyReturnDelay;
-        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * kBeatKnockX;
-        d.knockVelY += kBeatKnockY;
+        d.returnTimer = BattleTestTune().dummyReturnDelay;
+        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * BattleTestTune().beatKnockX;
+        d.knockVelY += BattleTestTune().beatKnockY;
         SpawnHitEffect({ d.pos.x, d.pos.y + kEffectHeight, 0.0f });
     }
 
-    styleMeter_.RegisterHit("finisher_line", kBeatStyleScore);
+    styleMeter_.RegisterHit("finisher_line", BattleTestTune().beatStyleScore);
 
     finisherLineIdx_++;
     finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
@@ -177,11 +167,11 @@ void BattleTestScene::ApplyFinisherReleaseHits()
     const Vector3& pp = player_->GetPosition();
     for (auto& d : dummies_) {
         d.hp = d.maxHp;
-        d.hitFlash = kReleaseHitFlash;
+        d.hitFlash = BattleTestTune().releaseHitFlash;
         d.hpDisplay = 0.0f;
-        d.returnTimer = kDummyReturnDelay;
-        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * kReleaseKnockX;
-        d.knockVelY += kReleaseKnockY;
+        d.returnTimer = BattleTestTune().dummyReturnDelay;
+        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * BattleTestTune().releaseKnockX;
+        d.knockVelY += BattleTestTune().releaseKnockY;
         SpawnHitEffect({ d.pos.x, d.pos.y + kEffectHeight, 0.0f });
     }
 }
@@ -211,7 +201,7 @@ void BattleTestScene::PlayFinisherReleaseEffects()
     ScreenFlash::GetInstance()->Request(kReleaseFlashColor, GameConstants::kShakeFinisherSlashDur);
     SceneShared::EmitFinisherRelease(pm_, "bt_hit_ring", "bt_hit_spark",
         { pp.x, pp.y + kEffectHeight, 0.0f });
-    styleMeter_.RegisterHit("finisher_release", kReleaseStyleScore);
+    styleMeter_.RegisterHit("finisher_release", BattleTestTune().releaseStyleScore);
 
     // 解放の瞬間 刃の一斉放出と空間歪みの最大化、最も近いダミーを切断破片に差し替える
     bladeFlash_.Emit({ pp.x, pp.y + kEffectHeight, 0.0f }, kReleaseBladeCount, GameConstants::kFinisherSlashRadius,

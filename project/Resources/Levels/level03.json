@@ -185,7 +185,7 @@
     },
     {
       "name": "room_d_flying", "type": "static", "kind": "enemy_basic",
-      "position": [49.0, 4.6, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "s3_room_d"
+      "position": [49.0, 4.6, 0.0], "spawnType": "flying", "weaponType": "", "enemyModel": "Bat", "enemyGroup": "s3_room_d"
     },
     {
       "name": "room_d_healer", "type": "static", "kind": "enemy_basic",

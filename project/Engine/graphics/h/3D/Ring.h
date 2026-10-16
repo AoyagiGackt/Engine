@@ -11,7 +11,7 @@ class Ring : public RevolvedMeshBase {
 public:
     void Initialize(engine::DirectXCommon* dxCommon,
         const std::string& textureFilePath = "Resources/Effects/gradationLine.png",
-        int divisions = 32);
+        int divisions = kDefaultDivisions);
 
     void SetColor(const Vector4& color) { materialData_->color = color; }
     void SetInnerRadius(float r)
@@ -31,6 +31,7 @@ protected:
     void SetWVP(const Matrix4x4& wvp) override { materialData_->WVP = wvp; }
 
 private:
+    static constexpr int kDefaultDivisions = 32;
     void CreatePipeline();
     void RebuildVertices();
 

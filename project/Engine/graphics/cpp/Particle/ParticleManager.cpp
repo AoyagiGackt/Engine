@@ -10,6 +10,17 @@
 #include <d3dx12.h>
 #include <numbers>
 #include <random>
+
+namespace {
+
+// GPUパーティクルの処理単位と四角形インデックス
+constexpr unsigned int kComputeThreadsPerGroup = 64;
+constexpr unsigned int kQuadIndexCount = 6;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -40,7 +51,7 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon)
     CreateCSEmitPipelineState();
 
     // CS 定数バッファ (UPLOAD heap, 256 bytes, 常時マップ)
-    csConstantsBuffer_ = dxCommon_->CreateBufferResource(256);
+    csConstantsBuffer_ = dxCommon_->CreateBufferResource(kConstantBufferAlignment);
     csConstantsBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&csConstantsData_));
 
     CreateQuadGeometry();
@@ -177,7 +188,7 @@ void ParticleManager::InitParticleGroupState(ParticleGroup& group)
     }
 
     // エミッターバッファ (UPLOAD heap, 256 bytes, 常時マップ)
-    group.emitterBuffer = dxCommon_->CreateBufferResource(256);
+    group.emitterBuffer = dxCommon_->CreateBufferResource(kConstantBufferAlignment);
     group.emitterBuffer->Map(0, nullptr, reinterpret_cast<void**>(&group.emitterData));
     memset(group.emitterData, 0, sizeof(Emitter));
     group.emitterData->lifeTime = 1.0f; // デフォルト 1 秒
@@ -245,10 +256,10 @@ void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
     static std::mt19937 rng { std::random_device { }() };
     const ParticleGroup::RespawnConfig& cfg = group.respawnConfig;
     std::uniform_real_distribution<float> xzDist(-cfg.radius, cfg.radius);
-    std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
+    std::uniform_real_distribution<float> yDist(0.0f, kScatterHeight);
     std::uniform_real_distribution<float> lifeDist(cfg.lifeTimeMin, cfg.lifeTimeMax);
-    std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
-    std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
+    std::uniform_real_distribution<float> velXZDist(-kScatterDriftXZ, kScatterDriftXZ);
+    std::uniform_real_distribution<float> velYDist(kScatterRiseMin, kScatterRiseMax);
 
     for (uint32_t i = 0; i < cfg.count; ++i) {
         if (group.slotExpiry[i] <= 0.0f || group.groupTime < group.slotExpiry[i]) {
@@ -264,8 +275,8 @@ void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
         p.scale = { cfg.scale, cfg.scale, cfg.scale };
         p.rotateZ = 0.0f;
         p.alive = 1;
-        p.curveFlag = 0;
-        group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+        p.curveFlag = static_cast<uint32_t>(ParticleMotion::Linear);
+        group.slotExpiry[i] = group.groupTime + lifeTime + kSlotExpiryMargin;
         group.pendingSlots.push_back(i);
     }
 }
@@ -319,7 +330,7 @@ void ParticleManager::DispatchEmitCS(ParticleGroup& group, ID3D12GraphicsCommand
 
     // スロット有効期限を延長
     const uint32_t count = (std::min)(e->count, ParticleGroup::kNumMaxInstance);
-    const float maxExpiry = group.groupTime + e->lifeTime + 0.1f;
+    const float maxExpiry = group.groupTime + e->lifeTime + kSlotExpiryMargin;
     for (uint32_t i = 0; i < count; ++i) {
         group.slotExpiry[i] = maxExpiry;
     }
@@ -362,7 +373,7 @@ void ParticleManager::DispatchUpdateCS(ParticleGroup& group, ID3D12GraphicsComma
     cmd->SetComputeRootUnorderedAccessView(1, group.particleStateBuffer->GetGPUVirtualAddress());
     cmd->SetComputeRootUnorderedAccessView(2, group.instancingResource->GetGPUVirtualAddress());
 
-    const UINT threadGroups = (ParticleGroup::kNumMaxInstance + 63) / 64;
+    const UINT threadGroups = (ParticleGroup::kNumMaxInstance + kComputeThreadsPerGroup - 1) / kComputeThreadsPerGroup;
     cmd->Dispatch(threadGroups, 1, 1);
 
     // particleStateBuffer・instancingResource の書き込み完了を保証
@@ -438,7 +449,7 @@ void ParticleManager::Draw(Camera* camera)
         // instancingResource のスロットは非連続なため instance count を aliveCount に
         // 減らすには CS 側で alive スロットを詰める変更が必要現状は全 1024 を渡し、
         // シェーダー側で alive=0 の instance を early-out する
-        cmd->DrawIndexedInstanced(6, ParticleGroup::kNumMaxInstance, 0, 0, 0);
+        cmd->DrawIndexedInstanced(kQuadIndexCount, ParticleGroup::kNumMaxInstance, 0, 0, 0);
     }
 }
 

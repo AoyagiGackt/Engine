@@ -36,7 +36,7 @@ std::string StageEditorEventConnection::Connect(TriggerDesc& source, ObjectDesc&
 
 std::string StageEditorEventConnection::Connect(const ObjectDesc& source, ObjectDesc& target) const
 {
-    ApplyTarget("condition_" + source.name, target);
+    ApplyTarget(ConditionFlagName(source.name), target);
     return source.name;
 }
 

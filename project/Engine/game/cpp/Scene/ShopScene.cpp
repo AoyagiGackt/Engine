@@ -3,6 +3,7 @@
  * @brief ローグライトのスキル選択ショップ画面（ShopScene）の表示と選択処理の実装
  */
 #include "ShopScene.h"
+#include "UILayout.h"
 #include "GameConstants.h"
 #include "SceneFlow.h"
 #include "SceneManager.h"
@@ -16,6 +17,9 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
+constexpr float kCardGap = 360.0f;
+constexpr float kCardY = 195.0f;
+constexpr const char* kLayoutName = "shop";
 constexpr Vector4 kBackgroundColor = { 0.04f, 0.04f, 0.06f, 1.0f };
 constexpr Vector2 kCardSize = { 340.0f, 220.0f };
 constexpr Vector4 kCardColor = { 0.10f, 0.26f, 0.16f, 1.0f };
@@ -162,34 +166,84 @@ void ShopScene::Update()
 
 void ShopScene::Draw()
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float cardGap = layout.Float("card.gap", kCardGap);
+    const float cardY = layout.Float("card.y", kCardY);
+    const Vector4 backgroundColor = layout.Color("background.color", kBackgroundColor);
+    const Vector2 cardSize = layout.Vec2("card.size", kCardSize);
+    const Vector4 cardColor = layout.Color("card.color", kCardColor);
+    const Vector4 greenText = layout.Color("text.green", kGreenText);
+    const Vector4 goldText = layout.Color("text.gold", kGoldText);
+    const Vector4 grayText = layout.Color("text.gray", kGrayText);
+    const Vector2 titlePosition = layout.Pos("title.pos", kTitlePosition);
+    const float titleScale = layout.Float("title.scale", kTitleScale);
+    const Vector2 hpTextPosition = layout.Pos("hp.pos", kHpTextPosition);
+    const Vector2 goldTextPosition = layout.Pos("gold.pos", kGoldTextPosition);
+    const float statusTextScale = layout.Float("status.scale", kStatusTextScale);
+    const Vector4 hpTextColor = layout.Color("hp.color", kHpTextColor);
+    const Vector2 acquiredTextPosition = layout.Pos("acquired.pos", kAcquiredTextPosition);
+    const Vector2 acquiredSkillPosition = layout.Pos("acquired.skill_pos", kAcquiredSkillPosition);
+    const Vector2 skippedTextPosition = layout.Pos("skipped.pos", kSkippedTextPosition);
+    const float resultTextScale = layout.Float("result.scale", kResultTextScale);
+    const float acquiredSkillScale = layout.Float("acquired.skill_scale", kAcquiredSkillScale);
+    const Vector2 allAcquiredPosition = layout.Pos("all_acquired.pos", kAllAcquiredPosition);
+    const float allAcquiredScale = layout.Float("all_acquired.scale", kAllAcquiredScale);
+    const Vector2 nextFloorPosition = layout.Pos("next_floor.pos", kNextFloorPosition);
+    const float nextFloorScale = layout.Float("next_floor.scale", kNextFloorScale);
+    const Vector4 nextFloorColor = layout.Color("next_floor.color", kNextFloorColor);
+    const Vector2 promptPosition = layout.Pos("prompt.pos", kPromptPosition);
+    const float promptScale = layout.Float("prompt.scale", kPromptScale);
+    const Vector4 promptColor = layout.Color("prompt.color", kPromptColor);
+    const float cardTextPaddingX = layout.Float("card.text_padding_x", kCardTextPaddingX);
+    const float cardKeyOffsetY = layout.Float("card.key_offset_y", kCardKeyOffsetY);
+    const float cardKeyScale = layout.Float("card.key_scale", kCardKeyScale);
+    const float cardNameOffsetY = layout.Float("card.name_offset_y", kCardNameOffsetY);
+    const float cardNameScale = layout.Float("card.name_scale", kCardNameScale);
+    const float cardDescOffsetY = layout.Float("card.desc_offset_y", kCardDescOffsetY);
+    const float cardDescScale = layout.Float("card.desc_scale", kCardDescScale);
+    const Vector4 cardDescColor = layout.Color("card.desc_color", kCardDescColor);
+    const float cardCodeOffsetY = layout.Float("card.code_offset_y", kCardCodeOffsetY);
+    const float cardCodeScale = layout.Float("card.code_scale", kCardCodeScale);
+    const Vector4 cardCodeColor = layout.Color("card.code_color", kCardCodeColor);
+    const Vector2 ownedLabelPosition = layout.Pos("owned.label_position", kOwnedLabelPosition);
+    const float ownedLabelScale = layout.Float("owned.label_scale", kOwnedLabelScale);
+    const Vector4 ownedLabelColor = layout.Color("owned.label_color", kOwnedLabelColor);
+    const float ownedListX = layout.Float("owned.list_x", kOwnedListX);
+    const float ownedListY = layout.Float("owned.list_y", kOwnedListY);
+    const float ownedSkillScale = layout.Float("owned.skill_scale", kOwnedSkillScale);
+    const Vector4 ownedSkillColor = layout.Color("owned.skill_color", kOwnedSkillColor);
+    const Vector2 helpPosition = layout.Pos("help.pos", kHelpPosition);
+    const float helpScale = layout.Float("help.scale", kHelpScale);
+    const Vector4 helpColor = layout.Color("help.color", kHelpColor);
     auto* rd = RunData::GetInstance();
 
     spriteCommon_->CommonDrawSettings();
+    bgSprite_->SetColor(backgroundColor);
     bgSprite_->Update();
     bgSprite_->Draw();
 
     fontRenderer_.Reset();
 
     // ── タイトル ──
-    fontRenderer_.DrawStringW(L"ショップ", kTitlePosition.x, kTitlePosition.y, kTitleScale, kGreenText);
+    fontRenderer_.DrawStringW(L"ショップ", titlePosition.x, titlePosition.y, titleScale, greenText);
 
     // HP / ゴールド
     {
         char buf[64];
         snprintf(buf, sizeof(buf), "HP:%d/%d", rd->GetHp(), rd->GetMaxHp());
-        fontRenderer_.DrawString(buf, kHpTextPosition.x, kHpTextPosition.y, kStatusTextScale, kHpTextColor);
+        fontRenderer_.DrawString(buf, hpTextPosition.x, hpTextPosition.y, statusTextScale, hpTextColor);
         snprintf(buf, sizeof(buf), "Gold:%dG", rd->GetGold());
-        fontRenderer_.DrawString(buf, kGoldTextPosition.x, kGoldTextPosition.y, kStatusTextScale, kGoldText);
+        fontRenderer_.DrawString(buf, goldTextPosition.x, goldTextPosition.y, statusTextScale, goldText);
     }
 
     // ── 完了表示 ──
     if (done_) {
         if (chosen_ >= 0) {
-            fontRenderer_.DrawStringW(L"スキルを取得した!", kAcquiredTextPosition.x, kAcquiredTextPosition.y, kResultTextScale, kGreenText);
-            fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[chosen_]).nameJp, kAcquiredSkillPosition.x, kAcquiredSkillPosition.y,
-                kAcquiredSkillScale, kGoldText);
+            fontRenderer_.DrawStringW(L"スキルを取得した!", acquiredTextPosition.x, acquiredTextPosition.y, resultTextScale, greenText);
+            fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[chosen_]).nameJp, acquiredSkillPosition.x, acquiredSkillPosition.y,
+                acquiredSkillScale, goldText);
         } else {
-            fontRenderer_.DrawStringW(L"スキップした", kSkippedTextPosition.x, kSkippedTextPosition.y, kResultTextScale, kGrayText);
+            fontRenderer_.DrawStringW(L"スキップした", skippedTextPosition.x, skippedTextPosition.y, resultTextScale, grayText);
         }
         fontRenderer_.Draw();
         return;
@@ -197,65 +251,64 @@ void ShopScene::Draw()
 
     // ── 全スキル取得済み ──
     if (offerCount_ == 0) {
-        fontRenderer_.DrawStringW(L"全スキルを取得済み!", kAllAcquiredPosition.x, kAllAcquiredPosition.y, kAllAcquiredScale, kGoldText);
-        fontRenderer_.DrawStringW(L"次のフロアへ進みます...", kNextFloorPosition.x, kNextFloorPosition.y, kNextFloorScale, kNextFloorColor);
+        fontRenderer_.DrawStringW(L"全スキルを取得済み!", allAcquiredPosition.x, allAcquiredPosition.y, allAcquiredScale, goldText);
+        fontRenderer_.DrawStringW(L"次のフロアへ進みます...", nextFloorPosition.x, nextFloorPosition.y, nextFloorScale, nextFloorColor);
         fontRenderer_.Draw();
         return;
     }
 
     // ── 選択見出し ──
-    fontRenderer_.DrawStringW(L"スキルを1つ選んでください", kPromptPosition.x, kPromptPosition.y, kPromptScale, kPromptColor);
+    fontRenderer_.DrawStringW(L"スキルを1つ選んでください", promptPosition.x, promptPosition.y, promptScale, promptColor);
 
     // ── スキルカード ──
-    static constexpr float kCardY = 195.0f;
-    static constexpr float kCardGap = 360.0f;
-    float startX = (GameConstants::kScreenWidth - kCardGap * (offerCount_ - 1) - kCardSize.x) * 0.5f;
+    float startX = (GameConstants::kScreenWidth - cardGap * (offerCount_ - 1) - cardSize.x) * 0.5f;
 
     for (int i = 0; i < offerCount_; ++i) {
-        float cx = startX + i * kCardGap;
+        float cx = startX + i * cardGap;
 
         // カード背景
-        cardSprite_->SetPosition({ cx, kCardY });
-        cardSprite_->SetColor(kCardColor);
+        cardSprite_->SetSize(cardSize);
+        cardSprite_->SetPosition({ cx, cardY });
+        cardSprite_->SetColor(cardColor);
         cardSprite_->Update();
         cardSprite_->Draw();
 
         // キーラベル
         char key[4];
         snprintf(key, sizeof(key), "[%d]", i + 1);
-        fontRenderer_.DrawString(key, cx + kCardTextPaddingX, kCardY + kCardKeyOffsetY, kCardKeyScale, kGreenText);
+        fontRenderer_.DrawString(key, cx + cardTextPaddingX, cardY + cardKeyOffsetY, cardKeyScale, greenText);
 
         // スキル名（日本語）
         fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[i]).nameJp,
-            cx + kCardTextPaddingX, kCardY + kCardNameOffsetY, kCardNameScale, kGoldText);
+            cx + cardTextPaddingX, cardY + cardNameOffsetY, cardNameScale, goldText);
 
         // スキル効果説明（日本語）
         fontRenderer_.DrawStringW(RunData::GetSkillText(offered_[i]).descJp,
-            cx + kCardTextPaddingX, kCardY + kCardDescOffsetY, kCardDescScale, kCardDescColor);
+            cx + cardTextPaddingX, cardY + cardDescOffsetY, cardDescScale, cardDescColor);
 
         // 英語コード名（小さく・補足として）
         const char* eng = RunData::SkillName(offered_[i]);
-        fontRenderer_.DrawString(eng, cx + kCardTextPaddingX, kCardY + kCardCodeOffsetY, kCardCodeScale, kCardCodeColor);
+        fontRenderer_.DrawString(eng, cx + cardTextPaddingX, cardY + cardCodeOffsetY, cardCodeScale, cardCodeColor);
     }
 
     // ── 所持スキル ──
     {
-        fontRenderer_.DrawStringW(L"所持スキル:", kOwnedLabelPosition.x, kOwnedLabelPosition.y, kOwnedLabelScale, kOwnedLabelColor);
+        fontRenderer_.DrawStringW(L"所持スキル:", ownedLabelPosition.x, ownedLabelPosition.y, ownedLabelScale, ownedLabelColor);
         if (rd->GetSkills().empty()) {
-            fontRenderer_.DrawStringW(L"なし", kOwnedListX, kOwnedLabelPosition.y, kOwnedLabelScale, kGrayText);
+            fontRenderer_.DrawStringW(L"なし", ownedListX, ownedLabelPosition.y, ownedLabelScale, grayText);
         } else {
-            float sx = kOwnedListX;
+            float sx = ownedListX;
             for (auto sk : rd->GetSkills()) {
                 const wchar_t* jn = RunData::GetSkillText(sk).nameJp;
-                fontRenderer_.DrawStringW(jn, sx, kOwnedListY, kOwnedSkillScale, kOwnedSkillColor);
-                sx += static_cast<float>(wcslen(jn) + 1) * FontRenderer::kJpCharW * kOwnedSkillScale;
+                fontRenderer_.DrawStringW(jn, sx, ownedListY, ownedSkillScale, ownedSkillColor);
+                sx += static_cast<float>(wcslen(jn) + 1) * FontRenderer::kJpCharW * ownedSkillScale;
             }
         }
     }
 
     // ── 操作説明 ──
     fontRenderer_.DrawStringW(L"1/2/3キー:スキル選択  Backspaceキー:スキップして次のフロアへ",
-        kHelpPosition.x, kHelpPosition.y, kHelpScale, kHelpColor);
+        helpPosition.x, helpPosition.y, helpScale, helpColor);
 
     fontRenderer_.Draw();
 }

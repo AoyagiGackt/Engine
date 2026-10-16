@@ -98,10 +98,12 @@ struct HeldWeaponVisual {
     Vector3 gripScale;
     Vector3 gripRotate; // ラジアン
     Vector3 gripTranslate;
+    bool holdPose = false; ///< 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うか
 };
 constexpr HeldWeaponVisual kHeldWeaponVisuals[] = {
     // カタナ: 原点は柄と鍔の境目、刃が +Y（実寸高さ約4.35）
-    { WeaponType::Sword, "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", { 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+
+    { WeaponType::Sword, "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", { 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // ダガー: 柄が根元(-Y側)、刃が +Y（実寸高さ約2.6）
     { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // ハンマー: 柄が根元(-Y側)、柄自体は原点をまっすぐ通っている（実寸高さ約4.33）。
@@ -109,29 +111,36 @@ constexpr HeldWeaponVisual kHeldWeaponVisuals[] = {
     // 直径の6倍以上)。回転無しだとその張り出しが自分側を向いてしまうため、Y軸180度で反転させる
     { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // スピア: 実寸高さ約9.7と長いため小さめのスケール
-    { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", { 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+
+    { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", { 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // クレイモア: 柄が根元付近(Y=-0.32)、刃が +Y（実寸高さ約6.6）
-    { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", { 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+
+    { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", { 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // 鎌: 柄の中程が原点、刃が +X 側へ張り出す（実寸高さ約5.6）。
     // 他の武器と違い刃が柄と同軸(+Y)ではなく横に張り出す形状のため、回転無しだと刃が自分側を向いてしまう。
     // Y軸180度で+X側の張り出しを反転させ、刃が外側（キャラの正面側）を向くようにする
-    { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+
+    { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // 両刃斧: 頂点座標を実測したところ、刃(左右対称の両刃ヘッド)は+Y端のみにあり(実寸高さ約6.35)、
     // 柄そのものが原点(X=0)ではなくX≈+0.605の位置を通っている(=原点は柄から外れた位置にある)。
     // 刃は左右対称なので回転は無意味(向きに関係無い)、回転はせずXだけ補正する。
     // ・Y: 柄の反対側の端(-Y、無地の石突き)を握り手に合わせて、刃を全部前方へ出す(+1.525相当)
     // ・X: 柄の実際の通り道(+0.605相当)を握り手(原点)に合わせるため-0.29ぶんずらす。
     //      これをしないと武器全体が横にずれ、キャラの向きによっては刃が体のほうへ回り込んで見えていた
-    { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { -0.29f, 1.58f, 0.0f } },
+
+    { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { -0.29f, 1.58f, 0.0f }, true },
 };
 constexpr int kHeldWeaponVisualCount = static_cast<int>(sizeof(kHeldWeaponVisuals) / sizeof(kHeldWeaponVisuals[0]));
 
 /** @brief 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うタイプか */
 constexpr bool UsesHoldPose(WeaponType type)
 {
-    return type == WeaponType::Sword || type == WeaponType::Greatsword
-        || type == WeaponType::Scythe || type == WeaponType::Axe
-        || type == WeaponType::Spear;
+    for (const HeldWeaponVisual& visual : kHeldWeaponVisuals) {
+        if (visual.type == type) {
+            return visual.holdPose;
+        }
+    }
+    return false;
 }
 
 // 銃アセットの定義（左手ボーンにアタッチ、G キーで切り替えた1丁だけ表示。

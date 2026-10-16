@@ -1,0 +1,73 @@
+{
+  "_comment": "バトルテストシーン（ダミー相手の練習場）の調整値。dummy=ダミーの物理 reach=判定の広さ greatswordSpin=投げ回転斬りの渦 rampage=覚醒乱舞 bullet=スピン連射弾 score=攻撃倍率と加点 hitFlash=ダミーが光る秒数 finisher=フィニッシャー",
+  "dummy": {
+    "dummyKnockDragX": 0.84,
+    "dummyKnockDragY": 0.88,
+    "dummyHpRecoverTime": 0.8,
+    "dummyReturnLerpRate": 0.05,
+    "dummyReturnDelay": 1.5,
+    "dummyGravity": 0.012,
+    "dummyGroundY": 0.4,
+    "dummyMinX": 3,
+    "dummyMaxX": 35
+  },
+  "reach": {
+    "lockAssistReachMult": 1.2,
+    "lockAssistRearMult": 0.5,
+    "slamRangeBelowY": 1,
+    "slamRangeAboveY": 1.5,
+    "minMeleeReachRatio": 0.35,
+    "gunShotRearReach": 0.8,
+    "bulletHalfExtent": 0.12,
+    "rampageRushHalfWidth": 2.5,
+    "rampageRushHalfHeight": 1.5
+  },
+  "greatswordSpin": {
+    "greatswordSpinSuctionRadius": 4,
+    "greatswordSpinHitRadius": 1.5,
+    "greatswordSpinSuctionSpeed": 0.1
+  },
+  "rampage": {
+    "rampageRushKnockXFinisher": 0.45,
+    "rampageRushKnockXNormal": 0.12,
+    "rampageRushKnockYFinisher": 0.18,
+    "rampageRushKnockYNormal": 0.03,
+    "rampageRushHitStopFinisher": 6,
+    "rampageRushHitStopNormal": 2,
+    "rampageRushStyleFinisher": 60,
+    "rampageRushStyleNormal": 20
+  },
+  "bullet": {
+    "bulletKnockX": 0.09,
+    "bulletKnockY": 0.04,
+    "bulletHitStopFrames": 2,
+    "bulletStyleScore": 3
+  },
+  "score": {
+    "awakenedAttackMult": 1.5,
+    "meleeStyleScoreScale": 1.5,
+    "meleeAwakenGain": 0.08,
+    "gunAwakenGain": 0.04,
+    "bulletAwakenGain": 0.02
+  },
+  "hitFlash": {
+    "gunHitFlash": 0.1,
+    "rampageFinisherHitFlash": 0.2,
+    "rampageHitFlash": 0.08,
+    "bulletHitFlash": 0.08,
+    "launcherHitFlash": 0.2,
+    "meleeHitFlash": 0.14
+  },
+  "finisher": {
+    "chargeWarpImpulse": 0.4,
+    "beatWarpImpulse": 0.12,
+    "beatHitFlash": 0.1,
+    "beatKnockX": 0.06,
+    "beatKnockY": 0.06,
+    "beatStyleScore": 6,
+    "releaseHitFlash": 0.22,
+    "releaseKnockX": 0.5,
+    "releaseKnockY": 0.2,
+    "releaseStyleScore": 120
+  }
+}

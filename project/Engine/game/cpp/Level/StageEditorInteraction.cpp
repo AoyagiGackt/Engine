@@ -165,8 +165,8 @@ void StageEditor::DrawGizmos()
                 break;
             }
         }
-        if (!sourceFound && target.activationFlag.starts_with("condition_")) {
-            const std::string conditionName = target.activationFlag.substr(10);
+        if (!sourceFound && target.activationFlag.starts_with(kConditionFlagPrefix)) {
+            const std::string conditionName = target.activationFlag.substr(kConditionFlagPrefix.size());
             for (const auto& condition : objects_) {
                 if (condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName) {
                     sourcePosition = WorldPositionOf(condition.desc);

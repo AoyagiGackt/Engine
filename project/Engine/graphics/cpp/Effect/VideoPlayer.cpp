@@ -17,6 +17,17 @@
 #include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
+
+namespace {
+
+// 動画のプレビュー配置とピクセル容量
+constexpr float kPreviewX = 960.0f;
+constexpr float kPreviewY = 15.0f;
+constexpr float kPreviewWidth = 300.0f;
+constexpr float kPreviewHeight = 450.0f;
+constexpr int kRgbaBytesPerPixel = 4;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -134,8 +145,8 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     sprite_ = std::make_unique<Sprite>();
     sprite_->Initialize(spriteCommon_, "Resources/uvChecker.png"); // テクスチャは後で差し替える
 
-    sprite_->SetPosition({ 960.0f, 15.0f }); // 画面右上あたりに配置
-    sprite_->SetSize({ 300.0f, 450.0f }); // 動画の表示サイズ
+    sprite_->SetPosition({ kPreviewX, kPreviewY }); // 画面右上あたりに配置
+    sprite_->SetSize({ kPreviewWidth, kPreviewHeight }); // 動画の表示サイズ
 
     // スプライトが参照するテクスチャを、動画用 SRV に差し替える
     sprite_->SetExternalTexture(srvIndex_);
@@ -193,14 +204,14 @@ void VideoPlayer::Update()
             dxCommon_->GetDevice()->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
 
             // 動画の 1行あたりのバイト数（パディングなし  幅 × 4バイト/ピクセル）
-            LONG mfStride = videoWidth_ * 4;
+            LONG mfStride = videoWidth_ * kRgbaBytesPerPixel;
 
             // 1行ずつコピーする（GPU の RowPitch に合わせてアドレスを計算）
             for (int y = 0; y < videoHeight_; ++y) {
                 memcpy(
                     pMappedData + y * footprint.Footprint.RowPitch, // コピー先（GPU 行境界に合わせる）
                     pData + y * mfStride, // コピー元（動画データ）
-                    videoWidth_ * 4); // コピーするバイト数
+                    videoWidth_ * kRgbaBytesPerPixel); // コピーするバイト数
             }
 
             uploadBuffer_->Unmap(0, nullptr); // マップを解除

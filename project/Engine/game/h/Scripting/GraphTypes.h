@@ -63,6 +63,20 @@ struct GraphNode {
     float editorY = 0.0f;
 };
 
+/** @brief 実行出力ピン1つぶんの定義（エディタ上のピン名と、つなぎ先を書き込むメンバ） */
+struct ExecPinDef {
+    const char* name;
+    std::string GraphNode::* target;
+    bool branch; ///< 分岐ノード（真/偽の2本）側のピンか
+};
+
+/** @brief 実行出力ピンの一覧（配線・配線解除はこの表をループして扱う） */
+inline constexpr ExecPinDef kExecPins[] = {
+    { "next", &GraphNode::next, false },
+    { "true", &GraphNode::nextTrue, true },
+    { "false", &GraphNode::nextFalse, true },
+};
+
 /** @brief グラフ上に置く注釈用の色付き矩形実行には一切関与しない、GraphEditor上でのドキュメント化専用 */
 struct GraphComment {
     std::string id;

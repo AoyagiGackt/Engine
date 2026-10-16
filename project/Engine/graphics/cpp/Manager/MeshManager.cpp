@@ -9,13 +9,16 @@ using namespace engine::graphics;
 
 namespace {
 
-MeshData GenerateSphereMesh(int subdivision = 16, float radius = 1.0f)
+// 球面の分割と角度
+constexpr int kSphereSubdivisions = 16;
+constexpr float kPi = 3.14159265358979323846f;
+constexpr float kTwoPi = kPi * 2.0f;
+
+MeshData GenerateSphereMesh(int subdivision = kSphereSubdivisions, float radius = 1.0f)
 {
     MeshData mesh;
     mesh.transform = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
-    const float kPi = 3.14159265358979323846f;
-    const float kTwoPi = kPi * 2.0f;
 
     for (int lat = 0; lat < subdivision; ++lat) {
         float lat0 = kPi * (float(lat) / subdivision - 0.5f);

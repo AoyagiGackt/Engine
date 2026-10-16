@@ -201,7 +201,7 @@ private:
     /** @brief デモ開始前の武器解放状況（デモではUnlockAll()するため、終了時に必ず復元する） */
     WeaponManager::Snapshot weaponManagerSnapshot_;
 
-    /** @brief 現在狙っている的（demoDummies_内）のインデックス。全滅したらステージの最初からやり直す */
+    /** @brief 現在狙っている的（demoDummies_内）のインデックス。-1 なら狙っていない */
     int demoTargetIndex_ = 0;
     /** @brief 狙っている的の間合いに入ってからの経過秒（攻撃パルスのタイミングに使う） */
     float demoAttackTimer_ = 0.0f;
@@ -214,16 +214,10 @@ private:
     float demoEnemyDodgeCooldown_ = 0.0f;
     /** @brief 急な回避や踏み込みでも画面が跳ねないよう補間したカメラX座標 */
     float demoCameraX_ = 0.0f;
-    /** @brief 敵配置・武器・コンボ選択を周回ごとに変える乱数 */
+    /** @brief 的の復帰位置・攻撃間隔のばらつきと演出に使う乱数 */
     std::mt19937 demoRng_ { std::random_device {}() };
-    /** @brief 現在の敵へ入れる攻撃数（敵ごとに2～4段で変化） */
-    int demoAttackCount_ = 3;
-    /** @brief 現在の敵への締めを武器固有技にするか */
-    bool demoUseSkillFinisher_ = false;
     /** @brief 次に切り替える武器のインデックス（weaponManager_->GetList()内） */
     int demoWeaponIndex_ = 0;
-    /** @brief 周回ごとに変えるジャンプ/固有技の有無・回避の判定に使う周回数 */
-    int demoCycleIndex_ = 0;
 
     /** @brief 背景デモの初期化（3D共通設定・プレイヤー・足場ブロック・武器全解放） */
     void InitializeDemo();

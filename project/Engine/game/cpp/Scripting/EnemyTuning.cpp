@@ -3,6 +3,7 @@
  * @brief EnemyTuningの敵調整値の読み込みを実装するファイル
  */
 #include "EnemyTuning.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 using namespace engine::game;
@@ -11,11 +12,74 @@ using namespace engine;
 namespace {
 constexpr const char* kEnemyParamsPath = "Resources/Config/enemy_params.json";
 
-template <typename T>
-T ReadValue(const nlohmann::json& section, const char* key, T fallback)
-{
-    return section.is_object() ? section.value(key, fallback) : fallback;
-}
+constexpr JsonField<BasicEnemyTuning> kBasicFields[] = {
+    { "basic", "attackInterval", &BasicEnemyTuning::attackInterval },
+    { "basic", "attackTelegraph", &BasicEnemyTuning::attackTelegraph },
+    { "basic", "attackActive", &BasicEnemyTuning::attackActive },
+    { "basic", "attackDamage", &BasicEnemyTuning::attackDamage },
+    { "basic", "heavyAttackDamage", &BasicEnemyTuning::heavyAttackDamage },
+    { "basic", "daggerTelegraph", &BasicEnemyTuning::daggerTelegraph },
+    { "basic", "spearTelegraph", &BasicEnemyTuning::spearTelegraph },
+    { "basic", "heavyTelegraph", &BasicEnemyTuning::heavyTelegraph },
+    { "basic", "daggerRecovery", &BasicEnemyTuning::daggerRecovery },
+    { "basic", "spearRecovery", &BasicEnemyTuning::spearRecovery },
+    { "basic", "heavyRecovery", &BasicEnemyTuning::heavyRecovery },
+    { "basic", "approachSpeed", &BasicEnemyTuning::approachSpeed },
+    { "basic", "engageRange", &BasicEnemyTuning::engageRange },
+    { "basic", "aggroRange", &BasicEnemyTuning::aggroRange },
+    { "basic", "leashDistance", &BasicEnemyTuning::leashDistance },
+    { "basic", "meleeAttackRange", &BasicEnemyTuning::meleeAttackRange },
+    { "basic", "meleeReach", &BasicEnemyTuning::meleeReach },
+    { "basic", "meleeHitHalfHeight", &BasicEnemyTuning::meleeHitHalfHeight },
+    { "basic", "gravity", &BasicEnemyTuning::gravity },
+    { "basic", "ceilingY", &BasicEnemyTuning::ceilingY },
+    { "basic", "knockbackDecay", &BasicEnemyTuning::knockbackDecay },
+    { "basic", "knockbackSlowMultiplier", &BasicEnemyTuning::knockbackSlowMultiplier },
+    { "basic", "airComboGravityScale", &BasicEnemyTuning::airComboGravityScale },
+    { "basic", "airComboHold", &BasicEnemyTuning::airComboHold },
+    { "basic", "flyingBobAmplitude", &BasicEnemyTuning::flyingBobAmplitude },
+    { "basic", "flyingBobSpeed", &BasicEnemyTuning::flyingBobSpeed },
+    { "basic", "healerPulseSeconds", &BasicEnemyTuning::healerPulseSeconds },
+    { "basic", "healerCastSeconds", &BasicEnemyTuning::healerCastSeconds },
+    { "basic", "healerRange", &BasicEnemyTuning::healerRange },
+    { "basic", "healerAmount", &BasicEnemyTuning::healerAmount },
+    { "basic", "corpseFootOffset", &BasicEnemyTuning::corpseFootOffset },
+};
+
+constexpr JsonField<KnightEnemyTuning> kKnightFields[] = {
+    { "knight", "maxHp", &KnightEnemyTuning::maxHp },
+    { "knight", "idleDuration", &KnightEnemyTuning::idleDuration },
+    { "knight", "telegraphDuration", &KnightEnemyTuning::telegraphDuration },
+    { "knight", "dashDuration", &KnightEnemyTuning::dashDuration },
+    { "knight", "recoverDuration", &KnightEnemyTuning::recoverDuration },
+    { "knight", "maxDashDistance", &KnightEnemyTuning::maxDashDistance },
+    { "knight", "knockbackSpeed", &KnightEnemyTuning::knockbackSpeed },
+    { "knight", "knockbackDecay", &KnightEnemyTuning::knockbackDecay },
+};
+
+constexpr JsonField<EnemyBulletTuning> kBulletFields[] = {
+    { "bullet", "speed", &EnemyBulletTuning::speed },
+    { "bullet", "lifetime", &EnemyBulletTuning::lifetime },
+    { "bullet", "fireRange", &EnemyBulletTuning::fireRange },
+};
+
+constexpr JsonField<BossSlamTuning> kBossSlamFields[] = {
+    { "bossSlam", "engageRange", &BossSlamTuning::engageRange },
+    { "bossSlam", "interval", &BossSlamTuning::interval },
+    { "bossSlam", "warningDuration", &BossSlamTuning::warningDuration },
+    { "bossSlam", "radius", &BossSlamTuning::radius },
+    { "bossSlam", "damage", &BossSlamTuning::damage },
+};
+
+constexpr JsonField<EnemySeparationTuning> kSeparationFields[] = {
+    { "separation", "minDistanceX", &EnemySeparationTuning::minDistanceX },
+    { "separation", "minDistanceY", &EnemySeparationTuning::minDistanceY },
+    { "separation", "pushRate", &EnemySeparationTuning::pushRate },
+    { "separation", "bodyHalfWidth", &EnemySeparationTuning::bodyHalfWidth },
+    { "separation", "wallBandBottom", &EnemySeparationTuning::wallBandBottom },
+    { "separation", "wallBandTop", &EnemySeparationTuning::wallBandTop },
+    { "separation", "wallContactMargin", &EnemySeparationTuning::wallContactMargin },
+};
 }
 
 EnemyTuning* EnemyTuning::GetInstance()
@@ -35,6 +99,7 @@ void EnemyTuning::Reload()
     knight_ = KnightEnemyTuning { };
     bullet_ = EnemyBulletTuning { };
     bossSlam_ = BossSlamTuning { };
+    separation_ = EnemySeparationTuning { };
 
     const nlohmann::json root = JsonHelper::Load(kEnemyParamsPath);
     if (!root.is_object()) {
@@ -42,57 +107,9 @@ void EnemyTuning::Reload()
         return;
     }
 
-    const nlohmann::json basic = root.value("basic", nlohmann::json::object());
-    basic_.attackInterval = ReadValue(basic, "attackInterval", basic_.attackInterval);
-    basic_.attackTelegraph = ReadValue(basic, "attackTelegraph", basic_.attackTelegraph);
-    basic_.attackActive = ReadValue(basic, "attackActive", basic_.attackActive);
-    basic_.attackDamage = ReadValue(basic, "attackDamage", basic_.attackDamage);
-    basic_.heavyAttackDamage = ReadValue(basic, "heavyAttackDamage", basic_.heavyAttackDamage);
-    basic_.daggerTelegraph = ReadValue(basic, "daggerTelegraph", basic_.daggerTelegraph);
-    basic_.spearTelegraph = ReadValue(basic, "spearTelegraph", basic_.spearTelegraph);
-    basic_.heavyTelegraph = ReadValue(basic, "heavyTelegraph", basic_.heavyTelegraph);
-    basic_.daggerRecovery = ReadValue(basic, "daggerRecovery", basic_.daggerRecovery);
-    basic_.spearRecovery = ReadValue(basic, "spearRecovery", basic_.spearRecovery);
-    basic_.heavyRecovery = ReadValue(basic, "heavyRecovery", basic_.heavyRecovery);
-    basic_.approachSpeed = ReadValue(basic, "approachSpeed", basic_.approachSpeed);
-    basic_.engageRange = ReadValue(basic, "engageRange", basic_.engageRange);
-    basic_.aggroRange = ReadValue(basic, "aggroRange", basic_.aggroRange);
-    basic_.leashDistance = ReadValue(basic, "leashDistance", basic_.leashDistance);
-    basic_.meleeAttackRange = ReadValue(basic, "meleeAttackRange", basic_.meleeAttackRange);
-    basic_.meleeReach = ReadValue(basic, "meleeReach", basic_.meleeReach);
-    basic_.meleeHitHalfHeight = ReadValue(basic, "meleeHitHalfHeight", basic_.meleeHitHalfHeight);
-    basic_.gravity = ReadValue(basic, "gravity", basic_.gravity);
-    basic_.ceilingY = ReadValue(basic, "ceilingY", basic_.ceilingY);
-    basic_.knockbackDecay = ReadValue(basic, "knockbackDecay", basic_.knockbackDecay);
-    basic_.knockbackSlowMultiplier = ReadValue(basic, "knockbackSlowMultiplier", basic_.knockbackSlowMultiplier);
-    basic_.airComboGravityScale = ReadValue(basic, "airComboGravityScale", basic_.airComboGravityScale);
-    basic_.airComboHold = ReadValue(basic, "airComboHold", basic_.airComboHold);
-    basic_.flyingBobAmplitude = ReadValue(basic, "flyingBobAmplitude", basic_.flyingBobAmplitude);
-    basic_.flyingBobSpeed = ReadValue(basic, "flyingBobSpeed", basic_.flyingBobSpeed);
-    basic_.healerPulseSeconds = ReadValue(basic, "healerPulseSeconds", basic_.healerPulseSeconds);
-    basic_.healerCastSeconds = ReadValue(basic, "healerCastSeconds", basic_.healerCastSeconds);
-    basic_.healerRange = ReadValue(basic, "healerRange", basic_.healerRange);
-    basic_.healerAmount = ReadValue(basic, "healerAmount", basic_.healerAmount);
-
-    const nlohmann::json knight = root.value("knight", nlohmann::json::object());
-    knight_.maxHp = ReadValue(knight, "maxHp", knight_.maxHp);
-    knight_.idleDuration = ReadValue(knight, "idleDuration", knight_.idleDuration);
-    knight_.telegraphDuration = ReadValue(knight, "telegraphDuration", knight_.telegraphDuration);
-    knight_.dashDuration = ReadValue(knight, "dashDuration", knight_.dashDuration);
-    knight_.recoverDuration = ReadValue(knight, "recoverDuration", knight_.recoverDuration);
-    knight_.maxDashDistance = ReadValue(knight, "maxDashDistance", knight_.maxDashDistance);
-    knight_.knockbackSpeed = ReadValue(knight, "knockbackSpeed", knight_.knockbackSpeed);
-    knight_.knockbackDecay = ReadValue(knight, "knockbackDecay", knight_.knockbackDecay);
-
-    const nlohmann::json bullet = root.value("bullet", nlohmann::json::object());
-    bullet_.speed = ReadValue(bullet, "speed", bullet_.speed);
-    bullet_.lifetime = ReadValue(bullet, "lifetime", bullet_.lifetime);
-    bullet_.fireRange = ReadValue(bullet, "fireRange", bullet_.fireRange);
-
-    const nlohmann::json slam = root.value("bossSlam", nlohmann::json::object());
-    bossSlam_.engageRange = ReadValue(slam, "engageRange", bossSlam_.engageRange);
-    bossSlam_.interval = ReadValue(slam, "interval", bossSlam_.interval);
-    bossSlam_.warningDuration = ReadValue(slam, "warningDuration", bossSlam_.warningDuration);
-    bossSlam_.radius = ReadValue(slam, "radius", bossSlam_.radius);
-    bossSlam_.damage = ReadValue(slam, "damage", bossSlam_.damage);
+    ReadJsonFields(root, kBasicFields, basic_);
+    ReadJsonFields(root, kKnightFields, knight_);
+    ReadJsonFields(root, kBulletFields, bullet_);
+    ReadJsonFields(root, kBossSlamFields, bossSlam_);
+    ReadJsonFields(root, kSeparationFields, separation_);
 }

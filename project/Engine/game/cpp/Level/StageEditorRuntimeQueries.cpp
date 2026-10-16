@@ -36,10 +36,18 @@ using namespace engine::graphics;
 
 std::vector<engine::AABB> StageEditor::GetSolidColliders() const
 {
+    return CollectSolidColliders(true);
+}
+
+std::vector<engine::AABB> StageEditor::CollectSolidColliders(bool includeEnemyBodies) const
+{
     std::vector<engine::AABB> result;
     for (const auto& entry : objects_) {
         if (!entry.desc.solid || !entry.runtimeActive || !entry.visibleOverride
             || entry.pickupCollected || entry.breakableDestroyed) {
+            continue;
+        }
+        if (!includeEnemyBodies && (entry.enemy || entry.knight)) {
             continue;
         }
         // solid指定のある敵でも、死体は床や壁としてプレイヤーを押し出さない。
@@ -53,7 +61,9 @@ std::vector<engine::AABB> StageEditor::GetSolidColliders() const
             // GetSolidColliders()はUpdateObjects()より前（このフレームのruntimeTimer加算前）に呼ばれるため、
             // そのまま使うと当たり判定が見た目より1フレーム遅れ、動く床に乗った瞬間に浮いて見える。
             // このフレーム分をあらかじめ足した時刻で計算し、見た目（UpdateRuntimeEntry側）と揃える
-            const float motionDelta = ShouldPauseGame() ? GameConstants::kFrameDeltaTime : TimeManager::GetInstance()->GetDeltaTime();
+            const float motionDelta = ShouldPauseGame()
+                ? GameConstants::kFrameDeltaTime
+                : (gameplayHeld_ ? 0.0f : TimeManager::GetInstance()->GetDeltaTime());
             const GimmickPose pose = motion->Evaluate(desc, entry.runtimeTimer + motionDelta);
             if (!pose.solid) {
                 continue;

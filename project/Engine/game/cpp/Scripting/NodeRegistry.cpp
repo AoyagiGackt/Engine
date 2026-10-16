@@ -27,6 +27,19 @@ using namespace engine;
 
 namespace {
 
+// GraphValueTypeの並び順（Float/Bool/String/Any）に対応する、初期値を省略した時の既定値
+const GraphValue kTypeDefaults[] = { 0.0f, false, std::string { }, 0.0f };
+
+// GraphValueはboolへも変換できるため、文字列の初期値は明示的にstd::stringへ包む
+GraphValue Text(const char* text) { return std::string(text); }
+
+// ノード追加時の初期値で共通して使う値
+constexpr float kOne = 1.0f;
+const GraphValue kDefaultVariable = Text("var");
+const GraphValue kDefaultEnemyTarget = Text("enemy");
+const GraphValue kDefaultObjectTarget = Text("obj_0");
+const GraphValue kDefaultSoundPath = Text("Resources/sound/se.wav");
+
 // パラメータ解決はGraphRuntime::ResolveParamに委譲する（データ配線があれば供給元ノードの出力を優先）
 
 NodeResult ExecSetVariable(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
@@ -502,36 +515,36 @@ void NodeRegistry::RegisterBuiltins()
 
     // ── よく使う（変数の読み書き・分岐・待機・イベント発火など基本のフロー制御）──
     Register("SetVariable", ExecSetVariable);
-    RegisterSpec("SetVariable", { { { "name", VT::String }, { "value", VT::Any } }, true, VT::Any, "変数nameにvalueを代入する（無ければ新規作成）", "よく使う" });
+    RegisterSpec("SetVariable", { { { "name", VT::String, kDefaultVariable }, { "value", VT::Any } }, true, VT::Any, "変数nameにvalueを代入する（無ければ新規作成）", "よく使う" });
 
     Register("If", ExecIf);
-    RegisterSpec("If", { { { "var", VT::String }, { "op", VT::String }, { "value", VT::Any } }, false, VT::Any, "変数varの値をopでvalueと比較し、真ならnextTrue／偽ならnextFalseへ分岐する", "よく使う" });
+    RegisterSpec("If", { { { "var", VT::String, kDefaultVariable }, { "op", VT::String, Text("==") }, { "value", VT::Any } }, false, VT::Any, "変数varの値をopでvalueと比較し、真ならnextTrue／偽ならnextFalseへ分岐する", "よく使う", true });
 
     Register("Wait", ExecWait);
-    RegisterSpec("Wait", { { { "seconds", VT::Float } }, false, VT::Any, "seconds秒待ってから次へ進む（フレームをまたいで待機する）", "よく使う" });
+    RegisterSpec("Wait", { { { "seconds", VT::Float, kOne } }, false, VT::Any, "seconds秒待ってから次へ進む（フレームをまたいで待機する）", "よく使う" });
 
     Register("EmitEvent", ExecEmitEvent);
-    RegisterSpec("EmitEvent", { { { "event", VT::String } }, false, VT::Any, "名前付きイベントを発火する（EventBus経由、コード側でSubscribe済みの処理が呼ばれる）", "よく使う" });
+    RegisterSpec("EmitEvent", { { { "event", VT::String, Text("event_name") } }, false, VT::Any, "名前付きイベントを発火する（EventBus経由、コード側でSubscribe済みの処理が呼ばれる）", "よく使う" });
 
     Register("Compare", ExecCompare);
-    RegisterSpec("Compare", { { { "a", VT::Any }, { "b", VT::Any }, { "op", VT::String } }, true, VT::Bool, "2つの値をop（== != < <= > >=）で比較しboolを出力する（Ifと違い変数名でなくデータピンを直接比較できる）", "よく使う" });
+    RegisterSpec("Compare", { { { "a", VT::Any }, { "b", VT::Any }, { "op", VT::String, Text("==") } }, true, VT::Bool, "2つの値をop（== != < <= > >=）で比較しboolを出力する（Ifと違い変数名でなくデータピンを直接比較できる）", "よく使う" });
 
     // ── 変数・フラグ（GameFlagsによるステージ間共有フラグ、サブグラフ呼び出し）──
     Register("SetFlag", ExecSetFlag);
-    RegisterSpec("SetFlag", { { { "flag", VT::String }, { "value", VT::Bool } }, true, VT::Bool, "グローバルなbool変数(GameFlags)を書き換えるステージのトリガーやIf/GetFlagから参照できる", "変数・フラグ" });
+    RegisterSpec("SetFlag", { { { "flag", VT::String, Text("flag_name") }, { "value", VT::Bool } }, true, VT::Bool, "グローバルなbool変数(GameFlags)を書き換えるステージのトリガーやIf/GetFlagから参照できる", "変数・フラグ" });
 
     Register("GetFlag", ExecGetFlag);
-    RegisterSpec("GetFlag", { { { "flag", VT::String }, { "into", VT::String } }, true, VT::Bool, "GameFlagsの値を読む（intoを指定するとグラフのローカル変数にもコピーされる）", "変数・フラグ" });
+    RegisterSpec("GetFlag", { { { "flag", VT::String, Text("flag_name") }, { "into", VT::String, kDefaultVariable } }, true, VT::Bool, "GameFlagsの値を読む（intoを指定するとグラフのローカル変数にもコピーされる）", "変数・フラグ" });
 
     Register("Subgraph", ExecSubgraph);
-    RegisterSpec("Subgraph", { { { "path", VT::String } }, false, VT::Any, "別のグラフJSONを呼び出す（子がHaltするまで待機、ロジックの再利用・整理に使う）", "変数・フラグ" });
+    RegisterSpec("Subgraph", { { { "path", VT::String, Text("Resources/Graphs/sub_graph.json") } }, false, VT::Any, "別のグラフJSONを呼び出す（子がHaltするまで待機、ロジックの再利用・整理に使う）", "変数・フラグ", false, "path" });
 
     // ── 数値・論理（四則演算・比較・乱数・ブール演算）──
     Register("Math", ExecMath);
-    RegisterSpec("Math", { { { "a", VT::Float }, { "b", VT::Float }, { "op", VT::String } }, true, VT::Float, "a op b を計算する（op: + - * /）", "数値・論理" });
+    RegisterSpec("Math", { { { "a", VT::Float }, { "b", VT::Float }, { "op", VT::String, Text("+") } }, true, VT::Float, "a op b を計算する（op: + - * /）", "数値・論理" });
 
     Register("Random", ExecRandom);
-    RegisterSpec("Random", { { { "min", VT::Float }, { "max", VT::Float } }, true, VT::Float, "min〜maxの範囲でFloat乱数を出力する", "数値・論理" });
+    RegisterSpec("Random", { { { "min", VT::Float }, { "max", VT::Float, kOne } }, true, VT::Float, "min〜maxの範囲でFloat乱数を出力する", "数値・論理" });
 
     Register("And", ExecAnd);
     RegisterSpec("And", { { { "a", VT::Bool }, { "b", VT::Bool } }, true, VT::Bool, "aとbが両方trueならtrueを出力する", "数値・論理" });
@@ -544,72 +557,77 @@ void NodeRegistry::RegisterBuiltins()
 
     // ── プレイヤー（PlayerBridge/RunData経由でプレイヤーの状態を操作）──
     Register("DamagePlayer", ExecDamagePlayer);
-    RegisterSpec("DamagePlayer", { { { "amount", VT::Float } }, false, VT::Any, "プレイヤーのHPをamount減らす", "プレイヤー" });
+    RegisterSpec("DamagePlayer", { { { "amount", VT::Float, kOne } }, false, VT::Any, "プレイヤーのHPをamount減らす", "プレイヤー" });
 
     Register("HealPlayer", ExecHealPlayer);
-    RegisterSpec("HealPlayer", { { { "amount", VT::Float } }, false, VT::Any, "プレイヤーのHPをamount回復する（最大値は超えない）", "プレイヤー" });
+    RegisterSpec("HealPlayer", { { { "amount", VT::Float, kOne } }, false, VT::Any, "プレイヤーのHPをamount回復する（最大値は超えない）", "プレイヤー" });
 
     Register("TeleportPlayer", ExecTeleportPlayer);
     RegisterSpec("TeleportPlayer", { { { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "プレイヤーを座標(x,y,z)へ瞬間移動させる", "プレイヤー" });
 
     // ── 敵（EnemyRegistryに登録済みのidで対象を引いて操作）──
     Register("DamageEnemy", ExecDamageEnemy);
-    RegisterSpec("DamageEnemy", { { { "target", VT::String }, { "amount", VT::Float } }, false, VT::Any, "targetという名前で登録された敵（EnemyRegistry）にamountダメージを与える", "敵" });
+    RegisterSpec("DamageEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "amount", VT::Float, kOne } }, false, VT::Any, "targetという名前で登録された敵（EnemyRegistry）にamountダメージを与える", "敵" });
 
     Register("HealEnemy", ExecHealEnemy);
-    RegisterSpec("HealEnemy", { { { "target", VT::String }, { "amount", VT::Float } }, false, VT::Any, "targetという名前で登録された敵をamount回復する", "敵" });
+    RegisterSpec("HealEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "amount", VT::Float, kOne } }, false, VT::Any, "targetという名前で登録された敵をamount回復する", "敵" });
 
     Register("SetEnemyVisible", ExecSetEnemyVisible);
-    RegisterSpec("SetEnemyVisible", { { { "target", VT::String }, { "visible", VT::Bool } }, false, VT::Any, "targetという名前で登録された敵の表示/非表示を切り替える（EnemyEntity限定）", "敵" });
+    RegisterSpec("SetEnemyVisible", { { { "target", VT::String, kDefaultEnemyTarget }, { "visible", VT::Bool, true } }, false, VT::Any, "targetという名前で登録された敵の表示/非表示を切り替える（EnemyEntity限定）", "敵" });
 
     Register("TeleportEnemy", ExecTeleportEnemy);
-    RegisterSpec("TeleportEnemy", { { { "target", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "targetという名前で登録された敵を座標(x,y,z)へ瞬間移動させる（EnemyEntity限定）", "敵" });
+    RegisterSpec("TeleportEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "targetという名前で登録された敵を座標(x,y,z)へ瞬間移動させる（EnemyEntity限定）", "敵" });
 
     // ── 演出・音声（SE/BGM、画面フラッシュ、ヒットストップ）──
     Register("PlaySE", ExecPlaySE);
-    RegisterSpec("PlaySE", { { { "path", VT::String }, { "volume", VT::Float } }, false, VT::Any, "効果音を再生する（複数同時再生可、pathは音声ファイルのパス）", "演出・音声" });
+    RegisterSpec("PlaySE", { { { "path", VT::String, kDefaultSoundPath }, { "volume", VT::Float, kOne } }, false, VT::Any, "効果音を再生する（複数同時再生可、pathは音声ファイルのパス）", "演出・音声" });
 
     Register("PlayBGM", ExecPlayBGM);
-    RegisterSpec("PlayBGM", { { { "path", VT::String }, { "loop", VT::Bool } }, false, VT::Any, "BGMを再生する（前のBGMは自動停止、loopでループ有無を指定）", "演出・音声" });
+    RegisterSpec("PlayBGM", { { { "path", VT::String, kDefaultSoundPath }, { "loop", VT::Bool, true } }, false, VT::Any, "BGMを再生する（前のBGMは自動停止、loopでループ有無を指定）", "演出・音声" });
 
     Register("StopBGM", ExecStopBGM);
     RegisterSpec("StopBGM", { { }, false, VT::Any, "再生中のBGMを止める", "演出・音声" });
 
     Register("ScreenFlash", ExecScreenFlash);
-    RegisterSpec("ScreenFlash", { { { "r", VT::Float }, { "g", VT::Float }, { "b", VT::Float }, { "a", VT::Float }, { "duration", VT::Float } }, false, VT::Any, "画面全体を指定色(r,g,b,a)でフラッシュさせ、duration秒かけて元に戻す", "演出・音声" });
+    RegisterSpec("ScreenFlash", { { { "r", VT::Float, kOne }, { "g", VT::Float, kOne }, { "b", VT::Float, kOne }, { "a", VT::Float, GraphNodeDefaults::kFlashAlpha }, { "duration", VT::Float, GraphNodeDefaults::kFlashDuration } }, false, VT::Any, "画面全体を指定色(r,g,b,a)でフラッシュさせ、duration秒かけて元に戻す", "演出・音声" });
 
     Register("HitStop", ExecHitStop);
-    RegisterSpec("HitStop", { { { "frames", VT::Float } }, false, VT::Any, "framesフレームぶんゲームを一瞬止める演出用のヒットストップ", "演出・音声" });
+    RegisterSpec("HitStop", { { { "frames", VT::Float, GraphNodeDefaults::kHitStopFrames } }, false, VT::Any, "framesフレームぶんゲームを一瞬止める演出用のヒットストップ", "演出・音声" });
 
     // ── 配置物（ステージエディタで置いた配置物をnameで操作。敵・ギミック・ブロック等すべて対象）──
     Register("SetObjectVisible", ExecSetObjectVisible);
-    RegisterSpec("SetObjectVisible", { { { "target", VT::String }, { "visible", VT::Bool } }, false, VT::Any, "レベルの配置物targetの表示/非表示を切り替える（当たり判定も一緒に消える）", "配置物" });
+    RegisterSpec("SetObjectVisible", { { { "target", VT::String, kDefaultObjectTarget }, { "visible", VT::Bool, true } }, false, VT::Any, "レベルの配置物targetの表示/非表示を切り替える（当たり判定も一緒に消える）", "配置物" });
 
     Register("SetObjectEnabled", ExecSetObjectEnabled);
-    RegisterSpec("SetObjectEnabled", { { { "target", VT::String }, { "enabled", VT::Bool } }, false, VT::Any, "レベルの配置物targetを有効/無効にする（有効化フラグより優先。敵なら生成/消滅、ギミックなら動作停止）", "配置物" });
+    RegisterSpec("SetObjectEnabled", { { { "target", VT::String, kDefaultObjectTarget }, { "enabled", VT::Bool, true } }, false, VT::Any, "レベルの配置物targetを有効/無効にする（有効化フラグより優先。敵なら生成/消滅、ギミックなら動作停止）", "配置物" });
 
     Register("TeleportObject", ExecTeleportObject);
-    RegisterSpec("TeleportObject", { { { "target", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "レベルの配置物targetを座標(x,y,z)へ瞬間移動させる（親がいる場合は親からの相対位置）", "配置物" });
+    RegisterSpec("TeleportObject", { { { "target", VT::String, kDefaultObjectTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "レベルの配置物targetを座標(x,y,z)へ瞬間移動させる（親がいる場合は親からの相対位置）", "配置物" });
 
     Register("MoveObject", ExecMoveObject);
-    RegisterSpec("MoveObject", { { { "target", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "seconds", VT::Float } }, false, VT::Any, "レベルの配置物targetをseconds秒かけて座標(x,y,z)へ滑らかに移動させる（扉の開閉や足場の移動に）", "配置物" });
+    RegisterSpec("MoveObject", { { { "target", VT::String, kDefaultObjectTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "seconds", VT::Float, kOne } }, false, VT::Any, "レベルの配置物targetをseconds秒かけて座標(x,y,z)へ滑らかに移動させる（扉の開閉や足場の移動に）", "配置物" });
 
     // ── 進行（シーン遷移・ステージクリア）──
     Register("ChangeScene", ExecChangeScene);
-    RegisterSpec("ChangeScene", { { { "scene", VT::String }, { "fadeOut", VT::Float }, { "fadeIn", VT::Float } }, false, VT::Any, "指定シーン（TITLE / MAP / GAMEPLAY / CLEAR / GAMEOVER 等）へ切り替える", "進行" });
+    RegisterSpec("ChangeScene", { { { "scene", VT::String, Text("MAP") }, { "fadeOut", VT::Float, GraphNodeDefaults::kSceneFadeSeconds }, { "fadeIn", VT::Float, GraphNodeDefaults::kSceneFadeSeconds } }, false, VT::Any, "指定シーン（TITLE / MAP / GAMEPLAY / CLEAR / GAMEOVER 等）へ切り替える", "進行" });
 
     Register("RequestStageClear", ExecRequestStageClear);
     RegisterSpec("RequestStageClear", { { }, false, VT::Any, "本編ステージのクリア条件を成立させる（game_rules.jsonのclearFlagを立てる）", "進行" });
 
     Register("SpawnEnemy", ExecSpawnEnemy);
-    RegisterSpec("SpawnEnemy", { { { "target", VT::String } }, false, VT::Any, "名前で指定したspawn_pointを起動して敵を出す（有効化フラグを待たない）", "配置物" });
+    RegisterSpec("SpawnEnemy", { { { "target", VT::String, Text("spawn_0") } }, false, VT::Any, "名前で指定したspawn_pointを起動して敵を出す（有効化フラグを待たない）", "配置物" });
 
     // ── 演出（カメラシェイク・パーティクル）──
     Register("ShakeCamera", ExecShakeCamera);
-    RegisterSpec("ShakeCamera", { { { "amount", VT::Float }, { "seconds", VT::Float } }, false, VT::Any, "カメラをamountの強さでseconds秒揺らす", "演出・音声" });
+    RegisterSpec("ShakeCamera", { { { "amount", VT::Float, GraphNodeDefaults::kShakeAmount }, { "seconds", VT::Float, GraphNodeDefaults::kShakeSeconds } }, false, VT::Any, "カメラをamountの強さでseconds秒揺らす", "演出・音声" });
 
     Register("EmitRing", ExecEmitRing);
-    RegisterSpec("EmitRing", { { { "group", VT::String }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "radius", VT::Float }, { "r", VT::Float }, { "g", VT::Float }, { "b", VT::Float } }, false, VT::Any, "座標(x,y,z)に色(r,g,b)のリング状パーティクルを出す（groupはparticles JSONのグループ名）", "演出・音声" });
+    RegisterSpec("EmitRing", { { { "group", VT::String, Text("hit_ring") }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "radius", VT::Float, GraphNodeDefaults::kRingRadius }, { "r", VT::Float, kOne }, { "g", VT::Float, kOne }, { "b", VT::Float, kOne } }, false, VT::Any, "座標(x,y,z)に色(r,g,b)のリング状パーティクルを出す（groupはparticles JSONのグループ名）", "演出・音声" });
+}
+
+GraphValue NodeParamSpec::InitialValue() const
+{
+    return defaultValue ? *defaultValue : kTypeDefaults[static_cast<size_t>(type)];
 }
 
 void NodeRegistry::Register(const std::string& type, NodeExecuteFn fn)

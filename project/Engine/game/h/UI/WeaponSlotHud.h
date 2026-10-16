@@ -37,6 +37,22 @@ private:
     /** @brief UILayoutから枠の位置・間隔を読み、枠とアイコンを並べ直す（エディタで動かした結果を毎フレーム反映する） */
     void ApplyLayout();
     bool HasModelIcon(int weaponIndex) const;
+
+    /** @brief 1枠ぶんのアイコンを描き分けるのに使う、そのフレームの状態 */
+    struct SlotIconState {
+        int weaponIndex = -1;
+        bool active = false; ///< 選択中の枠か
+        bool unlocked = false; ///< 武器を手に入れているか
+        float pulse = 0.0f; ///< 選択中の明滅
+        float flash = 0.0f; ///< 武器を手に入れた直後の光り（0〜1）
+        Vector3 cameraPosition {};
+    };
+    /** @brief 武器の3Dモデルを枠の位置に浮かべる */
+    void ShowModelIcon(Slot& slot, const SlotIconState& state);
+    /** @brief 武器の色で塗ったアイコンを出す */
+    void ShowColorIcon(Slot& slot, const SlotIconState& state);
+    /** @brief まだ手に入れていない枠を暗く出す */
+    void ShowLockedIcon(Slot& slot, const SlotIconState& state);
     engine::graphics::SpriteCommon* sprites_ = nullptr;
     engine::graphics::ModelCommon* models_ = nullptr;
     engine::DirectXCommon* graphics_ = nullptr;

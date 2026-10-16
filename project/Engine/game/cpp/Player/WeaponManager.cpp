@@ -4,15 +4,59 @@
  */
 #include "WeaponManager.h"
 #include "GameRules.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "StringUtility.h"
 #include <algorithm>
+#include <iterator>
 using namespace engine;
 using namespace engine::game;
 
 namespace {
 constexpr float kMinSkillCooldownMult = 0.05f; // 覚醒中に固有技を連打できなくなる下限
 constexpr size_t kColorChannels = 4;
+constexpr int kMaxEffectBurstCount = 64; // 1ヒットで出す属性粒子の上限（描画が詰まらないように）
+
+// 1つの値で済む項目の対応表（日本語名・種類・色・コマンド表は変換が要るので個別に読む）
+constexpr JsonField<RangedWeaponData> kRangedFields[] = {
+    { nullptr, "name", &RangedWeaponData::name },
+    { nullptr, "damage", &RangedWeaponData::damage },
+    { nullptr, "range", &RangedWeaponData::range },
+    { nullptr, "attackInterval", &RangedWeaponData::attackInterval },
+    { nullptr, "description", &RangedWeaponData::description },
+    { nullptr, "element", &RangedWeaponData::element },
+};
+
+constexpr JsonField<WeaponData> kWeaponFields[] = {
+    { nullptr, "name", &WeaponData::name },
+    { nullptr, "styleName", &WeaponData::styleName },
+    { nullptr, "damage", &WeaponData::damage },
+    { nullptr, "range", &WeaponData::range },
+    { nullptr, "attackInterval", &WeaponData::attackInterval },
+    { nullptr, "description", &WeaponData::description },
+    { nullptr, "knockbackMult", &WeaponData::knockbackMult },
+    { nullptr, "element", &WeaponData::element },
+    { "effect", "burstCount", &WeaponData::effectBurstCount },
+    { "effect", "ringRadius", &WeaponData::effectRingRadius },
+};
+
+constexpr JsonField<AwakenedWeaponMods> kAwakenedFields[] = {
+    { nullptr, "damageMult", &AwakenedWeaponMods::damageMult },
+    { nullptr, "skillRadiusMult", &AwakenedWeaponMods::skillRadiusMult },
+    { nullptr, "skillCooldownMult", &AwakenedWeaponMods::skillCooldownMult },
+    { nullptr, "knockbackMult", &AwakenedWeaponMods::knockbackMult },
+};
+
+/** @brief [R, G, B, A] の配列を読む（足りない成分は out の値のまま） */
+void ReadColor(const nlohmann::json& value, float (&out)[kColorChannels])
+{
+    if (!value.is_array()) {
+        return;
+    }
+    for (size_t i = 0; i < kColorChannels && i < value.size(); ++i) {
+        out[i] = value[i].get<float>();
+    }
+}
 
 constexpr const char* kWeaponDataPath = "Resources/Config/weapons.json";
 
@@ -60,32 +104,21 @@ WeaponManager::WeaponManager()
 
     // 射撃武器一覧（Gキーで循環切り替え、スタイルとは独立に選ぶ）
     for (const auto& r : j.value("rangedWeapons", nlohmann::json::array())) {
-        RangedWeaponData data;
-        data.name = r.value("name", "");
-        data.nameJp = StringUtility::ConvertString(r.value("nameJp", ""));
+        RangedWeaponData data {};
         data.type = ParseGunType(r.value("type", ""));
         // 遠距離用の補助武器は、役割が重なる複数の銃から一つに集約する。
         if (data.type != GunType::Pistol) {
             continue;
         }
-        data.damage = r.value("damage", 0.0f);
-        data.range = r.value("range", 0.0f);
-        data.attackInterval = r.value("attackInterval", 0.0f);
-        data.description = r.value("description", "");
+        ReadJsonFields(r, kRangedFields, data);
+        data.nameJp = StringUtility::ConvertString(r.value("nameJp", ""));
         data.commands = ParseCommands(r.value("commands", nlohmann::json::array()));
 
-        data.color[0] = data.color[1] = data.color[2] = 1.0f;
-        data.color[3] = 1.0f;
-        auto color = r.value("color", nlohmann::json::array());
-        for (size_t i = 0; i < kColorChannels && i < color.size(); ++i) {
-            data.color[i] = color[i].get<float>();
-        }
-        data.element = r.value("element", "None");
+        // 色は白から、属性色は未指定ならマズルの色を引き継ぐ
+        std::fill(std::begin(data.color), std::end(data.color), 1.0f);
+        ReadColor(r.value("color", nlohmann::json::array()), data.color);
         std::copy(std::begin(data.color), std::end(data.color), std::begin(data.effectColor));
-        auto effectColor = r.value("effectColor", nlohmann::json::array());
-        for (size_t i = 0; i < kColorChannels && i < effectColor.size(); ++i) {
-            data.effectColor[i] = effectColor[i].get<float>();
-        }
+        ReadColor(r.value("effectColor", nlohmann::json::array()), data.effectColor);
 
         rangedWeapons_.push_back(std::move(data));
     }
@@ -97,49 +130,32 @@ WeaponManager::WeaponManager()
 
     // スタイル一覧（1〜5キー対応）
     for (const auto& w : j.value("weapons", nlohmann::json::array())) {
-        WeaponData data;
-        data.name = w.value("name", "");
-        data.styleName = w.value("styleName", "");
-        data.styleNameJp = StringUtility::ConvertString(w.value("styleNameJp", ""));
+        WeaponData data {};
         data.type = ParseWeaponTypeName(w.value("type", ""));
         // 本編で使う四つの基本戦闘スタイルだけを読み込む（同時に持てるのはkSlotCount個まで）
-        const bool isCoreWeapon = data.type == WeaponType::Sword
-            || data.type == WeaponType::Spear
-            || data.type == WeaponType::Dagger
-            || data.type == WeaponType::Hammer;
+        static constexpr WeaponType kCoreWeaponTypes[] = {
+            WeaponType::Sword, WeaponType::Spear, WeaponType::Dagger, WeaponType::Hammer,
+        };
+        const bool isCoreWeapon = std::find(std::begin(kCoreWeaponTypes), std::end(kCoreWeaponTypes), data.type)
+            != std::end(kCoreWeaponTypes);
         if (!isCoreWeapon) {
             continue;
         }
-        data.damage = w.value("damage", 0.0f);
-        data.range = w.value("range", 0.0f);
-        data.attackInterval = w.value("attackInterval", 0.0f);
-        data.description = w.value("description", "");
-        data.knockbackMult = w.value("knockbackMult", 1.0f);
-        data.element = w.value("element", "None");
+        ReadJsonFields(w, kWeaponFields, data);
+        data.styleNameJp = StringUtility::ConvertString(w.value("styleNameJp", ""));
         data.commands = ParseCommands(w.value("commands", nlohmann::json::array()));
+        ReadJsonFields(w.value("awakened", nlohmann::json::object()), kAwakenedFields, data.awakened);
+        // 読んだ値を使える範囲に収める
+        data.awakened.skillCooldownMult = (std::max)(data.awakened.skillCooldownMult, kMinSkillCooldownMult);
+        data.effectBurstCount = std::clamp(data.effectBurstCount, 0, kMaxEffectBurstCount);
+        data.effectRingRadius = (std::max)(data.effectRingRadius, 0.0f);
 
-        data.styleColor[0] = data.styleColor[1] = data.styleColor[2] = 0.0f;
-        data.styleColor[3] = 1.0f;
-        auto color = w.value("styleColor", nlohmann::json::array());
-        for (size_t i = 0; i < 4 && i < color.size(); ++i) {
-            data.styleColor[i] = color[i].get<float>();
-        }
-
-        const auto awakened = w.value("awakened", nlohmann::json::object());
-        data.awakened.damageMult = awakened.value("damageMult", data.awakened.damageMult);
-        data.awakened.skillRadiusMult = awakened.value("skillRadiusMult", data.awakened.skillRadiusMult);
-        data.awakened.skillCooldownMult = (std::max)(awakened.value("skillCooldownMult", data.awakened.skillCooldownMult), kMinSkillCooldownMult);
-        data.awakened.knockbackMult = awakened.value("knockbackMult", data.awakened.knockbackMult);
-
-        const auto effect = w.value("effect", nlohmann::json::object());
-        data.effectBurstCount = std::clamp(effect.value("burstCount", 0), 0, 64);
-        data.effectRingRadius = (std::max)(effect.value("ringRadius", 0.0f), 0.0f);
-        auto effectColor = effect.value("color", nlohmann::json::array());
-        for (size_t i = 0; i < 4; ++i) {
-            data.effectColor[i] = i < effectColor.size()
-                ? effectColor[i].get<float>()
-                : data.styleColor[i];
-        }
+        // 色は黒から、属性色は未指定ならスタイルの色を引き継ぐ
+        std::fill(std::begin(data.styleColor), std::end(data.styleColor), 0.0f);
+        data.styleColor[kColorChannels - 1] = 1.0f;
+        ReadColor(w.value("styleColor", nlohmann::json::array()), data.styleColor);
+        std::copy(std::begin(data.styleColor), std::end(data.styleColor), std::begin(data.effectColor));
+        ReadColor(w.value("effect", nlohmann::json::object()).value("color", nlohmann::json::array()), data.effectColor);
 
         weapons_.push_back(std::move(data));
     }

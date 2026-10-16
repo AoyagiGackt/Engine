@@ -10,6 +10,14 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+
+namespace {
+
+// 診断文字列の容量
+constexpr size_t kMessageCapacity = 128;
+constexpr size_t kReportPathCapacity = 256;
+
+}
 #pragma comment(lib, "Dbghelp.lib")
 
 namespace engine {
@@ -26,7 +34,7 @@ void CrashHandler::SetContext(const std::string& context)
 
 LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
 {
-    char message[128];
+    char message[kMessageCapacity];
     std::snprintf(message, sizeof(message), "Unhandled exception: code=0x%08lX address=%p",
         static_cast<unsigned long>(exceptionInfo->ExceptionRecord->ExceptionCode),
         exceptionInfo->ExceptionRecord->ExceptionAddress);
@@ -41,11 +49,11 @@ LONG WINAPI CrashHandler::Filter(EXCEPTION_POINTERS* exceptionInfo)
 
     SYSTEMTIME st;
     GetLocalTime(&st);
-    char path[256];
+    char path[kReportPathCapacity];
     std::snprintf(path, sizeof(path), "crash/crash_%04d%02d%02d_%02d%02d%02d.dmp",
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
 
-    char reportPath[256];
+    char reportPath[kReportPathCapacity];
     std::snprintf(reportPath, sizeof(reportPath), "crash/crash_%04d%02d%02d_%02d%02d%02d.txt",
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     std::ofstream report(reportPath);

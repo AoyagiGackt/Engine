@@ -1,0 +1,79 @@
+{
+  "_comment": "武器の属性（weapons.jsonのelement）ごとの命中演出(hit)と振り中のオーラ(aura)。層を上から順に重ねる。type: ring=リング scatter=左右へばらまく火花 fan=規則的に並べる火花 slash=斬線 ellipse=細長い光 mote=漂う粒 pull=吸い込まれる粒。color は weapon（武器の色）か [R,G,B,A]。altColor は altEvery 粒ごと（altPhase番目）か altChance の確率で混ぜる差し色",
+  "Water": {
+    "hit": [
+      { "type": "scatter", "count": 14, "speedX": 3.0, "riseMin": 2.5, "riseMax": 5.5, "lifetime": 0.6, "size": 0.13, "scaleSize": true, "color": "weapon", "altColor": [0.85, 0.97, 1.0, 1.0], "altEvery": 3, "altPhase": 0 },
+      { "type": "ring", "speed": 1.6, "scaleSpeed": true, "count": 22, "lifetime": 0.45, "size": 0.12, "color": "weapon" },
+      { "type": "ring", "speed": 3.0, "scaleSpeed": true, "count": 26, "lifetime": 0.35, "size": 0.08, "color": [0.85, 0.97, 1.0, 1.0] }
+    ],
+    "aura": [
+      { "type": "scatter", "count": 1, "speedX": 1.2, "riseMin": 1.0, "lifetime": 0.45, "size": 0.08, "color": "weapon" }
+    ]
+  },
+  "Fire": {
+    "hit": [
+      { "type": "fan", "count": 10, "columns": 5, "centerColumn": 2, "columnSpacing": 0.65, "riseBase": 3.2, "riseSteps": 3, "riseStep": 0.9, "lifetime": 0.5, "size": 0.18, "scaleSize": true, "color": "weapon", "altColor": [1.0, 0.55, 0.05, 1.0], "altEvery": 2, "altPhase": 1 }
+    ],
+    "aura": [
+      { "type": "mote", "count": 1, "driftX": 0.4, "riseMin": 0.8, "riseMax": 2.0, "lifetime": 0.4, "size": 0.1, "flicker": true, "color": "weapon", "altColor": [1.0, 0.6, 0.1, 1.0], "altChance": 0.5 }
+    ]
+  },
+  "Lightning": {
+    "hit": [
+      { "type": "ellipse", "facingSpeed": 2.0, "lifetime": 0.16, "length": 3.4, "thickness": 0.12, "scaleLength": true, "color": "weapon" },
+      { "type": "ellipse", "riseSpeed": 1.0, "lifetime": 0.12, "length": 3.0, "thickness": 0.14, "scaleLength": true, "vertical": true, "color": [1.0, 1.0, 0.85, 1.0] },
+      { "type": "ring", "speed": 4.5, "count": 8, "lifetime": 0.14, "size": 0.1, "color": "weapon" }
+    ],
+    "aura": [
+      { "type": "ellipse", "chance": 0.5, "lifetime": 0.06, "length": 0.6, "thickness": 0.05, "color": "weapon" }
+    ]
+  },
+  "Ice": {
+    "hit": [
+      { "type": "fan", "count": 12, "columns": 7, "centerColumn": 3, "columnSpacing": 0.75, "riseBase": 2.0, "riseSteps": 4, "riseStep": 0.8, "lifetime": 0.65, "size": 0.14, "scaleSize": true, "color": "weapon" },
+      { "type": "ring", "speed": 1.3, "count": 20, "lifetime": 0.5, "size": 0.12, "color": [0.65, 0.95, 1.0, 0.75] }
+    ],
+    "aura": [
+      { "type": "mote", "count": 1, "driftX": 0.3, "riseMin": -0.5, "lifetime": 0.5, "size": 0.09, "color": [0.8, 0.97, 1.0, 0.85] }
+    ]
+  },
+  "Gravity": {
+    "hit": [
+      { "type": "ring", "speed": 0.8, "count": 24, "lifetime": 0.55, "size": 0.28, "scaleSize": true, "color": "weapon" },
+      { "type": "ring", "speed": 2.0, "count": 18, "lifetime": 0.38, "size": 0.18, "color": [0.35, 0.08, 0.6, 0.8] },
+      { "type": "mote", "count": 1, "lifetime": 0.35, "size": 0.8, "scaleSize": true, "flicker": true, "color": [0.95, 0.7, 1.0, 1.0] }
+    ],
+    "aura": [
+      { "type": "pull", "count": 1, "radius": 0.8, "pullSpeed": 2.0, "lifetime": 0.3, "size": 0.12, "color": "weapon" }
+    ]
+  },
+  "Blood": {
+    "hit": [
+      { "type": "slash", "angleRight": 0.45, "angleLeft": 2.69, "radius": 1.8, "scaleRadius": true, "color": "weapon" },
+      { "type": "fan", "count": 9, "facingSpeed": -0.5, "facingSpeedStep": -0.25, "riseBase": 1.0, "riseSteps": 4, "riseStep": 0.7, "lifetime": 0.55, "size": 0.2, "color": "weapon" }
+    ],
+    "aura": [
+      { "type": "scatter", "count": 1, "speedX": 0.6, "riseMin": 0.0, "lifetime": 0.5, "size": 0.1, "color": "weapon" }
+    ]
+  },
+  "Void": {
+    "hit": [
+      { "type": "ring", "speed": 1.4, "count": 28, "lifetime": 0.65, "size": 0.2, "scaleSize": true, "color": "weapon" },
+      { "type": "ring", "speed": 3.0, "count": 16, "lifetime": 0.3, "size": 0.15, "color": [0.12, 0.02, 0.24, 0.9] },
+      { "type": "mote", "count": 7, "gridColumnsX": 3, "gridCenterX": 1, "gridSpeedX": 1.4, "gridColumnsY": 4, "gridCenterY": 1, "gridSpeedY": 1.1, "lifetime": 0.45, "size": 0.2, "flicker": true, "color": "weapon" }
+    ],
+    "aura": [
+      { "type": "mote", "count": 1, "driftX": 0.4, "driftY": 0.4, "lifetime": 0.45, "size": 0.13, "flicker": true, "color": "weapon", "altColor": [0.12, 0.02, 0.24, 0.9], "altChance": 0.5 }
+    ]
+  },
+  "Wind": {
+    "hit": [
+      { "type": "slash", "angleRight": 0.55, "radius": 2.0, "scaleRadius": true, "color": "weapon" },
+      { "type": "slash", "angleRight": -0.55, "radius": 1.7, "scaleRadius": true, "color": [0.75, 1.0, 0.65, 0.8] },
+      { "type": "ring", "speed": 3.8, "count": 18, "lifetime": 0.28, "size": 0.1, "color": "weapon" }
+    ],
+    "aura": [
+      { "type": "ellipse", "facingSpeed": 3.0, "lifetime": 0.15, "length": 0.5, "thickness": 0.04, "color": "weapon" }
+    ]
+  }
+}

@@ -17,6 +17,17 @@
 namespace engine::graphics {
 
 /**
+ * @brief 粒子の動き方（ParticleUpdate.CS.hlsl の curveFlag と同じ番号）
+ */
+enum class ParticleMotion : uint32_t {
+    Linear = 0, ///< 初速のまま進む
+    Spiral = 1, ///< 螺旋を描く
+    Flicker = 2, ///< 明滅する
+    Gravity = 3, ///< 重力で落ちる
+    ShrinkFade = 4, ///< 縮みながら消える（残像）
+};
+
+/**
  * @brief GPU 側で保持するパーティクル 1 粒のシミュレーションデータ (CS が読み書き)
  */
 struct GPUParticleState {
@@ -28,7 +39,7 @@ struct GPUParticleState {
     Vector3 scale; // 12
     float rotateZ; //  4 -> 64
     uint32_t alive; //  4
-    uint32_t curveFlag; //  4  (1 = enemyDeath 螺旋)
+    uint32_t curveFlag; //  4  ParticleMotion の番号
     float pad[2]; //  8 -> 80
 };
 
@@ -205,7 +216,7 @@ public:
      */
     void EmitBurst(const std::string& name, const Vector3& position, const Vector4& color,
         uint32_t count = ParticleGroup::kNumMaxInstance,
-        float lifeTime = 100000.0f, float scale = 1.0f, bool flicker = false);
+        float lifeTime = kDefaultBurstLifetime, float scale = 1.0f, bool flicker = false);
 
     /**
      * @brief 指定半径・高さにランダム配置し、寿命が尽きると自動再配置するループエフェクトを開始する
@@ -219,20 +230,20 @@ public:
      */
     void EmitGravity(const std::string& name, const Vector3& position,
         const Vector3& velocity, const Vector4& color,
-        float lifeTime = 0.6f, float scale = 0.2f);
+        float lifeTime = kDefaultGravityLifetime, float scale = kDefaultGravityScale);
 
     /**
      * @brief 均等角度で放射状にリングエフェクトを放出する（ヒットストップ等）
      */
     void EmitRing(const std::string& name, const Vector3& position,
         float speed, const Vector4& color,
-        uint32_t count = 16, float lifeTime = 0.4f, float scale = 0.3f);
+        uint32_t count = kDefaultRingCount, float lifeTime = kDefaultRingLifetime, float scale = kDefaultRingScale);
 
     /**
      * @brief 残像1粒を放出する毎フレーム呼び続けることでトレイルを形成する
      */
     void EmitTrail(const std::string& name, const Vector3& position,
-        const Vector4& color, float scale = 0.5f, float lifeTime = 0.15f);
+        const Vector4& color, float scale = 0.5f, float lifeTime = kDefaultTrailLifetime);
 
     /**
      * @brief 指定グループのテクスチャを差し替える
@@ -270,6 +281,15 @@ public:
     Emitter* GetEmitter(const std::string& name);
 
 private:
+    // 放出APIの既定値
+    static constexpr float kDefaultBurstLifetime = 100000.0f;
+    static constexpr float kDefaultGravityLifetime = 0.6f;
+    static constexpr float kDefaultGravityScale = 0.2f;
+    static constexpr uint32_t kDefaultRingCount = 16;
+    static constexpr float kDefaultRingLifetime = 0.4f;
+    static constexpr float kDefaultRingScale = 0.3f;
+    static constexpr float kDefaultTrailLifetime = 0.15f;
+
     ParticleManager() = default;
     ~ParticleManager() = default;
     ParticleManager(const ParticleManager&) = delete;
@@ -286,6 +306,27 @@ private:
 
     // 空きスロットを返すなければ UINT32_MAX
     uint32_t AllocateSlot(ParticleGroup& group);
+
+    // 寿命が尽きてからスロットを空けるまでの余裕（GPU側の消滅処理を待つ）
+    static constexpr float kSlotExpiryMargin = 0.1f;
+    // 環境のばらまきループ（EmitScatterLoop と自動再配置で共通）の配置範囲と漂い方
+    static constexpr float kScatterHeight = 12.0f;
+    static constexpr float kScatterDriftXZ = 0.3f;
+    static constexpr float kScatterRiseMin = 0.1f;
+    static constexpr float kScatterRiseMax = 0.6f;
+
+    /** @brief Emit系で1粒を出す時の中身 */
+    struct ParticleSpawn {
+        Vector3 position;
+        Vector3 velocity;
+        Vector4 color;
+        Vector3 scale;
+        float lifeTime = 0.0f;
+        float rotateZ = 0.0f;
+        ParticleMotion motion = ParticleMotion::Linear;
+    };
+    /** @brief 空きスロットへ1粒書き込む（空きが無ければ何もせず false） */
+    bool SpawnParticle(ParticleGroup& group, const ParticleSpawn& spawn);
 
     // CreateParticleGroup のフェーズ分割ヘルパー
     void CreateParticleStateBuffers(ParticleGroup& group);

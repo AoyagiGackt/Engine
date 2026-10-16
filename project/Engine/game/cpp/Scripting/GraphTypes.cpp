@@ -5,6 +5,8 @@
 #include "GraphTypes.h"
 #include "JsonHelper.h"
 #include "Logger.h"
+#include <array>
+#include <functional>
 using namespace engine::game;
 using namespace engine;
 
@@ -46,103 +48,99 @@ std::string engine::game::AsString(const GraphValue& v)
     return std::to_string(std::get<float>(v));
 }
 
+namespace {
+/** @brief 比較演算子1つぶんの定義（記号と、数値・文字列それぞれでの比較） */
+struct CompareOpDef {
+    const char* symbol;
+    bool (*onFloat)(float, float);
+    bool (*onString)(const std::string&, const std::string&);
+};
+
+template <template <class> class Cmp>
+constexpr CompareOpDef MakeCompareOp(const char* symbol)
+{
+    return {
+        symbol,
+        [](float a, float b) { return Cmp<float> {}(a, b); },
+        [](const std::string& a, const std::string& b) { return Cmp<std::string> {}(a, b); },
+    };
+}
+
+// CompareOp の並び順
+constexpr std::array<CompareOpDef, 6> kCompareOps = {
+    MakeCompareOp<std::equal_to>("=="),
+    MakeCompareOp<std::not_equal_to>("!="),
+    MakeCompareOp<std::less>("<"),
+    MakeCompareOp<std::less_equal>("<="),
+    MakeCompareOp<std::greater>(">"),
+    MakeCompareOp<std::greater_equal>(">="),
+};
+
+/** @brief 数値演算子1つぶんの定義 */
+struct MathOpDef {
+    const char* symbol;
+    float (*apply)(float, float);
+};
+
+// MathOp の並び順
+constexpr std::array<MathOpDef, 4> kMathOps = { {
+    { "+", [](float a, float b) { return a + b; } },
+    { "-", [](float a, float b) { return a - b; } },
+    { "*", [](float a, float b) { return a * b; } },
+    { "/", [](float a, float b) { return (b != 0.0f) ? (a / b) : 0.0f; } },
+} };
+
+/** @brief 記号から表の添字を引く。見つからなければ -1 */
+template <class Def, size_t N>
+int FindOpIndex(const std::array<Def, N>& table, const std::string& symbol)
+{
+    for (size_t i = 0; i < N; ++i) {
+        if (symbol == table[i].symbol) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+} // namespace
+
 CompareOp engine::game::ParseCompareOp(const std::string& s)
 {
-    if (s == "==") {
+    const int index = FindOpIndex(kCompareOps, s);
+    if (index < 0) {
+        Logger::LogError("[Graph] unknown compare op '" + s + "', defaulting to '=='");
         return CompareOp::Equal;
     }
-    if (s == "!=") {
-        return CompareOp::NotEqual;
-    }
-    if (s == "<") {
-        return CompareOp::Less;
-    }
-    if (s == "<=") {
-        return CompareOp::LessEqual;
-    }
-    if (s == ">") {
-        return CompareOp::Greater;
-    }
-    if (s == ">=") {
-        return CompareOp::GreaterEqual;
-    }
-    Logger::LogError("[Graph] unknown compare op '" + s + "', defaulting to '=='");
-    return CompareOp::Equal;
+    return static_cast<CompareOp>(index);
 }
 
 bool engine::game::Compare(CompareOp op, const GraphValue& lhs, const GraphValue& rhs)
 {
-    // どちらかが文字列なら文字列として比較し、それ以外は数値として比較する
-    if (std::holds_alternative<std::string>(lhs) || std::holds_alternative<std::string>(rhs)) {
-        const std::string a = AsString(lhs);
-        const std::string b = AsString(rhs);
-        switch (op) {
-        case CompareOp::Equal:
-            return a == b;
-        case CompareOp::NotEqual:
-            return a != b;
-        case CompareOp::Less:
-            return a < b;
-        case CompareOp::LessEqual:
-            return a <= b;
-        case CompareOp::Greater:
-            return a > b;
-        case CompareOp::GreaterEqual:
-            return a >= b;
-        }
+    const size_t index = static_cast<size_t>(op);
+    if (index >= kCompareOps.size()) {
         return false;
     }
-
-    const float a = AsFloat(lhs);
-    const float b = AsFloat(rhs);
-    switch (op) {
-    case CompareOp::Equal:
-        return a == b;
-    case CompareOp::NotEqual:
-        return a != b;
-    case CompareOp::Less:
-        return a < b;
-    case CompareOp::LessEqual:
-        return a <= b;
-    case CompareOp::Greater:
-        return a > b;
-    case CompareOp::GreaterEqual:
-        return a >= b;
+    const CompareOpDef& def = kCompareOps[index];
+    // どちらかが文字列なら文字列として比較し、それ以外は数値として比較する
+    if (std::holds_alternative<std::string>(lhs) || std::holds_alternative<std::string>(rhs)) {
+        return def.onString(AsString(lhs), AsString(rhs));
     }
-    return false;
+    return def.onFloat(AsFloat(lhs), AsFloat(rhs));
 }
 
 MathOp engine::game::ParseMathOp(const std::string& s)
 {
-    if (s == "+") {
+    const int index = FindOpIndex(kMathOps, s);
+    if (index < 0) {
+        Logger::LogError("[Graph] unknown math op '" + s + "', defaulting to '+'");
         return MathOp::Add;
     }
-    if (s == "-") {
-        return MathOp::Subtract;
-    }
-    if (s == "*") {
-        return MathOp::Multiply;
-    }
-    if (s == "/") {
-        return MathOp::Divide;
-    }
-    Logger::LogError("[Graph] unknown math op '" + s + "', defaulting to '+'");
-    return MathOp::Add;
+    return static_cast<MathOp>(index);
 }
 
 float engine::game::ApplyMath(MathOp op, float a, float b)
 {
-    switch (op) {
-    case MathOp::Add:
-        return a + b;
-    case MathOp::Subtract:
-        return a - b;
-    case MathOp::Multiply:
-        return a * b;
-    case MathOp::Divide:
-        return (b != 0.0f) ? (a / b) : 0.0f;
-    }
-    return 0.0f;
+    const size_t index = static_cast<size_t>(op);
+    return index < kMathOps.size() ? kMathOps[index].apply(a, b) : 0.0f;
 }
 
 const GraphNode* GraphDesc::FindNode(const std::string& id) const

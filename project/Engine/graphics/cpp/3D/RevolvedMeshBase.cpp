@@ -7,6 +7,14 @@
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "TextureManager.h"
+
+namespace {
+
+// 回転体の分割数と頂点数
+constexpr int kMinDivisions = 3;
+constexpr int kVerticesPerDivision = 6;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 using namespace Microsoft::WRL;
@@ -15,11 +23,11 @@ void RevolvedMeshBase::SetupCommonBuffers(DirectXCommon* dxCommon, const std::st
     int divisions, size_t materialCBSize, void** mappedMaterialOut)
 {
     ENGINE_ASSERT(dxCommon);
-    ENGINE_ASSERT(divisions >= 3);
+    ENGINE_ASSERT(divisions >= kMinDivisions);
     dxCommon_ = dxCommon;
     textureFilePath_ = textureFilePath;
     divisions_ = divisions;
-    vertexCount_ = divisions_ * 6;
+    vertexCount_ = divisions_ * kVerticesPerDivision;
 
     TextureManager::GetInstance()->LoadTexture(textureFilePath_);
 

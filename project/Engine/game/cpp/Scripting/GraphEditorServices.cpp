@@ -11,6 +11,7 @@
 #include "NodeRegistry.h"
 #include "TimeManager.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstring>
 #include <optional>
@@ -19,16 +20,15 @@
 namespace engine::game {
 ImU32 GraphEditorDrawingStyle::ColorForType(GraphValueType type)
 {
-    switch (type) {
-    case GraphValueType::Float:
-        return IM_COL32(110, 220, 110, 255);
-    case GraphValueType::Bool:
-        return IM_COL32(220, 100, 100, 255);
-    case GraphValueType::String:
-        return IM_COL32(200, 120, 220, 255);
-    default:
-        return IM_COL32(240, 240, 240, 255);
-    }
+    // GraphValueType の並び順
+    static constexpr std::array<ImU32, 4> kTypeColors = {
+        IM_COL32(110, 220, 110, 255), // Float
+        IM_COL32(220, 100, 100, 255), // Bool
+        IM_COL32(200, 120, 220, 255), // String
+        IM_COL32(240, 240, 240, 255), // Any
+    };
+    const size_t index = static_cast<size_t>(type);
+    return index < kTypeColors.size() ? kTypeColors[index] : kTypeColors.back();
 }
 
 bool GraphEditorDrawingStyle::IsHoveringCircle(const ImVec2& center, float radius)
@@ -67,17 +67,27 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
 
     // Ctrl系ショートカット（テキスト入力欄にフォーカスがある間はImGui自身の入力欄内編集に譲る）
     if (!ImGui::GetIO().WantTextInput) {
-        ImGuiIO& io = ImGui::GetIO();
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-            editor.Undo();
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
-            editor.Redo();
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-            editor.Save();
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
+        struct CtrlShortcut {
+            ImGuiKey key;
+            void (*action)(GraphEditor&);
+        };
+        static constexpr CtrlShortcut kCtrlShortcuts[] = {
+            { ImGuiKey_Z, [](GraphEditor& e) { e.Undo(); } },
+            { ImGuiKey_Y, [](GraphEditor& e) { e.Redo(); } },
+            { ImGuiKey_S, [](GraphEditor& e) { e.Save(); } },
             // editor.DrawCanvas()のノード走査ループの外なので、ここでは直接複製してよい
-            if (!editor.selectedNodeId_.empty() && editor.graph_.FindNode(editor.selectedNodeId_)) {
-                editor.DuplicateNode(editor.selectedNodeId_);
+            { ImGuiKey_D, [](GraphEditor& e) {
+                 if (!e.selectedNodeId_.empty() && e.graph_.FindNode(e.selectedNodeId_)) {
+                     e.DuplicateNode(e.selectedNodeId_);
+                 }
+             } },
+        };
+        if (ImGui::GetIO().KeyCtrl) {
+            for (const CtrlShortcut& shortcut : kCtrlShortcuts) {
+                if (ImGui::IsKeyPressed(shortcut.key)) {
+                    shortcut.action(editor);
+                    break; // 1フレームに実行するのは1つだけ
+                }
             }
         }
     }
@@ -122,45 +132,36 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
         if (selected && selectedSpec && ImGui::CollapsingHeader("選択中ノードの説明", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
             ImGui::TextWrapped("%s", selectedSpec->description.c_str());
+            struct ParamHelp {
+                const char* key;
+                const char* text;
+            };
+            static constexpr ParamHelp kParamHelps[] = {
+                { "flag", "ステージエディタのトリガーと共有するフラグ名" },
+                { "name", "グラフ内で値を識別するための変数名" },
+                { "var", "グラフ内で値を識別するための変数名" },
+                { "into", "グラフ内で値を識別するための変数名" },
+                { "value", "保存、比較、または設定する値" },
+                { "seconds", "処理を待つ時間  単位は秒" },
+                { "duration", "処理を待つ時間  単位は秒" },
+                { "frames", "処理を止める時間  単位はフレーム" },
+                { "path", "読み込むグラフ、音声などのファイルパス" },
+                { "target", "ステージに配置した敵などの名前" },
+                { "amount", "ダメージ量または回復量" },
+                { "op", "計算または比較に使う記号" },
+                { "x", "移動先または位置のワールド座標" },
+                { "y", "移動先または位置のワールド座標" },
+                { "z", "移動先または位置のワールド座標" },
+                { "a", "計算や比較へ渡す入力値" },
+                { "b", "計算や比較へ渡す入力値" },
+                { "loop", "ONなら停止するまで繰り返し再生する" },
+                { "visible", "ONなら表示し、OFFなら非表示にする" },
+            };
             auto parameterHelp = [](const std::string& key) -> const char* {
-                if (key == "flag") {
-                    return "ステージエディタのトリガーと共有するフラグ名";
-                }
-                if (key == "name" || key == "var" || key == "into") {
-                    return "グラフ内で値を識別するための変数名";
-                }
-                if (key == "value") {
-                    return "保存、比較、または設定する値";
-                }
-                if (key == "seconds" || key == "duration") {
-                    return "処理を待つ時間  単位は秒";
-                }
-                if (key == "frames") {
-                    return "処理を止める時間  単位はフレーム";
-                }
-                if (key == "path") {
-                    return "読み込むグラフ、音声などのファイルパス";
-                }
-                if (key == "target") {
-                    return "ステージに配置した敵などの名前";
-                }
-                if (key == "amount") {
-                    return "ダメージ量または回復量";
-                }
-                if (key == "op") {
-                    return "計算または比較に使う記号";
-                }
-                if (key == "x" || key == "y" || key == "z") {
-                    return "移動先または位置のワールド座標";
-                }
-                if (key == "a" || key == "b") {
-                    return "計算や比較へ渡す入力値";
-                }
-                if (key == "loop") {
-                    return "ONなら停止するまで繰り返し再生する";
-                }
-                if (key == "visible") {
-                    return "ONなら表示し、OFFなら非表示にする";
+                for (const ParamHelp& help : kParamHelps) {
+                    if (key == help.key) {
+                        return help.text;
+                    }
                 }
                 return "ノードが処理に使用する入力値";
             };
@@ -329,11 +330,12 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     ImGui::SetCursorScreenPos(nodeScreenPos);
     ImGui::BeginGroup();
 
+    const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
+
     // タイトル（このボタン自体がドラッグハンドル兼用）
     ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
     if (ImGui::IsItemHovered()) {
         state.hoveringNode = true; // キャンバス右クリックのノード追加メニューと衝突しないよう抑制する
-        const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
         if (spec && !spec->description.empty()) {
             ImGui::SetTooltip("%s", spec->description.c_str());
         }
@@ -356,10 +358,10 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
 
     editor.DrawNodeParams(dl, id, node, nodeScreenPos, state);
 
-    // Subgraphノードは中身をワンクリックで開けるようにする（editor.Open()はループ後に遅延実行）
-    if (node.type == "Subgraph") {
+    // 別グラフを参照するノードは中身をワンクリックで開けるようにする（editor.Open()はループ後に遅延実行）
+    if (spec && !spec->openPathParam.empty()) {
         if (ImGui::SmallButton("サブグラフを開く")) {
-            auto it = node.params.find("path");
+            auto it = node.params.find(spec->openPathParam);
             if (it != node.params.end()) {
                 editor.pendingOpenPath_ = AsString(it->second);
             }
@@ -428,12 +430,10 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
             if (fromIt != editor.graph_.nodes.end()) {
                 editor.RecordUndoSnapshotNow();
                 GraphNode& fromNode = fromIt->second;
-                if (editor.linkFromPin_ == "next") {
-                    fromNode.next = id;
-                } else if (editor.linkFromPin_ == "true") {
-                    fromNode.nextTrue = id;
-                } else if (editor.linkFromPin_ == "false") {
-                    fromNode.nextFalse = id;
+                for (const ExecPinDef& pin : kExecPins) {
+                    if (editor.linkFromPin_ == pin.name) {
+                        fromNode.*pin.target = id;
+                    }
                 }
             }
             editor.linking_ = false;
@@ -458,7 +458,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
         }
     };
 
-    if (node.type == "If") {
+    if (spec && spec->branches) {
         drawOutputPin("true", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * GraphEditorDrawingStyle::kTruePinHeightRatio), GraphEditorDrawingStyle::kTruePinColor);
         drawOutputPin("false", ImVec2(nodeMax.x + pinPad, nodeMin.y + (nodeMax.y - nodeMin.y) * GraphEditorDrawingStyle::kFalsePinHeightRatio), GraphEditorDrawingStyle::kFalsePinColor);
     } else {
@@ -466,7 +466,6 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     }
 
     // データ出力ピン（右下。値を出力するノードだけ）
-    const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
     if (spec && spec->hasOutput) {
         ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_);
         editor.dataOutPins_[id] = outPin;

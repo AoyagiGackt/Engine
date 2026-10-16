@@ -38,6 +38,7 @@ struct BasicEnemyTuning {
     float healerCastSeconds = 0.5f;
     float healerRange = 7.0f;
     int healerAmount = 4;
+    float corpseFootOffset = 0.1f; ///< 倒れた体を落とす時、床の上面からどれだけ上に位置を置くか（配置した敵の足元と同じ）
 };
 
 /** @brief ナイト型敵(KnightEnemy)の調整値 */
@@ -68,6 +69,17 @@ struct BossSlamTuning {
     int damage = 3;
 };
 
+/** @brief 敵どうしが重ならないよう押し離す処理の調整値 */
+struct EnemySeparationTuning {
+    float minDistanceX = 1.0f; ///< 敵どうしの中心がこれより近いと押し離す
+    float minDistanceY = 1.0f; ///< 高さの差がこれ以上なら重なっていないとみなす（空中の敵や打ち上げ中の敵）
+    float pushRate = 0.35f; ///< 1フレームで解消する重なりの割合（1で即座に離す、小さいほどなめらか）
+    float bodyHalfWidth = 0.4f; ///< 壁から押し出す時の体の横幅の半分
+    float wallBandBottom = 0.2f; ///< 位置からこの高さより上に掛かるブロックだけを壁とみなす（足元の床で横へ弾かれないように）
+    float wallBandTop = 1.0f; ///< 位置からこの高さまでを体とみなす（これより上の足場の下はくぐれる）
+    float wallContactMargin = 0.02f; ///< 壁にこの距離まで近い敵は押されても動かない側として扱う
+};
+
 /**
  * @brief enemy_params.jsonを読み込んで保持するシングルトン
  */
@@ -86,6 +98,7 @@ public:
     const KnightEnemyTuning& Knight() const { return knight_; }
     const EnemyBulletTuning& Bullet() const { return bullet_; }
     const BossSlamTuning& BossSlam() const { return bossSlam_; }
+    const EnemySeparationTuning& Separation() const { return separation_; }
 
 private:
     EnemyTuning();
@@ -96,6 +109,7 @@ private:
     KnightEnemyTuning knight_;
     EnemyBulletTuning bullet_;
     BossSlamTuning bossSlam_;
+    EnemySeparationTuning separation_;
 };
 
 } // namespace engine::game

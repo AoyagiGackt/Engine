@@ -17,8 +17,8 @@ void Player::SetHorizontalBounds(float minX, float maxX)
 Collider Player::GetCollider() const
 {
         Collider c;
-        c.SetAsAABB({ { pos_.x - 0.5f, pos_.y - 0.5f, -0.5f },
-            { pos_.x + 0.5f, pos_.y + 0.5f, 0.5f } });
+        c.SetAsAABB({ { pos_.x - kBodyHalfExtent_, pos_.y - kBodyHalfExtent_, -kBodyHalfExtent_ },
+            { pos_.x + kBodyHalfExtent_, pos_.y + kBodyHalfExtent_, kBodyHalfExtent_ } });
         return c;
     }
 
@@ -38,11 +38,20 @@ void Player::ChargeAwakenGauge(float amount)
         }
     }
 
-bool Player::IsGreatswordSpinning() const
+
+bool Player::JustWeaponSkillHit() const
 {
-        if (!greatswordThrowActive_) {
-            return false;
+    // 固有技の攻撃判定になる出来事（シーン側はどれか1つでも立っていれば周囲へ判定を出す）
+    static constexpr FrameEvent kSkillHitEvents[] = {
+        FrameEvent::GreatswordSlam,
+        FrameEvent::SpinShot,
+        FrameEvent::ScytheSpin,
+        FrameEvent::AxeCharge,
+    };
+    for (FrameEvent event : kSkillHitEvents) {
+        if (HasFrameEvent(event)) {
+            return true;
         }
-        const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
-        return spinElapsed >= 0.0f && spinElapsed < kGreatswordVortexMaxDuration_;
     }
+    return false;
+}

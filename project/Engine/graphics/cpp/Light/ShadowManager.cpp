@@ -6,6 +6,14 @@
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include <cmath>
+
+namespace {
+
+// ライト座標系の安定化
+constexpr float kDirectionEpsilon = 1e-6f;
+constexpr float kVerticalDirectionThreshold = 0.99f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -80,14 +88,14 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float fwdLen = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
-    if (fwdLen < 1e-6f) {
+    if (fwdLen < kDirectionEpsilon) {
         return;
     } // ライトがシーン中心と重なる場合は更新しない
     fwd = { fwd.x / fwdLen, fwd.y / fwdLen, fwd.z / fwdLen };
 
     Vector3 up = { 0.0f, 1.0f, 0.0f };
 
-    if (std::abs(fwd.y) > 0.99f) {
+    if (std::abs(fwd.y) > kVerticalDirectionThreshold) {
         up = { 0.0f, 0.0f, 1.0f };
     }
 
@@ -99,7 +107,7 @@ void ShadowManager::Update(const Vector3& lightDir)
     };
 
     float rightLen = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-    if (rightLen < 1e-6f) {
+    if (rightLen < kDirectionEpsilon) {
         return;
     } // 縮退ケース防止
     right = { right.x / rightLen, right.y / rightLen, right.z / rightLen };

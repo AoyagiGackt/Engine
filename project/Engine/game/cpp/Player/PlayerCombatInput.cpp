@@ -12,26 +12,25 @@
 #include "ModelCommon.h"
 #include "OutlineEffect.h"
 #include "PipelineStateGuard.h"
+#include "PlayerTuning.h"
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-// 斬撃モーションの再生速度倍率（コンボのテンポに合わせて少し速める）
-constexpr float kAttackAnimSpeed = 1.5f;
+const PlayerTuning& Tuning()
+{
+    return PlayerTuning::Get();
+}
 
-// フィニッシャー 静止集中の長さ（GamePlayScene/BattleTestScene の斬撃線バラマキ演出と一致させる
-// kFinisherChargeDelay → 斬撃線を kFinisherSlashLines 本 kFinisherLineInterval 間隔で出す → kFinisherImpactDelay で解放）
-// 専用の納刀ポーズ素材が無いため、Idle/IdleHold を静止させて代用する
-constexpr float kFinisherChargeDuration = GameConstants::kFinisherChargeDelay
-    + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
-    + GameConstants::kFinisherImpactDelay;
-constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも留まらぬ速さで
+/** @brief 武器スロットを直接選ぶゲームパッドのボタン（並び順がスロット番号） */
+constexpr WORD kSlotButtons[] = { XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_DOWN };
 }
 
 // ══════════════════════════════════════════════════════
@@ -40,30 +39,9 @@ constexpr float kFinisherReleaseAnimSpeed = 3.0f; // 解放の一閃は目にも
 
 void Player::ResetFrameFlags()
 {
-    justJumped_ = false;
-    justLanded_ = false;
-    justEnteredWater_ = false;
-    justExitedWater_ = false;
-    justComboHit_ = false;
-    justComboExtraHit_ = false;
-    justWeaponSwitchHit_ = false;
-    justFired_ = false;
-    justDaggerStingerHit_ = false;
-    justChargedGauge_ = false;
-    justAwakened_ = false;
-    justSpinShot_ = false;
-    justSwordDash_ = false;
-    justSpearRetreat_ = false;
-    justGreatswordSlam_ = false;
-    justGreatswordSpinHit_ = false;
-    justGreatswordThrown_ = false;
-    justAxeCharge_ = false;
-    justScytheSpin_ = false;
-    justLaunched_ = false;
-    justRampageHit_ = false;
-    justRampageFinish_ = false;
-    justFinisherSlash_ = false;
+    frameEvents_.reset();
     prevOnGround_ = onGround_;
+    prevFrameX_ = pos_.x;
     prevInWater_ = inWater_;
 }
 
@@ -77,27 +55,18 @@ void Player::HandleStyleSwitch(Input* input)
             wm->SelectSlot(i);
         }
     }
-    if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_UP)) {
-        wm->SelectSlot(0);
-    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_RIGHT)) {
-        wm->SelectSlot(1);
-    } else if (input->TriggerButton(XINPUT_GAMEPAD_DPAD_DOWN)) {
-        wm->SelectSlot(2);
+    for (int slot = 0; slot < static_cast<int>(std::size(kSlotButtons)); ++slot) {
+        if (input->TriggerButton(kSlotButtons[slot])) {
+            wm->SelectSlot(slot);
+            break;
+        }
     }
     if (wm->HasEquippedWeapon() && wm->GetSelectedSlot() != oldSlot) {
         meleeCombo_.Reset();
-        daggerStingerHitIndex_ = -1; // 刺突の途中で持ち替えても居残らないよう仕切り直す
-        daggerStingerDash_.active = false;
-        airDash_.active = false;
-        swordDash_.active = false;
-        swordReleasePending_ = false;
-        spearDash_.active = false;
-        axeDash_.active = false;
-        greatswordThrowActive_ = false; // 渦の途中で持ち替えても居残らないよう仕切り直す
-        greatswordReturnCaptured_ = false;
+        ResetWeaponSkills(); // 技の途中で持ち替えても居残らないよう仕切り直す
         weaponSwitchAttackPending_ = true;
         weaponSwitchAttackActive_ = false;
-        weaponSwitchWindow_ = kWeaponSwitchWindow_;
+        weaponSwitchWindow_ = Tuning().weaponSwitchWindow;
     }
 }
 
@@ -118,7 +87,7 @@ void Player::HandleRangedCombat(Input* input)
     }
     gunCombo_.Update(GameConstants::kFrameDeltaTime);
     if (gunCombo_.JustShot()) {
-        justFired_ = true;
+        SetFrameEvent(FrameEvent::Fired);
     }
     // 前後移動（踏み込み / 反動バックステップ）。空中では暴れるので地上のみ
     if (onGround_ && gunCombo_.GetMoveDelta() != 0.0f) {
@@ -135,7 +104,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
     }
     // 投げ回転斬りで大剣が手元を離れている間は、素手同然として近接コンボを封じる
     // （手元にない武器でコンボ攻撃までできると、渦を出しっぱなしにしつつ通常戦闘もできてしまい強すぎるため）
-    const bool disarmed = wm->HasEquippedWeapon() && wm->GetCurrent().type == WeaponType::Greatsword && greatswordThrowActive_;
+    const bool disarmed = wm->HasEquippedWeapon() && BehaviorFor(wm->GetCurrent().type).IsDisarmed();
     if (!wm->HasEquippedWeapon() || disarmed) {
         meleeCombo_.Reset();
         return;
@@ -148,7 +117,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
     // S(↓)+L は打ち上げ技。覚醒ソードの L は従来どおり乱舞へ
     // 乱舞は押した瞬間の入力で段を進めるため、オートコンボの長押し連続入力は通常コンボにだけ使う
     const bool attackTriggered = input->TriggerAction(Input::Action::Attack);
-    const bool startsRampage = wm->GetCurrent().type == WeaponType::Sword && isAwakened_;
+    const bool startsRampage = BehaviorFor(wm->GetCurrent().type).StartsRampage(*this);
     const bool rampageAttack = IsRampaging() || startsRampage;
     const bool attackPressed = rampageAttack
         ? attackTriggered
@@ -169,14 +138,14 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
             if (accepted && weaponSwitchAttackPending_) {
                 weaponSwitchAttackPending_ = false;
                 weaponSwitchAttackActive_ = true;
-                pos_.x = std::clamp(pos_.x + lastDirX_ * kWeaponSwitchLunge_, minX_, maxX_);
+                pos_.x = std::clamp(pos_.x + lastDirX_ * Tuning().weaponSwitchLunge, minX_, maxX_);
             }
         }
     }
 
     // ── 近接コンボ進行（段の開始・ヒット発火・前進・打ち上げ追撃猶予）──
     // 覚醒中は1段の振りで多段ヒットさせる
-    meleeCombo_.SetExtraHits(isAwakened_ ? kAwakenExtraHits_ : 0, kAwakenExtraHitInterval_);
+    meleeCombo_.SetExtraHits(isAwakened_ ? Tuning().awakenExtraHits : 0, Tuning().awakenExtraHitInterval);
     meleeCombo_.Update(GameConstants::kFrameDeltaTime);
     if (const MeleeAttackDef* atk = meleeCombo_.GetActive()) {
         if (meleeCombo_.JustStartedStep()) {
@@ -185,21 +154,21 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
             autoCombo_.OnStepStarted(wm->GetCurrent().type, meleeCombo_, !onGround_);
         }
         if (meleeCombo_.JustHit()) {
-            justComboHit_ = true;
-            justComboExtraHit_ = meleeCombo_.JustExtraHit();
-            justWeaponSwitchHit_ = weaponSwitchAttackActive_;
+            SetFrameEvent(FrameEvent::ComboHit);
+            SetFrameEvent(FrameEvent::ComboExtraHit, meleeCombo_.JustExtraHit());
+            SetFrameEvent(FrameEvent::WeaponSwitchHit, weaponSwitchAttackActive_);
             weaponSwitchAttackActive_ = false;
             comboStep_ = meleeCombo_.GetStep();
-            if (!justComboExtraHit_) {
+            if (!HasFrameEvent(FrameEvent::ComboExtraHit)) {
                 autoCombo_.OnStepHit(wm->GetCurrent().type, meleeCombo_, !onGround_);
             }
             if (atk->launcher) {
-                launchFollowTimer_ = kLaunchFollowWindow_;
+                launchFollowTimer_ = Tuning().launchFollowWindow;
                 autoCombo_.OnLauncherHit();
             }
             // ハンマーの大車輪は締めで地面を叩き、周囲へ衝撃波を出す（習得したボス技の強化もここに乗る）
-            if (meleeCombo_.IsSequenceActive() && atk->finisher && wm->GetCurrent().type == WeaponType::Hammer) {
-                justGreatswordSlam_ = true;
+            if (meleeCombo_.IsSequenceActive() && atk->finisher && BehaviorFor(wm->GetCurrent().type).SlamsOnSkillFinish()) {
+                SetFrameEvent(FrameEvent::GreatswordSlam);
             }
         }
         // 踏み込み（斬りながら前へ出ることで空振り感を減らす）
@@ -208,7 +177,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos)
         }
         // 空中攻撃中は滞空（落下を弱めてエアコンボを繋ぎやすくする）
         if (!onGround_ && velocityY_ < 0.0f) {
-            velocityY_ *= kAirAttackFallDamping_;
+            velocityY_ *= Tuning().airAttackFallDamping;
         }
     }
     if (launchFollowTimer_ > 0.0f) {
@@ -227,10 +196,10 @@ void Player::HandleFinisherSlash(Input* input)
     // 静止して集中 → 溜め切ったら一閃、の2段構成にする
     if (!inWater_ && !isAwakened_ && !finisherCharging_
         && input->TriggerAction(Input::Action::Finisher) && awakenGauge_ >= 1.0f) {
-        justFinisherSlash_ = true;
+        SetFrameEvent(FrameEvent::FinisherSlash);
         awakenGauge_ = 0.0f; // ゲージを全消費
         finisherCharging_ = true;
-        finisherChargeTimer_ = kFinisherChargeDuration;
+        finisherChargeTimer_ = GameConstants::kFinisherChargeDuration;
         meleeCombo_.Reset(); // 進行中のコンボは打ち切って静止に入る
         {
             // 銃は常時左手に追従表示されるため、構え系近接武器と同様に扱う（UpdateAnimationStateと同じ判定）
@@ -247,7 +216,7 @@ void Player::HandleFinisherSlash(Input* input)
         finisherChargeTimer_ -= GameConstants::kFrameDeltaTime;
         if (finisherChargeTimer_ <= 0.0f) {
             finisherCharging_ = false;
-            PlayAttackAnim(rig_->slashAnim, kFinisherReleaseAnimSpeed);
+            PlayAttackAnim(rig_->slashAnim, Tuning().finisherReleaseAnimSpeed);
         }
     }
 }
@@ -261,33 +230,16 @@ void Player::HandleWeaponSkill(Input* input)
 
     // ── スペースキー（武器タイプ別）──────────────────────────────
     if (!inWater_ && !finisherCharging_) {
-        WeaponType wtype = wm->GetCurrent().type;
-
-        // 連射クールダウンは常に消化（Ball モード以外でも自然に減る）
-        shootCooldown_ -= GameConstants::kFrameDeltaTime;
-        if (shootCooldown_ < 0.0f) {
-            shootCooldown_ = 0.0f;
-        }
-
-        // 固有技のクールダウン/バフも武器切替中に凍結させず常に消化する
+        // 固有技のクールダウン/バフや手元を離れた技は、武器切替中も凍結させず常に進める
         // 覚醒中は武器ごとの倍率（weapons.jsonのawakened.skillCooldownMult）ぶん早く回る
         const float cooldownStep = GameConstants::kFrameDeltaTime
             / (isAwakened_ ? wm->GetCurrent().awakened.skillCooldownMult : 1.0f);
-        daggerStingerCooldown_ = (std::max)(daggerStingerCooldown_ - cooldownStep, 0.0f);
-        swordSkillCooldown_ = (std::max)(swordSkillCooldown_ - cooldownStep, 0.0f);
-        spearSkillCooldown_ = (std::max)(spearSkillCooldown_ - cooldownStep, 0.0f);
-        greatswordSkillCooldown_ = (std::max)(greatswordSkillCooldown_ - cooldownStep, 0.0f);
-        greatswordThrowCooldown_ = (std::max)(greatswordThrowCooldown_ - cooldownStep, 0.0f);
-        axeSkillCooldown_ = (std::max)(axeSkillCooldown_ - cooldownStep, 0.0f);
-        axeRageTimer_ = (std::max)(axeRageTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
+        TickWeaponSkills(input, cooldownStep);
 
-        // グレートソード投げ回転斬りの進行も、装備武器を切り替えている間だけ凍結しないよう常に進める
-        UpdateGreatswordThrowState(input);
+        IWeaponBehavior& behavior = BehaviorFor(wm->GetCurrent().type);
+        behavior.Update(*this, input);
 
-        GetWeaponBehavior(wtype).Update(*this, input);
-
-        // Ball モード以外 / 着地時はスピン角をリセット
-        if ((wtype != WeaponType::Ball && !spearDash_.active) || (wtype == WeaponType::Ball && onGround_)) {
+        if (!behavior.KeepsSpin(*this)) {
             spinAngle_ = 0.0f;
         }
         isUpsideDown_ = (spinAngle_ > kUpsideDownMinDegrees_ && spinAngle_ < kUpsideDownMaxDegrees_);
@@ -304,8 +256,8 @@ void Player::UpdateRampagePhysics(const Vector3& enemyPos)
     rampage_->UpdatePhysics(*this, enemyPos);
 
     // 乱舞中の自動スラッシュにも斬撃モーションを合わせる（フィニッシャーは溜め→解放側で再生する）
-    if (justRampageHit_ || justRampageFinish_) {
-        PlayAttackAnim(rig_->slashAnim, kAttackAnimSpeed);
+    if (HasFrameEvent(FrameEvent::RampageHit) || HasFrameEvent(FrameEvent::RampageFinish)) {
+        PlayAttackAnim(rig_->slashAnim, Tuning().attackAnimSpeed);
     }
 }
 
@@ -313,17 +265,17 @@ void Player::UpdateAwakenState(Input* input)
 {
     // ── 覚醒発動（R キー）────────────────────────────────────────
     if (!finisherCharging_ && input->TriggerAction(Input::Action::Awaken)
-        && awakenGauge_ >= kAwakenActivationThreshold_ && !isAwakened_) {
+        && awakenGauge_ >= Tuning().awakenActivationThreshold && !isAwakened_) {
         isAwakened_ = true;
-        justAwakened_ = true;
-        awakenTimer_ = kAwakenDuration_;
+        SetFrameEvent(FrameEvent::Awakened);
+        awakenTimer_ = Tuning().awakenDuration;
     }
 
     // ── 覚醒ゲージ管理 ────────────────────────────────────────────
     // 覚醒中のみ消費する未覚醒時は自然減衰させず、溜めた分を維持する
     if (isAwakened_) {
         awakenTimer_ -= GameConstants::kFrameDeltaTime;
-        awakenGauge_ = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / kAwakenDuration_, 0.0f);
+        awakenGauge_ = (std::max)(awakenGauge_ - GameConstants::kFrameDeltaTime / Tuning().awakenDuration, 0.0f);
         if (awakenTimer_ <= 0.0f || awakenGauge_ <= 0.0f) {
             isAwakened_ = false;
             awakenTimer_ = 0.0f;
@@ -332,9 +284,9 @@ void Player::UpdateAwakenState(Input* input)
     }
 
     // ── 覚醒フォーム切り替え（覚醒中はメカモデルへ丸ごと差し替え）──────
-    CharacterRig* desiredRig = visualPreset_ == 0 ? &normalRig_
-        : visualPreset_ == 1                      ? &awakenedRig_
-                                                  : (isAwakened_ ? &awakenedRig_ : &normalRig_);
+    // visualPreset_（-1=自動 0=通常 1=覚醒）の順。自動は覚醒しているかで決める
+    CharacterRig* const presetRigs[] = { isAwakened_ ? &awakenedRig_ : &normalRig_, &normalRig_, &awakenedRig_ };
+    CharacterRig* desiredRig = presetRigs[visualPreset_ + 1];
     if (rig_ != desiredRig) {
         rig_ = desiredRig;
         afterImageRenderer_.SetModel(rig_->staticModel, rig_->modelScale);
@@ -354,9 +306,9 @@ void Player::ResolveEnemyOverlap(const Vector3& enemyPos)
     if (!IsRampaging()) {
         float dx = pos_.x - enemyPos.x;
         float dy = pos_.y - enemyPos.y;
-        if (std::abs(dx) < kMinEnemyDistanceX_ && std::abs(dy) < kMinEnemyDistanceY_) {
+        if (std::abs(dx) < Tuning().minEnemyDistanceX && std::abs(dy) < Tuning().minEnemyDistanceY) {
             float dir = (dx >= 0.0f) ? 1.0f : -1.0f;
-            pos_.x = std::clamp(enemyPos.x + dir * kMinEnemyDistanceX_, minX_, maxX_);
+            pos_.x = std::clamp(enemyPos.x + dir * Tuning().minEnemyDistanceX, minX_, maxX_);
         }
     }
 }
@@ -365,11 +317,11 @@ void Player::UpdateWaterState()
 {
     // 入水・出水判定（物理後の位置で確定）
     inWater_ = (pos_.y < waterLevel_);
-    justEnteredWater_ = !prevInWater_ && inWater_;
-    justExitedWater_ = prevInWater_ && !inWater_;
+    SetFrameEvent(FrameEvent::EnteredWater, !prevInWater_ && inWater_);
+    SetFrameEvent(FrameEvent::ExitedWater, prevInWater_ && !inWater_);
 
     // 入水衝撃吸収（落下速度を大きく減衰）
-    if (justEnteredWater_) {
-        velocityY_ *= kWaterEntryImpactDamping_;
+    if (HasFrameEvent(FrameEvent::EnteredWater)) {
+        velocityY_ *= Tuning().waterEntryImpactDamping;
     }
 }

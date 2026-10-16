@@ -66,6 +66,7 @@ public:
     void SetObjectTransform(ID3D12GraphicsCommandList* cmd, D3D12_GPU_VIRTUAL_ADDRESS transformAddr) const;
 
 private:
+    static constexpr int kKernelSampleCount = 16;
     SSAOEffect() = default;
     ~SSAOEffect() = default;
     SSAOEffect(const SSAOEffect&) = delete;
@@ -136,9 +137,9 @@ private:
         float bias = 0.025f;
         float texW = 0.0f;
         float texH = 0.0f;
-        int numSamples = 16;
+        int numSamples = kKernelSampleCount;
         float pad[2];
-        Vector4 kernel[16];
+        Vector4 kernel[kKernelSampleCount];
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> ssaoCb_;
     SSAOParams* ssaoCbData_ = nullptr;

@@ -5,6 +5,7 @@
 #pragma once
 #include "ImpactRadialBlurEffect.h"
 #include "MakeAffine.h"
+#include "Weapon.h"
 #include "WeaponTrailEffect.h"
 #include <array>
 
@@ -20,7 +21,6 @@ namespace engine::game {
 
 class Player;
 struct MeleeAttackDef;
-enum class WeaponType;
 
 /** @brief 武器モデル空間での刃の根元と先端（軌跡の帯の両端になる） */
 struct BladeRange {
@@ -30,7 +30,7 @@ struct BladeRange {
 
 /** @brief 演出ごとのオン/オフと調整値（Resources/Config/combo_feel.json に保存する） */
 struct ComboFeelSettings {
-    static constexpr int kWeaponTypeCount = 8; ///< WeaponType の要素数
+    static constexpr int kWeaponTypeCount = static_cast<int>(engine::game::kWeaponTypeCount); ///< WeaponType の要素数
 
     // 刃の軌跡
     bool trailEnabled = true;

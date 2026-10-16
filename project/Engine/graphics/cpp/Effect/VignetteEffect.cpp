@@ -3,8 +3,19 @@
  * @brief VignetteEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "VignetteEffect.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "WinApp.h"
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -16,9 +27,12 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // 定数バッファ
-    cbResource_ = dxCommon_->CreateBufferResource(256);
+    cbResource_ = dxCommon_->CreateBufferResource(kConstantBufferAlignment);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = VignetteParams { };
+    cbData_->intensity = GraphicsTuning::Float("vignette.intensity", cbData_->intensity);
+    cbData_->radius = GraphicsTuning::Float("vignette.radius", cbData_->radius, 0.0f, 1.0f);
+    cbData_->softness = GraphicsTuning::Positive("vignette.softness", cbData_->softness);
 
     // ルートシグネチャ  b0 CBV のみ（SRV 不要、数式で暗転するだけ）
     D3D12_ROOT_PARAMETER rootParam = { };
@@ -115,7 +129,7 @@ void VignetteEffect::Apply()
     cmdList->SetPipelineState(pipelineState_.Get());
     cmdList->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmdList->DrawInstanced(3, 1, 0, 0);
+    cmdList->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void VignetteEffect::SetIntensity(float v)

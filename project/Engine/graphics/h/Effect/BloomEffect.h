@@ -79,7 +79,7 @@ public:
             brightCbData_->threshold = t;
         }
     }
-    float GetThreshold() const { return brightCbData_ ? brightCbData_->threshold : 0.7f; }
+    float GetThreshold() const { return brightCbData_ ? brightCbData_->threshold : kDefaultThreshold; }
 
     void SetIntensity(float i)
     {
@@ -93,6 +93,7 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
 
 private:
+    static constexpr float kDefaultThreshold = 0.7f;
     BloomEffect() = default;
     ~BloomEffect() = default;
     BloomEffect(const BloomEffect&) = delete;

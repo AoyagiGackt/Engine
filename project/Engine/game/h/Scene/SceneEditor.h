@@ -40,6 +40,7 @@ class SceneEditor {
 public:
     // 現在何が選択されているか
     // Hierarchy パネルで選んだオブジェクトの種類を表す
+    // ChangeState の State 生成表はこの並び順で引くので、要素を足す時は表にも足す
     enum class Selection {
         None, // 何も選んでいない
         Camera, // カメラ

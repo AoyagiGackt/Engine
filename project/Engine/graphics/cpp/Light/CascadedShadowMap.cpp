@@ -7,6 +7,17 @@
 #include "ShadowManager.h"
 #include "WinApp.h"
 #include <cmath>
+
+namespace {
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+// ライト座標系の安定化
+constexpr float kDirectionEpsilon = 1e-6f;
+constexpr float kVerticalDirectionThreshold = 0.99f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -80,7 +91,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC desc = { };
         desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width = (sizeof(CascadeDataLayout) + 255) & ~255u;
+        desc.Width = (sizeof(CascadeDataLayout) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
         desc.Height = 1;
         desc.DepthOrArraySize = 1;
         desc.MipLevels = 1;
@@ -102,7 +113,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
         D3D12_RESOURCE_DESC desc = { };
         desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width = 256;
+        desc.Width = kConstantBufferAlignment;
         desc.Height = 1;
         desc.DepthOrArraySize = 1;
         desc.MipLevels = 1;
@@ -134,12 +145,12 @@ Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t 
         center.z - eye.z,
     };
     float fwdLen = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
-    if (fwdLen < 1e-6f) {
+    if (fwdLen < kDirectionEpsilon) {
         return MakeIdentity4x4();
     }
     fwd = { fwd.x / fwdLen, fwd.y / fwdLen, fwd.z / fwdLen };
 
-    Vector3 up = (std::abs(fwd.y) > 0.99f) ? Vector3 { 0, 0, 1 } : Vector3 { 0, 1, 0 };
+    Vector3 up = (std::abs(fwd.y) > kVerticalDirectionThreshold) ? Vector3 { 0, 0, 1 } : Vector3 { 0, 1, 0 };
 
     Vector3 right = {
         up.y * fwd.z - up.z * fwd.y,
@@ -147,7 +158,7 @@ Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t 
         up.x * fwd.y - up.y * fwd.x,
     };
     float rLen = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-    if (rLen < 1e-6f) {
+    if (rLen < kDirectionEpsilon) {
         return MakeIdentity4x4();
     }
     right = { right.x / rLen, right.y / rLen, right.z / rLen };

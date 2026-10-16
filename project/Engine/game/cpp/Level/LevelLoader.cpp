@@ -3,12 +3,14 @@
  * @brief LevelLoaderのレベルデータの読込、編集、実体生成に関する具体的な処理を実装するファイル
  */
 #include "LevelLoader.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include <algorithm>
 #include <cctype>
+#include <iterator>
 #include <unordered_map>
 
 using namespace engine::graphics;
@@ -17,44 +19,158 @@ namespace engine::game {
 
 namespace {
 
-    // レベルJSONで省略された項目の既定値
-    constexpr float kDefaultMotionAmount = 3.0f;
-    constexpr float kDefaultCameraBlendSeconds = 0.5f;
-    constexpr float kDefaultCameraHoldSeconds = 2.0f;
-    constexpr float kDefaultPatrolSpeed = 1.5f;
-    constexpr float kDefaultPickupGaugeAmount = 0.2f;
-    constexpr float kDefaultBreakableRadius = 3.0f;
-    constexpr float kDefaultTextScale = 1.5f;
-    constexpr float kDefaultTriggerRadius = 2.0f;
-    constexpr float kDefaultCheckpointRadius = 2.0f;
     constexpr float kMinCheckpointRadius = 0.1f;
+    constexpr char kDefaultAxis = 'x';
 
-    Vector3 ReadVec3(const nlohmann::json& arr, Vector3 def = { })
+    // 1つの値で済む項目の対応表（省略された項目は各構造体の既定値のまま）。
+    // 名前で書く種類（type / motionMode / motionEase / textSpace）と軸の文字（axis）は個別に読み書きする
+    constexpr JsonField<ObjectDesc> kObjectFields[] = {
+        { nullptr, "enabled", &ObjectDesc::enabled },
+        { nullptr, "name", &ObjectDesc::name },
+        { nullptr, "parent", &ObjectDesc::parent },
+        { nullptr, "kind", &ObjectDesc::kind },
+        { nullptr, "model", &ObjectDesc::model },
+        { nullptr, "texture", &ObjectDesc::texture },
+        { nullptr, "position", &ObjectDesc::position },
+        { nullptr, "rotation", &ObjectDesc::rotation },
+        { nullptr, "scale", &ObjectDesc::scale },
+        { nullptr, "lighting", &ObjectDesc::lighting },
+        { nullptr, "solid", &ObjectDesc::solid },
+        { nullptr, "activationFlag", &ObjectDesc::activationFlag },
+        { nullptr, "activeWhenFlag", &ObjectDesc::activeWhenFlag },
+        { nullptr, "activationDelay", &ObjectDesc::activationDelay },
+        { nullptr, "enemyGroup", &ObjectDesc::enemyGroup },
+        { nullptr, "conditionType", &ObjectDesc::conditionType },
+        { nullptr, "conditionSeconds", &ObjectDesc::conditionSeconds },
+        { nullptr, "gimmickMotion", &ObjectDesc::gimmickMotion },
+        { nullptr, "motionAmount", &ObjectDesc::motionAmount },
+        { nullptr, "motionSpeed", &ObjectDesc::motionSpeed },
+        { nullptr, "motionAxis", &ObjectDesc::motionAxis },
+        { nullptr, "motionRotation", &ObjectDesc::motionRotation },
+        { nullptr, "cameraBlendSeconds", &ObjectDesc::cameraBlendSeconds },
+        { nullptr, "cameraHoldSeconds", &ObjectDesc::cameraHoldSeconds },
+        { nullptr, "spawnType", &ObjectDesc::spawnType },
+        { nullptr, "patrolRoute", &ObjectDesc::patrolRoute },
+        { nullptr, "routeOrder", &ObjectDesc::routeOrder },
+        { nullptr, "patrolSpeed", &ObjectDesc::patrolSpeed },
+        { nullptr, "meshCollider", &ObjectDesc::meshCollider },
+        { nullptr, "weaponType", &ObjectDesc::weaponType },
+        { nullptr, "isStageBoss", &ObjectDesc::isStageBoss },
+        { nullptr, "enemyModel", &ObjectDesc::enemyModel },
+        { nullptr, "pickupRadius", &ObjectDesc::pickupRadius },
+        { nullptr, "pickupGaugeAmount", &ObjectDesc::pickupGaugeAmount },
+        { nullptr, "pickupColor", &ObjectDesc::pickupColor },
+        { nullptr, "breakableHp", &ObjectDesc::breakableHp },
+        { nullptr, "breakableRadius", &ObjectDesc::breakableRadius },
+        { nullptr, "breakablePlayerDamage", &ObjectDesc::breakablePlayerDamage },
+        { nullptr, "breakableEnemyDamage", &ObjectDesc::breakableEnemyDamage },
+        { nullptr, "breakableWeapon", &ObjectDesc::breakableWeapon },
+        { nullptr, "breakableColor", &ObjectDesc::breakableColor },
+        { nullptr, "count", &ObjectDesc::count },
+        { nullptr, "step", &ObjectDesc::step },
+        { nullptr, "text", &ObjectDesc::text },
+        { nullptr, "textColor", &ObjectDesc::textColor },
+        { nullptr, "textBold", &ObjectDesc::textBold },
+        { nullptr, "textShadow", &ObjectDesc::textShadow },
+        { nullptr, "textScale", &ObjectDesc::textScale },
+    };
+
+    constexpr JsonField<TriggerDesc> kTriggerFields[] = {
+        { nullptr, "name", &TriggerDesc::name },
+        { nullptr, "position", &TriggerDesc::position },
+        { nullptr, "radius", &TriggerDesc::radius },
+        { nullptr, "flag", &TriggerDesc::flag },
+        { nullptr, "value", &TriggerDesc::value },
+        { nullptr, "once", &TriggerDesc::once },
+        { nullptr, "spawnsWaterSplash", &TriggerDesc::spawnsWaterSplash },
+    };
+
+    constexpr JsonField<CheckpointDesc> kCheckpointFields[] = {
+        { nullptr, "name", &CheckpointDesc::name },
+        { nullptr, "position", &CheckpointDesc::position },
+        { nullptr, "activationRadius", &CheckpointDesc::activationRadius },
+    };
+
+    constexpr JsonField<FlagGraphBinding> kFlagGraphFields[] = {
+        { nullptr, "flag", &FlagGraphBinding::flag },
+        { nullptr, "graphPath", &FlagGraphBinding::graphPath },
+    };
+
+    constexpr JsonField<LevelData> kLevelFields[] = {
+        { nullptr, "playerSpawn", &LevelData::playerSpawn },
+        { nullptr, "enemySpawn", &LevelData::enemySpawn },
+        { nullptr, "graphPath", &LevelData::graphPath },
+    };
+
+    /** @brief JSON配列の各要素を対応表で読み、読んだ後に extra で個別の項目を足す */
+    template <class Desc, size_t N, class Extra>
+    std::vector<Desc> ReadList(const nlohmann::json& list, const JsonField<Desc> (&fields)[N], Extra extra)
     {
-        if (arr.is_array() && arr.size() >= 3) {
-            return { arr[0].get<float>(), arr[1].get<float>(), arr[2].get<float>() };
+        std::vector<Desc> result;
+        if (!list.is_array()) {
+            return result;
         }
-        return def;
-    }
-
-    nlohmann::json WriteVec3(const Vector3& v)
-    {
-        return nlohmann::json::array({ v.x, v.y, v.z });
-    }
-
-    Vector4 ReadVec4(const nlohmann::json& arr, Vector4 def = { })
-    {
-        if (arr.is_array() && arr.size() >= 4) {
-            return { arr[0].get<float>(), arr[1].get<float>(), arr[2].get<float>(), arr[3].get<float>() };
+        for (const nlohmann::json& item : list) {
+            Desc desc;
+            ReadJsonFields(item, fields, desc);
+            extra(item, desc);
+            result.push_back(std::move(desc));
         }
-        return def;
+        return result;
     }
 
-    nlohmann::json WriteVec4(const Vector4& v)
+    /** @brief 一覧の各要素を対応表で書き出し、extra で個別の項目を足したJSON配列を返す */
+    template <class Desc, size_t N, class Extra>
+    nlohmann::json WriteList(const std::vector<Desc>& list, const JsonField<Desc> (&fields)[N], Extra extra)
     {
-        return nlohmann::json::array({ v.x, v.y, v.z, v.w });
+        nlohmann::json result = nlohmann::json::array();
+        for (const Desc& desc : list) {
+            nlohmann::json item = nlohmann::json::object();
+            WriteJsonFields(item, fields, desc);
+            extra(item, desc);
+            result.push_back(std::move(item));
+        }
+        return result;
     }
 
+    template <class Item, class Desc>
+    void NoExtra(const Item&, const Desc&)
+    {
+    }
+
+    /** @brief 配置の種類ごとに、いくつ並べるか（PlacementType の並び順） */
+    using CopyCount = int (*)(const ObjectDesc&);
+    constexpr CopyCount kCopyCounts[] = {
+        [](const ObjectDesc&) { return 1; }, // Static
+        [](const ObjectDesc& desc) { return desc.count; }, // Row
+    };
+
+    int CopiesOf(const ObjectDesc& desc)
+    {
+        const size_t index = static_cast<size_t>(desc.type);
+        return index < std::size(kCopyCounts) ? kCopyCounts[index](desc) : 1;
+    }
+
+    /** @brief 並べる軸の文字と、ずらす座標の成分（表に無い文字はX） */
+    struct AxisMember {
+        char name;
+        float Vector3::* member;
+    };
+    constexpr AxisMember kAxisMembers[] = {
+        { 'x', &Vector3::x },
+        { 'y', &Vector3::y },
+        { 'z', &Vector3::z },
+    };
+
+    float Vector3::* AxisMemberOf(char axis)
+    {
+        for (const AxisMember& entry : kAxisMembers) {
+            if (entry.name == axis) {
+                return entry.member;
+            }
+        }
+        return &Vector3::x;
+    }
 }
 
 LevelData LevelLoader::Load(const std::string& path)
@@ -69,204 +185,39 @@ LevelData LevelLoader::Load(const std::string& path)
         return data;
     }
 
-    if (j.contains("playerSpawn")) {
-        data.playerSpawn = ReadVec3(j["playerSpawn"], data.playerSpawn);
-    }
-    if (j.contains("enemySpawn")) {
-        data.enemySpawn = ReadVec3(j["enemySpawn"], data.enemySpawn);
-    }
-
-    for (const auto& obj : j.value("objects", nlohmann::json::array())) {
-        ObjectDesc desc;
-        desc.enabled = obj.value("enabled", true);
-        desc.name = obj.value("name", "");
-        desc.parent = obj.value("parent", "");
-        desc.type = ParseLevelEnum(obj.value("type", std::string()), kPlacementTypeNames, PlacementType::Static);
-        desc.kind = obj.value("kind", "prop");
-        desc.model = obj.value("model", "");
-        desc.texture = obj.value("texture", "");
-        desc.position = ReadVec3(obj.value("position", nlohmann::json::array()));
-        desc.rotation = ReadVec3(obj.value("rotation", nlohmann::json::array()));
-        desc.scale = ReadVec3(obj.value("scale", nlohmann::json::array()), { 1.0f, 1.0f, 1.0f });
-        desc.lighting = obj.value("lighting", true);
-        desc.solid = obj.value("solid", false);
-        desc.activationFlag = obj.value("activationFlag", "");
-        desc.activeWhenFlag = obj.value("activeWhenFlag", true);
-        desc.activationDelay = obj.value("activationDelay", 0.0f);
-        desc.enemyGroup = obj.value("enemyGroup", "");
-        desc.conditionType = obj.value("conditionType", "manual");
-        desc.conditionSeconds = obj.value("conditionSeconds", 0.0f);
-        desc.gimmickMotion = obj.value("gimmickMotion", "none");
-        desc.motionAmount = obj.value("motionAmount", kDefaultMotionAmount);
-        desc.motionSpeed = obj.value("motionSpeed", 1.0f);
-        desc.motionAxis = ReadVec3(obj.value("motionAxis", nlohmann::json::array()), { 1.0f, 0.0f, 0.0f });
-        desc.motionRotation = ReadVec3(obj.value("motionRotation", nlohmann::json::array()));
-        desc.motionMode = ParseLevelEnum(obj.value("motionMode", std::string()), kMotionModeNames, MotionMode::Loop);
-        desc.motionEase = ParseLevelEnum(obj.value("motionEase", std::string()), kMotionEaseNames, MotionEase::Linear);
-        desc.cameraBlendSeconds = obj.value("cameraBlendSeconds", kDefaultCameraBlendSeconds);
-        desc.cameraHoldSeconds = obj.value("cameraHoldSeconds", kDefaultCameraHoldSeconds);
-        desc.spawnType = obj.value("spawnType", "basic");
-        desc.patrolRoute = obj.value("patrolRoute", "");
-        desc.routeOrder = obj.value("routeOrder", 0);
-        desc.patrolSpeed = obj.value("patrolSpeed", kDefaultPatrolSpeed);
-        desc.meshCollider = obj.value("meshCollider", false);
-        desc.weaponType = obj.value("weaponType", "");
-        desc.isStageBoss = obj.value("isStageBoss", false);
-        desc.enemyModel = obj.value("enemyModel", "");
-        desc.pickupRadius = obj.value("pickupRadius", 1.0f);
-        desc.pickupGaugeAmount = obj.value("pickupGaugeAmount", kDefaultPickupGaugeAmount);
-        desc.pickupColor = ReadVec4(obj.value("pickupColor", nlohmann::json::array()), desc.pickupColor);
-        desc.breakableHp = obj.value("breakableHp", 2);
-        desc.breakableRadius = obj.value("breakableRadius", kDefaultBreakableRadius);
-        desc.breakablePlayerDamage = obj.value("breakablePlayerDamage", 4);
-        desc.breakableEnemyDamage = obj.value("breakableEnemyDamage", 3);
-        desc.breakableWeapon = obj.value("breakableWeapon", "");
-        desc.breakableColor = ReadVec4(obj.value("breakableColor", nlohmann::json::array()), desc.breakableColor);
-
-        std::string ax = obj.value("axis", "x");
-        desc.axis = ax.empty() ? 'x' : static_cast<char>(std::tolower(static_cast<unsigned char>(ax[0])));
-        desc.count = obj.value("count", 1);
-        desc.step = obj.value("step", 1.0f);
-
-        desc.text = obj.value("text", "");
-        desc.textColor = ReadVec4(obj.value("textColor", nlohmann::json::array()), { 1.0f, 1.0f, 1.0f, 1.0f });
-        desc.textBold = obj.value("textBold", false);
-        desc.textShadow = obj.value("textShadow", true);
-        desc.textScale = obj.value("textScale", kDefaultTextScale);
-        desc.textSpace = ParseLevelEnum(obj.value("textSpace", std::string()), kTextSpaceNames, TextSpace::Screen);
-
-        data.objects.push_back(std::move(desc));
-    }
-
-    for (const auto& trg : j.value("triggers", nlohmann::json::array())) {
-        TriggerDesc desc;
-        desc.name = trg.value("name", "");
-        desc.position = ReadVec3(trg.value("position", nlohmann::json::array()));
-        desc.radius = trg.value("radius", kDefaultTriggerRadius);
-        desc.flag = trg.value("flag", "");
-        desc.value = trg.value("value", true);
-        desc.once = trg.value("once", true);
-        desc.spawnsWaterSplash = trg.value("spawnsWaterSplash", false);
-        data.triggers.push_back(std::move(desc));
-    }
-
-    for (const auto& checkpoint : j.value("checkpoints", nlohmann::json::array())) {
-        CheckpointDesc desc;
-        desc.name = checkpoint.value("name", "");
-        desc.position = ReadVec3(checkpoint.value("position", nlohmann::json::array()));
-        desc.activationRadius = (std::max)(checkpoint.value("activationRadius", kDefaultCheckpointRadius), kMinCheckpointRadius);
-        data.checkpoints.push_back(std::move(desc));
-    }
-
-    data.graphPath = j.value("graphPath", "");
-    for (const auto& binding : j.value("flagGraphs", nlohmann::json::array())) {
-        FlagGraphBinding desc;
-        desc.flag = binding.value("flag", "");
-        desc.graphPath = binding.value("graphPath", "");
-        data.flagGraphs.push_back(std::move(desc));
-    }
+    ReadJsonFields(j, kLevelFields, data);
+    data.objects = ReadList(j.value("objects", nlohmann::json::array()), kObjectFields,
+        [](const nlohmann::json& item, ObjectDesc& desc) {
+            desc.type = ParseLevelEnum(item.value("type", std::string()), kPlacementTypeNames, desc.type);
+            desc.motionMode = ParseLevelEnum(item.value("motionMode", std::string()), kMotionModeNames, desc.motionMode);
+            desc.motionEase = ParseLevelEnum(item.value("motionEase", std::string()), kMotionEaseNames, desc.motionEase);
+            desc.textSpace = ParseLevelEnum(item.value("textSpace", std::string()), kTextSpaceNames, desc.textSpace);
+            const std::string axis = item.value("axis", std::string(1, kDefaultAxis));
+            desc.axis = axis.empty() ? kDefaultAxis : static_cast<char>(std::tolower(static_cast<unsigned char>(axis[0])));
+        });
+    data.triggers = ReadList(j.value("triggers", nlohmann::json::array()), kTriggerFields, NoExtra<nlohmann::json, TriggerDesc>);
+    data.checkpoints = ReadList(j.value("checkpoints", nlohmann::json::array()), kCheckpointFields,
+        [](const nlohmann::json&, CheckpointDesc& desc) {
+            desc.activationRadius = (std::max)(desc.activationRadius, kMinCheckpointRadius);
+        });
+    data.flagGraphs = ReadList(j.value("flagGraphs", nlohmann::json::array()), kFlagGraphFields, NoExtra<nlohmann::json, FlagGraphBinding>);
     return data;
 }
 
 void LevelLoader::Save(const std::string& path, const LevelData& data)
 {
-    nlohmann::json j;
-    j["playerSpawn"] = WriteVec3(data.playerSpawn);
-    j["enemySpawn"] = WriteVec3(data.enemySpawn);
-
-    nlohmann::json objectsJson = nlohmann::json::array();
-    for (const auto& desc : data.objects) {
-        nlohmann::json oj;
-        oj["enabled"] = desc.enabled;
-        oj["name"] = desc.name;
-        oj["parent"] = desc.parent;
-        oj["type"] = LevelEnumName(desc.type, kPlacementTypeNames);
-        oj["kind"] = desc.kind;
-        oj["model"] = desc.model;
-        oj["texture"] = desc.texture;
-        oj["position"] = WriteVec3(desc.position);
-        oj["rotation"] = WriteVec3(desc.rotation);
-        oj["scale"] = WriteVec3(desc.scale);
-        oj["lighting"] = desc.lighting;
-        oj["solid"] = desc.solid;
-        oj["activationFlag"] = desc.activationFlag;
-        oj["activeWhenFlag"] = desc.activeWhenFlag;
-        oj["activationDelay"] = desc.activationDelay;
-        oj["enemyGroup"] = desc.enemyGroup;
-        oj["conditionType"] = desc.conditionType;
-        oj["conditionSeconds"] = desc.conditionSeconds;
-        oj["gimmickMotion"] = desc.gimmickMotion;
-        oj["motionAmount"] = desc.motionAmount;
-        oj["motionSpeed"] = desc.motionSpeed;
-        oj["motionAxis"] = WriteVec3(desc.motionAxis);
-        oj["motionRotation"] = WriteVec3(desc.motionRotation);
-        oj["motionMode"] = LevelEnumName(desc.motionMode, kMotionModeNames);
-        oj["motionEase"] = LevelEnumName(desc.motionEase, kMotionEaseNames);
-        oj["cameraBlendSeconds"] = desc.cameraBlendSeconds;
-        oj["cameraHoldSeconds"] = desc.cameraHoldSeconds;
-        oj["spawnType"] = desc.spawnType;
-        oj["patrolRoute"] = desc.patrolRoute;
-        oj["routeOrder"] = desc.routeOrder;
-        oj["patrolSpeed"] = desc.patrolSpeed;
-        oj["meshCollider"] = desc.meshCollider;
-        oj["weaponType"] = desc.weaponType;
-        oj["isStageBoss"] = desc.isStageBoss;
-        oj["enemyModel"] = desc.enemyModel;
-        oj["pickupRadius"] = desc.pickupRadius;
-        oj["pickupGaugeAmount"] = desc.pickupGaugeAmount;
-        oj["pickupColor"] = WriteVec4(desc.pickupColor);
-        oj["breakableHp"] = desc.breakableHp;
-        oj["breakableRadius"] = desc.breakableRadius;
-        oj["breakablePlayerDamage"] = desc.breakablePlayerDamage;
-        oj["breakableEnemyDamage"] = desc.breakableEnemyDamage;
-        oj["breakableWeapon"] = desc.breakableWeapon;
-        oj["breakableColor"] = WriteVec4(desc.breakableColor);
-        oj["axis"] = std::string(1, desc.axis);
-        oj["count"] = desc.count;
-        oj["step"] = desc.step;
-        oj["text"] = desc.text;
-        oj["textColor"] = WriteVec4(desc.textColor);
-        oj["textBold"] = desc.textBold;
-        oj["textShadow"] = desc.textShadow;
-        oj["textScale"] = desc.textScale;
-        oj["textSpace"] = LevelEnumName(desc.textSpace, kTextSpaceNames);
-        objectsJson.push_back(std::move(oj));
-    }
-    j["objects"] = std::move(objectsJson);
-
-    nlohmann::json triggersJson = nlohmann::json::array();
-    for (const auto& desc : data.triggers) {
-        nlohmann::json tj;
-        tj["name"] = desc.name;
-        tj["position"] = WriteVec3(desc.position);
-        tj["radius"] = desc.radius;
-        tj["flag"] = desc.flag;
-        tj["value"] = desc.value;
-        tj["once"] = desc.once;
-        tj["spawnsWaterSplash"] = desc.spawnsWaterSplash;
-        triggersJson.push_back(std::move(tj));
-    }
-    j["triggers"] = std::move(triggersJson);
-
-    nlohmann::json checkpointsJson = nlohmann::json::array();
-    for (const auto& desc : data.checkpoints) {
-        nlohmann::json checkpointJson;
-        checkpointJson["name"] = desc.name;
-        checkpointJson["position"] = WriteVec3(desc.position);
-        checkpointJson["activationRadius"] = desc.activationRadius;
-        checkpointsJson.push_back(std::move(checkpointJson));
-    }
-    j["checkpoints"] = std::move(checkpointsJson);
-
-    j["graphPath"] = data.graphPath;
-    nlohmann::json flagGraphsJson = nlohmann::json::array();
-    for (const auto& binding : data.flagGraphs) {
-        nlohmann::json bj;
-        bj["flag"] = binding.flag;
-        bj["graphPath"] = binding.graphPath;
-        flagGraphsJson.push_back(std::move(bj));
-    }
-    j["flagGraphs"] = std::move(flagGraphsJson);
+    nlohmann::json j = nlohmann::json::object();
+    WriteJsonFields(j, kLevelFields, data);
+    j["objects"] = WriteList(data.objects, kObjectFields, [](nlohmann::json& item, const ObjectDesc& desc) {
+        item["type"] = LevelEnumName(desc.type, kPlacementTypeNames);
+        item["motionMode"] = LevelEnumName(desc.motionMode, kMotionModeNames);
+        item["motionEase"] = LevelEnumName(desc.motionEase, kMotionEaseNames);
+        item["textSpace"] = LevelEnumName(desc.textSpace, kTextSpaceNames);
+        item["axis"] = std::string(1, desc.axis);
+    });
+    j["triggers"] = WriteList(data.triggers, kTriggerFields, NoExtra<nlohmann::json, TriggerDesc>);
+    j["checkpoints"] = WriteList(data.checkpoints, kCheckpointFields, NoExtra<nlohmann::json, CheckpointDesc>);
+    j["flagGraphs"] = WriteList(data.flagGraphs, kFlagGraphFields, NoExtra<nlohmann::json, FlagGraphBinding>);
 
     JsonHelper::Save(path, j);
 }
@@ -286,7 +237,7 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
     auto worldPositionOf = [&](const ObjectDesc& desc) {
         Vector3 pos = desc.position;
         const ObjectDesc* cur = &desc;
-        for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
+        for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
             auto it = byName.find(cur->parent);
             if (it == byName.end()) {
                 break;
@@ -332,21 +283,13 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
         Model* model = getModel(desc.model, desc.texture);
         Vector3 basePos = worldPositionOf(desc);
 
-        if (desc.type == PlacementType::Static) {
-            spawnOne(model, desc, basePos);
-        } else if (desc.type == PlacementType::Row) {
-            for (int i = 0; i < desc.count; ++i) {
-                Vector3 pos = basePos;
-                float offset = desc.step * static_cast<float>(i);
-                if (desc.axis == 'y') {
-                    pos.y += offset;
-                } else if (desc.axis == 'z') {
-                    pos.z += offset;
-                } else {
-                    pos.x += offset;
-                }
-                spawnOne(model, desc, pos);
-            }
+        // 1個置くか、axis方向へ count 個並べる
+        const int copies = CopiesOf(desc);
+        float Vector3::* const axis = AxisMemberOf(desc.axis);
+        for (int i = 0; i < copies; ++i) {
+            Vector3 pos = basePos;
+            pos.*axis += desc.step * static_cast<float>(i);
+            spawnOne(model, desc, pos);
         }
     }
     return result;

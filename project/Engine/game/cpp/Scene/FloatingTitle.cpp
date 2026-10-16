@@ -1,4 +1,5 @@
 #include "FloatingTitle.h"
+#include "UILayout.h"
 #include "DirectXCommon.h"
 #include "GameConstants.h"
 #include "Input.h"
@@ -21,6 +22,9 @@ constexpr float kViewportX = 320.0f;
 constexpr float kViewportY = 20.0f;
 constexpr float kViewportWidth = 640.0f;
 constexpr float kViewportHeight = 240.0f;
+constexpr const char* kLayoutName = "floating_title";
+constexpr Vector2 kViewportPosition = { kViewportX, kViewportY };
+constexpr Vector2 kViewportSize = { kViewportWidth, kViewportHeight };
 constexpr float kViewportAspect = kViewportWidth / kViewportHeight;
 
 // カメラとライト
@@ -48,6 +52,10 @@ constexpr float kDriftPitchAmpA = 0.12f;
 constexpr float kDriftPitchFreqB = 1.07f;
 constexpr float kDriftPitchAmpB = 0.035f;
 constexpr float kDriftYawFreqA = 0.47f;
+// 揺れの周期ごとに位相をずらし、軸ごとの揺れが同時に頂点へ来ないようにする
+constexpr float kDriftYawPhase = 0.8f;
+constexpr float kDriftRollPhase = 1.6f;
+constexpr float kFloatPhase = 0.4f;
 constexpr float kDriftYawAmpA = 0.20f;
 constexpr float kDriftYawFreqB = 0.83f;
 constexpr float kDriftYawAmpB = 0.06f;
@@ -108,6 +116,13 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
 }
 void FloatingTitle::Update(bool allowInteraction)
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 viewportPosition = layout.Pos("viewport.pos", kViewportPosition);
+    const Vector2 viewportSize = layout.Vec2("viewport.size", kViewportSize);
+    const float viewportAspect = viewportSize.x > 0.0f && viewportSize.y > 0.0f
+        ? viewportSize.x / viewportSize.y : kViewportAspect;
+    camera_->SetAspectRatio(viewportAspect);
+    object_->SetColor(layout.Color("logo.color", kLogoColor));
     const float dt = GameConstants::kFrameDeltaTime;
     floatTime_ += dt;
     const POINT clientMouse = input_->GetMouseClientPosition();
@@ -118,8 +133,8 @@ void FloatingTitle::Update(bool allowInteraction)
     };
     const float x = mouse.x;
     const float y = mouse.y;
-    const bool hovered = x >= kViewportX && x <= kViewportX + kViewportWidth
-        && y >= kViewportY && y <= kViewportY + kViewportHeight;
+    const bool hovered = x >= viewportPosition.x && x <= viewportPosition.x + viewportSize.x
+        && y >= viewportPosition.y && y <= viewportPosition.y + viewportSize.y;
     bool canDrag = allowInteraction;
 #ifdef USE_IMGUI
     canDrag = canDrag && !ImGui::GetIO().WantCaptureMouse;
@@ -150,11 +165,11 @@ void FloatingTitle::Update(bool allowInteraction)
     // 異なる周期の揺れを重ね、操作していない間も滑らかな漂いを続ける。
     const float driftPitch = std::sin(floatTime_ * kDriftPitchFreqA) * kDriftPitchAmpA
         + std::sin(floatTime_ * kDriftPitchFreqB) * kDriftPitchAmpB;
-    const float driftYaw = std::sin(floatTime_ * kDriftYawFreqA + 0.8f) * kDriftYawAmpA
+    const float driftYaw = std::sin(floatTime_ * kDriftYawFreqA + kDriftYawPhase) * kDriftYawAmpA
         + std::sin(floatTime_ * kDriftYawFreqB) * kDriftYawAmpB;
-    const float driftRoll = std::sin(floatTime_ * kDriftRollFreqA + 1.6f) * kDriftRollAmpA
+    const float driftRoll = std::sin(floatTime_ * kDriftRollFreqA + kDriftRollPhase) * kDriftRollAmpA
         + std::sin(floatTime_ * kDriftRollFreqB) * kDriftRollAmpB;
-    const float floatOffset = std::sin(floatTime_ * kFloatFreqA + 0.4f) * kFloatAmpA
+    const float floatOffset = std::sin(floatTime_ * kFloatFreqA + kFloatPhase) * kFloatAmpA
         + std::sin(floatTime_ * kFloatFreqB) * kFloatAmpB;
     const Vector3 rotation = { pitch_ + driftPitch, yaw_ + driftYaw, driftRoll };
     Matrix4x4 local = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, rotation, {});
@@ -170,23 +185,26 @@ void FloatingTitle::Update(bool allowInteraction)
     extent.z = std::abs(local.m[0][2]) * halfSize_.x + std::abs(local.m[1][2]) * halfSize_.y + std::abs(local.m[2][2]) * halfSize_.z;
     const float tangent = std::tan(kCameraFovY * 0.5f);
     const float distance = extent.z
-        + (std::max)(extent.x / (tangent * kViewportAspect), (extent.y + kMaxFloatOffset) / tangent) * kFramingMargin;
+        + (std::max)(extent.x / (tangent * viewportAspect), (extent.y + kMaxFloatOffset) / tangent) * kFramingMargin;
     // 通常の揺れではカメラ距離を固定し、ロゴが不自然に拡大・縮小するのを防ぐ。
     const float restingDistance = halfSize_.z + halfSize_.x * kRestingDepthRatio
-        + (std::max)(halfSize_.x / (tangent * kViewportAspect), (halfSize_.y + kMaxFloatOffset) / tangent) * kFramingMargin;
+        + (std::max)(halfSize_.x / (tangent * viewportAspect), (halfSize_.y + kMaxFloatOffset) / tangent) * kFramingMargin;
     camera_->SetTranslate({ 0.0f, 0.0f, -(std::max)(distance, restingDistance) });
     object_->SetLocalMatrix(local);
     object_->Update();
 }
 void FloatingTitle::Draw()
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 viewportPosition = layout.Pos("viewport.pos", kViewportPosition);
+    const Vector2 viewportSize = layout.Vec2("viewport.size", kViewportSize);
     auto* cmd = dxCommon_->GetCommandList();
     const auto client = dxCommon_->GetCenteredClientViewport();
     const float scaleX = client.Width / GameConstants::kScreenWidth;
     const float scaleY = client.Height / GameConstants::kScreenHeight;
-    const D3D12_VIEWPORT viewport = { client.TopLeftX + kViewportX * scaleX,
-        client.TopLeftY + kViewportY * scaleY,
-        kViewportWidth * scaleX, kViewportHeight * scaleY, 0.0f, 1.0f };
+    const D3D12_VIEWPORT viewport = { client.TopLeftX + viewportPosition.x * scaleX,
+        client.TopLeftY + viewportPosition.y * scaleY,
+        viewportSize.x * scaleX, viewportSize.y * scaleY, 0.0f, 1.0f };
     const D3D12_RECT scissor = { static_cast<LONG>(viewport.TopLeftX), static_cast<LONG>(viewport.TopLeftY),
         static_cast<LONG>(viewport.TopLeftX + viewport.Width), static_cast<LONG>(viewport.TopLeftY + viewport.Height) };
     // ロゴの専用範囲だけ深度を消し、背景デモに隠れず常に同じ場所へ表示する。

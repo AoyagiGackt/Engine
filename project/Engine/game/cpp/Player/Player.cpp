@@ -12,6 +12,7 @@
 #include "ModelManager.h"
 #include "OutlineEffect.h"
 #include "PipelineStateGuard.h"
+#include "PlayerTuning.h"
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
@@ -22,8 +23,10 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
-// 武器奪取の刺突（ぶっ刺す→奪う演出の仮モーション、専用素材が無いため斬撃を流用）
-constexpr float kStealStabAnimSpeed = 1.2f;
+const PlayerTuning& Tuning()
+{
+    return PlayerTuning::Get();
+}
 
 void LockJumpClipVerticalRootMotion(Animation& animation)
 {
@@ -145,7 +148,13 @@ void Player::Initialize(ModelCommon* modelCommon)
 
 void Player::PlayStealStab()
 {
-    PlayAttackAnim(rig_->slashAnim, kStealStabAnimSpeed);
+    // 武器奪取の刺突（専用素材が無いため斬撃を流用）
+    PlayAttackAnim(rig_->slashAnim, Tuning().stealStabAnimSpeed);
+}
+
+void Player::OnHit()
+{
+    invincibleTimer_ = Tuning().invincibleDuration;
 }
 
 int Player::GetComboMax() const
@@ -179,13 +188,12 @@ float Player::GetAwakenedKnockbackMult() const
 void Player::BufferDodgeInput(Input* input)
 {
     if (input->TriggerAction(Input::Action::Dodge)) {
-        dodgeBufferFrames_ = kDodgeBufferFrames_;
+        dodgeBufferFrames_ = Tuning().dodgeBufferFrames;
     }
 }
 
 void Player::HandleDodge(Input* input)
 {
-    justDodged_ = false;
     dodgeCooldown_ = (std::max)(dodgeCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
     dodgeSpamTimer_ += GameConstants::kFrameDeltaTime;
 
@@ -198,11 +206,11 @@ void Player::HandleDodge(Input* input)
     // 進行中の回避を進める（イージングで滑らかに移動し、終わったら無敵を解く）
     if (dodgeActive_) {
         dodgeTimer_ += GameConstants::kFrameDeltaTime;
-        const float t = std::clamp(dodgeTimer_ / kDodgeDuration_, 0.0f, 1.0f);
+        const float t = std::clamp(dodgeTimer_ / Tuning().dodgeDuration, 0.0f, 1.0f);
         pos_.x = std::clamp(dodgeStartX_ + (dodgeTargetX_ - dodgeStartX_) * Easing::EaseOutQuad(t), minX_, maxX_);
         if (t >= 1.0f) {
             dodgeActive_ = false;
-            dodgeCooldown_ = kDodgeCooldown_;
+            dodgeCooldown_ = Tuning().dodgeCooldown;
         }
         return;
     }
@@ -216,43 +224,31 @@ void Player::HandleDodge(Input* input)
 
     // 方向は移動入力優先で、その方向を向いて前転する
     // 無ければ向いている方向の逆へバックステップ（向き自体は変えない＝敵を見たまま退く）
-    float dirX = -lastDirX_;
-    dodgeBackward_ = true;
-    if (input->PushAction(Input::Action::MoveLeft)) {
-        dirX = -1.0f;
-        dodgeBackward_ = false;
-    } else if (input->PushAction(Input::Action::MoveRight)) {
-        dirX = 1.0f;
-        dodgeBackward_ = false;
-    }
+    const float heldDirX = GetHeldMoveDirection(input);
+    dodgeBackward_ = heldDirX == 0.0f;
+    const float dirX = dodgeBackward_ ? -lastDirX_ : heldDirX;
     if (!dodgeBackward_) {
         lastDirX_ = dirX;
     }
 
     // 短い間隔で繰り返した回避は連打として数える（危険の無い場面での乱用をスタイル評価で咎めるため）
-    dodgeSpamCount_ = dodgeSpamTimer_ < kDodgeSpamWindow_ ? dodgeSpamCount_ + 1 : 0;
+    dodgeSpamCount_ = dodgeSpamTimer_ < Tuning().dodgeSpamWindow ? dodgeSpamCount_ + 1 : 0;
     dodgeSpamTimer_ = 0.0f;
 
     dodgeActive_ = true;
-    justDodged_ = true;
+    SetFrameEvent(FrameEvent::Dodged);
     dodgeRewardClaimed_ = false;
     dodgeTimer_ = 0.0f;
     dodgeStartX_ = pos_.x;
-    dodgeTargetX_ = std::clamp(pos_.x + dirX * kDodgeDistance_, minX_, maxX_);
+    dodgeTargetX_ = std::clamp(pos_.x + dirX * Tuning().dodgeDistance, minX_, maxX_);
 
     // 回避はコンボの逃げ道。振りかけの段は打ち切り、踏み込み系の技も止める
     meleeCombo_.Reset();
-    daggerStingerHitIndex_ = -1;
-    daggerStingerDash_.active = false;
-    airDash_.active = false;
-    swordDash_.active = false;
-    spearDash_.active = false;
-    axeDash_.active = false;
-    if (dodgeBackward_) {
-        PlayAttackAnim(rig_->jumpAnim, kBackDodgeAnimSpeed_);
-    } else {
-        PlayAttackAnim(rig_->runningJumpAnim, kDodgeAnimSpeed_);
-    }
+    InterruptWeaponSkills();
+    // バックステップは立ちジャンプ、前転は走りジャンプのモーションを速めて見せる
+    const PlayerTuning& t = Tuning();
+    PlayAttackAnim(dodgeBackward_ ? rig_->jumpAnim : rig_->runningJumpAnim,
+        dodgeBackward_ ? t.backDodgeAnimSpeed : t.dodgeAnimSpeed);
 }
 
 void Player::HandleWarp(Input* input)
@@ -262,41 +258,36 @@ void Player::HandleWarp(Input* input)
     // 進行中のワープを進める（イージングで滑らかに移動し、終わったら無敵を解く）
     if (warpActive_) {
         warpTimer_ += GameConstants::kFrameDeltaTime;
-        const float t = std::clamp(warpTimer_ / kWarpDuration_, 0.0f, 1.0f);
+        const float t = std::clamp(warpTimer_ / Tuning().warpDuration, 0.0f, 1.0f);
         pos_.x = std::clamp(warpStartX_ + (warpTargetX_ - warpStartX_) * Easing::EaseOutQuad(t), minX_, maxX_);
         if (t >= 1.0f) {
             warpActive_ = false;
-            warpCooldown_ = isAwakened_ ? kWarpAwakenedCooldown_ : kWarpCooldown_;
+            warpCooldown_ = isAwakened_ ? Tuning().warpAwakenedCooldown : Tuning().warpCooldown;
         }
         return;
     }
 
     const bool blocked = inWater_ || finisherCharging_ || IsRampaging()
         || warpCooldown_ > 0.0f || dodgeActive_;
-    const bool hasGauge = isAwakened_ || awakenGauge_ >= kWarpGaugeCost_;
+    const bool hasGauge = isAwakened_ || awakenGauge_ >= Tuning().warpGaugeCost;
     if (blocked || !hasGauge || !input->TriggerAction(Input::Action::Warp)) {
         return;
     }
 
     if (!isAwakened_) {
-        awakenGauge_ -= kWarpGaugeCost_;
+        awakenGauge_ -= Tuning().warpGaugeCost;
     }
 
     warpActive_ = true;
     warpTimer_ = 0.0f;
     warpStartX_ = pos_.x;
-    const float distance = isAwakened_ ? kWarpAwakenedDistance_ : kWarpDistance_;
+    const float distance = isAwakened_ ? Tuning().warpAwakenedDistance : Tuning().warpDistance;
     warpTargetX_ = std::clamp(pos_.x + lastDirX_ * distance, minX_, maxX_);
 
     // ワープはコンボの逃げ道兼割り込み技。振りかけの段は打ち切り、踏み込み系の技も止める
     meleeCombo_.Reset();
-    daggerStingerHitIndex_ = -1;
-    daggerStingerDash_.active = false;
-    airDash_.active = false;
-    swordDash_.active = false;
-    spearDash_.active = false;
-    axeDash_.active = false;
-    PlayAttackAnim(rig_->slashAnim, kWarpAnimSpeed_);
+    InterruptWeaponSkills();
+    PlayAttackAnim(rig_->slashAnim, Tuning().warpAnimSpeed);
 }
 
 void Player::PlayAttackAnim(const Animation& anim, float speed)
@@ -329,7 +320,7 @@ void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool
     GetPhysicsState(inWater_).Update(*this, input);
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
     if (onGround_) {
-        airDashAvailable_ = true; // 空中ダッシュは着地で回復する
+        NotifyWeaponSkillsLanded(); // 空中ダッシュなどは着地で回復する
     }
 
     HandleRangedCombat(input);
@@ -346,18 +337,38 @@ void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool
     AttachActiveWeapons();
 }
 
+Vector3 Player::FindStandingPosition(const Vector3& position, const std::vector<AABB>& blocks) const
+{
+    // 当たり判定は position を中心とした1x1x1。足元から少し上（段差の許容）までの上面を床の候補にする
+    constexpr float kHalf = kBodyHalfExtent_;
+    constexpr float kStepTolerance = 0.12f;
+    const float feetY = position.y - kHalf;
+    float bestTop = (std::numeric_limits<float>::lowest)();
+    for (const AABB& b : blocks) {
+        const bool overlapXZ = (position.x + kHalf) > b.min.x && (position.x - kHalf) < b.max.x
+            && (position.z + kHalf) > b.min.z && (position.z - kHalf) < b.max.z;
+        if (overlapXZ && b.max.y <= feetY + kStepTolerance) {
+            bestTop = (std::max)(bestTop, b.max.y);
+        }
+    }
+    if (bestTop == (std::numeric_limits<float>::lowest)()) {
+        return position;
+    }
+    return { position.x, bestTop + kHalf, position.z };
+}
+
 void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 {
     groundVisualCorrection_ = 0.0f;
     if (blocks.empty()) {
-        if (pos_.y > kGroundY_ && velocityY_ <= 0.0f) {
+        if (pos_.y > Tuning().groundY && velocityY_ <= 0.0f) {
             onGround_ = false;
         }
         return;
     }
 
     // プレイヤーの当たり判定はダミー等と同じpos_を中心とした1x1x1規約に合わせる
-    constexpr float kHalf = 0.5f;
+    constexpr float kHalf = kBodyHalfExtent_;
 
     // 上昇中に頭がブロック下面を横切った場合は、下面の直下へ戻して上昇速度を止める。
     if (velocityY_ > 0.0f) {
@@ -416,23 +427,25 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 
         float pushLeft = b.min.x - (pos_.x + kHalf); // 負値＝左へ押し出す量
         float pushRight = b.max.x - (pos_.x - kHalf); // 正値＝右へ押し出す量
-        float pushBack = b.min.z - (pos_.z + kHalf); // 負値＝手前へ押し出す量
-        float pushFront = b.max.z - (pos_.z - kHalf); // 正値＝奥へ押し出す量
 
-        float pushX = (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
-        float pushZ = (std::abs(pushBack) < std::abs(pushFront)) ? pushBack : pushFront;
-
-        // 侵入量がより小さい軸だけを押し出す（角にめり込んだ場合に誤った軸へ押し出さないため）
-        if (std::abs(pushX) < std::abs(pushZ)) {
-            pos_.x += pushX;
+        // 横スクロールなので左右だけに押し出す。奥行き（Z）へ押し出すと、突進などで深くめり込んだ時に
+        // ステージの奥や手前の列へずれ、壁や床の中に埋まったまま戻れなくなる
+        // 移動前にブロックの左右どちらにいたかが分かれば、入ってきた側へ戻す
+        // （突進やワープで一気に動いて壁の中心を越えても、壁の向こうへ抜けないように）
+        const bool cameFromLeft = prevFrameX_ + kHalf <= b.min.x + kSideOverlapMargin_;
+        const bool cameFromRight = prevFrameX_ - kHalf >= b.max.x - kSideOverlapMargin_;
+        if (cameFromLeft) {
+            pos_.x += pushLeft;
+        } else if (cameFromRight) {
+            pos_.x += pushRight;
         } else {
-            pos_.z += pushZ;
+            pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
         }
     }
 
     // 垂直方向  足元付近に上面があるブロックのうち一番高いものへ着地させる
     float feetY = pos_.y - kHalf;
-    float bestTop = useStageFloor_ ? (std::numeric_limits<float>::lowest)() : kGroundY_;
+    float bestTop = useStageFloor_ ? (std::numeric_limits<float>::lowest)() : Tuning().groundY;
     constexpr float kMaxStepHeight = 0.12f;
     // 壁のように同じX/Zに積み重なったブロックの途中の継ぎ目に、ジャンプで壁へ突っ込んだ際に
     // 乗ってしまわないよう、頭上（立った時に体が収まる高さ）に別のブロックが無いことも確認する
@@ -473,11 +486,11 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         pos_.y = bestTop;
         velocityY_ = 0.0f;
         onGround_ = true;
-        justLanded_ = !prevOnGround_;
-        airDashAvailable_ = true;
+        SetFrameEvent(FrameEvent::Landed, !prevOnGround_);
+        NotifyWeaponSkillsLanded();
     } else if (velocityY_ <= 0.0f) {
         onGround_ = false;
-        justLanded_ = false;
+        SetFrameEvent(FrameEvent::Landed, false);
     }
 
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
@@ -501,7 +514,7 @@ bool Player::AdvanceDash(DashMotion& dash)
         return false;
     }
     dash.timer += GameConstants::kFrameDeltaTime;
-    const float t = std::clamp(dash.timer / kDashDuration_, 0.0f, 1.0f);
+    const float t = std::clamp(dash.timer / Tuning().dashDuration, 0.0f, 1.0f);
     pos_.x = dash.startX + (dash.targetX - dash.startX) * Easing::EaseOutQuad(t);
     if (t >= 1.0f) {
         dash.active = false;

@@ -4,7 +4,6 @@
  */
 #include "Player.h"
 #include "CharacterVisuals.h"
-#include "Easing.h"
 #include "GameConstants.h"
 #include "GravityBody.h"
 #include "Input.h"
@@ -12,6 +11,7 @@
 #include "ModelManager.h"
 #include "OutlineEffect.h"
 #include "PipelineStateGuard.h"
+#include "PlayerTuning.h"
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
@@ -22,6 +22,11 @@ using namespace engine::graphics;
 using namespace engine::game;
 
 namespace {
+const PlayerTuning& Tuning()
+{
+    return PlayerTuning::Get();
+}
+
 // 本体・武器の黒縁アウトライン（背景との同化と武器の視認性の低さを補う）
 // 幅・濃さともに控えめにし、異常が起きているように見えるほど主張しないようにする
 constexpr Vector4 kOutlineColor = { 0.0f, 0.0f, 0.0f, 0.55f };
@@ -36,20 +41,19 @@ constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr float kRampageBlinkSpeed = 3.0f; // 乱舞の斬撃回数あたりの明滅の速さ
 constexpr float kRampageGreenFade = 0.4f;
 constexpr float kRampageBlueFade = 0.6f;
-constexpr Vector4 kGaugeChargedColor = { 1.0f, 0.85f, 0.0f, 1.0f };
 constexpr float kAwakenPulseSpeed = 6.0f;
 constexpr float kAwakenPulseAmplitude = 0.3f;
 constexpr float kAwakenPulseBase = 0.7f;
 constexpr float kAwakenRed = 0.15f;
 constexpr float kAwakenGreen = 0.55f;
+constexpr float kHalfWave = 0.5f; // sin を 0〜1 へ寄せる振幅とオフセット
 
-// フィニッシャー 静止集中の長さ（GamePlayScene/BattleTestScene の斬撃線バラマキ演出と一致させる
-// kFinisherChargeDelay → 斬撃線を kFinisherSlashLines 本 kFinisherLineInterval 間隔で出す → kFinisherImpactDelay で解放）
-// 専用の納刀ポーズ素材が無いため、Idle/IdleHold を静止させて代用する
-// （PlayerCombatInput.cppのHandleFinisherSlashでも同じ値を使うため定義を重複させている）
-constexpr float kFinisherChargeDuration = GameConstants::kFinisherChargeDelay
-    + GameConstants::kFinisherSlashLines * GameConstants::kFinisherLineInterval
-    + GameConstants::kFinisherImpactDelay;
+/** @brief 状態ごとの本体の色（条件が成り立つ行のうち先頭を使う） */
+struct BodyTint {
+    bool active;
+    Vector4 color;
+};
+
 
 }
 
@@ -105,10 +109,22 @@ void Player::UpdateAnimationState(bool isMoving)
         rig_->object->SetAnimSpeed(1.0f); // 攻撃用の速度倍率を戻す
     }
 
-    const IAnimState* newState = inWater_ ? &SwimAnim()
-        : !onGround_                      ? &JumpAnim()
-        : isMoving                        ? &RunAnim()
-                                          : &IdleAnim();
+    // 上の行ほど優先。どれにも当たらなければ待機
+    const struct {
+        bool active;
+        const IAnimState* state;
+    } candidates[] = {
+        { inWater_, &SwimAnim() },
+        { !onGround_, &JumpAnim() },
+        { isMoving, &RunAnim() },
+    };
+    const IAnimState* newState = &IdleAnim();
+    for (const auto& candidate : candidates) {
+        if (candidate.active) {
+            newState = candidate.state;
+            break;
+        }
+    }
     // 構え系の近接武器、または銃を左手に構えている間は武器持ちバリエーション（IdleHold/RunHold）を使う
     // （銃は常時左手に追従表示されるため、素のIdle/Runのままだと構えていないように見えてしまう）
     const Skeleton& skel = rig_->object->GetSkeleton();
@@ -217,6 +233,29 @@ void Player::RefreshVisualTransforms()
     }
 }
 
+void Player::UpdateCinematicPose(bool airborne)
+{
+    // アニメの選び方は通常と同じ（宙なら落下、地上なら待機）。移動入力は無いものとして扱う
+    onGround_ = !airborne;
+    UpdateAnimationState(false);
+
+    const float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    const Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
+    rig_->object->SetPosition(modelPos);
+    rig_->object->SetRotation({ 0.0f, yaw, 0.0f });
+    SyncMotionLayer();
+    rig_->object->Update(); // アニメの時刻も通常どおり進める
+
+    // 手に持つ武器と銃をボーンへ付け直す（付けないと初期位置のまま本体の中に見える）
+    AttachActiveWeapons();
+    for (auto& slot : heldWeapons_) {
+        slot.object->Update();
+    }
+    for (auto& slot : guns_) {
+        slot.object->Update();
+    }
+}
+
 void Player::UpdateVisualState(Input* input)
 {
     float yaw = (lastDirX_ >= 0.0f) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
@@ -226,9 +265,9 @@ void Player::UpdateVisualState(Input* input)
     // バックステップは後ろへ反りながら小さく跳ねる弧で見せる（当たり判定の位置は動かさない）
     float backDodgeLean = 0.0f;
     if (dodgeActive_ && dodgeBackward_) {
-        const float arc = std::sin(std::clamp(dodgeTimer_ / kDodgeDuration_, 0.0f, 1.0f) * GameConstants::kPi);
-        backDodgeLean = kBackDodgeLean_ * arc;
-        modelPos.y += kBackDodgeHopHeight_ * arc;
+        const float arc = std::sin(std::clamp(dodgeTimer_ / Tuning().dodgeDuration, 0.0f, 1.0f) * GameConstants::kPi);
+        backDodgeLean = Tuning().backDodgeLean * arc;
+        modelPos.y += Tuning().backDodgeHopHeight * arc;
     }
     bool isRampage = IsRampaging();
     // 回避中も薄い残像を出して、瞬間的に位置が飛んだのではなく素早く動いたことを見せる
@@ -241,24 +280,26 @@ void Player::UpdateVisualState(Input* input)
         || input->PushAction(Input::Action::MoveRight);
     UpdateAnimationState(isMovingHoriz);
 
-    // ── プレイヤー色 ──
-    if (finisherCharging_) {
-        rig_->object->SetColor(kWhite); // 色自体は白のまま、リムの発光だけで魅せる
-    } else if (IsRampaging()) {
-        float t = std::sin(juggleSlashCount_ * kRampageBlinkSpeed) * 0.5f + 0.5f;
-        rig_->object->SetColor({ 1.0f, 1.0f - t * kRampageGreenFade, 1.0f - t * kRampageBlueFade, 1.0f }); // 白→青白点滅
-    } else if (justChargedGauge_) {
-        rig_->object->SetColor(kGaugeChargedColor); // 黄（ハンマーチャージ）
-    } else if (isAwakened_) {
-        float t = std::sin(awakenTimer_ * kAwakenPulseSpeed) * kAwakenPulseAmplitude + kAwakenPulseBase;
-        rig_->object->SetColor({ kAwakenRed * t, kAwakenGreen * t, 1.0f, 1.0f }); // 青くパルス
-    } else {
-        rig_->object->SetColor(kWhite);
+    // ── プレイヤー色（上の行ほど優先。どれにも当たらなければ白）──
+    const float rampageBlink = std::sin(juggleSlashCount_ * kRampageBlinkSpeed) * kHalfWave + kHalfWave;
+    const float awakenPulse = std::sin(awakenTimer_ * kAwakenPulseSpeed) * kAwakenPulseAmplitude + kAwakenPulseBase;
+    const BodyTint tints[] = {
+        { finisherCharging_, kWhite }, // 色自体は白のまま、リムの発光だけで魅せる
+        { IsRampaging(), { 1.0f, 1.0f - rampageBlink * kRampageGreenFade, 1.0f - rampageBlink * kRampageBlueFade, 1.0f } }, // 白→青白点滅
+        { isAwakened_, { kAwakenRed * awakenPulse, kAwakenGreen * awakenPulse, 1.0f, 1.0f } }, // 青くパルス
+    };
+    Vector4 bodyColor = kWhite;
+    for (const BodyTint& tint : tints) {
+        if (tint.active) {
+            bodyColor = tint.color;
+            break;
+        }
     }
+    rig_->object->SetColor(bodyColor);
 
     // 溜めが深まるほどリムライトを強めて集中が高まる感じを出す（解放の瞬間が一番明るい）
     float rimIntensity = finisherCharging_
-        ? kRimIntensity_ + (1.0f - finisherChargeTimer_ / kFinisherChargeDuration) * kFinisherRimBoost_
+        ? kRimIntensity_ + (1.0f - finisherChargeTimer_ / GameConstants::kFinisherChargeDuration) * kFinisherRimBoost_
         : kRimIntensity_;
     rig_->object->SetRimIntensity(rimIntensity);
     for (auto& slot : heldWeapons_) {
@@ -350,22 +391,22 @@ void Player::AttachActiveWeapons()
             }
         }
     }
-    if (activeHeldIndex_ >= 0 && !(heldWeapons_[activeHeldIndex_].type == WeaponType::Greatsword && greatswordThrowActive_)) {
+    if (activeHeldIndex_ >= 0 && !BehaviorFor(heldWeapons_[activeHeldIndex_].type).IsDisarmed()) {
         auto& slot = heldWeapons_[activeHeldIndex_];
         Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
         AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
     }
 
-    // 投げ回転斬りの最中は、途中で他の武器に持ち替えてもactiveHeldIndex_とは別に
-    // 大剣モデルを飛行/渦の位置へ動かし続ける（持ち替え直後に消えて見えないようにする）
-    thrownGreatswordIndex_ = -1;
-    if (greatswordThrowActive_) {
-        for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
-            if (heldWeapons_[i].type == WeaponType::Greatsword) {
-                thrownGreatswordIndex_ = i;
-                UpdateThrownGreatswordVisual(heldWeapons_[i]);
-                break;
-            }
+    // 投げた武器は、途中で他の武器に持ち替えてもactiveHeldIndex_とは別に
+    // 飛行/渦の位置へ動かし続ける（持ち替え直後に消えて見えないようにする）
+    thrownWeaponIndex_ = -1;
+    for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
+        Vector3 thrownPos;
+        float thrownSpinZ = 0.0f;
+        if (BehaviorFor(heldWeapons_[i].type).GetThrownPose(thrownPos, thrownSpinZ)) {
+            thrownWeaponIndex_ = i;
+            PlaceThrownWeapon(heldWeapons_[i], thrownPos, thrownSpinZ);
+            break;
         }
     }
 
@@ -391,43 +432,11 @@ void Player::AttachActiveWeapons()
     }
 }
 
-void Player::UpdateThrownGreatswordVisual(HeldWeaponSlot& slot)
+void Player::PlaceThrownWeapon(HeldWeaponSlot& slot, const Vector3& position, float spinZ)
 {
-    // 目にも留まらぬ速さで回転させ続ける（飛行中→静止後の渦で途切れず連続した見た目にする）
-    constexpr float kThrowSpinSpeed = 22.0f; // ラジアン/秒
-    constexpr float kSpinBobAmplitude = 0.06f; // 静止後、渦の間だけ小さく上下に揺らす
-    constexpr float kSpinBobSpeed = 10.0f;
-
-    Vector3 pos;
-    if (greatswordThrowTimer_ < kGreatswordThrowTravelTime_) {
-        // 飛行中: 手元から静止地点へ補間しながら飛んでいく
-        const float t = Easing::EaseOutQuad(greatswordThrowTimer_ / kGreatswordThrowTravelTime_);
-        pos = {
-            greatswordThrowStartPos_.x + (greatswordThrowPos_.x - greatswordThrowStartPos_.x) * t,
-            greatswordThrowStartPos_.y + (greatswordThrowPos_.y - greatswordThrowStartPos_.y) * t,
-            greatswordThrowStartPos_.z + (greatswordThrowPos_.z - greatswordThrowStartPos_.z) * t,
-        };
-    } else {
-        const float spinElapsed = greatswordThrowTimer_ - kGreatswordThrowTravelTime_;
-        if (spinElapsed < kGreatswordVortexMaxDuration_) {
-            // 渦の最中: その場に留まり、渦らしく小さく上下に揺れる
-            pos = greatswordThrowPos_;
-            pos.y += std::sin(spinElapsed * kSpinBobSpeed) * kSpinBobAmplitude;
-        } else {
-            // 帰還中: 渦の中心から手元へ飛んで戻る（瞬間移動に見えないよう補間する）
-            const float returnElapsed = spinElapsed - kGreatswordVortexMaxDuration_;
-            const float t = Easing::EaseInQuad((std::min)(returnElapsed / kGreatswordReturnTime_, 1.0f));
-            pos = {
-                greatswordThrowPos_.x + (greatswordReturnTargetPos_.x - greatswordThrowPos_.x) * t,
-                greatswordThrowPos_.y + (greatswordReturnTargetPos_.y - greatswordThrowPos_.y) * t,
-                greatswordThrowPos_.z + (greatswordReturnTargetPos_.z - greatswordThrowPos_.z) * t,
-            };
-        }
-    }
-
     slot.object->ClearLocalMatrix(); // 手のボーン追従（SetLocalMatrix）を解除し、直接のTransform制御に戻す
-    slot.object->SetPosition(pos);
-    slot.object->SetRotation({ slot.gripRotate.x, slot.gripRotate.y, greatswordThrowTimer_ * kThrowSpinSpeed });
+    slot.object->SetPosition(position);
+    slot.object->SetRotation({ slot.gripRotate.x, slot.gripRotate.y, spinZ });
     slot.object->SetScale(slot.gripScale);
     slot.object->Update();
 }
@@ -449,7 +458,7 @@ Vector3 Player::GetActiveWeaponWorldPosition() const
 
 bool Player::GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) const
 {
-    if (activeHeldIndex_ < 0 || activeHeldIndex_ == thrownGreatswordIndex_) {
+    if (activeHeldIndex_ < 0 || activeHeldIndex_ == thrownWeaponIndex_) {
         return false;
     }
     const HeldWeaponSlot& slot = heldWeapons_[activeHeldIndex_];
@@ -465,7 +474,7 @@ bool Player::GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) c
 void Player::Draw()
 {
     if (staticOverrideObject_) {
-        staticOverrideObject_->SetPosition({ pos_.x, pos_.y - 0.5f + groundVisualCorrection_ + staticOverrideFootOffset_, pos_.z });
+        staticOverrideObject_->SetPosition({ pos_.x, pos_.y - kBodyHalfExtent_ + groundVisualCorrection_ + staticOverrideFootOffset_, pos_.z });
         staticOverrideObject_->SetRotation({ 0.0f, lastDirX_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi, 0.0f });
         staticOverrideObject_->Update();
         staticOverrideObject_->Draw();
@@ -491,8 +500,8 @@ void Player::Draw()
         if (activeHeldIndex_ >= 0) {
             heldWeapons_[activeHeldIndex_].object->DrawOutline(outline);
         }
-        if (thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
-            heldWeapons_[thrownGreatswordIndex_].object->DrawOutline(outline);
+        if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
+            heldWeapons_[thrownWeaponIndex_].object->DrawOutline(outline);
         }
         if (gunVisible_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
@@ -504,8 +513,8 @@ void Player::Draw()
     if (activeHeldIndex_ >= 0) {
         heldWeapons_[activeHeldIndex_].object->Draw();
     }
-    if (thrownGreatswordIndex_ >= 0 && thrownGreatswordIndex_ != activeHeldIndex_) {
-        heldWeapons_[thrownGreatswordIndex_].object->Draw();
+    if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
+        heldWeapons_[thrownWeaponIndex_].object->Draw();
     }
     if (gunVisible_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();

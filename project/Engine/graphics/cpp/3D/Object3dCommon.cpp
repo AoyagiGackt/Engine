@@ -7,6 +7,22 @@
 #include <cassert>
 #include <cmath>
 #include <numbers>
+
+namespace {
+
+// ライトの初期方向
+constexpr engine::Vector3 kDefaultLightDirection = { 0.5f, -0.8f, 0.3f };
+
+// 時間帯によるライト方向
+constexpr float kLightHorizontalScale = 0.7f;
+constexpr float kLightVerticalScale = 0.7f;
+constexpr float kLightVerticalBias = 0.3f;
+constexpr float kLightDirectionZ = 0.3f;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -23,7 +39,7 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
     D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
     D3D12_RESOURCE_DESC resDesc { };
     resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resDesc.Width = 256;
+    resDesc.Width = kConstantBufferAlignment;
     resDesc.Height = 1;
     resDesc.DepthOrArraySize = 1;
     resDesc.MipLevels = 1;
@@ -38,14 +54,14 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 
     // 固定ライト（白昼光）
     lightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    lightData_->direction = { 0.5f, -0.8f, 0.3f };
+    lightData_->direction = kDefaultLightDirection;
     lightData_->intensity = 1.0f;
     lightData_->ambientColor = { 1.0f, 1.0f, 1.0f };
-    lightData_->ambientIntensity = 0.3f;
+    lightData_->ambientIntensity = kDefaultAmbientIntensity;
 
     // ポイントライト定数バッファ
     // CBV は 256 バイトアライン必須なので切り上げる
-    resDesc.Width = (sizeof(PointLightBuffer) + 255) & ~255u;
+    resDesc.Width = (sizeof(PointLightBuffer) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
     device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pointLightResource_));
     pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
@@ -67,9 +83,9 @@ void Object3dCommon::UpdateLight(float timeRatio)
     // timeRatio 0.0 = 18:00（夕方）、0.5 = 0:00（真夜中）、1.0 = 6:00（朝方）
     // X 成分  夕方は右から(+)、朝は左から(-)
     float angle = std::numbers::pi_v<float> * timeRatio; // 0 → π
-    float dirX = std::cos(angle) * 0.7f; // +0.7 → 0 → -0.7
-    float dirY = -(std::abs(std::sin(angle)) * 0.7f + 0.3f); // 常に下向き
-    float dirZ = 0.3f;
+    float dirX = std::cos(angle) * kLightHorizontalScale; // +0.7 → 0 → -0.7
+    float dirY = -(std::abs(std::sin(angle)) * kLightVerticalScale + kLightVerticalBias); // 常に下向き
+    float dirZ = kLightDirectionZ;
 
     // 正規化
     float len = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);

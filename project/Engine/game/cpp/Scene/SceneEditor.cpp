@@ -11,6 +11,7 @@
 #include "SceneFlow.h"
 #include "SceneManager.h"
 #include "ScoreManager.h"
+#include <iterator>
 #include <string>
 #ifdef USE_IMGUI
 #include <commdlg.h>
@@ -93,32 +94,20 @@ void SceneEditor::ChangeState(Selection sel)
 {
     selection_ = sel;
     selectionIndex_ = -1; // UIElement のインデックスをリセット
-    switch (sel) {
-    case Selection::Camera:
-        currentState_ = std::make_unique<CameraState>();
-        break;
-    case Selection::Ring:
-        currentState_ = std::make_unique<RingState>();
-        break;
-    case Selection::Cylinder:
-        currentState_ = std::make_unique<CylinderState>();
-        break;
-    case Selection::Skydome:
-        currentState_ = std::make_unique<SkydomeState>();
-        break;
-    case Selection::Human:
-        currentState_ = std::make_unique<HumanState>();
-        break;
-    case Selection::WhiteParticles:
-        currentState_ = std::make_unique<ParticlesState>();
-        break;
-    case Selection::UIElement:
-        currentState_ = std::make_unique<UIElementState>();
-        break;
-    default:
-        currentState_ = std::make_unique<NoneState>();
-        break;
-    }
+    using StateFactory = std::unique_ptr<IEditorState> (*)();
+    // Selection の並び順
+    static constexpr StateFactory kFactories[] = {
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<NoneState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<CameraState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<UIElementState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<RingState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<CylinderState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<SkydomeState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<HumanState>()); },
+        [] { return std::unique_ptr<IEditorState>(std::make_unique<ParticlesState>()); },
+    };
+    const size_t index = static_cast<size_t>(sel);
+    currentState_ = (index < std::size(kFactories)) ? kFactories[index]() : kFactories[0]();
 }
 
 // メインエントリ

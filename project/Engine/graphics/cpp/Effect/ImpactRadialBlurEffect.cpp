@@ -5,6 +5,13 @@
 #include "ImpactRadialBlurEffect.h"
 #include "EngineAssert.h"
 #include "WinApp.h"
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -106,7 +113,7 @@ void ImpactRadialBlurEffect::CaptureAndApply()
     cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(captureSrvIndex_));
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void ImpactRadialBlurEffect::CreatePipeline()

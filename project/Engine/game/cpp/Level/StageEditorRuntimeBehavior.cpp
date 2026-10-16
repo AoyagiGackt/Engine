@@ -242,11 +242,13 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
     const float kHealerRange = tuning.healerRange;
     const int kHealerAmount = tuning.healerAmount;
     Vector3 worldPos = WorldPositionOf(entry.desc);
-    if (!ShouldPauseGame() && UpdatePatrol(entry)) {
+    // 編集中と、シーンが進行を止めている間（ポーズ・開始演出）は敵のAIと重力を進めない
+    const bool holdEnemy = ShouldPauseGame() || gameplayHeld_;
+    if (!holdEnemy && UpdatePatrol(entry)) {
         return;
     }
     if (entry.knight) {
-        if (ShouldPauseGame()) {
+        if (holdEnemy) {
             // 編集中はAI/重力を進めず、desc.positionへドラッグされた位置だけ反映する
             entry.knight->GetPositionRef() = worldPos;
             entry.knight->RefreshVisualTransforms();
@@ -256,11 +258,16 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.desc.position = entry.knight->GetPosition();
         }
     } else if (entry.enemy) {
-        if (ShouldPauseGame()) {
+        if (holdEnemy) {
             entry.enemy->GetPositionRef() = worldPos;
+            entry.enemy->FaceTowardX(playerPos.x);
             entry.enemy->RefreshVisualTransforms();
         } else {
             entry.enemy->Update(playerPos.x);
+            // 宙で倒れた敵は、真下の床まで落とす（床探しは倒れた時に一度だけ）
+            if (entry.enemy->NeedsCorpseFloor()) {
+                entry.enemy->DropCorpseTo(FindCorpseFloorY(entry.enemy->GetPosition()));
+            }
             entry.desc.position = entry.enemy->GetPosition();
             if (entry.enemy->IsHealer() && !entry.enemy->IsDefeated()) {
                 const int hpNow = entry.enemy->GetHp();

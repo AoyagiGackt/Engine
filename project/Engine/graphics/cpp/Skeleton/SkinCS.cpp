@@ -4,6 +4,13 @@
  */
 #include "SkinCS.h"
 #include "EngineAssert.h"
+
+namespace {
+
+// スキニングのスレッドグループ
+constexpr UINT kComputeThreadsPerGroup = 64;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -119,7 +126,7 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     // スロット 3: 出力頂点バッファ (UAV, u0)
     cmd->SetComputeRootUnorderedAccessView(3, outputBuffer_->GetGPUVirtualAddress());
 
-    UINT threadGroups = (vertexCount_ + 63) / 64;
+    UINT threadGroups = (vertexCount_ + kComputeThreadsPerGroup - 1) / kComputeThreadsPerGroup;
     cmd->Dispatch(threadGroups, 1, 1);
 
     // CS の書き込み完了を保証する UAV バリア

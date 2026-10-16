@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "GameConstants.h"
 #include "Input.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "MeleeCombo.h"
 #include "Player.h"
@@ -27,6 +28,43 @@ using engine::graphics::WeaponTrailStyle;
 namespace {
 
 constexpr const char* kSettingsPath = "Resources/Config/combo_feel.json";
+
+// combo_feel.json の1つの値で済む項目（刃の範囲は武器種ごとの表なので個別に読み書きする）
+constexpr JsonField<ComboFeelSettings> kSettingsFields[] = {
+    { nullptr, "trailEnabled", &ComboFeelSettings::trailEnabled },
+    { nullptr, "trailSubdivisions", &ComboFeelSettings::trailSubdivisions },
+    { nullptr, "trailLifetime", &ComboFeelSettings::trailLifetime },
+    { nullptr, "trailTipAlpha", &ComboFeelSettings::trailTipAlpha },
+    { nullptr, "trailBaseAlpha", &ComboFeelSettings::trailBaseAlpha },
+    { nullptr, "trailTint", &ComboFeelSettings::trailTint },
+    { nullptr, "impactEnabled", &ComboFeelSettings::impactEnabled },
+    { nullptr, "radialBlurEnabled", &ComboFeelSettings::radialBlurEnabled },
+    { nullptr, "blurPeak", &ComboFeelSettings::blurPeak },
+    { nullptr, "blurSeconds", &ComboFeelSettings::blurSeconds },
+    { nullptr, "blurSamples", &ComboFeelSettings::blurSamples },
+    { nullptr, "zoomEnabled", &ComboFeelSettings::zoomEnabled },
+    { nullptr, "zoomDistance", &ComboFeelSettings::zoomDistance },
+    { nullptr, "zoomSeconds", &ComboFeelSettings::zoomSeconds },
+    { nullptr, "slowEnabled", &ComboFeelSettings::slowEnabled },
+    { nullptr, "slowScale", &ComboFeelSettings::slowScale },
+    { nullptr, "slowSeconds", &ComboFeelSettings::slowSeconds },
+    { nullptr, "slashEnabled", &ComboFeelSettings::slashEnabled },
+    { nullptr, "slashLength", &ComboFeelSettings::slashLength },
+    { nullptr, "slashThickness", &ComboFeelSettings::slashThickness },
+    { nullptr, "finisherSlashThickness", &ComboFeelSettings::finisherSlashThickness },
+    { nullptr, "finisherSlashScale", &ComboFeelSettings::finisherSlashScale },
+    { nullptr, "slashSeconds", &ComboFeelSettings::slashSeconds },
+    { nullptr, "slashDirectionWindow", &ComboFeelSettings::slashDirectionWindow },
+    { nullptr, "awakenEnabled", &ComboFeelSettings::awakenEnabled },
+    { nullptr, "awakenColor", &ComboFeelSettings::awakenColor },
+    { nullptr, "awakenTint", &ComboFeelSettings::awakenTint },
+    { nullptr, "awakenTrailLifetimeScale", &ComboFeelSettings::awakenTrailLifetimeScale },
+    { nullptr, "awakenGlowExtend", &ComboFeelSettings::awakenGlowExtend },
+    { nullptr, "awakenGlowAlpha", &ComboFeelSettings::awakenGlowAlpha },
+    { nullptr, "awakenSlashCount", &ComboFeelSettings::awakenSlashCount },
+    { nullptr, "awakenSlashSpreadDeg", &ComboFeelSettings::awakenSlashSpreadDeg },
+    { nullptr, "awakenImpactScale", &ComboFeelSettings::awakenImpactScale },
+};
 
 // WeaponType の並び順と一致させる（パネルとJSONのキーに使う）
 constexpr std::array<const char*, ComboFeelSettings::kWeaponTypeCount> kWeaponTypeNames = {
@@ -61,7 +99,6 @@ Vector4 MixColor(const Vector4& a, const Vector4& b, float t)
 }
 
 nlohmann::json ToJson(const Vector3& v) { return nlohmann::json::array({ v.x, v.y, v.z }); }
-nlohmann::json ToJson(const Vector4& v) { return nlohmann::json::array({ v.x, v.y, v.z, v.w }); }
 
 /** @brief 数値の配列なら要素数ぶん読み出す（形が違えばfalse） */
 bool FloatsFromJson(const nlohmann::json& j, float* out, size_t count)
@@ -85,12 +122,6 @@ Vector3 Vector3FromJson(const nlohmann::json& j, const Vector3& fallback)
     return FloatsFromJson(j, &v.x, kVector3Size) ? v : fallback;
 }
 
-Vector4 Vector4FromJson(const nlohmann::json& j, const Vector4& fallback)
-{
-    constexpr size_t kVector4Size = 4;
-    Vector4 v = fallback;
-    return FloatsFromJson(j, &v.x, kVector4Size) ? v : fallback;
-}
 
 } // namespace
 
@@ -403,12 +434,7 @@ void ComboFeelDirector::LoadSettings()
     // 手で書き換えた JSON の型違いで落ちないよう、作業用の写しに読み、全部読めた時だけ反映する
     ComboFeelSettings s = settings_;
     try {
-        s.trailEnabled = j.value("trailEnabled", s.trailEnabled);
-        s.trailSubdivisions = j.value("trailSubdivisions", s.trailSubdivisions);
-        s.trailLifetime = j.value("trailLifetime", s.trailLifetime);
-        s.trailTipAlpha = j.value("trailTipAlpha", s.trailTipAlpha);
-        s.trailBaseAlpha = j.value("trailBaseAlpha", s.trailBaseAlpha);
-        s.trailTint = j.value("trailTint", s.trailTint);
+        ReadJsonFields(j, kSettingsFields, s);
         if (j.contains("blades") && j["blades"].is_object()) {
             const nlohmann::json& blades = j["blades"];
             for (size_t i = 0; i < kWeaponTypeNames.size(); ++i) {
@@ -420,38 +446,6 @@ void ComboFeelDirector::LoadSettings()
                 s.blades[i].tip = Vector3FromJson(b.value("tip", nlohmann::json { }), s.blades[i].tip);
             }
         }
-
-        s.impactEnabled = j.value("impactEnabled", s.impactEnabled);
-        s.radialBlurEnabled = j.value("radialBlurEnabled", s.radialBlurEnabled);
-        s.blurPeak = j.value("blurPeak", s.blurPeak);
-        s.blurSeconds = j.value("blurSeconds", s.blurSeconds);
-        s.blurSamples = j.value("blurSamples", s.blurSamples);
-        s.zoomEnabled = j.value("zoomEnabled", s.zoomEnabled);
-        s.zoomDistance = j.value("zoomDistance", s.zoomDistance);
-        s.zoomSeconds = j.value("zoomSeconds", s.zoomSeconds);
-        s.slowEnabled = j.value("slowEnabled", s.slowEnabled);
-        s.slowScale = j.value("slowScale", s.slowScale);
-        s.slowSeconds = j.value("slowSeconds", s.slowSeconds);
-
-        s.slashEnabled = j.value("slashEnabled", s.slashEnabled);
-        s.slashLength = j.value("slashLength", s.slashLength);
-        s.slashThickness = j.value("slashThickness", s.slashThickness);
-        s.finisherSlashThickness = j.value("finisherSlashThickness", s.finisherSlashThickness);
-        s.finisherSlashScale = j.value("finisherSlashScale", s.finisherSlashScale);
-        s.slashSeconds = j.value("slashSeconds", s.slashSeconds);
-        s.slashDirectionWindow = j.value("slashDirectionWindow", s.slashDirectionWindow);
-
-        s.awakenEnabled = j.value("awakenEnabled", s.awakenEnabled);
-        if (j.contains("awakenColor")) {
-            s.awakenColor = Vector4FromJson(j["awakenColor"], s.awakenColor);
-        }
-        s.awakenTint = j.value("awakenTint", s.awakenTint);
-        s.awakenTrailLifetimeScale = j.value("awakenTrailLifetimeScale", s.awakenTrailLifetimeScale);
-        s.awakenGlowExtend = j.value("awakenGlowExtend", s.awakenGlowExtend);
-        s.awakenGlowAlpha = j.value("awakenGlowAlpha", s.awakenGlowAlpha);
-        s.awakenSlashCount = j.value("awakenSlashCount", s.awakenSlashCount);
-        s.awakenSlashSpreadDeg = j.value("awakenSlashSpreadDeg", s.awakenSlashSpreadDeg);
-        s.awakenImpactScale = j.value("awakenImpactScale", s.awakenImpactScale);
     } catch (const nlohmann::json::exception&) {
         return;
     }
@@ -465,42 +459,9 @@ void ComboFeelDirector::SaveSettings() const
     for (size_t i = 0; i < kWeaponTypeNames.size(); ++i) {
         blades[kWeaponTypeNames[i]] = { { "base", ToJson(s.blades[i].base) }, { "tip", ToJson(s.blades[i].tip) } };
     }
-    const nlohmann::json j = {
-        { "trailEnabled", s.trailEnabled },
-        { "trailSubdivisions", s.trailSubdivisions },
-        { "trailLifetime", s.trailLifetime },
-        { "trailTipAlpha", s.trailTipAlpha },
-        { "trailBaseAlpha", s.trailBaseAlpha },
-        { "trailTint", s.trailTint },
-        { "blades", blades },
-        { "impactEnabled", s.impactEnabled },
-        { "radialBlurEnabled", s.radialBlurEnabled },
-        { "blurPeak", s.blurPeak },
-        { "blurSeconds", s.blurSeconds },
-        { "blurSamples", s.blurSamples },
-        { "zoomEnabled", s.zoomEnabled },
-        { "zoomDistance", s.zoomDistance },
-        { "zoomSeconds", s.zoomSeconds },
-        { "slowEnabled", s.slowEnabled },
-        { "slowScale", s.slowScale },
-        { "slowSeconds", s.slowSeconds },
-        { "slashEnabled", s.slashEnabled },
-        { "slashLength", s.slashLength },
-        { "slashThickness", s.slashThickness },
-        { "finisherSlashThickness", s.finisherSlashThickness },
-        { "finisherSlashScale", s.finisherSlashScale },
-        { "slashSeconds", s.slashSeconds },
-        { "slashDirectionWindow", s.slashDirectionWindow },
-        { "awakenEnabled", s.awakenEnabled },
-        { "awakenColor", ToJson(s.awakenColor) },
-        { "awakenTint", s.awakenTint },
-        { "awakenTrailLifetimeScale", s.awakenTrailLifetimeScale },
-        { "awakenGlowExtend", s.awakenGlowExtend },
-        { "awakenGlowAlpha", s.awakenGlowAlpha },
-        { "awakenSlashCount", s.awakenSlashCount },
-        { "awakenSlashSpreadDeg", s.awakenSlashSpreadDeg },
-        { "awakenImpactScale", s.awakenImpactScale },
-    };
+    nlohmann::json j = nlohmann::json::object();
+    WriteJsonFields(j, kSettingsFields, s);
+    j["blades"] = blades;
     JsonHelper::Save(kSettingsPath, j);
 }
 

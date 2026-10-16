@@ -3,6 +3,7 @@
  * @brief 武器・戦闘スタイルのデータ構造を定義するファイル（実データは Resources/Config/weapons.json）
  */
 #pragma once
+#include <cstddef>
 #include <string>
 #include <vector>
 namespace engine::game {
@@ -15,6 +16,9 @@ enum class WeaponType { Sword,
     Greatsword,
     Scythe,
     Axe };
+
+/** @brief WeaponType の要素数（種別ごとの表はこの長さで WeaponType の並び順に持つ） */
+inline constexpr std::size_t kWeaponTypeCount = static_cast<std::size_t>(WeaponType::Axe) + 1;
 
 /**
  * @brief 武器種別名（weapons.jsonの"type"・レベルJSONのweaponType・game_rules.jsonと同じ文字列規約）をWeaponTypeへ変換する
@@ -88,6 +92,9 @@ enum class GunType { Pistol,
     SMG,
     Shotgun,
     Railgun };
+
+/** @brief GunType の要素数（銃種ごとの表はこの長さで GunType の並び順に持つ） */
+inline constexpr std::size_t kGunTypeCount = static_cast<std::size_t>(GunType::Railgun) + 1;
 
 /** @brief 1丁ぶんの射撃武器データ（Gキーで切り替え、コンボは GunCombo.cpp のテーブルが持つ） */
 struct RangedWeaponData {

@@ -256,7 +256,7 @@ void StageEditor::RenderNoCodeEventPanel()
         if (conditionEntry.desc.kind != ObjectKindName::kEventCondition) {
             continue;
         }
-        const std::string conditionFlag = "condition_" + conditionEntry.desc.name;
+        const std::string conditionFlag = ConditionFlagName(conditionEntry.desc.name);
         std::vector<int> targetIndices;
         for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
             const ObjectDesc& target = objects_[objectIndex].desc;
@@ -287,8 +287,8 @@ void StageEditor::RenderNoCodeEventPanel()
                 break;
             }
         }
-        if (!matched && target.activationFlag.starts_with("condition_")) {
-            const std::string conditionName = target.activationFlag.substr(10);
+        if (!matched && target.activationFlag.starts_with(kConditionFlagPrefix)) {
+            const std::string conditionName = target.activationFlag.substr(kConditionFlagPrefix.size());
             for (const auto& condition : objects_) {
                 if (condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName) {
                     matched = true;
@@ -403,7 +403,10 @@ void StageEditor::RenderWavePanel()
     ImGui::TextDisabled("例  room_1、敵数 3、開始条件 room_entry");
     ImGui::InputText("グループ名", waveGroupName_, sizeof(waveGroupName_));
     EditorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
-    const char* enemyTypes[] = { "汎用エネミー", "ナイト" };
+    const char* enemyTypes[std::size(kSpawnTypes)] = {};
+    for (size_t i = 0; i < std::size(kSpawnTypes); ++i) {
+        enemyTypes[i] = kSpawnTypes[i].label;
+    }
     ImGui::Combo("敵種類", &waveEnemyType_, enemyTypes, static_cast<int>(std::size(enemyTypes)));
     ImGui::InputInt("敵数", &waveEnemyCount_);
     waveEnemyCount_ = std::clamp(waveEnemyCount_, 1, kMaxWaveEnemyCount);
@@ -437,7 +440,7 @@ void StageEditor::RenderWavePanel()
         }
         StageEditorWaveConfig config;
         config.groupName = waveGroupName_;
-        config.spawnType = waveEnemyType_ == 1 ? "knight" : "basic";
+        config.spawnType = kSpawnTypes[std::clamp(waveEnemyType_, 0, static_cast<int>(std::size(kSpawnTypes)) - 1)].name;
         config.activationFlag = startFlag;
         config.enemyCount = waveEnemyCount_;
         config.spacing = waveSpacing_;

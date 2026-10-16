@@ -16,6 +16,8 @@ namespace engine::graphics {
  * @details ボーンインデックス・ウェイト付き頂点、逆バインド行列、ボーン名一覧を管理する
  */
 class SkinnedModel {
+    static constexpr int kMaxBoneInfluences = 4;
+
 public:
     /**
      * @brief 1頂点分のスキニング用データ（位置・UV・法線・最大4本分のボーン影響）
@@ -24,8 +26,8 @@ public:
         Vector4 position;
         Vector2 texcoord;
         Vector3 normal;
-        uint32_t boneIndices[4];
-        float boneWeights[4];
+        uint32_t boneIndices[kMaxBoneInfluences];
+        float boneWeights[kMaxBoneInfluences];
     };
 
     void Initialize(engine::DirectXCommon* dxCommon,
