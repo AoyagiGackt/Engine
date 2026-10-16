@@ -8,6 +8,7 @@
 #include "GraphTypes.h"
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 namespace engine::game {
@@ -32,6 +33,10 @@ using NodeExecuteFn = std::function<NodeResult(GraphRuntime& rt, const GraphNode
 struct NodeParamSpec {
     std::string key;
     GraphValueType type = GraphValueType::Any;
+    std::optional<GraphValue> defaultValue; // ノード追加時の初期値（省略時は型ごとの既定値）
+
+    /** @brief エディタでノードを追加した時に入れる初期値を返す */
+    GraphValue InitialValue() const;
 };
 
 /** @brief ノード種別1個ぶんのピン情報 */
@@ -41,6 +46,8 @@ struct NodeTypeSpec {
     GraphValueType outputType = GraphValueType::Any; // 出力データピンの型
     std::string description; // 何ができるかの一言説明（ノード追加メニューのツールチップに使う）
     std::string category; // ノード追加メニューでのグループ分け（例  "よく使う", "敵"）空ならその他扱い
+    bool branches = false; // trueなら実行出力が真/偽の2本（nextTrue/nextFalse）、falseなら1本（next）
+    std::string openPathParam; // 空でなければ、このパラメータが指すグラフをエディタで開くボタンを出す
 };
 
 /**
@@ -67,6 +74,12 @@ public:
 
     /** @brief 型名からピン情報を引く登録が無ければnullptr（エディタはAny扱いにする） */
     const NodeTypeSpec* FindSpec(const std::string& type) const;
+    /** @brief 実行出力が真/偽の2本に分かれるノード種別か（未登録の種別はfalse） */
+    bool IsBranchType(const std::string& type) const
+    {
+        const NodeTypeSpec* spec = FindSpec(type);
+        return spec && spec->branches;
+    }
 
     /** @brief 登録済みの型名一覧を返す（GraphEditorのノード追加メニュー用） */
     std::vector<std::string> GetRegisteredTypes() const;

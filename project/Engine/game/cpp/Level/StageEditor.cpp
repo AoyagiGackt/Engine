@@ -306,7 +306,7 @@ Vector3 StageEditor::ParentWorldPositionOf(const ObjectDesc& desc) const
 {
     Vector3 pos = { };
     const ObjectDesc* cur = &desc;
-    for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
+    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
         const ObjectDesc* parent = nullptr;
         for (const auto& entry : objects_) {
             if (entry.desc.name == cur->parent) {
@@ -327,7 +327,7 @@ Vector3 StageEditor::WorldPositionOf(const ObjectDesc& desc) const
 {
     Vector3 result = desc.position;
     const ObjectDesc* cur = &desc;
-    for (int guard = 0; guard < 16 && !cur->parent.empty(); ++guard) {
+    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
         const ObjectDesc* parent = nullptr;
         for (const auto& entry : objects_) {
             if (entry.desc.name == cur->parent) {
@@ -358,7 +358,7 @@ bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::st
             break;
         }
     }
-    for (int guard = 0; guard < 16 && cur; ++guard) {
+    for (int guard = 0; guard < kMaxParentDepth && cur; ++guard) {
         if (cur->parent.empty()) {
             return false;
         }
@@ -496,56 +496,68 @@ void StageEditor::HandleEditorShortcuts()
     if (io.WantTextInput) {
         return;
     }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-        Undo();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
-        Redo();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-        Save();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
-        DuplicateSelected();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
-        CopySelected();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V)) {
-        PasteClipboard();
-    } else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
-        DeleteSelected();
-    } else if (ImGui::IsKeyPressed(ImGuiKey_F)) {
-        FocusCameraOnSelection();
-    } else if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        ClearSelection();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
-        SelectAllObjects();
+    // 編集操作のキー割り当て（上から順に見て、最初に押されたもの1つだけを実行する）
+    struct EditShortcut {
+        ImGuiKey key;
+        bool needsCtrl;
+        void (StageEditor::*action)();
+    };
+    static constexpr EditShortcut kEditShortcuts[] = {
+        { ImGuiKey_Z, true, &StageEditor::Undo },
+        { ImGuiKey_Y, true, &StageEditor::Redo },
+        { ImGuiKey_S, true, &StageEditor::Save },
+        { ImGuiKey_D, true, &StageEditor::DuplicateSelected },
+        { ImGuiKey_C, true, &StageEditor::CopySelected },
+        { ImGuiKey_V, true, &StageEditor::PasteClipboard },
+        { ImGuiKey_Delete, false, &StageEditor::DeleteSelected },
+        { ImGuiKey_F, false, &StageEditor::FocusCameraOnSelection },
+        { ImGuiKey_Escape, false, &StageEditor::ClearSelection },
+        { ImGuiKey_A, true, &StageEditor::SelectAllObjects },
+    };
+    for (const EditShortcut& shortcut : kEditShortcuts) {
+        if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key)) {
+            (this->*shortcut.action)();
+            break;
+        }
     }
 
     // 変形ツールの切替（右ボタンでカメラを飛ばしている間はWASDなので切り替えない）
+    struct ToolKey {
+        ImGuiKey key;
+        TransformTool tool;
+    };
+    static constexpr ToolKey kToolKeys[] = {
+        { ImGuiKey_W, TransformTool::Move },
+        { ImGuiKey_E, TransformTool::Rotate },
+        { ImGuiKey_R, TransformTool::Scale },
+    };
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !io.KeyCtrl) {
-        if (ImGui::IsKeyPressed(ImGuiKey_W)) {
-            transformTool_ = TransformTool::Move;
-        } else if (ImGui::IsKeyPressed(ImGuiKey_E)) {
-            transformTool_ = TransformTool::Rotate;
-        } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
-            transformTool_ = TransformTool::Scale;
+        for (const ToolKey& toolKey : kToolKeys) {
+            if (ImGui::IsKeyPressed(toolKey.key)) {
+                transformTool_ = toolKey.tool;
+                break;
+            }
         }
     }
 
     // 矢印キーで選択物を微調整（Shift+上下は奥行き）。押しっぱなしはImGuiのリピートに任せる
+    struct NudgeKey {
+        ImGuiKey key;
+        float dir[3]; ///< 1回で動かす向き（スナップ間隔を掛けて使う）
+        float shiftDir[3]; ///< Shiftを押している時の向き
+    };
+    static constexpr NudgeKey kNudgeKeys[] = {
+        { ImGuiKey_LeftArrow, { -1.0f, 0.0f, 0.0f }, { -1.0f, 0.0f, 0.0f } },
+        { ImGuiKey_RightArrow, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
+        { ImGuiKey_UpArrow, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
+        { ImGuiKey_DownArrow, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
+    };
     const float step = snapEnabled_ && snapStep_ > 0.0f ? snapStep_ : kNudgeStep;
-    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-        NudgeSelection(-step, 0.0f, 0.0f);
-    } else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-        NudgeSelection(step, 0.0f, 0.0f);
-    } else if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-        if (io.KeyShift) {
-            NudgeSelection(0.0f, 0.0f, step);
-        } else {
-            NudgeSelection(0.0f, step, 0.0f);
-        }
-    } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-        if (io.KeyShift) {
-            NudgeSelection(0.0f, 0.0f, -step);
-        } else {
-            NudgeSelection(0.0f, -step, 0.0f);
+    for (const NudgeKey& nudge : kNudgeKeys) {
+        if (ImGui::IsKeyPressed(nudge.key)) {
+            const float* dir = io.KeyShift ? nudge.shiftDir : nudge.dir;
+            NudgeSelection(dir[0] * step, dir[1] * step, dir[2] * step);
+            break;
         }
     }
 }

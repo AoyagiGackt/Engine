@@ -7,6 +7,16 @@
 
 #include "Camera.h"
 #include <cmath>
+
+namespace {
+
+// ボーン描画の要素数
+constexpr UINT kOverlayConstantCount = 20;
+constexpr UINT kVerticesPerBone = 4;
+constexpr UINT kIndicesPerBone = 6;
+constexpr int kIndicesPerSphereCell = 6;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -25,7 +35,7 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
     rp.Constants.ShaderRegister = 0;
     rp.Constants.RegisterSpace = 0;
-    rp.Constants.Num32BitValues = 20;
+    rp.Constants.Num32BitValues = kOverlayConstantCount;
 
     D3D12_ROOT_SIGNATURE_DESC rsDesc { };
     rsDesc.NumParameters = 1;
@@ -95,8 +105,8 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     };
 
     // ボーン用ビルボードクワッド（1ボーン = 4頂点 + 6インデックス）
-    UINT vbSize = kMaxBones * 4 * static_cast<UINT>(sizeof(OverlayVertex));
-    UINT ibSize = kMaxBones * 6 * static_cast<UINT>(sizeof(uint16_t));
+    UINT vbSize = kMaxBones * kVerticesPerBone * static_cast<UINT>(sizeof(OverlayVertex));
+    UINT ibSize = kMaxBones * kIndicesPerBone * static_cast<UINT>(sizeof(uint16_t));
 
     lineVB_ = makeBuffer(vbSize);
     lineIB_ = makeBuffer(ibSize);
@@ -123,7 +133,7 @@ void SkeletonOverlayRenderer::BuildSphere()
     }
 
     std::vector<uint16_t> indices;
-    indices.reserve(kStacks * kSlices * 6);
+    indices.reserve(kStacks * kSlices * kIndicesPerSphereCell);
     for (int i = 0; i < kStacks; ++i) {
         for (int j = 0; j < kSlices; ++j) {
             auto a = static_cast<uint16_t>(i * (kSlices + 1) + j);
@@ -199,7 +209,7 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
         uint32_t vc = 0, ic = 0;
 
         for (const Joint& joint : skeleton.GetJoints()) {
-            if (!joint.parent || vc + 4 > kMaxBones * 4) {
+            if (!joint.parent || vc + kVerticesPerBone > kMaxBones * kVerticesPerBone) {
                 continue;
             }
 
@@ -235,7 +245,7 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
             OverlayConstants cb { vp, { 1.0f, 1.0f, 1.0f, 1.0f } };
             cmd->IASetVertexBuffers(0, 1, &lineVBV_);
             cmd->IASetIndexBuffer(&lineIBV_);
-            cmd->SetGraphicsRoot32BitConstants(0, 20, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(0, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(ic, 1, 0, 0, 0);
         }
     }
@@ -249,7 +259,7 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
             Vector3 wp = toWorld(joint.skeletonSpaceMatrix);
             Matrix4x4 wvp = Multiply(MakeTranslateMatrix(wp), vp);
             OverlayConstants cb { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
-            cmd->SetGraphicsRoot32BitConstants(0, 20, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(0, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
         }
     }

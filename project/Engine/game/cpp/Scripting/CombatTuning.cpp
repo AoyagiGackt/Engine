@@ -3,6 +3,7 @@
  * @brief CombatTuningの戦闘調整値の読み込みを実装するファイル
  */
 #include "CombatTuning.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 using namespace engine::game;
@@ -10,7 +11,113 @@ using namespace engine;
 
 namespace {
 constexpr const char* kCombatTuningPath = "Resources/Config/combat_tuning.json";
-}
+
+constexpr JsonField<CombatTuningData> kFields[] = {
+    { nullptr, "meleeDamageDivisor", &CombatTuningData::meleeDamageDivisor },
+    { nullptr, "styleDecayRate", &CombatTuningData::styleDecayRate },
+    { nullptr, "stylePersistDecayMult", &CombatTuningData::stylePersistDecayMult },
+    { nullptr, "enemyHitBoxHalfExtent", &CombatTuningData::enemyHitBoxHalfExtent },
+    { nullptr, "meleeRepeatPenaltyPerHit", &CombatTuningData::meleeRepeatPenaltyPerHit },
+    { nullptr, "meleeRepeatPenaltyCap", &CombatTuningData::meleeRepeatPenaltyCap },
+    { nullptr, "meleeWeaponSwitchBonus", &CombatTuningData::meleeWeaponSwitchBonus },
+    { nullptr, "meleeBaseStyleGain", &CombatTuningData::meleeBaseStyleGain },
+    { nullptr, "meleeComboStepStyleGain", &CombatTuningData::meleeComboStepStyleGain },
+    { nullptr, "meleeAwakenGaugeGain", &CombatTuningData::meleeAwakenGaugeGain },
+    { nullptr, "chainSkillRange", &CombatTuningData::chainSkillRange },
+    { nullptr, "skillSlamRadius", &CombatTuningData::skillSlamRadius },
+    { nullptr, "skillDefaultRadius", &CombatTuningData::skillDefaultRadius },
+    { nullptr, "skillRangeHalfHeight", &CombatTuningData::skillRangeHalfHeight },
+    { nullptr, "weaponEnemySkillRadius", &CombatTuningData::weaponEnemySkillRadius },
+    { nullptr, "skillVarietyBonusRepeat", &CombatTuningData::skillVarietyBonusRepeat },
+    { nullptr, "skillVarietyBonusFresh", &CombatTuningData::skillVarietyBonusFresh },
+    { nullptr, "skillAwakenGaugeGain", &CombatTuningData::skillAwakenGaugeGain },
+    { nullptr, "gunBackRange", &CombatTuningData::gunBackRange },
+    { nullptr, "gunBaseStyleGain", &CombatTuningData::gunBaseStyleGain },
+    { nullptr, "gunComboStepStyleGain", &CombatTuningData::gunComboStepStyleGain },
+    { nullptr, "gunAwakenGaugeGain", &CombatTuningData::gunAwakenGaugeGain },
+    { nullptr, "rampageRushRadiusX", &CombatTuningData::rampageRushRadiusX },
+    { nullptr, "rampageRushRadiusY", &CombatTuningData::rampageRushRadiusY },
+    { nullptr, "rampageBaseStyleGain", &CombatTuningData::rampageBaseStyleGain },
+    { nullptr, "rampageJuggleStyleGain", &CombatTuningData::rampageJuggleStyleGain },
+    { nullptr, "justDodgeStyleGain", &CombatTuningData::justDodgeStyleGain },
+    { nullptr, "justDodgeGaugeGain", &CombatTuningData::justDodgeGaugeGain },
+    { nullptr, "dodgeSpamPenalty", &CombatTuningData::dodgeSpamPenalty },
+    { nullptr, "justDodgeBonusSeconds", &CombatTuningData::justDodgeBonusSeconds },
+    { nullptr, "justDodgeDamageMult", &CombatTuningData::justDodgeDamageMult },
+    { nullptr, "airborneHitStyleBonus", &CombatTuningData::airborneHitStyleBonus },
+    { nullptr, "duplicateWeaponAwakenBonus", &CombatTuningData::duplicateWeaponAwakenBonus },
+    { nullptr, "styleRankAwakenGaugeBonus", &CombatTuningData::styleRankAwakenGaugeBonus },
+    { nullptr, "weaponFatiguePerHit", &CombatTuningData::weaponFatiguePerHit },
+    { nullptr, "gunFatiguePerHit", &CombatTuningData::gunFatiguePerHit },
+    { nullptr, "weaponFatigueRecoverPerSecond", &CombatTuningData::weaponFatigueRecoverPerSecond },
+    { nullptr, "weaponFatigueFreeRatio", &CombatTuningData::weaponFatigueFreeRatio },
+    { nullptr, "weaponFatigueMinDamageMult", &CombatTuningData::weaponFatigueMinDamageMult },
+    { nullptr, "weaponFatigueRestDelay", &CombatTuningData::weaponFatigueRestDelay },
+    { nullptr, "fatigueDullStrengthMin", &CombatTuningData::fatigueDullStrengthMin },
+    { nullptr, "lockOnCameraShiftRatio", &CombatTuningData::lockOnCameraShiftRatio },
+    { nullptr, "airMeleeRangeHalfHeight", &CombatTuningData::airMeleeRangeHalfHeight },
+    { nullptr, "airMeleeRangeWidthPadding", &CombatTuningData::airMeleeRangeWidthPadding },
+    { nullptr, "weaponEnemyAirRangeHalfHeight", &CombatTuningData::weaponEnemyAirRangeHalfHeight },
+    { nullptr, "weaponEnemyAirRangeWidthPadding", &CombatTuningData::weaponEnemyAirRangeWidthPadding },
+    { nullptr, "breakableHitPadding", &CombatTuningData::breakableHitPadding },
+    { nullptr, "enemyBulletHalfExtent", &CombatTuningData::enemyBulletHalfExtent },
+    { nullptr, "unarmedBaseDamage", &CombatTuningData::unarmedBaseDamage },
+    { nullptr, "weaponEnemySkillDamageMult", &CombatTuningData::weaponEnemySkillDamageMult },
+    { nullptr, "contactHitCooldown", &CombatTuningData::contactHitCooldown },
+    { nullptr, "daggerSlowSeconds", &CombatTuningData::daggerSlowSeconds },
+    { nullptr, "knockbackScale", &CombatTuningData::knockbackScale },
+    { nullptr, "defaultKnockY", &CombatTuningData::defaultKnockY },
+    { nullptr, "skillKnockY", &CombatTuningData::skillKnockY },
+    { nullptr, "bossHitstunScale", &CombatTuningData::bossHitstunScale },
+    { nullptr, "hitstunPadding", &CombatTuningData::hitstunPadding },
+    { nullptr, "defaultHitstunSeconds", &CombatTuningData::defaultHitstunSeconds },
+    { nullptr, "skillHitstunSeconds", &CombatTuningData::skillHitstunSeconds },
+    { nullptr, "gunHitstunSeconds", &CombatTuningData::gunHitstunSeconds },
+    { nullptr, "midStepShakePerFrame", &CombatTuningData::midStepShakePerFrame },
+    { nullptr, "finisherShakePerFrame", &CombatTuningData::finisherShakePerFrame },
+    { nullptr, "hitShakeDurationBase", &CombatTuningData::hitShakeDurationBase },
+    { nullptr, "hitShakeDurationPerFrame", &CombatTuningData::hitShakeDurationPerFrame },
+    { nullptr, "comboStepHitStrengthGain", &CombatTuningData::comboStepHitStrengthGain },
+    { nullptr, "weaponSwitchHitStrength", &CombatTuningData::weaponSwitchHitStrength },
+    { nullptr, "skillHitStrength", &CombatTuningData::skillHitStrength },
+    { nullptr, "slamHitStrength", &CombatTuningData::slamHitStrength },
+    { nullptr, "weaponEnemySkillHitStrength", &CombatTuningData::weaponEnemySkillHitStrength },
+    { nullptr, "gunHitStrength", &CombatTuningData::gunHitStrength },
+    { nullptr, "rampageHitStrength", &CombatTuningData::rampageHitStrength },
+    { nullptr, "skillElementScale", &CombatTuningData::skillElementScale },
+    { nullptr, "gunElementScale", &CombatTuningData::gunElementScale },
+    { nullptr, "monsterVanishDelay", &CombatTuningData::monsterVanishDelay },
+    { nullptr, "monsterVanishGauge", &CombatTuningData::monsterVanishGauge },
+    { nullptr, "absorbRange", &CombatTuningData::absorbRange },
+    { nullptr, "absorbDuration", &CombatTuningData::absorbDuration },
+    { nullptr, "absorbPullRate", &CombatTuningData::absorbPullRate },
+    { nullptr, "absorbTargetHeight", &CombatTuningData::absorbTargetHeight },
+    { nullptr, "hitEscalationKeepSeconds", &CombatTuningData::hitEscalationKeepSeconds },
+    { nullptr, "hitEscalationStrengthGain", &CombatTuningData::hitEscalationStrengthGain },
+    { nullptr, "hitEscalationExtraBurstGain", &CombatTuningData::hitEscalationExtraBurstGain },
+    { nullptr, "hitEscalationOuterRingThreshold", &CombatTuningData::hitEscalationOuterRingThreshold },
+    { nullptr, "hitEscalationMaxThreshold", &CombatTuningData::hitEscalationMaxThreshold },
+    { nullptr, "elementEscalationScaleGain", &CombatTuningData::elementEscalationScaleGain },
+    { nullptr, "elementScalePerComboStep", &CombatTuningData::elementScalePerComboStep },
+    { nullptr, "justDodgeHitStopFrames", &CombatTuningData::justDodgeHitStopFrames },
+    { nullptr, "bossSkillBaseDamage", &CombatTuningData::bossSkillBaseDamage },
+    { nullptr, "bossSlamBaseDamage", &CombatTuningData::bossSlamBaseDamage },
+    { nullptr, "weaponEnemySlamBaseDamage", &CombatTuningData::weaponEnemySlamBaseDamage },
+    { nullptr, "gunBaseDamage", &CombatTuningData::gunBaseDamage },
+    { nullptr, "rampageDamage", &CombatTuningData::rampageDamage },
+    { nullptr, "contactDamage", &CombatTuningData::contactDamage },
+    { nullptr, "swordBonusStartStep", &CombatTuningData::swordBonusStartStep },
+    { nullptr, "swordBonusDamage", &CombatTuningData::swordBonusDamage },
+    { nullptr, "spearChainDamage", &CombatTuningData::spearChainDamage },
+    { nullptr, "defaultHitStopFrames", &CombatTuningData::defaultHitStopFrames },
+    { nullptr, "finisherMinHitStopFrames", &CombatTuningData::finisherMinHitStopFrames },
+    { nullptr, "comboMilestoneInterval", &CombatTuningData::comboMilestoneInterval },
+    { nullptr, "dodgeSpamPenaltyStartCount", &CombatTuningData::dodgeSpamPenaltyStartCount },
+    { nullptr, "hitEscalationMaxHits", &CombatTuningData::hitEscalationMaxHits },
+    { nullptr, "hitEscalationExtraSparks", &CombatTuningData::hitEscalationExtraSparks },
+};
+
+} // namespace
 
 CombatTuning* CombatTuning::GetInstance()
 {
@@ -32,45 +139,5 @@ void CombatTuning::Reload()
         Logger::LogWarning(std::string("CombatTuning: ") + kCombatTuningPath + " が読めません。既定値で動きます");
         return;
     }
-    data_.meleeDamageDivisor = root.value("meleeDamageDivisor", defaults.meleeDamageDivisor);
-    data_.styleDecayRate = root.value("styleDecayRate", defaults.styleDecayRate);
-    data_.stylePersistDecayMult = root.value("stylePersistDecayMult", defaults.stylePersistDecayMult);
-    data_.enemyHitBoxHalfExtent = root.value("enemyHitBoxHalfExtent", defaults.enemyHitBoxHalfExtent);
-    data_.meleeRepeatPenaltyPerHit = root.value("meleeRepeatPenaltyPerHit", defaults.meleeRepeatPenaltyPerHit);
-    data_.meleeRepeatPenaltyCap = root.value("meleeRepeatPenaltyCap", defaults.meleeRepeatPenaltyCap);
-    data_.meleeWeaponSwitchBonus = root.value("meleeWeaponSwitchBonus", defaults.meleeWeaponSwitchBonus);
-    data_.meleeBaseStyleGain = root.value("meleeBaseStyleGain", defaults.meleeBaseStyleGain);
-    data_.meleeComboStepStyleGain = root.value("meleeComboStepStyleGain", defaults.meleeComboStepStyleGain);
-    data_.meleeAwakenGaugeGain = root.value("meleeAwakenGaugeGain", defaults.meleeAwakenGaugeGain);
-    data_.chainSkillRange = root.value("chainSkillRange", defaults.chainSkillRange);
-    data_.skillSlamRadius = root.value("skillSlamRadius", defaults.skillSlamRadius);
-    data_.skillDefaultRadius = root.value("skillDefaultRadius", defaults.skillDefaultRadius);
-    data_.skillRangeHalfHeight = root.value("skillRangeHalfHeight", defaults.skillRangeHalfHeight);
-    data_.weaponEnemySkillRadius = root.value("weaponEnemySkillRadius", defaults.weaponEnemySkillRadius);
-    data_.skillVarietyBonusRepeat = root.value("skillVarietyBonusRepeat", defaults.skillVarietyBonusRepeat);
-    data_.skillVarietyBonusFresh = root.value("skillVarietyBonusFresh", defaults.skillVarietyBonusFresh);
-    data_.skillAwakenGaugeGain = root.value("skillAwakenGaugeGain", defaults.skillAwakenGaugeGain);
-    data_.gunBackRange = root.value("gunBackRange", defaults.gunBackRange);
-    data_.gunBaseStyleGain = root.value("gunBaseStyleGain", defaults.gunBaseStyleGain);
-    data_.gunComboStepStyleGain = root.value("gunComboStepStyleGain", defaults.gunComboStepStyleGain);
-    data_.gunAwakenGaugeGain = root.value("gunAwakenGaugeGain", defaults.gunAwakenGaugeGain);
-    data_.stingerStyleGain = root.value("stingerStyleGain", defaults.stingerStyleGain);
-    data_.rampageRushRadiusX = root.value("rampageRushRadiusX", defaults.rampageRushRadiusX);
-    data_.rampageRushRadiusY = root.value("rampageRushRadiusY", defaults.rampageRushRadiusY);
-    data_.rampageBaseStyleGain = root.value("rampageBaseStyleGain", defaults.rampageBaseStyleGain);
-    data_.rampageJuggleStyleGain = root.value("rampageJuggleStyleGain", defaults.rampageJuggleStyleGain);
-    data_.justDodgeStyleGain = root.value("justDodgeStyleGain", defaults.justDodgeStyleGain);
-    data_.justDodgeGaugeGain = root.value("justDodgeGaugeGain", defaults.justDodgeGaugeGain);
-    data_.justDodgeHitStopFrames = root.value("justDodgeHitStopFrames", defaults.justDodgeHitStopFrames);
-    data_.dodgeSpamPenalty = root.value("dodgeSpamPenalty", defaults.dodgeSpamPenalty);
-    data_.justDodgeBonusSeconds = root.value("justDodgeBonusSeconds", defaults.justDodgeBonusSeconds);
-    data_.justDodgeDamageMult = root.value("justDodgeDamageMult", defaults.justDodgeDamageMult);
-    data_.airborneHitStyleBonus = root.value("airborneHitStyleBonus", defaults.airborneHitStyleBonus);
-    data_.weaponFatiguePerHit = root.value("weaponFatiguePerHit", defaults.weaponFatiguePerHit);
-    data_.gunFatiguePerHit = root.value("gunFatiguePerHit", defaults.gunFatiguePerHit);
-    data_.weaponFatigueRecoverPerSecond = root.value("weaponFatigueRecoverPerSecond", defaults.weaponFatigueRecoverPerSecond);
-    data_.weaponFatigueFreeRatio = root.value("weaponFatigueFreeRatio", defaults.weaponFatigueFreeRatio);
-    data_.weaponFatigueMinDamageMult = root.value("weaponFatigueMinDamageMult", defaults.weaponFatigueMinDamageMult);
-    data_.duplicateWeaponAwakenBonus = root.value("duplicateWeaponAwakenBonus", defaults.duplicateWeaponAwakenBonus);
-    data_.styleRankAwakenGaugeBonus = root.value("styleRankAwakenGaugeBonus", defaults.styleRankAwakenGaugeBonus);
+    ReadJsonFields(root, kFields, data_);
 }

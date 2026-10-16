@@ -10,6 +10,13 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <map>
+
+namespace {
+
+// 三角形の頂点数
+constexpr uint32_t kTriangleVertexCount = 3;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -141,8 +148,8 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
         aiMesh* mesh = scene->mMeshes[mi];
         uint32_t numVerts = mesh->mNumVertices;
 
-        std::vector<uint32_t> indices(numVerts * 4, 0);
-        std::vector<float> weights(numVerts * 4, 0.0f);
+        std::vector<uint32_t> indices(numVerts * kMaxBoneInfluences, 0);
+        std::vector<float> weights(numVerts * kMaxBoneInfluences, 0.0f);
         std::vector<uint32_t> counts(numVerts, 0);
 
         for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi) {
@@ -151,9 +158,9 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
             for (uint32_t wi = 0; wi < bone->mNumWeights; ++wi) {
                 uint32_t vIdx = bone->mWeights[wi].mVertexId;
                 float w = bone->mWeights[wi].mWeight;
-                if (counts[vIdx] < 4) {
-                    indices[vIdx * 4 + counts[vIdx]] = boneIdx;
-                    weights[vIdx * 4 + counts[vIdx]] = w;
+                if (counts[vIdx] < kMaxBoneInfluences) {
+                    indices[vIdx * kMaxBoneInfluences + counts[vIdx]] = boneIdx;
+                    weights[vIdx * kMaxBoneInfluences + counts[vIdx]] = w;
                     ++counts[vIdx];
                 }
             }
@@ -161,12 +168,12 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
 
         for (uint32_t fi = 0; fi < mesh->mNumFaces; ++fi) {
             const aiFace& face = mesh->mFaces[fi];
-            ENGINE_ASSERT(face.mNumIndices == 3); // Triangulate 済み
+            ENGINE_ASSERT(face.mNumIndices == kTriangleVertexCount); // Triangulate 済み
 
             // X 軸反転後にワインディングが逆転するため、インデックス 1 と 2 を入れ替える
-            const uint32_t order[3] = { face.mIndices[0], face.mIndices[2], face.mIndices[1] };
+            const uint32_t order[kTriangleVertexCount] = { face.mIndices[0], face.mIndices[2], face.mIndices[1] };
 
-            for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t i = 0; i < kTriangleVertexCount; ++i) {
                 uint32_t vIdx = order[i];
                 VertexData vd { };
 
@@ -191,9 +198,9 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
                     };
                 }
 
-                for (int k = 0; k < 4; ++k) {
-                    vd.boneIndices[k] = indices[vIdx * 4 + k];
-                    vd.boneWeights[k] = weights[vIdx * 4 + k];
+                for (int k = 0; k < kMaxBoneInfluences; ++k) {
+                    vd.boneIndices[k] = indices[vIdx * kMaxBoneInfluences + k];
+                    vd.boneWeights[k] = weights[vIdx * kMaxBoneInfluences + k];
                 }
                 vertices_.push_back(vd);
             }

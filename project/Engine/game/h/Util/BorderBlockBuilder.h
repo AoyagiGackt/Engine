@@ -3,6 +3,7 @@
  * @brief 壁沿いの境界ブロック配置をJSON設定から組み立てるビルダー（TrainingScene/BattleTestSceneで共用）を定義するファイル
  */
 #pragma once
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Model.h"
 #include "ModelCommon.h"
@@ -40,14 +41,17 @@ inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath)
     if (!j.is_object()) {
         return layout;
     }
-    layout.floorY = j.value("floorY", layout.floorY);
-    layout.ceilingY = j.value("ceilingY", layout.ceilingY);
-    layout.leftWallX = j.value("leftWallX", layout.leftWallX);
-    layout.rightWallX = j.value("rightWallX", layout.rightWallX);
-    layout.wallMinIndex = j.value("wallMinIndex", layout.wallMinIndex);
-    layout.floorCeilingMaxIndex = j.value("floorCeilingMaxIndex", layout.floorCeilingMaxIndex);
-    layout.wallMaxIndex = j.value("wallMaxIndex", layout.wallMaxIndex);
-    layout.blockZ = j.value("blockZ", layout.blockZ);
+    static constexpr JsonField<BorderBlockLayout> kFields[] = {
+        { nullptr, "floorY", &BorderBlockLayout::floorY },
+        { nullptr, "ceilingY", &BorderBlockLayout::ceilingY },
+        { nullptr, "leftWallX", &BorderBlockLayout::leftWallX },
+        { nullptr, "rightWallX", &BorderBlockLayout::rightWallX },
+        { nullptr, "wallMinIndex", &BorderBlockLayout::wallMinIndex },
+        { nullptr, "floorCeilingMaxIndex", &BorderBlockLayout::floorCeilingMaxIndex },
+        { nullptr, "wallMaxIndex", &BorderBlockLayout::wallMaxIndex },
+        { nullptr, "blockZ", &BorderBlockLayout::blockZ },
+    };
+    ReadJsonFields(j, kFields, layout);
     return layout;
 }
 

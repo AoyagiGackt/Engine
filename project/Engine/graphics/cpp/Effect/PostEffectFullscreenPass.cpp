@@ -5,6 +5,16 @@
 #include "PostEffectFullscreenPass.h"
 #include "EngineAssert.h"
 #include "WinApp.h"
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -61,7 +71,7 @@ void* PostEffectFullscreenPass::InitializeCommon(DirectXCommon* dxCommon, SrvMan
     srvIndex_ = srvManager->Allocate();
     srvManager->CreateSRVforTexture2D(srvIndex_, sceneTexture_.Get(), kSrvFmt, 1);
 
-    cbResource_ = dxCommon->CreateBufferResource(256);
+    cbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     cbResource_->Map(0, nullptr, &cbData_);
 
     D3D12_DESCRIPTOR_RANGE srvRange = { };
@@ -203,5 +213,5 @@ void PostEffectFullscreenPass::Apply(SrvManager* srvManager)
     cmdList->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(srvIndex_));
 
     // フルスクリーン三角形を描画する（頂点バッファなし、VS が SV_VertexID を使用）
-    cmdList->DrawInstanced(3, 1, 0, 0);
+    cmdList->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }

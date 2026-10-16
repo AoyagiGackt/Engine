@@ -228,8 +228,6 @@ private:
     bool UpdateMeleeComboHit();
     /** @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す */
     bool UpdateWeaponSkillHits();
-    /** @brief ダガー スティンガーの多段ヒット判定を処理する（刺突ごとに個別のダメージ定義を参照）命中があれば true を返す */
-    bool UpdateDaggerStingerHit();
     /** @brief グレートソード 投げ回転斬りの渦（吸い込み+多段ヒット）を処理する命中があれば true を返す */
     bool UpdateGreatswordSpin();
     /** @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す */

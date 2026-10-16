@@ -26,6 +26,10 @@ using namespace engine::game;
 
 static constexpr int kStageCount = 6;
 static constexpr float kStageWorldX[kStageCount] = { 8.0f, 18.0f, 28.0f, 38.0f, 48.0f, 58.0f };
+// ステージの並びごとの種類（最初は通常、途中は強敵、最後はボス。先へ進むほどボスのHPが上がる）
+static constexpr RunData::NodeType kFirstFloorType = RunData::NodeType::Combat;
+static constexpr RunData::NodeType kMiddleFloorType = RunData::NodeType::Elite;
+static constexpr RunData::NodeType kLastFloorType = RunData::NodeType::Boss;
 
 // ノード種別ごとの色
 static constexpr Vector4 kNodeCompletedColor = { 0.25f, 0.25f, 0.25f, 1.0f };
@@ -212,16 +216,9 @@ void MapScene::InitializeFloorsAndStartPosition()
     // 最初のステージは通常、途中は強敵、最後はボス扱いにして、先へ進むほどボスのHPを上げる。
     // ポータルの座標はkStageWorldXの数までが上限
     const int stageCount = std::clamp(static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()), 1, kStageCount);
-    floors_.clear();
-    for (int i = 0; i < stageCount; ++i) {
-        RunData::NodeType type = RunData::NodeType::Elite;
-        if (i == stageCount - 1) {
-            type = RunData::NodeType::Boss;
-        } else if (i == 0) {
-            type = RunData::NodeType::Combat;
-        }
-        floors_.push_back({ type });
-    }
+    floors_.assign(static_cast<size_t>(stageCount), std::vector<RunData::NodeType> { kMiddleFloorType });
+    floors_.front().front() = kFirstFloorType;
+    floors_.back().front() = kLastFloorType; // 1ステージだけの時はボス扱いを優先する
 
     selectedCol_ = -1;
 
@@ -359,6 +356,8 @@ void MapScene::DrawShadowPass()
 
 void MapScene::DrawWorld()
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector4 backgroundColor = layout.Color("background.color", kBackgroundColor);
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
     // シャドウパスが設定した専用DSVから通常画面のRTVとDSVへ描画先を戻す
@@ -372,6 +371,7 @@ void MapScene::DrawWorld()
 
     // 背景を描画してから本編と同じ3D描画状態へ切り替える
     spriteCommon_->CommonDrawSettings();
+    bgSprite_->SetColor(backgroundColor);
     bgSprite_->Update();
     bgSprite_->Draw();
 
@@ -391,17 +391,25 @@ void MapScene::DrawWorld()
 
 void MapScene::DrawHintPanel(const std::wstring& text, const Vector2& position, float scale)
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float hintPanelPadding = layout.Float("hint_panel.padding", kHintPanelPadding);
+    const Vector4 hintPanelColor = layout.Color("hint_panel.color", kHintPanelColor);
     const Vector2 size = FontRenderer::MeasureStringW(text, scale);
-    fontRenderer_.DrawPanel(position.x - kHintPanelPadding, position.y - kHintPanelPadding,
-        size.x + kHintPanelPadding * 2.0f, size.y + kHintPanelPadding * 2.0f, kHintPanelColor);
+    fontRenderer_.DrawPanel(position.x - hintPanelPadding, position.y - hintPanelPadding,
+        size.x + hintPanelPadding * 2.0f, size.y + hintPanelPadding * 2.0f, hintPanelColor);
 }
 
 void MapScene::DrawStagePortalLabels(int floor)
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float labelOffsetX = layout.Float("portal_label.offset_x", kLabelOffsetX);
+    const Vector2 labelShadowOffset = layout.Vec2("portal_label.shadow_offset", kLabelShadowOffset);
+    const Vector4 labelShadowColor = layout.Color("portal_label.shadow_color", kLabelShadowColor);
+    const float enterHintOffsetX = layout.Float("enter_hint.offset_x", kEnterHintOffsetX);
+    const Vector4 enterHintShadowColor = layout.Color("enter_hint.shadow_color", kEnterHintShadowColor);
     const int count = static_cast<int>(floors_.size());
     const float* portalXs = kStageWorldX;
     const Vector3& cameraPos = camera_->GetTranslate();
-    UILayout& layout = UILayout::Get(kLayoutName);
     const float labelY = layout.Float("portal_label.y", kLabelY);
     const float labelScale = layout.Float("portal_label.scale", kLabelScale);
     const Vector4 labelColor = layout.Color("portal_label.color", kLabelColor);
@@ -419,14 +427,14 @@ void MapScene::DrawStagePortalLabels(int floor)
         wchar_t stageLabel[32];
         swprintf_s(stageLabel, L"ステージ %d", i + 1);
         const wchar_t* label = stageLabel;
-        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX + kLabelShadowOffset.x, labelY + kLabelShadowOffset.y,
-            labelScale, kLabelShadowColor);
-        fontRenderer_.DrawStringW(label, screenX - kLabelOffsetX, labelY, labelScale,
+        fontRenderer_.DrawStringW(label, screenX - labelOffsetX + labelShadowOffset.x, labelY + labelShadowOffset.y,
+            labelScale, labelShadowColor);
+        fontRenderer_.DrawStringW(label, screenX - labelOffsetX, labelY, labelScale,
             isNear ? labelNearColor : labelColor);
         if (isNear) {
-            fontRenderer_.DrawString(enterHint, screenX - kEnterHintOffsetX + kLabelShadowOffset.x,
-                enterHintY + kLabelShadowOffset.y, enterHintScale, kEnterHintShadowColor);
-            fontRenderer_.DrawString(enterHint, screenX - kEnterHintOffsetX, enterHintY, enterHintScale,
+            fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX + labelShadowOffset.x,
+                enterHintY + labelShadowOffset.y, enterHintScale, enterHintShadowColor);
+            fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX, enterHintY, enterHintScale,
                 enterHintColor);
             DrawSelectedNodeInfo(floor, floors_[i][0]);
         }
@@ -436,6 +444,13 @@ void MapScene::DrawStagePortalLabels(int floor)
 void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 infoTitleOffset = layout.Vec2("info_title.offset", kInfoTitleOffset);
+    const float infoTitleScale = layout.Float("info_title.scale", kInfoTitleScale);
+    const Vector4 infoTitleColor = layout.Color("info_title.color", kInfoTitleColor);
+    const Vector2 infoDescOffset = layout.Vec2("info_desc.offset", kInfoDescOffset);
+    const float infoDescLineHeight = layout.Float("info_desc.line_height", kInfoDescLineHeight);
+    const float infoDescScale = layout.Float("info_desc.scale", kInfoDescScale);
+    const Vector4 infoDescColor = layout.Color("info_desc.color", kInfoDescColor);
     const Vector2 panelPosition = layout.Pos("info_panel.pos", kInfoPanelPosition);
     nodeSprite_->SetPosition(panelPosition);
     nodeSprite_->SetSize(layout.Vec2("info_panel.size", kInfoPanelSize));
@@ -451,17 +466,17 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
     const bool isStage = hoveredNode == RunData::NodeType::Combat
         || hoveredNode == RunData::NodeType::Elite || hoveredNode == RunData::NodeType::Boss;
     fontRenderer_.DrawStringW(isStage ? L"ステージ入口" : GetNodeInfo(hoveredNode).label,
-        panelPosition.x + kInfoTitleOffset.x, panelPosition.y + kInfoTitleOffset.y, kInfoTitleScale, kInfoTitleColor);
-    const float descX = panelPosition.x + kInfoDescOffset.x;
-    const float descY = panelPosition.y + kInfoDescOffset.y;
+        panelPosition.x + infoTitleOffset.x, panelPosition.y + infoTitleOffset.y, infoTitleScale, infoTitleColor);
+    const float descX = panelPosition.x + infoDescOffset.x;
+    const float descY = panelPosition.y + infoDescOffset.y;
     // 説明を2行に折り返して表示
     std::wstring descStr(desc);
     size_t br = descStr.find(L'　'); // 全角スペースで折り返しポイントを探す
     if (br != std::wstring::npos && br > kInfoDescMinWrapIndex) {
-        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), descX, descY, kInfoDescScale, kInfoDescColor);
-        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), descX, descY + kInfoDescLineHeight,
-            kInfoDescScale, kInfoDescColor);
+        fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), descX, descY, infoDescScale, infoDescColor);
+        fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), descX, descY + infoDescLineHeight,
+            infoDescScale, infoDescColor);
     } else {
-        fontRenderer_.DrawStringW(desc, descX, descY, kInfoDescScale, kInfoDescColor);
+        fontRenderer_.DrawStringW(desc, descX, descY, infoDescScale, infoDescColor);
     }
 }

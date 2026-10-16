@@ -8,6 +8,14 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+
+namespace {
+
+// 時刻文字列の容量
+constexpr size_t kTimeStringCapacity = 16;
+
+}
 
 namespace engine {
 
@@ -15,14 +23,10 @@ namespace {
 
     const char* LevelToTag(LogLevel level)
     {
-        switch (level) {
-        case LogLevel::Warning:
-            return "WARN";
-        case LogLevel::Error:
-            return "ERROR";
-        default:
-            return "INFO";
-        }
+        // LogLevel の並び順
+        static constexpr const char* kTags[] = { "INFO", "WARN", "ERROR" };
+        const size_t index = static_cast<size_t>(level);
+        return index < std::size(kTags) ? kTags[index] : kTags[0];
     }
 
     std::string CurrentTimeString()
@@ -30,7 +34,7 @@ namespace {
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm local;
         localtime_s(&local, &t);
-        char buf[16];
+        char buf[kTimeStringCapacity];
         std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", local.tm_hour, local.tm_min, local.tm_sec);
         return buf;
     }

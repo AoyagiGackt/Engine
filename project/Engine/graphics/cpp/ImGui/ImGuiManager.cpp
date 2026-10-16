@@ -4,6 +4,13 @@
  */
 #include "ImGuiManager.h"
 #include <SrvManager.h>
+
+namespace {
+
+// 日本語フォントの表示サイズ
+constexpr float kJapaneseFontSize = 16.0f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -21,7 +28,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->AddFontFromFileTTF(
         "C:/Windows/Fonts/YuGothM.ttc",
-        16.0f,
+        kJapaneseFontSize,
         nullptr,
         io.Fonts->GetGlyphRangesJapanese());
 

@@ -225,6 +225,8 @@ public:
      * @return 編集停止モードの場合はtrue
      */
     bool ShouldPauseGame() const { return visible_ && !playTestMode_; }
+    /** @brief ゲームの進行（敵のAIと重力・動く仕掛け・レベルのグラフ）を止める（ポーズ中や開始演出の間。見た目の位置だけは追従させる） */
+    void SetGameplayHeld(bool held) { gameplayHeld_ = held; }
 
     /**
      * @brief Player/EnemyEntity/KnightEnemy等、レベルJSONに属さないランタイム上の実体をエディタで
@@ -308,6 +310,12 @@ private:
      * 非表示中は実体の本物のUpdate()（AI/重力）を回し、逆にdesc.positionへ現在地を書き戻す（表示専用、保存はしない）
      */
     void UpdateEnemyEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
+    /** @brief 全員の移動が終わった後に、重なった敵どうしを横へ押し離す（ボスは動かさず相手だけ押す） */
+    void SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls);
+    /** @brief 敵の位置の真下にある床の上で、倒れた体を置く高さを返す（床が無ければ今の高さ） */
+    float FindCorpseFloorY(const Vector3& position) const;
+    /** @brief solid=trueの配置物のワールドAABB一覧（includeEnemyBodies=falseなら敵の体を除いた地形だけ） */
+    std::vector<engine::AABB> CollectSolidColliders(bool includeEnemyBodies) const;
 
     /** @brief 削除・Open()の再読み込み・破棄の前に、enemy_basic配置分をEnemyRegistryから解除する（ダングリングポインタ防止） */
     void UnregisterEnemyEntity(const ObjectEntry& entry);
@@ -534,6 +542,7 @@ private:
     float gameViewDisplayHeight_ = 0.0f;
     float previewU0_ = 0.0f, previewV0_ = 0.0f, previewU1_ = 1.0f, previewV1_ = 1.0f;
     bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
+    bool gameplayHeld_ = false; ///< SetGameplayHeld() でゲームの進行を止めている間 true
     float savedTimeScale_ = 1.0f;
     bool showUIText_ = true; // falseなら編集中だけui_textのマーカーと実表示を隠す（配置物の陰になって邪魔な時用）
 

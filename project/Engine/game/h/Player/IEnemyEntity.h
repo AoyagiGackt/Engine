@@ -27,6 +27,8 @@ public:
     virtual int GetMaxHp() const = 0;
     /** @brief 見た目のトランスフォームだけを再計算する（AI/物理は進めない） */
     virtual void RefreshVisualTransforms() = 0;
+    /** @brief ほかの敵を押し退ける体として扱うか（倒れた敵は重なってよい） */
+    virtual bool BlocksOtherEnemies() const = 0;
 };
 
 } // namespace engine::game

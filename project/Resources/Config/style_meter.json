@@ -1,0 +1,17 @@
+{
+  "maxPoints": 1000.0,
+  "chainKeep": 3.0,
+  "decayGrace": 1.2,
+  "heatCool": 0.30,
+  "heatPenaltyScale": 0.8,
+  "variationBonusMult": 1.3,
+  "decayBase": 40.0,
+  "decayPointScale": 0.12,
+  "hudFadeSpeed": 2.0,
+  "hitPopSeconds": 0.18,
+  "hitHighlightCount": 10,
+  "rankUpFlashSeconds": 0.35,
+  "rankDownFlashSeconds": 0.15,
+  "rankWhiteFlashStart": 0.2,
+  "rankThresholds": { "C": 120, "B": 270, "A": 440, "S": 620, "SS": 790, "SSS": 940 }
+}

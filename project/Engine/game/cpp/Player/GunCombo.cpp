@@ -5,6 +5,7 @@
 #include "GunCombo.h"
 #include "Easing.h"
 #include "GameConstants.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "Weapon.h"
@@ -69,6 +70,15 @@ constexpr GunComboSet kSmgSet = MakeComboArray(kSmgSteps);
 constexpr GunComboSet kShotgunSet = MakeComboArray(kShotgunSteps);
 constexpr GunComboSet kRailgunSet = MakeComboArray(kRailgunSteps);
 
+// GunType の並び順に、各銃のコンボの元データを持つ
+constexpr std::array<const GunComboSet*, kGunTypeCount> kSourceSets = {
+    &kPistolSet, // Pistol
+    &kMagnumSet, // Magnum
+    &kSmgSet, // SMG
+    &kShotgunSet, // Shotgun
+    &kRailgunSet, // Railgun
+};
+
 // MeleeCombo.cpp と同じ仕組み既定値はこの上のテーブル、Resources/Config/combos.json の "shots" で個別上書き可能
 struct RuntimeGunComboSet {
     std::vector<GunShotDef> steps;
@@ -87,28 +97,40 @@ void RefreshView(RuntimeGunComboSet& set)
     set.view = { set.steps.data(), static_cast<int>(set.steps.size()) };
 }
 
+// combos.json の "shots" で上書きできる項目
+constexpr JsonField<GunShotDef> kShotOverrideFields[] = {
+    { nullptr, "damageMult", &GunShotDef::damageMult },
+    { nullptr, "duration", &GunShotDef::duration },
+    { nullptr, "shotTime", &GunShotDef::shotTime },
+    { nullptr, "cancelTime", &GunShotDef::cancelTime },
+    { nullptr, "rangeMult", &GunShotDef::rangeMult },
+    { nullptr, "knockX", &GunShotDef::knockX },
+    { nullptr, "knockY", &GunShotDef::knockY },
+    { nullptr, "hitStop", &GunShotDef::hitStop },
+    { nullptr, "moveDist", &GunShotDef::moveDist },
+};
+
 void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data)
 {
-    shot.damageMult = (std::max)(data.value("damageMult", shot.damageMult), 0.0f);
-    shot.duration = (std::max)(data.value("duration", shot.duration), kMinShotDuration);
-    shot.shotTime = std::clamp(data.value("shotTime", shot.shotTime), 0.0f, shot.duration);
-    shot.cancelTime = std::clamp(data.value("cancelTime", shot.cancelTime), shot.shotTime, shot.duration);
-    shot.rangeMult = (std::max)(data.value("rangeMult", shot.rangeMult), 0.0f);
-    shot.knockX = data.value("knockX", shot.knockX);
-    shot.knockY = data.value("knockY", shot.knockY);
-    shot.hitStop = (std::max)(data.value("hitStop", shot.hitStop), 0);
-    shot.moveDist = data.value("moveDist", shot.moveDist);
+    ReadJsonFields(data, kShotOverrideFields, shot);
+    // 手で書いた値でも段が進むよう、時間の前後関係と下限を整える
+    shot.damageMult = (std::max)(shot.damageMult, 0.0f);
+    shot.duration = (std::max)(shot.duration, kMinShotDuration);
+    shot.shotTime = std::clamp(shot.shotTime, 0.0f, shot.duration);
+    shot.cancelTime = std::clamp(shot.cancelTime, shot.shotTime, shot.duration);
+    shot.rangeMult = (std::max)(shot.rangeMult, 0.0f);
+    shot.hitStop = (std::max)(shot.hitStop, 0);
 }
 
-std::array<RuntimeGunComboSet, 5>& GetRuntimeComboSets()
+std::array<RuntimeGunComboSet, kGunTypeCount>& GetRuntimeComboSets()
 {
-    static std::array<RuntimeGunComboSet, 5> sets = [] {
-        std::array<RuntimeGunComboSet, 5> result;
-        result[0] = CopyComboSet(kPistolSet);
-        result[1] = CopyComboSet(kMagnumSet);
-        result[2] = CopyComboSet(kSmgSet);
-        result[3] = CopyComboSet(kShotgunSet);
-        result[4] = CopyComboSet(kRailgunSet);
+    // view は各要素の配列を指すので、最終的な置き場所（この static）の上で直接組み立てる
+    static std::array<RuntimeGunComboSet, kGunTypeCount> sets;
+    static const bool built = [] {
+        std::array<RuntimeGunComboSet, kGunTypeCount>& result = sets;
+        for (size_t i = 0; i < kGunTypeCount; ++i) {
+            result[i] = CopyComboSet(*kSourceSets[i]);
+        }
 
         std::unordered_map<std::string, GunShotDef*> shots;
         for (RuntimeGunComboSet& set : result) {
@@ -131,8 +153,9 @@ std::array<RuntimeGunComboSet, 5>& GetRuntimeComboSets()
         for (RuntimeGunComboSet& set : result) {
             RefreshView(set);
         }
-        return result;
+        return true;
     }();
+    (void)built;
     return sets;
 }
 
@@ -141,18 +164,8 @@ std::array<RuntimeGunComboSet, 5>& GetRuntimeComboSets()
 const GunComboSet& engine::game::GetGunComboSet(GunType type)
 {
     auto& sets = GetRuntimeComboSets();
-    switch (type) {
-    case GunType::Magnum:
-        return sets[1].view;
-    case GunType::SMG:
-        return sets[2].view;
-    case GunType::Shotgun:
-        return sets[3].view;
-    case GunType::Railgun:
-        return sets[4].view;
-    default:
-        return sets[0].view;
-    }
+    const size_t index = static_cast<size_t>(type);
+    return sets[index < sets.size() ? index : 0].view;
 }
 
 //  GunComboController

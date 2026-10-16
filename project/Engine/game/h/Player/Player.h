@@ -15,6 +15,7 @@
 #include "SkinnedModel.h"
 #include "SkinnedObject3d.h"
 #include <algorithm>
+#include <bitset>
 #include <memory>
 #include <vector>
 namespace engine {
@@ -77,17 +78,34 @@ public:
     /// ステージエディタ中など本体Updateを止めたままカメラだけ動く状況でこれを呼ばないと
     /// 古いカメラ行列のまま描画されて、モデルが画面に張り付いて見える
     void RefreshVisualTransforms();
+    /**
+     * @brief 演出用に、入力と物理を進めずに見た目だけを通常どおり進める（向き・待機/落下のアニメ・武器の付け方）
+     * @param airborne 宙にいるなら true（落下のアニメにする）
+     * @note 開始演出の降下など、シーンが位置を直接動かしている間に毎フレーム呼ぶ
+     */
+    void UpdateCinematicPose(bool airborne);
 
     /// @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
     /// @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
     /// @note 上に乗れば着地・横から当たれば壁として押し出す。ブロックを動かせば次フレームから追従する
     void ResolveBlockCollision(const std::vector<AABB>& blocks);
+    /**
+     * @brief 指定した位置の真下にある床へ立った時の位置を返す（足元より下で一番高いブロックの上面に足を合わせる）
+     * @return 真下に床が無ければ、指定した位置をそのまま返す
+     * @note 開始演出の着地点など、物理を進めずに床へ立たせたい時に使う
+     */
+    Vector3 FindStandingPosition(const Vector3& position, const std::vector<AABB>& blocks) const;
 
     /** @brief 乱舞フェーズを強制終了する（外部から撃破時などに呼ぶ） */
     void EndRampage();
 
     /** @brief 武器奪取の刺突モーションを頭から再生する（外部トリガー用、既存の斬撃を流用） */
     void PlayStealStab();
+
+    Player();
+    ~Player();
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
 
     /// @brief ローグライトのスキル補正を適用する
     /// @param mods RunData のスキル一覧から計算した補正値
@@ -111,7 +129,7 @@ public:
     Collider GetCollider() const;
     /// @brief 被弾時の無敵時間を開始する
     /// @note 敵の攻撃判定がヒットした際に GamePlayScene 側から呼ぶ
-    void OnHit() { invincibleTimer_ = kInvincibleDuration_; }
+    void OnHit();
     /** @brief 被弾直後の無敵時間中、または回避の無敵中かどうかを返す */
     bool IsInvincible() const { return invincibleTimer_ > 0.0f || dodgeActive_ || warpActive_; }
 
@@ -124,7 +142,7 @@ public:
     /** @brief 回避モーション中か（この間は敵の攻撃を受けない） */
     bool IsDodging() const { return dodgeActive_; }
     /** @brief このフレームに回避を開始したか */
-    bool JustDodged() const { return justDodged_; }
+    bool JustDodged() const { return HasFrameEvent(FrameEvent::Dodged); }
     /// @brief 直近の回避で連続回避（スパム）が何回続いているかを返す
     /// @note 0なら間隔を空けた回避。2以上は危険のない場面での連打とみなしてスタイル評価を下げる材料にする
     int GetDodgeSpamCount() const { return dodgeSpamCount_; }
@@ -157,10 +175,10 @@ public:
     void SetStaticVisualModel(const std::string& modelPath, const std::string& texturePath = "");
     const std::string& GetStaticVisualModelPath() const { return staticOverrideModelPath_; }
     const std::string& GetStaticVisualTexturePath() const { return staticOverrideTexturePath_; }
-    bool JustJumped() const { return justJumped_; } ///< このフレームにジャンプしたか
-    bool JustLanded() const { return justLanded_; } ///< このフレームに着地したか
-    bool JustEnteredWater() const { return justEnteredWater_; } ///< このフレームに入水したか
-    bool JustExitedWater() const { return justExitedWater_; } ///< このフレームに出水したか
+    bool JustJumped() const { return HasFrameEvent(FrameEvent::Jumped); } ///< このフレームにジャンプしたか
+    bool JustLanded() const { return HasFrameEvent(FrameEvent::Landed); } ///< このフレームに着地したか
+    bool JustEnteredWater() const { return HasFrameEvent(FrameEvent::EnteredWater); } ///< このフレームに入水したか
+    bool JustExitedWater() const { return HasFrameEvent(FrameEvent::ExitedWater); } ///< このフレームに出水したか
 
     /** @brief 覚醒ゲージの現在値を返す（0.0〜1.0） */
     float GetAwakenGauge() const { return awakenGauge_; }
@@ -173,16 +191,13 @@ public:
     void ChargeAwakenGauge(float amount);
 
     // スタイル技フラグ（その1フレームだけ true）
-    bool JustComboHit() const { return justComboHit_; } ///< コンボヒット発生フレーム
+    bool JustComboHit() const { return HasFrameEvent(FrameEvent::ComboHit); } ///< コンボヒット発生フレーム
     /** @brief このフレームのコンボヒットが覚醒中の追加ヒット（多段の2発目以降）か */
-    bool JustComboExtraHit() const { return justComboExtraHit_; }
-    bool JustWeaponSwitchHit() const { return justWeaponSwitchHit_; }
+    bool JustComboExtraHit() const { return HasFrameEvent(FrameEvent::ComboExtraHit); }
+    bool JustWeaponSwitchHit() const { return HasFrameEvent(FrameEvent::WeaponSwitchHit); }
     int GetComboStep() const { return comboStep_; } ///< 現在のコンボステップ（1始まり、打ち上げ技は0）
-    bool JustFired() const { return justFired_; } ///< 射撃発生フレーム
-    bool JustDaggerStingerHit() const { return justDaggerStingerHit_; } ///< ダガー: スティンガー各刺突のヒット発生フレーム
-    int GetDaggerStingerHitIndex() const { return daggerStingerHitIndex_; } ///< 現在の刺突番号（0始まり、非発動中は-1）
-    bool JustChargedGauge() const { return justChargedGauge_; } ///< ゲージチャージ発生フレーム
-    bool JustAwakened() const { return justAwakened_; } ///< 覚醒発動フレーム
+    bool JustFired() const { return HasFrameEvent(FrameEvent::Fired); } ///< 射撃発生フレーム
+    bool JustAwakened() const { return HasFrameEvent(FrameEvent::Awakened); } ///< 覚醒発動フレーム
     float GetLastDirX() const { return lastDirX_; } ///< 最後に入力した横方向（+1=右, -1=左）
     /** @brief 指定位置の方向へ向きだけ強制的に振り向かせる（ロックオン中、移動入力に関係なく敵の方を向かせる用） */
     void FaceTarget(const Vector3& targetPos) { lastDirX_ = (targetPos.x >= pos_.x) ? 1.0f : -1.0f; }
@@ -234,70 +249,52 @@ public:
     int GetGunComboStep() const { return gunCombo_.GetStep(); }
 
     // スペースキー スピン連射
-    bool JustSpinShot() const { return justSpinShot_; } ///< スピン連射発生フレーム
+    bool JustSpinShot() const { return HasFrameEvent(FrameEvent::SpinShot); } ///< スピン連射発生フレーム
     bool IsUpsideDown() const { return isUpsideDown_; } ///< 逆さま状態か
     float GetSpinAngle() const { return spinAngle_; } ///< スピン角度（度、0=正立, 180=逆さ）
 
     // 固有技（スペースキー、武器種別ごと。Dagger/Hammer/Ball は上の Just～ を使う）
-    bool JustSwordDash() const { return justSwordDash_; } ///< ソード: 通過後の遅延斬撃が発生したフレーム
-    const Vector3& GetSwordSkillImpactPosition() const { return swordImpactPosition_; }
-    bool JustSpearRetreat() const { return justSpearRetreat_; } ///< スピア: 回転突撃の命中フレーム
-    bool IsSpearSpinningCharge() const { return spearDash_.active; }
-    bool JustGreatswordSlam() const { return justGreatswordSlam_; } ///< グレートソード/ハンマー共通: 大地砕き発生フレーム
+    bool JustGreatswordSlam() const { return HasFrameEvent(FrameEvent::GreatswordSlam); } ///< グレートソード/ハンマー共通: 大地砕き発生フレーム
     /** @brief グレートソード: 投げ回転斬りで大剣が静止し渦を巻いている最中か（飛行中・帰還中はfalse） */
     bool IsGreatswordSpinning() const;
-    bool JustGreatswordSpinHit() const { return justGreatswordSpinHit_; } ///< グレートソード: 渦の多段ヒット発生フレーム
-    bool JustGreatswordThrown() const { return justGreatswordThrown_; } ///< グレートソード: 投げた瞬間のフレーム（発射エフェクト用）
-    const Vector3& GetGreatswordThrowPos() const { return greatswordThrowPos_; } ///< 投げた大剣が静止している位置（渦の中心）
-    bool JustAxeCharge() const { return justAxeCharge_; } ///< アックス: バーサーク突進発生フレーム
-    bool IsAxeEnraged() const { return axeRageTimer_ > 0.0f; } ///< アックス: 突進後の怒り強化中か
+    bool JustGreatswordSpinHit() const { return HasFrameEvent(FrameEvent::GreatswordSpinHit); } ///< グレートソード: 渦の多段ヒット発生フレーム
+    bool JustGreatswordThrown() const { return HasFrameEvent(FrameEvent::GreatswordThrown); } ///< グレートソード: 投げた瞬間のフレーム（発射エフェクト用）
+    Vector3 GetGreatswordThrowPos() const; ///< 投げた大剣が静止している位置（渦の中心）
+    bool JustAxeCharge() const { return HasFrameEvent(FrameEvent::AxeCharge); } ///< アックス: バーサーク突進発生フレーム
+    bool IsAxeEnraged() const; ///< アックス: 突進後の怒り強化中か
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
-    float GetAxeRageMult() const { return IsAxeEnraged() ? kAxeRageDamageMult_ : 1.0f; }
-    bool JustScytheSpin() const { return justScytheSpin_; }
+    float GetAxeRageMult() const;
+    bool JustScytheSpin() const { return HasFrameEvent(FrameEvent::ScytheSpin); }
+    /** @brief このフレームに固有技の攻撃判定が出たか（叩きつけ・スピン連射・鎌の回転・斧の突進のどれか） */
+    bool JustWeaponSkillHit() const;
 
     // 覚醒乱舞（Sword + 覚醒 + L）
     bool IsRampaging() const { return rampage_->IsActive(); } ///< 乱舞中か
-    bool JustLaunched() const { return justLaunched_; } ///< 打ち上げ発生フレーム
-    bool JustRampageHit() const { return justRampageHit_; } ///< 乱舞スラッシュヒットフレーム
-    bool JustRampageFinish() const { return justRampageFinish_; } ///< 乱舞終了フレーム
+    bool JustLaunched() const { return HasFrameEvent(FrameEvent::Launched); } ///< 打ち上げ発生フレーム
+    bool JustRampageHit() const { return HasFrameEvent(FrameEvent::RampageHit); } ///< 乱舞スラッシュヒットフレーム
+    bool JustRampageFinish() const { return HasFrameEvent(FrameEvent::RampageFinish); } ///< 乱舞終了フレーム
     int GetJuggleCount() const { return juggleSlashCount_; } ///< 現在の乱舞スラッシュ回数
 
     // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
-    bool JustFinisherSlash() const { return justFinisherSlash_; } ///< フィニッシャースラッシュ発動フレーム
+    bool JustFinisherSlash() const { return HasFrameEvent(FrameEvent::FinisherSlash); } ///< フィニッシャースラッシュ発動フレーム
 
 private:
     // ══════════════════════════════════════════════════════
     // 物理設定と状態データ
     // ══════════════════════════════════════════════════════
+    // ゲームプレイの調整値は Resources/Config/player_params.json（PlayerTuning）が持つ。
+    // ここに残す定数は判定の許容誤差と見た目だけ
 
-    // 通常物理
-    static constexpr float kGroundY_ = 0.4f;
-    static constexpr float kCeilingY_ = 12.0f;
+    static constexpr Vector3 kDefaultSpawnPosition_ = { 8.0f, 0.4f, 0.0f };
+    static constexpr float kBodyHalfExtent_ = 0.5f; ///< 当たり判定は pos_ を中心とした1x1x1
     // 通常ステージの左右端はStageEditorのsolid配置物で制御する
     float minX_ = -1000.0f;
     float maxX_ = 1000.0f;
-    static constexpr float kGravity_ = 0.012f;
-    static constexpr float kJumpPower_ = 0.4f;
-    static constexpr float kSpeed_ = 0.15f;
-    // 敵とめり込まないための最小X距離。両者のAABB半幅は0.5+0.5=1.0だが、そこまで離すと
-    // GamePlayScene の接触ダメージ判定（プレイヤーAABBと敵AABBの重なりで発生）が一切当たらなくなるため、
-    // 完全な重なり(0)は防ぎつつ接触判定用の重なりしろは残す0.75にしている
-    static constexpr float kMinEnemyDistanceX_ = 0.75f;
-    // 上記のY版。ダミー/ナイトのAABBはY方向にも高さを持つため、X距離だけで判定すると
-    // ジャンプで頭上を飛び越えている最中まで押し出されてしまう（縦に無限のめり込み防止扱いになる）。
-    // ダミーのAABBは概ね±0.5なので、それより少し広い程度に留めてジャンプ回避を潰さない
-    static constexpr float kMinEnemyDistanceY_ = 0.75f;
 
-    // 水中物理（水なしステージでは無効化された状態のままにする）
+    // 水中判定（水なしステージでは無効化された状態のままにする）
     static constexpr float kWaterLevelDisabled_ = -1.0f;
-    static constexpr float kWaterGravity_ = 0.003f; // 浮力で弱い沈下加速度
-    static constexpr float kWaterSpeed_ = 0.10f; // 水中横移動速度
-    static constexpr float kSwimAccel_ = 0.025f; // 長押しで上昇する加速度
-    static constexpr float kSwimMaxVY_ = 0.28f; // 上昇最大速度
-    static constexpr float kSinkMaxVY_ = -0.12f; // 沈下最大速度
-    static constexpr float kWaterEntryImpactDamping_ = 0.4f; // 入水時に落下速度を大きく減衰させる倍率
 
-    Vector3 pos_ = { 8.0f, 0.4f, 0.0f };
+    Vector3 pos_ = kDefaultSpawnPosition_;
     float waterLevel_ = kWaterLevelDisabled_; // SetWaterLevel() で上書きされるまで水中判定は無効
     float velocityY_ = 0.0f;
     float groundVisualCorrection_ = 0.0f; // 実ブロック床と通常地面の高さ差を見た目だけへ反映
@@ -305,21 +302,44 @@ private:
     bool onGround_ = true;
     int visualPreset_ = -1; // -1=自動、0=Alien、1=Mech
     bool prevOnGround_ = true;
-    bool justJumped_ = false;
-    bool justLanded_ = false;
+    float prevFrameX_ = 0.0f; ///< このフレームの移動前のX（壁にめり込んだ時に、入ってきた側へ押し戻すのに使う）
 
     bool inWater_ = false;
     bool prevInWater_ = false;
-    bool justEnteredWater_ = false;
-    bool justExitedWater_ = false;
+
+    // 1フレームだけ立つ出来事（毎フレーム冒頭でまとめて消す。シーン側は Just～() で読む）
+    enum class FrameEvent {
+        Jumped,
+        Landed,
+        EnteredWater,
+        ExitedWater,
+        Dodged,
+        ComboHit,
+        ComboExtraHit,
+        WeaponSwitchHit,
+        Fired,
+        Awakened,
+        SpinShot,
+        GreatswordSlam,
+        GreatswordSpinHit,
+        GreatswordThrown,
+        AxeCharge,
+        ScytheSpin,
+        Launched,
+        RampageHit,
+        RampageFinish,
+        FinisherSlash,
+        Count
+    };
+    std::bitset<static_cast<size_t>(FrameEvent::Count)> frameEvents_;
+    void SetFrameEvent(FrameEvent e, bool on = true) { frameEvents_.set(static_cast<size_t>(e), on); }
+    bool HasFrameEvent(FrameEvent e) const { return frameEvents_.test(static_cast<size_t>(e)); }
 
     // 被弾後の無敵時間
     float invincibleTimer_ = 0.0f;
-    static constexpr float kInvincibleDuration_ = 1.0f; // 被弾後の無敵時間（秒）
 
     // 回避（レーン制なので前後のみ。移動入力があればその方向、無ければ向きの逆へバックステップ）
     bool dodgeActive_ = false;
-    bool justDodged_ = false;
     bool dodgeRewardClaimed_ = false; // 1回の回避でジャスト回避報酬を二重に受け取らないためのフラグ
     float dodgeTimer_ = 0.0f;
     float dodgeStartX_ = 0.0f;
@@ -328,16 +348,7 @@ private:
     float dodgeSpamTimer_ = 0.0f; // 前回の回避からの経過秒数（連打判定用）
     int dodgeSpamCount_ = 0;
     int dodgeBufferFrames_ = 0; // 先行入力した回避ボタンの残り有効フレーム数（0なら未入力）
-    static constexpr int kDodgeBufferFrames_ = 8; // 回避の先行入力を保持するフレーム数（ヒットストップとクールダウン明けの取りこぼし防止）
-    static constexpr float kDodgeDistance_ = 2.6f; // 回避で移動する距離（ワールド単位）
-    static constexpr float kDodgeDuration_ = 0.22f; // 回避モーションの長さ（秒、全区間無敵）
-    static constexpr float kDodgeCooldown_ = 0.30f; // 回避終了から次の回避までの間隔（秒）
-    static constexpr float kDodgeSpamWindow_ = 1.2f; // この秒数以内に次の回避を出すと連打扱い
-    static constexpr float kDodgeAnimSpeed_ = 2.4f; // 走りジャンプのモーションを高速再生して前転風に見せる
     bool dodgeBackward_ = false; // 向きを変えずに後ろへ下がる回避か（前転モーションだと滑って見えるので専用の見せ方にする）
-    static constexpr float kBackDodgeAnimSpeed_ = 1.6f; // バックステップ時の立ちジャンプモーションの再生速度
-    static constexpr float kBackDodgeLean_ = -0.45f; // バックステップで後ろへ反る最大角度（ラジアン、X軸の負が後ろ）
-    static constexpr float kBackDodgeHopHeight_ = 0.25f; // バックステップで見た目だけ浮かせる高さ（ワールド単位）
     float justDodgeWindowTimer_ = 0.0f; // ジャスト回避直後の強化窓の残り秒数（長さと倍率はCombatTuning側）
 
     // テレポート斬り（向いている方向へ短距離ワープする機動アクション。全区間無敵、コンボからキャンセル可）
@@ -346,13 +357,6 @@ private:
     float warpStartX_ = 0.0f;
     float warpTargetX_ = 0.0f;
     float warpCooldown_ = 0.0f;
-    static constexpr float kWarpDistance_ = 4.0f; // 通常時のワープ距離（ワールド単位、回避より長い）
-    static constexpr float kWarpAwakenedDistance_ = 6.0f; // 覚醒中の強化距離
-    static constexpr float kWarpDuration_ = 0.12f; // ワープモーションの長さ（秒、瞬間移動に近い速さ）
-    static constexpr float kWarpCooldown_ = 0.9f; // 通常時のクールタイム（乱発防止）
-    static constexpr float kWarpAwakenedCooldown_ = 0.35f; // 覚醒中は連続テレポート斬りができるよう短縮
-    static constexpr float kWarpGaugeCost_ = 0.08f; // 通常時に消費する覚醒ゲージ量（覚醒中は消費なし）
-    static constexpr float kWarpAnimSpeed_ = 2.0f; // 斬撃モーションを高速再生してテレポートらしく見せる
 
     // 向き（最後に入力した横方向+1=右 -1=左）
     float lastDirX_ = 1.0f;
@@ -361,25 +365,12 @@ private:
     float awakenGauge_ = 0.0f;
     bool isAwakened_ = false;
     float awakenTimer_ = 0.0f;
-    static constexpr float kAwakenDuration_ = 8.0f;
-    static constexpr float kAwakenActivationThreshold_ = 0.3f; // このゲージ量が溜まっていれば発動可能
 
     // スタイル技（L / K キー）
-    bool justComboHit_ = false;
-    bool justComboExtraHit_ = false;
-    static constexpr int kAwakenExtraHits_ = 2; ///< 覚醒中に1段ごとに出す追加ヒットの回数
-    static constexpr float kAwakenExtraHitInterval_ = 0.045f; ///< 覚醒中の追加ヒットの間隔（秒）
-    bool justWeaponSwitchHit_ = false;
     bool weaponSwitchAttackPending_ = false;
     bool weaponSwitchAttackActive_ = false;
     float weaponSwitchWindow_ = 0.0f;
-    static constexpr float kWeaponSwitchWindow_ = 0.75f;
-    static constexpr float kWeaponSwitchLunge_ = 0.8f;
     int comboStep_ = 0;
-    bool justFired_ = false;
-    bool justChargedGauge_ = false;
-    bool justAwakened_ = false;
-    static constexpr float kGaugeCharge_ = 0.18f;
 
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
     MeleeComboController meleeCombo_;
@@ -392,118 +383,27 @@ private:
     // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
     GunComboController gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
-    static constexpr float kLaunchFollowWindow_ = 0.75f;
-    static constexpr float kLaunchFollowJumpMult_ = 1.5f;
-    static constexpr float kAirAttackFallDamping_ = 0.35f; // 空中攻撃中は落下を強く抑え、敵と高度を合わせやすくする
 
-    // スペースキー スピン連射
-    bool justSpinShot_ = false;
+    // 体の空中回転（ボールの固有技で使う。度、0=正立 180=逆さ）
     bool isUpsideDown_ = false;
-    float spinAngle_ = 0.0f; // 度0=正立, 180=逆さ
-    float shootCooldown_ = 0.0f;
-    static constexpr float kShootInterval_ = 0.12f; // 連射間隔（秒）
-    static constexpr float kSpinSpeed_ = 5.0f; // 空中回転速度（度/フレーム）
+    float spinAngle_ = 0.0f;
 
-    // 固有技（スペースキー、武器種別ごと）
-    // 共通: 瞬間移動に見えないよう、開始位置→目標位置へ短時間でイージング移動する水平ダッシュ
-    // （踏み込み/後退/突進系の全技が共有する。ヒット判定は移動完了フレームで発生させること）
+    // 固有技で共通の水平ダッシュ（瞬間移動に見えないよう、開始位置→目標位置へ短時間でイージング移動する）
+    // ヒット判定は移動完了フレームで発生させること
     struct DashMotion {
         bool active = false;
         float timer = 0.0f;
         float startX = 0.0f;
         float targetX = 0.0f;
     };
-    static constexpr float kDashDuration_ = 0.10f; // どの技もこの秒数で移動しきる
     /** @brief 現在位置からworldDeltaXぶん先（minX_/maxX_でクランプ）へダッシュを開始する */
     void BeginDash(DashMotion& dash, float worldDeltaX);
     /** @brief ダッシュを1フレーム進める（pos_.xを更新）。ちょうど完了したフレームだけtrueを返す */
     bool AdvanceDash(DashMotion& dash);
 
-    // ダガー: スティンガー（踏み込みながら3連続で刺す多段突き。数合わせでなく手数武器らしい連続ヒットを体感させる）
-    bool justDaggerStingerHit_ = false;
-    int daggerStingerHitIndex_ = -1; // -1=非発動中、0始まりで刺突が進む
-    float daggerStingerTimer_ = 0.0f;
-    float daggerStingerCooldown_ = 0.0f;
-    DashMotion daggerStingerDash_; ///< 1段目が突き刺さるまでの踏み込み
-
-    // ダガーの空中ダッシュ（機動力枠。空中で固有技を押すと水平に一度だけ滑る。着地で回復）
-    DashMotion airDash_;
-    bool airDashAvailable_ = true;
-    static constexpr float kDaggerAirDashDist_ = 3.4f;
-    static constexpr float kDaggerStingerDashDist_ = 3.0f;
-    static constexpr float kDaggerStingerHitInterval_ = 0.09f; // 刺突ごとの間隔（秒）
-    static constexpr int kDaggerStingerHitCount_ = 3;
-    static constexpr float kDaggerStingerCooldown_ = 4.0f; // 乱れ斬り（地上のSpace）を次に出せるまでの秒数
-    // ソード: 敵を通過し、納刀の間を置いて斬撃を発生させる
-    bool justSwordDash_ = false;
-    bool swordReleasePending_ = false;
-    float swordReleaseTimer_ = 0.0f;
-    Vector3 swordImpactPosition_ { };
-    float swordSkillCooldown_ = 0.0f;
-    DashMotion swordDash_;
-    static constexpr float kSwordDashDist_ = 5.2f;
-    static constexpr float kSwordReleaseDelay_ = 0.20f;
-    static constexpr float kSwordSkillCooldown_ = 5.0f; // 剣舞は連撃が長く強力なので、次に出せるまで間を空ける
-    // スピア: 武器ごと全身を回転させながら前方へ突撃する
-    bool justSpearRetreat_ = false;
-    float spearSkillCooldown_ = 0.0f;
-    DashMotion spearDash_;
-    static constexpr float kSpearChargeDist_ = 4.0f;
-    static constexpr float kSpearSkillCooldown_ = 4.5f; // 百裂突きを次に出せるまでの秒数
-    // グレートソード/ハンマー共通: 大地砕き（設置型の叩きつけAoE、地上限定・重量級らしい長めのクールタイム）
-    bool justGreatswordSlam_ = false;
-    float greatswordSkillCooldown_ = 0.0f;
-    static constexpr float kGreatswordSkillCooldown_ = 5.0f; // ハンマーの大車輪を次に出せるまでの秒数
-    // グレートソード専用: 投げ回転斬り（自身を投げ、途中で静止して渦のように回転し周囲を吸い込みながら多段ヒット）
-    bool justGreatswordSpinHit_ = false;
-    bool justGreatswordThrown_ = false;
-    bool greatswordThrowActive_ = false; ///< 投げてから渦が終わるまでtrue（飛行中も含む）
-    Vector3 greatswordThrowStartPos_ { }; ///< 投げた瞬間の手元位置（飛行中の補間の始点）
-    Vector3 greatswordThrowPos_ { }; ///< 大剣が静止する位置（渦の中心、飛行中は補間の終点）
-    float greatswordThrowTimer_ = 0.0f; ///< 投げてからの経過秒（飛行→渦の順で進む）
-    float greatswordSpinHitTimer_ = 0.0f; ///< 渦の中でのヒット間隔用タイマー
-    float greatswordThrowCooldown_ = 0.0f;
-    static constexpr float kGreatswordThrowDist_ = 4.0f; ///< 静止するまでの距離
-    static constexpr float kGreatswordThrowTravelTime_ = 0.12f; ///< 投げてから静止するまでの飛行時間（秒）
-    // 渦は「もう一度スペースを押す」か「この時間が経つ」のどちらか早い方で終わる
-    // （手動リコール前提にすると出しっぱなしが強すぎるため、上限として最後まで残す）
-    static constexpr float kGreatswordVortexMaxDuration_ = 10.0f;
-    static constexpr float kGreatswordSpinHitInterval_ = 0.15f; ///< 渦の中でのヒット間隔（秒）
-    static constexpr float kGreatswordThrowCooldown_ = 1.6f;
-    Vector3 greatswordReturnTargetPos_ { }; ///< 帰還先（渦が終わった瞬間の手元位置を1回だけ記録する）
-    bool greatswordReturnCaptured_ = false;
-    static constexpr float kGreatswordReturnTime_ = 0.2f; ///< 渦の終了後、手元へ飛んで戻るまでの時間（秒）
-    // シザー: 滞空ホバー（空中限定、時間制のリソースで無限滞空を防ぐ）
-    bool justScytheSpin_ = false;
-    float scytheHoverTimer_ = kScytheHoverMax_;
-    static constexpr float kScytheHoverMax_ = 0.9f; // 最大連続ホバー時間（秒）
-    static constexpr float kScytheHoverRecoverRate_ = 2.0f; // 接地中の回復速度倍率
-    static constexpr float kScytheHoverVYCap_ = -0.02f; // ホバー中の落下速度の下限
-    // アックス: バーサーク突進（突進しつつ命中で一定時間ダメージ強化、狂戦士らしいリスク覚悟の一撃）
-    bool justAxeCharge_ = false;
-    float axeSkillCooldown_ = 0.0f;
-    float axeRageTimer_ = 0.0f;
-    DashMotion axeDash_;
-    static constexpr float kAxeChargeDist_ = 2.3f;
-    static constexpr float kAxeSkillCooldown_ = 1.0f;
-    static constexpr float kAxeRageDuration_ = 2.5f;
-    static constexpr float kAxeRageDamageMult_ = 1.3f;
-
     // 覚醒乱舞（Sword + 覚醒 + L）
-    bool justLaunched_ = false;
-    bool justRampageHit_ = false;
-    bool justRampageFinish_ = false;
     int juggleSlashCount_ = 0; // 今回の乱舞で何回切ったか
     int juggleAngleIdx_ = 0; // 次のスラッシュ角度インデックス
-    static constexpr float kRampageSpeed_ = 0.45f; // 打ち上げ突進速度
-    static constexpr float kJuggleRadius_ = 2.5f; // 敵からのスラッシュ距離
-    static constexpr int kJuggleMaxSlashes_ = 8; // 乱舞の最大回数
-    static constexpr float kRampageLaunchSpeed_ = 0.25f; // 突進が届いた瞬間に跳ね上がる初速
-    static constexpr float kRampageReachDistance_ = 1.0f; // この距離まで近づいたら打ち上げる
-
-    // 覚醒中の移動補正
-    static constexpr float kAwakenedSpeedMult_ = 1.5f;
-    static constexpr float kAwakenedJumpMult_ = 1.3f;
 
     // リムライト（本体・手持ち武器で共通）
     static constexpr Vector3 kRimColor_ = { 0.4f, 0.9f, 1.0f };
@@ -516,13 +416,10 @@ private:
     static constexpr float kSideOverlapMargin_ = 0.05f; // 側面判定で上下の縁を無視する幅
     static constexpr float kLandingSnapTolerance_ = 0.05f; // 上面へ吸着させる高さの許容
 
-    // 球スタイルの旋回（度）
+    // 体の旋回（度）
     static constexpr float kFullTurnDegrees_ = 360.0f;
     static constexpr float kUpsideDownMinDegrees_ = 90.0f; // この範囲の角度では逆さとみなす
     static constexpr float kUpsideDownMaxDegrees_ = 270.0f;
-
-    // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
-    bool justFinisherSlash_ = false;
 
     // スキル補正（ローグライト）
     SkillMods skillMods_;
@@ -567,44 +464,6 @@ private:
     static const IRampageState& JuggleRampage();
     const IRampageState* rampage_ = &InactiveRampage(); ///< 覚醒乱舞の進行フェーズ
 
-    // Weapon Behavior Strategy パターン
-    // 武器種別ごとのスペースキー挙動（ブリンク/ゲージチャージ/スピン連射）を切り替える
-    /** @brief 装備武器ごとの固有更新を抽象化するStrategy */
-    class IWeaponBehavior {
-    public:
-        virtual ~IWeaponBehavior() = default;
-        virtual void Update(Player& player, Input* input) const = 0;
-    };
-    /** @brief 短剣の高速移動と攻撃挙動を適用するStrategy */
-    class DaggerBehavior;
-    /** @brief ハンマーの重量攻撃挙動を適用するStrategy */
-    class HammerBehavior;
-    /** @brief ボール武器の固有挙動を適用するStrategy */
-    class BallBehavior;
-    /** @brief 剣の突進攻撃挙動を適用するStrategy */
-    class SwordBehavior;
-    /** @brief 槍の間合い制御を適用するStrategy */
-    class SpearBehavior;
-    /** @brief 大剣の叩きつけ挙動を適用するStrategy */
-    class GreatswordBehavior;
-    /** @brief 鎌の広範囲攻撃挙動を適用するStrategy */
-    class ScytheBehavior;
-    /** @brief 斧の溜め攻撃挙動を適用するStrategy */
-    class AxeBehavior;
-    /** @brief 固有処理を持たない武器へ共通挙動を適用するStrategy */
-    class DefaultWeaponBehavior;
-    static const IWeaponBehavior& GetWeaponBehavior(WeaponType type);
-
-    /**
-     * @brief Spaceが押され、クールタイムが明けていれば、武器の固有技の連撃を始める
-     * @param input           入力
-     * @param type            武器タイプ（連撃表の選択に使う）
-     * @param cooldown        その武器の固有技クールタイム（始めたらcooldownSecondsを入れる）
-     * @param cooldownSeconds 次に出せるまでの秒数
-     * @return 連撃を始めたらtrue
-     */
-    bool TryStartSkillSequence(Input* input, WeaponType type, float& cooldown, float cooldownSeconds);
-
     // 覚醒残像
     AfterImageRenderer afterImageRenderer_;
 
@@ -646,6 +505,96 @@ private:
     CharacterRig awakenedRig_; ///< 覚醒フォーム（メカ）
     CharacterRig* rig_ = &normalRig_; ///< 現在表示中のリグ（覚醒の開始/終了で切り替え）
 
+    // Weapon Behavior Strategy パターン
+    // 武器種別ごとのスペースキー挙動（固有技の連撃・投げ回転斬り・滞空ホバーなど）を切り替える。
+    // 技ごとのクールタイムや進行中の状態は各Behaviorが持ち、Playerには下の「固有技から使う操作」だけで触る
+    /** @brief 装備武器ごとの固有技を抽象化するStrategy（プレイヤー1人につき武器種ぶんのインスタンスを持つ） */
+    class IWeaponBehavior {
+    public:
+        virtual ~IWeaponBehavior() = default;
+        /** @brief 装備している間だけ毎フレーム呼ぶ（固有技の入力と発生） */
+        virtual void Update(Player& player, Input* input) = 0;
+        /**
+         * @brief 装備に関係なく毎フレーム呼ぶ（クールタイムの消化、手元を離れた技の進行）
+         * @param cooldownStep このフレームに減らすクールタイム（覚醒中の短縮込み）
+         */
+        virtual void Tick(Player&, Input*, float cooldownStep) { (void)cooldownStep; }
+        /** @brief 回避・ワープで踏み込み系の動きを打ち切る */
+        virtual void Interrupt() { }
+        /** @brief 武器を持ち替えた時に進行中の技をすべて仕切り直す */
+        virtual void OnUnequipped() { Interrupt(); }
+        /** @brief 着地した（空中で使い切る技の回数を戻す） */
+        virtual void OnLanded() { }
+        /** @brief 武器が手元を離れていて近接コンボを出せない状態か */
+        virtual bool IsDisarmed() const { return false; }
+        /**
+         * @brief 手元を離れて飛んでいる武器の見た目の位置と回転
+         * @return 飛んでいる間だけtrue（持ち替え後も描き続ける）
+         */
+        virtual bool GetThrownPose(Vector3& outPosition, float& outSpinZ) const
+        {
+            (void)outPosition;
+            (void)outSpinZ;
+            return false;
+        }
+        /** @brief 攻撃ボタンで通常コンボの代わりに覚醒乱舞を始めるか */
+        virtual bool StartsRampage(const Player&) const { return false; }
+        /** @brief 固有技の連撃の締めで地面を叩き、衝撃波を出すか */
+        virtual bool SlamsOnSkillFinish() const { return false; }
+        /** @brief 体の空中回転を保ったままにするか。false ならこのフレームで正立に戻す */
+        virtual bool KeepsSpin(const Player&) const { return false; }
+    };
+    /** @brief 固有技の連撃（剣舞・百裂突き・大車輪など）を出すStrategy */
+    class SkillSequenceBehavior;
+    /** @brief 短剣: 地上は固有技の連撃、空中は1回だけの空中ダッシュ */
+    class DaggerBehavior;
+    /** @brief ボール: スピン連射と空中回転 */
+    class BallBehavior;
+    /** @brief 大剣: 投げ回転斬り */
+    class GreatswordBehavior;
+    /** @brief 鎌: 滞空ホバー */
+    class ScytheBehavior;
+    /** @brief 斧: バーサーク突進 */
+    class AxeBehavior;
+    /** @brief 武器種ごとのBehaviorの実体一式（定義は PlayerWeaponBehaviors.cpp） */
+    struct WeaponBehaviorSet;
+    std::unique_ptr<WeaponBehaviorSet> weaponBehaviors_;
+    IWeaponBehavior& BehaviorFor(WeaponType type);
+    const IWeaponBehavior& BehaviorFor(WeaponType type) const;
+    /** @brief 全武器のBehaviorの踏み込み系の動きを打ち切る（回避・ワープ用） */
+    void InterruptWeaponSkills();
+    /** @brief 全武器のBehaviorの進行中の技を仕切り直す（持ち替え用） */
+    void ResetWeaponSkills();
+    /** @brief 全武器のBehaviorのクールタイムと、手元を離れた技を進める */
+    void TickWeaponSkills(Input* input, float cooldownStep);
+    /** @brief 着地を全武器のBehaviorへ知らせる */
+    void NotifyWeaponSkillsLanded();
+
+    // 固有技から使う操作（Behaviorはこれらを通してPlayerに触る）
+    /** @brief 空中で縦の速度を止める */
+    void StopVerticalMotion() { velocityY_ = 0.0f; }
+    /** @brief 落下速度を minVelocityY より速くならないよう抑える */
+    void LimitFallSpeed(float minVelocityY) { velocityY_ = (std::max)(velocityY_, minVelocityY); }
+    /** @brief 今のリグの指定クリップを攻撃モーションとして再生する */
+    void PlaySkillAnim(Animation CharacterRig::* clip, float speed);
+    /** @brief 体を空中で回す（1周したら0へ戻す） */
+    void AddSpin(float degrees);
+    /** @brief 投げた武器などを浮かせる高さの位置（足元の pos_ から胸の高さへ上げた位置） */
+    Vector3 GetSkillHoldPosition() const;
+    /** @brief ステージの左右端に収めたX座標 */
+    float ClampToStageX(float x) const { return std::clamp(x, minX_, maxX_); }
+    const SkillMods& GetSkillMods() const { return skillMods_; }
+
+    /**
+     * @brief Spaceが押され、クールタイムが明けていれば、武器の固有技の連撃を始める
+     * @param input           入力
+     * @param type            武器タイプ（連撃表の選択に使う）
+     * @param cooldown        その武器の固有技クールタイム（始めたらcooldownSecondsを入れる）
+     * @param cooldownSeconds 次に出せるまでの秒数
+     * @return 連撃を始めたらtrue
+     */
+    bool TryStartSkillSequence(Input* input, WeaponType type, float& cooldown, float cooldownSeconds);
+
     // 右手ボーンに持たせる近接武器（現在のスタイルに対応する1つだけ表示）
     // 種類が多いため個別メンバーではなくテーブルで持つ（追加は CharacterVisuals.h の kHeldWeaponVisuals）
     /** @brief 右手に持たせる近接武器1種ぶんのモデルと、握らせる際のローカルスケール/回転/位置 */
@@ -659,10 +608,10 @@ private:
     };
     std::vector<HeldWeaponSlot> heldWeapons_;
     int activeHeldIndex_ = -1; ///< 現在表示中の heldWeapons_ インデックス（-1=非表示）
-    int thrownGreatswordIndex_ = -1; ///< 投げ回転斬り中の大剣（武器切り替え後もactiveHeldIndex_と別に描画し続けるための heldWeapons_ インデックス、非投擲中は-1）
+    int thrownWeaponIndex_ = -1; ///< 手元を離れて飛んでいる武器（武器切り替え後もactiveHeldIndex_と別に描画し続けるための heldWeapons_ インデックス、無ければ-1）
 
-    /** @brief グレートソード投げ回転斬りの飛行中/渦の間、手のボーンから外して位置・回転を直接動かす */
-    void UpdateThrownGreatswordVisual(HeldWeaponSlot& slot);
+    /** @brief 手元を離れて飛んでいる武器を、手のボーンから外して位置・回転を直接動かす */
+    void PlaceThrownWeapon(HeldWeaponSlot& slot, const Vector3& position, float spinZ);
 
     /** @brief 右手ボーンに武器オブジェクトを追従させる（握りローカル行列は呼び出し側で指定） */
     void AttachHeldWeapon(Object3d* obj, const char* boneName,
@@ -715,6 +664,11 @@ private:
     bool finisherCharging_ = false; ///< 静止して溜めている最中か
     float finisherChargeTimer_ = 0.0f; ///< 残り溜め時間（0以下で解放＝一閃へ）
 
+    /** @brief 左右の移動入力ぶん step だけ横へ動かし、向きを更新する */
+    void ApplyHorizontalInput(Input* input, float step);
+    /** @brief 押している左右の向き（-1/+1、押していなければ0。両方なら左を優先） */
+    float GetHeldMoveDirection(Input* input) const;
+
     /** @brief 現在の移動・接地状況から再生すべきアニメーション状態を切り替える */
     void UpdateAnimationState(bool isMoving);
 
@@ -750,12 +704,6 @@ private:
     /// @brief スペースキーによる武器固有技（ダッシュ斬り・間合い外し・大地砕き等）の入力とクールダウンを処理する
     /// @param input 入力マネージャー
     void HandleWeaponSkill(Input* input);
-    /// @brief グレートソード投げ回転斬りの飛行→渦→帰還の進行を、武器を持ち替えていても止めずに進める
-    /// @note 元々はGreatswordBehavior::Update内で進めていたが、そこは現在装備中の武器がグレートソードの
-    ///       時しか呼ばれないため、渦の最中に他の武器へ持ち替えるとタイマーが凍結し、モデルは表示されたまま
-    ///       回転や帰還だけ止まって見える不具合があった。装備武器に関係なく毎フレーム呼ぶことで解決する
-    /// @param input 入力マネージャー（渦の最中の再スペース入力で早期帰還させるために使う）
-    void UpdateGreatswordThrowState(Input* input);
     /// @brief 覚醒乱舞の現フェーズに応じた突進/追撃物理を進め、ヒットフレームで斬撃モーションを再生する
     /// @param enemyPos 乱舞スラッシュのターゲット座標
     void UpdateRampagePhysics(const Vector3& enemyPos);

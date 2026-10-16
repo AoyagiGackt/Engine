@@ -5,6 +5,7 @@
 #include "MeleeCombo.h"
 #include "Easing.h"
 #include "GameConstants.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "Weapon.h"
@@ -207,6 +208,18 @@ constexpr MeleeComboSet kGreatswordSet = MakeSet(kGreatswordGround, kGreatswordA
 constexpr MeleeComboSet kScytheSet = MakeSet(kScytheGround, kScytheAir, kScytheLauncher);
 constexpr MeleeComboSet kAxeSet = MakeSet(kAxeGround, kAxeAir, kAxeLauncher);
 
+// WeaponType の並び順に、各武器が使うコンボの元データを持つ（Ball は専用の型を持たず剣と同じ型を使う）
+constexpr std::array<const MeleeComboSet*, kWeaponTypeCount> kSourceSets = {
+    &kSwordSet, // Sword
+    &kSpearSet, // Spear
+    &kHammerSet, // Hammer
+    &kDaggerSet, // Dagger
+    &kSwordSet, // Ball
+    &kGreatswordSet, // Greatsword
+    &kScytheSet, // Scythe
+    &kAxeSet, // Axe
+};
+
 struct RuntimeComboSet {
     std::vector<MeleeAttackDef> ground;
     std::vector<MeleeAttackDef> air;
@@ -232,42 +245,54 @@ void RefreshView(RuntimeComboSet& set)
     set.view.launcher = &set.launcher;
 }
 
+// combos.json の "attacks" で上書きできる項目
+constexpr JsonField<MeleeAttackDef> kAttackOverrideFields[] = {
+    { nullptr, "damageMult", &MeleeAttackDef::damageMult },
+    { nullptr, "duration", &MeleeAttackDef::duration },
+    { nullptr, "hitTime", &MeleeAttackDef::hitTime },
+    { nullptr, "cancelTime", &MeleeAttackDef::cancelTime },
+    { nullptr, "lungeDist", &MeleeAttackDef::lungeDist },
+    { nullptr, "rangeMult", &MeleeAttackDef::rangeMult },
+    { nullptr, "knockX", &MeleeAttackDef::knockX },
+    { nullptr, "knockY", &MeleeAttackDef::knockY },
+    { nullptr, "hitStop", &MeleeAttackDef::hitStop },
+    { nullptr, "animSpeed", &MeleeAttackDef::animSpeed },
+};
+
 void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
 {
-    attack.damageMult = (std::max)(data.value("damageMult", attack.damageMult), 0.0f);
-    attack.duration = (std::max)(data.value("duration", attack.duration), kMinAttackDuration);
-    attack.hitTime = std::clamp(data.value("hitTime", attack.hitTime), 0.0f, attack.duration);
-    attack.cancelTime = std::clamp(data.value("cancelTime", attack.cancelTime), attack.hitTime, attack.duration);
-    attack.lungeDist = data.value("lungeDist", attack.lungeDist);
-    attack.rangeMult = (std::max)(data.value("rangeMult", attack.rangeMult), 0.0f);
-    attack.knockX = data.value("knockX", attack.knockX);
-    attack.knockY = data.value("knockY", attack.knockY);
-    attack.hitStop = (std::max)(data.value("hitStop", attack.hitStop), 0);
-    attack.animSpeed = (std::max)(data.value("animSpeed", attack.animSpeed), kMinAnimSpeed);
+    ReadJsonFields(data, kAttackOverrideFields, attack);
+    // 手で書いた値でも段が進むよう、時間の前後関係と下限を整える
+    attack.damageMult = (std::max)(attack.damageMult, 0.0f);
+    attack.duration = (std::max)(attack.duration, kMinAttackDuration);
+    attack.hitTime = std::clamp(attack.hitTime, 0.0f, attack.duration);
+    attack.cancelTime = std::clamp(attack.cancelTime, attack.hitTime, attack.duration);
+    attack.rangeMult = (std::max)(attack.rangeMult, 0.0f);
+    attack.hitStop = (std::max)(attack.hitStop, 0);
+    attack.animSpeed = (std::max)(attack.animSpeed, kMinAnimSpeed);
 }
 
-std::array<RuntimeComboSet, 8>& GetRuntimeComboSets()
+std::array<RuntimeComboSet, kWeaponTypeCount>& GetRuntimeComboSets()
 {
-    static std::array<RuntimeComboSet, 8> sets = [] {
-        std::array<RuntimeComboSet, 8> result;
-        result[0] = CopyComboSet(kSwordSet);
-        result[1] = CopyComboSet(kSpearSet);
-        result[2] = CopyComboSet(kHammerSet);
-        result[3] = CopyComboSet(kDaggerSet);
-        result[4] = CopyComboSet(kSwordSet);
-        result[5] = CopyComboSet(kGreatswordSet);
-        result[6] = CopyComboSet(kScytheSet);
-        result[7] = CopyComboSet(kAxeSet);
+    // view は各要素の配列と launcher を指すので、最終的な置き場所（この static）の上で直接組み立てる
+    // （一時変数で作ってから返すと、移動した後の launcher を指さなくなる）
+    static std::array<RuntimeComboSet, kWeaponTypeCount> sets;
+    static const bool built = [] {
+        std::array<RuntimeComboSet, kWeaponTypeCount>& result = sets;
+        for (size_t i = 0; i < kWeaponTypeCount; ++i) {
+            result[i] = CopyComboSet(*kSourceSets[i]);
+        }
 
-        std::unordered_map<std::string, MeleeAttackDef*> attacks;
+        // 同じ元データを共有する武器があるため、1つの技IDに複数のコピーがぶら下がる
+        std::unordered_map<std::string, std::vector<MeleeAttackDef*>> attacks;
         for (RuntimeComboSet& set : result) {
             for (MeleeAttackDef& attack : set.ground) {
-                attacks[attack.id] = &attack;
+                attacks[attack.id].push_back(&attack);
             }
             for (MeleeAttackDef& attack : set.air) {
-                attacks[attack.id] = &attack;
+                attacks[attack.id].push_back(&attack);
             }
-            attacks[set.launcher.id] = &set.launcher;
+            attacks[set.launcher.id].push_back(&set.launcher);
         }
 
         const nlohmann::json root = JsonHelper::Load("Resources/Config/combos.json");
@@ -278,14 +303,17 @@ std::array<RuntimeComboSet, 8>& GetRuntimeComboSets()
                 Logger::LogWarning("Unknown combo attack id: " + id);
                 continue;
             }
-            ApplyAttackOverride(*found->second, data);
+            for (MeleeAttackDef* attack : found->second) {
+                ApplyAttackOverride(*attack, data);
+            }
         }
 
         for (RuntimeComboSet& set : result) {
             RefreshView(set);
         }
-        return result;
+        return true;
     }();
+    (void)built;
     return sets;
 }
 
@@ -321,18 +349,19 @@ const ComboArray<MeleeAttackDef>& engine::game::GetSkillSequence(WeaponType type
     static constexpr ComboArray<MeleeAttackDef> kDaggerSequence = MakeComboArray(kDaggerFlurry);
     static constexpr ComboArray<MeleeAttackDef> kHammerSequence = MakeComboArray(kHammerWheel);
     static constexpr ComboArray<MeleeAttackDef> kNoSequence { };
-    switch (type) {
-    case WeaponType::Sword:
-        return kSwordSequence;
-    case WeaponType::Spear:
-        return kSpearSequence;
-    case WeaponType::Dagger:
-        return kDaggerSequence;
-    case WeaponType::Hammer:
-        return kHammerSequence;
-    default:
-        return kNoSequence;
-    }
+    // WeaponType の並び順。固有技が連撃でない武器は空の列
+    static constexpr std::array<const ComboArray<MeleeAttackDef>*, kWeaponTypeCount> kSequences = {
+        &kSwordSequence, // Sword
+        &kSpearSequence, // Spear
+        &kHammerSequence, // Hammer
+        &kDaggerSequence, // Dagger
+        &kNoSequence, // Ball
+        &kNoSequence, // Greatsword
+        &kNoSequence, // Scythe
+        &kNoSequence, // Axe
+    };
+    const size_t index = static_cast<size_t>(type);
+    return index < kSequences.size() ? *kSequences[index] : kNoSequence;
 }
 
 //  MeleeComboController

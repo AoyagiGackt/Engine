@@ -203,7 +203,10 @@ void TrainingScene::Update()
     fontRenderer_.Reset();
 
     // 一時停止中はゲームを止める（HUDは描画側で隠す）。Backspaceもポーズを閉じるのに使うため先に判定する
-    if (pauseMenu_.Update(input_)) {
+    const bool paused = pauseMenu_.Update(input_);
+    // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
+    GetStageEditor().SetGameplayHeld(paused);
+    if (paused) {
         return;
     }
 

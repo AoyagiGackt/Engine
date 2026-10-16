@@ -3,11 +3,22 @@
  * @brief SpaceDistortionEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "SpaceDistortionEffect.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -21,7 +32,7 @@ void SpaceDistortionEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvM
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    cbResource_ = dxCommon_->CreateBufferResource(256);
+    cbResource_ = dxCommon_->CreateBufferResource(kConstantBufferAlignment);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = WarpParams { };
     cbData_->aspect = static_cast<float>(WinApp::kClientWidth) / static_cast<float>(WinApp::kClientHeight);
@@ -88,7 +99,8 @@ void SpaceDistortionEffect::Update(float dt)
     }
 
     time_ += dt;
-    energy_ *= std::exp(-dt / kDecayTau);
+    const float decayTau = GraphicsTuning::Positive("spaceDistortion.decayTau", kDecayTau);
+    energy_ *= std::exp(-dt / decayTau);
 
     if (cbData_) {
         cbData_->strength = energy_;
@@ -144,7 +156,7 @@ void SpaceDistortionEffect::CaptureAndApply()
     cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(captureSrvIndex_));
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void SpaceDistortionEffect::CreatePipeline()

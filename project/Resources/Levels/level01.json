@@ -136,7 +136,7 @@
     },
     {
       "name": "c_flying", "type": "static", "kind": "enemy_basic",
-      "position": [31.5, 4.6, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "zone_c"
+      "position": [31.5, 4.6, 0.0], "spawnType": "flying", "weaponType": "", "enemyModel": "Bat", "enemyGroup": "zone_c"
     },
     {
       "name": "c_bat", "type": "static", "kind": "enemy_basic",

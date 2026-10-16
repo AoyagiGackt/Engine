@@ -1,5 +1,5 @@
 {
-  "_comment": "敵AIの調整値。basic=汎用敵(EnemyEntity) knight=ナイト(KnightEnemy) bullet=敵弾 bossSlam=ボスの範囲攻撃",
+  "_comment": "敵AIの調整値。basic=汎用敵(EnemyEntity) knight=ナイト(KnightEnemy) bullet=敵弾 bossSlam=ボスの範囲攻撃 separation=敵どうしの押し離し",
   "basic": {
     "attackInterval": 1.5,
     "attackTelegraph": 0.38,
@@ -30,7 +30,8 @@
     "healerPulseSeconds": 1.5,
     "healerCastSeconds": 0.5,
     "healerRange": 7.0,
-    "healerAmount": 4
+    "healerAmount": 4,
+    "corpseFootOffset": 0.1
   },
   "knight": {
     "maxHp": 3,
@@ -53,5 +54,14 @@
     "warningDuration": 1.1,
     "radius": 2.6,
     "damage": 3
+  },
+  "separation": {
+    "minDistanceX": 1.0,
+    "minDistanceY": 1.0,
+    "pushRate": 0.35,
+    "bodyHalfWidth": 0.4,
+    "wallBandBottom": 0.2,
+    "wallBandTop": 1.0,
+    "wallContactMargin": 0.02
   }
 }

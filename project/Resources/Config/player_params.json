@@ -1,0 +1,98 @@
+{
+  "_comment": "プレイヤーの調整値。movement=移動 water=水中 dodge=回避 warp=テレポート斬り awaken=覚醒 combo=近接コンボ rampage=覚醒乱舞 skills=武器の固有技",
+  "movement": {
+    "groundY": 0.4,
+    "ceilingY": 12,
+    "gravity": 0.012,
+    "jumpPower": 0.4,
+    "speed": 0.15,
+    "minEnemyDistanceX": 0.75,
+    "minEnemyDistanceY": 0.75,
+    "invincibleDuration": 1
+  },
+  "water": {
+    "waterGravity": 0.003,
+    "waterSpeed": 0.1,
+    "swimAccel": 0.025,
+    "swimMaxVY": 0.28,
+    "sinkMaxVY": -0.12,
+    "waterEntryImpactDamping": 0.4
+  },
+  "dodge": {
+    "dodgeBufferFrames": 8,
+    "dodgeDistance": 2.6,
+    "dodgeDuration": 0.22,
+    "dodgeCooldown": 0.3,
+    "dodgeSpamWindow": 1.2,
+    "dodgeAnimSpeed": 2.4,
+    "backDodgeAnimSpeed": 1.6,
+    "backDodgeLean": -0.45,
+    "backDodgeHopHeight": 0.25
+  },
+  "warp": {
+    "warpDistance": 4,
+    "warpAwakenedDistance": 6,
+    "warpDuration": 0.12,
+    "warpCooldown": 0.9,
+    "warpAwakenedCooldown": 0.35,
+    "warpGaugeCost": 0.08,
+    "warpAnimSpeed": 2
+  },
+  "awaken": {
+    "awakenDuration": 8,
+    "awakenActivationThreshold": 0.3,
+    "awakenedSpeedMult": 1.5,
+    "awakenedJumpMult": 1.3,
+    "awakenExtraHits": 2,
+    "awakenExtraHitInterval": 0.045
+  },
+  "combo": {
+    "weaponSwitchWindow": 0.75,
+    "weaponSwitchLunge": 0.8,
+    "launchFollowWindow": 0.75,
+    "launchFollowJumpMult": 1.5,
+    "airAttackFallDamping": 0.35,
+    "attackAnimSpeed": 1.5,
+    "finisherReleaseAnimSpeed": 3,
+    "stealStabAnimSpeed": 1.2
+  },
+  "rampage": {
+    "rampageSpeed": 0.45,
+    "rampageReachDistance": 1,
+    "rampageLaunchSpeed": 0.25,
+    "juggleRadius": 2.5,
+    "juggleMaxSlashes": 8
+  },
+  "skills": {
+    "dashDuration": 0.1,
+    "skillHoldHeight": 0.5,
+    "daggerAirDashDist": 3.4,
+    "daggerAirDashAnimSpeed": 2,
+    "daggerSkillCooldown": 4,
+    "swordSkillCooldown": 5,
+    "spearSkillCooldown": 4.5,
+    "hammerSkillCooldown": 5,
+    "ballShootInterval": 0.12,
+    "ballSpinSpeed": 5,
+    "ballSpinShotAnimSpeed": 2.2,
+    "greatswordThrowDist": 4,
+    "greatswordThrowTravelTime": 0.12,
+    "greatswordVortexMaxDuration": 10,
+    "greatswordSpinHitInterval": 0.15,
+    "greatswordThrowCooldown": 1.6,
+    "greatswordReturnTime": 0.2,
+    "greatswordThrowAnimSpeed": 1.3,
+    "greatswordThrowSpinSpeed": 22,
+    "greatswordVortexBobAmplitude": 0.06,
+    "greatswordVortexBobSpeed": 10,
+    "scytheHoverMax": 0.9,
+    "scytheHoverRecoverRate": 2,
+    "scytheHoverVYCap": -0.02,
+    "scytheHoverAnimSpeed": 1.25,
+    "axeChargeDist": 2.3,
+    "axeSkillCooldown": 1,
+    "axeRageDuration": 2.5,
+    "axeRageDamageMult": 1.3,
+    "axeChargeAnimSpeed": 1.1
+  }
+}

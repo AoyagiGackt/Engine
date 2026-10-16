@@ -4,6 +4,7 @@
  * @note BattleTestScene.cppからの分割ファイルクラス自体はBattleTestSceneのまま、定義の置き場所だけを分けている
  */
 #include "BattleTestScene.h"
+#include "BattleTestTuning.h"
 #include "AudioBridge.h"
 #include "BattleTestSceneRenderer.h"
 #include "Collision.h"
@@ -32,78 +33,33 @@ using namespace engine::game;
 
 // 固有技（スペースキー）のダミー用ヒット定義。ApplyMeleeHitToDummy が参照するのは
 // id/damageMult/knockX/knockY/launcher/hitStop のみなので、コンボ制御用フィールドは0で埋める
-static constexpr MeleeAttackDef kSwordDashSkill = { "swd_dash", 0.9f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.30f, 0.05f, false, 5, 0.0f, false, { }, { }, { }, { } };
-static constexpr MeleeAttackDef kSpearRetreatSkill = { "spr_retreat", 0.7f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.10f, 0.02f, false, 4, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kGreatswordSlamSkill = { "gs_slam", 1.6f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.40f, 0.30f, true, 10, 0.0f, false, { }, { }, { }, { } };
 static constexpr MeleeAttackDef kAxeChargeSkill = { "axe_charge", 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.35f, 0.08f, false, 6, 0.0f, false, { }, { }, { }, { } };
-// ダガー スティンガーの多段突き。1-2段目は軽い刺突、3段目だけ少し重くしてフィニッシュ感を出す
-static constexpr MeleeAttackDef kDaggerStingerHits[3] = {
-    { "dag_stg1", 0.45f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.08f, 0.02f, false, 1, 0.0f, false, { }, { }, { }, { } },
-    { "dag_stg2", 0.45f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.08f, 0.02f, false, 1, 0.0f, false, { }, { }, { }, { } },
-    { "dag_stg3", 0.85f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.30f, 0.08f, false, 4, 0.0f, false, { }, { }, { }, { } },
-};
-static constexpr float kDaggerStingerReachMult = 0.75f; ///< weapon.range に掛ける射程係数
 
 // グレートソード 投げ回転斬りの渦。knockXは0にして吸い込みと喧嘩させず、代わりに小さく打ち上げて多段ヒット感を出す
 static constexpr MeleeAttackDef kGreatswordSpinSkill = { "gsw_spin", 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.05f, false, 2, 0.0f, false, { }, { }, { }, { } };
-static constexpr float kGreatswordSpinSuctionRadius = 4.0f; ///< この半径内のダミーを渦へ引き寄せる
-static constexpr float kGreatswordSpinHitRadius = 1.5f; ///< この半径内なら実際にヒットする
-static constexpr float kGreatswordSpinSuctionSpeed = 0.10f; ///< 毎フレームの吸い込み速度
 
 // 近接攻撃・固有技の判定ボックス関連
-static constexpr float kLockAssistReachMult = 1.2f; ///< ロックオン中に前方リーチへ掛ける補正
-static constexpr float kLockAssistRearMult = 0.5f; ///< ロックオン中の背面リーチ（前方リーチ比）
-static constexpr float kSlamRangeBelowY = 1.0f; ///< 設置型AoEの足元方向の厚み
-static constexpr float kSlamRangeAboveY = 1.5f; ///< 設置型AoEの頭上方向の厚み
 static constexpr float kStageHalfDepth = 0.5f; ///< 2.5Dステージの奥行き半分
+static constexpr float kDummyHalfExtent = 0.5f; ///< ダミーは 1×1×1 の箱として扱う
 static constexpr Vector4 kSlamFlashColor = { 1.0f, 0.6f, 0.3f, 0.30f };
 static constexpr float kSlamFlashDuration = 0.10f;
 
 // 乱舞ダミー（dummies_）の物理・演出調整値
-static constexpr float kDummyKnockDragX = 0.84f; ///< 水平ノックバック速度の毎フレーム減衰率
-static constexpr float kDummyKnockDragY = 0.88f; ///< 垂直ノックバック速度の毎フレーム減衰率
-static constexpr float kDummyHpRecoverTime = 0.8f; ///< 被弾後、HPバー表示が満タンに戻るまでの秒数
-static constexpr float kDummyReturnLerpRate = 0.05f; ///< 帰還タイマー経過後、定位置へ戻る補間率（毎フレーム）
-static constexpr float kRampageRushKnockXFinisher = 0.45f; ///< 乱舞ラッシュ命中時の水平ノックバック（フィニッシュ段）
-static constexpr float kRampageRushKnockXNormal = 0.12f; ///< 乱舞ラッシュ命中時の水平ノックバック（通常段）
-static constexpr float kRampageRushKnockYFinisher = 0.18f; ///< 乱舞ラッシュ命中時の垂直ノックバック（フィニッシュ段）
-static constexpr float kRampageRushKnockYNormal = 0.03f; ///< 乱舞ラッシュ命中時の垂直ノックバック（通常段）
-static constexpr int kRampageRushHitStopFinisher = 6; ///< 乱舞ラッシュ命中時のヒットストップ（フィニッシュ段）
-static constexpr int kRampageRushHitStopNormal = 2; ///< 乱舞ラッシュ命中時のヒットストップ（通常段）
-static constexpr float kRampageRushStyleFinisher = 60.0f; ///< 乱舞ラッシュ命中時のスタイル加点（フィニッシュ段）
-static constexpr float kRampageRushStyleNormal = 20.0f; ///< 乱舞ラッシュ命中時のスタイル加点（通常段）
 
 // 射撃コンボのマズルフラッシュ演出
 static constexpr float kMuzzleSpeedStep = 1.0f; ///< 1粒ごとの速度加算
 static constexpr float kMuzzleLifeTime = 0.35f; ///< パーティクル寿命（秒）
 static constexpr float kMuzzleScale = 0.14f; ///< パーティクルの大きさ
+static constexpr int kMinMuzzleBullets = 2; ///< 単発の銃でも扇に見えるよう最低限出す粒数
+static constexpr float kMuzzleHalfRange = 0.5f; ///< 粒の並びを -0.5〜+0.5 に割り振る
 
 // 攻撃倍率・判定
-static constexpr float kAwakenedAttackMult = 1.5f; ///< 覚醒中の攻撃倍率
-static constexpr float kMinMeleeReachRatio = 0.35f; ///< 踏み込みを差し引いた後も最低限残すリーチ（基準リーチ比）
-static constexpr float kGunShotRearReach = 0.8f; ///< 射撃判定の背面側の余裕（銃身ぶん）
-static constexpr Vector2 kRampageRushHalfExtent = { 2.5f, 1.5f }; ///< 乱舞ラッシュの判定半径（横・縦）
-static constexpr float kBulletHalfExtent = 0.12f; ///< スピン連射弾の判定半径
 static constexpr float kMinBulletSpeed = 0.001f; ///< これ未満の弾速はノックバック方向を決めない
-static constexpr float kBulletKnockX = 0.09f;
-static constexpr float kBulletKnockY = 0.04f;
-static constexpr int kBulletHitStopFrames = 2;
-static constexpr float kBulletStyleScore = 3.0f;
-static constexpr float kMeleeStyleScoreScale = 1.5f; ///< 近接ヒットのスタイル加点（与ダメージ比）
 
 // 覚醒ゲージの加算量
-static constexpr float kMeleeAwakenGain = 0.08f;
-static constexpr float kGunAwakenGain = 0.04f;
-static constexpr float kBulletAwakenGain = 0.02f;
 
 // ダミーの被弾リアクション
-static constexpr float kGunHitFlash = 0.10f;
-static constexpr float kRampageFinisherHitFlash = 0.20f;
-static constexpr float kRampageHitFlash = 0.08f;
-static constexpr float kBulletHitFlash = 0.08f;
-static constexpr float kLauncherHitFlash = 0.20f;
-static constexpr float kMeleeHitFlash = 0.14f;
-static constexpr float kDummyReturnDelay = 1.5f; ///< 被弾から定位置へ戻り始めるまでの秒数
 static constexpr float kHitEffectHeight = 0.5f; ///< ダミー中心からヒット演出を出す高さ
 static constexpr float kKnightHitEffectHeight = 0.7f;
 static constexpr Vector4 kLauncherFlashColor = { 1.0f, 0.95f, 0.7f, 0.25f };
@@ -146,10 +102,6 @@ static constexpr float kSpinHitRingLifetime = 0.30f;
 static constexpr float kSpinHitRingSize = 0.18f;
 
 // ダミーの物理
-static constexpr float kDummyGravity = 0.012f;
-static constexpr float kDummyGroundY = 0.4f;
-static constexpr float kDummyMinX = 3.0f;
-static constexpr float kDummyMaxX = 35.0f;
 static constexpr float kDummyWallEpsilon = 0.01f; ///< 壁に接したとみなす距離
 
 /**
@@ -164,21 +116,18 @@ struct WeaponSkillEntry {
     bool screenImpact; ///< true=ヒットストップ＋画面フラッシュの大技演出つき
 };
 static constexpr WeaponSkillEntry kWeaponSkills[] = {
-    { &Player::JustSwordDash, &kSwordDashSkill, 0.80f, false, false },
-    { &Player::JustSpearRetreat, &kSpearRetreatSkill, 0.90f, false, false },
     { &Player::JustGreatswordSlam, &kGreatswordSlamSkill, 1.00f, true, true },
     { &Player::JustAxeCharge, &kAxeChargeSkill, 0.85f, false, false },
 };
 AABB BattleTestScene::DummyBounds(const Dummy& d)
 {
-    // ダミーは 1×1×1 の正方形として扱う
-    return { { d.pos.x - 0.5f, d.pos.y - 0.5f, -kStageHalfDepth },
-        { d.pos.x + 0.5f, d.pos.y + 0.5f, kStageHalfDepth } };
+    return { { d.pos.x - kDummyHalfExtent, d.pos.y - kDummyHalfExtent, -kStageHalfDepth },
+        { d.pos.x + kDummyHalfExtent, d.pos.y + kDummyHalfExtent, kStageHalfDepth } };
 }
 
 float BattleTestScene::ComputeAttackMult() const
 {
-    return (player_->IsAwakened() ? kAwakenedAttackMult : 1.0f) * player_->GetAxeRageMult();
+    return (player_->IsAwakened() ? BattleTestTune().awakenedAttackMult : 1.0f) * player_->GetAxeRageMult();
 }
 
 // ══════════════════════════════════════════════════════
@@ -206,12 +155,12 @@ bool BattleTestScene::UpdateMeleeComboHit()
     // ここでweapon.rangeをそのまま足すと踏み込み+リーチの二重計上になり、間合い外から当たって見える。
     // 踏み込みぶんを差し引いて、始点からの合計到達距離がbaseReachに収まるようにする
     const float lungeDist = (atk != nullptr) ? atk->lungeDist : 0.0f;
-    const float meleeReach = (std::max)(baseReach - lungeDist, baseReach * kMinMeleeReachRatio);
+    const float meleeReach = (std::max)(baseReach - lungeDist, baseReach * BattleTestTune().minMeleeReachRatio);
     const float dirX = player_->GetLastDirX();
     // 前方に厚く、背後は振り抜きぶんだけ（左右対称だと背後の遠い敵にまで当たってしまう）
     AABB meleeRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach, meleeReach * GameConstants::kSkillRearReachMult);
     // ロック中は判定を広げてロックしたのに届かないを減らす（距離無制限ヒットはやめる）
-    AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * kLockAssistReachMult, meleeReach * kLockAssistRearMult);
+    AABB assistRange = SceneShared::MakeDirectionalRange(pp, dirX, meleeReach * BattleTestTune().lockAssistReachMult, meleeReach * BattleTestTune().lockAssistRearMult);
     for (size_t di = 0; di < dummies_.size(); ++di) {
         auto& d = dummies_[di];
         if (d.hp <= 0.0f) {
@@ -225,7 +174,7 @@ bool BattleTestScene::UpdateMeleeComboHit()
         }
     }
     if (hitConfirmed) {
-        player_->ChargeAwakenGauge(kMeleeAwakenGain);
+        player_->ChargeAwakenGauge(BattleTestTune().meleeAwakenGain);
     }
     return hitConfirmed;
 }
@@ -246,8 +195,8 @@ bool BattleTestScene::UpdateWeaponSkillHits()
         const float reach = weapon.range * skill.reachMult;
         // 通常は前方に厚い指向性判定、設置型AoEのみ前後対称に叩きつける
         const AABB skillRange = skill.symmetricAoE
-            ? AABB { { pp.x - reach, pp.y - kSlamRangeBelowY, -kStageHalfDepth },
-                  { pp.x + reach, pp.y + kSlamRangeAboveY, kStageHalfDepth } }
+            ? AABB { { pp.x - reach, pp.y - BattleTestTune().slamRangeBelowY, -kStageHalfDepth },
+                  { pp.x + reach, pp.y + BattleTestTune().slamRangeAboveY, kStageHalfDepth } }
             : SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), reach, reach * GameConstants::kSkillRearReachMult);
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) {
@@ -261,34 +210,6 @@ bool BattleTestScene::UpdateWeaponSkillHits()
         if (skill.screenImpact) {
             TimeManager::GetInstance()->RequestHitStop(GameConstants::kHitStopLaunch);
             ScreenFlash::GetInstance()->Request(kSlamFlashColor, kSlamFlashDuration);
-        }
-    }
-    return hitConfirmed;
-}
-
-bool BattleTestScene::UpdateDaggerStingerHit()
-{
-    // ダガー スティンガー: 踏み込み直後から1段ずつ発生するヒットを、刺突番号ごとの定義で個別に適用する
-    if (!player_->JustDaggerStingerHit()) {
-        return false;
-    }
-
-    const int idx = std::clamp(player_->GetDaggerStingerHitIndex(), 0, 2);
-    const MeleeAttackDef* atk = &kDaggerStingerHits[idx];
-    const WeaponData& weapon = weaponManager_->GetCurrent();
-    const Vector3& pp = player_->GetPosition();
-    const float atkMult = ComputeAttackMult();
-    const float reach = weapon.range * kDaggerStingerReachMult;
-    const AABB skillRange = SceneShared::MakeDirectionalRange(pp, player_->GetLastDirX(), reach, reach * GameConstants::kSkillRearReachMult);
-
-    bool hitConfirmed = false;
-    for (auto& d : dummies_) {
-        if (d.hp <= 0.0f) {
-            continue;
-        }
-        if (Collision::CheckCollision(skillRange, DummyBounds(d))) {
-            hitConfirmed = true;
-            ApplyMeleeHitToDummy(d, atk, atkMult);
         }
     }
     return hitConfirmed;
@@ -324,8 +245,8 @@ bool BattleTestScene::UpdateGreatswordSpin()
         }
         const float dx = center.x - d.pos.x;
         const float dist = std::abs(dx);
-        if (dist < kGreatswordSpinSuctionRadius && dist > kSpinSuctionMinDistance) {
-            d.knockVelX += (dx / dist) * kGreatswordSpinSuctionSpeed;
+        if (dist < BattleTestTune().greatswordSpinSuctionRadius && dist > kSpinSuctionMinDistance) {
+            d.knockVelX += (dx / dist) * BattleTestTune().greatswordSpinSuctionSpeed;
         }
     }
 
@@ -335,7 +256,7 @@ bool BattleTestScene::UpdateGreatswordSpin()
 
     const WeaponData& weapon = weaponManager_->GetCurrent();
     const Vector4 effectColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
-    pm_->EmitRing("bt_hit_ring", center, kGreatswordSpinHitRadius, effectColor, kSpinHitRingCount, kSpinHitRingLifetime, kSpinHitRingSize);
+    pm_->EmitRing("bt_hit_ring", center, BattleTestTune().greatswordSpinHitRadius, effectColor, kSpinHitRingCount, kSpinHitRingLifetime, kSpinHitRingSize);
 
     const float atkMult = ComputeAttackMult();
     bool hitConfirmed = false;
@@ -343,7 +264,7 @@ bool BattleTestScene::UpdateGreatswordSpin()
         if (d.hp <= 0.0f) {
             continue;
         }
-        if (std::abs(d.pos.x - center.x) <= kGreatswordSpinHitRadius) {
+        if (std::abs(d.pos.x - center.x) <= BattleTestTune().greatswordSpinHitRadius) {
             hitConfirmed = true;
             ApplyMeleeHitToDummy(d, &kGreatswordSpinSkill, atkMult);
         }
@@ -370,7 +291,7 @@ bool BattleTestScene::UpdateGunShotHit()
     const RangedWeaponData& gun = weaponManager_->GetRanged();
     const float rangeX = gun.range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
     // 銃口の向きにだけ飛ぶ（背後は銃身ぶんの余裕のみ）
-    AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, kGunShotRearReach);
+    AABB shotRange = SceneShared::MakeDirectionalShotRange(pp, player_->GetLastDirX(), rangeX, BattleTestTune().gunShotRearReach);
 
     // 弾は最初に当たった相手で止まる（ダミーと配置ナイトの中から銃口に一番近い1体だけに当てる）
     gunShotPicker_.Begin(pp, player_->GetLastDirX(), shotRange);
@@ -389,9 +310,9 @@ bool BattleTestScene::UpdateGunShotHit()
         if (shot != nullptr && gunShotPicker_.IsTarget(&d)) {
             hitConfirmed = true;
             d.hp = d.maxHp;
-            d.hitFlash = kGunHitFlash;
+            d.hitFlash = BattleTestTune().gunHitFlash;
             d.hpDisplay = 0.0f;
-            d.returnTimer = kDummyReturnDelay;
+            d.returnTimer = BattleTestTune().dummyReturnDelay;
             d.knockVelX += player_->GetLastDirX() * shot->knockX * atkMult;
             d.knockVelY += shot->knockY * atkMult;
             SpawnHitEffect({ d.pos.x, d.pos.y + kHitEffectHeight, 0.0f });
@@ -400,7 +321,7 @@ bool BattleTestScene::UpdateGunShotHit()
         }
     }
     if (hitConfirmed) {
-        player_->ChargeAwakenGauge(kGunAwakenGain);
+        player_->ChargeAwakenGauge(BattleTestTune().gunAwakenGain);
     }
     // マズルフラッシュ: 段の弾数ぶん扇状にばらまく（ダメージは上のヒットスキャンが担当。
     // BulletPool の弾はダミーに当たると二重ヒットになるため、射撃コンボの弾道は視覚専用のパーティクルにする）
@@ -408,12 +329,12 @@ bool BattleTestScene::UpdateGunShotHit()
         const float dir = player_->GetLastDirX();
         const Vector3 firePos = { pp.x, pp.y, 0.0f }; // 銃口高さ＝手の高さ付近（頭から出ているように見えないよう低めに）
         const Vector4 col = { gun.color[0], gun.color[1], gun.color[2], gun.color[3] };
-        const int n = (std::max)(shot->bullets, 2);
+        const int n = (std::max)(shot->bullets, kMinMuzzleBullets);
         // 演出弾は寿命の間に着弾点まで届く速さで飛ばす（的がいればそこで止め、いなければ射程の端まで）
         const float travel = gunShotPicker_.HasTarget() ? gunShotPicker_.GetHitDistance() : rangeX;
         const float reachSpeed = travel / kMuzzleLifeTime;
         for (int i = 0; i < n; ++i) {
-            float t = (n > 1) ? (i / (n - 1.0f) - 0.5f) : 0.0f; // -0.5〜+0.5
+            float t = (n > 1) ? (i / (n - 1.0f) - kMuzzleHalfRange) : 0.0f;
             float speed = reachSpeed + i * kMuzzleSpeedStep;
             pm_->EmitWithColor("bt_gun_shot", firePos,
                 { dir * speed, speed * shot->spreadDeg * GameConstants::kDegToRad * t, 0.0f },
@@ -438,22 +359,22 @@ bool BattleTestScene::UpdateRampageHit()
     bool hitConfirmed = false;
     const bool isFinisher = player_->JustRampageFinish();
     AABB rushRange = {
-        { pp.x - kRampageRushHalfExtent.x, pp.y - kRampageRushHalfExtent.y, -kStageHalfDepth },
-        { pp.x + kRampageRushHalfExtent.x, pp.y + kRampageRushHalfExtent.y, kStageHalfDepth }
+        { pp.x - BattleTestTune().rampageRushHalfWidth, pp.y - BattleTestTune().rampageRushHalfHeight, -kStageHalfDepth },
+        { pp.x + BattleTestTune().rampageRushHalfWidth, pp.y + BattleTestTune().rampageRushHalfHeight, kStageHalfDepth }
     };
     for (auto& d : dummies_) {
         if (Collision::CheckCollision(rushRange, DummyBounds(d))) {
             hitConfirmed = true;
             d.hp = d.maxHp;
-            d.hitFlash = isFinisher ? kRampageFinisherHitFlash : kRampageHitFlash;
+            d.hitFlash = isFinisher ? BattleTestTune().rampageFinisherHitFlash : BattleTestTune().rampageHitFlash;
             d.hpDisplay = 0.0f;
-            d.returnTimer = kDummyReturnDelay;
-            float kb = (isFinisher ? kRampageRushKnockXFinisher : kRampageRushKnockXNormal) * weapon.knockbackMult;
+            d.returnTimer = BattleTestTune().dummyReturnDelay;
+            float kb = (isFinisher ? BattleTestTune().rampageRushKnockXFinisher : BattleTestTune().rampageRushKnockXNormal) * weapon.knockbackMult;
             d.knockVelX += player_->GetLastDirX() * kb * atkMult;
-            d.knockVelY += (isFinisher ? kRampageRushKnockYFinisher : kRampageRushKnockYNormal) * atkMult * weapon.knockbackMult;
+            d.knockVelY += (isFinisher ? BattleTestTune().rampageRushKnockYFinisher : BattleTestTune().rampageRushKnockYNormal) * atkMult * weapon.knockbackMult;
             SpawnHitEffect({ d.pos.x, d.pos.y + kHitEffectHeight, 0.0f });
-            tm->RequestHitStop(isFinisher ? kRampageRushHitStopFinisher : kRampageRushHitStopNormal);
-            styleMeter_.RegisterHit("rampage", isFinisher ? kRampageRushStyleFinisher : kRampageRushStyleNormal);
+            tm->RequestHitStop(isFinisher ? BattleTestTune().rampageRushHitStopFinisher : BattleTestTune().rampageRushHitStopNormal);
+            styleMeter_.RegisterHit("rampage", isFinisher ? BattleTestTune().rampageRushStyleFinisher : BattleTestTune().rampageRushStyleNormal);
         }
     }
     return hitConfirmed;
@@ -482,8 +403,8 @@ bool BattleTestScene::UpdateBulletHits()
         }
         const Vector3& bpos = bulletPool_.GetPos(bi);
         const Vector3& bvel = bulletPool_.GetVel(bi);
-        AABB bulletAABB = { { bpos.x - kBulletHalfExtent, bpos.y - kBulletHalfExtent, -kStageHalfDepth },
-            { bpos.x + kBulletHalfExtent, bpos.y + kBulletHalfExtent, kStageHalfDepth } };
+        AABB bulletAABB = { { bpos.x - BattleTestTune().bulletHalfExtent, bpos.y - BattleTestTune().bulletHalfExtent, -kStageHalfDepth },
+            { bpos.x + BattleTestTune().bulletHalfExtent, bpos.y + BattleTestTune().bulletHalfExtent, kStageHalfDepth } };
         for (auto& d : dummies_) {
             if (d.hp <= 0.0f) {
                 continue;
@@ -491,18 +412,18 @@ bool BattleTestScene::UpdateBulletHits()
             if (Collision::CheckCollision(bulletAABB, DummyBounds(d))) {
                 hitConfirmed = true;
                 d.hp = d.maxHp;
-                d.hitFlash = kBulletHitFlash;
+                d.hitFlash = BattleTestTune().bulletHitFlash;
                 d.hpDisplay = 0.0f;
-                d.returnTimer = kDummyReturnDelay;
+                d.returnTimer = BattleTestTune().dummyReturnDelay;
                 float bspd = std::sqrt(bvel.x * bvel.x + bvel.y * bvel.y);
                 if (bspd > kMinBulletSpeed) {
-                    d.knockVelX += bvel.x / bspd * kBulletKnockX * weapon.knockbackMult;
-                    d.knockVelY += bvel.y / bspd * kBulletKnockY * weapon.knockbackMult;
+                    d.knockVelX += bvel.x / bspd * BattleTestTune().bulletKnockX * weapon.knockbackMult;
+                    d.knockVelY += bvel.y / bspd * BattleTestTune().bulletKnockY * weapon.knockbackMult;
                 }
                 SpawnHitEffect({ d.pos.x, d.pos.y + kHitEffectHeight, 0.0f });
-                tm->RequestHitStop(kBulletHitStopFrames);
-                styleMeter_.RegisterHit("spin_bullet", kBulletStyleScore);
-                player_->ChargeAwakenGauge(kBulletAwakenGain);
+                tm->RequestHitStop(BattleTestTune().bulletHitStopFrames);
+                styleMeter_.RegisterHit("spin_bullet", BattleTestTune().bulletStyleScore);
+                player_->ChargeAwakenGauge(BattleTestTune().bulletAwakenGain);
                 bulletPool_.Kill(bi);
                 break;
             }
@@ -516,7 +437,6 @@ bool BattleTestScene::UpdateCombat()
     bool hitConfirmed = false;
     hitConfirmed |= UpdateMeleeComboHit();
     hitConfirmed |= UpdateWeaponSkillHits();
-    hitConfirmed |= UpdateDaggerStingerHit();
     hitConfirmed |= UpdateGreatswordSpin();
     hitConfirmed |= UpdateGunShotHit();
     hitConfirmed |= UpdateRampageHit();
@@ -532,9 +452,9 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     const WeaponData& weapon = weaponManager_->GetCurrent();
 
     d.hp = d.maxHp;
-    d.hitFlash = atk->launcher ? kLauncherHitFlash : kMeleeHitFlash;
+    d.hitFlash = atk->launcher ? BattleTestTune().launcherHitFlash : BattleTestTune().meleeHitFlash;
     d.hpDisplay = 0.0f;
-    d.returnTimer = kDummyReturnDelay;
+    d.returnTimer = BattleTestTune().dummyReturnDelay;
 
     // 覚醒中の多段ヒットの2発目以降は、押し出しと止めを小さくして刻みの速さを見せる
     const bool extraHit = player_->JustComboExtraHit();
@@ -574,7 +494,7 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
     }
 
     // スタイル加点はおおよそ与ダメージに比例（同じ技の連発は StyleMeter 側で減衰する）
-    styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * kMeleeStyleScoreScale * atkMult);
+    styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * BattleTestTune().meleeStyleScoreScale * atkMult);
 }
 
 // ══════════════════════════════════════════════════════
@@ -585,30 +505,30 @@ void BattleTestScene::UpdateDummies()
 {
     for (auto& d : dummies_) {
         // ノックバック物理
-        d.knockVelY -= kDummyGravity;
+        d.knockVelY -= BattleTestTune().dummyGravity;
         d.pos.x += d.knockVelX;
         d.pos.y += d.knockVelY;
 
-        if (d.pos.y <= kDummyGroundY) {
-            d.pos.y = kDummyGroundY;
+        if (d.pos.y <= BattleTestTune().dummyGroundY) {
+            d.pos.y = BattleTestTune().dummyGroundY;
             d.knockVelY = 0.0f;
         }
-        d.pos.x = std::clamp(d.pos.x, kDummyMinX, kDummyMaxX);
-        if (d.pos.x <= kDummyMinX + kDummyWallEpsilon || d.pos.x >= kDummyMaxX - kDummyWallEpsilon) {
+        d.pos.x = std::clamp(d.pos.x, BattleTestTune().dummyMinX, BattleTestTune().dummyMaxX);
+        if (d.pos.x <= BattleTestTune().dummyMinX + kDummyWallEpsilon || d.pos.x >= BattleTestTune().dummyMaxX - kDummyWallEpsilon) {
             d.knockVelX = 0.0f;
         }
-        d.knockVelX *= kDummyKnockDragX;
-        d.knockVelY *= kDummyKnockDragY;
+        d.knockVelX *= BattleTestTune().dummyKnockDragX;
+        d.knockVelY *= BattleTestTune().dummyKnockDragY;
 
-        // HP バー表示値を回復（被弾後 kDummyHpRecoverTime 秒で満タンに戻る）
-        d.hpDisplay = (std::min)(d.hpDisplay + GameConstants::kFrameDeltaTime / kDummyHpRecoverTime, 1.0f);
+        // HP バー表示値を回復（被弾後 BattleTestTune().dummyHpRecoverTime 秒で満タンに戻る）
+        d.hpDisplay = (std::min)(d.hpDisplay + GameConstants::kFrameDeltaTime / BattleTestTune().dummyHpRecoverTime, 1.0f);
 
-        // 帰還タイマー（被弾から kDummyReturnDelay 秒後に中央へ戻る）
+        // 帰還タイマー（被弾から BattleTestTune().dummyReturnDelay 秒後に中央へ戻る）
         d.returnTimer -= GameConstants::kFrameDeltaTime;
         if (d.returnTimer <= 0.0f) {
             d.returnTimer = 0.0f;
-            d.pos.x += (d.homePos.x - d.pos.x) * kDummyReturnLerpRate;
-            d.pos.y += (d.homePos.y - d.pos.y) * kDummyReturnLerpRate;
+            d.pos.x += (d.homePos.x - d.pos.x) * BattleTestTune().dummyReturnLerpRate;
+            d.pos.y += (d.homePos.y - d.pos.y) * BattleTestTune().dummyReturnLerpRate;
         }
 
         d.object->SetPosition({ d.pos.x, d.pos.y + kDummyModelFootOffsetY, d.pos.z });
@@ -658,8 +578,8 @@ void BattleTestScene::UpdatePlacedKnights()
                     const int hitStop = player_->JustComboExtraHit() ? GameConstants::kHitStopAwakenExtra
                         : (atk->launcher ? GameConstants::kHitStopLaunch : atk->hitStop);
                     tm->RequestHitStop(hitStop);
-                    styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * kMeleeStyleScoreScale);
-                    player_->ChargeAwakenGauge(kMeleeAwakenGain);
+                    styleMeter_.RegisterHit(atk->id, weapon.damage * atk->damageMult * BattleTestTune().meleeStyleScoreScale);
+                    player_->ChargeAwakenGauge(BattleTestTune().meleeAwakenGain);
                 }
             }
         }
@@ -673,22 +593,22 @@ void BattleTestScene::UpdatePlacedKnights()
                     SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + kKnightHitEffectHeight, 0.0f });
                     tm->RequestHitStop(shot->launcher ? GameConstants::kHitStopLaunch : shot->hitStop);
                     styleMeter_.RegisterHit(shot->id, gun.damage * shot->damageMult);
-                    player_->ChargeAwakenGauge(kGunAwakenGain);
+                    player_->ChargeAwakenGauge(BattleTestTune().gunAwakenGain);
                 }
             }
         }
         if (player_->JustRampageHit()) {
             AABB rushRange = {
-                { pp.x - kRampageRushHalfExtent.x, pp.y - kRampageRushHalfExtent.y, -kStageHalfDepth },
-                { pp.x + kRampageRushHalfExtent.x, pp.y + kRampageRushHalfExtent.y, kStageHalfDepth }
+                { pp.x - BattleTestTune().rampageRushHalfWidth, pp.y - BattleTestTune().rampageRushHalfHeight, -kStageHalfDepth },
+                { pp.x + BattleTestTune().rampageRushHalfWidth, pp.y + BattleTestTune().rampageRushHalfHeight, kStageHalfDepth }
             };
             if (Collision::CheckCollision(rushRange, knight->GetAABB())) {
                 bool isFinisher = player_->JustRampageFinish();
-                float knockY = (isFinisher ? kRampageRushKnockYFinisher : kRampageRushKnockYNormal) * weapon.knockbackMult;
+                float knockY = (isFinisher ? BattleTestTune().rampageRushKnockYFinisher : BattleTestTune().rampageRushKnockYNormal) * weapon.knockbackMult;
                 knight->TakeDamage(1, player_->GetLastDirX(), knockY);
                 SpawnHitEffect({ knight->GetPosition().x, knight->GetPosition().y + kKnightHitEffectHeight, 0.0f });
-                tm->RequestHitStop(isFinisher ? kRampageRushHitStopFinisher : kRampageRushHitStopNormal);
-                styleMeter_.RegisterHit("rampage", isFinisher ? kRampageRushStyleFinisher : kRampageRushStyleNormal);
+                tm->RequestHitStop(isFinisher ? BattleTestTune().rampageRushHitStopFinisher : BattleTestTune().rampageRushHitStopNormal);
+                styleMeter_.RegisterHit("rampage", isFinisher ? BattleTestTune().rampageRushStyleFinisher : BattleTestTune().rampageRushStyleNormal);
             }
         }
     }

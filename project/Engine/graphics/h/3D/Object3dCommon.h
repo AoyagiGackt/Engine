@@ -122,7 +122,7 @@ public:
     Vector4 GetLightColor() const { return lightData_ ? lightData_->color : Vector4 { 1, 1, 1, 1 }; }
     float GetLightIntensity() const { return lightData_ ? lightData_->intensity : 1.0f; }
     Vector3 GetAmbientColor() const { return lightData_ ? lightData_->ambientColor : Vector3 { 1, 1, 1 }; }
-    float GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : 0.3f; }
+    float GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : kDefaultAmbientIntensity; }
 
     // ポイントライト管理
 
@@ -148,6 +148,7 @@ public:
     UINT GetPointLightCount() const { return pointLightCount_; }
 
 private:
+    static constexpr float kDefaultAmbientIntensity = 0.3f;
     engine::DirectXCommon* dxCommon_ = nullptr;
 
     // 平行光源

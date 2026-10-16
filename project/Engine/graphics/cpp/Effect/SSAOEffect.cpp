@@ -3,9 +3,27 @@
  * @brief SSAOEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "SSAOEffect.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include <cmath>
 #include <random>
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// 半球サンプリング
+constexpr unsigned int kKernelSeed = 42;
+constexpr float kKernelDirectionEpsilon = 1e-5f;
+constexpr float kKernelMinRadius = 0.1f;
+constexpr float kKernelRadiusRange = 0.9f;
+constexpr int kKernelComponentCount = 4;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -15,7 +33,7 @@ using namespace Microsoft::WRL;
 
 static void GenerateKernel(float* out, int count)
 {
-    std::mt19937 rng(42);
+    std::mt19937 rng(kKernelSeed);
     std::uniform_real_distribution<float> distF(-1.0f, 1.0f);
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
@@ -24,7 +42,7 @@ static void GenerateKernel(float* out, int count)
         // z を[0,1]にすることで法線側（+Z）半球に偏ったサンプルにする（SSAOは表面より上だけを見ればよい）
         float x = distF(rng), y = distF(rng), z = dist01(rng);
         float len = std::sqrt(x * x + y * y + z * z);
-        if (len < 1e-5f) {
+        if (len < kKernelDirectionEpsilon) {
             continue;
         }
         // 単位ベクトル化して方向だけを残す長さ（強さ）は次のscaleで別途つける
@@ -34,11 +52,11 @@ static void GenerateKernel(float* out, int count)
         // サンプルの半径方向の強さを2乗補間原点付近に密集させ、遠いサンプルほどまばらにすることで
         // 近距離のオクルージョンを高解像度に、遠距離は粗く拾う（0.1〜1.0の範囲でスケール）
         float scale = float(n) / float(count);
-        scale = 0.1f + 0.9f * scale * scale;
-        out[n * 4 + 0] = x * scale;
-        out[n * 4 + 1] = y * scale;
-        out[n * 4 + 2] = z * scale;
-        out[n * 4 + 3] = 0.0f;
+        scale = kKernelMinRadius + kKernelRadiusRange * scale * scale;
+        out[n * kKernelComponentCount + 0] = x * scale;
+        out[n * kKernelComponentCount + 1] = y * scale;
+        out[n * kKernelComponentCount + 2] = z * scale;
+        out[n * kKernelComponentCount + 3] = 0.0f;
         ++n;
     }
 }
@@ -243,7 +261,7 @@ static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* devic
     D3D12_HEAP_PROPERTIES heap = { D3D12_HEAP_TYPE_UPLOAD };
     D3D12_RESOURCE_DESC desc = { };
     desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    desc.Width = (sizeof(T) + 255) & ~255u;
+    desc.Width = (sizeof(T) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
     desc.Height = 1;
     desc.DepthOrArraySize = 1;
     desc.MipLevels = 1;
@@ -310,14 +328,18 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     normalCb_ = CreateUploadCB<NormalCaptureCB>(device, &normalCbData_);
 
     ssaoCb_ = CreateUploadCB<SSAOParams>(device, &ssaoCbData_);
+    *ssaoCbData_ = SSAOParams {};
     ssaoCbData_->texW = float(W);
     ssaoCbData_->texH = float(H);
-    ssaoCbData_->numSamples = 16;
+    ssaoCbData_->radius = GraphicsTuning::Positive("ssao.radius", ssaoCbData_->radius);
+    ssaoCbData_->strength = GraphicsTuning::Float("ssao.strength", ssaoCbData_->strength);
+    ssaoCbData_->bias = GraphicsTuning::Float("ssao.bias", ssaoCbData_->bias);
+    ssaoCbData_->numSamples = GraphicsTuning::Int("ssao.numSamples", kKernelSampleCount, 1, kKernelSampleCount);
     {
-        float kernel[16 * 4] = { };
-        GenerateKernel(kernel, 16);
-        for (int i = 0; i < 16; ++i) {
-            ssaoCbData_->kernel[i] = { kernel[i * 4], kernel[i * 4 + 1], kernel[i * 4 + 2], kernel[i * 4 + 3] };
+        float kernel[kKernelSampleCount * kKernelComponentCount] = { };
+        GenerateKernel(kernel, kKernelSampleCount);
+        for (int i = 0; i < kKernelSampleCount; ++i) {
+            ssaoCbData_->kernel[i] = { kernel[i * kKernelComponentCount], kernel[i * kKernelComponentCount + 1], kernel[i * kKernelComponentCount + 2], kernel[i * kKernelComponentCount + 3] };
         }
     }
 
@@ -488,7 +510,7 @@ void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmd->SetGraphicsRootConstantBufferView(0, ssaoCb_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(normalSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
     Barrier(cmd, ssaoTex_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -522,7 +544,7 @@ void SSAOEffect::Blur(DirectXCommon* dxCommon)
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmd->SetGraphicsRootConstantBufferView(0, blurCb_->GetGPUVirtualAddress()); // BlurParams {texW, texH}
     cmd->SetGraphicsRootDescriptorTable(1, srvManager_->GetGPUDescriptorHandle(ssaoSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
     Barrier(cmd, blurTex_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -544,5 +566,5 @@ void SSAOEffect::Apply(DirectXCommon* dxCommon, SrvManager* srvManager)
     cmd->SetPipelineState(applyPSO_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmd->SetGraphicsRootDescriptorTable(0, srvManager->GetGPUDescriptorHandle(blurSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }

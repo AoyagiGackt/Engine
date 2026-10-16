@@ -65,7 +65,7 @@ public:
     bool JustRankedUp() const { return justRankedUp_; }
 
 private:
-    float points_ = 0.0f; ///< スタイルポイント（0〜kMaxPoints）
+    float points_ = 0.0f; ///< スタイルポイント（0〜style_meter.json の maxPoints）
     float noHitTimer_ = 0.0f; ///< 最後のヒットからの経過秒数（減衰開始の判定）
 
     // 技の使用熱。高いほど同じ技の加点が減る。時間で冷める
@@ -85,14 +85,6 @@ private:
     std::unique_ptr<Sprite> barBg_;
     std::unique_ptr<Sprite> barFg_;
 
-    static constexpr float kMaxPoints = 1000.0f;
-    static constexpr float kChainKeep = 3.0f; ///< ヒットチェーンが切れるまでの秒数
-    static constexpr float kDecayGrace = 1.2f; ///< 攻撃をやめてから減衰が始まるまでの秒数
-    static constexpr float kHeatCool = 0.30f; ///< 技の熱が1秒あたりに冷める量
-    static constexpr float kHeatPenaltyScale = 0.8f; ///< 連発ペナルティの強さ（熱1あたりの倍率減衰）
-    static constexpr float kVariationBonusMult = 1.3f; ///< 直前と違う技を出した時の加点倍率
-    static constexpr float kDecayBase = 40.0f; ///< ポイント減衰の基礎速度（秒あたり）
-    static constexpr float kDecayPointScale = 0.12f; ///< ポイントが高いほど減衰を速める係数
 };
 
 } // namespace engine::game

@@ -6,7 +6,9 @@
 #include "ParticleManager.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"
+#include "GraphicsTuning.h"
 #include "TextureManager.h"
+#include <algorithm>
 #include <cmath>
 #include <d3dx12.h>
 #include <numbers>
@@ -15,6 +17,135 @@ using namespace engine;
 using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
+
+namespace {
+constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr Vector3 kStill = { 0.0f, 0.0f, 0.0f };
+constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+
+// 斬撃の剣閃: 太く淡い残光 + 白に寄せた細い芯 + 斬線に沿って両端へ抜ける光片
+constexpr float kSlashGlowLifeTime = 0.30f;
+constexpr float kSlashGlowAlpha = 0.35f;
+constexpr float kSlashGlowLength = 2.0f; // 半径に掛ける倍率
+constexpr float kSlashGlowWidth = 0.55f;
+constexpr float kSlashCoreLifeTime = 0.20f;
+constexpr float kSlashCoreWhiten = 0.6f; // 芯の色を白へ寄せる割合
+constexpr float kSlashCoreLength = 1.9f;
+constexpr float kSlashCoreWidth = 0.18f;
+constexpr float kSlashShardLifeTime = 0.25f;
+constexpr int kSlashShardCount = 4;
+constexpr float kSlashShardSpeedBase = 3.0f; // 半径に掛ける速さ（先頭の光片）
+constexpr float kSlashShardSpeedGain = 3.0f; // 最後の光片で足す速さ
+constexpr float kSlashShardAlphaBase = 0.8f;
+constexpr float kSlashShardAlphaFade = 0.3f;
+constexpr float kSlashShardLength = 0.6f;
+constexpr float kSlashShardWidth = 0.05f;
+
+// 一斉配置のばらまき範囲
+constexpr float kBurstSpreadXZ = 20.0f;
+
+// ヒット時の星形: ランダムな向き・長さの細い光片
+constexpr int kHitStarCount = 8;
+constexpr float kHitStarWidth = 0.04f;
+constexpr float kHitStarLengthMin = 0.15f;
+constexpr float kHitStarLengthMax = 0.7f;
+constexpr float kHitStarSpeedMin = 0.5f;
+constexpr float kHitStarSpeedMax = 2.5f;
+constexpr float kHitStarLifeMin = 0.2f;
+constexpr float kHitStarLifeMax = 0.5f;
+
+/** @brief 斬線の層の設定（graphics_tuning.json の slash.～。既定値は上の定数） */
+struct SlashPreset {
+    float glowLifeTime, glowAlpha, glowLength, glowWidth;
+    float coreLifeTime, coreWhiten, coreLength, coreWidth;
+    float shardLifeTime;
+    int shardCount;
+    float shardSpeedBase, shardSpeedGain, shardAlphaBase, shardAlphaFade, shardLength, shardWidth;
+};
+
+const SlashPreset& LoadedSlashPreset()
+{
+    constexpr int kMinShardCount = 2; // 先頭と最後の光片で速さを補間するため2本以上
+    constexpr int kMaxShardCount = 32;
+    static const SlashPreset preset = {
+        GraphicsTuning::Positive("slash.glowLifeTime", kSlashGlowLifeTime),
+        GraphicsTuning::Float("slash.glowAlpha", kSlashGlowAlpha, 0.0f, 1.0f),
+        GraphicsTuning::Float("slash.glowLength", kSlashGlowLength),
+        GraphicsTuning::Float("slash.glowWidth", kSlashGlowWidth),
+        GraphicsTuning::Positive("slash.coreLifeTime", kSlashCoreLifeTime),
+        GraphicsTuning::Float("slash.coreWhiten", kSlashCoreWhiten, 0.0f, 1.0f),
+        GraphicsTuning::Float("slash.coreLength", kSlashCoreLength),
+        GraphicsTuning::Float("slash.coreWidth", kSlashCoreWidth),
+        GraphicsTuning::Positive("slash.shardLifeTime", kSlashShardLifeTime),
+        GraphicsTuning::Int("slash.shardCount", kSlashShardCount, kMinShardCount, kMaxShardCount),
+        GraphicsTuning::Float("slash.shardSpeedBase", kSlashShardSpeedBase),
+        GraphicsTuning::Float("slash.shardSpeedGain", kSlashShardSpeedGain),
+        GraphicsTuning::Float("slash.shardAlphaBase", kSlashShardAlphaBase, 0.0f, 1.0f),
+        GraphicsTuning::Float("slash.shardAlphaFade", kSlashShardAlphaFade, 0.0f, 1.0f),
+        GraphicsTuning::Float("slash.shardLength", kSlashShardLength),
+        GraphicsTuning::Float("slash.shardWidth", kSlashShardWidth),
+    };
+    return preset;
+}
+
+/** @brief 命中のきらめきの設定（graphics_tuning.json の hitStar.～。既定値は上の定数） */
+struct HitStarPreset {
+    int count;
+    float width, lengthMin, lengthMax, speedMin, speedMax, lifeMin, lifeMax;
+};
+
+const HitStarPreset& LoadedHitStarPreset()
+{
+    static constexpr int kMaxHitStarCount = 64;
+    static const HitStarPreset preset = [] {
+        HitStarPreset p {
+            GraphicsTuning::Int("hitStar.count", kHitStarCount, 0, kMaxHitStarCount),
+            GraphicsTuning::Float("hitStar.width", kHitStarWidth),
+            GraphicsTuning::Float("hitStar.lengthMin", kHitStarLengthMin),
+            GraphicsTuning::Float("hitStar.lengthMax", kHitStarLengthMax),
+            GraphicsTuning::Float("hitStar.speedMin", kHitStarSpeedMin),
+            GraphicsTuning::Float("hitStar.speedMax", kHitStarSpeedMax),
+            GraphicsTuning::Positive("hitStar.lifeMin", kHitStarLifeMin),
+            GraphicsTuning::Positive("hitStar.lifeMax", kHitStarLifeMax),
+        };
+        // 一様分布の下限と上限が逆にならないようにする
+        p.lengthMax = (std::max)(p.lengthMax, p.lengthMin);
+        p.speedMax = (std::max)(p.speedMax, p.speedMin);
+        p.lifeMax = (std::max)(p.lifeMax, p.lifeMin);
+        return p;
+    }();
+    return preset;
+}
+
+Vector3 Uniform(float scale)
+{
+    return { scale, scale, scale };
+}
+} // namespace
+
+bool ParticleManager::SpawnParticle(ParticleGroup& group, const ParticleSpawn& spawn)
+{
+    const uint32_t slot = AllocateSlot(group);
+    if (slot == UINT32_MAX) {
+        return false;
+    }
+    GPUParticleState& p = group.particleUploadData[slot];
+    p.position = spawn.position;
+    p.lifeTime = spawn.lifeTime;
+    p.velocity = spawn.velocity;
+    p.currentTime = 0.0f;
+    p.color = spawn.color;
+    p.scale = spawn.scale;
+    p.rotateZ = spawn.rotateZ;
+    p.alive = 1;
+    p.curveFlag = static_cast<uint32_t>(spawn.motion);
+
+    group.slotExpiry[slot] = group.groupTime + spawn.lifeTime + kSlotExpiryMargin;
+    group.aliveCount++;
+    group.pendingSlots.push_back(slot);
+    return true;
+}
+
 // ══════════════════════════════════════════════════════
 // パーティクル生成
 // ══════════════════════════════════════════════════════
@@ -23,7 +154,7 @@ void ParticleManager::Emit(const std::string& name,
     const Vector3& position,
     const Vector3& velocity)
 {
-    EmitWithColor(name, position, velocity, { 1.0f, 1.0f, 1.0f, 1.0f }, 1.0f, 1.0f);
+    EmitWithColor(name, position, velocity, kWhite, 1.0f, 1.0f);
 }
 
 void ParticleManager::EmitWithColor(const std::string& name,
@@ -35,28 +166,8 @@ void ParticleManager::EmitWithColor(const std::string& name,
     bool flicker)
 {
     ENGINE_ASSERT(particleGroups_.contains(name));
-    ParticleGroup& group = particleGroups_[name];
-
-    uint32_t slot = AllocateSlot(group);
-
-    if (slot == UINT32_MAX) {
-        return;
-    }
-
-    GPUParticleState& p = group.particleUploadData[slot];
-    p.position = position;
-    p.lifeTime = lifeTime;
-    p.velocity = velocity;
-    p.currentTime = 0.0f;
-    p.color = color;
-    p.scale = { scale, scale, scale };
-    p.rotateZ = 0.0f;
-    p.alive = 1;
-    p.curveFlag = flicker ? 2u : 0u;
-
-    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-    group.aliveCount++;
-    group.pendingSlots.push_back(slot);
+    SpawnParticle(particleGroups_[name], { .position = position, .velocity = velocity, .color = color, .scale = Uniform(scale),
+        .lifeTime = lifeTime, .motion = flicker ? ParticleMotion::Flicker : ParticleMotion::Linear });
 }
 
 void ParticleManager::EmitEllipse(const std::string& name,
@@ -68,28 +179,8 @@ void ParticleManager::EmitEllipse(const std::string& name,
     float scaleY)
 {
     ENGINE_ASSERT(particleGroups_.contains(name));
-    ParticleGroup& group = particleGroups_[name];
-
-    uint32_t slot = AllocateSlot(group);
-
-    if (slot == UINT32_MAX) {
-        return;
-    }
-
-    GPUParticleState& p = group.particleUploadData[slot];
-    p.position = position;
-    p.lifeTime = lifeTime;
-    p.velocity = velocity;
-    p.currentTime = 0.0f;
-    p.color = color;
-    p.scale = { scaleX, scaleY, 1.0f };
-    p.rotateZ = 0.0f;
-    p.alive = 1;
-    p.curveFlag = 0;
-
-    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-    group.aliveCount++;
-    group.pendingSlots.push_back(slot);
+    SpawnParticle(particleGroups_[name], { .position = position, .velocity = velocity, .color = color,
+        .scale = { scaleX, scaleY, 1.0f }, .lifeTime = lifeTime });
 }
 
 void ParticleManager::EmitSlash(const std::string& name,
@@ -101,50 +192,29 @@ void ParticleManager::EmitSlash(const std::string& name,
     ENGINE_ASSERT(particleGroups_.contains(name));
     ParticleGroup& group = particleGroups_[name];
 
-    constexpr float kGlowLifeTime = 0.30f;
-    constexpr float kCoreLifeTime = 0.20f;
-    constexpr float kShardLifeTime = 0.25f;
-    constexpr int kShardCount = 4;
-
-    auto emitOne = [&](const Vector3& velocity, const Vector4& c, float lifeTime,
-                       float scaleX, float scaleY) {
-        uint32_t slot = AllocateSlot(group);
-        if (slot == UINT32_MAX) {
-            return;
-        }
-
-        GPUParticleState& p = group.particleUploadData[slot];
-        p.position = position;
-        p.lifeTime = lifeTime;
-        p.velocity = velocity;
-        p.currentTime = 0.0f;
-        p.color = c;
-        p.scale = { scaleX, scaleY, 1.0f };
-        p.rotateZ = angle;
-        p.alive = 1;
-        p.curveFlag = 0;
-
-        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-        group.aliveCount++;
-        group.pendingSlots.push_back(slot);
+    auto emitOne = [&](const Vector3& velocity, const Vector4& c, float lifeTime, float scaleX, float scaleY) {
+        SpawnParticle(group, { .position = position, .velocity = velocity, .color = c,
+            .scale = { scaleX, scaleY, 1.0f }, .lifeTime = lifeTime, .rotateZ = angle });
     };
 
     // 残光（太く淡い層）と芯（細く白に寄せた層）を重ねる
-    Vector4 glow = { color.x, color.y, color.z, color.w * 0.35f };
-    Vector4 core = { color.x * 0.4f + 0.6f, color.y * 0.4f + 0.6f,
-        color.z * 0.4f + 0.6f, color.w };
-    emitOne({ 0.0f, 0.0f, 0.0f }, glow, kGlowLifeTime, radius * 2.0f, radius * 0.55f);
-    emitOne({ 0.0f, 0.0f, 0.0f }, core, kCoreLifeTime, radius * 1.9f, radius * 0.18f);
+    const SlashPreset& preset = LoadedSlashPreset();
+    const float keep = 1.0f - preset.coreWhiten;
+    const Vector4 glow = { color.x, color.y, color.z, color.w * preset.glowAlpha };
+    const Vector4 core = { color.x * keep + preset.coreWhiten, color.y * keep + preset.coreWhiten,
+        color.z * keep + preset.coreWhiten, color.w };
+    emitOne(kStill, glow, preset.glowLifeTime, radius * preset.glowLength, radius * preset.glowWidth);
+    emitOne(kStill, core, preset.coreLifeTime, radius * preset.coreLength, radius * preset.coreWidth);
 
-    // 斬線に沿って両端へ抜ける光片
+    // 斬線に沿って両端へ交互に抜ける光片（後ろの光片ほど速く、薄く）
     const Vector3 dir = { std::cos(angle), std::sin(angle), 0.0f };
-    for (int i = 0; i < kShardCount; ++i) {
-        float t = static_cast<float>(i) / static_cast<float>(kShardCount - 1);
-        float sign = (i % 2 == 0) ? 1.0f : -1.0f;
-        float speed = radius * (3.0f + 3.0f * t) * sign;
-        Vector4 c = { color.x, color.y, color.z, color.w * (0.8f - t * 0.3f) };
-        emitOne({ dir.x * speed, dir.y * speed, 0.0f }, c, kShardLifeTime,
-            radius * 0.6f, radius * 0.05f);
+    for (int i = 0; i < preset.shardCount; ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(preset.shardCount - 1);
+        const float sign = (i % 2 == 0) ? 1.0f : -1.0f;
+        const float speed = radius * (preset.shardSpeedBase + preset.shardSpeedGain * t) * sign;
+        const Vector4 c = { color.x, color.y, color.z, color.w * (preset.shardAlphaBase - t * preset.shardAlphaFade) };
+        emitOne({ dir.x * speed, dir.y * speed, 0.0f }, c, preset.shardLifeTime,
+            radius * preset.shardLength, radius * preset.shardWidth);
     }
 }
 
@@ -159,10 +229,10 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
 
     static std::mt19937 rng { std::random_device { }() };
     std::uniform_real_distribution<float> xzDist(-radius, radius);
-    std::uniform_real_distribution<float> yDist(0.0f, 12.0f);
+    std::uniform_real_distribution<float> yDist(0.0f, kScatterHeight);
     std::uniform_real_distribution<float> lifeDist(lifeTimeMin, lifeTimeMax);
-    std::uniform_real_distribution<float> velXZDist(-0.3f, 0.3f);
-    std::uniform_real_distribution<float> velYDist(0.1f, 0.6f);
+    std::uniform_real_distribution<float> velXZDist(-kScatterDriftXZ, kScatterDriftXZ);
+    std::uniform_real_distribution<float> velYDist(kScatterRiseMin, kScatterRiseMax);
 
     memset(group.particleUploadData, 0, sizeof(GPUParticleState) * ParticleGroup::kNumMaxInstance);
     group.slotExpiry.fill(0.0f);
@@ -174,6 +244,7 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
     group.pendingSlots.clear();
 
     for (uint32_t i = 0; i < count; ++i) {
+        // 寿命の途中から始めて、最初から全体に行き渡った状態に見せる
         float lifeTime = lifeDist(rng);
         std::uniform_real_distribution<float> timeDist(0.0f, lifeTime);
         float currentTime = timeDist(rng);
@@ -184,12 +255,12 @@ void ParticleManager::EmitScatterLoop(const std::string& name,
         p.velocity = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
         p.currentTime = currentTime;
         p.color = color;
-        p.scale = { scale, scale, scale };
+        p.scale = Uniform(scale);
         p.rotateZ = 0.0f;
         p.alive = 1;
-        p.curveFlag = 0;
+        p.curveFlag = static_cast<uint32_t>(ParticleMotion::Linear);
 
-        group.slotExpiry[i] = group.groupTime + (lifeTime - currentTime) + 0.1f;
+        group.slotExpiry[i] = group.groupTime + (lifeTime - currentTime) + kSlotExpiryMargin;
         group.aliveCount++;
     }
 
@@ -222,24 +293,24 @@ void ParticleManager::EmitBurst(const std::string& name,
         group.freeList.push_back(i);
     }
 
+    static std::mt19937 rng { std::random_device { }() };
+    std::uniform_real_distribution<float> distXZ(-kBurstSpreadXZ, kBurstSpreadXZ);
+    std::uniform_real_distribution<float> distY(0.0f, kScatterHeight);
     for (uint32_t i = 0; i < count; ++i) {
         GPUParticleState& p = group.particleUploadData[i];
         // ランダムにばら撒く（初期化時と同様の範囲）
-        static std::mt19937 rng { std::random_device { }() };
-        std::uniform_real_distribution<float> distXZ(-20.0f, 20.0f);
-        std::uniform_real_distribution<float> distY(0.0f, 12.0f);
-        Vector3 randOffset = { distXZ(rng), distY(rng), distXZ(rng) };
+        const Vector3 randOffset = { distXZ(rng), distY(rng), distXZ(rng) };
 
         p.position = { position.x + randOffset.x, position.y + randOffset.y, position.z + randOffset.z };
         p.lifeTime = lifeTime;
-        p.velocity = { 0.0f, 0.0f, 0.0f };
+        p.velocity = kStill;
         p.currentTime = 0.0f;
         p.color = color;
-        p.scale = { scale, scale, scale };
+        p.scale = Uniform(scale);
         p.rotateZ = 0.0f;
         p.alive = 1;
-        p.curveFlag = flicker ? 2u : 0u;
-        group.slotExpiry[i] = group.groupTime + lifeTime + 0.1f;
+        p.curveFlag = static_cast<uint32_t>(flicker ? ParticleMotion::Flicker : ParticleMotion::Linear);
+        group.slotExpiry[i] = group.groupTime + lifeTime + kSlotExpiryMargin;
         group.aliveCount++;
     }
 
@@ -259,41 +330,25 @@ void ParticleManager::EmitHitStar(const std::string& name,
 
     static std::default_random_engine engine { std::random_device { }() };
     std::uniform_real_distribution<float> rotDist(-std::numbers::pi_v<float>, std::numbers::pi_v<float>);
-    std::uniform_real_distribution<float> scaleYDist(0.15f, 0.7f);
-    std::uniform_real_distribution<float> speedDist(0.5f, 2.5f);
-    std::uniform_real_distribution<float> lifeDist(0.2f, 0.5f);
+    const HitStarPreset& preset = LoadedHitStarPreset();
+    std::uniform_real_distribution<float> lengthDist(preset.lengthMin, preset.lengthMax);
+    std::uniform_real_distribution<float> speedDist(preset.speedMin, preset.speedMax);
+    std::uniform_real_distribution<float> lifeDist(preset.lifeMin, preset.lifeMax);
 
-    const int kCount = 8;
-
-    for (int i = 0; i < kCount; ++i) {
-        uint32_t slot = AllocateSlot(group);
-
-        if (slot == UINT32_MAX) {
+    for (int i = 0; i < preset.count; ++i) {
+        const float velAngle = rotDist(engine);
+        const float speed = speedDist(engine) * GameConstants::kFrameDeltaTime;
+        const bool spawned = SpawnParticle(group, {
+                                                      .position = position,
+                                                      .velocity = { std::cos(velAngle) * speed, std::sin(velAngle) * speed, 0.0f },
+                                                      .color = color,
+                                                      .scale = { preset.width, lengthDist(engine), 1.0f },
+                                                      .lifeTime = lifeDist(engine),
+                                                      .rotateZ = rotDist(engine),
+                                                  });
+        if (!spawned) {
             break;
         }
-
-        float rotAngle = rotDist(engine);
-        float velAngle = rotDist(engine);
-        float scaleY = scaleYDist(engine);
-        float speed = speedDist(engine) * GameConstants::kFrameDeltaTime;
-        float lifeTime = lifeDist(engine);
-
-        Vector3 vel = { std::cos(velAngle) * speed, std::sin(velAngle) * speed, 0.0f };
-
-        GPUParticleState& p = group.particleUploadData[slot];
-        p.position = position;
-        p.lifeTime = lifeTime;
-        p.velocity = vel;
-        p.currentTime = 0.0f;
-        p.color = color;
-        p.scale = { 0.04f, scaleY, 1.0f };
-        p.rotateZ = rotAngle;
-        p.alive = 1;
-        p.curveFlag = 0;
-
-        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-        group.aliveCount++;
-        group.pendingSlots.push_back(slot);
     }
 }
 
@@ -302,27 +357,8 @@ void ParticleManager::EmitGravity(const std::string& name, const Vector3& positi
     float lifeTime, float scale)
 {
     ENGINE_ASSERT(particleGroups_.contains(name));
-    ParticleGroup& group = particleGroups_[name];
-
-    uint32_t slot = AllocateSlot(group);
-    if (slot == UINT32_MAX) {
-        return;
-    }
-
-    GPUParticleState& p = group.particleUploadData[slot];
-    p.position = position;
-    p.lifeTime = lifeTime;
-    p.velocity = velocity;
-    p.currentTime = 0.0f;
-    p.color = color;
-    p.scale = { scale, scale, scale };
-    p.rotateZ = 0.0f;
-    p.alive = 1;
-    p.curveFlag = 3;
-
-    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-    group.aliveCount++;
-    group.pendingSlots.push_back(slot);
+    SpawnParticle(particleGroups_[name], { .position = position, .velocity = velocity, .color = color, .scale = Uniform(scale),
+        .lifeTime = lifeTime, .motion = ParticleMotion::Gravity });
 }
 
 void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
@@ -333,30 +369,15 @@ void ParticleManager::EmitRing(const std::string& name, const Vector3& position,
     ParticleGroup& group = particleGroups_[name];
     count = (std::min)(count, ParticleGroup::kNumMaxInstance);
 
-    const float kTwoPi = 2.0f * std::numbers::pi_v<float>;
-
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t slot = AllocateSlot(group);
-        if (slot == UINT32_MAX) {
+        // 均等な角度で放射状に飛ばす
+        const float angle = kTwoPi * static_cast<float>(i) / static_cast<float>(count);
+        const bool spawned = SpawnParticle(group, { .position = position,
+            .velocity = { std::cos(angle) * speed, std::sin(angle) * speed, 0.0f },
+            .color = color, .scale = Uniform(scale), .lifeTime = lifeTime });
+        if (!spawned) {
             break;
         }
-
-        float angle = kTwoPi * static_cast<float>(i) / static_cast<float>(count);
-
-        GPUParticleState& p = group.particleUploadData[slot];
-        p.position = position;
-        p.lifeTime = lifeTime;
-        p.velocity = { std::cos(angle) * speed, std::sin(angle) * speed, 0.0f };
-        p.currentTime = 0.0f;
-        p.color = color;
-        p.scale = { scale, scale, scale };
-        p.rotateZ = 0.0f;
-        p.alive = 1;
-        p.curveFlag = 0;
-
-        group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-        group.aliveCount++;
-        group.pendingSlots.push_back(slot);
     }
 }
 
@@ -364,28 +385,8 @@ void ParticleManager::EmitTrail(const std::string& name, const Vector3& position
     const Vector4& color, float scale, float lifeTime)
 {
     ENGINE_ASSERT(particleGroups_.contains(name));
-    ParticleGroup& group = particleGroups_[name];
-
-    uint32_t slot = AllocateSlot(group);
-    if (slot == UINT32_MAX) {
-        return;
-    }
-
-    GPUParticleState& p = group.particleUploadData[slot];
-    p.position = position;
-    p.lifeTime = lifeTime;
-    p.velocity = { 0.0f, 0.0f, 0.0f };
-    p.currentTime = 0.0f;
-    p.color = color;
-    p.scale = { scale, scale, scale };
-    p.rotateZ = 0.0f;
-    p.alive = 1;
-    p.curveFlag = 4; // スケール縮小フェードアウト
-
-    group.slotExpiry[slot] = group.groupTime + lifeTime + 0.1f;
-    group.aliveCount++;
-    group.pendingSlots.push_back(slot);
+    SpawnParticle(particleGroups_[name], { .position = position, .velocity = kStill, .color = color, .scale = Uniform(scale),
+        .lifeTime = lifeTime, .motion = ParticleMotion::ShrinkFade });
 }
 
 //  Update: CS ディスパッチ（フェーズ分割版）
-

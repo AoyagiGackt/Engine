@@ -3,10 +3,30 @@
  * @brief ローグライトのコンティニューデータ・通算記録の読み込み・保存とバージョン移行（SaveDataManager）の実装
  */
 #include "SaveData.h"
+#include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include <algorithm>
 using namespace engine::game;
+
+namespace {
+// セーブファイルの1つの値で済む項目（種類とスキル一覧は数値の変換が要るので個別に読み書きする）
+constexpr JsonField<ContinueData> kContinueFields[] = {
+    { "continue", "valid", &ContinueData::valid },
+    { "continue", "hp", &ContinueData::hp },
+    { "continue", "max_hp", &ContinueData::maxHp },
+    { "continue", "gold", &ContinueData::gold },
+    { "continue", "score", &ContinueData::score },
+    { "continue", "floor", &ContinueData::floor },
+};
+
+constexpr JsonField<SaveRecords> kRecordFields[] = {
+    { "records", "best_floor", &SaveRecords::bestFloorReached },
+    { "records", "total_runs", &SaveRecords::totalRuns },
+    { "records", "total_clears", &SaveRecords::totalClears },
+    { "records", "total_gold_earned", &SaveRecords::totalGoldEarned },
+};
+} // namespace
 
 SaveDataManager* SaveDataManager::GetInstance()
 {
@@ -30,12 +50,14 @@ void SaveDataManager::Load()
 
     if (j.contains("continue") && j["continue"].is_object()) {
         const auto& c = j["continue"];
-        continue_.valid = c.value("valid", false);
-        continue_.maxHp = (std::max)(c.value("max_hp", 0), 0);
-        continue_.hp = std::clamp(c.value("hp", 0), 0, continue_.maxHp);
-        continue_.gold = (std::max)(c.value("gold", 0), 0);
-        continue_.score = (std::max)(c.value("score", 0), 0);
-        continue_.floor = (std::max)(c.value("floor", 0), 0);
+        // 書かれていない項目は0扱いにする（前回のセーブの値を持ち越さない）
+        continue_ = ContinueData {};
+        ReadJsonFields(j, kContinueFields, continue_);
+        continue_.maxHp = (std::max)(continue_.maxHp, 0);
+        continue_.hp = std::clamp(continue_.hp, 0, continue_.maxHp);
+        continue_.gold = (std::max)(continue_.gold, 0);
+        continue_.score = (std::max)(continue_.score, 0);
+        continue_.floor = (std::max)(continue_.floor, 0);
         continue_.currentNode = static_cast<RunData::NodeType>(c.value("current_node", 0));
 
         continue_.skills.clear();
@@ -47,11 +69,8 @@ void SaveDataManager::Load()
     }
 
     if (j.contains("records") && j["records"].is_object()) {
-        const auto& r = j["records"];
-        records_.bestFloorReached = r.value("best_floor", 0);
-        records_.totalRuns = r.value("total_runs", 0);
-        records_.totalClears = r.value("total_clears", 0);
-        records_.totalGoldEarned = r.value("total_gold_earned", 0LL);
+        records_ = SaveRecords {};
+        ReadJsonFields(j, kRecordFields, records_);
     }
 }
 
@@ -61,12 +80,7 @@ void SaveDataManager::Save()
 
     j["version"] = kCurrentVersion;
 
-    j["continue"]["valid"] = continue_.valid;
-    j["continue"]["hp"] = continue_.hp;
-    j["continue"]["max_hp"] = continue_.maxHp;
-    j["continue"]["gold"] = continue_.gold;
-    j["continue"]["score"] = continue_.score;
-    j["continue"]["floor"] = continue_.floor;
+    WriteJsonFields(j, kContinueFields, continue_);
     j["continue"]["current_node"] = static_cast<int>(continue_.currentNode);
 
     nlohmann::json skillsArray = nlohmann::json::array();
@@ -75,10 +89,7 @@ void SaveDataManager::Save()
     }
     j["continue"]["skills"] = skillsArray;
 
-    j["records"]["best_floor"] = records_.bestFloorReached;
-    j["records"]["total_runs"] = records_.totalRuns;
-    j["records"]["total_clears"] = records_.totalClears;
-    j["records"]["total_gold_earned"] = records_.totalGoldEarned;
+    WriteJsonFields(j, kRecordFields, records_);
 
     engine::JsonHelper::Save(kFilePath, j);
 }

@@ -18,6 +18,7 @@ using namespace engine;
 namespace {
 constexpr const char* kSettingsPath = "Resources/Config/asset_pack.json";
 constexpr const char* kDefaultPackName = "Resources/game.pak";
+constexpr const char* kLegacyPackName = "game.pak"; // 以前の3ファイル構成のpak
 constexpr const char* kSourceSnapshotKey = "manifest:resources";
 constexpr char kMagic[4] = { 'E', 'P', 'A', 'K' };
 constexpr uint32_t kVersion = 1;
@@ -26,6 +27,9 @@ constexpr const char* kResourceRoot = "Resources";
 constexpr const char* kRawKeyPrefix = "raw:";
 // 変換せずそのままpakへ入れるファイルの拡張子（実行時に元ファイルを直接開いて読むもの）
 constexpr const char* kRawExtensions[] = { ".json", ".mp3", ".wav" };
+// 素材の変更検知から外す拡張子（pak自体・実行時に作られるもの）
+constexpr const char* kSnapshotIgnoredExtensions[] = { ".pak", ".dll", ".tmp" };
+constexpr const char* kAutoSaveMarker = ".autosave.";
 
 // ファイル先頭: マジック(4) + バージョン(4) + 項目数(8) + 目次の大きさ(8)
 constexpr uint64_t kHeaderSize = sizeof(kMagic) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t);
@@ -40,8 +44,9 @@ std::string ResourceSnapshot()
         const std::string path = item.path().generic_string();
         std::string extension = item.path().extension().string();
         for (char& c : extension) { c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
-        if (extension == ".pak" || extension == ".dll" || extension == ".tmp"
-            || path.find(".autosave.") != std::string::npos) { continue; }
+        const bool ignored = std::any_of(std::begin(kSnapshotIgnoredExtensions), std::end(kSnapshotIgnoredExtensions),
+            [&extension](const char* ignoredExtension) { return extension == ignoredExtension; });
+        if (ignored || path.find(kAutoSaveMarker) != std::string::npos) { continue; }
         files.push_back(path + ":" + std::to_string(item.file_size()) + ":"
             + std::to_string(item.last_write_time().time_since_epoch().count()));
     }
@@ -94,57 +99,79 @@ void AssetPack::Initialize(bool forceCook, bool prepareAssets)
     const std::string fileName = settings.is_object() ? settings.value("path", kDefaultPackName) : kDefaultPackName;
     packPath_ = ResolvePackPath(fileName);
 
-    const bool hasSources = std::filesystem::is_directory("Resources/shaders");
-    if (prepareAssets && !hasSources) {
+    const StartContext context = { std::filesystem::is_directory("Resources/shaders"), fileName };
+    if (prepareAssets && !context.hasSources) {
         throw std::runtime_error("Asset preparation requires the source Resources folder");
     }
-    if (mode == "auto") {
-        if (hasSources) {
-            sourceSnapshot_ = ResourceSnapshot();
-            if (OpenPack(packPath_)) {
-                mode_ = Mode::Use;
-                std::vector<uint8_t> previous;
-                if (Read(kSourceSnapshotKey, previous)
-                    && std::string(previous.begin(), previous.end()) == sourceSnapshot_) {
-                    Logger::Log("[AssetPack] auto: 素材に変更がないためuseで起動します");
-                    return;
-                }
-                file_.close();
-                file_.clear();
-                entries_.clear();
-            }
-            mode = "cook";
-        } else {
-            mode = "use";
-        }
-    }
 
-    if (mode == "cook") {
-        if (!hasSources) { throw std::runtime_error("Asset cook requires the source Resources folder"); }
-        sourceSnapshot_ = ResourceSnapshot();
-        mode_ = Mode::Cook;
-        Logger::Log("[AssetPack] cook: 読み込んだ素材を変換済みの形で記録し、終了時に "
-            + StringUtility::ConvertString(packPath_) + " へ書き出します");
+    // 設定ファイルのモード名と起動処理の対応（載っていない名前は off）
+    struct ModeStart {
+        const char* name;
+        void (AssetPack::*start)(const StartContext&);
+    };
+    static constexpr ModeStart kModeStarts[] = {
+        { "auto", &AssetPack::StartAuto },
+        { "cook", &AssetPack::StartCook },
+        { "use", &AssetPack::StartUse },
+        { "off", &AssetPack::StartOff },
+    };
+    const auto found = std::find_if(std::begin(kModeStarts), std::end(kModeStarts),
+        [&mode](const ModeStart& entry) { return mode == entry.name; });
+    (this->*(found != std::end(kModeStarts) ? found->start : &AssetPack::StartOff))(context);
+}
+
+void AssetPack::StartAuto(const StartContext& context)
+{
+    if (!context.hasSources) {
+        StartUse(context);
         return;
     }
-    if (mode == "use") {
-        bool opened = OpenPack(packPath_);
-        // 以前の3ファイル構成も読み込み可能にしておく。
-        if (!opened && fileName == kDefaultPackName) {
-            const auto legacyPath = ResolvePackPath("game.pak");
-            opened = OpenPack(legacyPath);
-            if (opened) { packPath_ = legacyPath; }
+    sourceSnapshot_ = ResourceSnapshot();
+    if (OpenPack(packPath_)) {
+        mode_ = Mode::Use;
+        std::vector<uint8_t> previous;
+        if (Read(kSourceSnapshotKey, previous)
+            && std::string(previous.begin(), previous.end()) == sourceSnapshot_) {
+            Logger::Log("[AssetPack] auto: 素材に変更がないためuseで起動します");
+            return;
         }
-        if (opened) {
-            mode_ = Mode::Use;
-            Logger::Log("[AssetPack] use: " + std::to_string(entries_.size()) + " 件の変換済み素材を "
-                + StringUtility::ConvertString(packPath_) + " から読みます");
-        } else {
-            mode_ = Mode::Off;
-            Logger::LogWarning("[AssetPack] use指定ですがpakを開けませんでした。元ファイルから読みます（先にcookで作成してください）");
-        }
-        return;
+        file_.close();
+        file_.clear();
+        entries_.clear();
     }
+    StartCook(context);
+}
+
+void AssetPack::StartCook(const StartContext& context)
+{
+    if (!context.hasSources) { throw std::runtime_error("Asset cook requires the source Resources folder"); }
+    sourceSnapshot_ = ResourceSnapshot();
+    mode_ = Mode::Cook;
+    Logger::Log("[AssetPack] cook: 読み込んだ素材を変換済みの形で記録し、終了時に "
+        + StringUtility::ConvertString(packPath_) + " へ書き出します");
+}
+
+void AssetPack::StartUse(const StartContext& context)
+{
+    bool opened = OpenPack(packPath_);
+    // 以前の3ファイル構成も読み込み可能にしておく。
+    if (!opened && context.fileName == kDefaultPackName) {
+        const auto legacyPath = ResolvePackPath(kLegacyPackName);
+        opened = OpenPack(legacyPath);
+        if (opened) { packPath_ = legacyPath; }
+    }
+    if (opened) {
+        mode_ = Mode::Use;
+        Logger::Log("[AssetPack] use: " + std::to_string(entries_.size()) + " 件の変換済み素材を "
+            + StringUtility::ConvertString(packPath_) + " から読みます");
+    } else {
+        mode_ = Mode::Off;
+        Logger::LogWarning("[AssetPack] use指定ですがpakを開けませんでした。元ファイルから読みます（先にcookで作成してください）");
+    }
+}
+
+void AssetPack::StartOff(const StartContext&)
+{
     mode_ = Mode::Off;
     Logger::Log("[AssetPack] off: 元ファイルを毎回変換して読みます");
 }

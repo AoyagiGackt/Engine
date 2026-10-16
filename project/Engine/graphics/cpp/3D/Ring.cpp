@@ -6,6 +6,13 @@
 #include "DirectXCommon.h"
 #include <cmath>
 #include <numbers>
+
+namespace {
+
+// 分割あたりの頂点数
+constexpr int kVerticesPerDivision = 6;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -43,7 +50,7 @@ void Ring::RebuildVertices()
         Vector4 innerCur = { -s * innerRadius_, c * innerRadius_, 0.0f, 1.0f };
         Vector4 innerNext = { -sNext * innerRadius_, cNext * innerRadius_, 0.0f, 1.0f };
 
-        int idx = index * 6;
+        int idx = index * kVerticesPerDivision;
         vertexData_[idx + 0] = { outerCur, { u, 0.0f }, normal };
         vertexData_[idx + 1] = { outerNext, { uNext, 0.0f }, normal };
         vertexData_[idx + 2] = { innerCur, { u, 1.0f }, normal };

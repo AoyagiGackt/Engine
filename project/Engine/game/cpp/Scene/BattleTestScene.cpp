@@ -32,7 +32,10 @@ using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
 
-static constexpr float kWarpRetX = 3.0f;
+static constexpr float kBarUp = 70.0f;
+constexpr float kBarH = 8.0f;
+constexpr float kBarW = 60.0f;
+constexpr float kWarpRetX = 3.0f;
 static constexpr float kReturnProx = 3.0f;
 static constexpr float kDummyMaxHp = 100.0f;
 
@@ -289,24 +292,30 @@ void BattleTestScene::SpawnWaterSplashEffect(const Vector3& pos)
 
 void BattleTestScene::UpdateHpBars()
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float barUp = layout.Float("enemy_hp_bar.raise", kBarUp);
+    const float barH = layout.Float("enemy_hp_bar.height", kBarH);
+    const float barW = layout.Float("enemy_hp_bar.width", kBarW);
+    const Vector4 hpBarBackgroundColor = layout.Color("enemy_hp_bar.background_color", kHpBarBackgroundColor);
+    const float hpBarGreenScale = layout.Float("enemy_hp_bar.green_scale", kHpBarGreenScale);
+    const float hpBarGreenBase = layout.Float("enemy_hp_bar.green_base", kHpBarGreenBase);
+    const float hpBarAlpha = layout.Float("enemy_hp_bar.alpha", kHpBarAlpha);
     const Vector3& cam = camera_->GetTranslate();
-    constexpr float kBarW = 60.0f;
-    constexpr float kBarH = 8.0f;
-    constexpr float kBarUp = 70.0f;
 
     for (auto& d : dummies_) {
         float sx, sy;
         SceneShared::WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
 
         float ratio = d.hpDisplay;
-        d.hpBarFg->SetColor({ 1.0f - ratio, ratio * kHpBarGreenScale + kHpBarGreenBase, 0.0f, kHpBarAlpha });
+        d.hpBarFg->SetColor({ 1.0f - ratio, ratio * hpBarGreenScale + hpBarGreenBase, 0.0f, hpBarAlpha });
 
-        d.hpBarBg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
-        d.hpBarBg->SetSize({ kBarW, kBarH });
+        d.hpBarBg->SetColor(hpBarBackgroundColor);
+        d.hpBarBg->SetPosition({ sx - barW * 0.5f, sy - barUp });
+        d.hpBarBg->SetSize({ barW, barH });
         d.hpBarBg->Update();
 
-        d.hpBarFg->SetPosition({ sx - kBarW * 0.5f, sy - kBarUp });
-        d.hpBarFg->SetSize({ kBarW * ratio, kBarH });
+        d.hpBarFg->SetPosition({ sx - barW * 0.5f, sy - barUp });
+        d.hpBarFg->SetSize({ barW * ratio, barH });
         d.hpBarFg->Update();
     }
 }
@@ -323,7 +332,10 @@ void BattleTestScene::Update()
     }
 
     // 一時停止中はゲームを止め、文字コマンドの破棄だけ行う（HUDは描画側で隠す）
-    if (pauseMenu_.Update(input_)) {
+    const bool paused = pauseMenu_.Update(input_);
+    // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
+    GetStageEditor().SetGameplayHeld(paused);
+    if (paused) {
         fontRenderer_.Reset();
         return;
     }
@@ -545,9 +557,11 @@ void BattleTestScene::UpdateTargetLock()
 
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float lockMarkerHalfWidth = layout.Float("lock_marker.half_width", kLockMarkerHalfWidth);
     DrawWeaponHud(nearReturnPortal);
     SceneShared::DrawControlsHud(fontRenderer_,
-        UILayout::Get(kLayoutName).Pos("controls.pos", kBattleControlsAnchor), L": トレーニングへ戻る");
+        layout.Pos("controls.pos", kBattleControlsAnchor), L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     hud_.QueueText(fontRenderer_);
 
@@ -557,8 +571,7 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
-        UILayout& layout = UILayout::Get(kLayoutName);
-        fontRenderer_.DrawString("v LOCK v", sx - kLockMarkerHalfWidth, sy,
+        fontRenderer_.DrawString("v LOCK v", sx - lockMarkerHalfWidth, sy,
             layout.Float("lock_marker.scale", kLockMarkerScale), layout.Color("lock_marker.color", kLockMarkerColor));
     }
 }
@@ -566,25 +579,29 @@ void BattleTestScene::DrawHud(bool nearReturnPortal)
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
+    const Vector2 warpLabelOffset = layout.Vec2("portal.label_offset", kWarpLabelOffset);
+    const Vector4 hintShadowColor = layout.Color("weapon_list.shadow_color", kHintShadowColor);
+    const float hintShadowOffset = layout.Float("weapon_list.shadow_offset", kHintShadowOffset);
+    const float hintLineHeight = layout.Float("weapon_list.line_height", kHintLineHeight);
     // 明るいブロックの上でも埋もれないよう暖色＋影付きにする（武器選択パネルと揃える）
     const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
     const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
     auto drawShadowedHint = [&](const std::wstring& text, float x, float y) {
-        fontRenderer_.DrawStringW(text, x + kHintShadowOffset, y + kHintShadowOffset, hintScale, kHintShadowColor);
+        fontRenderer_.DrawStringW(text, x + hintShadowOffset, y + hintShadowOffset, hintScale, hintShadowColor);
         fontRenderer_.DrawStringW(text, x, y, hintScale, hintColor);
     };
 
     const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
     drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
-    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + kHintLineHeight);
+    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + hintLineHeight);
 
     // 戻りポータルのラベル
     if (nearReturnPortal) {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
         SceneShared::WorldToScreen(kWarpRetX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
-        fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] トレーニングへ"), sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
+        fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] トレーニングへ"), sx - warpLabelOffset.x, sy - warpLabelOffset.y,
             hintScale, layout.Color("portal.label_color", kReturnLabelColor));
     }
 

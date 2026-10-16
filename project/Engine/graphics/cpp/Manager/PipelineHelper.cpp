@@ -3,6 +3,7 @@
  * @brief PipelineHelperの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
  */
 #include "PipelineHelper.h"
+#include <iterator>
 
 namespace engine::graphics::PipelineHelper {
 
@@ -80,36 +81,30 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature(
 
 D3D12_RENDER_TARGET_BLEND_DESC MakeBlendDesc(BlendMode mode)
 {
+    /** @brief ブレンドモード1つぶんの色の合成式 */
+    struct BlendFactors {
+        BOOL enable;
+        D3D12_BLEND src;
+        D3D12_BLEND dest;
+        D3D12_BLEND_OP op;
+    };
+    // BlendMode の並び順
+    static constexpr BlendFactors kBlendFactors[static_cast<size_t>(BlendMode::Count)] = {
+        { FALSE, D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD }, // None
+        { TRUE, D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_INV_SRC_ALPHA, D3D12_BLEND_OP_ADD }, // Alpha
+        { TRUE, D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_ONE, D3D12_BLEND_OP_ADD }, // Add
+        { TRUE, D3D12_BLEND_SRC_ALPHA, D3D12_BLEND_ONE, D3D12_BLEND_OP_REV_SUBTRACT }, // Subtract
+        { TRUE, D3D12_BLEND_DEST_COLOR, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD }, // Multiply
+    };
+    const size_t index = static_cast<size_t>(mode);
+    const BlendFactors& factors = kBlendFactors[index < std::size(kBlendFactors) ? index : 0];
+
     D3D12_RENDER_TARGET_BLEND_DESC blend { };
     blend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    blend.BlendEnable = TRUE;
-    switch (mode) {
-    case BlendMode::None:
-        blend.BlendEnable = FALSE;
-        break;
-    case BlendMode::Alpha:
-        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-        blend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-        blend.BlendOp = D3D12_BLEND_OP_ADD;
-        break;
-    case BlendMode::Add:
-        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-        blend.DestBlend = D3D12_BLEND_ONE;
-        blend.BlendOp = D3D12_BLEND_OP_ADD;
-        break;
-    case BlendMode::Subtract:
-        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-        blend.DestBlend = D3D12_BLEND_ONE;
-        blend.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
-        break;
-    case BlendMode::Multiply:
-        blend.SrcBlend = D3D12_BLEND_DEST_COLOR;
-        blend.DestBlend = D3D12_BLEND_ZERO;
-        blend.BlendOp = D3D12_BLEND_OP_ADD;
-        break;
-    default:
-        break;
-    }
+    blend.BlendEnable = factors.enable;
+    blend.SrcBlend = factors.src;
+    blend.DestBlend = factors.dest;
+    blend.BlendOp = factors.op;
     blend.SrcBlendAlpha = D3D12_BLEND_ONE;
     blend.DestBlendAlpha = D3D12_BLEND_ZERO;
     blend.BlendOpAlpha = D3D12_BLEND_OP_ADD;

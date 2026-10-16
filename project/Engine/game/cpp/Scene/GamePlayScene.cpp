@@ -204,6 +204,7 @@ void GamePlayScene::InitializeParticlesWaterAndHud()
     }
 
     fontRenderer_.Initialize(spriteCommon_.get());
+    stageIntro_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
 
@@ -348,13 +349,23 @@ void GamePlayScene::Update()
 
     // 一時停止中はHUDを出さないが、文字コマンドの破棄だけは毎フレーム行う
     // （破棄はふだんDrawStyleUI()が行うため、飛ばすとポーズ画面の文字が溜まり続けて上限を超えた分から消える）
-    if (pauseMenu_.Update(input_, !WeaponManager::GetInstance()->HasPendingWeapon())) {
+    const bool paused = pauseMenu_.Update(input_, !WeaponManager::GetInstance()->HasPendingWeapon());
+    // ポーズ中と開始演出の間は、配置物・敵の進行も止める（BaseScene が Update の後に配置物を更新するため）
+    GetStageEditor().SetGameplayHeld(paused || stageIntro_.IsPlaying());
+    if (paused) {
         fontRenderer_.Reset();
+        return;
+    }
+
+    if (stageIntro_.IsPlaying()) {
+        UpdateStageIntro();
         return;
     }
 
     UpdateWeaponExchange();
     if (WeaponManager::GetInstance()->HasPendingWeapon()) {
+        // 武器の入れ替えを選んでいる間もゲームは止まっているので、敵と仕掛けも待たせる
+        GetStageEditor().SetGameplayHeld(true);
         UpdateCamera();
         UpdateStyleAndUI(0.0f);
         return;
@@ -414,6 +425,49 @@ void GamePlayScene::Update()
     }
 
     CheckClearCondition();
+}
+
+void GamePlayScene::StartStageIntro()
+{
+    StageIntro::Setup setup;
+    setup.stageKey = GetEditorLevelPath();
+    // 開始位置は床より少し上に置かれていることがあるので、真下の床に立った位置へ降ろす
+    setup.landing = player_->FindStandingPosition(player_->GetPosition(), GetStageEditor().GetSolidColliders());
+    setup.hasBoss = enemy_ != nullptr;
+    // ステージ全体を見渡す時に収める範囲。高さはステージの上下の中央を映す（カメラ側で追従の高さ分を足すので引いておく）
+    const StageBounds bounds = GetStageBounds();
+    setup.stageLeft = bounds.left;
+    setup.stageRight = bounds.right;
+    setup.stageCenterY = (bounds.fromLevel ? (bounds.bottom + bounds.top) * 0.5f : setup.landing.y) - GameConstants::kCameraFollowOffsetY;
+    setup.stageHeight = bounds.fromLevel ? bounds.top - bounds.bottom : 0.0f;
+    if (enemy_ != nullptr) {
+        setup.bossFocus = enemy_->GetPosition();
+        // ボスを倒すと奪える武器（配置物に設定された武器種別）の名前と色を見せる
+        const auto& weapons = WeaponManager::GetInstance()->GetList();
+        const auto weapon = std::find_if(weapons.begin(), weapons.end(),
+            [this](const WeaponData& data) { return data.type == bossWeaponType_; });
+        if (weapon != weapons.end()) {
+            setup.weaponName = StringUtility::ConvertString(weapon->name) + L"  " + weapon->styleNameJp;
+            setup.weaponColor = { weapon->styleColor[0], weapon->styleColor[1], weapon->styleColor[2], 1.0f };
+        }
+    }
+    stageIntro_.Start(setup, { player_.get(), pm_, &cameraShaker_, &rng_ });
+    GetStageEditor().SetGameplayHeld(stageIntro_.IsPlaying());
+}
+
+void GamePlayScene::UpdateStageIntro()
+{
+    // HUDは出さず、演出の文字だけを積む（文字コマンドの破棄はふだんDrawStyleUI()が行うのでここで代わりに行う）
+    fontRenderer_.Reset();
+    stageIntro_.Update(input_);
+    UpdateCamera();
+    // 戦闘の更新を通らないので、カメラに付いていく空とプレイヤーの見た目はここで追従させる
+    skydome_->Update(camera_.get());
+    player_->RefreshVisualTransforms();
+    stageIntro_.QueueText(fontRenderer_);
+    if (!stageIntro_.IsPlaying()) {
+        GetStageEditor().SetGameplayHeld(false);
+    }
 }
 
 bool GamePlayScene::UpdateClearState()

@@ -3,11 +3,34 @@
  * @brief ImageFilterの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "ImageFilter.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "TextureManager.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// ブラーのカーネル範囲
+constexpr int kMaxBlurRadius = 8;
+constexpr int kBlurKernelSize = 17;
+constexpr float kMinGaussianSigma = 0.01f;
+constexpr float kGaussianRadiusScale = 3.0f;
+constexpr int kMaxRadialSamples = 128;
+constexpr int kMaxNoiseOctaves = 8;
+constexpr float kDefaultNoiseLacunarity = 2.0f;
+constexpr engine::Vector4 kDefaultOutlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+constexpr engine::Vector4 kDefaultDissolveColor = { 1.0f, 0.5f, 0.0f, 1.0f };
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -99,15 +122,18 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height)
 {
+    boxRadius_ = GraphicsTuning::Int("imageFilter.boxRadius", boxRadius_, 0, kMaxBlurRadius);
+    gaussianSigma_ = GraphicsTuning::Float("imageFilter.gaussianSigma", gaussianSigma_, kMinGaussianSigma);
+    noiseSpeed_ = GraphicsTuning::Float("noise.speed", noiseSpeed_);
     const float rw = 1.0f / float(width);
     const float rh = 1.0f / float(height);
 
     // ブラー用 CB（H と V の 2 スロット × 256 バイト = 512 バイト）
-    cbResource_ = dxCommon->CreateBufferResource(512);
+    cbResource_ = dxCommon->CreateBufferResource(2 * kConstantBufferAlignment);
     void* mapped = nullptr;
     cbResource_->Map(0, nullptr, &mapped);
     cbH_ = reinterpret_cast<FilterParams*>(mapped);
-    cbV_ = reinterpret_cast<FilterParams*>(reinterpret_cast<uint8_t*>(mapped) + 256);
+    cbV_ = reinterpret_cast<FilterParams*>(reinterpret_cast<uint8_t*>(mapped) + kConstantBufferAlignment);
     cbH_->texelSizeX = rw;
     cbH_->texelSizeY = rh;
     cbH_->dirX = 1.0f;
@@ -118,56 +144,58 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     cbV_->dirY = 1.0f;
 
     // アウトライン用 CB（1 スロット × 256 バイト）
-    outlineCbResource_ = dxCommon->CreateBufferResource(256);
+    outlineCbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     void* outlineMapped = nullptr;
     outlineCbResource_->Map(0, nullptr, &outlineMapped);
     outlineCb_ = reinterpret_cast<OutlineParams*>(outlineMapped);
     outlineCb_->texelSizeX = rw;
     outlineCb_->texelSizeY = rh;
-    outlineCb_->threshold = 0.05f;
-    outlineCb_->edgeStrength = 5.0f;
-    outlineCb_->outlineR = 0.0f;
-    outlineCb_->outlineG = 0.0f;
-    outlineCb_->outlineB = 0.0f;
-    outlineCb_->outlineA = 1.0f;
-    outlineCb_->depthScale = 100.0f;
+    outlineCb_->threshold = GraphicsTuning::Float("outline.threshold", kDefaultOutlineThreshold);
+    outlineCb_->edgeStrength = GraphicsTuning::Float("outline.strength", kDefaultOutlineStrength);
+    const Vector4 outlineColor = GraphicsTuning::Color("outline.color", kDefaultOutlineColor);
+    outlineCb_->outlineR = outlineColor.x;
+    outlineCb_->outlineG = outlineColor.y;
+    outlineCb_->outlineB = outlineColor.z;
+    outlineCb_->outlineA = outlineColor.w;
+    outlineCb_->depthScale = GraphicsTuning::Float("outline.depthScale", kDefaultDepthScale);
 
     // ラジアルブラー用 CB（1 スロット × 256 バイト）
-    radialBlurCbResource_ = dxCommon->CreateBufferResource(256);
+    radialBlurCbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     void* radialMapped = nullptr;
     radialBlurCbResource_->Map(0, nullptr, &radialMapped);
     radialBlurCb_ = reinterpret_cast<RadialBlurParams*>(radialMapped);
-    radialBlurCb_->centerX = 0.5f;
-    radialBlurCb_->centerY = 0.5f;
-    radialBlurCb_->strength = 0.1f;
-    radialBlurCb_->sampleCount = 16;
+    radialBlurCb_->centerX = GraphicsTuning::Float("radialBlur.centerX", 0.5f, 0.0f, 1.0f);
+    radialBlurCb_->centerY = GraphicsTuning::Float("radialBlur.centerY", 0.5f, 0.0f, 1.0f);
+    radialBlurCb_->strength = GraphicsTuning::Float("radialBlur.strength", kDefaultRadialStrength);
+    radialBlurCb_->sampleCount = GraphicsTuning::Int("radialBlur.sampleCount", kDefaultRadialSampleCount, 1, kMaxRadialSamples);
 
     // ディゾルブ用 CB（1 スロット × 256 バイト）
     // ノイズマスクは Apply() の初回 Dissolve 呼び出し時に遅延ロードする
-    dissolveCbResource_ = dxCommon->CreateBufferResource(256);
+    dissolveCbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     void* dissolveMapped = nullptr;
     dissolveCbResource_->Map(0, nullptr, &dissolveMapped);
     dissolveCb_ = reinterpret_cast<DissolveParams*>(dissolveMapped);
-    dissolveCb_->threshold = 0.0f;
-    dissolveCb_->edgeWidth = 0.05f;
-    dissolveCb_->edgeR = 1.0f;
-    dissolveCb_->edgeG = 0.5f;
-    dissolveCb_->edgeB = 0.0f;
-    dissolveCb_->edgeA = 1.0f;
+    dissolveCb_->threshold = GraphicsTuning::Float("dissolve.threshold", 0.0f, 0.0f, 1.0f);
+    dissolveCb_->edgeWidth = GraphicsTuning::Positive("dissolve.edgeWidth", kDefaultDissolveEdgeWidth);
+    const Vector4 dissolveColor = GraphicsTuning::Color("dissolve.edgeColor", kDefaultDissolveColor);
+    dissolveCb_->edgeR = dissolveColor.x;
+    dissolveCb_->edgeG = dissolveColor.y;
+    dissolveCb_->edgeB = dissolveColor.z;
+    dissolveCb_->edgeA = dissolveColor.w;
 
     // プロシージャルノイズ用 CB（1 スロット × 256 バイト）
-    noiseGenCbResource_ = dxCommon->CreateBufferResource(256);
+    noiseGenCbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     void* noiseGenMapped = nullptr;
     noiseGenCbResource_->Map(0, nullptr, &noiseGenMapped);
     noiseGenCb_ = reinterpret_cast<NoiseGenParams*>(noiseGenMapped);
-    noiseGenCb_->scaleX = 4.0f;
-    noiseGenCb_->scaleY = 4.0f;
+    noiseGenCb_->scaleX = GraphicsTuning::Positive("noise.scaleX", kDefaultNoiseScale);
+    noiseGenCb_->scaleY = GraphicsTuning::Positive("noise.scaleY", kDefaultNoiseScale);
     noiseGenCb_->seed = 0.0f;
-    noiseGenCb_->octaves = 4;
-    noiseGenCb_->persistence = 0.5f;
-    noiseGenCb_->lacunarity = 2.0f;
+    noiseGenCb_->octaves = GraphicsTuning::Int("noise.octaves", kDefaultNoiseOctaves, 1, kMaxNoiseOctaves);
+    noiseGenCb_->persistence = GraphicsTuning::Float("noise.persistence", 0.5f, 0.0f, 1.0f);
+    noiseGenCb_->lacunarity = GraphicsTuning::Positive("noise.lacunarity", kDefaultNoiseLacunarity);
     noiseGenCb_->colorMode = 0;
-    noiseGenCb_->opacity = 1.0f;
+    noiseGenCb_->opacity = GraphicsTuning::Float("noise.opacity", 1.0f, 0.0f, 1.0f);
 }
 
 // InitRootSignatures  ブラー用・アウトライン用 Root Signature 作成
@@ -411,7 +439,7 @@ void ImageFilter::PrewittEdgeFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->RSSetScissorRects(1, &scissor);
     cmd->SetGraphicsRootConstantBufferView(0, filter.outlineCbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
@@ -431,7 +459,7 @@ void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12Graph
     cmd->SetGraphicsRootConstantBufferView(0, filter.outlineCbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
     cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(filter.depthSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
     DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -449,7 +477,7 @@ void ImageFilter::RadialBlurFilterMode::Apply(ImageFilter& filter, ID3D12Graphic
     cmd->RSSetScissorRects(1, &scissor);
     cmd->SetGraphicsRootConstantBufferView(0, filter.radialBlurCbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
@@ -473,7 +501,7 @@ void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
     cmd->SetGraphicsRootConstantBufferView(0, filter.dissolveCbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
     cmd->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(maskSrv));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
@@ -494,7 +522,7 @@ void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
     cmd->RSSetScissorRects(1, &scissor);
     cmd->SetGraphicsRootConstantBufferView(0, filter.noiseGenCbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
@@ -519,7 +547,7 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->RSSetScissorRects(1, &internalScissor);
     cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress());
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
     DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -529,9 +557,9 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
     cmd->RSSetViewports(1, &vp);
     cmd->RSSetScissorRects(1, &scissor);
-    cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress() + 256);
+    cmd->SetGraphicsRootConstantBufferView(0, filter.cbResource_->GetGPUVirtualAddress() + kConstantBufferAlignment);
     cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(filter.intermediateSrvIndex_));
-    cmd->DrawInstanced(3, 1, 0, 0);
+    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 }
 
 // ══════════════════════════════════════════════════════
@@ -546,20 +574,18 @@ const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode)
     static RadialBlurFilterMode radialBlur;
     static DissolveFilterMode dissolve;
     static NoiseGenFilterMode noiseGen;
-    switch (mode) {
-    case Mode::PrewittEdge:
-        return prewittEdge;
-    case Mode::DepthOutline:
-        return depthOutline;
-    case Mode::RadialBlur:
-        return radialBlur;
-    case Mode::Dissolve:
-        return dissolve;
-    case Mode::NoiseGen:
-        return noiseGen;
-    default:
-        return boxGaussian; // Box / Gaussian
-    }
+    // Mode の並び順（Box と Gaussian はカーネルの重みが違うだけで同じ2パス処理）
+    static const IFilterMode* const kModes[] = {
+        &boxGaussian, // Box
+        &boxGaussian, // Gaussian
+        &prewittEdge, // PrewittEdge
+        &depthOutline, // DepthOutline
+        &radialBlur, // RadialBlur
+        &dissolve, // Dissolve
+        &noiseGen, // NoiseGen
+    };
+    const size_t index = static_cast<size_t>(mode);
+    return index < std::size(kModes) ? *kModes[index] : boxGaussian;
 }
 
 // カーネル重みの計算（Box / Gaussian のみ）
@@ -569,23 +595,23 @@ void ImageFilter::RebuildKernel()
     if (!cbH_) {
         return;
     }
-    if (mode_ == Mode::PrewittEdge || mode_ == Mode::DepthOutline || mode_ == Mode::RadialBlur || mode_ == Mode::Dissolve || mode_ == Mode::NoiseGen) {
+    if (!GetFilterMode(mode_).UsesBlurKernel()) {
         return;
     }
 
     int r = 1;
-    float weights[17] = { };
+    float weights[kBlurKernelSize] = { };
 
     if (mode_ == Mode::Box) {
-        r = std::clamp(boxRadius_, 0, 8);
+        r = std::clamp(boxRadius_, 0, kMaxBlurRadius);
         float w = (r == 0) ? 1.0f : 1.0f / float(2 * r + 1);
         for (int i = 0; i <= 2 * r; ++i) {
             weights[i] = w;
         }
 
     } else { // Gaussian
-        float sigma = (std::max)(gaussianSigma_, 0.01f);
-        r = std::clamp(static_cast<int>(sigma * 3.0f), 1, 8);
+        float sigma = (std::max)(gaussianSigma_, kMinGaussianSigma);
+        r = std::clamp(static_cast<int>(sigma * kGaussianRadiusScale), 1, kMaxBlurRadius);
         float s2 = 2.0f * sigma * sigma;
         float total = 0.0f;
         for (int i = 0; i <= 2 * r; ++i) {

@@ -3,6 +3,7 @@
  * @brief WeaponTrailEffectの軌跡サンプルの管理、Catmull-Rom補間による帯の生成、描画を実装するファイル
  */
 #include "WeaponTrailEffect.h"
+#include "GraphicsTuning.h"
 #include "Camera.h"
 #include "EngineAssert.h"
 #include <algorithm>
@@ -32,6 +33,10 @@ void WeaponTrailEffect::Initialize(DirectXCommon* dxCommon)
 {
     ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
+    style_.tipColor = GraphicsTuning::Color("weaponTrail.tipColor", style_.tipColor);
+    style_.baseColor = GraphicsTuning::Color("weaponTrail.baseColor", style_.baseColor);
+    style_.lifetime = GraphicsTuning::Float("weaponTrail.lifetime", style_.lifetime, kMinLifetime);
+    style_.subdivisions = GraphicsTuning::Int("weaponTrail.subdivisions", style_.subdivisions, 1, kMaxSubdivisions);
 
     sceneCB_ = dxCommon_->CreateBufferResource(sizeof(SceneCB));
     sceneCB_->Map(0, nullptr, reinterpret_cast<void**>(&sceneCBData_));

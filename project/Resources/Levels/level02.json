@@ -81,7 +81,7 @@
     },
     {
       "name": "upper_flying", "type": "static", "kind": "enemy_basic",
-      "position": [23.0, 7.4, 0.0], "spawnType": "flying", "weaponType": "Spear", "enemyGroup": "s2_upper"
+      "position": [23.0, 7.4, 0.0], "spawnType": "flying", "weaponType": "", "enemyModel": "Bat", "enemyGroup": "s2_upper"
     },
     {
       "name": "upper_bat", "type": "static", "kind": "enemy_basic",

@@ -53,11 +53,13 @@ public:
      * @note 名前を見るのはここだけで、以降の振る舞いの違いは性格クラスに任せる（未知の名前はbasic扱い）
      */
     void SetArchetype(const std::string& archetype);
+    /** @brief 性格名（レベルJSONの spawnType）が空を飛ぶ性格か（エディタの配置チェック用） */
+    static bool IsFlyingArchetype(const std::string& archetype);
     /**
      * @brief 近接で殴ってくる敵か（槍とボールは投擲＝遠隔扱い）
      * @note 近接敵は間合いに入るまで攻撃を始めず、発生時は自分の前方だけに判定を出す（GamePlayScene側）
      */
-    bool IsMeleeAttacker() const { return weaponType_ != WeaponType::Spear && weaponType_ != WeaponType::Ball; }
+    bool IsMeleeAttacker() const;
     /** @brief 周りの味方を回復する回復役か */
     bool IsHealer() const { return archetype_->HealsAllies(); }
     /** @brief 持ち場の高さで浮遊し続ける飛行型か */
@@ -140,13 +142,7 @@ public:
     bool IsTelegraphing() const { return attackState_->IsTelegraph() && !defeated_ && !isLaunched_; }
 
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
-    int GetAttackDamage() const
-    {
-        const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
-        return (weaponType_ == WeaponType::Hammer || weaponType_ == WeaponType::Axe)
-            ? tuning.heavyAttackDamage
-            : tuning.attackDamage;
-    }
+    int GetAttackDamage() const;
 
     /**
      * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
@@ -201,6 +197,7 @@ public:
         weaponDropped_ = false;
         homeRunSpinTimer_ = 0.0f;
         defeated_ = false;
+        corpseFallStarted_ = false;
         if (object_) {
             object_->SetAnimSpeed(1.0f);
         }
@@ -219,6 +216,20 @@ public:
     }
 
     /**
+     * @brief AIを止めている間（ポーズ・開始演出など）も、向きだけは指定したX座標の方へ合わせる
+     * @note 向きはふだん Update() の中でしか決めないため、一度も動かさないと初期の向き（奥行き方向）のままになる
+     */
+    void FaceTowardX(float targetX);
+
+    /** @brief 倒れた後、まだ床まで落とし始めていないか（StageEditor が真下の床を探して DropCorpseTo() を呼ぶ） */
+    bool NeedsCorpseFloor() const { return defeated_ && !corpseFallStarted_; }
+    /**
+     * @brief 倒れた体を指定した高さまで重力で落とす（宙で倒れた敵が浮いたまま止まらないように）
+     * @param floorY 落ち着く位置のY（床の上面に足元を合わせた高さ）
+     */
+    void DropCorpseTo(float floorY);
+
+    /**
      * @brief 位置だけ再計算する（AI/物理は一切進めない、StageEditor等が外部からpos_を書き換えた後の追従用）
      */
     void RefreshVisualTransforms() override
@@ -230,6 +241,7 @@ public:
 
     /** @brief 撃破済みかどうかを返す */
     bool IsDefeated() const { return defeated_; }
+    bool BlocksOtherEnemies() const override { return !defeated_; }
     /** @brief 現在の HP を返す */
     int GetHp() const override { return hp_; }
     /** @brief 最大 HP を返す */
@@ -258,6 +270,7 @@ private:
     // ここに残す定数は見た目（装備の位置・傾き・被弾リアクションの倍率）だけ
 
     // 装備ビジュアル（武器の見た目スケール・本体からのオフセット・傾き）
+    static constexpr Vector3 kDefaultWeaponScale_ = { 0.14f, 0.14f, 0.14f };
     static constexpr Vector3 kSpearWeaponScale_ = { 0.11f, 0.11f, 0.22f };
     static constexpr Vector3 kHeavyWeaponScale_ = { 0.16f, 0.16f, 0.16f }; // Hammer/Axe
     static constexpr float kWeaponOffsetX_ = 0.35f; // 本体から向いている方向へのオフセット
@@ -374,7 +387,7 @@ private:
     VisualAnim animationState_ = VisualAnim::Attack;
     Model* weaponModel_ = nullptr;
     std::unique_ptr<Object3d> weaponObject_;
-    Vector3 weaponScale_ { 0.14f, 0.14f, 0.14f };
+    Vector3 weaponScale_ = kDefaultWeaponScale_;
 
     int maxHp_ = 20;
     int hp_ = 20;
@@ -389,6 +402,7 @@ private:
     float facingSign_ = -1.0f; ///< 現在向いている方向(+1=+X向き/-1=-X向き)。Update()毎にプレイヤー位置から再計算する
     float velY_ = 0.0f;
     bool isLaunched_ = false;
+    bool corpseFallStarted_ = false; ///< 倒れた体を床へ落とし始めたか（DropCorpseTo() を一度だけ受け付ける）
     bool justLanded_ = false;
     float launchOriginY_ = 0.0f; ///< 打ち上げ直前のpos_.y（着地時にここへ戻す。Launch()の最初の呼び出しでだけ更新する）
     WeaponType weaponType_ = WeaponType::Sword;

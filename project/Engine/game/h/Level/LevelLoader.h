@@ -5,8 +5,10 @@
 #pragma once
 #include "MakeAffine.h"
 #include "ObjectKind.h"
+#include <iterator>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace engine::graphics {
@@ -36,6 +38,37 @@ inline constexpr const char* kPlacementTypeNames[] = { "static", "row" };
 inline constexpr const char* kMotionModeNames[] = { "loop", "pingpong", "once" };
 inline constexpr const char* kMotionEaseNames[] = { "linear", "smooth" };
 inline constexpr const char* kTextSpaceNames[] = { "screen", "world" };
+
+/** @brief spawn_point が出す敵の種類（name は JSON の spawnType の値。敵の性格名としてそのまま EnemyEntity へ渡す） */
+struct SpawnTypeDef {
+    const char* name;
+    const char* label; ///< エディタでの表示名
+    bool knight; ///< ナイトの実体を作るか（false なら一般敵）
+};
+inline constexpr SpawnTypeDef kSpawnTypes[] = {
+    { "basic", "汎用エネミー", false },
+    { "knight", "ナイト", true },
+};
+/** @brief spawnType の文字列から kSpawnTypes の添字を引く（無ければ -1） */
+inline int FindSpawnTypeIndex(std::string_view name)
+{
+    for (int i = 0; i < static_cast<int>(std::size(kSpawnTypes)); ++i) {
+        if (name == kSpawnTypes[i].name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/** @brief event_condition が成立した時に立てる GameFlags の接頭辞（後ろに条件の名前が付く） */
+inline constexpr std::string_view kConditionFlagPrefix = "condition_";
+/** @brief 条件の名前から、成立時に立つフラグ名を作る */
+inline std::string ConditionFlagName(const std::string& conditionName)
+{
+    return std::string(kConditionFlagPrefix) + conditionName;
+}
+/** @brief 親をたどる深さの上限（循環参照で止まらなくならないように） */
+inline constexpr int kMaxParentDepth = 16;
 
 /**
  * @brief レベルJSONの文字列を enum へ変換する

@@ -158,14 +158,10 @@ void GraphEditor::DeleteNode(const std::string& id)
         graph_.startNodeId.clear();
     }
     for (auto& [otherId, node] : graph_.nodes) {
-        if (node.next == id) {
-            node.next.clear();
-        }
-        if (node.nextTrue == id) {
-            node.nextTrue.clear();
-        }
-        if (node.nextFalse == id) {
-            node.nextFalse.clear();
+        for (const ExecPinDef& pin : kExecPins) {
+            if (node.*pin.target == id) {
+                (node.*pin.target).clear();
+            }
         }
         // 削除したノードを供給元にしているデータ配線も切る
         for (auto it = node.paramLinks.begin(); it != node.paramLinks.end();) {
@@ -224,10 +220,11 @@ void GraphEditor::ArrangeNodes()
         }
 
         std::vector<std::string> nexts;
-        if (node->type == "If") {
-            nexts = { node->nextTrue, node->nextFalse };
-        } else {
-            nexts = { node->next };
+        const bool branches = NodeRegistry::GetInstance()->IsBranchType(node->type);
+        for (const ExecPinDef& pin : kExecPins) {
+            if (pin.branch == branches) {
+                nexts.push_back(node->*pin.target);
+            }
         }
 
         for (const std::string& n : nexts) {

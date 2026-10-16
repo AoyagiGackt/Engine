@@ -10,6 +10,17 @@
 #include <imgui.h>
 #endif
 
+namespace {
+
+// GPU時間の単位と表示レイアウト
+constexpr unsigned int kMillisecondsPerSecond = 1000u;
+constexpr int kProfilerWindowWidth = 230;
+constexpr int kProfilerWindowHeight = 130;
+constexpr int kProfilerWindowX = 10;
+constexpr int kProfilerWindowY = 580;
+
+}
+
 namespace engine::graphics {
 using engine::DirectXCommon;
 
@@ -96,7 +107,7 @@ void GpuProfiler::ReadBack()
         UINT64 begin = data[static_cast<size_t>(i) * 2];
         UINT64 end = data[static_cast<size_t>(i) * 2 + 1];
         results_[static_cast<size_t>(i)] = (end >= begin)
-            ? static_cast<float>((end - begin) * 1000u) / static_cast<float>(gpuFreq_)
+            ? static_cast<float>((end - begin) * kMillisecondsPerSecond) / static_cast<float>(gpuFreq_)
             : 0.0f;
     }
 
@@ -108,8 +119,8 @@ void GpuProfiler::DrawImGui()
 {
 #ifdef USE_IMGUI
     auto* cpu = FrameProfiler::GetInstance();
-    ImGui::SetNextWindowSize(ImVec2(230, 130), ImGuiCond_Once);
-    ImGui::SetNextWindowPos(ImVec2(10, 580), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(kProfilerWindowWidth, kProfilerWindowHeight), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(kProfilerWindowX, kProfilerWindowY), ImGuiCond_Once);
     if (ImGui::Begin("Profiler")) {
         ImGui::Text("CPU  %.2f ms  (%.1f FPS)", cpu->GetMs(), cpu->GetFPS());
         ImGui::Separator();

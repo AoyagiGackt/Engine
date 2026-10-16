@@ -89,12 +89,16 @@ void GamePlayScene::OnEditorLevelLoaded()
         }
         enemy_ = ref.enemy;
         bossWeaponType_ = ref.weaponType;
-        int maxHp = rules.bossHpCombat;
-        if (runData->GetCurrentNode() == RunData::NodeType::Elite) {
-            maxHp = rules.bossHpElite;
-        } else if (runData->GetCurrentNode() == RunData::NodeType::Boss) {
-            maxHp = rules.bossHpBoss;
-        }
+        // NodeType の並び順に、そのマスのボスが使うHPの項目（戦闘マス以外は通常戦闘と同じ）
+        static constexpr int GameRulesData::* kBossHpByNode[] = {
+            &GameRulesData::bossHpCombat, // Combat
+            &GameRulesData::bossHpElite, // Elite
+            &GameRulesData::bossHpCombat, // Shop
+            &GameRulesData::bossHpCombat, // Rest
+            &GameRulesData::bossHpBoss, // Boss
+        };
+        const size_t nodeIndex = static_cast<size_t>(runData->GetCurrentNode());
+        const int maxHp = rules.*kBossHpByNode[nodeIndex < std::size(kBossHpByNode) ? nodeIndex : 0];
         if (runData->IsRunActive()) {
             enemy_->SetMaxHp(maxHp);
         }
@@ -106,6 +110,11 @@ void GamePlayScene::OnEditorLevelLoaded()
     }
 
     SyncCombatEnemies();
+
+    if (!stageIntroStarted_) {
+        stageIntroStarted_ = true;
+        StartStageIntro();
+    }
 }
 
 void GamePlayScene::SyncCombatEnemies()

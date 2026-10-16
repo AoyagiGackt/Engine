@@ -62,6 +62,10 @@ namespace GameConstants {
     inline constexpr float kFinisherChargeDelay = 0.30f; // 発動から最初の斬撃までの溜め（秒）
     inline constexpr float kFinisherLineInterval = 0.045f; // 斬撃線の出現間隔（秒）
     inline constexpr float kFinisherImpactDelay = 0.35f; // 最後の斬撃線から解放までの溜め（秒）
+    // 発動から解放までの静止集中の長さ（プレイヤーの溜めと、シーン側の斬撃線バラマキ演出で共有する）
+    inline constexpr float kFinisherChargeDuration = kFinisherChargeDelay
+        + kFinisherSlashLines * kFinisherLineInterval
+        + kFinisherImpactDelay;
     inline constexpr float kFinisherOverlayAlpha = 0.60f; // 演出中の画面暗転の濃さ
 }
 } // namespace engine

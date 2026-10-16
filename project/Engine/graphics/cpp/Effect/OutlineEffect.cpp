@@ -4,6 +4,13 @@
  */
 #include "OutlineEffect.h"
 #include "EngineAssert.h"
+
+namespace {
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -103,7 +110,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // 定数バッファ（アウトライン色と幅）
 
     // 256 バイト確保するのは CBV が 256 バイトアライメント必須のため
-    cbResource_ = dxCommon->CreateBufferResource(256);
+    cbResource_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     cbResource_->Map(0, nullptr, reinterpret_cast<void**>(&cbData_));
     *cbData_ = OutlineParams { }; // デフォルト値で初期化（黒、幅 0.02）
 }

@@ -342,11 +342,11 @@ void GraphEditor::DrawLinks(ImDrawList* dl)
     };
 
     for (const auto& [id, node] : graph_.nodes) {
-        if (node.type == "If") {
-            drawLink(id, "true", node.nextTrue);
-            drawLink(id, "false", node.nextFalse);
-        } else {
-            drawLink(id, "next", node.next);
+        const bool branches = NodeRegistry::GetInstance()->IsBranchType(node.type);
+        for (const ExecPinDef& pin : kExecPins) {
+            if (pin.branch == branches) {
+                drawLink(id, pin.name, node.*pin.target);
+            }
         }
     }
 }

@@ -14,6 +14,16 @@
 #include "SrvManager.h"
 #include "TextureManager.h"
 #include <cmath>
+
+namespace {
+
+// マテリアルの初期値
+constexpr engine::graphics::ObjectMaterialLayout kDefaultMaterial {};
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -57,7 +67,7 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     D3D12_RESOURCE_DESC resDesc { };
     resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     // CBV は 256 バイトアライン必須なので切り上げる
-    resDesc.Width = (sizeof(TransformationMatrix) + 255) & ~255u;
+    resDesc.Width = (sizeof(TransformationMatrix) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
     resDesc.Height = 1;
     resDesc.DepthOrArraySize = 1;
     resDesc.MipLevels = 1;
@@ -82,11 +92,11 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     materialData_->useTexture = 1; // デフォルトはテクスチャあり
     materialData_->uvTransform = MakeIdentity4x4();
     materialData_->specularColor = { 1.0f, 1.0f, 1.0f }; // 白いハイライト
-    materialData_->shininess = 32.0f; // ほどよい光沢
+    materialData_->shininess = kDefaultMaterial.shininess; // ほどよい光沢
     materialData_->cameraWorldPos = { 0.0f, 0.0f, 0.0f };
     materialData_->envMapIntensity = 0.0f;
     materialData_->rimColor = { 1.0f, 1.0f, 1.0f };
-    materialData_->rimPower = 3.0f;
+    materialData_->rimPower = kDefaultMaterial.rimPower;
     materialData_->rimIntensity = 0.0f;
     materialData_->enableRim = 0;
     materialData_->useNormalMap = 0;

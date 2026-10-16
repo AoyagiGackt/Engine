@@ -185,8 +185,8 @@ std::vector<std::string> StageEditor::ValidateLevel() const
             bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
                 return trigger.GetDesc().flag == desc.activationFlag;
             });
-            if (!sourceExists && desc.activationFlag.starts_with("condition_")) {
-                const std::string conditionName = desc.activationFlag.substr(10);
+            if (!sourceExists && desc.activationFlag.starts_with(kConditionFlagPrefix)) {
+                const std::string conditionName = desc.activationFlag.substr(kConditionFlagPrefix.size());
                 sourceExists = std::any_of(objects_.begin(), objects_.end(), [&](const ObjectEntry& condition) {
                     return condition.desc.kind == ObjectKindName::kEventCondition && condition.desc.name == conditionName;
                 });

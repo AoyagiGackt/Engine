@@ -34,10 +34,28 @@ namespace {
 constexpr const char* kDebugStartupPath = "Resources/Config/debug_startup.json";
 // cook時に素材を記録するため一度ずつ開く画面（ランを始めずに開けるもの。MAP/GAMEPLAYはフロアごとに別途開く）
 constexpr const char* kCookScenesWithoutRun[] = { "TITLE", "OPTIONS", "TRAINING", "BATTLETEST", "GAMEOVER", "CLEAR" };
-constexpr std::array<const char*, 6> kDebugStartScenes = { "TITLE", "MAP", "GAMEPLAY", "TRAINING", "BATTLETEST", "OPTIONS" };
+// Debug でエディターから選べる開始シーン（startsRun はラン中でないと開けない画面）
+struct DebugStartScene {
+    const char* name;
+    bool startsRun;
+};
+constexpr DebugStartScene kDebugStartScenes[] = {
+    { "TITLE", false },
+    { "MAP", true },
+    { "GAMEPLAY", true },
+    { "TRAINING", false },
+    { "BATTLETEST", false },
+    { "OPTIONS", false },
+};
+const DebugStartScene* FindDebugStartScene(const std::string& scene)
+{
+    const auto found = std::find_if(std::begin(kDebugStartScenes), std::end(kDebugStartScenes),
+        [&scene](const DebugStartScene& entry) { return scene == entry.name; });
+    return found != std::end(kDebugStartScenes) ? &*found : nullptr;
+}
 bool IsDebugStartScene(const std::string& scene)
 {
-    return std::find(kDebugStartScenes.begin(), kDebugStartScenes.end(), scene) != kDebugStartScenes.end();
+    return FindDebugStartScene(scene) != nullptr;
 }
 }
 
@@ -71,7 +89,7 @@ void SceneManager::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
         if (IsDebugStartScene(candidate)) { startupScene = candidate; }
     }
     debugStartScene_ = startupScene;
-    if (startupScene == "MAP" || startupScene == "GAMEPLAY") {
+    if (const DebugStartScene* start = FindDebugStartScene(startupScene); start != nullptr && start->startsRun) {
         RunData::GetInstance()->StartNewRun();
     }
 #endif

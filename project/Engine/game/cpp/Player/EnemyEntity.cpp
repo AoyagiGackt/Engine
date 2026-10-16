@@ -7,6 +7,7 @@
 #include "GravityBody.h"
 #include "ModelManager.h"
 #include "TimeManager.h"
+#include <iterator>
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -35,6 +36,36 @@ constexpr MonsterVisualDef kMonsterVisuals[] = {
     { "Skeleton", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Skeleton_Palette.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SkeletonPalette.png", 0.215f, 0.0f },
 };
 
+/** @brief 敵が持つ武器種ごとの攻撃の性質（時間とダメージは EnemyTuning のどの項目を使うか） */
+struct EnemyAttackProfile {
+    bool melee; ///< 近接で殴るか（false なら投擲＝遠隔）
+    float BasicEnemyTuning::* telegraph; ///< 予備動作の長さ
+    float BasicEnemyTuning::* recovery; ///< 攻撃後の隙
+    int BasicEnemyTuning::* damage; ///< 与えるダメージ
+};
+constexpr EnemyAttackProfile kStandardAttack = { true, &BasicEnemyTuning::attackTelegraph, &BasicEnemyTuning::attackInterval, &BasicEnemyTuning::attackDamage };
+constexpr EnemyAttackProfile kDaggerAttack = { true, &BasicEnemyTuning::daggerTelegraph, &BasicEnemyTuning::daggerRecovery, &BasicEnemyTuning::attackDamage };
+constexpr EnemyAttackProfile kSpearAttack = { false, &BasicEnemyTuning::spearTelegraph, &BasicEnemyTuning::spearRecovery, &BasicEnemyTuning::attackDamage };
+constexpr EnemyAttackProfile kHeavyAttack = { true, &BasicEnemyTuning::heavyTelegraph, &BasicEnemyTuning::heavyRecovery, &BasicEnemyTuning::heavyAttackDamage };
+constexpr EnemyAttackProfile kThrowAttack = { false, &BasicEnemyTuning::attackTelegraph, &BasicEnemyTuning::attackInterval, &BasicEnemyTuning::attackDamage };
+// WeaponType の並び順
+constexpr EnemyAttackProfile kAttackProfiles[] = {
+    kStandardAttack, // Sword
+    kSpearAttack, // Spear
+    kHeavyAttack, // Hammer
+    kDaggerAttack, // Dagger
+    kThrowAttack, // Ball
+    kStandardAttack, // Greatsword
+    kStandardAttack, // Scythe
+    kHeavyAttack, // Axe
+};
+
+const EnemyAttackProfile& AttackProfileOf(WeaponType type)
+{
+    const size_t index = static_cast<size_t>(type);
+    return index < std::size(kAttackProfiles) ? kAttackProfiles[index] : kStandardAttack;
+}
+
 const MonsterVisualDef* FindMonsterVisual(const std::string& kind)
 {
     for (const MonsterVisualDef& def : kMonsterVisuals) {
@@ -50,6 +81,16 @@ EnemyEntity::EnemyEntity()
     : archetype_(&FindArchetype("basic"))
 {
     ResetAttackState();
+}
+
+bool EnemyEntity::IsMeleeAttacker() const
+{
+    return AttackProfileOf(weaponType_).melee;
+}
+
+int EnemyEntity::GetAttackDamage() const
+{
+    return EnemyTuning::GetInstance()->Basic().*AttackProfileOf(weaponType_).damage;
 }
 
 //  Archetype（敵の性格）
@@ -89,6 +130,11 @@ const EnemyEntity::IArchetype& EnemyEntity::FindArchetype(const std::string& nam
         }
     }
     return basic;
+}
+
+bool EnemyEntity::IsFlyingArchetype(const std::string& archetype)
+{
+    return FindArchetype(archetype).Hovers();
 }
 
 void EnemyEntity::SetArchetype(const std::string& archetype)
@@ -135,18 +181,29 @@ void EnemyEntity::Initialize(ModelCommon* modelCommon, const Vector3& startPos, 
     object_->SetPosition(pos_);
     object_->Update();
 
-    const char* weaponPath = "Resources/Knight/OBJ/Sword.obj";
-    const char* weaponTexture = "Resources/Knight/OBJ/SwordPalette.png";
-    if (weaponType == WeaponType::Spear) {
-        weaponPath = "Resources/Knight/OBJ/Katana.obj";
-        weaponTexture = "Resources/Knight/OBJ/KatanaPalette.png";
-        weaponScale_ = kSpearWeaponScale_;
-    } else if (weaponType == WeaponType::Hammer || weaponType == WeaponType::Axe) {
-        weaponPath = "Resources/Knight/OBJ/Club.obj";
-        weaponTexture = "Resources/Knight/OBJ/KnightCharacterPalette.png";
-        weaponScale_ = kHeavyWeaponScale_;
-    }
-    weaponModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon, weaponPath, weaponTexture);
+    // WeaponType の並び順に、手に持たせる武器の見た目
+    struct HeldWeaponVisual {
+        const char* model;
+        const char* texture;
+        Vector3 scale;
+    };
+    static constexpr HeldWeaponVisual kSword = { "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", kDefaultWeaponScale_ };
+    static constexpr HeldWeaponVisual kKatana = { "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", kSpearWeaponScale_ };
+    static constexpr HeldWeaponVisual kClub = { "Resources/Knight/OBJ/Club.obj", "Resources/Knight/OBJ/KnightCharacterPalette.png", kHeavyWeaponScale_ };
+    static constexpr HeldWeaponVisual kHeldWeapons[] = {
+        kSword, // Sword
+        kKatana, // Spear
+        kClub, // Hammer
+        kSword, // Dagger
+        kSword, // Ball
+        kSword, // Greatsword
+        kSword, // Scythe
+        kClub, // Axe
+    };
+    const size_t weaponIndex = static_cast<size_t>(weaponType);
+    const HeldWeaponVisual& visual = weaponIndex < std::size(kHeldWeapons) ? kHeldWeapons[weaponIndex] : kSword;
+    weaponScale_ = visual.scale;
+    weaponModel_ = ModelManager::GetInstance()->GetOrLoad(modelCommon, visual.model, visual.texture);
     weaponObject_ = std::make_unique<Object3d>();
     weaponObject_->Initialize(modelCommon);
     weaponObject_->SetModel(weaponModel_);
@@ -352,13 +409,9 @@ void EnemyEntity::IdleAttackState::Advance(EnemyEntity& enemy, const BasicEnemyT
         enemy.attackTimer_ = 0.0f;
         return;
     }
-    const WeaponType type = enemy.weaponType_;
     enemy.attackState_ = &AttackStateOf<TelegraphAttackState>();
     enemy.justStartedTelegraph_ = true;
-    enemy.attackTimer_ = type == WeaponType::Dagger                     ? tuning.daggerTelegraph
-        : type == WeaponType::Spear                                     ? tuning.spearTelegraph
-        : (type == WeaponType::Hammer || type == WeaponType::Axe)       ? tuning.heavyTelegraph
-                                                                        : tuning.attackTelegraph;
+    enemy.attackTimer_ = tuning.*AttackProfileOf(enemy.weaponType_).telegraph;
 }
 
 void EnemyEntity::TelegraphAttackState::Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float) const
@@ -370,12 +423,8 @@ void EnemyEntity::TelegraphAttackState::Advance(EnemyEntity& enemy, const BasicE
 
 void EnemyEntity::ActiveAttackState::Advance(EnemyEntity& enemy, const BasicEnemyTuning& tuning, float) const
 {
-    const WeaponType type = enemy.weaponType_;
     enemy.attackState_ = &AttackStateOf<IdleAttackState>();
-    enemy.attackTimer_ = type == WeaponType::Dagger                     ? tuning.daggerRecovery
-        : type == WeaponType::Spear                                     ? tuning.spearRecovery
-        : (type == WeaponType::Hammer || type == WeaponType::Axe)       ? tuning.heavyRecovery
-                                                                        : tuning.attackInterval;
+    enemy.attackTimer_ = tuning.*AttackProfileOf(enemy.weaponType_).recovery;
 }
 
 template <class T>
@@ -442,6 +491,38 @@ void EnemyEntity::SyncMonsterVisual(bool advanceBob)
     monsterObject_->SetScale({ scale, scale, scale });
     monsterObject_->SetColor(bodyColor_);
     monsterObject_->Update();
+}
+
+void EnemyEntity::FaceTowardX(float targetX)
+{
+    if (defeated_) {
+        return;
+    }
+    facingSign_ = (targetX >= pos_.x) ? 1.0f : -1.0f;
+    const float facingYaw = facingSign_ >= 0.0f ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    // 体の傾きなど他の軸はそのまま、向き（Y軸回転）だけを差し替える
+    Vector3 bodyRotation = object_->GetRotation();
+    bodyRotation.y = facingYaw;
+    object_->SetRotation(bodyRotation);
+    if (weaponObject_ && !weaponDropped_) {
+        Vector3 weaponRotation = weaponObject_->GetTransform().rotate;
+        weaponRotation.y = facingYaw;
+        weaponObject_->SetRotation(weaponRotation);
+    }
+}
+
+void EnemyEntity::DropCorpseTo(float floorY)
+{
+    corpseFallStarted_ = true;
+    if (pos_.y <= floorY) {
+        return; // もう床の上にいる
+    }
+    // 打ち上げと同じ重力の処理で落とし、着地目標だけ床の高さへ差し替える（落ちた武器もここへ落ちる）
+    launchOriginY_ = floorY;
+    if (!isLaunched_) {
+        isLaunched_ = true;
+        velY_ = 0.0f;
+    }
 }
 
 void EnemyEntity::Launch(float velY)

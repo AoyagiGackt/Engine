@@ -28,7 +28,7 @@ public:
         // フレーム終了時刻とパフォーマンスカウンタの周波数を取得し、経過時間(ms)を算出する
         QueryPerformanceCounter(&now);
         QueryPerformanceFrequency(&freq);
-        float ms = float(now.QuadPart - frameStart_.QuadPart) / float(freq.QuadPart) * 1000.0f;
+        float ms = float(now.QuadPart - frameStart_.QuadPart) / float(freq.QuadPart) * kMillisecondsPerSecond;
 
         samples_[sampleIdx_] = ms;
         sampleIdx_ = (sampleIdx_ + 1) % kSamples;
@@ -38,13 +38,14 @@ public:
             sum += s;
         }
         avgMs_ = sum / kSamples;
-        fps_ = avgMs_ > 0.0f ? 1000.0f / avgMs_ : 0.0f;
+        fps_ = avgMs_ > 0.0f ? kMillisecondsPerSecond / avgMs_ : 0.0f;
     }
 
     float GetFPS() const { return fps_; }
     float GetMs() const { return avgMs_; }
 
 private:
+    static constexpr float kMillisecondsPerSecond = 1000.0f;
     FrameProfiler() = default;
     static constexpr int kSamples = 60;
     std::array<float, kSamples> samples_ = { };

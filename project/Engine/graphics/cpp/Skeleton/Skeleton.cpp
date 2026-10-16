@@ -12,6 +12,28 @@
 
 #ifdef USE_IMGUI
 #include "imgui.h"
+
+namespace {
+
+// スケルトン表示のレイアウトと配色
+constexpr float kSkeletonWindowWidth = 440.0f;
+constexpr float kSkeletonWindowHeight = 600.0f;
+constexpr float kCanvasWidth = 400.0f;
+constexpr float kCanvasHeight = 360.0f;
+constexpr float kCanvasMargin = 0.85f;
+constexpr float kCanvasBaselineRatio = 0.92f;
+constexpr float kAxisInset = 10.0f;
+constexpr float kJointRadius = 3.5f;
+constexpr float kJointHoverRadius = 10.0f;
+constexpr float kTooltipOpacity = 0.8f;
+constexpr ImU32 kCanvasBackground = IM_COL32(20, 20, 30, 220);
+constexpr ImU32 kCanvasBorder = IM_COL32(80, 80, 100, 255);
+constexpr ImU32 kAxisColor = IM_COL32(55, 55, 55, 180);
+constexpr ImU32 kBoneColor = IM_COL32(80, 200, 120, 220);
+constexpr ImU32 kRootColor = IM_COL32(255, 80, 80, 255);
+constexpr ImU32 kJointColor = IM_COL32(255, 200, 50, 255);
+
+}
 #endif
 
 namespace engine::graphics {
@@ -177,25 +199,25 @@ static void DrawJointTree(const std::vector<Joint>& joints, int32_t index)
 void Skeleton::DrawDiagnostics()
 {
 #ifdef USE_IMGUI
-    ImGui::SetNextWindowSize(ImVec2(440.0f, 600.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kSkeletonWindowWidth, kSkeletonWindowHeight), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Skeleton Overlay")) {
         ImGui::End();
         return;
     }
 
     // キャンバスサイズと描画領域
-    const ImVec2 canvasSize = { 400.0f, 360.0f };
+    const ImVec2 canvasSize = { kCanvasWidth, kCanvasHeight };
     const ImVec2 canvasPos = ImGui::GetCursorScreenPos();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
     drawList->AddRectFilled(
         canvasPos,
         { canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y },
-        IM_COL32(20, 20, 30, 220));
+        kCanvasBackground);
     drawList->AddRect(
         canvasPos,
         { canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y },
-        IM_COL32(80, 80, 100, 255));
+        kCanvasBorder);
 
     // 全ジョイントのXY範囲を自動計算してスケールを決める
     float minX = 0.0f, maxX = 0.0f, minY = 0.0f, maxY = 0.0f;
@@ -216,21 +238,21 @@ void Skeleton::DrawDiagnostics()
 
     float rangeX = (std::max)(maxX - minX, 1.0f);
     float rangeY = (std::max)(maxY - minY, 1.0f);
-    float margin = 0.85f;
+    float margin = kCanvasMargin;
     float scale = (std::min)(canvasSize.x * margin / rangeX, canvasSize.y * margin / rangeY);
 
     // キャンバス中央にルートを合わせる原点
     float cx = (minX + maxX) * 0.5f;
     ImVec2 origin = {
         canvasPos.x + canvasSize.x * 0.5f - cx * scale,
-        canvasPos.y + canvasSize.y * 0.92f - minY * scale // 下揃え（Y=上）
+        canvasPos.y + canvasSize.y * kCanvasBaselineRatio - minY * scale // 下揃え（Y=上）
     };
 
     // ガイドライン
     drawList->AddLine(
-        { canvasPos.x + 10.0f, origin.y },
-        { canvasPos.x + canvasSize.x - 10.0f, origin.y },
-        IM_COL32(55, 55, 55, 180), 1.0f);
+        { canvasPos.x + kAxisInset, origin.y },
+        { canvasPos.x + canvasSize.x - kAxisInset, origin.y },
+        kAxisColor, 1.0f);
 
     // 骨の線（親→子）
     for (const Joint& joint : joints_) {
@@ -246,7 +268,7 @@ void Skeleton::DrawDiagnostics()
             origin.x + joint.skeletonSpaceMatrix.m[3][0] * scale,
             origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale
         };
-        drawList->AddLine(p0, p1, IM_COL32(80, 200, 120, 220), 2.0f);
+        drawList->AddLine(p0, p1, kBoneColor, 2.0f);
     }
 
     // ジョイントの点
@@ -256,9 +278,9 @@ void Skeleton::DrawDiagnostics()
             origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale
         };
         ImU32 col = (joint.index == root_)
-            ? IM_COL32(255, 80, 80, 255)
-            : IM_COL32(255, 200, 50, 255);
-        drawList->AddCircleFilled(p, 3.5f, col);
+            ? kRootColor
+            : kJointColor;
+        drawList->AddCircleFilled(p, kJointRadius, col);
     }
 
     // マウスホバーでジョイント名ツールチップ
@@ -269,8 +291,8 @@ void Skeleton::DrawDiagnostics()
             origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale
         };
         float dx = mousePos.x - p.x, dy = mousePos.y - p.y;
-        if (dx * dx + dy * dy < 10.0f * 10.0f) {
-            ImGui::SetNextWindowBgAlpha(0.8f);
+        if (dx * dx + dy * dy < kJointHoverRadius * kJointHoverRadius) {
+            ImGui::SetNextWindowBgAlpha(kTooltipOpacity);
             ImGui::BeginTooltip();
             ImGui::TextUnformatted(joint.name.c_str());
             const auto& m = joint.skeletonSpaceMatrix;

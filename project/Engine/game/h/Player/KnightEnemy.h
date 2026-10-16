@@ -57,6 +57,7 @@ public:
      * 描画されて画面に張り付いて見える（Player::RefreshVisualTransformsと同じ理由）
      */
     void RefreshVisualTransforms() override;
+    bool BlocksOtherEnemies() const override { return IsAlive(); }
 
     /**
      * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）

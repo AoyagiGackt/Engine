@@ -29,11 +29,57 @@
 #include "WinApp.h"
 #include <algorithm>
 #include <cfloat>
+#include <limits>
 #include <cmath>
 #include <random>
 using namespace engine::game;
 using namespace engine;
 using namespace engine::graphics;
+
+namespace {
+/** @brief 敵の体のうち壁と当たる範囲（足元の床に掛からないよう、位置より少し上から頭まで） */
+engine::AABB EnemyWallBody(const Vector3& pos, const EnemySeparationTuning& tuning)
+{
+    return { { pos.x - tuning.bodyHalfWidth, pos.y + tuning.wallBandBottom, pos.z },
+        { pos.x + tuning.bodyHalfWidth, pos.y + tuning.wallBandTop, pos.z } };
+}
+
+/** @brief 体がブロックと横に重なっているか（奥行きは敵の位置の1点で見る） */
+bool OverlapsWall(const engine::AABB& body, const engine::AABB& wall)
+{
+    return body.max.y > wall.min.y && body.min.y < wall.max.y
+        && body.min.z >= wall.min.z && body.max.z <= wall.max.z
+        && body.max.x > wall.min.x && body.min.x < wall.max.x;
+}
+
+/** @brief 壁にめり込んでいれば、入り込みの浅い側へ押し出した後のX座標を返す */
+float PushOutOfWalls(const Vector3& pos, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning)
+{
+    Vector3 resolved = pos;
+    for (const engine::AABB& wall : walls) {
+        const engine::AABB body = EnemyWallBody(resolved, tuning);
+        if (!OverlapsWall(body, wall)) {
+            continue;
+        }
+        const float pushLeft = wall.min.x - body.max.x; // 負の値: 左へ押し出す量
+        const float pushRight = wall.max.x - body.min.x; // 正の値: 右へ押し出す量
+        resolved.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
+    }
+    return resolved.x;
+}
+
+/** @brief 指定した向き（左=-1, 右=+1）のすぐ横に壁があるか（その向きへは押されても動けない） */
+bool WallOnSide(const Vector3& pos, float side, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning)
+{
+    // 体のその向きの端だけを細い帯で調べる（反対側の壁に触れていても誤判定しない）
+    const float margin = tuning.wallContactMargin;
+    engine::AABB probe = EnemyWallBody(pos, tuning);
+    const float edgeX = side < 0.0f ? probe.min.x : probe.max.x;
+    probe.min.x = edgeX - margin;
+    probe.max.x = edgeX + margin;
+    return std::any_of(walls.begin(), walls.end(), [&probe](const engine::AABB& wall) { return OverlapsWall(probe, wall); });
+}
+} // namespace
 
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
 {
@@ -216,20 +262,127 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
     // ヒットストップ中に見た目（動く床など）だけ進んでプレイヤーの当たり判定と食い違い、
     // 解除後に浮いて見える／めり込んで見える原因になる
     constexpr float kEditorPreviewDeltaSeconds = 1.0f / 60.0f;
+    // シーンが進行を止めている間（ポーズ・開始演出）は時間を進めず、動く仕掛けもその場で止める
     const float kRuntimeDeltaSeconds = ShouldPauseGame()
         ? kEditorPreviewDeltaSeconds
-        : TimeManager::GetInstance()->GetDeltaTime();
+        : (gameplayHeld_ ? 0.0f : TimeManager::GetInstance()->GetDeltaTime());
 
     // 条件、接続先の有効化、実体の順で更新して同じフレーム内に結果を反映する
     EvaluateEventConditions(kRuntimeDeltaSeconds);
     UpdateRuntimeActivation(kRuntimeDeltaSeconds);
+    // ヒットストップ中（時間が止まっている間）は押し離しも止め、止まった敵が滑って見えないようにする
+    const bool separateEnemies = !ShouldPauseGame() && !gameplayHeld_ && kRuntimeDeltaSeconds > 0.0f;
+    // 地形はこのフレームの動く床の位置で作る（GetSolidColliders と同じく実体の更新前に集める）
+    const std::vector<engine::AABB> walls = separateEnemies ? CollectSolidColliders(false) : std::vector<engine::AABB> {};
     for (auto& entry : objects_) {
         UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
     }
+    if (separateEnemies) {
+        SeparateOverlappingEnemies(walls);
+    }
     // レベル紐付きグラフは配置物の状態が確定した後に進める（編集停止中はロジックも止める）
-    if (!ShouldPauseGame()) {
+    if (!ShouldPauseGame() && !gameplayHeld_) {
         levelGraphs_.Update(kRuntimeDeltaSeconds);
     }
+}
+
+void StageEditor::SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls)
+{
+    const EnemySeparationTuning& tuning = EnemyTuning::GetInstance()->Separation();
+    const float pushRate = std::clamp(tuning.pushRate, 0.0f, 1.0f);
+
+    // 押し離しの対象になる敵（汎用敵とナイトを同じ体として扱う）
+    struct Body {
+        ObjectEntry* entry;
+        IEnemyEntity* enemy;
+        bool anchored; ///< 押されても動かない（ボス）
+        bool wallLeft = false; ///< 左に壁が接していて左へは動けない
+        bool wallRight = false; ///< 右に壁が接していて右へは動けない
+        bool moved = false;
+        /** @brief 指定した向き（左=-1, 右=+1）へ押された時に動けるか */
+        bool CanMove(float side) const { return !anchored && !(side < 0.0f ? wallLeft : wallRight); }
+    };
+    std::vector<Body> bodies;
+    for (auto& entry : objects_) {
+        IEnemyEntity* enemy = entry.knight ? static_cast<IEnemyEntity*>(entry.knight.get()) : entry.enemy.get();
+        if (entry.runtimeActive && enemy != nullptr && enemy->BlocksOtherEnemies()) {
+            bodies.push_back({ &entry, enemy, entry.desc.isStageBoss });
+        }
+    }
+
+    // 自分の移動で壁にめり込んだ敵を先に押し戻し、壁際の敵は壁の方へは押されないようにする
+    constexpr float kLeft = -1.0f;
+    constexpr float kRight = 1.0f;
+    for (Body& body : bodies) {
+        Vector3& pos = body.enemy->GetPositionRef();
+        const float resolvedX = PushOutOfWalls(pos, walls, tuning);
+        body.moved = resolvedX != pos.x;
+        pos.x = resolvedX;
+        body.wallLeft = WallOnSide(pos, kLeft, walls, tuning);
+        body.wallRight = WallOnSide(pos, kRight, walls, tuning);
+    }
+
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        for (size_t j = i + 1; j < bodies.size(); ++j) {
+            Body& a = bodies[i];
+            Body& b = bodies[j];
+            Vector3& posA = a.enemy->GetPositionRef();
+            Vector3& posB = b.enemy->GetPositionRef();
+            const float dx = posB.x - posA.x;
+            const float distanceX = std::abs(dx);
+            if (distanceX >= tuning.minDistanceX || std::abs(posB.y - posA.y) >= tuning.minDistanceY) {
+                continue;
+            }
+            // 真上に重なっている時は並び順で向きを決め、2体が同じ側へ逃げないようにする
+            const float direction = distanceX > 0.0f ? (dx > 0.0f ? 1.0f : -1.0f) : 1.0f;
+            const float push = (tuning.minDistanceX - distanceX) * pushRate;
+            // A は -direction、B は +direction へずれる。片方が動けない時はもう片方が全部ずれ、両方動ける時は半分ずつ
+            const bool canMoveA = a.CanMove(-direction);
+            const bool canMoveB = b.CanMove(direction);
+            if (!canMoveA && !canMoveB) {
+                continue;
+            }
+            const float shareA = !canMoveB ? 1.0f : (!canMoveA ? 0.0f : 0.5f);
+            const float shareB = 1.0f - shareA;
+            posA.x -= direction * push * shareA;
+            posB.x += direction * push * shareB;
+            a.moved = a.moved || shareA > 0.0f;
+            b.moved = b.moved || shareB > 0.0f;
+        }
+    }
+
+    for (Body& body : bodies) {
+        if (!body.moved) {
+            continue;
+        }
+        // 押し離しで壁へ入った分も戻してから見た目へ反映する
+        Vector3& pos = body.enemy->GetPositionRef();
+        pos.x = PushOutOfWalls(pos, walls, tuning);
+        body.enemy->RefreshVisualTransforms();
+        // Inspector表示・親子追従の基準にするため現在地を書き戻す（JSON保存はしない）
+        body.entry->desc.position = body.enemy->GetPosition();
+    }
+}
+
+float StageEditor::FindCorpseFloorY(const Vector3& position) const
+{
+    // 体の幅に掛かるブロックのうち、足元より下（段差の許容まで）で一番高い上面を床とする
+    constexpr float kStepTolerance = 0.12f;
+    const float halfWidth = EnemyTuning::GetInstance()->Separation().bodyHalfWidth;
+    const float footOffset = EnemyTuning::GetInstance()->Basic().corpseFootOffset;
+    const float feetY = position.y - footOffset;
+    float floorTop = (std::numeric_limits<float>::lowest)();
+    for (const engine::AABB& block : CollectSolidColliders(false)) {
+        const bool overlapX = position.x + halfWidth > block.min.x && position.x - halfWidth < block.max.x;
+        const bool overlapZ = position.z >= block.min.z && position.z <= block.max.z;
+        if (overlapX && overlapZ && block.max.y <= feetY + kStepTolerance) {
+            floorTop = (std::max)(floorTop, block.max.y);
+        }
+    }
+    if (floorTop == (std::numeric_limits<float>::lowest)()) {
+        return position.y;
+    }
+    return floorTop + footOffset;
 }
 
 StageEditor::ObjectEntry* StageEditor::FindEntryByName(const std::string& name)

@@ -275,7 +275,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         } else {
             const int conditionIndex = sourceIndex - static_cast<int>(editor.triggers_.size());
             if (conditionIndex >= 0 && conditionIndex < static_cast<int>(editor.objects_.size())) {
-                GameFlags::GetInstance()->SetFlag("condition_" + editor.objects_[conditionIndex].desc.name, true);
+                GameFlags::GetInstance()->SetFlag(ConditionFlagName(editor.objects_[conditionIndex].desc.name), true);
             }
         }
     }

@@ -49,6 +49,7 @@
 #include "SceneShared.h"
 #include "Skydome.h"
 #include "SpaceDistortionEffect.h"
+#include "StageIntro.h"
 #include "StyleMeter.h"
 #include "TimeManager.h"
 #include "PauseMenu.h"
@@ -224,6 +225,8 @@ private:
     void SetupPauseMenu();
     /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
     void UpdateWeaponEnemies();
+    /** @brief 武器を奪った結果に応じた後処理（新しく増えたら通知、持っている武器なら覚醒ゲージへ） */
+    void ApplyWeaponAcquireResult(WeaponManager::AcquireResult result);
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
     void UpdateExplosiveBarrels();
     /** @brief 現在のフロアが水面演出の対象か（game_rules.jsonのwaterFloor） */
@@ -251,6 +254,19 @@ private:
     bool UpdateClearState();
     // 戦闘ロジック全体の更新
     void UpdateCombat();
+    /** @brief 当たり判定ブロック全体を囲むステージの範囲 */
+    struct StageBounds {
+        float left;
+        float right;
+        float bottom;
+        float top;
+        bool fromLevel; ///< レベルのブロックから求めたか（false ならブロックが無く既定の広さ）
+    };
+    StageBounds GetStageBounds();
+    /** @brief ステージ開始演出を始める（最初にレベルを読み込んだ時に1回） */
+    void StartStageIntro();
+    /** @brief 開始演出の間の1フレーム（操作・HUD・敵を止め、カメラだけ演出に合わせて動かす） */
+    void UpdateStageIntro();
     // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
     /** @brief Shift長押しで最寄りの敵をロックオンし、その方向へ向かせる（BattleTestSceneと同じ規約） */
@@ -267,8 +283,6 @@ private:
     void ApplyWeaponSkillStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け 銃コンボのヒット判定とスタイル加点を処理する */
     void ApplyGunShotStyleHit();
-    /** @brief UpdateStyleAndUI()の下請け ダガー スティンガー刺突のスタイル加点を処理する */
-    void ApplyDaggerStingerStyleBonus();
     /** @brief UpdateStyleAndUI()の下請け 覚醒乱舞ラッシュのヒット判定とスタイル加点を処理する */
     void ApplyRampageStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け スタイルメーターの時間経過による減衰を処理する */
@@ -370,8 +384,6 @@ private:
     void EmitEnemyTelegraphCue(const EnemyEntity* enemy);
     /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
     void EmitGunFireParticles(const Vector3& ppos);
-    /** @brief UpdateStyleTechniqueParticles()の下請け 瞬歩トレイル・覚醒ゲージ加算時のパーティクルを発生させる */
-    void EmitBlinkAndGaugeParticles(const Vector3& ppos);
     /** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガーのスティンガー以外）発動時に技ごとの見た目を出す */
     void EmitWeaponSkillCastParticles(const Vector3& ppos);
     /**
@@ -522,6 +534,8 @@ private:
     float floorElapsedSeconds_ = 0.0f; ///< このフロアに入ってからの経過秒数（OnEditorLevelLoaded()でリセット、プレイログ用）
     /** @brief 右上のスタイリッシュランクHUD（採点はstyleMeter_側で行い、表示だけこれに委ねる） */
     StyleMeter styleRankHud_;
+    StageIntro stageIntro_; ///< ステージ開始演出（Resources/Config/stage_intro.json）
+    bool stageIntroStarted_ = false; ///< エディタでレベルを読み直しても演出をやり直さないための印
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;
     /** @brief 武器ごとの疲労（0〜1）。添字は近接武器のWeaponManager::GetList()順、末尾が銃 */

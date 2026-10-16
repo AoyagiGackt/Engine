@@ -1,0 +1,41 @@
+{
+  "_comment": "ステージ開始演出。sequence=段階の並び（slash=画面を斬り開く overview=少し引いてステージを端から端へ横に流してから寄る boss=奪う武器の紹介 drop=プレイヤーの降下 land=着地とGO） firstVisitOnly=そのステージを初めて見る時だけ出す段階。演出の見た目は hit_effects.json の intro_ レシピ。決定・攻撃・ジャンプで飛ばせる",
+  "sequence": ["slash", "overview", "boss", "drop", "land"],
+  "firstVisitOnly": ["boss"],
+  "skipLockSeconds": 0.2,
+  "slash": {
+    "closedSeconds": 0.25,
+    "slashSeconds": 0.16,
+    "openSeconds": 0.4,
+    "thickness": 6.0,
+    "angle": -0.12,
+    "color": [1.0, 1.0, 1.0, 1.0],
+    "curtainColor": [0.02, 0.02, 0.04, 1.0],
+    "flash": "intro_slash"
+  },
+  "overview": {
+    "holdSeconds": 0.4,
+    "panSeconds": 2.2,
+    "zoomSeconds": 0.6,
+    "maxZoom": 3.6
+  },
+  "boss": {
+    "holdSeconds": 1.6,
+    "panSeconds": 0.5,
+    "textFadeSeconds": 0.2,
+    "label": "この武器を奪え"
+  },
+  "drop": {
+    "height": 9.0,
+    "seconds": 0.45,
+    "hideHeight": 80.0
+  },
+  "land": {
+    "goSeconds": 0.8,
+    "goPopSeconds": 0.25,
+    "impact": "intro_land",
+    "ring": "intro_land",
+    "sparks": "land_dust",
+    "flash": "intro_go"
+  }
+}

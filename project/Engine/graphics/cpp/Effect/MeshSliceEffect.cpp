@@ -3,6 +3,7 @@
  * @brief MeshSliceEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "MeshSliceEffect.h"
+#include "GraphicsTuning.h"
 #include "Camera.h"
 #include "EngineAssert.h"
 #include "Model.h"
@@ -10,6 +11,37 @@
 #include "TextureManager.h"
 #include <algorithm>
 #include <cmath>
+
+namespace {
+
+// 破片の発光色
+constexpr float kGlowRed = 0.65f;
+constexpr float kGlowGreen = 0.9f;
+
+// 三角形の切断と縮退判定
+constexpr int kTriangleVertexCount = 3;
+constexpr int kClippedPolygonCapacity = 4;
+constexpr size_t kMinCapPointCount = 4;
+constexpr float kPlaneDistanceEpsilon = 1.0e-5f;
+
+// 切断面の分布と破片の運動・発光
+constexpr float kSlideRadiusRatio = 0.35f;
+constexpr float kFullTurn = 6.2831853f;
+constexpr float kPlaneTilt = 0.35f;
+constexpr float kPlaneOffsetRatio = 0.3f;
+constexpr float kDirectionJitter = 0.25f;
+constexpr float kBurstSpeedMin = 2.5f;
+constexpr float kBurstSpeedMax = 4.5f;
+constexpr float kUpSpeedMax = 2.5f;
+constexpr float kSpinSpeed = 6.0f;
+constexpr float kDirectionEpsilon = 1.0e-4f;
+constexpr float kGravityScale = 10.0f;
+constexpr float kBurstGlow = 1.2f;
+constexpr float kInitialGlow = 0.15f;
+constexpr float kSlideGlowGain = 1.05f;
+constexpr float kTintGain = 0.4f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -60,7 +92,9 @@ void MeshSliceEffect::Reset()
 
 bool MeshSliceEffect::IsBursting() const
 {
-    return active_ && timer_ >= kHoldTime + kSlideTime;
+    const float holdTime = GraphicsTuning::Float("meshSlice.holdTime", kHoldTime);
+    const float slideTime = GraphicsTuning::Positive("meshSlice.slideTime", kSlideTime);
+    return active_ && timer_ >= holdTime + slideTime;
 }
 
 float MeshSliceEffect::GetOverlayWeight() const
@@ -68,11 +102,13 @@ float MeshSliceEffect::GetOverlayWeight() const
     if (!active_) {
         return 0.0f;
     }
-    const float burstStart = kHoldTime + kSlideTime;
+    const float burstStart = GraphicsTuning::Float("meshSlice.holdTime", kHoldTime)
+        + GraphicsTuning::Positive("meshSlice.slideTime", kSlideTime);
     if (timer_ < burstStart) {
         return 1.0f;
     }
-    return std::clamp(1.0f - (timer_ - burstStart) / kBurstTime, 0.0f, 1.0f);
+    const float burstTime = GraphicsTuning::Positive("meshSlice.burstTime", kBurstTime);
+    return std::clamp(1.0f - (timer_ - burstStart) / burstTime, 0.0f, 1.0f);
 }
 
 // 切断
@@ -94,11 +130,11 @@ MeshSliceEffect::SliceVertex MeshSliceEffect::LerpVertex(const SliceVertex& a, c
 void MeshSliceEffect::ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
     std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints)
 {
-    SliceVertex poly[4];
+    SliceVertex poly[kClippedPolygonCapacity];
     int polyCount = 0;
 
-    for (int i = 0; i < 3; ++i) {
-        const int j = (i + 1) % 3;
+    for (int i = 0; i < kTriangleVertexCount; ++i) {
+        const int j = (i + 1) % kTriangleVertexCount;
         const float di = keepPositive ? dist[i] : -dist[i];
         const float dj = keepPositive ? dist[j] : -dist[j];
 
@@ -128,25 +164,24 @@ void MeshSliceEffect::ClipTriangle(const SliceVertex tri[3], const float dist[3]
 void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const Vector3& p0,
     PieceBuild& outFront, PieceBuild& outBack)
 {
-    constexpr float kEps = 1.0e-5f;
     std::vector<Vector3> cutPoints; // 交線上の点（2個で1辺）
 
-    const size_t triCount = src.tris.size() / 3;
+    const size_t triCount = src.tris.size() / kTriangleVertexCount;
     for (size_t t = 0; t < triCount; ++t) {
-        const SliceVertex* v = &src.tris[t * 3];
+        const SliceVertex* v = &src.tris[t * kTriangleVertexCount];
 
-        float d[3];
-        for (int i = 0; i < 3; ++i) {
+        float d[kTriangleVertexCount];
+        for (int i = 0; i < kTriangleVertexCount; ++i) {
             d[i] = Dot({ v[i].position.x - p0.x, v[i].position.y - p0.y, v[i].position.z - p0.z }, n);
         }
 
-        // 3頂点が片側に収まる三角形はそのまま振り分ける
-        if (d[0] >= -kEps && d[1] >= -kEps && d[2] >= -kEps) {
-            outFront.tris.insert(outFront.tris.end(), v, v + 3);
+        // kTriangleVertexCount頂点が片側に収まる三角形はそのまま振り分ける
+        if (d[0] >= -kPlaneDistanceEpsilon && d[1] >= -kPlaneDistanceEpsilon && d[2] >= -kPlaneDistanceEpsilon) {
+            outFront.tris.insert(outFront.tris.end(), v, v + kTriangleVertexCount);
             continue;
         }
-        if (d[0] <= kEps && d[1] <= kEps && d[2] <= kEps) {
-            outBack.tris.insert(outBack.tris.end(), v, v + 3);
+        if (d[0] <= kPlaneDistanceEpsilon && d[1] <= kPlaneDistanceEpsilon && d[2] <= kPlaneDistanceEpsilon) {
+            outBack.tris.insert(outBack.tris.end(), v, v + kTriangleVertexCount);
             continue;
         }
 
@@ -156,7 +191,7 @@ void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const 
     }
 
     // 切断面のフタ（交線の重心から扇状に張る発光フラグ付き）
-    if (cutPoints.size() >= 4) {
+    if (cutPoints.size() >= kMinCapPointCount) {
         Vector3 c = { };
         for (const auto& p : cutPoints) {
             c = c + p;
@@ -179,6 +214,15 @@ void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const 
 
 void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::vector<SliceVertex>& outVertices)
 {
+    const float slideRatio = GraphicsTuning::Float("meshSlice.slideRadiusRatio", kSlideRadiusRatio);
+    const float planeTilt = GraphicsTuning::Float("meshSlice.planeTilt", kPlaneTilt);
+    const float planeOffset = GraphicsTuning::Float("meshSlice.planeOffsetRatio", kPlaneOffsetRatio);
+    const float jitter = GraphicsTuning::Float("meshSlice.directionJitter", kDirectionJitter);
+    const float speedMin = GraphicsTuning::Float("meshSlice.burstSpeedMin", kBurstSpeedMin);
+    const float speedMax = (std::max)(speedMin, GraphicsTuning::Float("meshSlice.burstSpeedMax", kBurstSpeedMax));
+    const float upSpeedMax = GraphicsTuning::Float("meshSlice.upSpeedMax", kUpSpeedMax, 1.0f);
+    const float spinSpeed = GraphicsTuning::Float("meshSlice.spinSpeed", kSpinSpeed);
+    const int planeCount = GraphicsTuning::Int("meshSlice.planeCount", kPlaneCount, 1, kPlaneCount);
     // 元メッシュを1つの破片として取り込む
     PieceBuild whole;
     const auto& srcVerts = model->GetVertices();
@@ -211,19 +255,19 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
         radius = 1.0f;
     }
     meshRadius_ = radius;
-    slideDist_ = radius * 0.35f;
+    slideDist_ = radius * slideRatio;
 
     // 中心付近を通るランダムな平面群で分割していく
     // 法線はほぼXY面内に寄せて、横視点から切り口が見えやすい向きにする
-    std::uniform_real_distribution<float> angDist(0.0f, 6.2831853f);
-    std::uniform_real_distribution<float> tiltDist(-0.35f, 0.35f);
-    std::uniform_real_distribution<float> offDist(-0.3f, 0.3f);
+    std::uniform_real_distribution<float> angDist(0.0f, kFullTurn);
+    std::uniform_real_distribution<float> tiltDist(-planeTilt, planeTilt);
+    std::uniform_real_distribution<float> offDist(-planeOffset, planeOffset);
 
     std::vector<PieceBuild> built;
     built.push_back(std::move(whole));
     std::vector<std::pair<Vector3, Vector3>> planes; // 法線・通過点
 
-    for (int i = 0; i < kPlaneCount; ++i) {
+    for (int i = 0; i < planeCount; ++i) {
         const float ang = angDist(rng);
         const Vector3 n = Normalize(Vector3 { std::cos(ang), std::sin(ang), tiltDist(rng) });
         const Vector3 p0 = meshCenter + Vector3 { offDist(rng) * radius, offDist(rng) * radius, 0.0f };
@@ -248,10 +292,10 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     }
 
     // 破片ごとの頂点範囲と運動パラメータを確定する
-    std::uniform_real_distribution<float> jitterDist(-0.25f, 0.25f);
-    std::uniform_real_distribution<float> speedDist(2.5f, 4.5f);
-    std::uniform_real_distribution<float> upDist(1.0f, 2.5f);
-    std::uniform_real_distribution<float> spinDist(-6.0f, 6.0f);
+    std::uniform_real_distribution<float> jitterDist(-jitter, jitter);
+    std::uniform_real_distribution<float> speedDist(speedMin, speedMax);
+    std::uniform_real_distribution<float> upDist(1.0f, upSpeedMax);
+    std::uniform_real_distribution<float> spinDist(-spinSpeed, spinSpeed);
 
     outVertices.clear();
     pieces_.clear();
@@ -274,7 +318,7 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
             dir = dir + n * side;
         }
         dir = dir + Vector3 { jitterDist(rng), jitterDist(rng), jitterDist(rng) };
-        if (Length(dir) < 1.0e-4f) {
+        if (Length(dir) < kDirectionEpsilon) {
             dir = { 0.0f, 1.0f, 0.0f };
         }
         pc.slideDir = Normalize(dir);
@@ -309,12 +353,21 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
         return;
     }
 
+    const float holdTime = GraphicsTuning::Float("meshSlice.holdTime", kHoldTime);
+    const float slideTime = GraphicsTuning::Positive("meshSlice.slideTime", kSlideTime);
+    const float burstTime = GraphicsTuning::Positive("meshSlice.burstTime", kBurstTime);
+    const float gravityScale = GraphicsTuning::Float("meshSlice.gravityScale", kGravityScale);
+    const float burstGlow = GraphicsTuning::Float("meshSlice.burstGlow", kBurstGlow);
+    const float initialGlow = GraphicsTuning::Float("meshSlice.initialGlow", kInitialGlow);
+    const float slideGlow = GraphicsTuning::Float("meshSlice.slideGlowGain", kSlideGlowGain);
+    const float tintGain = GraphicsTuning::Float("meshSlice.tintGain", kTintGain);
+    const Vector4 glowColor = GraphicsTuning::Color("meshSlice.glowColor", { kGlowRed, kGlowGreen, 1.0f, 1.0f });
     timer_ += dt;
-    const float burstStart = kHoldTime + kSlideTime;
-    const float endTime = burstStart + kBurstTime;
+    const float burstStart = holdTime + slideTime;
+    const float endTime = burstStart + burstTime;
 
-    const float slideT = std::clamp((timer_ - kHoldTime) / kSlideTime, 0.0f, 1.0f);
-    const float burstT = std::clamp((timer_ - burstStart) / kBurstTime, 0.0f, 1.0f);
+    const float slideT = std::clamp((timer_ - holdTime) / slideTime, 0.0f, 1.0f);
+    const float burstT = std::clamp((timer_ - burstStart) / burstTime, 0.0f, 1.0f);
 
     // ずれは減速で止まり、消滅は加速で消える
     const float slideEase = 1.0f - (1.0f - slideT) * (1.0f - slideT) * (1.0f - slideT);
@@ -322,7 +375,7 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
 
     if (timer_ >= burstStart) {
         for (auto& pc : pieces_) {
-            pc.velocity.y -= meshRadius_ * 10.0f * dt;
+            pc.velocity.y -= meshRadius_ * gravityScale * dt;
             pc.offset = pc.offset + pc.velocity * dt;
             pc.rotation = pc.rotation + pc.angularVel * dt;
         }
@@ -333,8 +386,8 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
     }
 
     // 断面の発光はずれと同時に立ち上がり、飛散中は最大
-    const float glowStrength = (timer_ >= burstStart) ? 1.2f : 0.15f + slideEase * 1.05f;
-    const float tint = 1.0f + slideEase * 0.4f * (1.0f - burstT);
+    const float glowStrength = (timer_ >= burstStart) ? burstGlow : initialGlow + slideEase * slideGlow;
+    const float tint = 1.0f + slideEase * tintGain * (1.0f - burstT);
 
     const Matrix4x4 viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
     const Matrix4x4 modelMat = MakeAffineMatrix(scale_, Vector3 { }, worldPos_);
@@ -352,7 +405,7 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
         params->wvp = Multiply(world, viewProj);
         params->world = world;
         params->color = { tint, tint, tint, alpha };
-        params->glow = { 0.65f, 0.9f, 1.0f, glowStrength };
+        params->glow = { glowColor.x, glowColor.y, glowColor.z, glowStrength * glowColor.w };
     }
 
     if (timer_ >= endTime) {

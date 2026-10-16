@@ -4,16 +4,28 @@
  */
 #include "Camera.h"
 #include "WinApp.h"
+
+namespace {
+
+// カメラの初期位置
+constexpr float kDefaultCameraZ = -10.0f;
+
+// カメラの初期投影
+constexpr float kDefaultFovY = 0.45f;
+constexpr float kDefaultNearClip = 0.1f;
+constexpr float kDefaultFarClip = 100.0f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
 Camera::Camera()
 {
-    transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, -10.0f } };
-    fovY_ = 0.45f;
+    transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, kDefaultCameraZ } };
+    fovY_ = kDefaultFovY;
     aspectRatio_ = (float)WinApp::kClientWidth / (float)WinApp::kClientHeight;
-    nearClip_ = 0.1f;
-    farClip_ = 100.0f;
+    nearClip_ = kDefaultNearClip;
+    farClip_ = kDefaultFarClip;
     viewMatrix_ = MakeIdentity4x4();
     projectionMatrix_ = MakeIdentity4x4();
 }

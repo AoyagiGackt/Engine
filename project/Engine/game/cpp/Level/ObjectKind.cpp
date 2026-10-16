@@ -366,6 +366,13 @@ public:
     }
     bool PlacesEnemy() const override { return true; }
     bool SpawnsCombatEnemy() const override { return true; }
+    void Validate(const ObjectDesc& desc, std::vector<std::string>& issues) const override
+    {
+        // 空を飛ぶ敵は武器を持たせない（武器は地上の敵から奪う）
+        if (!desc.weaponType.empty() && EnemyEntity::IsFlyingArchetype(desc.spawnType)) {
+            issues.push_back("飛ぶ敵に武器が設定されています（武器なしにして enemyModel を付けてください）: " + desc.name);
+        }
+    }
     const char* ListTag() const override { return "[エネミー] "; }
     void InitializeNewDesc(ObjectDesc& desc, int serial) const override
     {
@@ -437,7 +444,7 @@ public:
     }
     void Validate(const ObjectDesc& desc, std::vector<std::string>& issues) const override
     {
-        if (desc.spawnType != "basic" && !SpawnsKnight(desc)) {
+        if (FindSpawnTypeIndex(desc.spawnType) < 0) {
             issues.push_back("SpawnPointの敵種類が不正です: " + desc.name);
         }
     }
@@ -467,7 +474,11 @@ public:
 
 private:
     /** @brief 出現する敵がナイトか（それ以外は一般敵。敵の性格名はEnemyEntityへそのまま渡す） */
-    static bool SpawnsKnight(const ObjectDesc& desc) { return desc.spawnType == "knight"; }
+    static bool SpawnsKnight(const ObjectDesc& desc)
+    {
+        const int typeIndex = FindSpawnTypeIndex(desc.spawnType);
+        return typeIndex >= 0 && kSpawnTypes[typeIndex].knight;
+    }
 
 public:
 #ifdef USE_IMGUI
@@ -480,11 +491,14 @@ public:
     void DrawGameplayInspector(StageEditor& editor, int, ObjectDesc& desc, bool& structuralDirty, const UndoCapture& capture) const override
     {
         DrawActivationFlagField(desc, capture);
-        const char* spawnTypes[] = { "basic", "knight" };
-        int spawnTypeIndex = desc.spawnType == "knight" ? 1 : 0;
-        if (ImGui::Combo("発生する敵", &spawnTypeIndex, spawnTypes, 2)) {
+        const char* spawnTypeNames[std::size(kSpawnTypes)] = {};
+        for (size_t i = 0; i < std::size(kSpawnTypes); ++i) {
+            spawnTypeNames[i] = kSpawnTypes[i].name;
+        }
+        int spawnTypeIndex = (std::max)(FindSpawnTypeIndex(desc.spawnType), 0);
+        if (ImGui::Combo("発生する敵", &spawnTypeIndex, spawnTypeNames, static_cast<int>(std::size(spawnTypeNames)))) {
             RecordUndo(editor);
-            desc.spawnType = spawnTypes[spawnTypeIndex];
+            desc.spawnType = kSpawnTypes[spawnTypeIndex].name;
             structuralDirty = true;
         }
         DrawEnemyGroupField(desc, capture);
@@ -608,7 +622,7 @@ class ManualRule : public ConditionRule {
 public:
     bool IsMet(const ObjectDesc& desc, float&, float, const GroupDefeatedQuery&) const override
     {
-        return GameFlags::GetInstance()->GetFlag(std::string("condition_") + desc.name);
+        return GameFlags::GetInstance()->GetFlag(ConditionFlagName(desc.name));
     }
 };
 
@@ -682,10 +696,10 @@ public:
         : ObjectKind(ObjectKindName::kEventCondition)
     {
     }
-    const char* RuntimeFlagPrefix() const override { return "condition_"; }
+    const char* RuntimeFlagPrefix() const override { return kConditionFlagPrefix.data(); }
     void InitializeNewDesc(ObjectDesc& desc, int serial) const override
     {
-        NameWithSerial(desc, "condition_", serial);
+        NameWithSerial(desc, kConditionFlagPrefix.data(), serial);
     }
     bool WatchesEnemyGroup(const ObjectDesc& desc) const override { return ConditionRuleOf(desc.conditionType).WatchesEnemyGroup(); }
     void UpdateCondition(StageEditor& editor, int index, float dt) const override

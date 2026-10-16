@@ -3,7 +3,22 @@
  * @brief BloomEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
  */
 #include "BloomEffect.h"
+#include "GraphicsTuning.h"
 #include "EngineAssert.h"
+
+namespace {
+
+// 全画面三角形の頂点数
+constexpr unsigned int kFullscreenVertexCount = 3;
+
+// オフスクリーンのクリア色
+constexpr float kSceneClearRed = 0.1f;
+constexpr float kSceneClearGreen = 0.25f;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -221,8 +236,8 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
         D3D12_CLEAR_VALUE cv = { };
         cv.Format = kRtvFmt;
-        cv.Color[0] = 0.1f;
-        cv.Color[1] = 0.25f;
+        cv.Color[0] = kSceneClearRed;
+        cv.Color[1] = kSceneClearGreen;
         cv.Color[2] = 0.5f;
         cv.Color[3] = 1.f;
 
@@ -286,13 +301,13 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     combinePSO_ = CreatePSO(device, combineRS_.Get(), vsBlob.Get(), combPS.Get(),
         DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 
-    brightCb_ = dxCommon->CreateBufferResource(256);
+    brightCb_ = dxCommon->CreateBufferResource(kConstantBufferAlignment);
     brightCb_->Map(0, nullptr, reinterpret_cast<void**>(&brightCbData_));
-    brightCbData_->threshold = 0.7f;
-    brightCbData_->intensity = 1.0f;
+    brightCbData_->threshold = GraphicsTuning::Float("bloom.threshold", kDefaultThreshold);
+    brightCbData_->intensity = GraphicsTuning::Float("bloom.intensity", 1.0f);
 
     for (int i = 0; i < 2; i++) {
-        blurCb_[i] = dxCommon->CreateBufferResource(256);
+        blurCb_[i] = dxCommon->CreateBufferResource(kConstantBufferAlignment);
         blurCb_[i]->Map(0, nullptr, reinterpret_cast<void**>(&blurCbData_[i]));
     }
     blurCbData_[0]->dirX = 1.f;
@@ -392,7 +407,7 @@ void BloomEffect::Apply(SrvManager* srvManager)
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         cmd->SetGraphicsRootConstantBufferView(0, brightCb_->GetGPUVirtualAddress());
         cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->DrawInstanced(3, 1, 0, 0);
+        cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
         // bloomTex_[0] → SRV
         Barrier(cmd, bloomTex_[0].Get(),
@@ -420,7 +435,7 @@ void BloomEffect::Apply(SrvManager* srvManager)
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         cmd->SetGraphicsRootConstantBufferView(0, blurCb_[0]->GetGPUVirtualAddress()); // H
         cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(bloomSrvIndex_[0]));
-        cmd->DrawInstanced(3, 1, 0, 0);
+        cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
         Barrier(cmd, bloomTex_[1].Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -446,7 +461,7 @@ void BloomEffect::Apply(SrvManager* srvManager)
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         cmd->SetGraphicsRootConstantBufferView(0, blurCb_[1]->GetGPUVirtualAddress()); // V
         cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(bloomSrvIndex_[1]));
-        cmd->DrawInstanced(3, 1, 0, 0);
+        cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
 
         Barrier(cmd, bloomTex_[0].Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -469,6 +484,6 @@ void BloomEffect::Apply(SrvManager* srvManager)
         // t0 = scene, t1 = bloom
         cmd->SetGraphicsRootDescriptorTable(0, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
         cmd->SetGraphicsRootDescriptorTable(1, srvManager->GetGPUDescriptorHandle(bloomSrvIndex_[0]));
-        cmd->DrawInstanced(3, 1, 0, 0);
+        cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
     }
 }

@@ -14,10 +14,54 @@
 #include <future>
 #include <objbase.h>
 #include <vector>
+
+namespace {
+
+// RGBA画像のピクセル容量
+constexpr UINT64 kRgbaBytesPerPixel = 4;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
+
+namespace {
+
+// WIC画像の展開とミップマップ生成
+HRESULT LoadWicTexture(const wchar_t* path, DirectX::WIC_FLAGS flags, DirectX::ScratchImage& result)
+{
+    DirectX::ScratchImage image;
+    HRESULT hr = DirectX::LoadFromWICFile(path, flags, nullptr, image);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_BOX, 0, result);
+    if (FAILED(hr)) {
+        hr = result.InitializeFromImage(*image.GetImages());
+        ENGINE_ASSERT(SUCCEEDED(hr));
+    }
+    return hr;
+}
+
+HRESULT LoadDefaultWicTexture(const wchar_t* path, DirectX::ScratchImage& result)
+{
+    return LoadWicTexture(path, DirectX::WIC_FLAGS_FORCE_SRGB, result);
+}
+
+// 拡張子とデコード処理の対応
+struct TextureLoader {
+    const char* extension;
+    HRESULT (*load)(const wchar_t*, DirectX::ScratchImage&);
+};
+constexpr TextureLoader kTextureLoaders[] = {
+    { "dds", [](const wchar_t* path, DirectX::ScratchImage& result) -> HRESULT {
+        return DirectX::LoadFromDDSFile(path, DirectX::DDS_FLAGS_NONE, nullptr, result);
+    } },
+    { "gif", [](const wchar_t* path, DirectX::ScratchImage& result) -> HRESULT {
+        return LoadWicTexture(path, DirectX::WIC_FLAGS_DEFAULT_SRGB, result);
+    } },
+};
+
+}
 
 // ══════════════════════════════════════════════════════
 // 初期化とテクスチャデコード
@@ -96,26 +140,16 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     std::vector<uint8_t> packed;
     const bool loadedFromPack = AssetPack::GetInstance()->Read(packKey, packed)
         && SUCCEEDED(DirectX::LoadFromDDSMemory(packed.data(), packed.size(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage));
-    if (loadedFromPack) {
-        // 変換済みデータをそのまま使う
-    } else if (ext == "dds") {
-        // DDSファイルはミップマップが埋め込み済みのためそのまま読み込む
-        hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage);
-        ENGINE_ASSERT(SUCCEEDED(hr));
-    } else {
-        // WICファイル（PNG/JPG等）はミップマップを生成する
-        DirectX::ScratchImage image { };
-        // GIFはパレット形式のためFORCE_SRGBが使えない
-        DirectX::WIC_FLAGS wicFlags = (ext == "gif") ? DirectX::WIC_FLAGS_DEFAULT_SRGB : DirectX::WIC_FLAGS_FORCE_SRGB;
-        hr = DirectX::LoadFromWICFile(filePathW.c_str(), wicFlags, nullptr, image);
-        ENGINE_ASSERT(SUCCEEDED(hr));
-
-        // ミップマップ生成失敗した場合（非対応フォーマット・奇数サイズ等）は元画像をミップレベル1として使用する
-        hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_BOX, 0, finalImage);
-        if (FAILED(hr)) {
-            hr = finalImage.InitializeFromImage(*image.GetImages());
-            ENGINE_ASSERT(SUCCEEDED(hr));
+    if (!loadedFromPack) {
+        auto loader = &LoadDefaultWicTexture;
+        for (const auto& entry : kTextureLoaders) {
+            if (ext == entry.extension) {
+                loader = entry.load;
+                break;
+            }
         }
+        hr = loader(filePathW.c_str(), finalImage);
+        ENGINE_ASSERT(SUCCEEDED(hr));
     }
 
     // cook中は、展開とミップマップ生成を終えた結果をDDSとしてpakへ記録する（元がDDSのキューブマップ等もそのまま入れる）
@@ -534,7 +568,7 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     // アップロードバッファ（行ピッチアライメントを考慮）
-    const UINT64 rowPitch = ((static_cast<UINT64>(width) * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+    const UINT64 rowPitch = ((static_cast<UINT64>(width) * kRgbaBytesPerPixel + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
     const UINT64 uploadSize = rowPitch * height;
 
     D3D12_RESOURCE_DESC uploadDesc { };
@@ -563,8 +597,8 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     ENGINE_ASSERT(SUCCEEDED(hr));
     for (uint32_t row = 0; row < height; ++row) {
         memcpy(pMapped + row * rowPitch,
-            rgbaData + static_cast<UINT64>(row) * width * 4,
-            static_cast<size_t>(width) * 4);
+            rgbaData + static_cast<UINT64>(row) * width * kRgbaBytesPerPixel,
+            static_cast<size_t>(width) * kRgbaBytesPerPixel);
     }
     uploadBuffer->Unmap(0, nullptr);
 

@@ -8,6 +8,14 @@
 #include "TextureManager.h"
 #include "WinApp.h"
 #include <SrvManager.h>
+
+namespace {
+
+// スプライトの頂点数と投影範囲
+constexpr unsigned int kSpriteVertexCount = 6;
+constexpr float kSpriteFarClip = 100.0f;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 
@@ -29,9 +37,9 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     ID3D12Device* device = spriteCommon_->GetDevice();
 
     // 頂点バッファ作成
-    vertexResource_ = spriteCommon_->GetDxCommon()->CreateBufferResource(sizeof(VertexDataSprite) * 6);
+    vertexResource_ = spriteCommon_->GetDxCommon()->CreateBufferResource(sizeof(VertexDataSprite) * kSpriteVertexCount);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-    vertexBufferView_.SizeInBytes = sizeof(VertexDataSprite) * 6;
+    vertexBufferView_.SizeInBytes = sizeof(VertexDataSprite) * kSpriteVertexCount;
     vertexBufferView_.StrideInBytes = sizeof(VertexDataSprite);
 
     VertexDataSprite* vertexData = nullptr;
@@ -143,7 +151,7 @@ void Sprite::Update()
     Matrix4x4 projectionMatrix = MakeOrthographicMatrix(
         0.0f, 0.0f,
         static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight),
-        0.0f, 100.0f);
+        0.0f, kSpriteFarClip);
 
     Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 
@@ -174,5 +182,5 @@ void Sprite::Draw()
         commandList->SetGraphicsRootDescriptorTable(2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
     }
 
-    commandList->DrawInstanced(6, 1, 0, 0);
+    commandList->DrawInstanced(kSpriteVertexCount, 1, 0, 0);
 }

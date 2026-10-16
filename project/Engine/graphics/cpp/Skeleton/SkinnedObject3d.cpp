@@ -15,6 +15,16 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
+
+namespace {
+
+// アニメーション更新のフレームレート
+constexpr float kAnimationFramesPerSecond = 60.0f;
+
+// 定数バッファの配置境界
+constexpr unsigned int kConstantBufferAlignment = 256;
+
+}
 using namespace engine;
 using namespace engine::graphics;
 using namespace engine::game;
@@ -73,7 +83,7 @@ void SkinnedObject3d::Initialize(SkinCommon* skinCommon)
     };
 
     // CBV は 256 バイトアライン必須なので切り上げる
-    transformCB_ = makeBuffer((sizeof(TransformationMatrix) + 255) & ~255u);
+    transformCB_ = makeBuffer((sizeof(TransformationMatrix) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1));
     transformCB_->Map(0, nullptr, reinterpret_cast<void**>(&transformData_));
 
     materialCB_ = makeBuffer(sizeof(ObjectMaterialLayout));
@@ -138,7 +148,7 @@ void SkinnedObject3d::Update()
 
     // アニメーション時刻を進める
     if (animation_.duration > 0.0f) {
-        animTime_ = std::fmod(animTime_ + animSpeed_ / 60.0f, animation_.duration);
+        animTime_ = std::fmod(animTime_ + animSpeed_ / kAnimationFramesPerSecond, animation_.duration);
     }
 
     // スケルトン各ジョイントにアニメーションを適用

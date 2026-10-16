@@ -81,106 +81,11 @@ void GraphEditor::AddNodeOfType(const std::string& type)
     node.editorX = pendingAddX_;
     node.editorY = pendingAddY_;
 
-    // 型ごとの初期パラメータ（空だと編集の取っ掛かりが無いため最低限入れておく）
-    if (type == "SetVariable") {
-        node.params["name"] = std::string("var");
-        node.params["value"] = 0.0f;
-    } else if (type == "If") {
-        node.params["var"] = std::string("var");
-        node.params["op"] = std::string("==");
-        node.params["value"] = 0.0f;
-    } else if (type == "Wait") {
-        node.params["seconds"] = 1.0f;
-    } else if (type == "EmitEvent") {
-        node.params["event"] = std::string("event_name");
-    } else if (type == "SetFlag") {
-        node.params["flag"] = std::string("flag_name");
-        node.params["value"] = false;
-    } else if (type == "GetFlag") {
-        node.params["flag"] = std::string("flag_name");
-        node.params["into"] = std::string("var");
-    } else if (type == "Subgraph") {
-        node.params["path"] = std::string("Resources/Graphs/sub_graph.json");
-    } else if (type == "Math") {
-        node.params["a"] = 0.0f;
-        node.params["b"] = 0.0f;
-        node.params["op"] = std::string("+");
-    } else if (type == "Compare") {
-        node.params["a"] = 0.0f;
-        node.params["b"] = 0.0f;
-        node.params["op"] = std::string("==");
-    } else if (type == "Random") {
-        node.params["min"] = 0.0f;
-        node.params["max"] = 1.0f;
-    } else if (type == "DamagePlayer" || type == "HealPlayer") {
-        node.params["amount"] = 1.0f;
-    } else if (type == "DamageEnemy" || type == "HealEnemy") {
-        node.params["target"] = std::string("enemy");
-        node.params["amount"] = 1.0f;
-    } else if (type == "PlaySE" || type == "PlayBGM") {
-        node.params["path"] = std::string("Resources/sound/se.wav");
-        if (type == "PlayBGM") {
-            node.params["loop"] = true;
-        } else {
-            node.params["volume"] = 1.0f;
+    // 初期パラメータはノード定義（NodeRegistryの表）から入れる（空だと編集の取っ掛かりが無いため）
+    if (const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type)) {
+        for (const NodeParamSpec& param : spec->params) {
+            node.params[param.key] = param.InitialValue();
         }
-    } else if (type == "ScreenFlash") {
-        node.params["r"] = 1.0f;
-        node.params["g"] = 1.0f;
-        node.params["b"] = 1.0f;
-        node.params["a"] = GraphNodeDefaults::kFlashAlpha;
-        node.params["duration"] = GraphNodeDefaults::kFlashDuration;
-    } else if (type == "HitStop") {
-        node.params["frames"] = GraphNodeDefaults::kHitStopFrames;
-    } else if (type == "SetEnemyVisible") {
-        node.params["target"] = std::string("enemy");
-        node.params["visible"] = true;
-    } else if (type == "TeleportEnemy") {
-        node.params["target"] = std::string("enemy");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-    } else if (type == "TeleportPlayer") {
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-    } else if (type == "And" || type == "Or") {
-        node.params["a"] = false;
-        node.params["b"] = false;
-    } else if (type == "Not") {
-        node.params["a"] = false;
-    } else if (type == "SetObjectVisible") {
-        node.params["target"] = std::string("obj_0");
-        node.params["visible"] = true;
-    } else if (type == "SetObjectEnabled") {
-        node.params["target"] = std::string("obj_0");
-        node.params["enabled"] = true;
-    } else if (type == "TeleportObject" || type == "MoveObject") {
-        node.params["target"] = std::string("obj_0");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-        if (type == "MoveObject") {
-            node.params["seconds"] = 1.0f;
-        }
-    } else if (type == "ChangeScene") {
-        node.params["scene"] = std::string("MAP");
-        node.params["fadeOut"] = GraphNodeDefaults::kSceneFadeSeconds;
-        node.params["fadeIn"] = GraphNodeDefaults::kSceneFadeSeconds;
-    } else if (type == "SpawnEnemy") {
-        node.params["target"] = std::string("spawn_0");
-    } else if (type == "ShakeCamera") {
-        node.params["amount"] = GraphNodeDefaults::kShakeAmount;
-        node.params["seconds"] = GraphNodeDefaults::kShakeSeconds;
-    } else if (type == "EmitRing") {
-        node.params["group"] = std::string("hit_ring");
-        node.params["x"] = 0.0f;
-        node.params["y"] = 0.0f;
-        node.params["z"] = 0.0f;
-        node.params["radius"] = GraphNodeDefaults::kRingRadius;
-        node.params["r"] = 1.0f;
-        node.params["g"] = 1.0f;
-        node.params["b"] = 1.0f;
     }
 
     RecordUndoSnapshotNow();

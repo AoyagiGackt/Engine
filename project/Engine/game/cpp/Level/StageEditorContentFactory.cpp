@@ -51,7 +51,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     result.objects.push_back(std::move(clearCondition));
 
     // 出口の扉は全滅条件でせり上がって消えるスライド扉にする
-    StageEditorGeneratedContent door = CreateSlidingDoor(center + kRoomExitDoorOffset, "condition_" + clearConditionName, nextSerial);
+    StageEditorGeneratedContent door = CreateSlidingDoor(center + kRoomExitDoorOffset, ConditionFlagName(clearConditionName), nextSerial);
     for (ObjectDesc& desc : door.objects) {
         result.objects.push_back(std::move(desc));
     }
