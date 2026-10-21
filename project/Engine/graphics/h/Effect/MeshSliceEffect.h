@@ -48,7 +48,10 @@ public:
     /** @brief 再生を打ち切って非アクティブに戻す */
     void Reset();
 
-    bool IsActive() const { return active_; }
+    /** @brief 演出の最中かを返す */
+    bool IsActive() const {
+        return active_;
+    }
 
     /** @brief 破片が飛散するフェーズに入ったか */
     bool IsBursting() const;

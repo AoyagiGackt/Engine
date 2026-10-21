@@ -25,35 +25,43 @@ public:
      * @note SetTranslate/SetRotate 等を呼ぶと自動で再計算されるため、
      *       通常は明示的に呼ぶ必要はありません
      */
-    void Update() { RecalcMatrices(); }
+    void Update() {
+        RecalcMatrices();
+    }
 
     // セッター（呼ぶだけで行列が自動更新される）
 
+    /** @brief カメラの回転を設定する */
     void SetRotate(const Vector3& rotate)
     {
         transform_.rotate = rotate;
         isDirty_ = true;
     }
+    /** @brief カメラの位置を設定する */
     void SetTranslate(const Vector3& translate)
     {
         transform_.translate = translate;
         isDirty_ = true;
     }
+    /** @brief 縦の画角を設定する */
     void SetFovY(float fovY)
     {
         fovY_ = fovY;
         isDirty_ = true;
     }
+    /** @brief アスペクト比を設定する */
     void SetAspectRatio(float aspectRatio)
     {
         aspectRatio_ = aspectRatio;
         isDirty_ = true;
     }
+    /** @brief 近い側のクリップ距離を設定する */
     void SetNearClip(float nearClip)
     {
         nearClip_ = nearClip;
         isDirty_ = true;
     }
+    /** @brief 遠い側のクリップ距離を設定する */
     void SetFarClip(float farClip)
     {
         farClip_ = farClip;
@@ -62,14 +70,24 @@ public:
 
     // ゲッター（常に最新の行列を返す）
 
-    const Vector3& GetRotate() const { return transform_.rotate; }
-    const Vector3& GetTranslate() const { return transform_.translate; }
-    const Transform& GetTransform() const { return transform_; }
+    /** @brief カメラの回転を返す */
+    const Vector3& GetRotate() const {
+        return transform_.rotate;
+    }
+    /** @brief カメラの位置を返す */
+    const Vector3& GetTranslate() const {
+        return transform_.translate;
+    }
+    /** @brief カメラのトランスフォームを返す */
+    const Transform& GetTransform() const {
+        return transform_;
+    }
 
     /** @brief 最新のビュー行列を返す（必要なら自動再計算） */
     const Matrix4x4& GetViewMatrix() const
     {
-        if (isDirty_) {
+        if (isDirty_)
+        {
             RecalcMatrices();
         }
         return viewMatrix_;
@@ -78,7 +96,8 @@ public:
     /** @brief 最新のプロジェクション行列を返す（必要なら自動再計算） */
     const Matrix4x4& GetProjectionMatrix() const
     {
-        if (isDirty_) {
+        if (isDirty_)
+        {
             RecalcMatrices();
         }
         return projectionMatrix_;
@@ -90,22 +109,11 @@ public:
      */
     Matrix4x4 GetViewProjectionMatrix() const
     {
-        if (isDirty_) {
+        if (isDirty_)
+        {
             RecalcMatrices();
         }
         return Multiply(viewMatrix_, projectionMatrix_);
-    }
-
-    // 直接変更したい場合用の非 const 参照ゲッター
-    Vector3& GetRotate()
-    {
-        isDirty_ = true;
-        return transform_.rotate;
-    }
-    Vector3& GetTranslate()
-    {
-        isDirty_ = true;
-        return transform_.translate;
     }
 
 private:

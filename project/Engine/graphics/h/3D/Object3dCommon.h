@@ -74,13 +74,19 @@ public:
      * @note true にすると UpdateLight() が内部処理をスキップするため、
      *       Set*** で設定した値が固定される
      */
-    void SetManualLightOverride(bool enable) { manualLightOverride_ = enable; }
-    bool GetManualLightOverride() const { return manualLightOverride_; }
+    void SetManualLightOverride(bool enable) {
+        manualLightOverride_ = enable;
+    }
+    /** @brief ライトを手動の設定で上書きしているかを返す */
+    bool GetManualLightOverride() const {
+        return manualLightOverride_;
+    }
 
     /** @brief ライト方向を手動設定（正規化済みベクトルを渡すこと） */
     void SetLightDirection(const Vector3& dir)
     {
-        if (lightData_) {
+        if (lightData_)
+        {
             lightData_->direction = dir;
         }
     }
@@ -88,7 +94,8 @@ public:
     /** @brief 平行光源の色を設定 */
     void SetLightColor(const Vector4& color)
     {
-        if (lightData_) {
+        if (lightData_)
+        {
             lightData_->color = color;
         }
     }
@@ -96,7 +103,8 @@ public:
     /** @brief 平行光源の強度を設定 */
     void SetLightIntensity(float intensity)
     {
-        if (lightData_) {
+        if (lightData_)
+        {
             lightData_->intensity = intensity;
         }
     }
@@ -104,7 +112,8 @@ public:
     /** @brief アンビエント光の色を設定 */
     void SetAmbientColor(const Vector3& color)
     {
-        if (lightData_) {
+        if (lightData_)
+        {
             lightData_->ambientColor = color;
         }
     }
@@ -112,17 +121,32 @@ public:
     /** @brief アンビエント光の強度を設定 */
     void SetAmbientIntensity(float intensity)
     {
-        if (lightData_) {
+        if (lightData_)
+        {
             lightData_->ambientIntensity = intensity;
         }
     }
 
     // ゲッター
-    Vector3 GetLightDirectionRaw() const { return lightData_ ? lightData_->direction : Vector3 { 0, -1, 0 }; }
-    Vector4 GetLightColor() const { return lightData_ ? lightData_->color : Vector4 { 1, 1, 1, 1 }; }
-    float GetLightIntensity() const { return lightData_ ? lightData_->intensity : 1.0f; }
-    Vector3 GetAmbientColor() const { return lightData_ ? lightData_->ambientColor : Vector3 { 1, 1, 1 }; }
-    float GetAmbientIntensity() const { return lightData_ ? lightData_->ambientIntensity : kDefaultAmbientIntensity; }
+    Vector3 GetLightDirectionRaw() const {
+        return lightData_ ? lightData_->direction : Vector3 { 0, -1, 0 };
+    }
+    /** @brief ライトの色を返す */
+    Vector4 GetLightColor() const {
+        return lightData_ ? lightData_->color : Vector4 { 1, 1, 1, 1 };
+    }
+    /** @brief ライトの強さを返す */
+    float GetLightIntensity() const {
+        return lightData_ ? lightData_->intensity : 1.0f;
+    }
+    /** @brief 環境光の色を返す */
+    Vector3 GetAmbientColor() const {
+        return lightData_ ? lightData_->ambientColor : Vector3 { 1, 1, 1 };
+    }
+    /** @brief 環境光の強さを返す */
+    float GetAmbientIntensity() const {
+        return lightData_ ? lightData_->ambientIntensity : kDefaultAmbientIntensity;
+    }
 
     // ポイントライト管理
 
@@ -130,7 +154,9 @@ public:
      * @brief 全ポイントライトをクリアする
      * @note フレーム先頭で呼び、その後 AddPointLight で必要分を追加するのが基本パターン
      */
-    void ClearPointLights() { pointLightCount_ = 0; }
+    void ClearPointLights() {
+        pointLightCount_ = 0;
+    }
 
     /**
      * @brief ポイントライトを追加する
@@ -139,13 +165,16 @@ public:
      */
     void AddPointLight(const PointLight& light)
     {
-        if (pointLightCount_ < kMaxPointLights && pointLightData_) {
+        if (pointLightCount_ < kMaxPointLights && pointLightData_)
+        {
             pointLightData_->lights[pointLightCount_++] = light;
         }
     }
 
     /** @brief 現在登録されているポイントライト数を返す */
-    UINT GetPointLightCount() const { return pointLightCount_; }
+    UINT GetPointLightCount() const {
+        return pointLightCount_;
+    }
 
 private:
     static constexpr float kDefaultAmbientIntensity = 0.3f;

@@ -1,53 +1,83 @@
 /**
  * @file ShadowManager.cpp
- * @brief ShadowManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief シャドウマップの生成と管理（ShadowManager）の実装
  */
 #include "ShadowManager.h"
+#include "PipelineHelper.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
+#include "ModelCommon.h"
+#include "GraphicsTuning.h"
+#include <limits>
 #include <cmath>
 
+namespace engine::graphics {
 namespace {
+/** @brief シャドウマップの投影中心・ライト距離・描画範囲 */
+struct ShadowProjectionTuning {
+    Vector3 center = { 15.0f, 5.0f, 0.0f };
+    float lightDistance = 40.0f;
+    float width = 40.0f;
+    float height = 25.0f;
+    float nearClip = 0.1f;
+    float farClip = 80.0f;
+};
 
-// ライト座標系の安定化
-constexpr float kDirectionEpsilon = 1e-6f;
-constexpr float kVerticalDirectionThreshold = 0.99f;
-
+/** @brief 影の投影設定を初回にgraphics_tuning.jsonから読み込む */
+const ShadowProjectionTuning& ProjectionTuning()
+{
+    static const ShadowProjectionTuning tuning = []
+    {
+        ShadowProjectionTuning value;
+        const float lower = -(std::numeric_limits<float>::max)();
+        value.center.x = GraphicsTuning::Float("shadow.centerX", value.center.x, lower);
+        value.center.y = GraphicsTuning::Float("shadow.centerY", value.center.y, lower);
+        value.center.z = GraphicsTuning::Float("shadow.centerZ", value.center.z, lower);
+        value.lightDistance = GraphicsTuning::Positive("shadow.lightDistance", value.lightDistance);
+        value.width = GraphicsTuning::Positive("shadow.width", value.width);
+        value.height = GraphicsTuning::Positive("shadow.height", value.height);
+        value.nearClip = GraphicsTuning::Positive("shadow.nearClip", value.nearClip);
+        value.farClip = GraphicsTuning::Positive("shadow.farClip", value.farClip);
+        if (value.farClip <= value.nearClip)
+        {
+            const ShadowProjectionTuning defaults;
+            value.nearClip = defaults.nearClip;
+            value.farClip = defaults.farClip;
+        }
+        return value;
+    }();
+    return tuning;
 }
-using namespace engine;
-using namespace engine::graphics;
+} // namespace
+
+/** @brief 通常の影とカスケードの影で共通の投影中心を取得する */
+Vector3 ShadowManager::SceneCenter()
+{
+    return ProjectionTuning().center;
+}
+
+/** @brief 投影中心からライト方向と逆に設定距離だけ離れた位置を求める */
+Vector3 ShadowManager::LightPosition(const Vector3& lightDirection)
+{
+    const ShadowProjectionTuning& tuning = ProjectionTuning();
+    return { tuning.center.x - lightDirection.x * tuning.lightDistance,
+        tuning.center.y - lightDirection.y * tuning.lightDistance,
+        tuning.center.z - lightDirection.z * tuning.lightDistance };
+}
+
 
 using namespace Microsoft::WRL;
 
 // 初期化
 
+/** @brief シャドウマップ用の深度テクスチャと DSV・SRV を作成して初期化する */
 void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    // R32_TYPELESS テクスチャ（DSV: D32_FLOAT, SRV: R32_FLOAT）
-    D3D12_HEAP_PROPERTIES defaultHeap { D3D12_HEAP_TYPE_DEFAULT };
-    D3D12_RESOURCE_DESC texDesc { };
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Width = kShadowMapSize;
-    texDesc.Height = kShadowMapSize;
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = 1;
-    texDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-    D3D12_CLEAR_VALUE clearValue { };
-    clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-    clearValue.DepthStencil.Depth = 1.0f;
-    clearValue.DepthStencil.Stencil = 0;
-
-    HRESULT hr = device->CreateCommittedResource(
-        &defaultHeap, D3D12_HEAP_FLAG_NONE, &texDesc,
-        D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue,
-        IID_PPV_ARGS(&shadowMapResource_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    // 深度を書き込んで後から読むため R32_TYPELESS で作る（DSV: D32_FLOAT, SRV: R32_FLOAT）
+    shadowMapResource_ = PipelineHelper::CreateDepthTexture(device, kShadowMapSize, kShadowMapSize, 1, DXGI_FORMAT_R32_TYPELESS);
 
     // DSV ヒープ（シャドウマップ専用）
     shadowDsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
@@ -71,98 +101,30 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
 // ライト方向 → LightVP 行列を更新
 
+/** @brief ライト方向から影用のビュー射影行列を求めて保持する */
 void ShadowManager::Update(const Vector3& lightDir)
 {
-    Vector3 sceneCenter = { kSceneCenterX, kSceneCenterY, kSceneCenterZ };
-    Vector3 lightEye = {
-        sceneCenter.x - lightDir.x * kLightDistance,
-        sceneCenter.y - lightDir.y * kLightDistance,
-        sceneCenter.z - lightDir.z * kLightDistance,
-    };
+    const ShadowProjectionTuning& tuning = ProjectionTuning();
+    const Vector3 sceneCenter = SceneCenter();
+    const Vector3 lightEye = LightPosition(lightDir);
 
-    // LookAt 行列（ライト視点）
-    Vector3 fwd = {
-        sceneCenter.x - lightEye.x,
-        sceneCenter.y - lightEye.y,
-        sceneCenter.z - lightEye.z,
-    };
-
-    float fwdLen = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
-    if (fwdLen < kDirectionEpsilon) {
+    Matrix4x4 view {};
+    if (!TryMakeLightViewMatrix(lightEye, sceneCenter, view))
+    {
         return;
-    } // ライトがシーン中心と重なる場合は更新しない
-    fwd = { fwd.x / fwdLen, fwd.y / fwdLen, fwd.z / fwdLen };
-
-    Vector3 up = { 0.0f, 1.0f, 0.0f };
-
-    if (std::abs(fwd.y) > kVerticalDirectionThreshold) {
-        up = { 0.0f, 0.0f, 1.0f };
     }
-
-    // right = up × fwd
-    Vector3 right = {
-        up.y * fwd.z - up.z * fwd.y,
-        up.z * fwd.x - up.x * fwd.z,
-        up.x * fwd.y - up.y * fwd.x,
-    };
-
-    float rightLen = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-    if (rightLen < kDirectionEpsilon) {
-        return;
-    } // 縮退ケース防止
-    right = { right.x / rightLen, right.y / rightLen, right.z / rightLen };
-
-    // realUp = fwd × right
-    Vector3 realUp = {
-        fwd.y * right.z - fwd.z * right.y,
-        fwd.z * right.x - fwd.x * right.z,
-        fwd.x * right.y - fwd.y * right.x,
-    };
-
-    float dotR = right.x * lightEye.x + right.y * lightEye.y + right.z * lightEye.z;
-    float dotU = realUp.x * lightEye.x + realUp.y * lightEye.y + realUp.z * lightEye.z;
-    float dotF = fwd.x * lightEye.x + fwd.y * lightEye.y + fwd.z * lightEye.z;
-
-    // View 行列（行ベクトル形式）
-    Matrix4x4 view = { };
-    view.m[0][0] = right.x;
-    view.m[0][1] = right.y;
-    view.m[0][2] = right.z;
-    view.m[0][3] = 0;
-    view.m[1][0] = realUp.x;
-    view.m[1][1] = realUp.y;
-    view.m[1][2] = realUp.z;
-    view.m[1][3] = 0;
-    view.m[2][0] = fwd.x;
-    view.m[2][1] = fwd.y;
-    view.m[2][2] = fwd.z;
-    view.m[2][3] = 0;
-    view.m[3][0] = -dotR;
-    view.m[3][1] = -dotU;
-    view.m[3][2] = -dotF;
-    view.m[3][3] = 1;
-
-    // 平行投影行列（DirectX 深度 0-1）
-    const float w = kShadowViewWidth;
-    const float h = kShadowViewHeight;
-    const float nearZ = kShadowNearZ;
-    const float farZ = kShadowFarZ;
-
-    Matrix4x4 proj = { };
-    proj.m[0][0] = 2.0f / w;
-    proj.m[1][1] = 2.0f / h;
-    proj.m[2][2] = 1.0f / (farZ - nearZ);
-    proj.m[3][2] = -nearZ / (farZ - nearZ);
-    proj.m[3][3] = 1.0f;
+    const Matrix4x4 proj = MakeCenteredOrthographicMatrix(tuning.width, tuning.height, tuning.nearClip, tuning.farClip);
 
     lightVP_ = Multiply(view, proj);
 }
 
 // シャドウパス開始・終了
 
+/** @brief シャドウパスを開始する（深度書き込みへの遷移・DSV のクリア・ビューポート設定） */
 void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
 {
-    if (!shadowMapInDepthWrite_) {
+    if (!shadowMapInDepthWrite_)
+    {
         DirectXCommon::TransitionBarrier(commandList, shadowMapResource_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
     }
@@ -179,6 +141,7 @@ void ShadowManager::BeginShadowPass(ID3D12GraphicsCommandList* commandList)
     commandList->RSSetScissorRects(1, &scissor);
 }
 
+/** @brief シャドウパス終了（バリア遷移: DEPTH_WRITE → SRV） */
 void ShadowManager::EndShadowPass(ID3D12GraphicsCommandList* commandList)
 {
     DirectXCommon::TransitionBarrier(commandList, shadowMapResource_.Get(),
@@ -186,10 +149,26 @@ void ShadowManager::EndShadowPass(ID3D12GraphicsCommandList* commandList)
     shadowMapInDepthWrite_ = false;
 }
 
+/** @brief シャドウパスを1回分まとめて行う（開始 → モデル側の影用設定 → 影を落とす物の描画 → 終了） */
+void ShadowManager::RunShadowPass(ID3D12GraphicsCommandList* commandList, ModelCommon* modelCommon,
+    const std::function<void()>& drawCasters)
+{
+    BeginShadowPass(commandList);
+    modelCommon->BeginShadowPass();
+    if (drawCasters)
+    {
+        drawCasters();
+    }
+    EndShadowPass(commandList);
+}
+
 // SRV セット（スロット 4）
 
+/** @brief シャドウマップの SRV を影用のルートスロットへセットする */
 void ShadowManager::SetShadowMap(ID3D12GraphicsCommandList* commandList, SrvManager* srvManager)
 {
-    commandList->SetGraphicsRootDescriptorTable(4,
+    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kShadow,
         srvManager->GetGPUDescriptorHandle(shadowSrvIndex_));
 }
+
+} // namespace engine::graphics

@@ -23,7 +23,9 @@ public:
     static AudioBridge* GetInstance();
 
     /** @brief 現在のシーンのAudioを登録する（Scene::Initialize()から呼ぶ） */
-    void SetAudio(engine::Audio* audio) { audio_ = audio; }
+    void SetAudio(engine::Audio* audio) {
+        audio_ = audio;
+    }
 
     /** @brief SEを再生する（未ロードなら初回のみファイルを読み込みキャッシュする） */
     void PlaySE(const std::string& path, float volume);
@@ -35,6 +37,7 @@ public:
     void StopBGM();
 
 private:
+    /** @brief 音声再生先が未接続の橋渡しを作る */
     AudioBridge() = default;
     AudioBridge(const AudioBridge&) = delete;
     AudioBridge& operator=(const AudioBridge&) = delete;

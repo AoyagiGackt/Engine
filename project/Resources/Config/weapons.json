@@ -77,7 +77,6 @@
         {
             "name": "Sword",
             "type": "Sword",
-            "styleName": "鬼神 (Swordmaster)",
             "styleNameJp": "鬼神",
             "damage": 30.0,
             "range": 2.5,
@@ -99,7 +98,6 @@
         {
             "name": "Spear",
             "type": "Spear",
-            "styleName": "銃士 (Gunslinger)",
             "styleNameJp": "銃士",
             "damage": 20.0,
             "range": 4.0,
@@ -120,7 +118,6 @@
         {
             "name": "Dagger",
             "type": "Dagger",
-            "styleName": "奇術師 (Trickster)",
             "styleNameJp": "奇術師",
             "damage": 15.0,
             "range": 1.5,
@@ -141,7 +138,6 @@
         {
             "name": "Hammer",
             "type": "Hammer",
-            "styleName": "守護者 (Royal Guard)",
             "styleNameJp": "守護者",
             "damage": 60.0,
             "range": 1.8,
@@ -162,7 +158,6 @@
         {
             "name": "Claymore",
             "type": "Greatsword",
-            "styleName": "重騎士 (Juggernaut)",
             "styleNameJp": "重騎士",
             "damage": 45.0,
             "range": 3.0,
@@ -184,7 +179,6 @@
         {
             "name": "Scythe",
             "type": "Scythe",
-            "styleName": "死神 (Reaper)",
             "styleNameJp": "死神",
             "damage": 25.0,
             "range": 3.5,
@@ -205,7 +199,6 @@
         {
             "name": "Axe",
             "type": "Axe",
-            "styleName": "狂戦士 (Berserker)",
             "styleNameJp": "狂戦士",
             "damage": 35.0,
             "range": 2.8,

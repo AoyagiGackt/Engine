@@ -1,0 +1,6 @@
+{
+  "_comment": "シーンごとのBGM。キーはコードの BgmKey（title=タイトル stage_select=ステージセレクト stage=ステージ本編）。同じ曲が鳴っている間にもう一度指定しても最初からにはしない",
+  "title": "Resources/bgm/titleBgm.mp3",
+  "stage_select": "Resources/bgm/selectBgm.mp3",
+  "stage": "Resources/bgm/gameBgm.mp3"
+}

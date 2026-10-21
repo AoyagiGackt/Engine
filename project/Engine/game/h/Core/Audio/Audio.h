@@ -26,6 +26,13 @@
 #pragma comment(lib, "xaudio2.lib")
 #pragma comment(lib, "mfuuid.lib")
 namespace engine {
+/** @brief Resources/Config/bgm.json に書くシーンごとの BGM のキー */
+namespace BgmKey {
+inline constexpr const char* kTitle = "title"; ///< タイトル
+inline constexpr const char* kStageSelect = "stage_select"; ///< ステージセレクト
+inline constexpr const char* kStage = "stage"; ///< ステージ本編
+}
+
 /**
  * @brief 再生する音声データを保持する構造体
  */
@@ -62,8 +69,11 @@ public:
     void PlayMenuChoice();
     /** @brief メニューの決定音を再生する */
     void PlayMenuSelect();
-    /** @brief タイトル用BGMをループ再生する */
-    void PlayTitleBGM();
+    /**
+     * @brief bgm.json でシーンのキーに割り当てた曲をループ再生する（同じ曲が鳴っていれば続きから流す）
+     * @param sceneKey BgmKey のいずれか
+     */
+    void PlaySceneBGM(const std::string& sceneKey);
 
     // BGM（1チャンネル、ループ再生）
 
@@ -89,10 +99,14 @@ public:
     void SetSEVolume(float volume);
 
     /** @brief 現在のBGMカテゴリ音量を返す */
-    float GetBGMVolume() const { return bgmCurrentVolume_; }
+    float GetBGMVolume() const {
+        return bgmCurrentVolume_;
+    }
 
     /** @brief 現在のSEカテゴリ音量を返す */
-    float GetSEVolume() const { return seVolume_; }
+    float GetSEVolume() const {
+        return seVolume_;
+    }
 
     /**
      * @brief BGM の再生速度（ピッチ）を変更する
@@ -131,13 +145,19 @@ public:
     // 後方互換 API（PlayWave / StopWave）
 
     /** @brief BGM として再生する（PlayBGM の別名） */
-    void PlayWave(const SoundData& soundData) { PlayBGM(soundData, true); }
+    void PlayWave(const SoundData& soundData) {
+        PlayBGM(soundData, true);
+    }
 
     /** @brief BGM を停止する（StopBGM の別名） */
-    void StopWave() { StopBGM(); }
+    void StopWave() {
+        StopBGM();
+    }
 
     /** @brief BGM の速度を変更する（SetBGMSpeed の別名） */
-    void SetPlaybackSpeed(float speed) { SetBGMSpeed(speed); }
+    void SetPlaybackSpeed(float speed) {
+        SetBGMSpeed(speed);
+    }
 
 private:
     const SoundData& GetCachedSound(const std::string& filename);
@@ -154,6 +174,8 @@ private:
 
     /** @brief BGM 専用チャンネル */
     IXAudio2SourceVoice* bgmVoice_ = nullptr;
+    /** @brief PlaySceneBGM で流している曲のパス（それ以外の再生中・停止中は空） */
+    std::string sceneBgmPath_;
 
     /** @brief SE チャンネル（複数同時再生） */
     std::vector<IXAudio2SourceVoice*> seVoices_;

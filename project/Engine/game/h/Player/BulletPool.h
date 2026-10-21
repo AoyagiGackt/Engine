@@ -29,7 +29,10 @@ public:
      * @return なし
      */
     void Update();
-    void Kill(int index) { slots_[index].active = false; }
+    /** @brief 弾を消して、使い回せるように空きにする */
+    void Kill(int index) {
+        slots_[index].active = false;
+    }
     /**
      * @brief Draw に対応する内容を描画する
      * @return なし
@@ -39,11 +42,21 @@ public:
     /** @brief 弾を動かさず、現在のカメラで行列だけ再計算する（ステージエディタ中のカメラ移動用） */
     void RefreshVisualTransforms();
 
-    bool IsActive(int i) const { return slots_[i].active; }
-    const Vector3& GetPos(int i) const { return slots_[i].pos; }
-    const Vector3& GetVel(int i) const { return slots_[i].vel; }
+    /** @brief 指定した弾が飛んでいるかを返す */
+    bool IsActive(int i) const {
+        return slots_[i].active;
+    }
+    /** @brief 指定した弾の位置を返す */
+    const Vector3& GetPos(int i) const {
+        return slots_[i].pos;
+    }
+    /** @brief 指定した弾の速度を返す */
+    const Vector3& GetVel(int i) const {
+        return slots_[i].vel;
+    }
 
 private:
+    /** @brief プールまたはHUDの1枠が保持する表示資源と状態 */
     struct Slot {
         Vector3 pos = { };
         Vector3 vel = { };

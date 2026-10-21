@@ -19,6 +19,7 @@
 #include "Skydome.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
+#include "TextBufferCapacity.h"
 #include <deque>
 #include <memory>
 #include <string>
@@ -141,16 +142,15 @@ public:
     void Update(const EditContext& ctx, engine::Input* input);
 
     /** @brief 調整パネルが表示中か返す @return 表示中の場合はtrue */
-    bool IsVisible() const { return visible_; }
+    bool IsVisible() const {
+        return visible_;
+    }
 
     /** @brief 保存済みのカメラとUI設定を読み込む @param ctx 読み込み結果を反映する編集対象 */
     void LoadAll(const EditContext& ctx);
 
-    // Hierarchy に追加した UI スプライト一覧を返す（GamePlayScene が描画のために使う）
-    /** @brief 編集可能なUI要素一覧を返す @return UI要素一覧の参照 */
-    std::vector<UIEntry>& GetUIElements() { return uiElements_; }
-    /** @brief 読み取り専用のUI要素一覧を返す @return UI要素一覧の参照 */
-    const std::vector<UIEntry>& GetUIElements() const { return uiElements_; }
+    /** @brief 編集対象のUIスプライトを更新して描画する */
+    void DrawUIElements();
 
 
 private:
@@ -160,6 +160,7 @@ private:
     /** @brief 選択種別に対応する詳細表示を抽象化するState */
     class IEditorState {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~IEditorState() = default;
         // Inspector パネルに表示する ImGui コントロールを描画する
         virtual void RenderInspector(const EditContext& ctx, SceneEditor& editor) = 0;
@@ -246,6 +247,9 @@ private:
 
     std::vector<UIEntry> uiElements_; // Hierarchy に追加した UI スプライト一覧
     float savedTimer_ = 0.0f; // "Saved!" メッセージを表示するための残り時間
+    static constexpr int kNoEditedUiIndex = -1; // 名前の入力欄がどの UI 要素も指していない時の値
+    int uiNameEditIndex_ = kNoEditedUiIndex; // 名前の入力欄に読み込んである UI 要素の番号
+    char uiNameBuffer_[TextBufferCapacity::kIdentifier] = { }; // UI 要素の名前の入力欄
 };
 
 } // namespace engine::game

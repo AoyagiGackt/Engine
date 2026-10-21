@@ -4,11 +4,47 @@
  */
 #include "Collision.h"
 #include <algorithm>
+#include <iterator>
 #include <cfloat> // FLT_MAX
 #include <cmath>
-using namespace engine;
 
-// 球 × 球
+namespace engine {
+namespace {
+/** @brief 長さの2乗・係数がこれ以下なら0（線分が点に縮んでいる等）とみなす */
+constexpr float kDegenerateEpsilon = 1e-10f;
+/** @brief レイの方向成分がこれより小さければ、その軸と平行とみなす */
+constexpr float kParallelEpsilon = 1e-8f;
+
+/** @brief レイと1軸の区間を交差させ、共通の入射・離脱距離と入射面を更新する */
+bool IntersectRaySlab(float origin, float direction, float minimum, float maximum,
+    const Vector3& minimumNormal, float& enter, float& exit, Vector3& hitNormal)
+{
+    // 平行なレイは区間の内側にある場合だけ他の軸の判定へ進む
+    if (std::abs(direction) < kParallelEpsilon)
+    {
+        return origin >= minimum && origin <= maximum;
+    }
+    const float inverseDirection = 1.0f / direction;
+    float nearDistance = (minimum - origin) * inverseDirection;
+    float farDistance = (maximum - origin) * inverseDirection;
+    Vector3 nearNormal = minimumNormal;
+    if (nearDistance > farDistance)
+    {
+        std::swap(nearDistance, farDistance);
+        nearNormal = { -nearNormal.x, -nearNormal.y, -nearNormal.z };
+    }
+    // 最も遅く入る面と最も早く出る面の間だけが全軸に共通する
+    if (nearDistance > enter)
+    {
+        enter = nearDistance;
+        hitNormal = nearNormal;
+    }
+    exit = std::min(exit, farDistance);
+    return enter <= exit;
+}
+} // namespace
+
+/** @brief 球どうしが重なっているかを返す */
 bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
 {
     float dx = s2.center.x - s1.center.x;
@@ -29,6 +65,7 @@ bool Collision::CheckCollision(const AABB& a, const AABB& b)
 
 // 内部ユーティリティ
 
+/** @brief AABB の内側に点を収め、AABB 上で点に最も近い位置を返す */
 Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b)
 {
     return {
@@ -38,12 +75,14 @@ Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b)
     };
 }
 
+/** @brief 点を線分上へ投影し、線分の両端の間に収めた最も近い点を返す */
 Vector3 Collision::ClosestPointOnSegment(const Vector3& p,
     const Vector3& a, const Vector3& b)
 {
     Vector3 ab = { b.x - a.x, b.y - a.y, b.z - a.z };
     float len2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
-    if (len2 < 1e-10f) {
+    if (len2 < kDegenerateEpsilon)
+    {
         return a;
     }
     float t = ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y + (p.z - a.z) * ab.z) / len2;
@@ -56,8 +95,6 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     const Vector3& q0, const Vector3& q1,
     float& outS, float& outT)
 {
-    constexpr float kEps = 1e-10f;
-
     Vector3 d1 = { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
     Vector3 d2 = { q1.x - q0.x, q1.y - q0.y, q1.z - q0.z };
     Vector3 r = { p0.x - q0.x, p0.y - q0.y, p0.z - q0.z };
@@ -67,34 +104,48 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     float f = d2.x * r.x + d2.y * r.y + d2.z * r.z;
 
     float s, t;
-    if (a <= kEps && e <= kEps) {
+    if (a <= kDegenerateEpsilon && e <= kDegenerateEpsilon)
+    {
         // 両線分とも点に縮退
         s = t = 0.0f;
-    } else if (a <= kEps) {
+    }
+    else if (a <= kDegenerateEpsilon)
+    {
         // p 側が点に縮退
         s = 0.0f;
         t = std::max(0.0f, std::min(1.0f, f / e));
-    } else {
+    }
+    else
+    {
         float c = d1.x * r.x + d1.y * r.y + d1.z * r.z;
-        if (e <= kEps) {
+        if (e <= kDegenerateEpsilon)
+        {
             // q 側が点に縮退
             t = 0.0f;
             s = std::max(0.0f, std::min(1.0f, -c / a));
-        } else {
+        }
+        else
+        {
             // 一般ケース
             float b = d1.x * d2.x + d1.y * d2.y + d1.z * d2.z;
             float denom = a * e - b * b;
-            if (std::abs(denom) > kEps) {
+            if (std::abs(denom) > kDegenerateEpsilon)
+            {
                 s = std::max(0.0f, std::min(1.0f, (b * f - c * e) / denom));
-            } else {
+            }
+            else
+            {
                 s = 0.0f; // 平行 任意の点を選ぶ
             }
             t = (b * s + f) / e;
             // t がクランプされた場合は s を再計算
-            if (t < 0.0f) {
+            if (t < 0.0f)
+            {
                 t = 0.0f;
                 s = std::max(0.0f, std::min(1.0f, -c / a));
-            } else if (t > 1.0f) {
+            }
+            else if (t > 1.0f)
+            {
                 t = 1.0f;
                 s = std::max(0.0f, std::min(1.0f, (b - c) / a));
             }
@@ -178,93 +229,20 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
     float tmax = FLT_MAX;
     Vector3 hitNormal = { };
 
-    // X 軸
+    // 各軸の区間を同じ計算で狭め、入射面の法線を保持する
+    if (!IntersectRaySlab(ray.origin.x, ray.direction.x, aabb.min.x, aabb.max.x,
+            { -1.0f, 0.0f, 0.0f }, tmin, tmax, hitNormal)
+        || !IntersectRaySlab(ray.origin.y, ray.direction.y, aabb.min.y, aabb.max.y,
+            { 0.0f, -1.0f, 0.0f }, tmin, tmax, hitNormal)
+        || !IntersectRaySlab(ray.origin.z, ray.direction.z, aabb.min.z, aabb.max.z,
+            { 0.0f, 0.0f, -1.0f }, tmin, tmax, hitNormal))
     {
-        float d = ray.direction.x;
-        if (std::abs(d) < 1e-8f) {
-            // レイが X 方向に平行  X 範囲外なら当たらない
-            if (ray.origin.x < aabb.min.x || ray.origin.x > aabb.max.x) {
-                return false;
-            }
-        } else {
-            float ood = 1.0f / d;
-            float t1 = (aabb.min.x - ray.origin.x) * ood;
-            float t2 = (aabb.max.x - ray.origin.x) * ood;
-            Vector3 n1 = { -1.0f, 0.0f, 0.0f }; // min 面の外向き法線
-            Vector3 n2 = { 1.0f, 0.0f, 0.0f }; // max 面の外向き法線
-            if (t1 > t2) {
-                std::swap(t1, t2);
-                std::swap(n1, n2);
-            }
-            if (t1 > tmin) {
-                tmin = t1;
-                hitNormal = n1;
-            }
-            tmax = std::min(tmax, t2);
-            if (tmin > tmax) {
-                return false;
-            }
-        }
-    }
-
-    // Y 軸
-    {
-        float d = ray.direction.y;
-        if (std::abs(d) < 1e-8f) {
-            if (ray.origin.y < aabb.min.y || ray.origin.y > aabb.max.y) {
-                return false;
-            }
-        } else {
-            float ood = 1.0f / d;
-            float t1 = (aabb.min.y - ray.origin.y) * ood;
-            float t2 = (aabb.max.y - ray.origin.y) * ood;
-            Vector3 n1 = { 0.0f, -1.0f, 0.0f };
-            Vector3 n2 = { 0.0f, 1.0f, 0.0f };
-            if (t1 > t2) {
-                std::swap(t1, t2);
-                std::swap(n1, n2);
-            }
-            if (t1 > tmin) {
-                tmin = t1;
-                hitNormal = n1;
-            }
-            tmax = std::min(tmax, t2);
-            if (tmin > tmax) {
-                return false;
-            }
-        }
-    }
-
-    // Z 軸
-    {
-        float d = ray.direction.z;
-        if (std::abs(d) < 1e-8f) {
-            if (ray.origin.z < aabb.min.z || ray.origin.z > aabb.max.z) {
-                return false;
-            }
-        } else {
-            float ood = 1.0f / d;
-            float t1 = (aabb.min.z - ray.origin.z) * ood;
-            float t2 = (aabb.max.z - ray.origin.z) * ood;
-            Vector3 n1 = { 0.0f, 0.0f, -1.0f };
-            Vector3 n2 = { 0.0f, 0.0f, 1.0f };
-            if (t1 > t2) {
-                std::swap(t1, t2);
-                std::swap(n1, n2);
-            }
-            if (t1 > tmin) {
-                tmin = t1;
-                hitNormal = n1;
-            }
-            tmax = std::min(tmax, t2);
-            if (tmin > tmax) {
-                return false;
-            }
-        }
+        return false;
     }
 
     // tmin < 0 はレイ原点が AABB 内部 → 衝突なし扱い（必要に応じてゲーム側で対応）
-    if (tmin < 0.0f) {
+    if (tmin < 0.0f)
+    {
         return false;
     }
 
@@ -294,15 +272,18 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
     float c = Dot(oc, oc) - sphere.radius * sphere.radius;
     float disc = b * b - c; // 判別式 = (b/2)² - ac (a=1)
 
-    if (disc < 0.0f) {
+    if (disc < 0.0f)
+    {
         return false;
     }
 
     float sqrtDisc = std::sqrt(disc);
     float t = -b - sqrtDisc; // 手前側の交点
-    if (t < 0.0f) {
+    if (t < 0.0f)
+    {
         t = -b + sqrtDisc; // レイ原点が球内部  奥側を使う
-        if (t < 0.0f) {
+        if (t < 0.0f)
+        {
             return false;
         }
     }
@@ -349,7 +330,8 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
     };
     float abLen2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
 
-    if (abLen2 > 1e-10f) {
+    if (abLen2 > kDegenerateEpsilon)
+    {
         Vector3 ao = {
             ray.origin.x - capsule.start.x,
             ray.origin.y - capsule.start.y,
@@ -362,21 +344,25 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
         float dAo = Dot(ray.direction, ao); // D·AO
 
         // 垂直成分の二次方程式係数
-        // A·t² + 2B·t + C = 0  (A = D_perp², B/2 = D_perp·AO_perp, C = |AO_perp|² - r²)
-        float A = 1.0f - dAB * dAB / abLen2;
-        float B = dAo - aoAB * dAB / abLen2; // 係数 b/2
-        float C = Dot(ao, ao) - aoAB * aoAB / abLen2 - capsule.radius * capsule.radius;
+        // 二次係数・一次係数の半分・定数項を使い、判別式と根を計算する
+        float quadraticCoefficient = 1.0f - dAB * dAB / abLen2;
+        float halfLinearCoefficient = dAo - aoAB * dAB / abLen2; // 係数 b/2
+        float constantCoefficient = Dot(ao, ao) - aoAB * aoAB / abLen2 - capsule.radius * capsule.radius;
 
-        if (std::abs(A) > 1e-10f) {
-            float disc = B * B - A * C;
-            if (disc >= 0.0f) {
+        if (std::abs(quadraticCoefficient) > kDegenerateEpsilon)
+        {
+            float disc = halfLinearCoefficient * halfLinearCoefficient - quadraticCoefficient * constantCoefficient;
+            if (disc >= 0.0f)
+            {
                 float sqrtDisc = std::sqrt(disc);
-                float t = (-B - sqrtDisc) / A;
-                if (t < 0.0f) {
-                    t = (-B + sqrtDisc) / A;
+                float t = (-halfLinearCoefficient - sqrtDisc) / quadraticCoefficient;
+                if (t < 0.0f)
+                {
+                    t = (-halfLinearCoefficient + sqrtDisc) / quadraticCoefficient;
                 }
 
-                if (t >= 0.0f) {
+                if (t >= 0.0f)
+                {
                     // ヒット点がカプセル軸の区間 [0,1] 内か確認
                     Vector3 hitPt = {
                         ray.origin.x + ray.direction.x * t,
@@ -390,7 +376,8 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
                     };
                     float proj = Dot(aHit, ab) / abLen2; // [0,1] なら胴体上
 
-                    if (proj >= 0.0f && proj <= 1.0f) {
+                    if (proj >= 0.0f && proj <= 1.0f)
+                    {
                         // 軸上の最近接点から外向き法線を計算
                         Vector3 axisPoint = {
                             capsule.start.x + ab.x * proj,
@@ -415,72 +402,93 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
 
     // 最小 t のヒットを採用
     const RaycastResult* best = nullptr;
-    if (hitA) {
+    if (hitA)
+    {
         best = &capA;
     }
-    if (hitB && (!best || capB.distance < best->distance)) {
+    if (hitB && (!best || capB.distance < best->distance))
+    {
         best = &capB;
     }
-    if (hitCyl && (!best || cyl.distance < best->distance)) {
+    if (hitCyl && (!best || cyl.distance < best->distance))
+    {
         best = &cyl;
     }
 
-    if (best) {
+    if (best)
+    {
         result = *best;
         return true;
     }
     return false;
 }
 
-// レイキャスト  形状ディスパッチ
+/** @brief 形状の順に対応する表でレイキャストを実行する */
 bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult& result)
 {
-    switch (collider.shape) {
-    case ColliderShape::AABB:
-        return Raycast(ray, collider.aabb, result);
-    case ColliderShape::Sphere:
-        return Raycast(ray, collider.sphere, result);
-    case ColliderShape::Capsule:
-        return Raycast(ray, collider.capsule, result);
-    }
-    return false;
+    using Handler = bool (*)(const Ray&, const Collider&, RaycastResult&);
+    static constexpr Handler kHandlers[] = {
+        [](const Ray& ray, const Collider& collider, RaycastResult& result) {
+            return Raycast(ray, collider.aabb, result);
+        },
+        [](const Ray& ray, const Collider& collider, RaycastResult& result) {
+            return Raycast(ray, collider.sphere, result);
+        },
+        [](const Ray& ray, const Collider& collider, RaycastResult& result) {
+            return Raycast(ray, collider.capsule, result);
+        },
+    };
+    static_assert(std::size(kHandlers) == kColliderShapeCount);
+    const auto index = static_cast<size_t>(collider.shape);
+    return index < std::size(kHandlers) && kHandlers[index](ray, collider, result);
 }
 
-// 形状ディスパッチ
+/** @brief 形状の組み合わせに対応する表で交差を判定する */
 bool Collision::CheckCollision(const Collider& a, const Collider& b)
 {
-    using S = ColliderShape;
-    switch (a.shape) {
-    case S::AABB:
-        switch (b.shape) {
-        case S::AABB:
-            return CheckCollision(a.aabb, b.aabb);
-        case S::Sphere:
-            return CheckCollision(b.sphere, a.aabb);
-        case S::Capsule:
-            return CheckCollision(b.capsule, a.aabb);
-        }
-        break;
-    case S::Sphere:
-        switch (b.shape) {
-        case S::AABB:
-            return CheckCollision(a.sphere, b.aabb);
-        case S::Sphere:
-            return CheckCollision(a.sphere, b.sphere);
-        case S::Capsule:
-            return CheckCollision(a.sphere, b.capsule);
-        }
-        break;
-    case S::Capsule:
-        switch (b.shape) {
-        case S::AABB:
-            return CheckCollision(a.capsule, b.aabb);
-        case S::Sphere:
-            return CheckCollision(b.sphere, a.capsule);
-        case S::Capsule:
-            return CheckCollision(a.capsule, b.capsule);
-        }
-        break;
-    }
-    return false;
+    // 行が a の形状、列が b の形状（AABB・球・カプセルの順）。片側だけの判定関数しか無い組は引数を入れ替えて呼ぶ
+    using Handler = bool (*)(const Collider&, const Collider&);
+    static constexpr Handler kHandlers[][kColliderShapeCount] = {
+        {
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.aabb, b.aabb);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(b.sphere, a.aabb);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(b.capsule, a.aabb);
+            },
+        },
+        {
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.sphere, b.aabb);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.sphere, b.sphere);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.sphere, b.capsule);
+            },
+        },
+        {
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.capsule, b.aabb);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(b.sphere, a.capsule);
+            },
+            [](const Collider& a, const Collider& b) {
+                return CheckCollision(a.capsule, b.capsule);
+            },
+        },
+    };
+    static_assert(std::size(kHandlers) == kColliderShapeCount);
+    // 表の外の形状が来たら当たっていない扱いにする
+    const auto row = static_cast<size_t>(a.shape);
+    const auto column = static_cast<size_t>(b.shape);
+    return row < std::size(kHandlers) && column < std::size(kHandlers[0])
+        && kHandlers[row][column](a, b);
 }
+
+} // namespace engine

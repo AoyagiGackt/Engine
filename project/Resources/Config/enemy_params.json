@@ -10,12 +10,12 @@
     "spearTelegraph": 0.38,
     "heavyTelegraph": 0.75,
     "daggerRecovery": 0.65,
-    "spearRecovery": 1.0,
+    "spearRecovery": 1,
     "heavyRecovery": 1.5,
     "approachSpeed": 0.09,
-    "engageRange": 2.0,
-    "aggroRange": 14.0,
-    "leashDistance": 12.0,
+    "engageRange": 2,
+    "aggroRange": 14,
+    "leashDistance": 12,
     "meleeAttackRange": 2.8,
     "meleeReach": 2.2,
     "meleeHitHalfHeight": 0.8,
@@ -26,10 +26,10 @@
     "airComboGravityScale": 0.18,
     "airComboHold": 0.55,
     "flyingBobAmplitude": 0.65,
-    "flyingBobSpeed": 2.0,
+    "flyingBobSpeed": 2,
     "healerPulseSeconds": 1.5,
     "healerCastSeconds": 0.5,
-    "healerRange": 7.0,
+    "healerRange": 7,
     "healerAmount": 4,
     "corpseFootOffset": 0.1
   },
@@ -39,29 +39,55 @@
     "telegraphDuration": 0.35,
     "dashDuration": 0.22,
     "recoverDuration": 0.4,
-    "maxDashDistance": 5.0,
+    "maxDashDistance": 5,
     "knockbackSpeed": 0.18,
     "knockbackDecay": 0.85
   },
   "bullet": {
-    "speed": 9.0,
+    "speed": 9,
     "lifetime": 1.2,
-    "fireRange": 7.0
+    "fireRange": 7
   },
   "bossSlam": {
-    "engageRange": 10.0,
-    "interval": 7.0,
+    "engageRange": 10,
+    "interval": 7,
     "warningDuration": 1.1,
     "radius": 2.6,
     "damage": 3
   },
   "separation": {
-    "minDistanceX": 1.0,
-    "minDistanceY": 1.0,
+    "minDistanceX": 1,
+    "minDistanceY": 1,
     "pushRate": 0.35,
     "bodyHalfWidth": 0.4,
     "wallBandBottom": 0.2,
-    "wallBandTop": 1.0,
+    "wallBandTop": 1,
     "wallContactMargin": 0.02
+  },
+  "visuals": {
+    "Slime": {
+      "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj",
+      "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SlimePalette.png",
+      "scale": 0.47,
+      "yawOffset": -1.5707963267948966
+    },
+    "Bat": {
+      "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Bat_Palette.obj",
+      "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/BatPalette.png",
+      "scale": 0.21,
+      "yawOffset": 0
+    },
+    "Dragon": {
+      "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Dragon_Palette.obj",
+      "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/DragonPalette.png",
+      "scale": 0.38,
+      "yawOffset": 0
+    },
+    "Skeleton": {
+      "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Skeleton_Palette.obj",
+      "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SkeletonPalette.png",
+      "scale": 0.215,
+      "yawOffset": 0
+    }
   }
 }

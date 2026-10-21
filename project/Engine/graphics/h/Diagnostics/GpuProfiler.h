@@ -1,6 +1,6 @@
 /**
  * @file GpuProfiler.h
- * @brief GpuProfilerの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief GPUの処理時間を区間ごとに測る処理（GpuProfiler）の宣言
  */
 #pragma once
 #include <array>
@@ -75,9 +75,13 @@ public:
      */
     void DrawImGui();
 
-    float GetMs(Scope s) const { return results_[static_cast<int>(s)]; }
+    /** @brief 指定した区間のGPU処理時間（ミリ秒）を返す */
+    float GetMs(Scope s) const {
+        return results_[static_cast<int>(s)];
+    }
 
 private:
+    /** @brief GPU計測資源が未確保の状態を作る */
     GpuProfiler() = default;
     static constexpr int kTimestampCount = static_cast<int>(Count) * 2;
 

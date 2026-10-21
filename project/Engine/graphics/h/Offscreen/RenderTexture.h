@@ -1,6 +1,6 @@
 /**
  * @file RenderTexture.h
- * @brief RenderTextureの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief オフスクリーン描画用のレンダーテクスチャ（RenderTexture）の宣言
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -8,6 +8,7 @@
 #include <wrl/client.h>
 namespace engine::graphics {
 
+/** @brief オフスクリーン描画に使うテクスチャとビューを管理する */
 class RenderTexture {
 public:
     /**
@@ -31,7 +32,10 @@ public:
     /** @brief 確保したSRVインデックスをSrvManagerへ返却する（再生成前・破棄前に呼ぶこと） */
     void Finalize(SrvManager* srvManager);
 
-    uint32_t GetSrvIndex() const { return srvIndex_; }
+    /** @brief SRV の番号を返す */
+    uint32_t GetSrvIndex() const {
+        return srvIndex_;
+    }
 
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;

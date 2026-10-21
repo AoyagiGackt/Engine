@@ -1,6 +1,11 @@
+/**
+ * @file SceneTransitionOverlay.cpp
+ * @brief シーン切り替え時のフェードとロード表示（SceneTransitionOverlay）の実装
+ */
 #include "SceneTransitionOverlay.h"
 #include "DirectXCommon.h"
 namespace engine::game {
+/** @brief フェードと読み込み表示を用意する */
 void SceneTransitionOverlay::Initialize(engine::DirectXCommon* graphics)
 {
     graphics_ = graphics;
@@ -11,29 +16,39 @@ void SceneTransitionOverlay::Initialize(engine::DirectXCommon* graphics)
     flow_.Reset();
     presented_ = false;
 }
+/** @brief フェードアウトとフェードインの秒数を指定して遷移を始める */
 void SceneTransitionOverlay::Begin(float fadeOut, float fadeIn)
 {
-    if (flow_.IsChanging()) { return; }
+    if (flow_.IsChanging())
+    {
+        return;
+    }
     fadeInSeconds_ = fadeIn;
     presented_ = false;
     flow_.Begin();
     fade_.Start(engine::graphics::Fade::Status::FadeOut, fadeOut);
 }
+/** @brief フェードを進め、シーンを切り替える時なら true を返す */
 bool SceneTransitionOverlay::Update()
 {
     fade_.Update();
     return flow_.Update(fade_.IsFinished(), presented_) == SceneTransitionFlow::Action::CommitSwitch;
 }
+/** @brief シーンの切り替えが済んだのでフェードインを始める */
 void SceneTransitionOverlay::FinishSwitch()
 {
     flow_.FinishSwitch();
     presented_ = false;
     fade_.Start(engine::graphics::Fade::Status::FadeIn, fadeInSeconds_);
 }
+/** @brief フェードと、読み込み中なら読み込み表示を描画する */
 void SceneTransitionOverlay::Draw()
 {
     fade_.Draw();
-    if (!flow_.IsLoading()) { return; }
+    if (!flow_.IsLoading())
+    {
+        return;
+    }
     const auto viewport = graphics_->GetCenteredClientViewport();
     const auto scissor = graphics_->GetCenteredClientScissorRect();
     auto* cmd = graphics_->GetCommandList();

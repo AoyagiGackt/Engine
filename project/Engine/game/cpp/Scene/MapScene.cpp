@@ -3,6 +3,7 @@
  * @brief ローグライトのフロア選択マップ（MapScene）の表示とノード選択・遷移処理の実装
  */
 #include "MapScene.h"
+#include "TextBufferCapacity.h"
 #include "GameConstants.h"
 #include "GameRules.h"
 #include "ModelManager.h"
@@ -20,12 +21,9 @@
 #include <cwchar>
 #include <iterator>
 #include <string>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
-static constexpr int kStageCount = 6;
-static constexpr float kStageWorldX[kStageCount] = { 8.0f, 18.0f, 28.0f, 38.0f, 48.0f, 58.0f };
+namespace engine::game {
 // ステージの並びごとの種類（最初は通常、途中は強敵、最後はボス。先へ進むほどボスのHPが上がる）
 static constexpr RunData::NodeType kFirstFloorType = RunData::NodeType::Combat;
 static constexpr RunData::NodeType kMiddleFloorType = RunData::NodeType::Elite;
@@ -115,19 +113,23 @@ static constexpr NodeInfo kNodeInfos[] = {
 };
 static constexpr NodeInfo kUnknownNodeInfo = { kNodeDefaultColor, L"？？？", L"", false };
 
+/** @brief マップのマスの種類に対応する表示情報を返す */
 static const NodeInfo& GetNodeInfo(RunData::NodeType t)
 {
     const size_t index = static_cast<size_t>(t);
     return index < std::size(kNodeInfos) ? kNodeInfos[index] : kUnknownNodeInfo;
 }
 
+/** @brief マスの種類と、選択中か・クリア済みかから表示色を決める */
 static Vector4 NodeColor(RunData::NodeType t, bool selected, bool completed)
 {
-    if (completed) {
+    if (completed)
+    {
         return kNodeCompletedColor;
     }
     Vector4 c = GetNodeInfo(t).color;
-    if (selected) {
+    if (selected)
+    {
         c.x = (std::min)(c.x + kNodeSelectedBrighten, 1.0f);
         c.y = (std::min)(c.y + kNodeSelectedBrighten, 1.0f);
         c.z = (std::min)(c.z + kNodeSelectedBrighten, 1.0f);
@@ -135,6 +137,7 @@ static Vector4 NodeColor(RunData::NodeType t, bool selected, bool completed)
     return c;
 }
 
+/** @brief シーンの初期化スプライト・フォント・マップ定義を構築する */
 void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -142,17 +145,21 @@ void MapScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     // Title の NEW GAME/CONTINUE を経由せずここへ来た場合（Tabショートカット・デバッグ直行等）に備え、
     // ランが未開始ならここで開始しておく（未開始のままだとHP/スタイルUIがGamePlayScene側で出ない）
     // 武器もトレーニング等で装備したものがシングルトン経由で残ってしまうためあわせてリセットする
-    if (!RunData::GetInstance()->IsRunActive()) {
+    if (!RunData::GetInstance()->IsRunActive())
+    {
         RunData::GetInstance()->StartNewRun();
         WeaponManager::GetInstance()->ResetForNewRun();
     }
 
+    stageWorldX_ = GameRules::GetInstance()->Get().stagePortalXs;
     InitializeUiSprites();
     InitializeRenderFoundationAndPlayer();
     InitializeFloorsAndStartPosition(); // ポータルの本数がステージ数に依存するため先に決める
     InitializeStageObjects();
+    audio_->PlaySceneBGM(BgmKey::kStageSelect);
 }
 
+/** @brief Initialize()の下請け 背景・ノード・地面のUIスプライトを初期化する */
 void MapScene::InitializeUiSprites()
 {
     bgSprite_ = std::make_unique<Sprite>();
@@ -167,31 +174,21 @@ void MapScene::InitializeUiSprites()
     fontRenderer_.Initialize(spriteCommon_.get());
 }
 
+/** @brief Initialize()の下請け 描画基盤(Common類・シャドウ・カメラ)とプレイヤーを初期化する */
 void MapScene::InitializeRenderFoundationAndPlayer()
 {
-    modelCommon_ = std::make_unique<ModelCommon>();
-    modelCommon_->Initialize(dxCommon_);
-    objectCommon_ = std::make_unique<Object3dCommon>();
-    objectCommon_->Initialize(dxCommon_);
+    BuildRenderFoundation(dxCommon_, SrvManager::GetInstance(),
+        { modelCommon_, objectCommon_, shadowManager_, camera_ });
 
-    // 3D共通シェーダーが必ず参照するシャドウマップをマップ画面でも用意する
-    shadowManager_ = std::make_unique<ShadowManager>();
-    shadowManager_->Initialize(dxCommon_, SrvManager::GetInstance());
-    Object3d::SetCommonObjectCommon(objectCommon_.get());
-    Object3d::SetCommonShadowManager(shadowManager_.get());
-    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
-    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
-
-    camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ kInitialCameraX, kCameraY, GameConstants::kCameraDistanceZ });
-    Object3d::SetCommonCamera(camera_.get());
 
     player_ = std::make_unique<Player>();
     player_->Initialize(modelCommon_.get());
     player_->SetHorizontalBounds(kPlayerMinX, kPlayerMaxX);
-    player_->SetPosition({ kStageWorldX[0], kPlayerGroundY, 0.0f });
+    player_->SetPosition({ stageWorldX_[0], kPlayerGroundY, 0.0f });
 }
 
+/** @brief Initialize()の下請け 地面ブロック・ステージ入口ポータル・街並み背景を初期化する */
 void MapScene::InitializeStageObjects()
 {
     // 床と背景のビルはレベルJSON（Resources/Levels/map.json）に置き、F2のステージエディタで編集する
@@ -200,7 +197,8 @@ void MapScene::InitializeStageObjects()
         "Resources/block/block.obj",
         "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png");
 
-    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i)
+    {
         auto portal = std::make_unique<Object3d>();
         portal->Initialize(modelCommon_.get());
         portal->SetModel(blockModel_);
@@ -210,12 +208,13 @@ void MapScene::InitializeStageObjects()
     }
 }
 
+/** @brief Initialize()の下請け フロア構成を組み、現在のフロアに応じた開始位置へプレイヤーを置く(クリア済みならCLEARへ遷移) */
 void MapScene::InitializeFloorsAndStartPosition()
 {
     // ステージ数はgame_rules.jsonのlevelPathsに追従する（ローグライク時代のフロア構成は撤回済み）。
     // 最初のステージは通常、途中は強敵、最後はボス扱いにして、先へ進むほどボスのHPを上げる。
-    // ポータルの座標はkStageWorldXの数までが上限
-    const int stageCount = std::clamp(static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()), 1, kStageCount);
+    // ポータルの座標はstageWorldX_の数までが上限
+    const int stageCount = std::clamp(static_cast<int>(GameRules::GetInstance()->Get().levelPaths.size()), 1, static_cast<int>(stageWorldX_.size()));
     floors_.assign(static_cast<size_t>(stageCount), std::vector<RunData::NodeType> { kMiddleFloorType });
     floors_.front().front() = kFirstFloorType;
     floors_.back().front() = kLastFloorType; // 1ステージだけの時はボス扱いを優先する
@@ -223,20 +222,27 @@ void MapScene::InitializeFloorsAndStartPosition()
     selectedCol_ = -1;
 
     auto* rd = RunData::GetInstance();
-    if (rd->GetFloor() >= static_cast<int>(floors_.size())) {
+    if (rd->GetFloor() >= static_cast<int>(floors_.size()))
+    {
         SceneFlow::GetInstance()->Transition("MAP", "all_cleared", "CLEAR");
-    } else {
-        player_->SetPosition({ kStageWorldX[rd->GetFloor()], kPlayerGroundY, 0.0f });
+    }
+    else
+    {
+        player_->SetPosition({ stageWorldX_[rd->GetFloor()], kPlayerGroundY, 0.0f });
     }
 }
 
+/** @brief リソースを解放する */
 void MapScene::Finalize()
 {
 }
 
+/** @brief 入力によるノード選択と遷移判定を更新する */
 void MapScene::Update()
 {
-    if (input_->TriggerMenuCancel()) {
+    // 戻る操作でタイトルへ
+    if (input_->TriggerMenuCancel())
+    {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("MAP", "title", "TITLE");
         return;
@@ -244,79 +250,103 @@ void MapScene::Update()
 
     auto* rd = RunData::GetInstance();
 
+    // 全フロアを終えていれば何もしない
     int curFloor = rd->GetFloor();
-    if (curFloor >= static_cast<int>(floors_.size())) {
+    if (curFloor >= static_cast<int>(floors_.size()))
+    {
         return;
     }
 
+    // プレイヤーを動かし、通路の端で止め、カメラを追わせる（カメラも端では止める）
     const Vector3& currentPos = player_->GetPosition();
     player_->Update(input_, { currentPos.x + player_->GetLastDirX() * kPlayerFacingTargetDistance, currentPos.y, 0.0f });
-    Vector3& playerPos = player_->GetPositionRef();
+    Vector3 playerPos = player_->GetPosition();
     playerPos.x = std::clamp(playerPos.x, kPlayerMinX, kPlayerMaxX);
+    player_->SetPosition(playerPos);
     camera_->SetTranslate({ std::clamp(playerPos.x, kCameraMinX, kCameraMaxX), kCameraY, GameConstants::kCameraDistanceZ });
     player_->RefreshVisualTransforms();
 
+    // 影の行列を更新し、通常モデルとスキンモデルの両方へ渡す
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     SkinnedObject3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
 
+    // 一番近い入口を選択中にし、選択が変わったら音を鳴らす
     const int previousSelectedCol = selectedCol_;
     selectedCol_ = -1;
     float nearestDistance = kPortalSelectDistance;
-    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
-        const float distance = std::abs(playerPos.x - kStageWorldX[i]);
-        if (distance < nearestDistance) {
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i)
+    {
+        const float distance = std::abs(playerPos.x - stageWorldX_[i]);
+        if (distance < nearestDistance)
+        {
             nearestDistance = distance;
             selectedCol_ = i;
         }
     }
 
-    if (selectedCol_ >= 0 && selectedCol_ != previousSelectedCol) {
+    if (selectedCol_ >= 0 && selectedCol_ != previousSelectedCol)
+    {
         audio_->PlayMenuChoice();
     }
-    for (int i = 0; i < static_cast<int>(floors_.size()); ++i) {
-        portalObjects_[i]->SetPosition({ kStageWorldX[i], kPortalY, kPortalZ });
+    // 入口を色分けする（選択中・クリア済み・まだ行けないフロア）
+    for (int i = 0; i < static_cast<int>(floors_.size()); ++i)
+    {
+        portalObjects_[i]->SetPosition({ stageWorldX_[i], kPortalY, kPortalZ });
         Vector4 color = NodeColor(floors_[i][0], i == selectedCol_, i < curFloor);
-        if (i > curFloor) {
+        if (i > curFloor)
+        {
             color = kPortalLockedColor;
         }
         portalObjects_[i]->SetColor(color);
         portalObjects_[i]->Update();
     }
 
-    if (input_->TriggerKey(DIK_T) || input_->TriggerButton(XINPUT_GAMEPAD_Y)) {
+    // トレーニングへ
+    if (input_->TriggerKey(DIK_T) || input_->TriggerButton(XINPUT_GAMEPAD_Y))
+    {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("MAP", "training", "TRAINING");
         return;
     }
 
-    if (selectedCol_ == curFloor && (input_->TriggerKey(DIK_RETURN) || input_->TriggerButton(XINPUT_GAMEPAD_A))) {
+    // 今のフロアの入口の前で決定したら、そのマスへ進む（戦闘マスなら戦闘シーンへ）
+    if (selectedCol_ == curFloor && (input_->TriggerKey(DIK_RETURN) || input_->TriggerButton(XINPUT_GAMEPAD_A)))
+    {
         audio_->PlayMenuSelect();
         RunData::NodeType chosen = floors_[selectedCol_][0];
         rd->SetCurrentNode(chosen);
 
-        if (GetNodeInfo(chosen).entersCombat) {
+        if (GetNodeInfo(chosen).entersCombat)
+        {
             SceneFlow::GetInstance()->Transition("MAP", "combat", "GAMEPLAY");
         }
     }
 }
 
+/** @brief マップノードと現在選択状態を描画する */
 void MapScene::Draw()
 {
+    // 今いる階を引くための進行データ
     auto* rd = RunData::GetInstance();
 
+    // 3D（影・ワールド・配置物）を描いてから、文字とパネルを重ねる
     DrawShadowPass();
     DrawWorld();
     GetStageEditor().DrawObjects();
 
+    // 2D描画の設定に切り替え、前フレームの文字を消す
     spriteCommon_->CommonDrawSettings();
     fontRenderer_.Reset();
 
+    // 入口の上のステージ名と、選択中の入口の説明
     const int floor = rd->GetFloor();
-    if (floor < static_cast<int>(floors_.size())) {
+    if (floor < static_cast<int>(floors_.size()))
+    {
         DrawStagePortalLabels(floor);
     }
 
+    // 操作説明と戻り方の案内（パッドとキーボードで文言を変える）
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
     const bool pad = input_->IsUsingGamepad();
@@ -332,28 +362,31 @@ void MapScene::Draw()
     fontRenderer_.DrawStringW(helpText, helpPosition.x, helpPosition.y, helpScale, layout.Color("help.color", kHelpTextColor));
     fontRenderer_.DrawStringW(backText, backPosition.x, backPosition.y, backScale, layout.Color("back_hint.color", kHelpTextColor));
 
+    // ステージに置いた文章UIを足し、溜めた文字をまとめて描く
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
 }
 
+/** @brief エディタ表示中（移動停止中）もカメラ移動に合わせてプレイヤーと入口ポータルの行列だけ更新する */
 void MapScene::RefreshVisualTransformsForEditor()
 {
     player_->RefreshVisualTransforms();
-    for (auto& portal : portalObjects_) {
+    for (auto& portal : portalObjects_)
+    {
         portal->Update();
     }
 }
 
+/** @brief Draw()の下請け 街並み・地面ブロックのシャドウマップパスを描画する */
 void MapScene::DrawShadowPass()
 {
     // シャドウマップを描画可能状態からシェーダー参照状態へ遷移する
-    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    shadowManager_->BeginShadowPass(commandList);
-    modelCommon_->BeginShadowPass();
-    GetStageEditor().DrawObjectShadows();
-    shadowManager_->EndShadowPass(commandList);
+    shadowManager_->RunShadowPass(dxCommon_->GetCommandList(), modelCommon_.get(), [this] {
+        GetStageEditor().DrawObjectShadows();
+    });
 }
 
+/** @brief Draw()の下請け 背景・街並み・地面ブロック・入口ポータル・プレイヤーを3D描画する */
 void MapScene::DrawWorld()
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -361,13 +394,7 @@ void MapScene::DrawWorld()
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
     // シャドウパスが設定した専用DSVから通常画面のRTVとDSVへ描画先を戻す
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = dxCommon_->GetCurrentBackBufferHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetBackBufferDsvHandle();
-    commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-    D3D12_VIEWPORT viewport = dxCommon_->GetCenteredClientViewport();
-    D3D12_RECT scissor = dxCommon_->GetCenteredClientScissorRect();
-    commandList->RSSetViewports(1, &viewport);
-    commandList->RSSetScissorRects(1, &scissor);
+    dxCommon_->SetBackBufferRenderTarget();
 
     // 背景を描画してから本編と同じ3D描画状態へ切り替える
     spriteCommon_->CommonDrawSettings();
@@ -380,15 +407,18 @@ void MapScene::DrawWorld()
     shadowManager_->SetShadowMap(commandList, SrvManager::GetInstance());
 
     const int floor = RunData::GetInstance()->GetFloor();
-    if (floor < static_cast<int>(floors_.size())) {
+    if (floor < static_cast<int>(floors_.size()))
+    {
         const int count = static_cast<int>(floors_.size());
-        for (int i = 0; i < count; ++i) {
+        for (int i = 0; i < count; ++i)
+        {
             portalObjects_[i]->Draw();
         }
     }
     player_->Draw();
 }
 
+/** @brief 操作説明の後ろに暗い板を敷く（明るい背景でも読めるように） */
 void MapScene::DrawHintPanel(const std::wstring& text, const Vector2& position, float scale)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -399,8 +429,10 @@ void MapScene::DrawHintPanel(const std::wstring& text, const Vector2& position, 
         size.x + hintPanelPadding * 2.0f, size.y + hintPanelPadding * 2.0f, hintPanelColor);
 }
 
+/** @brief Draw()の下請け 各ステージ入口ポータルの上に番号ラベルとENTER案内を描画する */
 void MapScene::DrawStagePortalLabels(int floor)
 {
+    // 表示位置・大きさ・色は UI レイアウトから読む
     UILayout& layout = UILayout::Get(kLayoutName);
     const float labelOffsetX = layout.Float("portal_label.offset_x", kLabelOffsetX);
     const Vector2 labelShadowOffset = layout.Vec2("portal_label.shadow_offset", kLabelShadowOffset);
@@ -408,7 +440,7 @@ void MapScene::DrawStagePortalLabels(int floor)
     const float enterHintOffsetX = layout.Float("enter_hint.offset_x", kEnterHintOffsetX);
     const Vector4 enterHintShadowColor = layout.Color("enter_hint.shadow_color", kEnterHintShadowColor);
     const int count = static_cast<int>(floors_.size());
-    const float* portalXs = kStageWorldX;
+    const float* portalXs = stageWorldX_.data();
     const Vector3& cameraPos = camera_->GetTranslate();
     const float labelY = layout.Float("portal_label.y", kLabelY);
     const float labelScale = layout.Float("portal_label.scale", kLabelScale);
@@ -418,20 +450,25 @@ void MapScene::DrawStagePortalLabels(int floor)
     const float enterHintScale = layout.Float("enter_hint.scale", kEnterHintScale);
     const Vector4 enterHintColor = layout.Color("enter_hint.color", kEnterHintColor);
     const char* enterHint = input_->IsUsingGamepad() ? "A" : "ENTER";
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i)
+    {
         const bool isNear = i == selectedCol_;
+        // 入口のワールド座標を画面のX座標へ直す
         const float screenX = (portalXs[i] - cameraPos.x)
                 / GameConstants::kCameraHalfW * GameConstants::kScreenCenterX
             + GameConstants::kScreenCenterX;
 
-        wchar_t stageLabel[32];
+        // ステージ名は影を少しずらして重ね、選択中は色を変える
+        wchar_t stageLabel[TextBufferCapacity::kShortText];
         swprintf_s(stageLabel, L"ステージ %d", i + 1);
         const wchar_t* label = stageLabel;
         fontRenderer_.DrawStringW(label, screenX - labelOffsetX + labelShadowOffset.x, labelY + labelShadowOffset.y,
             labelScale, labelShadowColor);
         fontRenderer_.DrawStringW(label, screenX - labelOffsetX, labelY, labelScale,
             isNear ? labelNearColor : labelColor);
-        if (isNear) {
+        // 選択中の入口だけ、決定ボタンの案内と説明パネルを出す
+        if (isNear)
+        {
             fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX + labelShadowOffset.x,
                 enterHintY + labelShadowOffset.y, enterHintScale, enterHintShadowColor);
             fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX, enterHintY, enterHintScale,
@@ -441,8 +478,10 @@ void MapScene::DrawStagePortalLabels(int floor)
     }
 }
 
+/** @brief 選択中ノードの説明パネル（右側）を描画する */
 void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
 {
+    // 説明パネルの下地を置いてから、見出しと説明文を重ねる
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 infoTitleOffset = layout.Vec2("info_title.offset", kInfoTitleOffset);
     const float infoTitleScale = layout.Float("info_title.scale", kInfoTitleScale);
@@ -458,25 +497,31 @@ void MapScene::DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode)
     nodeSprite_->Update();
     nodeSprite_->Draw();
     // ── 選択中ノードの説明（右側）──
-    if (curFloor >= static_cast<int>(floors_.size())) {
+    if (curFloor >= static_cast<int>(floors_.size()))
+    {
         return;
     }
 
-    const wchar_t* desc = GetNodeInfo(hoveredNode).desc;
-    const bool isStage = hoveredNode == RunData::NodeType::Combat
-        || hoveredNode == RunData::NodeType::Elite || hoveredNode == RunData::NodeType::Boss;
-    fontRenderer_.DrawStringW(isStage ? L"ステージ入口" : GetNodeInfo(hoveredNode).label,
+    // 戦闘に入るマスはステージの入口として、それ以外はマスの名前で見出しを出す
+    const NodeInfo& info = GetNodeInfo(hoveredNode);
+    const wchar_t* desc = info.desc;
+    fontRenderer_.DrawStringW(info.entersCombat ? L"ステージ入口" : info.label,
         panelPosition.x + infoTitleOffset.x, panelPosition.y + infoTitleOffset.y, infoTitleScale, infoTitleColor);
     const float descX = panelPosition.x + infoDescOffset.x;
     const float descY = panelPosition.y + infoDescOffset.y;
     // 説明を2行に折り返して表示
     std::wstring descStr(desc);
     size_t br = descStr.find(L'　'); // 全角スペースで折り返しポイントを探す
-    if (br != std::wstring::npos && br > kInfoDescMinWrapIndex) {
+    if (br != std::wstring::npos && br > kInfoDescMinWrapIndex)
+    {
         fontRenderer_.DrawStringW(descStr.substr(0, br).c_str(), descX, descY, infoDescScale, infoDescColor);
         fontRenderer_.DrawStringW(descStr.substr(br + 1).c_str(), descX, descY + infoDescLineHeight,
             infoDescScale, infoDescColor);
-    } else {
+    }
+    else
+    {
         fontRenderer_.DrawStringW(desc, descX, descY, infoDescScale, infoDescColor);
     }
 }
+
+} // namespace engine::game

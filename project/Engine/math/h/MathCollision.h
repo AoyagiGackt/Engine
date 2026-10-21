@@ -42,13 +42,16 @@ inline bool IsCollisionSphereAABB(const Vector3& spherePos, float radius, const 
 inline bool IsCollisionAABB(const Vector3& min1, const Vector3& max1, const Vector3& min2, const Vector3& max2)
 {
     // 1つでも重なっていない軸があれば当たっていない
-    if (max1.x < min2.x || min1.x > max2.x) {
+    if (max1.x < min2.x || min1.x > max2.x)
+    {
         return false;
     }
-    if (max1.y < min2.y || min1.y > max2.y) {
+    if (max1.y < min2.y || min1.y > max2.y)
+    {
         return false;
     }
-    if (max1.z < min2.z || min1.z > max2.z) {
+    if (max1.z < min2.z || min1.z > max2.z)
+    {
         return false;
     }
 
@@ -76,7 +79,8 @@ inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDir
     float c = Dot(m, m) - radius * radius;
 
     // 始点が球の外側にあり、かつレイが球と反対方向を向いている場合は当たらない
-    if (c > 0.0f && b <= 0.0f) {
+    if (c > 0.0f && b <= 0.0f)
+    {
         return false;
     }
 
@@ -84,7 +88,8 @@ inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDir
     float discr = b * b - c;
 
     // 判別式が負ならレイは球をかすりもしない
-    if (discr < 0.0f) {
+    if (discr < 0.0f)
+    {
         return false;
     }
 

@@ -1,6 +1,6 @@
 /**
  * @file SkeletonOverlayRenderer.h
- * @brief SkeletonOverlayRendererの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief スケルトンの関節とボーンのデバッグ表示（SkeletonOverlayRenderer）の宣言
  */
 #pragma once
 #ifdef USE_IMGUI

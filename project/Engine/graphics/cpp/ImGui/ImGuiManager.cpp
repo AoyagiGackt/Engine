@@ -1,19 +1,19 @@
 /**
  * @file ImGuiManager.cpp
- * @brief ImGuiManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief ImGui の初期化・フレームの開始と終了・描画（ImGuiManager）の実装
  */
 #include "ImGuiManager.h"
 #include <SrvManager.h>
 
+namespace engine::graphics {
 namespace {
 
 // 日本語フォントの表示サイズ
 constexpr float kJapaneseFontSize = 16.0f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
+/** @brief ImGuiの初期化処理コンテキストの作成やDX12・Win32への紐づけを行う */
 void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon)
 {
 #ifdef USE_IMGUI
@@ -54,6 +54,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 #endif
 }
 
+/** @brief ImGuiの新しいフレーム開始処理 */
 void ImGuiManager::Begin()
 {
 #ifdef USE_IMGUI
@@ -66,6 +67,7 @@ void ImGuiManager::Begin()
 #endif
 }
 
+/** @brief ImGuiのフレーム終了（UI構築完了）処理 */
 void ImGuiManager::End()
 {
 #ifdef USE_IMGUI
@@ -76,6 +78,7 @@ void ImGuiManager::End()
 #endif
 }
 
+/** @brief ImGuiの実際の描画コマンドを積む */
 void ImGuiManager::Draw(DirectXCommon* dxCommon)
 {
 #ifdef USE_IMGUI
@@ -92,6 +95,7 @@ void ImGuiManager::Draw(DirectXCommon* dxCommon)
 #endif
 }
 
+/** @brief ImGuiの終了処理とリソース解放 */
 void ImGuiManager::Finalize()
 {
 #ifdef USE_IMGUI
@@ -103,3 +107,4 @@ void ImGuiManager::Finalize()
 
 #endif
 }
+} // namespace engine::graphics

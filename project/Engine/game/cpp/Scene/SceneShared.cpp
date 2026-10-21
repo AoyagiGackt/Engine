@@ -3,6 +3,11 @@
  * @brief BattleTestScene/TrainingScene/GamePlayScene間で共通の武器切替・カメラ追従・HUD描画処理（SceneShared名前空間）の実装
  */
 #include "SceneShared.h"
+#include "PlayerBridge.h"
+#include "AudioBridge.h"
+#include "HitEffectLibrary.h"
+#include "CombatTuning.h"
+#include "TextBufferCapacity.h"
 #include "Audio.h"
 #include "BulletPool.h"
 #include "Camera.h"
@@ -11,6 +16,7 @@
 #include "GameSettings.h"
 #include "Input.h"
 #include "JsonHelper.h"
+#include "Object3d.h"
 #include "ParticleManager.h"
 #include "Player.h"
 #include "PostEffectRenderTarget.h"
@@ -27,16 +33,27 @@
 #include <cstdio>
 #include <cstring>
 #include <random>
-using namespace engine;
 using namespace engine::graphics;
 
 namespace engine::game::SceneShared {
+
+/** @brief 訓練・戦闘テスト共通のプレイヤーと弾丸の準備を同じ順序で行う */
+void InitializePlayerAndBullets(std::unique_ptr<Player>& player, BulletPool& bullets,
+    ModelCommon* modelCommon, Model* bulletModel, engine::Audio* audio)
+{
+    player = std::make_unique<Player>();
+    player->Initialize(modelCommon);
+    // 生成済みのプレイヤーを登録してから、同じモデル基盤で弾丸を準備する。
+    PlayerBridge::GetInstance()->SetPlayer(player.get());
+    AudioBridge::GetInstance()->SetAudio(audio);
+    bullets.Initialize(modelCommon, bulletModel);
+}
 
 namespace {
     // フィニッシャー演出共通の色（青白い剣閃）
     constexpr Vector4 kFinisherGlowColor = { 0.60f, 0.85f, 1.00f, 0.95f };
     constexpr Vector4 kFinisherSparkColor = { 0.80f, 0.95f, 1.00f, 1.00f };
-    constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アルファはGameConstants::kFinisherOverlayAlpha
+    constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アルファはHitEffectLibrary::GetInstance()->SceneParticles().finisherOverlayAlpha
 
     constexpr float kDefaultIconScale = 0.2f; // weapon_icons.jsonにscaleがない時の既定値
     constexpr int kWeaponSlotCount = WeaponManager::kSlotCount;
@@ -51,7 +68,18 @@ namespace {
     constexpr int kUpsideDownHitStopFrames = 3;
     constexpr Vector4 kUpsideDownFlashColor = { 1.0f, 0.7f, 0.1f, 0.55f };
     constexpr float kUpsideDownFlashSeconds = 0.10f;
+    constexpr float kRangeHalfDepth = 0.5f; // 攻撃判定の奥行きの半分（2Dの面に沿った薄い箱にする）
 
+    /** @brief 向いている方向へ frontRange、背後へ backRange 伸ばした、高さ ±halfHeight の判定の箱を作る */
+    engine::AABB MakeFacingBox(const Vector3& playerPos, float dirX, float frontRange, float backRange, float halfHeight)
+    {
+        const float left = (dirX >= 0.0f) ? backRange : frontRange;
+        const float right = (dirX >= 0.0f) ? frontRange : backRange;
+        return { { playerPos.x - left, playerPos.y - halfHeight, -kRangeHalfDepth },
+            { playerPos.x + right, playerPos.y + halfHeight, kRangeHalfDepth } };
+    }
+
+    /** @brief 締めの演出の配置に使う乱数生成器を返す */
     std::mt19937& FinisherRng()
     {
         static std::mt19937 rng { std::random_device { }() };
@@ -59,12 +87,15 @@ namespace {
     }
 } // namespace
 
+/** @brief 武器スロットUIの3Dアイコン素材一覧をJSONから読み込む */
 std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
 {
     std::vector<WeaponIconAsset> assets;
     nlohmann::json j = engine::JsonHelper::Load(jsonPath);
-    if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
-        for (const auto& entry : j["icons"]) {
+    if (j.is_object() && j.contains("icons") && j["icons"].is_array())
+    {
+        for (const auto& entry : j["icons"])
+        {
             WeaponIconAsset asset;
             asset.type = ParseWeaponTypeName(entry.value("type", std::string("Sword")));
             asset.modelPath = entry.value("model", std::string());
@@ -74,7 +105,8 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
             assets.push_back(std::move(asset));
         }
     }
-    if (assets.empty()) {
+    if (assets.empty())
+    {
         // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
         assets = {
             { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
@@ -89,6 +121,7 @@ std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
     return assets;
 }
 
+/** @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する */
 std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 {
     auto overlay = std::make_unique<Sprite>();
@@ -97,27 +130,32 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
     overlay->SetSize({ static_cast<float>(WinApp::kClientWidth),
         static_cast<float>(WinApp::kClientHeight) });
     overlay->SetColor({ kFinisherOverlayTint.x, kFinisherOverlayTint.y, kFinisherOverlayTint.z,
-        GameConstants::kFinisherOverlayAlpha });
+        HitEffectLibrary::GetInstance()->SceneParticles().finisherOverlayAlpha });
     return overlay;
 }
 
+/** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
 D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
-    std::initializer_list<IPostEffectSource*> effects)
+    const std::initializer_list<IPostEffectSource*>& effects)
 {
     return GetActiveSceneRTVHandle(dxCommon, effects);
 }
 
+/** @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する */
 void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
-    std::initializer_list<IPostEffectSource*> effects)
+    const std::initializer_list<IPostEffectSource*>& effects)
 {
     SetupSceneRenderTarget(dxCommon, GetActiveSceneRTVHandle(dxCommon, effects));
 }
 
+/** @brief JSONファイル（[{name, texture, additive}, ...]）に従ってパーティクルグループを一括登録する */
 void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPath)
 {
-    for (const auto& group : JsonHelper::Load(jsonPath)) {
+    for (const auto& group : JsonHelper::Load(jsonPath))
+    {
         std::string name = group.value("name", "");
-        if (name.empty()) {
+        if (name.empty())
+        {
             continue;
         }
         pm->CreateParticleGroup(name, group.value("texture", ""));
@@ -125,30 +163,42 @@ void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPa
     }
 }
 
+/** @brief 武器切替入力（Q/E、数字キー）を処理するweaponCycleTimer は呼び出し側が保持するクールダウン */
 void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
     float& weaponCycleTimer, bool cycleAllUnlocked)
 {
     // 武器切り替え（Q/E、数字キー 1〜スロット数）
     weaponCycleTimer -= GameConstants::kFrameDeltaTime;
-    if (weaponCycleTimer <= 0.0f) {
-        if (input->TriggerKey(DIK_Q)) {
-            if (cycleAllUnlocked) {
+    if (weaponCycleTimer <= 0.0f)
+    {
+        if (input->TriggerKey(DIK_Q))
+        {
+            if (cycleAllUnlocked)
+            {
                 weaponManager->SelectPrevUnlockedInCurrentSlot();
-            } else {
+            }
+            else
+            {
                 weaponManager->SelectPrev();
             }
             weaponCycleTimer = kWeaponCycleCooldown;
         }
-        if (input->TriggerKey(DIK_E)) {
-            if (cycleAllUnlocked) {
+        if (input->TriggerKey(DIK_E))
+        {
+            if (cycleAllUnlocked)
+            {
                 weaponManager->SelectNextUnlockedInCurrentSlot();
-            } else {
+            }
+            else
+            {
                 weaponManager->SelectNext();
             }
             weaponCycleTimer = kWeaponCycleCooldown;
         }
-        for (int i = 0; i < kWeaponSlotCount; ++i) {
-            if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
+        for (int i = 0; i < kWeaponSlotCount; ++i)
+        {
+            if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i)))
+            {
                 weaponManager->SelectSlot(i);
                 weaponCycleTimer = kWeaponCycleCooldown;
             }
@@ -156,9 +206,11 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
     }
 }
 
+/** @brief スペースキーのスピン連射弾を発射する（逆さ時は下方向中心に5方向ばらまき、通常時は向いている方向へ1発）JustSpinShot()でなければ何もしない */
 void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
 {
-    if (!player->JustSpinShot()) {
+    if (!player->JustSpinShot())
+    {
         return;
     }
 
@@ -166,49 +218,51 @@ void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
     const Vector3& pp = player->GetPosition();
     Vector3 firePos = { pp.x, pp.y, 0.0f };
 
-    if (player->IsUpsideDown()) {
+    if (player->IsUpsideDown())
+    {
         // 逆さ: 下方向中心に 5 方向ばらまき
         constexpr float kBaseAngle = 270.0f * GameConstants::kDegToRad; // 真下
         constexpr float kSpread = 30.0f * GameConstants::kDegToRad; // 30°間隔
         constexpr int kSideShots = 2; // 中央の左右に撃つ本数
-        for (int i = -kSideShots; i <= kSideShots; ++i) {
+        for (int i = -kSideShots; i <= kSideShots; ++i)
+        {
             float angle = kBaseAngle + i * kSpread;
             bulletPool.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
         }
         TimeManager::GetInstance()->RequestHitStop(kUpsideDownHitStopFrames);
         ScreenFlash::GetInstance()->Request(kUpsideDownFlashColor, kUpsideDownFlashSeconds);
-    } else {
+    }
+    else
+    {
         // 通常: 向いている方向に 1 発
         bulletPool.Spawn(firePos, { player->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
     }
 }
 
+/** @brief 向いている方向に厚く、背後は控えめな攻撃判定AABBを作る（近接・射撃共通） */
 engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
 {
     // 縦方向の許容量。大きすぎると足場の上下に離れた（＝見た目では当たっていない）敵まで
     // 判定に巻き込んでしまう（高低差のあるステージで顕在化する）
     constexpr float kVerticalHalfHeight = 0.8f;
-    const float left = (dirX >= 0.0f) ? backRange : frontRange;
-    const float right = (dirX >= 0.0f) ? frontRange : backRange;
-    return { { playerPos.x - left, playerPos.y - kVerticalHalfHeight, -0.5f },
-        { playerPos.x + right, playerPos.y + kVerticalHalfHeight, 0.5f } };
+    return MakeFacingBox(playerPos, dirX, frontRange, backRange, kVerticalHalfHeight);
 }
 
+/** @brief 高さの異なる敵へ誤命中しない射撃用の横長判定を生成する */
 engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
 {
     constexpr float kShotHalfHeight = 0.3f;
-    const float left = (dirX >= 0.0f) ? backRange : frontRange;
-    const float right = (dirX >= 0.0f) ? frontRange : backRange;
-    return { { playerPos.x - left, playerPos.y - kShotHalfHeight, -0.5f },
-        { playerPos.x + right, playerPos.y + kShotHalfHeight, 0.5f } };
+    return MakeFacingBox(playerPos, dirX, frontRange, backRange, kShotHalfHeight);
 }
 
+/** @brief ワールド座標をスクリーン座標に変換する（ギズモのピッキング等、外部から使う用） */
 void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
 {
     outX = (worldX - camX) / GameConstants::kCameraHalfW * GameConstants::kScreenCenterX + GameConstants::kScreenCenterX;
     outY = -(worldY - camY) / GameConstants::kCameraHalfH * GameConstants::kScreenCenterY + GameConstants::kScreenCenterY;
 }
 
+/** @brief プレイヤーにカメラを追従させる（ステージ境界クランプ込み） */
 void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids, const Vector3* lockTarget)
 {
     // ロックオン中はカメラをほんの少しだけ対象側へ寄せる（気付きにくいという声への対策、
@@ -225,12 +279,14 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     float stageRight = kDefaultStageRight + kBlockRadius;
     float stageBottom = kDefaultStageBottom - kBlockRadius;
     float stageTop = kDefaultStageTop + kBlockRadius;
-    if (!stageSolids.empty()) {
+    if (!stageSolids.empty())
+    {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;
         stageBottom = stageSolids.front().min.y;
         stageTop = stageSolids.front().max.y;
-        for (const AABB& solid : stageSolids) {
+        for (const AABB& solid : stageSolids)
+        {
             stageLeft = (std::min)(stageLeft, solid.min.x);
             stageRight = (std::max)(stageRight, solid.max.x);
             stageBottom = (std::min)(stageBottom, solid.min.y);
@@ -242,9 +298,11 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     float cameraX = cameraMinX <= cameraMaxX
         ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
         : (stageLeft + stageRight) * 0.5f;
-    if (lockTarget != nullptr) {
+    if (lockTarget != nullptr)
+    {
         cameraX += (lockTarget->x - playerPos.x) * kLockOnCameraShiftRatio;
-        if (cameraMinX <= cameraMaxX) {
+        if (cameraMinX <= cameraMaxX)
+        {
             cameraX = std::clamp(cameraX, cameraMinX, cameraMaxX);
         }
     }
@@ -260,13 +318,16 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     camera->SetTranslate({ cameraX, cameraY, GameConstants::kCameraDistanceZ });
 }
 
+/** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     float portalX, float proximity, const char* sceneName, const char* outcome,
     const char* fallbackScene, Audio* audio)
 {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
-    if (isNear && input->TriggerAction(Input::Action::Interact)) {
-        if (audio) {
+    if (isNear && input->TriggerAction(Input::Action::Interact))
+    {
+        if (audio)
+        {
             audio->PlayMenuSelect();
         }
         SceneFlow::GetInstance()->Transition(sceneName, outcome, fallbackScene);
@@ -274,46 +335,57 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     return isNear;
 }
 
+/** @brief BGMまたはSEの音量を0〜1の範囲で増減し、Audioへ反映して設定ファイルへ保存する */
 void AdjustVolume(Audio* audio, bool bgm, float delta)
 {
-    GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+    GameSettings settings = GameSettingsManager::GetInstance()->Get();
     float& volume = bgm ? settings.bgmVolume : settings.seVolume;
     const float previousVolume = volume;
     volume = std::clamp(volume + delta, 0.0f, 1.0f);
-    if (volume == previousVolume) {
+    if (volume == previousVolume)
+    {
         return;
     }
-    if (bgm) {
+    if (bgm)
+    {
         audio->SetBGMVolume(volume);
-    } else {
+    }
+    else
+    {
         audio->SetSEVolume(volume);
     }
     audio->PlayMenuChoice();
+    GameSettingsManager::GetInstance()->Apply(settings);
     GameSettingsManager::GetInstance()->Save();
 }
 
+/** @brief オプション欄に出す音量の表示（< 100% > の形） */
 std::string VolumeLabel(float volume)
 {
     constexpr float kPercentScale = 100.0f;
     constexpr float kRoundingOffset = 0.5f;
-    char buf[16];
+    char buf[TextBufferCapacity::kCodepoint];
     std::snprintf(buf, sizeof(buf), "< %3d%% >", static_cast<int>(volume * kPercentScale + kRoundingOffset));
     return buf;
 }
 
+/** @brief オートコンボのON/OFFを切り替えて保存する */
 void ToggleAutoCombo(Audio* audio)
 {
-    GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+    GameSettings settings = GameSettingsManager::GetInstance()->Get();
     settings.autoCombo = !settings.autoCombo;
     audio->PlayMenuChoice();
+    GameSettingsManager::GetInstance()->Apply(settings);
     GameSettingsManager::GetInstance()->Save();
 }
 
+/** @brief オプション欄に出すオートコンボの状態表示（< ON > / < OFF >） */
 const char* AutoComboLabel()
 {
     return GameSettingsManager::GetInstance()->Get().autoCombo ? "< ON >" : "< OFF >";
 }
 
+/** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
     const std::vector<float>* powerRatios)
 {
@@ -342,6 +414,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     const float px = anchor.x;
     float py = anchor.y;
 
+    // 文字は少しずらした影を先に描いてから本体を重ねる
     auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
         fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
         fontRenderer.DrawStringW(text, x, y, scale, color);
@@ -351,35 +424,56 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         fontRenderer.DrawString(text, x, y, scale, color);
     };
 
+    // 見出しと区切り
     drawShadowedW(headerText, px, py, headerColor);
     py += lineHeight + kHudSectionGap;
     drawShadowedW(L"-- 武器選択 --", px, py, textColor);
     py += lineHeight + kHudSectionGap;
 
+    // スロットごとに、武器名と威力（威力倍率が渡されていなければダメージと射程）を1行で出す
+    // 武器名は日本語のスタイル名で出す。日本語と英数字で文字幅が違うので、
+    // スロット番号・武器名・数値 の3列に分け、武器名の列幅は一番長い名前に合わせる
+    constexpr int kColumnGapChars = 2; // 列と列の間に空ける英数字の文字数
+    const float columnGap = FontRenderer::kCharW * scale * kColumnGapChars;
     const auto& weaponList = weaponManager->GetList();
-    for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
+    float nameColumnWidth = 0.0f;
+    for (const WeaponData& weapon : weaponList)
+    {
+        nameColumnWidth = (std::max)(nameColumnWidth, FontRenderer::MeasureStringW(WeaponManager::GetDisplayName(weapon), scale).x);
+    }
+    for (int slot = 0; slot < kWeaponSlotCount; ++slot)
+    {
         const int weaponIndex = weaponManager->GetSlotWeaponIndex(slot);
         const bool occupied = weaponIndex >= 0;
         const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
-        char buf[80];
-        bool weakened = false;
-        if (occupied) {
-            const auto& weapon = weaponList[weaponIndex];
-            if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size())) {
-                const float power = (*powerRatios)[weaponIndex];
-                weakened = power < 1.0f;
-                std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  PWR %3d%%",
-                    selected ? ">" : " ", slot + 1, weapon.name.c_str(), static_cast<int>(std::round(power * kPercent)));
-            } else {
-                std::snprintf(buf, sizeof(buf), "%s SLOT %d  %-8s  DMG %.0f  RNG %.1f",
-                    selected ? ">" : " ", slot + 1, weapon.name.c_str(), weapon.damage, weapon.range);
-            }
-        } else {
-            std::snprintf(buf, sizeof(buf), "  SLOT %d  EMPTY", slot + 1);
+        char head[TextBufferCapacity::kStatus];
+        std::snprintf(head, sizeof(head), "%s SLOT %d", selected ? ">" : " ", slot + 1);
+        const float nameX = px + static_cast<float>(std::strlen(head)) * FontRenderer::kCharW * scale + columnGap;
+        if (!occupied)
+        {
+            drawShadowed(head, px, py, emptyColor);
+            drawShadowed("EMPTY", nameX, py, emptyColor);
+            py += lineHeight;
+            continue;
         }
-        drawShadowed(buf, px, py,
-            weakened ? kWeakenedColor : selected ? selectedColor : occupied ? textColor
-                                                                            : emptyColor);
+        const auto& weapon = weaponList[weaponIndex];
+        char stats[TextBufferCapacity::kStatus];
+        bool weakened = false;
+        if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size()))
+        {
+            const float power = (*powerRatios)[weaponIndex];
+            weakened = power < 1.0f;
+            std::snprintf(stats, sizeof(stats), "PWR %3d%%", static_cast<int>(std::round(power * kPercent)));
+        }
+        else
+        {
+            std::snprintf(stats, sizeof(stats), "DMG %.0f  RNG %.1f", weapon.damage, weapon.range);
+        }
+        // 疲労で威力が落ちた武器は赤、選択中は黄
+        const Vector4& color = weakened ? kWeakenedColor : selected ? selectedColor : textColor;
+        drawShadowed(head, px, py, color);
+        drawShadowedW(WeaponManager::GetDisplayName(weapon), nameX, py, color);
+        drawShadowed(stats, nameX + nameColumnWidth + columnGap, py, color);
         py += lineHeight;
     }
 
@@ -390,6 +484,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     drawShadowedW(gunLine, px, py, selectedColor);
     py += lineHeight;
 
+    // 切り替え操作の案内（キー/ボタン名は入力機器に合わせて置き換える）
     py += kHudHintGap;
     const Input* hintInput = Input::GetCurrent();
     const std::wstring slotHint = L"{Slot}  武器切替    {GunSwitch}  銃切替";
@@ -398,6 +493,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     return py;
 }
 
+/** @brief 右側の操作説明パネルを描画する */
 void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel)
 {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
@@ -447,6 +543,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
 
 
 
+/** @brief フィニッシャー発動時の溜めエフェクト（周囲から中心へ収束する光粒＋小リング）を放出する */
 void EmitFinisherCharge(ParticleManager* pm,
     const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
 {
@@ -465,19 +562,21 @@ void EmitFinisherCharge(ParticleManager* pm,
 
     // 周囲から中心へ吸い込まれる光粒溜め時間内に到達する速度を逆算する
     constexpr int kMoteCount = 20;
-    for (int i = 0; i < kMoteCount; ++i) {
+    for (int i = 0; i < kMoteCount; ++i)
+    {
         const float ang = angleDist(rng);
         const float r = radiusDist(rng);
         Vector3 spawn = { pos.x + std::cos(ang) * r, pos.y + std::sin(ang) * r, 0.0f };
-        const float speed = r / GameConstants::kFinisherChargeDelay;
+        const float speed = r / CombatTune().finisherChargeDelay;
         Vector3 vel = { -std::cos(ang) * speed, -std::sin(ang) * speed, 0.0f };
         pm->EmitWithColor(sparkGroup, spawn, vel, kFinisherGlowColor,
-            GameConstants::kFinisherChargeDelay, scaleDist(rng), true);
+            CombatTune().finisherChargeDelay, scaleDist(rng), true);
     }
 
     pm->EmitRing(ringGroup, pos, kChargeRingSpeed, kFinisherGlowColor, kChargeRingCount, kChargeRingLifetime, kChargeRingSize);
 }
 
+/** @brief 締めの斬線を画面に出す */
 void EmitFinisherSlashLine(ParticleManager* pm,
     const std::string& slashGroup, const std::string& sparkGroup,
     const Vector3& center, float angle, float halfLength)
@@ -493,14 +592,16 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     std::uniform_real_distribution<float> driftDist(-kGlintDrift, kGlintDrift);
     std::uniform_real_distribution<float> scaleDist(kGlintScaleMin, kGlintScaleMax);
 
-    if (!slashGroup.empty()) {
+    if (!slashGroup.empty())
+    {
         pm->EmitSlash(slashGroup, center, angle, kSlashLineColor, halfLength);
     }
 
     // 斬線に沿って散る煌めき
     const Vector2 dir = { std::cos(angle), std::sin(angle) };
     constexpr int kGlintCount = 4;
-    for (int i = 0; i < kGlintCount; ++i) {
+    for (int i = 0; i < kGlintCount; ++i)
+    {
         const float t = tDist(rng);
         Vector3 spawn = { center.x + dir.x * t, center.y + dir.y * t, 0.0f };
         Vector3 vel = { driftDist(rng), driftDist(rng) + kGlintRise, 0.0f };
@@ -511,9 +612,11 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     pm->EmitHitStar(sparkGroup, center, kFinisherSparkColor);
 }
 
+/** @brief 解放の瞬間の炸裂エフェクト（多重リング＋放射火花＋上昇する余韻）を放出する */
 void EmitFinisherRelease(ParticleManager* pm,
     const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
 {
+    // 溜めの演出の大きさ・数・寿命
     constexpr float kOuterRingSpeed = 9.0f;
     constexpr Vector4 kOuterRingColor = { 0.70f, 0.90f, 1.0f, 1.0f };
     constexpr int kOuterRingCount = 28;
@@ -547,7 +650,8 @@ void EmitFinisherRelease(ParticleManager* pm,
     // 放射状に飛び散る火花
     std::uniform_real_distribution<float> vxDist(-kSparkSpreadX, kSparkSpreadX);
     std::uniform_real_distribution<float> vyDist(kSparkRiseMin, kSparkRiseMax);
-    for (int i = 0; i < kSparkCount; ++i) {
+    for (int i = 0; i < kSparkCount; ++i)
+    {
         pm->EmitGravity(sparkGroup, pos,
             { vxDist(rng), vyDist(rng), 0.0f },
             kFinisherSparkColor, kSparkLifetime, kSparkSize);
@@ -557,7 +661,8 @@ void EmitFinisherRelease(ParticleManager* pm,
     std::uniform_real_distribution<float> offXDist(-kEmberSpread, kEmberSpread);
     std::uniform_real_distribution<float> riseDist(kEmberRiseMin, kEmberRiseMax);
     std::uniform_real_distribution<float> scaleDist(kEmberScaleMin, kEmberScaleMax);
-    for (int i = 0; i < kEmberCount; ++i) {
+    for (int i = 0; i < kEmberCount; ++i)
+    {
         Vector3 spawn = { pos.x + offXDist(rng), pos.y + offXDist(rng) * 0.5f, 0.0f };
         pm->EmitWithColor(sparkGroup, spawn, { 0.0f, riseDist(rng), 0.0f },
             kFinisherGlowColor, kEmberLifetime, scaleDist(rng), true);
@@ -568,6 +673,7 @@ void EmitFinisherRelease(ParticleManager* pm,
     pm->EmitHitStar(sparkGroup, pos, kFinisherSparkColor);
 }
 
+/** @brief 画面上の2点を結ぶ斬撃の跡をワールド座標に出す */
 void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, float camY,
     const Vector4& color, float thickness, float duration)
 {
@@ -578,6 +684,75 @@ void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, f
     sm.thickness = thickness;
     sm.duration = duration;
     SlashMark::GetInstance()->Spawn(sm);
+}
+
+/** @brief 白い画像からHPバーの下地と前景の2枚を作る */
+void CreateHpBarSprites(SpriteCommon* spriteCommon, std::unique_ptr<Sprite>& background,
+    std::unique_ptr<Sprite>& foreground, const Vector4& backgroundColor)
+{
+    // 下地は指定色で塗り、前景は白のまま作る（幅と色は UpdateWorldHpBar 側で毎フレーム決める）
+    background = std::make_unique<Sprite>();
+    background->Initialize(spriteCommon, "Resources/white.png");
+    background->SetColor(backgroundColor);
+    foreground = std::make_unique<Sprite>();
+    foreground->Initialize(spriteCommon, "Resources/white.png");
+}
+
+/** @brief 戻りポータルの目印になるブロックを、指定位置から上へ等間隔に積む */
+void CreateWarpPortalBlocks(ModelCommon* modelCommon, Model* blockModel, const Vector3& base, int count, float spacing,
+    const Vector4& color, std::vector<std::unique_ptr<Object3d>>& outBlocks)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        // ライティングを切った単色のブロックを、下から順に間隔をあけて置く
+        auto block = std::make_unique<Object3d>();
+        block->Initialize(modelCommon);
+        block->SetModel(blockModel);
+        block->SetEnableLighting(false);
+        block->SetPosition({ base.x, base.y + static_cast<float>(i) * spacing, base.z });
+        block->SetColor(color);
+        block->Update();
+        outBlocks.push_back(std::move(block));
+    }
+}
+
+/** @brief 少しずらした影を先に描いてから本体を重ね、明るい背景でも読める文字にする */
+void DrawShadowedTextW(FontRenderer& fontRenderer, const std::wstring& text, float x, float y, const ShadowedTextStyle& style)
+{
+    fontRenderer.DrawStringW(text, x + style.shadowOffset, y + style.shadowOffset, style.scale, style.shadowColor);
+    fontRenderer.DrawStringW(text, x, y, style.scale, style.color);
+}
+
+/** @brief 武器一覧の下に出す操作ヒントの見た目を UI レイアウトから読む（書かれていない項目は defaults のまま） */
+ShadowedTextStyle ReadWeaponHintStyle(UILayout& layout, const ShadowedTextStyle& defaults)
+{
+    return {
+        layout.Float("weapon_list.hint_scale", defaults.scale),
+        layout.Color("weapon_list.hint_color", defaults.color),
+        layout.Color("weapon_list.shadow_color", defaults.shadowColor),
+        layout.Float("weapon_list.shadow_offset", defaults.shadowOffset),
+    };
+}
+
+/** @brief HP比率を前景の幅と色へ反映し、背景と同じ画面位置に配置する */
+void UpdateWorldHpBar(Sprite* background, Sprite* foreground, const Vector3& position,
+    const Vector3& cameraPosition, float ratio, const HpBarStyle& style)
+{
+    float screenX, screenY;
+    WorldToScreen(position.x, position.y, cameraPosition.x, cameraPosition.y, screenX, screenY);
+    const Vector2 screenPosition = { screenX - style.size.x * 0.5f, screenY - style.raise };
+    foreground->SetColor({ 1.0f - ratio, ratio * style.greenScale + style.greenBase, 0.0f, style.alpha });
+    if (style.backgroundColor)
+    {
+        background->SetColor(*style.backgroundColor);
+    }
+    // 背景は全幅、前景は現在HPの割合だけを描く
+    background->SetPosition(screenPosition);
+    background->SetSize(style.size);
+    background->Update();
+    foreground->SetPosition(screenPosition);
+    foreground->SetSize({ style.size.x * ratio, style.size.y });
+    foreground->Update();
 }
 
 } // namespace engine::game::SceneShared

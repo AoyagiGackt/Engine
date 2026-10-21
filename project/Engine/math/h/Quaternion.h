@@ -45,21 +45,25 @@ inline Quaternion MakeRotateXYZQuaternion(const Vector3& eulerRadians)
 /**
  * @brief クォータニオンの球面線形補間 (Slerp)
  * @param q1 開始クォータニオン
- * @param q2 終了クォータニオン
+ * @param target 終了クォータニオン
  * @param t  補間係数 (0.0f ~ 1.0f)
  */
-inline Quaternion Slerp(const Quaternion& q1, Quaternion q2, float t)
+inline Quaternion Slerp(const Quaternion& q1, const Quaternion& target, float t)
 {
+    Quaternion q2 = target;
     float dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
 
     // 内積が負なら片方を反転して最短経路を取る
-    if (dot < 0.0f) {
+    if (dot < 0.0f)
+    {
         q2 = { -q2.x, -q2.y, -q2.z, -q2.w };
         dot = -dot;
     }
 
     // 角度がほぼゼロなら線形補間で代用
-    if (dot > 0.9995f) {
+    constexpr float kLinearInterpolationThreshold = 0.9995f;
+    if (dot > kLinearInterpolationThreshold)
+    {
         return {
             q1.x + t * (q2.x - q1.x),
             q1.y + t * (q2.y - q1.y),
@@ -103,7 +107,8 @@ inline Quaternion Normalize(const Quaternion& q)
 {
     constexpr float kMinLength = 1.0e-6f;
     const float len = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-    if (len < kMinLength) {
+    if (len < kMinLength)
+    {
         return { 0.0f, 0.0f, 0.0f, 1.0f };
     }
     return { q.x / len, q.y / len, q.z / len, q.w / len };

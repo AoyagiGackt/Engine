@@ -36,6 +36,7 @@ public:
     std::string Get() const;
 
 private:
+    /** @brief 障害診断用の既定コンテキストを作る */
     CrashContext() = default;
 
     mutable std::mutex mutex_;

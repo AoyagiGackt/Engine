@@ -69,5 +69,12 @@
     "releaseKnockX": 0.5,
     "releaseKnockY": 0.2,
     "releaseStyleScore": 120
+  },
+  "scene": {
+    "warpReturnX": 3,
+    "returnProximity": 3,
+    "dummyMaxHp": 100,
+    "dummySpawnX": 15,
+    "rampageDefaultTargetDistance": 6
   }
 }

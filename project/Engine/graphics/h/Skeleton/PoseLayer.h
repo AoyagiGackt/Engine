@@ -13,7 +13,7 @@ class Skeleton;
 
 /** @brief レイヤーが1ボーンへ重ねる回転（ボーンのローカル空間での差分） */
 struct PoseLayerRotation {
-    int32_t jointIndex; ///< Skeleton::GetJoints() の添字
+    int32_t jointIndex; ///< Skeleton::GetJoint() に渡すジョイント番号
     Quaternion delta; ///< ベースの回転より先に掛ける差分回転
 };
 
@@ -25,6 +25,7 @@ struct PoseLayerRotation {
  */
 class IPoseLayer {
 public:
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~IPoseLayer() = default;
 
     /**

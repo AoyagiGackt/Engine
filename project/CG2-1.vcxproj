@@ -199,6 +199,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Effect\CameraShaker.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\ComboFeelDirector.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\HitEffectLibrary.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\SceneVisualTuning.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\ElementEffect.cpp" />
@@ -273,6 +274,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\StageIntro.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinisherEffects.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommonInit.cpp" />
@@ -337,7 +339,6 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\UILayout.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp" />
-    <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -650,6 +651,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scene\BattleTestTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleDemoTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\StageIntro.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinisherEffects.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h" />
     <ClInclude Include="Engine\game\h\Player\BulletPool.h" />
     <ClInclude Include="Engine\game\h\Player\EnemyEntity.h" />
@@ -657,6 +659,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Player\KnightEnemy.h" />
     <ClInclude Include="Engine\game\h\Effect\CameraShaker.h" />
     <ClInclude Include="Engine\game\h\Effect\HitEffectLibrary.h" />
+    <ClInclude Include="Engine\game\h\Effect\SceneVisualTuning.h" />
     <ClInclude Include="Engine\game\h\Effect\ComboFeelDirector.h" />
     <ClInclude Include="Engine\game\h\Scene\ShotTargetPicker.h" />
     <ClInclude Include="Engine\game\h\UI\CommandListView.h" />
@@ -743,6 +746,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h" />
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\Model.h" />
+    <ClInclude Include="Engine\graphics\h\3D\AssimpVertexReader.h" />
     <ClInclude Include="Engine\graphics\h\3D\Object3d.h" />
     <ClInclude Include="Engine\graphics\h\Manager\ModelManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\ModelCommon.h" />
@@ -791,6 +795,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorUiStyle.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h" />
+    <ClInclude Include="Engine\game\h\Level\StageEditorObjectPresets.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPrefabService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorEventConnection.h" />
@@ -804,7 +809,6 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\UI\UILayout.h" />
     <ClInclude Include="Engine\game\h\Player\RunData.h" />
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
-    <ClInclude Include="Engine\game\h\Scene\ShopScene.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\FrameProfiler.h" />
     <ClInclude Include="Engine\graphics\h\RenderPassGraph.h" />
@@ -828,6 +832,7 @@ if errorlevel 1 exit /b 1
     <None Include="Resources\Config\element_effects.json" />
     <None Include="Resources\Config\graphics_tuning.json" />
     <None Include="Resources\Config\stage_intro.json" />
+    <None Include="Resources\Config\scene_cameras.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
@@ -877,5 +882,29 @@ if errorlevel 1 exit /b 1
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Level\FallingFloorBehavior.cpp"></ClCompile>
     <ClInclude Include="Engine\game\h\Level\FallingFloorBehavior.h"></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemo.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCamera.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\SceneEditorPersistence.cpp" />
+    <ClInclude Include="Engine\game\h\Level\ObjectKindSupport.h" />
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKindMarkers.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKindRuntime.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Collision\GroundSupport.h" />
+    <ClInclude Include="Engine\game\h\Player\EnemySeparation.h" />
+    <ClCompile Include="Engine\game\cpp\Player\EnemySeparation.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Util\IPositionTarget.h" />
+    <ClInclude Include="Engine\graphics\h\Manager\ResourceAlignment.h" />
+    <ClCompile Include="Engine\game\cpp\Player\EnemyEntityVisuals.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Util\TextBufferCapacity.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlSceneSettings.cpp" />
   </ItemGroup>
 </Project>

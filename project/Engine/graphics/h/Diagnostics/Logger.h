@@ -12,6 +12,7 @@ enum class LogLevel { Info,
     Warning,
     Error };
 
+/** @brief 重要度に応じたログの出力先と書式を管理する */
 class Logger {
 public:
     /**
@@ -23,11 +24,17 @@ public:
     static void Log(const std::string& message, LogLevel level = LogLevel::Info);
 
     /** @brief Info（通常の進行状況）としてログを出力する */
-    static void LogInfo(const std::string& message) { Log(message, LogLevel::Info); }
+    static void LogInfo(const std::string& message) {
+        Log(message, LogLevel::Info);
+    }
     /** @brief Warning（異常だが継続可能）としてログを出力する */
-    static void LogWarning(const std::string& message) { Log(message, LogLevel::Warning); }
+    static void LogWarning(const std::string& message) {
+        Log(message, LogLevel::Warning);
+    }
     /** @brief Error（処理続行が困難な失敗）としてログを出力する */
-    static void LogError(const std::string& message) { Log(message, LogLevel::Error); }
+    static void LogError(const std::string& message) {
+        Log(message, LogLevel::Error);
+    }
 
 private:
     /** @brief ログファイルの保存先パス */

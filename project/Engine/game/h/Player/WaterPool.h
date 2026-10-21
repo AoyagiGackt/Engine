@@ -9,6 +9,7 @@
 #include "SpriteCommon.h"
 #include <memory>
 #include <random>
+#include <string>
 namespace engine::graphics {
 class ParticleManager;
 }
@@ -36,7 +37,11 @@ public:
     void EmitSplash(const Vector3& position);
 
     /** @brief 水面のY座標を返す（Player::SetWaterLevel() に渡して水中判定と同期させる） */
-    static constexpr float GetSurfaceY() { return kPoolTop; }
+    static float GetSurfaceY();
+
+    /** @brief 指定グループへ水しぶきの輪と水滴を共通設定で発生させる */
+    static void EmitSplashParticles(ParticleManager* particles, const std::string& group,
+        const Vector3& position, std::mt19937& rng);
 
 private:
     SpriteCommon* spriteCommon_ = nullptr;
@@ -58,12 +63,6 @@ private:
     std::mt19937 causticRng_;
     std::mt19937 bubbleRng_;
     std::mt19937 splashRng_;
-
-    // プール領域
-    static constexpr float kPoolX0 = 3.0f;
-    static constexpr float kPoolX1 = 27.0f;
-    static constexpr float kPoolTop = 3.0f;
-    static constexpr float kPoolBottom = -0.6f;
 
     // fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高（GameConstants と共有）
     static constexpr float kHalfW = GameConstants::kCameraHalfW;

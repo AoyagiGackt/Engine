@@ -6,13 +6,46 @@
 #include "JsonFieldTable.h"
 #include "JsonHelper.h"
 #include "Logger.h"
-using namespace engine::game;
-using namespace engine;
+#include <cmath>
+#include <algorithm>
 
+namespace engine::game {
 namespace {
 constexpr const char* kCombatTuningPath = "Resources/Config/combat_tuning.json";
 
+constexpr JsonField<FallingFloorTiming> kFloorFields[] = {
+    { "fallingFloor", "warningEnd", &FallingFloorTiming::warningEnd },
+    { "fallingFloor", "respawnStart", &FallingFloorTiming::respawnStart },
+    { "fallingFloor", "cycleEnd", &FallingFloorTiming::cycleEnd },
+    { "fallingFloor", "crackLeadTime", &FallingFloorTiming::crackLeadTime },
+    { "fallingFloor", "minimumSpeed", &FallingFloorTiming::minimumSpeed },
+};
+
 constexpr JsonField<CombatTuningData> kFields[] = {
+    { nullptr, "waterMinX", &CombatTuningData::waterMinX },
+    { nullptr, "waterMaxX", &CombatTuningData::waterMaxX },
+    { nullptr, "waterSurfaceY", &CombatTuningData::waterSurfaceY },
+    { nullptr, "waterBottomY", &CombatTuningData::waterBottomY },
+    { nullptr, "trainingWarpX", &CombatTuningData::trainingWarpX },
+    { nullptr, "trainingWarpProximity", &CombatTuningData::trainingWarpProximity },
+    { nullptr, "trainingGroundY", &CombatTuningData::trainingGroundY },
+    { nullptr, "trainingFacingTargetDistance", &CombatTuningData::trainingFacingTargetDistance },
+    { nullptr, "finisherLaunchRatio", &CombatTuningData::finisherLaunchRatio },
+    { nullptr, "waypointArrivalDistance", &CombatTuningData::waypointArrivalDistance },
+    { nullptr, "awakenExtraHitKnockScale", &CombatTuningData::awakenExtraHitKnockScale },
+    { nullptr, "launchSpeed", &CombatTuningData::launchSpeed },
+    { nullptr, "skillRearReachMult", &CombatTuningData::skillRearReachMult },
+    { nullptr, "finisherLineDamage", &CombatTuningData::finisherLineDamage },
+    { nullptr, "finisherSlashDamage", &CombatTuningData::finisherSlashDamage },
+    { nullptr, "finisherSlashLines", &CombatTuningData::finisherSlashLines },
+    { nullptr, "finisherChargeDelay", &CombatTuningData::finisherChargeDelay },
+    { nullptr, "finisherLineInterval", &CombatTuningData::finisherLineInterval },
+    { nullptr, "finisherImpactDelay", &CombatTuningData::finisherImpactDelay },
+    { nullptr, "weaponAbsorbRange", &CombatTuningData::weaponAbsorbRange },
+    { nullptr, "weaponAbsorbDuration", &CombatTuningData::weaponAbsorbDuration },
+    { nullptr, "finisherBeatLaunchSpeed", &CombatTuningData::finisherBeatLaunchSpeed },
+    { nullptr, "finisherBeatStyleGain", &CombatTuningData::finisherBeatStyleGain },
+    { nullptr, "finisherReleaseStyleGain", &CombatTuningData::finisherReleaseStyleGain },
     { nullptr, "meleeDamageDivisor", &CombatTuningData::meleeDamageDivisor },
     { nullptr, "styleDecayRate", &CombatTuningData::styleDecayRate },
     { nullptr, "stylePersistDecayMult", &CombatTuningData::stylePersistDecayMult },
@@ -119,25 +152,62 @@ constexpr JsonField<CombatTuningData> kFields[] = {
 
 } // namespace
 
+/** @brief 唯一のCombatTuningインスタンスを取得する（初回はJSONを読み込む） */
 CombatTuning* CombatTuning::GetInstance()
 {
     static CombatTuning instance;
     return &instance;
 }
 
+/** @brief combat_tuning.json を読み込んで初期化する */
 CombatTuning::CombatTuning()
 {
     Reload();
 }
 
+/** @brief JSONを読み直す */
 void CombatTuning::Reload()
 {
+    // まず既定値に戻し、読めない時はそのまま既定値で動かす
     CombatTuningData defaults;
     data_ = defaults;
+    fallingFloor_ = FallingFloorTiming {};
     const nlohmann::json root = JsonHelper::Load(kCombatTuningPath);
-    if (!root.is_object()) {
+    if (!root.is_object())
+    {
         Logger::LogWarning(std::string("CombatTuning: ") + kCombatTuningPath + " が読めません。既定値で動きます");
         return;
     }
+    // 項目の対応表どおりに読み、壊れた組み合わせだけ既定値へ戻す
     ReadJsonFields(root, kFields, data_);
+    // 水場は幅と深さが正の範囲だけを採用する。
+    if (data_.waterMaxX <= data_.waterMinX || data_.waterSurfaceY <= data_.waterBottomY)
+    {
+        data_.waterMinX = defaults.waterMinX;
+        data_.waterMaxX = defaults.waterMaxX;
+        data_.waterSurfaceY = defaults.waterSurfaceY;
+        data_.waterBottomY = defaults.waterBottomY;
+    }
+    // フィニッシャーは正の総時間を保ち、段数と待ち時間を有効な範囲に収める。
+    data_.finisherSlashLines = (std::max)(data_.finisherSlashLines, 1);
+    data_.finisherChargeDelay = (std::max)(data_.finisherChargeDelay, 0.0f);
+    data_.finisherLineInterval = (std::max)(data_.finisherLineInterval, 0.0f);
+    data_.finisherImpactDelay = (std::max)(data_.finisherImpactDelay, 0.0f);
+    if (data_.FinisherChargeDuration() <= 0.0f)
+    {
+        data_.finisherChargeDelay = defaults.finisherChargeDelay;
+    }
+    // 崩れる床の周期
+    ReadJsonFields(root, kFloorFields, fallingFloor_);
+    // 時刻の順序と正の周期を保ち、不正な設定では既定値へ戻す
+    const auto& floor = fallingFloor_;
+    if (!std::isfinite(floor.warningEnd) || !std::isfinite(floor.respawnStart) || !std::isfinite(floor.cycleEnd)
+        || !std::isfinite(floor.crackLeadTime) || !std::isfinite(floor.minimumSpeed)
+        || floor.warningEnd < 0.0f || floor.respawnStart < floor.warningEnd || floor.cycleEnd <= floor.respawnStart
+        || floor.crackLeadTime < 0.0f || floor.minimumSpeed <= 0.0f)
+    {
+        fallingFloor_ = FallingFloorTiming {};
+    }
 }
+
+} // namespace engine::game

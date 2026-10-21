@@ -1,12 +1,12 @@
 /**
  * @file GrayscaleEffect.cpp
- * @brief GrayscaleEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief 画面を白黒にするポストエフェクト（GrayscaleEffect）の実装
  */
 #include "GrayscaleEffect.h"
 #include "GraphicsTuning.h"
-using namespace engine;
-using namespace engine::graphics;
 
+namespace engine::graphics {
+/** @brief オフスクリーンRTV・定数バッファ・グレースケール変換用PSOを生成する */
 void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     cbData_ = static_cast<GrayscaleParams*>(
@@ -15,14 +15,19 @@ void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
     cbData_->amount = GraphicsTuning::Float("grayscale.amount", cbData_->amount, 0.0f, 1.0f);
 }
 
+/** @brief グレースケール化の割合を設定する */
 void GrayscaleEffect::SetAmount(float amount)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->amount = amount;
     }
 }
 
+/** @brief グレースケール化の割合を取得する */
 float GrayscaleEffect::GetAmount() const
 {
     return cbData_ ? cbData_->amount : 0.f;
 }
+
+} // namespace engine::graphics

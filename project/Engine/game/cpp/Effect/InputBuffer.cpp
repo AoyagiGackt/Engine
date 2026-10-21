@@ -5,15 +5,16 @@
 #include "InputBuffer.h"
 #include <algorithm>
 #include <cstring>
-using namespace engine;
-using namespace engine::game;
 
+namespace engine::game {
+/** @brief シングルトンインスタンスを取得する */
 InputBuffer* InputBuffer::GetInstance()
 {
     static InputBuffer instance;
     return &instance;
 }
 
+/** @brief 毎フレーム入力状態を記録する */
 void InputBuffer::Update(Input* input)
 {
     // head_ を 1 つ進めてリングバッファの最新スロットへ移動
@@ -24,8 +25,9 @@ void InputBuffer::Update(Input* input)
     FrameState& frame = history_[head_];
     frame.valid = true;
 
-    // キーボード  全 256 キーの押下状態を記録
-    for (int i = 0; i < 256; ++i) {
+    // キーボード  全キーの押下状態を記録
+    for (int i = 0; i < Input::kKeyCount; ++i)
+    {
         frame.keys[i] = input->PushKey(static_cast<BYTE>(i)) ? 1 : 0;
     }
 
@@ -48,39 +50,49 @@ void InputBuffer::Update(Input* input)
         XINPUT_GAMEPAD_DPAD_LEFT, // 十字キー左
         XINPUT_GAMEPAD_DPAD_RIGHT, // 十字キー右
     };
-    for (WORD btn : kAllButtons) {
-        if (input->PushButton(btn)) {
+    for (WORD btn : kAllButtons)
+    {
+        if (input->PushButton(btn))
+        {
             frame.buttons |= btn; // 押されているボタンのビットを立てる
         }
     }
 }
 
+/** @brief 指定キーが直近 N フレーム以内に押されていたかを判定する */
 bool InputBuffer::WasKeyPressed(BYTE keyCode, int withinFrames) const
 {
     // 実際に保持しているフレーム数を超えて調べることはできない
     withinFrames = (std::min)(withinFrames, count_);
 
     // head_ から過去に向かって withinFrames 個のスロットを調べる
-    for (int i = 0; i < withinFrames; ++i) {
+    for (int i = 0; i < withinFrames; ++i)
+    {
         // リングバッファのインデックス計算（負になっても正しくラップする）
         int idx = (head_ - i + kHistorySize) % kHistorySize;
-        if (history_[idx].valid && history_[idx].keys[keyCode]) {
+        if (history_[idx].valid && history_[idx].keys[keyCode])
+        {
             return true; // 1 フレームでも押されていたら true を返す
         }
     }
     return false;
 }
 
+/** @brief 指定ボタンが直近 N フレーム以内に押されていたかを判定する */
 bool InputBuffer::WasButtonPressed(WORD button, int withinFrames) const
 {
     withinFrames = (std::min)(withinFrames, count_);
 
-    for (int i = 0; i < withinFrames; ++i) {
+    for (int i = 0; i < withinFrames; ++i)
+    {
         int idx = (head_ - i + kHistorySize) % kHistorySize;
         // ビットマスクで指定ボタンが押されていたか確認
-        if (history_[idx].valid && (history_[idx].buttons & button)) {
+        if (history_[idx].valid && (history_[idx].buttons & button))
+        {
             return true;
         }
     }
     return false;
 }
+
+} // namespace engine::game

@@ -6,8 +6,19 @@
  */
 #pragma once
 #ifdef USE_IMGUI
+#include <string>
 
 namespace engine::graphics::EditorUI {
+
+/**
+ * @brief ファイル選択ダイアログを開き、選んだパスを返す（取り消したら空文字列）
+ * @param filter 表示するファイルの種類（例: "PNG Files\0*.png\0\0"）
+ * @param initialDirectory ダイアログを開いた時に最初に表示するフォルダ
+ */
+std::string OpenFileDialog(const char* filter, const char* initialDirectory);
+
+/** @brief 絶対パスを Resources/ から始まるプロジェクト内の相対パスへ変換する（Resources/ を含まなければそのまま） */
+std::string ToProjectRelativePath(const std::string& absolutePath);
 
 /** @brief 直前のウィジェットの右に (?) を表示し、ホバーで説明ツールチップを出す */
 void HelpMarker(const char* desc);

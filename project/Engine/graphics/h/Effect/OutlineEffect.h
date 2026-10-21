@@ -45,7 +45,7 @@ public:
 
     // 初期化 / 破棄
     /**
-     * @brief 初期化アウトライン用ルートシグネチャ・PSO・定数バッファを生成する
+     * @brief アウトライン用のルートシグネチャ・PSO・定数バッファを生成して初期化する
      * @param dxCommon DirectX 共通クラスのポインタ
      */
     void Initialize(engine::DirectXCommon* dxCommon);
@@ -68,7 +68,8 @@ public:
      */
     void SetColor(const Vector4& color)
     {
-        if (cbData_) {
+        if (cbData_)
+        {
             cbData_->color = color;
         }
     }
@@ -79,19 +80,26 @@ public:
      */
     void SetWidth(float width)
     {
-        if (cbData_) {
+        if (cbData_)
+        {
             cbData_->width = width;
         }
     }
 
     /** @brief 現在のアウトライン色を取得する */
-    Vector4 GetColor() const { return cbData_ ? cbData_->color : Vector4 { 0, 0, 0, 1 }; }
+    Vector4 GetColor() const {
+        return cbData_ ? cbData_->color : Vector4 { 0, 0, 0, 1 };
+    }
 
     /** @brief 現在のアウトライン幅を取得する */
-    float GetWidth() const { return cbData_ ? cbData_->width : 0.f; }
+    float GetWidth() const {
+        return cbData_ ? cbData_->width : 0.f;
+    }
 
 private:
+    /** @brief 輪郭描画資源が未確保の状態を作る */
     OutlineEffect() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~OutlineEffect() = default;
     OutlineEffect(const OutlineEffect&) = delete;
     OutlineEffect& operator=(const OutlineEffect&) = delete;

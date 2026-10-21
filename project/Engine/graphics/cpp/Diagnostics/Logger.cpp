@@ -1,6 +1,6 @@
 /**
  * @file Logger.cpp
- * @brief Loggerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief ログの出力（Logger）の実装
  */
 #include "Logger.h"
 #include <chrono>
@@ -21,6 +21,7 @@ namespace engine {
 
 namespace {
 
+    /** @brief ログの重要度に対応する表示タグを返す */
     const char* LevelToTag(LogLevel level)
     {
         // LogLevel の並び順
@@ -29,6 +30,7 @@ namespace {
         return index < std::size(kTags) ? kTags[index] : kTags[0];
     }
 
+    /** @brief ログに付ける今の時刻の文字列を返す */
     std::string CurrentTimeString()
     {
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -41,6 +43,7 @@ namespace {
 
 } // namespace
 
+/** @brief ログメッセージをデバッグ出力ウィンドウとログファイル（log/engine.log）の両方に出力する */
 void Logger::Log(const std::string& message, LogLevel level)
 {
     std::string line = "[" + CurrentTimeString() + "][" + LevelToTag(level) + "] " + message + "\n";
@@ -49,7 +52,8 @@ void Logger::Log(const std::string& message, LogLevel level)
 
 #ifndef ENGINE_RELEASE
     auto parent = std::filesystem::path(kLogFilePath).parent_path();
-    if (!parent.empty()) {
+    if (!parent.empty())
+    {
         std::filesystem::create_directories(parent);
     }
 
@@ -58,7 +62,8 @@ void Logger::Log(const std::string& message, LogLevel level)
     std::ofstream file(kLogFilePath, isFirstWrite ? std::ios::trunc : std::ios::app);
     isFirstWrite = false;
 
-    if (file) {
+    if (file)
+    {
         file << line;
     }
 #endif

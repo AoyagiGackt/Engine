@@ -1,7 +1,10 @@
+/**
+ * @file TrainingWeaponPickups.cpp
+ * @brief トレーニングルームに置いた武器の表示と取得判定（TrainingWeaponPickups）の実装
+ */
 #include "TrainingWeaponPickups.h"
 #include "ModelManager.h"
 #include <cmath>
-using namespace engine;
 using namespace engine::graphics;
 namespace engine::game {
 namespace {
@@ -16,10 +19,12 @@ constexpr float kSpinSpeed = 0.8f;
 constexpr Vector4 kTouchingColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr Vector4 kIdleColor = { 0.75f, 0.85f, 1.0f, 1.0f };
 }
+/** @brief 練習用に置く武器のモデルを用意する */
 void TrainingWeaponPickups::Initialize(ModelCommon* models)
 {
     modelCommon_ = models;
 
+    /** @brief 拾える武器のモデルと表示姿勢の定義 */
     struct PickupAsset {
         WeaponType type;
         const char* modelPath;
@@ -33,7 +38,8 @@ void TrainingWeaponPickups::Initialize(ModelCommon* models)
         { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.42f },
     };
     static_assert(std::size(kPickupAssets) == kPickupCount, "本編で手に入る武器だけを並べる");
-    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i)
+    {
         const PickupAsset& asset = kPickupAssets[i];
         Pickup& pickup = pickups_[i];
         pickup.type = asset.type;
@@ -48,17 +54,20 @@ void TrainingWeaponPickups::Initialize(ModelCommon* models)
         pickup.object->Update();
     }
 }
+/** @brief 置いてある武器の表示を進め、プレイヤーが触れたら装備させる（装備した時 true） */
 bool TrainingWeaponPickups::Update(const Vector3& playerPosition, WeaponManager& weapons, float deltaSeconds)
 {
     bool equipped = false;
 
     pulseTime_ += deltaSeconds;
-    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i)
+    {
         Pickup& pickup = pickups_[i];
         const float dx = playerPosition.x - pickup.position.x;
         const float dy = playerPosition.y - pickup.position.y;
         const bool touching = dx * dx + dy * dy <= kTouchRadius * kTouchRadius;
-        if (touching && !pickup.wasTouching) {
+        if (touching && !pickup.wasTouching)
+        {
             weapons.EquipForTraining(pickup.type);
             equipped = true;
         }
@@ -73,6 +82,18 @@ bool TrainingWeaponPickups::Update(const Vector3& playerPosition, WeaponManager&
 
     return equipped;
 }
-void TrainingWeaponPickups::RefreshVisuals() { for (auto& pickup : pickups_) { pickup.object->Update(); } }
-void TrainingWeaponPickups::Draw() { for (auto& pickup : pickups_) { pickup.object->Draw(); } }
+/** @brief 時間を進めずに武器の見た目の行列だけ更新する */
+void TrainingWeaponPickups::RefreshVisuals() {
+    for (auto& pickup : pickups_)
+    {
+        pickup.object->Update();
+    }
+}
+/** @brief 置いてある武器を描画する */
+void TrainingWeaponPickups::Draw() {
+    for (auto& pickup : pickups_)
+    {
+        pickup.object->Draw();
+    }
+}
 }

@@ -87,15 +87,25 @@ public:
      */
     void StartSequence(const ComboArray<MeleeAttackDef>& sequence);
     /** @brief 連撃表を自動で進めている最中か */
-    bool IsSequenceActive() const { return sequence_.data != nullptr && active_ != nullptr; }
+    bool IsSequenceActive() const {
+        return sequence_.data != nullptr && active_ != nullptr;
+    }
 
     /** @brief 段の定義に従った体のその場回転（ラジアン、体の向きに足す） */
     float GetBodyTurnOffset() const;
 
-    bool IsAttacking() const { return active_ != nullptr; }
-    bool JustHit() const { return justHit_; } ///< このフレームに攻撃判定が発生したか
+    /** @brief 攻撃中かを返す */
+    bool IsAttacking() const {
+        return active_ != nullptr;
+    }
+    /** @brief このフレームに攻撃の判定が出たかを返す */
+    bool JustHit() const {
+        return justHit_;
+    }
     /** @brief このフレームの攻撃判定が追加ヒット（本ヒットの後の多段ぶん）か */
-    bool JustExtraHit() const { return justExtraHit_; }
+    bool JustExtraHit() const {
+        return justExtraHit_;
+    }
 
     /**
      * @brief 1段ごとに本ヒットの後で出す追加ヒットを設定する（覚醒中の多段ヒット用）
@@ -108,8 +118,14 @@ public:
         extraHits_ = count;
         extraHitInterval_ = interval;
     }
-    bool JustStartedStep() const { return justStarted_; } ///< このフレームに段が開始したか（アニメ再生用）
-    const MeleeAttackDef* GetActive() const { return active_; } ///< 進行中の段（無ければ nullptr）
+    /** @brief このフレームに段を始めたかを返す（アニメーションの再生に使う） */
+    bool JustStartedStep() const {
+        return justStarted_;
+    }
+    /** @brief 今の段の技の定義を返す（攻撃していなければ nullptr） */
+    const MeleeAttackDef* GetActive() const {
+        return active_;
+    }
     /** @brief 進行中の段の経過割合（0〜1、段の長さに対する経過時間。攻撃していなければ0） */
     float GetProgress() const;
 
@@ -120,8 +136,14 @@ public:
      * @note ヒット発火・前進・先行入力などの進行処理は一切行わない（Update()を呼ばない前提）
      */
     void SetPreviewPose(const MeleeAttackDef* def, float normalizedTime);
-    int GetStep() const { return stepDisplay_; } ///< 表示用の段数（1始まり、打ち上げ技は0）
-    float GetLungeDelta() const { return lungeDelta_; } ///< このフレームぶんの前進量
+    /** @brief 今の段の番号を返す（表示用、1始まり。打ち上げ技は0） */
+    int GetStep() const {
+        return stepDisplay_;
+    }
+    /** @brief このフレームの踏み込みの前進量を返す */
+    float GetLungeDelta() const {
+        return lungeDelta_;
+    }
 
     /** @brief 現在のスイング回転オフセットを返す（振りかぶり→振り抜き→構え直しの補間） */
     Vector3 GetSwingOffset() const;
@@ -145,6 +167,8 @@ private:
     void AdvanceStep(float dt);
     /** @brief 現在の状態から次に出すべき段を返す（テーブル末尾は先頭へループ） */
     const MeleeAttackDef* NextStep(bool launcherInput, bool airborne, int& outIdx, bool& outLauncher) const;
+    /** @brief 次に出すべき段をすぐ始める（出せる段が無ければ false） */
+    bool StartNextStep(bool launcherInput, bool airborne);
 
     const MeleeAttackDef* active_ = nullptr;
     WeaponType type_ { };
@@ -171,7 +195,7 @@ private:
     ComboArray<MeleeAttackDef> sequence_ { }; ///< 自動で進めている連撃表（使っていなければdataがnullptr）
     float lungeDelta_ = 0.0f;
 
-    static constexpr float kChainGrace_ = 0.75f; ///< 段間の入力猶予（秒）。位置調整を挟んでも次段へ繋げやすくする
+    static constexpr float kChainGrace = 0.75f; ///< 段間の入力猶予（秒）。位置調整を挟んでも次段へ繋げやすくする
 };
 
 } // namespace engine::game

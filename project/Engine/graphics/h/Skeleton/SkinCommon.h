@@ -1,6 +1,6 @@
 /**
  * @file SkinCommon.h
- * @brief SkinCommonの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief スキンメッシュ共通のルートシグネチャ・PSO（SkinCommon）の宣言
  */
 #pragma once
 #include "BlendMode.h"
@@ -26,7 +26,10 @@ public:
      */
     void CommonDrawSettings(BlendMode blendMode = BlendMode::Alpha);
 
-    engine::DirectXCommon* GetDxCommon() const { return dxCommon_; }
+    /** @brief DirectX の共通処理を返す */
+    engine::DirectXCommon* GetDxCommon() const {
+        return dxCommon_;
+    }
 
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;

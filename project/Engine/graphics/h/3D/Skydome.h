@@ -23,6 +23,12 @@ public:
     void Initialize(ModelCommon* modelCommon, Model* model);
 
     /**
+     * @brief 既定の空のモデル（Resources/SkyDome）を読み込んで天球を作る
+     * @param modelCommon 描画設定
+     */
+    void InitializeDefault(ModelCommon* modelCommon);
+
+    /**
      * @brief カメラの位置を取得し、天球をその場所に移動させる
      * @param camera 追従対象のカメラポインタ
      */
@@ -42,7 +48,9 @@ public:
     /**
      * @brief 時刻ベースのY回転に加算するオフセット（ラジアン）を設定する
      */
-    void SetRotationOffsetY(float offsetY) { rotationOffsetY_ = offsetY; }
+    void SetRotationOffsetY(float offsetY) {
+        rotationOffsetY_ = offsetY;
+    }
 
 private:
     std::unique_ptr<Object3d> object_;

@@ -6,6 +6,7 @@
 #include "Quaternion.h"
 #include "Vector3.h"
 #include <cmath>
+#include <type_traits>
 
 namespace engine {
 
@@ -160,6 +161,50 @@ inline Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float n
     };
 }
 
+/** @brief ライト視点の行列を作成する。視線が縮退している場合は出力を変更せずfalseを返す */
+inline bool TryMakeLightViewMatrix(const Vector3& eye, const Vector3& target, Matrix4x4& view)
+{
+    constexpr float kDirectionEpsilon = 1e-6f;
+    constexpr float kVerticalDirectionThreshold = 0.99f;
+    Vector3 forward = Subtract(target, eye);
+    const float forwardLength = Length(forward);
+    if (forwardLength < kDirectionEpsilon)
+    {
+        return false;
+    }
+    forward = { forward.x / forwardLength, forward.y / forwardLength, forward.z / forwardLength };
+    // 真上に近い視線では補助軸をZへ切り替え、外積の縮退を避ける。
+    const Vector3 up = std::abs(forward.y) > kVerticalDirectionThreshold ? Vector3 { 0, 0, 1 } : Vector3 { 0, 1, 0 };
+    Vector3 right = Cross(up, forward);
+    const float rightLength = Length(right);
+    if (rightLength < kDirectionEpsilon)
+    {
+        return false;
+    }
+    right = { right.x / rightLength, right.y / rightLength, right.z / rightLength };
+    const Vector3 realUp = Cross(forward, right);
+    view = {
+        right.x, right.y, right.z, 0.0f,
+        realUp.x, realUp.y, realUp.z, 0.0f,
+        forward.x, forward.y, forward.z, 0.0f,
+        -Dot(right, eye), -Dot(realUp, eye), -Dot(forward, eye), 1.0f,
+    };
+    return true;
+}
+
+/** @brief 原点を中心にDirectXの深度範囲0から1へ写す正射影行列を作成する */
+inline Matrix4x4 MakeCenteredOrthographicMatrix(float width, float height, float nearClip, float farClip)
+{
+    constexpr float kNdcSpan = 2.0f;
+    Matrix4x4 projection = {};
+    projection.m[0][0] = kNdcSpan / width;
+    projection.m[1][1] = kNdcSpan / height;
+    projection.m[2][2] = 1.0f / (farClip - nearClip);
+    projection.m[3][2] = -nearClip / (farClip - nearClip);
+    projection.m[3][3] = 1.0f;
+    return projection;
+}
+
 /**
  * @brief 正射影行列（2DスプライトやUI用）の作成
  */
@@ -282,8 +327,11 @@ inline Matrix4x4 Inverse(const Matrix4x4& m)
 inline Matrix4x4 Transpose(const Matrix4x4& m)
 {
     Matrix4x4 result;
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
+    constexpr int kDimension = static_cast<int>(std::extent_v<decltype(Matrix4x4::m)>); // 4x4 の行・列の数
+    for (int i = 0; i < kDimension; ++i)
+    {
+        for (int j = 0; j < kDimension; ++j)
+        {
             result.m[i][j] = m.m[j][i];
         }
     }
@@ -339,6 +387,21 @@ inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate
     rot.m[3][3] = 1.0f;
 
     return rot;
+}
+
+/**
+ * @brief 行ベクトル規約の行列で点を変換する（平行移動込み、w による除算はしない）
+ * @param p 変換する点
+ * @param m アフィン変換行列
+ * @return 変換後の点
+ */
+inline Vector3 TransformPoint(const Vector3& p, const Matrix4x4& m)
+{
+    return {
+        p.x * m.m[0][0] + p.y * m.m[1][0] + p.z * m.m[2][0] + m.m[3][0],
+        p.x * m.m[0][1] + p.y * m.m[1][1] + p.z * m.m[2][1] + m.m[3][1],
+        p.x * m.m[0][2] + p.y * m.m[1][2] + p.z * m.m[2][2] + m.m[3][2],
+    };
 }
 
 } // namespace engine

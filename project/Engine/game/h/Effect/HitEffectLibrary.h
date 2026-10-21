@@ -1,7 +1,7 @@
 /**
  * @file HitEffectLibrary.h
  * @brief ヒット・破壊・被弾などの演出レシピを Resources/Config/hit_effects.json から名前で引く仕組み
- * @note シーンは「どの演出を出すか」だけを名前で指定し、数・色・寿命・揺れの強さはJSON側が持つ
+ * @note シーンはどの演出を出すかだけを名前で指定し、数・色・寿命・揺れの強さはJSON側が持つ
  */
 #pragma once
 #include "MakeAffine.h"
@@ -97,12 +97,115 @@ struct TrailDef {
     float height = 0.0f;
 };
 
+/** @brief 戦闘演出の配置・発生間隔・警告表示を調整する設定 */
+struct SceneParticleDef {
+    int hitStopLaunch = 8; ///< 打ち上げ
+    int hitStopAwakenExtra = 2; ///< 覚醒中の多段ヒットの2発目以降（刻みを速く見せるため短く）
+    int hitStopJuggle = 4; ///< ジャグル
+    int hitStopFinish = 12; ///< フィニッシュ
+    int hitStopFinisherSlash = 20; ///< 大技 本命ヒット
+    int hitStopFinisherBeat = 1; ///< 大技 斬撃線が1本出るごとの小停止
+    float shakeLaunchAmt = 0.35f;
+    float shakeLaunchDur = 0.28f;
+    float shakeFinishAmt = 0.55f;
+    float shakeFinishDur = 0.40f;
+    float shakeFinisherSlashAmt = 0.65f;
+    float shakeFinisherSlashDur = 0.45f;
+    float finisherSlashRadius = 4.5f; ///< 斬撃線の最大半長
+    float finisherOverlayAlpha = 0.60f; ///< 演出中の画面暗転の濃さ
+    float ghostSpawnInterval = 0.05f; ///< 残像を追加する間隔（秒）
+    float ghostLifetime = 0.3f; ///< 残像が消えるまでの秒数
+    float ghostMaxAlpha = 0.5f; ///< 残像の最大不透明度
+    Vector4 ghostColor = { 0.4f, 0.75f, 1.0f, 1.0f }; ///< 残像の色
+    float swingCenterHeight = 0.4f; ///< 敵の近接攻撃演出を出す高さ
+    float beatShakeAmount = 0.06f; ///< フィニッシャー各段の揺れ幅
+    float beatShakeSeconds = 0.05f; ///< フィニッシャー各段の揺れ時間
+    float beatWarpImpulse = 0.12f; ///< 各段で足す画面歪み
+    Vector4 releaseFlashColor = { 0.75f, 0.95f, 1.0f, 0.5f }; ///< フィニッシャー解放時の閃光色
+    float releaseFlashSeconds = 0.15f; ///< 解放時の閃光時間
+    float absorbTargetHeight = 0.5f; ///< 武器を吸い寄せる位置の高さ
+    Vector4 absorbGlowColor = { 0.5f, 0.85f, 1.0f, 1.0f }; ///< 吸収粒子の色
+    int absorbOrbCount = 10; ///< 吸収粒子の数
+    float absorbOrbSpeedBase = 4.0f; ///< 吸収粒子の基準速度
+    float absorbOrbSpeedStep = 0.3f; ///< 粒子ごとに足す速度
+    float absorbOrbLifetime = 0.35f; ///< 吸収粒子の寿命
+    float absorbOrbSize = 0.22f; ///< 吸収粒子の大きさ
+    float absorbPullRate = 0.16f; ///< 1フレームあたりの吸引率
+    float surfaceLerp = 0.3f; ///< 敵中心から命中演出を手前へ寄せる割合
+    int extraRingCountDivisor = 2; ///< 武器の追加粒子数からリング追加数を求める除数
+    float chestHeight = 0.5f; ///< プレイヤー足元から胸までの高さ
+    float comboSlashGrowthPerStep = 0.5625f; ///< コンボ段ごとに足す斬線倍率
+    int comboFinisherStep = 3; ///< 締め演出を出すコンボ段
+    int burstColumns = 5; ///< 武器粒子の奥行き方向の列数
+    int burstCenterColumn = 2; ///< 奥行き方向の中央列
+    float burstSpreadZ = 0.45f; ///< 列ごとの奥行き間隔
+    float burstSpeedBase = 2.0f; ///< 武器粒子の横速度の基準
+    float burstSpeedStep = 0.3f; ///< 粒子ごとに足す横速度
+    float burstRiseBase = 1.8f; ///< 武器粒子の上昇速度の基準
+    int burstRiseSteps = 4; ///< 上昇速度の繰り返し段数
+    float burstRiseStep = 0.65f; ///< 段ごとに足す上昇速度
+    int minBullets = 2; ///< 発砲演出の最小粒子数
+    int fallbackBullets = 4; ///< 射撃定義が無い場合の粒子数
+    float fallbackSpread = 0.15f; ///< 射撃定義が無い場合の拡散係数
+    float fanSpeedBase = 7.0f; ///< 扇状に出す弾煙の基準速度
+    float fanSpeedStep = 1.0f; ///< 粒子ごとに足す扇状速度
+    float halfRange = 0.5f; ///< 扇状分布の中心補正
+    float sequenceSlashAngleStep = 1.1f; ///< 連撃の段ごとの斬線角度
+    int bladeCount = 12; ///< 固有技命中時に出す刃の数
+    float bladeRadius = 2.6f; ///< 刃の発生半径
+    float bladeSpeedMin = 1.5f; ///< 刃の最小速度
+    float bladeSpeedMax = 3.5f; ///< 刃の最大速度
+    float slashLineHalfLength = 3.2f; ///< 固有技の斬線の半分の長さ
+    Vector4 slashLineColor = { 0.85f, 0.97f, 1.0f, 1.0f }; ///< 固有技の斬線色
+    float slashLineThickness = 8.0f; ///< 固有技の斬線の太さ
+    float slashLineSeconds = 0.32f; ///< 固有技の斬線の表示時間
+    float auraInterval = 0.07f; ///< 覚醒オーラの発生間隔
+    float auraJitter = 0.15f; ///< 武器オーラの位置の揺らぎ幅
+    float warningMinScale = 0.6f; ///< 予告開始時の着弾範囲に対する倍率
+    float warningBlinkSpeed = 22.0f; ///< 予告円の点滅速度
+    float warningGreenBase = 0.15f; ///< 予告円の緑成分の基準
+    float warningGreenGrowth = 0.1f; ///< 予告進行に応じて足す緑成分
+    float warningBlue = 0.1f; ///< 予告円の青成分
+    float warningAlphaBase = 0.35f; ///< 予告円の基準不透明度
+    float warningAlphaBlink = 0.4f; ///< 点滅で足す不透明度
+    float warningRingGreenBase = 0.3f; ///< 予告リングの緑成分の基準
+    float warningRingGreenFade = 0.15f; ///< 進行に応じて引く緑成分
+    float warningRingBlueBase = 0.15f; ///< 予告リングの青成分の基準
+    float warningRingBlueFade = 0.1f; ///< 進行に応じて引く青成分
+};
+
+/** @brief フィニッシャーの斬線・刃・画面歪みの演出設定 */
+struct FinisherVisualDef {
+    float slashLineLengthMin = 4.0f;
+    float slashLineLengthMax = 9.0f;
+    float slashLineThicknessMin = 3.0f;
+    float slashLineThicknessMax = 7.0f;
+    float slashLineLingerSeconds = 0.25f;
+    Vector4 slashLineColor = { 0.75f, 0.95f, 1.0f, 1.0f };
+    int beatBladeCount = 3;
+    float beatBladeRadius = 4.0f;
+    float beatBladeSpeedMin = 1.2f;
+    float beatBladeSpeedMax = 2.8f;
+    Vector4 slashFlashColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float slashFlashSeconds = 0.22f;
+    int releaseSlashCount = 8;
+    float releaseSlashThickness = 9.0f;
+    float releaseSlashSeconds = 0.15f;
+    int releaseBladeCount = 30;
+    float releaseBladeSpeedMin = 2.0f;
+    float releaseBladeSpeedMax = 5.0f;
+    float releaseWarpImpulse = 1.0f;
+};
+
 /**
  * @brief hit_effects.json を読み込んで保持するシングルトン
  * @note 存在しない名前を引いた時は何も出ない既定値を返し、ログに1回だけ警告を出す
  */
 class HitEffectLibrary {
 public:
+    /** @brief 演出レシピを保存する共通の設定ファイル */
+    static constexpr const char* kConfigPath = "Resources/Config/hit_effects.json";
+    /** @brief 演出レシピを管理する共有インスタンスを取得する */
     static HitEffectLibrary* GetInstance();
 
     /** @brief JSONを読み直す */
@@ -118,7 +221,20 @@ public:
     const TrailDef& Trail(const std::string& name) const;
     const Vector4& Color(const std::string& name) const;
 
+    /** @brief シーン共通の演出設定を読み取り専用で取得する */
+    const SceneParticleDef& SceneParticles() const
+    {
+        return sceneParticles_;
+    }
+
+    /** @brief フィニッシャーの共通演出設定を参照する */
+    const FinisherVisualDef& FinisherVisuals() const
+    {
+        return finisherVisuals_;
+    }
+
 private:
+    /** @brief 設定ファイルから全レシピを読み込む */
     HitEffectLibrary();
     HitEffectLibrary(const HitEffectLibrary&) = delete;
     HitEffectLibrary& operator=(const HitEffectLibrary&) = delete;
@@ -126,6 +242,8 @@ private:
     template <class Def>
     const Def& Find(const std::unordered_map<std::string, Def>& table, const std::string& name, const char* section) const;
 
+    SceneParticleDef sceneParticles_;
+    FinisherVisualDef finisherVisuals_;
     std::unordered_map<std::string, ImpactDef> impacts_;
     std::unordered_map<std::string, RingBurstDef> rings_;
     std::unordered_map<std::string, SparkBurstDef> sparks_;

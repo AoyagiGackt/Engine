@@ -7,8 +7,14 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include <memory>
-namespace engine { class DirectXCommon; class Input; }
-namespace engine::graphics { class ModelCommon; class ShadowManager; }
+namespace engine {
+    class DirectXCommon;
+    class Input;
+}
+namespace engine::graphics {
+    class ModelCommon;
+    class ShadowManager;
+}
 namespace engine::game {
 /** @brief 立体タイトルの専用描画範囲・漂い・マウス操作を所有する。 */
 class FloatingTitle {

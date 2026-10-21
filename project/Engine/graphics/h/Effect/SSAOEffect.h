@@ -22,6 +22,7 @@ namespace engine::graphics {
  */
 class SSAOEffect {
 public:
+    /** @brief 共有インスタンスを取得する */
     static SSAOEffect* GetInstance()
     {
         static SSAOEffect inst;
@@ -29,7 +30,7 @@ public:
     }
 
     /**
-     * @brief 初期化レンダーターゲット・PSO・定数バッファを作成する
+     * @brief レンダーターゲット・PSO・定数バッファを作成して初期化する
      * @param dxCommon   DirectX共通基盤
      * @param srvManager SRVディスクリプタヒープ管理
      */
@@ -47,17 +48,27 @@ public:
     /** @brief AO を乗算してシーンに適用するメイン描画の後に呼ぶ */
     void Apply(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
 
-    bool IsEnabled() const { return enabled_; }
-    void SetEnabled(bool e) { enabled_ = e; }
+    /** @brief SSAO を使うかを返す */
+    bool IsEnabled() const {
+        return enabled_;
+    }
+    /** @brief SSAO を使うかを設定する */
+    void SetEnabled(bool e) {
+        enabled_ = e;
+    }
+    /** @brief 遮蔽を調べる半径を設定する */
     void SetRadius(float r)
     {
-        if (ssaoCbData_) {
+        if (ssaoCbData_)
+        {
             ssaoCbData_->radius = r;
         }
     }
+    /** @brief 遮蔽の強さを設定する */
     void SetStrength(float s)
     {
-        if (ssaoCbData_) {
+        if (ssaoCbData_)
+        {
             ssaoCbData_->strength = s;
         }
     }
@@ -67,7 +78,9 @@ public:
 
 private:
     static constexpr int kKernelSampleCount = 16;
+    /** @brief 環境遮蔽の描画資源が未確保の状態を作る */
     SSAOEffect() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~SSAOEffect() = default;
     SSAOEffect(const SSAOEffect&) = delete;
     SSAOEffect& operator=(const SSAOEffect&) = delete;
@@ -78,7 +91,7 @@ private:
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& rtvHeap,
         D3D12_CPU_DESCRIPTOR_HANDLE& rtvHandle,
         uint32_t& srvIndex,
-        const float clearColor[4]);
+        const float (&clearColor)[4]);
 
     void Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
         D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const;

@@ -1,6 +1,6 @@
 /**
  * @file BlendMode.h
- * @brief BlendModeの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief 描画のブレンドモードの種類
  */
 #pragma once
 namespace engine::graphics {

@@ -1,14 +1,16 @@
 /**
  * @file Sprite.cpp
- * @brief Spriteの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スプライト（Sprite）の頂点・定数バッファの用意と描画の実装
  */
 #include "Sprite.h"
+#include "PipelineHelper.h"
 #include "GameConstants.h"
 #include "Logger.h"
 #include "TextureManager.h"
 #include "WinApp.h"
 #include <SrvManager.h>
 
+namespace engine::graphics {
 namespace {
 
 // スプライトの頂点数と投影範囲
@@ -16,12 +18,11 @@ constexpr unsigned int kSpriteVertexCount = 6;
 constexpr float kSpriteFarClip = 100.0f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
+/** @brief スプライトの初期化とバッファの生成 */
+void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFilePath)
 {
     spriteCommon_ = spriteCommon;
     textureFilePath_ = textureFilePath;
@@ -86,6 +87,7 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 }
 
+/** @brief 描画するテクスチャを別の画像に変更する */
 void Sprite::SetTexture(const std::string& textureFilePath)
 {
     textureFilePath_ = textureFilePath;
@@ -95,6 +97,7 @@ void Sprite::SetTexture(const std::string& textureFilePath)
     textureSize_ = { static_cast<float>(metadata.width), static_cast<float>(metadata.height) };
 }
 
+/** @brief テクスチャサイズと実際の描画サイズを調整・反映する内部処理 */
 void Sprite::AdjustTextureSize()
 {
     // テクスチャのメタデータを取得
@@ -105,12 +108,14 @@ void Sprite::AdjustTextureSize()
     Vector2 uvSize = { textureSize_.x / metadata.width, textureSize_.y / metadata.height };
 
     // 反転処理
-    if (isFlipX_) {
+    if (isFlipX_)
+    {
         uvPos.x += uvSize.x;
         uvSize.x = -uvSize.x;
     }
 
-    if (isFlipY_) {
+    if (isFlipY_)
+    {
         uvPos.y += uvSize.y;
         uvSize.y = -uvSize.y;
     }
@@ -123,6 +128,7 @@ void Sprite::AdjustTextureSize()
     materialData_->uvTransform = uvMatrix;
 }
 
+/** @brief 毎フレームの更新処理座標やサイズから行列を再計算する */
 void Sprite::Update()
 {
     AdjustTextureSize();
@@ -159,6 +165,7 @@ void Sprite::Update()
     transformationMatrixData_->World = worldMatrix;
 }
 
+/** @brief スプライトを描画するコマンドを積む */
 void Sprite::Draw()
 {
     ID3D12GraphicsCommandList* commandList = spriteCommon_->GetCommandList();
@@ -166,21 +173,26 @@ void Sprite::Draw()
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
     // マテリアル (色・UV)
-    commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::SpriteRootSlot::kMaterial, materialResource_->GetGPUVirtualAddress());
     // 座標変換
-    commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::SpriteRootSlot::kTransform, transformationMatrixResource_->GetGPUVirtualAddress());
 
     // テクスチャ (TextureManagerからハンドルを取得してセット)
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, textureSrvHandle);
 
-    if (useExternalTexture_) {
+    if (useExternalTexture_)
+    {
         // 動画など、外部で作成したテクスチャを使う場合
-        commandList->SetGraphicsRootDescriptorTable(2, SrvManager::GetInstance()->GetGPUDescriptorHandle(textureIndex_));
-    } else {
+        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, SrvManager::GetInstance()->GetGPUDescriptorHandle(textureIndex_));
+    }
+    else
+    {
         // 通常のテクスチャを使う場合
-        commandList->SetGraphicsRootDescriptorTable(2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
+        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
     }
 
     commandList->DrawInstanced(kSpriteVertexCount, 1, 0, 0);
 }
+
+} // namespace engine::graphics

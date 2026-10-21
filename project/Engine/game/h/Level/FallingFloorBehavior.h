@@ -4,11 +4,14 @@
  */
 #pragma once
 #include "Vector3.h"
-namespace engine::graphics { class ParticleManager; }
+namespace engine::graphics {
+    class ParticleManager;
+}
 namespace engine::game {
 /** @brief 崩れる床の表示・衝突・予告演出を同じ周期で評価する。 */
 class FallingFloorBehavior {
 public:
+    /** @brief 落下床の動作段階と当たり判定の状態を表すスナップショット */
     struct Snapshot {
         float yOffset = 0.0f;
         bool visible = true;

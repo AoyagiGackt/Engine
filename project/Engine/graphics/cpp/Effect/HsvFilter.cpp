@@ -1,15 +1,15 @@
 /**
  * @file HsvFilter.cpp
- * @brief HsvFilterの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief 画面の色相・彩度・明度を調整するポストエフェクト（HsvFilter）の実装
  */
 #include "HsvFilter.h"
 #include "GraphicsTuning.h"
+namespace engine::graphics {
 namespace {
 constexpr float kHueLimit = 180.0f;
 }
-using namespace engine;
-using namespace engine::graphics;
 
+/** @brief オフスクリーンRTV・定数バッファ・HSV変換用PSOを生成する */
 void HsvFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     cbData_ = static_cast<HsvFilterParams*>(
@@ -20,24 +20,41 @@ void HsvFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     cbData_->value = GraphicsTuning::Float("hsv.value", cbData_->value);
 }
 
+/** @brief 色相のシフト量を設定する */
 void HsvFilter::SetHueShift(float degrees)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->hueShift = degrees;
     }
 }
-float HsvFilter::GetHueShift() const { return cbData_ ? cbData_->hueShift : 0.0f; }
+/** @brief 色相のシフト量を取得する */
+float HsvFilter::GetHueShift() const {
+    return cbData_ ? cbData_->hueShift : 0.0f;
+}
+/** @brief 彩度の倍率を設定する */
 void HsvFilter::SetSaturation(float s)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->saturation = s;
     }
 }
-float HsvFilter::GetSaturation() const { return cbData_ ? cbData_->saturation : 1.0f; }
+/** @brief 彩度の倍率を取得する */
+float HsvFilter::GetSaturation() const {
+    return cbData_ ? cbData_->saturation : 1.0f;
+}
+/** @brief 明度の倍率を設定する */
 void HsvFilter::SetValue(float v)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->value = v;
     }
 }
-float HsvFilter::GetValue() const { return cbData_ ? cbData_->value : 1.0f; }
+/** @brief 明度の倍率を取得する */
+float HsvFilter::GetValue() const {
+    return cbData_ ? cbData_->value : 1.0f;
+}
+
+} // namespace engine::graphics

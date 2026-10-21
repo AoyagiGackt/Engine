@@ -10,8 +10,13 @@
 #include <vector>
 namespace engine::game {
 
-/** @brief game_rules.jsonの内容 */
+/** @brief game_rules.json に playerMaxHp が無い時の、ラン開始時のプレイヤーの最大HP */
+inline constexpr int kDefaultPlayerMaxHp = 30;
+
+/** @brief game_rules.jsonから読み込むステージ進行とラン開始時の設定 */
 struct GameRulesData {
+    // マップの入口座標。JSONが無い場合は既定の6ステージ配置を使う
+    std::vector<float> stagePortalXs = { 8.0f, 18.0f, 28.0f, 38.0f, 48.0f, 58.0f };
     bool requireBossWeaponSteal = true; ///< trueならボス撃破+武器奪取でクリア条件が成立する
     std::string clearFlag = "stage_clear"; ///< このGameFlagsが立ってもクリア条件が成立する（グラフからの操作用）
     bool gameOverOnHpZero = true; ///< trueならラン中にHPが0になるとゲームオーバー結果へ遷移する
@@ -21,6 +26,7 @@ struct GameRulesData {
     int bossHpElite = 35;
     int bossHpBoss = 60;
     int weaponEnemyHp = 10; ///< 道中の武器持ち雑魚のHP
+    int playerMaxHp = kDefaultPlayerMaxHp; ///< ラン開始時のプレイヤーの最大HP
     int flyingWeaponEnemyHp = 5; ///< 道中の飛行型雑魚のHP（空中にいて殴りにくいため地上の雑魚より低くする）
     std::string starterWeapon = "Sword"; ///< 新規ラン開始時に最初から持っている近接武器の種別名（空文字なら素手で開始）
     std::string bossStealWeapon = "Hammer"; ///< ボスから奪取する武器種別名
@@ -51,7 +57,9 @@ public:
     void Reload();
 
     /** @brief 読み込んだルールを返す */
-    const GameRulesData& Get() const { return data_; }
+    const GameRulesData& Get() const {
+        return data_;
+    }
 
     /**
      * @brief フロア番号に対応するレベルJSONのパスを返す

@@ -1,6 +1,6 @@
 /**
  * @file Fade.h
- * @brief Fadeの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
+ * @brief 帯で画面を覆って開くフェード（Fade）の宣言
  */
 #pragma once
 #include "Sprite.h"
@@ -44,18 +44,32 @@ public:
     /**
      * @brief フェードが完了したか確認
      */
-    bool IsFinished() const { return status_ == Status::None; }
+    bool IsFinished() const;
 
-    Status GetStatus() const { return status_; }
+    /** @brief 呼び出し側へ現在のフェード種別を返す */
+    Status GetStatus() const;
 
 private:
+    class IState;
+    class IdleState;
+    class FadeInState;
+    class FadeOutState;
+    /** @brief 暗転の進行段階に応じた共有状態を返す */
+    static const IState& Idle();
+    static const IState& FadingIn();
+    static const IState& FadingOut();
+    /** @brief 旧状態の終了と次状態の開始を順に実行する */
+    void ChangeState(const IState& next);
+    /** @brief 共通の経過時間を進め、完了したら待機へ戻す */
+    void Advance(bool coverWhenFinished);
+    /** @brief 現在状態の補間値を帯と縁へ反映する */
     void UpdateSprites();
     static constexpr size_t kBandCount = 8;
     SpriteCommon* spriteCommon_ = nullptr;
     std::array<std::unique_ptr<Sprite>, kBandCount> bands_;
     std::array<std::unique_ptr<Sprite>, kBandCount> edges_;
     bool covered_ = false;
-    Status status_ = Status::None; /// 現在の状態
+    const IState* state_ = &Idle(); ///< 現在の状態オブジェクト
     float duration_ = 0.0f; /// 目標時間
     float counter_ = 0.0f; /// 経過時間タイマー
 };

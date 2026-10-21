@@ -1,17 +1,22 @@
+/**
+ * @file EditorGamePreview.cpp
+ * @brief エディタ内のゲーム小窓に表示するプレビュー用テクスチャの準備・取り込み・解放の実装
+ */
 #include "EditorGamePreview.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "StageEditor.h"
-using namespace engine;
 using namespace engine::graphics;
 namespace engine::game {
+/** @brief プレビュー用テクスチャをバックバッファと同じ大きさで用意し、表示位置と一緒にエディタへ渡す */
 void EditorGamePreview::Prepare(DirectXCommon& graphics, StageEditor& editor)
 {
 #ifdef USE_IMGUI
     auto desc = graphics.GetCurrentBackBufferResource()->GetDesc();
     if (!texture_ || texture_->GetDesc().Width != desc.Width
-        || texture_->GetDesc().Height != desc.Height) {
+        || texture_->GetDesc().Height != desc.Height)
+    {
         graphics.WaitForGpu();
         texture_.Reset();
         desc.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -20,11 +25,12 @@ void EditorGamePreview::Prepare(DirectXCommon& graphics, StageEditor& editor)
         const HRESULT result = graphics.GetDevice()->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
             &desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&texture_));
         ENGINE_ASSERT(SUCCEEDED(result));
-        if (!allocated_) {
+        if (!allocated_)
+        {
             srv_ = SrvManager::GetInstance()->Allocate();
             allocated_ = true;
         }
-        SrvManager::GetInstance()->CreateSRVforTexture2D(srv_, texture_.Get(),
+        SrvManager::GetInstance()->CreateSrvForTexture2D(srv_, texture_.Get(),
             graphics.GetBackBufferFormat(), 1);
     }
     const auto view = graphics.GetCenteredClientViewport();
@@ -33,10 +39,14 @@ void EditorGamePreview::Prepare(DirectXCommon& graphics, StageEditor& editor)
         (view.TopLeftX + view.Width) / desc.Width, (view.TopLeftY + view.Height) / desc.Height);
 #endif
 }
+/** @brief 描き終えたゲーム画面をプレビュー用テクスチャへ写す */
 void EditorGamePreview::Capture(DirectXCommon& graphics, const StageEditor& editor)
 {
 #ifdef USE_IMGUI
-    if (!editor.UsesGameWindow() || !texture_) { return; }
+    if (!editor.UsesGameWindow() || !texture_)
+    {
+        return;
+    }
     auto* cmd = graphics.GetCommandList();
     auto* backBuffer = graphics.GetCurrentBackBufferResource();
     D3D12_RESOURCE_BARRIER before[] = {
@@ -56,11 +66,16 @@ void EditorGamePreview::Capture(DirectXCommon& graphics, const StageEditor& edit
     cmd->ClearRenderTargetView(graphics.GetCurrentBackBufferHandle(), background, 0, nullptr);
 #endif
 }
+/** @brief プレビュー用テクスチャを解放する */
 void EditorGamePreview::Finalize()
 {
 #ifdef USE_IMGUI
     texture_.Reset();
-    if (allocated_) { SrvManager::GetInstance()->Free(srv_); allocated_ = false; }
+    if (allocated_)
+    {
+        SrvManager::GetInstance()->Free(srv_);
+        allocated_ = false;
+    }
 #endif
 }
 }

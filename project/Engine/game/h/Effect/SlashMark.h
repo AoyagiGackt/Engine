@@ -30,7 +30,7 @@ public:
     static SlashMark* GetInstance();
 
     /**
-     * @brief 初期化斬撃線用Spriteの生成に使う共通設定を受け取る
+     * @brief 斬撃線用Spriteの生成に使う共通設定を受け取って初期化する
      * @param spriteCommon 2D描画の共通設定オブジェクトのポインタ
      */
     void Initialize(SpriteCommon* spriteCommon);
@@ -61,6 +61,7 @@ public:
     void Clear();
 
 private:
+    /** @brief 斬線が未生成の管理器を作る */
     SlashMark() = default;
 
     /** @brief 内部管理用エントリ（斬撃線1本分のSpriteと経過時間） */

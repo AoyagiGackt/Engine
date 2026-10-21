@@ -46,10 +46,14 @@ public: // メンバ関数
     void Finalize();
 
     /** @brief ウィンドウハンドルの取得 */
-    HWND GetHwnd() const { return hwnd; }
+    HWND GetHwnd() const {
+        return hwnd_;
+    }
 
     /** @brief インスタンスハンドルの取得 */
-    HINSTANCE GetHInstance() const { return wc.hInstance; }
+    HINSTANCE GetHInstance() const {
+        return wndClass_.hInstance;
+    }
 
     /**
      * @brief Windowsメッセージを処理する
@@ -70,7 +74,9 @@ public: // メンバ関数
      * @brief リサイズ時に呼び出すコールバックを登録する
      * @note WM_SIZE受信時（最小化時を除く）にクライアント領域の新しい幅・高さを渡して呼ぶ
      */
-    void SetResizeCallback(ResizeCallback callback) { resizeCallback_ = std::move(callback); }
+    void SetResizeCallback(ResizeCallback callback) {
+        resizeCallback_ = std::move(callback);
+    }
 
 public: // 定数
     /** @brief ウィンドウ領域の幅（1280px） */
@@ -81,10 +87,10 @@ public: // 定数
 
 private:
     /** @brief OSから発行されるウィンドウ識別用のハンドル */
-    HWND hwnd = nullptr;
+    HWND hwnd_ = nullptr;
 
     /** @brief ウィンドウクラスの設定情報 */
-    WNDCLASSW wc = { };
+    WNDCLASSW wndClass_ = { };
 
     /** @brief 現在フルスクリーンかどうか */
     bool isFullscreen_ = false;

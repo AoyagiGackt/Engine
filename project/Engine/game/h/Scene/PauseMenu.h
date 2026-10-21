@@ -52,7 +52,10 @@ public:
      */
     bool Update(engine::Input* input, bool canOpen = true);
 
-    bool IsPaused() const { return controller_.IsPaused(); }
+    /** @brief ポーズ中かを返す */
+    bool IsPaused() const {
+        return controller_.IsPaused();
+    }
 
     /** @brief 一時停止中なら暗幕と今のページを積む（一時停止中でなければ何もしない） */
     void Draw(const engine::Input* input);

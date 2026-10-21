@@ -1,6 +1,6 @@
 /**
  * @file GunCombo.cpp
- * @brief GunComboのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
+ * @brief 銃の種類ごとの射撃コンボの表と、射撃コンボの進行（GunComboController）の実装
  */
 #include "GunCombo.h"
 #include "Easing.h"
@@ -12,8 +12,6 @@
 #include <algorithm>
 #include <array>
 #include <unordered_map>
-using namespace engine;
-using namespace engine::game;
 
 //  射撃コンボ定義テーブル
 //  近接（MeleeCombo.cpp）と同じ思想で銃ごとに役割が違うを意識した配分
@@ -22,6 +20,7 @@ using namespace engine::game;
 //   SMG     … 超高速6段。1発は軽いが2発ずつばらまき、締めは突進スプレー
 //   Shotgun … 散弾3段。初段は反動バックステップ、締めは踏み込みゼロ距離
 //   Railgun … チャージ2段。長い構えから貫通の一撃、全銃最長射程
+namespace engine::game {
 namespace {
 
 constexpr float kDeg = GameConstants::kDegToRad;
@@ -85,6 +84,7 @@ struct RuntimeGunComboSet {
     GunComboSet view { };
 };
 
+/** @brief 銃のコンボ定義を写し、写した側を指すように参照を作り直す */
 RuntimeGunComboSet CopyComboSet(const GunComboSet& source)
 {
     RuntimeGunComboSet result;
@@ -92,6 +92,7 @@ RuntimeGunComboSet CopyComboSet(const GunComboSet& source)
     return result;
 }
 
+/** @brief 段の一覧を指す参照（view）を段の配列に合わせて作り直す */
 void RefreshView(RuntimeGunComboSet& set)
 {
     set.view = { set.steps.data(), static_cast<int>(set.steps.size()) };
@@ -110,6 +111,7 @@ constexpr JsonField<GunShotDef> kShotOverrideFields[] = {
     { nullptr, "moveDist", &GunShotDef::moveDist },
 };
 
+/** @brief JSONの上書き値を射撃の定義へ当てる */
 void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data)
 {
     ReadJsonFields(data, kShotOverrideFields, shot);
@@ -122,35 +124,38 @@ void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data)
     shot.hitStop = (std::max)(shot.hitStop, 0);
 }
 
+/** @brief 実行時に使う銃のコンボの表を返す（JSONの上書きを当てられるよう書き換え可能） */
 std::array<RuntimeGunComboSet, kGunTypeCount>& GetRuntimeComboSets()
 {
     // view は各要素の配列を指すので、最終的な置き場所（この static）の上で直接組み立てる
     static std::array<RuntimeGunComboSet, kGunTypeCount> sets;
     static const bool built = [] {
         std::array<RuntimeGunComboSet, kGunTypeCount>& result = sets;
-        for (size_t i = 0; i < kGunTypeCount; ++i) {
+        for (size_t i = 0; i < kGunTypeCount; ++i)
+        {
             result[i] = CopyComboSet(*kSourceSets[i]);
         }
 
         std::unordered_map<std::string, GunShotDef*> shots;
-        for (RuntimeGunComboSet& set : result) {
-            for (GunShotDef& shot : set.steps) {
+        for (RuntimeGunComboSet& set : result)
+        {
+            for (GunShotDef& shot : set.steps)
+            {
                 shots[shot.id] = &shot;
             }
         }
 
         const nlohmann::json root = JsonHelper::Load("Resources/Config/combos.json");
-        for (const auto& data : root.value("shots", nlohmann::json::array())) {
-            const std::string id = data.value("id", "");
-            const auto found = shots.find(id);
-            if (found == shots.end()) {
+        JsonHelper::VisitNamedOverrides(root, "shots", shots,
+            [](GunShotDef* shot, const nlohmann::json& data) {
+                ApplyShotOverride(*shot, data);
+            },
+            [](const std::string& id) {
                 Logger::LogWarning("Unknown combo shot id: " + id);
-                continue;
-            }
-            ApplyShotOverride(*found->second, data);
-        }
+            });
 
-        for (RuntimeGunComboSet& set : result) {
+        for (RuntimeGunComboSet& set : result)
+        {
             RefreshView(set);
         }
         return true;
@@ -161,6 +166,7 @@ std::array<RuntimeGunComboSet, kGunTypeCount>& GetRuntimeComboSets()
 
 } // namespace
 
+/** @brief 銃の種類に合ったコンボの定義を返す */
 const GunComboSet& engine::game::GetGunComboSet(GunType type)
 {
     auto& sets = GetRuntimeComboSets();
@@ -170,24 +176,31 @@ const GunComboSet& engine::game::GetGunComboSet(GunType type)
 
 //  GunComboController
 
+/** @brief 射撃入力を新しい段の開始・段送り・先行入力として受け付ける。銃の変更時はコンボをリセットする */
 bool GunComboController::TryShoot(GunType type)
 {
     // 銃が切り替わっていたらコンボは仕切り直し
-    if (active_ != nullptr && type != type_) {
+    if (active_ != nullptr && type != type_)
+    {
         Reset();
     }
     type_ = type;
 
     const GunComboSet& set = GetGunComboSet(type_);
-    if (set.count <= 0) {
+    if (set.count <= 0)
+    {
         return false;
     }
 
-    if (active_ != nullptr) {
-        if (timer_ >= active_->cancelTime) {
+    if (active_ != nullptr)
+    {
+        if (timer_ >= active_->cancelTime)
+        {
             // キャンセル可能時間を過ぎていれば即座に次の段へ（末尾は先頭へ戻る）
             StartStep(&set[(stepIdx_ + 1) % set.count], (stepIdx_ + 1) % set.count);
-        } else {
+        }
+        else
+        {
             // まだ撃っている最中 → 先行入力としてバッファし、cancelTime に自動発動
             buffered_ = true;
         }
@@ -200,6 +213,7 @@ bool GunComboController::TryShoot(GunType type)
     return true;
 }
 
+/** @brief 指定した段を始め、経過時間と命中済みの印を消す */
 void GunComboController::StartStep(const GunShotDef* def, int tableIdx)
 {
     active_ = def;
@@ -212,35 +226,37 @@ void GunComboController::StartStep(const GunShotDef* def, int tableIdx)
     chainGraceTimer_ = 0.0f;
 }
 
+/** @brief 1フレーム進める（発砲発火・先行入力の消化・モーション終了処理） */
 void GunComboController::Update(float dt)
 {
     justShot_ = false;
     justStarted_ = false;
     moveDelta_ = 0.0f;
 
-    if (active_ == nullptr) {
-        chainGraceTimer_ = (std::max)(chainGraceTimer_ - dt, 0.0f);
+    // 段が無い時は受付猶予だけを減らして終わる
+    const std::optional<float> previousTime = AdvanceComboTime(active_ != nullptr, dt, timer_, chainGraceTimer_);
+    if (!previousTime)
+    {
         return;
     }
-
-    float prev = timer_;
-    timer_ += dt;
+    const float prev = *previousTime;
 
     // 前後移動（shotTime までに moveDist を移動し切る。負なら反動の後退）
-    if (prev < active_->shotTime && active_->moveDist != 0.0f) {
-        float t0 = prev / active_->shotTime;
-        float t1 = (std::min)(timer_ / active_->shotTime, 1.0f);
-        moveDelta_ = active_->moveDist * (t1 - t0);
+    if (prev < active_->shotTime && active_->moveDist != 0.0f)
+    {
+        moveDelta_ = active_->moveDist * Easing::ProgressDuring(prev, timer_, active_->shotTime);
     }
 
     // 発砲発火
-    if (!shotDone_ && timer_ >= active_->shotTime) {
+    if (!shotDone_ && timer_ >= active_->shotTime)
+    {
         shotDone_ = true;
         justShot_ = true;
     }
 
     // 先行入力の消化
-    if (buffered_ && timer_ >= active_->cancelTime) {
+    if (buffered_ && timer_ >= active_->cancelTime)
+    {
         const GunComboSet& set = GetGunComboSet(type_);
         int idx = (stepIdx_ + 1) % set.count;
         StartStep(&set[idx], idx);
@@ -248,12 +264,14 @@ void GunComboController::Update(float dt)
     }
 
     // モーション終了（猶予内に次の入力が来ればコンボ継続）
-    if (timer_ >= active_->duration) {
-        chainGraceTimer_ = kChainGrace_;
+    if (timer_ >= active_->duration)
+    {
+        chainGraceTimer_ = kChainGrace;
         active_ = nullptr;
     }
 }
 
+/** @brief コンボを強制的に打ち切る（被弾・銃切替・乱舞開始時など） */
 void GunComboController::Reset()
 {
     active_ = nullptr;
@@ -268,9 +286,11 @@ void GunComboController::Reset()
     moveDelta_ = 0.0f;
 }
 
+/** @brief 現在の銃回転オフセットを返す（構え→リコイル→構え直しの補間） */
 Vector3 GunComboController::GetPoseOffset() const
 {
-    if (active_ == nullptr) {
+    if (active_ == nullptr)
+    {
         return { 0.0f, 0.0f, 0.0f };
     }
 
@@ -280,7 +300,8 @@ Vector3 GunComboController::GetPoseOffset() const
     const Vector3 neutral = { 0.0f, 0.0f, 0.0f };
 
     // 構え → （発砲の瞬間にリコイルへスナップ）→ 構え直し の3相
-    if (timer_ < active_->shotTime) {
+    if (timer_ < active_->shotTime)
+    {
         // 構え  発砲タイミングへ向けて銃を構えていく
         float t = Easing::EaseOutQuad(timer_ / active_->shotTime);
         return lerp3(neutral, active_->poseFrom, t);
@@ -290,3 +311,5 @@ Vector3 GunComboController::GetPoseOffset() const
         (std::min)((timer_ - active_->shotTime) / (active_->duration - active_->shotTime), 1.0f));
     return lerp3(active_->poseTo, neutral, t);
 }
+
+} // namespace engine::game

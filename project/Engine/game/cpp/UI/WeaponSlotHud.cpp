@@ -1,3 +1,7 @@
+/**
+ * @file WeaponSlotHud.cpp
+ * @brief 武器枠と所持武器アイコンの HUD 表示（WeaponSlotHud）の実装
+ */
 #include "WeaponSlotHud.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -10,7 +14,6 @@
 #include "WeaponManager.h"
 #include <algorithm>
 #include <cmath>
-using namespace engine;
 using namespace engine::graphics;
 namespace engine::game {
 namespace {
@@ -74,6 +77,7 @@ constexpr Vector2 kGunLabelOffset = { 10.0f, 60.0f };
 constexpr float kGunLabelScale = 1.0f;
 }
 
+/** @brief 武器スロットのスプライトとアイコンを用意する */
 void WeaponSlotHud::Initialize(const HudServices& services)
 {
     sprites_ = &services.sprites;
@@ -84,9 +88,14 @@ void WeaponSlotHud::Initialize(const HudServices& services)
     const auto assets = SceneShared::LoadWeaponIconAssets("Resources/Config/weapon_icons.json");
     const auto& list = weapons_->GetList();
     modelIcons_.resize(list.size());
-    for (size_t i = 0; i < list.size(); ++i) {
-        for (const auto& asset : assets) {
-            if (asset.type != list[i].type) { continue; }
+    for (size_t i = 0; i < list.size(); ++i)
+    {
+        for (const auto& asset : assets)
+        {
+            if (asset.type != list[i].type)
+            {
+                continue;
+            }
             auto& icon = modelIcons_[i];
             icon.scale = asset.scale;
             icon.baseYaw = asset.baseYaw;
@@ -98,6 +107,7 @@ void WeaponSlotHud::Initialize(const HudServices& services)
         }
     }
 }
+/** @brief 武器スロットの枠のスプライトを用意する */
 void WeaponSlotHud::InitializeFrames()
 {
     auto create = [&](Vector2 position, Vector2 size) {
@@ -108,7 +118,8 @@ void WeaponSlotHud::InitializeFrames()
         return sprite;
     };
     const float iconSize = kSlotSize - kIconInset * 2.0f;
-    for (int i = 0; i < kSlotCount; ++i) {
+    for (int i = 0; i < kSlotCount; ++i)
+    {
         auto& slot = slots_[i];
         slot.frame = create({}, { kSlotSize, kSlotSize });
         slot.frame->SetColor(kSlotFrameColor);
@@ -122,8 +133,10 @@ void WeaponSlotHud::InitializeFrames()
     gunIcon_->SetColor(kGunIconColor);
     ApplyLayout();
 }
+/** @brief UILayoutから枠の位置・間隔を読み、枠とアイコンを並べ直す（エディタで動かした結果を毎フレーム反映する） */
 void WeaponSlotHud::ApplyLayout()
 {
+    // 表示位置・大きさ・色は UI レイアウトから読む（F2 で動かせる）
     UILayout& layout = UILayout::Get(kLayoutName);
     const float size = layout.Float("weapon_slots.size", kSlotSize);
     const float iconInset = layout.Float("weapon_slots.icon_inset", kIconInset);
@@ -133,7 +146,9 @@ void WeaponSlotHud::ApplyLayout()
     const Vector2 origin = layout.Pos("weapon_slots.pos", kSlotsPosition);
     const float pitch = layout.Float("weapon_slots.pitch", kSlotPitch);
     const float gunGap = layout.Float("weapon_slots.gun_gap", kGunFrameGap);
-    for (int i = 0; i < kSlotCount; ++i) {
+    // 近接スロットを横に並べ、枠の内側にアイコンを置く
+    for (int i = 0; i < kSlotCount; ++i)
+    {
         auto& slot = slots_[i];
         slot.position = { origin.x + i * pitch, origin.y };
         slot.frame->SetPosition(slot.position);
@@ -144,6 +159,7 @@ void WeaponSlotHud::ApplyLayout()
         slot.icon->SetSize({ iconSize, iconSize });
         slot.icon->Update();
     }
+    // 近接スロットの右に銃の枠を置き、アイコンは枠の中心に置く
     gunPosition_ = { origin.x + kSlotCount * pitch + gunGap, origin.y };
     gunFrame_->SetPosition(gunPosition_);
     gunFrame_->SetSize({ size, size });
@@ -154,17 +170,24 @@ void WeaponSlotHud::ApplyLayout()
     gunIcon_->SetColor(gunIconColor);
     gunIcon_->Update();
 }
+/** @brief 指定したスロットに表示できるモデルのアイコンがあるかを返す */
 bool WeaponSlotHud::HasModelIcon(int index) const
 {
     return index >= 0 && index < static_cast<int>(modelIcons_.size())
         && weapons_->IsUnlocked(index) && modelIcons_[index].object;
 }
+/** @brief 武器を手に入れた知らせを受けたら枠を光らせる */
 void WeaponSlotHud::Notify(HudEvent event)
 {
-    if (event == HudEvent::WeaponAcquired) { flashRemaining_ = kFlashDuration; }
+    if (event == HudEvent::WeaponAcquired)
+    {
+        flashRemaining_ = kFlashDuration;
+    }
 }
+/** @brief 武器スロットの表示を今の装備に合わせて更新する */
 void WeaponSlotHud::Update(const HudFrame& frame)
 {
+    // 枠の明るさの調整値を読み、位置を当て直してから点滅の時間を進める
     UILayout& layout = UILayout::Get(kLayoutName);
     const float frameBrightness = layout.Float("weapon_slots.frame_brightness", kFrameBrightnessBase);
     const float frameActivePulseGain = layout.Float("weapon_slots.frame_active_pulse_gain", kFrameActivePulseGain);
@@ -179,7 +202,9 @@ void WeaponSlotHud::Update(const HudFrame& frame)
     const float pulse = kPulseBase + kPulseAmplitude * std::sin(pulseTime_ * kPulseSpeed);
     const auto& list = weapons_->GetList();
     const auto& cam = frame.camera.GetTranslate();
-    for (int i = 0; i < kSlotCount; ++i) {
+    // 選択中のスロットの枠は脈打たせて青みを足す
+    for (int i = 0; i < kSlotCount; ++i)
+    {
         auto& slot = slots_[i];
         const bool active = i == weapons_->GetSelectedSlot();
         const float brightness = frameBrightness + (active ? pulse * frameActivePulseGain : 0.0f) + flash * frameFlashGain;
@@ -200,21 +225,37 @@ void WeaponSlotHud::Update(const HudFrame& frame)
             void (WeaponSlotHud::*show)(Slot&, const SlotIconState&);
         };
         static constexpr IconStyle kIconStyles[] = {
-            { [](const WeaponSlotHud& hud, const SlotIconState& s) { return hud.HasModelIcon(s.weaponIndex); }, &WeaponSlotHud::ShowModelIcon },
-            { [](const WeaponSlotHud&, const SlotIconState& s) { return s.unlocked; }, &WeaponSlotHud::ShowColorIcon },
-            { [](const WeaponSlotHud&, const SlotIconState&) { return true; }, &WeaponSlotHud::ShowLockedIcon },
+            {
+                [](const WeaponSlotHud& hud, const SlotIconState& s) {
+                    return hud.HasModelIcon(s.weaponIndex);
+                }, &WeaponSlotHud::ShowModelIcon
+            },
+            {
+                [](const WeaponSlotHud&, const SlotIconState& s) {
+                    return s.unlocked;
+                }, &WeaponSlotHud::ShowColorIcon
+            },
+            {
+                [](const WeaponSlotHud&, const SlotIconState&) {
+                    return true;
+                }, &WeaponSlotHud::ShowLockedIcon
+            },
         };
-        for (const IconStyle& style : kIconStyles) {
-            if (style.applies(*this, state)) {
+        for (const IconStyle& style : kIconStyles)
+        {
+            if (style.applies(*this, state))
+            {
                 (this->*style.show)(slot, state);
                 break;
             }
         }
         slot.icon->Update();
     }
+    // 銃のアイコンはゆっくり回し続ける
     gunIcon_->SetRotation(pulseTime_ * kGunIconSpinSpeed);
     gunIcon_->Update();
 }
+/** @brief 武器の3Dモデルを枠の位置に浮かべる */
 void WeaponSlotHud::ShowModelIcon(Slot& slot, const SlotIconState& state)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -241,6 +282,7 @@ void WeaponSlotHud::ShowModelIcon(Slot& slot, const SlotIconState& state)
     icon.object->Update();
 }
 
+/** @brief 武器の色で塗ったアイコンを出す */
 void WeaponSlotHud::ShowColorIcon(Slot& slot, const SlotIconState& state)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -254,6 +296,7 @@ void WeaponSlotHud::ShowColorIcon(Slot& slot, const SlotIconState& state)
     slot.icon->SetColor({ c[0] * m, c[1] * m, c[2] * m, unlockedIconAlpha });
 }
 
+/** @brief まだ手に入れていない枠を暗く出す */
 void WeaponSlotHud::ShowLockedIcon(Slot& slot, const SlotIconState& state)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -265,6 +308,7 @@ void WeaponSlotHud::ShowLockedIcon(Slot& slot, const SlotIconState& state)
     slot.icon->SetColor({ b, b, b, lockedAlpha + state.flash * lockedAlphaFlashGain });
 }
 
+/** @brief 武器スロットの文字を描画予約する */
 void WeaponSlotHud::QueueText(FontRenderer& font) const
 {
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -277,31 +321,45 @@ void WeaponSlotHud::QueueText(FontRenderer& font) const
     const Vector2 gunLabelOffset = layout.Vec2("weapon_slots.gun_label_offset", kGunLabelOffset);
     const float gunLabelScale = layout.Float("weapon_slots.gun_label_scale", kGunLabelScale);
     const Vector4 gunIconColor = layout.Color("weapon_slots.gun_icon_color", kGunIconColor);
-    for (int i = 0; i < kSlotCount; ++i) {
+    for (int i = 0; i < kSlotCount; ++i)
+    {
         const int index = weapons_->GetSlotWeaponIndex(i);
-        if (index < 0 || !weapons_->IsUnlocked(index)) {
+        if (index < 0 || !weapons_->IsUnlocked(index))
+        {
             font.DrawStringW(L"?", slots_[i].position.x + lockedMarkOffset.x, slots_[i].position.y + lockedMarkOffset.y,
                 lockedMarkScale, lockedMarkColor);
         }
-        if (showNumbers_) {
+        if (showNumbers_)
+        {
             font.DrawString(std::to_string(i + 1), slots_[i].position.x + numberOffset.x, slots_[i].position.y + numberOffset.y,
                 numberScale, numberColor);
         }
     }
     font.DrawString("GUN", gunPosition_.x + gunLabelOffset.x, gunPosition_.y + gunLabelOffset.y, gunLabelScale, gunIconColor);
 }
+/** @brief 武器スロットを描画する */
 void WeaponSlotHud::Draw()
 {
-    for (auto& slot : slots_) { slot.frame->Draw(); }
+    for (auto& slot : slots_)
+    {
+        slot.frame->Draw();
+    }
     gunFrame_->Draw();
     models_->CommonDrawSettings();
     Object3d::RebindCommonLighting(graphics_->GetCommandList());
-    for (int i = 0; i < kSlotCount; ++i) {
+    for (int i = 0; i < kSlotCount; ++i)
+    {
         const int index = weapons_->GetSlotWeaponIndex(i);
-        if (HasModelIcon(index)) { modelIcons_[index].object->Draw(); }
+        if (HasModelIcon(index))
+        {
+            modelIcons_[index].object->Draw();
+        }
     }
     sprites_->CommonDrawSettings();
-    for (auto& slot : slots_) { slot.icon->Draw(); }
+    for (auto& slot : slots_)
+    {
+        slot.icon->Draw();
+    }
     gunIcon_->Draw();
 }
 }

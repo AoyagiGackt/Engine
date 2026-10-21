@@ -3,6 +3,10 @@
  * @brief 訓練用バトルシーン（BattleTestScene）の初期化と基本更新フローの実装
  */
 #include "BattleTestScene.h"
+#include "FinisherEffects.h"
+#include "BattleTestTuning.h"
+#include "WaterPool.h"
+#include "SceneVisualTuning.h"
 #include "AudioBridge.h"
 #include "BattleTestSceneRenderer.h"
 #include "Collision.h"
@@ -28,90 +32,31 @@
 #include <cstring>
 #include <random>
 #include <string>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
-static constexpr float kBarUp = 70.0f;
-constexpr float kBarH = 8.0f;
-constexpr float kBarW = 60.0f;
-constexpr float kWarpRetX = 3.0f;
-static constexpr float kReturnProx = 3.0f;
-static constexpr float kDummyMaxHp = 100.0f;
+namespace engine::game {
 
-static constexpr Vector3 kInitialCameraPosition = { 19.0f, 6.0f, 0.0f }; // zはGameConstants::kCameraDistanceZを使う
-static constexpr float kGroundY = 0.4f;
 
 // トレーニングへ戻るポータル
-static constexpr int kWarpPortalBlockCount = 5;
-static constexpr float kWarpPortalBlockSpacing = 1.0f;
-static constexpr Vector4 kWarpPortalColor = { 1.0f, 0.5f, 0.1f, 0.9f };
-static constexpr float kWarpPulseBase = 0.6f;
-static constexpr float kWarpPulseAmplitude = 0.4f;
-static constexpr float kWarpPulseSpeed = 4.0f;
-static constexpr float kWarpLabelWorldY = 5.0f;
 static constexpr Vector2 kWarpLabelOffset = { 110.0f, 36.0f };
 
 // ダミー
-static constexpr float kDummySpawnX = 15.0f;
-static constexpr Vector4 kHpBarBackgroundColor = { 0.2f, 0.2f, 0.2f, 0.8f };
-static constexpr Vector4 kHpBarInitialColor = { 0.2f, 0.9f, 0.2f, 0.9f };
-static constexpr float kHpBarGreenScale = 0.85f;
-static constexpr float kHpBarGreenBase = 0.15f;
-static constexpr float kHpBarAlpha = 0.9f;
-static constexpr float kFinisherShatterSeconds = 0.9f;
 
 // ヒット演出
-static constexpr float kHitRingSpeed = 3.0f;
-static constexpr Vector4 kHitRingColor = { 1.0f, 0.85f, 0.2f, 1.0f };
-static constexpr int kHitRingCount = 12;
-static constexpr float kHitRingLifetime = 0.25f;
-static constexpr float kHitRingSize = 0.18f;
-static constexpr float kHitSparkSpreadX = 3.0f;
-static constexpr float kHitSparkRiseMin = 2.0f;
-static constexpr float kHitSparkRiseMax = 5.0f;
-static constexpr int kHitSparkCount = 6;
-static constexpr Vector4 kHitSparkColor = { 1.0f, 0.55f, 0.1f, 1.0f };
-static constexpr float kHitSparkLifetime = 0.6f;
-static constexpr float kHitSparkSize = 0.13f;
 
 // 水しぶき
-static constexpr float kSplashRingSpeed = 2.2f;
-static constexpr Vector4 kSplashRingColor = { 0.6f, 0.86f, 1.0f, 0.9f };
-static constexpr int kSplashRingCount = 8;
-static constexpr float kSplashRingLifetime = 0.4f;
-static constexpr float kSplashRingSize = 0.12f;
-static constexpr float kSplashDropSpreadX = 2.5f;
-static constexpr float kSplashDropRiseMin = 2.0f;
-static constexpr float kSplashDropRiseMax = 4.5f;
-static constexpr int kSplashDropCount = 5;
-static constexpr Vector4 kSplashDropColor = { 0.55f, 0.82f, 1.0f, 0.9f };
-static constexpr float kSplashDropLifetime = 0.5f;
-static constexpr float kSplashDropSize = 0.1f;
 
-static constexpr float kMinClipW = 0.0001f; // これ以下のw成分ではスクリーン座標へ変換しない（カメラの背後）
-static constexpr float kRampageDefaultTargetDistance = 6.0f; // 対象がいない時に乱舞が向かう前方の距離
 
 // HUD（既定の配置。F2のエディタで動かした値は Resources/Config/UI/battletest.json に保存される）
 static constexpr const char* kLayoutName = "battletest";
 static constexpr Vector2 kBattleControlsAnchor = { 1020.0f, 12.0f };
-static constexpr float kHintScale = 1.5f;
-static constexpr Vector4 kHintColor = { 0.80f, 0.76f, 0.65f, 1.0f };
-static constexpr Vector4 kHintShadowColor = { 0.05f, 0.04f, 0.02f, 0.9f };
-static constexpr float kHintShadowOffset = 1.6f;
-static constexpr Vector4 kReturnLabelColor = { 1.0f, 0.6f, 0.1f, 1.0f };
-static constexpr float kLockMarkerHeight = 1.6f;
-static constexpr float kLockMarkerHalfWidth = 46.0f;
-static constexpr float kLockMarkerScale = 1.3f;
-static constexpr Vector4 kLockMarkerColor = { 1.0f, 0.35f, 0.2f, 1.0f };
-static constexpr float kHintLineHeight = 24.0f;
 static constexpr Vector2 kColliderLabelPosition = { 12.0f, 84.0f };
-static constexpr Vector4 kColliderLabelColor = { 1.0f, 0.5f, 0.1f, 1.0f };
 
 // ══════════════════════════════════════════════════════
 // シーン初期化
 // ══════════════════════════════════════════════════════
 
+/** @brief 訓練用のステージ・ダミー敵・プレイヤー・HUD・演出を初期化する */
 void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -124,6 +69,7 @@ void BattleTestScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* a
     InitializeEffects();
 }
 
+/** @brief Initialize()の下請け マネージャ取得・各種Common初期化・カメラ生成を行う */
 void BattleTestScene::InitializeCoreSystems()
 {
     srvManager_ = SrvManager::GetInstance();
@@ -137,26 +83,10 @@ void BattleTestScene::InitializeCoreSystems()
     imageFilter_ = ImageFilter::GetInstance();
     hsvFilter_ = HsvFilter::GetInstance();
 
-    modelCommon_ = std::make_unique<ModelCommon>();
-    modelCommon_->Initialize(dxCommon_);
-
-    objectCommon_ = std::make_unique<Object3dCommon>();
-    objectCommon_->Initialize(dxCommon_);
-
-    shadowManager_ = std::make_unique<ShadowManager>();
-    shadowManager_->Initialize(dxCommon_, srvManager_);
-
-    // OutlineEffect等でルートシグネチャを切り替えた後にライト/シャドウマップを再バインドできるようにする
-    Object3d::SetCommonObjectCommon(objectCommon_.get());
-    Object3d::SetCommonShadowManager(shadowManager_.get());
-    SkinnedObject3d::SetCommonObjectCommon(objectCommon_.get());
-    SkinnedObject3d::SetCommonShadowManager(shadowManager_.get());
-
-    camera_ = std::make_unique<Camera>();
-    camera_->SetTranslate({ kInitialCameraPosition.x, kInitialCameraPosition.y, GameConstants::kCameraDistanceZ });
-    Object3d::SetCommonCamera(camera_.get());
+    BuildRenderFoundation(dxCommon_, srvManager_, "battletest", { modelCommon_, objectCommon_, shadowManager_, camera_ });
 }
 
+/** @brief Initialize()の下請け 境界ブロック・ワープポータル・ダミー用モデル・パーティクル群を初期化する */
 void BattleTestScene::InitializeStageModels()
 {
     modelBlock_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
@@ -169,16 +99,9 @@ void BattleTestScene::InitializeStageModels()
     // 境界ブロック・トリガーは本番ステージと同じ level01.json から読み込む
     // （GetEditorLevelPath()経由でBaseScene::Init()が自動でOpen()する。F2でその場編集も可能）
 
-    for (int i = 0; i < kWarpPortalBlockCount; ++i) {
-        auto p = std::make_unique<Object3d>();
-        p->Initialize(modelCommon_.get());
-        p->SetModel(modelBlock_);
-        p->SetEnableLighting(false);
-        p->SetPosition({ kWarpRetX, kGroundY + static_cast<float>(i) * kWarpPortalBlockSpacing, 0.0f });
-        p->SetColor(kWarpPortalColor);
-        p->Update();
-        warpPortalBlocks_.push_back(std::move(p));
-    }
+    SceneShared::CreateWarpPortalBlocks(modelCommon_.get(), modelBlock_,
+        { BattleTestTune().warpReturnX, BattleTestTune().dummyGroundY, 0.0f }, SceneVisualTuning::Battle().warpPortalBlockCount,
+        SceneVisualTuning::Battle().warpPortalBlockSpacing, SceneVisualTuning::Battle().warpPortalColor, warpPortalBlocks_);
 
     modelDummy_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj",
@@ -187,13 +110,14 @@ void BattleTestScene::InitializeStageModels()
     SceneShared::CreateParticleGroupsFromJson(pm_, "Resources/particles/battletest.json");
 }
 
+/** @brief Initialize()の下請け ナイト敵と訓練マネキン1体を生成する */
 void BattleTestScene::InitializeDummyEnemies()
 {
     Dummy d;
-    d.pos = { kDummySpawnX, kGroundY, 0.0f };
+    d.pos = { BattleTestTune().dummySpawnX, BattleTestTune().dummyGroundY, 0.0f };
     d.homePos = d.pos;
-    d.hp = kDummyMaxHp;
-    d.maxHp = kDummyMaxHp;
+    d.hp = BattleTestTune().dummyMaxHp;
+    d.maxHp = BattleTestTune().dummyMaxHp;
     d.hitFlash = 0.0f;
 
     d.object = std::make_unique<Object3d>();
@@ -204,33 +128,25 @@ void BattleTestScene::InitializeDummyEnemies()
     d.object->SetPosition({ d.pos.x, d.pos.y + kDummyModelFootOffsetY, d.pos.z });
     d.object->Update();
 
-    d.hpBarBg = std::make_unique<Sprite>();
-    d.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
-    d.hpBarBg->SetColor(kHpBarBackgroundColor);
-
-    d.hpBarFg = std::make_unique<Sprite>();
-    d.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
-    d.hpBarFg->SetColor(kHpBarInitialColor);
+    // 頭上のHPバー（前景は満タンの色から始める）
+    SceneShared::CreateHpBarSprites(spriteCommon_.get(), d.hpBarBg, d.hpBarFg, SceneVisualTuning::Battle().hpBarBackgroundColor);
+    d.hpBarFg->SetColor(SceneVisualTuning::Battle().hpBarInitialColor);
 
     dummies_.push_back(std::move(d));
 }
 
+/** @brief Initialize()の下請け プレイヤーと弾丸プールを初期化する */
 void BattleTestScene::InitializePlayerAndBullets()
 {
-    player_ = std::make_unique<Player>();
-    player_->Initialize(modelCommon_.get());
     // 水平方向の移動範囲は固定値で決め打ちしない壁ブロックの当たり判定（ResolveBlockCollision）が
     // StageEditorでの編集をそのまま反映するので、それ自体が境界として機能する
-    // "Player"のRegisterExternalEntity()はGetEditorPlayerPositionRef()経由でBaseScene::Init()が自動で行う
-    PlayerBridge::GetInstance()->SetPlayer(player_.get());
-    AudioBridge::GetInstance()->SetAudio(audio_);
-
-    bulletPool_.Initialize(modelCommon_.get(), modelBlock_);
+    // "Player"のRegisterExternalEntity()はGetEditorPlayerPositionTarget()経由でBaseScene::Init()が自動で行う
+    SceneShared::InitializePlayerAndBullets(player_, bulletPool_, modelCommon_.get(), modelBlock_, audio_);
 }
 
+/** @brief Initialize()の下請け HUD（覚醒ゲージ・武器スロット・スタイルメーター・フォント等）を初期化する */
 void BattleTestScene::InitializeHud()
 {
-
 
     InitializeWeaponSlotHud();
 
@@ -238,7 +154,11 @@ void BattleTestScene::InitializeHud()
 
     fontRenderer_.Initialize(spriteCommon_.get());
     pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
-        { "BACK TO TRAINING", [] { SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING"); } });
+        {
+            "BACK TO TRAINING", [] {
+                SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING");
+            }
+        });
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
     finisherOverlay_ = SceneShared::CreateFinisherOverlay(spriteCommon_.get());
@@ -250,6 +170,7 @@ void BattleTestScene::InitializeHud()
         static_cast<float>(WinApp::kClientHeight) });
 }
 
+/** @brief Initialize()の下請け 画面演出エフェクト（ガラス割れ・刃・空間歪み・切断・世界割れ）を初期化する */
 void BattleTestScene::InitializeEffects()
 {
     glassShatter_.Initialize(dxCommon_, srvManager_);
@@ -258,65 +179,56 @@ void BattleTestScene::InitializeEffects()
     spaceWarp_.Initialize(dxCommon_, srvManager_);
     dummySlice_.Initialize(dxCommon_);
     finisherShatter_.Initialize(dxCommon_, srvManager_);
-    finisherShatter_.SetDuration(kFinisherShatterSeconds);
-    ImGuiControlPanel::RegisterGlassShatterTrigger([this]() { TriggerGlassShatterTest(); });
+    finisherShatter_.SetDuration(SceneVisualTuning::Battle().finisherShatterSeconds);
+    ImGuiControlPanel::RegisterGlassShatterTrigger([this]() {
+        TriggerGlassShatterTest();
+    });
 
-    GetStageEditor().SetWaterSplashCallback([this](const Vector3& pos) { SpawnWaterSplashEffect(pos); });
+    GetStageEditor().SetWaterSplashCallback([this](const Vector3& pos) {
+        SpawnWaterSplashEffect(pos);
+    });
 }
 
+/** @brief 指定座標にヒットエフェクト（パーティクル）を生成する */
 void BattleTestScene::SpawnHitEffect(const Vector3& pos)
 {
-    pm_->EmitRing("bt_hit_ring", pos, kHitRingSpeed, kHitRingColor, kHitRingCount, kHitRingLifetime, kHitRingSize);
+    pm_->EmitRing("bt_hit_ring", pos, SceneVisualTuning::Battle().hitRingSpeed, SceneVisualTuning::Battle().hitRingColor, SceneVisualTuning::Battle().hitRingCount, SceneVisualTuning::Battle().hitRingLifetime, SceneVisualTuning::Battle().hitRingSize);
     static std::mt19937 rng { std::random_device { }() };
-    std::uniform_real_distribution<float> vx(-kHitSparkSpreadX, kHitSparkSpreadX);
-    std::uniform_real_distribution<float> vy(kHitSparkRiseMin, kHitSparkRiseMax);
-    for (int i = 0; i < kHitSparkCount; ++i) {
+    std::uniform_real_distribution<float> vx(-SceneVisualTuning::Battle().hitSparkSpreadX, SceneVisualTuning::Battle().hitSparkSpreadX);
+    std::uniform_real_distribution<float> vy(SceneVisualTuning::Battle().hitSparkRiseMin, SceneVisualTuning::Battle().hitSparkRiseMax);
+    for (int i = 0; i < SceneVisualTuning::Battle().hitSparkCount; ++i)
+    {
         pm_->EmitGravity("bt_hit_spark", pos,
             { vx(rng), vy(rng), 0.0f },
-            kHitSparkColor, kHitSparkLifetime, kHitSparkSize);
+            SceneVisualTuning::Battle().hitSparkColor, SceneVisualTuning::Battle().hitSparkLifetime, SceneVisualTuning::Battle().hitSparkSize);
     }
 }
 
+/** @brief 指定座標に水しぶきエフェクト（パーティクル）を生成する StageEditorのトリガー(spawnsWaterSplash)から呼ばれる */
 void BattleTestScene::SpawnWaterSplashEffect(const Vector3& pos)
 {
-    pm_->EmitRing("bt_water_splash", pos, kSplashRingSpeed, kSplashRingColor, kSplashRingCount, kSplashRingLifetime, kSplashRingSize);
     static std::mt19937 rng { std::random_device { }() };
-    std::uniform_real_distribution<float> vx(-kSplashDropSpreadX, kSplashDropSpreadX);
-    std::uniform_real_distribution<float> vy(kSplashDropRiseMin, kSplashDropRiseMax);
-    for (int i = 0; i < kSplashDropCount; ++i) {
-        pm_->EmitGravity("bt_water_splash", pos,
-            { vx(rng), vy(rng), 0.0f },
-            kSplashDropColor, kSplashDropLifetime, kSplashDropSize);
-    }
+    WaterPool::EmitSplashParticles(pm_, "bt_water_splash", pos, rng);
 }
 
+/** @brief 全マネキンのHPバースプライトを現在HPに合わせて更新する */
 void BattleTestScene::UpdateHpBars()
 {
     UILayout& layout = UILayout::Get(kLayoutName);
-    const float barUp = layout.Float("enemy_hp_bar.raise", kBarUp);
-    const float barH = layout.Float("enemy_hp_bar.height", kBarH);
-    const float barW = layout.Float("enemy_hp_bar.width", kBarW);
-    const Vector4 hpBarBackgroundColor = layout.Color("enemy_hp_bar.background_color", kHpBarBackgroundColor);
-    const float hpBarGreenScale = layout.Float("enemy_hp_bar.green_scale", kHpBarGreenScale);
-    const float hpBarGreenBase = layout.Float("enemy_hp_bar.green_base", kHpBarGreenBase);
-    const float hpBarAlpha = layout.Float("enemy_hp_bar.alpha", kHpBarAlpha);
+    const float barUp = layout.Float("enemy_hp_bar.raise", SceneVisualTuning::Battle().barUp);
+    const float barH = layout.Float("enemy_hp_bar.height", SceneVisualTuning::Battle().barH);
+    const float barW = layout.Float("enemy_hp_bar.width", SceneVisualTuning::Battle().barW);
+    const Vector4 hpBarBackgroundColor = layout.Color("enemy_hp_bar.background_color", SceneVisualTuning::Battle().hpBarBackgroundColor);
+    const float hpBarGreenScale = layout.Float("enemy_hp_bar.green_scale", SceneVisualTuning::Battle().hpBarGreenScale);
+    const float hpBarGreenBase = layout.Float("enemy_hp_bar.green_base", SceneVisualTuning::Battle().hpBarGreenBase);
+    const float hpBarAlpha = layout.Float("enemy_hp_bar.alpha", SceneVisualTuning::Battle().hpBarAlpha);
     const Vector3& cam = camera_->GetTranslate();
 
-    for (auto& d : dummies_) {
-        float sx, sy;
-        SceneShared::WorldToScreen(d.pos.x, d.pos.y, cam.x, cam.y, sx, sy);
-
-        float ratio = d.hpDisplay;
-        d.hpBarFg->SetColor({ 1.0f - ratio, ratio * hpBarGreenScale + hpBarGreenBase, 0.0f, hpBarAlpha });
-
-        d.hpBarBg->SetColor(hpBarBackgroundColor);
-        d.hpBarBg->SetPosition({ sx - barW * 0.5f, sy - barUp });
-        d.hpBarBg->SetSize({ barW, barH });
-        d.hpBarBg->Update();
-
-        d.hpBarFg->SetPosition({ sx - barW * 0.5f, sy - barUp });
-        d.hpBarFg->SetSize({ barW * ratio, barH });
-        d.hpBarFg->Update();
+    const SceneShared::HpBarStyle style { { barW, barH }, barUp, hpBarGreenScale, hpBarGreenBase,
+        hpBarAlpha, &hpBarBackgroundColor };
+    for (auto& dummy : dummies_)
+    {
+        SceneShared::UpdateWorldHpBar(dummy.hpBarBg.get(), dummy.hpBarFg.get(), dummy.pos, cam, dummy.hpDisplay, style);
     }
 }
 
@@ -324,9 +236,11 @@ void BattleTestScene::UpdateHpBars()
 // シーン更新
 // ══════════════════════════════════════════════════════
 
+/** @brief 訓練用の操作・戦闘・ダミー敵・演出を更新する（ポーズ中は止める） */
 void BattleTestScene::Update()
 {
-    if (glassShatter_.IsActive()) {
+    if (glassShatter_.IsActive())
+    {
         glassShatter_.Update(GameConstants::kFrameDeltaTime);
         return;
     }
@@ -335,13 +249,15 @@ void BattleTestScene::Update()
     const bool paused = pauseMenu_.Update(input_);
     // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
     GetStageEditor().SetGameplayHeld(paused);
-    if (paused) {
+    if (paused)
+    {
         fontRenderer_.Reset();
         return;
     }
 
     // モーション編集のプレビュー中はゲームを止め、見た目と武器の持ち替えだけ進める
-    if (motionEditor_.Update(input_, *player_, weaponManager_->GetCurrent().type)) {
+    if (motionEditor_.Update(input_, *player_, weaponManager_->GetCurrent().type))
+    {
         SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
         RefreshVisualTransformsForEditor();
         return;
@@ -350,6 +266,7 @@ void BattleTestScene::Update()
     UpdateSceneFlow();
 }
 
+/** @brief 訓練シーンの入力、戦闘、演出、HUD更新を順序付けて実行する */
 void BattleTestScene::UpdateSceneFlow()
 {
     fontRenderer_.Reset();
@@ -357,13 +274,16 @@ void BattleTestScene::UpdateSceneFlow()
     // StageEditor::Update()（F2トグル・パネル・トリガー判定）と、エディタ表示中の一時停止分岐は
     // BaseScene::Tick()が面倒を見る（表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
 
-    if (input_->TriggerKey(DIK_F3)) {
+    if (input_->TriggerKey(DIK_F3))
+    {
         showColliders_ = !showColliders_;
     }
-    if (input_->TriggerKey(DIK_F4)) {
+    if (input_->TriggerKey(DIK_F4))
+    {
         showHud_ = !showHud_;
     }
-    if (showColliders_) {
+    if (showColliders_)
+    {
         DrawColliderOverlay();
     }
 
@@ -373,7 +293,7 @@ void BattleTestScene::UpdateSceneFlow()
     {
         // 刃の位置はプレイヤー更新後・当たり判定前に積む（斬撃線の向きにこのフレームの振りを使うため）
         const WeaponData& weapon = weaponManager_->GetCurrent();
-        const Vector4 weaponColor = { weapon.effectColor[0], weapon.effectColor[1], weapon.effectColor[2], weapon.effectColor[3] };
+        const Vector4 weaponColor = ColorFromArray(weapon.effectColor);
         comboFeel_.SetAwakened(player_->IsAwakened());
         comboFeel_.Update(*player_, weaponColor, camera_.get(), true);
         comboFeel_.UpdateDebugPanel(input_);
@@ -391,89 +311,91 @@ void BattleTestScene::UpdateSceneFlow()
     bladeFlash_.Update(GameConstants::kFrameDeltaTime, camera_.get());
 
     // 切断演出が飛散に移ったら、隠していたダミーを再表示する
-    if (dummySlice_.IsBursting() || !dummySlice_.IsActive()) {
-        for (auto& d : dummies_) {
+    if (dummySlice_.IsBursting() || !dummySlice_.IsActive())
+    {
+        for (auto& d : dummies_)
+        {
             d.sliced = false;
         }
     }
-
     // プレイヤー位置を画面UVへ投影して空間歪みの中心に設定する
-    if (spaceWarp_.IsActive() || finisherActive_) {
-        const Vector3& pp = player_->GetPosition();
-        const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
-        const float cx = pp.x * vp.m[0][0] + pp.y * vp.m[1][0] + pp.z * vp.m[2][0] + vp.m[3][0];
-        const float cy = pp.x * vp.m[0][1] + pp.y * vp.m[1][1] + pp.z * vp.m[2][1] + vp.m[3][1];
-        const float cw = pp.x * vp.m[0][3] + pp.y * vp.m[1][3] + pp.z * vp.m[2][3] + vp.m[3][3];
-        if (cw > kMinClipW) {
-            spaceWarp_.SetCenterUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
-        }
+    if (spaceWarp_.IsActive() || finisherActive_)
+    {
+        FinisherEffects::UpdateWarpCenter(spaceWarp_, *camera_, player_->GetPosition());
     }
     spaceWarp_.Update(GameConstants::kFrameDeltaTime);
-
     // 解放時の世界割れ
     finisherShatter_.Update(GameConstants::kFrameDeltaTime);
-    if (finisherShatter_.IsFinished()) {
+    if (finisherShatter_.IsFinished())
+    {
         finisherShatter_.Reset();
     }
-
     SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
-
-    bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), kWarpRetX, kReturnProx, "BATTLETEST", "back", "TRAINING", audio_);
-    if (showHud_) {
+    bool nearReturn = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), BattleTestTune().warpReturnX, BattleTestTune().returnProximity, "BATTLETEST", "back", "TRAINING", audio_);
+    if (showHud_)
+    {
         DrawHud(nearReturn);
     }
 }
-
+/** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
 void BattleTestScene::RefreshVisualTransformsForEditor()
 {
     fontRenderer_.Reset();
     // ステージエディタ表示中はゲームプレイ（敵AI・プレイヤー操作・カメラ追従）を丸ごと止める
     // TimeManagerのタイムスケールだけでは、このシーンの各種Updateが固定dt(GameConstants::kFrameDeltaTime)で
     // 動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ
-
     // Object3dのUpdate()はカメラのVP行列込みで定数バッファを書くため、
     // WASDでカメラを動かしても正しい位置に描かれるよう、全モデルの行列だけは毎フレーム再計算する
     // （これを怠ると古いカメラ行列のまま描画され、モデルが画面に張り付いてついてくるように見える）
     player_->RefreshVisualTransforms();
     bulletPool_.RefreshVisualTransforms();
-    for (auto& d : dummies_) {
+    for (auto& d : dummies_)
+    {
         d.object->Update();
     }
-    for (auto& p : warpPortalBlocks_) {
+    for (auto& p : warpPortalBlocks_)
+    {
         p->Update();
     }
     // 武器スロットの3Dアイコン（カメラ相対配置のHUD）とHPバー（WorldToScreen配置）はカメラ移動に追従させる
     UpdateWeaponSlotHud();
     UpdateHpBars();
-
-    if (showColliders_) {
+    if (showColliders_)
+    {
         DrawColliderOverlay();
     }
-
-    if (showHud_) { DrawHud(false); }
+    if (showHud_)
+    {
+        DrawHud(false);
+    }
 }
-
+/** @brief プレイヤーを更新し、カメラをプレイヤーに追従させる */
 void BattleTestScene::UpdatePlayerAndCamera()
 {
     const auto stageColliders = GetStageEditor().GetSolidColliders();
     // 乱舞のターゲット ロック中ならその対象、そうでなければ最も近いダミー
     {
         const Vector3& pp = player_->GetPosition();
-        Vector3 rampTarget = { pp.x + player_->GetLastDirX() * kRampageDefaultTargetDistance, pp.y, 0.0f };
-
+        Vector3 rampTarget = { pp.x + player_->GetLastDirX() * BattleTestTune().rampageDefaultTargetDistance, pp.y, 0.0f };
         bool targetSolid = false;
         const Dummy* locked = LockedDummy();
-        if (locked != nullptr && locked->hp > 0.0f) {
+        if (locked != nullptr && locked->hp > 0.0f)
+        {
             rampTarget = locked->pos;
             targetSolid = true;
-        } else {
+        }
+        else
+        {
             float minDist = FLT_MAX;
-            for (const auto& d : dummies_) {
-                if (d.hp <= 0.0f) {
+            for (const auto& d : dummies_)
+            {
+                if (d.hp <= 0.0f)
+                {
                     continue;
                 }
                 float dist = std::abs(d.pos.x - pp.x);
-                if (dist < minDist) {
+                if (dist < minDist)
+                {
                     minDist = dist;
                     rampTarget = d.pos;
                     targetSolid = true;
@@ -482,16 +404,15 @@ void BattleTestScene::UpdatePlayerAndCamera()
         }
         player_->Update(input_, rampTarget, targetSolid, !stageColliders.empty());
     }
-
     // ステージエディタでsolidにしたブロックとの当たり判定
     // カメラ追従・見た目反映より前に解決しないと、重力計算のブロック非考慮ぶん（1フレーム分の
     // 突き抜け）がそのままカメラとモデルに映り、次フレームで正しい高さへ戻る様子が
-    // 「高速で降りて後からカメラが付いてくる」ように見えてしまう
+    // 高速で降りて後からカメラが付いてくるように見えてしまう
     player_->ResolveBlockCollision(stageColliders);
-
     // ロック中は移動入力に関係なく対象の方を向かせ、カメラも少しだけ対象側へ寄せて気付きやすくする
     const Vector3* lockTargetPos = nullptr;
-    if (const Dummy* locked = LockedDummy()) {
+    if (const Dummy* locked = LockedDummy())
+    {
         lockTargetPos = &locked->pos;
         player_->FaceTarget(*lockTargetPos);
     }
@@ -499,183 +420,161 @@ void BattleTestScene::UpdatePlayerAndCamera()
     comboFeel_.ApplyCameraZoom(camera_.get());
     player_->RefreshVisualTransforms();
 }
-
+/** @brief 影・境界ブロック・ワープポータルの演出を更新する */
 void BattleTestScene::UpdateEnvironment()
 {
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     // GetStageEditor().UpdateObjects()はBaseScene::Tick()がUpdate()の後に一括して呼ぶ
-
     warpPulseTimer_ += GameConstants::kFrameDeltaTime;
-    float pulse = kWarpPulseBase + kWarpPulseAmplitude * std::sin(warpPulseTimer_ * kWarpPulseSpeed);
-    for (auto& p : warpPortalBlocks_) {
-        p->SetColor({ kWarpPortalColor.x * pulse, kWarpPortalColor.y * pulse, kWarpPortalColor.z * pulse, kWarpPortalColor.w });
+    float pulse = SceneVisualTuning::Battle().warpPulseBase + SceneVisualTuning::Battle().warpPulseAmplitude * std::sin(warpPulseTimer_ * SceneVisualTuning::Battle().warpPulseSpeed);
+    for (auto& p : warpPortalBlocks_)
+    {
+        p->SetColor({ SceneVisualTuning::Battle().warpPortalColor.x * pulse, SceneVisualTuning::Battle().warpPortalColor.y * pulse, SceneVisualTuning::Battle().warpPortalColor.z * pulse, SceneVisualTuning::Battle().warpPortalColor.w });
         p->Update();
     }
 }
-
+/** @brief Shiftキーでのロックオン対象の選択・切り替え・自動解除を処理する */
 void BattleTestScene::UpdateTargetLock()
 {
     // Shiftを押している間だけロックオンし、その間は常に一番近いダミーを対象にし続ける
     // （押した瞬間の対象に固定するのではなく、離れたら別の敵が近くなるような場面でも自然に切り替わる）
-    if (!input_->PushAction(Input::Action::LockOn)) {
+    if (!input_->PushAction(Input::Action::LockOn))
+    {
         lockedDummyIndex_.reset();
         return;
     }
-
     // 画面外の敵まで拾うとロック対象の方へカメラが大きく寄ってしまい暴れて見えるため、
     // 画面内に映る範囲（カメラ半幅）より遠い敵はロック対象から除外する
     constexpr float kMaxLockRange = GameConstants::kCameraHalfW;
-
     const Vector3& pp = player_->GetPosition();
     float minDist = FLT_MAX;
     int nearest = -1;
-    for (size_t i = 0; i < dummies_.size(); ++i) {
-        if (dummies_[i].hp <= 0.0f) {
+    for (size_t i = 0; i < dummies_.size(); ++i)
+    {
+        if (dummies_[i].hp <= 0.0f)
+        {
             continue;
         }
         const float dist = std::abs(dummies_[i].pos.x - pp.x);
-        if (dist > kMaxLockRange) {
+        if (dist > kMaxLockRange)
+        {
             continue;
         }
-        if (dist < minDist) {
+        if (dist < minDist)
+        {
             minDist = dist;
             nearest = static_cast<int>(i);
         }
     }
-
-    if (nearest < 0) {
+    if (nearest < 0)
+    {
         lockedDummyIndex_.reset();
         return;
     }
     lockedDummyIndex_ = static_cast<size_t>(nearest);
 }
-
 // ══════════════════════════════════════════════════════
 // HUD更新と描画
 // ══════════════════════════════════════════════════════
-
 void BattleTestScene::DrawHud(bool nearReturnPortal)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
-    const float lockMarkerHalfWidth = layout.Float("lock_marker.half_width", kLockMarkerHalfWidth);
+    const float lockMarkerHalfWidth = layout.Float("lock_marker.half_width", SceneVisualTuning::Battle().lockMarkerHalfWidth);
     DrawWeaponHud(nearReturnPortal);
     SceneShared::DrawControlsHud(fontRenderer_,
         layout.Pos("controls.pos", kBattleControlsAnchor), L": トレーニングへ戻る");
     styleMeter_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク
     hud_.QueueText(fontRenderer_);
-
     // ── ロックオン中の対象にマーカーを出す ────────────────────────
-    if (const Dummy* locked = LockedDummy()) {
+    if (const Dummy* locked = LockedDummy())
+    {
         const Vector3& tpos = locked->pos;
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
-        SceneShared::WorldToScreen(tpos.x, tpos.y + kLockMarkerHeight, cam.x, cam.y, sx, sy);
+        SceneShared::WorldToScreen(tpos.x, tpos.y + SceneVisualTuning::Battle().lockMarkerHeight, cam.x, cam.y, sx, sy);
         fontRenderer_.DrawString("v LOCK v", sx - lockMarkerHalfWidth, sy,
-            layout.Float("lock_marker.scale", kLockMarkerScale), layout.Color("lock_marker.color", kLockMarkerColor));
+            layout.Float("lock_marker.scale", SceneVisualTuning::Battle().lockMarkerScale), layout.Color("lock_marker.color", SceneVisualTuning::Battle().lockMarkerColor));
     }
 }
-
+/** @brief 武器一覧と戻りポータルのラベルを描画する */
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal)
 {
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 warpLabelOffset = layout.Vec2("portal.label_offset", kWarpLabelOffset);
-    const Vector4 hintShadowColor = layout.Color("weapon_list.shadow_color", kHintShadowColor);
-    const float hintShadowOffset = layout.Float("weapon_list.shadow_offset", kHintShadowOffset);
-    const float hintLineHeight = layout.Float("weapon_list.line_height", kHintLineHeight);
+    const float hintLineHeight = layout.Float("weapon_list.line_height", SceneVisualTuning::Battle().hintLineHeight);
     // 明るいブロックの上でも埋もれないよう暖色＋影付きにする（武器選択パネルと揃える）
-    const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
-    const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
+    const auto& battleVisual = SceneVisualTuning::Battle();
+    const SceneShared::ShadowedTextStyle hintStyle = SceneShared::ReadWeaponHintStyle(layout,
+        { battleVisual.hintScale, battleVisual.hintColor, battleVisual.hintShadowColor, battleVisual.hintShadowOffset });
+    const float hintScale = hintStyle.scale;
     auto drawShadowedHint = [&](const std::wstring& text, float x, float y) {
-        fontRenderer_.DrawStringW(text, x + hintShadowOffset, y + hintShadowOffset, hintScale, hintShadowColor);
-        fontRenderer_.DrawStringW(text, x, y, hintScale, hintColor);
+        SceneShared::DrawShadowedTextW(fontRenderer_, text, x, y, hintStyle);
     };
-
     const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
     float py = SceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
-    drawShadowedHint(L"[L] コンボ  [S+L] 打ち上げ  [空中L] 空中コンボ", weaponHudAnchor.x, py);
-    drawShadowedHint(L"[K] 射撃  [R] 覚醒  [Shift長押し] ロックオン（最寄りの敵）", weaponHudAnchor.x, py + hintLineHeight);
-
+    // キーやボタンの名前は、最後に使った入力機器に合わせて置き換える
+    drawShadowedHint(input_->ExpandPrompts(L"[{Attack}] コンボ  [{Down}+{Attack}] 打ち上げ  [空中{Attack}] 空中コンボ"), weaponHudAnchor.x, py);
+    drawShadowedHint(input_->ExpandPrompts(L"[{Shoot}] 射撃  [{Awaken}] 覚醒  [{LockOn}長押し] ロックオン（最寄りの敵）"), weaponHudAnchor.x, py + hintLineHeight);
     // 戻りポータルのラベル
-    if (nearReturnPortal) {
+    if (nearReturnPortal)
+    {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
-        SceneShared::WorldToScreen(kWarpRetX, kWarpLabelWorldY, cam.x, cam.y, sx, sy);
+        SceneShared::WorldToScreen(BattleTestTune().warpReturnX, SceneVisualTuning::Battle().warpLabelWorldY, cam.x, cam.y, sx, sy);
         fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] トレーニングへ"), sx - warpLabelOffset.x, sy - warpLabelOffset.y,
-            hintScale, layout.Color("portal.label_color", kReturnLabelColor));
+            hintScale, layout.Color("portal.label_color", SceneVisualTuning::Battle().returnLabelColor));
     }
-
-    if (showColliders_) {
+    if (showColliders_)
+    {
         const Vector2 colliderLabelPosition = layout.Pos("collider_label.pos", kColliderLabelPosition);
         fontRenderer_.DrawString("[ F3 ] Colliders: ON", colliderLabelPosition.x, colliderLabelPosition.y,
-            hintScale, layout.Color("collider_label.color", kColliderLabelColor));
+            hintScale, layout.Color("collider_label.color", SceneVisualTuning::Battle().colliderLabelColor));
     }
 }
-
+/** @brief F3で表示切替。プレイヤー/ダミー/ナイト/solidブロックの当たり判定をワイヤーフレームで描く */
 void BattleTestScene::DrawColliderOverlay()
 {
     DiagnosticsDraw::SetCamera(camera_->GetViewProjectionMatrix(),
         static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));
-
     // プレイヤー（緑）
     DiagnosticsDraw::DrawCollider(player_->GetCollider(), DiagnosticsDraw::kColorGreen);
-
     // 訓練マネキン（生存中のみ、シアン）
-    for (const auto& d : dummies_) {
-        if (d.hp > 0.0f) {
+    for (const auto& d : dummies_)
+    {
+        if (d.hp > 0.0f)
+        {
             DiagnosticsDraw::DrawAABB(DummyBounds(d), DiagnosticsDraw::kColorCyan);
         }
     }
-
     // StageEditorで配置したナイト（生存中のみ、赤）
-    for (KnightEnemy* placedKnight : GetStageEditor().GetKnights()) {
-        if (placedKnight->IsAlive()) {
+    for (KnightEnemy* placedKnight : GetStageEditor().GetKnights())
+    {
+        if (placedKnight->IsAlive())
+        {
             DiagnosticsDraw::DrawAABB(placedKnight->GetAABB(), DiagnosticsDraw::kColorRed);
         }
     }
-
     // ステージエディタでsolidにしたブロック（オレンジ、エディタを開いていなくても見える）
-    for (const auto& b : GetStageEditor().GetSolidColliders()) {
+    for (const auto& b : GetStageEditor().GetSolidColliders())
+    {
         DiagnosticsDraw::DrawAABB(b, DiagnosticsDraw::kColorOrange);
     }
 }
-
 // ══════════════════════════════════════════════════════
 // シーン描画と終了処理
 // ══════════════════════════════════════════════════════
-
 void BattleTestScene::Draw()
 {
     BattleTestSceneRenderer::Draw(*this);
 }
-
+/** @brief 訓練シーン固有の演出資源を破棄する */
 void BattleTestScene::Finalize()
 {
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     pm_->ClearAllGroups();
-    glassShatter_.Finalize();
-    finisherShatter_.Finalize();
-    spaceWarp_.Finalize();
-    bladeFlash_.Clear();
+    FinisherEffects::FinalizeAll(glassShatter_, finisherShatter_, spaceWarp_, bladeFlash_);
     comboFeel_.Finalize();
     motionEditor_.Close(*player_);
-    SlashMark::GetInstance()->Clear();
 }
-
-void BattleTestScene::TriggerGlassShatterTest()
-{
-    if (glassShatter_.IsActive()) {
-        return;
-    }
-    glassShatter_.Start();
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE BattleTestScene::GetActiveRTVHandle() const
-{
-    return SceneShared::GetActiveRTVHandle(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
-}
-
-void BattleTestScene::SetupMainRenderTarget()
-{
-    SceneShared::SetupMainRenderTarget(dxCommon_, { imageFilter_, grayscaleEffect_, hsvFilter_ });
-}
+} // namespace engine::game

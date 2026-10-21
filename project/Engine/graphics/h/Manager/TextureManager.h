@@ -73,7 +73,9 @@ public:
         uint32_t width, uint32_t height);
 
     // 指定キーのテクスチャが登録済みかどうかを返す
-    bool HasTexture(const std::string& name) const { return textureDatas_.contains(name); }
+    bool HasTexture(const std::string& name) const {
+        return textureDatas_.contains(name);
+    }
 
     /**
      * @brief 保留中のテクスチャ転送を一括実行し、GPUとの同期を1回だけ行う
@@ -89,9 +91,13 @@ public:
     void CheckHotReload();
 
     /** @brief ゲーム実行中のテクスチャホットリロードを有効または無効にする */
-    void SetHotReloadEnabled(bool enabled) { hotReloadEnabled_ = enabled; }
+    void SetHotReloadEnabled(bool enabled) {
+        hotReloadEnabled_ = enabled;
+    }
     /** @brief ゲーム実行中のテクスチャホットリロードが有効か返す */
-    bool IsHotReloadEnabled() const { return hotReloadEnabled_; }
+    bool IsHotReloadEnabled() const {
+        return hotReloadEnabled_;
+    }
 
     /**
      * @brief 指定したファイルパスに対応するSRVインデックスを取得する
@@ -116,6 +122,8 @@ public:
     const DirectX::TexMetadata& GetMetaData(const std::string& filePath);
 
 private:
+    /** @brief 欠落したテクスチャ名で市松模様の代替画像を登録する */
+    void LoadMissingTexture(const std::string& filePath);
     /**
      * @brief 読み込み済みのテクスチャ1つ分のデータを保持する構造体
      */

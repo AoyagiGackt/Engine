@@ -1,7 +1,7 @@
 /**
  * @file SceneFlow.h
  * @brief シーン遷移先をResources/Config/scene_flow.jsonから解決するグローバル設定
- * @note 各シーンは「どの結果になったか」（"gameover" "clear" 等の結果名）だけを伝え、
+ * @note 各シーンはどの結果になったか（"gameover" "clear" 等の結果名）だけを伝え、
  * 実際に次へ進むシーン名とフェード時間はこのJSONが決める。遷移の組み替えにコード変更が要らないようにする
  */
 #pragma once

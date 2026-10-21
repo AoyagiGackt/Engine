@@ -29,19 +29,29 @@ public:
     void CommonDrawSettings();
 
     /** @brief DirectX基盤のポインタを取得する */
-    engine::DirectXCommon* GetDxCommon() const { return dxCommon_; }
+    engine::DirectXCommon* GetDxCommon() const {
+        return dxCommon_;
+    }
 
     /** @brief DirectX12デバイスを取得する */
-    ID3D12Device* GetDevice() const { return dxCommon_->GetDevice(); }
+    ID3D12Device* GetDevice() const {
+        return dxCommon_->GetDevice();
+    }
 
     /** @brief 現在のグラフィックスコマンドリストを取得する */
-    ID3D12GraphicsCommandList* GetCommandList() const { return dxCommon_->GetCommandList(); }
+    ID3D12GraphicsCommandList* GetCommandList() const {
+        return dxCommon_->GetCommandList();
+    }
 
     /** @brief 2D用のルートシグネチャを取得する */
-    ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
+    ID3D12RootSignature* GetRootSignature() const {
+        return rootSignature_.Get();
+    }
 
     /** @brief 2D用のパイプラインステートオブジェクトを取得する */
-    ID3D12PipelineState* GetPipelineState() const { return graphicsPipelineState_.Get(); }
+    ID3D12PipelineState* GetPipelineState() const {
+        return graphicsPipelineState_.Get();
+    }
 
 private:
     /** @brief DirectX基盤のポインタ */

@@ -22,12 +22,14 @@ inline bool ApplyGravityAndClampY(float& posY, float& velY, float gravity,
     posY += velY;
 
     bool grounded = false;
-    if (posY <= groundY) {
+    if (posY <= groundY)
+    {
         posY = groundY;
         velY = 0.0f;
         grounded = true;
     }
-    if (posY > ceilingY) {
+    if (posY > ceilingY)
+    {
         posY = ceilingY;
         velY *= ceilingBounceFactor;
     }

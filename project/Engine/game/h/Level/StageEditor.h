@@ -6,6 +6,8 @@
  * ロジックはノードグラフ（GraphEditor）側の役目なので、ここではトリガーのフラグを立てるまでしかやらない
  */
 #pragma once
+#include "TextBufferCapacity.h"
+#include "IPositionTarget.h"
 #include "CollisionConfig.h"
 #include "EditorHistory.h"
 #include "LevelGraphRunner.h"
@@ -18,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace engine {
@@ -35,6 +38,7 @@ namespace engine::game {
 
 class KnightEnemy;
 class EnemyEntity;
+class IEnemyEntity;
 class FontRenderer;
 class UILayout;
 class StageEditorSelectionService;
@@ -52,13 +56,54 @@ struct CombatEnemyRef {
     EnemyEntity* enemy = nullptr; // 非所有。StageEditorのobjects_が生存させる
 };
 
-/** @brief kind=="breakable"の配置物1件ぶんの参照（GetBreakables()の戻り値。ヒット判定と破壊処理はシーン側が行う） */
-struct BreakableRef {
-    const ObjectDesc* desc = nullptr; // 非所有。HP・爆風半径・ダメージ量の設定元
-    Vector3 position = { }; // 親チェーン解決済みのワールド位置
-    int* hp = nullptr; // 残りHP（シーン側が減らす）
-    bool* destroyed = nullptr; // trueにすると以降は描画・判定から外れる
-    engine::graphics::Object3d* object = nullptr; // 非所有。脈動色などの見た目更新用
+/** @brief 壊せる配置物のヒット判定と爆風に必要な読み取り専用の設定値 */
+struct BreakableSettings {
+    Vector3 scale;
+    Vector4 color;
+    float radius;
+    int playerDamage;
+    int enemyDamage;
+    std::string_view requiredWeapon;
+    std::string_view name;
+};
+
+/** @brief 壊せる配置物への操作。HPと破壊フラグの格納先は外部へ公開しない */
+class BreakableRef {
+public:
+    /** @brief 配置物が所有する実体と状態に対する非所有の操作を構築する */
+    BreakableRef(const ObjectDesc& desc, const Vector3& position, int& hp, bool& destroyed,
+        engine::graphics::Object3d* object)
+        : desc_(&desc), position_(position), hp_(&hp), destroyed_(&destroyed), object_(object) { }
+    /** @brief 判定と爆風に必要な設定だけを値として返す */
+    BreakableSettings Settings() const
+    {
+        return { desc_->scale, desc_->breakableColor, desc_->breakableRadius,
+            desc_->breakablePlayerDamage, desc_->breakableEnemyDamage, desc_->breakableWeapon, desc_->name };
+    }
+    /** @brief 親子階層を解決した現在位置を返す */
+    Vector3 GetPosition() const {
+        return position_;
+    }
+    /** @brief 射撃の的を識別する不透明なキーを返す */
+    const void* TargetIdentity() const {
+        return desc_;
+    }
+    /** @brief 外見の色を更新し描画行列へ反映する */
+    void SetColor(const Vector4& color) const;
+    /** @brief 1回の攻撃を受け、HPが尽きたか返す */
+    bool TakeHit() const {
+        return --*hp_ <= 0;
+    }
+    /** @brief 以降の描画と当たり判定から配置物を除く */
+    void Destroy() const {
+        *destroyed_ = true;
+    }
+private:
+    const ObjectDesc* desc_;
+    Vector3 position_;
+    int* hp_;
+    bool* destroyed_;
+    engine::graphics::Object3d* object_;
 };
 
 /**
@@ -101,7 +146,9 @@ public:
      * @return Open()済みのStageEditor。無ければnullptr
      * @note シーンは同時に1つしか動かないため、最後にOpen()したものを有効とする。Finalize()で解除する
      */
-    static StageEditor* GetActive() { return activeEditor_; }
+    static StageEditor* GetActive() {
+        return activeEditor_;
+    }
 
     /**
      * @brief レベルJSONを読み込み、配置物とトリガーを生成する
@@ -148,7 +195,7 @@ public:
 
     /**
      * @brief kind=="ui_text"の配置物をFontRendererへ描画コマンドとして積む
-     * @param font 呼び出し元シーンが所有するFontRendererfontRenderer_.Reset()後、Draw()前に呼ぶこと
+     * @param font 呼び出し元シーンが所有する FontRenderer。fontRenderer_.Reset() の後、Draw() の前に呼ぶこと
      * @note textSpace=="world"の配置物はcamera_の現在位置を基準にスクリーン座標へ投影する（SceneShared::WorldToScreenと同じ変換）
      */
     void DrawUIText(FontRenderer& font) const;
@@ -159,7 +206,9 @@ public:
      * @note Scene::Draw()内でHUDより前に自分でDrawObjects()を呼んだ場合、
      * BaseScene::Render()側の自動呼び出しをスキップしてブロックの二重描画/UI上乗せを防ぐために使う
      */
-    bool WasObjectsDrawnThisFrame() const { return objectsDrawnThisFrame_; }
+    bool WasObjectsDrawnThisFrame() const {
+        return objectsDrawnThisFrame_;
+    }
 
     /**
      * @brief 配置済みのナイト敵一覧を返す
@@ -184,7 +233,7 @@ public:
     std::vector<BreakableRef> GetBreakables();
 
     /**
-     * @brief kind=="pickup"の回収状況を返す（HUDの「x / y」表示用）
+     * @brief kind=="pickup"の回収状況を返す（HUDの x / y 表示用）
      * @param outCollected 回収済み個数
      * @param outTotal 有効な収集物の総数
      */
@@ -212,8 +261,14 @@ public:
      * @brief 編集UIが表示中か返す
      * @return 編集UIが表示中の場合はtrue
      */
-    bool IsVisible() const { return visible_; }
-    bool UsesGameWindow() const { return visible_ && !viewportFocusMode_; }
+    bool IsVisible() const {
+        return visible_;
+    }
+    /** @brief エディタをゲームのウィンドウの中に表示するかを返す */
+    bool UsesGameWindow() const {
+        return visible_ && !viewportFocusMode_;
+    }
+    /** @brief ゲーム画面のプレビュー用テクスチャと表示範囲（UV）を設定する */
     void SetGamePreview(uint64_t textureId, float u0, float v0, float u1, float v1)
     {
         previewTextureId_ = textureId;
@@ -224,18 +279,22 @@ public:
      * @brief エディタ表示中にゲーム更新を停止すべきか返す
      * @return 編集停止モードの場合はtrue
      */
-    bool ShouldPauseGame() const { return visible_ && !playTestMode_; }
+    bool ShouldPauseGame() const {
+        return visible_ && !playTestMode_;
+    }
     /** @brief ゲームの進行（敵のAIと重力・動く仕掛け・レベルのグラフ）を止める（ポーズ中や開始演出の間。見た目の位置だけは追従させる） */
-    void SetGameplayHeld(bool held) { gameplayHeld_ = held; }
+    void SetGameplayHeld(bool held) {
+        gameplayHeld_ = held;
+    }
 
     /**
      * @brief Player/EnemyEntity/KnightEnemy等、レベルJSONに属さないランタイム上の実体をエディタで
      * 選択・ドラッグ移動できるようにする（Scene::Initialize等で、対象生成後に1回呼ぶ）
      * @param name     Hierarchy上の表示名（一意にすること同名を渡すと既存の登録を上書きする）
-     * @param position 実体側が持つ位置メンバへの参照（Player::GetPositionRef()等）
-     * @note ここに渡した参照はJSONへは保存しない位置の永続化は各Sceneが自前で行うこと
+     * @param positionTarget 実体側が提供する位置の取得と更新の操作
+     * @note 対象の寿命はシーンが管理する。エディタで変更した座標はJSONへ保存しない
      */
-    void RegisterExternalEntity(const std::string& name, Vector3* position,
+    void RegisterExternalEntity(const std::string& name, IPositionTarget* positionTarget,
         std::function<int()> getVisualPreset = { },
         std::function<void(int)> setVisualPreset = { },
         std::function<void(const std::string&, const std::string&)> setStaticVisualModel = { },
@@ -245,7 +304,9 @@ public:
      * @brief トリガーのspawnsWaterSplashが成立した瞬間に呼ぶコールバックを登録する
      * @note 水しぶきの実体（パーティクル発生）はシーン側の責務のため、StageEditorはここでは何もしない
      */
-    void SetWaterSplashCallback(std::function<void(const Vector3&)> callback) { onWaterSplashRequested_ = std::move(callback); }
+    void SetWaterSplashCallback(std::function<void(const Vector3&)> callback) {
+        onWaterSplashRequested_ = std::move(callback);
+    }
 
 private:
     enum class SelKind { None,
@@ -279,16 +340,23 @@ private:
         Vector3 graphMoveTo = { };
         float graphMoveTimer = 0.0f;
         float graphMoveDuration = 0.0f;
+
+        /** @brief ナイト型・汎用のどちらであっても敵の本体を返す（敵でなければ nullptr） */
+        IEnemyEntity* EnemyBody() const;
     };
 
     /** @brief objects_ 内の配置物の番号を返す（種類クラスへ配置物を渡す時に使う） */
-    int IndexOf(const ObjectEntry& entry) const { return static_cast<int>(&entry - objects_.data()); }
+    int IndexOf(const ObjectEntry& entry) const {
+        return static_cast<int>(&entry - objects_.data());
+    }
     /** @brief pickup配置物の回収判定と演出（プレイヤーが半径内に入ったら回収し、覚醒ゲージを増やす） */
     void UpdatePickupEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
     /** @brief グラフのMoveObjectによる補間移動を1フレーム進める */
     void UpdateGraphMove(ObjectEntry& entry, float dt);
     /** @brief 名前から配置物を探す（無ければnullptr） */
     ObjectEntry* FindEntryByName(const std::string& name);
+    /** @brief 名前から配置物の設定を探す（無ければ nullptr） */
+    const ObjectDesc* FindDescByName(const std::string& name) const;
 
     /**
      * @brief モデル+テクスチャの組み合わせをキャッシュから探し、無ければロードして登録する
@@ -300,6 +368,8 @@ private:
 
     /** @brief モデル/軸/個数など構造が変わったときの再構築（instances/knight/enemyを作り直す） */
     void RegenerateInstances(ObjectEntry& entry);
+    /** @brief 描画に使った実体を破棄する前に、GPU がそれを使い終わるのを待つ（描画の準備ができていなければ何もしない） */
+    void WaitForGpuIdle() const;
     /** @brief ファクトリが生成した配置データをレベル実体へ追加する */
     void AppendGeneratedContent(StageEditorGeneratedContent content);
     /** @brief 位置/回転/スケールだけを既存instancesへ反映する軽量パス（kind=="prop"専用） */
@@ -359,6 +429,23 @@ private:
     void RenderWorkflowPanel();
     /** @brief トリガーと配置対象を選ぶだけでイベント接続を構築する */
     void RenderNoCodeEventPanel();
+    /** @brief 戦闘部屋・扉・壊せる壁などの部品テンプレートを画面中央に生成するボタン群 */
+    void RenderEventTemplateButtons();
+    /** @brief イベントの発生条件（トリガー/イベント条件）を選ぶ欄 */
+    void RenderEventSourceSelector();
+    /** @brief イベントの動作対象（出現地点・ギミック・カメラ）を選ぶ欄 */
+    void RenderEventTargetSelector();
+    /** @brief 実行する動作と遅延秒数の欄 */
+    void RenderEventActionSettings();
+    /** @brief 選んだ発生条件と動作対象を接続するボタン */
+    void RenderEventConnectButton();
+    /** @brief 現在の接続を発生条件ごとに一覧表示し、解除ボタンを出す */
+    void RenderEventConnectionList();
+    /**
+     * @brief 指定フラグで動く動作対象の配置物番号を集める
+     * @param flag 発生条件が立てるフラグ名
+     */
+    std::vector<int> CollectEventTargets(const std::string& flag) const;
     /** @brief レベルに紐付ける常駐グラフとフラグ起動グラフの一覧を編集する */
     void RenderGraphPanel();
     /** @brief 敵Wave用のSpawnPoint群を表形式の設定から生成する */
@@ -396,10 +483,10 @@ private:
     /** @brief マウススクリーン座標をゲーム平面(z=0)上のワールド座標へ変換する */
     bool MouseToGround(float mouseX, float mouseY, Vector3& outWorld) const;
 
-    /** @brief 親チェーンを解決したワールド位置を返す（親のpositionを順に加算循環は深さ上限で打ち切り） */
+    /** @brief 親チェーンを解決したワールド位置を返す（親のZ回転も反映し、循環は深さ上限で打ち切る） */
     Vector3 WorldPositionOf(const ObjectDesc& desc) const;
-    /** @brief 親のワールド位置を返す（親なしなら原点）ドラッグ時のローカル座標逆算に使う */
-    Vector3 ParentWorldPositionOf(const ObjectDesc& desc) const;
+    /** @brief ワールド位置 world を desc の親から見た位置へ直す（ドラッグや親の付け替えで使う） */
+    Vector3 LocalPositionOf(const ObjectDesc& desc, const Vector3& world) const;
     /** @brief candidateName が selfName の子孫かどうか（親に設定すると循環になる相手の判定） */
     bool IsDescendantOf(const std::string& candidateName, const std::string& selfName) const;
 
@@ -466,6 +553,18 @@ private:
     /** @brief トリガーを指定位置へ追加して選択する */
     void AddTriggerAt(const Vector3& position);
     /**
+     * @brief 設定済みのトリガーを追加して、それだけを選択した状態にする（元に戻す履歴は呼び出し側で取る）
+     * @param desc 追加するトリガーの設定
+     */
+    void AppendTriggerAndSelect(const TriggerDesc& desc);
+    /**
+     * @brief 文章UIを隠している間で、ビュー上で扱わない配置物か
+     * @param desc 調べる配置物
+     */
+    bool IsHiddenUIText(const ObjectDesc& desc) const;
+    /** @brief 隠している文章UIを除いた配置物すべてに visit(番号, 配置情報) を呼ぶ（中央ビューで扱う物だけを回す） */
+    void VisitShownObjects(const std::function<void(int, const ObjectDesc&)>& visit) const;
+    /**
      * @brief 見た目の位置を変えずに親を付け替える
      * @param childIndex 子にする配置物
      * @param parentIndex 親にする配置物（-1で親を外す）
@@ -475,6 +574,8 @@ private:
     void SelectAllObjects();
     /** @brief 選択を解除する（Escape） */
     void ClearSelection();
+    /** @brief 最後に追加した配置物だけを選択した状態にする */
+    void SelectLastObject();
 
     TransformTool transformTool_ = TransformTool::Move;
     int activeDragAxis_ = 0; // ハンドルを掴んだドラッグ中の軸（0: 自由 / 1: X / 2: Y / 3: Z）。離すと0に戻る
@@ -509,7 +610,7 @@ private:
     /** @brief RegisterExternalEntity()で登録された、レベルJSON外のランタイム実体（Player等）への参照1件 */
     struct ExternalEntityRef {
         std::string name;
-        Vector3* position = nullptr;
+        IPositionTarget* positionTarget = nullptr;
         std::function<int()> getVisualPreset;
         std::function<void(int)> setVisualPreset;
         std::function<void(const std::string&, const std::string&)> setStaticVisualModel; // (モデルパス, テクスチャパス)
@@ -572,6 +673,8 @@ private:
 
     /** @brief 配置物を今フレーム描くか（回収済み・破壊済み・点滅で消えている間・落下中の床などは描かない） */
     bool IsEntryDrawable(const ObjectEntry& entry) const;
+    /** @brief 今フレーム描く配置物すべてに visit を呼ぶ */
+    void VisitDrawableEntries(const std::function<void(ObjectEntry&)>& visit);
 
 
     /**
@@ -582,6 +685,9 @@ private:
     void ResetLevelLocalFlags(const LevelData& data);
 
 #ifdef USE_IMGUI
+    /** @brief 接続フラグの発行元を検索し、最初に一致したトリガーまたは条件のワールド位置を返す */
+    bool FindEventSourcePosition(const std::string& flag, Vector3& position) const;
+
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
     // ObjectEntryは実体(unique_ptr)を持ちコピーできないため、Save()の保存対象と同じdescだけを控え、
     // 復元時はRegenerateInstances()で実体を作り直す（modelCache_は生きているので再構築は軽い）
@@ -603,12 +709,18 @@ private:
     void ApplySnapshot(const LevelSnapshot& snap);
     /** @brief 現在の状態を即座にUndoスタックへ積む（追加/削除など単発で完結する変更の直前に呼ぶ） */
     void RecordUndoSnapshotNow();
-    /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
+    /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録する。IsItemActivated() の直後に呼ぶ */
     void BeginUndoCapture();
     /** @brief BeginUndoCapture()後、実際に値が変わったことを記録する（変更が無ければCommit時に捨てられる） */
     void MarkUndoDirty();
-    /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
+    /** @brief ドラッグ/テキスト編集の終了時に呼ぶ。実際に変化していた場合だけ Undo スタックへ確定する */
     void CommitUndoCapture();
+    /**
+     * @brief 直前の ImGui の項目の操作に合わせて Undo の記録を始める・変更を記録する・確定する
+     * @param changed その項目で値が変わったか
+     * @return changed をそのまま返す（ImGui の呼び出しを包んで使えるように）
+     */
+    bool CaptureItemUndo(bool changed);
     /** @brief Undoスタックから1つ前の状態へ戻す（Ctrl+Z） */
     void Undo();
     /** @brief Redoスタックから1つ先の状態へ進める（Ctrl+Y） */
@@ -629,13 +741,20 @@ private:
      */
     class ISelectionKind {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~ISelectionKind() = default;
         /** @brief 対象のワールド位置を返す（位置を持たなければfalse） */
-        virtual bool WorldPosition(const StageEditor&, int, Vector3&) const { return false; }
+        virtual bool WorldPosition(const StageEditor&, int, Vector3&) const {
+            return false;
+        }
         /** @brief 画面座標で置かれていて3D空間上の位置を持たないか */
-        virtual bool IsScreenAnchor(const StageEditor&, int) const { return false; }
+        virtual bool IsScreenAnchor(const StageEditor&, int) const {
+            return false;
+        }
         /** @brief Shift+ドラッグの基準にする現在のZ（親からの相対値） */
-        virtual float LocalZ(const StageEditor&, int) const { return 0.0f; }
+        virtual float LocalZ(const StageEditor&, int) const {
+            return 0.0f;
+        }
         /** @brief Shift+ドラッグでZを書き換える */
         virtual void SetLocalZ(StageEditor&, int, float, bool) const { }
         /**
@@ -646,7 +765,9 @@ private:
         /** @brief 矢印キーで少しずつ動かす */
         virtual void Nudge(StageEditor&, int, const Vector3&) const { }
         /** @brief 削除する（削除したらtrue） */
-        virtual bool Delete(StageEditor&, int) const { return false; }
+        virtual bool Delete(StageEditor&, int) const {
+            return false;
+        }
         /** @brief 複製して選択を移す */
         virtual void Duplicate(StageEditor&, int) const { }
         /**
@@ -657,11 +778,36 @@ private:
         /** @brief 右クリックした対象を選択状態にする */
         virtual void SelectFromContext(StageEditor&, int) const { }
         /** @brief 右クリックメニューの中身を描く（描いたらtrue。falseなら配置メニューを出す） */
-        virtual bool DrawContextMenu(StageEditor&, int) const { return false; }
+        virtual bool DrawContextMenu(StageEditor&, int) const {
+            return false;
+        }
         /** @brief 詳細パネルを描く（描いたらtrue） */
-        virtual bool DrawInspector(StageEditor&) const { return false; }
+        virtual bool DrawInspector(StageEditor&) const {
+            return false;
+        }
         /** @brief イベント接続の発生元として使う番号（使えなければ-1） */
-        virtual int EventSourceIndex(const StageEditor&, int) const { return -1; }
+        virtual int EventSourceIndex(const StageEditor&, int) const {
+            return -1;
+        }
+
+    protected:
+        /** @brief この選択種別が扱う対象の数（番号が有効かの判定に使う） */
+        virtual int Count(const StageEditor&) const {
+            return 0;
+        }
+        /** @brief 番号が有効な対象を指しているかを返す */
+        bool IsValid(const StageEditor& editor, int index) const {
+            return index >= 0 && index < Count(editor);
+        }
+        /** @brief 番号が有効なら、元に戻せるよう今の状態を記録して true を返す（編集を始める前の確認） */
+        bool BeginEdit(StageEditor& editor, int index) const {
+            if (!IsValid(editor, index))
+            {
+                return false;
+            }
+            editor.RecordUndoSnapshotNow();
+            return true;
+        }
     };
     class ObjectSelectionKind;
     class TriggerSelectionKind;
@@ -680,7 +826,7 @@ private:
 
     bool dirty_ = false; // 最後の保存以降に編集があるか（未保存マーカーと開く時の破棄確認に使う）
 
-    char hierarchySearch_[64] = { };
+    char hierarchySearch_[TextBufferCapacity::kIdentifier] = { };
 
     bool snapEnabled_ = false; // グリッドスナップ（ドラッグ移動・新規配置・複製に効く）
     float snapStep_ = 1.0f;
@@ -688,7 +834,7 @@ private:
     /** @brief アセットパレットでクリックした時の動作 */
     enum class PaletteMode { PlaceNew, ReplaceSelection };
     PaletteMode paletteMode_ = PaletteMode::PlaceNew;
-    char paletteSearch_[96] = {}; // 素材名の検索語
+    char paletteSearch_[TextBufferCapacity::kName] = {}; // 素材名の検索語
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
     // クリックした瞬間にオブジェクト原点へ位置が飛ばないよう、掴んだ時の
@@ -713,10 +859,10 @@ private:
     bool recoveryAvailable_ = false;
     std::string recoveryPath_;
     std::vector<std::string> validationIssues_;
-    char prefabName_[64] = "stage_part";
+    char prefabName_[TextBufferCapacity::kIdentifier] = "stage_part";
     StageEditorEventConnection eventConnection_;
     int validationFocusIndex_ = -1;
-    char waveGroupName_[64] = "wave_1";
+    char waveGroupName_[TextBufferCapacity::kIdentifier] = "wave_1";
     int waveEnemyType_ = 0;
     int waveEnemyCount_ = 3;
     float waveSpacing_ = 2.0f;
@@ -730,15 +876,17 @@ private:
     bool showGraphPanel_ = false;
     bool showGrid_ = true; // スナップON時にグリッド線を描くか
     int levelFileIndex_ = -1; // レベル切替コンボの選択位置（-1は未選択）
-    char newLevelName_[64] = "level03";
-    char templateGuideText_[128] = "案内文をここに";
-    char templateDoorCondition_[96] = "condition_room_clear";
+    char newLevelName_[TextBufferCapacity::kIdentifier] = "level03";
+    char templateGuideText_[TextBufferCapacity::kLabel] = "案内文をここに";
+    char templateDoorCondition_[TextBufferCapacity::kName] = "condition_room_clear";
     int templateWallWeapon_ = 3; // 壊せる壁テンプレの武器（kWeaponTypesの添字、既定はHammer）
     bool showWavePanel_ = false;
-    char graphPathBuffer_[160] = { };
-    char newFlagGraphFlag_[64] = { };
-    char newFlagGraphPath_[160] = "Resources/Graphs/";
-    bool helpChecklist_[5] = { false, false, false, false, false };
+    char graphPathBuffer_[TextBufferCapacity::kRelativePath] = { };
+    char newFlagGraphFlag_[TextBufferCapacity::kIdentifier] = { };
+    char newFlagGraphPath_[TextBufferCapacity::kRelativePath] = "Resources/Graphs/";
+    /** @brief 使い方パネルの制作チェックリストの項目数（項目の文言は StageEditorWorkflowPanels.cpp の表） */
+    static constexpr int kHelpChecklistCount = 5;
+    bool helpChecklist_[kHelpChecklistCount] = { };
 #endif
 };
 

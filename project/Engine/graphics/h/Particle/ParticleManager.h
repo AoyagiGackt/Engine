@@ -260,7 +260,9 @@ public:
     void CreateParticleGroup(const std::string& name, const std::string& textureFilePath);
 
     /** @brief 全パーティクルグループを破棄する */
-    void ClearAllGroups() { particleGroups_.clear(); }
+    void ClearAllGroups() {
+        particleGroups_.clear();
+    }
 
     /**
      * @brief グループの加算合成・アルファ合成を切り替える
@@ -281,6 +283,9 @@ public:
     Emitter* GetEmitter(const std::string& name);
 
 private:
+    /** @brief 粒子の状態バッファをコピー先へ遷移し、初回の印を下ろす */
+    void PrepareParticleCopy(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
+
     // 放出APIの既定値
     static constexpr float kDefaultBurstLifetime = 100000.0f;
     static constexpr float kDefaultGravityLifetime = 0.6f;
@@ -290,7 +295,9 @@ private:
     static constexpr float kDefaultRingScale = 0.3f;
     static constexpr float kDefaultTrailLifetime = 0.15f;
 
+    /** @brief 粒子とGPU描画資源が未登録の管理器を作る */
     ParticleManager() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~ParticleManager() = default;
     ParticleManager(const ParticleManager&) = delete;
     ParticleManager& operator=(const ParticleManager&) = delete;
@@ -337,6 +344,12 @@ private:
     void UpdateCSConstants(Camera* camera, float dt);
     void TransitionInstancingToUAV(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
     void ExpireAndRespawnSlots(ParticleGroup& group);
+    /**
+     * @brief 発生し直す前に全スロットを空にし、先頭 activeCount 個以外を空き一覧へ戻す
+     * @param group 対象パーティクルグループ
+     * @param activeCount これから使うスロット数（先頭から）
+     */
+    static void ResetSlotsForEmit(ParticleGroup& group, uint32_t activeCount);
     void FlushPendingSlotsToGPU(ParticleGroup& group, ID3D12GraphicsCommandList* cmd);
     /**
      * @brief 発生頻度(frequency)に応じて発射タイミングを判定し、来ていればスロットの有効期限を延長した上で

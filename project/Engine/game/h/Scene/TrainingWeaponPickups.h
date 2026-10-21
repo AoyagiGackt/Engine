@@ -7,7 +7,10 @@
 #include "WeaponManager.h"
 #include <array>
 #include <memory>
-namespace engine::graphics { class ModelCommon; class Model; }
+namespace engine::graphics {
+    class ModelCommon;
+    class Model;
+}
 namespace engine::game {
 /** @brief 配置武器の見た目と接触を管理し、装備した事実だけをシーンへ返す。 */
 class TrainingWeaponPickups {
@@ -17,6 +20,7 @@ public:
     void RefreshVisuals();
     void Draw();
 private:
+    /** @brief トレーニング用の武器拾得物と表示情報 */
     struct Pickup {
         WeaponType type = WeaponType::Sword;
         engine::graphics::Model* model = nullptr;

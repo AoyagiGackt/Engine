@@ -62,12 +62,18 @@ public:
     /** @brief 1フレーム進める（決定・攻撃ボタンで最後まで飛ばせる） */
     void Update(const engine::Input* input);
     /** @brief 演出の途中か（途中の間はシーンが操作・HUD・敵を止める） */
-    bool IsPlaying() const { return playing_; }
+    bool IsPlaying() const {
+        return playing_;
+    }
     /** @brief カメラが追う位置（演出中はプレイヤーの代わりにこれを追う） */
-    const Vector3& CameraFocus() const { return cameraFocus_; }
+    const Vector3& CameraFocus() const {
+        return cameraFocus_;
+    }
     /** @brief カメラの引き（1=ふだんの距離、2なら2倍の距離から映す） */
-    float CameraZoom() const { return cameraZoom_; }
-    /** @brief 演出の文字を積む（シーンの Update 中、fontRenderer.Reset() の後に呼ぶ） */
+    float CameraZoom() const {
+        return cameraZoom_;
+    }
+    /** @brief 演出の文字を積む（シーンの Update 中、fontRenderer.Reset() の後に呼ぶ。演出の後も GO! が残っていれば積む） */
     void QueueText(FontRenderer& font) const;
     /** @brief 幕と斬線を描く（SpriteCommon の共通設定を済ませた後に呼ぶ） */
     void Draw();
@@ -82,8 +88,12 @@ public:
 private:
     /** @brief 段階を次へ進める（最後まで行ったら終える） */
     void AdvancePhase();
-    /** @brief 残りを飛ばして、操作できる状態にする */
+    /** @brief 残りを飛ばして、操作できる状態にする（出ている GO! の文字は残す） */
     void Finish();
+    /** @brief GO! の文字を出してからの時間を進め、出し終えたら消す */
+    void AdvanceGoText();
+    /** @brief GO! の文字を積む（大きく弾んで出て、最後の文字のフェード時間で消える） */
+    void QueueGoText(FontRenderer& font) const;
     void SetPlayerPosition(const Vector3& position);
     /** @brief 演出中のプレイヤーの向き・アニメ・武器の付け方を整える（入力と物理は進めない） */
     void UpdatePlayerPose();

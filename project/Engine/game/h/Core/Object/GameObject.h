@@ -36,10 +36,12 @@ public:
 
     /**
      * @brief 当たり判定情報を取得する
-     * @return Collider& オブジェクトの当たり判定情報への参照
+     * @return オブジェクトの当たり判定情報のスナップショット
      * @note この関数を呼び出して、オブジェクト同士の衝突をチェックします
      */
-    Collider& GetCollider() { return collider_; }
+    Collider GetCollider() const {
+        return collider_;
+    }
 
 protected:
     // 継承したクラス（Hogeなど）が自分で自分の形をセットできるようにする

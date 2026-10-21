@@ -45,21 +45,25 @@ public:
     void Finalize();
 
     /** @brief オフスクリーンテクスチャをレンダーターゲットとしてバインドし、シーン描画を開始する */
-    void BeginScene();
+    void BeginScene() override;
 
     /** @brief シーン描画を終了し、オフスクリーンテクスチャを SRV 状態に遷移する */
-    void EndScene();
+    void EndScene() override;
 
     /**
      * @brief 現在のモードに応じたフィルターをバックバッファに適用する
      * @param srvManager シェーダーリソースのGPUハンドル取得に使用
      */
-    void Apply(SrvManager* srvManager);
+    void Apply(SrvManager* srvManager) override;
 
     /** @brief フィルターの有効・無効を切り替える */
-    void SetEnabled(bool v) { enabled_ = v; }
+    void SetEnabled(bool v) {
+        enabled_ = v;
+    }
     /** @brief フィルターが有効かどうかを返す */
-    bool IsEnabled() const override { return enabled_; }
+    bool IsEnabled() const override {
+        return enabled_;
+    }
     /** @brief 適用するフィルターモードを変更する（カーネルを自動再計算） */
     void SetMode(Mode mode)
     {
@@ -67,36 +71,53 @@ public:
         RebuildKernel();
     }
     /** @brief 現在のフィルターモードを返す */
-    Mode GetMode() const { return mode_; }
+    Mode GetMode() const {
+        return mode_;
+    }
 
     // Box / Gaussian パラメータ
     /** @brief Box フィルターのカーネル半径を設定する */
     void SetRadius(int r);
     /** @brief Box フィルターのカーネル半径を返す */
-    int GetRadius() const { return boxRadius_; }
+    int GetRadius() const {
+        return boxRadius_;
+    }
     /** @brief Gaussian フィルターの標準偏差σを設定する */
     void SetSigma(float s);
     /** @brief Gaussian フィルターの標準偏差σを返す */
-    float GetSigma() const { return gaussianSigma_; }
+    float GetSigma() const {
+        return gaussianSigma_;
+    }
 
     // アウトライン共通パラメータ
     void SetOutlineThreshold(float t)
     {
-        if (outlineCb_) {
+        if (outlineCb_)
+        {
             outlineCb_->threshold = t;
         }
     }
-    float GetOutlineThreshold() const { return outlineCb_ ? outlineCb_->threshold : kDefaultOutlineThreshold; }
+    /** @brief 輪郭を検出するしきい値を返す */
+    float GetOutlineThreshold() const {
+        return outlineCb_ ? outlineCb_->threshold : kDefaultOutlineThreshold;
+    }
+    /** @brief 輪郭の強さを設定する */
     void SetOutlineStrength(float s)
     {
-        if (outlineCb_) {
+        if (outlineCb_)
+        {
             outlineCb_->edgeStrength = s;
         }
     }
-    float GetOutlineStrength() const { return outlineCb_ ? outlineCb_->edgeStrength : kDefaultOutlineStrength; }
+    /** @brief 輪郭の強さを返す */
+    float GetOutlineStrength() const {
+        return outlineCb_ ? outlineCb_->edgeStrength : kDefaultOutlineStrength;
+    }
+    /** @brief 輪郭の色を設定する */
     void SetOutlineColor(float r, float g, float b, float a = 1.0f)
     {
-        if (!outlineCb_) {
+        if (!outlineCb_)
+        {
             return;
         }
         outlineCb_->outlineR = r;
@@ -104,9 +125,11 @@ public:
         outlineCb_->outlineB = b;
         outlineCb_->outlineA = a;
     }
+    /** @brief 輪郭の色を out へ入れる */
     void GetOutlineColor(float out[4]) const
     {
-        if (!outlineCb_) {
+        if (!outlineCb_)
+        {
             out[0] = out[1] = out[2] = 0.f;
             out[3] = 1.f;
             return;
@@ -120,56 +143,88 @@ public:
     // 深度アウトライン専用
     void SetDepthScale(float s)
     {
-        if (outlineCb_) {
+        if (outlineCb_)
+        {
             outlineCb_->depthScale = s;
         }
     }
-    float GetDepthScale() const { return outlineCb_ ? outlineCb_->depthScale : kDefaultDepthScale; }
+    /** @brief 深度の倍率を返す */
+    float GetDepthScale() const {
+        return outlineCb_ ? outlineCb_->depthScale : kDefaultDepthScale;
+    }
 
     // ラジアルブラーパラメータ
     void SetRadialCenter(float x, float y)
     {
-        if (!radialBlurCb_) {
+        if (!radialBlurCb_)
+        {
             return;
         }
         radialBlurCb_->centerX = x;
         radialBlurCb_->centerY = y;
     }
-    float GetRadialCenterX() const { return radialBlurCb_ ? radialBlurCb_->centerX : 0.5f; }
-    float GetRadialCenterY() const { return radialBlurCb_ ? radialBlurCb_->centerY : 0.5f; }
+    /** @brief 放射ブラーの中心の X を返す */
+    float GetRadialCenterX() const {
+        return radialBlurCb_ ? radialBlurCb_->centerX : 0.5f;
+    }
+    /** @brief 放射ブラーの中心の Y を返す */
+    float GetRadialCenterY() const {
+        return radialBlurCb_ ? radialBlurCb_->centerY : 0.5f;
+    }
+    /** @brief 放射ブラーの強さを設定する */
     void SetRadialStrength(float s)
     {
-        if (radialBlurCb_) {
+        if (radialBlurCb_)
+        {
             radialBlurCb_->strength = s;
         }
     }
-    float GetRadialStrength() const { return radialBlurCb_ ? radialBlurCb_->strength : kDefaultRadialStrength; }
+    /** @brief 放射ブラーの強さを返す */
+    float GetRadialStrength() const {
+        return radialBlurCb_ ? radialBlurCb_->strength : kDefaultRadialStrength;
+    }
+    /** @brief 放射ブラーのサンプル数を設定する */
     void SetRadialSampleCount(int n)
     {
-        if (radialBlurCb_) {
+        if (radialBlurCb_)
+        {
             radialBlurCb_->sampleCount = n;
         }
     }
-    int GetRadialSampleCount() const { return radialBlurCb_ ? radialBlurCb_->sampleCount : kDefaultRadialSampleCount; }
+    /** @brief 放射ブラーのサンプル数を返す */
+    int GetRadialSampleCount() const {
+        return radialBlurCb_ ? radialBlurCb_->sampleCount : kDefaultRadialSampleCount;
+    }
 
     // ディゾルブパラメータ
     void SetDissolveThreshold(float t)
     {
-        if (dissolveCb_) {
+        if (dissolveCb_)
+        {
             dissolveCb_->threshold = t;
         }
     }
-    float GetDissolveThreshold() const { return dissolveCb_ ? dissolveCb_->threshold : 0.0f; }
+    /** @brief ディゾルブのしきい値を返す */
+    float GetDissolveThreshold() const {
+        return dissolveCb_ ? dissolveCb_->threshold : 0.0f;
+    }
+    /** @brief ディゾルブの縁の幅を設定する */
     void SetDissolveEdgeWidth(float w)
     {
-        if (dissolveCb_) {
+        if (dissolveCb_)
+        {
             dissolveCb_->edgeWidth = w;
         }
     }
-    float GetDissolveEdgeWidth() const { return dissolveCb_ ? dissolveCb_->edgeWidth : kDefaultDissolveEdgeWidth; }
+    /** @brief ディゾルブの縁の幅を返す */
+    float GetDissolveEdgeWidth() const {
+        return dissolveCb_ ? dissolveCb_->edgeWidth : kDefaultDissolveEdgeWidth;
+    }
+    /** @brief ディゾルブの縁の色を設定する */
     void SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f)
     {
-        if (!dissolveCb_) {
+        if (!dissolveCb_)
+        {
             return;
         }
         dissolveCb_->edgeR = r;
@@ -177,9 +232,11 @@ public:
         dissolveCb_->edgeB = b;
         dissolveCb_->edgeA = a;
     }
+    /** @brief ディゾルブの縁の色を out へ入れる */
     void GetDissolveEdgeColor(float out[4]) const
     {
-        if (!dissolveCb_) {
+        if (!dissolveCb_)
+        {
             out[0] = 1.f;
             out[1] = 0.5f;
             out[2] = 0.f;
@@ -191,66 +248,126 @@ public:
         out[2] = dissolveCb_->edgeB;
         out[3] = dissolveCb_->edgeA;
     }
-    void SetDissolveMaskIndex(int i) { dissolveMaskIndex_ = (i == 0) ? 0 : 1; }
-    int GetDissolveMaskIndex() const { return dissolveMaskIndex_; }
+    /** @brief ディゾルブに使うマスクの番号を設定する */
+    void SetDissolveMaskIndex(int i) {
+        dissolveMaskIndex_ = (i == 0) ? 0 : 1;
+    }
+    /** @brief ディゾルブに使うマスクの番号を返す */
+    int GetDissolveMaskIndex() const {
+        return dissolveMaskIndex_;
+    }
 
     // プロシージャルノイズパラメータ
     void SetNoiseScale(float x, float y)
     {
-        if (!noiseGenCb_) {
+        if (!noiseGenCb_)
+        {
             return;
         }
         noiseGenCb_->scaleX = x;
         noiseGenCb_->scaleY = y;
     }
-    float GetNoiseScaleX() const { return noiseGenCb_ ? noiseGenCb_->scaleX : kDefaultNoiseScale; }
-    float GetNoiseScaleY() const { return noiseGenCb_ ? noiseGenCb_->scaleY : kDefaultNoiseScale; }
+    /** @brief ノイズの横の拡大率を返す */
+    float GetNoiseScaleX() const {
+        return noiseGenCb_ ? noiseGenCb_->scaleX : kDefaultNoiseScale;
+    }
+    /** @brief ノイズの縦の拡大率を返す */
+    float GetNoiseScaleY() const {
+        return noiseGenCb_ ? noiseGenCb_->scaleY : kDefaultNoiseScale;
+    }
     // seed は CPU 側の manualSeed を見せる（アニメーション時も表示値は変わらない）
-    void SetNoiseSeed(float s) { noiseManualSeed_ = s; }
-    float GetNoiseSeed() const { return noiseManualSeed_; }
+    void SetNoiseSeed(float s) {
+        noiseManualSeed_ = s;
+    }
+    /** @brief ノイズのシード値を返す */
+    float GetNoiseSeed() const {
+        return noiseManualSeed_;
+    }
+    /** @brief ノイズのオクターブ数を設定する */
     void SetNoiseOctaves(int n)
     {
-        if (noiseGenCb_) {
+        if (noiseGenCb_)
+        {
             noiseGenCb_->octaves = n;
         }
     }
-    int GetNoiseOctaves() const { return noiseGenCb_ ? noiseGenCb_->octaves : kDefaultNoiseOctaves; }
+    /** @brief ノイズのオクターブ数を返す */
+    int GetNoiseOctaves() const {
+        return noiseGenCb_ ? noiseGenCb_->octaves : kDefaultNoiseOctaves;
+    }
+    /** @brief ノイズのオクターブごとの振幅の減り方を設定する */
     void SetNoisePersistence(float p)
     {
-        if (noiseGenCb_) {
+        if (noiseGenCb_)
+        {
             noiseGenCb_->persistence = p;
         }
     }
-    float GetNoisePersistence() const { return noiseGenCb_ ? noiseGenCb_->persistence : 0.5f; }
+    /** @brief ノイズのオクターブごとの振幅の減り方を返す */
+    float GetNoisePersistence() const {
+        return noiseGenCb_ ? noiseGenCb_->persistence : 0.5f;
+    }
+    /** @brief ノイズのオクターブごとの周波数の増え方を設定する */
     void SetNoiseLacunarity(float l)
     {
-        if (noiseGenCb_) {
+        if (noiseGenCb_)
+        {
             noiseGenCb_->lacunarity = l;
         }
     }
-    float GetNoiseLacunarity() const { return noiseGenCb_ ? noiseGenCb_->lacunarity : 2.0f; }
+    /** @brief ノイズのオクターブごとの周波数の増え方を返す */
+    float GetNoiseLacunarity() const {
+        return noiseGenCb_ ? noiseGenCb_->lacunarity : 2.0f;
+    }
+    /** @brief ノイズの色の付け方を設定する */
     void SetNoiseColorMode(int m)
     {
-        if (noiseGenCb_) {
+        if (noiseGenCb_)
+        {
             noiseGenCb_->colorMode = m;
         }
     }
-    int GetNoiseColorMode() const { return noiseGenCb_ ? noiseGenCb_->colorMode : 0; }
+    /** @brief ノイズの色の付け方を返す */
+    int GetNoiseColorMode() const {
+        return noiseGenCb_ ? noiseGenCb_->colorMode : 0;
+    }
+    /** @brief ノイズの不透明度を設定する */
     void SetNoiseOpacity(float o)
     {
-        if (noiseGenCb_) {
+        if (noiseGenCb_)
+        {
             noiseGenCb_->opacity = o;
         }
     }
-    float GetNoiseOpacity() const { return noiseGenCb_ ? noiseGenCb_->opacity : 1.0f; }
-    void SetNoiseAnimate(bool v) { animateNoise_ = v; }
-    bool GetNoiseAnimate() const { return animateNoise_; }
-    void SetNoiseSpeed(float s) { noiseSpeed_ = s; }
-    float GetNoiseSpeed() const { return noiseSpeed_; }
-    void ResetNoiseTime() { noiseTime_ = 0.0f; }
+    /** @brief ノイズの不透明度を返す */
+    float GetNoiseOpacity() const {
+        return noiseGenCb_ ? noiseGenCb_->opacity : 1.0f;
+    }
+    /** @brief ノイズを時間で動かすかを設定する */
+    void SetNoiseAnimate(bool v) {
+        animateNoise_ = v;
+    }
+    /** @brief ノイズを時間で動かすかを返す */
+    bool GetNoiseAnimate() const {
+        return animateNoise_;
+    }
+    /** @brief ノイズの動く速さを設定する */
+    void SetNoiseSpeed(float s) {
+        noiseSpeed_ = s;
+    }
+    /** @brief ノイズの動く速さを返す */
+    float GetNoiseSpeed() const {
+        return noiseSpeed_;
+    }
+    /** @brief ノイズの時間を最初に戻す */
+    void ResetNoiseTime() {
+        noiseTime_ = 0.0f;
+    }
 
     /** @brief シーンキャプチャ用 RTV ハンドルを返す（ImGui 等が直接バインドする場合に使用） */
-    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const override { return sceneRtvHandle_; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const override {
+        return sceneRtvHandle_;
+    }
 
 private:
     // フィルタの既定値
@@ -263,7 +380,9 @@ private:
     static constexpr float kDefaultNoiseScale = 4.0f;
     static constexpr int kDefaultNoiseOctaves = 4;
 
+    /** @brief 画像フィルターの既定状態を作る */
     ImageFilter() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~ImageFilter() = default;
     ImageFilter(const ImageFilter&) = delete;
     ImageFilter& operator=(const ImageFilter&) = delete;
@@ -282,20 +401,52 @@ private:
      */
     class IFilterMode {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~IFilterMode() = default;
         virtual void Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
             const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const = 0;
+        /** @brief ぼかしの重みを書き込み、使う半径を返す */
+        virtual int BuildKernel(const ImageFilter&, float*) const {
+            return 0;
+        }
         /** @brief ぼかしカーネル（半径・シグマから作る重み）を使うモードか */
-        virtual bool UsesBlurKernel() const { return false; }
+        virtual bool UsesBlurKernel() const {
+            return false;
+        }
     };
     /**
      * @brief ボックス/ガウシアンぼかしを水平パス→垂直パスの2パスで適用する
      */
     class BoxGaussianFilterMode : public IFilterMode {
     public:
-        bool UsesBlurKernel() const override { return true; }
+        /** @brief 選んだフィルターがぼかしのカーネルを使うかを返す */
+        bool UsesBlurKernel() const override {
+            return true;
+        }
+        /** @brief ぼかし描画に使うパイプラインを返す */
+        virtual ID3D12PipelineState* GetPipeline(const ImageFilter& filter) const = 0;
         /** @brief 水平パス（sceneTexture→intermediateTexture）→垂直パス（intermediateTexture→backbuffer）の順に描画する */
         void Apply(ImageFilter&, ID3D12GraphicsCommandList*, SrvManager*, const D3D12_VIEWPORT&, const D3D12_RECT&, D3D12_CPU_DESCRIPTOR_HANDLE) const override;
+    };
+    /** @brief 均等な重みとボックス用パイプラインでぼかす */
+    class BoxFilterMode : public BoxGaussianFilterMode {
+    public:
+        /** @brief ボックス用パイプラインを返す */
+        ID3D12PipelineState* GetPipeline(const ImageFilter& filter) const override {
+            return filter.boxPso_.Get();
+        }
+        /** @brief 均等な重みを書き込み、半径を返す */
+        int BuildKernel(const ImageFilter& filter, float* weights) const override;
+    };
+    /** @brief 正規分布の重みとガウス用パイプラインでぼかす */
+    class GaussianFilterMode : public BoxGaussianFilterMode {
+    public:
+        /** @brief ガウス用パイプラインを返す */
+        ID3D12PipelineState* GetPipeline(const ImageFilter& filter) const override {
+            return filter.gaussianPso_.Get();
+        }
+        /** @brief 合計1の正規分布の重みを書き込み、半径を返す */
+        int BuildKernel(const ImageFilter& filter, float* weights) const override;
     };
     /**
      * @brief Prewittオペレータによる輝度ベースのエッジ検出をシングルパスで適用する
@@ -344,6 +495,8 @@ private:
      */
     static const IFilterMode& GetFilterMode(Mode mode);
 
+    static constexpr int kKernelCapacity = 20; ///< ぼかしの重みを入れる数（シェーダー側の配列と一致させる）
+
     // ブラーフィルター用 CBuffer（H/V 2スロット、256バイトアライン）
     /**
      * @brief Box/GaussianフィルターPS用の定数バッファに1:1で対応する構造体
@@ -353,7 +506,7 @@ private:
         float texelSizeY;
         int radius;
         float pad0;
-        float kernel[20]; // float4[5] = 80 bytes
+        float kernel[kKernelCapacity]; // float4[5] = 80 bytes（シェーダーの定数バッファと同じ並び）
         float dirX;
         float dirY;
         float pad1[2];

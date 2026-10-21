@@ -15,11 +15,15 @@ using engine::graphics::SpriteCommon;
 /** @brief スプライトプールを使い、数値やランキング一覧を桁ごとの画像で描画するクラス */
 class ScoreDisplay {
 public:
+    // 数字スプライトの既定サイズと桁の間隔
+    static constexpr Vector2 kDefaultDigitSize = { 40.0f, 60.0f };
+    static constexpr float kDefaultDigitGap = 4.0f;
+
     /** @brief プールサイズ（最大同時描画桁数） */
     static constexpr int kPoolSize = 128;
 
     /**
-     * @brief 初期化プールスプライトと全桁テクスチャを生成する
+     * @brief プール用スプライトと全桁のテクスチャを生成して初期化する
      * @param spriteCommon スプライト描画の共通設定
      */
     void Initialize(SpriteCommon* spriteCommon);
@@ -39,9 +43,9 @@ public:
      * @note spriteCommon->CommonDrawSettings() 後に呼ぶこと
      */
     void DrawNumber(int value, Vector2 pos,
-        Vector2 digitSize = { 40.f, 60.f },
-        float gap = 4.f,
-        Vector4 color = { 1.f, 1.f, 1.f, 1.f });
+        Vector2 digitSize = kDefaultDigitSize,
+        float gap = kDefaultDigitGap,
+        const Vector4& color = { 1.f, 1.f, 1.f, 1.f });
 
     /**
      * @brief ランキング一覧をスプライトで描画する

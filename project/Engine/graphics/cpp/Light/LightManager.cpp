@@ -1,6 +1,6 @@
 /**
  * @file LightManager.cpp
- * @brief LightManagerの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief 点光源などのライトの管理と定数バッファの更新（LightManager）の実装
  */
 #include "LightManager.h"
 using namespace engine::graphics;

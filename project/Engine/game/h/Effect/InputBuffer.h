@@ -30,7 +30,7 @@ using engine::Input;
 
 /**
  * @brief 直近kHistorySizeフレーム分のキー/ボタン入力履歴をリングバッファで保持するシングルトン
- * @details 「Nフレーム以内に押されていたか」の判定により、入力の先行受付やコマンド判定の猶予を実現する
+ * @details Nフレーム以内に押されていたかを判定することで、入力の先行受付やコマンド判定の猶予を実現する
  */
 class InputBuffer {
 public:
@@ -63,11 +63,12 @@ public:
     bool WasButtonPressed(WORD button, int withinFrames) const;
 
 private:
+    /** @brief 入力履歴が空のバッファを生成する */
     InputBuffer() = default;
 
     /** @brief 1 フレーム分の入力状態スナップショット */
     struct FrameState {
-        BYTE keys[256] = { }; ///< キーボード全キーの押下状態（1=押してる, 0=押してない）
+        BYTE keys[Input::kKeyCount] = { }; ///< キーボード全キーの押下状態（1=押してる, 0=押してない）
         WORD buttons = 0; ///< コントローラーボタンのビットフラグ
         bool valid = false; ///< このスロットに有効なデータが入っているか
     };

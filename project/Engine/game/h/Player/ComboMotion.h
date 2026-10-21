@@ -3,6 +3,7 @@
  * @brief コンボの段ごとにボーン回転のキーを持ち、ベースアニメへ重ねる加算モーションのデータと再生レイヤーを定義するファイル
  */
 #pragma once
+#include <functional>
 #include "MakeAffine.h"
 #include "PoseLayer.h"
 #include "Quaternion.h"
@@ -36,7 +37,7 @@ struct MotionTrack {
      * @param snap      この時刻差以内に既存キーがあればそれを上書きする
      * @return 追加・上書きしたキー
      */
-    MotionKey& SetKey(float time, const Vector3& eulerDeg, float snap);
+    void SetKey(float time, const Vector3& eulerDeg, float snap);
 
     /** @brief 指定時刻に近いキーを返す（無ければnullptr） */
     MotionKey* FindKey(float time, float snap);
@@ -56,10 +57,13 @@ struct MotionClip {
     MotionTrack* FindTrack(const std::string& bone);
     /** @brief 指定ボーンのトラックを返す（無ければnullptr、読み取り専用） */
     const MotionTrack* FindTrack(const std::string& bone) const;
-    /** @brief トラックを返す（無ければ始端・終端が無回転のキーを持つトラックを作る） */
-    MotionTrack& GetOrCreateTrack(const std::string& bone);
+    /** @brief 指定したボーンと時刻へキーを追加または上書きする */
+    void SetBoneKey(const std::string& bone, float time, const Vector3& eulerDeg, float snap);
     /** @brief 指定ボーンのトラックをキーごと消す */
     void RemoveTrack(const std::string& bone);
+private:
+    /** @brief 内部操作用のトラックを確保し、初回は始端と終端を無回転にする */
+    MotionTrack& EnsureTrack(const std::string& bone);
 };
 
 /**
@@ -85,13 +89,18 @@ public:
 
     /** @brief クリップを返す（無ければnullptr） */
     const MotionClip* Find(const std::string& rigId, const std::string& attackId) const;
-    /** @brief 編集用にクリップを返す（無ければ空のクリップを作る） */
-    MotionClip& GetOrCreate(const std::string& rigId, const std::string& attackId);
+    /** @brief 編集用コピーへ操作を適用してから保管庫へ反映する */
+    void EditClip(const std::string& rigId, const std::string& attackId,
+        const std::function<void(MotionClip&)>& edit);
 
     /** @brief 加算モーションをゲーム中に掛けるか（比較用に切り替える） */
-    bool IsEnabled() const { return enabled_; }
+    bool IsEnabled() const {
+        return enabled_;
+    }
     /** @brief 加算モーションを掛けるかを切り替える */
-    void SetEnabled(bool enabled) { enabled_ = enabled; }
+    void SetEnabled(bool enabled) {
+        enabled_ = enabled;
+    }
 
 private:
     /** @brief 生成時に JSON を読み込む */
@@ -123,9 +132,13 @@ public:
         std::vector<engine::graphics::PoseLayerRotation>& out) const override;
 
     /** @brief 直近の評価で掛けたクリップのトラック数（クリップが無ければ0） */
-    int GetLastTrackCount() const { return lastTrackCount_; }
+    int GetLastTrackCount() const {
+        return lastTrackCount_;
+    }
     /** @brief 直近の評価で、リグにボーンが見つかって実際に掛けたトラック数 */
-    int GetLastAppliedCount() const { return lastAppliedCount_; }
+    int GetLastAppliedCount() const {
+        return lastAppliedCount_;
+    }
 
 private:
     const MotionClip* clip_ = nullptr;

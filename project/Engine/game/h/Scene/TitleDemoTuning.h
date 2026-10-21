@@ -9,11 +9,21 @@
 #include "Logger.h"
 #include "Vector4.h"
 #include <string>
+#include <vector>
+#include <utility>
+#include <cmath>
 
 namespace engine::game {
 
+/** @brief デモ開始時の的のX座標と空中配置の指定 */
+struct TitleDemoInitialDummy {
+    float x = 0.0f;
+    bool airborne = false;
+};
+
 /** @brief タイトルデモの調整値（初期値はJSONに項目が無い時の既定値） */
 struct TitleDemoTuning {
+    std::vector<TitleDemoInitialDummy> initialDummies = { { 14.0f, false }, { 18.0f, false }, { 26.0f, false }, { 30.0f, false } };
     // 舞台とカメラ
     float stageMinX = 0.0f; ///< 的が歩ける範囲の左端
     float stageMaxX = 44.0f; ///< 的が歩ける範囲の右端
@@ -149,15 +159,42 @@ namespace title_demo_tuning_detail {
         { "effect", "daggerCutSpacing", &TitleDemoTuning::daggerCutSpacing },
     };
 
+    /** @brief タイトルデモの調整値と初期配置を読み、未指定項目には既定値を使う */
     inline TitleDemoTuning Load()
     {
         TitleDemoTuning tuning;
         const nlohmann::json root = engine::JsonHelper::Load(kPath);
-        if (!root.is_object()) {
+        if (!root.is_object())
+        {
             engine::Logger::LogWarning(std::string("TitleDemoTuning: ") + kPath + " が読めません。既定値で動きます");
             return tuning;
         }
         ReadJsonFields(root, kTitleDemoFields, tuning);
+        // 配置の配列が正しければ、的の数も含めて設定ファイルへ追従する
+        if (root.contains("initialDummies") && root["initialDummies"].is_array())
+        {
+            constexpr JsonField<TitleDemoInitialDummy> kDummyFields[] = {
+                { nullptr, "x", &TitleDemoInitialDummy::x },
+                { nullptr, "airborne", &TitleDemoInitialDummy::airborne },
+            };
+            std::vector<TitleDemoInitialDummy> placements;
+            for (const auto& value : root["initialDummies"])
+            {
+                if (!value.is_object() || !value.contains("x") || !value["x"].is_number()
+                    || !std::isfinite(value["x"].get<float>()))
+                {
+                    placements.clear();
+                    break;
+                }
+                TitleDemoInitialDummy placement;
+                ReadJsonFields(value, kDummyFields, placement);
+                placements.push_back(placement);
+            }
+            if (!placements.empty())
+            {
+                tuning.initialDummies = std::move(placements);
+            }
+        }
         return tuning;
     }
 } // namespace title_demo_tuning_detail

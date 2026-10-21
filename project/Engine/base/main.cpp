@@ -1,6 +1,6 @@
 /**
  * @file main.cpp
- * @brief mainのアプリケーション実行基盤の管理に関する具体的な処理を実装するファイル
+ * @brief アプリケーションの入口。クラッシュ時の処理を登録し、ゲームを起動して終了まで回す
  */
 #include "CrashHandler.h"
 #include "D3DResourceLeakChecker.h"
@@ -14,6 +14,7 @@ using namespace engine::game;
 
 // メイン関数
 
+/** @brief 例外処理と診断を初期化してゲームのメインループを実行する */
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
     // 未処理例外が起きてもダンプとログを残せるよう最初に登録する

@@ -57,7 +57,10 @@ public:
      * 描画されて画面に張り付いて見える（Player::RefreshVisualTransformsと同じ理由）
      */
     void RefreshVisualTransforms() override;
-    bool BlocksOtherEnemies() const override { return IsAlive(); }
+    /** @brief 生きている間は他の敵と重ならないように押し合うかを返す */
+    bool BlocksOtherEnemies() const override {
+        return IsAlive();
+    }
 
     /**
      * @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
@@ -77,21 +80,31 @@ public:
     /** @brief 通常行動中（攻撃で倒せる状態）か */
     bool IsAlive() const;
     /** @brief 現在のHPを返す */
-    int GetHp() const override { return hp_; }
+    int GetHp() const override {
+        return hp_;
+    }
     /** @brief 最大HPを返す */
-    int GetMaxHp() const override { return maxHp_; }
+    int GetMaxHp() const override {
+        return maxHp_;
+    }
     /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
     bool IsAwaitingSteal() const;
 
     /**
-     * @brief 武器の吸収を開始するIsAwaitingSteal() が true の時だけ受理する
+     * @brief 武器の吸収を開始する。IsAwaitingSteal() が true の時だけ受け付ける
      * @return 受理して開始したら true（呼び出し側はここでプレイヤーの刺突モーション等を再生する）
      */
     bool TryBeginAbsorb();
 
-    Vector3 GetPosition() const override { return pos_; }
-    /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
-    Vector3& GetPositionRef() override { return pos_; }
+    /** @brief 位置を返す */
+    Vector3 GetPosition() const override {
+        return pos_;
+    }
+    /** @brief 位置を値として受け取りワールド座標を更新する */
+    void SetPosition(const Vector3& position) override {
+        pos_ = position;
+    }
+    /** @brief 当たり判定の箱を返す */
     AABB GetAABB() const
     {
         return { { pos_.x - kHitBoxHalfWidth, pos_.y - kHitBoxBelow, -kHitBoxHalfDepth },
@@ -105,20 +118,33 @@ private:
     /** @brief ナイトの状態を抽象化する基底（状態はステートレスで、全ナイトが同じインスタンスを共有する） */
     class IState {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~IState() = default;
         /** @brief 状態固有の1フレーム分の処理と遷移判定 */
         virtual void Update(KnightEnemy& knight, ParticleManager* pm, const Vector3& playerPos) const = 0;
         /** @brief 攻撃で倒せる生存中の状態か */
-        virtual bool IsAlive() const { return true; }
+        virtual bool IsAlive() const {
+            return true;
+        }
         /** @brief 攻撃モーションを再生する状態か（それ以外は待機モーション） */
-        virtual bool PlaysAttackAnimation() const { return false; }
+        virtual bool PlaysAttackAnimation() const {
+            return false;
+        }
         /** @brief 撃破後、武器を奪われるのを待っている状態か */
-        virtual bool IsAwaitingSteal() const { return false; }
+        virtual bool IsAwaitingSteal() const {
+            return false;
+        }
         /** @brief 本体と剣を立ち位置へ配置する（吸収演出中のように独自の軌道で動かす状態は何もしない） */
-        virtual void ApplyTransforms(KnightEnemy& knight) const { knight.ApplyStandingTransforms(false); }
+        virtual void ApplyTransforms(KnightEnemy& knight) const {
+            knight.ApplyStandingTransforms(false);
+        }
         /** @brief 描画するか */
-        virtual bool IsVisible() const { return true; }
+        virtual bool IsVisible() const {
+            return true;
+        }
     };
+    class AttackState;
+    class FallenState;
     class IdleState;
     class TelegraphState;
     class DashState;

@@ -1,15 +1,17 @@
 /**
  * @file LevelLoader.h
- * @brief LevelLoaderのレベルデータの読込、編集、実体生成に関する公開型と操作インターフェースを定義するファイル
+ * @brief レベルデータの型と、レベルファイルの読み込み・保存・実体の生成（LevelLoader）の宣言
  */
 #pragma once
 #include "MakeAffine.h"
 #include "ObjectKind.h"
+#include <cmath>
 #include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <type_traits>
 
 namespace engine::graphics {
 class ModelCommon;
@@ -50,10 +52,12 @@ inline constexpr SpawnTypeDef kSpawnTypes[] = {
     { "knight", "ナイト", true },
 };
 /** @brief spawnType の文字列から kSpawnTypes の添字を引く（無ければ -1） */
-inline int FindSpawnTypeIndex(std::string_view name)
+inline int FindSpawnTypeIndex(const std::string_view& name)
 {
-    for (int i = 0; i < static_cast<int>(std::size(kSpawnTypes)); ++i) {
-        if (name == kSpawnTypes[i].name) {
+    for (int i = 0; i < static_cast<int>(std::size(kSpawnTypes)); ++i)
+    {
+        if (name == kSpawnTypes[i].name)
+        {
             return i;
         }
     }
@@ -76,11 +80,15 @@ inline constexpr int kMaxParentDepth = 16;
  * @param names    enum の並び順に並べた文字列表
  * @param fallback 未知の文字列だった時の値
  */
+/** @brief 名前の表から列挙値を探す（無ければ fallback を返す） */
 template <class E, size_t N>
 E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallback)
 {
-    for (size_t i = 0; i < N; ++i) {
-        if (name == names[i]) {
+    static_assert(std::is_enum_v<E>);
+    for (size_t i = 0; i < N; ++i)
+    {
+        if (name == names[i])
+        {
             return static_cast<E>(i);
         }
     }
@@ -91,6 +99,7 @@ E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallb
 template <class E, size_t N>
 const char* LevelEnumName(E value, const char* const (&names)[N])
 {
+    static_assert(std::is_enum_v<E>);
     const size_t index = static_cast<size_t>(value);
     return index < N ? names[index] : names[0];
 }
@@ -167,6 +176,129 @@ struct ObjectDesc {
     TextSpace textSpace = TextSpace::Screen;
 };
 
+/**
+ * @brief desc から親を順にたどり、見つかった親ごとに visit を呼ぶ（循環参照は深さ上限で打ち切る）
+ * @param findParent 親の名前から配置情報を引く関数（見つからなければ nullptr を返す）
+ * @param visit      たどった親ごとに呼ぶ関数（近い親から順）
+ */
+template <class FindParent, class Visit>
+void VisitParentChain(const ObjectDesc& desc, const FindParent& findParent, const Visit& visit)
+{
+    const ObjectDesc* cur = &desc;
+    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard)
+    {
+        const ObjectDesc* parent = findParent(cur->parent);
+        if (parent == nullptr)
+        {
+            break;
+        }
+        visit(*parent);
+        cur = parent;
+    }
+}
+
+/** @brief local を Z 軸まわりに angleZ だけ回し、offset を足した位置を返す（親1段ぶんの座標の移し替え） */
+inline Vector3 RotateZAndOffset(const Vector3& local, float angleZ, const Vector3& offset)
+{
+    const float c = std::cos(angleZ);
+    const float s = std::sin(angleZ);
+    return { local.x * c - local.y * s + offset.x, local.x * s + local.y * c + offset.y, local.z + offset.z };
+}
+
+/**
+ * @brief 親をたどって desc のワールド位置を求める（親ごとに、親のZ回転で回してから親の位置を足す）
+ * @param findParent 親の名前から配置情報を引く関数（見つからなければ nullptr を返す）
+ */
+template <class FindParent>
+Vector3 ResolveWorldPosition(const ObjectDesc& desc, const FindParent& findParent)
+{
+    Vector3 result = desc.position;
+    VisitParentChain(desc, findParent, [&](const ObjectDesc& parent) {
+        result = RotateZAndOffset(result, parent.rotation.z, parent.position);
+    });
+    return result;
+}
+
+/**
+ * @brief ワールド位置 world を、desc の親から見た位置へ直す（ResolveWorldPosition の逆。親が無ければそのまま返す）
+ * @param findParent 親の名前から配置情報を引く関数（見つからなければ nullptr を返す）
+ */
+template <class FindParent>
+Vector3 ResolveLocalPosition(const ObjectDesc& desc, const Vector3& world, const FindParent& findParent)
+{
+    const ObjectDesc* parent = desc.parent.empty() ? nullptr : findParent(desc.parent);
+    if (parent == nullptr)
+    {
+        return world;
+    }
+    // 親から見た向きは、先祖すべての Z 回転の合計になる（Z軸まわりだけなので足し合わせればよい）
+    float angleZ = 0.0f;
+    VisitParentChain(desc, findParent, [&](const ObjectDesc& ancestor) {
+        angleZ += ancestor.rotation.z;
+    });
+    // 親のワールド位置からのずれを、その向きの分だけ逆に回す
+    const Vector3 parentWorld = ResolveWorldPosition(*parent, findParent);
+    const Vector3 offset = { world.x - parentWorld.x, world.y - parentWorld.y, world.z - parentWorld.z };
+    return RotateZAndOffset(offset, -angleZ, { });
+}
+
+/** @brief 配列配置の軸名と位置ベクトル内の対象成分 */
+struct PlacementAxis {
+    char name;
+    float Vector3::* member;
+};
+inline constexpr PlacementAxis kPlacementAxes[] = {
+    { 'x', &Vector3::x }, { 'y', &Vector3::y }, { 'z', &Vector3::z },
+};
+
+/** @brief 配列配置に使う軸の添字を返す。未知の軸はXとして扱う */
+inline size_t PlacementAxisIndex(char axis)
+{
+    for (size_t i = 0; i < std::size(kPlacementAxes); ++i)
+    {
+        if (axis == kPlacementAxes[i].name)
+        {
+            return i;
+        }
+    }
+    return 0;
+}
+
+/** @brief 配置方式の定義表から生成個数を求める */
+inline int PlacementCopyCount(const ObjectDesc& desc)
+{
+    using Count = int (*)(const ObjectDesc&);
+    static constexpr Count kCounts[] = {
+        [](const ObjectDesc&) {
+            return 1;
+        },
+        [](const ObjectDesc& row) {
+            return row.count;
+        },
+    };
+    const size_t index = static_cast<size_t>(desc.type);
+    return index < std::size(kCounts) ? kCounts[index](desc) : 1;
+}
+
+/** @brief 配置方式と軸の定義表から指定インスタンスのワールド座標を求める */
+inline Vector3 PlacementInstancePosition(const ObjectDesc& desc, const Vector3& basePosition, int instanceIndex)
+{
+    using Offset = float (*)(const ObjectDesc&, int);
+    static constexpr Offset kOffsets[] = {
+        [](const ObjectDesc&, int) {
+            return 0.0f;
+        },
+        [](const ObjectDesc& row, int index) {
+            return row.step * static_cast<float>(index);
+        },
+    };
+    const size_t type = static_cast<size_t>(desc.type);
+    Vector3 position = basePosition;
+    const auto member = kPlacementAxes[PlacementAxisIndex(desc.axis)].member;
+    position.*member += type < std::size(kOffsets) ? kOffsets[type](desc, instanceIndex) : 0.0f;
+    return position;
+}
+
 // JSON の1エントリに対応するトリガー定義
 // プレイヤーが半径radius以内に入ると、flagで指定した名前のフラグをvalueにする（GameFlags参照）
 // 実際の分岐ロジックはノードグラフ側（GetFlag→If）が担当し、トリガーはフラグを立てるだけに徹する
@@ -213,10 +345,12 @@ public:
      */
     bool Update(const Vector3& playerPosition)
     {
-        if (!checkpoints_) {
+        if (!checkpoints_)
+        {
             return false;
         }
-        for (size_t i = 0; i < checkpoints_->size(); ++i) {
+        for (size_t i = 0; i < checkpoints_->size(); ++i)
+        {
             const CheckpointDesc& checkpoint = (*checkpoints_)[i];
             const Vector3 delta = {
                 playerPosition.x - checkpoint.position.x,
@@ -225,7 +359,8 @@ public:
             };
             const float distanceSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
             if (distanceSquared <= checkpoint.activationRadius * checkpoint.activationRadius
-                && activeIndex_ != static_cast<int>(i)) {
+                && activeIndex_ != static_cast<int>(i))
+            {
                 activeIndex_ = static_cast<int>(i);
                 respawnPosition_ = checkpoint.position;
                 return true;
@@ -235,10 +370,14 @@ public:
     }
 
     /** @brief 現在の復帰地点を返す */
-    const Vector3& GetRespawnPosition() const { return respawnPosition_; }
+    const Vector3& GetRespawnPosition() const {
+        return respawnPosition_;
+    }
 
     /** @brief 最後に有効化したチェックポイント番号を返す */
-    int GetActiveIndex() const { return activeIndex_; }
+    int GetActiveIndex() const {
+        return activeIndex_;
+    }
 
 private:
     const std::vector<CheckpointDesc>* checkpoints_ = nullptr;
@@ -296,6 +435,16 @@ namespace LevelLoader {
      * @return 生成したModel/Object3dの所有権を持つ結果
      */
     LevelSpawnResult Spawn(const LevelData& data, engine::graphics::ModelCommon* modelCommon);
+
+    /**
+     * @brief 配置情報の回転・拡縮・ライティングで、見た目のオブジェクトを1つ作る
+     * @param modelCommon モデル描画の共通設定
+     * @param model 表示するモデル
+     * @param desc 回転・拡縮・ライティングを取る配置情報
+     * @param position 置く位置（列配置の各実体や親子の合成後の位置）
+     */
+    std::unique_ptr<engine::graphics::Object3d> CreatePlacedObject(engine::graphics::ModelCommon* modelCommon,
+        engine::graphics::Model* model, const ObjectDesc& desc, const Vector3& position);
 }
 
 } // namespace engine::game

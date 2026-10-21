@@ -5,10 +5,13 @@
  */
 #pragma once
 #include "Object3d.h"
+#include "GameConstants.h"
 #include "Skeleton.h"
 #include "Vector3.h"
 #include "Weapon.h"
 #include <MakeAffine.h>
+#include <iterator>
+#include <string>
 
 namespace engine::game {
 using engine::graphics::Object3d;
@@ -40,13 +43,13 @@ struct RigVisualDef {
 
 // 通常フォーム: マテリアル単色を焼き込んだパレットテクスチャ（UVは変換時にブロック中心へ書き換え済み）
 // モデル身長は約2.93。スケールは当たり判定(1x1x1 AABB)の高さに合わせる
-constexpr RigVisualDef kNormalRigVisual = {
+inline constexpr RigVisualDef kNormalRigVisual = {
     "Resources/AlienAnimated/glTF",
     "Alien.gltf",
     "Resources/AlienAnimated/glTF/AlienPalette.png",
     "Resources/AlienAnimated/OBJ/Alien.obj",
-    0.34f,
-    -0.5f,
+    0.34f, // scale
+    -0.5f, // offsetY
     "Palm.R",
     "Palm.L",
     "Alien_Idle",
@@ -64,13 +67,13 @@ constexpr RigVisualDef kNormalRigVisual = {
 // 通常フォームよりひと回り大きく見せる（当たり判定は変えない）
 // Swim/IdleHold/RunningJump 相当のモーションが無いため Walk/Idle/Jump で代用。
 // 手のボーンは指ごとに分かれているため、人差し指の付け根（PalmI.*）に武器を握らせる
-constexpr RigVisualDef kAwakenedRigVisual = {
+inline constexpr RigVisualDef kAwakenedRigVisual = {
     "Resources/AnimatedMechPack/Textured/glTF",
     "Mike.gltf",
     "Resources/AnimatedMechPack/Textured/Textures/Mike_Texture.png",
     "Resources/AnimatedMechPack/Textured/OBJ/Mike.obj",
-    0.22f,
-    -0.5f,
+    0.22f, // scale
+    -0.5f, // offsetY
     "PalmI.R",
     "PalmI.L",
     "Idle",
@@ -84,11 +87,38 @@ constexpr RigVisualDef kAwakenedRigVisual = {
     "Punch",
 };
 
+// プレイヤーの見た目プリセットはリグの定義から参照する
+inline constexpr const RigVisualDef* kPlayerVisualPresets[] = { &kNormalRigVisual, &kAwakenedRigVisual };
+
+/** @brief モデルパスに対応するリグのプリセット番号を返し、未登録なら-1を返す */
+inline int FindPlayerVisualPreset(const std::string& modelPath)
+{
+    for (size_t index = 0; index < std::size(kPlayerVisualPresets); ++index)
+    {
+        if (modelPath.find(kPlayerVisualPresets[index]->file) != std::string::npos)
+        {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
+/** @brief プリセット番号から表示用のモデルパスを組み立てる */
+inline std::string PlayerVisualPresetModelPath(int preset)
+{
+    if (preset < 0 || static_cast<size_t>(preset) >= std::size(kPlayerVisualPresets))
+    {
+        return {};
+    }
+    const RigVisualDef& visual = *kPlayerVisualPresets[preset];
+    return std::string(visual.dir) + "/" + visual.file;
+}
+
 // 全武器共通の拡大率（画面上で小さく見えづらかったため、各武器の基準スケールに一律で掛けている。
 // 見た目の大きさを変えたい時はここだけ調整すればよい）
 constexpr float kWeaponScaleBoost = 2.0f;
 
-constexpr float kMeleeYaw180 = 3.14159265f;
+constexpr float kMeleeYaw180 = GameConstants::kPi;
 
 /** @brief 近接武器1種ぶんのモデルパスと、手ボーンへ握らせる際のローカルスケール/回転/位置 */
 struct HeldWeaponVisual {
@@ -135,8 +165,10 @@ constexpr int kHeldWeaponVisualCount = static_cast<int>(sizeof(kHeldWeaponVisual
 /** @brief 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うタイプか */
 constexpr bool UsesHoldPose(WeaponType type)
 {
-    for (const HeldWeaponVisual& visual : kHeldWeaponVisuals) {
-        if (visual.type == type) {
+    for (const HeldWeaponVisual& visual : kHeldWeaponVisuals)
+    {
+        if (visual.type == type)
+        {
             return visual.holdPose;
         }
     }
@@ -157,7 +189,7 @@ struct GunVisual {
     Vector3 gripRotate; // ラジアン
     Vector3 gripTranslate;
 };
-constexpr float kGunYaw90 = 3.14159265f / 2.0f;
+constexpr float kGunYaw90 = GameConstants::kHalfPi;
 constexpr float kGunYaw180 = kGunYaw90 * 2.0f;
 // gripScaleの基準値は剣等と同じ最終見た目基準に合わせてあり、kWeaponScaleBoostも共通で適用される
 constexpr GunVisual kGunVisuals[] = {
@@ -182,13 +214,14 @@ constexpr int kGunVisualCount = static_cast<int>(sizeof(kGunVisuals) / sizeof(kG
 inline void AttachToBone(Object3d* obj, const Skeleton& skel, const Matrix4x4& rootWorld,
     const char* boneName, const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate)
 {
-    auto jt = skel.GetJointMap().find(boneName);
-    if (jt == skel.GetJointMap().end()) {
+    const auto jointIndex = skel.FindJointIndex(boneName);
+    if (!jointIndex)
+    {
         return;
     }
 
     Matrix4x4 grip = MakeAffineMatrix(gripScale, gripRotate, gripTranslate);
-    Matrix4x4 world = Multiply(grip, Multiply(skel.GetJoints()[jt->second].skeletonSpaceMatrix, rootWorld));
+    Matrix4x4 world = Multiply(grip, Multiply(skel.GetJoint(*jointIndex).skeletonSpaceMatrix, rootWorld));
     obj->SetLocalMatrix(world);
     obj->Update();
 }

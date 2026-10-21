@@ -1,13 +1,15 @@
 /**
  * @file GrayscaleEffect.h
- * @brief GrayscaleEffectの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
+ * @brief 画面を白黒にするポストエフェクト（GrayscaleEffect）の宣言
  */
 #pragma once
 #include "PostEffectFullscreenPass.h"
 namespace engine::graphics {
 
+/** @brief 画面の彩度を落とすポストエフェクトを適用する */
 class GrayscaleEffect : public PostEffectFullscreenPass {
 public:
+    /** @brief 共有インスタンスを取得する */
     static GrayscaleEffect* GetInstance()
     {
         static GrayscaleEffect instance;
@@ -20,6 +22,7 @@ public:
      * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
+    /** @brief グレースケールの描画資源を解放する */
     void Finalize()
     {
         // オフスクリーンRTV・定数バッファ・PSOを解放する
@@ -39,6 +42,7 @@ public:
     float GetAmount() const;
 
 private:
+    /** @brief グレースケール描画資源が未確保の状態を作る */
     GrayscaleEffect() = default;
 
     /**

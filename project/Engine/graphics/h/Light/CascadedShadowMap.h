@@ -1,6 +1,6 @@
 /**
  * @file CascadedShadowMap.h
- * @brief CascadedShadowMapの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief 3段のカスケードシャドウマップ（CascadedShadowMap）の宣言
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -27,6 +27,7 @@ namespace engine::graphics {
  */
 class CascadedShadowMap {
 public:
+    /** @brief 共有インスタンスを取得する */
     static CascadedShadowMap* GetInstance()
     {
         static CascadedShadowMap inst;
@@ -81,7 +82,10 @@ public:
      */
     void SetCascadeDataCBV(ID3D12GraphicsCommandList* cmd, uint32_t slot);
 
-    Matrix4x4 GetCascadeVP(uint32_t i) const { return cascadeVP_[i]; }
+    /** @brief 指定したカスケードのビュー・プロジェクション行列を返す */
+    Matrix4x4 GetCascadeVP(uint32_t i) const {
+        return cascadeVP_[i];
+    }
 
     // ダミーバッファアドレス（SpriteCommon 等のスロットバインド用）
     D3D12_GPU_VIRTUAL_ADDRESS GetDummyCBVAddress() const
@@ -90,7 +94,9 @@ public:
     }
 
 private:
+    /** @brief カスケードの既定設定と未確保の描画資源を作る */
     CascadedShadowMap() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~CascadedShadowMap() = default;
     CascadedShadowMap(const CascadedShadowMap&) = delete;
     CascadedShadowMap& operator=(const CascadedShadowMap&) = delete;
@@ -127,7 +133,7 @@ private:
 
     Matrix4x4 cascadeVP_[kNumCascades] = { };
 
-    // 各カスケードの固定正射影パラメータ
+    // 各カスケードの正射影パラメータ（JSONで初期化）
     /**
      * @brief 1カスケード分の正射影パラメータ（幅・高さ・near/far）とカメラ距離スプリット値
      */
@@ -138,7 +144,7 @@ private:
         float farZ;
         float splitDist;
     };
-    static constexpr CascadeConfig kCascadeConfigs[kNumCascades] = {
+    CascadeConfig cascadeConfigs_[kNumCascades] = {
         { 14.0f, 10.0f, 0.1f, 30.0f, 12.0f }, // near cascade
         { 28.0f, 18.0f, 0.1f, 55.0f, 30.0f }, // mid cascade
         { 42.0f, 27.0f, 0.1f, 85.0f, 80.0f }, // far cascade

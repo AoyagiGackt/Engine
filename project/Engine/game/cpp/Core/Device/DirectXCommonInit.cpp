@@ -1,9 +1,10 @@
 /**
  * @file DirectXCommonInit.cpp
  * @brief DirectXCommonのデバイス・コマンド・スワップチェーン・深度バッファ・フェンス等の生成処理を実装するファイル
- * @note DirectXCommon.cppからの分割ファイルクラス自体はDirectXCommonのまま、定義の置き場所だけを分けている
+ * @note DirectXCommon の起動時の生成処理だけを DirectXCommon.cpp から分けて置いている（クラスは DirectXCommon のまま）
  */
 #include "DirectXCommon.h"
+#include "TextBufferCapacity.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"
 #include "Input.h"
@@ -12,7 +13,6 @@
 #include "WinApp.h"
 #include <format>
 #include <string>
-using namespace engine;
 
 using Microsoft::WRL::ComPtr;
 
@@ -23,6 +23,8 @@ using Microsoft::WRL::ComPtr;
 // DirectXリソース生成
 // ══════════════════════════════════════════════════════
 
+namespace engine {
+/** @brief DXGIファクトリーとD3D12デバイスを生成する */
 void DirectXCommon::InitializeDevice()
 {
     HRESULT hr;
@@ -30,7 +32,8 @@ void DirectXCommon::InitializeDevice()
     // GPU停止時に直前のコマンド履歴とページフォルト情報を取得できるようにする
     // DREDはデバイス生成後には有効化できないため、デバッグレイヤーと同時に設定する
     ComPtr<ID3D12DeviceRemovedExtendedDataSettings1> dredSettings;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings)))) {
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings))))
+    {
         dredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         dredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         dredSettings->SetBreadcrumbContextEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
@@ -38,12 +41,13 @@ void DirectXCommon::InitializeDevice()
 
     ComPtr<ID3D12Debug1> validationController = nullptr;
 
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&validationController)))) {
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&validationController))))
+    {
         validationController->EnableDebugLayer();
 
         // GPU検証は負荷が大きいため通常のDebug実行では無効にする
         // 詳細なシェーダー検証が必要な場合だけENGINE_GPU_VALIDATIONを設定して有効にする
-        wchar_t gpuValidationValue[2] = { };
+        wchar_t gpuValidationValue[TextBufferCapacity::kCharacter] = { };
         const bool enableGpuValidation = GetEnvironmentVariableW(L"ENGINE_GPU_VALIDATION", gpuValidationValue, 2) > 0
             && gpuValidationValue[0] != L'0';
         validationController->SetEnableGPUBasedValidation(enableGpuValidation ? TRUE : FALSE);
@@ -57,12 +61,14 @@ void DirectXCommon::InitializeDevice()
     ENGINE_ASSERT(SUCCEEDED(hr));
 
     ComPtr<IDXGIAdapter4> useAdapter = nullptr;
-    for (UINT i = 0; dxgiFactory_->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter)) != DXGI_ERROR_NOT_FOUND; ++i) {
+    for (UINT i = 0; dxgiFactory_->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter)) != DXGI_ERROR_NOT_FOUND; ++i)
+    {
         DXGI_ADAPTER_DESC3 adapterDesc { };
         hr = useAdapter->GetDesc3(&adapterDesc);
         ENGINE_ASSERT(SUCCEEDED(hr));
 
-        if (!(adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
+        if (!(adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
+        {
             Logger::Log(StringUtility::ConvertString(std::format(L"USE Adapter:{}", adapterDesc.Description)));
             break;
         }
@@ -74,10 +80,12 @@ void DirectXCommon::InitializeDevice()
 
     D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_12_2, D3D_FEATURE_LEVEL_12_1, D3D_FEATURE_LEVEL_12_0 };
     const char* featureLevelStrings[] = { "12.2", "12.1", "12.0" };
-    for (size_t i = 0; i < _countof(featureLevels); ++i) {
+    for (size_t i = 0; i < _countof(featureLevels); ++i)
+    {
         hr = D3D12CreateDevice(useAdapter.Get(), featureLevels[i], IID_PPV_ARGS(&device_));
 
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             Logger::Log((std::format("Feature Level: {}", featureLevelStrings[i])));
             break;
         }
@@ -88,7 +96,8 @@ void DirectXCommon::InitializeDevice()
 #ifdef _DEBUG
     // ERROR/CORRUPTIONメッセージが出た瞬間にその場でブレークさせる
     // （出力ウィンドウに流れるだけだと見逃し、原因のドローコールから離れた場所で気づくことになるため）
-    if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue_)))) {
+    if (SUCCEEDED(device_->QueryInterface(IID_PPV_ARGS(&infoQueue_))))
+    {
         infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
         infoQueue_->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
         infoQueue_->RegisterMessageCallback(
@@ -99,6 +108,7 @@ void DirectXCommon::InitializeDevice()
 }
 
 #ifdef _DEBUG
+/** @brief D3D12デバッグレイヤーのメッセージをエンジンログへ転送する */
 void CALLBACK DirectXCommon::DiagnosticsMessageCallback(
     D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity,
     D3D12_MESSAGE_ID id, LPCSTR description, void* context)
@@ -109,14 +119,18 @@ void CALLBACK DirectXCommon::DiagnosticsMessageCallback(
         self ? self->diagnosticContext_ : "unknown", description ? description : "no description");
 
     if (severity == D3D12_MESSAGE_SEVERITY_ERROR
-        || severity == D3D12_MESSAGE_SEVERITY_CORRUPTION) {
+        || severity == D3D12_MESSAGE_SEVERITY_CORRUPTION)
+    {
         Logger::LogError(message);
-    } else if (severity == D3D12_MESSAGE_SEVERITY_WARNING) {
+    }
+    else if (severity == D3D12_MESSAGE_SEVERITY_WARNING)
+    {
         Logger::LogWarning(message);
     }
 }
 #endif
 
+/** @brief コマンドキュー・コマンドアロケーター・コマンドリストを生成する */
 void DirectXCommon::CreateCommand()
 {
     HRESULT hr;
@@ -124,7 +138,8 @@ void DirectXCommon::CreateCommand()
     hr = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    for (UINT i = 0; i < kFrameCount; ++i) {
+    for (UINT i = 0; i < kFrameCount; ++i)
+    {
         hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocators_[i]));
         ENGINE_ASSERT(SUCCEEDED(hr));
     }
@@ -135,11 +150,13 @@ void DirectXCommon::CreateCommand()
     commandList_->Close();
 }
 
+/** @brief RTV・DSV用のディスクリプタヒープを生成する */
 void DirectXCommon::CreateDescriptorHeaps()
 {
     rtvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 }
 
+/** @brief スワップチェーンを生成する */
 void DirectXCommon::CreateSwapChain()
 {
     HRESULT hr;
@@ -148,7 +165,8 @@ void DirectXCommon::CreateSwapChain()
     // （対応していない環境ではVSyncオフでもPresent間隔0のまま=実質VSyncオンと同じ挙動になる）
     BOOL allowTearing = FALSE;
     if (SUCCEEDED(dxgiFactory_->CheckFeatureSupport(
-            DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing)))) {
+            DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing))))
+    {
         tearingSupported_ = (allowTearing != FALSE);
     }
 
@@ -171,6 +189,7 @@ void DirectXCommon::CreateSwapChain()
     ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
+/** @brief オフスクリーン描画用の深度バッファを生成する */
 void DirectXCommon::CreateDepthBuffer()
 {
     // 深度ステンシルテクスチャの設定
@@ -212,6 +231,7 @@ void DirectXCommon::CreateDepthBuffer()
         dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
 }
 
+/** @brief バックバッファへ直接描く時に使う深度バッファを生成する */
 void DirectXCommon::CreateBackBufferDepthBuffer()
 {
     // 直接描画は中央へオフセットするため、深度もバックバッファ全体を覆う。
@@ -231,7 +251,8 @@ void DirectXCommon::CreateBackBufferDepthBuffer()
     hr = device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&backBufferDepthResource_));
     ENGINE_ASSERT(SUCCEEDED(hr));
-    if (!backBufferDsvHeap_) {
+    if (!backBufferDsvHeap_)
+    {
         backBufferDsvHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
     }
     D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
@@ -240,6 +261,7 @@ void DirectXCommon::CreateBackBufferDepthBuffer()
     device_->CreateDepthStencilView(backBufferDepthResource_.Get(), &view, GetBackBufferDsvHandle());
 }
 
+/** @brief バックバッファのRTVを生成する */
 void DirectXCommon::CreateRTV()
 {
     HRESULT hr;
@@ -261,6 +283,7 @@ void DirectXCommon::CreateRTV()
     device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
 }
 
+/** @brief GPUとの同期に使うフェンスとイベントを生成する */
 void DirectXCommon::CreateFence()
 {
     HRESULT hr;
@@ -272,6 +295,7 @@ void DirectXCommon::CreateFence()
     ENGINE_ASSERT(fenceEvent_ != nullptr);
 }
 
+/** @brief シェーダーコンパイラ（DXC）を初期化する */
 void DirectXCommon::InitializeDXC()
 {
     HRESULT hr;
@@ -288,12 +312,14 @@ void DirectXCommon::InitializeDXC()
     ENGINE_ASSERT(SUCCEEDED(hr));
 }
 
+/** @brief FPS固定用に基準時刻を記録する */
 void DirectXCommon::InitializeFixFPS()
 {
     // 現在時間を記録する
     reference_ = std::chrono::steady_clock::now();
 }
 
+/** @brief 1フレームの目標時間に達するまで待ってFPSを固定する */
 void DirectXCommon::UpdateFixFPS()
 {
 
@@ -307,9 +333,11 @@ void DirectXCommon::UpdateFixFPS()
     std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - reference_);
 
     // 60フレーム立っていない場合
-    if (elapsed < kMinCheckTime) {
+    if (elapsed < kMinCheckTime)
+    {
         // 60フレームになるまで微小なスリープを繰り返す
-        while (std::chrono::steady_clock::now() - reference_ < kMinTime) {
+        while (std::chrono::steady_clock::now() - reference_ < kMinTime)
+        {
             // 1マイクロ秒スリープ
             std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
@@ -318,3 +346,5 @@ void DirectXCommon::UpdateFixFPS()
     // 現在時間を記録する
     reference_ = std::chrono::steady_clock::now();
 }
+
+} // namespace engine

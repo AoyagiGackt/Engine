@@ -1,8 +1,10 @@
 /**
  * @file Object3d.cpp
- * @brief Object3dの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief 3Dオブジェクト（Object3d）の行列・マテリアルの更新と描画の実装
  */
 #include "Object3d.h"
+#include "PipelineHelper.h"
+#include "ResourceAlignment.h"
 #include "Camera.h"
 #include "LightManager.h"
 #include "LightingMode.h"
@@ -15,17 +17,25 @@
 #include "TextureManager.h"
 #include <cmath>
 
+namespace engine::graphics {
 namespace {
 
 // マテリアルの初期値
 constexpr engine::graphics::ObjectMaterialLayout kDefaultMaterial {};
 
-// 定数バッファの配置境界
-constexpr unsigned int kConstantBufferAlignment = 256;
+/** @brief 変換行列だけを指定スロットへ束縛し、材質を伴わないパスでモデル形状を描画する */
+void DrawGeometryWithTransform(Model* model, ModelCommon* common, ID3D12Resource* transform, UINT slot)
+{
+    if (!model)
+    {
+        return;
+    }
+    ID3D12GraphicsCommandList* commandList = common->GetDxCommon()->GetCommandList();
+    commandList->SetGraphicsRootConstantBufferView(slot, transform->GetGPUVirtualAddress());
+    model->DrawGeometryOnly(common);
+}
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
@@ -34,55 +44,40 @@ Matrix4x4 Object3d::commonLightVP_ = MakeIdentity4x4();
 Object3dCommon* Object3d::commonObjectCommon_ = nullptr;
 ShadowManager* Object3d::commonShadowManager_ = nullptr;
 
+/** @brief ライト・シャドウマップのルート引数を再バインドする */
 void Object3d::RebindCommonLighting(ID3D12GraphicsCommandList* cmd)
 {
     // OutlineEffect 等でルートシグネチャを切り替えた後、CommonDrawSettings() で
     // 通常のルートシグネチャに戻しただけではライト/シャドウマップのスロットは未初期化のまま
     // （ルートシグネチャの切り替えは全スロットの束縛を破棄するため）。ここで再バインドする
-    if (commonObjectCommon_) {
-        commonObjectCommon_->SetDefaultLight(cmd);
-    }
-    if (commonShadowManager_) {
-        commonShadowManager_->SetShadowMap(cmd, SrvManager::GetInstance());
-    }
+    PipelineHelper::BindCommonLighting(cmd, commonObjectCommon_, commonShadowManager_);
 }
 
+/** @brief 全てのObject3dで共通して使用するデフォルトカメラを設定する */
 void Object3d::SetCommonCamera(Camera* camera)
 {
     commonCamera_ = camera;
 }
 
+/** @brief 全 Object3d で共通して使うライト空間行列を設定する（毎フレーム GamePlayScene から呼ぶ） */
 void Object3d::SetLightViewProjection(const Matrix4x4& lvp)
 {
     commonLightVP_ = lvp;
 }
 
+/** @brief オブジェクトの初期化GPUに送るための定数バッファ（WVPやマテリアル用）を生成する */
 void Object3d::Initialize(ModelCommon* modelCommon)
 {
     modelCommon_ = modelCommon;
     ID3D12Device* device = modelCommon_->GetDxCommon()->GetDevice();
 
-    // Transform用リソース作成
-    D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
-    D3D12_RESOURCE_DESC resDesc { };
-    resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    // CBV は 256 バイトアライン必須なので切り上げる
-    resDesc.Width = (sizeof(TransformationMatrix) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
-    resDesc.Height = 1;
-    resDesc.DepthOrArraySize = 1;
-    resDesc.MipLevels = 1;
-    resDesc.SampleDesc.Count = 1;
-    resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&transformationMatrixResource_));
+    // Transform用リソース作成（CBV は 256 バイトアライン必須なので切り上げる）
+    transformationMatrixResource_ = PipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(TransformationMatrix)));
     transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
     *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 
     // Material用リソース作成
-    resDesc.Width = sizeof(ObjectMaterialLayout);
-    device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&materialResource_));
+    materialResource_ = PipelineHelper::CreateUploadBuffer(device, sizeof(ObjectMaterialLayout));
     materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 
     materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -104,6 +99,7 @@ void Object3d::Initialize(ModelCommon* modelCommon)
     materialData_->roughness = 0.5f;
 }
 
+/** @brief 毎フレームの更新処理トランスフォームからワールド行列とWVP行列を計算する */
 void Object3d::Update()
 {
     Matrix4x4 worldMatrix = useLocalMatrix_
@@ -116,7 +112,8 @@ void Object3d::Update()
     // カメラがあればカメラから行列をもらう
     Camera* camera = camera_ ? camera_ : commonCamera_;
 
-    if (camera) {
+    if (camera)
+    {
         viewMatrix = camera->GetViewMatrix();
         projectionMatrix = camera->GetProjectionMatrix();
         // カメラのワールド座標をマテリアルに書き込む（スペキュラ計算に使用）
@@ -133,7 +130,8 @@ void Object3d::Update()
     transformationMatrixData_->LightVP = commonLightVP_;
 
     // 毎フレームライティングモードをマテリアルに反映させる（ロック済みオブジェクトは除外）
-    if (!lockShadingType_) {
+    if (!lockShadingType_)
+    {
         materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
     }
 
@@ -141,58 +139,52 @@ void Object3d::Update()
     collider_.aabb.max = { transform_.translate.x + 0.5f, transform_.translate.y + 0.5f, transform_.translate.z + 0.5f };
 }
 
+/** @brief シャドウパス用の描画（テクスチャなし・深度のみ） */
 void Object3d::DrawShadow()
 {
-    if (!model_) {
-        return;
-    }
-
-    ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
-    // シャドウパス用ルートシグネチャはスロット 0 に TransformationMatrix を期待する
-    commandList->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
-    model_->DrawGeometryOnly(modelCommon_);
+    DrawGeometryWithTransform(model_, modelCommon_, transformationMatrixResource_.Get(), PipelineHelper::ShadowRootSlot::kTransform);
 }
 
+/** @brief WVP行列のみをバインドしてジオメトリだけを描画する（マテリアル/テクスチャなし） */
 void Object3d::DrawForNormalCapture()
 {
-    if (!model_) {
-        return;
-    }
-    ID3D12GraphicsCommandList* cmd = modelCommon_->GetDxCommon()->GetCommandList();
     // NormalCapture RS  slot0 = VS b0 (TransformationMatrix) - DrawShadow と同じスロット配置
-    cmd->SetGraphicsRootConstantBufferView(0, transformationMatrixResource_->GetGPUVirtualAddress());
-    model_->DrawGeometryOnly(modelCommon_);
+    DrawGeometryWithTransform(model_, modelCommon_, transformationMatrixResource_.Get(), PipelineHelper::ShadowRootSlot::kTransform);
 }
 
+/** @brief アウトラインを描く */
 void Object3d::DrawOutline(OutlineEffect* effect)
 {
-    if (!model_ || !effect) {
+    if (!model_ || !effect)
+    {
         return;
     }
-    ID3D12GraphicsCommandList* commandList = modelCommon_->GetDxCommon()->GetCommandList();
-    // slot 1 = TransformationMatrix (VS b1)
-    commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
-    model_->DrawGeometryOnly(modelCommon_);
+    DrawGeometryWithTransform(model_, modelCommon_, transformationMatrixResource_.Get(), PipelineHelper::OutlineRootSlot::kTransform);
 }
 
+/** @brief ファイルパスを指定して、ModelManagerからモデルを検索してセットする */
 void Object3d::SetModel(const std::string& filePath)
 {
     // マネージャーからモデルを検索してセット
     model_ = ModelManager::GetInstance()->FindModel(filePath);
 }
 
+/** @brief 法線マップテクスチャを読み込んで設定し、useNormalMapフラグを有効にする */
 void Object3d::SetNormalMap(const std::string& filePath)
 {
     normalMapFilePath_ = filePath;
     TextureManager::GetInstance()->LoadTexture(filePath);
-    if (materialData_) {
+    if (materialData_)
+    {
         materialData_->useNormalMap = 1;
     }
 }
 
+/** @brief オブジェクトを描画するコマンドを積む */
 void Object3d::Draw()
 {
-    if (!model_) {
+    if (!model_)
+    {
         return;
     }
 
@@ -204,12 +196,14 @@ void Object3d::Draw()
     RebindCommonLighting(commandList);
 
     // マテリアルと座標変換を設定
-    commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-    commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::ModelRootSlot::kMaterial, materialResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::ModelRootSlot::kTransform, transformationMatrixResource_->GetGPUVirtualAddress());
 
     // スロット7: 法線マップ（未設定時は diffuse をダミーとして流用）
     const std::string& normalPath = normalMapFilePath_.empty() ? model_->GetTextureFilePath() : normalMapFilePath_;
-    commandList->SetGraphicsRootDescriptorTable(7, TextureManager::GetInstance()->GetSrvHandleGPU(normalPath));
+    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kNormalMap, TextureManager::GetInstance()->GetSrvHandleGPU(normalPath));
 
     model_->Draw(modelCommon_);
 }
+
+} // namespace engine::graphics

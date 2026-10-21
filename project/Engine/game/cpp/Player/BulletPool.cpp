@@ -1,12 +1,11 @@
 /**
  * @file BulletPool.cpp
- * @brief BulletPoolのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
+ * @brief 弾を使い回して撃つ弾のプール（BulletPool）の実装
  */
 #include "BulletPool.h"
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 constexpr float kBulletScale = 0.35f;
 constexpr Vector4 kBulletColor = { 1.0f, 0.85f, 0.1f, 1.0f };
@@ -19,9 +18,11 @@ constexpr float kBoundsMinY = -1.0f;
 constexpr float kBoundsMaxY = 14.0f;
 }
 
+/** @brief 弾のモデルを受け取り、弾を必要な数だけ用意する */
 void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
 {
-    for (auto& s : slots_) {
+    for (auto& s : slots_)
+    {
         s.obj = std::make_unique<Object3d>();
         s.obj->Initialize(modelCommon);
         s.obj->SetModel(model);
@@ -33,10 +34,13 @@ void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
     }
 }
 
+/** @brief 空いている弾を位置と速度を指定して撃ち出す */
 void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
 {
-    for (auto& s : slots_) {
-        if (!s.active) {
+    for (auto& s : slots_)
+    {
+        if (!s.active)
+        {
             s.pos = pos;
             s.vel = vel;
             s.life = kBulletLifeFrames;
@@ -48,10 +52,13 @@ void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
     }
 }
 
+/** @brief Update に対応する状態を更新する */
 void BulletPool::Update()
 {
-    for (auto& s : slots_) {
-        if (!s.active) {
+    for (auto& s : slots_)
+    {
+        if (!s.active)
+        {
             continue;
         }
 
@@ -59,7 +66,8 @@ void BulletPool::Update()
         s.pos.y += s.vel.y;
         s.life -= 1.0f;
 
-        if (s.pos.x < kBoundsMinX || s.pos.x > kBoundsMaxX || s.pos.y < kBoundsMinY || s.pos.y > kBoundsMaxY || s.life <= 0.0f) {
+        if (s.pos.x < kBoundsMinX || s.pos.x > kBoundsMaxX || s.pos.y < kBoundsMinY || s.pos.y > kBoundsMaxY || s.life <= 0.0f)
+        {
             s.active = false;
             continue;
         }
@@ -69,20 +77,28 @@ void BulletPool::Update()
     }
 }
 
+/** @brief 弾を動かさず、現在のカメラで行列だけ再計算する（ステージエディタ中のカメラ移動用） */
 void BulletPool::RefreshVisualTransforms()
 {
-    for (auto& s : slots_) {
-        if (s.active) {
+    for (auto& s : slots_)
+    {
+        if (s.active)
+        {
             s.obj->Update();
         }
     }
 }
 
+/** @brief Draw に対応する内容を描画する */
 void BulletPool::Draw()
 {
-    for (const auto& s : slots_) {
-        if (s.active) {
+    for (const auto& s : slots_)
+    {
+        if (s.active)
+        {
             s.obj->Draw();
         }
     }
 }
+
+} // namespace engine::game

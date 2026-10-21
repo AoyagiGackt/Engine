@@ -1,6 +1,6 @@
 /**
  * @file ObjectMaterialLayout.h
- * @brief ObjectMaterialLayoutの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief シェーダーへ送るマテリアルの定数バッファの並び
  */
 #pragma once
 #include "MakeAffine.h"

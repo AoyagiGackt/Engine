@@ -9,10 +9,12 @@
 #pragma once
 #include "DirectXCommon.h"
 #include "MakeAffine.h"
+#include <functional>
 #include <wrl/client.h>
 namespace engine::graphics {
 
 class SrvManager;
+class ModelCommon;
 
 /**
  * @brief シャドウマップの生成・管理を担当するクラス
@@ -23,14 +25,10 @@ class SrvManager;
 class ShadowManager {
 public:
     static const UINT kShadowMapSize = 2048; ///< シャドウマップ解像度
-    static constexpr float kSceneCenterX = 15.0f; ///< シャドウ計算用シーン中心 X
-    static constexpr float kSceneCenterY = 5.0f; ///< シャドウ計算用シーン中心 Y
-    static constexpr float kSceneCenterZ = 0.0f; ///< シャドウ計算用シーン中心 Z
-    static constexpr float kLightDistance = 40.0f; ///< ライト位置をシーン中心から引く距離
-    static constexpr float kShadowViewWidth = 40.0f; ///< 平行投影の幅
-    static constexpr float kShadowViewHeight = 25.0f; ///< 平行投影の高さ
-    static constexpr float kShadowNearZ = 0.1f; ///< シャドウ Near 面
-    static constexpr float kShadowFarZ = 80.0f; ///< シャドウ Far 面
+    /** @brief 影の投影が中心にするワールド座標を値で取得する */
+    static Vector3 SceneCenter();
+    /** @brief 共通のシーン中心と距離からライト位置を計算する */
+    static Vector3 LightPosition(const Vector3& lightDirection);
 
     /**
      * @brief 初期化（シャドウマップリソース・DSV・SRV を作成）
@@ -56,12 +54,23 @@ public:
     void EndShadowPass(ID3D12GraphicsCommandList* commandList);
 
     /**
+     * @brief シャドウパスを1回分まとめて行う（開始 → モデル側の影用設定 → 影を落とす物の描画 → 終了）
+     * @param commandList 描画を積むコマンドリスト
+     * @param modelCommon 影用パイプラインへ切り替えるモデル描画の共通設定
+     * @param drawCasters 影を落とす物を描く処理（空なら状態の切り替えだけ行う）
+     */
+    void RunShadowPass(ID3D12GraphicsCommandList* commandList, ModelCommon* modelCommon,
+        const std::function<void()>& drawCasters = { });
+
+    /**
      * @brief シャドウマップ SRV をスロット 4 にセット
      */
     void SetShadowMap(ID3D12GraphicsCommandList* commandList, SrvManager* srvManager);
 
     /** @brief ライト空間行列を取得 */
-    const Matrix4x4& GetLightViewProjection() const { return lightVP_; }
+    const Matrix4x4& GetLightViewProjection() const {
+        return lightVP_;
+    }
 
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;

@@ -13,6 +13,7 @@ namespace engine::game {
 /** @brief 武器枠・実物アイコン・選択演出をまとめて管理する。 */
 class WeaponSlotHud final : public IHudWidget {
 public:
+    /** @brief スロット番号を表示するかを指定して初期化する */
     explicit WeaponSlotHud(bool showNumbers = false) : showNumbers_(showNumbers) {}
     void Initialize(const HudServices& services) override;
     void Update(const HudFrame& frame) override;
@@ -23,11 +24,13 @@ private:
     static constexpr int kSlotCount = WeaponManager::kSlotCount;
     static constexpr float kSlotSize = 56.0f;
     static constexpr float kFlashDuration = 0.35f;
+    /** @brief プールまたはHUDの1枠が保持する表示資源と状態 */
     struct Slot {
         std::unique_ptr<engine::graphics::Sprite> frame;
         std::unique_ptr<engine::graphics::Sprite> icon;
         Vector2 position = {};
     };
+    /** @brief HUDに武器モデルを表示するための描画資源と姿勢補正 */
     struct ModelIcon {
         std::unique_ptr<engine::graphics::Object3d> object;
         float scale = 0.2f;

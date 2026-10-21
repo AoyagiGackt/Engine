@@ -1,0 +1,47 @@
+{
+  "_comment": "新規配置メニューの初期値。変更はエディタ再起動後に反映。positionは指定成分だけ固定し、未指定成分にはビュー中心を使う。",
+  "prop": {
+    "model": "Resources/block/block.obj",
+    "texture": "Resources/block/block.png",
+    "scale": [1.0, 1.0, 1.0],
+    "lighting": true,
+    "solid": false
+  },
+  "background": {
+    "model": "Resources/DowntownCityMegaKit[Standard]/Exports/glTF (Godot)/Building_Small_1.gltf",
+    "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_RedBrick_BaseColor.png",
+    "scale": [0.42, 0.42, 0.42],
+    "position": { "y": -0.6, "z": 6.0 },
+    "lighting": true,
+    "solid": false
+  },
+  "gimmick": {
+    "model": "Resources/block/block.obj",
+    "texture": "Resources/block/block.png",
+    "scale": [1.0, 1.0, 1.0],
+    "lighting": true,
+    "solid": false
+  },
+  "pickup": {
+    "model": "Resources/block/block.obj",
+    "texture": "Resources/Effects/circle2.png",
+    "scale": [0.35, 0.35, 0.35],
+    "lighting": false,
+    "solid": false
+  },
+  "breakable": {
+    "model": "Resources/block/block.obj",
+    "texture": "Resources/block/block.png",
+    "scale": [0.9, 0.9, 0.9],
+    "lighting": true,
+    "solid": false
+  },
+  "terrain": {
+    "model": "Resources/block/block.obj",
+    "texture": "Resources/block/block.png",
+    "scale": [1.0, 1.0, 1.0],
+    "lighting": true,
+    "solid": true,
+    "meshCollider": true
+  }
+}

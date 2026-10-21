@@ -1,6 +1,6 @@
 /**
  * @file Skeleton.h
- * @brief Skeletonの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief スケルトン（関節の階層）の型と操作の宣言
  */
 #pragma once
 #include <MakeAffine.h>
@@ -76,13 +76,38 @@ public:
     void DrawDiagnostics();
 
     /** @brief root JointのIndexを返す */
-    int32_t GetRoot() const { return root_; }
-    /** @brief Joint名 → Index のマップを返す */
-    const std::map<std::string, int32_t>& GetJointMap() const { return jointMap_; }
-    /** @brief 全Jointのフラット配列を返す（読み取り専用） */
-    const std::vector<Joint>& GetJoints() const { return joints_; }
-    /** @brief 全Jointのフラット配列を返す（アニメーション適用など書き込み用） */
-    std::vector<Joint>& GetJoints() { return joints_; }
+    int32_t GetRoot() const {
+        return root_;
+    }
+    /** @brief 名前に一致するジョイント番号を返す。未登録なら値を持たない */
+    std::optional<int32_t> FindJointIndex(const std::string& name) const
+    {
+        const auto found = jointMap_.find(name);
+        return found != jointMap_.end() ? std::optional<int32_t>(found->second) : std::nullopt;
+    }
+    /** @brief 指定名のジョイントを持つか調べる */
+    bool HasJoint(const std::string& name) const
+    {
+        return FindJointIndex(name).has_value();
+    }
+    /** @brief ジョイント数を返す */
+    size_t GetJointCount() const
+    {
+        return joints_.size();
+    }
+    /** @brief 指定番号のジョイントだけを読み取り専用で参照する */
+    const Joint& GetJoint(size_t index) const
+    {
+        return joints_.at(index);
+    }
+    /** @brief 指定ジョイントのローカル変換だけを更新する */
+    void SetJointTransform(size_t index, const QuaternionTransform& transform) {
+        joints_.at(index).transform = transform;
+    }
+    /** @brief 指定ジョイントのローカル回転だけを更新する */
+    void SetJointRotation(size_t index, const Quaternion& rotation) {
+        joints_.at(index).transform.rotate = rotation;
+    }
 
 private:
     static int32_t CreateJoint(

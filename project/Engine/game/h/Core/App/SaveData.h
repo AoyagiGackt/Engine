@@ -44,7 +44,9 @@ public:
     void Save();
 
     /** @brief コンティニューデータが存在するか */
-    bool HasContinue() const { return continue_.valid; }
+    bool HasContinue() const {
+        return continue_.valid;
+    }
 
     /**
      * @brief RunData の現在状態をコンティニューデータとして保存する
@@ -69,9 +71,14 @@ public:
      */
     void RecordRunResult(bool cleared, int floorReached, int goldEarned);
 
-    const SaveRecords& GetRecords() const { return records_; }
+    /** @brief 表示用の通算記録を独立した値として取得する */
+    SaveRecords GetRecordSnapshot() const
+    {
+        return records_;
+    }
 
 private:
+    /** @brief 初期の記録を持つセーブデータ管理を作る */
     SaveDataManager() = default;
 
     /** @brief 現在のセーブ形式へ古いデータを補完する */

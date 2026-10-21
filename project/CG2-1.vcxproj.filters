@@ -298,6 +298,9 @@
     <ClCompile Include="Engine\game\cpp\Effect\HitEffectLibrary.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Effect\SceneVisualTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI</Filter>
     </ClCompile>
@@ -517,6 +520,9 @@
     <ClCompile Include="Engine\game\cpp\Scene\StageIntro.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinisherEffects.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
@@ -711,9 +717,6 @@
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Scene\ShopScene.cpp">
-      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect</Filter>
     </ClCompile>
@@ -770,6 +773,9 @@
     <ClInclude Include="Engine\game\h\Scene\StageIntro.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinisherEffects.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\TitleDemoTuning.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
@@ -795,6 +801,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\HitEffectLibrary.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Effect\SceneVisualTuning.h">
       <Filter>ヘッダーファイル\Engine\game\h\Effect</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Effect\ComboFeelDirector.h">
@@ -948,6 +957,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Level\StageEditorObjectPresets.h">
       <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Level\StageEditorContentFactory.h">
@@ -1138,6 +1150,9 @@
     <ClInclude Include="Engine\graphics\h\3D\Model.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\3D\AssimpVertexReader.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\3D\Object3d.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\3D</Filter>
     </ClInclude>
@@ -1235,9 +1250,6 @@
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\MapScene.h">
-      <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\game\h\Scene\ShopScene.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
@@ -1480,8 +1492,63 @@
     <None Include="Resources\Config\stage_intro.json">
       <Filter>JSON\演出</Filter>
     </None>
+    <None Include="Resources\Config\scene_cameras.json">
+      <Filter>JSON\演出</Filter>
+    </None>
     <None Include="Resources\Config\graphics_tuning.json">
       <Filter>JSON\演出</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemo.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCamera.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\SceneEditorPersistence.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene</Filter>
+    </ClCompile>
+    <ClInclude Include="Engine\game\h\Level\ObjectKindSupport.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Level</Filter>
+    </ClInclude>
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKindMarkers.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Level\ObjectKindRuntime.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Level</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Collision\GroundSupport.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Player\EnemySeparation.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
+    </ClInclude>
+    <ClCompile Include="Engine\game\cpp\Player\EnemySeparation.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Util\IPositionTarget.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\graphics\h\Manager\ResourceAlignment.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\Manager</Filter>
+    </ClInclude>
+    <ClCompile Include="Engine\game\cpp\Player\EnemyEntityVisuals.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Player</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\game\h\Util\TextBufferCapacity.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlSceneSettings.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

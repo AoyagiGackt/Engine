@@ -8,6 +8,7 @@ namespace engine::game {
 
 class Player;
 
+/** @brief ノードグラフから操作するプレイヤーへの参照を管理する */
 class PlayerBridge {
 public:
     /**
@@ -17,12 +18,17 @@ public:
     static PlayerBridge* GetInstance();
 
     /** @brief 現在のシーンのPlayerを登録する（Scene::Initialize()から呼ぶ） */
-    void SetPlayer(Player* player) { player_ = player; }
+    void SetPlayer(Player* player) {
+        player_ = player;
+    }
 
     /** @brief 登録されていなければnullptr */
-    Player* Get() const { return player_; }
+    Player* Get() const {
+        return player_;
+    }
 
 private:
+    /** @brief プレイヤーが未接続の橋渡しを作る */
     PlayerBridge() = default;
     PlayerBridge(const PlayerBridge&) = delete;
     PlayerBridge& operator=(const PlayerBridge&) = delete;

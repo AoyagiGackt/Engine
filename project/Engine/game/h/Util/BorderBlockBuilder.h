@@ -38,7 +38,8 @@ inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath)
 {
     BorderBlockLayout layout;
     nlohmann::json j = engine::JsonHelper::Load(jsonPath);
-    if (!j.is_object()) {
+    if (!j.is_object())
+    {
         return layout;
     }
     static constexpr JsonField<BorderBlockLayout> kFields[] = {
@@ -75,16 +76,20 @@ inline void BuildBorderBlocks(engine::graphics::ModelCommon* modelCommon, engine
         b->Update();
         borderBlocks.push_back(std::move(b));
     };
-    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x) {
+    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x)
+    {
         addBlock(static_cast<float>(x), layout.floorY, layout.blockZ);
     }
-    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x) {
+    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x)
+    {
         addBlock(static_cast<float>(x), layout.ceilingY, layout.blockZ);
     }
-    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y) {
+    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y)
+    {
         addBlock(layout.leftWallX, static_cast<float>(y), layout.blockZ);
     }
-    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y) {
+    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y)
+    {
         addBlock(layout.rightWallX, static_cast<float>(y), layout.blockZ);
     }
 }

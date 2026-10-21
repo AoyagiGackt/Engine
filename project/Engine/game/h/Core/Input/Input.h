@@ -47,6 +47,8 @@ public: // メンバ関数
     /** @brief XInputが使っていないビットへ割り当てたトリガー（wButtonsと同じ扱いで押下判定できる） */
     static constexpr WORD kGamepadLeftTrigger = 0x0400;
     static constexpr WORD kGamepadRightTrigger = 0x0800;
+    /** @brief DirectInput のキーボードで扱うキーの数 */
+    static constexpr int kKeyCount = 256;
     // namespace省略
     template <class T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -84,7 +86,9 @@ public: // メンバ関数
     void UpdateGamepad();
 
     /** @brief ボタンが押されているか */
-    bool PushButton(WORD button) const { return (state_.Gamepad.wButtons & button); }
+    bool PushButton(WORD button) const {
+        return (state_.Gamepad.wButtons & button);
+    }
 
     /** @brief ボタンが押された瞬間か */
     bool TriggerButton(WORD button) const
@@ -117,16 +121,24 @@ public: // メンバ関数
     void ClearActionOverrides();
 
     /** @brief ゲームパッドが現在接続されているかを返す */
-    bool IsGamepadConnected() const { return gamepadConnected_; }
+    bool IsGamepadConnected() const {
+        return gamepadConnected_;
+    }
 
     /** @brief このフレームでゲームパッドが接続されたかを返す */
-    bool WasGamepadConnected() const { return gamepadConnected_ && !gamepadConnectedPrevious_; }
+    bool WasGamepadConnected() const {
+        return gamepadConnected_ && !gamepadConnectedPrevious_;
+    }
 
     /** @brief このフレームでゲームパッドが切断されたかを返す */
-    bool WasGamepadDisconnected() const { return !gamepadConnected_ && gamepadConnectedPrevious_; }
+    bool WasGamepadDisconnected() const {
+        return !gamepadConnected_ && gamepadConnectedPrevious_;
+    }
 
     /** @brief 最後に操作した機器がゲームパッドか（操作説明の表記切り替えに使う） */
-    bool IsUsingGamepad() const { return usingGamepad_; }
+    bool IsUsingGamepad() const {
+        return usingGamepad_;
+    }
 
     // メニュー操作（キーボード・十字キー・左スティックのどれでも反応する）
     bool TriggerMenuUp() const;
@@ -149,7 +161,9 @@ public: // メンバ関数
     std::wstring ExpandPrompts(const std::wstring& text) const;
 
     /** @brief 最後に初期化した入力（シーンから入力を渡されないHUD等が操作説明を作るために使う） */
-    static const Input* GetCurrent() { return current_; }
+    static const Input* GetCurrent() {
+        return current_;
+    }
 
     // マウス関連
     bool TriggerMouseButton(int32_t buttonNumber);
@@ -163,14 +177,20 @@ public: // メンバ関数
     {
         POINT point = {};
         GetCursorPos(&point);
-        if (winApp_) { ScreenToClient(winApp_->GetHwnd(), &point); }
+        if (winApp_)
+        {
+            ScreenToClient(winApp_->GetHwnd(), &point);
+        }
         return point;
     }
 
     /** @brief マウスのホイールスクロール量を取得する */
-    int32_t GetWheel() const { return mouseState_.lZ; }
+    int32_t GetWheel() const {
+        return mouseState_.lZ;
+    }
 
 private:
+    /** @brief ゲーム内アクションに対応するキーボードとパッドの割り当て */
     struct ActionBinding {
         BYTE primaryKey = 0;
         BYTE secondaryKey = 0;
@@ -187,11 +207,11 @@ private:
 
     // キー状態管理用バッファ
 
-    /** @brief 最新のキー状態（256個のキー分） */
-    BYTE key_[256] = { };
+    /** @brief 最新のキー状態（kKeyCount 個のキー分） */
+    BYTE key_[kKeyCount] = { };
 
-    /** @brief 1フレーム前のキー状態（256個のキー分） */
-    BYTE keyPre_[256] = { };
+    /** @brief 1フレーム前のキー状態（kKeyCount 個のキー分） */
+    BYTE keyPre_[kKeyCount] = { };
 
     /** @brief ウィンドウ管理のポインタ */
     WinApp* winApp_ = nullptr;

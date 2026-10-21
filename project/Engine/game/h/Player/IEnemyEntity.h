@@ -3,7 +3,7 @@
  * @brief EnemyEntity/KnightEnemyが共通して持つ最小限の操作をまとめたインターフェース
  */
 #pragma once
-#include "Vector3.h"
+#include "IPositionTarget.h"
 
 namespace engine::game {
 
@@ -13,14 +13,11 @@ namespace engine::game {
  *       汎用敵はApplyComboReaction()へ分離しているなど）ため、あえてここには含めない。
  *       シーン側が種別を問わず扱いたい、位置・HP参照・見た目更新だけを共通化する
  */
-class IEnemyEntity {
+class IEnemyEntity : public IPositionTarget {
 public:
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~IEnemyEntity() = default;
 
-    /** @brief 現在のワールド座標を返す */
-    virtual Vector3 GetPosition() const = 0;
-    /** @brief StageEditorのギズモドラッグ等、外部から直接書き換えるための可変参照 */
-    virtual Vector3& GetPositionRef() = 0;
     /** @brief 現在のHPを返す */
     virtual int GetHp() const = 0;
     /** @brief 最大HPを返す */

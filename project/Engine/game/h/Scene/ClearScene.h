@@ -34,7 +34,6 @@ public:
     void Update() override;
     void Draw() override;
 
-    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
     /** @brief このシーンのスコアウィンドウを ImGui で描画 */
     void DrawScoreUI();
@@ -43,7 +42,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> clearSprite_;

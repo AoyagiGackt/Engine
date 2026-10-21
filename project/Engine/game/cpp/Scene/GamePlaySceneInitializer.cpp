@@ -3,6 +3,8 @@
  * @brief メインステージのゲーム実体と進行ギミックを構築する
  */
 #include "GamePlaySceneInitializer.h"
+#include "PlayerTuning.h"
+#include "SceneVisualTuning.h"
 
 #include "AudioBridge.h"
 #include "EnemyTuning.h"
@@ -16,29 +18,11 @@
 #include <algorithm>
 #include <iterator>
 
-using namespace engine;
 using namespace engine::graphics;
 
 namespace engine::game {
 
-namespace {
-// ショップで取得したスキルの効果量
-constexpr float kBlinkPlusDistanceMult = 1.5f;
-constexpr int kComboExtendBonus = 1;
-constexpr float kFastFireIntervalMult = 0.5f;
-constexpr float kAwakenBoostChargeMult = 1.5f;
-constexpr float kSpeedUpMult = 1.2f;
-constexpr float kHighJumpMult = 1.25f;
-constexpr int kJuggleExtendBonus = 4;
-
-// 武器種別ごとの敵の色（倒せば何が手に入るかを見た目で予測できるように）
-constexpr Vector4 kSpearEnemyColor = { 0.25f, 0.75f, 1.0f, 1.0f };
-constexpr Vector4 kDaggerEnemyColor = { 0.15f, 0.85f, 1.0f, 1.0f };
-constexpr Vector4 kHeavyEnemyColor = { 0.85f, 0.45f, 1.0f, 1.0f };
-constexpr Vector4 kSwordEnemyColor = { 1.0f, 0.3f, 0.15f, 1.0f };
-constexpr Vector4 kHpBarBackgroundColor = { 0.2f, 0.2f, 0.2f, 0.8f };
-}
-
+/** @brief レベルデータとラン情報からゲーム実体を構築する */
 void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
 {
     const LevelData levelData = LevelLoader::Load(scene.GetEditorLevelPath());
@@ -50,15 +34,16 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
     PlayerBridge::GetInstance()->SetPlayer(scene.player_.get());
     AudioBridge::GetInstance()->SetAudio(scene.audio_);
     auto* runData = RunData::GetInstance();
-    if (runData->IsRunActive()) {
+    if (runData->IsRunActive())
+    {
         Player::SkillMods mods;
-        mods.blinkDistMult = runData->HasSkill(RunData::Skill::BlinkPlus) ? kBlinkPlusDistanceMult : 1.0f;
-        mods.comboMaxBonus = runData->HasSkill(RunData::Skill::ComboExtend) ? kComboExtendBonus : 0;
-        mods.fireIntervalMult = runData->HasSkill(RunData::Skill::FastFire) ? kFastFireIntervalMult : 1.0f;
-        mods.gaugeChargeMult = runData->HasSkill(RunData::Skill::AwakenBoost) ? kAwakenBoostChargeMult : 1.0f;
-        mods.speedMult = runData->HasSkill(RunData::Skill::SpeedUp) ? kSpeedUpMult : 1.0f;
-        mods.jumpMult = runData->HasSkill(RunData::Skill::HighJump) ? kHighJumpMult : 1.0f;
-        mods.juggleMaxBonus = runData->HasSkill(RunData::Skill::JuggleExtend) ? kJuggleExtendBonus : 0;
+        mods.blinkDistMult = runData->HasSkill(RunData::Skill::BlinkPlus) ? PlayerTuning::Get().skillBlinkPlusDistanceMult : 1.0f;
+        mods.comboMaxBonus = runData->HasSkill(RunData::Skill::ComboExtend) ? PlayerTuning::Get().skillComboExtendBonus : 0;
+        mods.fireIntervalMult = runData->HasSkill(RunData::Skill::FastFire) ? PlayerTuning::Get().skillFastFireIntervalMult : 1.0f;
+        mods.gaugeChargeMult = runData->HasSkill(RunData::Skill::AwakenBoost) ? PlayerTuning::Get().skillAwakenBoostChargeMult : 1.0f;
+        mods.speedMult = runData->HasSkill(RunData::Skill::SpeedUp) ? PlayerTuning::Get().skillSpeedUpMult : 1.0f;
+        mods.jumpMult = runData->HasSkill(RunData::Skill::HighJump) ? PlayerTuning::Get().skillHighJumpMult : 1.0f;
+        mods.juggleMaxBonus = runData->HasSkill(RunData::Skill::JuggleExtend) ? PlayerTuning::Get().skillJuggleExtendBonus : 0;
         scene.player_->ApplySkillMods(mods);
     }
 
@@ -66,6 +51,7 @@ void GamePlaySceneInitializer::InitializeStageActors(GamePlayScene& scene)
     // （OnEditorLevelLoaded()参照）。Initialize()の時点ではまだレベルJSONが未読み込みのためここでは生成しない。
 }
 
+/** @brief StageEditorへ配置済みの敵（武器持ち雑魚・ボス）をenemy_/weaponEnemies_へ結び付ける */
 void GamePlayScene::OnEditorLevelLoaded()
 {
     enemy_ = nullptr;
@@ -79,11 +65,14 @@ void GamePlayScene::OnEditorLevelLoaded()
     const GameRulesData& rules = GameRules::GetInstance()->Get();
     const std::string levelPath = GetEditorLevelPath();
     auto* runData = RunData::GetInstance();
-    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies()) {
-        if (!ref.isStageBoss) {
+    for (const CombatEnemyRef& ref : GetStageEditor().GetCombatEnemies())
+    {
+        if (!ref.isStageBoss)
+        {
             continue;
         }
-        if (enemy_) {
+        if (enemy_)
+        {
             Logger::LogWarning(levelPath + ": isStageBoss=trueの配置物が複数あります（" + ref.name + "は無視）");
             continue;
         }
@@ -99,41 +88,46 @@ void GamePlayScene::OnEditorLevelLoaded()
         };
         const size_t nodeIndex = static_cast<size_t>(runData->GetCurrentNode());
         const int maxHp = rules.*kBossHpByNode[nodeIndex < std::size(kBossHpByNode) ? nodeIndex : 0];
-        if (runData->IsRunActive()) {
+        if (runData->IsRunActive())
+        {
             enemy_->SetMaxHp(maxHp);
         }
         enemy_->SetColor(rules.bossColor);
     }
 
-    if (!enemy_) {
+    if (!enemy_)
+    {
         Logger::LogError(levelPath + "にisStageBoss=trueの敵(enemy_basic)が配置されていません");
     }
 
     SyncCombatEnemies();
 
-    if (!stageIntroStarted_) {
+    if (!stageIntroStarted_)
+    {
         stageIntroStarted_ = true;
         StartStageIntro();
     }
 }
 
+/** @brief StageEditorの戦闘対象一覧とweaponEnemies_を同期する（毎フレーム呼ぶ） */
 void GamePlayScene::SyncCombatEnemies()
 {
     // 見た目の色分けは武器種別ごとに固定（倒せば何が手に入るかを見た目で予測できるように）
     // WeaponType の並び順と一致させる
-    static constexpr Vector4 kEnemyColorByWeapon[] = {
-        kSwordEnemyColor, // Sword
-        kSpearEnemyColor, // Spear
-        kHeavyEnemyColor, // Hammer
-        kDaggerEnemyColor, // Dagger
-        kSwordEnemyColor, // Ball
-        kSwordEnemyColor, // Greatsword
-        kSwordEnemyColor, // Scythe
-        kHeavyEnemyColor, // Axe
+    static constexpr Vector4 InitialActorsVisualSettings::* kEnemyColorByWeapon[] = {
+        &InitialActorsVisualSettings::swordEnemyColor, // Sword
+        &InitialActorsVisualSettings::spearEnemyColor, // Spear
+        &InitialActorsVisualSettings::heavyEnemyColor, // Hammer
+        &InitialActorsVisualSettings::daggerEnemyColor, // Dagger
+        &InitialActorsVisualSettings::swordEnemyColor, // Ball
+        &InitialActorsVisualSettings::swordEnemyColor, // Greatsword
+        &InitialActorsVisualSettings::swordEnemyColor, // Scythe
+        &InitialActorsVisualSettings::heavyEnemyColor, // Axe
     };
     auto colorForWeapon = [](WeaponType type) -> Vector4 {
         const size_t index = static_cast<size_t>(type);
-        return index < std::size(kEnemyColorByWeapon) ? kEnemyColorByWeapon[index] : kSwordEnemyColor;
+        const auto& colors = SceneVisualTuning::InitialActors();
+        return index < std::size(kEnemyColorByWeapon) ? colors.*kEnemyColorByWeapon[index] : colors.swordEnemyColor;
     };
 
     const std::vector<CombatEnemyRef> refs = GetStageEditor().GetCombatEnemies();
@@ -143,22 +137,30 @@ void GamePlayScene::SyncCombatEnemies()
     weaponEnemies_.erase(std::remove_if(weaponEnemies_.begin(), weaponEnemies_.end(),
                              [&](const WeaponEnemyEntry& entry) {
                                  return std::none_of(refs.begin(), refs.end(),
-                                     [&](const CombatEnemyRef& ref) { return !ref.isStageBoss && ref.enemy == entry.enemy; });
+                                     [&](const CombatEnemyRef& ref) {
+                                         return !ref.isStageBoss && ref.enemy == entry.enemy;
+                                     });
                              }),
         weaponEnemies_.end());
-    if (weaponEnemies_.size() != beforeCount) {
+    if (weaponEnemies_.size() != beforeCount)
+    {
         lockedEnemy_ = nullptr; // 外れた敵を指したままにならないよう、ロックは張り直させる
     }
 
     // 新しく現れた敵を取り込む
     const GameRulesData& rules = GameRules::GetInstance()->Get();
-    for (const CombatEnemyRef& ref : refs) {
-        if (ref.isStageBoss || ref.enemy == enemy_) {
+    for (const CombatEnemyRef& ref : refs)
+    {
+        if (ref.isStageBoss || ref.enemy == enemy_)
+        {
             continue;
         }
         const bool known = std::any_of(weaponEnemies_.begin(), weaponEnemies_.end(),
-            [&](const WeaponEnemyEntry& entry) { return entry.enemy == ref.enemy; });
-        if (known) {
+            [&](const WeaponEnemyEntry& entry) {
+                return entry.enemy == ref.enemy;
+            });
+        if (known)
+        {
             continue;
         }
         WeaponEnemyEntry entry;
@@ -167,14 +169,12 @@ void GamePlayScene::SyncCombatEnemies()
         entry.hasWeapon = ref.hasWeapon;
         entry.enemy->SetMaxHp(entry.enemy->IsFlying() ? rules.flyingWeaponEnemyHp : rules.weaponEnemyHp);
         // flying/healerはSetArchetype()で付けた種別色（水色/緑）を優先し、武器色で上書きしない
-        if (!entry.enemy->HasArchetypeColor()) {
+        if (!entry.enemy->HasArchetypeColor())
+        {
             entry.enemy->SetColor(colorForWeapon(ref.weaponType));
         }
-        entry.hpBarBg = std::make_unique<Sprite>();
-        entry.hpBarBg->Initialize(spriteCommon_.get(), "Resources/white.png");
-        entry.hpBarBg->SetColor(kHpBarBackgroundColor);
-        entry.hpBarFg = std::make_unique<Sprite>();
-        entry.hpBarFg->Initialize(spriteCommon_.get(), "Resources/white.png");
+        SceneShared::CreateHpBarSprites(spriteCommon_.get(), entry.hpBarBg, entry.hpBarFg,
+            SceneVisualTuning::InitialActors().hpBarBackgroundColor);
         weaponEnemies_.push_back(std::move(entry));
     }
 }

@@ -1,6 +1,6 @@
 /**
  * @file PostEffectRenderTarget.h
- * @brief PostEffectRenderTargetの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
+ * @brief 有効なポストエフェクトから、シーンを描き込む先を選ぶ関数
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -12,18 +12,25 @@
 #include <initializer_list>
 namespace engine::graphics {
 
-// 有効なポストエフェクトのオフスクリーンRTVを返す（優先順にチェックし、最初に有効なものを使う）
-// どれも無効ならバックバッファを返す新しいポストエフェクトは呼び出し側のリストに加えるだけでよく、
-// この関数自体を変更する必要はない（IPostEffectSourceによるStrategyパターン）
-inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
-    engine::DirectXCommon* dxCommon, std::initializer_list<IPostEffectSource*> effects)
+/** @brief リストの優先順で最初の有効なポストエフェクトを返す */
+inline IPostEffectSource* FindActivePostEffect(const std::initializer_list<IPostEffectSource*>& effects)
 {
-    for (IPostEffectSource* effect : effects) {
-        if (effect && effect->IsEnabled()) {
-            return effect->GetSceneRTVHandle();
+    for (IPostEffectSource* effect : effects)
+    {
+        if (effect && effect->IsEnabled())
+        {
+            return effect;
         }
     }
-    return dxCommon->GetCurrentBackBufferHandle();
+    return nullptr;
+}
+
+/** @brief 有効なエフェクトの描画先を返し、無ければバックバッファを使う */
+inline D3D12_CPU_DESCRIPTOR_HANDLE GetActiveSceneRTVHandle(
+    engine::DirectXCommon* dxCommon, const std::initializer_list<IPostEffectSource*>& effects)
+{
+    const IPostEffectSource* effect = FindActivePostEffect(effects);
+    return effect ? effect->GetSceneRTVHandle() : dxCommon->GetCurrentBackBufferHandle();
 }
 
 // RTV/DSVとビューポート・シザーをセットしてメイン描画先を確定する
@@ -38,12 +45,15 @@ inline void SetupSceneRenderTarget(engine::DirectXCommon* dxCommon, D3D12_CPU_DE
         ? dxCommon->GetBackBufferDsvHandle() : dxCommon->GetDsvHandle();
     commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-    if (targetsBackBuffer) {
+    if (targetsBackBuffer)
+    {
         D3D12_VIEWPORT vp = dxCommon->GetCenteredClientViewport();
         D3D12_RECT scissor = dxCommon->GetCenteredClientScissorRect();
         commandList->RSSetViewports(1, &vp);
         commandList->RSSetScissorRects(1, &scissor);
-    } else {
+    }
+    else
+    {
         D3D12_VIEWPORT vp = { 0, 0,
             static_cast<float>(engine::WinApp::kClientWidth), static_cast<float>(engine::WinApp::kClientHeight),
             0.0f, 1.0f };

@@ -10,8 +10,8 @@
 #include <dinput.h>
 #include <iterator>
 #include <utility>
-using namespace engine;
 
+namespace engine {
 namespace {
 
 /** @brief input_bindings.jsonで使うキー名と、画面の操作説明に出す表記 */
@@ -105,40 +105,52 @@ constexpr FixedPrompt kFixedPrompts[] = {
     { L"Back", L"B", L"Backspace" },
 };
 
+/** @brief 設定ファイルのキー名を仮想キーコードへ変換する */
 BYTE ParseKey(const std::string& name)
 {
-    for (const KeyName& entry : kKeyNames) {
-        if (name == entry.name) {
+    for (const KeyName& entry : kKeyNames)
+    {
+        if (name == entry.name)
+        {
             return entry.key;
         }
     }
     return 0;
 }
 
+/** @brief 設定ファイルのボタン名をゲームパッドのボタンのビットへ変換する */
 WORD ParseGamepadButton(const std::string& name)
 {
-    for (const PadButtonName& entry : kPadButtonNames) {
-        if (name == entry.name) {
+    for (const PadButtonName& entry : kPadButtonNames)
+    {
+        if (name == entry.name)
+        {
             return entry.button;
         }
     }
     return 0;
 }
 
+/** @brief 画面に表示するキーボードのキー名を返す */
 std::wstring KeyLabel(BYTE key)
 {
-    for (const KeyName& entry : kKeyNames) {
-        if (entry.key == key) {
+    for (const KeyName& entry : kKeyNames)
+    {
+        if (entry.key == key)
+        {
             return entry.label;
         }
     }
     return L"?";
 }
 
+/** @brief 画面に表示するゲームパッドのボタン名を返す */
 std::wstring PadButtonLabel(WORD button)
 {
-    for (const PadButtonName& entry : kPadButtonNames) {
-        if (entry.button == button) {
+    for (const PadButtonName& entry : kPadButtonNames)
+    {
+        if (entry.button == button)
+        {
             return entry.label;
         }
     }
@@ -157,15 +169,30 @@ struct StickAction {
     bool (*held)(float x, float y, float deadzone); ///< 正規化したスティック値で倒れているか
 };
 constexpr StickAction kStickActions[] = {
-    { Input::Action::MoveLeft, L"左スティック←", [](float x, float, float deadzone) { return x <= -deadzone; } },
-    { Input::Action::MoveRight, L"左スティック→", [](float x, float, float deadzone) { return x >= deadzone; } },
-    { Input::Action::Down, L"左スティック↓", [](float, float y, float) { return y <= -kStickDownThreshold; } },
+    {
+        Input::Action::MoveLeft, L"左スティック←", [](float x, float, float deadzone) {
+            return x <= -deadzone;
+        }
+    },
+    {
+        Input::Action::MoveRight, L"左スティック→", [](float x, float, float deadzone) {
+            return x >= deadzone;
+        }
+    },
+    {
+        Input::Action::Down, L"左スティック↓", [](float, float y, float) {
+            return y <= -kStickDownThreshold;
+        }
+    },
 };
 
+/** @brief アクションに割り当てたスティックの方向を探す（割り当てが無ければ nullptr） */
 const StickAction* FindStickAction(Input::Action action)
 {
-    for (const StickAction& entry : kStickActions) {
-        if (entry.action == action) {
+    for (const StickAction& entry : kStickActions)
+    {
+        if (entry.action == action)
+        {
             return &entry;
         }
     }
@@ -176,7 +203,8 @@ const StickAction* FindStickAction(Input::Action action)
 bool StickHeld(Input::Action action, const XINPUT_STATE& state, float deadzone)
 {
     const StickAction* entry = FindStickAction(action);
-    if (entry == nullptr) {
+    if (entry == nullptr)
+    {
         return false;
     }
     return entry->held(state.Gamepad.sThumbLX / kStickMax, state.Gamepad.sThumbLY / kStickMax, deadzone);
@@ -187,6 +215,7 @@ bool StickHeld(Input::Action action, const XINPUT_STATE& state, float deadzone)
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
+/** @brief 入力システムの初期化 */
 void Input::Initialize(WinApp* winApp)
 {
     HRESULT result;
@@ -221,6 +250,7 @@ void Input::Initialize(WinApp* winApp)
     current_ = this;
 }
 
+/** @brief Resources/Config/input_bindings.jsonから操作割り当てを読み込む */
 void Input::LoadActionBindings()
 {
     // 設定ファイルが無い場合も操作不能にならない既定割り当てを先に設定する
@@ -241,11 +271,14 @@ void Input::LoadActionBindings()
     actionBindings_[static_cast<size_t>(Action::LockOn)] = { DIK_LSHIFT, 0, kGamepadRightTrigger };
     actionBindings_[static_cast<size_t>(Action::Pause)] = { DIK_P, 0, XINPUT_GAMEPAD_START };
 
+    // input_bindings.json に書かれたアクションだけ、キー名・ボタン名を読み取って上書きする
     const nlohmann::json root = JsonHelper::Load("Resources/Config/input_bindings.json");
     const auto actions = root.value("actions", nlohmann::json::object());
-    for (const auto& [name, action] : kActionNames) {
+    for (const auto& [name, action] : kActionNames)
+    {
         const auto data = actions.value(name, nlohmann::json::object());
-        if (!data.is_object() || data.empty()) {
+        if (!data.is_object() || data.empty())
+        {
             continue;
         }
         ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
@@ -255,10 +288,12 @@ void Input::LoadActionBindings()
     }
 }
 
+/** @brief 指定アクションが押されているかを返す */
 bool Input::PushAction(Action action) const
 {
     const size_t idx = static_cast<size_t>(action);
-    if (actionOverrideEnabled_[idx]) {
+    if (actionOverrideEnabled_[idx])
+    {
         return actionOverridePressed_[idx];
     }
     const ActionBinding& binding = actionBindings_[idx];
@@ -268,10 +303,12 @@ bool Input::PushAction(Action action) const
         || StickHeld(action, state_, deadzone_);
 }
 
+/** @brief 指定アクションが押された瞬間かを返す */
 bool Input::TriggerAction(Action action) const
 {
     const size_t idx = static_cast<size_t>(action);
-    if (actionOverrideEnabled_[idx]) {
+    if (actionOverrideEnabled_[idx])
+    {
         return actionOverridePressed_[idx] && !actionOverridePressedPrev_[idx];
     }
     const ActionBinding& binding = actionBindings_[idx];
@@ -284,12 +321,14 @@ bool Input::TriggerAction(Action action) const
     return keyboard || gamepad || stick;
 }
 
+/** @brief 指定アクションの押下状態を実機入力の代わりに強制する（タイトルデモ等の自動操作用） */
 void Input::SetActionOverride(Action action, bool pressed)
 {
     actionOverrideEnabled_[static_cast<size_t>(action)] = true;
     actionOverridePressed_[static_cast<size_t>(action)] = pressed;
 }
 
+/** @brief 全アクションのオーバーライドを解除し、実機入力の参照に戻す */
 void Input::ClearActionOverrides()
 {
     actionOverrideEnabled_.fill(false);
@@ -297,6 +336,7 @@ void Input::ClearActionOverrides()
     actionOverridePressedPrev_.fill(false);
 }
 
+/** @brief キー状態の更新 */
 void Input::Update()
 {
     // ゲームコントローラー更新
@@ -310,7 +350,8 @@ void Input::Update()
     // キーボード情報の取得開始
     keyboard_->Acquire();
     // 全キーの入力情報を取得するフォーカス喪失などで失敗したらバッファをクリアして刺さり防止
-    if (FAILED(keyboard_->GetDeviceState(sizeof(key_), key_))) {
+    if (FAILED(keyboard_->GetDeviceState(sizeof(key_), key_)))
+    {
         ZeroMemory(key_, sizeof(key_));
     }
 
@@ -319,21 +360,26 @@ void Input::Update()
     // マウス情報の取得開始
     mouse_->Acquire();
     // 全マウスの入力情報を取得する失敗時はクリア
-    if (FAILED(mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_))) {
+    if (FAILED(mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_)))
+    {
         ZeroMemory(&mouseState_, sizeof(DIMOUSESTATE2));
     }
 
     UpdateLastDevice();
 }
 
+/** @brief このフレームの入力から、最後に使った機器を更新する */
 void Input::UpdateLastDevice()
 {
-    if (WasGamepadDisconnected()) {
+    if (WasGamepadDisconnected())
+    {
         usingGamepad_ = false;
         return;
     }
-    for (int k = 0; k < 256; ++k) {
-        if (key_[k] && !keyPre_[k]) {
+    for (int k = 0; k < kKeyCount; ++k)
+    {
+        if (key_[k] && !keyPre_[k])
+        {
             usingGamepad_ = false;
             return;
         }
@@ -341,11 +387,13 @@ void Input::UpdateLastDevice()
     const bool padPressed = (state_.Gamepad.wButtons & ~previousState_.Gamepad.wButtons) != 0;
     const bool stickMoved = std::abs(state_.Gamepad.sThumbLX) >= kStickMenuThreshold
         || std::abs(state_.Gamepad.sThumbLY) >= kStickMenuThreshold;
-    if (WasGamepadConnected() || padPressed || stickMoved) {
+    if (WasGamepadConnected() || padPressed || stickMoved)
+    {
         usingGamepad_ = true;
     }
 }
 
+/** @brief 左スティックが指定方向へこのフレームに倒されたか（倒しっぱなしでは連続しない） */
 bool Input::TriggerStick(int axisX, int axisY) const
 {
     auto pushed = [&](const XINPUT_STATE& s) {
@@ -356,71 +404,88 @@ bool Input::TriggerStick(int axisX, int axisY) const
     return pushed(state_) && !pushed(previousState_);
 }
 
+/** @brief メニューの上入力がこのフレームで押されたかを返す */
 bool Input::TriggerMenuUp() const
 {
     return (key_[DIK_W] && !keyPre_[DIK_W]) || (key_[DIK_UP] && !keyPre_[DIK_UP])
         || TriggerButton(XINPUT_GAMEPAD_DPAD_UP) || TriggerStick(0, 1);
 }
 
+/** @brief メニューの下入力がこのフレームで押されたかを返す */
 bool Input::TriggerMenuDown() const
 {
     return (key_[DIK_S] && !keyPre_[DIK_S]) || (key_[DIK_DOWN] && !keyPre_[DIK_DOWN])
         || TriggerButton(XINPUT_GAMEPAD_DPAD_DOWN) || TriggerStick(0, -1);
 }
 
+/** @brief メニューの左入力がこのフレームで押されたかを返す */
 bool Input::TriggerMenuLeft() const
 {
     return (key_[DIK_A] && !keyPre_[DIK_A]) || (key_[DIK_LEFT] && !keyPre_[DIK_LEFT])
         || TriggerButton(XINPUT_GAMEPAD_DPAD_LEFT) || TriggerStick(-1, 0);
 }
 
+/** @brief メニューの右入力がこのフレームで押されたかを返す */
 bool Input::TriggerMenuRight() const
 {
     return (key_[DIK_D] && !keyPre_[DIK_D]) || (key_[DIK_RIGHT] && !keyPre_[DIK_RIGHT])
         || TriggerButton(XINPUT_GAMEPAD_DPAD_RIGHT) || TriggerStick(1, 0);
 }
 
+/** @brief 決定（Space/Enter/Aボタン） */
 bool Input::TriggerMenuConfirm() const
 {
     return (key_[DIK_SPACE] && !keyPre_[DIK_SPACE]) || (key_[DIK_RETURN] && !keyPre_[DIK_RETURN])
         || TriggerButton(XINPUT_GAMEPAD_A);
 }
 
+/** @brief 戻る（Backspace/Bボタン。Escはアプリ終了なので含めない） */
 bool Input::TriggerMenuCancel() const
 {
     return (key_[DIK_BACK] && !keyPre_[DIK_BACK]) || TriggerButton(XINPUT_GAMEPAD_B);
 }
 
+/** @brief 操作の表示名を、最後に使った機器に合わせて返す（例: キーボードなら "J"、パッドなら "LT"） */
 std::wstring Input::GetActionLabel(Action action) const
 {
     const ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
-    if (usingGamepad_ && binding.gamepadButton) {
+    if (usingGamepad_ && binding.gamepadButton)
+    {
         return PadButtonLabel(binding.gamepadButton);
     }
-    if (usingGamepad_) {
-        if (const StickAction* stick = FindStickAction(action)) {
+    if (usingGamepad_)
+    {
+        if (const StickAction* stick = FindStickAction(action))
+        {
             return stick->label;
         }
     }
     return binding.primaryKey ? KeyLabel(binding.primaryKey) : L"?";
 }
 
+/** @brief 文章中の {操作名} を、最後に使った機器のボタン名へ置き換える */
 std::wstring Input::ExpandPrompts(const std::wstring& text) const
 {
+    // {名前} の名前を表示用の文字に置き換える。移動→固定の案内→アクション名の順に探す
     auto resolve = [&](const std::wstring& name, std::wstring& out) {
-        if (name == L"Move") {
+        if (name == L"Move")
+        {
             out = usingGamepad_ ? L"左スティック" : GetActionLabel(Action::MoveLeft) + L" " + GetActionLabel(Action::MoveRight);
             return true;
         }
-        for (const FixedPrompt& prompt : kFixedPrompts) {
-            if (name == prompt.name) {
+        for (const FixedPrompt& prompt : kFixedPrompts)
+        {
+            if (name == prompt.name)
+            {
                 out = usingGamepad_ ? prompt.padLabel : prompt.keyLabel;
                 return true;
             }
         }
-        for (const auto& [actionName, action] : kActionNames) {
+        for (const auto& [actionName, action] : kActionNames)
+        {
             const std::string narrow(actionName);
-            if (name == std::wstring(narrow.begin(), narrow.end())) {
+            if (name == std::wstring(narrow.begin(), narrow.end()))
+            {
                 out = GetActionLabel(action);
                 return true;
             }
@@ -428,21 +493,29 @@ std::wstring Input::ExpandPrompts(const std::wstring& text) const
         return false;
     };
 
+    // 文字列を先頭から見て、{ } で囲まれた部分だけを置き換える
     std::wstring result;
     result.reserve(text.size());
     size_t pos = 0;
-    while (pos < text.size()) {
+    while (pos < text.size())
+    {
         const size_t open = text.find(L'{', pos);
         const size_t close = (open == std::wstring::npos) ? std::wstring::npos : text.find(L'}', open);
-        if (close == std::wstring::npos) {
+        // 閉じていない { は置き換えず、残りをそのまま付ける
+        if (close == std::wstring::npos)
+        {
             result.append(text, pos, std::wstring::npos);
             break;
         }
         result.append(text, pos, open - pos);
+        // 知らない名前は { } ごと元の文字のまま残す
         std::wstring label;
-        if (resolve(text.substr(open + 1, close - open - 1), label)) {
+        if (resolve(text.substr(open + 1, close - open - 1), label))
+        {
             result += label;
-        } else {
+        }
+        else
+        {
             result.append(text, open, close - open + 1);
         }
         pos = close + 1;
@@ -450,10 +523,12 @@ std::wstring Input::ExpandPrompts(const std::wstring& text) const
     return result;
 }
 
+/** @brief キーが押されている（押しっぱなし）かチェック */
 bool Input::PushKey(BYTE keyNumber)
 {
     // 指定キーを押していればtrueを返す
-    if (key_[keyNumber]) {
+    if (key_[keyNumber])
+    {
         return true;
     }
 
@@ -461,6 +536,7 @@ bool Input::PushKey(BYTE keyNumber)
     return false;
 }
 
+/** @brief キーが押された瞬間かチェック */
 bool Input::TriggerKey(BYTE keyNumber)
 {
     return key_[keyNumber] && !keyPre_[keyNumber];
@@ -478,22 +554,28 @@ void Input::UpdateGamepad()
     DWORD result = XInputGetState(0, &state_);
     gamepadConnected_ = result == ERROR_SUCCESS;
 
-    if (!gamepadConnected_) {
+    if (!gamepadConnected_)
+    {
         // コントローラーが接続されていない場合はデータをゼロにする
         ZeroMemory(&state_, sizeof(XINPUT_STATE));
     }
 
     // アナログのトリガーを空きビットへ載せ、ボタンと同じPush/Trigger判定で扱えるようにする
-    if (state_.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+    if (state_.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+    {
         state_.Gamepad.wButtons |= kGamepadLeftTrigger;
     }
-    if (state_.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+    if (state_.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+    {
         state_.Gamepad.wButtons |= kGamepadRightTrigger;
     }
 
-    if (WasGamepadConnected()) {
+    if (WasGamepadConnected())
+    {
         Logger::LogInfo("Gamepad connected");
-    } else if (WasGamepadDisconnected()) {
+    }
+    else if (WasGamepadDisconnected())
+    {
         Logger::LogWarning("Gamepad disconnected. Keyboard input remains available.");
     }
 }
@@ -507,23 +589,29 @@ Input::Stick Input::GetLeftStick() const
     float y = (float)state_.Gamepad.sThumbLY / kStickMax;
 
     // デッドゾーンの処理
-    if (std::abs(x) < deadzone_) {
+    if (std::abs(x) < deadzone_)
+    {
         x = 0.0f;
     }
 
-    if (std::abs(y) < deadzone_) {
+    if (std::abs(y) < deadzone_)
+    {
         y = 0.0f;
     }
 
     return { x, y };
 }
 
+/** @brief マウスボタンがこのフレームで押されたかを返す */
 bool Input::TriggerMouseButton(int32_t buttonNumber)
 {
     // 今回押されていて、前回押されていないかチェック
-    if (mouseState_.rgbButtons[buttonNumber] && !mouseStatePre_.rgbButtons[buttonNumber]) {
+    if (mouseState_.rgbButtons[buttonNumber] && !mouseStatePre_.rgbButtons[buttonNumber])
+    {
         return true;
     }
 
     return false;
 }
+
+} // namespace engine

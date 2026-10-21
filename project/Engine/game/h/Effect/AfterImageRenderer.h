@@ -21,7 +21,7 @@ using engine::graphics::Object3d;
 class AfterImageRenderer {
 public:
     /**
-     * @brief 初期化描画に使うモデルを設定する
+     * @brief 描画に使うモデルを設定して初期化する
      * @param modelCommon 描画共通設定
      * @param model       残像として描画するモデル（プレイヤーと同一のものを渡す）
      * @param scale       描画スケール（プレイヤー本体と同じ値を渡す）
@@ -39,10 +39,10 @@ public:
     /**
      * @brief 毎フレーム残像を更新する
      * @param active 残像を生成するか（false のとき新規スポーンしない）
-     * @param dense  乱舞中など高頻度スポーンモード（true で kFastInterval を使用）
+     * @param dense  乱舞中など高頻度スポーンモード（trueで設定ファイルの高頻度用間隔を使用）
      * @param pos    現在のワールド座標
      * @param yaw    左右回転（ラジアン）
-     * @param spinZ  Z 軸スピン（ラジアン）
+     * @param spinZ  Z 軸スピン（度）
      */
     void Update(bool active, bool dense, const Vector3& pos, float yaw, float spinZ);
 
@@ -50,6 +50,7 @@ public:
     void Draw();
 
 private:
+    /** @brief 残像1体の姿勢と消えるまでの経過時間 */
     struct AfterImage {
         Vector3 pos;
         float yaw;
@@ -58,8 +59,6 @@ private:
     };
 
     static constexpr int kMaxImages = 10;
-    static constexpr float kFastInterval = 0.03f;
-    static constexpr float kSlowInterval = 0.05f;
 
     std::array<AfterImage, kMaxImages> images_ { };
     int idx_ = 0;

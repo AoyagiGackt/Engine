@@ -48,6 +48,8 @@ public:
 private:
     /** @brief シーン生成を担う抽象ファクトリのスマートポインタ */
     std::unique_ptr<AbstractSceneFactory> sceneFactory_;
+    /** @brief F8 で開閉するエンジン共通の実行時診断パネルを表示しているか */
+    bool showEngineDiagnostics_ = false;
 };
 
 } // namespace engine

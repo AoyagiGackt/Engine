@@ -9,17 +9,16 @@
 #include "GamePlayScene.h"
 #include "MapScene.h"
 #include "OptionsScene.h"
-#include "ShopScene.h"
 #include "TitleScene.h"
 #include "TrainingScene.h"
 #include <unordered_map>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 using SceneCreator = std::unique_ptr<BaseScene> (*)();
 
+/** @brief 指定したシーンの型を生成する */
 template <class T>
 std::unique_ptr<BaseScene> Create()
 {
@@ -37,16 +36,17 @@ const std::unordered_map<std::string, SceneCreator>& SceneCreators()
         { "CLEAR", &Create<ClearScene> },
         { "GAMEOVER", &Create<GameOverScene> },
         { "MAP", &Create<MapScene> },
-        { "SHOP", &Create<ShopScene> },
         { "OPTIONS", &Create<OptionsScene> },
     };
     return kCreators;
 }
 } // namespace
 
+/** @brief 指定されたシーン名に対応するシーンを生成する */
 std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneName)
 {
     const auto& creators = SceneCreators();
     const auto it = creators.find(sceneName);
     return it != creators.end() ? it->second() : nullptr;
 }
+} // namespace engine::game

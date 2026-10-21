@@ -13,6 +13,11 @@ namespace engine::game {
 
 /** @brief バトルテストの調整値（初期値はJSONに項目が無い時の既定値） */
 struct BattleTestTuning {
+    float warpReturnX = 3.0f;
+    float returnProximity = 3.0f;
+    float dummyMaxHp = 100.0f;
+    float dummySpawnX = 15.0f;
+    float rampageDefaultTargetDistance = 6.0f;
     // ダミーの物理と帰還
     float dummyKnockDragX = 0.84f; ///< 水平ノックバック速度の毎フレーム減衰率
     float dummyKnockDragY = 0.88f; ///< 垂直ノックバック速度の毎フレーム減衰率
@@ -81,6 +86,11 @@ namespace battle_test_tuning_detail {
     inline constexpr const char* kPath = "Resources/Config/battle_test.json";
 
     inline constexpr JsonField<BattleTestTuning> kBattleTestFields[] = {
+        { "scene", "warpReturnX", &BattleTestTuning::warpReturnX },
+        { "scene", "returnProximity", &BattleTestTuning::returnProximity },
+        { "scene", "dummyMaxHp", &BattleTestTuning::dummyMaxHp },
+        { "scene", "dummySpawnX", &BattleTestTuning::dummySpawnX },
+        { "scene", "rampageDefaultTargetDistance", &BattleTestTuning::rampageDefaultTargetDistance },
         { "dummy", "dummyKnockDragX", &BattleTestTuning::dummyKnockDragX },
         { "dummy", "dummyKnockDragY", &BattleTestTuning::dummyKnockDragY },
         { "dummy", "dummyHpRecoverTime", &BattleTestTuning::dummyHpRecoverTime },
@@ -137,11 +147,13 @@ namespace battle_test_tuning_detail {
         { "reach", "rampageRushHalfHeight", &BattleTestTuning::rampageRushHalfHeight },
     };
 
+    /** @brief JSONファイルからグラフを読み込む（読み込み失敗時は空のGraphDescを返す） */
     inline BattleTestTuning Load()
     {
         BattleTestTuning tuning;
         const nlohmann::json root = engine::JsonHelper::Load(kPath);
-        if (!root.is_object()) {
+        if (!root.is_object())
+        {
             engine::Logger::LogWarning(std::string("BattleTestTuning: ") + kPath + " が読めません。既定値で動きます");
             return tuning;
         }

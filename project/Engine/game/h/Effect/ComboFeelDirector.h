@@ -115,7 +115,9 @@ public:
     void TriggerFinisherImpact(const Vector3& worldPos);
 
     /** @brief 覚醒中かを伝える（軌跡の二重化・斬撃線の本数・締め演出の強さが変わる。毎フレーム呼ぶ） */
-    void SetAwakened(bool awakened) { awakened_ = awakened; }
+    void SetAwakened(bool awakened) {
+        awakened_ = awakened;
+    }
 
     /** @brief 締めのズームをカメラ位置へ加える（シーンがカメラ位置を決め終えた後に呼ぶ） */
     void ApplyCameraZoom(engine::graphics::Camera* camera) const;
@@ -130,12 +132,13 @@ public:
     void ApplyScreenEffects();
 
     /** @brief ラジアルブラーを描く必要があるか（描画先の復帰を省くための判定） */
-    bool HasScreenEffects() const { return blur_.IsActive(); }
+    bool HasScreenEffects() const {
+        return blur_.IsActive();
+    }
 
     /** @brief F6でデバッグパネルを開閉し、開いていれば描く（Updateフェーズから呼ぶこと） */
     void UpdateDebugPanel(engine::Input* input);
 
-    const ComboFeelSettings& GetSettings() const { return settings_; }
 
 private:
     /** @brief 刃の範囲を武器行列でワールドへ移して軌跡に積む */
@@ -153,7 +156,9 @@ private:
     void SaveSettings() const;
 
     /** @brief 覚醒の上乗せを今使うか */
-    bool IsAwakenBoosted() const { return (awakened_ || previewAwaken_) && settings_.awakenEnabled; }
+    bool IsAwakenBoosted() const {
+        return (awakened_ || previewAwaken_) && settings_.awakenEnabled;
+    }
 
     ComboFeelSettings settings_;
     engine::graphics::WeaponTrailEffect trail_;

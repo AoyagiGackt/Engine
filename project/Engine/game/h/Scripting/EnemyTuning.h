@@ -4,7 +4,17 @@
  * @note EnemyEntity/KnightEnemy/GamePlaySceneが参照する。数値の変更にコードのリビルドが要らないようにする
  */
 #pragma once
+#include <map>
+#include <string>
 namespace engine::game {
+
+/** @brief 敵の静止モデルとテクスチャ、縮尺、向き補正 */
+struct EnemyVisualTuning {
+    std::string model;
+    std::string texture;
+    float scale = 1.0f;
+    float yawOffset = 0.0f;
+};
 
 /** @brief 汎用敵(EnemyEntity)の調整値 */
 struct BasicEnemyTuning {
@@ -94,17 +104,36 @@ public:
     /** @brief JSONを読み直す */
     void Reload();
 
-    const BasicEnemyTuning& Basic() const { return basic_; }
-    const KnightEnemyTuning& Knight() const { return knight_; }
-    const EnemyBulletTuning& Bullet() const { return bullet_; }
-    const BossSlamTuning& BossSlam() const { return bossSlam_; }
-    const EnemySeparationTuning& Separation() const { return separation_; }
+    /** @brief 名前に対応する敵の見た目を返し、未知の名前ではnullptrを返す */
+    const EnemyVisualTuning* FindVisual(const std::string& kind) const;
+
+    /** @brief 通常の敵の調整値を返す */
+    const BasicEnemyTuning& Basic() const {
+        return basic_;
+    }
+    /** @brief 騎士の敵の調整値を返す */
+    const KnightEnemyTuning& Knight() const {
+        return knight_;
+    }
+    /** @brief 敵の弾の調整値を返す */
+    const EnemyBulletTuning& Bullet() const {
+        return bullet_;
+    }
+    /** @brief ボスの叩きつけ攻撃の調整値を返す */
+    const BossSlamTuning& BossSlam() const {
+        return bossSlam_;
+    }
+    /** @brief 敵どうしの押し離しの調整値を返す */
+    const EnemySeparationTuning& Separation() const {
+        return separation_;
+    }
 
 private:
     EnemyTuning();
     EnemyTuning(const EnemyTuning&) = delete;
     EnemyTuning& operator=(const EnemyTuning&) = delete;
 
+    std::map<std::string, EnemyVisualTuning> visuals_;
     BasicEnemyTuning basic_;
     KnightEnemyTuning knight_;
     EnemyBulletTuning bullet_;

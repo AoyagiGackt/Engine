@@ -1,3 +1,7 @@
+/**
+ * @file AwakenGaugeHud.cpp
+ * @brief 覚醒ゲージの HUD 表示（AwakenGaugeHud）の実装
+ */
 #include "AwakenGaugeHud.h"
 #include "FontRenderer.h"
 #include "UILayout.h"
@@ -30,6 +34,7 @@ constexpr Vector4 kHintColor = { 0.8f, 0.9f, 1.0f, 0.8f };
 constexpr float kActivationHintThreshold = 0.3f; // 覚醒を発動できるゲージ量（Player側の発動条件と同じ値）
 }
 
+/** @brief 覚醒ゲージのスプライトを用意する */
 void AwakenGaugeHud::Initialize(const HudServices& services)
 {
     background_ = std::make_unique<engine::graphics::Sprite>();
@@ -38,6 +43,7 @@ void AwakenGaugeHud::Initialize(const HudServices& services)
     foreground_ = std::make_unique<engine::graphics::Sprite>();
     foreground_->Initialize(&services.sprites, "Resources/white.png");
 }
+/** @brief 覚醒ゲージの量と表示を更新する */
 void AwakenGaugeHud::Update(const HudFrame& frame)
 {
     gauge_ = std::clamp(frame.awakenGauge, 0.0f, 1.0f);
@@ -56,19 +62,27 @@ void AwakenGaugeHud::Update(const HudFrame& frame)
         : layout.Color("awaken_gauge.charging_color", kGaugeChargingColor));
     foreground_->Update();
 }
+/** @brief 覚醒ゲージの文字を描画予約する */
 void AwakenGaugeHud::QueueText(FontRenderer& font) const
 {
     const float labelY = position_.y + kLabelOffsetY;
     font.DrawString("AWAKEN", position_.x, labelY, kLabelScale, kTitleColor);
-    if (awakened_) {
+    if (awakened_)
+    {
         font.DrawString("ACTIVE", position_.x + kActiveLabelOffsetX, labelY, kLabelScale, { pulse_, pulse_, 1.0f, 1.0f });
-    } else if (gauge_ >= kActivationHintThreshold) {
+    }
+    else if (gauge_ >= kActivationHintThreshold)
+    {
         font.DrawString("[R] Activate", position_.x + kHintLabelOffsetX, labelY, kLabelScale, kHintColor);
     }
 }
+/** @brief 覚醒ゲージを描画する */
 void AwakenGaugeHud::Draw()
 {
     background_->Draw();
-    if (gauge_ > 0.0f) { foreground_->Draw(); }
+    if (gauge_ > 0.0f)
+    {
+        foreground_->Draw();
+    }
 }
 }

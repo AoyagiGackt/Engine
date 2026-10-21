@@ -1,14 +1,16 @@
 /**
  * @file TriggerVolume.cpp
- * @brief TriggerVolumeのレベルデータの読込、編集、実体生成に関する具体的な処理を実装するファイル
+ * @brief プレイヤーの進入を検出してフラグへ知らせるトリガー（TriggerVolume）の実装
  */
 #include "TriggerVolume.h"
 #include "GameFlags.h"
-using namespace engine::game;
 
+namespace engine::game {
+/** @brief プレイヤーが範囲内に入った瞬間だけフラグを立てる */
 bool TriggerVolume::Update(const Vector3& playerPos)
 {
-    if (desc_.once && consumed_) {
+    if (desc_.once && consumed_)
+    {
         return false;
     }
 
@@ -18,8 +20,10 @@ bool TriggerVolume::Update(const Vector3& playerPos)
     const bool inside = (dx * dx + dy * dy + dz * dz) <= (desc_.radius * desc_.radius);
 
     const bool justEntered = inside && !wasInside_;
-    if (justEntered) {
-        if (!desc_.flag.empty()) {
+    if (justEntered)
+    {
+        if (!desc_.flag.empty())
+        {
             GameFlags::GetInstance()->SetFlag(desc_.flag, desc_.value);
         }
         consumed_ = true;
@@ -27,3 +31,5 @@ bool TriggerVolume::Update(const Vector3& playerPos)
     wasInside_ = inside;
     return justEntered;
 }
+
+} // namespace engine::game

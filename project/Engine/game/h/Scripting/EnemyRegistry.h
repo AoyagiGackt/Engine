@@ -36,6 +36,7 @@ public:
     void Clear();
 
 private:
+    /** @brief 敵が未登録の一覧を生成する */
     EnemyRegistry() = default;
     EnemyRegistry(const EnemyRegistry&) = delete;
     EnemyRegistry& operator=(const EnemyRegistry&) = delete;

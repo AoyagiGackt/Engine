@@ -1,6 +1,6 @@
 /**
  * @file ScreenFlash.h
- * @brief ScreenFlashのゲーム画面UIの状態更新と描画に関する公開型と操作インターフェースを定義するファイル
+ * @brief 画面全体を一瞬光らせる演出（ScreenFlash）の宣言
  */
 #pragma once
 #include "MakeAffine.h"
@@ -47,9 +47,13 @@ public:
     /** @brief フラッシュ中（timer_>0）ならスプライトを描画する */
     void Draw();
 
-    bool IsActive() const { return timer_ > 0.0f; }
+    /** @brief フラッシュの最中かを返す */
+    bool IsActive() const {
+        return timer_ > 0.0f;
+    }
 
 private:
+    /** @brief 画面フラッシュが停止した状態で生成する */
     ScreenFlash() = default;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;

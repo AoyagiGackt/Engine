@@ -34,10 +34,18 @@ public:
     /** @brief 全フラグを消去する（ステージ再読み込み時などに使う想定） */
     void Clear();
 
-    /** @brief 登録済みの全フラグ（StageEditor等のデバッグ表示用） */
-    const std::map<std::string, bool>& GetAll() const { return flags_; }
+    /** @brief 各フラグを名前順に読み取り専用の処理へ渡す。処理中は登録・消去しない */
+    template<class Visitor>
+    void VisitFlags(const Visitor& visitor) const
+    {
+        for (const auto& [name, value] : flags_)
+        {
+            visitor(name, value);
+        }
+    }
 
 private:
+    /** @brief 空のフラグストアを生成する */
     GameFlags() = default;
     GameFlags(const GameFlags&) = delete;
     GameFlags& operator=(const GameFlags&) = delete;

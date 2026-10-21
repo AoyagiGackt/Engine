@@ -3,6 +3,7 @@
  * @brief 仕掛けの動き方ごとの姿・可動域・演出の実装
  */
 #include "GimmickMotion.h"
+#include "Easing.h"
 #include "FallingFloorBehavior.h"
 #include "LevelLoader.h"
 #include <algorithm>
@@ -21,17 +22,22 @@ class StillMotion : public GimmickMotion {
 /** @brief 指定軸に沿ってsin波で往復する */
 class SlideMotion : public GimmickMotion {
 public:
+    /** @brief 動かす向きを指定して初期化する */
     explicit SlideMotion(const Vector3& axis)
         : axis_(axis)
     {
     }
+    /** @brief 経過時間から往復移動の位置を求める */
     GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
     {
         GimmickPose pose;
         pose.position = axis_ * (std::sin(timer * desc.motionSpeed) * desc.motionAmount);
         return pose;
     }
-    Vector3 RangeAxis(const ObjectDesc& desc) const override { return axis_ * desc.motionAmount; }
+    /** @brief 動く範囲の表示に使う移動量（ワールド座標）を返す */
+    Vector3 RangeAxis(const ObjectDesc& desc) const override {
+        return axis_ * desc.motionAmount;
+    }
 
 private:
     Vector3 axis_;
@@ -40,18 +46,23 @@ private:
 /** @brief 指定軸まわりに一定速度で回り続ける */
 class SpinMotion : public GimmickMotion {
 public:
+    /** @brief 回転軸と、子オブジェクトも一緒に回すかを指定して初期化する */
     SpinMotion(const Vector3& axis, bool carriesChildren)
         : axis_(axis)
         , carriesChildren_(carriesChildren)
     {
     }
+    /** @brief 経過時間から回転の角度を求める */
     GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
     {
         GimmickPose pose;
         pose.rotation = axis_ * (timer * desc.motionSpeed);
         return pose;
     }
-    bool CarriesChildren() const override { return carriesChildren_; }
+    /** @brief 子オブジェクトも一緒に動かすかを返す */
+    bool CarriesChildren() const override {
+        return carriesChildren_;
+    }
 
 private:
     Vector3 axis_;
@@ -61,6 +72,7 @@ private:
 /** @brief 乗ると光ってから崩れ落ち、しばらくして戻る床 */
 class FallMotion : public GimmickMotion {
 public:
+    /** @brief 経過時間から落下の位置を求める */
     GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
     {
         const FallingFloorBehavior::Snapshot state = FallingFloorBehavior::Evaluate(timer, desc.motionSpeed, desc.motionAmount);
@@ -70,6 +82,7 @@ public:
         pose.solid = state.solid;
         return pose;
     }
+    /** @brief 落下に合わせた演出（パーティクル）を出す */
     void EmitEffects(engine::graphics::ParticleManager* pm, const ObjectDesc& desc, const Vector3& worldPosition,
         float timer, bool& wasSolid) const override
     {
@@ -82,6 +95,7 @@ public:
 /** @brief 一定周期で見えたり消えたりする（当たり判定は残る） */
 class BlinkMotion : public GimmickMotion {
 public:
+    /** @brief 経過時間から点滅（出現・消失）の状態を求める */
     GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
     {
         GimmickPose pose;
@@ -121,6 +135,7 @@ float (*ProgressOf(MotionMode mode))(float)
     return index < std::size(kProgresses) ? kProgresses[index] : &LoopProgress;
 }
 
+/** @brief 加速の無い等速の進み具合を返す */
 float LinearEase(float t)
 {
     return t;
@@ -131,18 +146,22 @@ float SmoothEase(float t)
 {
     const float sign = t < 0.0f ? -1.0f : 1.0f;
     const float mag = std::abs(t);
-    return sign * (mag * mag * (3.0f - 2.0f * mag));
+    return sign * Easing::SmoothStep(mag);
 }
 
 /** @brief 加減速の種類から緩急の付け方を返す */
 float (*EaseOf(MotionEase ease))(float)
 {
-    return ease == MotionEase::Smooth ? &SmoothEase : &LinearEase;
+    using EasingFunction = float (*)(float);
+    static constexpr EasingFunction kEasingFunctions[] = { &LinearEase, &SmoothEase };
+    const size_t index = static_cast<size_t>(ease);
+    return index < std::size(kEasingFunctions) ? kEasingFunctions[index] : &LinearEase;
 }
 
 /** @brief 移動方向・回転量・往復方式・加減速を自由に組み合わせる */
 class FreeformMotion : public GimmickMotion {
 public:
+    /** @brief 経過時間から経路に沿った位置を求める */
     GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
     {
         // 進行度t（-1〜1または0〜1）をモードごとに求め、移動方向×量と回転量へ同じtを掛ける
@@ -152,13 +171,24 @@ public:
         pose.rotation = desc.motionRotation * t;
         return pose;
     }
-    Vector3 RangeAxis(const ObjectDesc& desc) const override { return desc.motionAxis * desc.motionAmount; }
-    bool IsOneWay(const ObjectDesc& desc) const override { return desc.motionMode == MotionMode::Once; }
-    bool IsFreeform() const override { return true; }
+    /** @brief 動く範囲の表示に使う移動量（ワールド座標）を返す */
+    Vector3 RangeAxis(const ObjectDesc& desc) const override {
+        return desc.motionAxis * desc.motionAmount;
+    }
+    /** @brief 片道だけ動く（往復しない）設定かを返す */
+    bool IsOneWay(const ObjectDesc& desc) const override {
+        return desc.motionMode == MotionMode::Once;
+    }
+    /** @brief 自由な経路で動く種類かを返す */
+    bool IsFreeform() const override {
+        return true;
+    }
+    /** @brief 設定を検査し、問題があれば説明文を issues へ追加する */
     void Validate(const ObjectDesc& desc, std::vector<std::string>& issues) const override
     {
         if (desc.motionAxis.x == 0.0f && desc.motionAxis.y == 0.0f && desc.motionAxis.z == 0.0f
-            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f) {
+            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f)
+        {
             issues.push_back("カスタム動作の移動方向と回転量が両方0です: " + desc.name);
         }
     }
@@ -166,6 +196,7 @@ public:
 
 } // namespace
 
+/** @brief 動き方の名前に対応する動き方を返す（未知の名前は動かない） */
 const GimmickMotion& GimmickMotion::Of(const std::string& name)
 {
     static const StillMotion still;
@@ -187,8 +218,10 @@ const GimmickMotion& GimmickMotion::Of(const std::string& name)
         { "blink", &blink },
         { "custom", &custom },
     };
-    for (const auto& [motionName, motion] : kMotions) {
-        if (name == motionName) {
+    for (const auto& [motionName, motion] : kMotions)
+    {
+        if (name == motionName)
+        {
             return *motion;
         }
     }

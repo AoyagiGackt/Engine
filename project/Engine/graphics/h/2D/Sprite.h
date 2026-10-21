@@ -51,7 +51,7 @@ public:
      * @param spriteCommon 2D描画の共通設定オブジェクトのポインタ
      * @param textureFilePath 貼り付けるテクスチャ画像のパス（例: "Resources/uvChecker.png"）
      */
-    void Initialize(SpriteCommon* spriteCommon, std::string textureFilePath);
+    void Initialize(SpriteCommon* spriteCommon, const std::string& textureFilePath);
 
     /**
      * @brief 毎フレームの更新処理座標やサイズから行列を再計算する
@@ -67,54 +67,86 @@ public:
     // セッター・ゲッター
 
     /** @brief 画面上の描画座標（X, Y）を取得 */
-    const Vector2& GetPosition() const { return position_; }
+    const Vector2& GetPosition() const {
+        return position_;
+    }
 
     /** @brief 画面上の描画座標（X, Y）を設定 */
-    void SetPosition(const Vector2& position) { position_ = position; }
+    void SetPosition(const Vector2& position) {
+        position_ = position;
+    }
 
     /** @brief スプライトの回転角（Z軸回転）を取得 */
-    float GetRotation() const { return rotation_; }
+    float GetRotation() const {
+        return rotation_;
+    }
 
     /** @brief スプライトの回転角（ラジアン）を設定 */
-    void SetRotation(float rotation) { rotation_ = rotation; }
+    void SetRotation(float rotation) {
+        rotation_ = rotation;
+    }
 
     /** @brief スプライトの描画サイズ（幅、高さ）を取得 */
-    const Vector2& GetSize() const { return size_; }
+    const Vector2& GetSize() const {
+        return size_;
+    }
 
     /** @brief スプライトの描画サイズ（幅、高さ）を設定 */
-    void SetSize(const Vector2& size) { size_ = size; }
+    void SetSize(const Vector2& size) {
+        size_ = size;
+    }
 
     /** @brief 画像の基準点（0.0～1.0）を取得 */
-    const Vector2& GetAnchorPoint() const { return anchorPoint_; }
+    const Vector2& GetAnchorPoint() const {
+        return anchorPoint_;
+    }
 
     /** @brief 画像の基準点を設定（例: {0.5f, 0.5f} で中心基準） */
-    void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; }
+    void SetAnchorPoint(const Vector2& anchorPoint) {
+        anchorPoint_ = anchorPoint;
+    }
 
     /** @brief スプライトの色（RGBA）を取得 */
-    const Vector4& GetColor() const { return materialData_->color; }
+    const Vector4& GetColor() const {
+        return materialData_->color;
+    }
 
     /** @brief スプライトの色・透明度を設定（デフォは {1,1,1,1}） */
-    void SetColor(const Vector4& color) { materialData_->color = color; }
+    void SetColor(const Vector4& color) {
+        materialData_->color = color;
+    }
 
     /** @brief 左右反転フラグを設定 */
-    void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; }
+    void SetFlipX(bool isFlipX) {
+        isFlipX_ = isFlipX;
+    }
 
     /** @brief 上下反転フラグを設定 */
-    void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }
+    void SetFlipY(bool isFlipY) {
+        isFlipY_ = isFlipY;
+    }
 
     // テクスチャ切り出し機能
 
     /** @brief テクスチャの切り出し開始位置（左上）を取得 */
-    const Vector2& GetTextureLeftTop() const { return textureLeftTop_; }
+    const Vector2& GetTextureLeftTop() const {
+        return textureLeftTop_;
+    }
 
     /** @brief テクスチャの切り出し開始位置（左上X, 左上Y）を設定 */
-    void SetTextureLeftTop(const Vector2& textureLeftTop) { textureLeftTop_ = textureLeftTop; }
+    void SetTextureLeftTop(const Vector2& textureLeftTop) {
+        textureLeftTop_ = textureLeftTop;
+    }
 
     /** @brief テクスチャの切り出しサイズを取得 */
-    const Vector2& GetTextureSize() const { return textureSize_; }
+    const Vector2& GetTextureSize() const {
+        return textureSize_;
+    }
 
     /** @brief テクスチャの切り出しサイズ（幅, 高さ）を設定 */
-    void SetTextureSize(const Vector2& textureSize) { textureSize_ = textureSize; }
+    void SetTextureSize(const Vector2& textureSize) {
+        textureSize_ = textureSize;
+    }
 
     /**
      * @brief 描画するテクスチャを別の画像に変更する

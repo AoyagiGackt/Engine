@@ -35,9 +35,18 @@ public:
     /** @brief タイマーをリセットして非アクティブ状態に戻す */
     void Reset();
 
-    bool IsActive() const { return active_; }
-    bool IsFinished() const { return finished_; }
-    bool NeedCapture() const { return captureNeeded_; }
+    /** @brief 演出の最中かを返す */
+    bool IsActive() const {
+        return active_;
+    }
+    /** @brief 演出が終わったかを返す */
+    bool IsFinished() const {
+        return finished_;
+    }
+    /** @brief 割る前の画面を撮り直す必要があるかを返す */
+    bool NeedCapture() const {
+        return captureNeeded_;
+    }
 
     // パラメータ調整（Initialize 後に呼べる）
     void SetImpactUV(float u, float v);

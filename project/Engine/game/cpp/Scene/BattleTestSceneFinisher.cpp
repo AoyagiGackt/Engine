@@ -3,11 +3,15 @@
  * @brief バトルテストのフィニッシャー演出と判定
  */
 #include "BattleTestScene.h"
+#include "SceneVisualTuning.h"
+#include "HitEffectLibrary.h"
+#include "CombatTuning.h"
 #include "BattleTestTuning.h"
 #include "AudioBridge.h"
 #include "BattleTestSceneRenderer.h"
 #include "Collision.h"
 #include "DiagnosticsDraw.h"
+#include "FinisherEffects.h"
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
@@ -26,47 +30,16 @@
 #include <cstring>
 #include <random>
 #include <string>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
-namespace {
-constexpr float kEffectHeight = 0.5f; // 足元から演出を出す高さ
-constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
+namespace engine::game {
 
-// 発動
-constexpr Vector4 kChargeFlashColor = { 0.75f, 0.95f, 1.0f, 0.35f };
-constexpr float kChargeFlashSeconds = 0.10f;
-
-// 1本ごとの斬り刻み
-constexpr float kSlashLineLengthMin = 4.0f;
-constexpr float kSlashLineLengthMax = 9.0f;
-constexpr float kSlashLineThicknessMin = 3.0f;
-constexpr float kSlashLineThicknessMax = 7.0f;
-constexpr float kSlashLineLingerSeconds = 0.25f; // 解放の瞬間からさらに残す時間
-constexpr Vector4 kSlashLineColor = { 0.75f, 0.95f, 1.0f, 1.0f };
-constexpr int kBeatBladeCount = 3;
-constexpr float kBeatBladeRadius = 4.0f;
-constexpr float kBeatBladeSpeedMin = 1.2f;
-constexpr float kBeatBladeSpeedMax = 2.8f;
-
-// 解放
-constexpr float kSlashFlashSeconds = 0.22f;
-constexpr int kReleaseSlashCount = 8;
-constexpr float kReleaseSlashThickness = 9.0f;
-constexpr float kReleaseSlashSeconds = 0.15f;
-constexpr Vector4 kReleaseFlashColor = { 0.75f, 0.95f, 1.0f, 0.65f };
-constexpr int kReleaseBladeCount = 30;
-constexpr float kReleaseBladeSpeedMin = 2.0f;
-constexpr float kReleaseBladeSpeedMax = 5.0f;
-constexpr float kReleaseWarpImpulse = 1.0f;
-constexpr float kMinClipW = 0.0001f; // これ以下のw成分ではスクリーン座標へ変換しない（カメラの背後）
-}
-
+/** @brief フィニッシャースラッシュの発動演出をトリガーする */
 void BattleTestScene::TriggerFinisherSlash()
 {
     // ── フィニッシャースラッシュ 発動の合図（斬撃線の表示は UpdateFinisherSlash に委譲）──
-    if (!player_->JustFinisherSlash()) {
+    if (!player_->JustFinisherSlash())
+    {
         return;
     }
 
@@ -75,27 +48,31 @@ void BattleTestScene::TriggerFinisherSlash()
 
     finisherActive_ = true;
     finisherLineIdx_ = 0;
-    finisherBeatTimer_ = GameConstants::kFinisherChargeDelay;
-    tm->RequestHitStop(GameConstants::kHitStopJuggle);
-    ScreenFlash::GetInstance()->Request(kChargeFlashColor, kChargeFlashSeconds);
-    SpawnHitEffect({ pp.x, pp.y + kEffectHeight, 0.0f });
+    finisherBeatTimer_ = CombatTune().finisherChargeDelay;
+    tm->RequestHitStop(HitEffectLibrary::GetInstance()->SceneParticles().hitStopJuggle);
+    ScreenFlash::GetInstance()->Request(SceneVisualTuning::BattleFinisher().chargeFlashColor, SceneVisualTuning::BattleFinisher().chargeFlashSeconds);
+    SpawnHitEffect({ pp.x, pp.y + SceneVisualTuning::BattleFinisher().effectHeight, 0.0f });
     SceneShared::EmitFinisherCharge(pm_, "bt_hit_ring", "bt_hit_spark",
-        { pp.x, pp.y + kEffectHeight, 0.0f });
+        { pp.x, pp.y + SceneVisualTuning::BattleFinisher().effectHeight, 0.0f });
     spaceWarp_.AddImpulse(BattleTestTune().chargeWarpImpulse);
 }
 
+/** @brief フィニッシャースラッシュ演出（斬撃線を1本ずつ表示→本命ヒット）を更新する本命ヒットの瞬間なら true を返す */
 bool BattleTestScene::UpdateFinisherSlash()
 {
-    if (!finisherActive_) {
+    if (!finisherActive_)
+    {
         return false;
     }
 
     finisherBeatTimer_ -= GameConstants::kFrameDeltaTime;
-    if (finisherBeatTimer_ > 0.0f) {
+    if (finisherBeatTimer_ > 0.0f)
+    {
         return false;
     }
 
-    if (finisherLineIdx_ < GameConstants::kFinisherSlashLines) {
+    if (finisherLineIdx_ < CombatTune().finisherSlashLines)
+    {
         UpdateFinisherSlashLine();
         return true;
     }
@@ -108,116 +85,85 @@ bool BattleTestScene::UpdateFinisherSlash()
     return true;
 }
 
+/** @brief UpdateFinisherSlash()の下請け 斬撃線を1本表示し、全マネキンに拘束ヒットを与える */
 void BattleTestScene::UpdateFinisherSlashLine()
 {
     auto* tm = TimeManager::GetInstance();
-    const Vector3& pp = player_->GetPosition();
-
     // カメラ視界全体にランダムな位置を高速で斬り刻む
-    const Vector3& cam = camera_->GetTranslate();
     static std::mt19937 rng { std::random_device { }() };
-    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-    std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
-    std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
-    std::uniform_real_distribution<float> lenDist(kSlashLineLengthMin, kSlashLineLengthMax);
-    std::uniform_real_distribution<float> thickDist(kSlashLineThicknessMin, kSlashLineThicknessMax);
-    const float ang = angleDist(rng);
-    const Vector2 dir = { std::cos(ang), std::sin(ang) };
-    const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
-    const float len = lenDist(rng);
-
-    // 解放の瞬間まで全ての斬撃線を画面に残す
-    const float duration = (GameConstants::kFinisherSlashLines - 1 - finisherLineIdx_) * GameConstants::kFinisherLineInterval
-        + GameConstants::kFinisherImpactDelay + kSlashLineLingerSeconds;
-    SceneShared::SpawnSlashMarkWorld(
-        { center.x - dir.x * len, center.y - dir.y * len },
-        { center.x + dir.x * len, center.y + dir.y * len },
-        cam.x, cam.y, kSlashLineColor, thickDist(rng), duration);
-
-    SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark",
-        { center.x, center.y, 0.0f }, ang, len);
+    const FinisherEffects::BeatSlash slash = FinisherEffects::SpawnBeatSlash(rng, camera_->GetTranslate(), finisherLineIdx_);
+    const Vector3 slashCenter = { slash.center.x, slash.center.y, 0.0f };
+    SceneShared::EmitFinisherSlashLine(pm_, "bt_sword_slash", "bt_hit_spark", slashCenter, slash.angle, slash.length);
 
     // 空間にガラス質の刃を明滅させ、歪みを脈動させる
-    bladeFlash_.Emit({ center.x, center.y, 0.0f }, kBeatBladeCount, kBeatBladeRadius, kBeatBladeSpeedMin, kBeatBladeSpeedMax);
+    FinisherEffects::EmitBeatBlades(bladeFlash_, slashCenter);
     spaceWarp_.AddImpulse(BattleTestTune().beatWarpImpulse);
 
-    tm->RequestHitStop(GameConstants::kHitStopFinisherBeat);
+    tm->RequestHitStop(HitEffectLibrary::GetInstance()->SceneParticles().hitStopFinisherBeat);
 
     // 斬撃線が出るたびに実際にヒットさせ、マネキンを浮かせ続ける
-    for (auto& d : dummies_) {
-        d.hp = d.maxHp;
-        d.hitFlash = BattleTestTune().beatHitFlash;
-        d.hpDisplay = 0.0f;
-        d.returnTimer = BattleTestTune().dummyReturnDelay;
-        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * BattleTestTune().beatKnockX;
-        d.knockVelY += BattleTestTune().beatKnockY;
-        SpawnHitEffect({ d.pos.x, d.pos.y + kEffectHeight, 0.0f });
-    }
+    ApplyFinisherHits(BattleTestTune().beatHitFlash, BattleTestTune().beatKnockX, BattleTestTune().beatKnockY);
 
     styleMeter_.RegisterHit("finisher_line", BattleTestTune().beatStyleScore);
 
     finisherLineIdx_++;
-    finisherBeatTimer_ = (finisherLineIdx_ < GameConstants::kFinisherSlashLines)
-        ? GameConstants::kFinisherLineInterval
-        : GameConstants::kFinisherImpactDelay;
+    finisherBeatTimer_ = CombatTune().FinisherBeatDelayAfter(finisherLineIdx_);
 }
 
+/** @brief UpdateFinisherSlash()の下請け 解放の瞬間に距離を問わず全マネキンへヒットを適用する */
 void BattleTestScene::ApplyFinisherReleaseHits()
 {
+    ApplyFinisherHits(BattleTestTune().releaseHitFlash, BattleTestTune().releaseKnockX, BattleTestTune().releaseKnockY);
+}
+
+/** @brief ダミーを回復可能な状態に保ちながら、段階ごとの強さでヒットと吹き飛びを加える */
+void BattleTestScene::ApplyFinisherHits(float hitFlash, float knockX, float knockY)
+{
     const Vector3& pp = player_->GetPosition();
-    for (auto& d : dummies_) {
+    for (auto& d : dummies_)
+    {
         d.hp = d.maxHp;
-        d.hitFlash = BattleTestTune().releaseHitFlash;
+        d.hitFlash = hitFlash;
         d.hpDisplay = 0.0f;
         d.returnTimer = BattleTestTune().dummyReturnDelay;
-        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * BattleTestTune().releaseKnockX;
-        d.knockVelY += BattleTestTune().releaseKnockY;
-        SpawnHitEffect({ d.pos.x, d.pos.y + kEffectHeight, 0.0f });
+        d.knockVelX += ((d.pos.x >= pp.x) ? 1.0f : -1.0f) * knockX;
+        d.knockVelY += knockY;
+        SpawnHitEffect({ d.pos.x, d.pos.y + SceneVisualTuning::BattleFinisher().effectHeight, 0.0f });
     }
 }
 
+/** @brief UpdateFinisherSlash()の下請け 解放演出（斬撃線・画面フラッシュ・刃の放出・ダミー切断）を再生する */
 void BattleTestScene::PlayFinisherReleaseEffects()
 {
     auto* tm = TimeManager::GetInstance();
     const Vector3& pp = player_->GetPosition();
 
     // 溜めた斬撃線を一斉に白く光らせてから消し、太く短い閃光の斬撃線を重ねる
-    SlashMark::GetInstance()->FlashAll(kWhite, kSlashFlashSeconds);
     static std::mt19937 rngRelease { std::random_device { }() };
-    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-    const Vector3& cam = camera_->GetTranslate();
-    for (int i = 0; i < kReleaseSlashCount; ++i) {
-        const float ang = angleDist(rngRelease);
-        const Vector2 dir = { std::cos(ang), std::sin(ang) };
-        SceneShared::SpawnSlashMarkWorld(
-            { pp.x - dir.x * GameConstants::kFinisherSlashRadius,
-                pp.y - dir.y * GameConstants::kFinisherSlashRadius },
-            { pp.x + dir.x * GameConstants::kFinisherSlashRadius,
-                pp.y + dir.y * GameConstants::kFinisherSlashRadius },
-            cam.x, cam.y, kWhite, kReleaseSlashThickness, kReleaseSlashSeconds);
-    }
+    FinisherEffects::SpawnReleaseSlashes(rngRelease, pp, camera_->GetTranslate());
 
-    tm->RequestHitStop(GameConstants::kHitStopFinisherSlash);
-    ScreenFlash::GetInstance()->Request(kReleaseFlashColor, GameConstants::kShakeFinisherSlashDur);
+    tm->RequestHitStop(HitEffectLibrary::GetInstance()->SceneParticles().hitStopFinisherSlash);
+    ScreenFlash::GetInstance()->Request(SceneVisualTuning::BattleFinisher().releaseFlashColor, HitEffectLibrary::GetInstance()->SceneParticles().shakeFinisherSlashDur);
     SceneShared::EmitFinisherRelease(pm_, "bt_hit_ring", "bt_hit_spark",
-        { pp.x, pp.y + kEffectHeight, 0.0f });
+        { pp.x, pp.y + SceneVisualTuning::BattleFinisher().effectHeight, 0.0f });
     styleMeter_.RegisterHit("finisher_release", BattleTestTune().releaseStyleScore);
 
     // 解放の瞬間 刃の一斉放出と空間歪みの最大化、最も近いダミーを切断破片に差し替える
-    bladeFlash_.Emit({ pp.x, pp.y + kEffectHeight, 0.0f }, kReleaseBladeCount, GameConstants::kFinisherSlashRadius,
-        kReleaseBladeSpeedMin, kReleaseBladeSpeedMax);
-    spaceWarp_.AddImpulse(kReleaseWarpImpulse);
+    FinisherEffects::EmitReleaseBlades(bladeFlash_, spaceWarp_, { pp.x, pp.y + SceneVisualTuning::BattleFinisher().effectHeight, 0.0f });
 
     Dummy* nearest = nullptr;
     float minDist = FLT_MAX;
-    for (auto& d : dummies_) {
+    for (auto& d : dummies_)
+    {
         float dist = std::abs(d.pos.x - pp.x);
-        if (dist < minDist) {
+        if (dist < minDist)
+        {
             minDist = dist;
             nearest = &d;
         }
     }
-    if (nearest != nullptr) {
+    if (nearest != nullptr)
+    {
         static std::mt19937 rngSlice { std::random_device { }() };
         const Vector3 slicePos = { nearest->pos.x, nearest->pos.y + kDummyModelFootOffsetY, nearest->pos.z };
         dummySlice_.Start(modelDummy_, slicePos, { kDummyModelScale, kDummyModelScale, kDummyModelScale }, rngSlice());
@@ -225,18 +171,11 @@ void BattleTestScene::PlayFinisherReleaseEffects()
     }
 }
 
+/** @brief UpdateFinisherSlash()の下請け プレイヤー位置を画面UVへ投影し世界割れ演出を開始する */
 void BattleTestScene::StartFinisherShatterImpact()
 {
     // 暗転+斬撃線ごと凍った画面をプレイヤー位置から砕き、素の世界を見せる
-    const Vector3& pp = player_->GetPosition();
-    const Matrix4x4 vp = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
-    const float cx = pp.x * vp.m[0][0] + pp.y * vp.m[1][0] + pp.z * vp.m[2][0] + vp.m[3][0];
-    const float cy = pp.x * vp.m[0][1] + pp.y * vp.m[1][1] + pp.z * vp.m[2][1] + vp.m[3][1];
-    const float cw = pp.x * vp.m[0][3] + pp.y * vp.m[1][3] + pp.z * vp.m[2][3] + vp.m[3][3];
-    if (cw > kMinClipW) {
-        finisherShatter_.SetImpactUV(cx / cw * 0.5f + 0.5f, 0.5f - cy / cw * 0.5f);
-    }
-
-    finisherShatter_.Reset();
-    finisherShatter_.Start();
+    FinisherEffects::StartShatterAt(finisherShatter_, *camera_, player_->GetPosition());
 }
+
+} // namespace engine::game

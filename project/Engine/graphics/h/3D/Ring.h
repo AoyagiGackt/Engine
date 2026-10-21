@@ -1,25 +1,31 @@
 /**
  * @file Ring.h
- * @brief Ringの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief リングメッシュ（Ring）の宣言
  */
 #pragma once
 #include "RevolvedMeshBase.h"
 
 namespace engine::graphics {
 
+/** @brief 内径と外径から輪状メッシュを構築する */
 class Ring : public RevolvedMeshBase {
 public:
     void Initialize(engine::DirectXCommon* dxCommon,
         const std::string& textureFilePath = "Resources/Effects/gradationLine.png",
         int divisions = kDefaultDivisions);
 
-    void SetColor(const Vector4& color) { materialData_->color = color; }
+    /** @brief 色を設定する */
+    void SetColor(const Vector4& color) {
+        materialData_->color = color;
+    }
+    /** @brief 内側の半径を設定する（頂点を作り直す） */
     void SetInnerRadius(float r)
     {
         innerRadius_ = r;
         // 半径変更を反映して頂点データを再生成する
         RebuildVertices();
     }
+    /** @brief 外側の半径を設定する（頂点を作り直す） */
     void SetOuterRadius(float R)
     {
         outerRadius_ = R;
@@ -28,7 +34,10 @@ public:
     }
 
 protected:
-    void SetWVP(const Matrix4x4& wvp) override { materialData_->WVP = wvp; }
+    /** @brief ワールド・ビュー・プロジェクション行列を設定する */
+    void SetWVP(const Matrix4x4& wvp) override {
+        materialData_->WVP = wvp;
+    }
 
 private:
     static constexpr int kDefaultDivisions = 32;

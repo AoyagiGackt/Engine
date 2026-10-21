@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 
+namespace engine::graphics {
 namespace {
 
 // 縁の配色と補間係数
@@ -20,8 +21,6 @@ constexpr float kSmootherstepQuartic = 15.0f;
 constexpr float kSmootherstepCubic = 10.0f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 namespace {
 
@@ -35,29 +34,121 @@ constexpr float kBandBlue = 0.045f;
 constexpr float kEdgeOpacity = 0.85f;
 constexpr float kMaxBandStagger = 0.99f;
 
-struct FadeMotion {
-    float (*position)(float, float, bool);
-    float (*edgeOffset)(float, float);
+} // namespace
+
+/** @brief フェードの進行と帯の配置を段階ごとに抽象化する状態 */
+class Fade::IState {
+public:
+    /** @brief 派生状態を正しく終了する */
+    virtual ~IState() = default;
+    /** @brief 状態へ入るときの処理を行う */
+    virtual void Enter(Fade&) const { }
+    /** @brief 現在の段階を1フレーム進める */
+    virtual void Update(Fade&) const { }
+    /** @brief 状態を離れるときの処理を行う */
+    virtual void Exit(Fade&) const { }
+    /** @brief 呼び出し側へ公開する状態識別子を返す */
+    virtual Status Id() const = 0;
+    /** @brief 帯の左端の座標を求める */
+    virtual float Position(float width, float eased, bool covered) const = 0;
+    /** @brief 帯の左端から縁までの距離を求める */
+    virtual float EdgeOffset(float, float) const {
+        return 0.0f;
+    }
 };
 
-// Status順の位置と縁の計算
-constexpr FadeMotion kFadeMotions[] = {
-    { [](float width, float, bool covered) { return covered ? 0.0f : -width; },
-      [](float, float) { return 0.0f; } },
-    { [](float width, float eased, bool) { return width * eased; },
-      [](float, float) { return 0.0f; } },
-    { [](float width, float eased, bool) { return -width * (1.0f - eased); },
-      [](float width, float edgeWidth) { return width - edgeWidth; } },
+/** @brief フェードを進めず直前の被覆状態を保つ待機状態 */
+class Fade::IdleState final : public IState {
+public:
+    /** @brief 待機状態の識別子を返す */
+    Status Id() const override {
+        return Status::None;
+    }
+    /** @brief 帯の位置を返す（覆っていれば画面全体、開いていれば画面の左外） */
+    float Position(float width, float, bool covered) const override {
+        return covered ? 0.0f : -width;
+    }
 };
 
+/** @brief 帯を画面右へ退けて画面を開く状態 */
+class Fade::FadeInState final : public IState {
+public:
+    /** @brief 帯を開く方向へ進める */
+    void Update(Fade& fade) const override {
+        fade.Advance(false);
+    }
+    /** @brief フェードインの識別子を返す */
+    Status Id() const override {
+        return Status::FadeIn;
+    }
+    /** @brief 進み具合に応じて帯を画面右へ退けた位置を返す */
+    float Position(float width, float eased, bool) const override {
+        return width * eased;
+    }
+};
+
+/** @brief 帯を画面左から進めて画面を覆う状態 */
+class Fade::FadeOutState final : public IState {
+public:
+    /** @brief 帯を覆う方向へ進める */
+    void Update(Fade& fade) const override {
+        fade.Advance(true);
+    }
+    /** @brief フェードアウトの識別子を返す */
+    Status Id() const override {
+        return Status::FadeOut;
+    }
+    /** @brief 進み具合に応じて帯を画面左から進めた位置を返す */
+    float Position(float width, float eased, bool) const override {
+        return -width * (1.0f - eased);
+    }
+    /** @brief 帯の端の飾り線を、帯の右端へ寄せる量を返す */
+    float EdgeOffset(float width, float edgeWidth) const override {
+        return width - edgeWidth;
+    }
+};
+
+/** @brief フェード待機の共有状態を返す */
+const Fade::IState& Fade::Idle() {
+    static const IdleState state;
+    return state;
+}
+/** @brief フェードインの共有状態を返す */
+const Fade::IState& Fade::FadingIn() {
+    static const FadeInState state;
+    return state;
+}
+/** @brief フェードアウトの共有状態を返す */
+const Fade::IState& Fade::FadingOut() {
+    static const FadeOutState state;
+    return state;
 }
 
+/** @brief 旧状態を終了して新状態へ入る */
+void Fade::ChangeState(const IState& next)
+{
+    state_->Exit(*this);
+    state_ = &next;
+    state_->Enter(*this);
+}
+
+/** @brief フェードの完了を状態オブジェクトから取得する */
+bool Fade::IsFinished() const {
+    return state_ == &Idle();
+}
+/** @brief 公開API用の状態識別子を取得する */
+Fade::Status Fade::GetStatus() const {
+    return state_->Id();
+}
+
+/** @brief 初期化 */
 void Fade::Initialize(SpriteCommon* spriteCommon)
 {
     spriteCommon_ = spriteCommon;
-    status_ = Status::None;
+    ChangeState(Idle());
     covered_ = false;
-    for (size_t i = 0; i < kBandCount; ++i) {
+    for (size_t i = 0; i < kBandCount; ++i)
+    {
         bands_[i] = std::make_unique<Sprite>();
         bands_[i]->Initialize(spriteCommon, "Resources/white.png");
         edges_[i] = std::make_unique<Sprite>();
@@ -66,30 +157,40 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
     UpdateSprites();
 }
 
+/** @brief フェード開始 */
 void Fade::Start(Status status, float duration)
 {
-    status_ = status;
+    static const IState* const kStates[] = { &Idle(), &FadingIn(), &FadingOut() };
+    const size_t index = static_cast<size_t>(status);
+    ChangeState(index < std::size(kStates) ? *kStates[index] : Idle());
     duration_ = std::isfinite(duration) ? (std::max)(duration, 0.0f) : 0.0f;
     counter_ = 0.0f;
-    if (status == Status::None) {
+    if (status == Status::None)
+    {
         covered_ = false;
     }
     UpdateSprites();
 }
 
+/** @brief 現在の段階に1フレームの更新を委譲する */
 void Fade::Update()
 {
-    if (status_ == Status::None) {
-        return;
-    }
+    state_->Update(*this);
+}
+
+/** @brief 経過時間と描画を更新してから完了状態へ遷移する */
+void Fade::Advance(bool coverWhenFinished)
+{
     counter_ = (std::min)(counter_ + GameConstants::kFrameDeltaTime, duration_);
     UpdateSprites();
-    if (counter_ >= duration_) {
-        covered_ = status_ == Status::FadeOut;
-        status_ = Status::None;
+    if (counter_ >= duration_)
+    {
+        covered_ = coverWhenFinished;
+        ChangeState(Idle());
     }
 }
 
+/** @brief 現在状態の補間値を帯と縁へ反映する */
 void Fade::UpdateSprites()
 {
     const float bandStagger = GraphicsTuning::Float("fade.bandStagger", kBandStagger, 0.0f, kMaxBandStagger);
@@ -100,13 +201,13 @@ void Fade::UpdateSprites()
     const float width = static_cast<float>(WinApp::kClientWidth);
     const float height = static_cast<float>(WinApp::kClientHeight) / kBandCount;
     const float progress = duration_ > 0.0f ? std::clamp(counter_ / duration_, 0.0f, 1.0f) : 1.0f;
-    const auto& motion = kFadeMotions[static_cast<size_t>(status_)];
-    for (size_t i = 0; i < kBandCount; ++i) {
+    for (size_t i = 0; i < kBandCount; ++i)
+    {
         // 上から順に開始をずらし、加速と減速を滑らかにする。
         const float delay = bandStagger * static_cast<float>(i) / (kBandCount - 1);
         const float t = std::clamp((progress - delay) / (1.0f - bandStagger), 0.0f, 1.0f);
         const float eased = t * t * t * (t * (t * kSmootherstepQuintic - kSmootherstepQuartic) + kSmootherstepCubic);
-        const float x = motion.position(width, eased, covered_);
+        const float x = state_->Position(width, eased, covered_);
         const float shade = static_cast<float>(i) * bandShadeStep;
         bands_[i]->SetPosition({ x, height * i });
         bands_[i]->SetSize({ width, height + 1.0f });
@@ -114,7 +215,7 @@ void Fade::UpdateSprites()
         bands_[i]->Update();
 
         // 金色の縁は帯の内側に置き、開始・終了時には消す。
-        const float edgeX = x + motion.edgeOffset(width, edgeWidth);
+        const float edgeX = x + state_->EdgeOffset(width, edgeWidth);
         edges_[i]->SetPosition({ edgeX, height * i });
         edges_[i]->SetSize({ edgeWidth, height + 1.0f });
         edges_[i]->SetColor({ edgeColor.x, edgeColor.y, edgeColor.z, (t > 0.0f && t < 1.0f) ? edgeColor.w : 0.0f });
@@ -122,18 +223,25 @@ void Fade::UpdateSprites()
     }
 }
 
+/** @brief 描画処理 */
 void Fade::Draw()
 {
-    if (!spriteCommon_ || (status_ == Status::None && !covered_)) {
+    if (!spriteCommon_ || (IsFinished() && !covered_))
+    {
         return;
     }
     spriteCommon_->CommonDrawSettings();
-    for (size_t i = 0; i < kBandCount; ++i) {
+    for (size_t i = 0; i < kBandCount; ++i)
+    {
         bands_[i]->Draw();
     }
-    for (size_t i = 0; i < kBandCount; ++i) {
-        if (edges_[i]->GetColor().w > 0.0f) {
+    for (size_t i = 0; i < kBandCount; ++i)
+    {
+        if (edges_[i]->GetColor().w > 0.0f)
+        {
             edges_[i]->Draw();
         }
     }
 }
+
+} // namespace engine::graphics

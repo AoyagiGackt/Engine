@@ -15,6 +15,7 @@ namespace engine::game {
  */
 class PlaytestLog {
 public:
+    /** @brief 共有インスタンスを取得する */
     static PlaytestLog* GetInstance()
     {
         static PlaytestLog instance;
@@ -34,6 +35,7 @@ public:
         float peakStyle01, int bestChain, const Vector3& position);
 
 private:
+    /** @brief 記録を開始していないログ管理器を作る */
     PlaytestLog() = default;
 
     bool headerWritten_ = false; ///< 起動後に一度でも書き込んだら、ファイルの存在チェックを省略する

@@ -51,6 +51,7 @@ namespace engine::game {
  */
 class AnimationStateMachine {
 public:
+    /** @brief 状態と遷移が未登録のアニメーション制御を作る */
     AnimationStateMachine() = default;
 
     // 状態の登録
@@ -108,10 +109,14 @@ public:
     // 情報取得
 
     /** @brief 現在の状態名を返す */
-    const std::string& GetCurrentStateName() const { return currentState_; }
+    const std::string& GetCurrentStateName() const {
+        return currentState_;
+    }
 
     /** @brief 現在のアニメーション再生時刻を返す */
-    float GetCurrentTime() const { return currentTime_; }
+    float GetCurrentTime() const {
+        return currentTime_;
+    }
 
     /**
      * @brief 現在の Animation データへのポインタを返す
@@ -122,7 +127,9 @@ public:
     /**
      * @brief 現在の状態が指定した名前かどうかを返す
      */
-    bool IsInState(const std::string& name) const { return currentState_ == name; }
+    bool IsInState(const std::string& name) const {
+        return currentState_ == name;
+    }
 
     /**
      * @brief 現在の状態のアニメーションが終端まで達したか（loop=false の場合のみ有効）
@@ -131,6 +138,7 @@ public:
 
 private:
     // 状態データ
+    /** @brief アニメーションと再生方針および終了後の遷移先を保持する状態定義 */
     struct State {
         std::string name;
         Animation* anim = nullptr;

@@ -12,9 +12,8 @@
 #include "Weapon.h"
 #include "WeaponManager.h"
 #include <algorithm>
-using namespace engine;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 
 constexpr const char* kDataPath = "Resources/Config/command_list.json";
@@ -66,21 +65,26 @@ const std::wstring kLockedTagline = L"まだ手に入れていない武器";
 /** @brief JSON の文字列項目を表示用の文字列で返す（無ければ空） */
 std::wstring ReadText(const nlohmann::json& j, const char* key)
 {
-    if (!j.is_object() || !j.contains(key) || !j[key].is_string()) {
+    if (!j.is_object() || !j.contains(key) || !j[key].is_string())
+    {
         return { };
     }
     return StringUtility::ConvertString(j[key].get<std::string>());
 }
 
+/** @brief JSON配列からコマンド表の技の一覧を読む */
 std::vector<CommandMove> ReadMoves(const nlohmann::json& list)
 {
     std::vector<CommandMove> moves;
-    if (!list.is_array()) {
+    if (!list.is_array())
+    {
         return moves;
     }
-    for (const nlohmann::json& m : list) {
+    for (const nlohmann::json& m : list)
+    {
         CommandMove move { ReadText(m, "category"), ReadText(m, "name"), ReadText(m, "input"), ReadText(m, "detail") };
-        if (!move.name.empty()) {
+        if (!move.name.empty())
+        {
             moves.push_back(std::move(move));
         }
     }
@@ -89,6 +93,7 @@ std::vector<CommandMove> ReadMoves(const nlohmann::json& list)
 
 } // namespace
 
+/** @brief 文字の描画先と効果音の再生先を受け取り、JSON を読み込む */
 void CommandListView::Initialize(FontRenderer* fontRenderer, Audio* audio)
 {
     fontRenderer_ = fontRenderer;
@@ -97,82 +102,103 @@ void CommandListView::Initialize(FontRenderer* fontRenderer, Audio* audio)
     sheets_.clear();
     commonMoves_.clear();
     const nlohmann::json j = JsonHelper::Load(kDataPath);
-    if (j.is_object() && j.contains("weapons") && j["weapons"].is_object()) {
+    if (j.is_object() && j.contains("weapons") && j["weapons"].is_object())
+    {
         const nlohmann::json& weapons = j["weapons"];
-        for (auto it = weapons.begin(); it != weapons.end(); ++it) {
+        for (auto it = weapons.begin(); it != weapons.end(); ++it)
+        {
             CommandSheet sheet;
             sheet.tagline = ReadText(it.value(), "tagline");
             sheet.moves = ReadMoves(it.value().is_object() && it.value().contains("moves") ? it.value()["moves"] : nlohmann::json { });
             sheets_[ParseWeaponTypeName(it.key())] = std::move(sheet);
         }
     }
-    if (j.is_object() && j.contains("common")) {
+    if (j.is_object() && j.contains("common"))
+    {
         commonMoves_ = ReadMoves(j["common"]);
     }
 }
 
+/** @brief 開いた時に呼ぶ（今装備している武器のページから始める） */
 void CommandListView::Open()
 {
     weaponIndex_ = WeaponManager::GetInstance()->GetIndex();
     RebuildRows();
 }
 
+/** @brief 今のページに並べる技（武器の技＋共通の操作）を作り直す */
 void CommandListView::RebuildRows()
 {
     rows_.clear();
     cursor_ = 0;
     scroll_ = 0;
     const auto& list = WeaponManager::GetInstance()->GetList();
-    if (weaponIndex_ < 0 || weaponIndex_ >= static_cast<int>(list.size())) {
+    if (weaponIndex_ < 0 || weaponIndex_ >= static_cast<int>(list.size()))
+    {
         return;
     }
     // 持っていない武器は技を伏せ、共通の操作だけを見せる
-    if (WeaponManager::GetInstance()->IsUnlocked(weaponIndex_)) {
+    if (WeaponManager::GetInstance()->IsUnlocked(weaponIndex_))
+    {
         const auto sheet = sheets_.find(list[weaponIndex_].type);
-        if (sheet != sheets_.end()) {
-            for (const CommandMove& move : sheet->second.moves) {
+        if (sheet != sheets_.end())
+        {
+            for (const CommandMove& move : sheet->second.moves)
+            {
                 rows_.push_back(&move);
             }
         }
     }
-    for (const CommandMove& move : commonMoves_) {
+    for (const CommandMove& move : commonMoves_)
+    {
         rows_.push_back(&move);
     }
 }
 
+/** @brief 指定方向へ、持っている武器の中で次のページへ移る（持っていない武器も伏せて並べる） */
 void CommandListView::MoveWeapon(int step)
 {
     const int count = static_cast<int>(WeaponManager::GetInstance()->GetList().size());
-    if (count <= 0) {
+    if (count <= 0)
+    {
         return;
     }
     weaponIndex_ = (weaponIndex_ + step + count) % count;
     RebuildRows();
-    if (audio_ != nullptr) {
+    if (audio_ != nullptr)
+    {
         audio_->PlayMenuSelect();
     }
 }
 
+/** @brief 武器の切り替え・技の選択を受け付ける */
 bool CommandListView::Update(Input* input)
 {
-    if (input->TriggerMenuCancel()) {
-        if (audio_ != nullptr) {
+    if (input->TriggerMenuCancel())
+    {
+        if (audio_ != nullptr)
+        {
             audio_->PlayMenuSelect();
         }
         return true;
     }
-    if (input->TriggerMenuLeft()) {
+    if (input->TriggerMenuLeft())
+    {
         MoveWeapon(-1);
     }
-    if (input->TriggerMenuRight()) {
+    if (input->TriggerMenuRight())
+    {
         MoveWeapon(1);
     }
     const int rowCount = static_cast<int>(rows_.size());
-    if (rowCount > 0) {
-        if (input->TriggerMenuUp()) {
+    if (rowCount > 0)
+    {
+        if (input->TriggerMenuUp())
+        {
             cursor_ = (cursor_ - 1 + rowCount) % rowCount;
         }
-        if (input->TriggerMenuDown()) {
+        if (input->TriggerMenuDown())
+        {
             cursor_ = (cursor_ + 1) % rowCount;
         }
         // 選んでいる行が一覧の外へ出たら、見える位置までずらす
@@ -181,30 +207,39 @@ bool CommandListView::Update(Input* input)
     return false;
 }
 
+/** @brief 説明文を指定幅で折り返す */
 std::wstring CommandListView::WrapText(const std::wstring& text, float maxWidth, float scale)
 {
     std::wstring result;
     std::wstring line;
-    for (wchar_t ch : text) {
+    for (wchar_t ch : text)
+    {
         const std::wstring candidate = line + ch;
-        if (!line.empty() && FontRenderer::MeasureStringW(candidate, scale).x > maxWidth) {
+        if (!line.empty() && FontRenderer::MeasureStringW(candidate, scale).x > maxWidth)
+        {
             result += line + L'\n';
             line = std::wstring(1, ch);
-        } else {
+        }
+        else
+        {
             line = candidate;
         }
     }
     return result + line;
 }
 
+/** @brief 文字とパネルを積む（毎フレーム、FontRenderer::Reset() の後に呼ぶ） */
 void CommandListView::Draw(const Input* input)
 {
-    if (fontRenderer_ == nullptr) {
+    if (fontRenderer_ == nullptr)
+    {
         return;
     }
     FontRenderer& font = *fontRenderer_;
     UILayout& layout = UILayout::Get(kLayoutName);
-    auto expand = [input](const std::wstring& text) { return input != nullptr ? input->ExpandPrompts(text) : text; };
+    auto expand = [input](const std::wstring& text) {
+        return input != nullptr ? input->ExpandPrompts(text) : text;
+    };
 
     // ── 見出し ──
     const Vector2 titlePos = layout.Pos("title.pos", kTitlePos);
@@ -215,11 +250,13 @@ void CommandListView::Draw(const Input* input)
     const Vector2 tabsPos = layout.Pos("tabs.pos", kTabsPos);
     const float tabScale = layout.Float("tabs.scale", kTabScale);
     float tabX = tabsPos.x;
-    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(list.size()); ++i)
+    {
         const bool unlocked = WeaponManager::GetInstance()->IsUnlocked(i);
         const std::wstring name = unlocked ? list[i].styleNameJp : kLockedName;
         const Vector2 size = FontRenderer::MeasureStringW(name, tabScale);
-        if (i == weaponIndex_) {
+        if (i == weaponIndex_)
+        {
             font.DrawPanel(tabX - kTabPadding, tabsPos.y - kTabPadding, size.x + kTabPadding * 2.0f, size.y + kTabPadding * 2.0f,
                 layout.Color("tabs.selected_panel", kTabSelectedPanel));
         }
@@ -231,10 +268,13 @@ void CommandListView::Draw(const Input* input)
     // ── 武器の一言説明 ──
     const bool weaponValid = weaponIndex_ >= 0 && weaponIndex_ < static_cast<int>(list.size());
     std::wstring tagline;
-    if (weaponValid && WeaponManager::GetInstance()->IsUnlocked(weaponIndex_)) {
+    if (weaponValid && WeaponManager::GetInstance()->IsUnlocked(weaponIndex_))
+    {
         const auto sheet = sheets_.find(list[weaponIndex_].type);
         tagline = (sheet != sheets_.end()) ? sheet->second.tagline : std::wstring { };
-    } else {
+    }
+    else
+    {
         tagline = kLockedTagline;
     }
     const Vector2 taglinePos = layout.Pos("tagline.pos", kTaglinePos);
@@ -247,12 +287,16 @@ void CommandListView::Draw(const Input* input)
     const float rowScale = layout.Float("list.scale", kRowScale);
     font.DrawPanel(listPos.x, listPos.y, listWidth, rowHeight * kVisibleRows, layout.Color("list.panel", kListPanel));
     const int lastRow = (std::min)(scroll_ + kVisibleRows, static_cast<int>(rows_.size()));
-    for (int i = scroll_; i < lastRow; ++i) {
+    for (int i = scroll_; i < lastRow; ++i)
+    {
         const CommandMove& move = *rows_[i];
         const float rowY = listPos.y + rowHeight * static_cast<float>(i - scroll_);
-        if (i == cursor_) {
+        if (i == cursor_)
+        {
             font.DrawPanel(listPos.x, rowY, listWidth, rowHeight, layout.Color("list.selected_panel", kRowSelectedPanel));
-        } else if ((i % 2) == 1) {
+        }
+        else if ((i % 2) == 1)
+        {
             font.DrawPanel(listPos.x, rowY, listWidth, rowHeight, kRowStripe);
         }
         const float textY = rowY + kRowTextOffsetY;
@@ -268,7 +312,8 @@ void CommandListView::Draw(const Input* input)
     const Vector2 detailPos = layout.Pos("detail.pos", kDetailPos);
     const float detailScale = layout.Float("detail.scale", kDetailScale);
     font.DrawPanel(detailPos.x, detailPos.y, listWidth, kDetailHeight, layout.Color("detail.panel", kDetailPanel));
-    if (cursor_ >= 0 && cursor_ < static_cast<int>(rows_.size())) {
+    if (cursor_ >= 0 && cursor_ < static_cast<int>(rows_.size()))
+    {
         const std::wstring detail = WrapText(expand(rows_[cursor_]->detail), listWidth - kDetailPadding * 2.0f, detailScale);
         font.DrawStringW(detail, detailPos.x + kDetailPadding, detailPos.y + kDetailPadding, detailScale, kDetailColor);
     }
@@ -281,3 +326,5 @@ void CommandListView::Draw(const Input* input)
     font.DrawStringW(L"←→: 武器を切り替え    ↑↓: 技を選ぶ    " + backLabel + L": 戻る", helpPos.x, helpPos.y,
         layout.Float("help.scale", kHelpScale), kHelpColor);
 }
+
+} // namespace engine::game

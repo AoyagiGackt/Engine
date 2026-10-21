@@ -36,8 +36,10 @@ public:
     /** @brief 有効な描画パスを登録順に実行する */
     void Execute()
     {
-        for (const Pass& pass : passes_) {
-            if (!pass.enabled) {
+        for (const Pass& pass : passes_)
+        {
+            if (!pass.enabled)
+            {
                 continue;
             }
             // D3D12のBeginEventはPIX形式のメタデータが必要になる環境があるため使わない

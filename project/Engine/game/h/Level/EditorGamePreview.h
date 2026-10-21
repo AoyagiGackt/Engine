@@ -8,7 +8,9 @@
 #include <wrl/client.h>
 #include <cstdint>
 #endif
-namespace engine { class DirectXCommon; }
+namespace engine {
+    class DirectXCommon;
+}
 namespace engine::game {
 class StageEditor;
 /** @brief ゲーム小窓用のコピー先とSRVを所有し、エディタへ表示だけを渡す。 */

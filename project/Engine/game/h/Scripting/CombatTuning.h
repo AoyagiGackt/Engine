@@ -5,8 +5,43 @@
 #pragma once
 namespace engine::game {
 
+/** @brief 崩れる床の予告・消失・復帰の時間設定 */
+struct FallingFloorTiming {
+    float warningEnd = 0.6f;
+    float respawnStart = 3.5f;
+    float cycleEnd = 4.0f;
+    float crackLeadTime = 0.28f;
+    float minimumSpeed = 0.01f;
+};
+
 /** @brief combat_tuning.jsonの内容 */
 struct CombatTuningData {
+    // 水場・訓練場の配置と接近判定
+    float waterMinX = 3.0f;
+    float waterMaxX = 27.0f;
+    float waterSurfaceY = 3.0f;
+    float waterBottomY = -0.6f;
+    float trainingWarpX = 25.5f;
+    float trainingWarpProximity = 3.0f;
+    float trainingGroundY = 0.4f;
+    float trainingFacingTargetDistance = 8.0f;
+    float finisherLaunchRatio = 0.7f;
+    float waypointArrivalDistance = 0.12f;
+    float awakenExtraHitKnockScale = 0.25f; ///< 多段ヒットの2発目以降のノックバック倍率（敵が押し出されすぎないように）
+    float launchSpeed = 0.48f;
+    float skillRearReachMult = 0.4f; ///< 背面リーチ（前方リーチ比）
+    int finisherLineDamage = 1; ///< 斬撃線1本ごとのダメージ
+    int finisherSlashDamage = 8; ///< 本命（解放の一撃）の固定ダメージ
+    int finisherSlashLines = 16; ///< 斬撃線の本数
+    float finisherChargeDelay = 0.30f; ///< 発動から最初の斬撃までの溜め（秒）
+    float finisherLineInterval = 0.045f; ///< 斬撃線の出現間隔（秒）
+    float finisherImpactDelay = 0.35f; ///< 最後の斬撃線から解放までの溜め（秒）
+    float weaponAbsorbRange = 2.0f; ///< 武器を奪える距離
+    float weaponAbsorbDuration = 0.5f; ///< 武器吸収が完了するまでの秒数
+    // フィニッシャー中の打ち上げ速度とゲージ増加量
+    float finisherBeatLaunchSpeed = 0.1f;
+    float finisherBeatStyleGain = 0.02f;
+    float finisherReleaseStyleGain = 0.35f;
     float meleeDamageDivisor = 25.0f; ///< 武器ダメージ×倍率を敵HPスケールへ落とし込む除数
     float styleDecayRate = 0.12f; ///< スタイルゲージの毎秒減衰量
     float stylePersistDecayMult = 0.6f; ///< StylePersistスキル所持時の減衰倍率
@@ -128,6 +163,21 @@ struct CombatTuningData {
     float hitEscalationMaxThreshold = 1.0f; ///< この盛り度合いで星をもう1つ重ねる
     float elementEscalationScaleGain = 0.8f; ///< 連続ヒットが上限の時に属性演出へ足す拡大率
     float elementScalePerComboStep = 0.12f; ///< コンボ段が1上がるごとの属性演出の拡大率
+
+    /** @brief 斬撃数と各段の待ち時間からフィニッシャーの溜め時間を求める */
+    float FinisherChargeDuration() const
+    {
+        return finisherChargeDelay + finisherSlashLines * finisherLineInterval + finisherImpactDelay;
+    }
+
+    /**
+     * @brief 斬撃線を何本出し終えたかから、次の段までの待ち時間を返す（全部出したら解放までの待ち）
+     * @param linesDone 出し終えた斬撃線の本数
+     */
+    float FinisherBeatDelayAfter(int linesDone) const
+    {
+        return linesDone < finisherSlashLines ? finisherLineInterval : finisherImpactDelay;
+    }
 };
 
 /**
@@ -144,8 +194,16 @@ public:
     /** @brief JSONを読み直す */
     void Reload();
 
+    /** @brief 崩れる床の時間設定を値として取得する */
+    FallingFloorTiming FloorTiming() const
+    {
+        return fallingFloor_;
+    }
+
     /** @brief 読み込んだ調整値を返す */
-    const CombatTuningData& Get() const { return data_; }
+    const CombatTuningData& Get() const {
+        return data_;
+    }
 
 private:
     CombatTuning();
@@ -153,6 +211,13 @@ private:
     CombatTuning& operator=(const CombatTuning&) = delete;
 
     CombatTuningData data_;
+    FallingFloorTiming fallingFloor_;
 };
+
+/** @brief 読み込み済みの戦闘調整値を共通の窓口から取得する */
+inline const CombatTuningData& CombatTune()
+{
+    return CombatTuning::GetInstance()->Get();
+}
 
 } // namespace engine::game

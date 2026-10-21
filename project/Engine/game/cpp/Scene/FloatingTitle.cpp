@@ -1,3 +1,7 @@
+/**
+ * @file FloatingTitle.cpp
+ * @brief タイトル画面の立体ロゴ（FloatingTitle）の初期化・更新・描画の実装
+ */
 #include "FloatingTitle.h"
 #include "UILayout.h"
 #include "DirectXCommon.h"
@@ -13,7 +17,6 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-using namespace engine;
 using namespace engine::graphics;
 namespace engine::game {
 namespace {
@@ -74,15 +77,22 @@ constexpr float kFramingMargin = 1.18f; // ロゴの周囲に残す余白の倍�
 constexpr float kRestingDepthRatio = 0.25f; // 正面向き時に横幅比で足す奥行きの余裕
 }
 
+/** @brief タイトルロゴのモデルと影を用意する */
 void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommon* models, ShadowManager* shadows)
 {
-    dxCommon_ = graphics; input_ = input; modelCommon_ = models; shadowManager_ = shadows;
+    // 描画と入力に使う共有の仕組みを受け取る
+    dxCommon_ = graphics;
+    input_ = input;
+    modelCommon_ = models;
+    shadowManager_ = shadows;
 
+    // ロゴのモデルを読み、頂点の範囲から回転の中心と大きさを求める
     Model* model = ModelManager::GetInstance()->GetOrLoad(modelCommon_,
         "Resources/title/title.obj", "Resources/white.png");
     Vector3 minimum = { FLT_MAX, FLT_MAX, FLT_MAX };
     Vector3 maximum = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-    for (const auto& vertex : model->GetVertices()) {
+    for (const auto& vertex : model->GetVertices())
+    {
         const auto& p = vertex.position;
         minimum.x = (std::min)(minimum.x, p.x); maximum.x = (std::max)(maximum.x, p.x);
         minimum.y = (std::min)(minimum.y, p.y); maximum.y = (std::max)(maximum.y, p.y);
@@ -91,6 +101,7 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
     center_ = (minimum + maximum) * 0.5f;
     halfSize_ = { (maximum.x - minimum.x) * 0.5f,
         (maximum.y - minimum.y) * 0.5f, (maximum.z - minimum.z) * 0.5f };
+    // ロゴ専用のカメラとライト（ゲーム本体のライト設定に左右されない）
     camera_ = std::make_unique<Camera>();
     camera_->SetAspectRatio(kViewportAspect);
     camera_->SetFovY(kCameraFovY);
@@ -101,6 +112,7 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
     lighting_->SetLightColor(kLightColor);
     lighting_->SetLightIntensity(kLightIntensity);
     lighting_->SetAmbientIntensity(kAmbientIntensity);
+    // テクスチャを使わず、単色・鏡面反射・リムライトで見せる
     object_ = std::make_unique<Object3d>();
     object_->Initialize(modelCommon_);
     object_->SetModel(model);
@@ -112,10 +124,13 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
     object_->SetEnableRim(true);
     object_->SetRimColor(kLogoRimColor);
     object_->SetRimIntensity(kLogoRimIntensity);
+    // 最初のフレームから正しい位置と色で出るよう、マウス操作を受けずに1回更新しておく
     Update(false);
 }
+/** @brief タイトルロゴのカメラと浮遊の動きを進める（allowInteraction の時は操作も受ける） */
 void FloatingTitle::Update(bool allowInteraction)
 {
+    // 表示枠の位置と大きさ・ロゴの色は UI レイアウトから読み、F2 で動かせるようにする
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 viewportPosition = layout.Pos("viewport.pos", kViewportPosition);
     const Vector2 viewportSize = layout.Vec2("viewport.size", kViewportSize);
@@ -125,6 +140,7 @@ void FloatingTitle::Update(bool allowInteraction)
     object_->SetColor(layout.Color("logo.color", kLogoColor));
     const float dt = GameConstants::kFrameDeltaTime;
     floatTime_ += dt;
+    // マウス位置を画面の論理座標へ直し、ロゴの表示枠の上にあるかを調べる
     const POINT clientMouse = input_->GetMouseClientPosition();
     const auto client = dxCommon_->GetCenteredClientViewport();
     const Vector2 mouse = {
@@ -135,17 +151,24 @@ void FloatingTitle::Update(bool allowInteraction)
     const float y = mouse.y;
     const bool hovered = x >= viewportPosition.x && x <= viewportPosition.x + viewportSize.x
         && y >= viewportPosition.y && y <= viewportPosition.y + viewportSize.y;
+    // 枠の上で押したらドラッグで回し始める（デバッグUIがマウスを使っている間は回さない）
     bool canDrag = allowInteraction;
 #ifdef USE_IMGUI
     canDrag = canDrag && !ImGui::GetIO().WantCaptureMouse;
 #endif
-    if (canDrag && hovered && input_->TriggerMouseButton(0)) {
+    if (canDrag && hovered && input_->TriggerMouseButton(0))
+    {
         dragging_ = true;
         lastMouse_ = mouse;
         yawVelocity_ = pitchVelocity_ = 0.0f;
     }
-    if (!canDrag || !input_->PushMouseButton(0)) { dragging_ = false; }
-    if (dragging_) {
+    if (!canDrag || !input_->PushMouseButton(0))
+    {
+        dragging_ = false;
+    }
+    // ドラッグ中は動かした分だけ回して速さを覚え、離したらその速さで回り続けて徐々に止まる
+    if (dragging_)
+    {
         const float yawDelta = (mouse.x - lastMouse_.x) * kDragRadiansPerPixel;
         const float pitchDelta = (mouse.y - lastMouse_.y) * kDragRadiansPerPixel;
         yaw_ += yawDelta;
@@ -153,7 +176,9 @@ void FloatingTitle::Update(bool allowInteraction)
         yawVelocity_ = std::clamp(yawDelta / dt, -kMaxSpinVelocity, kMaxSpinVelocity);
         pitchVelocity_ = std::clamp(pitchDelta / dt, -kMaxSpinVelocity, kMaxSpinVelocity);
         lastMouse_ = mouse;
-    } else {
+    }
+    else
+    {
         yaw_ += yawVelocity_ * dt;
         pitch_ += pitchVelocity_ * dt;
         const float damping = std::exp(-kSpinDamping * dt);
@@ -183,6 +208,7 @@ void FloatingTitle::Update(bool allowInteraction)
     extent.x = std::abs(local.m[0][0]) * halfSize_.x + std::abs(local.m[1][0]) * halfSize_.y + std::abs(local.m[2][0]) * halfSize_.z;
     extent.y = std::abs(local.m[0][1]) * halfSize_.x + std::abs(local.m[1][1]) * halfSize_.y + std::abs(local.m[2][1]) * halfSize_.z;
     extent.z = std::abs(local.m[0][2]) * halfSize_.x + std::abs(local.m[1][2]) * halfSize_.y + std::abs(local.m[2][2]) * halfSize_.z;
+    // 画角に収まる距離と、止まっている時の距離のうち遠いほうへカメラを置く
     const float tangent = std::tan(kCameraFovY * 0.5f);
     const float distance = extent.z
         + (std::max)(extent.x / (tangent * viewportAspect), (extent.y + kMaxFloatOffset) / tangent) * kFramingMargin;
@@ -193,6 +219,7 @@ void FloatingTitle::Update(bool allowInteraction)
     object_->SetLocalMatrix(local);
     object_->Update();
 }
+/** @brief タイトルロゴを描画する */
 void FloatingTitle::Draw()
 {
     UILayout& layout = UILayout::Get(kLayoutName);

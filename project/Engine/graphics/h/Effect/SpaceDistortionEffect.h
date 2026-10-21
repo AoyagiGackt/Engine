@@ -39,7 +39,10 @@ public:
     /** @brief エネルギーを消して非アクティブに戻す */
     void Reset();
 
-    bool IsActive() const { return energy_ > kMinEnergy; }
+    /** @brief 演出の最中かを返す */
+    bool IsActive() const {
+        return energy_ > kMinEnergy;
+    }
 
 private:
     static constexpr float kDecayTau = 0.55f; ///< エネルギー減衰の時定数（秒）
