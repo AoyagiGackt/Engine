@@ -59,16 +59,20 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         bool hasEventConnection = false;
         for (const auto& entry : editor.objects_)
         {
+            // 当たり判定のある物か地面扱いの種類があれば地形は済み、敵を置く種類があれば敵は済み
             const ObjectKind& kind = ObjectKind::Of(entry.desc.kind);
             hasGround |= entry.desc.solid || kind.CountsAsGround();
             hasEnemy |= kind.PlacesEnemy();
+            // きっかけのフラグが入っていればイベントで繋がっている
             hasEventConnection |= !entry.desc.activationFlag.empty();
         }
+        // トリガーは別の一覧なので、1つ以上あるかで判定する
         const int completed = static_cast<int>(hasGround) + static_cast<int>(hasEnemy)
             + static_cast<int>(!editor.triggers_.empty()) + static_cast<int>(hasEventConnection);
         // 済んだ手順の割合と、手順ごとの完了表示
         ImGui::ProgressBar(static_cast<float>(completed) / static_cast<float>(kGuideStepCount), ImVec2(-1.0f, 0.0f));
         ImGui::TextWrapped("上から順に進めると、配置からゲーム進行までコードを書かずに作成できます。");
+        // 最初の手順だけは、未完了なら次にやることとして目立たせる
         ImGui::BulletText("%s 1 地形を置き、詳細設定で当たり判定を有効にする",
             hasGround ? "[完了]" : "[次]  ");
         ImGui::BulletText("%s 2 敵またはWaveを配置する",
@@ -92,8 +96,8 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         if (ImGui::SmallButton("水イベントを作る"))
         {
             editor.RecordUndoSnapshotNow();
-            Vector3 center = editor.playerSpawn_;
-            center = editor.ViewCenterOnGround();
+            const Vector3 center = editor.ViewCenterOnGround();
+            // 名前は通し番号で重ならないようにし、水しぶきを出す設定だけを入れる
             TriggerDesc desc;
             desc.name = "water_trigger_" + std::to_string(editor.nextSerial_++);
             desc.position = center;
@@ -104,6 +108,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         }
         EditorUI::HelpMarker("動作対象やイベントパネルでの接続を行わず、この場所に来たら水しぶきが出るトリガーを1回で作ります");
         ImGui::SameLine();
+        // 手順の詳しい説明は使い方パネルに任せる
         if (ImGui::SmallButton("詳しい説明"))
         {
             editor.showEditorHelp_ = true;
@@ -113,19 +118,23 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
     // 操作方法の一覧
     if (ImGui::CollapsingHeader("使い方"))
     {
+        // カメラと変形ツールの操作
         ImGui::BulletText("右ボタンを押しながらWASD/QE: カメラ移動    中ドラッグ: 平行移動    ホイール: ズーム");
         ImGui::BulletText("W/E/R: 移動・回転・拡縮ツール。選択物の矢印・リング・四角をつかんで操作");
+        // 選択とマウスでの配置操作
         ImGui::BulletText("画面上のオブジェクトを左クリック: 選択    何も無い所から左ドラッグ: 範囲選択");
         ImGui::BulletText("本体をそのまま左ドラッグ: つかんで移動（Shift+ドラッグ: 奥行き(Z)移動）");
         ImGui::BulletText("右クリック: その場に置く / 複製・削除・親子付け・ここからテスト のメニュー");
         ImGui::BulletText("階層でドラッグ＆ドロップ: 落とした先の子になる（見出しへ落とすと親を外す）");
         ImGui::BulletText("Ctrlを押しながらドラッグ: スナップOFFでも一時的に揃う    Esc: 選択解除    Ctrl+A: 全選択");
+        // キーボードショートカット
         ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存");
         ImGui::BulletText("Ctrl+D・複製ボタン: 選択中の物を複製    Deleteキー: 削除");
         ImGui::BulletText("Ctrl+C / Ctrl+V: 選択中の配置物をコピー・貼り付け");
         ImGui::BulletText("Ctrlを押しながら選択: 複数選択して一括移動・回転・拡縮");
         ImGui::BulletText("矢印キー: 選択物を少しずつ移動（Shift+上下で奥行き）  F: 選択物へカメラ");
         ImGui::BulletText("階層のダブルクリック: その配置物へカメラを寄せる");
+        // 各パネルの役割
         ImGui::BulletText("制作パネルのテスト: 画面中央や選択位置にプレイヤーを置いてすぐ遊べる");
         ImGui::BulletText("スナップをONにすると、移動・配置・複製の座標が指定間隔の倍数に揃う");
         ImGui::BulletText("[+]ボタン: 配置物/敵(ナイト・汎用エネミー)を選んで画面中央に新規追加");
@@ -133,6 +142,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         ImGui::BulletText("左下のアセットパレット: モード切替で新規配置/選択物への差し替えを選べる");
         ImGui::BulletText("右の詳細設定で数値・モデル・親子関係を編集");
         ImGui::BulletText("親を設定すると、親を動かしたとき子も一緒に動く");
+        // 画面上の印の意味と保存
         ImGui::BulletText("トリガー(水色の球): プレイヤーが入るとフラグON");
         ImGui::BulletText("　フラグはノードエディタ(F1)のGetFlagで参照できる");
         ImGui::BulletText("エンティティ(マゼンタの十字): Player/Enemy等も同様に選択・ドラッグ移動できる");
@@ -179,10 +189,12 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::BeginCombo("##levelFile", currentFile.empty() ? "レベルを選択" : currentFile.c_str()))
     {
+        // フォルダが無くても例外にせず、空の一覧として扱う
         std::error_code fileError;
         std::vector<std::string> files;
         for (const auto& entry : std::filesystem::directory_iterator(kLevelsDirectory, fileError))
         {
+            // 通常の .json ファイルだけを候補にする
             const std::string name = entry.path().filename().string();
             if (!entry.is_regular_file() || entry.path().extension() != ".json" || name.ends_with(kAutoSaveSuffix))
             {
@@ -190,9 +202,11 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
             }
             files.push_back(name);
         }
+        // 列挙の順番は環境で変わるので名前順に並べる
         std::sort(files.begin(), files.end());
         for (const std::string& name : files)
         {
+            // 今開いているファイルを選び直した時は読み込み直さない
             const bool selected = name == currentFile;
             if (ImGui::Selectable(name.c_str(), selected) && !selected)
             {
@@ -203,6 +217,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         ImGui::EndCombo();
     }
     EditorUI::HelpMarker("Resources/Levels のレベルを切り替えます。本編で使うレベルは game_rules.json の levelPaths で指定します");
+    // 新規レベル名を入れると作成ボタンが押せるようになる
     ImGui::SetNextItemWidth(kNewLevelNameWidth);
     ImGui::InputTextWithHint("##newLevel", "新規レベル名", editor.newLevelName_, sizeof(editor.newLevelName_));
     ImGui::SameLine();
@@ -216,6 +231,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         constexpr float kCeilingY = 13.0f;
         LevelData data;
         data.playerSpawn = kNewLevelPlayerSpawn;
+        // 当たり判定つきのブロックを指定の軸に並べた列配置を1つ作る
         auto makeRow = [](const char* name, char axis, int count, const Vector3& position) {
             ObjectDesc row;
             row.name = name;
@@ -235,6 +251,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         data.objects.push_back(makeRow("ceiling", 'x', kNewLevelWidth, { static_cast<float>(kNewLevelLeftColumn), kCeilingY, 0.0f }));
         data.objects.push_back(makeRow("wall_left", 'y', kNewLevelHeight, { static_cast<float>(kNewLevelLeftColumn), 0.0f, 0.0f }));
         data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + kNewLevelLeftColumn), kFloorY, 0.0f }));
+        // 土台をファイルに書き出し、そのファイルを開く
         const std::string newPath = std::string(kLevelsDirectory) + "/" + editor.newLevelName_ + ".json";
         LevelLoader::Save(newPath, data);
         editor.levelPath_ = newPath;
@@ -267,6 +284,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     {
         openOrConfirm();
     }
+    // 確認で破棄を選んだ時だけ開く
     if (EditorUI::ConfirmModal("開くの確認",
             "未保存の変更があります。\n変更を破棄して読み込み直しますか？",
             "破棄して開く")
@@ -294,13 +312,16 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     ImGui::EndDisabled();
     if (ImGui::Button("選択条件をテスト発火"))
     {
+        // 発生条件の番号はトリガーが先、その後ろに配置物の番号が続く
         const int sourceIndex = editor.eventConnection_.SourceIndex();
         if (sourceIndex >= 0 && sourceIndex < static_cast<int>(editor.triggers_.size()))
         {
+            // トリガーなら、そのトリガーのフラグを立てる
             GameFlags::GetInstance()->SetFlag(editor.triggers_[sourceIndex].GetDesc().flag, true);
         }
         else
         {
+            // イベント条件なら、条件名から作ったフラグを立てる
             const int conditionIndex = sourceIndex - static_cast<int>(editor.triggers_.size());
             if (conditionIndex >= 0 && conditionIndex < static_cast<int>(editor.objects_.size()))
             {
@@ -329,6 +350,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         editor.parentLinkChildIndex_ = editor.parentLinkChildIndex_ >= 0 ? -1 : editor.selIndex_;
     }
     ImGui::EndDisabled();
+    // 親を選ぶ待ちの間は、次に何をすればよいかを出す
     if (editor.parentLinkChildIndex_ >= 0)
     {
         ImGui::TextColored(EditorUi::kNoticeColor, "接続する親ブロックを画面上でクリック");
@@ -602,6 +624,7 @@ void StageEditorHierarchyPanel::Render(StageEditor& editor)
     ImGui::Begin("配置物一覧", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
     // 一覧だけをスクロールさせ、選択中の操作を下端に固定する。
     ImGui::BeginChild("配置物スクロール", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);
+    // ファイル操作・カメラ・制作ガイドは普段は畳んでおく
     if (ImGui::CollapsingHeader("ファイル・制作ガイド"))
     {
         RenderFileAndHistoryActions(editor);
@@ -618,9 +641,11 @@ void StageEditorHierarchyPanel::Render(StageEditor& editor)
         }
         ImGui::EndDisabled();
         ImGui::TextWrapped("選択すると右側で文章を編集できます。改行も使えます。");
+        // 1件も無い時の案内に使うので数えておく
         int textCount = 0;
         for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i)
         {
+            // 文章UI以外の配置物は下の一覧に出るのでここでは飛ばす
             const auto& desc = editor.objects_[i].desc;
             if (desc.kind != ObjectKindName::kUIText)
             {
@@ -628,9 +653,11 @@ void StageEditorHierarchyPanel::Render(StageEditor& editor)
             }
             ++textCount;
             ImGui::PushID(i);
+            // 画面に固定の文章か、ステージに置いた文章かを名前の前に付ける
             const std::string label = std::string(desc.textSpace == TextSpace::Screen ? "[画面] " : "[ステージ] ") + desc.name;
             if (ImGui::Selectable(label.c_str(), editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ == i))
             {
+                // クリックしたものだけを選んだ状態にする
                 editor.selKind_ = StageEditor::SelKind::Object;
                 editor.selIndex_ = i;
                 editor.selectedObjectIndices_ = { i };

@@ -628,10 +628,12 @@ const ObjectKind& ObjectKind::Of(const std::string& name)
     static const EnemyBasicKind enemyBasic;
     static const EnemyKnightKind enemyKnight;
     static const SpawnPointKind spawnPoint;
+    // 位置の目印・条件・文字の種類は別ファイルで作ったものを借りる
     const ObjectKind& cameraPoint = ObjectKindDetail::CameraPoint();
     const ObjectKind& patrolPoint = ObjectKindDetail::PatrolPoint();
     const ObjectKind& eventCondition = ObjectKindDetail::EventCondition();
     const ObjectKind& uiText = ObjectKindDetail::UIText();
+    // 名前で探す対象の一覧（新しい種類を足すときはここにも並べる）
     static const ObjectKind* const kKinds[] = {
         &prop, &background, &gimmick, &terrain, &pickup, &breakable, &enemyBasic,
         &enemyKnight, &spawnPoint, &cameraPoint, &patrolPoint, &eventCondition, &uiText,
@@ -646,6 +648,7 @@ const ObjectKind& ObjectKind::Of(const std::string& name)
     }
     // 未知の種類名は名前ごとに汎用の種類を作って使い回す（新規配置時の名前付けに種類名が要るため）
     static std::vector<std::pair<std::string, std::unique_ptr<GenericKind>>> unknownKinds;
+    // 一度作った名前ならそれを返す
     for (const auto& [unknownName, kind] : unknownKinds)
     {
         if (unknownName == name)
@@ -653,6 +656,7 @@ const ObjectKind& ObjectKind::Of(const std::string& name)
             return *kind;
         }
     }
+    // 初めての名前は登録する。種類は一覧に入れた名前の文字列を指すので、追加してから作る
     unknownKinds.emplace_back(name, nullptr);
     unknownKinds.back().second = std::make_unique<GenericKind>(unknownKinds.back().first.c_str());
     return *unknownKinds.back().second;

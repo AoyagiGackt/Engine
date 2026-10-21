@@ -160,23 +160,27 @@ void Model::ParseObjFile(const std::string& filePath)
         std::function<void(std::stringstream&)> parse;
     };
     const ObjLineHandler handlers[] = {
+        // 頂点の位置（同次座標にするため w は 1）
         { "v", [&](std::stringstream& ss) {
             Vector4 position;
             ss >> position.x >> position.y >> position.z;
             position.w = 1.0f;
             positions.push_back(position);
         } },
+        // UV 座標。OBJ は下が 0 だが DirectX は上が 0 なので、上下を反転する
         { "vt", [&](std::stringstream& ss) {
             Vector2 texcoord;
             ss >> texcoord.x >> texcoord.y;
             texcoord.y = 1.0f - texcoord.y;
             texcoords.push_back(texcoord);
         } },
+        // 法線
         { "vn", [&](std::stringstream& ss) {
             Vector3 normal;
             ss >> normal.x >> normal.y >> normal.z;
             normals.push_back(normal);
         } },
+        // 面（3つ以上の頂点の参照）
         { "f", [&](std::stringstream& ss) {
             std::vector<uint32_t> faceIndices;
             std::string s;
@@ -186,9 +190,11 @@ void Model::ParseObjFile(const std::string& filePath)
             {
                 std::stringstream ss2(s);
                 std::string indexStr;
+                // 省略された番号は 0 のまま残し、後で使わない印にする
                 int idx[kObjReferenceComponentCount] = { 0, 0, 0 };
                 int count = 0;
 
+                // / で区切って位置・UV・法線の順に読む（v//vn のように間が空の場合もある）
                 while (std::getline(ss2, indexStr, '/'))
                 {
                     if (!indexStr.empty())
@@ -200,16 +206,19 @@ void Model::ParseObjFile(const std::string& filePath)
 
                 auto key = std::make_tuple(idx[0], idx[1], idx[2]);
                 auto it = indexMap.find(key);
+                // 前に出てきた組み合わせなら、その頂点の番号をそのまま使う
                 if (it != indexMap.end())
                 {
                     faceIndices.push_back(it->second);
                 }
                 else
                 {
+                    // 初めての組み合わせは末尾に頂点を足し、その番号を覚える
                     uint32_t newIndex = static_cast<uint32_t>(vertices_.size());
                     indexMap[key] = newIndex;
                     faceIndices.push_back(newIndex);
 
+                    // 番号が 0（省略）の要素は既定値のままにする
                     VertexData vd { };
                     if (idx[0] > 0)
                     {
@@ -242,6 +251,7 @@ void Model::ParseObjFile(const std::string& filePath)
         std::stringstream ss(line);
         std::string identifier;
         ss >> identifier;
+        // 表に無い識別子（コメント行の # やマテリアル指定など）は読み飛ばす
         for (const auto& handler : handlers)
         {
             if (identifier == handler.identifier)

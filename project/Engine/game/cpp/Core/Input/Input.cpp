@@ -254,21 +254,26 @@ void Input::Initialize(WinApp* winApp)
 void Input::LoadActionBindings()
 {
     // 設定ファイルが無い場合も操作不能にならない既定割り当てを先に設定する
+    // 値の並びは { 主キー, 副キー, ゲームパッドのボタン }。0 は割り当て無し
+    // 移動・ジャンプ・しゃがみは矢印キーでも操作できるよう副キーを持たせる
     actionBindings_[static_cast<size_t>(Action::MoveLeft)] = { DIK_A, DIK_LEFT, 0 };
     actionBindings_[static_cast<size_t>(Action::MoveRight)] = { DIK_D, DIK_RIGHT, 0 };
     actionBindings_[static_cast<size_t>(Action::Jump)] = { DIK_W, DIK_UP, XINPUT_GAMEPAD_A };
     actionBindings_[static_cast<size_t>(Action::Down)] = { DIK_S, DIK_DOWN, 0 };
+    // 攻撃系（近接・射撃・スキル・覚醒・とどめ・銃の切り替え）
     actionBindings_[static_cast<size_t>(Action::Attack)] = { DIK_L, 0, XINPUT_GAMEPAD_X };
     actionBindings_[static_cast<size_t>(Action::Shoot)] = { DIK_K, 0, XINPUT_GAMEPAD_Y };
     actionBindings_[static_cast<size_t>(Action::Skill)] = { DIK_SPACE, 0, XINPUT_GAMEPAD_B };
     actionBindings_[static_cast<size_t>(Action::Awaken)] = { DIK_R, 0, XINPUT_GAMEPAD_RIGHT_SHOULDER };
     actionBindings_[static_cast<size_t>(Action::Finisher)] = { DIK_F, 0, XINPUT_GAMEPAD_LEFT_SHOULDER };
     actionBindings_[static_cast<size_t>(Action::GunSwitch)] = { DIK_G, 0, XINPUT_GAMEPAD_DPAD_LEFT };
+    // 回避・ワープ・武器奪取・調べる・ロックオン
     actionBindings_[static_cast<size_t>(Action::Dodge)] = { DIK_I, 0, XINPUT_GAMEPAD_RIGHT_THUMB };
     actionBindings_[static_cast<size_t>(Action::Warp)] = { DIK_C, 0, XINPUT_GAMEPAD_LEFT_THUMB };
     actionBindings_[static_cast<size_t>(Action::Steal)] = { DIK_J, 0, kGamepadLeftTrigger };
     actionBindings_[static_cast<size_t>(Action::Interact)] = { DIK_RETURN, 0, kGamepadLeftTrigger };
     actionBindings_[static_cast<size_t>(Action::LockOn)] = { DIK_LSHIFT, 0, kGamepadRightTrigger };
+    // ポーズ
     actionBindings_[static_cast<size_t>(Action::Pause)] = { DIK_P, 0, XINPUT_GAMEPAD_START };
 
     // input_bindings.json に書かれたアクションだけ、キー名・ボタン名を読み取って上書きする
@@ -276,11 +281,13 @@ void Input::LoadActionBindings()
     const auto actions = root.value("actions", nlohmann::json::object());
     for (const auto& [name, action] : kActionNames)
     {
+        // 書かれていないアクションは既定の割り当てのまま残す
         const auto data = actions.value(name, nlohmann::json::object());
         if (!data.is_object() || data.empty())
         {
             continue;
         }
+        // キー名・ボタン名を内部のコードに変換して上書きする（空や未知の名前は割り当て無しになる）
         ActionBinding& binding = actionBindings_[static_cast<size_t>(action)];
         binding.primaryKey = ParseKey(data.value("primary", ""));
         binding.secondaryKey = ParseKey(data.value("secondary", ""));

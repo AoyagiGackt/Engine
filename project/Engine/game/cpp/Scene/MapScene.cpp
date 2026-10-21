@@ -434,18 +434,22 @@ void MapScene::DrawStagePortalLabels(int floor)
 {
     // 表示位置・大きさ・色は UI レイアウトから読む
     UILayout& layout = UILayout::Get(kLayoutName);
+    // 影の付け方と、決定ボタン案内の位置
     const float labelOffsetX = layout.Float("portal_label.offset_x", kLabelOffsetX);
     const Vector2 labelShadowOffset = layout.Vec2("portal_label.shadow_offset", kLabelShadowOffset);
     const Vector4 labelShadowColor = layout.Color("portal_label.shadow_color", kLabelShadowColor);
     const float enterHintOffsetX = layout.Float("enter_hint.offset_x", kEnterHintOffsetX);
     const Vector4 enterHintShadowColor = layout.Color("enter_hint.shadow_color", kEnterHintShadowColor);
+    // 入口の数と各入口のワールドX座標、画面へ直すためのカメラ位置
     const int count = static_cast<int>(floors_.size());
     const float* portalXs = stageWorldX_.data();
     const Vector3& cameraPos = camera_->GetTranslate();
+    // ステージ名ラベルの高さ・大きさ・通常色と選択中の色
     const float labelY = layout.Float("portal_label.y", kLabelY);
     const float labelScale = layout.Float("portal_label.scale", kLabelScale);
     const Vector4 labelColor = layout.Color("portal_label.color", kLabelColor);
     const Vector4 labelNearColor = layout.Color("portal_label.near_color", kLabelNearColor);
+    // 決定ボタン案内の高さ・大きさ・色。案内の文字はゲームパッドかキーボードかで変える
     const float enterHintY = layout.Float("enter_hint.y", kEnterHintY);
     const float enterHintScale = layout.Float("enter_hint.scale", kEnterHintScale);
     const Vector4 enterHintColor = layout.Color("enter_hint.color", kEnterHintColor);
@@ -469,6 +473,7 @@ void MapScene::DrawStagePortalLabels(int floor)
         // 選択中の入口だけ、決定ボタンの案内と説明パネルを出す
         if (isNear)
         {
+            // 案内もラベルと同じく影を先に描いてから本体を重ねる
             fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX + labelShadowOffset.x,
                 enterHintY + labelShadowOffset.y, enterHintScale, enterHintShadowColor);
             fontRenderer_.DrawString(enterHint, screenX - enterHintOffsetX, enterHintY, enterHintScale,

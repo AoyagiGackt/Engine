@@ -238,24 +238,29 @@ void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos)
 {
     const auto& visuals = HitEffectLibrary::GetInstance()->SceneParticles();
     // 固有技は発動モーションに合わせた見た目をここで技ごとに出す（命中時の共通バーストはApplyWeaponSkillStyleHit側）
+    // 演出の色は今持っている武器の色に合わせる
     const auto* wm = WeaponManager::GetInstance();
     const WeaponData& weapon = wm->GetCurrent();
     const Vector4 color = ColorFromArray(weapon.effectColor);
     const HitEffectPlayer fx(pm_, &cameraShaker_, &rng_);
+    // 衝撃は足元ではなく胸の高さから出す
     const Vector3 chest = { ppos.x, ppos.y + visuals.chestHeight, ppos.z };
 
     if (player_->IsSkillSequenceActive() && player_->JustComboHit())
     {
         // 固有技の連撃: 段ごとに向きを変えた斬線を重ね、回転斬りの段は輪を広げる。締めは大きな一閃で打ち飛ばしを見せる
         const MeleeAttackDef* step = player_->GetActiveMeleeAttack();
+        // 締めの段は大きな衝撃だけを出す
         if (step != nullptr && step->finisher)
         {
             EmitWeaponSkillImpact(chest, color, true);
         }
         else
         {
+            // 段の番号ぶん斬線の角度をずらし、同じ向きが重ならないようにする
             const float angle = static_cast<float>(player_->GetComboStep()) * visuals.sequenceSlashAngleStep;
             fx.Slash("skill_sequence", ppos, 0.0f, { .angle = angle, .color = color });
+            // 体を回す段だけ輪を足す
             if (step != nullptr && step->bodyTurns != 0.0f)
             {
                 fx.Ring("skill_sequence_turn", ppos, { .color = color });
@@ -266,10 +271,12 @@ void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos)
     // このフレームに出た固有技の、表に書かれた演出（衝撃・輪・左右の斬線・軌跡）を出す
     for (const SkillCastEffect& cast : kSkillCastEffects)
     {
+        // このフレームに発動していない技は飛ばす
         if (!((*player_).*cast.happened)())
         {
             continue;
         }
+        // 表で指定された演出だけを出す（空欄の項目は出さない）
         if (cast.impact)
         {
             EmitWeaponSkillImpact(chest, color, false);
@@ -278,6 +285,7 @@ void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos)
         {
             fx.Ring(cast.ring, ppos, { .color = color });
         }
+        // 斬線は左右対称に2本出す
         if (cast.slash)
         {
             fx.Slash(cast.slash, ppos, 1.0f, { .color = color });

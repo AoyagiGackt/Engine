@@ -234,8 +234,10 @@ void StageEditorInspectorPanel::RenderObjectTransform(
         const Vector3 delta = Subtract(desc.position, previousPosition);
         for (int index : editor.selectedObjectIndices_)
         {
+            // 操作中の1つ（すでに動いている）と、範囲外の番号は飛ばす
             if (index >= 0 && index < static_cast<int>(editor.objects_.size()) && index != editor.selIndex_)
             {
+                // 同じ差分だけ動かし、表示用の行列も作り直す
                 editor.objects_[index].desc.position = editor.objects_[index].desc.position + delta;
                 editor.RefreshTransforms(editor.objects_[index]);
             }
@@ -257,11 +259,13 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             const Vector3 scaleDelta = Subtract(desc.scale, previousScale);
             for (int index : editor.selectedObjectIndices_)
             {
+                // 操作中の1つ・範囲外・回転と拡縮を持たない種類は飛ばす
                 if (index < 0 || index >= static_cast<int>(editor.objects_.size()) || index == editor.selIndex_
                     || !ObjectKind::Of(editor.objects_[index].desc.kind).HasRotationAndScale())
                 {
                     continue;
                 }
+                // 変わった方だけ差分を足す
                 if (rotationChanged)
                 {
                     editor.objects_[index].desc.rotation = editor.objects_[index].desc.rotation + rotationDelta;
@@ -280,8 +284,10 @@ void StageEditorInspectorPanel::RenderObjectTransform(
             {
                 editor.RecordUndoSnapshotNow();
                 desc.lighting = lighting;
+                // 描画側の設定を作り直すため、見た目の更新を予約する
                 transformDirty = true;
             }
+            // 当たり判定は描画に関係しないので値を変えるだけ
             bool solid = desc.solid;
             if (ImGui::Checkbox("当たり判定あり(solid)", &solid))
             {
@@ -297,14 +303,17 @@ void StageEditorInspectorPanel::RenderObjectTransform(
         // 並べて配置: 並べる軸・個数・間隔
         if (desc.type == PlacementType::Row)
         {
+            // 軸は文字1つで保存しているので、選択肢の先頭の文字を入れる
             const char* axes[] = { "x", "y", "z" };
             int axisIndex = static_cast<int>(PlacementAxisIndex(desc.axis));
             if (ImGui::Combo("並べる軸", &axisIndex, axes, static_cast<int>(std::size(kPlacementAxes))))
             {
                 editor.RecordUndoSnapshotNow();
                 desc.axis = axes[axisIndex][0];
+                // 並びが変わるので、並べた分の実体を作り直す
                 structuralDirty = true;
             }
+            // 個数は1個以上にする。数が変わると実体の作り直しが要る
             int count = desc.count;
             if (ImGui::InputInt("個数", &count))
             {
@@ -312,6 +321,7 @@ void StageEditorInspectorPanel::RenderObjectTransform(
                 desc.count = (std::max)(1, count);
                 structuralDirty = true;
             }
+            // 間隔は位置が変わるだけなので、行列の更新で済む
             transformDirty |= captureItemUndo(ImGui::DragFloat("間隔", &desc.step, EditorUi::kDragStepFine));
         }
     }
@@ -378,6 +388,7 @@ bool StageEditorInspectorPanel::RenderTriggerInspector(StageEditor& editor)
     }
     captureItemUndo(nameChanged);
 
+    // フラグ名も名前と同じく固定長バッファで編集する
     char flagBuf[TextBufferCapacity::kName];
     strncpy_s(flagBuf, desc.flag.c_str(), _TRUNCATE);
     bool flagChanged = ImGui::InputText("フラグ名", flagBuf, sizeof(flagBuf));
@@ -392,6 +403,7 @@ bool StageEditorInspectorPanel::RenderTriggerInspector(StageEditor& editor)
     captureItemUndo(ImGui::DragFloat3("位置", &desc.position.x, EditorUi::kDragStepPosition));
     captureItemUndo(ImGui::DragFloat("半径", &desc.radius, EditorUi::kDragStepFine, EditorUi::kMinRadius, kMaxTriggerRadius));
     {
+        // チェックは押した回ごとに戻せるよう、変える前に履歴を取ってから本体へ書き戻す
         bool value = desc.value;
         if (ImGui::Checkbox("進入時に設定する値", &value))
         {
@@ -399,6 +411,7 @@ bool StageEditorInspectorPanel::RenderTriggerInspector(StageEditor& editor)
             desc.value = value;
             trigger.SetDesc(desc);
         }
+        // 一度成立したら、出入りしても再成立しないようにする
         bool once = desc.once;
         if (ImGui::Checkbox("一度だけ成立させる", &once))
         {
@@ -432,6 +445,7 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     StageEditor::ExternalEntityRef& ref = editor.externalEntities_[editor.selIndex_];
     ImGui::Text("%s", ref.name.c_str());
     ImGui::TextDisabled("ランタイム実体（JSONには保存されません）");
+    // 位置は実体から読み、動かしたら実体へ直接書き戻す（レベルの履歴には残さない）
     if (ref.positionTarget)
     {
         Vector3 position = ref.positionTarget->GetPosition();
@@ -443,8 +457,10 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
     // 見た目を切り替えられる実体なら、今のモデルとテクスチャを出してファイルから差し替えられるようにする
     if (ref.getVisualPreset && ref.setVisualPreset)
     {
+        // プリセット番号が負で、固定モデルの指定があれば独自の静的モデルを使っている
         const int preset = ref.getVisualPreset();
         const bool isCustomStatic = preset < 0 && ref.getStaticVisualModel && !ref.getStaticVisualModel().empty();
+        // 表示するモデル名はプリセット、独自モデル、未設定の順に決める
         const std::string presetModel = PlayerVisualPresetModelPath(preset);
         const std::string currentModel = !presetModel.empty() ? presetModel
             : isCustomStatic ? ref.getStaticVisualModel() : "（未設定）";
@@ -458,14 +474,17 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor)
         {
             const std::string selected = OpenFileDialog(
                 "対応モデル(gltf/glb/obj)\0*.gltf;*.glb;*.obj\0すべてのファイル\0*.*\0\0", "Resources");
+            // キャンセルされたら何もしない
             if (!selected.empty())
             {
+                // プリセットの表と比べられるよう、区切り文字を / に揃える
                 std::string normalized = selected;
                 std::replace(normalized.begin(), normalized.end(), '\\', '/');
                 // プリセットのモデルならプリセットとして、そうでなければ静的モデルとして読み込む
                 const int selectedPreset = FindPlayerVisualPreset(normalized);
                 if (selectedPreset >= 0)
                 {
+                    // 独自モデルの指定を消してからプリセットに切り替える
                     if (ref.setStaticVisualModel)
                     {
                         ref.setStaticVisualModel("", "");

@@ -86,18 +86,23 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     StageEditorGeneratedContent result;
     // ブロックを縦に伸ばした当たり判定つきの扉
     ObjectDesc door;
+    // 名前は通し番号で重ならないようにする（呼び出し側の番号も進める）
     door.name = "door_" + std::to_string(nextSerial++);
     door.kind = "gimmick";
+    // 見た目は共通のブロック素材を使う
     door.model = "Resources/block/block.obj";
     door.texture = "Resources/block/block.png";
     door.position = center;
     door.scale = { 1.0f, kDoorHeight, 1.0f };
+    // 開くまではプレイヤーを通さない
     door.solid = true;
     door.lighting = true;
     // 条件フラグが立つと、遅延ののち上方向へ1回だけ滑らかに動いて消える
+    // activeWhenFlag を false にして、フラグが立ったら扉としての役目を終える扱いにする
     door.activationFlag = conditionFlag;
     door.activeWhenFlag = false;
     door.activationDelay = kOpenDelaySeconds;
+    // 動きは真上への平行移動だけ（回転はしない）
     door.gimmickMotion = "custom";
     door.motionMode = MotionMode::Once;
     door.motionEase = MotionEase::Smooth;
@@ -105,6 +110,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     door.motionRotation = { };
     door.motionAmount = kSlideAmount;
     door.motionSpeed = kSlideSpeed;
+    // 生成物はこの扉1つだけ
     result.objects.push_back(std::move(door));
     return result;
 }

@@ -175,15 +175,18 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
     ImGui::TextDisabled("F1: 表示/非表示    右クリック: ノード/コメント追加    ホイール: ズーム    中ドラッグ: パン");
     if (ImGui::CollapsingHeader("使い方"))
     {
+        // ノードの追加と探し方
         ImGui::BulletText("何もない所を右クリック → ノードやコメント枠を追加（よく使う物は直接、他はジャンル別サブメニューに分類）");
         ImGui::BulletText("追加メニュー上部の検索欄に入力すると、名前・ジャンル・説明で絞り込める");
         ImGui::BulletText("ノードにマウスを乗せると、何ができるノードか説明がツールチップで出る");
         ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存  Ctrl+D: 選択ノードを複製");
+        // 実行の線と値の線のつなぎ方
         ImGui::BulletText("実行の流れ: ノード右上の黄ピンを、次ノード左上の白ピンへドラッグして接続");
         ImGui::BulletText("Ifノードは緑ピン=条件が真のとき、赤ピン=偽のときの行き先");
         ImGui::BulletText("値の受け渡し: ノード右下の出力ピンを、パラメータ左の同じ色のピンへドラッグ");
         ImGui::BulletText("　ピンの色 = 型: 緑=数値  赤=ON/OFF  紫=文字列  白=なんでも接続可");
         ImGui::BulletText("パラメータ左のピンを右クリック → データ配線を解除");
+        // ノードの移動・削除と、テスト実行・ほかの機能との連携
         ImGui::BulletText("タイトルをドラッグ: ノード移動    ノード選択+Deleteキー: 削除");
         ImGui::BulletText("何もない所を左クリック → 選択解除");
         ImGui::BulletText("実行ボタンでこのグラフをその場でテスト（黄色い枠 = 今実行中のノード）");
@@ -205,12 +208,14 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
     // ノードを選んでいる時は、その種類の説明とパラメーターごとの意味を出す
     if (!editor.selectedNodeId_.empty())
     {
+        // 選択中の id のノードが消えていたり、種類が未登録なら説明は出さない
         const GraphNode* selected = editor.graph_.FindNode(editor.selectedNodeId_);
         const NodeTypeSpec* selectedSpec = selected
             ? NodeRegistry::GetInstance()->FindSpec(selected->type)
             : nullptr;
         if (selected && selectedSpec && ImGui::CollapsingHeader("選択中ノードの説明", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            // 種類名と分類、ノード全体の説明
             ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
             ImGui::TextWrapped("%s", selectedSpec->description.c_str());
             /** @brief ノードのパラメーター名と編集時に表示する説明の対応 */
@@ -239,6 +244,7 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
                 { "loop", "ONなら停止するまで繰り返し再生する" },
                 { "visible", "ONなら表示し、OFFなら非表示にする" },
             };
+            // パラメーター名から説明文を引く
             auto parameterHelp = [](const std::string& key) -> const char* {
                 for (const ParamHelp& help : kParamHelps)
                 {
@@ -254,6 +260,7 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor)
             {
                 ImGui::BulletText("%s  %s", param.key.c_str(), parameterHelp(param.key));
             }
+            // 値を出力するノードかどうかで、次のノードへの渡し方の案内を変える
             ImGui::TextDisabled(selectedSpec->hasOutput
                     ? "右下の色付きピンから処理結果を別ノードへ渡せます"
                     : "このノードは値を出力せず、上部の実行線だけで次へ進みます");
@@ -268,6 +275,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     char pathBuf[TextBufferCapacity::kPath];
     strncpy_s(pathBuf, editor.graphPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(GraphEditorDrawingStyle::kGraphPathFieldWidth);
+    // パスは入力した時点で書き換え、開くボタンで読み込む
     if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf)))
     {
         editor.graphPath_ = pathBuf;
@@ -291,6 +299,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     {
         editor.Save();
     }
+    // 保存し忘れに気付けるよう、未保存の変更がある時だけ表示する
     if (editor.dirty_)
     {
         ImGui::SameLine();
@@ -303,6 +312,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
         ImGui::OpenPopup("グラフを開く確認");
         editor.requestConfirmOpen_ = false;
     }
+    // 確認で破棄を選んだ時だけ、予約したパスを開く
     if (graphics::EditorUI::ConfirmModal("グラフを開く確認",
             "未保存の変更があります。\n変更を破棄して開き直しますか？",
             "破棄して開く")
@@ -319,6 +329,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     ImGui::BeginDisabled(!hasSelection);
     if (ImGui::Button("開始ノードに設定"))
     {
+        // 元に戻せるよう、変える前に履歴を取る
         editor.RecordUndoSnapshotNow();
         editor.graph_.startNodeId = editor.selectedNodeId_;
     }
@@ -333,7 +344,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     ImGui::SameLine();
     ImGui::TextDisabled("|");
     ImGui::SameLine();
-    // 元に戻す・やり直す
+    // 元に戻す・やり直す（戻せる履歴が無い間はボタンを押せなくする）
     ImGui::BeginDisabled(!editor.history_.CanUndo());
     if (ImGui::Button("元に戻す (Ctrl+Z)"))
     {
@@ -356,6 +367,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     {
         if (ImGui::Button("実行"))
         {
+            // 実行中のノードを光らせる時に、今見ているグラフが実行中のものか比べるためパスを覚えておく
             editor.testRuntime_.Start(&editor.graph_);
             editor.testRuntimeRootPath_ = editor.graphPath_;
         }
@@ -364,6 +376,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor)
     {
         if (ImGui::Button("停止"))
         {
+            // 実行状態を作り直して、途中の待ちや変数も捨てる
             editor.testRuntime_ = GraphRuntime { };
         }
         ImGui::SameLine();

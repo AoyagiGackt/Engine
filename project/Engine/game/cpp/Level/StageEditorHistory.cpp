@@ -194,6 +194,7 @@ std::vector<std::string> StageEditor::ValidateLevel() const
     for (const auto& entry : objects_)
     {
         const ObjectDesc& desc = entry.desc;
+        // 名前は親子やイベントの参照に使うので、空と重複を許さない（重複は登録に失敗したかで見る）
         if (desc.name.empty())
         {
             issues.push_back("名前が空のオブジェクトがあります");
@@ -202,16 +203,20 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         {
             issues.push_back("オブジェクト名が重複しています: " + desc.name);
         }
+        // 見た目が要る種類なのにモデルが無いもの
         const ObjectKind& kind = ObjectKind::Of(desc.kind);
         if (kind.RequiresModel() && desc.model.empty())
         {
             issues.push_back("モデル未設定: " + desc.name);
         }
+        // 種類ごとの固有の検査は各種類に任せる
         kind.Validate(desc, issues);
+        // 大きさが0以下だと見えず、当たり判定も壊れる
         if (desc.scale.x <= 0.0f || desc.scale.y <= 0.0f || desc.scale.z <= 0.0f)
         {
             issues.push_back("スケールが0以下です: " + desc.name);
         }
+        // 列配置は個数が1以上で、間隔が0でないこと
         if (desc.type == PlacementType::Row && (desc.count <= 0 || desc.step == 0.0f))
         {
             issues.push_back("列配置の個数または間隔が無効です: " + desc.name);
@@ -232,9 +237,11 @@ std::vector<std::string> StageEditor::ValidateLevel() const
         // 動作のきっかけになるフラグを立てるトリガーかイベント条件があるか
         if (!desc.activationFlag.empty())
         {
+            // まずトリガーのフラグから探す
             bool sourceExists = std::any_of(triggers_.begin(), triggers_.end(), [&](const TriggerVolume& trigger) {
                 return trigger.GetDesc().flag == desc.activationFlag;
             });
+            // 条件用の接頭辞が付いたフラグなら、同じ名前のイベント条件の配置物を探す
             if (!sourceExists && desc.activationFlag.starts_with(kConditionFlagPrefix))
             {
                 const std::string conditionName = desc.activationFlag.substr(kConditionFlagPrefix.size());

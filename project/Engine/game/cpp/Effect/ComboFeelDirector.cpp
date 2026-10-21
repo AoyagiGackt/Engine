@@ -557,8 +557,10 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
     constexpr int kMaxSubdivisions = 12;
     constexpr int kMinBlurSamples = 4;
     constexpr int kMaxBlurSamples = 32;
+    // スライダーは設定値を直接書き換える（次の演出からすぐ反映される）
     ComboFeelSettings& s = settings_;
 
+    // ウィンドウの×ボタンでも showPanel_ が下りて閉じる
     if (ImGui::Begin("Combo Feel (F6)", &showPanel_))
     {
         // 発表・比較用に全演出をまとめて切り替える
@@ -567,11 +569,13 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             s.trailEnabled = s.impactEnabled = s.radialBlurEnabled = s.zoomEnabled = s.slowEnabled = s.slashEnabled = true;
         }
         ImGui::SameLine();
+        // 親の3つを切れば子の演出（ブラー・ズーム・スロー）も出なくなるので、子の設定は残しておく
         if (ImGui::Button("全部オフ"))
         {
             s.trailEnabled = s.impactEnabled = s.slashEnabled = false;
         }
         ImGui::SameLine();
+        // コンボを出さなくても、最後のプレイヤー位置で締めの演出だけを確認できる
         if (ImGui::Button("締め演出を試す"))
         {
             TriggerFinisherImpact(lastPlayerPos_);
@@ -586,11 +590,13 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             ImGui::SliderFloat("刃先の不透明度", &s.trailTipAlpha, 0.0f, 1.0f);
             ImGui::SliderFloat("根元の不透明度", &s.trailBaseAlpha, 0.0f, 1.0f);
             ImGui::SliderFloat("属性色の混ぜ具合", &s.trailTint, 0.0f, 1.0f);
+            // 補間分割数を上げたときの負荷を見られるよう、現在の頂点数と更新時間を出す
             ImGui::Text("サンプル %d / 頂点 %u / 更新 %.1f us",
                 trail_.GetSampleCount(), trail_.GetVertexCount(), lastTrailMicros_);
 
             ImGui::SeparatorText("刃の範囲（武器モデル空間）");
             ImGui::Combo("武器", &lastWeaponIndex_, kWeaponTypeNames.data(), static_cast<int>(kWeaponTypeNames.size()));
+            // 選んだ武器の刃の根元と先端を編集する（番号は範囲外にならないよう丸める）
             BladeRange& blade = s.blades[static_cast<size_t>(std::clamp(lastWeaponIndex_, 0, ComboFeelSettings::kWeaponTypeCount - 1))];
             ImGui::DragFloat3("根元", &blade.base.x, kDragSpeed);
             ImGui::DragFloat3("先端", &blade.tip.x, kDragSpeed);
@@ -604,9 +610,11 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             ImGui::SliderFloat("ブラー強度", &s.blurPeak, 0.0f, kMaxBlurStrength);
             ImGui::DragFloat("ブラー時間(秒)", &s.blurSeconds, kTimeDragStep, 0.0f, 1.0f);
             ImGui::SliderInt("ブラーサンプル数", &s.blurSamples, kMinBlurSamples, kMaxBlurSamples);
+            // カメラを一瞬寄せる量と時間
             ImGui::Checkbox("ズームパンチ", &s.zoomEnabled);
             ImGui::DragFloat("寄せる距離", &s.zoomDistance, kDistanceDragStep, 0.0f, kMaxZoomDistance);
             ImGui::DragFloat("ズーム時間(秒)", &s.zoomSeconds, kTimeDragStep, 0.0f, 1.0f);
+            // ヒットストップが明けた直後に時間をゆっくり進める量と長さ
             ImGui::Checkbox("ヒットストップ明けのスロー", &s.slowEnabled);
             ImGui::SliderFloat("スロー倍率", &s.slowScale, kMinSlowScale, 1.0f);
             ImGui::DragFloat("スロー時間(秒)", &s.slowSeconds, kTimeDragStep, 0.0f, 1.0f);
@@ -618,9 +626,11 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             ImGui::Checkbox("斬撃線を出す", &s.slashEnabled);
             ImGui::DragFloat("長さ(半分)", &s.slashLength, kFineDragStep, 0.0f, kMaxSlashHalfLength);
             ImGui::DragFloat("太さ", &s.slashThickness, kThicknessDragStep, 0.0f, kMaxSlashThickness);
+            // 締めの段だけ太く長くする
             ImGui::DragFloat("締めの太さ", &s.finisherSlashThickness, kThicknessDragStep, 0.0f, kMaxSlashThickness);
             ImGui::DragFloat("締めの長さ倍率", &s.finisherSlashScale, kFineDragStep, 0.5f, kMaxTrailScale);
             ImGui::DragFloat("表示時間(秒)", &s.slashSeconds, kTimeDragStep, kMinVisibleLifetime, 1.0f);
+            // 斬撃線の向きは、この時間内に刃先が動いた方向から決める
             ImGui::DragFloat("向きを測る時間(秒)", &s.slashDirectionWindow, kTimeDragStep, 0.0f, kMaxDirectionWindow);
         }
 
@@ -630,11 +640,13 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             constexpr int kMaxAwakenSlashCount = 7;
             ImGui::Checkbox("覚醒中に派手にする", &s.awakenEnabled);
             ImGui::Checkbox("覚醒していなくても見る（確認用）", &previewAwaken_);
+            // 色と軌跡・光の帯の強め方
             ImGui::ColorEdit4("覚醒色", &s.awakenColor.x);
             ImGui::SliderFloat("軌跡を覚醒色へ寄せる", &s.awakenTint, 0.0f, 1.0f);
             ImGui::DragFloat("軌跡の寿命の倍率", &s.awakenTrailLifetimeScale, kFineDragStep, 1.0f, kMaxTrailScale);
             ImGui::DragFloat("光の帯の伸び", &s.awakenGlowExtend, kGlowDragStep, 0.0f, kMaxGlowExtend);
             ImGui::SliderFloat("光の帯の不透明度", &s.awakenGlowAlpha, 0.0f, 1.0f);
+            // 斬撃線を扇状に増やす本数と開き、締め演出の強め方
             ImGui::SliderInt("斬撃線の本数", &s.awakenSlashCount, 1, kMaxAwakenSlashCount);
             ImGui::DragFloat("斬撃線の開き(度)", &s.awakenSlashSpreadDeg, 0.5f, 0.0f, kMaxSlashSpreadDegrees);
             ImGui::DragFloat("締め演出の倍率", &s.awakenImpactScale, kFineDragStep, 1.0f, kMaxAwakenImpactScale);
@@ -652,10 +664,13 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
             LoadSettings();
         }
         ImGui::SameLine();
+        // 保存先のパスを薄く表示しておく
         ImGui::TextDisabled("%s", kSettingsPath);
     }
+    // Begin が false でも End は必ず呼ぶ（ImGui の決まり）
     ImGui::End();
 #else
+    // ImGui を使わない構成では引数を使わないので、未使用の警告だけ消す
     (void)input;
 #endif
 }

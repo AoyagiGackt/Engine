@@ -45,23 +45,28 @@ void PlaytestLog::RecordRunResult(bool cleared, int floor, float elapsedSeconds,
     // ファイルが無いか空なら、最初に列名の行を書く
     if (!headerWritten_)
     {
+        // 開けない（無い）か、最初の1文字が終端なら空のファイル
         std::ifstream check(kLogFile);
         const bool needsHeader = !check.good() || check.peek() == std::ifstream::traits_type::eof();
+        // 書き込み用に開き直す前に、読み込み側を閉じておく
         check.close();
         if (needsHeader)
         {
             std::ofstream header(kLogFile);
             header << "timestamp,result,floor,elapsed_seconds,peak_style,rank,best_chain,pos_x,pos_y,pos_z\n";
         }
+        // 確認は起動中に1回だけでよい
         headerWritten_ = true;
     }
 
     // 1ランの結果を CSV の1行として追記する
     std::ofstream file(kLogFile, std::ios::app);
+    // 開けなければ記録をあきらめる（ゲームの進行は止めない）
     if (!file.is_open())
     {
         return;
     }
+    // 列の並びは上の列名の行と同じ順にする
     file << CurrentTimestamp() << ','
          << (cleared ? "clear" : "gameover") << ','
          << floor << ','

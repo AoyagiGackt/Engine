@@ -92,14 +92,18 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
 
     // ブラー用 CB（H と V の 2 スロット × 256 バイト = 512 バイト）
     cbResource_ = dxCommon->CreateBufferResource(2 * kConstantBufferAlignment);
+    // 毎フレーム書き換えられるよう、作ったバッファはずっと Map したままにする
     void* mapped = nullptr;
     cbResource_->Map(0, nullptr, &mapped);
+    // 前半を横方向、256 バイト先の後半を縦方向のスロットとして使う
     cbH_ = reinterpret_cast<FilterParams*>(mapped);
     cbV_ = reinterpret_cast<FilterParams*>(reinterpret_cast<uint8_t*>(mapped) + kConstantBufferAlignment);
+    // 横方向: 1テクセルの大きさと、x 方向へずらす向き
     cbH_->texelSizeX = rw;
     cbH_->texelSizeY = rh;
     cbH_->dirX = 1.0f;
     cbH_->dirY = 0.0f;
+    // 縦方向: 同じ大きさで、y 方向へずらす向き
     cbV_->texelSizeX = rw;
     cbV_->texelSizeY = rh;
     cbV_->dirX = 0.0f;
@@ -112,6 +116,7 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     outlineCb_ = reinterpret_cast<OutlineParams*>(outlineMapped);
     outlineCb_->texelSizeX = rw;
     outlineCb_->texelSizeY = rh;
+    // 輪郭とみなす差のしきい値・線の強さ・色・深度差の効き方は調整値から読む
     outlineCb_->threshold = GraphicsTuning::Float("outline.threshold", kDefaultOutlineThreshold);
     outlineCb_->edgeStrength = GraphicsTuning::Float("outline.strength", kDefaultOutlineStrength);
     const Vector4 outlineColor = GraphicsTuning::Color("outline.color", kDefaultOutlineColor);
@@ -126,6 +131,7 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     void* radialMapped = nullptr;
     radialBlurCbResource_->Map(0, nullptr, &radialMapped);
     radialBlurCb_ = reinterpret_cast<RadialBlurParams*>(radialMapped);
+    // 中心は画面の割合（0.5 で画面中央）、サンプル数は多いほど滑らかで重い
     radialBlurCb_->centerX = GraphicsTuning::Float("radialBlur.centerX", 0.5f, 0.0f, 1.0f);
     radialBlurCb_->centerY = GraphicsTuning::Float("radialBlur.centerY", 0.5f, 0.0f, 1.0f);
     radialBlurCb_->strength = GraphicsTuning::Float("radialBlur.strength", kDefaultRadialStrength);
@@ -137,6 +143,7 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     void* dissolveMapped = nullptr;
     dissolveCbResource_->Map(0, nullptr, &dissolveMapped);
     dissolveCb_ = reinterpret_cast<DissolveParams*>(dissolveMapped);
+    // しきい値 0 は何も消えていない状態。消える境目に付ける縁の幅と色も読む
     dissolveCb_->threshold = GraphicsTuning::Float("dissolve.threshold", 0.0f, 0.0f, 1.0f);
     dissolveCb_->edgeWidth = GraphicsTuning::Positive("dissolve.edgeWidth", kDefaultDissolveEdgeWidth);
     const Vector4 dissolveColor = GraphicsTuning::Color("dissolve.edgeColor", kDefaultDissolveColor);
@@ -150,12 +157,14 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
     void* noiseGenMapped = nullptr;
     noiseGenCbResource_->Map(0, nullptr, &noiseGenMapped);
     noiseGenCb_ = reinterpret_cast<NoiseGenParams*>(noiseGenMapped);
+    // 模様の細かさ・重ねる回数・重ねるごとの弱め方と細かくし方を調整値から読む
     noiseGenCb_->scaleX = GraphicsTuning::Positive("noise.scaleX", kDefaultNoiseScale);
     noiseGenCb_->scaleY = GraphicsTuning::Positive("noise.scaleY", kDefaultNoiseScale);
     noiseGenCb_->seed = 0.0f;
     noiseGenCb_->octaves = GraphicsTuning::Int("noise.octaves", kDefaultNoiseOctaves, 1, kMaxNoiseOctaves);
     noiseGenCb_->persistence = GraphicsTuning::Float("noise.persistence", 0.5f, 0.0f, 1.0f);
     noiseGenCb_->lacunarity = GraphicsTuning::Positive("noise.lacunarity", kDefaultNoiseLacunarity);
+    // 色の付け方と不透明度の初期値
     noiseGenCb_->colorMode = 0;
     noiseGenCb_->opacity = GraphicsTuning::Float("noise.opacity", 1.0f, 0.0f, 1.0f);
 }

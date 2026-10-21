@@ -221,6 +221,7 @@ void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
     {
         for (uint32_t i = 0; i < ParticleGroup::kNumMaxInstance; ++i)
         {
+            // 期限 0 は使っていない枠の印
             if (group.slotExpiry[i] > 0.0f && group.groupTime >= group.slotExpiry[i])
             {
                 group.freeList.push_back(i);
@@ -243,21 +244,25 @@ void ParticleManager::ExpireAndRespawnSlots(ParticleGroup& group)
     // 寿命を過ぎたスロットだけを新しい粒で埋め、GPU へ送る対象にする
     for (uint32_t i = 0; i < cfg.count; ++i)
     {
+        // 使っていない枠と、まだ寿命が残っている枠は触らない
         if (group.slotExpiry[i] <= 0.0f || group.groupTime < group.slotExpiry[i])
         {
             continue;
         }
         float lifeTime = lifeDist(rng);
         GPUParticleState& p = group.particleUploadData[i];
+        // 中心のまわりの円柱状の範囲に置き、横に少し流れながら上へ昇らせる
         p.position = { cfg.center.x + xzDist(rng), cfg.center.y + yDist(rng), cfg.center.z + xzDist(rng) };
         p.lifeTime = lifeTime;
         p.velocity = { velXZDist(rng), velYDist(rng), velXZDist(rng) };
+        // 経過時間を 0 に戻し、色と大きさは設定どおり、回転なし・直線の動きで生き返らせる
         p.currentTime = 0.0f;
         p.color = cfg.color;
         p.scale = { cfg.scale, cfg.scale, cfg.scale };
         p.rotateZ = 0.0f;
         p.alive = 1;
         p.curveFlag = static_cast<uint32_t>(ParticleMotion::Linear);
+        // GPU 側の消滅処理を待てるよう、寿命に少し余裕を足して次の期限にする
         group.slotExpiry[i] = group.groupTime + lifeTime + kSlotExpiryMargin;
         group.pendingSlots.push_back(i);
     }
