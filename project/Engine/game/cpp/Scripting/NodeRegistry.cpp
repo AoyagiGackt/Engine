@@ -1,6 +1,6 @@
 /**
  * @file NodeRegistry.cpp
- * @brief NodeRegistryのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
+ * @brief 組み込みノードの定義と実行関数の登録（NodeRegistry）の実装
  */
 #include "NodeRegistry.h"
 #include "AudioBridge.h"
@@ -24,30 +24,65 @@
 #include <utility>
 using namespace engine::game;
 using namespace engine;
-
+namespace engine::game {
 namespace {
-
 // GraphValueTypeの並び順（Float/Bool/String/Any）に対応する、初期値を省略した時の既定値
 const GraphValue kTypeDefaults[] = { 0.0f, false, std::string { }, 0.0f };
-
 // GraphValueはboolへも変換できるため、文字列の初期値は明示的にstd::stringへ包む
-GraphValue Text(const char* text) { return std::string(text); }
-
+GraphValue Text(const char* text) {
+    return std::string(text);
+}
 // ノード追加時の初期値で共通して使う値
 constexpr float kOne = 1.0f;
 const GraphValue kDefaultVariable = Text("var");
 const GraphValue kDefaultEnemyTarget = Text("enemy");
 const GraphValue kDefaultObjectTarget = Text("obj_0");
 const GraphValue kDefaultSoundPath = Text("Resources/sound/se.wav");
-
 // パラメータ解決はGraphRuntime::ResolveParamに委譲する（データ配線があれば供給元ノードの出力を優先）
 
+/** @brief ノードの target パラメータ（操作する敵や配置物の名前）を読む */
+std::string ResolveTarget(GraphRuntime& rt, const GraphNode& node)
+{
+    return AsString(rt.ResolveParam(node, "target", std::string { }));
+}
+
+/** @brief ノードの x/y/z パラメータを座標として読む（GraphValue に Vector3 型が無いため3つに分けて受け取る） */
+Vector3 ResolvePosition(GraphRuntime& rt, const GraphNode& node)
+{
+    return {
+        AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f })),
+        AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f })),
+        AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f })),
+    };
+}
+
+/** @brief target の名前の敵や配置物が見つからなかったことをエラーログに出す */
+void LogUnknownTarget(const GraphNode& node, const std::string& target)
+{
+    Logger::LogError("[Graph] " + node.type + " node '" + node.id + "' unknown target '" + target + "'");
+}
+
+/** @brief target の敵を探す（登録されていなければエラーログを出して nullptr） */
+EnemyEntity* FindEnemyOrLog(const GraphNode& node, const std::string& target)
+{
+    EnemyEntity* enemy = EnemyRegistry::GetInstance()->Find(target);
+    if (enemy == nullptr)
+    {
+        LogUnknownTarget(node, target);
+    }
+    return enemy;
+}
+
+/** @brief SetVariable ノード: name の変数に value を代入して次のノードへ進む */
 NodeResult ExecSetVariable(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string name = AsString(rt.ResolveParam(node, "name", std::string { }));
-    if (name.empty()) {
+    if (name.empty())
+    {
         Logger::LogError("[Graph] SetVariable node '" + node.id + "' is missing 'name' param");
-    } else {
+    }
+    else
+    {
         GraphValue value = rt.ResolveParam(node, "value", GraphValue { 0.0f });
         rt.SetVariable(name, value);
         rt.SetNodeOutput(node.id, std::move(value)); // 設定した値をそのまま出力ピンにも流す
@@ -56,6 +91,7 @@ NodeResult ExecSetVariable(GraphRuntime& rt, const GraphNode& node, std::string&
     return NodeResult::Continue;
 }
 
+/** @brief If ノード: 条件に応じて次に進むノードを選ぶ */
 NodeResult ExecIf(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string varName = AsString(rt.ResolveParam(node, "var", std::string { }));
@@ -64,7 +100,8 @@ NodeResult ExecIf(GraphRuntime& rt, const GraphNode& node, std::string& outNextI
 
     const GraphValue* lhs = rt.GetVariable(varName);
     bool result = lhs ? Compare(op, *lhs, rhs) : false;
-    if (!lhs) {
+    if (!lhs)
+    {
         Logger::LogError("[Graph] If node '" + node.id + "' references undefined variable '" + varName + "'");
     }
 
@@ -72,6 +109,7 @@ NodeResult ExecIf(GraphRuntime& rt, const GraphNode& node, std::string& outNextI
     return NodeResult::Continue;
 }
 
+/** @brief Wait ノード: 指定秒数たつまで待つ */
 NodeResult ExecWait(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue { 0.0f }));
@@ -80,12 +118,16 @@ NodeResult ExecWait(GraphRuntime& rt, const GraphNode& node, std::string& outNex
     return NodeResult::Suspend;
 }
 
+/** @brief EmitEvent ノード: イベントを発行する */
 NodeResult ExecEmitEvent(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string eventName = AsString(rt.ResolveParam(node, "event", std::string { }));
-    if (eventName.empty()) {
+    if (eventName.empty())
+    {
         Logger::LogError("[Graph] EmitEvent node '" + node.id + "' is missing 'event' param");
-    } else {
+    }
+    else
+    {
         EventBus::GetInstance()->Emit(eventName);
     }
     outNextId = node.next;
@@ -97,9 +139,12 @@ NodeResult ExecEmitEvent(GraphRuntime& rt, const GraphNode& node, std::string& o
 NodeResult ExecSetFlag(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string flag = AsString(rt.ResolveParam(node, "flag", std::string { }));
-    if (flag.empty()) {
+    if (flag.empty())
+    {
         Logger::LogError("[Graph] SetFlag node '" + node.id + "' is missing 'flag' param");
-    } else {
+    }
+    else
+    {
         bool value = AsBool(rt.ResolveParam(node, "value", GraphValue { false }));
         GameFlags::GetInstance()->SetFlag(flag, value);
         rt.SetNodeOutput(node.id, GraphValue { value });
@@ -114,11 +159,15 @@ NodeResult ExecGetFlag(GraphRuntime& rt, const GraphNode& node, std::string& out
 {
     std::string flag = AsString(rt.ResolveParam(node, "flag", std::string { }));
     std::string into = AsString(rt.ResolveParam(node, "into", std::string { }));
-    if (flag.empty()) {
+    if (flag.empty())
+    {
         Logger::LogError("[Graph] GetFlag node '" + node.id + "' is missing 'flag' param");
-    } else {
+    }
+    else
+    {
         bool value = GameFlags::GetInstance()->GetFlag(flag);
-        if (!into.empty()) {
+        if (!into.empty())
+        {
             rt.SetVariable(into, GraphValue { value });
         }
         rt.SetNodeOutput(node.id, GraphValue { value });
@@ -132,7 +181,8 @@ NodeResult ExecSubgraph(GraphRuntime& rt, const GraphNode& node, std::string& ou
 {
     std::string path = AsString(rt.ResolveParam(node, "path", std::string { }));
     outNextId = node.next;
-    if (path.empty() || !rt.BeginSubgraph(path)) {
+    if (path.empty() || !rt.BeginSubgraph(path))
+    {
         Logger::LogError("[Graph] Subgraph node '" + node.id + "' failed to start: " + path);
         return NodeResult::Continue;
     }
@@ -167,7 +217,8 @@ NodeResult ExecRandom(GraphRuntime& rt, const GraphNode& node, std::string& outN
 {
     float mn = AsFloat(rt.ResolveParam(node, "min", GraphValue { 0.0f }));
     float mx = AsFloat(rt.ResolveParam(node, "max", GraphValue { 1.0f }));
-    if (mn > mx) {
+    if (mn > mx)
+    {
         std::swap(mn, mx);
     }
     static std::mt19937 rng { std::random_device { }() };
@@ -177,6 +228,7 @@ NodeResult ExecRandom(GraphRuntime& rt, const GraphNode& node, std::string& outN
     return NodeResult::Continue;
 }
 
+/** @brief DamagePlayer ノード: プレイヤーにダメージを与える */
 NodeResult ExecDamagePlayer(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     int amount = static_cast<int>(AsFloat(rt.ResolveParam(node, "amount", GraphValue { 1.0f })));
@@ -185,6 +237,7 @@ NodeResult ExecDamagePlayer(GraphRuntime& rt, const GraphNode& node, std::string
     return NodeResult::Continue;
 }
 
+/** @brief HealPlayer ノード: プレイヤーを回復する */
 NodeResult ExecHealPlayer(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     int amount = static_cast<int>(AsFloat(rt.ResolveParam(node, "amount", GraphValue { 1.0f })));
@@ -193,33 +246,44 @@ NodeResult ExecHealPlayer(GraphRuntime& rt, const GraphNode& node, std::string& 
     return NodeResult::Continue;
 }
 
-// targetはEnemyRegistryに登録されたid（Scene側がRegister済みであること）
-NodeResult ExecDamageEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+/**
+ * @brief ノードの target（EnemyRegistry に登録された id）の敵へ、amount を使った操作を行う
+ * @param nodeName エラー表示に使うノードの種類名
+ * @param apply 敵と量を受け取って敵の状態を変える処理
+ */
+template <class Apply>
+NodeResult ApplyToTargetEnemy(GraphRuntime& rt, const GraphNode& node, const char* nodeName, std::string& outNextId, const Apply& apply)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    const std::string target = ResolveTarget(rt, node);
     int amount = static_cast<int>(AsFloat(rt.ResolveParam(node, "amount", GraphValue { 1.0f })));
     EnemyEntity* enemy = EnemyRegistry::GetInstance()->Find(target);
-    if (!enemy) {
-        Logger::LogError("[Graph] DamageEnemy node '" + node.id + "' unknown target '" + target + "'");
-    } else {
-        enemy->TakeDamage(amount);
+    // 登録されていない id ならエラーを出して何もしない（Scene 側で Register 済みであること）
+    if (!enemy)
+    {
+        Logger::LogError(std::string("[Graph] ") + nodeName + " node '" + node.id + "' unknown target '" + target + "'");
+    }
+    else
+    {
+        apply(*enemy, amount);
     }
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief DamageEnemy ノード: 指定した敵にダメージを与える */
+NodeResult ExecDamageEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
+{
+    return ApplyToTargetEnemy(rt, node, "DamageEnemy", outNextId, [](EnemyEntity& enemy, int amount) {
+        enemy.TakeDamage(amount);
+    });
+}
+
+/** @brief HealEnemy ノード: 指定した敵を回復する */
 NodeResult ExecHealEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
-    int amount = static_cast<int>(AsFloat(rt.ResolveParam(node, "amount", GraphValue { 1.0f })));
-    EnemyEntity* enemy = EnemyRegistry::GetInstance()->Find(target);
-    if (!enemy) {
-        Logger::LogError("[Graph] HealEnemy node '" + node.id + "' unknown target '" + target + "'");
-    } else {
-        enemy->Heal(amount);
-    }
-    outNextId = node.next;
-    return NodeResult::Continue;
+    return ApplyToTargetEnemy(rt, node, "HealEnemy", outNextId, [](EnemyEntity& enemy, int amount) {
+        enemy.Heal(amount);
+    });
 }
 
 // pathはWAV/MP3ファイルパス初回のみ読み込み、以降はAudioBridge内のキャッシュから再生する
@@ -227,28 +291,36 @@ NodeResult ExecPlaySE(GraphRuntime& rt, const GraphNode& node, std::string& outN
 {
     std::string path = AsString(rt.ResolveParam(node, "path", std::string { }));
     float volume = AsFloat(rt.ResolveParam(node, "volume", GraphValue { 1.0f }));
-    if (path.empty()) {
+    if (path.empty())
+    {
         Logger::LogError("[Graph] PlaySE node '" + node.id + "' is missing 'path' param");
-    } else {
+    }
+    else
+    {
         AudioBridge::GetInstance()->PlaySE(path, volume);
     }
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief PlayBGM ノード: BGMを再生する */
 NodeResult ExecPlayBGM(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     std::string path = AsString(rt.ResolveParam(node, "path", std::string { }));
     bool loop = AsBool(rt.ResolveParam(node, "loop", GraphValue { true }));
-    if (path.empty()) {
+    if (path.empty())
+    {
         Logger::LogError("[Graph] PlayBGM node '" + node.id + "' is missing 'path' param");
-    } else {
+    }
+    else
+    {
         AudioBridge::GetInstance()->PlayBGM(path, loop);
     }
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief StopBGM ノード: BGMを止める */
 NodeResult ExecStopBGM(GraphRuntime&, const GraphNode& node, std::string& outNextId)
 {
     AudioBridge::GetInstance()->StopBGM();
@@ -264,6 +336,7 @@ NodeResult ExecScreenFlash(GraphRuntime& rt, const GraphNode& node, std::string&
     float b = AsFloat(rt.ResolveParam(node, "b", GraphValue { 1.0f }));
     float a = AsFloat(rt.ResolveParam(node, "a", GraphValue { 0.5f }));
     float duration = AsFloat(rt.ResolveParam(node, "duration", GraphValue { GraphNodeDefaults::kFlashDuration }));
+    /** @brief シングルトンインスタンスを返す（初回呼び出しで生成される） */
     ScreenFlash::GetInstance()->Request({ r, g, b, a }, duration);
     outNextId = node.next;
     return NodeResult::Continue;
@@ -278,15 +351,13 @@ NodeResult ExecHitStop(GraphRuntime& rt, const GraphNode& node, std::string& out
     return NodeResult::Continue;
 }
 
-// targetはEnemyRegistryに登録されたid（EnemyEntity限定KnightEnemyには可視切り替えAPIが無い）
+// targetはEnemyRegistryに登録されたid（EnemyEntity 限定。KnightEnemy には可視切り替えのAPIが無い）
 NodeResult ExecSetEnemyVisible(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    const std::string target = ResolveTarget(rt, node);
     bool visible = AsBool(rt.ResolveParam(node, "visible", GraphValue { true }));
-    EnemyEntity* enemy = EnemyRegistry::GetInstance()->Find(target);
-    if (!enemy) {
-        Logger::LogError("[Graph] SetEnemyVisible node '" + node.id + "' unknown target '" + target + "'");
-    } else {
+    if (EnemyEntity* enemy = FindEnemyOrLog(node, target))
+    {
         enemy->SetVisible(visible);
     }
     outNextId = node.next;
@@ -296,15 +367,11 @@ NodeResult ExecSetEnemyVisible(GraphRuntime& rt, const GraphNode& node, std::str
 // GraphValueにVector3型が無いため、座標はx/y/zの3つのFloatパラメータに分けて受け取る
 NodeResult ExecTeleportEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
-    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
-    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
-    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
-    EnemyEntity* enemy = EnemyRegistry::GetInstance()->Find(target);
-    if (!enemy) {
-        Logger::LogError("[Graph] TeleportEnemy node '" + node.id + "' unknown target '" + target + "'");
-    } else {
-        enemy->GetPositionRef() = { x, y, z };
+    const std::string target = ResolveTarget(rt, node);
+    const Vector3 position = ResolvePosition(rt, node);
+    if (EnemyEntity* enemy = FindEnemyOrLog(node, target))
+    {
+        enemy->SetPosition(position);
         enemy->RefreshVisualTransforms();
     }
     outNextId = node.next;
@@ -314,19 +381,21 @@ NodeResult ExecTeleportEnemy(GraphRuntime& rt, const GraphNode& node, std::strin
 // PlayerBridgeに登録されたシーンのプレイヤーを瞬間移動させる（登録が無ければ何もしない）
 NodeResult ExecTeleportPlayer(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
-    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
-    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    const Vector3 position = ResolvePosition(rt, node);
     Player* player = PlayerBridge::GetInstance()->Get();
-    if (!player) {
+    if (!player)
+    {
         Logger::LogError("[Graph] TeleportPlayer node '" + node.id + "' no Player registered (PlayerBridge)");
-    } else {
-        player->SetPosition({ x, y, z });
+    }
+    else
+    {
+        player->SetPosition(position);
     }
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief And ノード: 2つの入力がどちらも真かを出力する */
 NodeResult ExecAnd(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     bool a = AsBool(rt.ResolveParam(node, "a", GraphValue { false }));
@@ -336,6 +405,7 @@ NodeResult ExecAnd(GraphRuntime& rt, const GraphNode& node, std::string& outNext
     return NodeResult::Continue;
 }
 
+/** @brief Or ノード: 2つの入力のどちらかが真かを出力する */
 NodeResult ExecOr(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     bool a = AsBool(rt.ResolveParam(node, "a", GraphValue { false }));
@@ -345,6 +415,7 @@ NodeResult ExecOr(GraphRuntime& rt, const GraphNode& node, std::string& outNextI
     return NodeResult::Continue;
 }
 
+/** @brief Not ノード: 入力の真偽を反転して出力する */
 NodeResult ExecNot(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     bool a = AsBool(rt.ResolveParam(node, "a", GraphValue { false }));
@@ -356,52 +427,65 @@ NodeResult ExecNot(GraphRuntime& rt, const GraphNode& node, std::string& outNext
 // ── 配置物（StageEditorが開いているレベルの配置物を名前で操作する）──
 // 対象はレベルJSONのname。StageEditor::GetActive()が無い（レベル未読込）場合はログを出して何もしない
 
+/** @brief 開いているレベルの StageEditor を返す（無ければエラーログを出して nullptr） */
 StageEditor* ActiveStageEditorOrLog(const GraphNode& node)
 {
     StageEditor* editor = StageEditor::GetActive();
-    if (!editor) {
+    if (!editor)
+    {
         Logger::LogError("[Graph] " + node.type + " node '" + node.id + "' has no level open (StageEditor)");
     }
     return editor;
 }
 
+/**
+ * @brief 開いているステージの配置物 target に apply を行う（ステージが無い時と、名前が見つからない時はエラーログ）
+ * @param apply StageEditor を受け取り、対象が見つかれば true を返す処理
+ */
+template <class Apply>
+void ApplyToTargetObject(const GraphNode& node, const std::string& target, const Apply& apply)
+{
+    if (StageEditor* editor = ActiveStageEditorOrLog(node))
+    {
+        if (!apply(*editor))
+        {
+            LogUnknownTarget(node, target);
+        }
+    }
+}
+
+/** @brief SetObjectVisible ノード: 配置物の表示・非表示を切り替える */
 NodeResult ExecSetObjectVisible(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    const std::string target = ResolveTarget(rt, node);
     bool visible = AsBool(rt.ResolveParam(node, "visible", GraphValue { true }));
-    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
-        if (!editor->SetObjectVisibleByName(target, visible)) {
-            Logger::LogError("[Graph] SetObjectVisible node '" + node.id + "' unknown target '" + target + "'");
-        }
-    }
+    ApplyToTargetObject(node, target, [&](StageEditor& editor) {
+        return editor.SetObjectVisibleByName(target, visible);
+    });
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief SetObjectEnabled ノード: 配置物の有効・無効を切り替える */
 NodeResult ExecSetObjectEnabled(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
+    const std::string target = ResolveTarget(rt, node);
     bool enabled = AsBool(rt.ResolveParam(node, "enabled", GraphValue { true }));
-    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
-        if (!editor->SetObjectEnabledByName(target, enabled)) {
-            Logger::LogError("[Graph] SetObjectEnabled node '" + node.id + "' unknown target '" + target + "'");
-        }
-    }
+    ApplyToTargetObject(node, target, [&](StageEditor& editor) {
+        return editor.SetObjectEnabledByName(target, enabled);
+    });
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
+/** @brief TeleportObject ノード: 配置物を指定の位置へ移す */
 NodeResult ExecTeleportObject(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
-    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
-    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
-    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
-    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
-        if (!editor->TeleportObjectByName(target, { x, y, z })) {
-            Logger::LogError("[Graph] TeleportObject node '" + node.id + "' unknown target '" + target + "'");
-        }
-    }
+    const std::string target = ResolveTarget(rt, node);
+    const Vector3 position = ResolvePosition(rt, node);
+    ApplyToTargetObject(node, target, [&](StageEditor& editor) {
+        return editor.TeleportObjectByName(target, position);
+    });
     outNextId = node.next;
     return NodeResult::Continue;
 }
@@ -409,16 +493,12 @@ NodeResult ExecTeleportObject(GraphRuntime& rt, const GraphNode& node, std::stri
 // seconds秒かけて目標位置へ補間移動させる。移動完了を待たずに次のノードへ進む（待ちたい場合はWaitを続ける）
 NodeResult ExecMoveObject(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
-    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
-    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
-    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    const std::string target = ResolveTarget(rt, node);
+    const Vector3 position = ResolvePosition(rt, node);
     float seconds = AsFloat(rt.ResolveParam(node, "seconds", GraphValue { 1.0f }));
-    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
-        if (!editor->MoveObjectByName(target, { x, y, z }, seconds)) {
-            Logger::LogError("[Graph] MoveObject node '" + node.id + "' unknown target '" + target + "'");
-        }
-    }
+    ApplyToTargetObject(node, target, [&](StageEditor& editor) {
+        return editor.MoveObjectByName(target, position, seconds);
+    });
     outNextId = node.next;
     return NodeResult::Continue;
 }
@@ -432,9 +512,12 @@ NodeResult ExecChangeScene(GraphRuntime& rt, const GraphNode& node, std::string&
     std::string scene = AsString(rt.ResolveParam(node, "scene", std::string { }));
     float fadeOut = AsFloat(rt.ResolveParam(node, "fadeOut", GraphValue { kDefaultFadeSeconds }));
     float fadeIn = AsFloat(rt.ResolveParam(node, "fadeIn", GraphValue { kDefaultFadeSeconds }));
-    if (scene.empty()) {
+    if (scene.empty())
+    {
         Logger::LogError("[Graph] ChangeScene node '" + node.id + "' is missing 'scene' param");
-    } else {
+    }
+    else
+    {
         SceneManager::GetInstance()->ChangeScene(scene, fadeOut, fadeIn);
     }
     outNextId = node.next;
@@ -452,18 +535,17 @@ NodeResult ExecRequestStageClear(GraphRuntime&, const GraphNode& node, std::stri
 // spawn_pointを名前で起動する（有効化フラグを待たずに敵を出す。SetObjectEnabled(true)の敵出現向けの別名）
 NodeResult ExecSpawnEnemy(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
-    std::string target = AsString(rt.ResolveParam(node, "target", std::string { }));
-    if (StageEditor* editor = ActiveStageEditorOrLog(node)) {
-        if (!editor->SetObjectEnabledByName(target, true)) {
-            Logger::LogError("[Graph] SpawnEnemy node '" + node.id + "' unknown target '" + target + "'");
-        }
-    }
+    const std::string target = ResolveTarget(rt, node);
+    ApplyToTargetObject(node, target, [&](StageEditor& editor) {
+        return editor.SetObjectEnabledByName(target, true);
+    });
     outNextId = node.next;
     return NodeResult::Continue;
 }
 
 // ── 演出（シーンのカメラシェイク、パーティクル）──
 
+/** @brief ShakeCamera ノード: 指定の強さと秒数でカメラシェイクを要求して次のノードへ進む */
 NodeResult ExecShakeCamera(GraphRuntime& rt, const GraphNode& node, std::string& outNextId)
 {
     constexpr float kDefaultShakeAmount = 0.25f;
@@ -483,181 +565,147 @@ NodeResult ExecEmitRing(GraphRuntime& rt, const GraphNode& node, std::string& ou
     constexpr float kRingLifetime = 0.4f;
     constexpr float kRingSize = 0.25f;
     std::string group = AsString(rt.ResolveParam(node, "group", std::string("hit_ring")));
-    float x = AsFloat(rt.ResolveParam(node, "x", GraphValue { 0.0f }));
-    float y = AsFloat(rt.ResolveParam(node, "y", GraphValue { 0.0f }));
-    float z = AsFloat(rt.ResolveParam(node, "z", GraphValue { 0.0f }));
+    const Vector3 position = ResolvePosition(rt, node);
     float radius = AsFloat(rt.ResolveParam(node, "radius", GraphValue { kDefaultRadius }));
     float r = AsFloat(rt.ResolveParam(node, "r", GraphValue { 1.0f }));
     float g = AsFloat(rt.ResolveParam(node, "g", GraphValue { 1.0f }));
     float b = AsFloat(rt.ResolveParam(node, "b", GraphValue { 1.0f }));
-    engine::graphics::ParticleManager::GetInstance()->EmitRing(group, { x, y, z }, radius,
+    /** @brief 共有インスタンスを取得する */
+    engine::graphics::ParticleManager::GetInstance()->EmitRing(group, position, radius,
         { r, g, b, 1.0f }, kRingParticleCount, kRingLifetime, kRingSize);
     outNextId = node.next;
     return NodeResult::Continue;
 }
-
 } // namespace
-
+/** @brief 唯一のNodeRegistryインスタンスを取得する（未生成なら生成し、組み込みノードを登録する） */
 NodeRegistry* NodeRegistry::GetInstance()
 {
     static NodeRegistry instance;
     return &instance;
 }
-
+/** @brief 組み込みノードを登録して初期化する */
 NodeRegistry::NodeRegistry()
 {
     RegisterBuiltins();
 }
-
+/** @brief 組み込みノードの定義と実行関数を登録する */
 void NodeRegistry::RegisterBuiltins()
 {
     using VT = GraphValueType;
-
     // ── よく使う（変数の読み書き・分岐・待機・イベント発火など基本のフロー制御）──
     Register("SetVariable", ExecSetVariable);
     RegisterSpec("SetVariable", { { { "name", VT::String, kDefaultVariable }, { "value", VT::Any } }, true, VT::Any, "変数nameにvalueを代入する（無ければ新規作成）", "よく使う" });
-
     Register("If", ExecIf);
     RegisterSpec("If", { { { "var", VT::String, kDefaultVariable }, { "op", VT::String, Text("==") }, { "value", VT::Any } }, false, VT::Any, "変数varの値をopでvalueと比較し、真ならnextTrue／偽ならnextFalseへ分岐する", "よく使う", true });
-
     Register("Wait", ExecWait);
     RegisterSpec("Wait", { { { "seconds", VT::Float, kOne } }, false, VT::Any, "seconds秒待ってから次へ進む（フレームをまたいで待機する）", "よく使う" });
-
     Register("EmitEvent", ExecEmitEvent);
     RegisterSpec("EmitEvent", { { { "event", VT::String, Text("event_name") } }, false, VT::Any, "名前付きイベントを発火する（EventBus経由、コード側でSubscribe済みの処理が呼ばれる）", "よく使う" });
-
     Register("Compare", ExecCompare);
     RegisterSpec("Compare", { { { "a", VT::Any }, { "b", VT::Any }, { "op", VT::String, Text("==") } }, true, VT::Bool, "2つの値をop（== != < <= > >=）で比較しboolを出力する（Ifと違い変数名でなくデータピンを直接比較できる）", "よく使う" });
-
     // ── 変数・フラグ（GameFlagsによるステージ間共有フラグ、サブグラフ呼び出し）──
     Register("SetFlag", ExecSetFlag);
     RegisterSpec("SetFlag", { { { "flag", VT::String, Text("flag_name") }, { "value", VT::Bool } }, true, VT::Bool, "グローバルなbool変数(GameFlags)を書き換えるステージのトリガーやIf/GetFlagから参照できる", "変数・フラグ" });
-
     Register("GetFlag", ExecGetFlag);
     RegisterSpec("GetFlag", { { { "flag", VT::String, Text("flag_name") }, { "into", VT::String, kDefaultVariable } }, true, VT::Bool, "GameFlagsの値を読む（intoを指定するとグラフのローカル変数にもコピーされる）", "変数・フラグ" });
-
     Register("Subgraph", ExecSubgraph);
     RegisterSpec("Subgraph", { { { "path", VT::String, Text("Resources/Graphs/sub_graph.json") } }, false, VT::Any, "別のグラフJSONを呼び出す（子がHaltするまで待機、ロジックの再利用・整理に使う）", "変数・フラグ", false, "path" });
-
     // ── 数値・論理（四則演算・比較・乱数・ブール演算）──
     Register("Math", ExecMath);
     RegisterSpec("Math", { { { "a", VT::Float }, { "b", VT::Float }, { "op", VT::String, Text("+") } }, true, VT::Float, "a op b を計算する（op: + - * /）", "数値・論理" });
-
     Register("Random", ExecRandom);
     RegisterSpec("Random", { { { "min", VT::Float }, { "max", VT::Float, kOne } }, true, VT::Float, "min〜maxの範囲でFloat乱数を出力する", "数値・論理" });
-
     Register("And", ExecAnd);
     RegisterSpec("And", { { { "a", VT::Bool }, { "b", VT::Bool } }, true, VT::Bool, "aとbが両方trueならtrueを出力する", "数値・論理" });
-
     Register("Or", ExecOr);
     RegisterSpec("Or", { { { "a", VT::Bool }, { "b", VT::Bool } }, true, VT::Bool, "aとbのどちらかがtrueならtrueを出力する", "数値・論理" });
-
     Register("Not", ExecNot);
     RegisterSpec("Not", { { { "a", VT::Bool } }, true, VT::Bool, "aの真偽を反転して出力する", "数値・論理" });
-
     // ── プレイヤー（PlayerBridge/RunData経由でプレイヤーの状態を操作）──
     Register("DamagePlayer", ExecDamagePlayer);
     RegisterSpec("DamagePlayer", { { { "amount", VT::Float, kOne } }, false, VT::Any, "プレイヤーのHPをamount減らす", "プレイヤー" });
-
     Register("HealPlayer", ExecHealPlayer);
     RegisterSpec("HealPlayer", { { { "amount", VT::Float, kOne } }, false, VT::Any, "プレイヤーのHPをamount回復する（最大値は超えない）", "プレイヤー" });
-
     Register("TeleportPlayer", ExecTeleportPlayer);
     RegisterSpec("TeleportPlayer", { { { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "プレイヤーを座標(x,y,z)へ瞬間移動させる", "プレイヤー" });
-
     // ── 敵（EnemyRegistryに登録済みのidで対象を引いて操作）──
     Register("DamageEnemy", ExecDamageEnemy);
     RegisterSpec("DamageEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "amount", VT::Float, kOne } }, false, VT::Any, "targetという名前で登録された敵（EnemyRegistry）にamountダメージを与える", "敵" });
-
     Register("HealEnemy", ExecHealEnemy);
     RegisterSpec("HealEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "amount", VT::Float, kOne } }, false, VT::Any, "targetという名前で登録された敵をamount回復する", "敵" });
-
     Register("SetEnemyVisible", ExecSetEnemyVisible);
     RegisterSpec("SetEnemyVisible", { { { "target", VT::String, kDefaultEnemyTarget }, { "visible", VT::Bool, true } }, false, VT::Any, "targetという名前で登録された敵の表示/非表示を切り替える（EnemyEntity限定）", "敵" });
-
     Register("TeleportEnemy", ExecTeleportEnemy);
     RegisterSpec("TeleportEnemy", { { { "target", VT::String, kDefaultEnemyTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "targetという名前で登録された敵を座標(x,y,z)へ瞬間移動させる（EnemyEntity限定）", "敵" });
-
     // ── 演出・音声（SE/BGM、画面フラッシュ、ヒットストップ）──
     Register("PlaySE", ExecPlaySE);
     RegisterSpec("PlaySE", { { { "path", VT::String, kDefaultSoundPath }, { "volume", VT::Float, kOne } }, false, VT::Any, "効果音を再生する（複数同時再生可、pathは音声ファイルのパス）", "演出・音声" });
-
     Register("PlayBGM", ExecPlayBGM);
     RegisterSpec("PlayBGM", { { { "path", VT::String, kDefaultSoundPath }, { "loop", VT::Bool, true } }, false, VT::Any, "BGMを再生する（前のBGMは自動停止、loopでループ有無を指定）", "演出・音声" });
-
     Register("StopBGM", ExecStopBGM);
     RegisterSpec("StopBGM", { { }, false, VT::Any, "再生中のBGMを止める", "演出・音声" });
-
     Register("ScreenFlash", ExecScreenFlash);
     RegisterSpec("ScreenFlash", { { { "r", VT::Float, kOne }, { "g", VT::Float, kOne }, { "b", VT::Float, kOne }, { "a", VT::Float, GraphNodeDefaults::kFlashAlpha }, { "duration", VT::Float, GraphNodeDefaults::kFlashDuration } }, false, VT::Any, "画面全体を指定色(r,g,b,a)でフラッシュさせ、duration秒かけて元に戻す", "演出・音声" });
-
     Register("HitStop", ExecHitStop);
     RegisterSpec("HitStop", { { { "frames", VT::Float, GraphNodeDefaults::kHitStopFrames } }, false, VT::Any, "framesフレームぶんゲームを一瞬止める演出用のヒットストップ", "演出・音声" });
-
     // ── 配置物（ステージエディタで置いた配置物をnameで操作。敵・ギミック・ブロック等すべて対象）──
     Register("SetObjectVisible", ExecSetObjectVisible);
     RegisterSpec("SetObjectVisible", { { { "target", VT::String, kDefaultObjectTarget }, { "visible", VT::Bool, true } }, false, VT::Any, "レベルの配置物targetの表示/非表示を切り替える（当たり判定も一緒に消える）", "配置物" });
-
     Register("SetObjectEnabled", ExecSetObjectEnabled);
     RegisterSpec("SetObjectEnabled", { { { "target", VT::String, kDefaultObjectTarget }, { "enabled", VT::Bool, true } }, false, VT::Any, "レベルの配置物targetを有効/無効にする（有効化フラグより優先。敵なら生成/消滅、ギミックなら動作停止）", "配置物" });
-
     Register("TeleportObject", ExecTeleportObject);
     RegisterSpec("TeleportObject", { { { "target", VT::String, kDefaultObjectTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float } }, false, VT::Any, "レベルの配置物targetを座標(x,y,z)へ瞬間移動させる（親がいる場合は親からの相対位置）", "配置物" });
-
     Register("MoveObject", ExecMoveObject);
     RegisterSpec("MoveObject", { { { "target", VT::String, kDefaultObjectTarget }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "seconds", VT::Float, kOne } }, false, VT::Any, "レベルの配置物targetをseconds秒かけて座標(x,y,z)へ滑らかに移動させる（扉の開閉や足場の移動に）", "配置物" });
-
     // ── 進行（シーン遷移・ステージクリア）──
     Register("ChangeScene", ExecChangeScene);
     RegisterSpec("ChangeScene", { { { "scene", VT::String, Text("MAP") }, { "fadeOut", VT::Float, GraphNodeDefaults::kSceneFadeSeconds }, { "fadeIn", VT::Float, GraphNodeDefaults::kSceneFadeSeconds } }, false, VT::Any, "指定シーン（TITLE / MAP / GAMEPLAY / CLEAR / GAMEOVER 等）へ切り替える", "進行" });
-
     Register("RequestStageClear", ExecRequestStageClear);
     RegisterSpec("RequestStageClear", { { }, false, VT::Any, "本編ステージのクリア条件を成立させる（game_rules.jsonのclearFlagを立てる）", "進行" });
-
     Register("SpawnEnemy", ExecSpawnEnemy);
     RegisterSpec("SpawnEnemy", { { { "target", VT::String, Text("spawn_0") } }, false, VT::Any, "名前で指定したspawn_pointを起動して敵を出す（有効化フラグを待たない）", "配置物" });
-
     // ── 演出（カメラシェイク・パーティクル）──
     Register("ShakeCamera", ExecShakeCamera);
     RegisterSpec("ShakeCamera", { { { "amount", VT::Float, GraphNodeDefaults::kShakeAmount }, { "seconds", VT::Float, GraphNodeDefaults::kShakeSeconds } }, false, VT::Any, "カメラをamountの強さでseconds秒揺らす", "演出・音声" });
-
     Register("EmitRing", ExecEmitRing);
     RegisterSpec("EmitRing", { { { "group", VT::String, Text("hit_ring") }, { "x", VT::Float }, { "y", VT::Float }, { "z", VT::Float }, { "radius", VT::Float, GraphNodeDefaults::kRingRadius }, { "r", VT::Float, kOne }, { "g", VT::Float, kOne }, { "b", VT::Float, kOne } }, false, VT::Any, "座標(x,y,z)に色(r,g,b)のリング状パーティクルを出す（groupはparticles JSONのグループ名）", "演出・音声" });
 }
-
+/** @brief エディタでノードを追加した時に入れる初期値を返す */
 GraphValue NodeParamSpec::InitialValue() const
 {
     return defaultValue ? *defaultValue : kTypeDefaults[static_cast<size_t>(type)];
 }
-
+/** @brief 新しいノード種別を登録する（同名で上書きも可） */
 void NodeRegistry::Register(const std::string& type, NodeExecuteFn fn)
 {
     executors_[type] = std::move(fn);
 }
-
+/** @brief ノード種別のピン情報を登録する（データ配線を使わないノードは省略可） */
 void NodeRegistry::RegisterSpec(const std::string& type, NodeTypeSpec spec)
 {
     specs_[type] = std::move(spec);
 }
-
+/** @brief 型名から実行ロジックを引く登録が無ければnullptr */
 const NodeExecuteFn* NodeRegistry::Find(const std::string& type) const
 {
     auto it = executors_.find(type);
     return (it != executors_.end()) ? &it->second : nullptr;
 }
-
+/** @brief 型名からピン情報を引く登録が無ければnullptr（エディタはAny扱いにする） */
 const NodeTypeSpec* NodeRegistry::FindSpec(const std::string& type) const
 {
     auto it = specs_.find(type);
     return (it != specs_.end()) ? &it->second : nullptr;
 }
-
+/** @brief 登録済みの型名一覧を返す（GraphEditorのノード追加メニュー用） */
 std::vector<std::string> NodeRegistry::GetRegisteredTypes() const
 {
     std::vector<std::string> types;
     types.reserve(executors_.size());
-    for (const auto& [type, fn] : executors_) {
+    for (const auto& [type, fn] : executors_)
+    {
         types.push_back(type);
     }
     return types;
 }
+} // namespace engine::game

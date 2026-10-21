@@ -1,6 +1,6 @@
 /**
  * @file ImGuiControl.cpp
- * @brief ImGuiControlの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief 描画設定を調整する ImGui のパネル（ImGuiControlPanel）の実装
  */
 #include "ImGuiControl.h"
 #include "BloomEffect.h"
@@ -19,13 +19,6 @@
 #include <initializer_list>
 #include <vector>
 
-namespace {
-
-// ポイントライトのラベル容量
-constexpr size_t kPointLightLabelCapacity = 64;
-
-}
-using namespace engine;
 
 namespace engine::graphics {
 
@@ -41,21 +34,20 @@ std::function<void()> ImGuiControlPanel::glassShatterTrigger_;
 // 登録とメインパネル
 // ══════════════════════════════════════════════════════
 
+/** @brief ライト設定の対象にする Object3dCommon を登録する（初期化時に一度だけ呼ぶ） */
 void ImGuiControlPanel::RegisterObject3dCommon(Object3dCommon* common)
 {
     obj3dCommon_ = common;
 }
 
+/** @brief ガラス割れエフェクトのテスト再生コールバックを登録する（シーン切替時は nullptr で解除する） */
 void ImGuiControlPanel::RegisterGlassShatterTrigger(std::function<void()> trigger)
 {
     glassShatterTrigger_ = std::move(trigger);
 }
 
-const std::vector<EditorPointLight>& ImGuiControlPanel::GetEditorPointLights()
-{
-    return editorLights_;
-}
 
+/** @brief デバッグコントロールウィンドウを描画する（ImGuiManager::Begin/Endの間に呼ぶ） */
 void ImGuiControlPanel::ShowControls()
 {
 #ifdef USE_IMGUI
@@ -74,7 +66,6 @@ void ImGuiControlPanel::ShowControls()
 
 namespace {
 constexpr float kEffectWindowWidth = 360.0f;
-constexpr ImVec4 kWarningTextColor = { 1.0f, 0.5f, 0.0f, 1.0f };
 constexpr float kNoiseScaleDragSpeed = 0.05f;
 constexpr float kNoiseScaleMin = 0.1f;
 constexpr float kNoiseScaleMax = 50.0f;
@@ -82,8 +73,6 @@ constexpr float kNoiseSeedDragSpeed = 0.01f;
 constexpr float kNoiseSeedRange = 100.0f;
 constexpr float kRadialCenterDefault = 0.5f; // 画面の中心（UV）
 constexpr float kLightDirectionDragSpeed = 0.01f;
-constexpr float kTransformDragSpeed = 0.01f;
-constexpr float kPointLightDragSpeed = 0.1f;
 constexpr int kMaxKernelRadius = 8; // ぼかしカーネルの半径の上限（シェーダー側の配列長）
 constexpr float kGaussianRadiusPerSigma = 3.0f; // ガウスぼかしはシグマの3倍まで見る
 constexpr float kHsvNeutral = 1.0f; // 彩度・明度の無補正の値
@@ -113,45 +102,54 @@ struct IntSlider {
 /** @brief 直前の項目の横に (?) を出し、乗せたら説明を出す */
 void HelpMarker(const char* help)
 {
-    if (help == nullptr) {
+    if (help == nullptr)
+    {
         return;
     }
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
+    if (ImGui::IsItemHovered())
+    {
         ImGui::SetTooltip("%s", help);
     }
 }
 
+/** @brief 表の各行の float スライダーを描き、変更を対象へ反映する */
 template <class Target, size_t N>
 void DrawSliders(Target* target, const FloatSlider<Target> (&rows)[N])
 {
-    for (const FloatSlider<Target>& row : rows) {
+    for (const FloatSlider<Target>& row : rows)
+    {
         float value = row.get(target);
-        if (ImGui::SliderFloat(row.label, &value, row.min, row.max, row.format)) {
+        if (ImGui::SliderFloat(row.label, &value, row.min, row.max, row.format))
+        {
             row.set(target, value);
         }
         HelpMarker(row.help);
     }
 }
 
+/** @brief 表の各行の int スライダーを描き、変更を対象へ反映する */
 template <class Target, size_t N>
 void DrawSliders(Target* target, const IntSlider<Target> (&rows)[N])
 {
-    for (const IntSlider<Target>& row : rows) {
+    for (const IntSlider<Target>& row : rows)
+    {
         int value = row.get(target);
-        if (ImGui::SliderInt(row.label, &value, row.min, row.max)) {
+        if (ImGui::SliderInt(row.label, &value, row.min, row.max))
+        {
             row.set(target, value);
         }
     }
 }
 
-/** @brief 有効/無効のチェックボックスを描き、有効ならtrue */
+/** @brief 有効/無効のチェックボックスを描き、有効なら true を返す */
 template <class Target>
 bool DrawToggle(Target* target, const char* label)
 {
     bool enabled = target->IsEnabled();
-    if (ImGui::Checkbox(label, &enabled)) {
+    if (ImGui::Checkbox(label, &enabled))
+    {
         target->SetEnabled(enabled);
     }
     return enabled;
@@ -162,32 +160,43 @@ bool DrawToggle(Target* target, const char* label)
  * @return 開いていて、かつフィルターがそのモードの時だけtrue（違えば案内文を出す）
  */
 bool BeginFilterSection(ImageFilter* filter, const char* header, const char* hint,
-    std::initializer_list<ImageFilter::Mode> modes)
+    const std::initializer_list<ImageFilter::Mode>& modes)
 {
-    if (!ImGui::CollapsingHeader(header)) {
+    if (!ImGui::CollapsingHeader(header))
+    {
         return false;
     }
     const bool modeMatches = std::find(modes.begin(), modes.end(), filter->GetMode()) != modes.end();
-    if (!filter->IsEnabled() || !modeMatches) {
+    if (!filter->IsEnabled() || !modeMatches)
+    {
         ImGui::TextDisabled("%s", hint);
         return false;
     }
     return true;
 }
 
+/** @brief ボックスぼかしの半径のスライダーを描く */
 void DrawBoxKernel(ImageFilter* filter)
 {
     int radius = filter->GetRadius();
-    if (ImGui::SliderInt("半径", &radius, 0, kMaxKernelRadius)) {
+    if (ImGui::SliderInt("半径", &radius, 0, kMaxKernelRadius))
+    {
         filter->SetRadius(radius);
     }
     ImGui::TextDisabled("タップ数: %d x %d", 2 * radius + 1, 2 * radius + 1);
 }
 
+/** @brief ガウスぼかしの設定のスライダーを描く */
 void DrawGaussianKernel(ImageFilter* filter)
 {
     static constexpr FloatSlider<ImageFilter> kSigma[] = {
-        { "シグマ", [](ImageFilter* f) { return f->GetSigma(); }, [](ImageFilter* f, float v) { f->SetSigma(v); }, 0.5f, 8.0f, "%.2f" },
+        {
+            "シグマ", [](ImageFilter* f) {
+                return f->GetSigma();
+            }, [](ImageFilter* f, float v) {
+                f->SetSigma(v);
+            }, 0.5f, 8.0f, "%.2f"
+        },
     };
     DrawSliders(filter, kSigma);
     const int radius = (std::min)(static_cast<int>(filter->GetSigma() * kGaussianRadiusPerSigma), kMaxKernelRadius);
@@ -212,97 +221,71 @@ constexpr const char* kFilterModeNames[] = { "Box", "Linear (Gaussian)", "Prewit
 // 描画設定
 // ══════════════════════════════════════════════════════
 
-void ImGuiControlPanel::ShowMeshSettings()
-{
-    // メッシュ設定
-    if (ImGui::CollapsingHeader("メッシュ設定", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const char* meshItems[] = { "球体", "立方体", "平面" };
-        int currentMesh = static_cast<int>(MeshManager::GetInstance()->GetCurrentMeshType());
-
-        if (ImGui::Combo("メッシュ種類", &currentMesh, meshItems, IM_ARRAYSIZE(meshItems))) {
-            MeshManager::GetInstance()->SetCurrentMeshType(static_cast<MeshType>(currentMesh));
-        }
-
-        const char* meshNames[] = { "Sphere", "Cube", "Plane" };
-        for (int i = 0; i < static_cast<int>(MeshType::Count); ++i) {
-            ImGui::PushID(i);
-            if (ImGui::TreeNode(meshNames[i])) {
-                MeshData& mesh = MeshManager::GetInstance()->GetMesh(static_cast<MeshType>(i));
-                ImGui::DragFloat3("スケール", &mesh.transform.scale.x, kTransformDragSpeed);
-                ImGui::DragFloat3("回転", &mesh.transform.rotate.x, kTransformDragSpeed);
-                ImGui::DragFloat3("移動", &mesh.transform.translate.x, kTransformDragSpeed);
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-    }
-}
-
-void ImGuiControlPanel::ShowMaterialSettings()
-{
-    // マテリアル設定
-    if (ImGui::CollapsingHeader("マテリアル設定", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const char* matItems[] = { "赤", "緑", "青", "白" };
-        int currentMat = (int)MaterialManager::GetInstance()->GetCurrentMaterialIndex();
-        if (ImGui::Combo("マテリアルカラー", &currentMat, matItems, IM_ARRAYSIZE(matItems))) {
-            MaterialManager::GetInstance()->SetCurrentMaterialIndex(currentMat);
-        }
-    }
-}
-
-void ImGuiControlPanel::ShowLightingSettings()
-{
-    // ライティングモード
-    if (ImGui::CollapsingHeader("ライティング設定", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const char* lightItems[] = { "なし", "Lambert", "Half Lambert", "Lambert+Phong", "HalfLambert+Phong" };
-        int currentMode = LightManager::GetInstance()->GetLightingMode();
-        if (ImGui::Combo("ライティングモード", &currentMode, lightItems, IM_ARRAYSIZE(lightItems))) {
-            LightManager::GetInstance()->SetLightingMode(currentMode);
-        }
-    }
-}
-
 // ══════════════════════════════════════════════════════
 // ポストエフェクト設定
 // ══════════════════════════════════════════════════════
 
+/** @brief ポストプロセス（グレースケール等）の調整スライダーを表示する */
 void ImGuiControlPanel::ShowPostProcessSettings()
 {
-    if (!ImGui::CollapsingHeader("ポストプロセス", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (!ImGui::CollapsingHeader("ポストプロセス", ImGuiTreeNodeFlags_DefaultOpen))
+    {
         return;
     }
 
     // グレースケール
     static constexpr FloatSlider<GrayscaleEffect> kGrayscale[] = {
-        { "適用量##gs", [](GrayscaleEffect* e) { return e->GetAmount(); }, [](GrayscaleEffect* e, float v) { e->SetAmount(v); }, 0.0f, 1.0f },
+        {
+            "適用量##gs", [](GrayscaleEffect* e) {
+                return e->GetAmount();
+            }, [](GrayscaleEffect* e, float v) {
+                e->SetAmount(v);
+            }, 0.0f, 1.0f
+        },
     };
     auto* grayscale = GrayscaleEffect::GetInstance();
-    if (DrawToggle(grayscale, "グレースケール")) {
+    if (DrawToggle(grayscale, "グレースケール"))
+    {
         DrawSliders(grayscale, kGrayscale);
     }
     ImGui::Separator();
 
     // Bloom
     static constexpr FloatSlider<BloomEffect> kBloom[] = {
-        { "しきい値##bloom", [](BloomEffect* e) { return e->GetThreshold(); }, [](BloomEffect* e, float v) { e->SetThreshold(v); }, 0.0f, 1.0f, "%.2f",
+        { "しきい値##bloom", [](BloomEffect* e) {
+            return e->GetThreshold();
+        }, [](BloomEffect* e, float v) {
+            e->SetThreshold(v);
+        }, 0.0f, 1.0f, "%.2f",
             "この輝度以上のピクセルが光って見えます。\n低いほど広い範囲が光る。" },
-        { "強度##bloom", [](BloomEffect* e) { return e->GetIntensity(); }, [](BloomEffect* e, float v) { e->SetIntensity(v); }, 0.0f, 4.0f, "%.2f" },
+        {
+            "強度##bloom", [](BloomEffect* e) {
+                return e->GetIntensity();
+            }, [](BloomEffect* e, float v) {
+                e->SetIntensity(v);
+            }, 0.0f, 4.0f, "%.2f"
+        },
     };
     auto* bloom = BloomEffect::GetInstance();
-    if (DrawToggle(bloom, "Bloom（発光）")) {
+    if (DrawToggle(bloom, "Bloom（発光）"))
+    {
         DrawSliders(bloom, kBloom);
     }
     ImGui::Separator();
 
     // イメージフィルター（ぼかし系はモードごとのカーネル設定を表から引く）
     auto* imgFilter = ImageFilter::GetInstance();
-    if (DrawToggle(imgFilter, "イメージフィルター")) {
+    if (DrawToggle(imgFilter, "イメージフィルター"))
+    {
         int currentMode = static_cast<int>(imgFilter->GetMode());
-        if (ImGui::Combo("フィルターモード", &currentMode, kFilterModeNames, IM_ARRAYSIZE(kFilterModeNames))) {
+        if (ImGui::Combo("フィルターモード", &currentMode, kFilterModeNames, IM_ARRAYSIZE(kFilterModeNames)))
+        {
             imgFilter->SetMode(static_cast<ImageFilter::Mode>(currentMode));
         }
-        for (const KernelControl& control : kKernelControls) {
-            if (control.mode == imgFilter->GetMode()) {
+        for (const KernelControl& control : kKernelControls)
+        {
+            if (control.mode == imgFilter->GetMode())
+            {
                 control.draw(imgFilter);
             }
         }
@@ -311,32 +294,72 @@ void ImGuiControlPanel::ShowPostProcessSettings()
 
     // ビネット
     static constexpr FloatSlider<VignetteEffect> kVignette[] = {
-        { "強度##vig", [](VignetteEffect* e) { return e->GetIntensity(); }, [](VignetteEffect* e, float v) { e->SetIntensity(v); }, 0.0f, 2.0f },
-        { "半径##vig", [](VignetteEffect* e) { return e->GetRadius(); }, [](VignetteEffect* e, float v) { e->SetRadius(v); }, 0.0f, 1.0f },
-        { "ソフトネス##vig", [](VignetteEffect* e) { return e->GetSoftness(); }, [](VignetteEffect* e, float v) { e->SetSoftness(v); }, 0.0f, 1.0f },
+        {
+            "強度##vig", [](VignetteEffect* e) {
+                return e->GetIntensity();
+            }, [](VignetteEffect* e, float v) {
+                e->SetIntensity(v);
+            }, 0.0f, 2.0f
+        },
+        {
+            "半径##vig", [](VignetteEffect* e) {
+                return e->GetRadius();
+            }, [](VignetteEffect* e, float v) {
+                e->SetRadius(v);
+            }, 0.0f, 1.0f
+        },
+        {
+            "ソフトネス##vig", [](VignetteEffect* e) {
+                return e->GetSoftness();
+            }, [](VignetteEffect* e, float v) {
+                e->SetSoftness(v);
+            }, 0.0f, 1.0f
+        },
     };
     auto* vignette = VignetteEffect::GetInstance();
-    if (DrawToggle(vignette, "ビネット")) {
+    if (DrawToggle(vignette, "ビネット"))
+    {
         DrawSliders(vignette, kVignette);
     }
     ImGui::Separator();
 
     // HSV フィルター
     static constexpr FloatSlider<HsvFilter> kHue[] = {
-        { "色相シフト", [](HsvFilter* e) { return e->GetHueShift(); }, [](HsvFilter* e, float v) { e->SetHueShift(v); }, -180.0f, 180.0f, "%.1f°" },
+        {
+            "色相シフト", [](HsvFilter* e) {
+                return e->GetHueShift();
+            }, [](HsvFilter* e, float v) {
+                e->SetHueShift(v);
+            }, -180.0f, 180.0f, "%.1f°"
+        },
     };
     static constexpr FloatSlider<HsvFilter> kSaturationValue[] = {
-        { "彩度", [](HsvFilter* e) { return e->GetSaturation(); }, [](HsvFilter* e, float v) { e->SetSaturation(v); }, 0.0f, 2.0f, "%.2f" },
-        { "明度", [](HsvFilter* e) { return e->GetValue(); }, [](HsvFilter* e, float v) { e->SetValue(v); }, 0.0f, 2.0f, "%.2f" },
+        {
+            "彩度", [](HsvFilter* e) {
+                return e->GetSaturation();
+            }, [](HsvFilter* e, float v) {
+                e->SetSaturation(v);
+            }, 0.0f, 2.0f, "%.2f"
+        },
+        {
+            "明度", [](HsvFilter* e) {
+                return e->GetValue();
+            }, [](HsvFilter* e, float v) {
+                e->SetValue(v);
+            }, 0.0f, 2.0f, "%.2f"
+        },
     };
     auto* hsv = HsvFilter::GetInstance();
-    if (DrawToggle(hsv, "HSV フィルター")) {
+    if (DrawToggle(hsv, "HSV フィルター"))
+    {
         DrawSliders(hsv, kHue);
-        if (ImGui::Button("色相リセット")) {
+        if (ImGui::Button("色相リセット"))
+        {
             hsv->SetHueShift(0.0f);
         }
         DrawSliders(hsv, kSaturationValue);
-        if (ImGui::Button("全パラメーターリセット")) {
+        if (ImGui::Button("全パラメーターリセット"))
+        {
             hsv->SetHueShift(0.0f);
             hsv->SetSaturation(kHsvNeutral);
             hsv->SetValue(kHsvNeutral);
@@ -344,17 +367,14 @@ void ImGuiControlPanel::ShowPostProcessSettings()
         ImGui::TextDisabled("※ イメージフィルター・グレースケールと同時使用不可");
     }
 }
-
 // ══════════════════════════════════════════════════════
 // エフェクト詳細設定
 // ══════════════════════════════════════════════════════
-
 void ImGuiControlPanel::ShowEffectAndLightSettings()
 {
     // アウトライン / ラジアルブラー / ディゾルブ / GPUノイズ / ガラス割れ / ライト
     // を1ウィンドウにまとめ、セクションごとに折りたたみヘッダーで表示する
     auto* imgFilter = ImageFilter::GetInstance();
-
     ImGui::SetNextWindowSize(ImVec2(kEffectWindowWidth, 0), ImGuiCond_Once);
     ImGui::Begin("エフェクト・ライト設定");
     ShowOutlineSection(imgFilter);
@@ -365,311 +385,311 @@ void ImGuiControlPanel::ShowEffectAndLightSettings()
     ShowLightSection();
     ImGui::End();
 }
-
+/** @brief 輪郭抽出の設定欄を出す */
 void ImGuiControlPanel::ShowOutlineSection(ImageFilter* imgFilter)
 {
     if (!BeginFilterSection(imgFilter, "アウトライン", "イメージフィルターで\n「Prewitt エッジ」か\n「深度アウトライン」を選択してください",
-            { ImageFilter::Mode::PrewittEdge, ImageFilter::Mode::DepthOutline })) {
+            { ImageFilter::Mode::PrewittEdge, ImageFilter::Mode::DepthOutline }))
+    {
         return;
     }
     const bool depth = imgFilter->GetMode() == ImageFilter::Mode::DepthOutline;
     ImGui::Text("モード: %s", depth ? "深度アウトライン" : "Prewitt エッジ（輝度ベース）");
     ImGui::Separator();
-
     static constexpr FloatSlider<ImageFilter> kOutline[] = {
-        { "検出閾値", [](ImageFilter* f) { return f->GetOutlineThreshold(); }, [](ImageFilter* f, float v) { f->SetOutlineThreshold(v); }, 0.0f, 0.5f, "%.3f",
+        { "検出閾値", [](ImageFilter* f) {
+            return f->GetOutlineThreshold();
+        }, [](ImageFilter* f, float v) {
+            f->SetOutlineThreshold(v);
+        }, 0.0f, 0.5f, "%.3f",
             "エッジとみなす勾配の最小値。\n小さいほど細かいエッジも検出される。" },
-        { "エッジ強度", [](ImageFilter* f) { return f->GetOutlineStrength(); }, [](ImageFilter* f, float v) { f->SetOutlineStrength(v); }, 0.1f, 30.0f, "%.1f" },
+        {
+            "エッジ強度", [](ImageFilter* f) {
+                return f->GetOutlineStrength();
+            }, [](ImageFilter* f, float v) {
+                f->SetOutlineStrength(v);
+            }, 0.1f, 30.0f, "%.1f"
+        },
     };
     DrawSliders(imgFilter, kOutline);
-
     float color[4];
     imgFilter->GetOutlineColor(color);
-    if (ImGui::ColorEdit4("アウトライン色", color)) {
+    if (ImGui::ColorEdit4("アウトライン色", color))
+    {
         imgFilter->SetOutlineColor(color[0], color[1], color[2], color[3]);
     }
-
-    if (depth) {
+    if (depth)
+    {
         ImGui::Separator();
         ImGui::TextDisabled("--- 深度アウトライン専用 ---");
         static constexpr FloatSlider<ImageFilter> kDepth[] = {
-            { "深度スケール", [](ImageFilter* f) { return f->GetDepthScale(); }, [](ImageFilter* f, float v) { f->SetDepthScale(v); }, 1.0f, 500.0f, "%.1f",
+            { "深度スケール", [](ImageFilter* f) {
+                return f->GetDepthScale();
+            }, [](ImageFilter* f, float v) {
+                f->SetDepthScale(v);
+            }, 1.0f, 500.0f, "%.1f",
                 "深度差を増幅する倍率。" },
         };
         DrawSliders(imgFilter, kDepth);
     }
 }
-
+/** @brief 放射ブラーの設定欄を出す */
 void ImGuiControlPanel::ShowRadialBlurSection(ImageFilter* imgFilter)
 {
     if (!BeginFilterSection(imgFilter, "ラジアルブラー", "イメージフィルターで\n「ラジアルブラー」を選択してください",
-            { ImageFilter::Mode::RadialBlur })) {
+            { ImageFilter::Mode::RadialBlur }))
+    {
         return;
     }
     ImGui::TextDisabled("中心から放射状にブラーをかけます");
     ImGui::Separator();
-
     static constexpr FloatSlider<ImageFilter> kCenter[] = {
-        { "中心 X", [](ImageFilter* f) { return f->GetRadialCenterX(); }, [](ImageFilter* f, float v) { f->SetRadialCenter(v, f->GetRadialCenterY()); }, 0.0f, 1.0f, "%.2f" },
-        { "中心 Y", [](ImageFilter* f) { return f->GetRadialCenterY(); }, [](ImageFilter* f, float v) { f->SetRadialCenter(f->GetRadialCenterX(), v); }, 0.0f, 1.0f, "%.2f" },
+        {
+            "中心 X", [](ImageFilter* f) {
+                return f->GetRadialCenterX();
+            }, [](ImageFilter* f, float v) {
+                f->SetRadialCenter(v, f->GetRadialCenterY());
+            }, 0.0f, 1.0f, "%.2f"
+        },
+        {
+            "中心 Y", [](ImageFilter* f) {
+                return f->GetRadialCenterY();
+            }, [](ImageFilter* f, float v) {
+                f->SetRadialCenter(f->GetRadialCenterX(), v);
+            }, 0.0f, 1.0f, "%.2f"
+        },
     };
     DrawSliders(imgFilter, kCenter);
-    if (ImGui::Button("中心にリセット")) {
+    if (ImGui::Button("中心にリセット"))
+    {
         imgFilter->SetRadialCenter(kRadialCenterDefault, kRadialCenterDefault);
     }
     ImGui::Separator();
-
     static constexpr FloatSlider<ImageFilter> kStrength[] = {
-        { "強度", [](ImageFilter* f) { return f->GetRadialStrength(); }, [](ImageFilter* f, float v) { f->SetRadialStrength(v); }, 0.0f, 1.0f, "%.3f" },
+        {
+            "強度", [](ImageFilter* f) {
+                return f->GetRadialStrength();
+            }, [](ImageFilter* f, float v) {
+                f->SetRadialStrength(v);
+            }, 0.0f, 1.0f, "%.3f"
+        },
     };
     static constexpr IntSlider<ImageFilter> kSamples[] = {
-        { "サンプル数", [](ImageFilter* f) { return f->GetRadialSampleCount(); }, [](ImageFilter* f, int v) { f->SetRadialSampleCount(v); }, 2, 32 },
+        {
+            "サンプル数", [](ImageFilter* f) {
+                return f->GetRadialSampleCount();
+            }, [](ImageFilter* f, int v) {
+                f->SetRadialSampleCount(v);
+            }, 2, 32
+        },
     };
     DrawSliders(imgFilter, kStrength);
     DrawSliders(imgFilter, kSamples);
 }
-
+/** @brief ディゾルブの設定欄を出す */
 void ImGuiControlPanel::ShowDissolveSection(ImageFilter* imgFilter)
 {
     if (!BeginFilterSection(imgFilter, "ディゾルブ", "イメージフィルターで\n「ディゾルブ」を選択してください",
-            { ImageFilter::Mode::Dissolve })) {
+            { ImageFilter::Mode::Dissolve }))
+    {
         return;
     }
     ImGui::TextDisabled("ノイズマスクで画面を溶かします");
     ImGui::Separator();
-
     const char* maskItems[] = { "noise0.png", "noise1.png" };
     int maskIdx = imgFilter->GetDissolveMaskIndex();
-    if (ImGui::Combo("マスク", &maskIdx, maskItems, IM_ARRAYSIZE(maskItems))) {
+    if (ImGui::Combo("マスク", &maskIdx, maskItems, IM_ARRAYSIZE(maskItems)))
+    {
         imgFilter->SetDissolveMaskIndex(maskIdx);
     }
     ImGui::Separator();
-
     static constexpr FloatSlider<ImageFilter> kDissolve[] = {
-        { "進行度", [](ImageFilter* f) { return f->GetDissolveThreshold(); }, [](ImageFilter* f, float v) { f->SetDissolveThreshold(v); }, 0.0f, 1.0f, "%.3f" },
-        { "エッジ幅", [](ImageFilter* f) { return f->GetDissolveEdgeWidth(); }, [](ImageFilter* f, float v) { f->SetDissolveEdgeWidth(v); }, 0.0f, 0.3f, "%.3f" },
+        {
+            "進行度", [](ImageFilter* f) {
+                return f->GetDissolveThreshold();
+            }, [](ImageFilter* f, float v) {
+                f->SetDissolveThreshold(v);
+            }, 0.0f, 1.0f, "%.3f"
+        },
+        {
+            "エッジ幅", [](ImageFilter* f) {
+                return f->GetDissolveEdgeWidth();
+            }, [](ImageFilter* f, float v) {
+                f->SetDissolveEdgeWidth(v);
+            }, 0.0f, 0.3f, "%.3f"
+        },
     };
     DrawSliders(imgFilter, kDissolve);
-
     float edgeCol[4];
     imgFilter->GetDissolveEdgeColor(edgeCol);
-    if (ImGui::ColorEdit4("エッジ色", edgeCol)) {
+    if (ImGui::ColorEdit4("エッジ色", edgeCol))
+    {
         imgFilter->SetDissolveEdgeColor(edgeCol[0], edgeCol[1], edgeCol[2], edgeCol[3]);
     }
 }
-
+/** @brief ノイズの設定欄を出す */
 void ImGuiControlPanel::ShowNoiseSection(ImageFilter* imgFilter)
 {
     if (!BeginFilterSection(imgFilter, "GPU ノイズ", "イメージフィルターで\n「GPU ノイズ」を選択してください",
-            { ImageFilter::Mode::NoiseGen })) {
+            { ImageFilter::Mode::NoiseGen }))
+    {
         return;
     }
     bool anim = imgFilter->GetNoiseAnimate();
-    if (ImGui::Checkbox("自動更新（毎フレーム seed を変化）", &anim)) {
+    if (ImGui::Checkbox("自動更新（毎フレーム seed を変化）", &anim))
+    {
         imgFilter->SetNoiseAnimate(anim);
     }
-    if (anim) {
+    if (anim)
+    {
         static constexpr FloatSlider<ImageFilter> kSpeed[] = {
-            { "速度", [](ImageFilter* f) { return f->GetNoiseSpeed(); }, [](ImageFilter* f, float v) { f->SetNoiseSpeed(v); }, 0.0005f, 0.05f, "%.4f" },
+            {
+                "速度", [](ImageFilter* f) {
+                    return f->GetNoiseSpeed();
+                }, [](ImageFilter* f, float v) {
+                    f->SetNoiseSpeed(v);
+                }, 0.0005f, 0.05f, "%.4f"
+            },
         };
         DrawSliders(imgFilter, kSpeed);
     }
-    if (ImGui::Button("リセット")) {
+    if (ImGui::Button("リセット"))
+    {
         imgFilter->ResetNoiseTime();
     }
     ImGui::Separator();
-
     static constexpr FloatSlider<ImageFilter> kOpacity[] = {
-        { "不透明度", [](ImageFilter* f) { return f->GetNoiseOpacity(); }, [](ImageFilter* f, float v) { f->SetNoiseOpacity(v); }, 0.0f, 1.0f, "%.2f" },
+        {
+            "不透明度", [](ImageFilter* f) {
+                return f->GetNoiseOpacity();
+            }, [](ImageFilter* f, float v) {
+                f->SetNoiseOpacity(v);
+            }, 0.0f, 1.0f, "%.2f"
+        },
     };
     DrawSliders(imgFilter, kOpacity);
     ImGui::Separator();
-
     float sx = imgFilter->GetNoiseScaleX();
     float sy = imgFilter->GetNoiseScaleY();
-    if (ImGui::DragFloat("スケール X", &sx, kNoiseScaleDragSpeed, kNoiseScaleMin, kNoiseScaleMax, "%.2f")) {
+    if (ImGui::DragFloat("スケール X", &sx, kNoiseScaleDragSpeed, kNoiseScaleMin, kNoiseScaleMax, "%.2f"))
+    {
         imgFilter->SetNoiseScale(sx, sy);
     }
-    if (ImGui::DragFloat("スケール Y", &sy, kNoiseScaleDragSpeed, kNoiseScaleMin, kNoiseScaleMax, "%.2f")) {
+    if (ImGui::DragFloat("スケール Y", &sy, kNoiseScaleDragSpeed, kNoiseScaleMin, kNoiseScaleMax, "%.2f"))
+    {
         imgFilter->SetNoiseScale(sx, sy);
     }
-    if (ImGui::Button("均一にする")) {
+    if (ImGui::Button("均一にする"))
+    {
         imgFilter->SetNoiseScale(sx, sx);
     }
     ImGui::Separator();
-
     float seed = imgFilter->GetNoiseSeed();
-    if (ImGui::DragFloat("シード（手動）", &seed, kNoiseSeedDragSpeed, -kNoiseSeedRange, kNoiseSeedRange, "%.3f")) {
+    if (ImGui::DragFloat("シード（手動）", &seed, kNoiseSeedDragSpeed, -kNoiseSeedRange, kNoiseSeedRange, "%.3f"))
+    {
         imgFilter->SetNoiseSeed(seed);
     }
     ImGui::Separator();
-
     static constexpr IntSlider<ImageFilter> kOctaves[] = {
-        { "オクターブ数", [](ImageFilter* f) { return f->GetNoiseOctaves(); }, [](ImageFilter* f, int v) { f->SetNoiseOctaves(v); }, 1, 8 },
+        {
+            "オクターブ数", [](ImageFilter* f) {
+                return f->GetNoiseOctaves();
+            }, [](ImageFilter* f, int v) {
+                f->SetNoiseOctaves(v);
+            }, 1, 8
+        },
     };
     static constexpr FloatSlider<ImageFilter> kFractal[] = {
-        { "パーシステンス", [](ImageFilter* f) { return f->GetNoisePersistence(); }, [](ImageFilter* f, float v) { f->SetNoisePersistence(v); }, 0.1f, 1.0f, "%.2f" },
-        { "ラクナリティ", [](ImageFilter* f) { return f->GetNoiseLacunarity(); }, [](ImageFilter* f, float v) { f->SetNoiseLacunarity(v); }, 1.0f, 4.0f, "%.2f" },
+        {
+            "パーシステンス", [](ImageFilter* f) {
+                return f->GetNoisePersistence();
+            }, [](ImageFilter* f, float v) {
+                f->SetNoisePersistence(v);
+            }, 0.1f, 1.0f, "%.2f"
+        },
+        {
+            "ラクナリティ", [](ImageFilter* f) {
+                return f->GetNoiseLacunarity();
+            }, [](ImageFilter* f, float v) {
+                f->SetNoiseLacunarity(v);
+            }, 1.0f, 4.0f, "%.2f"
+        },
     };
     DrawSliders(imgFilter, kOctaves);
     DrawSliders(imgFilter, kFractal);
     ImGui::Separator();
-
     const char* colorItems[] = { "グレースケール", "カラー" };
     int colorMode = imgFilter->GetNoiseColorMode();
-    if (ImGui::Combo("カラーモード", &colorMode, colorItems, IM_ARRAYSIZE(colorItems))) {
+    if (ImGui::Combo("カラーモード", &colorMode, colorItems, IM_ARRAYSIZE(colorItems)))
+    {
         imgFilter->SetNoiseColorMode(colorMode);
     }
 }
-
-void ImGuiControlPanel::ShowGlassShatterSection()
-{
-    // ガラス割れエフェクト
-    if (ImGui::CollapsingHeader("ガラス割れエフェクト")) {
-        if (glassShatterTrigger_) {
-            if (ImGui::Button("テスト再生")) {
-                glassShatterTrigger_();
-            }
-            ImGui::TextDisabled("※ 演出中は再度押しても無視されます");
-        } else {
-            ImGui::TextWrapped("このシーンではガラス割れエフェクトの\n"
-                               "テスト再生は登録されていません。");
-        }
-    }
-}
-
 // ══════════════════════════════════════════════════════
 // ライト設定
 // ══════════════════════════════════════════════════════
-
-void ImGuiControlPanel::ShowLightSection()
-{
-    // ライト（平行光源 + ポイントライト）
-    if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (!obj3dCommon_) {
-            ImGui::TextColored(kWarningTextColor,
-                "RegisterObject3dCommon() が未呼出しです。\n"
-                "初期化時に RegisterObject3dCommon(obj3dCommon) を呼んでください。");
-        } else {
-            ShowDirectionalLightSection();
-            ImGui::Separator();
-            ShowPointLightSection();
-        }
-    }
-}
-
+/** @brief 平行光源の設定欄を出す */
 void ImGuiControlPanel::ShowDirectionalLightSection()
 {
     // 平行光源（DirectionalLight）
-    if (!ImGui::TreeNodeEx("平行光源", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (!ImGui::TreeNodeEx("平行光源", ImGuiTreeNodeFlags_DefaultOpen))
+    {
         return;
     }
-
     bool manualOverride = obj3dCommon_->GetManualLightOverride();
-    if (ImGui::Checkbox("手動オーバーライド（時刻自動更新を停止）", &manualOverride)) {
+    if (ImGui::Checkbox("手動オーバーライド（時刻自動更新を停止）", &manualOverride))
+    {
         obj3dCommon_->SetManualLightOverride(manualOverride);
     }
     HelpMarker("チェックすると UpdateLight() がスキップされ\n以下のスライダーで固定設定できます。");
-
-    if (manualOverride) {
+    if (manualOverride)
+    {
         // 方向
         Vector3 dir = obj3dCommon_->GetLightDirectionRaw();
-        if (ImGui::DragFloat3("方向 (XYZ)", &dir.x, kLightDirectionDragSpeed, -1.0f, 1.0f, "%.3f")) {
+        if (ImGui::DragFloat3("方向 (XYZ)", &dir.x, kLightDirectionDragSpeed, -1.0f, 1.0f, "%.3f"))
+        {
             obj3dCommon_->SetLightDirection(dir);
         }
         HelpMarker("ライトが向かう方向ベクトル（負の値が多いほど上から光が当たる）");
-
         // 色
         Vector4 col = obj3dCommon_->GetLightColor();
-        if (ImGui::ColorEdit3("ライト色", &col.x)) {
+        if (ImGui::ColorEdit3("ライト色", &col.x))
+        {
             obj3dCommon_->SetLightColor(col);
         }
-
         static constexpr FloatSlider<Object3dCommon> kLightIntensity[] = {
-            { "強度##dlight", [](Object3dCommon* c) { return c->GetLightIntensity(); }, [](Object3dCommon* c, float v) { c->SetLightIntensity(v); }, 0.0f, 3.0f, "%.2f" },
+            {
+                "強度##dlight", [](Object3dCommon* c) {
+                    return c->GetLightIntensity();
+                }, [](Object3dCommon* c, float v) {
+                    c->SetLightIntensity(v);
+                }, 0.0f, 3.0f, "%.2f"
+            },
         };
         DrawSliders(obj3dCommon_, kLightIntensity);
         ImGui::Separator();
-
         // アンビエント
         Vector3 ambCol = obj3dCommon_->GetAmbientColor();
-        if (ImGui::ColorEdit3("アンビエント色", &ambCol.x)) {
+        if (ImGui::ColorEdit3("アンビエント色", &ambCol.x))
+        {
             obj3dCommon_->SetAmbientColor(ambCol);
         }
         static constexpr FloatSlider<Object3dCommon> kAmbient[] = {
-            { "アンビエント強度", [](Object3dCommon* c) { return c->GetAmbientIntensity(); }, [](Object3dCommon* c, float v) { c->SetAmbientIntensity(v); }, 0.0f, 1.0f, "%.2f" },
+            {
+                "アンビエント強度", [](Object3dCommon* c) {
+                    return c->GetAmbientIntensity();
+                }, [](Object3dCommon* c, float v) {
+                    c->SetAmbientIntensity(v);
+                }, 0.0f, 1.0f, "%.2f"
+            },
         };
         DrawSliders(obj3dCommon_, kAmbient);
-    } else {
+    }
+    else
+    {
         ImGui::TextDisabled("手動オーバーライドが OFF のため\n時刻ベースで自動更新されています。");
     }
     ImGui::TreePop();
 }
-
-void ImGuiControlPanel::ShowPointLightSection()
-{
-    // ポイントライト
-    if (!ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
-        return;
-    }
-    const int maxLights = static_cast<int>(Object3dCommon::kMaxPointLights);
-    ImGui::TextDisabled("最大 %d 個。毎フレーム GetEditorPointLights() をシーンで適用してください。", maxLights);
-    ImGui::Separator();
-
-    // ライト追加ボタン（初期位置は EditorPointLight の既定値）
-    if (static_cast<int>(editorLights_.size()) < maxLights) {
-        if (ImGui::Button("+ ライトを追加")) {
-            editorLights_.push_back(EditorPointLight {});
-        }
-    } else {
-        ImGui::TextDisabled("（上限 %d 個に達しています）", maxLights);
-    }
-
-    // 各ライトの設定
-    struct LightSlider {
-        const char* label;
-        float EditorPointLight::* field;
-        float min;
-        float max;
-        const char* format;
-    };
-    static constexpr LightSlider kLightSliders[] = {
-        { "半径", &EditorPointLight::radius, 0.1f, 50.0f, "%.1f" },
-        { "強度", &EditorPointLight::intensity, 0.0f, 10.0f, "%.2f" },
-    };
-    for (int i = 0; i < static_cast<int>(editorLights_.size());) {
-        auto& pl = editorLights_[i];
-        ImGui::PushID(i);
-
-        char label[kPointLightLabelCapacity];
-        snprintf(label, sizeof(label), "ポイントライト %d", i);
-        bool open = ImGui::CollapsingHeader(label);
-
-        // ヘッダー行に有効/削除ボタン
-        ImGui::SameLine();
-        ImGui::Checkbox("##enabled", &pl.enabled);
-        ImGui::SameLine();
-        bool removed = ImGui::SmallButton("削除");
-
-        if (open) {
-            ImGui::DragFloat3("位置", &pl.position.x, kPointLightDragSpeed);
-            ImGui::ColorEdit3("色", &pl.color.x);
-            for (const LightSlider& slider : kLightSliders) {
-                ImGui::SliderFloat(slider.label, &(pl.*slider.field), slider.min, slider.max, slider.format);
-            }
-        }
-
-        ImGui::PopID();
-
-        if (removed) {
-            editorLights_.erase(editorLights_.begin() + i);
-        } else {
-            ++i;
-        }
-    }
-    ImGui::TreePop();
-}
-
 #endif
-
 } // namespace engine::graphics

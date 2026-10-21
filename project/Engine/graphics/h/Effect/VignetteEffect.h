@@ -13,6 +13,7 @@ namespace engine::graphics {
  */
 class VignetteEffect {
 public:
+    /** @brief 共有インスタンスを取得する */
     static VignetteEffect* GetInstance()
     {
         static VignetteEffect instance;
@@ -36,8 +37,14 @@ public:
      */
     void Apply();
 
-    void SetEnabled(bool enabled) { enabled_ = enabled; }
-    bool IsEnabled() const { return enabled_; }
+    /** @brief ビネットを使うかを設定する */
+    void SetEnabled(bool enabled) {
+        enabled_ = enabled;
+    }
+    /** @brief ビネットを使うかを返す */
+    bool IsEnabled() const {
+        return enabled_;
+    }
     /**
      * @brief 暗転の強さを設定する
      * @param v 減光の強度（0で無効、値が大きいほど周辺が濃く暗くなる）
@@ -70,7 +77,9 @@ public:
     float GetSoftness() const;
 
 private:
+    /** @brief 周辺減光の描画資源が未確保の状態を作る */
     VignetteEffect() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~VignetteEffect() = default;
     VignetteEffect(const VignetteEffect&) = delete;
     VignetteEffect& operator=(const VignetteEffect&) = delete;

@@ -1,6 +1,6 @@
 /**
  * @file SkinnedModel.h
- * @brief SkinnedModelの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief スキンメッシュのモデル（SkinnedModel）の宣言
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -42,13 +42,33 @@ public:
      */
     void Draw(ID3D12GraphicsCommandList* cmd);
 
-    const std::string& GetTextureFilePath() const { return textureFilePath_; }
-    const std::vector<Matrix4x4>& GetInverseBindMatrices() const { return inverseBindMatrices_; }
-    const std::vector<std::string>& GetBoneNames() const { return boneNames_; }
-    ID3D12Resource* GetVertexResource() const { return vertexResource_.Get(); }
-    UINT GetVertexCount() const { return static_cast<UINT>(vertices_.size()); }
+    /** @brief テクスチャのファイルパスを返す */
+    const std::string& GetTextureFilePath() const {
+        return textureFilePath_;
+    }
+    /** @brief 逆バインド行列の一覧を返す */
+    const std::vector<Matrix4x4>& GetInverseBindMatrices() const {
+        return inverseBindMatrices_;
+    }
+    /** @brief ボーン名の一覧を返す */
+    const std::vector<std::string>& GetBoneNames() const {
+        return boneNames_;
+    }
+    /** @brief 頂点バッファのリソースを返す */
+    ID3D12Resource* GetVertexResource() const {
+        return vertexResource_.Get();
+    }
+    /** @brief 頂点数を返す */
+    UINT GetVertexCount() const {
+        return static_cast<UINT>(vertices_.size());
+    }
 
 private:
+    /** @brief pakの頂点と付随データを復元して有効性を確認する */
+    bool LoadPackedGeometry(const std::vector<uint8_t>& packed);
+    /** @brief pak作成中に頂点と付随データを保存する */
+    void RecordPackedGeometry(const std::string& packKey) const;
+
     void LoadGltfFile(engine::DirectXCommon* dxCommon, const std::string& filePath);
 
     std::string textureFilePath_;

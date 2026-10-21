@@ -1,16 +1,16 @@
 {
   "_comment": "タイトル背景デモの調整値。stage=舞台とカメラ dummyLook=的の見た目 dummyVariation=初期配置の的ごとのばらつき respawn=倒された的の復帰 dummyAttack=的の接近と攻撃 player=デモのプレイヤーの動き effect=命中演出と軌跡。命中演出の形は hit_effects.json の title_ で始まるレシピ",
   "stage": {
-    "stageMinX": 0.0,
-    "stageMaxX": 44.0,
-    "arenaMinX": 12.0,
-    "arenaMaxX": 32.0,
+    "stageMinX": 0,
+    "stageMaxX": 44,
+    "arenaMinX": 12,
+    "arenaMaxX": 32,
     "arenaEdgeMargin": 0.5,
     "groundY": 0.4,
-    "startX": 22.0,
-    "cameraX": 22.0,
+    "startX": 22,
+    "cameraX": 22,
     "cameraY": 4.8,
-    "effectZ": -1.0
+    "effectZ": -1
   },
   "dummyLook": {
     "scale": 0.55,
@@ -19,7 +19,12 @@
     "bobAmplitude": 0.32,
     "hitFlashSeconds": 0.12,
     "flashShrink": 0.9,
-    "flashColor": [1.6, 1.6, 1.6, 1.0],
+    "flashColor": [
+      1.6,
+      1.6,
+      1.6,
+      1
+    ],
     "defeatSinkDepth": 0.8
   },
   "dummyVariation": {
@@ -32,8 +37,8 @@
     "attackCooldownStep": 0.27
   },
   "respawn": {
-    "distanceMin": 7.0,
-    "distanceMax": 12.0,
+    "distanceMin": 7,
+    "distanceMax": 12,
     "delayMin": 0.9,
     "delayMax": 2.2,
     "moveSpeedMin": 0.65,
@@ -56,13 +61,13 @@
     "attackPulseInterval": 0.32,
     "hitHeightTolerance": 0.7,
     "backstepSeconds": 0.18,
-    "incomingStrikeWindowStart": 0.10,
+    "incomingStrikeWindowStart": 0.1,
     "incomingStrikeWindowEnd": 0.22,
     "incomingStrikeRange": 2.4,
     "enemyDodgeCooldown": 0.8,
     "moveTrickDelay": 0.45,
     "jumpToAirborneRange": 4.5,
-    "dodgeApproachMinDistance": 3.0
+    "dodgeApproachMinDistance": 3
   },
   "effect": {
     "hitEffectAlpha": 0.9,
@@ -70,5 +75,23 @@
     "idleTrailAlpha": 0.42,
     "daggerCutCount": 3,
     "daggerCutSpacing": 0.28
-  }
+  },
+  "initialDummies": [
+    {
+      "x": 14,
+      "airborne": false
+    },
+    {
+      "x": 18,
+      "airborne": false
+    },
+    {
+      "x": 26,
+      "airborne": false
+    },
+    {
+      "x": 30,
+      "airborne": false
+    }
+  ]
 }

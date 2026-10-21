@@ -1,12 +1,15 @@
 /**
  * @file PlayerBridge.cpp
- * @brief PlayerBridgeのイベントグラフのデータ、編集、実行に関する具体的な処理を実装するファイル
+ * @brief ノードグラフからプレイヤーを操作するための橋渡し（PlayerBridge）の実装
  */
 #include "PlayerBridge.h"
-using namespace engine::game;
 
+namespace engine::game {
+/** @brief 唯一のPlayerBridgeインスタンスを取得する（未生成なら生成する） */
 PlayerBridge* PlayerBridge::GetInstance()
 {
     static PlayerBridge instance;
     return &instance;
 }
+
+} // namespace engine::game

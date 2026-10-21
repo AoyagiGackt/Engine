@@ -1,41 +1,54 @@
 /**
  * @file Cylinder.h
- * @brief Cylinderの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief 円柱メッシュ（Cylinder）の宣言
  */
 #pragma once
 #include "RevolvedMeshBase.h"
 
 namespace engine::graphics {
 
+/** @brief 上下の半径と高さから円柱メッシュを構築する */
 class Cylinder : public RevolvedMeshBase {
 public:
     void Initialize(engine::DirectXCommon* dxCommon,
         const std::string& textureFilePath = "Resources/Effects/gradationLine.png",
         int divisions = kDefaultDivisions);
 
-    void SetColor(const Vector4& color) { materialData_->color = color; }
+    /** @brief 色を設定する */
+    void SetColor(const Vector4& color) {
+        materialData_->color = color;
+    }
+    /** @brief 上面の半径を設定する（頂点を作り直す） */
     void SetTopRadius(float r)
     {
         topRadius_ = r;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
     }
+    /** @brief 底面の半径を設定する（頂点を作り直す） */
     void SetBottomRadius(float r)
     {
         bottomRadius_ = r;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
     }
+    /** @brief 高さを設定する（頂点を作り直す） */
     void SetHeight(float h)
     {
         height_ = h;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
     }
-    void SetAlphaReference(float a) { materialData_->alphaReference = a; }
+    /** @brief アルファテストのしきい値を設定する */
+    void SetAlphaReference(float a) {
+        materialData_->alphaReference = a;
+    }
 
 protected:
-    void SetWVP(const Matrix4x4& wvp) override { materialData_->WVP = wvp; }
+    /** @brief ワールド・ビュー・プロジェクション行列を設定する */
+    void SetWVP(const Matrix4x4& wvp) override {
+        materialData_->WVP = wvp;
+    }
 
 private:
     static constexpr int kDefaultDivisions = 32;

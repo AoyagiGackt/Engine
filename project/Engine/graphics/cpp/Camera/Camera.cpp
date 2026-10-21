@@ -1,10 +1,11 @@
 /**
  * @file Camera.cpp
- * @brief Cameraの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief カメラ（Camera）のビュー・プロジェクション行列の計算の実装
  */
 #include "Camera.h"
 #include "WinApp.h"
 
+namespace engine::graphics {
 namespace {
 
 // カメラの初期位置
@@ -16,9 +17,8 @@ constexpr float kDefaultNearClip = 0.1f;
 constexpr float kDefaultFarClip = 100.0f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
+/** @brief カメラを既定の位置と画角で初期化する */
 Camera::Camera()
 {
     transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, kDefaultCameraZ } };
@@ -30,6 +30,7 @@ Camera::Camera()
     projectionMatrix_ = MakeIdentity4x4();
 }
 
+/** @brief ビュー行列とプロジェクション行列を再計算する */
 void Camera::RecalcMatrices() const
 {
     Matrix4x4 cameraWorldMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, transform_.rotate, transform_.translate);
@@ -37,3 +38,5 @@ void Camera::RecalcMatrices() const
     projectionMatrix_ = MakePerspectiveFovMatrix(fovY_, aspectRatio_, nearClip_, farClip_);
     isDirty_ = false;
 }
+
+} // namespace engine::graphics

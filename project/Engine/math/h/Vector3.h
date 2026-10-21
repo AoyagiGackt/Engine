@@ -36,10 +36,12 @@ inline float Distance(const Vector3& p1, const Vector3& p2)
  */
 inline float Clamp(float value, float min, float max)
 {
-    if (value < min) {
+    if (value < min)
+    {
         return min;
     }
-    if (value > max) {
+    if (value > max)
+    {
         return max;
     }
     return value;
@@ -52,7 +54,8 @@ inline float Clamp(float value, float min, float max)
 inline Vector3 Normalize(const Vector3& v)
 {
     float len = Length(v);
-    if (len != 0.0f) {
+    if (len != 0.0f)
+    {
         return { v.x / len, v.y / len, v.z / len };
     }
     return v;
@@ -106,6 +109,14 @@ inline Vector3 operator+(const Vector3& v1, const Vector3& v2)
 inline Vector3 operator*(const Vector3& v, float s)
 {
     return { v.x * s, v.y * s, v.z * s };
+}
+
+/** @brief 奥行きを無視したXY平面上の距離の二乗を求める */
+inline float DistanceSquaredXY(const Vector3& a, const Vector3& b)
+{
+    const float dx = a.x - b.x;
+    const float dy = a.y - b.y;
+    return dx * dx + dy * dy;
 }
 
 } // namespace engine

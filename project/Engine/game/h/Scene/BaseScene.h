@@ -3,6 +3,7 @@
  * @brief 全てのシーンクラスの親となる基底クラスを定義するファイル
  */
 #pragma once
+#include "IPositionTarget.h"
 #include "Audio.h"
 #include "DirectXCommon.h"
 #include "ImGuiManager.h"
@@ -12,6 +13,9 @@
 #include <string>
 namespace engine::graphics {
 class ModelCommon;
+class Object3dCommon;
+class ShadowManager;
+class SrvManager;
 class Camera;
 class ParticleManager;
 class SpriteCommon;
@@ -23,6 +27,7 @@ using engine::Input;
 using engine::graphics::ImGuiManager;
 
 class StageEditor;
+class Player;
 
 /**
  * @brief 全てのシーンの抽象基底クラス
@@ -114,10 +119,15 @@ public:
      * @return bool シーンが終了したかどうか（true: 終了 / false: 継続）
      * @note この関数が true を返すと、SceneManager は次のシーンへの遷移処理を開始します
      */
-    virtual bool IsFinished() const { return false; }
+    virtual bool IsFinished() const {
+        return false;
+    }
 
-    /** @brief ImGuiManagerを受け取る（デバッグUIが必要なシーンのみオーバーライド） */
-    virtual void SetImGuiManager(ImGuiManager*) { }
+    /** @brief 各シーンのデバッグUIに使用するImGui管理を設定する */
+    virtual void SetImGuiManager(ImGuiManager* imgui)
+    {
+        imguiManager_ = imgui;
+    }
 
     /**
      * @brief グレースケール／イメージフィルター／HSVフィルターのオフスクリーンRTVリダイレクトに対応しているか
@@ -126,41 +136,61 @@ public:
      *       何も描かれていないオフスクリーンテクスチャでバックバッファが上書きされ、
      *       画面から絵が消えてしまうため、対応シーンのみ true を返すこと
      */
-    virtual bool SupportsPostEffects() const { return false; }
+    virtual bool SupportsPostEffects() const {
+        return false;
+    }
 
     /**
      * @brief 全シーン共通のステージエディタ（F2）SceneManagerが毎フレームUpdate()を呼ぶ
      * @note 呼び出し側はStageEditorの実体を使うため"StageEditor.h"を自分でインクルードすること
      * （ここではforward宣言のみで完結させ、他ヘッダーへの伝播を断つため）
      */
-    StageEditor& GetStageEditor() { return *stageEditor_; }
+    StageEditor& GetStageEditor() {
+        return *stageEditor_;
+    }
 
     /**
-     * @brief エディタのトリガー判定に使うプレイヤー位置
-     * @note プレイヤーが存在するシーンだけオーバーライドすること既定は原点
+     * @brief エディタから操作するプレイヤーを返す
+     * @note プレイヤーが存在するシーンだけオーバーライドする（既定は nullptr）。
+     * 位置・見た目の受け渡しは、BaseScene がこれを通して共通に行う
      */
-    virtual Vector3 GetEditorPlayerPos() const { return { }; }
+    virtual Player* GetEditorPlayer() const {
+        return nullptr;
+    }
+
+    /** @brief エディタのトリガー判定に使うプレイヤー位置（プレイヤーがいないシーンは原点） */
+    Vector3 GetEditorPlayerPos() const;
 
     /**
      * @brief ホットキーオーバーレイ（画面左下のキー一覧）に足すシーン固有の行
      * @return 追加行が無ければnullptr（既定）。例: "F3: シーン調整パネル"
      */
-    virtual const char* GetHotkeyOverlayExtra() const { return nullptr; }
+    virtual const char* GetHotkeyOverlayExtra() const {
+        return nullptr;
+    }
     /** @brief 画面端のF1/F2/F3操作ガイドを表示するか */
-    virtual bool ShouldShowHotkeyOverlay() const { return true; }
+    virtual bool ShouldShowHotkeyOverlay() const {
+        return true;
+    }
     // ここから下はStageEditorの自動配線用フック。既定値のままなら何もしない（安全）
 
     /**
      * @brief Init()が自動でOpen()するレベルJSONのパス
      * @return 空文字なら自動Open()しない（既定）。ファイルが無ければ空のレベルとして起動する
      */
-    virtual std::string GetEditorLevelPath() const { return { }; }
+    virtual std::string GetEditorLevelPath() const {
+        return { };
+    }
 
     /** @brief Open()に渡すModelCommon既定nullptrだとOpen()自体をスキップする */
-    virtual engine::graphics::ModelCommon* GetEditorModelCommon() { return nullptr; }
+    virtual engine::graphics::ModelCommon* GetEditorModelCommon() {
+        return nullptr;
+    }
 
     /** @brief Open()に渡すCamera既定nullptrだとOpen()自体をスキップする */
-    virtual engine::graphics::Camera* GetEditorCamera() { return nullptr; }
+    virtual engine::graphics::Camera* GetEditorCamera() {
+        return nullptr;
+    }
 
     /**
      * @brief GetEditorLevelPath()等のフックでOpen()が自動実行された直後に呼ばれる
@@ -171,18 +201,25 @@ public:
     virtual void OnEditorLevelLoaded() { }
 
     /** @brief enemy_knight配置のAI/演出に使うParticleManager無ければnullptrでよい */
-    virtual engine::graphics::ParticleManager* GetEditorParticleManager() { return nullptr; }
+    virtual engine::graphics::ParticleManager* GetEditorParticleManager() {
+        return nullptr;
+    }
 
     /**
-     * @brief Init()時に"Player"としてRegisterExternalEntity()する対象の可変位置参照
-     * @return nullptrなら登録しない（既定）
+     * @brief Init()時にPlayerとしてRegisterExternalEntity()する対象の位置操作
+     * @return プレイヤーがいないシーンは nullptr（登録しない）
      */
-    virtual Vector3* GetEditorPlayerPositionRef() { return nullptr; }
-    virtual int GetEditorPlayerVisualPreset() const { return -1; }
-    virtual void SetEditorPlayerVisualPreset(int) { }
-    virtual void SetEditorPlayerStaticVisual(const std::string&, const std::string&) { }
-    virtual std::string GetEditorPlayerStaticVisualModel() const { return { }; }
-    virtual std::string GetEditorPlayerStaticVisualTexture() const { return { }; }
+    IPositionTarget* GetEditorPlayerPositionTarget() const;
+    /** @brief エディタで選んだプレイヤーの見た目の種類を返す（プレイヤーがいないシーンは -1） */
+    int GetEditorPlayerVisualPreset() const;
+    /** @brief プレイヤーの見た目の種類を設定する（プレイヤーがいないシーンでは何もしない） */
+    void SetEditorPlayerVisualPreset(int preset);
+    /** @brief プレイヤーの固定の見た目（モデルとテクスチャ）を設定する（プレイヤーがいないシーンでは何もしない） */
+    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& texture);
+    /** @brief プレイヤーの固定の見た目のモデルのパスを返す（プレイヤーがいないシーンは空） */
+    std::string GetEditorPlayerStaticVisualModel() const;
+    /** @brief プレイヤーの固定の見た目のテクスチャのパスを返す（プレイヤーがいないシーンは空） */
+    std::string GetEditorPlayerStaticVisualTexture() const;
 
     /**
      * @brief エディタ表示中（ゲームプレイ停止中）に代わりに呼ばれる
@@ -192,6 +229,9 @@ public:
     virtual void RefreshVisualTransformsForEditor() { }
 
 protected:
+    // 各シーンのデバッグUIで使用する管理オブジェクト
+    ImGuiManager* imguiManager_ = nullptr;
+
     /**
      * @brief 各シーンのInitialize()冒頭で重複しがちな共通初期化をまとめて行う
      * @param dxCommon Initialize()が受け取ったDirectX基盤のポインタ
@@ -206,6 +246,28 @@ protected:
     std::unique_ptr<engine::graphics::SpriteCommon> InitializeCommonResources(
         DirectXCommon* dxCommon, Input* input, Audio* audio,
         DirectXCommon*& outDxCommon, Input*& outInput, Audio*& outAudio);
+
+    /** @brief 3D描画の土台を受け取る先（シーンのメンバをそのまま渡す） */
+    struct RenderFoundationTargets {
+        std::unique_ptr<engine::graphics::ModelCommon>& modelCommon;
+        std::unique_ptr<engine::graphics::Object3dCommon>& objectCommon;
+        std::unique_ptr<engine::graphics::ShadowManager>& shadowManager;
+        std::unique_ptr<engine::graphics::Camera>& camera;
+    };
+
+    /**
+     * @brief 3D描画の土台（モデル・ライト・影の共通設定とカメラ）を作り、Object3d / SkinnedObject3d の共通の参照として登録する
+     * @param dxCommon DirectX基盤
+     * @param srvManager 影のSRVを確保するSRV管理
+     * @param cameraKey scene_cameras.json でのこのシーンのキー（カメラの初期位置を読む）
+     * @param targets 作ったものを入れるシーンのメンバ
+     */
+    static void BuildRenderFoundation(DirectXCommon* dxCommon, engine::graphics::SrvManager* srvManager,
+        const char* cameraKey, const RenderFoundationTargets& targets);
+
+    /** @brief シーン固有のカメラ位置を適用する前に3D描画の土台を構築する */
+    static void BuildRenderFoundation(DirectXCommon* dxCommon, engine::graphics::SrvManager* srvManager,
+        const RenderFoundationTargets& targets);
 
 private:
     std::unique_ptr<StageEditor> stageEditor_;

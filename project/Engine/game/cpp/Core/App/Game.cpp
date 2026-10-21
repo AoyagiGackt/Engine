@@ -15,6 +15,7 @@
 #include "ImageFilter.h"
 #include "InputBuffer.h"
 #include "RenderPassGraph.h"
+#include "PostEffectRenderTarget.h"
 #include "SaveData.h"
 #include "SceneFactory.h"
 #include "SceneManager.h"
@@ -28,9 +29,9 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-using namespace engine;
 using namespace engine::graphics;
 
+namespace engine {
 namespace {
 constexpr double kFileTimeTicksPerMillisecond = 10000.0; // FILETIMEは100ナノ秒単位
 
@@ -57,6 +58,7 @@ void LogLoadProfile(const std::string& label)
 } // namespace
 using namespace engine::game;
 
+/** @brief ゲーム固有の初期化処理 */
 void MyGame::Initialize()
 {
     // 基盤の初期化
@@ -91,6 +93,7 @@ void MyGame::Initialize()
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
 }
 
+/** @brief ゲーム固有の更新処理 */
 void MyGame::Update()
 {
     // 基盤の更新
@@ -116,49 +119,59 @@ void MyGame::Update()
 
 #ifdef USE_IMGUI
     // F8でエンジン共通の実行時診断を開閉する
-    static bool showEngineDiagnostics = false;
-    if (input_->TriggerKey(DIK_F8)) {
-        showEngineDiagnostics = !showEngineDiagnostics;
+    if (input_->TriggerKey(DIK_F8))
+    {
+        showEngineDiagnostics_ = !showEngineDiagnostics_;
     }
-    if (showEngineDiagnostics) {
-        const bool panelOpen = ImGui::Begin("Engine Diagnostics", &showEngineDiagnostics);
-        if (panelOpen) {
+    if (showEngineDiagnostics_)
+    {
+        const bool panelOpen = ImGui::Begin("Engine Diagnostics", &showEngineDiagnostics_);
+        if (panelOpen)
+        {
             auto* profiler = FrameProfiler::GetInstance();
             ImGui::Text("CPU %.2f ms  %.1f FPS", profiler->GetMs(), profiler->GetFPS());
             ImGui::Text("Gamepad %s", input_->IsGamepadConnected() ? "Connected" : "Disconnected");
             bool hotReloadEnabled = TextureManager::GetInstance()->IsHotReloadEnabled();
-            if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled)) {
+            if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled))
+            {
                 TextureManager::GetInstance()->SetHotReloadEnabled(hotReloadEnabled);
             }
 
             bool vsync = dxCommon_->IsVSyncEnabled();
-            if (ImGui::Checkbox("VSync", &vsync)) {
+            if (ImGui::Checkbox("VSync", &vsync))
+            {
                 dxCommon_->SetVSyncEnabled(vsync);
             }
 
-            GameSettings& settings = GameSettingsManager::GetInstance()->Get();
+            GameSettings settings = GameSettingsManager::GetInstance()->Get();
             bool settingsChanged = false;
             settingsChanged |= ImGui::SliderFloat("BGM", &settings.bgmVolume, 0.0f, 1.0f);
             settingsChanged |= ImGui::SliderFloat("SE", &settings.seVolume, 0.0f, 1.0f);
-            if (settingsChanged) {
+            if (settingsChanged)
+            {
                 audio_->SetBGMVolume(settings.bgmVolume);
                 audio_->SetSEVolume(settings.seVolume);
+                GameSettingsManager::GetInstance()->Apply(settings);
                 GameSettingsManager::GetInstance()->Save();
             }
 
             ImGui::Separator();
-            if (ImGui::Button("Title")) {
+            if (ImGui::Button("Title"))
+            {
                 SceneManager::GetInstance()->ChangeScene("TITLE");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Stage Select")) {
+            if (ImGui::Button("Stage Select"))
+            {
                 SceneManager::GetInstance()->ChangeScene("MAP");
             }
-            if (ImGui::Button("Training")) {
+            if (ImGui::Button("Training"))
+            {
                 SceneManager::GetInstance()->ChangeScene("TRAINING");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Battle Test")) {
+            if (ImGui::Button("Battle Test"))
+            {
                 SceneManager::GetInstance()->ChangeScene("BATTLETEST");
             }
         }
@@ -172,58 +185,69 @@ void MyGame::Update()
     imguiManager_->End();
 }
 
+/** @brief ゲーム固有の描画処理 */
 void MyGame::Draw()
 {
+    // バックバッファとSRVヒープを描画できる状態にする
     dxCommon_->PreDraw();
     SrvManager::GetInstance()->PreDraw();
 
+    // ポストエフェクトの候補（FindActivePostEffect に渡す優先順）
     auto* gs = GrayscaleEffect::GetInstance();
     auto* imgFilter = ImageFilter::GetInstance();
     auto* hsv = HsvFilter::GetInstance();
 
-    // オフスクリーンRTVリダイレクトに対応していないシーン（GamePlayScene以外）では
-    // BeginScene/EndScene/Apply を呼ばない呼んでしまうと、シーン側が何も描き込まない
+    // オフスクリーンRTVへの描画に対応していないシーンでは
+    // BeginScene/EndScene/Apply を呼ばない。呼んでしまうと、シーン側が何も描き込まない
     // オフスクリーンテクスチャでバックバッファが上書きされ、画面から絵が消えてしまう
     const bool postEffectsSupported = SceneManager::GetInstance()->CurrentScenePostEffectsSupported();
 
     RenderPassGraph graph(dxCommon_.get());
 
-    graph.AddPass("Scene Capture Begin", [=] {
-        if (imgFilter->IsEnabled()) {
-            imgFilter->BeginScene();
-        } else if (gs->IsEnabled()) {
-            gs->BeginScene();
-        } else if (hsv->IsEnabled()) {
-            hsv->BeginScene();
-        } }, postEffectsSupported);
+    // 同じ優先順で選んだエフェクトに開始と合成を委譲する
+    IPostEffectSource* activeEffect = postEffectsSupported ? FindActivePostEffect({ imgFilter, gs, hsv }) : nullptr;
+    graph.AddPass("Scene Capture Begin", [activeEffect]
+    {
+        activeEffect->BeginScene();
+    }, activeEffect != nullptr);
 
-    graph.AddPass("Scene", [] { SceneManager::GetInstance()->Draw(); });
+    graph.AddPass("Scene", [] {
+        SceneManager::GetInstance()->Draw();
+    });
 
-    graph.AddPass("Post Effects", [=] {
-        if (imgFilter->IsEnabled()) {
-            imgFilter->EndScene();
-            imgFilter->Apply(SrvManager::GetInstance());
-        } else if (gs->IsEnabled()) {
-            gs->EndScene();
-            gs->Apply(SrvManager::GetInstance());
-        } else if (hsv->IsEnabled()) {
-            hsv->EndScene();
-            hsv->Apply(SrvManager::GetInstance());
-        } }, postEffectsSupported);
+    graph.AddPass("Post Effects", [activeEffect]
+    {
+        activeEffect->EndScene();
+        activeEffect->Apply(SrvManager::GetInstance());
+    }, activeEffect != nullptr);
 
-    graph.AddPass("Vignette", [] { VignetteEffect::GetInstance()->Apply(); });
-    graph.AddPass("Screen Flash", [] { ScreenFlash::GetInstance()->Draw(); });
-    graph.AddPass("Scene Transition", [] { SceneManager::GetInstance()->DrawTransition(); });
-    graph.AddPass("Editor Preview", [] { SceneManager::GetInstance()->CaptureEditorPreview(); });
-    graph.AddPass("Diagnostics UI", [this] { imguiManager_->Draw(dxCommon_.get()); });
+    // ポストエフェクトの後に、画面全体へかける演出・遷移・エディタ用の取り込み・デバッグUIの順で重ねる
+    graph.AddPass("Vignette", [] {
+        VignetteEffect::GetInstance()->Apply();
+    });
+    graph.AddPass("Screen Flash", [] {
+        ScreenFlash::GetInstance()->Draw();
+    });
+    graph.AddPass("Scene Transition", [] {
+        SceneManager::GetInstance()->DrawTransition();
+    });
+    graph.AddPass("Editor Preview", [] {
+        SceneManager::GetInstance()->CaptureEditorPreview();
+    });
+    graph.AddPass("Diagnostics UI", [this] {
+        imguiManager_->Draw(dxCommon_.get());
+    });
     graph.Execute();
 
     dxCommon_->PostDraw();
 }
 
+/** @brief ゲーム固有の終了処理 */
 void MyGame::Finalize()
 {
     SceneManager::GetInstance()->Finalize();
 
     Framework::Finalize();
 }
+
+} // namespace engine

@@ -6,6 +6,9 @@
  */
 #pragma once
 #include "Vector3.h"
+#include "JsonHelper.h"
+#include <cmath>
+#include <limits>
 #include "Vector4.h"
 #include "json.hpp"
 #include <cstddef>
@@ -24,44 +27,67 @@ struct JsonField {
 };
 
 namespace json_field_detail {
-    inline constexpr std::size_t kColorChannels = 4;
     inline constexpr std::size_t kVector3Size = 3;
 
+    /** @brief JSONの値を項目の型に合わせて代入する */
     template <class Value>
     void Assign(Value& target, const nlohmann::json& value)
     {
-        if constexpr (std::is_same_v<Value, Vector3>) {
-            if (value.is_array() && value.size() >= kVector3Size) {
+        if constexpr (std::is_same_v<Value, Vector3>)
+        {
+            if (value.is_array() && value.size() >= kVector3Size)
+            {
                 target = { value[0].get<float>(), value[1].get<float>(), value[2].get<float>() };
             }
-        } else if constexpr (std::is_same_v<Value, Vector4>) {
-            // 色は [R, G, B, A] の配列で書く
-            if (value.is_array() && value.size() >= kColorChannels) {
-                target = { value[0].get<float>(), value[1].get<float>(), value[2].get<float>(), value[3].get<float>() };
-            }
-        } else if constexpr (std::is_same_v<Value, std::string>) {
-            if (value.is_string()) {
+        }
+        else if constexpr (std::is_same_v<Value, Vector4>)
+        {
+            // 色は4成分をまとめて検証し、不正な配列なら現在値を保つ。
+            target = JsonHelper::ReadColor(value, target);
+        }
+        else if constexpr (std::is_same_v<Value, std::string>)
+        {
+            if (value.is_string())
+            {
                 target = value.get<std::string>();
             }
-        } else if constexpr (std::is_same_v<Value, bool>) {
-            if (value.is_boolean()) {
+        }
+        else if constexpr (std::is_same_v<Value, bool>)
+        {
+            if (value.is_boolean())
+            {
                 target = value.get<bool>();
             }
-        } else {
-            if (value.is_number()) {
-                target = value.get<Value>();
+        }
+        else
+        {
+            if (value.is_number())
+            {
+                const double number = value.get<double>();
+                if (std::isfinite(number)
+                    && number >= static_cast<double>((std::numeric_limits<Value>::lowest)())
+                    && number <= static_cast<double>((std::numeric_limits<Value>::max)()))
+                {
+                    target = value.get<Value>();
+                }
             }
         }
     }
 
+    /** @brief 項目の値をJSONへ変換する */
     template <class Value>
     nlohmann::json ToJson(const Value& value)
     {
-        if constexpr (std::is_same_v<Value, Vector3>) {
+        if constexpr (std::is_same_v<Value, Vector3>)
+        {
             return nlohmann::json::array({ value.x, value.y, value.z });
-        } else if constexpr (std::is_same_v<Value, Vector4>) {
+        }
+        else if constexpr (std::is_same_v<Value, Vector4>)
+        {
             return nlohmann::json::array({ value.x, value.y, value.z, value.w });
-        } else {
+        }
+        else
+        {
             return nlohmann::json(value);
         }
     }
@@ -74,36 +100,56 @@ namespace json_field_detail {
 template <class Data, std::size_t N>
 void ReadJsonFields(const nlohmann::json& root, const JsonField<Data> (&fields)[N], Data& data)
 {
-    if (!root.is_object()) {
+    if (!root.is_object())
+    {
         return;
     }
-    for (const JsonField<Data>& field : fields) {
+    for (const JsonField<Data>& field : fields)
+    {
         const nlohmann::json* scope = &root;
-        if (field.section != nullptr) {
+        if (field.section != nullptr)
+        {
             const auto section = root.find(field.section);
-            if (section == root.end() || !section->is_object()) {
+            if (section == root.end() || !section->is_object())
+            {
                 continue;
             }
             scope = &*section;
         }
         const auto value = scope->find(field.key);
-        if (value == scope->end()) {
+        if (value == scope->end())
+        {
             continue;
         }
-        std::visit([&](auto member) { json_field_detail::Assign(data.*member, *value); }, field.member);
+        std::visit([&](const auto& member) {
+            json_field_detail::Assign(data.*member, *value);
+        }, field.member);
     }
+}
+
+/** @brief 既定値で生成した設定へ対応表を適用し、独立した値として返す */
+template <class Data, std::size_t N>
+Data ReadJsonFields(const nlohmann::json& root, const JsonField<Data> (&fields)[N])
+{
+    Data result;
+    ReadJsonFields(root, fields, result);
+    return result;
 }
 
 /** @brief 対応表のとおりに data の値を root へ書き出す（ReadJsonFields と対になる） */
 template <class Data, std::size_t N>
 void WriteJsonFields(nlohmann::json& root, const JsonField<Data> (&fields)[N], const Data& data)
 {
-    if (!root.is_object()) {
+    if (!root.is_object())
+    {
         root = nlohmann::json::object();
     }
-    for (const JsonField<Data>& field : fields) {
+    for (const JsonField<Data>& field : fields)
+    {
         nlohmann::json& scope = field.section != nullptr ? root[field.section] : root;
-        std::visit([&](auto member) { scope[field.key] = json_field_detail::ToJson(data.*member); }, field.member);
+        std::visit([&](const auto& member) {
+            scope[field.key] = json_field_detail::ToJson(data.*member);
+        }, field.member);
     }
 }
 

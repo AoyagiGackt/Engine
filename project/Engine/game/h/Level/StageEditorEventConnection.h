@@ -4,6 +4,8 @@
  */
 #pragma once
 #include "LevelLoader.h"
+#include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace engine::game {
@@ -13,6 +15,9 @@ namespace engine::game {
  */
 class StageEditorEventConnection {
 public:
+    /** @brief 条件成立時に対象を表示・起動するか、非表示・停止するか */
+    enum class Action { Activate, Deactivate };
+
     /** @brief 選択状態と調整値を初期値へ戻す */
     void Reset();
 
@@ -41,12 +46,38 @@ public:
     /** @brief 対象に設定されているイベント接続を解除する */
     void Disconnect(ObjectDesc& target) const;
 
-    int& SourceIndex() { return sourceIndex_; }
-    int SourceIndex() const { return sourceIndex_; }
-    int& TargetIndex() { return targetIndex_; }
-    int TargetIndex() const { return targetIndex_; }
-    int& ActionIndex() { return actionIndex_; }
-    float& DelaySeconds() { return delaySeconds_; }
+    /** @brief 接続元の番号を指定する。負の番号は未選択として扱う */
+    void SetSourceIndex(int index) {
+        sourceIndex_ = (std::max)(index, -1);
+    }
+    /** @brief 選択中の接続元の番号を返す */
+    int SourceIndex() const {
+        return sourceIndex_;
+    }
+    /** @brief 接続先の番号を指定する。負の番号は未選択として扱う */
+    void SetTargetIndex(int index) {
+        targetIndex_ = (std::max)(index, -1);
+    }
+    /** @brief 選択中の接続先の番号を返す */
+    int TargetIndex() const {
+        return targetIndex_;
+    }
+    /** @brief 選択中の接続動作を返す */
+    Action GetAction() const {
+        return action_;
+    }
+    /** @brief 接続動作を有効化または無効化の範囲内で指定する */
+    void SetAction(Action action) {
+        action_ = action == Action::Deactivate ? Action::Deactivate : Action::Activate;
+    }
+    /** @brief 接続動作を始めるまでの遅れ（秒）を返す */
+    float DelaySeconds() const {
+        return delaySeconds_;
+    }
+    /** @brief 接続動作の遅れを非負の有限秒数で指定する。不正値は待機なしに戻す */
+    void SetDelaySeconds(float seconds) {
+        delaySeconds_ = std::isfinite(seconds) ? (std::max)(seconds, 0.0f) : 0.0f;
+    }
 
 private:
     /** @brief 解決済みの条件フラグを対象へ設定する */
@@ -54,7 +85,7 @@ private:
 
     int sourceIndex_ = -1;
     int targetIndex_ = -1;
-    int actionIndex_ = 0;
+    Action action_ = Action::Activate;
     float delaySeconds_ = 0.0f;
 };
 

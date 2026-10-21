@@ -37,20 +37,21 @@
 #include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
 #endif
-using namespace engine::game;
-using namespace engine;
 using namespace engine::graphics;
 
 // ══════════════════════════════════════════════════════
 // ファイル操作とデータ管理
 // ══════════════════════════════════════════════════════
 
+namespace engine::game {
 namespace {
 constexpr float kNudgeStep = 0.25f; // スナップOFF時に矢印キーで動かす量（ワールド単位）
 }
 
+/** @brief 配置物と編集状態をメンバの既定値で初期化する */
 StageEditor::StageEditor() = default;
 
+/** @brief レベルJSONを読み込み、配置物とトリガーを生成する */
 void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, Camera* camera)
 {
     // 再読み込み前に旧レベルのGPU参照を完了させ、実体からモデルの順で破棄する
@@ -69,7 +70,8 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     activeEditor_ = this;
     ResetLevelLocalFlags(data);
 
-    for (auto& desc : data.objects) {
+    for (auto& desc : data.objects)
+    {
         ObjectEntry entry;
         entry.desc = std::move(desc);
         entry.authoredPosition = entry.desc.position;
@@ -83,34 +85,43 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     //   保存前検証の名前重複エラーで保存できなくなる）
     auto bumpSerialPastName = [this](const std::string& name) {
         const size_t underscorePos = name.find_last_of('_');
-        if (underscorePos == std::string::npos || underscorePos + 1 >= name.size()) {
+        if (underscorePos == std::string::npos || underscorePos + 1 >= name.size())
+        {
             return;
         }
         const std::string suffix = name.substr(underscorePos + 1);
-        if (!std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) { return std::isdigit(c); })) {
+        if (!std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) {
+            return std::isdigit(c);
+        }))
+        {
             return;
         }
         const int value = std::atoi(suffix.c_str());
-        if (value >= nextSerial_) {
+        if (value >= nextSerial_)
+        {
             nextSerial_ = value + 1;
         }
     };
-    for (const auto& entry : objects_) {
+    for (const auto& entry : objects_)
+    {
         bumpSerialPastName(entry.desc.name);
     }
-    for (const auto& trigger : data.triggers) {
+    for (const auto& trigger : data.triggers)
+    {
         bumpSerialPastName(trigger.name);
     }
 
     // EnemyRegistryへの登録キーになるため、実体を生成する前に名前を確定させる
     EnsureUniqueNames(); // 手書きJSON等で名前が無い/重複しているエントリに自動命名する（親子参照に必要）
 
-    for (auto& entry : objects_) {
+    for (auto& entry : objects_)
+    {
         RegenerateInstances(entry);
     }
 
     triggers_.clear();
-    for (const auto& desc : data.triggers) {
+    for (const auto& desc : data.triggers)
+    {
         TriggerVolume trg;
         trg.Init(desc);
         triggers_.push_back(std::move(trg));
@@ -141,14 +152,17 @@ void StageEditor::Open(const std::string& levelPath, ModelCommon* modelCommon, C
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
+/** @brief 敵の登録を解除してから所有する資源を解放する */
 StageEditor::~StageEditor()
 {
     Finalize();
 }
 
+/** @brief GPUの使用完了を待ってからレベル実体と外部参照を破棄する */
 void StageEditor::Finalize()
 {
-    if (visible_) {
+    if (visible_)
+    {
         TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
     }
     visible_ = false;
@@ -157,16 +171,28 @@ void StageEditor::Finalize()
     viewport_.Reset();
     camera_ = nullptr;
     modelCommon_ = nullptr;
-    if (activeEditor_ == this) {
+    if (activeEditor_ == this)
+    {
         activeEditor_ = nullptr;
     }
 }
 
+/** @brief 描画に使った実体を破棄する前に、GPU がそれを使い終わるのを待つ（描画の準備ができていなければ何もしない） */
+void StageEditor::WaitForGpuIdle() const
+{
+    if (modelCommon_ && modelCommon_->GetDxCommon())
+    {
+        modelCommon_->GetDxCommon()->WaitForGpu();
+    }
+}
+
+/** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
 void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
 {
     // 描画に使用した実体を解放する前にGPUからの参照完了を保証する
-    if (!objects_.empty() && modelCommon_ && modelCommon_->GetDxCommon()) {
-        modelCommon_->GetDxCommon()->WaitForGpu();
+    if (!objects_.empty())
+    {
+        WaitForGpuIdle();
     }
 
     // グラフは配置物を名前で参照するため、実体より先に止める
@@ -174,30 +200,36 @@ void StageEditor::ReleaseLevelResources(bool releaseExternalEntities)
 
     // レジストリ参照、描画実体の順に破棄する
     // （モデルの実体はModelManagerが所有・共有するのでここでは破棄しない。GetOrLoadModel()参照）
-    for (auto& entry : objects_) {
+    for (auto& entry : objects_)
+    {
         DestroyObjectRuntime(entry, false);
     }
     objects_.clear();
     modelCache_.clear();
     triggers_.clear();
     checkpoints_.clear();
-    if (releaseExternalEntities) {
+    if (releaseExternalEntities)
+    {
         externalEntities_.clear();
     }
 }
 
+/** @brief 削除・Open()の再読み込み・破棄の前に、enemy_basic配置分をEnemyRegistryから解除する（ダングリングポインタ防止） */
 void StageEditor::UnregisterEnemyEntity(const ObjectEntry& entry)
 {
-    if (entry.enemy) {
+    if (entry.enemy)
+    {
         EnemyRegistry::GetInstance()->Unregister(entry.desc.name);
     }
 }
 
+/** @brief 配置物が所有する描画実体と敵実体を安全な順序で破棄する */
 void StageEditor::DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu)
 {
     const bool ownsRuntime = !entry.instances.empty() || entry.knight || entry.enemy;
-    if (waitForGpu && ownsRuntime && modelCommon_ && modelCommon_->GetDxCommon()) {
-        modelCommon_->GetDxCommon()->WaitForGpu();
+    if (waitForGpu && ownsRuntime)
+    {
+        WaitForGpuIdle();
     }
 
     // レジストリは実体を参照するため、所有ポインタを破棄する前に登録を解除する。
@@ -207,64 +239,81 @@ void StageEditor::DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu)
     entry.enemy.reset();
 }
 
+/** @brief このレベルが自分で立てるフラグ（トリガーのflag、condition_<名前>、pickup_<名前>、broken_<名前>）をfalseへ戻す */
 void StageEditor::ResetLevelLocalFlags(const LevelData& data)
 {
     GameFlags* flags = GameFlags::GetInstance();
-    for (const TriggerDesc& trigger : data.triggers) {
-        if (!trigger.flag.empty() && flags->HasFlag(trigger.flag)) {
+    for (const TriggerDesc& trigger : data.triggers)
+    {
+        if (!trigger.flag.empty() && flags->HasFlag(trigger.flag))
+        {
             flags->SetFlag(trigger.flag, false);
         }
     }
-    for (const ObjectDesc& desc : data.objects) {
-        if (desc.name.empty()) {
+    for (const ObjectDesc& desc : data.objects)
+    {
+        if (desc.name.empty())
+        {
             continue;
         }
         const char* prefix = ObjectKind::Of(desc.kind).RuntimeFlagPrefix();
-        if (!prefix) {
+        if (!prefix)
+        {
             continue;
         }
         const std::string flag = std::string(prefix) + desc.name;
-        if (flags->HasFlag(flag)) {
+        if (flags->HasFlag(flag))
+        {
             flags->SetFlag(flag, false);
         }
     }
 }
 
+/** @brief 編集カメラを指定ワールド位置が画面中央に来るよう移動する（奥行きは維持） */
 void StageEditor::FocusCameraOn(const Vector3& worldPosition)
 {
-    if (!camera_) {
+    if (!camera_)
+    {
         return;
     }
     constexpr float kFocusOffsetY = 3.0f; // ゲームカメラと同じく少し上から見下ろす
-    Vector3& cameraPosition = camera_->GetTranslate();
+    Vector3 cameraPosition = camera_->GetTranslate();
     cameraPosition.x = worldPosition.x;
     cameraPosition.y = worldPosition.y + kFocusOffsetY;
+    camera_->SetTranslate(cameraPosition);
 }
 
 #ifdef USE_IMGUI
+/** @brief 現在の選択物（配置物/トリガー/外部エンティティ）へカメラを寄せる。未選択ならプレイヤーへ */
 void StageEditor::FocusCameraOnSelection()
 {
     Vector3 selectionPosition;
-    if (SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, selectionPosition)) {
+    if (SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, selectionPosition))
+    {
         FocusCameraOn(selectionPosition);
         return;
     }
-    for (const ExternalEntityRef& ref : externalEntities_) {
-        if (ref.name == "Player" && ref.position) {
-            FocusCameraOn(*ref.position);
+    for (const ExternalEntityRef& ref : externalEntities_)
+    {
+        if (ref.name == "Player" && ref.positionTarget)
+        {
+            FocusCameraOn(ref.positionTarget->GetPosition());
             return;
         }
     }
 }
 #endif
 
+/** @brief プレイヤー実体を指定位置へ移し、テストモードを開始する（配置した場所から即プレイして確かめる用） */
 bool StageEditor::StartPlayTestAt(const Vector3& worldPosition)
 {
-    for (const ExternalEntityRef& ref : externalEntities_) {
-        if (ref.name != "Player" || !ref.position) {
+    for (const ExternalEntityRef& ref : externalEntities_)
+    {
+        if (ref.name != "Player" || !ref.positionTarget)
+        {
             continue;
         }
-        *ref.position = worldPosition;
+        ref.positionTarget->SetPosition(worldPosition);
         FocusCameraOn(worldPosition);
         SetPlayTestMode(true);
         return true;
@@ -272,12 +321,14 @@ bool StageEditor::StartPlayTestAt(const Vector3& worldPosition)
     return false;
 }
 
+/** @brief 編集停止とゲーム動作テストを切り替えて時間倍率を同期する */
 void StageEditor::SetPlayTestMode(bool enabled)
 {
     playTestMode_ = enabled;
     TimeManager::GetInstance()->SetTimeScale(enabled ? savedTimeScale_ : 0.0f);
 }
 
+/** @brief 画面中央のz=0平面上のワールド座標を返す（テンプレート生成の基準位置） */
 Vector3 StageEditor::ViewCenterOnGround() const
 {
     Vector3 center = playerSpawn_;
@@ -286,102 +337,13 @@ Vector3 StageEditor::ViewCenterOnGround() const
     return center;
 }
 
-void StageEditor::EnsureUniqueNames()
-{
-    std::set<std::string> used;
-    for (auto& entry : objects_) {
-        std::string& name = entry.desc.name;
-        if (name.empty() || used.count(name)) {
-            std::string candidate;
-            do {
-                candidate = "obj_" + std::to_string(nextSerial_++);
-            } while (used.count(candidate));
-            name = candidate;
-        }
-        used.insert(name);
-    }
-}
-
-Vector3 StageEditor::ParentWorldPositionOf(const ObjectDesc& desc) const
-{
-    Vector3 pos = { };
-    const ObjectDesc* cur = &desc;
-    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
-        const ObjectDesc* parent = nullptr;
-        for (const auto& entry : objects_) {
-            if (entry.desc.name == cur->parent) {
-                parent = &entry.desc;
-                break;
-            }
-        }
-        if (!parent) {
-            break;
-        }
-        pos = pos + parent->position;
-        cur = parent;
-    }
-    return pos;
-}
-
-Vector3 StageEditor::WorldPositionOf(const ObjectDesc& desc) const
-{
-    Vector3 result = desc.position;
-    const ObjectDesc* cur = &desc;
-    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
-        const ObjectDesc* parent = nullptr;
-        for (const auto& entry : objects_) {
-            if (entry.desc.name == cur->parent) {
-                parent = &entry.desc;
-                break;
-            }
-        }
-        if (!parent) {
-            break;
-        }
-        const float c = std::cos(parent->rotation.z);
-        const float s = std::sin(parent->rotation.z);
-        result = { result.x * c - result.y * s + parent->position.x,
-            result.x * s + result.y * c + parent->position.y,
-            result.z + parent->position.z };
-        cur = parent;
-    }
-    return result;
-}
-
-bool StageEditor::IsDescendantOf(const std::string& candidateName, const std::string& selfName) const
-{
-    // candidate から親を辿って self に行き着くなら子孫（親に設定すると循環する）
-    const ObjectDesc* cur = nullptr;
-    for (const auto& entry : objects_) {
-        if (entry.desc.name == candidateName) {
-            cur = &entry.desc;
-            break;
-        }
-    }
-    for (int guard = 0; guard < kMaxParentDepth && cur; ++guard) {
-        if (cur->parent.empty()) {
-            return false;
-        }
-        if (cur->parent == selfName) {
-            return true;
-        }
-        const ObjectDesc* next = nullptr;
-        for (const auto& entry : objects_) {
-            if (entry.desc.name == cur->parent) {
-                next = &entry.desc;
-                break;
-            }
-        }
-        cur = next;
-    }
-    return false;
-}
-
+/** @brief 現在の内容をOpenで指定したパスへ書き戻す */
 void StageEditor::Save()
 {
 #ifdef USE_IMGUI
     validationIssues_ = ValidateLevel();
-    if (!validationIssues_.empty()) {
+    if (!validationIssues_.empty())
+    {
         statusMessage_ = "保存前検証で問題が見つかりました";
         statusTimer_ = StageEditor::kStatusLongSeconds;
         return;
@@ -397,15 +359,18 @@ void StageEditor::Save()
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
+/** @brief 現在の編集内容を指定パスへ書き出す */
 void StageEditor::SaveToPath(const std::string& path) const
 {
     LevelData data;
     data.playerSpawn = playerSpawn_;
     data.enemySpawn = enemySpawn_;
-    for (const auto& entry : objects_) {
+    for (const auto& entry : objects_)
+    {
         data.objects.push_back(entry.desc);
     }
-    for (const auto& trigger : triggers_) {
+    for (const auto& trigger : triggers_)
+    {
         data.triggers.push_back(trigger.GetDesc());
     }
     data.checkpoints = checkpoints_;
@@ -414,19 +379,24 @@ void StageEditor::SaveToPath(const std::string& path) const
     LevelLoader::Save(path, data);
 }
 
+/** @brief 毎フレーム呼ぶF2でパネルの表示/非表示を切り替える */
 void StageEditor::Update(Input* input, const Vector3& playerPos)
 {
     // トリガー判定はエディタの表示状態に関係なく常に行う（普段のプレイ中でも成立させるため）
-    for (auto& trg : triggers_) {
+    for (auto& trg : triggers_)
+    {
         const bool justFired = trg.Update(playerPos);
-        if (justFired && trg.GetDesc().spawnsWaterSplash && onWaterSplashRequested_) {
+        if (justFired && trg.GetDesc().spawnsWaterSplash && onWaterSplashRequested_)
+        {
             onWaterSplashRequested_(trg.GetDesc().position);
         }
     }
 
 #ifdef USE_IMGUI
+    // ここから下は F2 でエディタを開いている時だけ（閉じている間はビューの切り抜きを解除して戻る）
     UpdateEditorVisibility(input);
-    if (!visible_) {
+    if (!visible_)
+    {
         viewport_.ClearImageRect();
         DiagnosticsDraw::SetImageViewport();
         return;
@@ -434,33 +404,41 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 
     // F4で編集状態を維持したままパネル表示だけを切り替える
     // （F3はゲーム側の当たり判定オーバーレイ表示と統一するためF4にしている）
-    if (ImGui::IsKeyPressed(ImGuiKey_F4, false)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_F4, false))
+    {
         viewportFocusMode_ = !viewportFocusMode_;
     }
     RenderGameViewport();
 
+    // ゲーム側のヒットストップやスローに左右されないよう、実時間で自動保存とメッセージ表示を進める
     const float realDt = ImGui::GetIO().DeltaTime;
     UpdateAutoSave(realDt);
-    if (statusTimer_ > 0.0f) {
+    if (statusTimer_ > 0.0f)
+    {
         statusTimer_ -= realDt;
     }
 
+    // エディタカメラを動かし、デバッグ描画にも同じ行列を渡す
     UpdateFreeCamera(input, realDt);
 
-    if (camera_) {
+    if (camera_)
+    {
         DiagnosticsDraw::SetCamera(camera_->GetViewProjectionMatrix(),
             static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight));
     }
 
+    // ビュー上のクリック・ドラッグ → ショートカット → パネル描画の順に処理する
     UpdateViewportInteraction();
 
     HandleEditorShortcuts();
     RenderEditorPanels();
+    // グリッドとギズモはゲームビューの枠の中だけに描く（テストプレイ中は出さない）
     ImDrawList* overlay = DiagnosticsDraw::GetDrawList();
     const Vector3 topLeft = viewport_.ScreenToImage(0.0f, 0.0f);
     const Vector3 bottomRight = viewport_.ScreenToImage(WinApp::kClientWidth, WinApp::kClientHeight);
     overlay->PushClipRect({ topLeft.x, topLeft.y }, { bottomRight.x, bottomRight.y }, true);
-    if (!playTestMode_) {
+    if (!playTestMode_)
+    {
         DrawGridOverlay();
         DrawGizmos();
     }
@@ -471,16 +449,20 @@ void StageEditor::Update(Input* input, const Vector3& playerPos)
 }
 
 #ifdef USE_IMGUI
+/** @brief F2による編集セッションの開始と終了を処理する */
 void StageEditor::UpdateEditorVisibility(Input* input)
 {
     const bool wasVisible = visible_;
-    if (input && input->TriggerKey(DIK_F2)) {
+    if (input && input->TriggerKey(DIK_F2))
+    {
         visible_ = !visible_;
     }
-    if (visible_ == wasVisible) {
+    if (visible_ == wasVisible)
+    {
         return;
     }
-    if (visible_) {
+    if (visible_)
+    {
         savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
         TimeManager::GetInstance()->SetTimeScale(0.0f);
         return;
@@ -489,11 +471,17 @@ void StageEditor::UpdateEditorVisibility(Input* input)
     TimeManager::GetInstance()->SetTimeScale(savedTimeScale_);
 }
 
+/** @brief 編集操作のキーボードショートカットを処理する */
 void StageEditor::HandleEditorShortcuts()
 {
-    if (playTestMode_) { return; }
+    // テストプレイ中と、文字入力欄に入力している間はショートカットを受け付けない
+    if (playTestMode_)
+    {
+        return;
+    }
     ImGuiIO& io = ImGui::GetIO();
-    if (io.WantTextInput) {
+    if (io.WantTextInput)
+    {
         return;
     }
     // 編集操作のキー割り当て（上から順に見て、最初に押されたもの1つだけを実行する）
@@ -514,8 +502,10 @@ void StageEditor::HandleEditorShortcuts()
         { ImGuiKey_Escape, false, &StageEditor::ClearSelection },
         { ImGuiKey_A, true, &StageEditor::SelectAllObjects },
     };
-    for (const EditShortcut& shortcut : kEditShortcuts) {
-        if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key)) {
+    for (const EditShortcut& shortcut : kEditShortcuts)
+    {
+        if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key))
+        {
             (this->*shortcut.action)();
             break;
         }
@@ -531,9 +521,12 @@ void StageEditor::HandleEditorShortcuts()
         { ImGuiKey_E, TransformTool::Rotate },
         { ImGuiKey_R, TransformTool::Scale },
     };
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !io.KeyCtrl) {
-        for (const ToolKey& toolKey : kToolKeys) {
-            if (ImGui::IsKeyPressed(toolKey.key)) {
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !io.KeyCtrl)
+    {
+        for (const ToolKey& toolKey : kToolKeys)
+        {
+            if (ImGui::IsKeyPressed(toolKey.key))
+            {
                 transformTool_ = toolKey.tool;
                 break;
             }
@@ -553,8 +546,10 @@ void StageEditor::HandleEditorShortcuts()
         { ImGuiKey_DownArrow, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
     };
     const float step = snapEnabled_ && snapStep_ > 0.0f ? snapStep_ : kNudgeStep;
-    for (const NudgeKey& nudge : kNudgeKeys) {
-        if (ImGui::IsKeyPressed(nudge.key)) {
+    for (const NudgeKey& nudge : kNudgeKeys)
+    {
+        if (ImGui::IsKeyPressed(nudge.key))
+        {
             const float* dir = io.KeyShift ? nudge.shiftDir : nudge.dir;
             NudgeSelection(dir[0] * step, dir[1] * step, dir[2] * step);
             break;
@@ -562,14 +557,17 @@ void StageEditor::HandleEditorShortcuts()
     }
 }
 
+/** @brief 選択中の配置物・トリガーを矢印キーで少しずつ動かす（スナップONならその間隔、OFFなら固定の微動量） */
 void StageEditor::NudgeSelection(float dx, float dy, float dz)
 {
     SelectionKindOf(selKind_).Nudge(*this, selIndex_, { dx, dy, dz });
 }
 
+/** @brief スナップONの間、z=0平面にスナップ間隔のグリッド線を描く */
 void StageEditor::DrawGridOverlay()
 {
-    if (!snapEnabled_ || !showGrid_ || snapStep_ <= 0.0f || !camera_) {
+    if (!snapEnabled_ || !showGrid_ || snapStep_ <= 0.0f || !camera_)
+    {
         return;
     }
     constexpr float kGridHalfWidth = 14.0f; // カメラ中心から左右に描く範囲
@@ -581,23 +579,28 @@ void StageEditor::DrawGridOverlay()
 
     const Vector3& cameraPosition = camera_->GetTranslate();
     const float step = snapStep_;
-    if ((kGridHalfWidth * 2.0f) / step > static_cast<float>(kMaxLinesPerAxis)) {
+    if ((kGridHalfWidth * 2.0f) / step > static_cast<float>(kMaxLinesPerAxis))
+    {
         return;
     }
     const float left = std::floor((cameraPosition.x - kGridHalfWidth) / step) * step;
     const float right = cameraPosition.x + kGridHalfWidth;
-    for (float x = left; x <= right; x += step) {
+    for (float x = left; x <= right; x += step)
+    {
         DiagnosticsDraw::DrawLine({ x, kGridMinY, 0.0f }, { x, kGridMaxY, 0.0f }, std::abs(x) < step * 0.5f ? kGridAxisColor : kGridColor);
     }
     const float bottom = std::floor(kGridMinY / step) * step;
-    for (float y = bottom; y <= kGridMaxY; y += step) {
+    for (float y = bottom; y <= kGridMaxY; y += step)
+    {
         DiagnosticsDraw::DrawLine({ left, y, 0.0f }, { right, y, 0.0f }, std::abs(y) < step * 0.5f ? kGridAxisColor : kGridColor);
     }
 }
 
+/** @brief 現在のレイアウト状態に応じて編集パネルを表示する */
 void StageEditor::RenderEditorPanels()
 {
-    if (viewportFocusMode_) {
+    if (viewportFocusMode_)
+    {
         RenderViewportFocusBar();
         return;
     }
@@ -606,19 +609,24 @@ void StageEditor::RenderEditorPanels()
     RenderInspector();
     RenderAssetPalette();
     RenderViewportContextMenu();
-    if (showFlagsPanel_) {
+    if (showFlagsPanel_)
+    {
         RenderFlagsPanel();
     }
-    if (showWorkflowPanel_) {
+    if (showWorkflowPanel_)
+    {
         RenderWorkflowPanel();
     }
-    if (showNoCodeEventPanel_) {
+    if (showNoCodeEventPanel_)
+    {
         RenderNoCodeEventPanel();
     }
-    if (showGraphPanel_) {
+    if (showGraphPanel_)
+    {
         RenderGraphPanel();
     }
-    if (showWavePanel_) {
+    if (showWavePanel_)
+    {
         RenderWavePanel();
     }
     RenderStageAnalysisPanel();
@@ -630,15 +638,18 @@ void StageEditor::RenderEditorPanels()
 // 編集履歴と選択操作
 // ══════════════════════════════════════════════════════
 
+/** @brief 現在の配置物・トリガー・チェックポイント・スポーン位置から Undo 用のスナップショットを作る */
 StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
 {
     LevelSnapshot snap;
     snap.objects.reserve(objects_.size());
-    for (const auto& entry : objects_) {
+    for (const auto& entry : objects_)
+    {
         snap.objects.push_back(entry.desc);
     }
     snap.triggers.reserve(triggers_.size());
-    for (const auto& trg : triggers_) {
+    for (const auto& trg : triggers_)
+    {
         snap.triggers.push_back(trg.GetDesc());
     }
     snap.checkpoints = checkpoints_;
@@ -650,3 +661,5 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const
 }
 
 #endif
+
+} // namespace engine::game

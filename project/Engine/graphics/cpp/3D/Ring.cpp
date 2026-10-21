@@ -1,68 +1,56 @@
 /**
  * @file Ring.cpp
- * @brief Ringの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief リングメッシュ（Ring）の頂点生成とパイプラインの実装
  */
 #include "Ring.h"
 #include "DirectXCommon.h"
 #include <cmath>
 #include <numbers>
 
+namespace engine::graphics {
 namespace {
 
 // 分割あたりの頂点数
-constexpr int kVerticesPerDivision = 6;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
+/** @brief リングのメッシュとパイプラインを用意する */
 void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
 {
-    SetupCommonBuffers(dxCommon, textureFilePath, divisions, sizeof(MaterialCB),
-        reinterpret_cast<void**>(&materialData_));
-    materialData_->WVP = MakeIdentity4x4();
-    materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    SetupMaterialBuffers(dxCommon, textureFilePath, divisions, materialData_);
 
     RebuildVertices();
     CreatePipeline();
 }
 
+/** @brief 今の形の設定から頂点を作り直す */
 void Ring::RebuildVertices()
 {
-    if (!vertexData_) {
+    if (!vertexData_)
+    {
         return;
     }
 
-    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(divisions_);
     const Vector3 normal = { 0.0f, 0.0f, -1.0f }; // XY平面の面法線
 
-    for (int index = 0; index < divisions_; ++index) {
-        float s = std::sin(float(index) * radianPerDivide);
-        float c = std::cos(float(index) * radianPerDivide);
-        float sNext = std::sin(float(index + 1) * radianPerDivide);
-        float cNext = std::cos(float(index + 1) * radianPerDivide);
-        float u = float(index) / float(divisions_);
-        float uNext = float(index + 1) / float(divisions_);
-
-        // XY平面上（Z=0）、-sinでX方向を時計回りに
-        Vector4 outerCur = { -s * outerRadius_, c * outerRadius_, 0.0f, 1.0f };
-        Vector4 outerNext = { -sNext * outerRadius_, cNext * outerRadius_, 0.0f, 1.0f };
-        Vector4 innerCur = { -s * innerRadius_, c * innerRadius_, 0.0f, 1.0f };
-        Vector4 innerNext = { -sNext * innerRadius_, cNext * innerRadius_, 0.0f, 1.0f };
-
-        int idx = index * kVerticesPerDivision;
-        vertexData_[idx + 0] = { outerCur, { u, 0.0f }, normal };
-        vertexData_[idx + 1] = { outerNext, { uNext, 0.0f }, normal };
-        vertexData_[idx + 2] = { innerCur, { u, 1.0f }, normal };
-        vertexData_[idx + 3] = { innerCur, { u, 1.0f }, normal };
-        vertexData_[idx + 4] = { outerNext, { uNext, 0.0f }, normal };
-        vertexData_[idx + 5] = { innerNext, { uNext, 1.0f }, normal };
+    for (int index = 0; index < divisions_; ++index)
+    {
+        const SegmentAngles a = SegmentAt(index);
+        // XY平面上（Z=0）、-sinでX方向を時計回りに。外周を V=0、内周を V=1 にする
+        const Vector4 outerCur = { -a.s * outerRadius_, a.c * outerRadius_, 0.0f, 1.0f };
+        const Vector4 outerNext = { -a.sNext * outerRadius_, a.cNext * outerRadius_, 0.0f, 1.0f };
+        const Vector4 innerCur = { -a.s * innerRadius_, a.c * innerRadius_, 0.0f, 1.0f };
+        const Vector4 innerNext = { -a.sNext * innerRadius_, a.cNext * innerRadius_, 0.0f, 1.0f };
+        WriteSegmentQuad(index, a, outerCur, outerNext, innerCur, innerNext, normal, normal);
     }
 }
 
+/** @brief リング用のパイプラインを生成する */
 void Ring::CreatePipeline()
 {
     CreatePipelineCommon(L"Resources/shaders/ring/Ring.VS.hlsl",
         L"Resources/shaders/ring/Ring.PS.hlsl",
         D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 }
+
+} // namespace engine::graphics

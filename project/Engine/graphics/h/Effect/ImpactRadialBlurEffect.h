@@ -24,7 +24,9 @@ public:
     void SetParams(float centerU, float centerV, float strength, int sampleCount);
 
     /** @brief 描画すべき強さがあるか */
-    bool IsActive() const { return strength_ > kMinStrength; }
+    bool IsActive() const {
+        return strength_ > kMinStrength;
+    }
 
     /** @brief バックバッファをキャプチャし、ブラーを掛けて描き戻す（3D描画の後、UIの前に呼ぶ） */
     void CaptureAndApply();

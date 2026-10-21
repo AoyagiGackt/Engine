@@ -22,7 +22,9 @@ public:
     static SceneEffectBridge* GetInstance();
 
     /** @brief カメラシェイクの実体を登録する（空のstd::functionで解除） */
-    void SetCameraShakeHandler(CameraShakeHandler handler) { cameraShake_ = std::move(handler); }
+    void SetCameraShakeHandler(CameraShakeHandler handler) {
+        cameraShake_ = std::move(handler);
+    }
 
     /**
      * @brief カメラシェイクを要求する
@@ -31,12 +33,14 @@ public:
      */
     void RequestCameraShake(float amount, float seconds) const
     {
-        if (cameraShake_) {
+        if (cameraShake_)
+        {
             cameraShake_(amount, seconds);
         }
     }
 
 private:
+    /** @brief 演出先が未接続の橋渡しを作る */
     SceneEffectBridge() = default;
     SceneEffectBridge(const SceneEffectBridge&) = delete;
     SceneEffectBridge& operator=(const SceneEffectBridge&) = delete;

@@ -39,7 +39,9 @@ public:
     void AddSample(const Vector3& base, const Vector3& tip);
 
     /** @brief 振りの区切り 次に積むサンプルを新しい帯の始点にする */
-    void BreakStroke() { ++strokeId_; }
+    void BreakStroke() {
+        ++strokeId_;
+    }
 
     /**
      * @brief 寿命を進めて頂点バッファを組み直す
@@ -52,10 +54,19 @@ public:
     void Draw();
 
     /** @brief 全サンプルを消す */
-    void Clear() { samples_.clear(); vertexCount_ = 0; }
+    void Clear() {
+        samples_.clear();
+        vertexCount_ = 0;
+    }
 
-    void SetStyle(const WeaponTrailStyle& style) { style_ = style; }
-    const WeaponTrailStyle& GetStyle() const { return style_; }
+    /** @brief 軌跡の見た目の設定を変える */
+    void SetStyle(const WeaponTrailStyle& style) {
+        style_ = style;
+    }
+    /** @brief 軌跡の見た目の設定を返す */
+    const WeaponTrailStyle& GetStyle() const {
+        return style_;
+    }
 
     /**
      * @brief 最新のサンプルから指定秒数さかのぼった間に刃先が動いた量を返す
@@ -65,8 +76,14 @@ public:
      */
     bool GetRecentTipMotion(float window, Vector3& outMotion) const;
 
-    uint32_t GetVertexCount() const { return vertexCount_; }
-    int GetSampleCount() const { return static_cast<int>(samples_.size()); }
+    /** @brief 頂点数を返す */
+    uint32_t GetVertexCount() const {
+        return vertexCount_;
+    }
+    /** @brief 軌跡のサンプル数を返す */
+    int GetSampleCount() const {
+        return static_cast<int>(samples_.size());
+    }
 
 private:
     static constexpr int kMaxSamples = 64;

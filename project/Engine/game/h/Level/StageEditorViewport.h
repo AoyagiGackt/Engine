@@ -23,14 +23,26 @@ namespace engine::game {
 class StageEditorViewport {
 public:
     /** @brief 操作対象のカメラを設定する */
-    void SetCamera(engine::graphics::Camera* camera) { camera_ = camera; }
+    void SetCamera(engine::graphics::Camera* camera) {
+        camera_ = camera;
+    }
 
     /** @brief 保持している参照とドラッグ状態を破棄する */
     void Reset();
     void SetImageRect(float x, float y, float width, float height, bool hovered);
-    void ClearImageRect() { imageMode_ = false; imageHovered_ = false; }
-    bool IsImageMode() const { return imageMode_; }
-    bool IsImageHovered() const { return imageHovered_; }
+    /** @brief プレビュー画像の表示範囲を消す */
+    void ClearImageRect() {
+        imageMode_ = false;
+        imageHovered_ = false;
+    }
+    /** @brief ゲーム画面をプレビュー画像の中に表示しているかを返す */
+    bool IsImageMode() const {
+        return imageMode_;
+    }
+    /** @brief マウスがプレビュー画像の上にあるかを返す */
+    bool IsImageHovered() const {
+        return imageHovered_;
+    }
     Vector3 ImageToScreen(float x, float y) const;
     Vector3 ScreenToImage(float x, float y) const;
     Vector3 ViewCenter() const;

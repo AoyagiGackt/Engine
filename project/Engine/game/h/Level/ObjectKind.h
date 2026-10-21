@@ -46,6 +46,7 @@ public:
     /** @brief インスペクタの1項目を編集した時にUndoへ記録する関数（変更があったかを受け取り、そのまま返す） */
     using UndoCapture = std::function<bool(bool)>;
 
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~ObjectKind() = default;
 
     /** @brief 種類名に対応する種類を返す（未知の名前は名前だけ持つ汎用の種類） */
@@ -54,59 +55,97 @@ public:
     // 性質
 
     /** @brief 見た目のモデル（Object3d）を生成する種類か */
-    virtual bool IsVisual() const { return false; }
+    virtual bool IsVisual() const {
+        return false;
+    }
     /** @brief モデルの指定が必須か（背景は空でもよい） */
-    virtual bool RequiresModel() const { return IsVisual(); }
+    virtual bool RequiresModel() const {
+        return IsVisual();
+    }
     /** @brief インスペクタで回転とスケールを編集できるか */
-    virtual bool HasRotationAndScale() const { return IsVisual(); }
+    virtual bool HasRotationAndScale() const {
+        return IsVisual();
+    }
     /** @brief 有効化フラグを持ち、イベント接続の対象になれるか */
-    virtual bool AcceptsActivationFlag() const { return false; }
+    virtual bool AcceptsActivationFlag() const {
+        return false;
+    }
     /** @brief 敵を配置する種類か（敵グループの集計や制作ガイドに使う） */
-    virtual bool PlacesEnemy() const { return false; }
+    virtual bool PlacesEnemy() const {
+        return false;
+    }
     /** @brief 有効化されてから敵を出現させる種類か（出現前の敵も敵グループに数える） */
-    virtual bool SpawnsLater() const { return false; }
+    virtual bool SpawnsLater() const {
+        return false;
+    }
     /** @brief 本編の戦闘対象になる敵を生み出す種類か */
-    virtual bool SpawnsCombatEnemy() const { return false; }
+    virtual bool SpawnsCombatEnemy() const {
+        return false;
+    }
     /** @brief モデルを持たない目印（位置だけを使う）か */
-    virtual bool IsMarker() const { return false; }
+    virtual bool IsMarker() const {
+        return false;
+    }
     /** @brief 地面として数えるか（制作ガイド用） */
-    virtual bool CountsAsGround() const { return false; }
+    virtual bool CountsAsGround() const {
+        return false;
+    }
     /** @brief ただの置物か（デバッグ表示で敵や仕掛けと色を分ける） */
-    virtual bool IsDecoration() const { return false; }
+    virtual bool IsDecoration() const {
+        return false;
+    }
     /** @brief 有効化フラグが無い時も経過時間を進めるか（動きや回転の演出に使う） */
-    virtual bool AlwaysAdvancesTimer() const { return false; }
+    virtual bool AlwaysAdvancesTimer() const {
+        return false;
+    }
     /** @brief 画面座標に置かれているか（3D空間へ投影しない） */
-    virtual bool IsScreenSpace(const ObjectDesc&) const { return false; }
+    virtual bool IsScreenSpace(const ObjectDesc&) const {
+        return false;
+    }
     /** @brief 時間で動く仕掛けなら、その動き方を返す（動かない種類はnullptr） */
-    virtual const GimmickMotion* MotionOf(const ObjectDesc&) const { return nullptr; }
+    virtual const GimmickMotion* MotionOf(const ObjectDesc&) const {
+        return nullptr;
+    }
 
     // 実行時の振る舞い（indexはStageEditorが持つ配置物の番号）
 
     /** @brief 実体の作り直し時に、敵の実体を用意する（敵を置かない種類は敵の実体を片付ける） */
     virtual void PrepareEnemyInstance(StageEditor& editor, int index) const;
     /** @brief 有効化の判定後に、種類固有の理由でまだ有効でいられるか（カメラの維持時間切れなど） */
-    virtual bool StaysActive(const ObjectDesc&, float) const { return true; }
+    virtual bool StaysActive(const ObjectDesc&, float) const {
+        return true;
+    }
     /** @brief 毎フレーム、配置物の更新より先に条件を評価してGameFlagsへ反映する */
     virtual void UpdateCondition(StageEditor&, int, float) const { }
     /**
      * @brief 敵の更新より前に行う種類固有の更新
      * @return trueなら、この配置物のこのフレームの更新はここで終わり
      */
-    virtual bool UpdateBeforeEnemy(StageEditor&, int, float) const { return false; }
+    virtual bool UpdateBeforeEnemy(StageEditor&, int, float) const {
+        return false;
+    }
     /**
      * @brief 敵でない配置物の、種類固有の更新（回収判定や見た目の追従）
      * @return trueなら、この配置物のこのフレームの更新はここで終わり
      */
-    virtual bool UpdateOwnRuntime(StageEditor&, int, engine::graphics::ParticleManager*, const Vector3&) const { return false; }
+    virtual bool UpdateOwnRuntime(StageEditor&, int, engine::graphics::ParticleManager*, const Vector3&) const {
+        return false;
+    }
     /** @brief 敵グループの全滅を監視する条件か（制作ガイドの集計用） */
-    virtual bool WatchesEnemyGroup(const ObjectDesc&) const { return false; }
+    virtual bool WatchesEnemyGroup(const ObjectDesc&) const {
+        return false;
+    }
 
     // 振る舞い
 
     /** @brief 階層一覧で名前の前に付けるタグ（無ければ空文字） */
-    virtual const char* ListTag() const { return ""; }
+    virtual const char* ListTag() const {
+        return "";
+    }
     /** @brief 状態をGameFlagsへ書き出す時のフラグ名の接頭辞（書き出さない種類はnullptr） */
-    virtual const char* RuntimeFlagPrefix() const { return nullptr; }
+    virtual const char* RuntimeFlagPrefix() const {
+        return nullptr;
+    }
     /** @brief エディタで新しく置いた時の初期値を入れる @param serial 名前の連番 */
     virtual void InitializeNewDesc(ObjectDesc& desc, int serial) const;
     /** @brief 種類固有の設定ミスを issues へ追加する */
@@ -125,13 +164,14 @@ public:
 #endif
 
 protected:
+    /** @brief 種類名を指定して初期化する */
     explicit ObjectKind(const char* name)
         : name_(name)
     {
     }
-    /** @brief 名前を「接頭辞+連番」にする */
+    /** @brief 名前を接頭辞+連番の形にする */
     static void NameWithSerial(ObjectDesc& desc, const char* prefix, int serial);
-    /** @brief 名前を「接頭辞+連番」にし、同名の有効化フラグ（名前_active）も付ける */
+    /** @brief 名前を接頭辞+連番の形にし、同名の有効化フラグ（名前_active）も付ける */
     static void NameWithActivationFlag(ObjectDesc& desc, const char* prefix, int serial);
 
     // StageEditorの内部へ触る窓口（ObjectKindだけがStageEditorのfriend）
@@ -163,6 +203,7 @@ protected:
     static void DrawActivationFlagField(ObjectDesc& desc, const UndoCapture& capture);
     static void DrawEnemyGroupField(ObjectDesc& desc, const UndoCapture& capture);
     static void DrawPatrolRouteField(ObjectDesc& desc, const UndoCapture& capture);
+    static void DrawEnemyMovementFields(ObjectDesc& desc, const UndoCapture& capture);
     static void DrawEnemyLooksFields(StageEditor& editor, ObjectDesc& desc, bool& structuralDirty);
 
     static void RecordUndo(StageEditor& editor);
@@ -174,5 +215,8 @@ protected:
 private:
     const char* name_;
 };
+
+/** @brief 3D投影せず画面座標のまま扱う配置物か（screen 座標の ui_text） */
+bool IsScreenAnchorObject(const ObjectDesc& desc);
 
 } // namespace engine::game

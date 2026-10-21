@@ -32,12 +32,22 @@ public:
     bool Update(const Vector3& playerPos);
 
     /** @brief 読み取り専用のトリガー設定を返す @return トリガー設定の参照 */
-    const TriggerDesc& GetDesc() const { return desc_; }
-    /** @brief 編集可能なトリガー設定を返す @return トリガー設定の参照 */
-    TriggerDesc& GetDesc() { return desc_; }
+    const TriggerDesc& GetDesc() const {
+        return desc_;
+    }
+    /** @brief 消費済み状態と進入履歴を保ったまま編集設定を反映する */
+    void SetDesc(const TriggerDesc& desc) {
+        desc_ = desc;
+    }
+    /** @brief 判定範囲の中心座標だけを更新する */
+    void SetPosition(const Vector3& position) {
+        desc_.position = position;
+    }
 
     /** @brief 現在プレイヤーが範囲内にいるか返す @return 範囲内の場合はtrue */
-    bool IsInside() const { return wasInside_; }
+    bool IsInside() const {
+        return wasInside_;
+    }
 
 private:
     TriggerDesc desc_;

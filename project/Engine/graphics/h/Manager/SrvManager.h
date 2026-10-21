@@ -54,26 +54,26 @@ public:
      * @brief 指定したインデックスの場所に、テクスチャ2D用のSRVを生成する
      * @param srvIndex Allocate()で確保したインデックス
      * @param pResource SRVを紐づけるGPUリソース（テクスチャバッファ）
-     * @param Format テクスチャのフォーマット（DXGI_FORMAT）
-     * @param MipLevels ミップマップのレベル数
+     * @param format テクスチャのフォーマット（DXGI_FORMAT）
+     * @param mipLevels ミップマップのレベル数
      */
-    void CreateSRVforTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels);
+    void CreateSrvForTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels);
 
     /**
      * @brief 指定したインデックスの場所に、キューブマップ用のSRVを生成する
      * @param srvIndex Allocate()で確保したインデックス
      * @param pResource SRVを紐づけるGPUリソース（キューブマップテクスチャ）
-     * @param Format テクスチャのフォーマット（DXGI_FORMAT）
-     * @param MipLevels ミップマップのレベル数
+     * @param format テクスチャのフォーマット（DXGI_FORMAT）
+     * @param mipLevels ミップマップのレベル数
      */
-    void CreateSRVforTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT Format, UINT MipLevels);
+    void CreateSrvForTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels);
 
     /**
      * @brief 深度テクスチャ（R24G8_TYPELESS）用のSRVを生成する
      * @param srvIndex Allocate()で確保したインデックス
      * @param pResource 深度ステンシルリソース（TYPELESS形式で作成済みのもの）
      */
-    void CreateSRVforDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource);
+    void CreateSrvForDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource);
 
     /**
      * @brief マネージャーの終了処理デスクリプタヒープを解放する
@@ -84,7 +84,9 @@ public:
      * @brief 管理しているSRV用デスクリプタヒープ本体を取得する
      * @return ID3D12DescriptorHeap* デスクリプタヒープのポインタ
      */
-    ID3D12DescriptorHeap* GetSrvDescriptorHeap() const { return descriptorHeap_.Get(); }
+    ID3D12DescriptorHeap* GetSrvDescriptorHeap() const {
+        return descriptorHeap_.Get();
+    }
 
     /**
      * @brief 指定したインデックスに対応するCPU側のハンドルを取得する
@@ -101,7 +103,9 @@ public:
     D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(uint32_t index);
 
 private:
+    /** @brief ディスクリプタヒープが未確保の管理器を作る */
     SrvManager() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~SrvManager() = default;
     SrvManager(const SrvManager&) = delete;
     SrvManager& operator=(const SrvManager&) = delete;

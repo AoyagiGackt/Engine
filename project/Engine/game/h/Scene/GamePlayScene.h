@@ -114,21 +114,17 @@ public:
     /** @brief 3Dワールドと画面UIを描画する */
     void Draw() override;
     /**
-     * @brief シーン調整パネルに使用するImGui管理を設定する
-     * @param imgui 使用するImGui管理
-     */
-    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
-    /**
      * @brief ポストエフェクト対応の有無を返す
      * @return 常にtrue
      */
-    bool SupportsPostEffects() const override { return true; }
+    bool SupportsPostEffects() const override {
+        return true;
+    }
 
-    /**
-     * @brief ステージエディタの判定に使用するプレイヤー位置を返す
-     * @return 現在のプレイヤー位置
-     */
-    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+    /** @brief エディタから操作するプレイヤーを返す */
+    Player* GetEditorPlayer() const override {
+        return player_.get();
+    }
 
     /**
      * @brief ステージエディタが読み書きするレベルファイルを返す
@@ -139,40 +135,22 @@ public:
      * @brief ステージ配置物の生成に使用するモデル共通処理を返す
      * @return シーンが所有するモデル共通処理
      */
-    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    ModelCommon* GetEditorModelCommon() override {
+        return modelCommon_.get();
+    }
     /**
      * @brief ステージエディタの表示と操作に使用するカメラを返す
      * @return シーンが所有するカメラ
      */
-    Camera* GetEditorCamera() override { return camera_.get(); }
+    Camera* GetEditorCamera() override {
+        return camera_.get();
+    }
     /**
      * @brief エディタ配置敵の演出に使用するパーティクル管理を返す
      * @return 共有パーティクル管理
      */
-    ParticleManager* GetEditorParticleManager() override { return pm_; }
-    /**
-     * @brief エディタ操作で直接更新するプレイヤー位置を返す
-     * @return プレイヤー未生成時はnullptr
-     */
-    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
-    int GetEditorPlayerVisualPreset() const override { return player_ ? player_->GetVisualPreset() : -1; }
-    void SetEditorPlayerVisualPreset(int preset) override
-    {
-        if (player_)
-            player_->SetVisualPreset(preset);
-    }
-    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
-    {
-        if (player_)
-            player_->SetStaticVisualModel(model, tex);
-    }
-    std::string GetEditorPlayerStaticVisualModel() const override
-    {
-        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
-    }
-    std::string GetEditorPlayerStaticVisualTexture() const override
-    {
-        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
+    ParticleManager* GetEditorParticleManager() override {
+        return pm_;
     }
     /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
     void RefreshVisualTransformsForEditor() override;
@@ -192,7 +170,9 @@ public:
      * @brief 追加ホットキーの案内文字列を返す
      * @return シーン調整パネルのホットキー文字列
      */
-    const char* GetHotkeyOverlayExtra() const override { return "F3: シーン調整パネル\nF6: コンボ演出の調整"; }
+    const char* GetHotkeyOverlayExtra() const override {
+        return "F3: シーン調整パネル\nF6: コンボ演出の調整";
+    }
 
 private:
     /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
@@ -243,6 +223,8 @@ private:
     void SetupModelRenderState();
     // ポストエフェクト適用中かで描画先RTVを切り替える
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle() const;
+    /** @brief いまの描画先がバックバッファか（ポストエフェクトを使わずに直接画面へ描いているか） */
+    bool IsDrawingToBackBuffer() const;
     // メインレンダーターゲットのセットアップ
     void SetupMainRenderTarget();
     // カメラ位置・回転の移動平均によるスムージング
@@ -277,6 +259,25 @@ private:
     void UpdateStyleAndUI(float dt);
     /** @brief UpdateStyleAndUI()の下請け 敵の当たり判定AABBを現在位置から算出する */
     AABB GetEnemyHitBox() const;
+    /**
+     * @brief 敵の当たり判定AABBを指定位置から算出する（ボス・道中の敵で共通の大きさ）
+     * @param position 敵の位置
+     */
+    static AABB EnemyHitBoxAt(const Vector3& position);
+    /**
+     * @brief 空中の近接判定を、上下は中心から指定の高さに、左右は指定の幅だけ広げる（高さが合わずに空振りするのを減らす）
+     * @param range 広げる近接判定
+     * @param center プレイヤーの位置
+     * @param halfHeight 上下に取る高さ（中心から片側）
+     * @param widthPadding 左右に足す幅（片側）
+     */
+    static void WidenAirMeleeRange(AABB& range, const Vector3& center, float halfHeight, float widthPadding);
+    /**
+     * @brief 固有技の判定範囲（プレイヤーを中心にした横長の箱）を返す
+     * @param center プレイヤーの位置
+     * @param radius 左右の半径
+     */
+    static AABB SkillRangeAround(const Vector3& center, float radius);
     /** @brief UpdateStyleAndUI()の下請け 近接コンボのヒット判定とスタイル加点・属性追撃を処理する */
     void ApplyMeleeComboStyleHit(const AABB& enemyAABB);
     /** @brief UpdateStyleAndUI()の下請け 武器固有技（SPACE）のヒット判定とスタイル加点を処理する */
@@ -423,7 +424,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
 
     SrvManager* srvManager_ = nullptr;
     GrayscaleEffect* grayscaleEffect_ = nullptr;
@@ -440,7 +440,6 @@ private:
     std::unique_ptr<Camera> camera_;
 
     std::unique_ptr<Skydome> skydome_;
-    Model* modelSkydome_ = nullptr; // 実体はModelManagerが所有・共有する
 
     std::unique_ptr<Player> player_;
     // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
@@ -448,6 +447,7 @@ private:
     EnemyEntity* enemy_ = nullptr;
     WeaponType bossWeaponType_ = WeaponType::Sword; ///< ボスの配置物に設定された武器種別（撃破後にこれを奪う）
     // ボス頭上のHPバー（BattleTestSceneのDummy::hpBarBg/Fgと同じ体裁、GamePlayScene初期化時に一度だけ生成）
+    bool hudReady_ = false; ///< 通常HUDの位置と色を更新し終えたか（済むまで描画しない）
     std::unique_ptr<Sprite> bossHpBarBg_;
     std::unique_ptr<Sprite> bossHpBarFg_;
 
@@ -469,6 +469,44 @@ private:
         std::unique_ptr<Sprite> hpBarFg;
     };
     std::vector<WeaponEnemyEntry> weaponEnemies_;
+
+    /** @brief 道中の武器敵1体への命中1回ぶんの内訳（何で当てたかと、そこから決まる反応・演出の強さ） */
+    struct WeaponEnemyHit {
+        bool hit = false; ///< 何かが当たった
+        bool melee = false; ///< 近接コンボで当てた
+        bool gun = false; ///< 銃（スピン連射を含む）で当てた
+        bool skill = false; ///< 武器固有技で当てた
+        bool fired = false; ///< このフレームに撃った弾で当てた
+        bool extraHit = false; ///< 覚醒中の多段ヒットの2発目以降
+        bool comboFinisher = false; ///< コンボの締めの段
+        bool blowAway = false; ///< 大きく吹き飛ばす
+        const MeleeAttackDef* attack = nullptr; ///< 当てた近接の段（無ければ nullptr）
+        float fatigueMult = 1.0f; ///< 武器の疲労によるダメージ倍率
+    };
+    /**
+     * @brief 道中の武器敵に、このフレームの近接・射撃・固有技のどれが当たったかを調べる
+     * @param entry 調べる武器敵
+     * @param enemyBounds 武器敵の当たり判定
+     */
+    WeaponEnemyHit DetectWeaponEnemyHit(const WeaponEnemyEntry& entry, const AABB& enemyBounds) const;
+    /**
+     * @brief 命中した武器敵にダメージ・吹き飛び・のけぞりを与え、演出を出す
+     * @param entry 当たった武器敵
+     * @param hit DetectWeaponEnemyHit() の結果（反応の強さを書き足す）
+     */
+    void ApplyWeaponEnemyHit(WeaponEnemyEntry& entry, WeaponEnemyHit& hit);
+    /** @brief 命中時のダメージ量を武器・段・固有技から計算する */
+    int ComputeWeaponEnemyDamage(const WeaponEnemyHit& hit) const;
+    /**
+     * @brief 命中時のパーティクル・属性演出・ヒットストップを出す
+     * @param enemyPos 当たった敵の位置
+     * @param hit 命中の内訳
+     */
+    void EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const WeaponEnemyHit& hit);
+    /** @brief 武器を持たないモンスターが倒れたら、少し待って弾けて消し、覚醒ゲージにする */
+    void UpdateMonsterVanish(WeaponEnemyEntry& entry);
+    /** @brief 倒れた武器持ち敵の武器を、奪取ボタンで吸い寄せて手に入れる */
+    void UpdateWeaponSteal(WeaponEnemyEntry& entry);
 
     /** @brief ロックオン中の敵（ボスも道中の敵も同じ扱い。ロックオン長押し中は最寄りの敵を自動追従し、離すとnullptr） */
     const EnemyEntity* lockedEnemy_ = nullptr;
@@ -496,7 +534,6 @@ private:
     float hitCooldown_ = 0.0f;
     std::mt19937 rng_ { std::random_device { }() };
 
-    static constexpr float kGhostLifetime = 0.3f;
 
     // 敵の遠隔攻撃弾ボスと道中の武器持ち敵が共用する（発射時にプレイヤーが射程内にいる敵だけ撃つ）
     // 弾速・寿命・射程はResources/Config/enemy_params.jsonのbullet節（EnemyTuning::Bullet()）で持つ
@@ -519,7 +556,7 @@ private:
     // 着弾地点に出す予告円（円形グロー画像を着弾範囲の見かけ半径まで拡大し、赤く点滅させる）
     std::unique_ptr<Sprite> bossSlamWarningSprite_;
 
-    /** @brief 覚醒中の残像トレイル1コマ分の位置と経過秒数（kGhostLifetimeを超えたら消える） */
+    /** @brief 覚醒中の残像トレイル1コマ分の位置と経過秒数（設定された寿命を超えたら消える） */
     struct GhostEntry {
         Vector3 pos;
         float age;

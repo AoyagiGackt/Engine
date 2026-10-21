@@ -13,11 +13,10 @@
 #include "ScoreManager.h"
 #include "UILayout.h"
 #include <string>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
 // 既定の配置（F2のエディタで動かした値は Resources/Config/UI/clear.json に保存される）
+namespace engine::game {
 static constexpr const char* kLayoutName = "clear";
 
 // "SCORE" ラベル
@@ -50,6 +49,7 @@ static constexpr Vector4 kRecordsColor = { 0.2f, 0.2f, 0.25f, 1.0f };
 
 // 初期化
 
+/** @brief 背景・スコア・ランキング表示のスプライトを生成して初期化する */
 void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -81,11 +81,13 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     runScore_ = rd->IsRunActive() ? rd->GetScore() : 0;
 
     // cook中（素材をpakへ記録するために画面を開いているだけ）はスコアや通算記録を書き換えない
-    if (AssetPack::GetInstance()->IsCooking()) {
+    if (AssetPack::GetInstance()->IsCooking())
+    {
         return;
     }
 
-    if (rd->IsRunActive()) {
+    if (rd->IsRunActive())
+    {
         ScoreManager::GetInstance()->SubmitAndSave(runScore_);
         SaveDataManager::GetInstance()->RecordRunResult(true, rd->GetFloor(), rd->GetGold());
     }
@@ -93,15 +95,18 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
 // 終了
 
+/** @brief 終了処理（所有する資源は unique_ptr が解放するので何もしない） */
 void ClearScene::Finalize()
 {
 }
 
 // 更新
 
+/** @brief スペースキーでタイトルへ戻し、デバッグ用のスコア表示を更新する */
 void ClearScene::Update()
 {
-    if (input_->TriggerKey(DIK_SPACE)) {
+    if (input_->TriggerKey(DIK_SPACE))
+    {
         SceneFlow::GetInstance()->Transition("CLEAR", "title", "TITLE");
     }
 
@@ -110,6 +115,7 @@ void ClearScene::Update()
 
 // 描画
 
+/** @brief UI 配置を反映して、背景・スコア・ランキングを描画する */
 void ClearScene::Draw()
 {
     // エディタ表示中はUpdate()が止まるため、配置の反映は毎フレーム必ず通るここで行う
@@ -147,7 +153,7 @@ void ClearScene::Draw()
     rankingLabel_->Draw();
 
     // ランキング数字
-    const auto& ranking = ScoreManager::GetInstance()->GetRanking();
+    const auto ranking = ScoreManager::GetInstance()->GetRankingSnapshot();
     scoreDisplay_.DrawRanking(ranking,
         runScore_,
         layout.Pos("ranking.pos", kRankPosition),
@@ -157,9 +163,10 @@ void ClearScene::Draw()
     DrawRecords(layout);
 }
 
+/** @brief セーブデータの通算記録を左下へ描画する */
 void ClearScene::DrawRecords(UILayout& layout)
 {
-    const SaveRecords& records = SaveDataManager::GetInstance()->GetRecords();
+    const SaveRecords records = SaveDataManager::GetInstance()->GetRecordSnapshot();
     const std::wstring lines[] = {
         L"通算記録",
         L"最高到達フロア  " + std::to_wstring(records.bestFloorReached),
@@ -174,7 +181,8 @@ void ClearScene::DrawRecords(UILayout& layout)
 
     fontRenderer_.Reset();
     float y = position.y;
-    for (const std::wstring& line : lines) {
+    for (const std::wstring& line : lines)
+    {
         fontRenderer_.DrawStringW(line, position.x, y, scale, color);
         y += rowSpacing;
     }
@@ -183,20 +191,25 @@ void ClearScene::DrawRecords(UILayout& layout)
 
 // デバッグ UI（ImGui）
 
+/** @brief このシーンのスコアを ImGui のウィンドウに表示する */
 void ClearScene::DrawScoreUI()
 {
 #ifdef USE_IMGUI
-    if (!imguiManager_) {
+    if (!imguiManager_)
+    {
         return;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Always);
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+    constexpr ImVec2 kDiagnosticsWindowSize = { 300.0f, 120.0f };
+    constexpr ImVec2 kDiagnosticsWindowPos = { 10.0f, 10.0f };
+    ImGui::SetNextWindowSize(kDiagnosticsWindowSize, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(kDiagnosticsWindowPos, ImGuiCond_Always);
     ImGui::Begin("Diagnostics", nullptr,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
     ImGui::Text("Score : %d", runScore_);
     ImGui::Separator();
-    if (ImGui::Button("Reset All Scores")) {
+    if (ImGui::Button("Reset All Scores"))
+    {
         ScoreManager::GetInstance()->ResetAllScores();
     }
     ImGui::Separator();
@@ -204,3 +217,5 @@ void ClearScene::DrawScoreUI()
     ImGui::End();
 #endif
 }
+
+} // namespace engine::game

@@ -7,6 +7,7 @@
 namespace engine::game {
 
 class StageEditor;
+struct ObjectDesc;
 
 /**
  * @brief 選択対象の削除、複製、コピー、貼り付けを担当する
@@ -23,6 +24,8 @@ public:
     static void CopySelected(StageEditor& editor);
     /** @brief 内部クリップボードの配置物を新しい実体として貼り付ける */
     static void PasteClipboard(StageEditor& editor);
+    /** @brief 配置物の写しを新しい名前で末尾へ足し、少しずらして選択に加える（親子関係は外す） */
+    static void AppendCopy(StageEditor& editor, const ObjectDesc& source);
 };
 
 } // namespace engine::game

@@ -22,9 +22,6 @@
     "sandbox_clear": { "scene": "CLEAR" },
     "pause_quit": { "scene": "MAP", "fadeOut": 0.3, "fadeIn": 0.3 }
   },
-  "SHOP": {
-    "done": { "scene": "MAP" }
-  },
   "GAMEOVER": {
     "restart": { "scene": "MAP" },
     "title": { "scene": "TITLE" }

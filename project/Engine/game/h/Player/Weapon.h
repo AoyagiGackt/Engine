@@ -27,6 +27,7 @@ inline constexpr std::size_t kWeaponTypeCount = static_cast<std::size_t>(WeaponT
  */
 inline WeaponType ParseWeaponTypeName(const std::string& type)
 {
+    /** @brief 近接武器種と設定ファイル内の識別名の対応 */
     struct NamedWeaponType {
         const char* name;
         WeaponType type;
@@ -41,8 +42,10 @@ inline WeaponType ParseWeaponTypeName(const std::string& type)
         { "Scythe", WeaponType::Scythe },
         { "Axe", WeaponType::Axe },
     };
-    for (const NamedWeaponType& entry : kNames) {
-        if (type == entry.name) {
+    for (const NamedWeaponType& entry : kNames)
+    {
+        if (type == entry.name)
+        {
             return entry.type;
         }
     }
@@ -69,8 +72,7 @@ struct AwakenedWeaponMods {
 /** @brief 1スタイルぶんの近接武器データ */
 struct WeaponData {
     std::string name;
-    std::string styleName; ///< 表示名
-    std::wstring styleNameJp; ///< 日本語表示名
+    std::wstring styleNameJp; ///< 画面に出すスタイル名（日本語）
     WeaponType type;
     float damage;
     float range;

@@ -3,6 +3,7 @@
  * @brief ビットマップフォントアトラス生成とASCII/日本語文字列描画（FontRenderer）の実装
  */
 #include "FontRenderer.h"
+#include "TextBufferCapacity.h"
 #include "Logger.h"
 #include "StringUtility.h"
 #include "TextureManager.h"
@@ -15,10 +16,9 @@
 #include <unordered_set>
 #include <vector>
 #include <windows.h>
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
+namespace engine::game {
 static constexpr const char* kAtlasKey = "__fontAtlas__";
 static constexpr const char* kAtlasKeyRegular = "__fontAtlasRegular__";
 static constexpr const char* kJpAtlasKey = "__fontAtlasJp__";
@@ -33,7 +33,7 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"倒獲得報酬高多選取永続効果回復最終決全力挑択定" // マップ説明
                                   L"化延長速促進疾走跳躍乱舞維持" // スキル名
                                   L"距離倍大数階増加弾度蓄積移減衰" // スキル説明
-                                  L"所済次開始" // ショップ・タイトル
+                                  L"所済次開始" // タイトル・結果表示
                                   L"切替散" // TrainingScene追加
                                   L"満打上空手戻重騎死狂突掬剛叩落剣下刈魂斧" // 武器コマンド・スタイル名・マップ説明の不足分
                                   L"締踏込貫通" // 銃コンボのコマンド説明
@@ -44,7 +44,7 @@ static const wchar_t kJpExtra[] = L"覚醒中発動鬼神銃士奇術師守護�
                                   L"擲" // レベル2の案内文（JIS第二水準のため範囲外）
                                   L"威混" // 武器の疲労警告
                                   // 以下はShift_JIS範囲にも含まれるが、範囲の一括追加を外しても画面の文章が欠けないよう明示しておく
-                                  L"→○●　、。々（）：？" // HUD・マップ・ショップ・案内文の記号
+                                  L"→○●　、。々（）：？" // HUD・マップ・案内文の記号
                                   L"一予二先光内円再出制削告呼囲型基場実寸屋崩帰常広床役径後必快扉投抜探揺文時来桁案機正殺気波消渡渦準"
                                   L"溜滅滞演灰特牽生目着短秒程立第箱範約紙索緑能色荒見読起超足車転軽輪近退逆遅違遠還部量面駐"; // 武器説明・レベル案内文・グラフの文章
 static constexpr uint32_t kHiraganaStart = 0x3041;
@@ -74,14 +74,90 @@ static constexpr const char* kPanelTexture = "Resources/white.png";
 static const wchar_t kLookalikeSymbols[] = L"〜−‖¢£¬—–―‥…·";
 
 namespace {
+constexpr WORD kDibBitsPerPixel = 32; // 描画先の DIB は 1 画素 32bit（BGRA）
+constexpr size_t kBytesPerPixel = 4; // BGRA / RGBA の 1 画素のバイト数
+// GDI の DIB の 1 画素の並び（BGRA）
+constexpr size_t kDibBlue = 0;
+constexpr size_t kDibGreen = 1;
+constexpr size_t kDibRed = 2;
+// テクスチャの 1 画素の並び（RGBA）
+constexpr size_t kRgbaRed = 0;
+constexpr size_t kRgbaGreen = 1;
+constexpr size_t kRgbaBlue = 2;
+constexpr size_t kRgbaAlpha = 3;
+constexpr int kColorChannelCount = 3; // 輝度を求める時に平均する色の数（R・G・B）
+constexpr uint8_t kChannelMax = 255; // 1 チャンネルの最大値
+constexpr int kAsciiFontHeight = -13; // ASCII のフォントの高さ（負の値は文字の高さの指定、px）
+constexpr int kAsciiRowOffset = 1; // ASCII の文字をマスの上端から下げる量（px）
+constexpr int kJpFontCellMargin = 2; // JP のフォントをマスより小さくする量（px）
+constexpr int kInitialBoldSprites = 128; // 太字の文字スプライトを最初に用意する数
+constexpr int kInitialRegularSprites = 32; // 細字の文字スプライトを最初に用意する数
+
+/** @brief GDI で文字を描く先（DIBSection とメモリ DC） */
+struct GdiCanvas {
+    HBITMAP bitmap = nullptr;
+    HBITMAP previousBitmap = nullptr;
+    HDC dc = nullptr;
+    void* bits = nullptr;
+};
+
+/** @brief 黒で塗った width×height の 32bit DIB を作り、白い文字を描ける状態にする */
+GdiCanvas BeginGdiCanvas(int width, int height)
+{
+    BITMAPINFO bmi { };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -height; // 負の高さで上から下の並びにする
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = kDibBitsPerPixel;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    GdiCanvas canvas;
+    canvas.bitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &canvas.bits, nullptr, 0);
+    ENGINE_ASSERT(canvas.bitmap && canvas.bits);
+    canvas.dc = CreateCompatibleDC(nullptr);
+    canvas.previousBitmap = static_cast<HBITMAP>(SelectObject(canvas.dc, canvas.bitmap));
+
+    // 背景を黒で塗りつぶし、文字は白で背景を残して描く
+    memset(canvas.bits, 0, static_cast<size_t>(width) * height * kBytesPerPixel);
+    SetBkMode(canvas.dc, TRANSPARENT);
+    SetTextColor(canvas.dc, RGB(kChannelMax, kChannelMax, kChannelMax));
+    return canvas;
+}
+
+/** @brief 描き終えた DIB を片付け、白い文字の輝度をアルファにした RGBA の画素列を返す */
+std::vector<uint8_t> FinishGdiCanvas(GdiCanvas& canvas, int width, int height)
+{
+    GdiFlush();
+    SelectObject(canvas.dc, canvas.previousBitmap);
+    DeleteDC(canvas.dc);
+
+    // BGRA（GDI DIB）→ RGBA（DX12用）。白テキスト on 黒背景なので輝度をアルファに使う
+    const auto* src = static_cast<const uint8_t*>(canvas.bits);
+    const size_t pixelCount = static_cast<size_t>(width) * height;
+    std::vector<uint8_t> rgba(pixelCount * kBytesPerPixel);
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+        const uint8_t* pixel = src + i * kBytesPerPixel;
+        uint8_t* out = rgba.data() + i * kBytesPerPixel;
+        const int luminance = (static_cast<int>(pixel[kDibRed]) + pixel[kDibGreen] + pixel[kDibBlue]) / kColorChannelCount;
+        out[kRgbaRed] = out[kRgbaGreen] = out[kRgbaBlue] = kChannelMax;
+        out[kRgbaAlpha] = static_cast<uint8_t>(luminance);
+    }
+    DeleteObject(canvas.bitmap);
+    return rgba;
+}
+
 /** @brief JPアトラスに焼く文字の並び（かな→Shift_JIS範囲→kJpExtraの残り）と文字→グリフ番号の対応表 */
 struct JpGlyphTable {
     std::vector<wchar_t> glyphs;
     std::unordered_map<wchar_t, int> indexOf;
 
+    /** @brief 文字をアトラスに焼く一覧へ追加する（ASCIIと登録済みの文字は飛ばす） */
     void Add(wchar_t ch)
     {
-        if (static_cast<uint32_t>(ch) < kAsciiLimit || indexOf.count(ch)) {
+        if (static_cast<uint32_t>(ch) < kAsciiLimit || indexOf.count(ch))
+        {
             return;
         }
         indexOf.emplace(ch, static_cast<int>(glyphs.size()));
@@ -93,10 +169,11 @@ struct JpGlyphTable {
 void ReportMissingGlyph(wchar_t ch, const std::wstring& text)
 {
     static std::unordered_set<wchar_t> reported;
-    if (!reported.insert(ch).second) {
+    if (!reported.insert(ch).second)
+    {
         return;
     }
-    char code[16];
+    char code[TextBufferCapacity::kCodepoint];
     std::snprintf(code, sizeof(code), "U+%04X", static_cast<unsigned>(ch));
     Logger::LogWarning(std::string("[FontRenderer] フォントに無い文字を描画できませんでした ") + code
         + " : " + StringUtility::ConvertString(text) + "  (FontRenderer.cppのkJpExtraへ追加してください)");
@@ -106,7 +183,8 @@ void ReportMissingGlyph(wchar_t ch, const std::wstring& text)
 void ReportGlyphPoolFull(int limit)
 {
     static bool reported = false;
-    if (reported) {
+    if (reported)
+    {
         return;
     }
     reported = true;
@@ -114,37 +192,50 @@ void ReportGlyphPoolFull(int limit)
         + ")に達したため、以降の文字を描画できませんでした。FontRenderer.hのkMaxChars/kMaxRegularCharsを上げてください");
 }
 
+/** @brief 日本語のアトラスに焼く文字の表を返す（初回に作る） */
 const JpGlyphTable& GetJpGlyphTable()
 {
     static const JpGlyphTable table = [] {
         JpGlyphTable t;
-        for (int i = 0; i < kHiraganaCount; ++i) {
+        // ひらがな・カタカナは範囲ごと登録する
+        for (int i = 0; i < kHiraganaCount; ++i)
+        {
             t.Add(static_cast<wchar_t>(kHiraganaStart + i));
         }
-        for (int i = 0; i < kKatakanaCount; ++i) {
+        for (int i = 0; i < kKatakanaCount; ++i)
+        {
             t.Add(static_cast<wchar_t>(kKatakanaStart + i));
         }
-        for (int lead = kSjisLeadFirst; lead <= kSjisLeadUpperLast; ++lead) {
+        // Shift_JIS で表せる2バイト文字をすべて試し、変換できた文字を登録する（機種依存の領域は除く）
+        for (int lead = kSjisLeadFirst; lead <= kSjisLeadUpperLast; ++lead)
+        {
             const bool validLead = lead <= kSjisLeadLowerLast
                 || (lead >= kSjisLeadUpperFirst && (lead < kSjisUserDefinedFirst || lead > kSjisUserDefinedLast));
-            if (!validLead) {
+            if (!validLead)
+            {
                 continue;
             }
-            for (int trail = kSjisTrailFirst; trail <= kSjisTrailLast; ++trail) {
-                if (trail == kSjisTrailInvalid) {
+            for (int trail = kSjisTrailFirst; trail <= kSjisTrailLast; ++trail)
+            {
+                if (trail == kSjisTrailInvalid)
+                {
                     continue;
                 }
                 const char bytes[2] = { static_cast<char>(lead), static_cast<char>(trail) };
                 wchar_t wc = 0;
-                if (MultiByteToWideChar(kShiftJisCodePage, MB_ERR_INVALID_CHARS, bytes, 2, &wc, 1) == 1) {
+                if (MultiByteToWideChar(kShiftJisCodePage, MB_ERR_INVALID_CHARS, bytes, 2, &wc, 1) == 1)
+                {
                     t.Add(wc);
                 }
             }
         }
-        for (int i = 0; kJpExtra[i]; ++i) {
+        // Shift_JIS の範囲外でゲームに使う文字と、見た目の似た記号を足す
+        for (int i = 0; kJpExtra[i]; ++i)
+        {
             t.Add(kJpExtra[i]);
         }
-        for (int i = 0; kLookalikeSymbols[i]; ++i) {
+        for (int i = 0; kLookalikeSymbols[i]; ++i)
+        {
             t.Add(kLookalikeSymbols[i]);
         }
         return t;
@@ -153,35 +244,21 @@ const JpGlyphTable& GetJpGlyphTable()
 }
 } // namespace
 
+/** @brief GDIでCourier NewのASCII文字をDIBSectionへ描画し、ASCIIアトラステクスチャとして登録する（登録済みなら何もしない） */
 void FontRenderer::BuildAtlas(bool bold)
 {
     const char* atlasKey = bold ? kAtlasKey : kAtlasKeyRegular;
-    if (TextureManager::GetInstance()->HasTexture(atlasKey)) {
+    if (TextureManager::GetInstance()->HasTexture(atlasKey))
+    {
         return;
     }
 
     // GDI で Courier New を 32bit DIBSection に描画する
-    BITMAPINFO bmi { };
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = kAtlasW;
-    bmi.bmiHeader.biHeight = -kAtlasH;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
+    GdiCanvas canvas = BeginGdiCanvas(kAtlasW, kAtlasH);
 
-    void* bits = nullptr;
-    HBITMAP hBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    ENGINE_ASSERT(hBmp && bits);
-
-    HDC hdcMem = CreateCompatibleDC(nullptr);
-    HBITMAP hOld = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
-
-    // 背景を黒で塗りつぶす
-    memset(bits, 0, static_cast<size_t>(kAtlasW) * kAtlasH * 4);
-
-    // フォント  Courier New, 高さ -13px（文字高さ指定）
+    // フォント  Courier New（負の高さは文字の高さの指定）
     LOGFONTA lf { };
-    lf.lfHeight = -13;
+    lf.lfHeight = kAsciiFontHeight;
     lf.lfWeight = bold ? FW_BOLD : FW_NORMAL;
     lf.lfCharSet = ANSI_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
@@ -192,50 +269,31 @@ void FontRenderer::BuildAtlas(bool bold)
 
     HFONT hFont = CreateFontIndirectA(&lf);
     ENGINE_ASSERT(hFont);
-    HFONT hOldFont = static_cast<HFONT>(SelectObject(hdcMem, hFont));
-
-    SetBkMode(hdcMem, TRANSPARENT);
-    SetTextColor(hdcMem, RGB(255, 255, 255));
+    HFONT hOldFont = static_cast<HFONT>(SelectObject(canvas.dc, hFont));
 
     // ASCII 32〜127 を atlas に描く
-    char buf[2] = { 0, 0 };
-    for (int c = kCharBase; c < kCharBase + kCols * kRows; ++c) {
+    char buf[TextBufferCapacity::kCharacter] = { 0, 0 };
+    for (int c = kCharBase; c < kCharBase + kCols * kRows; ++c)
+    {
         int idx = c - kCharBase;
         int col = idx % kCols;
         int row = idx / kCols;
         buf[0] = static_cast<char>(c);
-        TextOutA(hdcMem, col * kCharW, row * kCharH + 1, buf, 1);
+        TextOutA(canvas.dc, col * kCharW, row * kCharH + kAsciiRowOffset, buf, 1);
     }
 
-    GdiFlush();
-    SelectObject(hdcMem, hOldFont);
-    SelectObject(hdcMem, hOld);
+    SelectObject(canvas.dc, hOldFont);
     DeleteObject(hFont);
-    DeleteDC(hdcMem);
 
-    // BGRA（GDI DIB）→ RGBA（DX12用）変換
-    // 白テキスト on 黒背景なので輝度をアルファに使う
-    const auto* src = static_cast<const uint8_t*>(bits);
-    std::vector<uint8_t> rgba(static_cast<size_t>(kAtlasW) * kAtlasH * 4);
-    for (int i = 0; i < kAtlasW * kAtlasH; ++i) {
-        uint8_t r = src[i * 4 + 2];
-        uint8_t g = src[i * 4 + 1];
-        uint8_t b = src[i * 4 + 0];
-        uint8_t a = static_cast<uint8_t>((static_cast<int>(r) + g + b) / 3);
-        rgba[i * 4 + 0] = 255;
-        rgba[i * 4 + 1] = 255;
-        rgba[i * 4 + 2] = 255;
-        rgba[i * 4 + 3] = a;
-    }
-
-    DeleteObject(hBmp);
-
+    // 白い文字の輝度をアルファにしたテクスチャとして登録する
+    const std::vector<uint8_t> rgba = FinishGdiCanvas(canvas, kAtlasW, kAtlasH);
     TextureManager::GetInstance()->LoadFromRawRGBA8(atlasKey, rgba.data(), kAtlasW, kAtlasH);
     // FlushUploads は SceneManager がシーン初期化後に一括で行う
 }
 
 // JP アトラス ひらがな・カタカナ・指定漢字を 16x16 グリッドで焼く
 
+/** @brief 文字の JP アトラス上のグリフ番号を返す（焼いていない文字は -1） */
 int FontRenderer::GetJpGlyphIdx(wchar_t c) const
 {
     const auto& indexOf = GetJpGlyphTable().indexOf;
@@ -243,13 +301,16 @@ int FontRenderer::GetJpGlyphIdx(wchar_t c) const
     return it != indexOf.end() ? it->second : -1;
 }
 
+/** @brief ひらがな・カタカナ・追加漢字グリフをGDIで描画し、JPアトラステクスチャとして登録する（登録済みなら何もしない） */
 void FontRenderer::BuildJpAtlas(bool bold)
 {
     const char* atlasKey = bold ? kJpAtlasKey : kJpAtlasKeyRegular;
-    if (TextureManager::GetInstance()->HasTexture(atlasKey)) {
+    if (TextureManager::GetInstance()->HasTexture(atlasKey))
+    {
         return;
     }
 
+    // 焼く文字の数から、アトラスの行数と大きさを決める
     const auto& glyphs = GetJpGlyphTable().glyphs;
     int totalGlyphs = static_cast<int>(glyphs.size());
     int atlasRows = (totalGlyphs + kJpCols - 1) / kJpCols;
@@ -257,24 +318,11 @@ void FontRenderer::BuildJpAtlas(bool bold)
     int atlasW = kJpCols * kJpCharW;
     int atlasH = atlasRows * kJpCharH;
 
-    BITMAPINFO bmi { };
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = atlasW;
-    bmi.bmiHeader.biHeight = -atlasH;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
+    GdiCanvas canvas = BeginGdiCanvas(atlasW, atlasH);
 
-    void* bits = nullptr;
-    HBITMAP hBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    ENGINE_ASSERT(hBmp && bits);
-
-    HDC hdcMem = CreateCompatibleDC(nullptr);
-    HBITMAP hOld = static_cast<HBITMAP>(SelectObject(hdcMem, hBmp));
-    memset(bits, 0, static_cast<size_t>(atlasW) * atlasH * 4);
-
+    // フォント  MS Gothic（マスの上下に少し余白を残す高さ）
     LOGFONTW lf { };
-    lf.lfHeight = -(kJpCharH - 2);
+    lf.lfHeight = -(kJpCharH - kJpFontCellMargin);
     lf.lfWeight = bold ? FW_BOLD : FW_NORMAL;
     lf.lfCharSet = DEFAULT_CHARSET;
     lf.lfOutPrecision = OUT_TT_PRECIS;
@@ -284,46 +332,28 @@ void FontRenderer::BuildJpAtlas(bool bold)
 
     HFONT hFont = CreateFontIndirectW(&lf);
     ENGINE_ASSERT(hFont);
-    HFONT hOldFont = static_cast<HFONT>(SelectObject(hdcMem, hFont));
+    HFONT hOldFont = static_cast<HFONT>(SelectObject(canvas.dc, hFont));
 
-    SetBkMode(hdcMem, TRANSPARENT);
-    SetTextColor(hdcMem, RGB(255, 255, 255));
-
-    wchar_t wbuf[2] = { 0, 0 };
-    auto renderAt = [&](int idx, wchar_t ch) {
-        wbuf[0] = ch;
-        int col = idx % kJpCols;
-        int row = idx / kJpCols;
-        TextOutW(hdcMem, col * kJpCharW, row * kJpCharH, wbuf, 1);
-    };
-
-    for (int i = 0; i < totalGlyphs; ++i) {
-        renderAt(i, glyphs[i]);
+    // グリフ番号の順にグリッドへ1文字ずつ描く
+    wchar_t wbuf[TextBufferCapacity::kCharacter] = { 0, 0 };
+    for (int i = 0; i < totalGlyphs; ++i)
+    {
+        wbuf[0] = glyphs[i];
+        int col = i % kJpCols;
+        int row = i / kJpCols;
+        TextOutW(canvas.dc, col * kJpCharW, row * kJpCharH, wbuf, 1);
     }
 
-    GdiFlush();
-    SelectObject(hdcMem, hOldFont);
-    SelectObject(hdcMem, hOld);
+    SelectObject(canvas.dc, hOldFont);
     DeleteObject(hFont);
-    DeleteDC(hdcMem);
 
-    // BGRA（GDI DIB）→ RGBA / 輝度をアルファに
-    const auto* src = static_cast<const uint8_t*>(bits);
-    std::vector<uint8_t> rgba(static_cast<size_t>(atlasW) * atlasH * 4);
-    for (int i = 0; i < atlasW * atlasH; ++i) {
-        uint8_t r = src[i * 4 + 2];
-        uint8_t g = src[i * 4 + 1];
-        uint8_t b = src[i * 4 + 0];
-        uint8_t a = static_cast<uint8_t>((static_cast<int>(r) + g + b) / 3);
-        rgba[i * 4 + 0] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = 255;
-        rgba[i * 4 + 3] = a;
-    }
-    DeleteObject(hBmp);
-
+    // 白い文字の輝度をアルファにしたテクスチャとして登録する
+    const std::vector<uint8_t> rgba = FinishGdiCanvas(canvas, atlasW, atlasH);
     TextureManager::GetInstance()->LoadFromRawRGBA8(atlasKey, rgba.data(), atlasW, atlasH);
     // FlushUploads は SceneManager がシーン初期化後に一括で行う
 }
 
+/** @brief ASCII/JP各2種(Bold/Regular)のアトラスを構築（未生成なら）し、描画用スプライトプールを確保する */
 void FontRenderer::Initialize(SpriteCommon* spriteCommon)
 {
     spriteCommon_ = spriteCommon;
@@ -336,59 +366,88 @@ void FontRenderer::Initialize(SpriteCommon* spriteCommon)
     auto preparePool = [&](std::vector<Sprite>& pool, int limit, int initialCount, const char* atlas) {
         pool.clear();
         pool.reserve(limit);
-        for (int i = 0; i < initialCount; ++i) {
+        for (int i = 0; i < initialCount; ++i)
+        {
             pool.emplace_back();
             pool.back().Initialize(spriteCommon_, atlas);
         }
     };
-    preparePool(sprites_, kMaxChars, 128, kAtlasKey);
-    preparePool(spritesRegular_, kMaxRegularChars, 32, kAtlasKeyRegular);
-    preparePool(jpSprites_, kMaxChars, 128, kJpAtlasKey);
-    preparePool(jpSpritesRegular_, kMaxRegularChars, 32, kJpAtlasKeyRegular);
+    preparePool(sprites_, kMaxChars, kInitialBoldSprites, kAtlasKey);
+    preparePool(spritesRegular_, kMaxRegularChars, kInitialRegularSprites, kAtlasKeyRegular);
+    preparePool(jpSprites_, kMaxChars, kInitialBoldSprites, kJpAtlasKey);
+    preparePool(jpSpritesRegular_, kMaxRegularChars, kInitialRegularSprites, kJpAtlasKeyRegular);
 }
 
+/** @brief 必要な文字数に応じてスプライトを追加し、既存のものは再利用する */
 Sprite& FontRenderer::AcquireGlyphSprite(std::vector<Sprite>& pool, int& index, const char* atlas)
 {
-    if (index >= static_cast<int>(pool.size())) {
+    if (index >= static_cast<int>(pool.size()))
+    {
         pool.emplace_back();
         pool.back().Initialize(spriteCommon_, atlas);
     }
     return pool[index++];
 }
+/** @brief アトラスのグリッドの glyphIndex 番目のマス（cellW×cellH、cols 列）を、画面の (x, y) へ描く */
+void FontRenderer::DrawGlyph(std::vector<Sprite>& pool, int& poolIndex, const char* atlas, int glyphIndex,
+    int cols, int cellW, int cellH, float x, float y, float scale, const Vector4& color)
+{
+    const int col = glyphIndex % cols;
+    const int row = glyphIndex / cols;
+    auto& s = AcquireGlyphSprite(pool, poolIndex, atlas);
+    s.SetPosition({ x, y });
+    s.SetSize({ static_cast<float>(cellW) * scale, static_cast<float>(cellH) * scale });
+    s.SetTextureLeftTop({ static_cast<float>(col * cellW), static_cast<float>(row * cellH) });
+    s.SetTextureSize({ static_cast<float>(cellW), static_cast<float>(cellH) });
+    s.SetColor(color);
+    s.Update();
+    s.Draw();
+}
+
+/** @brief UTF-8 の文字列を描画予約する */
 void FontRenderer::DrawString(const std::string& text, float x, float y,
     float scale, const Vector4& color, bool bold)
 {
     // 半角用の経路は日本語(UTF-8の多バイト文字)を描けないため、混ざっていればワイド文字列の経路へ回す
     const bool hasMultiByte = std::any_of(text.begin(), text.end(),
-        [](char c) { return static_cast<unsigned char>(c) >= kAsciiLimit; });
-    if (hasMultiByte) {
+        [](char c) {
+            return static_cast<unsigned char>(c) >= kAsciiLimit;
+        });
+    if (hasMultiByte)
+    {
         DrawStringW(StringUtility::ConvertString(text), x, y, scale, color, bold);
         return;
     }
     cmds_.push_back({ text, x, y, scale, color, bold });
 }
 
+/** @brief ワイド文字列を描画予約する */
 void FontRenderer::DrawStringW(const std::wstring& text, float x, float y,
     float scale, const Vector4& color, bool bold)
 {
     cmdsW_.push_back({ text, x, y, scale, color, bold });
 }
 
+/** @brief 文字の下に敷く単色の板を積む（Draw()で文字より先に描く） */
 void FontRenderer::DrawPanel(float x, float y, float width, float height, const Vector4& color)
 {
     panelCmds_.push_back({ x, y, width, height, color });
 }
 
+/** @brief DrawStringWで描いた時の大きさを返す（改行は行数として数える） */
 Vector2 FontRenderer::MeasureStringW(const std::wstring& text, float scale)
 {
     float lineWidth = 0.0f;
     float maxWidth = 0.0f;
     int lines = 1;
-    for (wchar_t wc : text) {
-        if (wc == L'\r') {
+    for (wchar_t wc : text)
+    {
+        if (wc == L'\r')
+        {
             continue;
         }
-        if (wc == L'\n') {
+        if (wc == L'\n')
+        {
             maxWidth = (std::max)(maxWidth, lineWidth);
             lineWidth = 0.0f;
             ++lines;
@@ -401,6 +460,7 @@ Vector2 FontRenderer::MeasureStringW(const std::wstring& text, float scale)
     return { maxWidth, height };
 }
 
+/** @brief 積んだ描画コマンドとスプライト使用数をクリアする（毎フレーム、DrawString系を呼ぶ前に呼ぶ） */
 void FontRenderer::Reset()
 {
     panelCmds_.clear();
@@ -413,10 +473,12 @@ void FontRenderer::Reset()
     jpSpriteRegularIdx_ = 0;
 }
 
+/** @brief Reset()以降に積んだASCII/JP文字列コマンドをすべてスプライトとして描画する */
 void FontRenderer::Draw()
 {
     // ── 下敷きの板（文字より先に描いて後ろへ回す） ───────────────────────
-    for (const auto& panel : panelCmds_) {
+    for (const auto& panel : panelCmds_)
+    {
         auto& s = AcquireGlyphSprite(panelSprites_, panelSpriteIdx_, kPanelTexture);
         s.SetPosition({ panel.x, panel.y });
         s.SetSize({ panel.width, panel.height });
@@ -426,44 +488,48 @@ void FontRenderer::Draw()
     }
 
     // ── ASCII 文字列 ──────────────────────────────────────────────────
-    for (const auto& cmd : cmds_) {
+    for (const auto& cmd : cmds_)
+    {
+        // 太字か通常かで使うスプライトの置き場を切り替える
         auto& pool = cmd.bold ? sprites_ : spritesRegular_;
         auto& poolIdx = cmd.bold ? spriteIdx_ : spriteRegularIdx_;
         const int poolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
         float cx = cmd.x;
         float cy = cmd.y;
-        for (unsigned char c : cmd.text) {
-            if (c == '\r') { continue; }
-            if (c == '\n') {
+        // 1文字ずつ並べる（改行で行頭へ戻り、アトラスに無い文字は空白として進める）
+        for (unsigned char c : cmd.text)
+        {
+            if (c == '\r')
+            {
+                continue;
+            }
+            if (c == '\n')
+            {
                 cx = cmd.x;
                 cy += (kCharH + kLineGap) * cmd.scale;
                 continue;
             }
-            if (poolIdx >= poolMax) {
+            if (poolIdx >= poolMax)
+            {
                 ReportGlyphPoolFull(poolMax);
                 break;
             }
             int idx = static_cast<int>(c) - kCharBase;
-            if (idx < 0 || idx >= kCols * kRows) {
+            if (idx < 0 || idx >= kCols * kRows)
+            {
                 cx += kCharW * cmd.scale;
                 continue;
             }
-            int col = idx % kCols;
-            int row = idx / kCols;
-            auto& s = AcquireGlyphSprite(pool, poolIdx, cmd.bold ? kAtlasKey : kAtlasKeyRegular);
-            s.SetPosition({ cx, cy });
-            s.SetSize({ (float)kCharW * cmd.scale, (float)kCharH * cmd.scale });
-            s.SetTextureLeftTop({ (float)(col * kCharW), (float)(row * kCharH) });
-            s.SetTextureSize({ (float)kCharW, (float)kCharH });
-            s.SetColor(cmd.color);
-            s.Update();
-            s.Draw();
+            DrawGlyph(pool, poolIdx, cmd.bold ? kAtlasKey : kAtlasKeyRegular, idx,
+                kCols, kCharW, kCharH, cx, cy, cmd.scale, cmd.color);
             cx += kCharW * cmd.scale;
         }
     }
 
     // ── 日本語（ASCII 混在可）ワイド文字列 ────────────────────────────
-    for (const auto& cmd : cmdsW_) {
+    for (const auto& cmd : cmdsW_)
+    {
+        // ASCII と日本語でアトラスと置き場を分ける
         auto& pool = cmd.bold ? sprites_ : spritesRegular_;
         auto& poolIdx = cmd.bold ? spriteIdx_ : spriteRegularIdx_;
         const int poolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
@@ -472,54 +538,54 @@ void FontRenderer::Draw()
         const int jpPoolMax = cmd.bold ? kMaxChars : kMaxRegularChars;
         float cx = cmd.x;
         float cy = cmd.y;
-        for (wchar_t wc : cmd.text) {
-            if (wc == L'\r') { continue; }
-            if (wc == L'\n') {
+        for (wchar_t wc : cmd.text)
+        {
+            if (wc == L'\r')
+            {
+                continue;
+            }
+            if (wc == L'\n')
+            {
                 cx = cmd.x;
                 cy += (kJpCharH + kLineGap) * cmd.scale;
                 continue;
             }
-            if (wc < 128) {
+            if (wc < kAsciiLimit)
+            {
                 // ASCII 部分 → ASCII アトラス
                 int idx = static_cast<int>(wc) - kCharBase;
-                if (poolIdx >= poolMax) {
+                if (poolIdx >= poolMax)
+                {
                     ReportGlyphPoolFull(poolMax);
                 }
-                if (idx >= 0 && idx < kCols * kRows && poolIdx < poolMax) {
-                    int col = idx % kCols;
-                    int row = idx / kCols;
-                    auto& s = AcquireGlyphSprite(pool, poolIdx, cmd.bold ? kAtlasKey : kAtlasKeyRegular);
-                    s.SetPosition({ cx, cy });
-                    s.SetSize({ (float)kCharW * cmd.scale, (float)kCharH * cmd.scale });
-                    s.SetTextureLeftTop({ (float)(col * kCharW), (float)(row * kCharH) });
-                    s.SetTextureSize({ (float)kCharW, (float)kCharH });
-                    s.SetColor(cmd.color);
-                    s.Update();
-                    s.Draw();
+                if (idx >= 0 && idx < kCols * kRows && poolIdx < poolMax)
+                {
+                    DrawGlyph(pool, poolIdx, cmd.bold ? kAtlasKey : kAtlasKeyRegular, idx,
+                        kCols, kCharW, kCharH, cx, cy, cmd.scale, cmd.color);
                 }
                 cx += kCharW * cmd.scale;
-            } else {
+            }
+            else
+            {
                 // 日本語 → JP アトラス
                 int jpIdx = GetJpGlyphIdx(wc);
-                if (jpIdx < 0) {
+                if (jpIdx < 0)
+                {
                     ReportMissingGlyph(wc, cmd.text);
-                } else if (jpPoolIdx >= jpPoolMax) {
+                }
+                else if (jpPoolIdx >= jpPoolMax)
+                {
                     ReportGlyphPoolFull(jpPoolMax);
                 }
-                if (jpIdx >= 0 && jpPoolIdx < jpPoolMax) {
-                    int col = jpIdx % kJpCols;
-                    int row = jpIdx / kJpCols;
-                    auto& s = AcquireGlyphSprite(jpPool, jpPoolIdx, cmd.bold ? kJpAtlasKey : kJpAtlasKeyRegular);
-                    s.SetPosition({ cx, cy });
-                    s.SetSize({ (float)kJpCharW * cmd.scale, (float)kJpCharH * cmd.scale });
-                    s.SetTextureLeftTop({ (float)(col * kJpCharW), (float)(row * kJpCharH) });
-                    s.SetTextureSize({ (float)kJpCharW, (float)kJpCharH });
-                    s.SetColor(cmd.color);
-                    s.Update();
-                    s.Draw();
+                if (jpIdx >= 0 && jpPoolIdx < jpPoolMax)
+                {
+                    DrawGlyph(jpPool, jpPoolIdx, cmd.bold ? kJpAtlasKey : kJpAtlasKeyRegular, jpIdx,
+                        kJpCols, kJpCharW, kJpCharH, cx, cy, cmd.scale, cmd.color);
                 }
                 cx += kJpCharW * cmd.scale;
             }
         }
     }
 }
+
+} // namespace engine::game

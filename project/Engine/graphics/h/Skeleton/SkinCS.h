@@ -1,6 +1,6 @@
 /**
  * @file SkinCS.h
- * @brief SkinCSの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief スキニングをコンピュートシェーダーで計算する処理（SkinCS）の宣言
  */
 #pragma once
 #include "DirectXCommon.h"
@@ -41,13 +41,15 @@ public:
         ID3D12Resource* inputBuffer,
         UINT vertexCount);
 
-    // スキニング計算を Dispatch するDraw() より前に呼ぶこと
+    // スキニング計算を Dispatch する。Draw() より前に呼ぶこと
     // paletteCBAddress   paletteCB_->GetGPUVirtualAddress()
     void Dispatch(ID3D12GraphicsCommandList* cmd,
         D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress);
 
     // 計算済み頂点バッファのビューを返すIASetVertexBuffers に渡す
-    const D3D12_VERTEX_BUFFER_VIEW& GetOutputVBV() const { return outputVBV_; }
+    const D3D12_VERTEX_BUFFER_VIEW& GetOutputVBV() const {
+        return outputVBV_;
+    }
 
 private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature> csRootSig_;

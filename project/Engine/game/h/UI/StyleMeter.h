@@ -57,12 +57,20 @@ public:
     void DrawHud();
 
     int GetRankIndex() const; ///< 0=D 〜 6=SSS
-    int GetHitCount() const { return hitCount_; } ///< 現在のヒットチェーン数
-    int GetBestChain() const { return bestChain_; } ///< このメーター生成以降の最大ヒットチェーン数
+    /** @brief 今の連続ヒット数を返す */
+    int GetHitCount() const {
+        return hitCount_;
+    }
+    /** @brief このメーターを作ってからの最大連続ヒット数を返す */
+    int GetBestChain() const {
+        return bestChain_;
+    }
     /** @brief 現在のランクに対応する表示色を返す（ランクアップ演出の色をHUDと一致させるのに使う） */
     Vector4 GetRankColor() const;
     /** @brief 直前のUpdate()でランクが上がった瞬間ならtrue（1フレームだけ立つ、ランクアップ演出のトリガー用） */
-    bool JustRankedUp() const { return justRankedUp_; }
+    bool JustRankedUp() const {
+        return justRankedUp_;
+    }
 
 private:
     float points_ = 0.0f; ///< スタイルポイント（0〜style_meter.json の maxPoints）

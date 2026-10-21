@@ -63,7 +63,9 @@ public:
      * @brief 動画の表示座標を取得
      * @return const Vector2& 座標(x, y)
      */
-    const Vector2& GetPosition() const { return sprite_->GetPosition(); }
+    const Vector2& GetPosition() const {
+        return sprite_->GetPosition();
+    }
 
     /**
      * @brief 動画の表示座標を設定
@@ -71,7 +73,8 @@ public:
      */
     void SetPosition(const Vector2& pos)
     {
-        if (sprite_) {
+        if (sprite_)
+        {
             sprite_->SetPosition(pos);
         }
     }
@@ -80,7 +83,9 @@ public:
      * @brief 動画の表示サイズを取得
      * @return const Vector2& サイズ(width, height)
      */
-    const Vector2& GetSize() const { return sprite_->GetSize(); }
+    const Vector2& GetSize() const {
+        return sprite_->GetSize();
+    }
 
     /**
      * @brief 動画の表示サイズを設定
@@ -88,7 +93,8 @@ public:
      */
     void SetSize(const Vector2& size)
     {
-        if (sprite_) {
+        if (sprite_)
+        {
             sprite_->SetSize(size);
         }
     }
@@ -97,7 +103,9 @@ public:
      * @brief 動画の回転角を取得
      * @return float 回転角（ラジアン）
      */
-    float GetRotation() const { return sprite_->GetRotation(); }
+    float GetRotation() const {
+        return sprite_->GetRotation();
+    }
 
     /**
      * @brief 動画の回転角を設定
@@ -105,7 +113,8 @@ public:
      */
     void SetRotation(float rot)
     {
-        if (sprite_) {
+        if (sprite_)
+        {
             sprite_->SetRotation(rot);
         }
     }
@@ -116,15 +125,22 @@ public:
      * @brief 1フレームあたりの再生時間を取得
      * @return float 秒数
      */
-    float GetFrameDuration() const { return frameDuration_; }
+    float GetFrameDuration() const {
+        return frameDuration_;
+    }
 
     /**
      * @brief 1フレームあたりの再生時間を設定（再生速度の変更）
      * @param duration 秒数（例: 30FPSなら 1.0f/30.0f）
      */
-    void SetFrameDuration(float duration) { frameDuration_ = duration; }
+    void SetFrameDuration(float duration) {
+        frameDuration_ = duration;
+    }
 
 private:
+    /** @brief アップロードバッファから動画テクスチャへ1フレームを転送する */
+    void UploadFrame(const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& footprint);
+
     /** @brief DirectX基盤のポインタ（借り物） */
     engine::DirectXCommon* dxCommon_ = nullptr;
 

@@ -27,10 +27,17 @@ public:
     void Load(); // save/settings.json から読み込む（ファイルがなければデフォルト値）
     void Save(); // save/settings.json へ書き込む
 
-    GameSettings& Get() { return settings_; }
-    const GameSettings& Get() const { return settings_; }
+    /** @brief 現在の設定値のスナップショットを取得する */
+    GameSettings Get() const {
+        return settings_;
+    }
+    /** @brief 編集済みの設定値を反映する。保存はSaveで明示的に行う */
+    void Apply(const GameSettings& settings) {
+        settings_ = settings;
+    }
 
 private:
+    /** @brief 読み込み前のゲーム設定を生成する */
     GameSettingsManager() = default;
     GameSettings settings_;
     static constexpr const char* kFilePath = "save/settings.json";

@@ -65,35 +65,23 @@ public:
     void Update() override;
     /** @brief ステージとプレイヤーを描画する */
     void Draw() override;
-    /** @brief ImGui マネージャーを設定する */
-    void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
-    /** @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する） */
-    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+    /** @brief エディタから操作するプレイヤーを返す */
+    Player* GetEditorPlayer() const override {
+        return player_.get();
+    }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/training.json"; }
-    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
-    Camera* GetEditorCamera() override { return camera_.get(); }
-    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
-    int GetEditorPlayerVisualPreset() const override { return player_ ? player_->GetVisualPreset() : -1; }
-    void SetEditorPlayerVisualPreset(int preset) override
-    {
-        if (player_)
-            player_->SetVisualPreset(preset);
+    std::string GetEditorLevelPath() const override {
+        return "Resources/Levels/training.json";
     }
-    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
-    {
-        if (player_)
-            player_->SetStaticVisualModel(model, tex);
+    /** @brief エディタで使うモデルの共通設定を返す */
+    ModelCommon* GetEditorModelCommon() override {
+        return modelCommon_.get();
     }
-    std::string GetEditorPlayerStaticVisualModel() const override
-    {
-        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
-    }
-    std::string GetEditorPlayerStaticVisualTexture() const override
-    {
-        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
+    /** @brief エディタで使うカメラを返す */
+    Camera* GetEditorCamera() override {
+        return camera_.get();
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
@@ -129,7 +117,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
     SrvManager* srvManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;

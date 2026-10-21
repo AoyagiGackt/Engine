@@ -58,11 +58,26 @@ public:
     /** @brief コンボを強制的に打ち切る（被弾・銃切替・乱舞開始時など） */
     void Reset();
 
-    bool JustShot() const { return justShot_; } ///< このフレームに発砲したか
-    bool JustStartedStep() const { return justStarted_; } ///< このフレームに段が開始したか
-    const GunShotDef* GetActive() const { return active_; } ///< 進行中の段（無ければ nullptr）
-    int GetStep() const { return stepDisplay_; } ///< 表示用の段数（1始まり）
-    float GetMoveDelta() const { return moveDelta_; } ///< このフレームぶんの前後移動量（負なら後退）
+    /** @brief このフレームに撃ったかを返す */
+    bool JustShot() const {
+        return justShot_;
+    }
+    /** @brief このフレームに段を始めたかを返す */
+    bool JustStartedStep() const {
+        return justStarted_;
+    }
+    /** @brief 今の段の射撃の定義を返す（撃っていなければ nullptr） */
+    const GunShotDef* GetActive() const {
+        return active_;
+    }
+    /** @brief 今の段の番号を返す（表示用、1始まり） */
+    int GetStep() const {
+        return stepDisplay_;
+    }
+    /** @brief このフレームの射撃による前後の移動量を返す（負なら後退） */
+    float GetMoveDelta() const {
+        return moveDelta_;
+    }
 
     /** @brief 現在の銃回転オフセットを返す（構え→リコイル→構え直しの補間） */
     Vector3 GetPoseOffset() const;
@@ -82,7 +97,7 @@ private:
     float chainGraceTimer_ = 0.0f; ///< モーション終了後もコンボを継続できる猶予
     float moveDelta_ = 0.0f;
 
-    static constexpr float kChainGrace_ = 0.50f; ///< 段間の入力猶予（秒、銃は近接より少し緩め）
+    static constexpr float kChainGrace = 0.50f; ///< 段間の入力猶予（秒、銃は近接より少し緩め）
 };
 
 } // namespace engine::game

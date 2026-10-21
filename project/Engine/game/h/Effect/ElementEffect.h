@@ -25,6 +25,7 @@ struct ElementEffectContext {
  */
 class IElementEffect {
 public:
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~IElementEffect() = default;
 
     /**

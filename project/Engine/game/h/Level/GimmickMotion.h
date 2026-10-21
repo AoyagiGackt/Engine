@@ -29,21 +29,32 @@ struct GimmickPose {
  */
 class GimmickMotion {
 public:
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~GimmickMotion() = default;
 
     /** @brief 動き方の名前に対応する動き方を返す（未知の名前は動かない） */
     static const GimmickMotion& Of(const std::string& name);
 
     /** @brief 経過時間 timer での一時的な姿を求める */
-    virtual GimmickPose Evaluate(const ObjectDesc&, float) const { return { }; }
+    virtual GimmickPose Evaluate(const ObjectDesc&, float) const {
+        return { };
+    }
     /** @brief 可動域の向きと量（デバッグ表示用。移動しない動き方はゼロ） */
-    virtual Vector3 RangeAxis(const ObjectDesc&) const { return { }; }
+    virtual Vector3 RangeAxis(const ObjectDesc&) const {
+        return { };
+    }
     /** @brief 可動域が片道か（往復しない） */
-    virtual bool IsOneWay(const ObjectDesc&) const { return false; }
+    virtual bool IsOneWay(const ObjectDesc&) const {
+        return false;
+    }
     /** @brief 子の配置物も一緒に回して見せるか */
-    virtual bool CarriesChildren() const { return false; }
+    virtual bool CarriesChildren() const {
+        return false;
+    }
     /** @brief 移動方向・回転量・往復方式を自由に決める動き方か（インスペクタで詳細項目を出す） */
-    virtual bool IsFreeform() const { return false; }
+    virtual bool IsFreeform() const {
+        return false;
+    }
     /** @brief 動き方固有の設定ミスを issues へ追加する */
     virtual void Validate(const ObjectDesc&, std::vector<std::string>&) const { }
     /**

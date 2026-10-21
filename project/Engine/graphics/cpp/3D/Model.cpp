@@ -1,8 +1,10 @@
 /**
  * @file Model.cpp
- * @brief Modelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief モデルファイルの読み込みと頂点・マテリアルの用意（Model）の実装
  */
 #include "Model.h"
+#include "AssimpVertexReader.h"
+#include "PipelineHelper.h"
 #include "AssetPack.h"
 #include "EngineAssert.h"
 #include "ModelCommon.h"
@@ -20,6 +22,7 @@
 #include <sstream>
 #include <tuple>
 
+namespace engine::graphics {
 namespace {
 
 // 三角形のインデックス数とOBJの参照成分数
@@ -30,13 +33,13 @@ constexpr size_t kObjReferenceComponentCount = 3;
 constexpr float kTangentEpsilon = 1e-6f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+/** @brief モデルとテクスチャを読み込み、頂点とインデックスのバッファを生成する */
 void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath)
 {
+    // テクスチャを読み、キューブマップかどうかを覚えておく
     modelCommon_ = modelCommon;
     textureFilePath_ = textureFilePath;
 
@@ -44,22 +47,19 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     isCubemap_ = TextureManager::GetInstance()->GetMetaData(textureFilePath).IsCubemap();
 
     // 拡張子で読み込み関数を切り替える
+    // 拡張子を小文字で取り出す
     auto dotPos = modelFilePath.find_last_of('.');
     ENGINE_ASSERT(dotPos != std::string::npos && "モデルファイルパスに拡張子がありません");
     std::string ext = modelFilePath.substr(dotPos + 1);
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+        return std::tolower(c);
+    });
 
     // pakに頂点・インデックスがあれば、assimpやOBJの解析と法線・接線の計算を丸ごと省く
     const std::string packKey = "model:" + modelFilePath;
     std::vector<uint8_t> packed;
-    bool loadedFromPack = false;
-    if (AssetPack::GetInstance()->Read(packKey, packed)) {
-        BinaryReader reader(packed);
-        vertices_ = reader.ReadVector<VertexData>();
-        indices_ = reader.ReadVector<uint32_t>();
-        loadedFromPack = reader.IsValid() && !vertices_.empty();
-    }
-    if (!loadedFromPack) {
+    if (!AssetPack::GetInstance()->Read(packKey, packed) || !LoadPackedGeometry(packed))
+    {
         vertices_.clear();
         indices_.clear();
         // 拡張子と読み込み関数の対応（載っていない拡張子は assimp 経由で読む）
@@ -71,40 +71,18 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
             { "obj", &Model::LoadObjFile },
         };
         const auto loader = std::find_if(std::begin(kLoaders), std::end(kLoaders),
-            [&ext](const Loader& entry) { return ext == entry.extension; });
+            [&ext](const Loader& entry) {
+                return ext == entry.extension;
+            });
         (this->*(loader != std::end(kLoaders) ? loader->load : &Model::LoadGltfFile))(modelFilePath);
-        if (AssetPack::GetInstance()->IsCooking()) {
-            BinaryWriter writer;
-            writer.WriteVector(vertices_);
-            writer.WriteVector(indices_);
-            AssetPack::GetInstance()->Record(packKey, std::move(writer.Bytes()));
-        }
+        RecordPackedGeometry(packKey);
     }
 
+    // 頂点をアップロードヒープのバッファへ書き込み、頂点バッファビューを作る
     ID3D12Device* device = modelCommon_->GetDxCommon()->GetDevice();
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
 
-    D3D12_HEAP_PROPERTIES uploadHeapProperties { D3D12_HEAP_TYPE_UPLOAD };
-
-    D3D12_RESOURCE_DESC resourceDesc { };
-    resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resourceDesc.Width = sizeInBytes;
-    resourceDesc.Height = 1;
-    resourceDesc.DepthOrArraySize = 1;
-    resourceDesc.MipLevels = 1;
-    resourceDesc.SampleDesc.Count = 1;
-    resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    HRESULT hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
-        &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-        IID_PPV_ARGS(&vertexResource_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    VertexData* data = nullptr;
-    hr = vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&data));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    std::copy(vertices_.begin(), vertices_.end(), data);
-    vertexResource_->Unmap(0, nullptr);
+    vertexResource_ = PipelineHelper::CreateUploadBufferFrom(device, vertices_);
 
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(sizeInBytes);
@@ -113,31 +91,14 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     // インデックスバッファ作成
     size_t indexSizeInBytes = sizeof(uint32_t) * indices_.size();
 
-    D3D12_RESOURCE_DESC indexResourceDesc { };
-    indexResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    indexResourceDesc.Width = indexSizeInBytes;
-    indexResourceDesc.Height = 1;
-    indexResourceDesc.DepthOrArraySize = 1;
-    indexResourceDesc.MipLevels = 1;
-    indexResourceDesc.SampleDesc.Count = 1;
-    indexResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    hr = device->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
-        &indexResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-        IID_PPV_ARGS(&indexResource_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    uint32_t* indexData = nullptr;
-    hr = indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    std::copy(indices_.begin(), indices_.end(), indexData);
-    indexResource_->Unmap(0, nullptr);
+    indexResource_ = PipelineHelper::CreateUploadBufferFrom(device, indices_);
 
     indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
     indexBufferView_.SizeInBytes = static_cast<UINT>(indexSizeInBytes);
     indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
 }
 
+/** @brief モデルの描画コマンド（DrawIndexedInstanced）を積む */
 void Model::Draw(ModelCommon* modelCommon)
 {
     ID3D12GraphicsCommandList* commandList = modelCommon->GetDxCommon()->GetCommandList();
@@ -146,19 +107,23 @@ void Model::Draw(ModelCommon* modelCommon)
     commandList->IASetIndexBuffer(&indexBufferView_);
 
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kTexture, textureSrvHandle);
 
     // スロット5（TextureCube）  環境マップが指定されていればそちらを、なければ通常テクスチャを流用
-    if (!envCubemapFilePath_.empty()) {
+    if (!envCubemapFilePath_.empty())
+    {
         D3D12_GPU_DESCRIPTOR_HANDLE cubeHandle = TextureManager::GetInstance()->GetSrvHandleGPU(envCubemapFilePath_);
-        commandList->SetGraphicsRootDescriptorTable(5, cubeHandle);
-    } else {
-        commandList->SetGraphicsRootDescriptorTable(5, textureSrvHandle);
+        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kEnvironment, cubeHandle);
+    }
+    else
+    {
+        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kEnvironment, textureSrvHandle);
     }
 
     commandList->DrawIndexedInstanced(static_cast<UINT>(indices_.size()), 1, 0, 0, 0);
 }
 
+/** @brief シャドウパス用の描画（テクスチャバインドなし、頂点バッファのみ） */
 void Model::DrawGeometryOnly(ModelCommon* modelCommon)
 {
     ID3D12GraphicsCommandList* commandList = modelCommon->GetDxCommon()->GetCommandList();
@@ -174,8 +139,10 @@ void Model::LoadObjFile(const std::string& filePath)
     ComputeTangents();
 }
 
+/** @brief OBJファイルのテキストを解析し vertices_/indices_ を構築する */
 void Model::ParseObjFile(const std::string& filePath)
 {
+    // OBJ は v/vt/vn で位置・UV・法線を、f で面を並べた行の集まり
     std::ifstream file(filePath);
     ENGINE_ASSERT(file.is_open());
 
@@ -187,6 +154,7 @@ void Model::ParseObjFile(const std::string& filePath)
     // (v, vt, vn) の組み合わせ → vertices_ 内のインデックスへのマップ
     std::map<std::tuple<int, int, int>, uint32_t> indexMap;
 
+    /** @brief OBJファイルの行の識別子と読み取り処理の対応 */
     struct ObjLineHandler {
         const char* identifier;
         std::function<void(std::stringstream&)> parse;
@@ -213,14 +181,18 @@ void Model::ParseObjFile(const std::string& filePath)
             std::vector<uint32_t> faceIndices;
             std::string s;
 
-            while (ss >> s) {
+            // 面の各頂点 v/vt/vn を読み、同じ組み合わせは同じ頂点を使い回す（番号は1始まり）
+            while (ss >> s)
+            {
                 std::stringstream ss2(s);
                 std::string indexStr;
                 int idx[kObjReferenceComponentCount] = { 0, 0, 0 };
                 int count = 0;
 
-                while (std::getline(ss2, indexStr, '/')) {
-                    if (!indexStr.empty()) {
+                while (std::getline(ss2, indexStr, '/'))
+                {
+                    if (!indexStr.empty())
+                    {
                         idx[count] = std::stoi(indexStr);
                     }
                     count++;
@@ -228,21 +200,27 @@ void Model::ParseObjFile(const std::string& filePath)
 
                 auto key = std::make_tuple(idx[0], idx[1], idx[2]);
                 auto it = indexMap.find(key);
-                if (it != indexMap.end()) {
+                if (it != indexMap.end())
+                {
                     faceIndices.push_back(it->second);
-                } else {
+                }
+                else
+                {
                     uint32_t newIndex = static_cast<uint32_t>(vertices_.size());
                     indexMap[key] = newIndex;
                     faceIndices.push_back(newIndex);
 
                     VertexData vd { };
-                    if (idx[0] > 0) {
+                    if (idx[0] > 0)
+                    {
                         vd.position = positions[idx[0] - 1];
                     }
-                    if (idx[1] > 0) {
+                    if (idx[1] > 0)
+                    {
                         vd.texcoord = texcoords[idx[1] - 1];
                     }
-                    if (idx[2] > 0) {
+                    if (idx[2] > 0)
+                    {
                         vd.normal = normals[idx[2] - 1];
                     }
                     vertices_.push_back(vd);
@@ -250,19 +228,24 @@ void Model::ParseObjFile(const std::string& filePath)
             }
 
             // ファン状に三角形へ分割してインデックスを登録
-            for (size_t i = 1; i < faceIndices.size() - 1; ++i) {
+            for (size_t i = 1; i < faceIndices.size() - 1; ++i)
+            {
                 indices_.push_back(faceIndices[0]);
                 indices_.push_back(faceIndices[i]);
                 indices_.push_back(faceIndices[i + 1]);
             }
         } },
     };
-    while (std::getline(file, line)) {
+    // 1行ずつ先頭の識別子を見て、対応する読み取り処理に渡す
+    while (std::getline(file, line))
+    {
         std::stringstream ss(line);
         std::string identifier;
         ss >> identifier;
-        for (const auto& handler : handlers) {
-            if (identifier == handler.identifier) {
+        for (const auto& handler : handlers)
+        {
+            if (identifier == handler.identifier)
+            {
                 handler.parse(ss);
                 break;
             }
@@ -270,11 +253,14 @@ void Model::ParseObjFile(const std::string& filePath)
     }
 }
 
+/** @brief vertices_/indices_ から三角形ごとにタンジェントを計算し格納する */
 void Model::ComputeTangents()
 {
     // タンジェント計算（三角形ごとに dPos/dUV から求めてアキュムレート）
     std::vector<Vector3> tangentAccum(vertices_.size(), { 0.0f, 0.0f, 0.0f });
-    for (size_t i = 0; i + 2 < indices_.size(); i += kTriangleIndexCount) {
+    for (size_t i = 0; i + 2 < indices_.size(); i += kTriangleIndexCount)
+    {
+        // 三角形の2辺の位置の差と UV の差から、UV の U 方向に当たる向きを求める
         uint32_t i0 = indices_[i], i1 = indices_[i + 1], i2 = indices_[i + 2];
         Vector3 p0 = { vertices_[i0].position.x, vertices_[i0].position.y, vertices_[i0].position.z };
         Vector3 p1 = { vertices_[i1].position.x, vertices_[i1].position.y, vertices_[i1].position.z };
@@ -287,7 +273,8 @@ void Model::ComputeTangents()
         float du2 = uv2.x - uv0.x, dv2 = uv2.y - uv0.y;
 
         float denom = du1 * dv2 - du2 * dv1;
-        if (std::abs(denom) < kTangentEpsilon) {
+        if (std::abs(denom) < kTangentEpsilon)
+        {
             continue;
         }
         float invR = 1.0f / denom;
@@ -296,20 +283,25 @@ void Model::ComputeTangents()
             (e1.y * dv2 - e2.y * dv1) * invR,
             (e1.z * dv2 - e2.z * dv1) * invR
         };
-        for (uint32_t idx : { i0, i1, i2 }) {
+        // 三角形の3頂点に足し込み、共有する頂点では平均の向きになるようにする
+        for (uint32_t idx : { i0, i1, i2 })
+        {
             tangentAccum[idx].x += t.x;
             tangentAccum[idx].y += t.y;
             tangentAccum[idx].z += t.z;
         }
     }
-    for (size_t i = 0; i < vertices_.size(); ++i) {
+    // 法線に直交するよう補正して長さ1にする
+    for (size_t i = 0; i < vertices_.size(); ++i)
+    {
         Vector3 n = vertices_[i].normal;
         Vector3 t = tangentAccum[i];
         // Gram-Schmidt 直交化
         float dot = n.x * t.x + n.y * t.y + n.z * t.z;
         t = { t.x - n.x * dot, t.y - n.y * dot, t.z - n.z * dot };
         float len = std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
-        if (len > kTangentEpsilon) {
+        if (len > kTangentEpsilon)
+        {
             t.x /= len;
             t.y /= len;
             t.z /= len;
@@ -318,6 +310,7 @@ void Model::ComputeTangents()
     }
 }
 
+/** @brief Assimpを使ってGLTF/FBX等のメッシュを読み込む内部関数 */
 void Model::LoadGltfFile(const std::string& filePath)
 {
     Assimp::Importer importer;
@@ -326,33 +319,18 @@ void Model::LoadGltfFile(const std::string& filePath)
 
     ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
-    for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
+    for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex)
+    {
         aiMesh* mesh = scene->mMeshes[meshIndex];
         uint32_t baseVertex = static_cast<uint32_t>(vertices_.size());
 
         // 頂点データをそのまま追加
-        for (uint32_t vIdx = 0; vIdx < mesh->mNumVertices; ++vIdx) {
+        for (uint32_t vIdx = 0; vIdx < mesh->mNumVertices; ++vIdx)
+        {
             VertexData vd { };
-            vd.position = {
-                mesh->mVertices[vIdx].x,
-                mesh->mVertices[vIdx].y,
-                mesh->mVertices[vIdx].z,
-                1.0f
-            };
-            if (mesh->HasNormals()) {
-                vd.normal = {
-                    mesh->mNormals[vIdx].x,
-                    mesh->mNormals[vIdx].y,
-                    mesh->mNormals[vIdx].z
-                };
-            }
-            if (mesh->HasTextureCoords(0)) {
-                vd.texcoord = {
-                    mesh->mTextureCoords[0][vIdx].x,
-                    mesh->mTextureCoords[0][vIdx].y
-                };
-            }
-            if (mesh->HasTangentsAndBitangents()) {
+            ReadAssimpVertex(vd, *mesh, vIdx, 1.0f);
+            if (mesh->HasTangentsAndBitangents())
+            {
                 vd.tangent = {
                     mesh->mTangents[vIdx].x,
                     mesh->mTangents[vIdx].y,
@@ -363,11 +341,39 @@ void Model::LoadGltfFile(const std::string& filePath)
         }
 
         // Assimpのフェイスインデックスをそのままインデックスバッファへ追加
-        for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
+        for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex)
+        {
             const aiFace& face = mesh->mFaces[faceIndex];
-            for (uint32_t i = 0; i < face.mNumIndices; ++i) {
+            for (uint32_t i = 0; i < face.mNumIndices; ++i)
+            {
                 indices_.push_back(baseVertex + face.mIndices[i]);
             }
         }
     }
 }
+
+/** @brief pakの頂点と付随データを復元して有効性を確認する */
+bool Model::LoadPackedGeometry(const std::vector<uint8_t>& packed)
+{
+    // 保存した順に読み、不完全なデータは呼び出し元で破棄する
+    BinaryReader reader(packed);
+    vertices_ = reader.ReadVector<VertexData>();
+    indices_ = reader.ReadVector<uint32_t>();
+    return reader.IsValid() && !vertices_.empty();
+}
+
+/** @brief pak作成中に頂点と付随データを保存する */
+void Model::RecordPackedGeometry(const std::string& packKey) const
+{
+    // 通常の読み込み時には記録を行わない
+    if (!AssetPack::GetInstance()->IsCooking())
+    {
+        return;
+    }
+    BinaryWriter writer;
+    writer.WriteVector(vertices_);
+    writer.WriteVector(indices_);
+    AssetPack::GetInstance()->Record(packKey, writer.TakeBytes());
+}
+
+} // namespace engine::graphics

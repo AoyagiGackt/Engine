@@ -12,12 +12,14 @@
  *   スプライトがそのテクスチャを参照して描画する
  */
 #include "VideoPlayer.h"
+#include "PipelineHelper.h"
 #include "EngineAssert.h"
 #include "GameConstants.h"
 #include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
 
+namespace engine::graphics {
 namespace {
 
 // 動画のプレビュー配置とピクセル容量
@@ -28,8 +30,6 @@ constexpr float kPreviewHeight = 450.0f;
 constexpr int kRgbaBytesPerPixel = 4;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
@@ -67,7 +67,8 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 
     // 動画ファイルを開く
     hr = MFCreateSourceReaderFromURL(wFilePath.c_str(), attributes.Get(), &pSourceReader_);
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         Logger::LogError("Failed to load video: " + filePath);
         ENGINE_ASSERT(false);
     }
@@ -114,31 +115,15 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 
     // CPU 書き込み用の中間バッファ（UPLOAD ヒープ  CPU が書き込める、GPUへの転送用）
     // 毎フレームここにピクセルデータを書いて、GPU テクスチャにコピーする
-    D3D12_HEAP_PROPERTIES uploadHeapProps { };
-    uploadHeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-
     // 必要なバッファサイズを GPU に問い合わせる（行ごとのパディングがあるため計算が必要）
     UINT64 uploadBufferSize = 0;
     dxCommon_->GetDevice()->GetCopyableFootprints(&resDesc, 0, 1, 0, nullptr, nullptr, nullptr, &uploadBufferSize);
 
-    D3D12_RESOURCE_DESC uploadBufferDesc { };
-    uploadBufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    uploadBufferDesc.Width = uploadBufferSize;
-    uploadBufferDesc.Height = 1;
-    uploadBufferDesc.DepthOrArraySize = 1;
-    uploadBufferDesc.MipLevels = 1;
-    uploadBufferDesc.SampleDesc.Count = 1;
-    uploadBufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // バッファは行優先レイアウト
-
-    hr = dxCommon_->GetDevice()->CreateCommittedResource(
-        &uploadHeapProps, D3D12_HEAP_FLAG_NONE, &uploadBufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, // CPU が読み書きできる状態
-        IID_PPV_ARGS(&uploadBuffer_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    uploadBuffer_ = PipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), uploadBufferSize);
 
     // テクスチャを GPU のシェーダーから参照できるよう SRV（シェーダーリソースビュー）を作成する
     srvIndex_ = SrvManager::GetInstance()->Allocate();
-    SrvManager::GetInstance()->CreateSRVforTexture2D(
+    SrvManager::GetInstance()->CreateSrvForTexture2D(
         srvIndex_, textureResource_.Get(), resDesc.Format, 1);
 
     // 描画用スプライトを作成する
@@ -159,9 +144,11 @@ void VideoPlayer::Update()
     // frameDuration_ = 動画の 1フレームあたりの時間（例  30FPS なら約0.0333秒）
     timeCount_ += GameConstants::kFrameDeltaTime;
 
-    if (timeCount_ < frameDuration_) {
+    if (timeCount_ < frameDuration_)
+    {
         // まだ次のフレームに進む時間でなければスプライトだけ更新して終わる
-        if (sprite_) {
+        if (sprite_)
+        {
             sprite_->Update();
         }
         return;
@@ -169,7 +156,8 @@ void VideoPlayer::Update()
 
     timeCount_ -= frameDuration_;
 
-    if (!pSourceReader_) {
+    if (!pSourceReader_)
+    {
         return;
     }
 
@@ -180,12 +168,14 @@ void VideoPlayer::Update()
     HRESULT hr = pSourceReader_->ReadSample(
         MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, &flags, &timestamp, &pSample);
 
-    if (SUCCEEDED(hr) && pSample) {
+    if (SUCCEEDED(hr) && pSample)
+    {
         // サンプルをひとつの連続したメモリバッファに変換する
         ComPtr<IMFMediaBuffer> pBuffer;
         hr = pSample->ConvertToContiguousBuffer(&pBuffer);
 
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             // バッファをロックしてピクセルデータへのポインタを取得する
             BYTE* pData = nullptr;
             DWORD maxLength = 0, currentLength = 0;
@@ -207,7 +197,8 @@ void VideoPlayer::Update()
             LONG mfStride = videoWidth_ * kRgbaBytesPerPixel;
 
             // 1行ずつコピーする（GPU の RowPitch に合わせてアドレスを計算）
-            for (int y = 0; y < videoHeight_; ++y) {
+            for (int y = 0; y < videoHeight_; ++y)
+            {
                 memcpy(
                     pMappedData + y * footprint.Footprint.RowPitch, // コピー先（GPU 行境界に合わせる）
                     pData + y * mfStride, // コピー元（動画データ）
@@ -222,30 +213,11 @@ void VideoPlayer::Update()
 
             // アップロードバッファの内容を GPU テクスチャにコピーする
             // コピー中はテクスチャのリソースバリアをコピー先に切り替える必要がある
-            ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-
-            // リソースバリア  シェーダー参照可能 → コピー先に遷移
-            DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
-                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-
-            // コピー先（GPU テクスチャ）と コピー元（アップロードバッファ）を指定してコピー実行
-            D3D12_TEXTURE_COPY_LOCATION dst = { };
-            dst.pResource = textureResource_.Get();
-            dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-            dst.SubresourceIndex = 0;
-
-            D3D12_TEXTURE_COPY_LOCATION src = { };
-            src.pResource = uploadBuffer_.Get();
-            src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-            src.PlacedFootprint = footprint;
-
-            commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-
-            // リソースバリア  コピー先 → シェーダー参照可能に戻す
-            DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
-                D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            UploadFrame(footprint);
         }
-    } else if (flags & MF_SOURCE_READERF_ENDOFSTREAM) {
+    }
+    else if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+    {
         // 動画の最後まで再生したら先頭に戻してループ再生する
         PROPVARIANT var;
         PropVariantInit(&var);
@@ -255,7 +227,8 @@ void VideoPlayer::Update()
         PropVariantClear(&var);
     }
 
-    if (sprite_) {
+    if (sprite_)
+    {
         sprite_->Update();
     }
 }
@@ -263,35 +236,16 @@ void VideoPlayer::Update()
 // 毎フレーム呼ぶスプライトとしてスクリーンに動画フレームを描画する
 void VideoPlayer::Draw()
 {
-    if (isNewFrame_) {
-        // 新しいフレームがあれば GPU テクスチャにコピーしてから描画する
-        // ※ Update() でコピーが完了しているので、ここでは描画だけ行う場合もある
-        //    （現実装では Update() と Draw() 両方にコピー処理が残っているが、
-        //     実際には Update() 側でのコピーで十分）
-        ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-
-        DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-
-        D3D12_TEXTURE_COPY_LOCATION dst = { };
-        dst.pResource = textureResource_.Get();
-        dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        dst.SubresourceIndex = 0;
-
-        D3D12_TEXTURE_COPY_LOCATION src = { };
-        src.pResource = uploadBuffer_.Get();
-        src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        src.PlacedFootprint = currentFootprint_;
-
-        commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-
-        DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
-            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    if (isNewFrame_)
+    {
+        // 新しいフレームを描画前にもアップロードする。
+        UploadFrame(currentFootprint_);
 
         isNewFrame_ = false; // フラグをリセットして次のフレームを待つ
     }
 
-    if (sprite_) {
+    if (sprite_)
+    {
         sprite_->Draw();
     }
 }
@@ -304,3 +258,29 @@ void VideoPlayer::Finalize()
     uploadBuffer_.Reset(); // アップロードバッファを解放
     sprite_.reset(); // スプライトを解放
 }
+
+/** @brief 動画フレームを転送し、テクスチャをシェーダー参照状態へ戻す */
+void VideoPlayer::UploadFrame(const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& footprint)
+{
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+
+    DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+
+    D3D12_TEXTURE_COPY_LOCATION dst = { };
+    dst.pResource = textureResource_.Get();
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dst.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION src = { };
+    src.pResource = uploadBuffer_.Get();
+    src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src.PlacedFootprint = footprint;
+
+    commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+    DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+}
+
+} // namespace engine::graphics

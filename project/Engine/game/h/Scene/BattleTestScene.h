@@ -88,73 +88,61 @@ public:
     /** @brief 訓練ステージとHUDを描画する */
     void Draw() override;
     /**
-     * @brief デバッグパネルに使用するImGui管理を設定する
-     * @param imgui 使用するImGui管理
-     */
-    void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
-    /**
      * @brief ポストエフェクト対応の有無を返す
      * @return 常にtrue
      */
-    bool SupportsPostEffects() const override { return true; }
+    bool SupportsPostEffects() const override {
+        return true;
+    }
 
     /** @brief ガラス割れ演出を手動テストとして開始する */
     void TriggerGlassShatterTest();
 
-    /** @brief StageEditorのトリガー判定用（SceneManagerが毎フレーム参照する） */
-    Vector3 GetEditorPlayerPos() const override { return player_ ? player_->GetPosition() : Vector3 { }; }
+    /** @brief エディタから操作するプレイヤーを返す */
+    Player* GetEditorPlayer() const override {
+        return player_.get();
+    }
 
     /**
      * @brief 追加ホットキーの案内文字列を返す
      * @return コライダー表示のホットキー文字列
      */
-    const char* GetHotkeyOverlayExtra() const override { return "F3: コライダー表示\nF6: コンボ演出の調整\nF7: モーションエディタ"; }
-    bool ShouldShowHotkeyOverlay() const override { return showHud_; }
+    const char* GetHotkeyOverlayExtra() const override {
+        return "F3: コライダー表示\nF6: コンボ演出の調整\nF7: モーションエディタ";
+    }
+    /** @brief 共通のホットキー案内を表示するかを返す */
+    bool ShouldShowHotkeyOverlay() const override {
+        return showHud_;
+    }
 
     // BaseScene::Init()/Tick()からのStageEditor自動配線フック
     /**
      * @brief ステージエディタが読み書きするレベルファイルを返す
      * @return レベルJSONのパス
      */
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/battletest.json"; }
+    std::string GetEditorLevelPath() const override {
+        return "Resources/Levels/battletest.json";
+    }
     /**
      * @brief 配置物生成に使用するモデル共通処理を返す
      * @return シーンが所有するモデル共通処理
      */
-    ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
+    ModelCommon* GetEditorModelCommon() override {
+        return modelCommon_.get();
+    }
     /**
      * @brief 編集ビューに使用するカメラを返す
      * @return シーンが所有するカメラ
      */
-    Camera* GetEditorCamera() override { return camera_.get(); }
+    Camera* GetEditorCamera() override {
+        return camera_.get();
+    }
     /**
      * @brief 配置敵の演出に使用するパーティクル管理を返す
      * @return 共有パーティクル管理
      */
-    ParticleManager* GetEditorParticleManager() override { return pm_; }
-    /**
-     * @brief 編集操作で直接更新するプレイヤー位置を返す
-     * @return プレイヤー未生成時はnullptr
-     */
-    Vector3* GetEditorPlayerPositionRef() override { return player_ ? &player_->GetPositionRef() : nullptr; }
-    int GetEditorPlayerVisualPreset() const override { return player_ ? player_->GetVisualPreset() : -1; }
-    void SetEditorPlayerVisualPreset(int preset) override
-    {
-        if (player_)
-            player_->SetVisualPreset(preset);
-    }
-    void SetEditorPlayerStaticVisual(const std::string& model, const std::string& tex) override
-    {
-        if (player_)
-            player_->SetStaticVisualModel(model, tex);
-    }
-    std::string GetEditorPlayerStaticVisualModel() const override
-    {
-        return player_ ? player_->GetStaticVisualModelPath() : std::string { };
-    }
-    std::string GetEditorPlayerStaticVisualTexture() const override
-    {
-        return player_ ? player_->GetStaticVisualTexturePath() : std::string { };
+    ParticleManager* GetEditorParticleManager() override {
+        return pm_;
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤー/ナイトの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
@@ -222,17 +210,27 @@ private:
     bool UpdateCombat();
     /** @brief ダミー1体のAABBを返す（当たり判定用） */
     static AABB DummyBounds(const Dummy& d);
+    /** @brief ダミーに命中した時の演出を出す位置（胴の高さ）を返す */
+    static Vector3 DummyHitEffectPosition(const Dummy& d);
     /** @brief 覚醒/アックス怒り状態を反映した現在の攻撃力倍率を返す */
     float ComputeAttackMult() const;
-    /** @brief 格闘コンボのヒット判定を処理する命中があれば true を返す */
+    /** @brief 命中判定の材料（今の武器・自分の位置・攻撃倍率） */
+    struct AttackFrame {
+        const WeaponData& weapon; ///< 今持っている武器
+        Vector3 playerPos; ///< 自分の位置
+        float attackMult; ///< 覚醒などを反映した攻撃倍率
+    };
+    /** @brief 命中判定の材料を今の状態からまとめて取る */
+    AttackFrame CaptureAttackFrame() const;
+    /** @brief 格闘コンボのヒット判定を処理し、命中があれば true を返す */
     bool UpdateMeleeComboHit();
-    /** @brief 武器固有技（Space キー）のヒット判定を処理する命中があれば true を返す */
+    /** @brief 武器固有技（Space キー）のヒット判定を処理し、命中があれば true を返す */
     bool UpdateWeaponSkillHits();
     /** @brief グレートソード 投げ回転斬りの渦（吸い込み+多段ヒット）を処理する命中があれば true を返す */
     bool UpdateGreatswordSpin();
     /** @brief 射撃コンボのヒットスキャン判定を処理する命中があれば true を返す */
     bool UpdateGunShotHit();
-    /** @brief 覚醒乱舞のヒット判定を処理する命中があれば true を返す */
+    /** @brief 覚醒乱舞のヒット判定を処理し、命中があれば true を返す */
     bool UpdateRampageHit();
     /** @brief フィニッシャースラッシュの発動演出をトリガーする */
     void TriggerFinisherSlash();
@@ -246,6 +244,8 @@ private:
     void UpdateFinisherSlashLine();
     /** @brief UpdateFinisherSlash()の下請け 解放の瞬間に距離を問わず全マネキンへヒットを適用する */
     void ApplyFinisherReleaseHits();
+    /** @brief 全マネキンにフィニッシャーの浮かせ・ノックバックとヒット演出を適用する */
+    void ApplyFinisherHits(float hitFlash, float knockX, float knockY);
     /** @brief UpdateFinisherSlash()の下請け 解放演出（斬撃線・画面フラッシュ・刃の放出・ダミー切断）を再生する */
     void PlayFinisherReleaseEffects();
     /** @brief UpdateFinisherSlash()の下請け プレイヤー位置を画面UVへ投影し世界割れ演出を開始する */
@@ -278,7 +278,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
     SrvManager* srvManager_ = nullptr;
     ParticleManager* pm_ = nullptr;
 

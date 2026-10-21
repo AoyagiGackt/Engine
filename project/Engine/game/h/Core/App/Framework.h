@@ -91,7 +91,9 @@ public:
      * @return bool 終了すべきなら true
      * @note ウィンドウの閉じるボタンが押されたか、ゲーム内から終了要求があったかを判定します
      */
-    virtual bool IsEndRequest() { return endRequest_ || winApp_->ProcessMessage() || input_->TriggerKey(DIK_ESCAPE); }
+    virtual bool IsEndRequest() {
+        return endRequest_ || winApp_->ProcessMessage() || input_->TriggerKey(DIK_ESCAPE);
+    }
 
 protected:
     // 主要な基盤システム（スマートポインタによる自動管理）

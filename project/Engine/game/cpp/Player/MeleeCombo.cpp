@@ -1,6 +1,6 @@
 /**
  * @file MeleeCombo.cpp
- * @brief MeleeComboのプレイヤーの操作、戦闘、状態遷移に関する具体的な処理を実装するファイル
+ * @brief 武器の種類ごとの近接コンボの表と、近接コンボの進行（MeleeComboController）の実装
  */
 #include "MeleeCombo.h"
 #include "Easing.h"
@@ -13,8 +13,6 @@
 #include <array>
 #include <cstring>
 #include <unordered_map>
-using namespace engine;
-using namespace engine::game;
 
 //  コンボ定義テーブル
 //  素早い初段→重い締め武器ごとに役割が違うを意識した配分
@@ -25,6 +23,7 @@ using namespace engine::game;
 //   Greatsword … 超重量3段。全部に長いヒットストップ、締めは特大
 //   Scythe     … 広範囲3段。打ち上げ性能が全武器最強の空中コンボ武器
 //   Axe        … 荒々しい3段。締めの大車輪で纏めて吹き飛ばす
+namespace engine::game {
 namespace {
 
 constexpr float kDeg = GameConstants::kDegToRad;
@@ -193,6 +192,7 @@ constexpr MeleeAttackDef kHammerWheel[] = {
     { "whl_fin", 2.4f, 0.80f, 0.38f, 0.80f, 0.50f, 1.3f, 0.50f, 0.14f, false, 14, 1.0f, false, { 0, 0, -160 * kDeg }, { 0, 0, 130 * kDeg }, { -32 * kDeg, 0, 0 }, { 42 * kDeg, 0, 0 }, 0.0f, true },
 };
 
+/** @brief コンボ定義の表を作り、内部の参照が自分の配列を指すようにする */
 template <int N, int M>
 constexpr MeleeComboSet MakeSet(const MeleeAttackDef (&ground)[N], const MeleeAttackDef (&air)[M],
     const MeleeAttackDef& launcher)
@@ -220,6 +220,7 @@ constexpr std::array<const MeleeComboSet*, kWeaponTypeCount> kSourceSets = {
     &kAxeSet, // Axe
 };
 
+/** @brief 武器のコンボ段と派生攻撃の参照先を保持する実行用データ */
 struct RuntimeComboSet {
     std::vector<MeleeAttackDef> ground;
     std::vector<MeleeAttackDef> air;
@@ -227,17 +228,20 @@ struct RuntimeComboSet {
     MeleeComboSet view { };
 };
 
+/** @brief 近接のコンボ定義を写し、写した側を指すように参照を作り直す */
 RuntimeComboSet CopyComboSet(const MeleeComboSet& source)
 {
     RuntimeComboSet result;
     result.ground.assign(source.ground.data, source.ground.data + source.ground.count);
     result.air.assign(source.air.data, source.air.data + source.air.count);
-    if (source.launcher) {
+    if (source.launcher)
+    {
         result.launcher = *source.launcher;
     }
     return result;
 }
 
+/** @brief 段の一覧を指す参照（view）を段の配列に合わせて作り直す */
 void RefreshView(RuntimeComboSet& set)
 {
     set.view.ground = { set.ground.data(), static_cast<int>(set.ground.size()) };
@@ -259,6 +263,7 @@ constexpr JsonField<MeleeAttackDef> kAttackOverrideFields[] = {
     { nullptr, "animSpeed", &MeleeAttackDef::animSpeed },
 };
 
+/** @brief JSONの上書き値を技の定義へ当てる */
 void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
 {
     ReadJsonFields(data, kAttackOverrideFields, attack);
@@ -272,43 +277,51 @@ void ApplyAttackOverride(MeleeAttackDef& attack, const nlohmann::json& data)
     attack.animSpeed = (std::max)(attack.animSpeed, kMinAnimSpeed);
 }
 
+/** @brief 実行時に使う近接のコンボの表を返す（JSONの上書きを当てられるよう書き換え可能） */
 std::array<RuntimeComboSet, kWeaponTypeCount>& GetRuntimeComboSets()
 {
     // view は各要素の配列と launcher を指すので、最終的な置き場所（この static）の上で直接組み立てる
     // （一時変数で作ってから返すと、移動した後の launcher を指さなくなる）
     static std::array<RuntimeComboSet, kWeaponTypeCount> sets;
+    // 初回だけ、元の表を武器ごとにコピーし、combos.json の上書きを当てて表示用の見方を作る
     static const bool built = [] {
         std::array<RuntimeComboSet, kWeaponTypeCount>& result = sets;
-        for (size_t i = 0; i < kWeaponTypeCount; ++i) {
+        for (size_t i = 0; i < kWeaponTypeCount; ++i)
+        {
             result[i] = CopyComboSet(*kSourceSets[i]);
         }
 
         // 同じ元データを共有する武器があるため、1つの技IDに複数のコピーがぶら下がる
         std::unordered_map<std::string, std::vector<MeleeAttackDef*>> attacks;
-        for (RuntimeComboSet& set : result) {
-            for (MeleeAttackDef& attack : set.ground) {
+        for (RuntimeComboSet& set : result)
+        {
+            for (MeleeAttackDef& attack : set.ground)
+            {
                 attacks[attack.id].push_back(&attack);
             }
-            for (MeleeAttackDef& attack : set.air) {
+            for (MeleeAttackDef& attack : set.air)
+            {
                 attacks[attack.id].push_back(&attack);
             }
             attacks[set.launcher.id].push_back(&set.launcher);
         }
 
+        // 技IDごとに JSON の値で上書きする（知らないIDは警告だけ出す）
         const nlohmann::json root = JsonHelper::Load("Resources/Config/combos.json");
-        for (const auto& data : root.value("attacks", nlohmann::json::array())) {
-            const std::string id = data.value("id", "");
-            const auto found = attacks.find(id);
-            if (found == attacks.end()) {
+        JsonHelper::VisitNamedOverrides(root, "attacks", attacks,
+            [](const std::vector<MeleeAttackDef*>& matches, const nlohmann::json& data) {
+                for (MeleeAttackDef* attack : matches)
+                {
+                    ApplyAttackOverride(*attack, data);
+                }
+            },
+            [](const std::string& id) {
                 Logger::LogWarning("Unknown combo attack id: " + id);
-                continue;
-            }
-            for (MeleeAttackDef* attack : found->second) {
-                ApplyAttackOverride(*attack, data);
-            }
-        }
+            });
 
-        for (RuntimeComboSet& set : result) {
+        // 上書き後の値で、地上・空中・打ち上げの見方を作り直す
+        for (RuntimeComboSet& set : result)
+        {
             RefreshView(set);
         }
         return true;
@@ -319,6 +332,7 @@ std::array<RuntimeComboSet, kWeaponTypeCount>& GetRuntimeComboSets()
 
 } // namespace
 
+/** @brief 武器の種類に合ったコンボの定義を返す */
 const MeleeComboSet& engine::game::GetMeleeComboSet(WeaponType type)
 {
     auto& sets = GetRuntimeComboSets();
@@ -326,12 +340,15 @@ const MeleeComboSet& engine::game::GetMeleeComboSet(WeaponType type)
     return sets[index < sets.size() ? index : 0].view;
 }
 
+/** @brief 技がその武器の締めの技かを返す */
 bool engine::game::IsMeleeFinisher(WeaponType type, const MeleeAttackDef* attack)
 {
-    if (attack == nullptr) {
+    if (attack == nullptr)
+    {
         return false;
     }
-    if (attack->launcher || attack->finisher) {
+    if (attack->launcher || attack->finisher)
+    {
         return true;
     }
     // 段はRuntimeComboSetの要素を指すが、JSON再読込で配列が作り直されても判定できるよう技IDで比べる
@@ -342,6 +359,7 @@ bool engine::game::IsMeleeFinisher(WeaponType type, const MeleeAttackDef* attack
     return isLast(set.ground) || isLast(set.air);
 }
 
+/** @brief 武器の固有技の連撃の定義を返す */
 const ComboArray<MeleeAttackDef>& engine::game::GetSkillSequence(WeaponType type)
 {
     static constexpr ComboArray<MeleeAttackDef> kSwordSequence = MakeComboArray(kBladeDance);
@@ -366,6 +384,7 @@ const ComboArray<MeleeAttackDef>& engine::game::GetSkillSequence(WeaponType type
 
 //  MeleeComboController
 
+/** @brief 現在の状態から次に出すべき段を返す（テーブル末尾は先頭へループ） */
 const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool airborne,
     int& outIdx, bool& outLauncher) const
 {
@@ -373,7 +392,8 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
     outLauncher = false;
 
     // 地上での下入力は打ち上げ技（コンボの途中からでも割り込める）
-    if (launcherInput && !airborne && set.launcher != nullptr) {
+    if (launcherInput && !airborne && set.launcher != nullptr)
+    {
         outIdx = 0;
         outLauncher = true;
         return set.launcher;
@@ -381,7 +401,8 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
 
     const MeleeAttackDef* table = airborne ? set.air.data : set.ground.data;
     const int count = airborne ? set.air.count : set.ground.count;
-    if (count <= 0) {
+    if (count <= 0)
+    {
         return nullptr;
     }
 
@@ -392,29 +413,30 @@ const MeleeAttackDef* MeleeComboController::NextStep(bool launcherInput, bool ai
     return &table[outIdx];
 }
 
+/** @brief 攻撃入力を受け付ける */
 bool MeleeComboController::TryAttack(WeaponType type, bool launcherInput, bool airborne)
 {
     // 固有技の連撃を出し切るまでは通常の攻撃入力で割り込ませない
-    if (IsSequenceActive()) {
+    if (IsSequenceActive())
+    {
         return false;
     }
     // 武器が切り替わっていたらコンボは仕切り直し
-    if (active_ != nullptr && type != type_) {
+    if (active_ != nullptr && type != type_)
+    {
         Reset();
     }
     type_ = type;
 
-    if (active_ != nullptr) {
-        if (timer_ >= active_->cancelTime) {
+    if (active_ != nullptr)
+    {
+        if (timer_ >= active_->cancelTime)
+        {
             // キャンセル可能時間を過ぎていれば即座に次の段へ
-            int idx = 0;
-            bool launcher = false;
-            const MeleeAttackDef* next = NextStep(launcherInput, airborne, idx, launcher);
-            if (next == nullptr) {
-                return false;
-            }
-            StartStep(next, idx, airborne, launcher);
-        } else {
+            return StartNextStep(launcherInput, airborne);
+        }
+        else
+        {
             // まだ振っている最中 → 先行入力としてバッファし、cancelTime に自動発動
             buffered_ = true;
             bufferedLauncher_ = launcherInput;
@@ -423,16 +445,25 @@ bool MeleeComboController::TryAttack(WeaponType type, bool launcherInput, bool a
         return true;
     }
 
+    // 攻撃していなければ最初の段を始める
+    return StartNextStep(launcherInput, airborne);
+}
+
+/** @brief 次に出すべき段をすぐ始める（出せる段が無ければ false） */
+bool MeleeComboController::StartNextStep(bool launcherInput, bool airborne)
+{
     int idx = 0;
     bool launcher = false;
     const MeleeAttackDef* next = NextStep(launcherInput, airborne, idx, launcher);
-    if (next == nullptr) {
+    if (next == nullptr)
+    {
         return false;
     }
     StartStep(next, idx, airborne, launcher);
     return true;
 }
 
+/** @brief 指定した段を新しい攻撃としてセットアップし、進行タイマー・段番号・各種状態フラグをリセットする */
 void MeleeComboController::StartStep(const MeleeAttackDef* def, int tableIdx, bool airMode, bool isLauncher)
 {
     active_ = def;
@@ -448,16 +479,19 @@ void MeleeComboController::StartStep(const MeleeAttackDef* def, int tableIdx, bo
     chainGraceTimer_ = 0.0f;
 }
 
+/** @brief 今のフレームに次の追加ヒットを出せるか */
 bool MeleeComboController::CanFireExtraHit() const
 {
     // 打ち上げ技は追加ヒットのたびに浮かせ直してしまい、固有技の連撃は元から手数が多いので対象外
-    if (extraHitsFired_ >= extraHits_ || launcherMode_ || active_->launcher || sequence_.data != nullptr) {
+    if (extraHitsFired_ >= extraHits_ || launcherMode_ || active_->launcher || sequence_.data != nullptr)
+    {
         return false;
     }
     const float nextHitTime = active_->hitTime + extraHitInterval_ * static_cast<float>(extraHitsFired_ + 1);
     return timer_ >= nextHitTime && timer_ < active_->duration;
 }
 
+/** @brief 1フレーム進める（ヒット発火・先行入力の消化・モーション終了処理） */
 void MeleeComboController::Update(float dt)
 {
     justHit_ = false;
@@ -470,28 +504,31 @@ void MeleeComboController::Update(float dt)
     startPending_ = false;
 }
 
+/** @brief Update()の本体。段の時間を進め、ヒット発火・先行入力の消化・連撃表の自動進行・終了処理を行う */
 void MeleeComboController::AdvanceStep(float dt)
 {
-    if (active_ == nullptr) {
-        chainGraceTimer_ = (std::max)(chainGraceTimer_ - dt, 0.0f);
+    // 段が無い時は受付猶予だけを減らして終わる
+    const std::optional<float> previousTime = AdvanceComboTime(active_ != nullptr, dt, timer_, chainGraceTimer_);
+    if (!previousTime)
+    {
         return;
     }
-
-    float prev = timer_;
-    timer_ += dt;
+    const float prev = *previousTime;
 
     // 前進（hitTime までに lungeDist を移動し切る。空中は制御を残すため前進しない）
-    if (!airMode_ && prev < active_->hitTime && active_->lungeDist > 0.0f) {
-        float t0 = prev / active_->hitTime;
-        float t1 = (std::min)(timer_ / active_->hitTime, 1.0f);
-        lungeDelta_ = active_->lungeDist * (t1 - t0);
+    if (!airMode_ && prev < active_->hitTime && active_->lungeDist > 0.0f)
+    {
+        lungeDelta_ = active_->lungeDist * Easing::ProgressDuring(prev, timer_, active_->hitTime);
     }
 
     // ヒット発火
-    if (!hitDone_ && timer_ >= active_->hitTime) {
+    if (!hitDone_ && timer_ >= active_->hitTime)
+    {
         hitDone_ = true;
         justHit_ = true;
-    } else if (hitDone_ && CanFireExtraHit()) {
+    }
+    else if (hitDone_ && CanFireExtraHit())
+    {
         // 追加ヒットは本ヒットから一定間隔ごとに1フレーム1回ずつ出す
         ++extraHitsFired_;
         justHit_ = true;
@@ -499,11 +536,13 @@ void MeleeComboController::AdvanceStep(float dt)
     }
 
     // 先行入力の消化
-    if (buffered_ && timer_ >= active_->cancelTime) {
+    if (buffered_ && timer_ >= active_->cancelTime)
+    {
         int idx = 0;
         bool launcher = false;
         const MeleeAttackDef* next = NextStep(bufferedLauncher_, bufferedAir_, idx, launcher);
-        if (next != nullptr) {
+        if (next != nullptr)
+        {
             StartStep(next, idx, bufferedAir_, launcher);
             return;
         }
@@ -511,11 +550,15 @@ void MeleeComboController::AdvanceStep(float dt)
     }
 
     // 連撃表を自動で進めている間は、段が終わるたびに次の段を出し、最後まで出し切ったら終える
-    if (sequence_.data != nullptr && timer_ >= active_->duration) {
+    if (sequence_.data != nullptr && timer_ >= active_->duration)
+    {
         const int next = stepIdx_ + 1;
-        if (next < sequence_.count) {
+        if (next < sequence_.count)
+        {
             StartStep(&sequence_[next], next, airMode_, false);
-        } else {
+        }
+        else
+        {
             sequence_ = { };
             active_ = nullptr;
         }
@@ -523,13 +566,15 @@ void MeleeComboController::AdvanceStep(float dt)
     }
 
     // モーション終了
-    if (timer_ >= active_->duration) {
+    if (timer_ >= active_->duration)
+    {
         // 打ち上げ技の後は仕切り直し、通常段は猶予内なら次の段へ繋がる
-        chainGraceTimer_ = launcherMode_ ? 0.0f : kChainGrace_;
+        chainGraceTimer_ = launcherMode_ ? 0.0f : kChainGrace;
         active_ = nullptr;
     }
 }
 
+/** @brief コンボを強制的に打ち切る（被弾・乱舞開始時など） */
 void MeleeComboController::Reset()
 {
     active_ = nullptr;
@@ -549,18 +594,22 @@ void MeleeComboController::Reset()
     sequence_ = { };
 }
 
+/** @brief 進行中の段の経過割合（0〜1、段の長さに対する経過時間。攻撃していなければ0） */
 float MeleeComboController::GetProgress() const
 {
-    if (active_ == nullptr || active_->duration <= 0.0f) {
+    if (active_ == nullptr || active_->duration <= 0.0f)
+    {
         return 0.0f;
     }
     return std::clamp(timer_ / active_->duration, 0.0f, 1.0f);
 }
 
+/** @brief 段を指定した時刻の姿勢で止めて見せる（モーション編集のプレビュー用） */
 void MeleeComboController::SetPreviewPose(const MeleeAttackDef* def, float normalizedTime)
 {
     Reset();
-    if (def == nullptr) {
+    if (def == nullptr)
+    {
         return;
     }
     // 見た目の計算（スイング・体の傾き・その場回転）は active_ と timer_ だけを読むので、それだけ合わせる
@@ -569,19 +618,23 @@ void MeleeComboController::SetPreviewPose(const MeleeAttackDef* def, float norma
     hitDone_ = true; // プレビュー中にヒット扱いの処理が走らないようにする
 }
 
+/** @brief 連撃表を先頭から自動で最後まで出し切る（固有技用。途中の攻撃入力は受け付けない） */
 void MeleeComboController::StartSequence(const ComboArray<MeleeAttackDef>& sequence)
 {
     Reset();
-    if (sequence.count <= 0) {
+    if (sequence.count <= 0)
+    {
         return;
     }
     sequence_ = sequence;
     StartStep(&sequence_[0], 0, false, false);
 }
 
+/** @brief 段の定義に従った体のその場回転（ラジアン、体の向きに足す） */
 float MeleeComboController::GetBodyTurnOffset() const
 {
-    if (active_ == nullptr || active_->bodyTurns == 0.0f) {
+    if (active_ == nullptr || active_->bodyTurns == 0.0f)
+    {
         return 0.0f;
     }
     // 振り抜きの終わりまでに回り切り、その後は正面へ戻った状態（整数回転なら見た目は元の向き）で構え直す
@@ -590,6 +643,7 @@ float MeleeComboController::GetBodyTurnOffset() const
     return active_->bodyTurns * GameConstants::kTwoPi * t;
 }
 
+/** @brief GetSwingOffset/GetBodyLeanOffset共通: 振りかぶり→振り抜き→構え直しの3相でfrom/toを補間する */
 Vector3 MeleeComboController::BlendPhase(const Vector3& from, const Vector3& to) const
 {
     // 振りかぶり → 振り抜き → 構え直し の3相をヒットタイミング基準で組む
@@ -602,34 +656,40 @@ Vector3 MeleeComboController::BlendPhase(const Vector3& from, const Vector3& to)
     };
     const Vector3 neutral = { 0.0f, 0.0f, 0.0f };
 
-    if (timer_ < windupEnd) {
+    if (timer_ < windupEnd)
+    {
         float t = Easing::EaseOutQuad(timer_ / windupEnd);
         return lerp3(neutral, from, t);
     }
-    if (timer_ < strikeEnd) {
+    if (timer_ < strikeEnd)
+    {
         // 一番目立つ振り抜き。鋭さ重視で先に一気に動かす
         float t = Easing::EaseOutCubic((timer_ - windupEnd) / (strikeEnd - windupEnd));
         return lerp3(from, to, t);
     }
-    if (timer_ < recoverBeg) {
+    if (timer_ < recoverBeg)
+    {
         return to;
     }
     float t = Easing::EaseInOutQuad((std::min)((timer_ - recoverBeg) / (active_->duration - recoverBeg), 1.0f));
     return lerp3(to, neutral, t);
 }
-
+/** @brief 現在のスイング回転オフセットを返す（振りかぶり→振り抜き→構え直しの補間） */
 Vector3 MeleeComboController::GetSwingOffset() const
 {
-    if (active_ == nullptr) {
+    if (active_ == nullptr)
+    {
         return { 0.0f, 0.0f, 0.0f };
     }
     return BlendPhase(active_->swingFrom, active_->swingTo);
 }
-
+/** @brief 現在の体の傾きオフセットを返す（同じ振りかぶり→振り抜き→構え直しのタイミングで補間） */
 Vector3 MeleeComboController::GetBodyLeanOffset() const
 {
-    if (active_ == nullptr) {
+    if (active_ == nullptr)
+    {
         return { 0.0f, 0.0f, 0.0f };
     }
     return BlendPhase(active_->bodyLeanFrom, active_->bodyLeanTo);
 }
+} // namespace engine::game

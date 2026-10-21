@@ -1,72 +1,56 @@
 /**
  * @file Cylinder.cpp
- * @brief Cylinderの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief 円柱メッシュ（Cylinder）の頂点生成とパイプラインの実装
  */
 #include "Cylinder.h"
 #include "DirectXCommon.h"
 #include <cmath>
 #include <numbers>
 
+namespace engine::graphics {
 namespace {
 
 // 分割あたりの頂点数
-constexpr int kVerticesPerDivision = 6;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
+/** @brief 円柱のメッシュとパイプラインを用意する */
 void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
 {
-    SetupCommonBuffers(dxCommon, textureFilePath, divisions, sizeof(MaterialCB),
-        reinterpret_cast<void**>(&materialData_));
-    materialData_->WVP = MakeIdentity4x4();
-    materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    SetupMaterialBuffers(dxCommon, textureFilePath, divisions, materialData_);
     materialData_->alphaReference = 0.0f;
 
     RebuildVertices();
     CreatePipeline();
 }
 
+/** @brief 今の形の設定から頂点を作り直す */
 void Cylinder::RebuildVertices()
 {
-    if (!vertexData_) {
+    if (!vertexData_)
+    {
         return;
     }
 
-    const float radianPerDivide = 2.0f * std::numbers::pi_v<float> / float(divisions_);
-
-    for (int index = 0; index < divisions_; ++index) {
-        float s = std::sin(float(index) * radianPerDivide);
-        float c = std::cos(float(index) * radianPerDivide);
-        float sNext = std::sin(float(index + 1) * radianPerDivide);
-        float cNext = std::cos(float(index + 1) * radianPerDivide);
-        float u = float(index) / float(divisions_);
-        float uNext = float(index + 1) / float(divisions_);
-
-        // -sinでX方向を時計回り、側面法線はXZ平面外向き
-        Vector4 topCur = { -s * topRadius_, height_, c * topRadius_, 1.0f };
-        Vector4 topNext = { -sNext * topRadius_, height_, cNext * topRadius_, 1.0f };
-        Vector4 botCur = { -s * bottomRadius_, 0.0f, c * bottomRadius_, 1.0f };
-        Vector4 botNext = { -sNext * bottomRadius_, 0.0f, cNext * bottomRadius_, 1.0f };
-        Vector3 nCur = { -s, 0.0f, c };
-        Vector3 nNext = { -sNext, 0.0f, cNext };
-
-        int idx = index * kVerticesPerDivision;
-        // 三角形1: topCur, topNext, botCur
-        vertexData_[idx + 0] = { topCur, { u, 0.0f }, nCur };
-        vertexData_[idx + 1] = { topNext, { uNext, 0.0f }, nNext };
-        vertexData_[idx + 2] = { botCur, { u, 1.0f }, nCur };
-        // 三角形2: botCur, topNext, botNext
-        vertexData_[idx + 3] = { botCur, { u, 1.0f }, nCur };
-        vertexData_[idx + 4] = { topNext, { uNext, 0.0f }, nNext };
-        vertexData_[idx + 5] = { botNext, { uNext, 1.0f }, nNext };
+    for (int index = 0; index < divisions_; ++index)
+    {
+        const SegmentAngles a = SegmentAt(index);
+        // -sinでX方向を時計回り、側面法線はXZ平面外向き。上面側を V=0、底面側を V=1 にする
+        const Vector4 topCur = { -a.s * topRadius_, height_, a.c * topRadius_, 1.0f };
+        const Vector4 topNext = { -a.sNext * topRadius_, height_, a.cNext * topRadius_, 1.0f };
+        const Vector4 botCur = { -a.s * bottomRadius_, 0.0f, a.c * bottomRadius_, 1.0f };
+        const Vector4 botNext = { -a.sNext * bottomRadius_, 0.0f, a.cNext * bottomRadius_, 1.0f };
+        WriteSegmentQuad(index, a, topCur, topNext, botCur, botNext,
+            { -a.s, 0.0f, a.c }, { -a.sNext, 0.0f, a.cNext });
     }
 }
 
+/** @brief 円柱用のパイプラインを生成する */
 void Cylinder::CreatePipeline()
 {
     CreatePipelineCommon(L"Resources/shaders/cylinder/Cylinder.VS.hlsl",
         L"Resources/shaders/cylinder/Cylinder.PS.hlsl",
         D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 }
+
+} // namespace engine::graphics

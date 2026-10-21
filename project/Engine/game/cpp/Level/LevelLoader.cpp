@@ -1,6 +1,6 @@
 /**
  * @file LevelLoader.cpp
- * @brief LevelLoaderのレベルデータの読込、編集、実体生成に関する具体的な処理を実装するファイル
+ * @brief レベルファイル（JSON）の読み込み・保存と、配置物の実体の生成の実装
  */
 #include "LevelLoader.h"
 #include "JsonFieldTable.h"
@@ -104,13 +104,15 @@ namespace {
 
     /** @brief JSON配列の各要素を対応表で読み、読んだ後に extra で個別の項目を足す */
     template <class Desc, size_t N, class Extra>
-    std::vector<Desc> ReadList(const nlohmann::json& list, const JsonField<Desc> (&fields)[N], Extra extra)
+    std::vector<Desc> ReadList(const nlohmann::json& list, const JsonField<Desc> (&fields)[N], const Extra& extra)
     {
         std::vector<Desc> result;
-        if (!list.is_array()) {
+        if (!list.is_array())
+        {
             return result;
         }
-        for (const nlohmann::json& item : list) {
+        for (const nlohmann::json& item : list)
+        {
             Desc desc;
             ReadJsonFields(item, fields, desc);
             extra(item, desc);
@@ -121,10 +123,11 @@ namespace {
 
     /** @brief 一覧の各要素を対応表で書き出し、extra で個別の項目を足したJSON配列を返す */
     template <class Desc, size_t N, class Extra>
-    nlohmann::json WriteList(const std::vector<Desc>& list, const JsonField<Desc> (&fields)[N], Extra extra)
+    nlohmann::json WriteList(const std::vector<Desc>& list, const JsonField<Desc> (&fields)[N], const Extra& extra)
     {
         nlohmann::json result = nlohmann::json::array();
-        for (const Desc& desc : list) {
+        for (const Desc& desc : list)
+        {
             nlohmann::json item = nlohmann::json::object();
             WriteJsonFields(item, fields, desc);
             extra(item, desc);
@@ -133,46 +136,16 @@ namespace {
         return result;
     }
 
+    /** @brief 追加で読み書きする項目が無い時に使う何もしない処理 */
     template <class Item, class Desc>
     void NoExtra(const Item&, const Desc&)
     {
     }
 
-    /** @brief 配置の種類ごとに、いくつ並べるか（PlacementType の並び順） */
-    using CopyCount = int (*)(const ObjectDesc&);
-    constexpr CopyCount kCopyCounts[] = {
-        [](const ObjectDesc&) { return 1; }, // Static
-        [](const ObjectDesc& desc) { return desc.count; }, // Row
-    };
 
-    int CopiesOf(const ObjectDesc& desc)
-    {
-        const size_t index = static_cast<size_t>(desc.type);
-        return index < std::size(kCopyCounts) ? kCopyCounts[index](desc) : 1;
-    }
-
-    /** @brief 並べる軸の文字と、ずらす座標の成分（表に無い文字はX） */
-    struct AxisMember {
-        char name;
-        float Vector3::* member;
-    };
-    constexpr AxisMember kAxisMembers[] = {
-        { 'x', &Vector3::x },
-        { 'y', &Vector3::y },
-        { 'z', &Vector3::z },
-    };
-
-    float Vector3::* AxisMemberOf(char axis)
-    {
-        for (const AxisMember& entry : kAxisMembers) {
-            if (entry.name == axis) {
-                return entry.member;
-            }
-        }
-        return &Vector3::x;
-    }
 }
 
+/** @brief レベルファイルを読み込む（項目が無いものは既定値のまま） */
 LevelData LevelLoader::Load(const std::string& path)
 {
     auto j = JsonHelper::Load(path);
@@ -181,7 +154,8 @@ LevelData LevelLoader::Load(const std::string& path)
     // ファイルが存在しない/壊れている場合、JsonHelper::Load()はnull型のjsonを返す
     // （空オブジェクト{}ではない）。.value()/operator[]はobject型以外に呼ぶとtype_errorを投げるため、
     // ここで空のLevelDataとして扱う（新規レベルを起動時に自動作成するようなシーンで必須のガード）
-    if (!j.is_object()) {
+    if (!j.is_object())
+    {
         return data;
     }
 
@@ -204,6 +178,7 @@ LevelData LevelLoader::Load(const std::string& path)
     return data;
 }
 
+/** @brief レベルデータをファイルへ保存する */
 void LevelLoader::Save(const std::string& path, const LevelData& data)
 {
     nlohmann::json j = nlohmann::json::object();
@@ -222,36 +197,51 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
     JsonHelper::Save(path, j);
 }
 
+/** @brief 配置情報の回転・拡縮・ライティングで、見た目のオブジェクトを1つ作る */
+std::unique_ptr<Object3d> LevelLoader::CreatePlacedObject(ModelCommon* modelCommon, Model* model,
+    const ObjectDesc& desc, const Vector3& position)
+{
+    auto obj = std::make_unique<Object3d>();
+    obj->Initialize(modelCommon);
+    obj->SetModel(model);
+    obj->SetPosition(position);
+    obj->SetRotation(desc.rotation);
+    obj->SetScale(desc.scale);
+    obj->SetEnableLighting(desc.lighting);
+    obj->Update();
+    return obj;
+}
+
+/** @brief レベルデータから配置物の実体を生成する */
 LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCommon)
 {
+    // 同じモデルとテクスチャの組は1回だけ読み込んで使い回す
     LevelSpawnResult result;
     std::unordered_map<std::string, Model*> modelCache;
 
-    // 親チェーンをたどってワールド位置を求める（親のpositionを順に加算循環参照は深さ上限で打ち切り）
+    // 親チェーンをたどってワールド位置を求める（エディタと同じく親のZ回転も反映し、循環参照は深さ上限で打ち切る）
     std::unordered_map<std::string, const ObjectDesc*> byName;
-    for (const auto& desc : data.objects) {
-        if (!desc.name.empty()) {
+    for (const auto& desc : data.objects)
+    {
+        if (!desc.name.empty())
+        {
             byName[desc.name] = &desc;
         }
     }
+    auto findParent = [&](const std::string& name) -> const ObjectDesc* {
+        auto it = byName.find(name);
+        return it != byName.end() ? it->second : nullptr;
+    };
     auto worldPositionOf = [&](const ObjectDesc& desc) {
-        Vector3 pos = desc.position;
-        const ObjectDesc* cur = &desc;
-        for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
-            auto it = byName.find(cur->parent);
-            if (it == byName.end()) {
-                break;
-            }
-            cur = it->second;
-            pos = pos + cur->position;
-        }
-        return pos;
+        return ResolveWorldPosition(desc, findParent);
     };
 
+    // モデルを読み込み、所有権は result に持たせて生ポインタをキャッシュする
     auto getModel = [&](const std::string& modelPath, const std::string& texPath) -> Model* {
         std::string key = modelPath + '|' + texPath;
         auto it = modelCache.find(key);
-        if (it != modelCache.end()) {
+        if (it != modelCache.end())
+        {
             return it->second;
         }
 
@@ -263,32 +253,26 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
         return ptr;
     };
 
+    // 配置情報どおりの位置・回転・拡縮で見た目のオブジェクトを1つ作る
     auto spawnOne = [&](Model* model, const ObjectDesc& desc, const Vector3& pos) {
-        auto obj = std::make_unique<Object3d>();
-        obj->Initialize(modelCommon);
-        obj->SetModel(model);
-        obj->SetPosition(pos);
-        obj->SetRotation(desc.rotation);
-        obj->SetScale(desc.scale);
-        obj->SetEnableLighting(desc.lighting);
-        obj->Update();
-        result.objects.push_back(std::move(obj));
+        result.objects.push_back(CreatePlacedObject(modelCommon, model, desc, pos));
     };
 
-    for (const auto& desc : data.objects) {
+    for (const auto& desc : data.objects)
+    {
         // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
-        if (!desc.enabled || !ObjectKind::Of(desc.kind).IsVisual() || desc.model.empty()) {
+        if (!desc.enabled || !ObjectKind::Of(desc.kind).IsVisual() || desc.model.empty())
+        {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);
         Vector3 basePos = worldPositionOf(desc);
 
         // 1個置くか、axis方向へ count 個並べる
-        const int copies = CopiesOf(desc);
-        float Vector3::* const axis = AxisMemberOf(desc.axis);
-        for (int i = 0; i < copies; ++i) {
-            Vector3 pos = basePos;
-            pos.*axis += desc.step * static_cast<float>(i);
+        const int copies = PlacementCopyCount(desc);
+        for (int i = 0; i < copies; ++i)
+        {
+            const Vector3 pos = PlacementInstancePosition(desc, basePos, i);
             spawnOne(model, desc, pos);
         }
     }

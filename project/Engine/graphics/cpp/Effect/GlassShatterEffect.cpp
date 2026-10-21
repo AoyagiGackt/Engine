@@ -1,30 +1,26 @@
 /**
  * @file GlassShatterEffect.cpp
- * @brief GlassShatterEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief 画面がガラスのように割れる演出（GlassShatterEffect）の実装
  */
 #include "GlassShatterEffect.h"
+#include "PipelineHelper.h"
+#include "ResourceAlignment.h"
 #include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "SrvManager.h"
 #include "WinApp.h"
 
+namespace engine::graphics {
 namespace {
-
-// 全画面三角形の頂点数
-constexpr unsigned int kFullscreenVertexCount = 3;
-
-// 定数バッファの配置境界
-constexpr unsigned int kConstantBufferAlignment = 256;
 
 // 演出時間の下限
 constexpr float kMinDuration = 0.01f;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+/** @brief PSO・定数バッファ等を初期化する */
 void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     dxCommon_ = dxCommon;
@@ -42,156 +38,50 @@ void GlassShatterEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvMana
     duration_ = GraphicsTuning::Float("glassShatter.duration", kDefaultDuration, kMinDuration);
 
     // フリーズテクスチャ（バックバッファと同フォーマット）
-    DXGI_FORMAT bbFormat = dxCommon_->GetCurrentBackBufferResource()->GetDesc().Format;
+    freezeTexture_ = PipelineHelper::CreateBackBufferCopyTexture(dxCommon_, srvManager_, freezeSrvIndex_);
 
-    D3D12_RESOURCE_DESC texDesc = { };
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Width = WinApp::kClientWidth;
-    texDesc.Height = WinApp::kClientHeight;
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = 1;
-    texDesc.Format = bbFormat;
-    texDesc.SampleDesc = { 1, 0 };
-    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-    D3D12_HEAP_PROPERTIES heapProps = { };
-    heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-    HRESULT hr = device->CreateCommittedResource(
-        &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc,
-        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
-        IID_PPV_ARGS(&freezeTexture_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    freezeSrvIndex_ = srvManager_->Allocate();
-    srvManager_->CreateSRVforTexture2D(freezeSrvIndex_, freezeTexture_.Get(), bbFormat, 1);
-
-    // ルートシグネチャ
-    // スロット 0: CBV b0（シャターパラメータ）
-    // スロット 1: Descriptor table SRV t0（フリーズテクスチャ）
-    D3D12_DESCRIPTOR_RANGE srvRange = { };
-    srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors = 1;
-    srvRange.BaseShaderRegister = 0; // t0
-    srvRange.RegisterSpace = 0;
-    srvRange.OffsetInDescriptorsFromTableStart = 0;
-
-    D3D12_ROOT_PARAMETER rootParams[2] = { };
-    rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParams[0].Descriptor.ShaderRegister = 0; // b0
-
-    rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParams[1].DescriptorTable.NumDescriptorRanges = 1;
-    rootParams[1].DescriptorTable.pDescriptorRanges = &srvRange;
-
-    D3D12_STATIC_SAMPLER_DESC staticSampler = { };
-    staticSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    staticSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    staticSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    staticSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    staticSampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-    staticSampler.MaxLOD = D3D12_FLOAT32_MAX;
-    staticSampler.ShaderRegister = 0; // s0
-    staticSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-    D3D12_ROOT_SIGNATURE_DESC rootSigDesc = { };
-    rootSigDesc.NumParameters = 2;
-    rootSigDesc.pParameters = rootParams;
-    rootSigDesc.NumStaticSamplers = 1;
-    rootSigDesc.pStaticSamplers = &staticSampler;
-    rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-
-    ComPtr<ID3DBlob> sigBlob, errBlob;
-    hr = D3D12SerializeRootSignature(
-        &rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    hr = device->CreateRootSignature(
-        0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
-        IID_PPV_ARGS(&rootSignature_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    // シェーダーコンパイル
-    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
-        L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
-        L"Resources/shaders/postprocess/GlassShatterPS.hlsl", L"ps_6_0");
-
-    // ブレンドステート  通常アルファブレンド
-    D3D12_RENDER_TARGET_BLEND_DESC rtBlend = { };
-    rtBlend.BlendEnable = TRUE;
-    rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    rtBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    rtBlend.BlendOp = D3D12_BLEND_OP_ADD;
-    rtBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
-    rtBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
-    rtBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    rtBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-    D3D12_BLEND_DESC blendDesc = { };
-    blendDesc.RenderTarget[0] = rtBlend;
-
-    D3D12_RASTERIZER_DESC rastDesc = { };
-    rastDesc.FillMode = D3D12_FILL_MODE_SOLID;
-    rastDesc.CullMode = D3D12_CULL_MODE_NONE;
-
-    D3D12_DEPTH_STENCIL_DESC depthDesc = { };
-    depthDesc.DepthEnable = FALSE;
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = { };
-    psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
-    psoDesc.BlendState = blendDesc;
-    psoDesc.RasterizerState = rastDesc;
-    psoDesc.DepthStencilState = depthDesc;
-    psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    psoDesc.SampleDesc.Count = 1;
-
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    rootSignature_ = PipelineHelper::CreateCapturedFullscreenSignature(device);
+    ENGINE_ASSERT(rootSignature_);
+    pipelineState_ = PipelineHelper::CreateFullscreenPipeline(dxCommon_, rootSignature_.Get(),
+        L"Resources/shaders/postprocess/GlassShatterPS.hlsl", BlendMode::Alpha);
 }
 
+/** @brief GPUリソースを解放する */
 void GlassShatterEffect::Finalize()
 {
-    if (cbData_) {
-        cbResource_->Unmap(0, nullptr);
-        cbData_ = nullptr;
-    }
-    cbResource_.Reset();
+    PipelineHelper::ReleaseEffectResources(cbResource_, cbData_, pipelineState_, rootSignature_);
     freezeTexture_.Reset();
-    pipelineState_.Reset();
-    rootSignature_.Reset();
 }
 
+/** @brief 内部タイマーを進める（毎フレーム呼ぶ） */
 void GlassShatterEffect::Update(float dt)
 {
-    if (!active_ || finished_) {
+    if (!active_ || finished_)
+    {
         return;
     }
 
     timer_ += dt;
     float t = timer_ / duration_;
 
-    if (t >= 1.0f) {
+    if (t >= 1.0f)
+    {
         t = 1.0f;
         finished_ = true;
         active_ = false;
     }
 
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->time = t;
     }
 }
 
+/** @brief ゲーム画面をキャプチャする（全シーン描画直後、Apply() の前に一度だけ呼ぶ） */
 void GlassShatterEffect::CaptureFrame()
 {
-    if (!freezeTexture_ || !captureNeeded_) {
+    if (!freezeTexture_ || !captureNeeded_)
+    {
         return;
     }
 
@@ -199,104 +89,103 @@ void GlassShatterEffect::CaptureFrame()
     auto* backBuf = dxCommon_->GetCurrentBackBufferResource();
 
     // バックバッファ → COPY_SOURCE、フリーズテクスチャ → COPY_DEST
-    D3D12_RESOURCE_BARRIER toCopy[2] = {
-        DirectXCommon::MakeTransitionBarrier(backBuf, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
-        DirectXCommon::MakeTransitionBarrier(freezeTexture_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST),
-    };
-    cmd->ResourceBarrier(2, toCopy);
-
-    cmd->CopyResource(freezeTexture_.Get(), backBuf);
-
-    // 元の状態に戻す
-    D3D12_RESOURCE_BARRIER toRestore[2] = {
-        DirectXCommon::MakeTransitionBarrier(backBuf, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET),
-        DirectXCommon::MakeTransitionBarrier(freezeTexture_.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
-    };
-    cmd->ResourceBarrier(2, toRestore);
+    PipelineHelper::CaptureRenderTarget(cmd, backBuf, freezeTexture_.Get());
 
     captureNeeded_ = false;
 }
 
+/** @brief バックバッファ上にエフェクトを重ねて描画する（シーン描画後に呼ぶ） */
 void GlassShatterEffect::Apply()
 {
-    if (!active_ || captureNeeded_) {
+    if (!active_ || captureNeeded_)
+    {
         return;
     }
 
     auto* cmd = dxCommon_->GetCommandList();
 
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = dxCommon_->GetCurrentBackBufferHandle();
-    cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-
-    D3D12_VIEWPORT vp = dxCommon_->GetBackBufferViewport();
-    D3D12_RECT scissor = dxCommon_->GetBackBufferScissorRect();
-    cmd->RSSetViewports(1, &vp);
-    cmd->RSSetScissorRects(1, &scissor);
+    // 割れた破片はバックバッファへ深度なしで描く
+    PipelineHelper::BindBackBufferTarget(dxCommon_, cmd);
 
     // SrvManager のヒープをバインド（他の描画が上書きしている可能性があるため再セット）
-    if (srvManager_) {
+    if (srvManager_)
+    {
         ID3D12DescriptorHeap* heaps[] = { srvManager_->GetSrvDescriptorHeap() };
         cmd->SetDescriptorHeaps(1, heaps);
     }
 
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
     cmd->SetPipelineState(pipelineState_.Get());
-    cmd->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, cbResource_->GetGPUVirtualAddress());
 
-    if (srvManager_ && freezeSrvIndex_ != UINT32_MAX) {
+    if (srvManager_ && freezeSrvIndex_ != UINT32_MAX)
+    {
         cmd->SetGraphicsRootDescriptorTable(
-            1, srvManager_->GetGPUDescriptorHandle(freezeSrvIndex_));
+            PipelineHelper::FullscreenRootSlot::kTexture, srvManager_->GetGPUDescriptorHandle(freezeSrvIndex_));
     }
 
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmd->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
+    PipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
+/** @brief エフェクトを最初から再生する */
 void GlassShatterEffect::Start()
 {
     timer_ = 0.0f;
     active_ = true;
     finished_ = false;
     captureNeeded_ = true;
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->time = 0.0f;
     }
 }
 
+/** @brief タイマーをリセットして非アクティブ状態に戻す */
 void GlassShatterEffect::Reset()
 {
     timer_ = 0.0f;
     active_ = false;
     finished_ = false;
     captureNeeded_ = false;
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->time = 0.0f;
     }
 }
 
+/** @brief ガラスが割れる中心の位置（UV）を設定する */
 void GlassShatterEffect::SetImpactUV(float u, float v)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->impactU = u;
         cbData_->impactV = v;
     }
 }
 
+/** @brief ひび割れ線の太さを設定する */
 void GlassShatterEffect::SetCrackWidth(float w)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->crackWidth = w;
     }
 }
 
+/** @brief 破片が飛び散る速さを設定する */
 void GlassShatterEffect::SetShardSpeed(float s)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->shardSpeed = s;
     }
 }
 
+/** @brief 演出の再生時間を設定する */
 void GlassShatterEffect::SetDuration(float seconds)
 {
     duration_ = seconds > kMinDuration ? seconds : kMinDuration;
 }
+
+} // namespace engine::graphics

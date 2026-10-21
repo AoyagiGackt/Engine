@@ -33,13 +33,11 @@ public:
     /** @brief 半透明オーバーレイと選択肢（リスタート/タイトルに戻る）を描画する */
     void Draw() override;
 
-    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
 private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
 

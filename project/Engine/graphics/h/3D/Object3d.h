@@ -3,6 +3,7 @@
  * @brief 3D空間に配置される個々のオブジェクトを管理・描画するファイル
  */
 #pragma once
+#include "PipelineHelper.h"
 #include "GameObject.h"
 #include "MakeAffine.h"
 #include "Model.h"
@@ -36,12 +37,18 @@ public:
      * @brief 全 Object3d で共通して使うデフォルトカメラを取得する
      * @note SkinnedObject3d 等、別の描画クラスと共通カメラを共有したい場合に使う
      */
-    static Camera* GetCommonCamera() { return commonCamera_; }
+    static Camera* GetCommonCamera() {
+        return commonCamera_;
+    }
 
     /** @brief 全 Object3d で共通して使うライトマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
-    static void SetCommonObjectCommon(Object3dCommon* objectCommon) { commonObjectCommon_ = objectCommon; }
+    static void SetCommonObjectCommon(Object3dCommon* objectCommon) {
+        commonObjectCommon_ = objectCommon;
+    }
     /** @brief 全 Object3d で共通して使うシャドウマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
-    static void SetCommonShadowManager(ShadowManager* shadowManager) { commonShadowManager_ = shadowManager; }
+    static void SetCommonShadowManager(ShadowManager* shadowManager) {
+        commonShadowManager_ = shadowManager;
+    }
 
     /**
      * @brief ライト・シャドウマップのルート引数を再バインドする
@@ -90,13 +97,18 @@ public:
      */
     void DrawForNormalCapture();
 
-    Model* GetModel() const { return model_; }
+    /** @brief 描画するモデルを返す */
+    Model* GetModel() const {
+        return model_;
+    }
 
     /**
      * @brief このオブジェクトに描画させるモデルの実体をセットする
      * @param model ModelManager等から取得したモデルのポインタ
      */
-    void SetModel(Model* model) { model_ = model; }
+    void SetModel(Model* model) {
+        model_ = model;
+    }
 
     /**
      * @brief ファイルパスを指定して、ModelManagerからモデルを検索してセットする
@@ -108,13 +120,17 @@ public:
      * @brief このオブジェクト専用のカメラをセットする（共通カメラを上書きする）
      * @param camera 個別に使用したいカメラのポインタ
      */
-    void SetCamera(Camera* camera) { camera_ = camera; }
+    void SetCamera(Camera* camera) {
+        camera_ = camera;
+    }
 
     /**
      * @brief オブジェクトの位置（座標）を設定する
      * @param position 新しいX, Y, Z座標
      */
-    void SetPosition(const Vector3& position) { transform_.translate = position; }
+    void SetPosition(const Vector3& position) {
+        transform_.translate = position;
+    }
 
     /**
      * @brief アニメーション用のローカル行列を直接セットする
@@ -128,31 +144,44 @@ public:
         useLocalMatrix_ = true;
     }
 
-    void ClearLocalMatrix() { useLocalMatrix_ = false; }
+    /** @brief 外から与えたローカル行列の指定を解除する */
+    void ClearLocalMatrix() {
+        useLocalMatrix_ = false;
+    }
 
     /** @brief SetLocalMatrix()で直接指定された行列を使っているか（ボーン追従中か） */
-    bool IsUsingLocalMatrix() const { return useLocalMatrix_; }
+    bool IsUsingLocalMatrix() const {
+        return useLocalMatrix_;
+    }
 
     /** @brief SetLocalMatrix()で指定された行列を返す（IsUsingLocalMatrix()がfalseの間は意味を持たない） */
-    const Matrix4x4& GetLocalMatrix() const { return localMatrix_; }
+    const Matrix4x4& GetLocalMatrix() const {
+        return localMatrix_;
+    }
 
     /**
      * @brief オブジェクトの回転角を設定する
      * @param rotation X, Y, Z軸の回転角度（ラジアン）
      */
-    void SetRotation(const Vector3& rotation) { transform_.rotate = rotation; }
+    void SetRotation(const Vector3& rotation) {
+        transform_.rotate = rotation;
+    }
 
     /**
      * @brief オブジェクトのスケール（拡大縮小）を設定する
      * @param scale X, Y, Z軸のスケール倍率
      */
-    void SetScale(const Vector3& scale) { transform_.scale = scale; }
+    void SetScale(const Vector3& scale) {
+        transform_.scale = scale;
+    }
 
     /**
      * @brief 現在のトランスフォーム（座標・回転・スケール）を取得する
      * @return const Transform& トランスフォーム構造体への参照
      */
-    const Transform& GetTransform() const { return transform_; }
+    const Transform& GetTransform() const {
+        return transform_;
+    }
 
     /**
      * @brief ワールド座標を取得する
@@ -161,17 +190,12 @@ public:
      */
     Vector3 GetWorldPosition() const
     {
-        if (useLocalMatrix_) {
+        if (useLocalMatrix_)
+        {
             return { localMatrix_.m[3][0], localMatrix_.m[3][1], localMatrix_.m[3][2] };
         }
         return transform_.translate;
     }
-
-    /**
-     * @brief トランスフォーム（座標・回転・スケール）への参照を取得する（書き込み用）
-     * @return Transform& トランスフォームへの参照
-     */
-    Transform& GetTransform() { return transform_; }
 
     /**
      * @brief ライティングの有効/無効を設定する
@@ -179,9 +203,7 @@ public:
      */
     void SetEnableLighting(bool enable)
     {
-        if (materialData_) {
-            materialData_->enableLighting = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     /**
@@ -190,9 +212,7 @@ public:
      */
     void SetColor(const Vector4& color)
     {
-        if (materialData_) {
-            materialData_->color = color;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
     }
 
     /**
@@ -201,9 +221,7 @@ public:
      */
     void SetSpecularColor(const Vector3& color)
     {
-        if (materialData_) {
-            materialData_->specularColor = color;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::specularColor, color);
     }
 
     /**
@@ -212,61 +230,51 @@ public:
      */
     void SetShininess(float shininess)
     {
-        if (materialData_) {
-            materialData_->shininess = shininess;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::shininess, shininess);
     }
 
+    /** @brief キューブマップを使うかを設定する */
     void SetUseCubemap(bool enable)
     {
-        if (materialData_) {
-            materialData_->useCubemap = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useCubemap, enable ? 1 : 0);
     }
 
+    /** @brief テクスチャを使うかを設定する */
     void SetUseTexture(bool enable)
     {
-        if (materialData_) {
-            materialData_->useTexture = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useTexture, enable ? 1 : 0);
     }
 
+    /** @brief 環境マップの強さを設定する */
     void SetEnvMapIntensity(float intensity)
     {
-        if (materialData_) {
-            materialData_->envMapIntensity = intensity;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::envMapIntensity, intensity);
     }
 
+    /** @brief リムライトの色を設定する */
     void SetRimColor(const Vector3& color)
     {
-        if (materialData_) {
-            materialData_->rimColor = color;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
     }
+    /** @brief リムライトの鋭さを設定する */
     void SetRimPower(float power)
     {
-        if (materialData_) {
-            materialData_->rimPower = power;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
     }
+    /** @brief リムライトの強さを設定する */
     void SetRimIntensity(float intensity)
     {
-        if (materialData_) {
-            materialData_->rimIntensity = intensity;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
+    /** @brief リムライトを使うかを設定する */
     void SetEnableRim(bool enable)
     {
-        if (materialData_) {
-            materialData_->enableRim = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
+    /** @brief UV の変換行列を設定する */
     void SetUVTransform(const Matrix4x4& m)
     {
-        if (materialData_) {
-            materialData_->uvTransform = m;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::uvTransform, m);
     }
 
     /**
@@ -274,34 +282,35 @@ public:
      * @param filePath 法線マップ画像のファイルパス
      */
     void SetNormalMap(const std::string& filePath);
+    /** @brief 法線マップを使うかを設定する */
     void SetUseNormalMap(bool enable)
     {
-        if (materialData_) {
-            materialData_->useNormalMap = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useNormalMap, enable ? 1 : 0);
     }
 
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
     void SetMetallic(float v)
     {
-        if (materialData_) {
-            materialData_->metallic = v;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::metallic, v);
     }
+    /** @brief 表面の粗さを設定する */
     void SetRoughness(float v)
     {
-        if (materialData_) {
-            materialData_->roughness = v;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::roughness, v);
     }
+    /** @brief 陰影の計算を PBR にする */
     void SetShadingTypePBR()
     {
-        if (materialData_) {
+        if (materialData_)
+        {
             materialData_->shadingType = kPbrShadingType;
             lockShadingType_ = true;
         }
     }
-    void LockShadingType(bool lock = true) { lockShadingType_ = lock; }
+    /** @brief 陰影の計算方法を固定し、エディタから変えられないようにする */
+    void LockShadingType(bool lock = true) {
+        lockShadingType_ = lock;
+    }
 
 private:
     static constexpr int kPbrShadingType = 5;

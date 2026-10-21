@@ -10,7 +10,7 @@
  *   // 毎フレーム
  *   menu_.Update(input_);
  *   if (menu_.ConsumeConfirm(input_)) {
- *       switch (menu_.GetSelectedIndex()) { ... }
+ *       actions[menu_.GetSelectedIndex()](); // 項目順のアクション表から呼び出す
  *   }
  *   menu_.Draw();
  *
@@ -47,7 +47,7 @@ struct UIMenuStyle {
 class UIMenu {
 public:
     /**
-     * @brief 初期化描画に必要な共通オブジェクトを受け取る
+     * @brief 描画に必要な共通オブジェクトを受け取って初期化する
      * @param spriteCommon ハイライト用Spriteの生成に使う共通設定
      * @param fontRenderer ラベル・カーソル記号の描画に使うFontRenderer
      */
@@ -84,12 +84,18 @@ public:
     bool ConsumeConfirm(Input* input);
 
     /** @brief 現在選択中の項目インデックスを取得する */
-    int GetSelectedIndex() const { return cursor_; }
+    int GetSelectedIndex() const {
+        return cursor_;
+    }
 
     /** @brief メニュー左上の現在位置（項目の横に値を添えて描く時に使う） */
-    Vector2 GetPosition() const { return { x_, y_ }; }
+    Vector2 GetPosition() const {
+        return { x_, y_ };
+    }
     /** @brief 1項目の現在の大きさ（幅, 高さ=行間） */
-    Vector2 GetItemSize() const { return { itemWidth_, itemHeight_ }; }
+    Vector2 GetItemSize() const {
+        return { itemWidth_, itemHeight_ };
+    }
 
     /** @brief ハイライトボックスとラベル・カーソル記号を描画する */
     void Draw();

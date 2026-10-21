@@ -21,6 +21,8 @@ private:
     class FadingOut;
     class Loading;
     class FadingIn;
+    /** @brief 現在状態を終了して次状態を開始する */
+    void ChangeState(const State& next);
     const State* state_;
 };
 }

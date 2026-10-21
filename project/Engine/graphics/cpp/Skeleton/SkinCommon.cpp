@@ -1,17 +1,17 @@
 /**
  * @file SkinCommon.cpp
- * @brief SkinCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スキンメッシュ共通のルートシグネチャ・PSO（SkinCommon）の実装
  */
 #include "SkinCommon.h"
 #include "PipelineHelper.h"
 #include <cassert>
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+namespace engine::graphics {
 namespace PH = engine::graphics::PipelineHelper;
 
+/** @brief ルートシグネチャと SkinnedVS/Object3dPS を使った PSO 一式（各ブレンドモード分）を構築する */
 void SkinCommon::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
@@ -28,33 +28,22 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 7 (PS, b2) : ポイントライト配列
     // スロット 8 (PS, t3) : 法線マップ SRV
 
-    D3D12_DESCRIPTOR_RANGE texRange = PH::MakeSrvRange(0); // t0
-    D3D12_DESCRIPTOR_RANGE shadowRange = PH::MakeSrvRange(1); // t1
-    D3D12_DESCRIPTOR_RANGE cubemapRange = PH::MakeSrvRange(2); // t2
-    D3D12_DESCRIPTOR_RANGE normalMapRange = PH::MakeSrvRange(3); // t3
-
-    D3D12_ROOT_PARAMETER rootParameters[9] = {
-        PH::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL), // 0: マテリアル (PS, b0)
-        PH::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX), // 1: 変換行列 (VS, b0)
-        PH::MakeSrvTableParam(&texRange, D3D12_SHADER_VISIBILITY_PIXEL), // 2: テクスチャ (PS, t0)
-        PH::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_PIXEL), // 3: 平行光源 (PS, b1)
-        PH::MakeSrvTableParam(&shadowRange, D3D12_SHADER_VISIBILITY_PIXEL), // 4: シャドウマップ (PS, t1)
-        PH::MakeSrvTableParam(&cubemapRange, D3D12_SHADER_VISIBILITY_PIXEL), // 5: キューブマップテクスチャ (PS, t2)
+    // t0: テクスチャ / t1: シャドウマップ / t2: キューブマップ / t3: 法線マップ
+    const auto ranges = PH::MakeModelTextureRanges();
+    const auto modelParameters = PH::MakeModelRootParameters(ranges);
+    // スロット6へスキニングパレットを挿入し、ライトと法線マップを後ろへ送る。
+    const std::array<D3D12_ROOT_PARAMETER, PH::kModelRootParameterCount + 1> rootParameters = {
+        modelParameters[0], modelParameters[1], modelParameters[2],
+        modelParameters[3], modelParameters[4], modelParameters[5],
         PH::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_VERTEX), // 6: スキニングパレット (VS, b1)
-        PH::MakeCbvParam(2, D3D12_SHADER_VISIBILITY_PIXEL), // 7: ポイントライト配列 (PS, b2)
-        PH::MakeSrvTableParam(&normalMapRange, D3D12_SHADER_VISIBILITY_PIXEL), // 8: 法線マップ (PS, t3)
+        modelParameters[6], modelParameters[7],
     };
 
     // スキンメッシュも3Dモデルと同じく最高解像度ミップのみ使用する（MaxLOD=0）
     auto staticSamplers = PH::MakeDefaultSamplers(0.0f);
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc { };
-    rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-    rsDesc.pParameters = rootParameters;
-    rsDesc.NumParameters = _countof(rootParameters); // スロット 0〜8
-    rsDesc.pStaticSamplers = staticSamplers.data();
-    rsDesc.NumStaticSamplers = static_cast<UINT>(staticSamplers.size());
-    rootSignature_ = PH::CreateRootSignature(device, rsDesc);
+    rootSignature_ = PH::CreateRootSignature(device, rootParameters.data(), static_cast<UINT>(rootParameters.size()),
+        staticSamplers.data(), static_cast<UINT>(staticSamplers.size()), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     // 入力レイアウト（スキニング用: 法線+ボーン情報追加）
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
@@ -74,18 +63,14 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
     psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
 
-    for (int i = 0; i < static_cast<int>(BlendMode::Count); ++i) {
-        psoDesc.BlendState.RenderTarget[0] = PH::MakeBlendDesc(static_cast<BlendMode>(i));
-        device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
-        const std::wstring name = L"SkinCommon.Object3dPS.Blend" + std::to_wstring(i);
-        graphicsPipelineStates_[i]->SetName(name.c_str());
-    }
+    PH::CreateBlendPipelines(device, psoDesc, L"SkinCommon.Object3dPS.Blend", graphicsPipelineStates_);
 }
 
+/** @brief 指定ブレンドモードのルートシグネチャ・PSO・プリミティブトポロジをコマンドリストにセットする */
 void SkinCommon::CommonDrawSettings(BlendMode blendMode)
 {
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-    cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
-    cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    PipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
 }
+
+} // namespace engine::graphics

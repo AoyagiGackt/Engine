@@ -4,8 +4,8 @@
  */
 #include "StageEditorContentFactory.h"
 
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 // 戦闘部屋テンプレートの配置（部屋の中心からの相対位置）
 constexpr int kRoomSpawnCount = 2;
@@ -18,20 +18,25 @@ constexpr engine::Vector4 kBreakableWallColor = { 0.7f, 0.7f, 0.75f, 1.0f };
 constexpr engine::Vector4 kGuideTextColor = { 0.85f, 0.95f, 1.0f, 0.95f };
 }
 
+/** @brief 進入、敵出現、全滅条件、出口、カメラを含む戦闘部屋を生成する */
 StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Vector3& center, int& nextSerial)
 {
+    // 通し番号を名前に付け、同じテンプレートを何度置いても名前とフラグがぶつからないようにする
     StageEditorGeneratedContent result;
     const std::string serial = std::to_string(nextSerial++);
     const std::string startFlag = "room_start_" + serial;
     const std::string enemyGroup = "room_wave_" + serial;
 
+    // 部屋に入ると開始フラグを立てる進入トリガー
     TriggerDesc entryTrigger;
     entryTrigger.name = "room_entry_" + serial;
     entryTrigger.position = center;
     entryTrigger.flag = startFlag;
     result.triggers.push_back(std::move(entryTrigger));
 
-    for (int i = 0; i < kRoomSpawnCount; ++i) {
+    // 開始フラグで出現する敵の出現地点を横一列に並べ、全員を同じグループにする
+    for (int i = 0; i < kRoomSpawnCount; ++i)
+    {
         ObjectDesc spawn;
         spawn.name = "room_spawn_" + serial + "_" + std::to_string(i + 1);
         spawn.kind = "spawn_point";
@@ -41,6 +46,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
         result.objects.push_back(std::move(spawn));
     }
 
+    // グループが全滅したら成立するイベント条件
     ObjectDesc clearCondition;
     clearCondition.name = "room_clear_" + serial;
     clearCondition.kind = "event_condition";
@@ -52,10 +58,12 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
 
     // 出口の扉は全滅条件でせり上がって消えるスライド扉にする
     StageEditorGeneratedContent door = CreateSlidingDoor(center + kRoomExitDoorOffset, ConditionFlagName(clearConditionName), nextSerial);
-    for (ObjectDesc& desc : door.objects) {
+    for (ObjectDesc& desc : door.objects)
+    {
         result.objects.push_back(std::move(desc));
     }
 
+    // 戦闘開始時に部屋全体を映すカメラ地点
     ObjectDesc cameraPoint;
     cameraPoint.name = "room_camera_" + serial;
     cameraPoint.kind = "camera_point";
@@ -66,6 +74,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     return result;
 }
 
+/** @brief 条件フラグが立つとせり上がって消えるスライド扉を生成する */
 StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const Vector3& center, const std::string& conditionFlag, int& nextSerial)
 {
     // フラグが立つとタイマーが進み、1秒で上へ抜けて1.2秒後に非表示・当たり判定消滅
@@ -75,6 +84,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     constexpr float kSlideSpeed = 1.0f;
 
     StageEditorGeneratedContent result;
+    // ブロックを縦に伸ばした当たり判定つきの扉
     ObjectDesc door;
     door.name = "door_" + std::to_string(nextSerial++);
     door.kind = "gimmick";
@@ -84,6 +94,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     door.scale = { 1.0f, kDoorHeight, 1.0f };
     door.solid = true;
     door.lighting = true;
+    // 条件フラグが立つと、遅延ののち上方向へ1回だけ滑らかに動いて消える
     door.activationFlag = conditionFlag;
     door.activeWhenFlag = false;
     door.activationDelay = kOpenDelaySeconds;
@@ -98,6 +109,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     return result;
 }
 
+/** @brief 指定武器の近接攻撃でしか壊れない壁を生成する（solid、爆風なし） */
 StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const Vector3& center, const std::string& weaponType, int& nextSerial)
 {
     constexpr float kWallHeight = 4.0f;
@@ -123,6 +135,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const
     return result;
 }
 
+/** @brief 区画トリガーと、そのフラグで表示される画面下の案内文をセットで生成する */
 StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vector3& center, const std::string& text, int& nextSerial)
 {
     constexpr float kTriggerRadius = 1.5f;
@@ -154,13 +167,15 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vec
     return result;
 }
 
+/** @brief 収集物を横一列に生成する */
 StageEditorGeneratedContent StageEditorContentFactory::CreatePickupRow(const Vector3& center, int count, float spacing, int& nextSerial)
 {
     constexpr float kPickupScale = 0.35f;
 
     StageEditorGeneratedContent result;
     const int clampedCount = count < 1 ? 1 : count;
-    for (int i = 0; i < clampedCount; ++i) {
+    for (int i = 0; i < clampedCount; ++i)
+    {
         ObjectDesc pickup;
         pickup.name = "pickup_" + std::to_string(nextSerial++);
         pickup.kind = "pickup";
@@ -176,11 +191,13 @@ StageEditorGeneratedContent StageEditorContentFactory::CreatePickupRow(const Vec
     return result;
 }
 
+/** @brief 指定条件に沿った敵出現地点をまとめて生成する */
 StageEditorGeneratedContent StageEditorContentFactory::CreateWave(const StageEditorWaveConfig& config, int& nextSerial)
 {
     StageEditorGeneratedContent result;
     result.objects.reserve(config.enemyCount);
-    for (int i = 0; i < config.enemyCount; ++i) {
+    for (int i = 0; i < config.enemyCount; ++i)
+    {
         ObjectDesc spawn;
         spawn.name = config.groupName + "_spawn_" + std::to_string(nextSerial++);
         spawn.kind = "spawn_point";
@@ -193,3 +210,5 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateWave(const StageEdi
     }
     return result;
 }
+
+} // namespace engine::game

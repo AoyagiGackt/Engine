@@ -40,30 +40,40 @@ public:
      */
     void Consider(const void* key, const engine::AABB& bounds)
     {
-        if (key == nullptr || !engine::Collision::CheckCollision(shotRange_, bounds)) {
+        if (key == nullptr || !engine::Collision::CheckCollision(shotRange_, bounds))
+        {
             return;
         }
         // 銃口から候補の手前の面までの距離（銃口が候補に食い込んでいれば0）
         const float distance = (dirX_ > 0.0f)
             ? (std::max)(bounds.min.x - muzzle_.x, 0.0f)
             : (std::max)(muzzle_.x - bounds.max.x, 0.0f);
-        if (distance < hitDistance_) {
+        if (distance < hitDistance_)
+        {
             hitDistance_ = distance;
             target_ = key;
         }
     }
 
     /** @brief 的選びを終えて何も選ばれていない状態に戻す（撃っていないフレーム用） */
-    void Clear() { target_ = nullptr; }
+    void Clear() {
+        target_ = nullptr;
+    }
 
     /** @brief この候補が今回の的か */
-    bool IsTarget(const void* key) const { return target_ != nullptr && target_ == key; }
+    bool IsTarget(const void* key) const {
+        return target_ != nullptr && target_ == key;
+    }
 
     /** @brief 的があるか */
-    bool HasTarget() const { return target_ != nullptr; }
+    bool HasTarget() const {
+        return target_ != nullptr;
+    }
 
     /** @brief 銃口から的の手前の面までの距離（的が無ければ射程いっぱいの見た目に使えるよう呼び出し側で判断する） */
-    float GetHitDistance() const { return hitDistance_; }
+    float GetHitDistance() const {
+        return hitDistance_;
+    }
 
 private:
     Vector3 muzzle_ = { };

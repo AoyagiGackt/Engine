@@ -48,18 +48,10 @@ struct MeshData {
  */
 class MeshManager {
 public:
-    /**
-     * @brief 現在選択されているメッシュのデータを取得する
-     * @return MeshData& 現在のメッシュデータへの参照
-     */
-    MeshData& GetCurrentMesh();
-
-    /**
-     * @brief 指定したメッシュタイプのデータを取得する（ImGui等での直接編集用）
-     * @param type 取得したいメッシュタイプ
-     * @return MeshData& 対象メッシュデータへの参照
-     */
-    MeshData& GetMesh(MeshType type);
+    /** @brief 指定したメッシュの変換値をコピーして返す */
+    Transform GetMeshTransform(MeshType type) const;
+    /** @brief 指定したメッシュの変換値を更新する */
+    void SetMeshTransform(MeshType type, const Transform& transform);
 
     /**
      * @brief 描画に使用するメッシュの種類を変更する
@@ -87,6 +79,7 @@ public:
 private:
     /** @brief コンストラクタ内部で基本的なメッシュ（球、立方体、平面など）を生成・初期化する */
     MeshManager();
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~MeshManager() = default;
     MeshManager(const MeshManager&) = delete;
     MeshManager& operator=(const MeshManager&) = delete;
@@ -95,7 +88,7 @@ private:
     MeshType currentMeshType_;
 
     /** @brief マネージャーが保持している全メッシュのリスト（インデックスは MeshType に対応） */
-    std::vector<MeshData> meshes;
+    std::vector<MeshData> meshes_;
 
     /**
      * @brief 初期化時に各基本図形（球体、立方体、平面）の頂点データを計算してリストに登録する

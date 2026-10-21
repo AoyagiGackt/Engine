@@ -81,18 +81,29 @@ public: // メンバ関数
     /** @brief GetCenteredClientViewport() に対応するシザー矩形を取得する */
     D3D12_RECT GetCenteredClientScissorRect() const;
 
+    /** @brief バックバッファの RTV と深度を描画先にし、中央寄せのビューポートとシザーを設定する（影のパスなどの後に戻す時に使う） */
+    void SetBackBufferRenderTarget();
+
     /** @brief VSyncの有効/無効を設定する */
-    void SetVSyncEnabled(bool enabled) { vsyncEnabled_ = enabled; }
+    void SetVSyncEnabled(bool enabled) {
+        vsyncEnabled_ = enabled;
+    }
     /** @brief VSyncが有効かどうかを返す */
-    bool IsVSyncEnabled() const { return vsyncEnabled_; }
+    bool IsVSyncEnabled() const {
+        return vsyncEnabled_;
+    }
     /** @brief VSyncの有効/無効を切り替える */
-    void ToggleVSync() { vsyncEnabled_ = !vsyncEnabled_; }
+    void ToggleVSync() {
+        vsyncEnabled_ = !vsyncEnabled_;
+    }
 
     /**
      * @brief GPU診断ログへ添える現在の処理名を設定する
      * @param context シーン名や描画パス名などの短い識別名
      */
-    void SetDiagnosticContext(const std::string& context) { diagnosticContext_ = context; }
+    void SetDiagnosticContext(const std::string& context) {
+        diagnosticContext_ = context;
+    }
 
     /**
      * @brief シェーダーファイルをコンパイルする
@@ -103,22 +114,34 @@ public: // メンバ関数
     Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(const std::wstring& filePath, const wchar_t* profile);
 
     /** @brief デバイスの取得 */
-    ID3D12Device* GetDevice() { return device_.Get(); }
+    ID3D12Device* GetDevice() {
+        return device_.Get();
+    }
 
     /** @brief グラフィックスコマンドリストの取得 */
-    ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
+    ID3D12GraphicsCommandList* GetCommandList() {
+        return commandList_.Get();
+    }
 
     /** @brief コマンドキューの取得 */
-    ID3D12CommandQueue* GetCommandQueue() { return commandQueue_.Get(); }
+    ID3D12CommandQueue* GetCommandQueue() {
+        return commandQueue_.Get();
+    }
 
     /** @brief スワップチェーンの取得 */
-    IDXGISwapChain4* GetSwapChain() { return swapChain_.Get(); }
+    IDXGISwapChain4* GetSwapChain() {
+        return swapChain_.Get();
+    }
 
     /** @brief 現在のバックバッファ用コマンドアロケータの取得 */
-    ID3D12CommandAllocator* GetCommandAllocator() { return commandAllocators_[swapChain_->GetCurrentBackBufferIndex()].Get(); }
+    ID3D12CommandAllocator* GetCommandAllocator() {
+        return commandAllocators_[swapChain_->GetCurrentBackBufferIndex()].Get();
+    }
 
     /** @brief SRV用デスクリプタヒープの取得 */
-    ID3D12DescriptorHeap* GetSrvDescriptorHeap() { return srvDescriptorHeap_.Get(); }
+    ID3D12DescriptorHeap* GetSrvDescriptorHeap() {
+        return srvDescriptorHeap_.Get();
+    }
 
     /**
      * @brief バッファリソース（定数バッファ等）を生成する
@@ -186,32 +209,50 @@ public: // メンバ関数
     ID3D12Resource* GetCurrentBackBufferResource();
 
     /** @brief バックバッファのフォーマットを取得（デフォルトはSRGB） */
-    DXGI_FORMAT GetBackBufferFormat() const { return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; }
+    DXGI_FORMAT GetBackBufferFormat() const {
+        return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    }
 
     /** @brief スワップチェーンのバッファ数を取得（ダブルバッファリングなら2） */
-    UINT GetBufferCount() const { return kFrameCount; }
+    UINT GetBufferCount() const {
+        return kFrameCount;
+    }
 
     /** @brief DSV（深度バッファ）のハンドルを取得 */
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDsvHandle() { return dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDsvHandle() {
+        return dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+    }
     /** @brief バックバッファへの直接描画用深度ビューを取得する */
-    D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferDsvHandle() { return backBufferDsvHeap_->GetCPUDescriptorHandleForHeapStart(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferDsvHandle() {
+        return backBufferDsvHeap_->GetCPUDescriptorHandleForHeapStart();
+    }
 
     /** @brief 深度ステンシルリソースを取得（SRV生成に使用） */
-    ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
+    ID3D12Resource* GetDepthStencilResource() const {
+        return depthStencilResource_.Get();
+    }
 
     // フェンス関連
 
     /** @brief フェンスの取得 */
-    ID3D12Fence* GetFence() { return fence_.Get(); }
+    ID3D12Fence* GetFence() {
+        return fence_.Get();
+    }
 
     /** @brief 現在のフェンス値を取得 */
-    uint64_t GetFenceValue() const { return fenceValue_; }
+    uint64_t GetFenceValue() const {
+        return fenceValue_;
+    }
 
     /** @brief フェンスイベントのハンドルを取得 */
-    HANDLE GetFenceEvent() { return fenceEvent_; }
+    HANDLE GetFenceEvent() {
+        return fenceEvent_;
+    }
 
     /** @brief フェンス値をインクリメントする */
-    void IncrementFenceValue() { fenceValue_++; }
+    void IncrementFenceValue() {
+        fenceValue_++;
+    }
 
 private:
     // 内部初期化関数群

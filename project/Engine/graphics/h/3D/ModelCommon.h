@@ -34,7 +34,10 @@ public:
      */
     void EndShadowPass();
 
-    engine::DirectXCommon* GetDxCommon() const { return dxCommon_; }
+    /** @brief DirectX の共通処理を返す */
+    engine::DirectXCommon* GetDxCommon() const {
+        return dxCommon_;
+    }
 
 private:
     engine::DirectXCommon* dxCommon_ = nullptr;

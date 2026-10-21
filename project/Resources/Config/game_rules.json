@@ -12,9 +12,15 @@
   },
   "weaponEnemyHp": 7,
   "flyingWeaponEnemyHp": 4,
+  "playerMaxHp": 30,
   "starterWeapon": "Sword",
   "bossStealWeapon": "Hammer",
-  "bossColor": [0.9, 0.65, 0.15, 1.0],
+  "bossColor": [
+    0.9,
+    0.65,
+    0.15,
+    1
+  ],
   "waterFloor": -1,
   "levelPaths": [
     "Resources/Levels/level01.json",
@@ -32,5 +38,13 @@
     "B": 1200,
     "C": 800,
     "D": 500
-  }
+  },
+  "stagePortalXs": [
+    8,
+    18,
+    28,
+    38,
+    48,
+    58
+  ]
 }

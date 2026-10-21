@@ -1,6 +1,6 @@
 /**
  * @file FrameProfiler.h
- * @brief FrameProfilerの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief CPUのフレーム時間とFPSを測る処理（FrameProfiler）
  */
 #pragma once
 #include <Windows.h>
@@ -10,18 +10,21 @@ namespace engine::graphics {
 // BeginFrame() / EndFrame() を毎フレーム呼ぶだけで使える
 class FrameProfiler {
 public:
+    /** @brief 共有インスタンスを取得する */
     static FrameProfiler* GetInstance()
     {
         static FrameProfiler inst;
         return &inst;
     }
 
+    /** @brief フレームの計測を始める */
     void BeginFrame()
     {
         // フレーム開始時刻を記録する
         QueryPerformanceCounter(&frameStart_);
     }
 
+    /** @brief フレームの計測を終え、FPSと処理時間を更新する */
     void EndFrame()
     {
         LARGE_INTEGER now, freq;
@@ -34,18 +37,26 @@ public:
         sampleIdx_ = (sampleIdx_ + 1) % kSamples;
 
         float sum = 0.0f;
-        for (float s : samples_) {
+        for (float s : samples_)
+        {
             sum += s;
         }
         avgMs_ = sum / kSamples;
         fps_ = avgMs_ > 0.0f ? kMillisecondsPerSecond / avgMs_ : 0.0f;
     }
 
-    float GetFPS() const { return fps_; }
-    float GetMs() const { return avgMs_; }
+    /** @brief FPS を返す */
+    float GetFPS() const {
+        return fps_;
+    }
+    /** @brief 1フレームの処理時間（ミリ秒）を返す */
+    float GetMs() const {
+        return avgMs_;
+    }
 
 private:
     static constexpr float kMillisecondsPerSecond = 1000.0f;
+    /** @brief 計測前のフレーム統計を生成する */
     FrameProfiler() = default;
     static constexpr int kSamples = 60;
     std::array<float, kSamples> samples_ = { };

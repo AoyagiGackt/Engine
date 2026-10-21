@@ -10,10 +10,9 @@
 #include "SceneManager.h"
 #include "UILayout.h"
 #include "WeaponManager.h"
-using namespace engine;
 using namespace engine::graphics;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 // 既定の配置（F2のエディタで動かした値は Resources/Config/UI/gameover.json に保存される）
 constexpr const char* kLayoutName = "gameover";
@@ -37,6 +36,7 @@ constexpr int kRowRestart = 0;
 
 // 初期化
 
+/** @brief 半透明の背景と選択肢メニューを生成して初期化する */
 void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
@@ -58,7 +58,8 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ローグライトのラン中に力尽きた場合のみ通算記録へ反映し、コンティニューデータを破棄する
     auto* rd = RunData::GetInstance();
-    if (rd->IsRunActive()) {
+    if (rd->IsRunActive())
+    {
         SaveDataManager::GetInstance()->RecordRunResult(false, rd->GetFloor(), rd->GetGold());
         SaveDataManager::GetInstance()->ClearContinue();
     }
@@ -66,30 +67,37 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
 // 終了
 
+/** @brief 終了処理（所有する資源は unique_ptr が解放するので何もしない） */
 void GameOverScene::Finalize()
 {
 }
 
 // 更新
 
+/** @brief メニューを操作し、決定された項目（リスタート/タイトルへ）へ遷移する */
 void GameOverScene::Update()
 {
     menu_.Update(input_);
-    if (!menu_.ConsumeConfirm(input_)) {
+    if (!menu_.ConsumeConfirm(input_))
+    {
         return;
     }
-    if (menu_.GetSelectedIndex() == kRowRestart) {
+    if (menu_.GetSelectedIndex() == kRowRestart)
+    {
         // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
         RunData::GetInstance()->StartNewRun();
         WeaponManager::GetInstance()->ResetForNewRun();
         SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
-    } else {
+    }
+    else
+    {
         SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
     }
 }
 
 // 描画
 
+/** @brief 半透明の背景と選択肢（リスタート/タイトルへ）を描画する */
 void GameOverScene::Draw()
 {
     // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄と配置の反映は毎フレーム必ず通るここで行う
@@ -110,3 +118,5 @@ void GameOverScene::Draw()
         layout.Float("hint.scale", kHintTextScale), layout.Color("hint.color", kHintTextColor));
     fontRenderer_.Draw();
 }
+
+} // namespace engine::game

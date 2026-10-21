@@ -7,13 +7,19 @@
 #include "JsonHelper.h"
 #include "Logger.h"
 #include <string>
-using namespace engine;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 constexpr const char* kPlayerParamsPath = "Resources/Config/player_params.json";
 
 constexpr JsonField<PlayerTuning> kFields[] = {
+    { "skills", "skillBlinkPlusDistanceMult", &PlayerTuning::skillBlinkPlusDistanceMult },
+    { "skills", "skillComboExtendBonus", &PlayerTuning::skillComboExtendBonus },
+    { "skills", "skillFastFireIntervalMult", &PlayerTuning::skillFastFireIntervalMult },
+    { "skills", "skillAwakenBoostChargeMult", &PlayerTuning::skillAwakenBoostChargeMult },
+    { "skills", "skillSpeedUpMult", &PlayerTuning::skillSpeedUpMult },
+    { "skills", "skillHighJumpMult", &PlayerTuning::skillHighJumpMult },
+    { "skills", "skillJuggleExtendBonus", &PlayerTuning::skillJuggleExtendBonus },
     { "movement", "groundY", &PlayerTuning::groundY },
     { "movement", "ceilingY", &PlayerTuning::ceilingY },
     { "movement", "gravity", &PlayerTuning::gravity },
@@ -95,11 +101,13 @@ constexpr JsonField<PlayerTuning> kFields[] = {
     { "rampage", "juggleMaxSlashes", &PlayerTuning::juggleMaxSlashes },
 };
 
+/** @brief player_params.json からプレイヤーの調整値を読み込む */
 PlayerTuning LoadFromFile()
 {
     PlayerTuning loaded;
     const nlohmann::json root = JsonHelper::Load(kPlayerParamsPath);
-    if (!root.is_object()) {
+    if (!root.is_object())
+    {
         Logger::LogWarning(std::string("PlayerTuning: ") + kPlayerParamsPath + " が読めません。既定値で動きます");
         return loaded;
     }
@@ -107,6 +115,7 @@ PlayerTuning LoadFromFile()
     return loaded;
 }
 
+/** @brief この状態の共有インスタンスを返す */
 PlayerTuning& Instance()
 {
     static PlayerTuning tuning = LoadFromFile();
@@ -114,12 +123,16 @@ PlayerTuning& Instance()
 }
 } // namespace
 
+/** @brief 読み込み済みの調整値を返す（初回はJSONを読む） */
 const PlayerTuning& PlayerTuning::Get()
 {
     return Instance();
 }
 
+/** @brief JSONを読み直す */
 void PlayerTuning::Reload()
 {
     Instance() = LoadFromFile();
 }
+
+} // namespace engine::game

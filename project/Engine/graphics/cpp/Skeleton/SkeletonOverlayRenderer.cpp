@@ -1,29 +1,34 @@
 /**
  * @file SkeletonOverlayRenderer.cpp
- * @brief SkeletonOverlayRendererの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スケルトンの関節とボーンのデバッグ表示（SkeletonOverlayRenderer）の実装
  */
 #include "SkeletonOverlayRenderer.h"
+#include "EngineAssert.h"
+#include "PipelineHelper.h"
+#include "GameConstants.h"
 #ifdef USE_IMGUI
 
 #include "Camera.h"
 #include <cmath>
 
+namespace engine::graphics {
 namespace {
 
 // ボーン描画の要素数
 constexpr UINT kOverlayConstantCount = 20;
 constexpr UINT kVerticesPerBone = 4;
 constexpr UINT kIndicesPerBone = 6;
+/** @brief 骨1本の四角形（4頂点）を2枚の三角形に分けるインデックスの並び */
+constexpr uint16_t kQuadIndexOffsets[kIndicesPerBone] = { 0, 1, 2, 0, 2, 3 };
 constexpr int kIndicesPerSphereCell = 6;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
-static constexpr float kPi = 3.14159265358979323846f;
+static constexpr float kPi = GameConstants::kPi;
 
+/** @brief ルートシグネチャ・PSO・ジョイント用球メッシュ・ボーン用動的頂点バッファを構築する */
 void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
@@ -37,19 +42,11 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     rp.Constants.RegisterSpace = 0;
     rp.Constants.Num32BitValues = kOverlayConstantCount;
 
-    D3D12_ROOT_SIGNATURE_DESC rsDesc { };
-    rsDesc.NumParameters = 1;
-    rsDesc.pParameters = &rp;
-    rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-
-    ComPtr<ID3DBlob> sigBlob, errBlob;
-    D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
-        IID_PPV_ARGS(&rootSignature_));
+    rootSignature_ = PipelineHelper::CreateRootSignature(device, &rp, 1,
+        nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    ENGINE_ASSERT(rootSignature_);
 
     // シェーダー
-    Microsoft::WRL::ComPtr<IDxcBlob> vs = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayVS.hlsl", L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> ps = dxCommon_->CompileShader(L"Resources/shaders/diagnostics/SkeletonOverlayPS.hlsl", L"ps_6_0");
 
     // 入力レイアウト
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
@@ -58,58 +55,26 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     };
 
     // 三角形 PSO (ボーン・球ともに使用)
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc { };
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputLayout, 1 };
-    psoDesc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
-    psoDesc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
-    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    psoDesc.DepthStencilState.DepthEnable = FALSE;
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-    psoDesc.SampleDesc.Count = 1;
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
     auto& b = psoDesc.BlendState.RenderTarget[0];
-    b.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    b.BlendEnable = TRUE;
-    b.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    b.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    b.BlendOp = D3D12_BLEND_OP_ADD;
-    b.SrcBlendAlpha = D3D12_BLEND_ONE;
-    b.DestBlendAlpha = D3D12_BLEND_ZERO;
-    b.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+    b = PipelineHelper::MakeBlendDesc(BlendMode::Alpha);
 
-    device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&psoTri_));
+    psoTri_ = PipelineHelper::CreateGraphicsPipeline(dxCommon_, psoDesc,
+        L"Resources/shaders/diagnostics/SkeletonOverlayVS.hlsl", L"Resources/shaders/diagnostics/SkeletonOverlayPS.hlsl");
 
     BuildSphere();
-
-    D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_UPLOAD };
-    auto makeBuffer = [&](UINT size) -> ComPtr<ID3D12Resource> {
-        D3D12_RESOURCE_DESC d { };
-        d.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        d.Width = size;
-        d.Height = 1;
-        d.DepthOrArraySize = 1;
-        d.MipLevels = 1;
-        d.SampleDesc.Count = 1;
-        d.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ComPtr<ID3D12Resource> res;
-        device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &d,
-            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&res));
-        return res;
-    };
 
     // ボーン用ビルボードクワッド（1ボーン = 4頂点 + 6インデックス）
     UINT vbSize = kMaxBones * kVerticesPerBone * static_cast<UINT>(sizeof(OverlayVertex));
     UINT ibSize = kMaxBones * kIndicesPerBone * static_cast<UINT>(sizeof(uint16_t));
 
-    lineVB_ = makeBuffer(vbSize);
-    lineIB_ = makeBuffer(ibSize);
+    lineVB_ = PipelineHelper::CreateUploadBuffer(device, vbSize);
+    lineIB_ = PipelineHelper::CreateUploadBuffer(device, ibSize);
     lineVB_->Map(0, nullptr, reinterpret_cast<void**>(&lineMapped_));
     lineIB_->Map(0, nullptr, reinterpret_cast<void**>(&lineIdxMapped_));
 
@@ -117,13 +82,17 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     lineIBV_ = { lineIB_->GetGPUVirtualAddress(), ibSize, DXGI_FORMAT_R16_UINT };
 }
 
+/** @brief ジョイント表示用の単位球メッシュ（UV球）の頂点・インデックスを生成しGPUバッファへ書き込む */
 void SkeletonOverlayRenderer::BuildSphere()
 {
+    // 緯度・経度の格子で球の頂点を作る
     std::vector<OverlayVertex> verts;
     verts.reserve((kStacks + 1) * (kSlices + 1));
-    for (int i = 0; i <= kStacks; ++i) {
+    for (int i = 0; i <= kStacks; ++i)
+    {
         float phi = kPi * i / kStacks;
-        for (int j = 0; j <= kSlices; ++j) {
+        for (int j = 0; j <= kSlices; ++j)
+        {
             float theta = 2.0f * kPi * j / kSlices;
             verts.push_back({ std::sin(phi) * std::cos(theta) * kSphereRadius,
                 std::cos(phi) * kSphereRadius,
@@ -132,10 +101,13 @@ void SkeletonOverlayRenderer::BuildSphere()
         }
     }
 
+    // 格子の1マスを三角形2枚で埋める
     std::vector<uint16_t> indices;
     indices.reserve(kStacks * kSlices * kIndicesPerSphereCell);
-    for (int i = 0; i < kStacks; ++i) {
-        for (int j = 0; j < kSlices; ++j) {
+    for (int i = 0; i < kStacks; ++i)
+    {
+        for (int j = 0; j < kSlices; ++j)
+        {
             auto a = static_cast<uint16_t>(i * (kSlices + 1) + j);
             auto bv = static_cast<uint16_t>(a + 1);
             auto c = static_cast<uint16_t>((i + 1) * (kSlices + 1) + j);
@@ -145,25 +117,15 @@ void SkeletonOverlayRenderer::BuildSphere()
     }
     sphereIndexCount_ = static_cast<uint32_t>(indices.size());
 
-    D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_UPLOAD };
+    // 球の頂点とインデックスは一度書いたら変えないので、アップロードヒープに置いたまま使う
     auto makeStatic = [&](size_t size) -> ComPtr<ID3D12Resource> {
-        D3D12_RESOURCE_DESC d { };
-        d.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        d.Width = size;
-        d.Height = 1;
-        d.DepthOrArraySize = 1;
-        d.MipLevels = 1;
-        d.SampleDesc.Count = 1;
-        d.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ComPtr<ID3D12Resource> res;
-        dxCommon_->GetDevice()->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &d,
-            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&res));
-        return res;
+        return PipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), size);
     };
 
     sphereVB_ = makeStatic(verts.size() * sizeof(OverlayVertex));
     sphereIB_ = makeStatic(indices.size() * sizeof(uint16_t));
 
+    // 頂点とインデックスを書き込み、描画用のビューを作る
     void* mapped;
     sphereVB_->Map(0, nullptr, &mapped);
     memcpy(mapped, verts.data(), verts.size() * sizeof(OverlayVertex));
@@ -179,9 +141,11 @@ void SkeletonOverlayRenderer::BuildSphere()
         static_cast<UINT>(indices.size() * sizeof(uint16_t)), DXGI_FORMAT_R16_UINT };
 }
 
+/** @brief 深度テスト無効でスケルトンのジョイント（白球）とボーン（白ビルボード）を描画する */
 void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
 {
-    if (!camera || skeleton.GetJoints().empty()) {
+    if (!camera || skeleton.GetJointCount() == 0)
+    {
         return;
     }
 
@@ -198,9 +162,7 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
         };
     };
 
-    cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(psoTri_.Get());
-    cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    PipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), psoTri_.Get());
 
     const Vector3 camPos = camera->GetTranslate();
 
@@ -208,12 +170,15 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
     {
         uint32_t vc = 0, ic = 0;
 
-        for (const Joint& joint : skeleton.GetJoints()) {
-            if (!joint.parent || vc + kVerticesPerBone > kMaxBones * kVerticesPerBone) {
+        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex)
+        {
+            const Joint& joint = skeleton.GetJoint(jointIndex);
+            if (!joint.parent || vc + kVerticesPerBone > kMaxBones * kVerticesPerBone)
+            {
                 continue;
             }
 
-            Vector3 p0 = toWorld(skeleton.GetJoints()[*joint.parent].skeletonSpaceMatrix);
+            Vector3 p0 = toWorld(skeleton.GetJoint(*joint.parent).skeletonSpaceMatrix);
             Vector3 p1 = toWorld(joint.skeletonSpaceMatrix);
 
             // 骨の向き
@@ -233,19 +198,18 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
             lineMapped_[vc++] = { p1.x + perp.x * hw, p1.y + perp.y * hw, p1.z + perp.z * hw, 1.f };
 
             // 2三角形（クワッド）
-            lineIdxMapped_[ic++] = base + 0;
-            lineIdxMapped_[ic++] = base + 1;
-            lineIdxMapped_[ic++] = base + 2;
-            lineIdxMapped_[ic++] = base + 0;
-            lineIdxMapped_[ic++] = base + 2;
-            lineIdxMapped_[ic++] = base + 3;
+            for (uint16_t offset : kQuadIndexOffsets)
+            {
+                lineIdxMapped_[ic++] = static_cast<uint16_t>(base + offset);
+            }
         }
 
-        if (ic > 0) {
+        if (ic > 0)
+        {
             OverlayConstants cb { vp, { 1.0f, 1.0f, 1.0f, 1.0f } };
             cmd->IASetVertexBuffers(0, 1, &lineVBV_);
             cmd->IASetIndexBuffer(&lineIBV_);
-            cmd->SetGraphicsRoot32BitConstants(0, kOverlayConstantCount, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(PipelineHelper::OverlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(ic, 1, 0, 0, 0);
         }
     }
@@ -255,14 +219,18 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
         cmd->IASetVertexBuffers(0, 1, &sphereVBV_);
         cmd->IASetIndexBuffer(&sphereIBV_);
 
-        for (const Joint& joint : skeleton.GetJoints()) {
+        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex)
+        {
+            const Joint& joint = skeleton.GetJoint(jointIndex);
             Vector3 wp = toWorld(joint.skeletonSpaceMatrix);
             Matrix4x4 wvp = Multiply(MakeTranslateMatrix(wp), vp);
             OverlayConstants cb { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
-            cmd->SetGraphicsRoot32BitConstants(0, kOverlayConstantCount, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(PipelineHelper::OverlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
         }
     }
 }
+
+} // namespace engine::graphics
 
 #endif // USE_IMGUI

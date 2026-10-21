@@ -8,6 +8,14 @@ namespace engine::game {
 
 /** @brief プレイヤーの調整値（初期値はJSONに項目が無い時の既定値） */
 struct PlayerTuning {
+    // ラン中に習得したスキルの強化量
+    float skillBlinkPlusDistanceMult = 1.5f;
+    int skillComboExtendBonus = 1;
+    float skillFastFireIntervalMult = 0.5f;
+    float skillAwakenBoostChargeMult = 1.5f;
+    float skillSpeedUpMult = 1.2f;
+    float skillHighJumpMult = 1.25f;
+    int skillJuggleExtendBonus = 4;
     // 移動
     float groundY = 0.4f; ///< 配置床が無いステージの地面の高さ
     float ceilingY = 12.0f;

@@ -12,18 +12,40 @@
 #include "Audio.h"
 #include "AssetPack.h"
 #include "EngineAssert.h"
+#include "JsonHelper.h"
 #include "Logger.h"
 #include "StringUtility.h"
 #include <algorithm>
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
-using namespace engine;
 
 using namespace Microsoft::WRL;
 
 // 初期化 / 終了
 
 // 音声システムを初期化するゲーム起動時に1度だけ呼ぶ
+namespace engine {
+namespace {
+/**
+ * @brief 音声データ全体を1つのバッファとして積み、再生を始める
+ * @param voice 再生する SourceVoice
+ * @param soundData 再生する PCM データ
+ * @param loop true なら終わりまで来たら頭から繰り返す
+ */
+void SubmitAndStart(IXAudio2SourceVoice* voice, const SoundData& soundData, bool loop)
+{
+    XAUDIO2_BUFFER buffer = { };
+    buffer.pAudioData = soundData.pBuffer.data(); // PCM データの先頭ポインタ
+    buffer.AudioBytes = soundData.bufferSize; // データのバイト数
+    buffer.Flags = XAUDIO2_END_OF_STREAM; // これがバッファの終端であることを示す
+    buffer.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0; // ループ回数（無限 or 0 = ループなし）
+    const HRESULT hr = voice->SubmitSourceBuffer(&buffer);
+    ENGINE_ASSERT(SUCCEEDED(hr));
+    voice->Start(0);
+}
+} // namespace
+
+/** @brief オーディオエンジンの初期化 */
 void Audio::Initialize()
 {
     HRESULT hr;
@@ -49,7 +71,8 @@ void Audio::Initialize()
 // 音声システムを終了するゲーム終了時に1度だけ呼ぶ
 void Audio::Finalize()
 {
-    if (!xAudio2_) {
+    if (!xAudio2_)
+    {
         return; // 初期化されていなければ何もしない
     }
 
@@ -59,7 +82,8 @@ void Audio::Finalize()
     soundCache_.clear();
 
     // マスタリングボイスを破棄する
-    if (masteringVoice_) {
+    if (masteringVoice_)
+    {
         masteringVoice_->DestroyVoice();
         masteringVoice_ = nullptr;
     }
@@ -78,25 +102,43 @@ void Audio::Finalize()
 const SoundData& Audio::GetCachedSound(const std::string& filename)
 {
     auto it = soundCache_.find(filename);
-    if (it == soundCache_.end()) {
+    if (it == soundCache_.end())
+    {
         it = soundCache_.emplace(filename, LoadAudio(filename)).first;
     }
     return it->second;
 }
 
+/** @brief メニューの選択移動音を再生する */
 void Audio::PlayMenuChoice()
 {
     PlaySE(GetCachedSound("Resources/SE/choice.mp3"));
 }
 
+/** @brief メニューの決定音を再生する */
 void Audio::PlayMenuSelect()
 {
     PlaySE(GetCachedSound("Resources/SE/select.mp3"));
 }
 
-void Audio::PlayTitleBGM()
+/** @brief bgm.json でシーンのキーに割り当てた曲をループ再生する（同じ曲が鳴っていれば続きから流す） */
+void Audio::PlaySceneBGM(const std::string& sceneKey)
 {
-    PlayBGM(GetCachedSound("Resources/bgm/titleBgm.mp3"));
+    // シーンと曲の対応は初回に1回だけ読む
+    static const nlohmann::json kTable = JsonHelper::Load("Resources/Config/bgm.json");
+    const std::string path = kTable.is_object() ? kTable.value(sceneKey, std::string { }) : std::string { };
+    if (path.empty())
+    {
+        Logger::LogWarning("Audio: bgm.json に曲がありません: " + sceneKey);
+        return;
+    }
+    // 戻ってきた時などに同じ曲を最初からやり直さない
+    if (bgmVoice_ != nullptr && sceneBgmPath_ == path)
+    {
+        return;
+    }
+    PlayBGM(GetCachedSound(path));
+    sceneBgmPath_ = path;
 }
 
 /** @brief pakから読んだ音声ファイルのバイト列を、Media Foundationで読めるストリームにして開く */
@@ -105,22 +147,26 @@ static HRESULT CreateSourceReaderFromMemory(const std::vector<uint8_t>& bytes, c
 {
     ComPtr<IStream> memoryStream;
     memoryStream.Attach(SHCreateMemStream(bytes.data(), static_cast<UINT>(bytes.size())));
-    if (!memoryStream) {
+    if (!memoryStream)
+    {
         return E_OUTOFMEMORY;
     }
     ComPtr<IMFByteStream> byteStream;
     HRESULT hr = MFCreateMFByteStreamOnStream(memoryStream.Get(), &byteStream);
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         return hr;
     }
     // ファイル名が無いと形式を判別できないことがあるため、元のファイル名を手がかりとして渡す
     ComPtr<IMFAttributes> streamAttributes;
-    if (SUCCEEDED(byteStream.As(&streamAttributes))) {
+    if (SUCCEEDED(byteStream.As(&streamAttributes)))
+    {
         streamAttributes->SetString(MF_BYTESTREAM_ORIGIN_NAME, fileName.c_str());
     }
     return MFCreateSourceReaderFromByteStream(byteStream.Get(), nullptr, &outReader);
 }
 
+/** @brief 音声ファイルをロードする */
 SoundData Audio::LoadAudio(const std::string& filename)
 {
     HRESULT hr;
@@ -132,12 +178,16 @@ SoundData Audio::LoadAudio(const std::string& filename)
     // Media Foundation でファイルを開く（配布時はResourcesが無いので、pakへそのまま入れた元ファイルをメモリから開く）
     ComPtr<IMFSourceReader> pSourceReader;
     std::vector<uint8_t> packed;
-    if (AssetPack::GetInstance()->ReadRawIfMissing(filename, packed)) {
+    if (AssetPack::GetInstance()->ReadRawIfMissing(filename, packed))
+    {
         hr = CreateSourceReaderFromMemory(packed, wFilename, pSourceReader);
-    } else {
+    }
+    else
+    {
         hr = MFCreateSourceReaderFromURL(wFilename.c_str(), nullptr, &pSourceReader);
     }
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         Logger::LogError("Failed to open audio file: " + filename);
         ENGINE_ASSERT(false);
         return soundData;
@@ -150,7 +200,8 @@ SoundData Audio::LoadAudio(const std::string& filename)
     pMediaType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
     pMediaType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
     hr = pSourceReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, nullptr, pMediaType.Get());
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         Logger::LogError("Failed to set media type for: " + filename);
         ENGINE_ASSERT(false);
         return soundData;
@@ -180,17 +231,20 @@ SoundData Audio::LoadAudio(const std::string& filename)
 
     // ファイルの終端まで PCM データをチャンクごとに読み取ってバッファに貯める
     std::vector<byte> rawData;
-    while (true) {
+    while (true)
+    {
         DWORD flags = 0;
         ComPtr<IMFSample> pSample;
         hr = pSourceReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, nullptr, &flags, nullptr, &pSample);
 
         // エラー or ファイル終端に達したらループを抜ける
-        if (FAILED(hr) || (flags & MF_SOURCE_READERF_ENDOFSTREAM)) {
+        if (FAILED(hr) || (flags & MF_SOURCE_READERF_ENDOFSTREAM))
+        {
             break;
         }
 
-        if (!pSample) {
+        if (!pSample)
+        {
             continue; // サンプルが取れなかった場合はスキップ
         }
 
@@ -234,7 +288,8 @@ void Audio::CleanupFinishedSE()
             v->GetState(&state);
 
             // BuffersQueued == 0 = 再生待ちのバッファがない = 再生が終わった
-            if (state.BuffersQueued == 0) {
+            if (state.BuffersQueued == 0)
+            {
                 v->DestroyVoice(); // SourceVoice を破棄してメモリを解放
                 return true; // リストから除去する
             }
@@ -256,23 +311,16 @@ void Audio::PlayBGM(const SoundData& soundData, bool loop)
     bgmVoice_->SetVolume(bgmCurrentVolume_);
     bgmFadeDuration_ = 0.0f;
 
-    // 音声バッファを設定する
-    XAUDIO2_BUFFER buffer = { };
-    buffer.pAudioData = soundData.pBuffer.data(); // PCM データの先頭ポインタ
-    buffer.AudioBytes = soundData.bufferSize; // データのバイト数
-    buffer.Flags = XAUDIO2_END_OF_STREAM; // これがバッファの終端であることを示す
-    buffer.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0; // ループ回数（無限 or 0 = ループなし）
-
-    HRESULT hr = bgmVoice_->SubmitSourceBuffer(&buffer);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    bgmVoice_->Start(0); // 再生開始
+    // 音声バッファを積んで再生を始める
+    SubmitAndStart(bgmVoice_, soundData, loop);
 }
 
 // BGM を停止して SourceVoice を解放する
 void Audio::StopBGM()
 {
-    if (bgmVoice_) {
+    sceneBgmPath_.clear();
+    if (bgmVoice_)
+    {
         bgmVoice_->Stop();
         bgmVoice_->DestroyVoice();
         bgmVoice_ = nullptr;
@@ -285,11 +333,13 @@ void Audio::SetBGMVolume(float volume)
     bgmCurrentVolume_ = std::clamp(volume, 0.0f, 1.0f);
     bgmTargetVolume_ = bgmCurrentVolume_;
     bgmFadeDuration_ = 0.0f;
-    if (bgmVoice_) {
+    if (bgmVoice_)
+    {
         bgmVoice_->SetVolume(bgmCurrentVolume_);
     }
 }
 
+/** @brief 全SEへ適用するカテゴリ音量を設定する */
 void Audio::SetSEVolume(float volume)
 {
     seVolume_ = std::clamp(volume, 0.0f, 1.0f);
@@ -298,7 +348,8 @@ void Audio::SetSEVolume(float volume)
 // BGM の再生速度を変更する（1.0f = 等速、0.5f = 半速、2.0f = 倍速）
 void Audio::SetBGMSpeed(float speed)
 {
-    if (bgmVoice_) {
+    if (bgmVoice_)
+    {
         bgmVoice_->SetFrequencyRatio(speed);
     }
 }
@@ -314,16 +365,8 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
     IXAudio2SourceVoice* voice = CreateSourceVoice(soundData);
     voice->SetVolume(std::clamp(volume, 0.0f, 1.0f) * seVolume_);
 
-    XAUDIO2_BUFFER buffer = { };
-    buffer.pAudioData = soundData.pBuffer.data();
-    buffer.AudioBytes = soundData.bufferSize;
-    buffer.Flags = XAUDIO2_END_OF_STREAM;
-    buffer.LoopCount = 0; // SE はループしない
-
-    HRESULT hr = voice->SubmitSourceBuffer(&buffer);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    voice->Start(0); // 再生開始
+    // SE はループしない
+    SubmitAndStart(voice, soundData, false);
 
     // 後でクリーンアップできるようにリストに追加しておく
     seVoices_.push_back(voice);
@@ -332,7 +375,8 @@ void Audio::PlaySE(const SoundData& soundData, float volume)
 // 再生中のすべての SE を停止して SourceVoice を解放する
 void Audio::StopAllSE()
 {
-    for (auto* v : seVoices_) {
+    for (auto* v : seVoices_)
+    {
         v->Stop();
         v->DestroyVoice();
     }
@@ -341,9 +385,11 @@ void Audio::StopAllSE()
 
 // BGM フェード
 
+/** @brief BGM の音量を現在値から targetVolume へ duration 秒かけて変えるフェードを開始する */
 void Audio::FadeVolumeTo(float targetVolume, float duration)
 {
-    if (!bgmVoice_) {
+    if (!bgmVoice_)
+    {
         return;
     }
     bgmFadeStartVolume_ = bgmCurrentVolume_;
@@ -352,9 +398,11 @@ void Audio::FadeVolumeTo(float targetVolume, float duration)
     bgmFadeTimer_ = 0.0f;
 }
 
+/** @brief フェードアニメーションを進めるdt = 経過秒数（1/60 など） */
 void Audio::Update(float dt)
 {
-    if (!bgmVoice_ || bgmFadeDuration_ <= 0.0f) {
+    if (!bgmVoice_ || bgmFadeDuration_ <= 0.0f)
+    {
         return;
     }
 
@@ -363,7 +411,10 @@ void Audio::Update(float dt)
     bgmCurrentVolume_ = bgmFadeStartVolume_ + (bgmTargetVolume_ - bgmFadeStartVolume_) * t;
     bgmVoice_->SetVolume(bgmCurrentVolume_);
 
-    if (t >= 1.0f) {
+    if (t >= 1.0f)
+    {
         bgmFadeDuration_ = 0.0f;
     }
 }
+
+} // namespace engine

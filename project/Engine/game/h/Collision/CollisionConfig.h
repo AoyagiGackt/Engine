@@ -5,6 +5,7 @@
 #pragma once
 #include "MakeAffine.h"
 #include <algorithm>
+#include <iterator>
 #include <cmath>
 namespace engine {
 // 形状プリミティブ
@@ -64,6 +65,9 @@ enum class ColliderShape {
     Capsule,
 };
 
+/** @brief ColliderShape の定義順に並ぶ形状表の要素数 */
+inline constexpr size_t kColliderShapeCount = static_cast<size_t>(ColliderShape::Capsule) + 1;
+
 /**
  * @brief GameObject が持つ当たり判定データ
  *
@@ -83,11 +87,13 @@ struct Collider {
         shape = ColliderShape::AABB;
         aabb = a;
     }
+    /** @brief 球の形を設定する */
     void SetAsSphere(const Sphere& s)
     {
         shape = ColliderShape::Sphere;
         sphere = s;
     }
+    /** @brief カプセルの形を設定する */
     void SetAsCapsule(const Capsule& c)
     {
         shape = ColliderShape::Capsule;
@@ -100,30 +106,34 @@ struct Collider {
      */
     AABB GetBroadAABB() const
     {
-        switch (shape) {
-        case ColliderShape::Sphere:
-            return {
-                { sphere.center.x - sphere.radius,
-                    sphere.center.y - sphere.radius,
-                    sphere.center.z - sphere.radius },
-                { sphere.center.x + sphere.radius,
-                    sphere.center.y + sphere.radius,
-                    sphere.center.z + sphere.radius }
-            };
-        case ColliderShape::Capsule: {
-            float r = capsule.radius;
-            return {
-                { (std::min)(capsule.start.x, capsule.end.x) - r,
-                    (std::min)(capsule.start.y, capsule.end.y) - r,
-                    (std::min)(capsule.start.z, capsule.end.z) - r },
-                { (std::max)(capsule.start.x, capsule.end.x) + r,
-                    (std::max)(capsule.start.y, capsule.end.y) + r,
-                    (std::max)(capsule.start.z, capsule.end.z) + r }
-            };
-        }
-        default: // AABB
-            return aabb;
-        }
+        using Handler = AABB (*)(const Collider&);
+        static constexpr Handler kHandlers[] = {
+            [](const Collider& collider) {
+                return collider.aabb;
+            },
+            [](const Collider& collider) -> AABB {
+                const Sphere& sphere = collider.sphere;
+                return {
+                    { sphere.center.x - sphere.radius, sphere.center.y - sphere.radius, sphere.center.z - sphere.radius },
+                    { sphere.center.x + sphere.radius, sphere.center.y + sphere.radius, sphere.center.z + sphere.radius }
+                };
+            },
+            [](const Collider& collider) -> AABB {
+                const Capsule& capsule = collider.capsule;
+                const float radius = capsule.radius;
+                return {
+                    { (std::min)(capsule.start.x, capsule.end.x) - radius,
+                        (std::min)(capsule.start.y, capsule.end.y) - radius,
+                        (std::min)(capsule.start.z, capsule.end.z) - radius },
+                    { (std::max)(capsule.start.x, capsule.end.x) + radius,
+                        (std::max)(capsule.start.y, capsule.end.y) + radius,
+                        (std::max)(capsule.start.z, capsule.end.z) + radius }
+                };
+            },
+        };
+        static_assert(std::size(kHandlers) == kColliderShapeCount);
+        const auto index = static_cast<size_t>(shape);
+        return index < std::size(kHandlers) ? kHandlers[index](*this) : aabb;
     }
 };
 

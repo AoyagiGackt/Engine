@@ -3,6 +3,7 @@
  * @brief 保持するゲームデータを管理するファイル
  */
 #pragma once
+#include "GameRules.h"
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -44,34 +45,71 @@ public:
         Boss };
 
     /** @brief ラン進行中かどうか */
-    bool IsRunActive() const { return isRunActive_; }
+    bool IsRunActive() const {
+        return isRunActive_;
+    }
 
     /** @brief 現在 HP */
-    int GetHp() const { return hp_; }
+    int GetHp() const {
+        return hp_;
+    }
 
     /** @brief 最大 HP */
-    int GetMaxHp() const { return maxHp_; }
+    int GetMaxHp() const {
+        return maxHp_;
+    }
 
     /** @brief 所持ゴールド */
-    int GetGold() const { return gold_; }
+    int GetGold() const {
+        return gold_;
+    }
 
     /** @brief このランで積み上げたスコア */
-    int GetScore() const { return score_; }
+    int GetScore() const {
+        return score_;
+    }
 
     /** @brief 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss） */
-    int GetFloor() const { return floor_; }
+    int GetFloor() const {
+        return floor_;
+    }
 
     /** @brief 現在選択されているノード種別 */
-    NodeType GetCurrentNode() const { return currentNode_; }
+    NodeType GetCurrentNode() const {
+        return currentNode_;
+    }
 
-    /** @brief 習得済みスキルのリスト */
-    const std::vector<Skill>& GetSkills() const { return skills_; }
+    /** @brief セーブ用に習得済みスキルの独立したコピーを取得する */
+    std::vector<Skill> GetSkillSnapshot() const
+    {
+        return skills_;
+    }
+
+    /** @brief 習得済みスキル数を取得する */
+    size_t GetSkillCount() const
+    {
+        return skills_.size();
+    }
+
+    /** @brief 習得順に各スキルを渡す。処理中は習得状態を変更しない */
+    template<class Visitor>
+    void VisitSkills(const Visitor& visitor) const
+    {
+        for (Skill skill : skills_)
+        {
+            visitor(skill);
+        }
+    }
 
     /** @brief 選択中のノード種別を設定する */
-    void SetCurrentNode(NodeType node) { currentNode_ = node; }
+    void SetCurrentNode(NodeType node) {
+        currentNode_ = node;
+    }
 
     /** @brief フロアを1つ進める */
-    void AdvanceFloor() { ++floor_; }
+    void AdvanceFloor() {
+        ++floor_;
+    }
 
     /**
      * @brief ボスから奪った技を習得済みにする（game_rules.jsonのbossTechnique名）
@@ -79,7 +117,8 @@ public:
      */
     void AddBossTechnique(const std::string& name)
     {
-        if (!name.empty() && !HasBossTechnique(name)) {
+        if (!name.empty() && !HasBossTechnique(name))
+        {
             bossTechniques_.push_back(name);
         }
     }
@@ -90,22 +129,30 @@ public:
     }
 
     /** @brief ゴールドを加算する */
-    void AddGold(int amount) { gold_ += amount; }
+    void AddGold(int amount) {
+        gold_ += amount;
+    }
 
     /** @brief スコアを加算する */
-    void AddScore(int amount) { score_ += amount; }
+    void AddScore(int amount) {
+        score_ += amount;
+    }
 
     /**
      * @brief HPを回復する（maxHpを超えない）
      * @param amount 回復量
      */
-    void Heal(int amount) { hp_ = (std::min)(hp_ + amount, maxHp_); }
+    void Heal(int amount) {
+        hp_ = (std::min)(hp_ + amount, maxHp_);
+    }
 
     /**
      * @brief ダメージを受ける（0未満にはならない）
      * @param amount ダメージ量
      */
-    void TakeDamage(int amount) { hp_ = (std::max)(hp_ - amount, 0); }
+    void TakeDamage(int amount) {
+        hp_ = (std::max)(hp_ - amount, 0);
+    }
 
     /**
      * @brief 指定スキルを習得済みかどうかを返す
@@ -114,8 +161,10 @@ public:
      */
     bool HasSkill(Skill s) const
     {
-        for (auto sk : skills_) {
-            if (sk == s) {
+        for (auto sk : skills_)
+        {
+            if (sk == s)
+            {
                 return true;
             }
         }
@@ -126,7 +175,9 @@ public:
      * @brief スキルを習得リストに追加する
      * @param s 追加するスキル
      */
-    void AddSkill(Skill s) { skills_.push_back(s); }
+    void AddSkill(Skill s) {
+        skills_.push_back(s);
+    }
 
     /**
      * @brief 新しいランを開始し、全データを初期状態にリセットする
@@ -134,7 +185,7 @@ public:
     void StartNewRun()
     {
         isRunActive_ = true;
-        hp_ = maxHp_ = 30;
+        hp_ = maxHp_ = GameRules::GetInstance()->Get().playerMaxHp;
         gold_ = 0;
         score_ = 0;
         floor_ = 0;
@@ -144,7 +195,9 @@ public:
     }
 
     /** @brief ランを終了扱いにする（素材の事前記録で一時的に開始したランを、タイトル前の状態へ戻すため） */
-    void EndRun() { isRunActive_ = false; }
+    void EndRun() {
+        isRunActive_ = false;
+    }
 
     /**
      * @brief セーブデータからラン状態を復元する
@@ -197,7 +250,9 @@ public:
      * @param s 名前を取得したいスキル
      * @return スキルの表示文字列
      */
-    static const char* SkillName(Skill s) { return GetSkillText(s).label; }
+    static const char* SkillName(Skill s) {
+        return GetSkillText(s).label;
+    }
 
     /**
      * @brief スタイルゲージのピーク値からランク文字列を返す
@@ -235,21 +290,25 @@ private:
         { 0.25f, "C", 8 },
         { 0.0f, "D", 5 },
     };
+    /** @brief スタイルの最高値に対応するランクの報酬を返す */
     static const RankReward& FindRankReward(float peak)
     {
-        for (const RankReward& reward : kRankRewards) {
-            if (peak >= reward.minPeak) {
+        for (const RankReward& reward : kRankRewards)
+        {
+            if (peak >= reward.minPeak)
+            {
                 return reward;
             }
         }
         return kRankRewards[std::size(kRankRewards) - 1];
     }
 
+    /** @brief ラン開始前の進行データを生成する */
     RunData() = default;
 
     bool isRunActive_ = false; ///< ラン進行中かどうか
-    int hp_ = 30; ///< 現在 HP
-    int maxHp_ = 30; ///< 最大 HP
+    int hp_ = kDefaultPlayerMaxHp; ///< 現在 HP
+    int maxHp_ = kDefaultPlayerMaxHp; ///< 最大 HP
     int gold_ = 0; ///< 所持ゴールド
     int score_ = 0; ///< このランのスコア（フロアクリア時のランクに応じて加算）
     int floor_ = 0; ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）

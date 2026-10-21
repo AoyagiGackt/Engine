@@ -3,6 +3,7 @@
  * @brief スタイリッシュランク（D〜SSS）の採点処理とHUD描画（StyleMeter）の実装
  */
 #include "StyleMeter.h"
+#include "TextBufferCapacity.h"
 #include "Easing.h"
 #include "FontRenderer.h"
 #include "GameConstants.h"
@@ -15,11 +16,11 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
-using namespace engine;
-using namespace engine::game;
 
+namespace engine::game {
 namespace {
 
+/** @brief スタイルランクのしきい値と表示情報 */
 struct RankDef {
     const char* letter;
     float threshold; ///< このポイント以上でこのランク（style_meter.json の rankThresholds で上書きできる）
@@ -71,20 +72,25 @@ constexpr JsonField<StyleTuning> kStyleFields[] = {
     { nullptr, "rankWhiteFlashStart", &StyleTuning::rankWhiteFlashStart },
 };
 
+/** @brief style_meter.json からスタイルの調整値を読み込む */
 StyleTuning LoadStyleTuning()
 {
     StyleTuning tuning;
-    for (int i = 0; i < StyleMeter::kRankCount; ++i) {
+    for (int i = 0; i < StyleMeter::kRankCount; ++i)
+    {
         tuning.rankThresholds[i] = kRanks[i].threshold;
     }
     const nlohmann::json root = JsonHelper::Load("Resources/Config/style_meter.json");
     ReadJsonFields(root, kStyleFields, tuning);
     // ランクの境目はランク文字をキーにした表（例: "rankThresholds": { "C": 120 }）
     const auto thresholds = root.is_object() ? root.find("rankThresholds") : root.end();
-    if (root.is_object() && thresholds != root.end() && thresholds->is_object()) {
-        for (int i = 0; i < StyleMeter::kRankCount; ++i) {
+    if (root.is_object() && thresholds != root.end() && thresholds->is_object())
+    {
+        for (int i = 0; i < StyleMeter::kRankCount; ++i)
+        {
             const auto value = thresholds->find(kRanks[i].letter);
-            if (value != thresholds->end() && value->is_number()) {
+            if (value != thresholds->end() && value->is_number())
+            {
                 tuning.rankThresholds[i] = value->get<float>();
             }
         }
@@ -93,7 +99,8 @@ StyleTuning LoadStyleTuning()
     // 壊れた値でも採点と演出の割り算が破綻しないよう整える
     constexpr float kMinSeconds = std::numeric_limits<float>::epsilon();
     tuning.rankThresholds[0] = 0.0f;
-    for (int i = 1; i < StyleMeter::kRankCount; ++i) {
+    for (int i = 1; i < StyleMeter::kRankCount; ++i)
+    {
         tuning.rankThresholds[i] = (std::max)(tuning.rankThresholds[i], tuning.rankThresholds[i - 1]);
     }
     tuning.maxPoints = (std::max)(tuning.maxPoints, tuning.rankThresholds[StyleMeter::kRankCount - 1]);
@@ -138,6 +145,7 @@ constexpr float kBestChainAlpha = 0.8f;
 
 } // namespace
 
+/** @brief ランクゲージのバー（背景/前景）スプライトを生成する */
 void StyleMeter::Initialize(SpriteCommon* spriteCommon)
 {
     barBg_ = std::make_unique<Sprite>();
@@ -148,11 +156,14 @@ void StyleMeter::Initialize(SpriteCommon* spriteCommon)
     barFg_->Initialize(spriteCommon, "Resources/white.png");
 }
 
+/** @brief 今のスタイルランクの番号を返す */
 int StyleMeter::GetRankIndex() const
 {
     int rank = 0;
-    for (int i = kRankCount - 1; i >= 0; --i) {
-        if (points_ >= StyleTune().rankThresholds[i]) {
+    for (int i = kRankCount - 1; i >= 0; --i)
+    {
+        if (points_ >= StyleTune().rankThresholds[i])
+        {
             rank = i;
             break;
         }
@@ -160,6 +171,7 @@ int StyleMeter::GetRankIndex() const
     return rank;
 }
 
+/** @brief 攻撃ヒットを採点に登録する */
 void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
 {
     // 同じ技の連発ペナルティ  熱が高いほど点が入らない（1 → 0.56 → 0.38 → 0.29 ...）
@@ -168,7 +180,8 @@ void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
     float mult = 1.0f / (1.0f + tune.heatPenaltyScale * heat);
 
     // 直前と違う技ならバリエーションボーナス
-    if (!lastMoveId_.empty() && moveId != lastMoveId_) {
+    if (!lastMoveId_.empty() && moveId != lastMoveId_)
+    {
         mult *= tune.variationBonusMult;
     }
 
@@ -184,49 +197,58 @@ void StyleMeter::RegisterHit(const std::string& moveId, float basePoints)
     hitPopTimer_ = tune.hitPopSeconds;
 }
 
+/** @brief 外部で採点済みの正規化スタイル値(0.0〜1.0)を表示へ反映する */
 void StyleMeter::SetNormalizedPoints(float t)
 {
     points_ = std::clamp(t, 0.0f, 1.0f) * StyleTune().maxPoints;
-    if (points_ > 0.0f) {
+    if (points_ > 0.0f)
+    {
         hudAlpha_ = 1.0f;
     }
 }
 
+/** @brief 現在のランクに対応する表示色を返す（ランクアップ演出の色をHUDと一致させるのに使う） */
 Vector4 StyleMeter::GetRankColor() const
 {
     const RankDef& rank = kRanks[GetRankIndex()];
     return UILayout::Get(kLayoutName).Color(std::string("style_rank.color_") + rank.letter, rank.color);
 }
 
+/** @brief ポイント減衰・技の熱冷まし・表示アニメを1フレーム進める */
 void StyleMeter::Update(float dt)
 {
     const StyleTuning& tune = StyleTune();
     justRankedUp_ = false;
 
     // 技の熱冷まし
-    for (auto& [id, heat] : moveHeat_) {
+    for (auto& [id, heat] : moveHeat_)
+    {
         heat = (std::max)(heat - tune.heatCool * dt, 0.0f);
     }
 
     // ポイント減衰（攻撃をやめて少し経ってから。高ランクほど維持が難しい）
     noHitTimer_ += dt;
-    if (noHitTimer_ > tune.decayGrace && points_ > 0.0f) {
+    if (noHitTimer_ > tune.decayGrace && points_ > 0.0f)
+    {
         points_ = (std::max)(points_ - dt * (tune.decayBase + points_ * tune.decayPointScale), 0.0f);
     }
 
     // ヒットチェーン切れ
     chainTimer_ -= dt;
-    if (chainTimer_ <= 0.0f) {
+    if (chainTimer_ <= 0.0f)
+    {
         chainTimer_ = 0.0f;
         hitCount_ = 0;
-        if (points_ <= 0.0f) {
+        if (points_ <= 0.0f)
+        {
             hudAlpha_ = (std::max)(hudAlpha_ - dt * tune.hudFadeSpeed, 0.0f);
         }
     }
 
     // ランク変動演出（上がっても下がっても弾ませ、上がった時だけ長め）
     int rank = GetRankIndex();
-    if (rank != prevRank_) {
+    if (rank != prevRank_)
+    {
         rankFlashTimer_ = (rank > prevRank_)
             ? tune.rankUpFlashSeconds
             : tune.rankDownFlashSeconds;
@@ -237,8 +259,10 @@ void StyleMeter::Update(float dt)
     hitPopTimer_ = (std::max)(hitPopTimer_ - dt, 0.0f);
 }
 
+/** @brief 右上HUDの文字列をフォントレンダラーへ積み、バースプライトの位置を更新する */
 void StyleMeter::UpdateHud(FontRenderer& font)
 {
+    // 演出の時間は調整値から、表示位置・大きさ・色は UI レイアウトから読む
     const StyleTuning& tune = StyleTune();
     const float rankUpFlash = tune.rankUpFlashSeconds;
     const float rankWhiteStart = tune.rankWhiteFlashStart;
@@ -258,10 +282,12 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     const float rankScale = layout.Float("style_rank.scale", kRankScale);
     const Vector2 barSize = layout.Vec2("style_rank.bar_size", kBarSize);
     const float barOffsetY = layout.Float("style_rank.bar_offset_y", kBarOffsetY);
-    if (hudAlpha_ <= 0.0f) {
+    if (hudAlpha_ <= 0.0f)
+    {
         return;
     }
 
+    // 今のランクの文字と色
     const int rank = GetRankIndex();
     const RankDef& def = kRanks[rank];
 
@@ -281,8 +307,9 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     font.DrawString(def.letter, anchor.x - rankW, anchor.y, scale, rc);
 
     // ヒットチェーン数（加算の瞬間だけ少し大きく）
-    if (hitCount_ > 0) {
-        char buf[32];
+    if (hitCount_ > 0)
+    {
+        char buf[TextBufferCapacity::kShortText];
         std::snprintf(buf, sizeof(buf), hitCount_ >= hitHighlightCount ? "%d HITS!" : "%d HITS", hitCount_);
         const float scalePerHit = layout.Float("hit.scale_per_hit", kHitScalePerHit);
         const float maxGrowth = layout.Float("hit.max_growth", kHitScaleMaxGrowth);
@@ -296,8 +323,9 @@ void StyleMeter::UpdateHud(FontRenderer& font)
         hitColor.w *= hudAlpha_;
         font.DrawString(buf, anchor.x - hw, anchor.y + hitTextOffsetY, hs, hitColor);
     }
-    if (bestChain_ > 0) {
-        char buf[32];
+    if (bestChain_ > 0)
+    {
+        char buf[TextBufferCapacity::kShortText];
         std::snprintf(buf, sizeof(buf), "BEST %d", bestChain_);
         float bw = FontRenderer::kCharW * bestChainScale * static_cast<float>(std::strlen(buf));
         font.DrawString(buf, anchor.x - bw, anchor.y + bestChainOffsetY, bestChainScale,
@@ -305,10 +333,12 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     }
 
     // ランク内の進捗バー（次のランクまでの割合）
+    // ランク内の進捗バー（次のランクまでの割合）
     float lo = tune.rankThresholds[rank];
     float hi = (rank + 1 < kRankCount) ? tune.rankThresholds[rank + 1] : tune.maxPoints;
     float t = std::clamp((points_ - lo) / (std::max)(hi - lo, 1.0f), 0.0f, 1.0f);
 
+    // 背景と前景の2本で進捗を見せ、前景はランクの色にする
     barBg_->SetPosition({ anchor.x - barSize.x, anchor.y + barOffsetY });
     barBg_->SetSize({ barSize.x, barSize.y });
     Vector4 bg = { barBackgroundColor.x, barBackgroundColor.y, barBackgroundColor.z, barBackgroundColor.w * hudAlpha_ };
@@ -321,11 +351,15 @@ void StyleMeter::UpdateHud(FontRenderer& font)
     barFg_->Update();
 }
 
+/** @brief ランクゲージのバースプライトを描画する（SpriteCommon 設定済みの状態で呼ぶ） */
 void StyleMeter::DrawHud()
 {
-    if (hudAlpha_ <= 0.0f) {
+    if (hudAlpha_ <= 0.0f)
+    {
         return;
     }
     barBg_->Draw();
     barFg_->Draw();
 }
+
+} // namespace engine::game

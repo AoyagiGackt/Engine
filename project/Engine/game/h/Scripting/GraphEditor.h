@@ -6,12 +6,14 @@
  * 配線されていないparamsはInspector的にテキスト/数値/チェックボックスで直接編集する
  */
 #pragma once
+#include "TextBufferCapacity.h"
 #ifdef USE_IMGUI
 #include "EditorHistory.h"
 #include "GraphRuntime.h"
 #include "GraphTypes.h"
 #include <imgui.h>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -58,9 +60,15 @@ public:
 
 
     /** @brief エディタが表示中か（ホットキーオーバーレイの表示中マーク用） */
-    bool IsVisible() const { return visible_; }
+    bool IsVisible() const {
+        return visible_;
+    }
 
 private:
+    /** @brief 履歴から復元したグラフを反映し、選択と変更通知を更新する */
+    void ApplyHistorySnapshot(std::optional<GraphDesc> snapshot, const std::string& message);
+
+    /** @brief 編集中グラフが未選択のエディタを作る */
     GraphEditor() = default;
     GraphEditor(const GraphEditor&) = delete;
     GraphEditor& operator=(const GraphEditor&) = delete;
@@ -119,12 +127,18 @@ private:
     // Undo/Redo（スナップショット方式、Ctrl+Z/Ctrl+Y）
     /** @brief 直前のgraph_を即座にUndoスタックへ積む（追加/削除/配線など単発で完結する変更の前に呼ぶ） */
     void RecordUndoSnapshotNow();
-    /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録するIsItemActivated()の直後に呼ぶ */
+    /** @brief ドラッグ/テキスト編集の開始時に変更前を仮記録する。IsItemActivated() の直後に呼ぶ */
     void BeginUndoCapture();
     /** @brief BeginUndoCapture()後、実際に値が変わったことを記録する（変更が無ければCommit時に捨てられる） */
     void MarkUndoDirty();
-    /** @brief ドラッグ/テキスト編集の終了時に呼ぶ実際に変化していた場合のみUndoスタックへ確定する */
+    /** @brief ドラッグ/テキスト編集の終了時に呼ぶ。実際に変化していた場合だけ Undo スタックへ確定する */
     void CommitUndoCapture();
+    /**
+     * @brief 直前のImGui項目の操作開始・変更・終了に合わせて Begin/Mark/Commit をまとめて呼ぶ
+     * @param changed この項目でこのフレームに値が変わったか
+     * @return changed をそのまま返す
+     */
+    bool CaptureItemUndo(bool changed);
     void Undo();
     void Redo();
 
@@ -140,7 +154,7 @@ private:
     std::string pendingConfirmOpenPath_;
     bool requestConfirmOpen_ = false;
 
-    char nodeSearchBuf_[64] = { }; // ノード追加メニューの絞り込み検索欄
+    char nodeSearchBuf_[TextBufferCapacity::kIdentifier] = { }; // ノード追加メニューの絞り込み検索欄
 
     // F1で表示/非表示を切り替える全画面表示中はゲーム画面が透けて動いて見えないようにする
     bool visible_ = false;

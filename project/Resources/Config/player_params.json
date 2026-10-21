@@ -93,6 +93,13 @@
     "axeSkillCooldown": 1,
     "axeRageDuration": 2.5,
     "axeRageDamageMult": 1.3,
-    "axeChargeAnimSpeed": 1.1
+    "axeChargeAnimSpeed": 1.1,
+    "skillBlinkPlusDistanceMult": 1.5,
+    "skillComboExtendBonus": 1,
+    "skillFastFireIntervalMult": 0.5,
+    "skillAwakenBoostChargeMult": 1.5,
+    "skillSpeedUpMult": 1.2,
+    "skillHighJumpMult": 1.25,
+    "skillJuggleExtendBonus": 4
   }
 }

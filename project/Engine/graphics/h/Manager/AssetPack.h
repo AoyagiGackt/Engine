@@ -22,12 +22,14 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 namespace engine {
 
 /** @brief 変換済みデータを詰めるための書き込み口（数値・配列・文字列を順に並べる） */
 class BinaryWriter {
 public:
     /** @brief 数値や数値だけでできた構造体をそのまま書く */
+    /** @brief 値をバイト列の末尾へ書き足す */
     template <typename T>
     void Write(const T& value)
     {
@@ -35,7 +37,7 @@ public:
         const auto* p = reinterpret_cast<const uint8_t*>(&value);
         bytes_.insert(bytes_.end(), p, p + sizeof(T));
     }
-    /** @brief 要素数を先頭に付けて配列を書く */
+    /** @brief 配列を要素数と中身の順でバイト列へ書き足す */
     template <typename T>
     void WriteVector(const std::vector<T>& values)
     {
@@ -50,7 +52,11 @@ public:
         Write(static_cast<uint64_t>(text.size()));
         bytes_.insert(bytes_.end(), text.begin(), text.end());
     }
-    std::vector<uint8_t>& Bytes() { return bytes_; }
+    /** @brief 書き込んだバイト列の所有権を呼び出し元へ渡す */
+    std::vector<uint8_t> TakeBytes()
+    {
+        return std::move(bytes_);
+    }
 
 private:
     std::vector<uint8_t> bytes_;
@@ -59,26 +65,34 @@ private:
 /** @brief BinaryWriterで書いた順に読み戻す読み取り口（壊れたデータは IsValid() が false になる） */
 class BinaryReader {
 public:
-    explicit BinaryReader(const std::vector<uint8_t>& bytes) : bytes_(bytes) { }
+    /** @brief 読み取り対象のバイト列を参照し、先頭から読み始める */
+    explicit BinaryReader(const std::vector<uint8_t>& bytes)
+        : bytes_(bytes)
+    {
+    }
 
+    /** @brief バイト列から次の値を読む */
     template <typename T>
     T Read()
     {
         static_assert(std::is_trivially_copyable_v<T>, "メモリをそのまま読める型だけを渡す");
         T value {};
-        if (!Has(sizeof(T))) {
+        if (!Has(sizeof(T)))
+        {
             return value;
         }
         std::memcpy(&value, bytes_.data() + cursor_, sizeof(T));
         cursor_ += sizeof(T);
         return value;
     }
+    /** @brief バイト列から要素数と中身の順で配列を読む */
     template <typename T>
     std::vector<T> ReadVector()
     {
         const uint64_t count = Read<uint64_t>();
         std::vector<T> values;
-        if (!Has(static_cast<size_t>(count * sizeof(T)))) {
+        if (!Has(static_cast<size_t>(count * sizeof(T))))
+        {
             return values;
         }
         values.resize(static_cast<size_t>(count));
@@ -86,10 +100,12 @@ public:
         cursor_ += sizeof(T) * values.size();
         return values;
     }
+    /** @brief バイト列から長さと中身の順で文字列を読む */
     std::string ReadString()
     {
         const uint64_t length = Read<uint64_t>();
-        if (!Has(static_cast<size_t>(length))) {
+        if (!Has(static_cast<size_t>(length)))
+        {
             return {};
         }
         std::string text(reinterpret_cast<const char*>(bytes_.data() + cursor_), static_cast<size_t>(length));
@@ -97,12 +113,16 @@ public:
         return text;
     }
     /** @brief 途中で足りなくなっていなければtrue（最後まで読めたかの確認にも使う） */
-    bool IsValid() const { return valid_; }
+    bool IsValid() const {
+        return valid_;
+    }
 
 private:
+    /** @brief 残りのバイト数が size 以上あるかを返す（足りなければ読み込み失敗にする） */
     bool Has(size_t size)
     {
-        if (!valid_ || cursor_ + size > bytes_.size()) {
+        if (!valid_ || cursor_ + size > bytes_.size())
+        {
             valid_ = false;
             return false;
         }
@@ -126,8 +146,14 @@ public:
     /** @brief cookなら記録した素材をpakへ書き出す（終了時に呼ぶ） */
     void Finalize();
 
-    Mode GetMode() const { return mode_; }
-    bool IsCooking() const { return mode_ == Mode::Cook; }
+    /** @brief pak の動作モードを返す */
+    Mode GetMode() const {
+        return mode_;
+    }
+    /** @brief pak を作っている最中かを返す */
+    bool IsCooking() const {
+        return mode_ == Mode::Cook;
+    }
 
     /**
      * @brief useモードで、キーに対応する変換済みデータを読む
@@ -148,8 +174,10 @@ public:
     bool ReadRawIfMissing(const std::string& path, std::vector<uint8_t>& out);
 
 private:
+    /** @brief アセットパックが未接続の状態を作る */
     AssetPack() = default;
 
+    /** @brief 登録項目の識別情報と、その項目が保持するデータ */
     struct Entry {
         uint64_t offset = 0;
         uint64_t size = 0;

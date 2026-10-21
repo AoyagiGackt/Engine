@@ -1,21 +1,31 @@
 /**
  * @file SkinCS.cpp
- * @brief SkinCSの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スキニングをコンピュートシェーダーで計算する処理（SkinCS）の実装
  */
 #include "SkinCS.h"
+#include "PipelineHelper.h"
 #include "EngineAssert.h"
 
+namespace engine::graphics {
 namespace {
 
 // スキニングのスレッドグループ
 constexpr UINT kComputeThreadsPerGroup = 64;
 
+/** @brief スキニング用コンピュートシェーダーのルートパラメータ番号 */
+namespace SkinComputeRootSlot {
+constexpr UINT kVertexCount = 0; ///< 頂点数（32ビット定数, b1）
+constexpr UINT kInputVertices = 1; ///< 入力頂点バッファ（SRV, t0）
+constexpr UINT kPalette = 2; ///< スキニングパレット（CBV, b0）
+constexpr UINT kOutputVertices = 3; ///< 出力頂点バッファ（UAV, u0）
+constexpr UINT kCount = 4; ///< パラメータの数
 }
-using namespace engine;
-using namespace engine::graphics;
+
+}
 
 using namespace Microsoft::WRL;
 
+/** @brief スキニング計算用のコンピュートシェーダーの資源を用意する */
 void SkinCS::Initialize(DirectXCommon* dxCommon,
     ID3D12Resource* inputBuffer,
     UINT vertexCount)
@@ -33,33 +43,33 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     //   スロット 2 (b0): スキニングパレット (CBV)
     //   スロット 3 (u0): 出力頂点バッファ (UAV)
 
-    D3D12_ROOT_PARAMETER params[4] { };
+    D3D12_ROOT_PARAMETER params[SkinComputeRootSlot::kCount] { };
 
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[0].Constants.ShaderRegister = 1; // b1
-    params[0].Constants.RegisterSpace = 0;
-    params[0].Constants.Num32BitValues = 1;
+    params[SkinComputeRootSlot::kVertexCount].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[SkinComputeRootSlot::kVertexCount].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[SkinComputeRootSlot::kVertexCount].Constants.ShaderRegister = 1; // b1
+    params[SkinComputeRootSlot::kVertexCount].Constants.RegisterSpace = 0;
+    params[SkinComputeRootSlot::kVertexCount].Constants.Num32BitValues = 1;
 
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[1].Descriptor.ShaderRegister = 0; // t0
-    params[1].Descriptor.RegisterSpace = 0;
+    params[SkinComputeRootSlot::kInputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[SkinComputeRootSlot::kInputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[SkinComputeRootSlot::kInputVertices].Descriptor.ShaderRegister = 0; // t0
+    params[SkinComputeRootSlot::kInputVertices].Descriptor.RegisterSpace = 0;
 
-    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[2].Descriptor.ShaderRegister = 0; // b0
-    params[2].Descriptor.RegisterSpace = 0;
+    params[SkinComputeRootSlot::kPalette].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[SkinComputeRootSlot::kPalette].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[SkinComputeRootSlot::kPalette].Descriptor.ShaderRegister = 0; // b0
+    params[SkinComputeRootSlot::kPalette].Descriptor.RegisterSpace = 0;
 
-    params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[3].Descriptor.ShaderRegister = 0; // u0
-    params[3].Descriptor.RegisterSpace = 0;
+    params[SkinComputeRootSlot::kOutputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    params[SkinComputeRootSlot::kOutputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[SkinComputeRootSlot::kOutputVertices].Descriptor.ShaderRegister = 0; // u0
+    params[SkinComputeRootSlot::kOutputVertices].Descriptor.RegisterSpace = 0;
 
     D3D12_ROOT_SIGNATURE_DESC rsDesc { };
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
     rsDesc.pParameters = params;
-    rsDesc.NumParameters = 4;
+    rsDesc.NumParameters = SkinComputeRootSlot::kCount;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(
@@ -85,14 +95,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     UINT64 outputSize = static_cast<UINT64>(sizeof(OutputVertex)) * vertexCount;
 
     D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_DEFAULT };
-    D3D12_RESOURCE_DESC rd { };
-    rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    rd.Width = outputSize;
-    rd.Height = 1;
-    rd.DepthOrArraySize = 1;
-    rd.MipLevels = 1;
-    rd.SampleDesc.Count = 1;
-    rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    D3D12_RESOURCE_DESC rd = PipelineHelper::MakeBufferDesc(outputSize);
     rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     device->CreateCommittedResource(
@@ -105,11 +108,13 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     outputVBV_.StrideInBytes = sizeof(OutputVertex); // 36 bytes
 }
 
+/** @brief スキニング計算をコマンドリストに積む */
 void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress)
 {
     // 前フレームの描画パスで VERTEX_AND_CONSTANT_BUFFER に遷移済みなら UAV に戻す
-    if (needsPreTransition_) {
+    if (needsPreTransition_)
+    {
         DirectXCommon::TransitionBarrier(cmd, outputBuffer_.Get(),
             D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
@@ -118,13 +123,13 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     cmd->SetPipelineState(csPSO_.Get());
 
     // スロット 0: 頂点数 (32ビット定数, b1)
-    cmd->SetComputeRoot32BitConstant(0, vertexCount_, 0);
+    cmd->SetComputeRoot32BitConstant(SkinComputeRootSlot::kVertexCount, vertexCount_, 0);
     // スロット 1: 入力頂点バッファ (SRV, t0)
-    cmd->SetComputeRootShaderResourceView(1, inputGpuVA_);
+    cmd->SetComputeRootShaderResourceView(SkinComputeRootSlot::kInputVertices, inputGpuVA_);
     // スロット 2: スキニングパレット (CBV, b0)
-    cmd->SetComputeRootConstantBufferView(2, paletteCBAddress);
+    cmd->SetComputeRootConstantBufferView(SkinComputeRootSlot::kPalette, paletteCBAddress);
     // スロット 3: 出力頂点バッファ (UAV, u0)
-    cmd->SetComputeRootUnorderedAccessView(3, outputBuffer_->GetGPUVirtualAddress());
+    cmd->SetComputeRootUnorderedAccessView(SkinComputeRootSlot::kOutputVertices, outputBuffer_->GetGPUVirtualAddress());
 
     UINT threadGroups = (vertexCount_ + kComputeThreadsPerGroup - 1) / kComputeThreadsPerGroup;
     cmd->Dispatch(threadGroups, 1, 1);
@@ -141,3 +146,5 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
 
     needsPreTransition_ = true;
 }
+
+} // namespace engine::graphics

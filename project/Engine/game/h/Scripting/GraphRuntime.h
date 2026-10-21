@@ -26,21 +26,34 @@ public:
     void Update(float dt);
 
     /** @brief 実行中（Wait中を含む、Haltしていない）かどうか */
-    bool IsRunning() const { return graph_ != nullptr && !halted_; }
+    bool IsRunning() const {
+        return graph_ != nullptr && !halted_;
+    }
 
     // ノード実行ロジック（NodeRegistryの各Executorから使う）
 
     /** @brief 変数を設定する（無ければ新規作成） */
-    void SetVariable(const std::string& name, GraphValue value) { variables_[name] = std::move(value); }
+    void SetVariable(const std::string& name, GraphValue value) {
+        variables_[name] = std::move(value);
+    }
 
     /** @brief 変数を取得する未設定ならnullptr */
     const GraphValue* GetVariable(const std::string& name) const;
 
-    /** @brief 現在保持している全変数（GraphEditorのライブ変数監視パネル用） */
-    const std::map<std::string, GraphValue>& GetVariables() const { return variables_; }
+    /** @brief 内部の格納形式を公開せず、変数の名前と値を1件ずつ通知する */
+    template <typename Visitor>
+    void VisitVariables(const Visitor& visitor) const
+    {
+        for (const auto& [name, value] : variables_)
+        {
+            visitor(name, value);
+        }
+    }
 
     /** @brief 現在実行中（またはWaitで待機中）のノードID（GraphEditorの実行ハイライト用） */
-    const std::string& GetCurrentNodeId() const { return currentNodeId_; }
+    const std::string& GetCurrentNodeId() const {
+        return currentNodeId_;
+    }
 
     /**
      * @brief 実行チェーンの最深部（サブグラフ実行中ならその子孫）にある GraphRuntime を返す
@@ -50,7 +63,8 @@ public:
      */
     const GraphRuntime& GetActiveLeaf(std::string& outPath) const
     {
-        if (child_) {
+        if (child_)
+        {
             outPath = activeChildPath_;
             return child_->GetActiveLeaf(outPath);
         }
@@ -73,7 +87,9 @@ public:
     bool BeginSubgraph(const std::string& path);
 
     /** @brief ノードの出力データピンに値を流す（データ配線の供給元になる） */
-    void SetNodeOutput(const std::string& nodeId, GraphValue value) { nodeOutputs_[nodeId] = std::move(value); }
+    void SetNodeOutput(const std::string& nodeId, GraphValue value) {
+        nodeOutputs_[nodeId] = std::move(value);
+    }
 
     /**
      * @brief パラメータの値を解決する
@@ -83,6 +99,9 @@ public:
     GraphValue ResolveParam(const GraphNode& node, const std::string& key, GraphValue fallback) const;
 
 private:
+    /** @brief 待機先が無ければ停止し、あればそのノードから実行を再開する */
+    void ResumeFromWait();
+
     /** @brief currentNodeId_ から、SuspendかHaltになるまで実行ピンを辿り続ける */
     void RunUntilSuspendOrHalt();
 

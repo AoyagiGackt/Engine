@@ -27,12 +27,16 @@ public:
     /** @brief 球とAABBが交差するか判定する @param s 球 @param b AABB @return 交差する場合はtrue */
     static bool CheckCollision(const Sphere& s, const AABB& b);
     /** @brief AABBと球が交差するか判定する @param b AABB @param s 球 @return 交差する場合はtrue */
-    static bool CheckCollision(const AABB& b, const Sphere& s) { return CheckCollision(s, b); }
+    static bool CheckCollision(const AABB& b, const Sphere& s) {
+        return CheckCollision(s, b);
+    }
 
     /** @brief 球とカプセルが交差するか判定する @param s 球 @param c カプセル @return 交差する場合はtrue */
     static bool CheckCollision(const Sphere& s, const Capsule& c);
     /** @brief カプセルと球が交差するか判定する @param c カプセル @param s 球 @return 交差する場合はtrue */
-    static bool CheckCollision(const Capsule& c, const Sphere& s) { return CheckCollision(s, c); }
+    static bool CheckCollision(const Capsule& c, const Sphere& s) {
+        return CheckCollision(s, c);
+    }
 
     /** @brief 二つのカプセルが交差するか判定する @param c1 一つ目のカプセル @param c2 二つ目のカプセル @return 交差する場合はtrue */
     static bool CheckCollision(const Capsule& c1, const Capsule& c2);
@@ -40,7 +44,9 @@ public:
     /** @brief カプセルとAABBが交差するか判定する @param c カプセル @param b AABB @return 交差する場合はtrue */
     static bool CheckCollision(const Capsule& c, const AABB& b);
     /** @brief AABBとカプセルが交差するか判定する @param b AABB @param c カプセル @return 交差する場合はtrue */
-    static bool CheckCollision(const AABB& b, const Capsule& c) { return CheckCollision(c, b); }
+    static bool CheckCollision(const AABB& b, const Capsule& c) {
+        return CheckCollision(c, b);
+    }
 
     /** @brief Colliderの形状種別に対応する交差判定を実行する @param a 一つ目のCollider @param b 二つ目のCollider @return 交差する場合はtrue */
     static bool CheckCollision(const Collider& a, const Collider& b);

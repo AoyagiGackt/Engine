@@ -39,9 +39,14 @@ public:
     void Draw();
 
     /** @brief 全刃を即座に消す（シーン切り替え時などに呼ぶ） */
-    void Clear() { blades_.clear(); }
+    void Clear() {
+        blades_.clear();
+    }
 
-    bool IsActive() const { return !blades_.empty(); }
+    /** @brief 演出の最中かを返す */
+    bool IsActive() const {
+        return !blades_.empty();
+    }
 
 private:
     static constexpr int kMaxBlades = 256;

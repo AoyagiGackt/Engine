@@ -13,7 +13,7 @@ class ModelCommon;
 
 /**
  * @brief 1つの3Dモデルデータを管理するクラス
- * @note 初期化時にOBJファイルを読み込み、GPUに転送するための頂点バッファを作成します
+ * @note 初期化時にOBJまたはAssimp対応モデルを読み込み、描画用バッファを作成する
  */
 class Model {
 public:
@@ -36,9 +36,9 @@ public:
     };
 
     /**
-     * @brief モデルの初期化（OBJファイルとテクスチャの読み込み、頂点バッファの生成）
+     * @brief モデルとテクスチャを読み込み、描画用バッファを生成する
      * @param modelCommon モデル描画の共通設定を持つオブジェクトのポインタ
-     * @param modelFilePath 読み込むOBJファイルのパス（例: "Resources/model.obj"）
+     * @param modelFilePath 読み込むモデルファイルのパス（例: "Resources/model.obj"）
      * @param textureFilePath 貼り付けるテクスチャ画像のパス（例: "Resources/texture.png"）
      */
     void Initialize(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath);
@@ -59,47 +59,69 @@ public:
      * @brief このモデルの頂点バッファビューを取得する
      * @return D3D12_VERTEX_BUFFER_VIEW 描画に使用する頂点バッファビュー
      */
-    D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const { return vertexBufferView_; }
+    D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const {
+        return vertexBufferView_;
+    }
 
     /**
      * @brief このモデルのインデックスバッファビューを取得する
      * @return D3D12_INDEX_BUFFER_VIEW 描画に使用するインデックスバッファビュー
      */
-    D3D12_INDEX_BUFFER_VIEW GetIndexBufferView() const { return indexBufferView_; }
+    D3D12_INDEX_BUFFER_VIEW GetIndexBufferView() const {
+        return indexBufferView_;
+    }
 
     /**
      * @brief モデルが持つ総頂点数を取得する
      * @return size_t 頂点の総数
      */
-    size_t GetVertexCount() const { return vertices_.size(); }
+    size_t GetVertexCount() const {
+        return vertices_.size();
+    }
 
     /**
      * @brief モデルが持つ総インデックス数を取得する
      * @return size_t インデックスの総数
      */
-    size_t GetIndexCount() const { return indices_.size(); }
+    size_t GetIndexCount() const {
+        return indices_.size();
+    }
 
     /**
      * @brief CPU側で保持している頂点データ配列を取得する（切断エフェクト等で使用）
      * @return const std::vector<VertexData>& 全頂点データ
      */
-    const std::vector<VertexData>& GetVertices() const { return vertices_; }
+    const std::vector<VertexData>& GetVertices() const {
+        return vertices_;
+    }
 
     /**
      * @brief CPU側で保持しているインデックス配列を取得する
      * @return const std::vector<uint32_t>& 全インデックス
      */
-    const std::vector<uint32_t>& GetIndices() const { return indices_; }
+    const std::vector<uint32_t>& GetIndices() const {
+        return indices_;
+    }
 
     /**
      * @brief 環境マップ用キューブマップを設定する（事前にLoadTextureが呼ばれている必要あり）
      * @param filePath キューブマップの DDS ファイルパス
      */
-    void SetEnvCubemap(const std::string& filePath) { envCubemapFilePath_ = filePath; }
+    void SetEnvCubemap(const std::string& filePath) {
+        envCubemapFilePath_ = filePath;
+    }
 
-    const std::string& GetTextureFilePath() const { return textureFilePath_; }
+    /** @brief テクスチャのファイルパスを返す */
+    const std::string& GetTextureFilePath() const {
+        return textureFilePath_;
+    }
 
 private:
+    /** @brief pakの頂点と付随データを復元して有効性を確認する */
+    bool LoadPackedGeometry(const std::vector<uint8_t>& packed);
+    /** @brief pak作成中に頂点と付随データを保存する */
+    void RecordPackedGeometry(const std::string& packKey) const;
+
     /**
      * @brief OBJファイルを解析し、頂点座標・UV・法線を読み込む内部関数
      * @param filePath 読み込むOBJファイルのパス

@@ -1,8 +1,10 @@
 /**
  * @file SkinnedModel.cpp
- * @brief SkinnedModelの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スキンメッシュのモデル（SkinnedModel）の読み込みの実装
  */
 #include "SkinnedModel.h"
+#include "PipelineHelper.h"
+#include "AssimpVertexReader.h"
 #include "AssetPack.h"
 #include "EngineAssert.h"
 #include "TextureManager.h"
@@ -11,14 +13,13 @@
 #include <assimp/scene.h>
 #include <map>
 
+namespace engine::graphics {
 namespace {
 
 // 三角形の頂点数
 constexpr uint32_t kTriangleVertexCount = 3;
 
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
@@ -39,84 +40,53 @@ static Matrix4x4 ConvertOffsetMatrix(const aiMatrix4x4& m)
     return MakeAffineMatrix(s, r, t);
 }
 
+/** @brief スキンメッシュのモデルを読み込んで描画資源を用意する */
 void SkinnedModel::Initialize(DirectXCommon* dxCommon,
     const std::string& gltfFilePath,
     const std::string& textureFilePath)
 {
+    // 貼るテクスチャを先に読み込んでおく
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
     // pakにボーン付き頂点・逆バインド行列・ボーン名があれば、assimpの解析を省く
     const std::string packKey = "skin:" + gltfFilePath;
     std::vector<uint8_t> packed;
-    bool loadedFromPack = false;
-    if (AssetPack::GetInstance()->Read(packKey, packed)) {
-        BinaryReader reader(packed);
-        vertices_ = reader.ReadVector<VertexData>();
-        inverseBindMatrices_ = reader.ReadVector<Matrix4x4>();
-        const uint64_t boneCount = reader.Read<uint64_t>();
-        boneNames_.clear();
-        for (uint64_t i = 0; i < boneCount && reader.IsValid(); ++i) {
-            boneNames_.push_back(reader.ReadString());
-        }
-        loadedFromPack = reader.IsValid() && !vertices_.empty();
-    }
-    if (!loadedFromPack) {
+    if (!AssetPack::GetInstance()->Read(packKey, packed) || !LoadPackedGeometry(packed))
+    {
         vertices_.clear();
         inverseBindMatrices_.clear();
         boneNames_.clear();
         LoadGltfFile(dxCommon, gltfFilePath);
-        if (AssetPack::GetInstance()->IsCooking()) {
-            BinaryWriter writer;
-            writer.WriteVector(vertices_);
-            writer.WriteVector(inverseBindMatrices_);
-            writer.Write(static_cast<uint64_t>(boneNames_.size()));
-            for (const std::string& name : boneNames_) {
-                writer.WriteString(name);
-            }
-            AssetPack::GetInstance()->Record(packKey, std::move(writer.Bytes()));
-        }
+        // pak作成中なら、解析結果を次回から読めるよう同じ並びで記録する
+        RecordPackedGeometry(packKey);
     }
 
+    // 頂点が1つも無いモデルは描けないので止める
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
     ENGINE_ASSERT(sizeInBytes > 0);
 
-    D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
-    D3D12_RESOURCE_DESC resDesc { };
-    resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resDesc.Width = sizeInBytes;
-    resDesc.Height = 1;
-    resDesc.DepthOrArraySize = 1;
-    resDesc.MipLevels = 1;
-    resDesc.SampleDesc.Count = 1;
-    resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    dxCommon->GetDevice()->CreateCommittedResource(
-        &heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-        IID_PPV_ARGS(&vertexResource_));
-
-    VertexData* mapped = nullptr;
-    vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
-    std::copy(vertices_.begin(), vertices_.end(), mapped);
-    vertexResource_->Unmap(0, nullptr);
+    // 頂点バッファをアップロードヒープに作り、頂点をそのまま書き込む
+    vertexResource_ = PipelineHelper::CreateUploadBufferFrom(dxCommon->GetDevice(), vertices_);
 
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(sizeInBytes);
     vertexBufferView_.StrideInBytes = sizeof(VertexData);
 }
 
+/** @brief 頂点バッファとテクスチャ SRV をセットして DrawInstanced を発行する */
 void SkinnedModel::Draw(ID3D12GraphicsCommandList* cmd)
 {
     cmd->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
     D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    cmd->SetGraphicsRootDescriptorTable(2, texHandle);
+    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kTexture, texHandle);
     // スロット5(t2)は SkinnedObject3d::Draw が環境マップまたはフォールバックをバインドする
 
     cmd->DrawInstanced(static_cast<UINT>(vertices_.size()), 1, 0, 0);
 }
 
+/** @brief glTF ファイルからメッシュとスキンの情報を読み込む */
 void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& filePath)
 {
     Assimp::Importer importer;
@@ -128,12 +98,15 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
 
     // パス1: ボーン名 → index, inverse bind matrix を収集
     std::map<std::string, uint32_t> boneMap;
-    for (uint32_t mi = 0; mi < scene->mNumMeshes; ++mi) {
+    for (uint32_t mi = 0; mi < scene->mNumMeshes; ++mi)
+    {
         aiMesh* mesh = scene->mMeshes[mi];
-        for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi) {
+        for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi)
+        {
             aiBone* bone = mesh->mBones[bi];
             std::string name = bone->mName.C_Str();
-            if (boneMap.find(name) == boneMap.end()) {
+            if (boneMap.find(name) == boneMap.end())
+            {
                 uint32_t idx = static_cast<uint32_t>(boneNames_.size());
                 boneMap[name] = idx;
                 boneNames_.push_back(name);
@@ -144,7 +117,8 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
     }
 
     // パス2: 三角形リストを構築（ボーン重み付き）
-    for (uint32_t mi = 0; mi < scene->mNumMeshes; ++mi) {
+    for (uint32_t mi = 0; mi < scene->mNumMeshes; ++mi)
+    {
         aiMesh* mesh = scene->mMeshes[mi];
         uint32_t numVerts = mesh->mNumVertices;
 
@@ -152,13 +126,16 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
         std::vector<float> weights(numVerts * kMaxBoneInfluences, 0.0f);
         std::vector<uint32_t> counts(numVerts, 0);
 
-        for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi) {
+        for (uint32_t bi = 0; bi < mesh->mNumBones; ++bi)
+        {
             aiBone* bone = mesh->mBones[bi];
             uint32_t boneIdx = boneMap[bone->mName.C_Str()];
-            for (uint32_t wi = 0; wi < bone->mNumWeights; ++wi) {
+            for (uint32_t wi = 0; wi < bone->mNumWeights; ++wi)
+            {
                 uint32_t vIdx = bone->mWeights[wi].mVertexId;
                 float w = bone->mWeights[wi].mWeight;
-                if (counts[vIdx] < kMaxBoneInfluences) {
+                if (counts[vIdx] < kMaxBoneInfluences)
+                {
                     indices[vIdx * kMaxBoneInfluences + counts[vIdx]] = boneIdx;
                     weights[vIdx * kMaxBoneInfluences + counts[vIdx]] = w;
                     ++counts[vIdx];
@@ -166,39 +143,21 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
             }
         }
 
-        for (uint32_t fi = 0; fi < mesh->mNumFaces; ++fi) {
+        for (uint32_t fi = 0; fi < mesh->mNumFaces; ++fi)
+        {
             const aiFace& face = mesh->mFaces[fi];
             ENGINE_ASSERT(face.mNumIndices == kTriangleVertexCount); // Triangulate 済み
 
             // X 軸反転後にワインディングが逆転するため、インデックス 1 と 2 を入れ替える
             const uint32_t order[kTriangleVertexCount] = { face.mIndices[0], face.mIndices[2], face.mIndices[1] };
 
-            for (uint32_t i = 0; i < kTriangleVertexCount; ++i) {
+            for (uint32_t i = 0; i < kTriangleVertexCount; ++i)
+            {
                 uint32_t vIdx = order[i];
                 VertexData vd { };
-
-                // 右手系 → 左手系 X を反転
-                vd.position = {
-                    -mesh->mVertices[vIdx].x,
-                    mesh->mVertices[vIdx].y,
-                    mesh->mVertices[vIdx].z,
-                    1.0f
-                };
-                if (mesh->HasNormals()) {
-                    vd.normal = {
-                        -mesh->mNormals[vIdx].x,
-                        mesh->mNormals[vIdx].y,
-                        mesh->mNormals[vIdx].z
-                    };
-                }
-                if (mesh->HasTextureCoords(0)) {
-                    vd.texcoord = {
-                        mesh->mTextureCoords[0][vIdx].x,
-                        mesh->mTextureCoords[0][vIdx].y
-                    };
-                }
-
-                for (int k = 0; k < kMaxBoneInfluences; ++k) {
+                ReadAssimpVertex(vd, *mesh, vIdx, -1.0f);
+                for (int k = 0; k < kMaxBoneInfluences; ++k)
+                {
                     vd.boneIndices[k] = indices[vIdx * kMaxBoneInfluences + k];
                     vd.boneWeights[k] = weights[vIdx * kMaxBoneInfluences + k];
                 }
@@ -207,3 +166,40 @@ void SkinnedModel::LoadGltfFile(DirectXCommon* /*dxCommon*/, const std::string& 
         }
     }
 }
+
+/** @brief pakの頂点と付随データを復元して有効性を確認する */
+bool SkinnedModel::LoadPackedGeometry(const std::vector<uint8_t>& packed)
+{
+    // 保存した順に読み、不完全なデータは呼び出し元で破棄する
+    BinaryReader reader(packed);
+    vertices_ = reader.ReadVector<VertexData>();
+    inverseBindMatrices_ = reader.ReadVector<Matrix4x4>();
+    const uint64_t boneCount = reader.Read<uint64_t>();
+    boneNames_.clear();
+    for (uint64_t i = 0; i < boneCount && reader.IsValid(); ++i)
+    {
+        boneNames_.push_back(reader.ReadString());
+    }
+    return reader.IsValid() && !vertices_.empty();
+}
+
+/** @brief pak作成中に頂点と付随データを保存する */
+void SkinnedModel::RecordPackedGeometry(const std::string& packKey) const
+{
+    // 通常の読み込み時には記録を行わない
+    if (!AssetPack::GetInstance()->IsCooking())
+    {
+        return;
+    }
+    BinaryWriter writer;
+    writer.WriteVector(vertices_);
+    writer.WriteVector(inverseBindMatrices_);
+    writer.Write(static_cast<uint64_t>(boneNames_.size()));
+    for (const std::string& name : boneNames_)
+    {
+        writer.WriteString(name);
+    }
+    AssetPack::GetInstance()->Record(packKey, writer.TakeBytes());
+}
+
+} // namespace engine::graphics

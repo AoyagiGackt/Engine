@@ -20,14 +20,74 @@ class Camera;
 class ParticleManager;
 class Sprite;
 class SpriteCommon;
+class ModelCommon;
+class Model;
+class Object3d;
 }
 
 namespace engine::game {
 class FontRenderer;
 class Player;
+class UILayout;
 class BulletPool;
 
 namespace SceneShared {
+    /** @brief プレイヤーを生成してスクリプト連携先を登録し、弾丸プールを初期化する */
+    void InitializePlayerAndBullets(std::unique_ptr<Player>& player, BulletPool& bullets,
+        engine::graphics::ModelCommon* modelCommon, engine::graphics::Model* bulletModel, engine::Audio* audio);
+
+    /** @brief 頭上HPバーの寸法とHP比率に応じた色の設定 */
+    struct HpBarStyle {
+        Vector2 size;
+        float raise;
+        float greenScale;
+        float greenBase;
+        float alpha;
+        const Vector4* backgroundColor = nullptr;
+    };
+
+    /** @brief ワールド座標へ追従するHPバーの位置・幅・色を更新する */
+    void UpdateWorldHpBar(engine::graphics::Sprite* background, engine::graphics::Sprite* foreground,
+        const Vector3& position, const Vector3& cameraPosition, float ratio, const HpBarStyle& style);
+
+    /**
+     * @brief 白い画像からHPバーの下地と前景の2枚を作る
+     * @param spriteCommon スプライトの描画共通設定
+     * @param background 作った下地の置き場所（backgroundColor の色を付ける）
+     * @param foreground 作った前景の置き場所（色はHPの割合に合わせて毎フレーム付け直す）
+     * @param backgroundColor 下地の色
+     */
+    void CreateHpBarSprites(engine::graphics::SpriteCommon* spriteCommon, std::unique_ptr<engine::graphics::Sprite>& background,
+        std::unique_ptr<engine::graphics::Sprite>& foreground, const Vector4& backgroundColor);
+
+    /**
+     * @brief 戻りポータルの目印になるブロックを、指定位置から上へ等間隔に積む
+     * @param modelCommon モデル描画の共通設定
+     * @param blockModel ブロックのモデル
+     * @param base 一番下のブロックの位置
+     * @param count 積む数
+     * @param spacing 上下の間隔
+     * @param color ブロックの色
+     * @param outBlocks 作ったブロックの追加先
+     */
+    void CreateWarpPortalBlocks(engine::graphics::ModelCommon* modelCommon, engine::graphics::Model* blockModel,
+        const Vector3& base, int count, float spacing, const Vector4& color,
+        std::vector<std::unique_ptr<engine::graphics::Object3d>>& outBlocks);
+
+    /** @brief 影付きで描く文字の見た目（大きさ・色・影の色・影のずれ） */
+    struct ShadowedTextStyle {
+        float scale;
+        Vector4 color;
+        Vector4 shadowColor;
+        float shadowOffset; ///< 影を右下へずらす量（スクリーンpx）
+    };
+
+    /** @brief 少しずらした影を先に描いてから本体を重ね、明るい背景でも読める文字にする */
+    void DrawShadowedTextW(FontRenderer& fontRenderer, const std::wstring& text, float x, float y, const ShadowedTextStyle& style);
+
+    /** @brief 武器一覧の下に出す操作ヒントの見た目を UI レイアウトから読む（書かれていない項目は defaults のまま） */
+    ShadowedTextStyle ReadWeaponHintStyle(UILayout& layout, const ShadowedTextStyle& defaults);
+
 
     /** @brief 武器スロットUIの3Dアイコン1個分の素材（モデル・テクスチャ・表示調整値） */
     struct WeaponIconAsset {
@@ -54,11 +114,11 @@ namespace SceneShared {
 
     /** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
     D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
-        std::initializer_list<engine::graphics::IPostEffectSource*> effects);
+        const std::initializer_list<engine::graphics::IPostEffectSource*>& effects);
 
     /** @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する */
     void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
-        std::initializer_list<engine::graphics::IPostEffectSource*> effects);
+        const std::initializer_list<engine::graphics::IPostEffectSource*>& effects);
 
     /** @brief フィニッシャー発動時の溜めエフェクト（周囲から中心へ収束する光粒＋小リング）を放出する */
     void EmitFinisherCharge(engine::graphics::ParticleManager* pm,

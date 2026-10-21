@@ -26,9 +26,11 @@ public:
         : onRestore_(std::move(onRestore))
     {
     }
+    /** @brief スコープを抜ける時に復帰処理を呼ぶ */
     ~PipelineStateGuard()
     {
-        if (onRestore_) {
+        if (onRestore_)
+        {
             // コンストラクタで渡された復帰処理（PSO/レンダーターゲットの復帰）を呼ぶ
             onRestore_();
         }

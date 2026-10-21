@@ -1,26 +1,18 @@
 /**
  * @file VignetteEffect.cpp
- * @brief VignetteEffectの画面効果の生成、更新、描画に関する具体的な処理を実装するファイル
+ * @brief 画面の四隅を暗くするビネット（VignetteEffect）の実装
  */
 #include "VignetteEffect.h"
+#include "PipelineHelper.h"
+#include "ResourceAlignment.h"
 #include "GraphicsTuning.h"
 #include "EngineAssert.h"
 #include "WinApp.h"
 
-namespace {
-
-// 全画面三角形の頂点数
-constexpr unsigned int kFullscreenVertexCount = 3;
-
-// 定数バッファの配置境界
-constexpr unsigned int kConstantBufferAlignment = 256;
-
-}
-using namespace engine;
-using namespace engine::graphics;
-
+namespace engine::graphics {
 using namespace Microsoft::WRL;
 
+/** @brief 定数バッファ・ルートシグネチャ・PSOを生成する */
 void VignetteEffect::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
@@ -35,123 +27,79 @@ void VignetteEffect::Initialize(DirectXCommon* dxCommon)
     cbData_->softness = GraphicsTuning::Positive("vignette.softness", cbData_->softness);
 
     // ルートシグネチャ  b0 CBV のみ（SRV 不要、数式で暗転するだけ）
-    D3D12_ROOT_PARAMETER rootParam = { };
-    rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    rootParam.Descriptor.ShaderRegister = 0; // b0
+    D3D12_ROOT_PARAMETER rootParam = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    D3D12_ROOT_SIGNATURE_DESC rootSigDesc = { };
-    rootSigDesc.NumParameters = 1;
-    rootSigDesc.pParameters = &rootParam;
-    rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+    rootSignature_ = PipelineHelper::CreateRootSignature(device, &rootParam, 1,
+        nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+    ENGINE_ASSERT(rootSignature_);
 
-    ComPtr<ID3DBlob> sigBlob, errBlob;
-    HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
-    ENGINE_ASSERT(SUCCEEDED(hr));
-    hr = device->CreateRootSignature(
-        0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
-        IID_PPV_ARGS(&rootSignature_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
-
-    // シェーダーコンパイル
-    Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(
-        L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
-    Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(
-        L"Resources/shaders/postprocess/VignettePS.hlsl", L"ps_6_0");
-
-    // アルファブレンド  PS が出力する (0,0,0,vig) をバックバッファに重ねて周辺を暗転
-    D3D12_RENDER_TARGET_BLEND_DESC rtBlend = { };
-    rtBlend.BlendEnable = TRUE;
-    rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    rtBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    rtBlend.BlendOp = D3D12_BLEND_OP_ADD;
-    rtBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
-    rtBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
-    rtBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    rtBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-    D3D12_BLEND_DESC blendDesc = { };
-    blendDesc.RenderTarget[0] = rtBlend;
-
-    D3D12_RASTERIZER_DESC rastDesc = { };
-    rastDesc.FillMode = D3D12_FILL_MODE_SOLID;
-    rastDesc.CullMode = D3D12_CULL_MODE_NONE;
-
-    D3D12_DEPTH_STENCIL_DESC depthDesc = { };
-    depthDesc.DepthEnable = FALSE;
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = { };
-    psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
-    psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
-    psoDesc.BlendState = blendDesc;
-    psoDesc.RasterizerState = rastDesc;
-    psoDesc.DepthStencilState = depthDesc;
-    psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    psoDesc.SampleDesc.Count = 1;
-    // InputLayout なし  VS が SV_VertexID から三角形を生成する
-
-    hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-    ENGINE_ASSERT(SUCCEEDED(hr));
+    pipelineState_ = PipelineHelper::CreateFullscreenPipeline(dxCommon_, rootSignature_.Get(),
+        L"Resources/shaders/postprocess/VignettePS.hlsl", BlendMode::Alpha);
 }
 
+/** @brief 生成したリソース（定数バッファ・PSO・ルートシグネチャ）を解放する */
 void VignetteEffect::Finalize()
 {
-    if (cbData_) {
-        cbResource_->Unmap(0, nullptr);
-        cbData_ = nullptr;
-    }
-    cbResource_.Reset();
-    pipelineState_.Reset();
-    rootSignature_.Reset();
+    PipelineHelper::ReleaseEffectResources(cbResource_, cbData_, pipelineState_, rootSignature_);
 }
 
+/** @brief バックバッファに周辺減光をアルファブレンドで重ね描きする */
 void VignetteEffect::Apply()
 {
-    if (!enabled_) {
+    if (!enabled_)
+    {
         return;
     }
 
     auto* cmdList = dxCommon_->GetCommandList();
 
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = dxCommon_->GetCurrentBackBufferHandle();
-    cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-
-    D3D12_VIEWPORT vp = dxCommon_->GetBackBufferViewport();
-    D3D12_RECT scissor = dxCommon_->GetBackBufferScissorRect();
-    cmdList->RSSetViewports(1, &vp);
-    cmdList->RSSetScissorRects(1, &scissor);
+    // バックバッファへ深度なしで重ね描きする
+    PipelineHelper::BindBackBufferTarget(dxCommon_, cmdList);
 
     cmdList->SetGraphicsRootSignature(rootSignature_.Get());
     cmdList->SetPipelineState(pipelineState_.Get());
-    cmdList->SetGraphicsRootConstantBufferView(0, cbResource_->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, cbResource_->GetGPUVirtualAddress());
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmdList->DrawInstanced(kFullscreenVertexCount, 1, 0, 0);
+    PipelineHelper::DrawFullscreenTriangle(cmdList);
 }
 
+/** @brief 暗転の強さを設定する */
 void VignetteEffect::SetIntensity(float v)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->intensity = v;
     }
 }
-float VignetteEffect::GetIntensity() const { return cbData_ ? cbData_->intensity : 0.f; }
+/** @brief 暗転の強さを取得する */
+float VignetteEffect::GetIntensity() const {
+    return cbData_ ? cbData_->intensity : 0.f;
+}
 
+/** @brief 減光が始まる画面中心からの半径を設定する */
 void VignetteEffect::SetRadius(float v)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->radius = v;
     }
 }
-float VignetteEffect::GetRadius() const { return cbData_ ? cbData_->radius : 0.f; }
+/** @brief 減光が始まる半径を取得する */
+float VignetteEffect::GetRadius() const {
+    return cbData_ ? cbData_->radius : 0.f;
+}
 
+/** @brief 明部から暗部への遷移のぼかし幅を設定する */
 void VignetteEffect::SetSoftness(float v)
 {
-    if (cbData_) {
+    if (cbData_)
+    {
         cbData_->softness = v;
     }
 }
-float VignetteEffect::GetSoftness() const { return cbData_ ? cbData_->softness : 0.f; }
+/** @brief 遷移のぼかし幅を取得する */
+float VignetteEffect::GetSoftness() const {
+    return cbData_ ? cbData_->softness : 0.f;
+}
+
+} // namespace engine::graphics

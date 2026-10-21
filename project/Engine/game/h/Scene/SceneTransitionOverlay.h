@@ -8,7 +8,9 @@
 #include "SceneTransitionFlow.h"
 #include "SpriteCommon.h"
 #include <memory>
-namespace engine { class DirectXCommon; }
+namespace engine {
+    class DirectXCommon;
+}
 namespace engine::game {
 /** @brief 遷移演出の資源と状態をまとめ、ロード画面を送信してから切り替えを許可する。 */
 class SceneTransitionOverlay {
@@ -18,8 +20,14 @@ public:
     bool Update();
     void Draw();
     void FinishSwitch();
-    bool IsChanging() const { return flow_.IsChanging(); }
-    bool IsLoading() const { return flow_.IsLoading(); }
+    /** @brief シーンを切り替え中かを返す */
+    bool IsChanging() const {
+        return flow_.IsChanging();
+    }
+    /** @brief 読み込み中かを返す */
+    bool IsLoading() const {
+        return flow_.IsLoading();
+    }
 private:
     engine::DirectXCommon* graphics_ = nullptr;
     std::unique_ptr<engine::graphics::SpriteCommon> sprites_;

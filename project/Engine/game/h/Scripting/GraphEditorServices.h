@@ -5,11 +5,24 @@
 #pragma once
 #ifdef USE_IMGUI
 #include <imgui.h>
+#include "GraphTypes.h"
 #include <string>
 namespace engine {
 class Input;
 }
 namespace engine::game {
+/** @brief グラフ値入力の結果とUndoの確定に必要な操作状態 */
+struct GraphValueEditResult {
+    GraphValue value;
+    bool changed = false;
+    bool activated = false;
+    bool deactivated = false;
+    bool discrete = false;
+};
+
+/** @brief グラフ値の型に対応する入力欄を表示し、編集結果を値として返す */
+GraphValueEditResult DrawGraphValueInput(const char* label, const GraphValue& value);
+
 class GraphEditor;
 struct GraphNode;
 enum class GraphValueType;

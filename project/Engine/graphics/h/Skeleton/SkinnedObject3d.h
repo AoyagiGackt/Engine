@@ -1,8 +1,9 @@
 /**
  * @file SkinnedObject3d.h
- * @brief SkinnedObject3dの描画資源とGPU処理の管理に関する公開型と操作インターフェースを定義するファイル
+ * @brief アニメーションするスキンメッシュのオブジェクト（SkinnedObject3d）の宣言
  */
 #pragma once
+#include "PipelineHelper.h"
 #include "Animation.h"
 #include "MakeAffine.h"
 #include "ModelCommon.h"
@@ -64,6 +65,13 @@ public:
     static void SetCommonModelCommon(ModelCommon* modelCommon);
 
     /**
+     * @brief スキンモデルの描画共通設定を作り、全インスタンス共通の ModelCommon とカメラ（通常モデルと同じもの）を設定する
+     * @param modelCommon 通常モデルの描画共通設定（デバイスの取得と CS スキニング後の描画に使う）
+     * @return 作った SkinCommon（呼び出し側が持ち、SkinnedObject3d::Initialize に渡す）
+     */
+    static std::unique_ptr<SkinCommon> CreateSharedCommon(ModelCommon* modelCommon);
+
+    /**
      * @brief 変換行列・マテリアル・スキニングパレットの定数バッファを確保し既定値で初期化する
      * @param skinCommon 描画に使う PSO・ルートシグネチャを保持する SkinCommon インスタンス
      */
@@ -76,6 +84,7 @@ public:
         animation_ = std::move(anim);
         animTime_ = 0.0f;
     }
+    /** @brief スケルトンを差し替える（値で受け取り std::move で持つ） */
     void SetSkeleton(Skeleton skeleton)
     {
         skeleton_ = std::move(skeleton);
@@ -86,65 +95,94 @@ public:
      * @brief ベースアニメの上に重ねるポーズレイヤーを設定する（nullptrで解除）
      * @note レイヤーの寿命は呼び出し側が管理する（このオブジェクトより長く生存させること）
      */
-    void SetPoseLayer(const IPoseLayer* layer) { poseLayer_ = layer; }
-    void SetEnvCubemapFilePath(const std::string& path) { envCubemapFilePath_ = path; }
+    void SetPoseLayer(const IPoseLayer* layer) {
+        poseLayer_ = layer;
+    }
+    /** @brief 環境マップのキューブマップのファイルパスを設定する */
+    void SetEnvCubemapFilePath(const std::string& path) {
+        envCubemapFilePath_ = path;
+    }
 
-    void SetPosition(const Vector3& pos) { transform_.translate = pos; }
-    void SetRotation(const Vector3& rot) { transform_.rotate = rot; }
-    void SetScale(const Vector3& scale) { transform_.scale = scale; }
-    void SetAnimSpeed(float s) { animSpeed_ = s; }
+    /** @brief 位置を設定する */
+    void SetPosition(const Vector3& pos) {
+        transform_.translate = pos;
+    }
+    /** @brief 回転を設定する */
+    void SetRotation(const Vector3& rot) {
+        transform_.rotate = rot;
+    }
+    /** @brief 拡大率を設定する */
+    void SetScale(const Vector3& scale) {
+        transform_.scale = scale;
+    }
+    /** @brief アニメーションの再生速度を設定する */
+    void SetAnimSpeed(float s) {
+        animSpeed_ = s;
+    }
     // スクラブ再生用  アニメーション時刻を直接指定する
     // （SetAnimation() は呼ぶ度に0へ戻すため、クリップ更新直後にこれで再生位置を復元する）
-    void SetAnimTime(float t) { animTime_ = t; }
+    void SetAnimTime(float t) {
+        animTime_ = t;
+    }
 
+    /** @brief 色を設定する */
     void SetColor(const Vector4& color)
     {
-        if (materialData_) {
-            materialData_->color = color;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
     }
+    /** @brief ライティングを使うかを設定する */
     void SetEnableLighting(bool enable)
     {
-        if (materialData_) {
-            materialData_->enableLighting = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     // リムライト（縁取り発光enableLighting 有効時のみシェーダーで反映される）
     void SetRimColor(const Vector3& color)
     {
-        if (materialData_) {
-            materialData_->rimColor = color;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
     }
+    /** @brief リムライトの鋭さを設定する */
     void SetRimPower(float power)
     {
-        if (materialData_) {
-            materialData_->rimPower = power;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
     }
+    /** @brief リムライトの強さを設定する */
     void SetRimIntensity(float intensity)
     {
-        if (materialData_) {
-            materialData_->rimIntensity = intensity;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
+    /** @brief リムライトを使うかを設定する */
     void SetEnableRim(bool enable)
     {
-        if (materialData_) {
-            materialData_->enableRim = enable ? 1 : 0;
-        }
+        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
 
-    Vector3 GetPosition() const { return transform_.translate; }
-    Vector3 GetRotation() const { return transform_.rotate; }
-    Vector3 GetScale() const { return transform_.scale; }
-    float GetAnimSpeed() const { return animSpeed_; }
+    /** @brief 位置を返す */
+    Vector3 GetPosition() const {
+        return transform_.translate;
+    }
+    /** @brief 回転を返す */
+    Vector3 GetRotation() const {
+        return transform_.rotate;
+    }
+    /** @brief 拡大率を返す */
+    Vector3 GetScale() const {
+        return transform_.scale;
+    }
+    /** @brief アニメーションの再生速度を返す */
+    float GetAnimSpeed() const {
+        return animSpeed_;
+    }
 
     // 武器アタッチ等でジョイント行列を参照するためのゲッター
     // （skeletonSpaceMatrix は Update() 後に最新になる）
-    const Skeleton& GetSkeleton() const { return skeleton_; }
-    const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
+    const Skeleton& GetSkeleton() const {
+        return skeleton_;
+    }
+    /** @brief ワールド行列を返す */
+    const Matrix4x4& GetWorldMatrix() const {
+        return worldMatrix_;
+    }
 
     /**
      * @brief アニメーションを適用してスケルトンとスキニングパレット、ワールド/WVP行列を更新する
@@ -167,6 +205,11 @@ public:
     void DrawOutline(OutlineEffect* effect);
 
 private:
+    /** @brief 計算済みスキン頂点を三角形として描画する */
+    void DrawSkinnedVertices(ID3D12GraphicsCommandList* cmd);
+
+    /** @brief どちらの描画パスでも同じスロット（0: マテリアル、1: 変換行列、3: ライト、4: 影、5: 環境マップ）を設定する */
+    void BindSharedSlots(ID3D12GraphicsCommandList* cmd) const;
     static const int kMaxJoints = 128;
 
     /**

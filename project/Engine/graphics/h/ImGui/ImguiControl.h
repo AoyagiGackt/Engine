@@ -29,8 +29,15 @@ public:
     /** @brief ガラス割れエフェクトのテスト再生コールバックを登録する（シーン切替時は nullptr で解除する） */
     static void RegisterGlassShatterTrigger(std::function<void()> trigger);
 
-    /** @brief ImGuiで設定されたデバッグポイントライト一覧を返す */
-    static const std::vector<EditorPointLight>& GetEditorPointLights();
+    /** @brief デバッグ点光源を順に参照する。処理中は一覧を変更しない */
+    template<class Visitor>
+    static void VisitEditorPointLights(const Visitor& visitor)
+    {
+        for (const auto& light : editorLights_)
+        {
+            visitor(light);
+        }
+    }
 
     /** @brief デバッグコントロールウィンドウを描画する（ImGuiManager::Begin/Endの間に呼ぶ） */
     static void ShowControls();

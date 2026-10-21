@@ -35,13 +35,16 @@ public:
     void Update() override;
     void Draw() override;
 
-    bool IsFinished() const { return finished_; }
-    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
+    /** @brief 設定画面を閉じたかを返す */
+    bool IsFinished() const {
+        return finished_;
+    }
 
 private:
     /** @brief オプション画面の1ページ（設定の一覧 / コマンド表） */
     class IPage {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~IPage() = default;
         /** @brief 入力を受け付ける（ページの切り替えもここで行う） */
         virtual void Update(OptionsScene& scene) const = 0;
@@ -64,7 +67,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> bgSprite_;

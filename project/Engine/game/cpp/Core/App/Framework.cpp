@@ -18,9 +18,10 @@
 #include "SrvManager.h"
 #include "TextureManager.h"
 #include "VignetteEffect.h"
-using namespace engine;
 using namespace engine::graphics;
 
+namespace engine {
+/** @brief アプリケーションの実行 */
 void Framework::Run()
 {
     const std::wstring commandLine = GetCommandLineW();
@@ -29,21 +30,25 @@ void Framework::Run()
     auto* assetPack = AssetPack::GetInstance();
     assetPack->Initialize(forceCook, prepareAssets);
     // 変更がなければ、ビルド後の素材準備はウィンドウやGPUを作らず終了する。
-    if (prepareAssets && !assetPack->IsCooking()) {
+    if (prepareAssets && !assetPack->IsCooking())
+    {
         assetPack->Finalize();
         return;
     }
     Initialize();
     // 素材準備専用の起動では、全シーンを収集してpakを書き出したら終了する。
-    if (forceCook || prepareAssets) {
+    if (forceCook || prepareAssets)
+    {
         Finalize();
         return;
     }
-    while (true) {
+    while (true)
+    {
         FrameProfiler::GetInstance()->BeginFrame();
         Update();
 
-        if (IsEndRequest()) {
+        if (IsEndRequest())
+        {
             break;
         }
 
@@ -54,6 +59,7 @@ void Framework::Run()
     Finalize();
 }
 
+/** @brief システムの初期化 */
 void Framework::Initialize()
 {
     winApp_ = std::make_unique<WinApp>();
@@ -86,31 +92,37 @@ void Framework::Initialize()
     imguiManager_->Initialize(winApp_.get(), dxCommon_.get());
 }
 
+/** @brief システムの更新処理 */
 void Framework::Update()
 {
     input_->Update();
     imguiManager_->Begin();
 
     // F11 でフルスクリーン/ウィンドウ切り替え
-    if (input_->TriggerKey(DIK_F11)) {
+    if (input_->TriggerKey(DIK_F11))
+    {
         winApp_->ToggleFullscreen();
     }
 
     // F10 でVSyncのON/OFF切り替え
-    if (input_->TriggerKey(DIK_F10)) {
+    if (input_->TriggerKey(DIK_F10))
+    {
         dxCommon_->ToggleVSync();
         Logger::LogInfo(dxCommon_->IsVSyncEnabled() ? "VSync: ON" : "VSync: OFF");
     }
 }
 
+/** @brief システムの終了処理 */
 void Framework::Finalize()
 {
     // ImGuiの終了
-    if (imguiManager_) {
+    if (imguiManager_)
+    {
         imguiManager_->Finalize();
     }
 
-    if (videoPlayer_) {
+    if (videoPlayer_)
+    {
         videoPlayer_->Finalize();
     }
 
@@ -127,7 +139,8 @@ void Framework::Finalize()
     ModelManager::GetInstance()->Finalize();
 
     // Audioの終了
-    if (audio_) {
+    if (audio_)
+    {
         audio_->Finalize();
     }
 
@@ -144,3 +157,5 @@ void Framework::Finalize()
     // cookモードなら、このプレイ中に読み込んだ素材を変換済みの形でpakへ書き出す
     AssetPack::GetInstance()->Finalize();
 }
+
+} // namespace engine

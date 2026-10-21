@@ -29,17 +29,22 @@ public:
      * @param mode 設定するライティングモード（LightingMode 列挙型の値）
      * @note 例: LightingMode::Lambert や LightingMode::HalfLambert を指定する
      */
-    void SetLightingMode(int mode) { lightingMode_ = mode; }
+    void SetLightingMode(int mode) {
+        lightingMode_ = mode;
+    }
 
     /**
      * @brief 現在設定されているライティングモードを取得する
      * @return int 現在のライティングモード（LightingMode 列挙型の値）
      */
-    int GetLightingMode() const { return lightingMode_; }
+    int GetLightingMode() const {
+        return lightingMode_;
+    }
 
 private:
     // シングルトンパターンのためのコンストラクタ・コピー禁止設定
     LightManager() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~LightManager() = default;
     LightManager(const LightManager&) = delete;
     LightManager& operator=(const LightManager&) = delete;

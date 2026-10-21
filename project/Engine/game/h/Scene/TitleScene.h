@@ -84,18 +84,23 @@ public:
      * @return bool シーンが終了したかどうか（true: 終了して次へ / false: 継続）
      * @note 内部の finished_ フラグの状態を返します
      */
-    bool IsFinished() const { return finished_; }
+    bool IsFinished() const {
+        return finished_;
+    }
 
-    /**
-     * @brief デバッグ用UIマネージャーをセットする
-     * @param imgui ImGuiManagerのポインタ
-     */
-    void SetImGuiManager(ImGuiManager* imgui) { imguiManager_ = imgui; }
 
     // 背景デモの床とビルは Resources/Levels/title.json に置き、F2のステージエディタで編集する
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/title.json"; }
-    engine::graphics::ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
-    engine::graphics::Camera* GetEditorCamera() override { return camera_.get(); }
+    std::string GetEditorLevelPath() const override {
+        return "Resources/Levels/title.json";
+    }
+    /** @brief エディタで使うモデルの共通設定を返す */
+    engine::graphics::ModelCommon* GetEditorModelCommon() override {
+        return modelCommon_.get();
+    }
+    /** @brief エディタで使うカメラを返す */
+    engine::graphics::Camera* GetEditorCamera() override {
+        return camera_.get();
+    }
     /** @brief エディタ表示中（デモ停止中）もカメラ移動に合わせてデモの見た目の行列だけ更新する */
     void RefreshVisualTransformsForEditor() override;
 
@@ -103,6 +108,7 @@ private:
     /** @brief タイトルのメニューの1ページ（メイン / 設定 / コマンド表） */
     class IMenuPage {
     public:
+        /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
         virtual ~IMenuPage() = default;
         /** @brief 入力を受け付ける（ページの切り替えもここで行う） */
         virtual void Update(TitleScene& scene) const = 0;
@@ -135,7 +141,6 @@ private:
     Audio* audio_ = nullptr;
 
     /** @brief デバッグUI用のImGuiマネージャー */
-    ImGuiManager* imguiManager_ = nullptr;
 
     // このシーンが所有・管理するリソース
 
@@ -175,7 +180,6 @@ private:
     ParticleManager* particleManager_ = nullptr;
 
     /** @brief 背景の天球（GamePlaySceneと同じモデル、カメラに追従する） */
-    Model* modelSkydome_ = nullptr;
     std::unique_ptr<Skydome> skydome_;
 
     /** @brief プレイヤーが殴りながら進んでいく的（BattleTestSceneのDummyと同じスライム）。1体ずつ順番に近づいて倒す */
@@ -223,6 +227,40 @@ private:
     void InitializeDemo();
     /** @brief 背景デモを1フレーム進める（Inputのアクションオーバーライドでプレイヤーを自動操作する） */
     void UpdateDemo();
+
+    /** @brief デモ1フレームぶんの判断材料と、プレイヤーに押させるボタン（定義は TitleSceneDemo.cpp） */
+    struct DemoFrame;
+    /**
+     * @brief 倒された的のうち復帰時間を過ぎたものを、プレイヤーの左右どちらかに出し直す
+     * @param arenaLeft 復帰できる左端
+     * @param arenaRight 復帰できる右端
+     */
+    void RespawnDefeatedDummies(float arenaLeft, float arenaRight);
+    /**
+     * @brief 生きている的をそれぞれの速度でプレイヤーへ近づけ、間合いに入ったら攻撃動作を始めさせる
+     * @param playerX プレイヤーのX座標
+     */
+    void UpdateDummyBehavior(float playerX);
+    /**
+     * @brief 最も近い生きている的を狙いに決める
+     * @param playerX プレイヤーのX座標
+     * @return 狙う的。生きている的がいなければ nullptr
+     */
+    DemoDummy* SelectNearestDummy(float playerX);
+    /** @brief 敵の攻撃の回避・攻撃間の後退・道中のジャンプや回避を決める */
+    void DecideDemoMovement(DemoFrame& frame);
+    /** @brief 間合いに入った的へコンボを振り、命中演出を出し、最後の段で撃破する */
+    void UpdateDemoAttack(DemoFrame& frame);
+    /** @brief 攻撃1段ぶんの命中演出を出す */
+    void EmitDemoHitEffects(const DemoFrame& frame);
+    /** @brief 狙っていた的を撃破して退場させ、次の的と次の武器へ切り替える */
+    void DefeatDemoTarget(DemoFrame& frame);
+    /** @brief 決めたボタンを Input のアクションオーバーライドへ書き込む */
+    void ApplyDemoInput(DemoFrame& frame);
+    /** @brief 的の上下の揺れ・被弾時の点滅・向き・位置をモデルへ反映する */
+    void UpdateDummyVisuals();
+    /** @brief 装備中の武器が常に出している軌跡を出す */
+    void EmitDemoIdleTrail();
     /** @brief 背景デモのシャドウパス描画 */
     void DrawDemoShadowPass();
     /** @brief 背景デモの本描画（3Dワールド） */

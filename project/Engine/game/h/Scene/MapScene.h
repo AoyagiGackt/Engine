@@ -48,13 +48,19 @@ public:
     void Update() override;
     /** @brief マップノードと現在選択状態を描画する */
     void Draw() override;
-    /** @brief ImGui マネージャーを設定する */
-    void SetImGuiManager(ImGuiManager* imgui) override { imguiManager_ = imgui; }
 
     // 床と背景のビルは Resources/Levels/map.json に置き、F2のステージエディタで編集する
-    std::string GetEditorLevelPath() const override { return "Resources/Levels/map.json"; }
-    engine::graphics::ModelCommon* GetEditorModelCommon() override { return modelCommon_.get(); }
-    engine::graphics::Camera* GetEditorCamera() override { return camera_.get(); }
+    std::string GetEditorLevelPath() const override {
+        return "Resources/Levels/map.json";
+    }
+    /** @brief エディタで使うモデルの共通設定を返す */
+    engine::graphics::ModelCommon* GetEditorModelCommon() override {
+        return modelCommon_.get();
+    }
+    /** @brief エディタで使うカメラを返す */
+    engine::graphics::Camera* GetEditorCamera() override {
+        return camera_.get();
+    }
     /** @brief エディタ表示中（移動停止中）もカメラ移動に合わせてプレイヤーと入口ポータルの行列だけ更新する */
     void RefreshVisualTransformsForEditor() override;
 
@@ -82,7 +88,6 @@ private:
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
     Audio* audio_ = nullptr;
-    ImGuiManager* imguiManager_ = nullptr;
 
     std::unique_ptr<SpriteCommon> spriteCommon_;
     std::unique_ptr<Sprite> bgSprite_; // 黒背景
@@ -100,6 +105,8 @@ private:
 
     // マップ定義  floors_[floor][col] = NodeType
     std::vector<std::vector<RunData::NodeType>> floors_;
+    // このマップを開いた時点の入口配置を保持する
+    std::vector<float> stageWorldX_;
 
     // 選択状態
     int selectedCol_ = 0;

@@ -5,6 +5,9 @@
  * 敵/巡回/イベント条件の評価）をまとめている。クラス自体はStageEditorのまま、定義の置き場所だけを分けている
  */
 #include "StageEditor.h"
+#include "GroundSupport.h"
+#include "EnemySeparation.h"
+#include <unordered_map>
 #include "FallingFloorBehavior.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -32,55 +35,12 @@
 #include <limits>
 #include <cmath>
 #include <random>
-using namespace engine::game;
-using namespace engine;
 using namespace engine::graphics;
 
-namespace {
-/** @brief 敵の体のうち壁と当たる範囲（足元の床に掛からないよう、位置より少し上から頭まで） */
-engine::AABB EnemyWallBody(const Vector3& pos, const EnemySeparationTuning& tuning)
-{
-    return { { pos.x - tuning.bodyHalfWidth, pos.y + tuning.wallBandBottom, pos.z },
-        { pos.x + tuning.bodyHalfWidth, pos.y + tuning.wallBandTop, pos.z } };
-}
 
-/** @brief 体がブロックと横に重なっているか（奥行きは敵の位置の1点で見る） */
-bool OverlapsWall(const engine::AABB& body, const engine::AABB& wall)
-{
-    return body.max.y > wall.min.y && body.min.y < wall.max.y
-        && body.min.z >= wall.min.z && body.max.z <= wall.max.z
-        && body.max.x > wall.min.x && body.min.x < wall.max.x;
-}
 
-/** @brief 壁にめり込んでいれば、入り込みの浅い側へ押し出した後のX座標を返す */
-float PushOutOfWalls(const Vector3& pos, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning)
-{
-    Vector3 resolved = pos;
-    for (const engine::AABB& wall : walls) {
-        const engine::AABB body = EnemyWallBody(resolved, tuning);
-        if (!OverlapsWall(body, wall)) {
-            continue;
-        }
-        const float pushLeft = wall.min.x - body.max.x; // 負の値: 左へ押し出す量
-        const float pushRight = wall.max.x - body.min.x; // 正の値: 右へ押し出す量
-        resolved.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
-    }
-    return resolved.x;
-}
-
-/** @brief 指定した向き（左=-1, 右=+1）のすぐ横に壁があるか（その向きへは押されても動けない） */
-bool WallOnSide(const Vector3& pos, float side, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning)
-{
-    // 体のその向きの端だけを細い帯で調べる（反対側の壁に触れていても誤判定しない）
-    const float margin = tuning.wallContactMargin;
-    engine::AABB probe = EnemyWallBody(pos, tuning);
-    const float edgeX = side < 0.0f ? probe.min.x : probe.max.x;
-    probe.min.x = edgeX - margin;
-    probe.max.x = edgeX + margin;
-    return std::any_of(walls.begin(), walls.end(), [&probe](const engine::AABB& wall) { return OverlapsWall(probe, wall); });
-}
-} // namespace
-
+namespace engine::game {
+/** @brief モデル+テクスチャの組み合わせをキャッシュから探し、無ければロードして登録する */
 Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::string& texPath)
 {
     const std::string key = modelPath + '|' + texPath;
@@ -89,12 +49,13 @@ Model* StageEditor::GetOrLoadModel(const std::string& modelPath, const std::stri
     return model;
 }
 
+/** @brief モデル/軸/個数など構造が変わったときの再構築（instances/knight/enemyを作り直す） */
 void StageEditor::RegenerateInstances(ObjectEntry& entry)
 {
     // 構造変更で既存実体を作り直す場合だけGPUの参照完了を待つ
-    if ((!entry.instances.empty() || entry.knight || entry.enemy)
-        && modelCommon_ && modelCommon_->GetDxCommon()) {
-        modelCommon_->GetDxCommon()->WaitForGpu();
+    if (!entry.instances.empty() || entry.knight || entry.enemy)
+    {
+        WaitForGpuIdle();
     }
     entry.instances.clear();
     const ObjectDesc& desc = entry.desc;
@@ -105,53 +66,55 @@ void StageEditor::RegenerateInstances(ObjectEntry& entry)
     entry.visibleOverride = true;
     entry.enabledOverride = -1;
     entry.graphMoveActive = false;
-    if (!desc.enabled) {
+    // ゲーム側で無効にした配置物は、敵の登録を外して実体を持たない
+    if (!desc.enabled)
+    {
         UnregisterEnemyEntity(entry);
         entry.knight.reset();
         entry.enemy.reset();
         return;
     }
 
+    // 敵は種類ごとの準備に任せ、目印だけの種類は見た目を作らない
     const ObjectKind& kind = ObjectKind::Of(desc.kind);
     kind.PrepareEnemyInstance(*this, IndexOf(entry));
-    if (kind.PlacesEnemy() || kind.IsMarker()) {
+    if (kind.PlacesEnemy() || kind.IsMarker())
+    {
         return;
     }
 
-    if (desc.model.empty()) {
+    // モデルを持つ種類だけ、列配置の個数ぶん実体を作る
+    if (desc.model.empty())
+    {
         return;
     }
 
     Model* model = GetOrLoadModel(desc.model, desc.texture);
 
     auto spawnOne = [&](const Vector3& pos) {
-        auto obj = std::make_unique<Object3d>();
-        obj->Initialize(modelCommon_);
-        obj->SetModel(model);
-        obj->SetPosition(pos);
-        obj->SetRotation(desc.rotation);
-        obj->SetScale(desc.scale);
-        obj->SetEnableLighting(desc.lighting);
-        obj->Update();
-        entry.instances.push_back(std::move(obj));
+        entry.instances.push_back(LevelLoader::CreatePlacedObject(modelCommon_, model, desc, pos));
     };
 
     // 位置はRefreshTransforms()が毎フレーム上書きするため、ここでは個数分の生成だけが本質
-    int instanceCount = (desc.type == PlacementType::Row) ? (std::max)(1, desc.count) : 1;
-    for (int i = 0; i < instanceCount; ++i) {
+    int instanceCount = (std::max)(1, PlacementCopyCount(desc));
+    for (int i = 0; i < instanceCount; ++i)
+    {
         spawnOne(desc.position);
     }
     RefreshTransforms(entry);
 }
 
+/** @brief ファクトリが生成した配置データをレベル実体へ追加する */
 void StageEditor::AppendGeneratedContent(StageEditorGeneratedContent content)
 {
-    for (TriggerDesc& desc : content.triggers) {
+    for (TriggerDesc& desc : content.triggers)
+    {
         TriggerVolume trigger;
         trigger.Init(desc);
         triggers_.push_back(std::move(trigger));
     }
-    for (ObjectDesc& desc : content.objects) {
+    for (ObjectDesc& desc : content.objects)
+    {
         ObjectEntry entry;
         entry.desc = std::move(desc);
         entry.authoredPosition = entry.desc.position;
@@ -160,23 +123,15 @@ void StageEditor::AppendGeneratedContent(StageEditorGeneratedContent content)
     }
 }
 
+/** @brief 位置/回転/スケールだけを既存instancesへ反映する軽量パス（kind=="prop"専用） */
 void StageEditor::RefreshTransforms(ObjectEntry& entry)
 {
     const ObjectDesc& desc = entry.desc;
     Vector3 basePos = WorldPositionOf(desc); // 親がいる場合は親のワールド位置＋ローカルオフセット
 
-    for (int i = 0; i < static_cast<int>(entry.instances.size()); ++i) {
-        Vector3 pos = basePos;
-        if (desc.type == PlacementType::Row) {
-            float offset = desc.step * static_cast<float>(i);
-            if (desc.axis == 'y') {
-                pos.y += offset;
-            } else if (desc.axis == 'z') {
-                pos.z += offset;
-            } else {
-                pos.x += offset;
-            }
-        }
+    for (int i = 0; i < static_cast<int>(entry.instances.size()); ++i)
+    {
+        const Vector3 pos = PlacementInstancePosition(desc, basePos, i);
         entry.instances[i]->SetPosition(pos);
         entry.instances[i]->SetRotation(desc.rotation);
         entry.instances[i]->SetScale(desc.scale);
@@ -184,6 +139,7 @@ void StageEditor::RefreshTransforms(ObjectEntry& entry)
     }
 }
 
+/** @brief 画面中央(z=0平面)に新規の配置物(prop)を1つ追加して選択状態にする（+ボタン/アセットパレット共通） */
 void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::string& texture)
 {
     // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
@@ -205,44 +161,54 @@ void StageEditor::AddPropAtScreenCenter(const std::string& model, const std::str
     entry.desc.texture = texture;
     objects_.push_back(std::move(entry));
     RegenerateInstances(objects_.back());
+    SelectLastObject();
+}
+
+/** @brief 最後に追加した配置物だけを選択した状態にする */
+void StageEditor::SelectLastObject()
+{
     selKind_ = SelKind::Object;
     selIndex_ = static_cast<int>(objects_.size()) - 1;
     selectedObjectIndices_ = { selIndex_ };
 }
 
-void StageEditor::RegisterExternalEntity(const std::string& name, Vector3* position,
+/** @brief レベルJSON外の実体の位置操作と見た目変更の操作をエディタへ登録する */
+void StageEditor::RegisterExternalEntity(const std::string& name, IPositionTarget* positionTarget,
     std::function<int()> getVisualPreset, std::function<void(int)> setVisualPreset,
     std::function<void(const std::string&, const std::string&)> setStaticVisualModel,
     std::function<std::string()> getStaticVisualModel, std::function<std::string()> getStaticVisualTexture)
 {
-    for (auto& ref : externalEntities_) {
-        if (ref.name == name) {
-            ref.getVisualPreset = std::move(getVisualPreset);
-            ref.setVisualPreset = std::move(setVisualPreset);
-            ref.setStaticVisualModel = std::move(setStaticVisualModel);
-            ref.getStaticVisualModel = std::move(getStaticVisualModel);
-            ref.getStaticVisualTexture = std::move(getStaticVisualTexture);
-            ref.position = position; // 同名なら上書き（Scene再初期化等での再登録に備える）
-            return;
-        }
-    }
     ExternalEntityRef ref;
     ref.name = name;
-    ref.position = position;
+    ref.positionTarget = positionTarget;
     ref.getVisualPreset = std::move(getVisualPreset);
     ref.setVisualPreset = std::move(setVisualPreset);
     ref.setStaticVisualModel = std::move(setStaticVisualModel);
     ref.getStaticVisualModel = std::move(getStaticVisualModel);
     ref.getStaticVisualTexture = std::move(getStaticVisualTexture);
-    externalEntities_.push_back(std::move(ref));
+    const auto found = std::find_if(externalEntities_.begin(), externalEntities_.end(), [&](const ExternalEntityRef& entry)
+    {
+        return entry.name == name;
+    });
+    if (found != externalEntities_.end())
+    {
+        *found = std::move(ref);
+    }
+    else
+    {
+        externalEntities_.push_back(std::move(ref));
+    }
 }
 
+/** @brief enabledとactivationFlagを評価してゲーム側で有効な配置か返す */
 bool StageEditor::IsRuntimeActive(const ObjectDesc& desc) const
 {
-    if (!desc.enabled) {
+    if (!desc.enabled)
+    {
         return false;
     }
-    if (desc.activationFlag.empty()) {
+    if (desc.activationFlag.empty())
+    {
         return true;
     }
     return GameFlags::GetInstance()->GetFlag(desc.activationFlag) == desc.activeWhenFlag;
@@ -252,6 +218,7 @@ bool StageEditor::IsRuntimeActive(const ObjectDesc& desc) const
 // ランタイム更新と描画
 // ══════════════════════════════════════════════════════
 
+/** @brief 配置オブジェクトのギミックとトランスフォームを1フレーム分進める（Draw 前に毎フレーム呼ぶ） */
 void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
 {
     // 描画済み状態を更新開始時に戻し、BaseScene側の二重描画判定をフレーム単位に保つ
@@ -274,171 +241,134 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos)
     const bool separateEnemies = !ShouldPauseGame() && !gameplayHeld_ && kRuntimeDeltaSeconds > 0.0f;
     // 地形はこのフレームの動く床の位置で作る（GetSolidColliders と同じく実体の更新前に集める）
     const std::vector<engine::AABB> walls = separateEnemies ? CollectSolidColliders(false) : std::vector<engine::AABB> {};
-    for (auto& entry : objects_) {
+    for (auto& entry : objects_)
+    {
         UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
     }
-    if (separateEnemies) {
+    if (separateEnemies)
+    {
         SeparateOverlappingEnemies(walls);
     }
     // レベル紐付きグラフは配置物の状態が確定した後に進める（編集停止中はロジックも止める）
-    if (!ShouldPauseGame() && !gameplayHeld_) {
+    if (!ShouldPauseGame() && !gameplayHeld_)
+    {
         levelGraphs_.Update(kRuntimeDeltaSeconds);
     }
 }
 
+/** @brief 配置された敵を位置補正へ渡し、移動結果を配置情報へ反映する */
 void StageEditor::SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls)
 {
-    const EnemySeparationTuning& tuning = EnemyTuning::GetInstance()->Separation();
-    const float pushRate = std::clamp(tuning.pushRate, 0.0f, 1.0f);
-
-    // 押し離しの対象になる敵（汎用敵とナイトを同じ体として扱う）
-    struct Body {
-        ObjectEntry* entry;
-        IEnemyEntity* enemy;
-        bool anchored; ///< 押されても動かない（ボス）
-        bool wallLeft = false; ///< 左に壁が接していて左へは動けない
-        bool wallRight = false; ///< 右に壁が接していて右へは動けない
-        bool moved = false;
-        /** @brief 指定した向き（左=-1, 右=+1）へ押された時に動けるか */
-        bool CanMove(float side) const { return !anchored && !(side < 0.0f ? wallLeft : wallRight); }
-    };
-    std::vector<Body> bodies;
-    for (auto& entry : objects_) {
-        IEnemyEntity* enemy = entry.knight ? static_cast<IEnemyEntity*>(entry.knight.get()) : entry.enemy.get();
-        if (entry.runtimeActive && enemy != nullptr && enemy->BlocksOtherEnemies()) {
-            bodies.push_back({ &entry, enemy, entry.desc.isStageBoss });
+    std::vector<EnemySeparation::Target> targets;
+    std::unordered_map<IEnemyEntity*, ObjectEntry*> entries;
+    for (auto& entry : objects_)
+    {
+        IEnemyEntity* enemy = entry.EnemyBody();
+        if (entry.runtimeActive && enemy != nullptr && enemy->BlocksOtherEnemies())
+        {
+            targets.emplace_back(enemy, entry.desc.isStageBoss);
+            entries.emplace(enemy, &entry);
         }
     }
-
-    // 自分の移動で壁にめり込んだ敵を先に押し戻し、壁際の敵は壁の方へは押されないようにする
-    constexpr float kLeft = -1.0f;
-    constexpr float kRight = 1.0f;
-    for (Body& body : bodies) {
-        Vector3& pos = body.enemy->GetPositionRef();
-        const float resolvedX = PushOutOfWalls(pos, walls, tuning);
-        body.moved = resolvedX != pos.x;
-        pos.x = resolvedX;
-        body.wallLeft = WallOnSide(pos, kLeft, walls, tuning);
-        body.wallRight = WallOnSide(pos, kRight, walls, tuning);
-    }
-
-    for (size_t i = 0; i < bodies.size(); ++i) {
-        for (size_t j = i + 1; j < bodies.size(); ++j) {
-            Body& a = bodies[i];
-            Body& b = bodies[j];
-            Vector3& posA = a.enemy->GetPositionRef();
-            Vector3& posB = b.enemy->GetPositionRef();
-            const float dx = posB.x - posA.x;
-            const float distanceX = std::abs(dx);
-            if (distanceX >= tuning.minDistanceX || std::abs(posB.y - posA.y) >= tuning.minDistanceY) {
-                continue;
-            }
-            // 真上に重なっている時は並び順で向きを決め、2体が同じ側へ逃げないようにする
-            const float direction = distanceX > 0.0f ? (dx > 0.0f ? 1.0f : -1.0f) : 1.0f;
-            const float push = (tuning.minDistanceX - distanceX) * pushRate;
-            // A は -direction、B は +direction へずれる。片方が動けない時はもう片方が全部ずれ、両方動ける時は半分ずつ
-            const bool canMoveA = a.CanMove(-direction);
-            const bool canMoveB = b.CanMove(direction);
-            if (!canMoveA && !canMoveB) {
-                continue;
-            }
-            const float shareA = !canMoveB ? 1.0f : (!canMoveA ? 0.0f : 0.5f);
-            const float shareB = 1.0f - shareA;
-            posA.x -= direction * push * shareA;
-            posB.x += direction * push * shareB;
-            a.moved = a.moved || shareA > 0.0f;
-            b.moved = b.moved || shareB > 0.0f;
-        }
-    }
-
-    for (Body& body : bodies) {
-        if (!body.moved) {
-            continue;
-        }
-        // 押し離しで壁へ入った分も戻してから見た目へ反映する
-        Vector3& pos = body.enemy->GetPositionRef();
-        pos.x = PushOutOfWalls(pos, walls, tuning);
-        body.enemy->RefreshVisualTransforms();
-        // Inspector表示・親子追従の基準にするため現在地を書き戻す（JSON保存はしない）
-        body.entry->desc.position = body.enemy->GetPosition();
+    for (IEnemyEntity* enemy : EnemySeparation::Resolve(targets, walls))
+    {
+        entries.at(enemy)->desc.position = enemy->GetPosition();
     }
 }
 
+/** @brief 敵の位置の真下にある床の上で、倒れた体を置く高さを返す（床が無ければ今の高さ） */
 float StageEditor::FindCorpseFloorY(const Vector3& position) const
 {
-    // 体の幅に掛かるブロックのうち、足元より下（段差の許容まで）で一番高い上面を床とする
-    constexpr float kStepTolerance = 0.12f;
     const float halfWidth = EnemyTuning::GetInstance()->Separation().bodyHalfWidth;
     const float footOffset = EnemyTuning::GetInstance()->Basic().corpseFootOffset;
-    const float feetY = position.y - footOffset;
-    float floorTop = (std::numeric_limits<float>::lowest)();
-    for (const engine::AABB& block : CollectSolidColliders(false)) {
-        const bool overlapX = position.x + halfWidth > block.min.x && position.x - halfWidth < block.max.x;
-        const bool overlapZ = position.z >= block.min.z && position.z <= block.max.z;
-        if (overlapX && overlapZ && block.max.y <= feetY + kStepTolerance) {
-            floorTop = (std::max)(floorTop, block.max.y);
-        }
-    }
-    if (floorTop == (std::numeric_limits<float>::lowest)()) {
-        return position.y;
-    }
-    return floorTop + footOffset;
+    const auto floor = FindSupportingFloor(position, halfWidth, 0.0f, footOffset, CollectSolidColliders(false));
+    return floor ? *floor + footOffset : position.y;
 }
 
+/** @brief 名前から配置物を探す（無ければnullptr） */
 StageEditor::ObjectEntry* StageEditor::FindEntryByName(const std::string& name)
 {
-    for (auto& entry : objects_) {
-        if (entry.desc.name == name) {
+    for (auto& entry : objects_)
+    {
+        if (entry.desc.name == name)
+        {
             return &entry;
         }
     }
     return nullptr;
 }
 
+/** @brief 名前から配置物の設定を探す（無ければ nullptr） */
+const ObjectDesc* StageEditor::FindDescByName(const std::string& name) const
+{
+    for (const auto& entry : objects_)
+    {
+        if (entry.desc.name == name)
+        {
+            return &entry.desc;
+        }
+    }
+    return nullptr;
+}
+
+/** @brief 配置物の表示/非表示を切り替える（レベルJSONには保存しない一時状態） */
 bool StageEditor::SetObjectVisibleByName(const std::string& name, bool visible)
 {
     ObjectEntry* entry = FindEntryByName(name);
-    if (!entry) {
+    if (!entry)
+    {
         return false;
     }
     entry->visibleOverride = visible;
-    if (entry->enemy) {
+    if (entry->enemy)
+    {
         entry->enemy->SetVisible(visible);
     }
     return true;
 }
 
+/** @brief 配置物のローカル位置を即座に書き換える */
 bool StageEditor::TeleportObjectByName(const std::string& name, const Vector3& position)
 {
     ObjectEntry* entry = FindEntryByName(name);
-    if (!entry) {
+    if (!entry)
+    {
         return false;
     }
     entry->graphMoveActive = false;
     entry->desc.position = position;
     entry->authoredPosition = position;
-    if (entry->knight) {
-        entry->knight->GetPositionRef() = WorldPositionOf(entry->desc);
+    if (entry->knight)
+    {
+        entry->knight->SetPosition(WorldPositionOf(entry->desc));
         entry->knight->RefreshVisualTransforms();
-    } else if (entry->enemy) {
-        entry->enemy->GetPositionRef() = WorldPositionOf(entry->desc);
+    }
+    else if (entry->enemy)
+    {
+        entry->enemy->SetPosition(WorldPositionOf(entry->desc));
         entry->enemy->RefreshVisualTransforms();
-    } else {
+    }
+    else
+    {
         RefreshTransforms(*entry);
-        for (auto& obj : entry->instances) {
+        for (auto& obj : entry->instances)
+        {
             obj->Update();
         }
     }
     return true;
 }
 
+/** @brief 配置物のローカル位置をseconds秒かけて目標へ補間移動させる（0以下なら即座） */
 bool StageEditor::MoveObjectByName(const std::string& name, const Vector3& target, float seconds)
 {
     ObjectEntry* entry = FindEntryByName(name);
-    if (!entry) {
+    if (!entry)
+    {
         return false;
     }
-    if (seconds <= 0.0f) {
+    if (seconds <= 0.0f)
+    {
         return TeleportObjectByName(name, target);
     }
     entry->graphMoveActive = true;
@@ -449,12 +379,16 @@ bool StageEditor::MoveObjectByName(const std::string& name, const Vector3& targe
     return true;
 }
 
+/** @brief 配置物の有効/無効を上書きする（activationFlagより優先。レベルJSONには保存しない） */
 bool StageEditor::SetObjectEnabledByName(const std::string& name, bool enabled)
 {
     ObjectEntry* entry = FindEntryByName(name);
-    if (!entry) {
+    if (!entry)
+    {
         return false;
     }
     entry->enabledOverride = enabled ? 1 : 0;
     return true;
 }
+
+} // namespace engine::game

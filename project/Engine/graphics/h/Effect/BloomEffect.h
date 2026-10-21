@@ -1,3 +1,7 @@
+/**
+ * @file BloomEffect.h
+ * @brief 明るい部分をにじませて光らせるブルームのポストエフェクトを定義するファイル
+ */
 #pragma once
 #include "DirectXCommon.h"
 #include "SrvManager.h"
@@ -32,6 +36,7 @@ namespace engine::graphics {
  */
 class BloomEffect {
 public:
+    /** @brief 共有インスタンスを取得する */
     static BloomEffect* GetInstance()
     {
         static BloomEffect instance;
@@ -61,7 +66,7 @@ public:
      */
     void EndScene();
 
-    // 4パスのブルームをかけてバックバッファへ合成するEndScene() 後に呼ぶ
+    // 4パスのブルームをかけてバックバッファへ合成する。EndScene() の後に呼ぶ
     /**
      * @brief 輝度抽出→水平ブラー→垂直ブラー→加算合成の4パスを実行しバックバッファへ合成する
      * @param srvManager SRVディスクリプタヒープ管理
@@ -70,31 +75,51 @@ public:
 
     // パラメータ
 
-    void SetEnabled(bool e) { enabled_ = e; }
-    bool IsEnabled() const { return enabled_; }
+    /** @brief ブルームを使うかを設定する */
+    void SetEnabled(bool e) {
+        enabled_ = e;
+    }
+    /** @brief ブルームを使うかを返す */
+    bool IsEnabled() const {
+        return enabled_;
+    }
 
+    /** @brief 光らせる明るさのしきい値を設定する */
     void SetThreshold(float t)
     {
-        if (brightCbData_) {
+        if (brightCbData_)
+        {
             brightCbData_->threshold = t;
         }
     }
-    float GetThreshold() const { return brightCbData_ ? brightCbData_->threshold : kDefaultThreshold; }
+    /** @brief 光らせる明るさのしきい値を返す */
+    float GetThreshold() const {
+        return brightCbData_ ? brightCbData_->threshold : kDefaultThreshold;
+    }
 
+    /** @brief ブルームの強さを設定する */
     void SetIntensity(float i)
     {
-        if (brightCbData_) {
+        if (brightCbData_)
+        {
             brightCbData_->intensity = i;
         }
     }
-    float GetIntensity() const { return brightCbData_ ? brightCbData_->intensity : 1.0f; }
+    /** @brief ブルームの強さを返す */
+    float GetIntensity() const {
+        return brightCbData_ ? brightCbData_->intensity : 1.0f;
+    }
 
     // シーン RTV ハンドル（BeginScene 後に GrayscaleEffect などとの切り替えに使用）
-    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const { return sceneRtvHandle_; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetSceneRTVHandle() const {
+        return sceneRtvHandle_;
+    }
 
 private:
     static constexpr float kDefaultThreshold = 0.7f;
+    /** @brief ブルーム描画資源が未確保の状態を作る */
     BloomEffect() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~BloomEffect() = default;
     BloomEffect(const BloomEffect&) = delete;
     BloomEffect& operator=(const BloomEffect&) = delete;
@@ -106,6 +131,11 @@ private:
         ID3D12Resource* res,
         D3D12_RESOURCE_STATES before,
         D3D12_RESOURCE_STATES after) const;
+
+    /** @brief ブルームの途中結果 bloomTex_[index] へ全画面パスを1回描き、描き終えたらシェーダーから参照できる状態にする */
+    void DrawToBloomTexture(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager, int index,
+        ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+        D3D12_GPU_VIRTUAL_ADDRESS constants, uint32_t sourceSrvIndex);
 
     /// RTV / SRV 付きの UNORM テクスチャを生成する
     void CreateRenderTexture(ID3D12Device* device,

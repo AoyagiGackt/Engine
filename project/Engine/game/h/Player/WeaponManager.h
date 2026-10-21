@@ -24,19 +24,37 @@ public:
     /// @brief シングルトンインスタンスを取得する
     static WeaponManager* GetInstance();
 
+    /**
+     * @brief 画面に出す武器名を返す（日本語のスタイル名。未設定の武器だけ内部名で代用する）
+     * @param data 名前を出す武器
+     */
+    static std::wstring GetDisplayName(const WeaponData& data);
+
     /// @brief 選択中の近接武器データを返す
-    const WeaponData& GetCurrent() const { return weapons_[index_]; }
+    const WeaponData& GetCurrent() const {
+        return weapons_[index_];
+    }
     /// @brief 選択中の射撃武器データを返す
-    const RangedWeaponData& GetRanged() const { return rangedWeapons_[rangedIndex_]; }
+    const RangedWeaponData& GetRanged() const {
+        return rangedWeapons_[rangedIndex_];
+    }
     /// @brief 選択中スタイルのインデックスを返す（0始まり）
-    int GetIndex() const { return index_; }
+    int GetIndex() const {
+        return index_;
+    }
     /// @brief スタイル総数を返す
-    int GetCount() const { return static_cast<int>(weapons_.size()); }
+    int GetCount() const {
+        return static_cast<int>(weapons_.size());
+    }
     /// @brief 全スタイルのリストを返す
-    const std::vector<WeaponData>& GetList() const { return weapons_; }
+    const std::vector<WeaponData>& GetList() const {
+        return weapons_;
+    }
 
     /// @brief 次の銃へ切り替える（循環。銃は近接と違い最初から全部使える）
-    void SelectNextRanged() { rangedIndex_ = (rangedIndex_ + 1) % static_cast<int>(rangedWeapons_.size()); }
+    void SelectNextRanged() {
+        rangedIndex_ = (rangedIndex_ + 1) % static_cast<int>(rangedWeapons_.size());
+    }
 
     /// @brief 次の解放済みスタイルへ切り替える（循環、未解放はスキップ）
     void SelectNext();
@@ -50,14 +68,19 @@ public:
     void SelectPrevUnlockedInCurrentSlot();
 
     /// @brief 指定インデックスのスタイルが解放済みか
-    bool IsUnlocked(int i) const { return i >= 0 && i < static_cast<int>(unlocked_.size()) && unlocked_[i]; }
+    bool IsUnlocked(int i) const {
+        return i >= 0 && i < static_cast<int>(unlocked_.size()) && unlocked_[i];
+    }
 
     /** @brief 指定したスロットを選択する */
     void SelectSlot(int slot);
     /** @brief スロットに登録された武器インデックスを返す */
     int GetSlotWeaponIndex(int slot) const;
     /** @brief 現在選択しているスロット番号を返す */
-    int GetSelectedSlot() const { return selectedSlot_; }
+    int GetSelectedSlot() const {
+        return selectedSlot_;
+    }
+    /** @brief 武器を装備しているかを返す */
     bool HasEquippedWeapon() const
     {
         return selectedSlot_ >= 0 && selectedSlot_ < static_cast<int>(slots_.size())
@@ -74,9 +97,13 @@ public:
     /** @brief 交換待ちの武器を破棄する */
     void DiscardPendingWeapon();
     /** @brief 武器交換の選択待ちか返す */
-    bool HasPendingWeapon() const { return pendingWeaponIndex_ >= 0; }
+    bool HasPendingWeapon() const {
+        return pendingWeaponIndex_ >= 0;
+    }
     /** @brief 交換待ちの武器データを返す */
-    const WeaponData& GetPendingWeapon() const { return weapons_[pendingWeaponIndex_]; }
+    const WeaponData& GetPendingWeapon() const {
+        return weapons_[pendingWeaponIndex_];
+    }
 
     /**
      * @brief 指定タイプの武器を解放し、そのまま装備する（敵からの武器奪取用）
@@ -129,6 +156,8 @@ public:
 
 private:
     WeaponManager();
+    /** @brief 解放済みの武器を direction（+1 で次、-1 で前）の向きに探し、現在のスロットへ割り当てる */
+    void SelectUnlockedInCurrentSlot(int direction);
 
     std::vector<WeaponData> weapons_;
     std::vector<bool> unlocked_;

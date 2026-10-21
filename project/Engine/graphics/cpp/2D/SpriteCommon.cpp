@@ -1,17 +1,17 @@
 /**
  * @file SpriteCommon.cpp
- * @brief SpriteCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief スプライト共通のルートシグネチャ・PSO（SpriteCommon）の実装
  */
 #include "SpriteCommon.h"
 #include "EngineAssert.h"
 #include "PipelineHelper.h"
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
+namespace engine::graphics {
 namespace PH = engine::graphics::PipelineHelper;
 
+/** @brief 2D描画共通設定の初期化PSOの生成やルートシグネチャの作成を行う */
 void SpriteCommon::Initialize(DirectXCommon* dxCommon)
 {
     ENGINE_ASSERT(dxCommon);
@@ -57,6 +57,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon)
     graphicsPipelineState_->SetName(L"SpriteCommon.SpritePS");
 }
 
+/** @brief 描画コマンドに2Dスプライト用の共通設定（PSO, ルートシグネチャ, プリミティブトポロジ）をセットする */
 void SpriteCommon::CommonDrawSettings()
 {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
@@ -65,3 +66,5 @@ void SpriteCommon::CommonDrawSettings()
     commandList->SetPipelineState(graphicsPipelineState_.Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
+
+} // namespace engine::graphics

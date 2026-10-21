@@ -21,6 +21,7 @@ namespace engine::graphics {
  */
 class RevolvedMeshBase {
 public:
+    /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~RevolvedMeshBase() = default;
 
     /** @brief カメラのビュー射影から求めたWVP行列を派生クラスのマテリアル定数バッファへ反映する */
@@ -28,10 +29,22 @@ public:
     /** @brief ルートシグネチャ・PSO・頂点バッファ・マテリアル定数バッファを使って描画する */
     void Draw();
 
-    void SetPosition(const Vector3& pos) { position_ = pos; }
-    void SetRotation(const Vector3& rot) { rotation_ = rot; }
-    void SetScale(float scale) { scale_ = scale; }
-    const Vector3& GetPosition() const { return position_; }
+    /** @brief 位置を設定する */
+    void SetPosition(const Vector3& pos) {
+        position_ = pos;
+    }
+    /** @brief 回転を設定する */
+    void SetRotation(const Vector3& rot) {
+        rotation_ = rot;
+    }
+    /** @brief 拡大率を設定する */
+    void SetScale(float scale) {
+        scale_ = scale;
+    }
+    /** @brief 位置を返す */
+    const Vector3& GetPosition() const {
+        return position_;
+    }
 
 protected:
     /**
@@ -43,8 +56,34 @@ protected:
         Vector3 normal;
     };
 
+    /** @brief 1区間（四角形1枚＝三角形2枚）に使う頂点の数 */
+    static constexpr int kVerticesPerDivision = 6;
+
+    /** @brief 1区間の始まりと終わりの角度の sin / cos と、横方向の UV */
+    struct SegmentAngles {
+        float s;
+        float c;
+        float sNext;
+        float cNext;
+        float u;
+        float uNext;
+    };
+
     /** @brief 派生クラスが保持するマテリアル定数バッファへWVP行列を書き込む */
     virtual void SetWVP(const Matrix4x4& wvp) = 0;
+
+    /** @brief index 番目の区間の角度と UV を返す（円周を divisions_ 等分する） */
+    SegmentAngles SegmentAt(int index) const;
+
+    /**
+     * @brief index 番目の区間の四角形を、三角形2枚として頂点バッファへ書き込む
+     * @param upperCur / upperNext UV の V=0 側の2点（区間の始まりと終わり）
+     * @param lowerCur / lowerNext UV の V=1 側の2点
+     * @param normalCur / normalNext 区間の始まりと終わりの法線
+     */
+    void WriteSegmentQuad(int index, const SegmentAngles& segment,
+        const Vector4& upperCur, const Vector4& upperNext, const Vector4& lowerCur, const Vector4& lowerNext,
+        const Vector3& normalCur, const Vector3& normalNext);
 
     /**
      * @brief テクスチャ読み込み・頂点バッファ・マテリアル定数バッファの確保を行う（Initialize共通部）
@@ -53,6 +92,18 @@ protected:
      */
     void SetupCommonBuffers(engine::DirectXCommon* dxCommon, const std::string& textureFilePath,
         int divisions, size_t materialCBSize, void** mappedMaterialOut);
+
+    /** @brief 回転体のバッファを確保し、共通のマテリアル初期値を設定する */
+    template <typename Material>
+    void SetupMaterialBuffers(engine::DirectXCommon* dxCommon, const std::string& textureFilePath,
+        int divisions, Material*& material)
+    {
+        // 派生マテリアルのサイズを保って共通の行列と色を初期化する
+        SetupCommonBuffers(dxCommon, textureFilePath, divisions, sizeof(Material),
+            reinterpret_cast<void**>(&material));
+        material->WVP = MakeIdentity4x4();
+        material->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    }
 
     /**
      * @brief ルートシグネチャ・PSOを生成する（シェーダーパスとサンプラーのV方向モードのみ派生クラスが指定）

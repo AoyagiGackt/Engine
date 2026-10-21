@@ -37,10 +37,10 @@ public:
     MaterialManager();
 
     /**
-     * @brief 現在選択されているマテリアルのデータ（参照）を取得する
-     * @return Material& 現在のマテリアルデータへの参照
+     * @brief 現在選択されているマテリアルのデータを値として取得する
+     * @return 現在のマテリアルのスナップショット
      */
-    Material& GetCurrentMaterial();
+    Material GetCurrentMaterial() const;
 
     /**
      * @brief 現在描画に使用するマテリアルのインデックスを設定する

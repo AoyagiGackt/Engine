@@ -70,6 +70,7 @@ public:
 private:
     // シングルトンパターンのためのコンストラクタ・コピー禁止設定
     ModelManager() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~ModelManager() = default;
     ModelManager(const ModelManager&) = delete;
     ModelManager& operator=(const ModelManager&) = delete;

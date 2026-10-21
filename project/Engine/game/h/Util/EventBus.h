@@ -37,10 +37,12 @@ public:
     void Emit(const std::string& eventName);
 
 private:
+    /** @brief 購読処理が未登録のイベント管理器を作る */
     EventBus() = default;
     EventBus(const EventBus&) = delete;
     EventBus& operator=(const EventBus&) = delete;
 
+    /** @brief 登録項目の識別情報と、その項目が保持するデータ */
     struct Entry {
         int handle;
         Callback callback;

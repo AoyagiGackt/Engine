@@ -71,9 +71,17 @@ public:
     /** @brief 編集中のゲーム映像を小窓用テクスチャに転送する */
     void CaptureEditorPreview();
     /** @brief 次回のDebug起動で表示するシーン */
-    const std::string& GetDebugStartScene() const { return debugStartScene_; }
+    const std::string& GetDebugStartScene() const {
+        return debugStartScene_;
+    }
     /** @brief Debug開始シーンを設定ファイルへ保存する。失敗時はfalse */
     bool SetDebugStartScene(const std::string& sceneName);
+    /** @brief Debug の開始シーンとして選べる数を返す */
+    static int GetDebugStartSceneCount();
+    /** @brief 指定した番号の開始シーンの名前を返す */
+    static const char* GetDebugStartSceneName(int index);
+    /** @brief 指定した番号の開始シーンのエディタでの表示名を返す */
+    static const char* GetDebugStartSceneLabel(int index);
 
     static constexpr float kDefaultFadeSeconds = 0.38f; // シーン切り替えの既定のフェード秒数
 
@@ -89,7 +97,9 @@ public:
      * @param factory AbstractSceneFactoryを継承した具体的な工場のポインタ
      * @note シーン名から実際のクラスを生成するために必要です
      */
-    void SetSceneFactory(AbstractSceneFactory* factory) { sceneFactory_ = factory; }
+    void SetSceneFactory(AbstractSceneFactory* factory) {
+        sceneFactory_ = factory;
+    }
 
     /**
      * @brief 現在のシーンがポストエフェクト（グレースケール等）のオフスクリーンRTVリダイレクトに対応しているか
@@ -101,7 +111,9 @@ public:
     }
 
 private:
+    /** @brief シーンが未登録の管理器を作る */
     SceneManager() = default;
+    /** @brief 所有する資源はメンバのデストラクタで解放する */
     ~SceneManager() = default;
     SceneManager(const SceneManager&) = delete;
     const SceneManager& operator=(const SceneManager&) = delete;

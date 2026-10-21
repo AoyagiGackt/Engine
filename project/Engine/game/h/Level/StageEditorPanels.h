@@ -25,7 +25,7 @@ public:
 private:
     /** @brief 制作ガイドの進捗チェックリストと、開く/保存等のファイル操作行を描画する */
     static void RenderGuideAndFileActions(StageEditor& editor);
-    /** @brief 「オブジェクト」「エンティティ」「トリガー」の各ツリーをまとめて描画する（RenderObjectTree等の呼び出し元） */
+    /** @brief オブジェクト・エンティティ・トリガーの各ツリーをまとめて描画する（RenderObjectTree等の呼び出し元） */
     static void RenderEntityBrowser(StageEditor& editor);
     // RenderEntityBrowserの下請け（責務ごとに分割）
     /** @brief ゲームカメラの位置・回転を編集するセクションを描画する */
@@ -34,11 +34,11 @@ private:
     static void RenderFileAndHistoryActions(StageEditor& editor);
     /** @brief 階層検索ボックスを描画し、小文字化した検索語を返す（空なら全件一致扱い） */
     static std::string RenderSearchBar(StageEditor& editor);
-    /** @brief 「オブジェクト」ツリー（新規追加ポップアップ・検索一致時のフラット表示・通常時の親子階層表示）を描画する */
+    /** @brief オブジェクトのツリー（新規追加ポップアップ・検索一致時のフラット表示・通常時の親子階層表示）を描画する */
     static void RenderObjectTree(StageEditor& editor, const std::string& searchTextLower);
-    /** @brief 「エンティティ」（Player/Enemy等の外部登録実体）の一覧を描画する */
+    /** @brief エンティティ（Player/Enemy等の外部登録実体）の一覧を描画する */
     static void RenderExternalEntityList(StageEditor& editor, const std::string& searchTextLower);
-    /** @brief 「トリガー」の一覧と新規追加ボタンを描画する */
+    /** @brief トリガーの一覧と新規追加ボタンを描画する */
     static void RenderTriggerList(StageEditor& editor, const std::string& searchTextLower);
     /** @brief 選択中の配置物/トリガーに対する削除・複製・コピー&ペーストのボタン行を描画する */
     static void RenderSelectionActions(StageEditor& editor);
@@ -70,6 +70,9 @@ private:
     static void RenderObjectIdentity(StageEditor& editor, bool& structuralDirty);
     /** @brief モデル/テクスチャ/種類（static・row）等、見た目に関するセクションを描画する */
     static void RenderObjectVisual(StageEditor& editor, bool& structuralDirty);
+    /** @brief アセットパスの直接入力とファイル選択を、Undo記録と再生成判定を伴って編集する */
+    static void RenderAssetPath(StageEditor& editor, const char* label, const char* browseLabel,
+        const char* filter, std::string& path, bool& structuralDirty);
     /** @brief 位置・回転・スケール・並べ方（軸/個数/間隔）を編集するセクションを描画する */
     static void RenderObjectTransform(StageEditor& editor, bool& structuralDirty, bool& transformDirty);
     /** @brief 有効化フラグ・敵グループ・巡回ルート・ギミック動作等、種別固有のゲームプレイ設定を編集するセクションを描画する */

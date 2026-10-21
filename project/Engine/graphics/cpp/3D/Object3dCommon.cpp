@@ -1,13 +1,16 @@
 /**
  * @file Object3dCommon.cpp
- * @brief Object3dCommonの描画資源とGPU処理の管理に関する具体的な処理を実装するファイル
+ * @brief 3Dオブジェクト共通のライト・描画設定（Object3dCommon）の実装
  */
 #include "Object3dCommon.h"
+#include "PipelineHelper.h"
+#include "ResourceAlignment.h"
 #include "MakeAffine.h"
 #include <cassert>
 #include <cmath>
 #include <numbers>
 
+namespace engine::graphics {
 namespace {
 
 // ライトの初期方向
@@ -19,35 +22,20 @@ constexpr float kLightVerticalScale = 0.7f;
 constexpr float kLightVerticalBias = 0.3f;
 constexpr float kLightDirectionZ = 0.3f;
 
-// 定数バッファの配置境界
-constexpr unsigned int kConstantBufferAlignment = 256;
-
 }
-using namespace engine;
-using namespace engine::graphics;
 
 using namespace Microsoft::WRL;
 
 // 初期化
 
+/** @brief 平行光源とポイントライトの定数バッファを作り、既定値を書き込んで初期化する */
 void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // ライト定数バッファの作成
-    D3D12_HEAP_PROPERTIES heapProps { D3D12_HEAP_TYPE_UPLOAD };
-    D3D12_RESOURCE_DESC resDesc { };
-    resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resDesc.Width = kConstantBufferAlignment;
-    resDesc.Height = 1;
-    resDesc.DepthOrArraySize = 1;
-    resDesc.MipLevels = 1;
-    resDesc.SampleDesc.Count = 1;
-    resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&lightResource_));
+    lightResource_ = PipelineHelper::CreateUploadBuffer(device, kConstantBufferAlignment);
 
     // Map したまま保持（毎フレーム UpdateLight() で書き換える）
     lightResource_->Map(0, nullptr, reinterpret_cast<void**>(&lightData_));
@@ -61,9 +49,8 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 
     // ポイントライト定数バッファ
     // CBV は 256 バイトアライン必須なので切り上げる
-    resDesc.Width = (sizeof(PointLightBuffer) + kConstantBufferAlignment - 1) & ~(kConstantBufferAlignment - 1);
-    device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pointLightResource_));
+    pointLightResource_ = PipelineHelper::CreateUploadBuffer(
+        device, AlignConstantBufferSize(sizeof(PointLightBuffer)));
     pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
     // ライト数 0 で初期化（シェーダーはループしない）
     pointLightData_->count = 0;
@@ -72,10 +59,12 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 
 // ライト更新（時刻に合わせて方向・色・アンビエントを変える）
 
+/** @brief 時刻の割合に合わせてライトの方向・色・環境光を更新する（手動設定中は何もしない） */
 void Object3dCommon::UpdateLight(float timeRatio)
 {
     // 手動オーバーライード中は時刻に基づく自動更新をスキップする
-    if (manualLightOverride_) {
+    if (manualLightOverride_)
+    {
         return;
     }
 
@@ -123,8 +112,10 @@ void Object3dCommon::UpdateLight(float timeRatio)
     };
 
     constexpr int kCount = 6;
-    for (int i = 0; i + 1 < kCount; ++i) {
-        if (timeRatio <= kLightKeys[i + 1].t) {
+    for (int i = 0; i + 1 < kCount; ++i)
+    {
+        if (timeRatio <= kLightKeys[i + 1].t)
+        {
             float span = kLightKeys[i + 1].t - kLightKeys[i].t;
             float t = (timeRatio - kLightKeys[i].t) / span;
 
@@ -152,9 +143,11 @@ void Object3dCommon::UpdateLight(float timeRatio)
 
 // ライト方向の取得（ShadowManager に渡す用）
 
+/** @brief 現在のライト方向を返す（未初期化なら真下） */
 Vector3 Object3dCommon::GetLightDirection() const
 {
-    if (!lightData_) {
+    if (!lightData_)
+    {
         return { 0.0f, -1.0f, 0.0f };
     }
 
@@ -163,22 +156,27 @@ Vector3 Object3dCommon::GetLightDirection() const
 
 // ライトをコマンドリストにセット（スロット 3）
 
+/** @brief 平行光源とポイントライト群をモデル用のルートスロットへセットする */
 void Object3dCommon::SetDefaultLight(ID3D12GraphicsCommandList* commandList)
 {
     // スロット 3: 平行光源（DirectionalLight）
-    commandList->SetGraphicsRootConstantBufferView(3, lightResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::ModelRootSlot::kDirectionalLight, lightResource_->GetGPUVirtualAddress());
     // スロット 6: ポイントライト群（ModelCommon パイプライン用）
     // SkinCommon パイプラインではスロット 6 がスキニングパレットになるため、
-    // SkinnedObject3d::Draw 内で SetPointLights(cmd, 7) を別途呼び直す
-    SetPointLights(commandList, 6);
+    // SkinnedObject3d::Draw 内で SetPointLights(cmd, PipelineHelper::SkinnedRootSlot::kPointLights) を別途呼び直す
+    SetPointLights(commandList, PipelineHelper::ModelRootSlot::kPointLights);
 }
 
+/** @brief ポイントライトを指定スロットにセットする */
 void Object3dCommon::SetPointLights(ID3D12GraphicsCommandList* commandList, UINT rootParamSlot)
 {
-    if (!pointLightData_) {
+    if (!pointLightData_)
+    {
         return;
     }
     pointLightData_->count = pointLightCount_;
     commandList->SetGraphicsRootConstantBufferView(rootParamSlot,
         pointLightResource_->GetGPUVirtualAddress());
 }
+
+} // namespace engine::graphics

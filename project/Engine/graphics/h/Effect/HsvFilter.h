@@ -1,13 +1,15 @@
 /**
  * @file HsvFilter.h
- * @brief HsvFilterの画面効果の生成、更新、描画に関する公開型と操作インターフェースを定義するファイル
+ * @brief 画面の色相・彩度・明度を調整するポストエフェクト（HsvFilter）の宣言
  */
 #pragma once
 #include "PostEffectFullscreenPass.h"
 namespace engine::graphics {
 
+/** @brief 画面の色相と彩度と明度を調整する */
 class HsvFilter : public PostEffectFullscreenPass {
 public:
+    /** @brief 共有インスタンスを取得する */
     static HsvFilter* GetInstance()
     {
         static HsvFilter instance;
@@ -20,6 +22,7 @@ public:
      * @param srvManager SRVディスクリプタヒープ管理
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
+    /** @brief HSV フィルターの描画資源を解放する */
     void Finalize()
     {
         // オフスクリーンRTV・定数バッファ・PSOを解放する
@@ -59,6 +62,7 @@ public:
     float GetValue() const;
 
 private:
+    /** @brief 色調整フィルターの既定状態を作る */
     HsvFilter() = default;
 
     /**

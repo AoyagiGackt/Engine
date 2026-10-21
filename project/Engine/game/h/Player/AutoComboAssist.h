@@ -22,14 +22,19 @@ public:
 
     /** @brief アシストの有効/無効を切り替える（無効にしたら出しかけの追撃ジャンプ・固有技も取り消す） */
     void SetEnabled(bool enabled);
-    bool IsEnabled() const { return enabled_; }
+    /** @brief オートコンボが有効かを返す */
+    bool IsEnabled() const {
+        return enabled_;
+    }
 
     /**
      * @brief このフレームに攻撃を出すか
      * @param triggered 攻撃ボタンを押した瞬間か
      * @param held      攻撃ボタンを押し続けているか（有効時のみ見る）
      */
-    bool WantsAttack(bool triggered, bool held) const { return triggered || (enabled_ && held); }
+    bool WantsAttack(bool triggered, bool held) const {
+        return triggered || (enabled_ && held);
+    }
 
     /**
      * @brief 次の段を打ち上げ技にするか（今のルートの打ち上げ段を振っている最中なら true）
@@ -82,7 +87,7 @@ private:
     bool routeFinished_ = false; ///< 今のルートを締め終えたか（次の地上の段が始まったら次のルートを選ぶ）
     std::mt19937 rng_;
 
-    static constexpr float kRequestWindow_ = 0.3f; ///< 着地待ちなどですぐ出せなかった予約を保つ秒数
+    static constexpr float kRequestWindow = 0.3f; ///< 着地待ちなどですぐ出せなかった予約を保つ秒数
 };
 
 } // namespace engine::game

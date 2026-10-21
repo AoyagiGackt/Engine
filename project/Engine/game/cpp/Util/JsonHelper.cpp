@@ -8,38 +8,50 @@
 #include <fstream>
 namespace engine {
 
+/** @brief JSONファイルを読み込んでパースする */
 nlohmann::json JsonHelper::Load(const std::string& path)
 {
     // 配布時はResourcesが無いので、pakへそのまま入れた元ファイルから読む
     std::vector<uint8_t> packed;
-    if (AssetPack::GetInstance()->ReadRawIfMissing(path, packed)) {
-        try {
+    if (AssetPack::GetInstance()->ReadRawIfMissing(path, packed))
+    {
+        try
+        {
             return nlohmann::json::parse(packed.begin(), packed.end());
-        } catch (...) {
+        }
+        catch (...)
+        {
             return { };
         }
     }
 
     std::ifstream f(path);
-    if (!f) {
+    if (!f)
+    {
         return { };
     }
-    try {
+    try
+    {
         return nlohmann::json::parse(f);
-    } catch (...) {
+    }
+    catch (...)
+    {
         return { };
     }
 }
 
+/** @brief JSONをファイルへ書き出す（親ディレクトリが無ければ作成する） */
 void JsonHelper::Save(const std::string& path, const nlohmann::json& j, int indent)
 {
     auto parent = std::filesystem::path(path).parent_path();
-    if (!parent.empty()) {
+    if (!parent.empty())
+    {
         std::filesystem::create_directories(parent);
     }
 
     std::ofstream f(path);
-    if (!f) {
+    if (!f)
+    {
         return;
     }
     f << j.dump(indent) << '\n';
