@@ -196,10 +196,13 @@ void WeaponSlotHud::Update(const HudFrame& frame)
     const float frameIdleBlueBoost = layout.Float("weapon_slots.frame_idle_blue_boost", kFrameIdleBlueBoost);
     const float frameAlpha = layout.Float("weapon_slots.frame_alpha", kFrameAlpha);
     ApplyLayout();
+    // 武器を切り替えた直後の光は残り時間を減らし、0 で止める
     pulseTime_ += frame.deltaSeconds;
     flashRemaining_ = (std::max)(0.0f, flashRemaining_ - frame.deltaSeconds);
+    // 光の強さは残り時間の割合、脈打ちは時間の sin で上下させる
     const float flash = flashRemaining_ / kFlashDuration;
     const float pulse = kPulseBase + kPulseAmplitude * std::sin(pulseTime_ * kPulseSpeed);
+    // 武器の一覧と、3Dアイコンを向けるためのカメラ位置
     const auto& list = weapons_->GetList();
     const auto& cam = frame.camera.GetTranslate();
     // 選択中のスロットの枠は脈打たせて青みを足す
@@ -207,9 +210,11 @@ void WeaponSlotHud::Update(const HudFrame& frame)
     {
         auto& slot = slots_[i];
         const bool active = i == weapons_->GetSelectedSlot();
+        // 明るさは基準値に脈打ち（選択中だけ）と切り替え直後の光を足し、青だけ少し強める
         const float brightness = frameBrightness + (active ? pulse * frameActivePulseGain : 0.0f) + flash * frameFlashGain;
         slot.frame->SetColor({ brightness, brightness, brightness + (active ? frameActiveBlueBoost : frameIdleBlueBoost), frameAlpha });
         slot.frame->Update();
+        // アイコンの見せ方を決めるための、このスロットの状態をまとめる
         const int index = weapons_->GetSlotWeaponIndex(i);
         const SlotIconState state = {
             .weaponIndex = index,
@@ -225,16 +230,19 @@ void WeaponSlotHud::Update(const HudFrame& frame)
             void (WeaponSlotHud::*show)(Slot&, const SlotIconState&);
         };
         static constexpr IconStyle kIconStyles[] = {
+            // 3Dモデルのアイコンがある武器はモデルで出す
             {
                 [](const WeaponSlotHud& hud, const SlotIconState& s) {
                     return hud.HasModelIcon(s.weaponIndex);
                 }, &WeaponSlotHud::ShowModelIcon
             },
+            // モデルが無くても解放済みなら武器の色で出す
             {
                 [](const WeaponSlotHud&, const SlotIconState& s) {
                     return s.unlocked;
                 }, &WeaponSlotHud::ShowColorIcon
             },
+            // どれにも当てはまらなければ鍵のアイコン
             {
                 [](const WeaponSlotHud&, const SlotIconState&) {
                     return true;

@@ -90,9 +90,11 @@ void SkeletonOverlayRenderer::BuildSphere()
     verts.reserve((kStacks + 1) * (kSlices + 1));
     for (int i = 0; i <= kStacks; ++i)
     {
+        // 縦の角度は北極 0 から南極 π まで
         float phi = kPi * i / kStacks;
         for (int j = 0; j <= kSlices; ++j)
         {
+            // 横の角度は 0 から 2π まで（最初と最後の列は同じ位置に重なる）
             float theta = 2.0f * kPi * j / kSlices;
             verts.push_back({ std::sin(phi) * std::cos(theta) * kSphereRadius,
                 std::cos(phi) * kSphereRadius,
@@ -108,6 +110,7 @@ void SkeletonOverlayRenderer::BuildSphere()
     {
         for (int j = 0; j < kSlices; ++j)
         {
+            // マスの4隅: a が左上、bv が右上、c が左下、d が右下
             auto a = static_cast<uint16_t>(i * (kSlices + 1) + j);
             auto bv = static_cast<uint16_t>(a + 1);
             auto c = static_cast<uint16_t>((i + 1) * (kSlices + 1) + j);
@@ -135,6 +138,7 @@ void SkeletonOverlayRenderer::BuildSphere()
     memcpy(mapped, indices.data(), indices.size() * sizeof(uint16_t));
     sphereIB_->Unmap(0, nullptr);
 
+    // ビューにはバッファの場所・全体の大きさ・1頂点の大きさ（インデックスは16bit）を入れる
     sphereVBV_ = { sphereVB_->GetGPUVirtualAddress(),
         static_cast<UINT>(verts.size() * sizeof(OverlayVertex)), sizeof(OverlayVertex) };
     sphereIBV_ = { sphereIB_->GetGPUVirtualAddress(),

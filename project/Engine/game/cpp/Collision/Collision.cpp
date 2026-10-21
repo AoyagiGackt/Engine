@@ -449,40 +449,53 @@ bool Collision::CheckCollision(const Collider& a, const Collider& b)
     // 行が a の形状、列が b の形状（AABB・球・カプセルの順）。片側だけの判定関数しか無い組は引数を入れ替えて呼ぶ
     using Handler = bool (*)(const Collider&, const Collider&);
     static constexpr Handler kHandlers[][kColliderShapeCount] = {
+        // a が AABB の行
         {
+            // AABB 対 AABB
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.aabb, b.aabb);
             },
+            // AABB 対 球（球を先に渡す判定関数を使う）
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(b.sphere, a.aabb);
             },
+            // AABB 対 カプセル（カプセルを先に渡す判定関数を使う）
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(b.capsule, a.aabb);
             },
         },
+        // a が球の行
         {
+            // 球 対 AABB
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.sphere, b.aabb);
             },
+            // 球 対 球
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.sphere, b.sphere);
             },
+            // 球 対 カプセル
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.sphere, b.capsule);
             },
         },
+        // a がカプセルの行
         {
+            // カプセル 対 AABB
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.capsule, b.aabb);
             },
+            // カプセル 対 球（球を先に渡す判定関数を使う）
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(b.sphere, a.capsule);
             },
+            // カプセル 対 カプセル
             [](const Collider& a, const Collider& b) {
                 return CheckCollision(a.capsule, b.capsule);
             },
         },
     };
+    // 行の数が形状の数とずれたらコンパイル時に気付けるようにする
     static_assert(std::size(kHandlers) == kColliderShapeCount);
     // 表の外の形状が来たら当たっていない扱いにする
     const auto row = static_cast<size_t>(a.shape);

@@ -176,19 +176,23 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     }
     const ObjectKind& kind = ObjectKind::Of(entry.desc.kind);
     const int index = IndexOf(entry);
+    // 種類が自分で処理を終えたら、以降の共通処理は行わない
     if (kind.UpdateBeforeEnemy(*this, index, dt))
     {
         return;
     }
+    // 敵の実体を持つ配置物は敵の更新だけを行う
     if (entry.knight || entry.enemy)
     {
         UpdateEnemyEntry(entry, pm, playerPos);
         return;
     }
+    // グラフから指示された移動は、ゲームが止まっている間は進めない
     if (!ShouldPauseGame())
     {
         UpdateGraphMove(entry, dt);
     }
+    // 種類独自の処理で完結した場合も、ギミックの動きは適用しない
     if (kind.UpdateOwnRuntime(*this, index, pm, playerPos))
     {
         return;
@@ -213,12 +217,16 @@ void StageEditor::UpdateRuntimeEntry(ObjectEntry& entry, ParticleManager* pm,
     const GimmickMotion* motion = kind.MotionOf(entry.desc);
     if (motion)
     {
+        // 経過時間から今のずれを求め、編集値に一時的に足す
         const GimmickPose pose = motion->Evaluate(entry.desc, entry.runtimeTimer);
         entry.desc.position = entry.desc.position + pose.position;
         entry.desc.rotation = entry.desc.rotation + pose.rotation;
+        // 動きに合わせた演出がある種類なら、今の位置で出す
         motion->EmitEffects(pm, entry.desc, WorldPositionOf(entry.desc), entry.runtimeTimer, entry.fallFloorWasSolid);
     }
+    // ずらした値で描画用の行列を作る
     RefreshTransforms(entry);
+    // 子を一緒に運ぶ動きなら、親がずれている今のうちに子の行列も作り直す
     if (motion && motion->CarriesChildren())
     {
         for (auto& child : objects_)

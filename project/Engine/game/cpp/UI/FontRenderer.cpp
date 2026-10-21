@@ -202,6 +202,7 @@ const JpGlyphTable& GetJpGlyphTable()
         {
             t.Add(static_cast<wchar_t>(kHiraganaStart + i));
         }
+        // カタカナも同じく、先頭の文字から個数ぶん続けて登録する
         for (int i = 0; i < kKatakanaCount; ++i)
         {
             t.Add(static_cast<wchar_t>(kKatakanaStart + i));
@@ -209,6 +210,7 @@ const JpGlyphTable& GetJpGlyphTable()
         // Shift_JIS で表せる2バイト文字をすべて試し、変換できた文字を登録する（機種依存の領域は除く）
         for (int lead = kSjisLeadFirst; lead <= kSjisLeadUpperLast; ++lead)
         {
+            // 1バイト目は前半と後半の2つの範囲に分かれ、後半のうち利用者定義の領域は使わない
             const bool validLead = lead <= kSjisLeadLowerLast
                 || (lead >= kSjisLeadUpperFirst && (lead < kSjisUserDefinedFirst || lead > kSjisUserDefinedLast));
             if (!validLead)
@@ -217,10 +219,12 @@ const JpGlyphTable& GetJpGlyphTable()
             }
             for (int trail = kSjisTrailFirst; trail <= kSjisTrailLast; ++trail)
             {
+                // 2バイト目に使われない値は飛ばす
                 if (trail == kSjisTrailInvalid)
                 {
                     continue;
                 }
+                // 2バイトを UTF-16 の1文字へ変換し、変換できた時だけ登録する（不正な並びは失敗する）
                 const char bytes[2] = { static_cast<char>(lead), static_cast<char>(trail) };
                 wchar_t wc = 0;
                 if (MultiByteToWideChar(kShiftJisCodePage, MB_ERR_INVALID_CHARS, bytes, 2, &wc, 1) == 1)
@@ -230,6 +234,7 @@ const JpGlyphTable& GetJpGlyphTable()
             }
         }
         // Shift_JIS の範囲外でゲームに使う文字と、見た目の似た記号を足す
+        // どちらの表も終端の 0 まで読む
         for (int i = 0; kJpExtra[i]; ++i)
         {
             t.Add(kJpExtra[i]);

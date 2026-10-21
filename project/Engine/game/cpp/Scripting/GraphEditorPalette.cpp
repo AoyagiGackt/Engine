@@ -100,6 +100,7 @@ void GraphEditor::DrawAddNodeMenu()
             bool clicked = ImGui::MenuItem(type.c_str());
             if (ImGui::IsItemHovered())
             {
+                // 説明が登録されているノードだけツールチップを出す
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
                 if (spec && !spec->description.empty())
                 {
@@ -119,6 +120,7 @@ void GraphEditor::DrawAddNodeMenu()
             bool anyMatch = false;
             for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes())
             {
+                // 大文字小文字を区別せずに比べる（説明の無いノードは名前だけで判定）
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
                 bool match = ContainsCI(type, query)
                     || (spec && (ContainsCI(spec->category, query) || ContainsCI(spec->description, query)));
@@ -128,10 +130,12 @@ void GraphEditor::DrawAddNodeMenu()
                     anyMatch = true;
                 }
             }
+            // 1件も当たらなかったことを伝える
             if (!anyMatch)
             {
                 ImGui::TextDisabled("該当なし");
             }
+            // 検索中はカテゴリ一覧とコメント枠の項目を出さずに閉じる
             ImGui::EndPopup();
             return;
         }
@@ -145,6 +149,7 @@ void GraphEditor::DrawAddNodeMenu()
             byCategory[cat].push_back(type);
         }
 
+        // よく使う分類はサブメニューに入れず、先頭に直接並べる
         auto itFreq = byCategory.find("よく使う");
         if (itFreq != byCategory.end())
         {
@@ -152,10 +157,12 @@ void GraphEditor::DrawAddNodeMenu()
             {
                 drawItem(type);
             }
+            // 下のサブメニューに二重に出ないよう表から外す
             byCategory.erase(itFreq);
             ImGui::Separator();
         }
 
+        // 残りの分類はサブメニューにする（map なので分類名の順に並ぶ）
         for (auto& [cat, types] : byCategory)
         {
             if (ImGui::BeginMenu(cat.c_str()))
@@ -173,12 +180,14 @@ void GraphEditor::DrawAddNodeMenu()
         if (ImGui::MenuItem("コメント枠"))
         {
             RecordUndoSnapshotNow();
+            // 名前は通し番号で重ならないようにする
             std::string id = "comment_" + std::to_string(nextCommentSerial_++);
             GraphComment c;
             c.id = id;
             c.x = pendingAddX_;
             c.y = pendingAddY_;
             graph_.comments[id] = std::move(c);
+            // ノードの選択は外し、作ったコメント枠だけを選ぶ
             selectedCommentId_ = id;
             selectedNodeId_.clear();
         }
@@ -194,8 +203,10 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
 
     for (auto& [id, c] : graph_.comments)
     {
+        // ボタンの名前がコメントごとに重ならないよう id で区別する
         ImGui::PushID(id.c_str());
 
+        // グラフ上の座標を、スクロールと拡大率を掛けて画面の座標へ直す
         ImVec2 screenMin(origin.x + (panOffsetX_ + c.x) * zoom_, origin.y + (panOffsetY_ + c.y) * zoom_);
         ImVec2 screenMax(screenMin.x + c.w * zoom_, screenMin.y + c.h * zoom_);
 
@@ -209,6 +220,7 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         constexpr ImU32 kSelectedBorderColor = IM_COL32(255, 255, 255, 255); // 選択中のコメントは白い枠
         const ImU32 borderCol = (id == selectedCommentId_) ? kSelectedBorderColor : baseCol;
 
+        // 塗りを先に描き、枠をその上に重ねる
         dl->AddRectFilled(screenMin, screenMax, fillCol, GraphEditorDrawingStyle::kNodeCornerRadius * zoom_);
         dl->AddRect(screenMin, screenMax, borderCol, GraphEditorDrawingStyle::kNodeCornerRadius * zoom_, 0, kCommentBorderThickness * zoom_);
 
@@ -223,6 +235,7 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         const bool moving = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
         if (moving)
         {
+            // マウスの移動量は画面の単位なので、拡大率で割ってグラフ上の量にする
             const ImVec2 d = ImGui::GetIO().MouseDelta;
             c.x += d.x / zoom_;
             c.y += d.y / zoom_;
@@ -251,6 +264,7 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
             c.h = (std::max)(kCommentMinHeight, c.h + d.y / zoom_);
         }
         CaptureItemUndo(resizing);
+        // つかめる場所だと分かるよう、角を枠と同じ色で塗る
         dl->AddRectFilled(handleMin, screenMax, borderCol);
 
         ImGui::PopID();

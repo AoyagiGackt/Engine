@@ -43,16 +43,19 @@ std::string ResourceSnapshot()
     std::vector<std::string> files;
     for (const auto& item : std::filesystem::recursive_directory_iterator(kResourceRoot))
     {
+        // フォルダは中身だけを見るので飛ばす
         if (!item.is_regular_file())
         {
             continue;
         }
+        // 区切り文字を / に揃えたパスと、大文字小文字をそろえた拡張子
         const std::string path = item.path().generic_string();
         std::string extension = item.path().extension().string();
         for (char& c : extension)
         {
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         }
+        // 除外する拡張子の表に入っているか
         const bool ignored = std::any_of(std::begin(kSnapshotIgnoredExtensions), std::end(kSnapshotIgnoredExtensions),
             [&extension](const char* ignoredExtension) {
                 return extension == ignoredExtension;
@@ -61,6 +64,7 @@ std::string ResourceSnapshot()
         {
             continue;
         }
+        // 中身が変われば大きさか更新時刻のどちらかが変わる前提で、この3つを並べる
         files.push_back(path + ":" + std::to_string(item.file_size()) + ":"
             + std::to_string(item.last_write_time().time_since_epoch().count()));
     }
@@ -230,8 +234,10 @@ bool AssetPack::OpenPack(const std::wstring& path)
     {
         file_.close();
     }
+    // 前回の読み込みで立ったエラー状態を消してから開く
     file_.clear();
     file_.open(path, std::ios::binary);
+    // 開けなければ失敗を返す（呼び出し側が別の場所の pak を試す）
     if (!file_)
     {
         return false;
@@ -254,12 +260,14 @@ bool AssetPack::OpenPack(const std::wstring& path)
     entries_.reserve(static_cast<size_t>(count));
     for (uint64_t i = 0; i < count; ++i)
     {
+        // 1件は 素材名の長さ・素材名・ファイル内の位置・大きさ の順に並んでいる
         uint64_t keyLength = 0;
         Entry entry;
         if (!ReadRaw(file_, keyLength))
         {
             break;
         }
+        // 長さぶんの領域を先に確保して、素材名をそこへ読む
         std::string key(static_cast<size_t>(keyLength), '\0');
         file_.read(key.data(), static_cast<std::streamsize>(keyLength));
         if (!ReadRaw(file_, entry.offset) || !ReadRaw(file_, entry.size))

@@ -115,27 +115,35 @@ void SceneEditor::ChangeState(Selection sel)
     // 対象ごとの編集状態の作り方（Selection の並び順と同じ）
     using StateFactory = std::unique_ptr<IEditorState> (*)();
     static constexpr StateFactory kFactories[] = {
+        // 何も選んでいない
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<NoneState>());
         },
+        // カメラ
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<CameraState>());
         },
+        // 画面上のUI要素
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<UIElementState>());
         },
+        // リング
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<RingState>());
         },
+        // 円柱
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<CylinderState>());
         },
+        // 天球
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<SkydomeState>());
         },
+        // 人型モデル
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<HumanState>());
         },
+        // パーティクル
         [] {
             return std::unique_ptr<IEditorState>(std::make_unique<ParticlesState>());
         },
@@ -600,8 +608,10 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     {
         return;
     }
+    // 編集はスプライトの値を直接読み書きする
     UIEntry& entry = editor.uiElements_[idx];
     Sprite* sp = entry.sprite.get();
+    // 何を編集中か分かるよう、色付きの見出しを出す
     constexpr ImVec4 kHeadingColor = { 1.0f, 0.5f, 1.0f, 1.0f };
     ImGui::TextColored(kHeadingColor, "[UI Element]");
     ImGui::Separator();
@@ -611,18 +621,20 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
         editor.uiNameEditIndex_ = idx;
         strncpy_s(editor.uiNameBuffer_, entry.name.c_str(), sizeof(editor.uiNameBuffer_) - 1);
     }
+    // 入力した名前はその場で一覧の名前に反映する
     ImGui::SetNextItemWidth(-1);
     if (ImGui::InputText("##uiname", editor.uiNameBuffer_, sizeof(editor.uiNameBuffer_)))
     {
         entry.name = editor.uiNameBuffer_;
     }
     ImGui::Separator();
-    // 位置・サイズ・回転・色を編集する
+    // 位置・サイズ・回転・色を編集する（変わった値だけスプライトへ書き戻す）
     Vector2 pos = sp->GetPosition();
     if (ImGui::DragFloat2("Position", &pos.x, kDragStepPixel))
     {
         sp->SetPosition(pos);
     }
+    // サイズは小さすぎて見えなくならないよう上下限を付ける
     Vector2 sz = sp->GetSize();
     if (ImGui::DragFloat2("Size", &sz.x, kDragStepPixel, kMinSpritePixels, kMaxSpritePixels))
     {
@@ -644,6 +656,7 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     if (ImGui::Button("Browse##uitex"))
     {
         const std::string selected = OpenFileDialog("PNG Files\0*.png\0All Files\0*.*\0\0", "Resources");
+        // キャンセルされたら何もしない
         if (!selected.empty())
         {
             // 保存するレイアウトに絶対パスを残さない
@@ -656,6 +669,7 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     // Delete で一覧から削除、Save/Load で JSON に保存・復元する
     if (ImGui::Button("Delete##ui"))
     {
+        // 消した要素を指したままにならないよう、選択を外して名前の編集状態も戻す
         editor.uiElements_.erase(editor.uiElements_.begin() + idx);
         editor.ChangeState(Selection::None);
         editor.uiNameEditIndex_ = kNoEditedUiIndex;

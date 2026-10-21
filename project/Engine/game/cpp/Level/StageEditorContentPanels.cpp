@@ -200,9 +200,11 @@ void StageEditor::RenderEditorToolbar()
         Save();
     }
     ImGui::SameLine();
+    // 保存し忘れに気付けるよう、未保存の変更があれば色を変えて出す
     ImGui::TextColored(dirty_ ? kUnsavedColor : kSavedColor,
         dirty_ ? "未保存" : "保存済み");
     ImGui::SameLine();
+    // 戻せる履歴・やり直せる履歴が無い間はボタンを押せなくする
     ImGui::BeginDisabled(!history_.CanUndo());
     if (ImGui::Button("戻す"))
     {
@@ -239,6 +241,7 @@ void StageEditor::RenderEditorToolbar()
     toolButton("移動 W", TransformTool::Move);
     toolButton("回転 E", TransformTool::Rotate);
     toolButton("拡縮 R", TransformTool::Scale);
+    // スナップのオンオフと、揃える間隔
     ImGui::Checkbox("座標を揃える", &snapEnabled_);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(kToolbarSnapStepWidth);
@@ -272,6 +275,7 @@ void StageEditor::RenderEditorToolbar()
         // 開始シーンの一覧は SceneManager の表から読む
         auto* manager = SceneManager::GetInstance();
         const int sceneCount = SceneManager::GetDebugStartSceneCount();
+        // 今の開始シーンが一覧の何番目かを探して、初期の選択にする
         int selected = 0;
         for (int i = 0; i < sceneCount; ++i)
         {
@@ -286,6 +290,7 @@ void StageEditor::RenderEditorToolbar()
         };
         if (ImGui::Combo("開始画面", &selected, labelOf, nullptr, sceneCount))
         {
+            // 選んだ時点で設定ファイルへ保存し、結果を右端の案内に出す
             const bool saved = manager->SetDebugStartScene(SceneManager::GetDebugStartSceneName(selected));
             statusMessage_ = saved ? std::string("次回のDebug起動は「") + SceneManager::GetDebugStartSceneLabel(selected) + "」から開始します"
                                    : "Debugの開始位置を保存できませんでした";
@@ -294,10 +299,12 @@ void StageEditor::RenderEditorToolbar()
         ImGui::TextDisabled("自動保存され、次回のDebug起動に反映します");
         ImGui::Separator();
 #endif
+        // 補助パネルの表示切り替え（チェックの付いたパネルが開く）
         ImGui::MenuItem("制作・保存前チェック", nullptr, &showWorkflowPanel_);
         ImGui::MenuItem("イベントをつなぐ", nullptr, &showNoCodeEventPanel_);
         ImGui::MenuItem("敵の出現を作る", nullptr, &showWavePanel_);
         ImGui::Separator();
+        // 状態の確認と表示の切り替え
         ImGui::MenuItem("フラグを確認", nullptr, &showFlagsPanel_);
         ImGui::MenuItem("グラフを編集", nullptr, &showGraphPanel_);
         ImGui::MenuItem("配置したテキストを表示", nullptr, &showUIText_);
@@ -372,6 +379,7 @@ void StageEditor::RenderAssetPalette()
     ImGui::Begin("素材を配置", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる
+    // 見た目を差し替えられるのは、装飾の配置物を1つ選んでいる時だけ
     bool hasPropSel = (selKind_ == SelKind::Object && selIndex_ >= 0
         && selIndex_ < static_cast<int>(objects_.size())
         && ObjectKind::Of(objects_[selIndex_].desc.kind).IsDecoration());
@@ -402,13 +410,16 @@ void StageEditor::RenderAssetPalette()
     ImGui::InputTextWithHint("##素材検索", "素材名で検索", paletteSearch_, sizeof(paletteSearch_));
     const float tileWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     int visibleCount = 0;
+    // テストプレイ中は配置を変えさせない
     ImGui::BeginDisabled(playTestMode_);
     for (const auto& preset : kAssetPresets)
     {
+        // 検索語が入っていれば、名前に含まないものは飛ばす
         if (paletteSearch_[0] != '\0' && std::string(preset.label).find(paletteSearch_) == std::string::npos)
         {
             continue;
         }
+        // 2つ目ごとに同じ行へ並べて2列にする
         if (visibleCount++ % 2 != 0)
         {
             ImGui::SameLine();

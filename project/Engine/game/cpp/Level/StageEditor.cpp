@@ -504,6 +504,7 @@ void StageEditor::HandleEditorShortcuts()
     };
     for (const EditShortcut& shortcut : kEditShortcuts)
     {
+        // Ctrl が要るものは Ctrl を押している時だけ反応する
         if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key))
         {
             (this->*shortcut.action)();
@@ -516,11 +517,13 @@ void StageEditor::HandleEditorShortcuts()
         ImGuiKey key;
         TransformTool tool;
     };
+    // W で移動、E で回転、R で拡大縮小
     static constexpr ToolKey kToolKeys[] = {
         { ImGuiKey_W, TransformTool::Move },
         { ImGuiKey_E, TransformTool::Rotate },
         { ImGuiKey_R, TransformTool::Scale },
     };
+    // Ctrl 中は Ctrl+R 等の別操作と重なるので切り替えない
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !io.KeyCtrl)
     {
         for (const ToolKey& toolKey : kToolKeys)

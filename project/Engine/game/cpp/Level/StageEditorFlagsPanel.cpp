@@ -33,6 +33,7 @@ void StageEditor::RenderFlagsPanel()
         display->Pos.y + kFlagsWindowTop), ImGuiCond_Once);
     ImGui::SetNextWindowSize(kFlagsWindowSize, ImGuiCond_Once);
     ImGui::Begin("フラグとチェックポイント");
+    // 立っているフラグと下りているフラグを色で分けて1行ずつ出す
     GameFlags::GetInstance()->VisitFlags([](const std::string& name, bool value)
     {
         ImGui::TextColored(value ? EditorUi::kFlagOnColor : EditorUi::kFlagOffColor,
@@ -44,6 +45,7 @@ void StageEditor::RenderFlagsPanel()
     if (ImGui::Button("現在の開始位置へ追加", ImVec2(-1.0f, 0.0f)))
     {
         RecordUndoSnapshotNow();
+        // 名前は 1 から始まる通し番号にする
         CheckpointDesc checkpoint;
         checkpoint.name = "checkpoint_" + std::to_string(checkpoints_.size() + 1);
         checkpoint.position = playerSpawn_;
@@ -55,9 +57,11 @@ void StageEditor::RenderFlagsPanel()
     for (int i = 0; i < static_cast<int>(checkpoints_.size()); ++i)
     {
         CheckpointDesc& checkpoint = checkpoints_[i];
+        // 同じ名前のチェックポイントがあっても入力欄が混ざらないよう番号で区別する
         ImGui::PushID(i);
         if (ImGui::TreeNodeEx(checkpoint.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
         {
+            // 名前は入力用の固定長バッファに写してから編集する
             char name[TextBufferCapacity::kName] = { };
             strncpy_s(name, checkpoint.name.c_str(), _TRUNCATE);
             const bool nameChanged = ImGui::InputText("名前", name, sizeof(name));
@@ -66,9 +70,11 @@ void StageEditor::RenderFlagsPanel()
                 checkpoint.name = name;
             }
 
+            // 位置は値を直接書き換え、編集の開始と終わりで元に戻す履歴を取る
             const bool positionChanged = ImGui::DragFloat3("復帰位置", &checkpoint.position.x, EditorUi::kDragStepPosition);
             CaptureItemUndo(positionChanged);
 
+            // 半径は最小値より小さくならないように丸める
             const bool radiusChanged = ImGui::DragFloat(
                 "有効化半径", &checkpoint.activationRadius, EditorUi::kDragStepFine, EditorUi::kMinRadius, kMaxCheckpointRadius);
             if (CaptureItemUndo(radiusChanged))
@@ -76,6 +82,7 @@ void StageEditor::RenderFlagsPanel()
                 checkpoint.activationRadius = (std::max)(checkpoint.activationRadius, EditorUi::kMinRadius);
             }
 
+            // ここでは番号を覚えるだけにして、消すのはループの後
             if (ImGui::Button("削除", ImVec2(-1.0f, 0.0f)))
             {
                 removeIndex = i;

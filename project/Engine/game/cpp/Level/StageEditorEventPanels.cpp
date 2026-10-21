@@ -298,8 +298,10 @@ void StageEditor::RenderEventConnectionList()
     ImGui::SeparatorText("現在の接続");
     // 解除は一覧を描き終えてから行う（描画中に配置物の設定を書き換えないため）
     int disconnectIndex = -1;
+    // 接続先1件を、遅延秒・有効化か無効化か・対象名の1行で出す
     auto renderConnectionTarget = [&](int objectIndex) {
         const ObjectDesc& target = objects_[objectIndex].desc;
+        // 同じラベルの解除ボタンが並ぶので配置物の番号で区別する
         ImGui::PushID(objectIndex);
         ImGui::Bullet();
         ImGui::SameLine();
@@ -317,11 +319,13 @@ void StageEditor::RenderEventConnectionList()
     for (const auto& triggerEntry : triggers_)
     {
         const TriggerDesc& trigger = triggerEntry.GetDesc();
+        // このトリガーのフラグで動く配置物を集める（1件も無ければ見出しも出さない）
         const std::vector<int> targetIndices = CollectEventTargets(trigger.flag);
         if (targetIndices.empty())
         {
             continue;
         }
+        // 見出しにトリガー名と接続数を出し、その下に接続先を並べる
         ImGui::TextColored(EditorUi::kHeadingColor, "%s (%d件)", trigger.name.c_str(),
             static_cast<int>(targetIndices.size()));
         for (int objectIndex : targetIndices)
@@ -353,10 +357,12 @@ void StageEditor::RenderEventConnectionList()
     for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex)
     {
         const ObjectDesc& target = objects_[objectIndex].desc;
+        // 接続先になれない種類と、どこにも繋がっていない配置物は対象外
         if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty())
         {
             continue;
         }
+        // フラグを立てる元が見つかれば正常な接続なので飛ばす
         Vector3 sourcePosition = { };
         if (FindEventSourcePosition(target.activationFlag, sourcePosition))
         {
@@ -402,6 +408,7 @@ void StageEditor::RenderGraphPanel()
     {
         graphPath_ = graphPathBuffer_;
     }
+    // パスが空の間は開く対象が無いので押せなくする
     ImGui::BeginDisabled(graphPath_.empty());
     if (ImGui::Button("ノードエディタで開く##main", ImVec2(-1.0f, 0.0f)))
     {
@@ -424,11 +431,13 @@ void StageEditor::RenderGraphPanel()
             break;
         }
         ImGui::SameLine();
+        // この紐付けのグラフをノードエディタで開く
         if (ImGui::SmallButton("開く"))
         {
             GraphEditor::GetInstance()->OpenAndShow(flagGraphs_[i].graphPath);
         }
         ImGui::SameLine();
+        // どのフラグでどのグラフが走るかを1行で出す
         ImGui::TextWrapped("%s  →  %s", flagGraphs_[i].flag.c_str(), flagGraphs_[i].graphPath.c_str());
         ImGui::PopID();
     }
@@ -441,11 +450,13 @@ void StageEditor::RenderGraphPanel()
     ImGui::BeginDisabled(!canAdd);
     if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f)))
     {
+        // 元に戻せるよう、追加する前に履歴を取る
         RecordUndoSnapshotNow();
         FlagGraphBinding binding;
         binding.flag = newFlagGraphFlag_;
         binding.graphPath = newFlagGraphPath_;
         flagGraphs_.push_back(std::move(binding));
+        // 同じグラフを別のフラグで続けて紐付けやすいよう、フラグ名だけ空に戻す
         newFlagGraphFlag_[0] = '\0';
     }
     ImGui::EndDisabled();
@@ -455,6 +466,7 @@ void StageEditor::RenderGraphPanel()
     ImGui::Text("実行中のグラフ: %d", levelGraphs_.GetRunningCount());
     if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f)))
     {
+        // 今の編集内容からグラフの設定だけを詰めて渡す
         LevelData data;
         data.graphPath = graphPath_;
         data.flagGraphs = flagGraphs_;
@@ -478,18 +490,21 @@ void StageEditor::RenderWavePanel()
     // グループ名・敵の種類・数・間隔を入力する（敵数は上限で丸める）
     ImGui::InputText("グループ名", waveGroupName_, sizeof(waveGroupName_));
     EditorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
+    // 出現できる敵の表から、選択肢に出す表示名だけを取り出す
     const char* enemyTypes[std::size(kSpawnTypes)] = {};
     for (size_t i = 0; i < std::size(kSpawnTypes); ++i)
     {
         enemyTypes[i] = kSpawnTypes[i].label;
     }
     ImGui::Combo("敵種類", &waveEnemyType_, enemyTypes, static_cast<int>(std::size(enemyTypes)));
+    // 敵数は1体以上、上限以下に収める
     ImGui::InputInt("敵数", &waveEnemyCount_);
     waveEnemyCount_ = std::clamp(waveEnemyCount_, 1, kMaxWaveEnemyCount);
     ImGui::DragFloat("配置間隔", &waveSpacing_, EditorUi::kDragStepPosition, kMinWaveSpacing, kMaxWaveSpacing);
     EditorUI::HelpMarker("生成する敵同士の横方向の間隔です。単位はワールド座標です。");
 
     // 開始条件は 開始直後 か、トリガーの中から1つを選ぶ
+    // 閉じている時の表示は、選んだトリガーの名前（番号が範囲外なら開始直後）
     const char* triggerPreview = "開始直後";
     if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size()))
     {
@@ -497,10 +512,12 @@ void StageEditor::RenderWavePanel()
     }
     if (ImGui::BeginCombo("開始条件", triggerPreview))
     {
+        // 開始直後は番号 -1 で表す
         if (ImGui::Selectable("開始直後", waveStartTrigger_ < 0))
         {
             waveStartTrigger_ = -1;
         }
+        // 配置済みのトリガーを順に選択肢へ並べる
         for (int i = 0; i < static_cast<int>(triggers_.size()); ++i)
         {
             if (ImGui::Selectable(triggers_[i].GetDesc().name.c_str(), waveStartTrigger_ == i))

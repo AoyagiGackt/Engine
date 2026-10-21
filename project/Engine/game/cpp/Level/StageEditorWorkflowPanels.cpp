@@ -129,6 +129,7 @@ void DrawControlsReference()
 /** @brief プレハブ、検証、自動保存、編集とテストの切り替えをまとめて表示する */
 void StageEditor::RenderWorkflowPanel()
 {
+    // 初回だけ決まった位置と大きさで開く（その後はユーザーが動かした位置を保つ）
     ImGui::SetNextWindowPos(kWorkflowWindowPos, ImGuiCond_Once);
     ImGui::SetNextWindowSize(kWorkflowWindowSize, ImGuiCond_Once);
     ImGui::Begin("編集ワークフロー");
@@ -147,9 +148,11 @@ void StageEditor::RenderWorkflowPanel()
         StartPlayTestOrWarn(ViewCenterOnGround());
     }
     ImGui::SameLine();
+    // 何も選んでいない時は開始位置が決まらないので押せなくする
     ImGui::BeginDisabled(selKind_ == SelKind::None);
     if (ImGui::Button("選択位置からテスト", kWideButtonSize))
     {
+        // 選択物の位置が取れない種類なら画面中央から始める
         Vector3 start;
         if (!SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, start))
         {
@@ -181,6 +184,7 @@ void StageEditor::RenderWorkflowPanel()
     ImGui::SeparatorText("プレハブ");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##prefabName", "英数字のプレハブ名", prefabName_, sizeof(prefabName_));
+    // 保存できるのは配置物を選んでいる時だけ
     ImGui::BeginDisabled(selKind_ != SelKind::Object);
     if (ImGui::Button("選択物を保存", kWideButtonSize))
     {
@@ -212,17 +216,20 @@ void StageEditor::RenderWorkflowPanel()
     // 保存前検証を実行し、問題の数を知らせる
     if (ImGui::Button("保存前検証", ImVec2(-1.0f, 0.0f)))
     {
+        // 結果は下の一覧で見られるよう残しておく
         validationIssues_ = ValidateLevel();
         statusMessage_ = validationIssues_.empty()
             ? "検証完了: 問題はありません"
             : "検証完了: " + std::to_string(validationIssues_.size()) + "件の問題があります";
         statusTimer_ = StageEditor::kStatusLongSeconds;
     }
+    // 問題があった時だけ、1件ずつ移動ボタンと問題文を並べる
     if (!validationIssues_.empty() && ImGui::TreeNode("検証結果"))
     {
         for (int issueIndex = 0; issueIndex < static_cast<int>(validationIssues_.size()); ++issueIndex)
         {
             const std::string& issue = validationIssues_[issueIndex];
+            // 移動ボタンが並ぶので問題の番号で区別する
             ImGui::PushID(issueIndex);
             // 問題文に名前が含まれる配置物を選び、カメラをそこへ寄せる
             if (ImGui::SmallButton("移動"))
@@ -235,6 +242,7 @@ void StageEditor::RenderWorkflowPanel()
                         selKind_ = SelKind::Object;
                         selIndex_ = objectIndex;
                         selectedObjectIndices_ = { objectIndex };
+                        // 奥行きは変えず、横と高さだけを配置物に合わせる
                         if (camera_)
                         {
                             const Vector3 target = WorldPositionOf(objects_[objectIndex].desc);
@@ -538,6 +546,7 @@ void StageEditor::RenderEditorHelpPanel()
     }
     ImGui::SetNextWindowSize(kHelpWindowSize, ImGuiCond_FirstUseEver);
     ImGui::Begin("ステージ制作ヘルプ", &showEditorHelp_);
+    // ウィンドウが畳まれていてタブが出せない時は、ウィンドウを閉じて終わる
     if (!ImGui::BeginTabBar("##helpTabs"))
     {
         ImGui::End();
@@ -558,12 +567,14 @@ void StageEditor::RenderEditorHelpPanel()
     }
     ImGui::SeparatorText("最初のステージを作る手順");
     ImGui::TextWrapped("この手順では、部屋に入ると敵が出現し、全滅すると出口が開く場面を作成します。");
+    // 手順は見出し行と、その下の補足説明を組にして並べる
     ImGui::BulletText("1  アセットパレットから床と壁を配置する");
     ImGui::TextWrapped("   配置物を選択し、詳細設定の当たり判定を有効にします。床や壁はプレイヤーが通り抜けないsolid配置物にします。");
     ImGui::BulletText("2  イベントパネルの戦闘部屋テンプレートを生成する");
     ImGui::TextWrapped("   進入トリガー、敵の出現地点、全滅条件、出口、カメラ演出が一括で作られます。初回はここから始めるのが簡単です。");
     ImGui::BulletText("3  中央ビューで各部品を選択して位置を調整する");
     ImGui::TextWrapped("   入口に水色のトリガー、戦闘場所に敵の出現地点、奥に出口を移動します。右の詳細設定で数値も直接変更できます。");
+    // 後半は確認と保存の手順
     ImGui::BulletText("4  上部のテストを押し、実際に入口から通して遊ぶ");
     ImGui::TextWrapped("   敵が出ない場合はイベントの現在の接続を確認します。出口が開かない場合は敵グループ名と全滅条件のグループ名を揃えます。");
     ImGui::BulletText("5  制作パネルで保存前検証を行い、問題がなければ保存する");
@@ -579,6 +590,7 @@ void StageEditor::RenderEditorHelpPanel()
         ImGui::BulletText("カメラ地点  条件成立時に指定位置と角度へカメラを移動する");
         ImGui::BulletText("トリガー  プレイヤーが範囲へ入ったことを条件にする");
     }
+    // イベントを3つの問いに分けて説明する
     if (ImGui::CollapsingHeader("イベントの考え方"))
     {
         ImGui::TextWrapped("イベントは、いつ、何を、どうするの3項目で作ります。");
@@ -587,6 +599,7 @@ void StageEditor::RenderEditorHelpPanel()
         ImGui::BulletText("どうする  有効化または無効化と、実行までの秒数を選ぶ");
         ImGui::TextWrapped("一つの条件から複数の対象へ接続できます。敵を出し、扉を閉め、カメラを動かす処理を同じ進入トリガーから作れます。");
     }
+    // よくある症状と、まず確かめる場所の組
     if (ImGui::CollapsingHeader("困ったとき"))
     {
         ImGui::BulletText("敵が出ない  開始条件と出現地点の接続、対象の有効設定を確認する");
@@ -605,11 +618,13 @@ void StageEditor::RenderEditorHelpPanel()
         "ギミックでプレイヤーを閉じ込めない",
         "保存前検証に問題がない",
     };
+    // 項目数とチェック状態の配列の大きさがずれたらコンパイル時に気付けるようにする
     static_assert(std::size(kChecklistLabels) == kHelpChecklistCount);
     for (int i = 0; i < kHelpChecklistCount; ++i)
     {
         ImGui::Checkbox(kChecklistLabels[i], &helpChecklist_[i]);
     }
+    // 開いたタブ・タブバー・ウィンドウを内側から順に閉じる
     ImGui::EndTabItem();
     ImGui::EndTabBar();
     ImGui::End();
