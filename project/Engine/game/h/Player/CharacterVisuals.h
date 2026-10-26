@@ -10,6 +10,7 @@
 #include "Vector3.h"
 #include "Weapon.h"
 #include <MakeAffine.h>
+#include <cmath>
 #include <iterator>
 #include <string>
 
@@ -214,6 +215,20 @@ inline void AttachToBone(Object3d* obj, const Skeleton& skel, const Matrix4x4& r
     Matrix4x4 world = Multiply(grip, Multiply(skel.GetJoint(*jointIndex).skeletonSpaceMatrix, rootWorld));
     obj->SetLocalMatrix(world);
     obj->Update();
+}
+
+/**
+ * @brief 手のボーンに握らせた時に武器へ掛かる大きさ（ボーンの縮尺とキャラの縮尺の積）を返す
+ * @note 手から離して直接置く時に、握りの大きさへこれを掛けると、持っていた時と同じ大きさに見える（ボーンが無ければ1）
+ */
+inline float BoneWorldScale(const Skeleton& skel, const Matrix4x4& rootWorld, const char* boneName) {
+    const auto jointIndex = skel.FindJointIndex(boneName);
+    if (!jointIndex) {
+        return 1.0f;
+    }
+    // 行ベクトルの行列なので、1行目の長さがX軸方向の縮尺になる
+    const Matrix4x4 world = Multiply(skel.GetJoint(*jointIndex).skeletonSpaceMatrix, rootWorld);
+    return std::sqrt(world.m[0][0] * world.m[0][0] + world.m[0][1] * world.m[0][1] + world.m[0][2] * world.m[0][2]);
 }
 
 } // namespace engine::game

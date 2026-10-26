@@ -493,7 +493,9 @@ void Player::PlaceThrownWeapon(HeldWeaponSlot& slot, const Vector3& position, fl
     slot.object->ClearLocalMatrix(); // 手のボーン追従（SetLocalMatrix）を解除し、直接のTransform制御に戻す
     slot.object->SetPosition(position);
     slot.object->SetRotation({ slot.gripRotate.x, slot.gripRotate.y, spinZ });
-    slot.object->SetScale(slot.gripScale);
+    // 握りの大きさは手のボーンとキャラの縮尺に掛ける前提の値なので、手を離した時も同じ縮尺を掛けて持っていた時の大きさに揃える
+    const float handScale = BoneWorldScale(rig_->object->GetSkeleton(), rig_->object->GetWorldMatrix(), rig_->meleeBoneName);
+    slot.object->SetScale({ slot.gripScale.x * handScale, slot.gripScale.y * handScale, slot.gripScale.z * handScale });
     slot.object->Update();
 }
 
