@@ -7,7 +7,7 @@
 #include "../Engine/game/h/Level/EditorHistory.h"
 #include "../Engine/game/h/Level/StageEditorEventConnection.h"
 #include "../Engine/game/h/Level/StageEditorObjectPresets.h"
-#include "../Engine/game/h/Util/JsonHelper.h"
+#include "JsonHelper.h"
 #include "TestReport.h"
 #include <algorithm>
 #include <iterator>

@@ -77,7 +77,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Engine\game\h\Scene;$(ProjectDir)..\Engine\math\h;$(ProjectDir)..\Engine\game\h\Collision;$(ProjectDir)..\Engine\game\h\Util;$(ProjectDir)..\..\externals\json;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Engine\game\h\Scene;$(ProjectDir)..\Engine\math\h;$(ProjectDir)..\Engine\core\h\Collision;$(ProjectDir)..\Engine\core\h\Util;$(ProjectDir)..\Engine\game\h\Collision;$(ProjectDir)..\Engine\game\h\Util;$(ProjectDir)..\..\externals\json;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
