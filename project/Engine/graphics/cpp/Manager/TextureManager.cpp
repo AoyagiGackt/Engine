@@ -21,6 +21,9 @@ namespace {
 
 // RGBA画像のピクセル容量
 constexpr UINT64 kRgbaBytesPerPixel = 4;
+constexpr size_t kBcBlockSize = 4;
+constexpr size_t kAlphaOffset = 3;
+constexpr uint8_t kOpaqueAlpha = 255;
 
 }
 
@@ -29,23 +32,73 @@ using namespace Microsoft::WRL;
 namespace {
 
 // WIC画像の展開とミップマップ生成
-HRESULT LoadWicTexture(const wchar_t* path, DirectX::WIC_FLAGS flags, DirectX::ScratchImage& result)
-{
+HRESULT LoadWicTexture(const wchar_t* path, DirectX::WIC_FLAGS flags, DirectX::ScratchImage& result) {
     DirectX::ScratchImage image;
     HRESULT hr = DirectX::LoadFromWICFile(path, flags, nullptr, image);
     ENGINE_ASSERT(SUCCEEDED(hr));
     hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_BOX, 0, result);
-    if (FAILED(hr))
-    {
+    if (FAILED(hr)) {
         hr = result.InitializeFromImage(*image.GetImages());
         ENGINE_ASSERT(SUCCEEDED(hr));
     }
     return hr;
 }
 
+/** @brief cook用の画像をRGBA8へ揃え、アルファに応じたBC形式のDDSへ圧縮する */
+bool CompressTextureForPack(const std::string& filePath, const DirectX::ScratchImage& source, DirectX::Blob& blob) {
+    const auto& metadata = source.GetMetadata();
+    if (!AssetPack::GetInstance()->ShouldCompressTexture(filePath)
+        || metadata.IsCubemap() || DirectX::IsCompressed(metadata.format)
+        || metadata.dimension != DirectX::TEX_DIMENSION_TEXTURE2D
+        || metadata.width % kBcBlockSize != 0 || metadata.height % kBcBlockSize != 0) {
+        return false;
+    }
+
+    const bool isSrgb = DirectX::IsSRGB(metadata.format);
+    const DXGI_FORMAT rgbaFormat = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+    DirectX::ScratchImage converted;
+    const DirectX::ScratchImage* rgba = &source;
+    if (metadata.format != rgbaFormat) {
+        if (FAILED(DirectX::Convert(source.GetImages(), source.GetImageCount(), metadata,
+                rgbaFormat, DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, converted))) {
+            Logger::LogWarning("[AssetPack] 画像のRGBA8変換に失敗したため元のDDSを記録します: " + filePath);
+            return false;
+        }
+        rgba = &converted;
+    }
+
+    // 全ミップ・配列要素の実画素を調べ、行末のパディングは判定しない。
+    bool opaque = true;
+    for (size_t i = 0; i < rgba->GetImageCount() && opaque; ++i) {
+        const auto& image = rgba->GetImages()[i];
+        for (size_t y = 0; y < image.height && opaque; ++y) {
+            const uint8_t* row = image.pixels + y * image.rowPitch;
+            for (size_t x = 0; x < image.width; ++x) {
+                if (row[x * kRgbaBytesPerPixel + kAlphaOffset] != kOpaqueAlpha) {
+                    opaque = false;
+                    break;
+                }
+            }
+        }
+    }
+    const DXGI_FORMAT format = opaque
+        ? (isSrgb ? DXGI_FORMAT_BC1_UNORM_SRGB : DXGI_FORMAT_BC1_UNORM)
+        : (isSrgb ? DXGI_FORMAT_BC7_UNORM_SRGB : DXGI_FORMAT_BC7_UNORM);
+    const auto flags = opaque ? DirectX::TEX_COMPRESS_PARALLEL
+        : static_cast<DirectX::TEX_COMPRESS_FLAGS>(DirectX::TEX_COMPRESS_BC7_QUICK | DirectX::TEX_COMPRESS_PARALLEL);
+    DirectX::ScratchImage compressed;
+    if (FAILED(DirectX::Compress(rgba->GetImages(), rgba->GetImageCount(), rgba->GetMetadata(),
+            format, flags, DirectX::TEX_THRESHOLD_DEFAULT, compressed))
+        || FAILED(DirectX::SaveToDDSMemory(compressed.GetImages(), compressed.GetImageCount(),
+            compressed.GetMetadata(), DirectX::DDS_FLAGS_NONE, blob))) {
+        Logger::LogWarning("[AssetPack] 画像圧縮に失敗したため未圧縮のDDSを記録します: " + filePath);
+        return false;
+    }
+    return true;
+}
+
 /** @brief WIC で読める画像ファイルを読み込む */
-HRESULT LoadDefaultWicTexture(const wchar_t* path, DirectX::ScratchImage& result)
-{
+HRESULT LoadDefaultWicTexture(const wchar_t* path, DirectX::ScratchImage& result) {
     return LoadWicTexture(path, DirectX::WIC_FLAGS_FORCE_SRGB, result);
 }
 
@@ -70,15 +123,13 @@ constexpr TextureLoader kTextureLoaders[] = {
 // ══════════════════════════════════════════════════════
 
 /** @brief TextureManager の唯一のインスタンスを返す */
-TextureManager* TextureManager::GetInstance()
-{
-    static TextureManager instance;
-    return &instance;
+TextureManager* TextureManager::GetInstance() {
+    static TextureManager sInstance;
+    return &sInstance;
 }
 
 /** @brief マネージャーの初期化 */
-void TextureManager::Initialize(DirectXCommon* dxCommon)
-{
+void TextureManager::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     textureDatas_.clear();
 
@@ -117,8 +168,7 @@ void TextureManager::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief 画像ファイルをデコードしGPUリソース／アップロードバッファを作成する（コピーコマンドはまだ記録しない） */
-DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
-{
+DecodedTexture TextureManager::DecodeTexture(const std::string& filePath) {
     ENGINE_ASSERT(dxCommon_);
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -147,13 +197,10 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     std::vector<uint8_t> packed;
     const bool loadedFromPack = AssetPack::GetInstance()->Read(packKey, packed)
         && SUCCEEDED(DirectX::LoadFromDDSMemory(packed.data(), packed.size(), DirectX::DDS_FLAGS_NONE, nullptr, finalImage));
-    if (!loadedFromPack)
-    {
+    if (!loadedFromPack) {
         auto loader = &LoadDefaultWicTexture;
-        for (const auto& entry : kTextureLoaders)
-        {
-            if (ext == entry.extension)
-            {
+        for (const auto& entry : kTextureLoaders) {
+            if (ext == entry.extension) {
                 loader = entry.load;
                 break;
             }
@@ -163,14 +210,31 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     }
 
     // cook中は、展開とミップマップ生成を終えた結果をDDSとしてpakへ記録する（元がDDSのキューブマップ等もそのまま入れる）
-    if (!loadedFromPack && AssetPack::GetInstance()->IsCooking())
-    {
+    if (!loadedFromPack && AssetPack::GetInstance()->IsCooking()) {
+        // 描画用の画像は変更せず、pak用の非圧縮画像だけRGBA8へ揃える。
+        DirectX::ScratchImage packImage;
+        const DirectX::ScratchImage* packSource = &finalImage;
+        const auto& sourceMetadata = finalImage.GetMetadata();
+        const DXGI_FORMAT rgbaFormat = DirectX::IsSRGB(sourceMetadata.format)
+            ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+        if (!DirectX::IsCompressed(sourceMetadata.format) && sourceMetadata.format != rgbaFormat) {
+            if (SUCCEEDED(DirectX::Convert(finalImage.GetImages(), finalImage.GetImageCount(), sourceMetadata,
+                    rgbaFormat, DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, packImage))) {
+                packSource = &packImage;
+            } else {
+                Logger::LogWarning("[AssetPack] 画像のRGBA8変換に失敗したため元のDDSを記録します: " + filePath);
+            }
+        }
         DirectX::Blob blob;
-        if (SUCCEEDED(DirectX::SaveToDDSMemory(finalImage.GetImages(), finalImage.GetImageCount(),
-                finalImage.GetMetadata(), DirectX::DDS_FLAGS_NONE, blob)))
-        {
-            const auto* begin = static_cast<const uint8_t*>(blob.GetBufferPointer());
-            AssetPack::GetInstance()->Record(packKey, std::vector<uint8_t>(begin, begin + blob.GetBufferSize()));
+        if (SUCCEEDED(DirectX::SaveToDDSMemory(packSource->GetImages(), packSource->GetImageCount(),
+                packSource->GetMetadata(), DirectX::DDS_FLAGS_NONE, blob))) {
+            DirectX::Blob compressedBlob;
+            const bool compressed = CompressTextureForPack(filePath, *packSource, compressedBlob)
+                && compressedBlob.GetBufferSize() < blob.GetBufferSize();
+            const DirectX::Blob& recordedBlob = compressed ? compressedBlob : blob;
+            const auto* begin = static_cast<const uint8_t*>(recordedBlob.GetBufferPointer());
+            AssetPack::GetInstance()->Record(packKey, std::vector<uint8_t>(begin, begin + recordedBlob.GetBufferSize()),
+                compressed ? blob.GetBufferSize() : 0);
         }
     }
 
@@ -189,7 +253,7 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
     // VRAM（DEFAULT heap）にテクスチャリソースを作成
     // COMMON 状態で作成することで、コピーキューが COPY_DEST へ自動昇格し、
     // ExecuteCommandLists 後に COMMON へ自動復帰する（implicit promotion / decay）
-    auto resource = PipelineHelper::CreateDefaultResource(device, resourceDesc, D3D12_RESOURCE_STATE_COMMON);
+    auto resource = pipelineHelper::CreateDefaultResource(device, resourceDesc, D3D12_RESOURCE_STATE_COMMON);
 
     // GetCopyableFootprints でサブリソースごとのレイアウトと合計サイズを取得
     const UINT subresourceCount = UINT(metadata.mipLevels * metadata.arraySize);
@@ -201,22 +265,20 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
         footprints.data(), numRows.data(), rowSizes.data(), &totalSize);
 
     // 全サブリソースぶんの大きさのアップロードバッファ
-    ComPtr<ID3D12Resource> uploadBuffer = PipelineHelper::CreateUploadBuffer(device, totalSize);
+    ComPtr<ID3D12Resource> uploadBuffer = pipelineHelper::CreateUploadBuffer(device, totalSize);
 
+    // BC形式ではnumRowsがブロック行数、rowSizesとrowPitchがブロック行のバイト数になる。
     // アップロードバッファをマップして全サブリソースを1行ずつ書き込む
     BYTE* pMappedData = nullptr;
     hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMappedData));
     ENGINE_ASSERT(SUCCEEDED(hr));
 
-    for (size_t arrayIndex = 0; arrayIndex < metadata.arraySize; ++arrayIndex)
-    {
-        for (size_t mipLevel = 0; mipLevel < metadata.mipLevels; ++mipLevel)
-        {
+    for (size_t arrayIndex = 0; arrayIndex < metadata.arraySize; ++arrayIndex) {
+        for (size_t mipLevel = 0; mipLevel < metadata.mipLevels; ++mipLevel) {
             const UINT subresource = UINT(mipLevel + arrayIndex * metadata.mipLevels);
             const DirectX::Image* img = finalImage.GetImage(mipLevel, arrayIndex, 0);
             const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& fp = footprints[subresource];
-            for (UINT row = 0; row < numRows[subresource]; ++row)
-            {
+            for (UINT row = 0; row < numRows[subresource]; ++row) {
                 memcpy(
                     pMappedData + fp.Offset + static_cast<UINT64>(row) * fp.Footprint.RowPitch,
                     img->pixels + static_cast<UINT64>(row) * img->rowPitch,
@@ -227,8 +289,7 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
 
     uploadBuffer->Unmap(0, nullptr);
 
-    if (comInitializedHere)
-    {
+    if (comInitializedHere) {
         CoUninitialize();
     }
 
@@ -244,12 +305,10 @@ DecodedTexture TextureManager::DecodeTexture(const std::string& filePath)
 // ══════════════════════════════════════════════════════
 
 /** @brief デコード結果の転送コマンドを記録し、まとめて実行するまで保留する */
-void TextureManager::QueueUpload(const DecodedTexture& decoded)
-{
+void TextureManager::QueueUpload(const DecodedTexture& decoded) {
     // 永続コピーコマンドリストにサブリソースごとの転送コマンドを記録する
     // （実行は FlushUploads() で一括して行う）
-    for (UINT subresource = 0; subresource < decoded.subresourceCount; ++subresource)
-    {
+    for (UINT subresource = 0; subresource < decoded.subresourceCount; ++subresource) {
         D3D12_TEXTURE_COPY_LOCATION dst { };
         dst.pResource = decoded.resource.Get();
         dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -271,8 +330,7 @@ void TextureManager::QueueUpload(const DecodedTexture& decoded)
 
 /** @brief 画像ファイルを読み込み、GPUリソースを作成してコピーコマンドを積む（SRVはまだ作らない） */
 ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
-    const std::string& filePath, DirectX::TexMetadata& outMetadata)
-{
+    const std::string& filePath, DirectX::TexMetadata& outMetadata) {
     DecodedTexture decoded = DecodeTexture(filePath);
     outMetadata = decoded.metadata;
     ComPtr<ID3D12Resource> resource = decoded.resource;
@@ -281,8 +339,7 @@ ComPtr<ID3D12Resource> TextureManager::LoadAndQueueUpload(
 }
 
 /** @brief 欠落パスを識別できる市松模様を同じキーで登録する */
-void TextureManager::LoadMissingTexture(const std::string& filePath)
-{
+void TextureManager::LoadMissingTexture(const std::string& filePath) {
     constexpr uint32_t kFallbackSide = 2;
     static constexpr uint8_t kMissingTexture[] = {
         255, 0, 255, 255, 32, 32, 32, 255,
@@ -293,29 +350,22 @@ void TextureManager::LoadMissingTexture(const std::string& filePath)
 }
 
 /** @brief 複数のテクスチャをまとめて読み込む */
-void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePaths)
-{
+void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePaths) {
     // 読み込み済みは飛ばし、ファイルも pak にも無いものは警告用のテクスチャで代用する
     std::vector<std::string> toLoad;
     toLoad.reserve(filePaths.size());
-    for (auto& path : filePaths)
-    {
-        if (textureDatas_.contains(path))
-        {
+    for (auto& path : filePaths) {
+        if (textureDatas_.contains(path)) {
             continue;
         }
-        if (!std::filesystem::exists(path) && !AssetPack::GetInstance()->Contains("tex:" + path))
-        {
+        if (!std::filesystem::exists(path) && !AssetPack::GetInstance()->Contains("tex:" + path)) {
             // 欠落パス名のまま登録して、呼び出し側を変更せず警告表示へ差し替える
             LoadMissingTexture(path);
-        }
-        else
-        {
+        } else {
             toLoad.push_back(path);
         }
     }
-    if (toLoad.empty())
-    {
+    if (toLoad.empty()) {
         return;
     }
 
@@ -323,28 +373,23 @@ void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePa
     // ID3D12Deviceのメソッドはフリースレッドなので、CreateCommittedResource等をここで呼んでも安全
     std::vector<std::future<DecodedTexture>> futures;
     futures.reserve(toLoad.size());
-    for (auto& path : toLoad)
-    {
+    for (auto& path : toLoad) {
         futures.push_back(std::async(std::launch::async, [this, path] {
             return DecodeTexture(path);
         }));
     }
 
     // コピーコマンドの記録・SRV確保は共有状態（copyCmdList_ / SrvManager）を触るため呼び出しスレッドで順番に行う
-    for (size_t i = 0; i < toLoad.size(); ++i)
-    {
+    for (size_t i = 0; i < toLoad.size(); ++i) {
         DecodedTexture decoded = futures[i].get();
         DirectX::TexMetadata metadata = decoded.metadata;
         QueueUpload(decoded);
 
         uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
-        if (metadata.IsCubemap())
-        {
+        if (metadata.IsCubemap()) {
             SrvManager::GetInstance()->CreateSrvForTextureCube(
                 srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
-        }
-        else
-        {
+        } else {
             SrvManager::GetInstance()->CreateSrvForTexture2D(
                 srvIndex, decoded.resource.Get(), metadata.format, UINT(metadata.mipLevels));
         }
@@ -353,27 +398,21 @@ void TextureManager::LoadTexturesParallel(const std::vector<std::string>& filePa
         data.resource = decoded.resource;
         data.srvIndex = srvIndex;
         data.metadata = metadata;
-        try
-        {
+        try {
             data.lastWriteTime = std::filesystem::last_write_time(toLoad[i]);
-        }
-        catch (...)
-        {
+        } catch (...) {
         }
     }
 }
 
 /** @brief 画像ファイルを読み込み、GPUリソースを作成する */
-void TextureManager::LoadTexture(const std::string& filePath)
-{
+void TextureManager::LoadTexture(const std::string& filePath) {
     // 読み込み済みなら早期リターン
-    if (textureDatas_.contains(filePath))
-    {
+    if (textureDatas_.contains(filePath)) {
         return;
     }
 
-    if (!std::filesystem::exists(filePath) && !AssetPack::GetInstance()->Contains("tex:" + filePath))
-    {
+    if (!std::filesystem::exists(filePath) && !AssetPack::GetInstance()->Contains("tex:" + filePath)) {
         // ピンクと黒の市松模様にして、欠落箇所を実行画面から特定できるようにする
         LoadMissingTexture(filePath);
         return;
@@ -385,13 +424,10 @@ void TextureManager::LoadTexture(const std::string& filePath)
     // SRV作成はCPUのみの操作なので GPU完了前でも安全
     uint32_t srvIndex = SrvManager::GetInstance()->Allocate();
 
-    if (metadata.IsCubemap())
-    {
+    if (metadata.IsCubemap()) {
         SrvManager::GetInstance()->CreateSrvForTextureCube(
             srvIndex, resource.Get(), metadata.format, UINT(metadata.mipLevels));
-    }
-    else
-    {
+    } else {
         SrvManager::GetInstance()->CreateSrvForTexture2D(
             srvIndex, resource.Get(), metadata.format, UINT(metadata.mipLevels));
     }
@@ -401,12 +437,9 @@ void TextureManager::LoadTexture(const std::string& filePath)
     data.resource = resource;
     data.srvIndex = srvIndex; // インデックスを保存
     data.metadata = metadata;
-    try
-    {
+    try {
         data.lastWriteTime = std::filesystem::last_write_time(filePath);
-    }
-    catch (...)
-    {
+    } catch (...) {
     }
 }
 
@@ -415,22 +448,19 @@ void TextureManager::LoadTexture(const std::string& filePath)
 // ══════════════════════════════════════════════════════
 
 /** @brief 読み込み済みテクスチャの SRV インデックスを返す */
-uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath)
-{
+uint32_t TextureManager::GetTextureIndexByFilePath(const std::string& filePath) {
     ENGINE_ASSERT(textureDatas_.contains(filePath));
     return textureDatas_[filePath].srvIndex;
 }
 
 /** @brief 指定したテクスチャのGPUハンドルを取得する */
-D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath)
-{
+D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath) {
     ENGINE_ASSERT(textureDatas_.contains(filePath));
     return SrvManager::GetInstance()->GetGPUDescriptorHandle(textureDatas_[filePath].srvIndex);
 }
 
 /** @brief 指定したテクスチャのメタデータ（幅、高さ、形式など）を取得する */
-const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath)
-{
+const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {
     ENGINE_ASSERT(textureDatas_.contains(filePath));
     return textureDatas_[filePath].metadata;
 }
@@ -440,10 +470,8 @@ const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& fileP
 // ══════════════════════════════════════════════════════
 
 /** @brief 保留中のテクスチャ転送を一括実行し、GPU との同期を1回だけ行う */
-void TextureManager::FlushUploads()
-{
-    if (!hasPendingCopies_)
-    {
+void TextureManager::FlushUploads() {
+    if (!hasPendingCopies_) {
         return;
     }
     hasPendingCopies_ = false;
@@ -473,13 +501,11 @@ void TextureManager::FlushUploads()
 
     std::vector<D3D12_RESOURCE_BARRIER> barriers;
     barriers.reserve(pendingResources_.size());
-    for (auto& res : pendingResources_)
-    {
+    for (auto& res : pendingResources_) {
         barriers.push_back(DirectXCommon::MakeTransitionBarrier(
             res.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
     }
-    if (!barriers.empty())
-    {
+    if (!barriers.empty()) {
         transCmdList_->ResourceBarrier(UINT(barriers.size()), barriers.data());
     }
     hr = transCmdList_->Close();
@@ -500,10 +526,8 @@ void TextureManager::FlushUploads()
 }
 
 /** @brief 読み込み済みテクスチャのファイル更新日時をチェックし、変更があれば再読み込みする */
-void TextureManager::CheckHotReload()
-{
-    if (!hotReloadEnabled_)
-    {
+void TextureManager::CheckHotReload() {
+    if (!hotReloadEnabled_) {
         return;
     }
     /** @brief 再読み込みしたテクスチャと差し替えに使う管理情報 */
@@ -514,24 +538,18 @@ void TextureManager::CheckHotReload()
     };
     std::vector<Reloaded> reloaded;
 
-    for (auto& [path, data] : textureDatas_)
-    {
+    for (auto& [path, data] : textureDatas_) {
         // LoadFromRawRGBA8 生成のテクスチャ（ファイルを持たない）は対象外
-        if (data.lastWriteTime == std::filesystem::file_time_type { })
-        {
+        if (data.lastWriteTime == std::filesystem::file_time_type { }) {
             continue;
         }
         std::filesystem::file_time_type writeTime;
-        try
-        {
+        try {
             writeTime = std::filesystem::last_write_time(path);
-        }
-        catch (...)
-        {
+        } catch (...) {
             continue;
         } // ファイルが一時的に開けない等は無視して次フレームに回す
-        if (writeTime <= data.lastWriteTime)
-        {
+        if (writeTime <= data.lastWriteTime) {
             continue;
         }
         data.lastWriteTime = writeTime;
@@ -539,23 +557,18 @@ void TextureManager::CheckHotReload()
         ComPtr<ID3D12Resource> resource = LoadAndQueueUpload(path, metadata);
         reloaded.push_back({ path, resource, metadata });
     }
-    if (reloaded.empty())
-    {
+    if (reloaded.empty()) {
         return;
     }
     // 新しいリソースへのコピーとバリア遷移をまとめて完了させる
     // （開発中のアセット反復用途なので、同期待ちのコストは許容する）
     FlushUploads();
-    for (auto& r : reloaded)
-    {
+    for (auto& r : reloaded) {
         TextureData& data = textureDatas_[r.path];
-        if (r.metadata.IsCubemap())
-        {
+        if (r.metadata.IsCubemap()) {
             SrvManager::GetInstance()->CreateSrvForTextureCube(
                 data.srvIndex, r.resource.Get(), r.metadata.format, UINT(r.metadata.mipLevels));
-        }
-        else
-        {
+        } else {
             SrvManager::GetInstance()->CreateSrvForTexture2D(
                 data.srvIndex, r.resource.Get(), r.metadata.format, UINT(r.metadata.mipLevels));
         }
@@ -568,10 +581,8 @@ void TextureManager::CheckHotReload()
 // メモリデータ読み込みと終了処理
 // ══════════════════════════════════════════════════════
 void TextureManager::LoadFromRawRGBA8(const std::string& name,
-    const uint8_t* rgbaData, uint32_t width, uint32_t height)
-{
-    if (textureDatas_.contains(name))
-    {
+    const uint8_t* rgbaData, uint32_t width, uint32_t height) {
+    if (textureDatas_.contains(name)) {
         return;
     }
     // RGBA の画素データから、ミップ1段のテクスチャを作る
@@ -587,18 +598,17 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    auto resource = PipelineHelper::CreateDefaultResource(device, resourceDesc, D3D12_RESOURCE_STATE_COMMON);
+    auto resource = pipelineHelper::CreateDefaultResource(device, resourceDesc, D3D12_RESOURCE_STATE_COMMON);
     // アップロードバッファ（行ピッチアライメントを考慮）
     // アップロードバッファは行ごとに決まった境界へ揃えるので、その幅で確保して1行ずつ書く
     const UINT64 rowPitch = ((static_cast<UINT64>(width) * kRgbaBytesPerPixel + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
     const UINT64 uploadSize = rowPitch * height;
-    ComPtr<ID3D12Resource> uploadBuffer = PipelineHelper::CreateUploadBuffer(device, uploadSize);
+    ComPtr<ID3D12Resource> uploadBuffer = pipelineHelper::CreateUploadBuffer(device, uploadSize);
     // ピクセルデータを行ごとにコピー（RowPitch のパディングに対応）
     BYTE* pMapped = nullptr;
     hr = uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pMapped));
     ENGINE_ASSERT(SUCCEEDED(hr));
-    for (uint32_t row = 0; row < height; ++row)
-    {
+    for (uint32_t row = 0; row < height; ++row) {
         memcpy(pMapped + row * rowPitch,
             rgbaData + static_cast<UINT64>(row) * width * kRgbaBytesPerPixel,
             static_cast<size_t>(width) * kRgbaBytesPerPixel);
@@ -641,12 +651,10 @@ void TextureManager::LoadFromRawRGBA8(const std::string& name,
     data.metadata.dimension = DirectX::TEX_DIMENSION_TEXTURE2D;
 }
 /** @brief マネージャーの終了処理保持している全テクスチャリソースを解放する */
-void TextureManager::Finalize()
-{
+void TextureManager::Finalize() {
     // 保留中の転送があれば完了させてからリソースを解放する
     FlushUploads();
-    if (copyFenceEvent_)
-    {
+    if (copyFenceEvent_) {
         CloseHandle(copyFenceEvent_);
         copyFenceEvent_ = nullptr;
     }

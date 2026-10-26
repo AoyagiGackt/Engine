@@ -15,8 +15,7 @@ using namespace engine::game;
 // メイン関数
 
 /** @brief 例外処理と診断を初期化してゲームのメインループを実行する */
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-{
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // 未処理例外が起きてもダンプとログを残せるよう最初に登録する
     CrashHandler::Install();
 

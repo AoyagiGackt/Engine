@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "CollisionConfig.h"
+#include <vector>
 namespace engine {
 /**
  * @brief 各種形状の衝突判定を提供する静的クラス
@@ -76,6 +77,15 @@ public:
      * @brief レイ vs Collider（形状を自動ディスパッチ）
      */
     static bool Raycast(const Ray& ray, const Collider& collider, RaycastResult& result);
+
+    /**
+     * @brief fromX から toX へ横に動く時、途中にある壁の手前 clearance の位置で止めたX座標を返す
+     * @param bandBottom 壁とみなす高さの下端（上面がこれ以下のブロックは床として無視する）
+     * @param bandTop 壁とみなす高さの上端（下面がこれ以上のブロックは頭上として無視する）
+     * @note 壁がすぐ近くにある時は、壁から clearance 離れるまで動く向きと逆へ戻した位置になる
+     */
+    static float LimitHorizontalMove(const std::vector<AABB>& solids, float fromX, float toX,
+        float bandBottom, float bandTop, float clearance);
 
 private:
     // 内部ユーティリティ

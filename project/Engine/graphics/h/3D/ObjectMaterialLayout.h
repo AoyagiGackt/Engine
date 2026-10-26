@@ -24,7 +24,7 @@ struct ObjectMaterialLayout {
     int useNormalMap = 0;
     float metallic = 0.0f;
     float roughness = 0.5f;
-    float _pbr_pad[3] = { };
+    float pbrPad[3] = { };
 };
 
 } // namespace engine::graphics

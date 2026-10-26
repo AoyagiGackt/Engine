@@ -17,8 +17,7 @@ constexpr const char* kDefaultTexturePath = "Resources/SkyDome/skySphere.png";
 }
 
 /** @brief 天球オブジェクトの生成と設定 */
-void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
-{
+void Skydome::Initialize(ModelCommon* modelCommon, Model* model) {
     object_ = std::make_unique<Object3d>();
     object_->Initialize(modelCommon);
     object_->SetModel(model);
@@ -31,17 +30,14 @@ void Skydome::Initialize(ModelCommon* modelCommon, Model* model)
 }
 
 /** @brief 既定の空のモデル（Resources/SkyDome）を読み込んで天球を作る */
-void Skydome::InitializeDefault(ModelCommon* modelCommon)
-{
+void Skydome::InitializeDefault(ModelCommon* modelCommon) {
     // モデルは ModelManager が持ち、同じ空を使う画面どうしで共有する
     Initialize(modelCommon, ModelManager::GetInstance()->GetOrLoad(modelCommon, kDefaultModelPath, kDefaultTexturePath));
 }
 
 /** @brief カメラの位置を取得し、天球をその場所に移動させる */
-void Skydome::Update(Camera* camera)
-{
-    if (camera != nullptr)
-    {
+void Skydome::Update(Camera* camera) {
+    if (camera != nullptr) {
         Vector3 camPos = camera->GetTransform().translate;
         object_->SetPosition(camPos);
     }
@@ -51,17 +47,14 @@ void Skydome::Update(Camera* camera)
 }
 
 /** @brief 天球を描画 */
-void Skydome::Draw()
-{
-    if (object_)
-    {
+void Skydome::Draw() {
+    if (object_) {
         object_->Draw();
     }
 }
 
 /** @brief 天球全体に色味を乗算する（デフォルトは白 = 無変化） */
-void Skydome::SetSkyColor(const Vector4& color)
-{
+void Skydome::SetSkyColor(const Vector4& color) {
     object_->SetColor(color);
 }
 } // namespace engine::graphics

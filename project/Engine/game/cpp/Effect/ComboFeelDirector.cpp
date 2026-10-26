@@ -83,8 +83,7 @@ constexpr float kZoomAttackRatio = 0.18f; // ズームの所要時間のうち�
 constexpr float kMicrosPerSecond = 1000000.0f;
 
 /** @brief 2色を割合 t で混ぜた色を返す */
-Vector4 MixColor(const Vector4& a, const Vector4& b, float t)
-{
+Vector4 MixColor(const Vector4& a, const Vector4& b, float t) {
     return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t };
 }
 
@@ -94,16 +93,12 @@ nlohmann::json ToJson(const Vector3& v) {
 }
 
 /** @brief 数値の配列なら要素数ぶん読み出す（形が違えばfalse） */
-bool FloatsFromJson(const nlohmann::json& j, float* out, size_t count)
-{
-    if (!j.is_array() || j.size() != count)
-    {
+bool FloatsFromJson(const nlohmann::json& j, float* out, size_t count) {
+    if (!j.is_array() || j.size() != count) {
         return false;
     }
-    for (size_t i = 0; i < count; ++i)
-    {
-        if (!j[i].is_number())
-        {
+    for (size_t i = 0; i < count; ++i) {
+        if (!j[i].is_number()) {
             return false;
         }
         out[i] = j[i].get<float>();
@@ -112,8 +107,7 @@ bool FloatsFromJson(const nlohmann::json& j, float* out, size_t count)
 }
 
 /** @brief 3要素のJSON配列から Vector3 を読む（形が違えば既定値を返す） */
-Vector3 Vector3FromJson(const nlohmann::json& j, const Vector3& fallback)
-{
+Vector3 Vector3FromJson(const nlohmann::json& j, const Vector3& fallback) {
     constexpr size_t kVector3Size = 3;
     Vector3 v = fallback;
     return FloatsFromJson(j, &v.x, kVector3Size) ? v : fallback;
@@ -123,8 +117,7 @@ Vector3 Vector3FromJson(const nlohmann::json& j, const Vector3& fallback)
 } // namespace
 
 /** @brief 演出設定を既定値で初期化する */
-ComboFeelSettings::ComboFeelSettings()
-{
+ComboFeelSettings::ComboFeelSettings() {
     // WeaponTypeの並びに合わせたモデル空間の根元と先端。
     static constexpr std::array<BladeRange, kWeaponTypeCount> kDefaultBlades = {{
         { { 0.0f, 0.3f, 0.0f }, { 0.0f, 4.35f, 0.0f } },
@@ -144,8 +137,7 @@ ComboFeelSettings::ComboFeelSettings()
 // ══════════════════════════════════════════════════════
 
 /** @brief 刃の軌跡・光る軌跡・ブラーを初期化し、演出設定を JSON から読み込む */
-void ComboFeelDirector::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void ComboFeelDirector::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     trail_.Initialize(dxCommon);
     glowTrail_.Initialize(dxCommon);
     blur_.Initialize(dxCommon, srvManager);
@@ -155,8 +147,7 @@ void ComboFeelDirector::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
 }
 
 /** @brief 演出の状態を消す（シーン終了時に呼ぶ） */
-void ComboFeelDirector::Finalize()
-{
+void ComboFeelDirector::Finalize() {
     impactTimer_ = -1.0f;
     blur_.SetParams(kScreenCenterUV, kScreenCenterUV, 0.0f, settings_.blurSamples);
     trail_.Clear();
@@ -168,18 +159,16 @@ void ComboFeelDirector::Finalize()
 // ══════════════════════════════════════════════════════
 
 /** @brief 刃の位置を軌跡に積み、締め演出の時間を進める（毎フレーム呼ぶ） */
-void ComboFeelDirector::Update(const Player& player, const Vector4& weaponColor, Camera* camera, bool gameAdvanced)
-{
+void ComboFeelDirector::Update(const Player& player, const Vector4& weaponColor, Camera* camera, bool gameAdvanced) {
     lastPlayerPos_ = player.GetPosition();
 
     const auto begin = std::chrono::high_resolution_clock::now();
     ApplyTrailStyle(weaponColor);
     // ヒットストップやスローで止まったフレームは刃も止まっているので、積まずに帯ごと止める
-    if (gameAdvanced)
-    {
+    if (gameAdvanced) {
         SampleBlade(player);
     }
-    const float trailDt = gameAdvanced ? GameConstants::kFrameDeltaTime : 0.0f;
+    const float trailDt = gameAdvanced ? gameConstants::kFrameDeltaTime : 0.0f;
     trail_.Update(trailDt, camera);
     glowTrail_.Update(trailDt, camera);
     const auto end = std::chrono::high_resolution_clock::now();
@@ -189,16 +178,13 @@ void ComboFeelDirector::Update(const Player& player, const Vector4& weaponColor,
 }
 
 /** @brief 刃の範囲を武器行列でワールドへ移して軌跡に積む */
-void ComboFeelDirector::SampleBlade(const Player& player)
-{
+void ComboFeelDirector::SampleBlade(const Player& player) {
     // 近接の段が出ていない・武器を持っていない間は帯を途切れさせて何も積まない
     const MeleeAttackDef* attack = player.GetActiveMeleeAttack();
     WeaponType type { };
     Matrix4x4 weaponMatrix { };
-    if (attack == nullptr || !player.GetHeldWeaponTransform(type, weaponMatrix))
-    {
-        if (lastAttack_ != nullptr)
-        {
+    if (attack == nullptr || !player.GetHeldWeaponTransform(type, weaponMatrix)) {
+        if (lastAttack_ != nullptr) {
             trail_.BreakStroke();
             glowTrail_.BreakStroke();
         }
@@ -206,8 +192,7 @@ void ComboFeelDirector::SampleBlade(const Player& player)
         return;
     }
     // 段が切り替わったら前の振りと帯を繋がない（振り抜きと次の振りかぶりの間に帯が渡らないように）
-    if (attack != lastAttack_)
-    {
+    if (attack != lastAttack_) {
         trail_.BreakStroke();
         glowTrail_.BreakStroke();
     }
@@ -215,8 +200,7 @@ void ComboFeelDirector::SampleBlade(const Player& player)
 
     // 武器ごとの刃の根元と先端を、今の武器の行列でワールド座標へ移して帯に積む
     const size_t index = static_cast<size_t>(type);
-    if (index >= settings_.blades.size())
-    {
+    if (index >= settings_.blades.size()) {
         return;
     }
     lastWeaponIndex_ = static_cast<int>(index);
@@ -234,8 +218,7 @@ void ComboFeelDirector::SampleBlade(const Player& player)
 }
 
 /** @brief 軌跡の色を設定値と武器の色から作る */
-void ComboFeelDirector::ApplyTrailStyle(const Vector4& weaponColor)
-{
+void ComboFeelDirector::ApplyTrailStyle(const Vector4& weaponColor) {
     constexpr Vector4 kWhite = { 1.0f, 1.0f, 1.0f, 1.0f };
     const bool boosted = IsAwakenBoosted();
     const float lifetime = settings_.trailLifetime * (boosted ? settings_.awakenTrailLifetimeScale : 1.0f);
@@ -261,15 +244,12 @@ void ComboFeelDirector::ApplyTrailStyle(const Vector4& weaponColor)
 }
 
 /** @brief 刃の軌跡を描画する（3D描画パス内、パーティクルの後に呼ぶ） */
-void ComboFeelDirector::DrawTrail()
-{
-    if (!settings_.trailEnabled)
-    {
+void ComboFeelDirector::DrawTrail() {
+    if (!settings_.trailEnabled) {
         return;
     }
     // 光の帯を先に描き、その上に芯の帯を重ねる
-    if (IsAwakenBoosted())
-    {
+    if (IsAwakenBoosted()) {
         glowTrail_.Draw();
     }
     trail_.Draw();
@@ -280,53 +260,44 @@ void ComboFeelDirector::DrawTrail()
 // ══════════════════════════════════════════════════════
 
 /** @brief 指定位置を中心に締め演出（ブラー・ズーム・スロー）を発動する */
-void ComboFeelDirector::TriggerFinisherImpact(const Vector3& worldPos)
-{
-    if (!settings_.impactEnabled)
-    {
+void ComboFeelDirector::TriggerFinisherImpact(const Vector3& worldPos) {
+    if (!settings_.impactEnabled) {
         return;
     }
     impactTimer_ = 0.0f;
     impactPos_ = worldPos;
     // 覚醒中の締めはブラー・ズーム・スローをまとめて強める（スローは長くするだけで、遅さは変えない）
     impactScale_ = IsAwakenBoosted() ? settings_.awakenImpactScale : 1.0f;
-    if (settings_.slowEnabled)
-    {
+    if (settings_.slowEnabled) {
         TimeManager::GetInstance()->RequestSlowMotion(settings_.slowSeconds * impactScale_, settings_.slowScale);
     }
 }
 
 /** @brief 締め演出の経過時間を進め、ブラーの強さと中心を更新する */
-void ComboFeelDirector::UpdateImpact(const Camera* camera)
-{
+void ComboFeelDirector::UpdateImpact(const Camera* camera) {
     float strength = 0.0f;
-    if (impactTimer_ >= 0.0f)
-    {
+    if (impactTimer_ >= 0.0f) {
         // ヒットストップ中こそ見せたい演出なので、ゲームの停止とは無関係に実時間で進める
-        impactTimer_ += GameConstants::kFrameDeltaTime;
+        impactTimer_ += gameConstants::kFrameDeltaTime;
 
         const float t = (settings_.blurSeconds > 0.0f) ? impactTimer_ / settings_.blurSeconds : 1.0f;
-        if (settings_.impactEnabled && settings_.radialBlurEnabled && t < 1.0f)
-        {
+        if (settings_.impactEnabled && settings_.radialBlurEnabled && t < 1.0f) {
             const float remain = 1.0f - t;
             strength = settings_.blurPeak * impactScale_ * remain * remain;
         }
         // 当たった位置を画面UVへ投影して放射の中心にする（カメラが寄っても中心がずれない）
-        if (camera != nullptr)
-        {
+        if (camera != nullptr) {
             const Matrix4x4 vp = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
             const Vector3& p = impactPos_;
             const float cx = p.x * vp.m[0][0] + p.y * vp.m[1][0] + p.z * vp.m[2][0] + vp.m[3][0];
             const float cy = p.x * vp.m[0][1] + p.y * vp.m[1][1] + p.z * vp.m[2][1] + vp.m[3][1];
             const float cw = p.x * vp.m[0][3] + p.y * vp.m[1][3] + p.z * vp.m[2][3] + vp.m[3][3];
-            if (cw > kMinClipW)
-            {
+            if (cw > kMinClipW) {
                 blurCenterU_ = cx / cw * 0.5f + 0.5f;
                 blurCenterV_ = 0.5f - cy / cw * 0.5f;
             }
         }
-        if (impactTimer_ >= (std::max)(settings_.blurSeconds, settings_.zoomSeconds))
-        {
+        if (impactTimer_ >= (std::max)(settings_.blurSeconds, settings_.zoomSeconds)) {
             impactTimer_ = -1.0f;
         }
     }
@@ -334,32 +305,25 @@ void ComboFeelDirector::UpdateImpact(const Camera* camera)
 }
 
 /** @brief 締めのラジアルブラーを画面へ掛ける（3D描画の後・UIの前、バックバッファ直描き時だけ呼ぶ） */
-void ComboFeelDirector::ApplyScreenEffects()
-{
+void ComboFeelDirector::ApplyScreenEffects() {
     blur_.CaptureAndApply();
 }
 
 /** @brief 締めのズームをカメラ位置へ加える（シーンがカメラ位置を決め終えた後に呼ぶ） */
-void ComboFeelDirector::ApplyCameraZoom(Camera* camera) const
-{
+void ComboFeelDirector::ApplyCameraZoom(Camera* camera) const {
     if (camera == nullptr || impactTimer_ < 0.0f || !settings_.impactEnabled || !settings_.zoomEnabled
-        || settings_.zoomSeconds <= 0.0f)
-    {
+        || settings_.zoomSeconds <= 0.0f) {
         return;
     }
     const float t = impactTimer_ / settings_.zoomSeconds;
-    if (t >= 1.0f)
-    {
+    if (t >= 1.0f) {
         return;
     }
     // 一瞬で寄り、余韻を残しながらゆっくり戻す
     float amount = 0.0f;
-    if (t < kZoomAttackRatio)
-    {
+    if (t < kZoomAttackRatio) {
         amount = t / kZoomAttackRatio;
-    }
-    else
-    {
+    } else {
         const float back = 1.0f - (t - kZoomAttackRatio) / (1.0f - kZoomAttackRatio);
         amount = back * back;
     }
@@ -375,15 +339,12 @@ void ComboFeelDirector::ApplyCameraZoom(Camera* camera) const
 
 /** @brief 近接の段が当たった時に、締めなら締め演出を始め、振りの向きの斬撃線を出す */
 void ComboFeelDirector::OnMeleeHit(const MeleeAttackDef* attack, bool finisher, const Vector3& hitPos,
-    const Vector4& weaponColor, float facingX, const Camera* camera)
-{
+    const Vector4& weaponColor, float facingX, const Camera* camera) {
     // 締めの段なら、斬撃線より先にブラー・ズーム・スローの締め演出を始める
-    if (finisher)
-    {
+    if (finisher) {
         TriggerFinisherImpact(hitPos);
     }
-    if (!settings_.slashEnabled || camera == nullptr)
-    {
+    if (!settings_.slashEnabled || camera == nullptr) {
         return;
     }
 
@@ -395,7 +356,7 @@ void ComboFeelDirector::OnMeleeHit(const MeleeAttackDef* attack, bool finisher, 
     const Vector4 color = MixColor(weaponColor, kWhite, kSlashWhiteMix);
     const Vector3& cam = camera->GetTranslate();
 
-    SceneShared::SpawnSlashMarkWorld(
+    sceneShared::SpawnSlashMarkWorld(
         { hitPos.x - dir.x * halfLen, hitPos.y - dir.y * halfLen },
         { hitPos.x + dir.x * halfLen, hitPos.y + dir.y * halfLen },
         cam.x, cam.y, color, thickness, settings_.slashSeconds);
@@ -403,26 +364,24 @@ void ComboFeelDirector::OnMeleeHit(const MeleeAttackDef* attack, bool finisher, 
     // 少しずらした細い線を重ね、一本の線ではなく刃が通った筋に見せる
     const Vector2 normal = { -dir.y * kSecondSlashOffset, dir.x * kSecondSlashOffset };
     const float secondHalfLen = halfLen * kSecondSlashLengthRatio;
-    SceneShared::SpawnSlashMarkWorld(
+    sceneShared::SpawnSlashMarkWorld(
         { hitPos.x + normal.x - dir.x * secondHalfLen, hitPos.y + normal.y - dir.y * secondHalfLen },
         { hitPos.x + normal.x + dir.x * secondHalfLen, hitPos.y + normal.y + dir.y * secondHalfLen },
         cam.x, cam.y, kWhite, thickness * kSecondSlashThicknessRatio, settings_.slashSeconds);
 
     // 覚醒中は覚醒色の斬撃線を扇状に重ね、1振りで何本も斬ったように見せる
-    if (!IsAwakenBoosted())
-    {
+    if (!IsAwakenBoosted()) {
         return;
     }
     const int extraLines = (std::max)(settings_.awakenSlashCount - 1, 0);
     const float baseAngle = std::atan2(dir.y, dir.x);
-    for (int i = 0; i < extraLines; ++i)
-    {
+    for (int i = 0; i < extraLines; ++i) {
         // 元の線を挟んで左右交互に、外側ほど大きく開く（+1段, -1段, +2段, ...）
         const int stepIndex = i / 2 + 1;
         const float sign = (i % 2 == 0) ? 1.0f : -1.0f;
-        const float angle = baseAngle + sign * static_cast<float>(stepIndex) * settings_.awakenSlashSpreadDeg * GameConstants::kDegToRad;
+        const float angle = baseAngle + sign * static_cast<float>(stepIndex) * settings_.awakenSlashSpreadDeg * gameConstants::kDegToRad;
         const Vector2 fan = { std::cos(angle), std::sin(angle) };
-        SceneShared::SpawnSlashMarkWorld(
+        sceneShared::SpawnSlashMarkWorld(
             { hitPos.x - fan.x * halfLen, hitPos.y - fan.y * halfLen },
             { hitPos.x + fan.x * halfLen, hitPos.y + fan.y * halfLen },
             cam.x, cam.y, settings_.awakenColor, thickness * kSecondSlashThicknessRatio, settings_.slashSeconds);
@@ -430,33 +389,26 @@ void ComboFeelDirector::OnMeleeHit(const MeleeAttackDef* attack, bool finisher, 
 }
 
 /** @brief 刃先の動きから斬撃線の向きを決める（動きが取れなければ段の振り方から推定する） */
-Vector2 ComboFeelDirector::DecideSlashDirection(const MeleeAttackDef* attack, float facingX) const
-{
+Vector2 ComboFeelDirector::DecideSlashDirection(const MeleeAttackDef* attack, float facingX) const {
     const float facing = (facingX >= 0.0f) ? 1.0f : -1.0f;
 
     // 実際に刃先が動いた向き（画面は XY 平面なので Z は捨てる）
     Vector3 motion { };
-    if (trail_.GetRecentTipMotion(settings_.slashDirectionWindow, motion))
-    {
+    if (trail_.GetRecentTipMotion(settings_.slashDirectionWindow, motion)) {
         const float len = std::sqrt(motion.x * motion.x + motion.y * motion.y);
-        if (len >= kMinSlashMotion)
-        {
+        if (len >= kMinSlashMotion) {
             return { motion.x / len, motion.y / len };
         }
     }
 
     // 刃先の記録が無い時は段の定義から推定する（Z軸の振り=画面内の弧、X軸の振り=縦の振り下ろし/突き上げ）
     Vector2 dir = { facing, 0.0f };
-    if (attack != nullptr)
-    {
+    if (attack != nullptr) {
         const float swingZ = attack->swingTo.z - attack->swingFrom.z;
         const float swingX = attack->swingTo.x - attack->swingFrom.x;
-        if (std::abs(swingZ) >= std::abs(swingX))
-        {
+        if (std::abs(swingZ) >= std::abs(swingX)) {
             dir = { facing, (swingZ > 0.0f ? kFallbackDiagonalRise : -kFallbackDiagonalRise) };
-        }
-        else
-        {
+        } else {
             dir = { facing * kFallbackVerticalLean, (swingX > 0.0f ? -1.0f : 1.0f) };
         }
     }
@@ -469,25 +421,19 @@ Vector2 ComboFeelDirector::DecideSlashDirection(const MeleeAttackDef* attack, fl
 // ══════════════════════════════════════════════════════
 
 /** @brief combo_feel.json を読み込み、全項目を読めた場合だけ設定へ反映する */
-void ComboFeelDirector::LoadSettings()
-{
+void ComboFeelDirector::LoadSettings() {
     const nlohmann::json j = JsonHelper::Load(kSettingsPath);
-    if (!j.is_object())
-    {
+    if (!j.is_object()) {
         return;
     }
     // 手で書き換えた JSON の型違いで落ちないよう、作業用の写しに読み、全部読めた時だけ反映する
     ComboFeelSettings s = settings_;
-    try
-    {
+    try {
         ReadJsonFields(j, kSettingsFields, s);
-        if (j.contains("blades") && j["blades"].is_object())
-        {
+        if (j.contains("blades") && j["blades"].is_object()) {
             const nlohmann::json& blades = j["blades"];
-            for (size_t i = 0; i < kWeaponTypeNames.size(); ++i)
-            {
-                if (!blades.contains(kWeaponTypeNames[i]))
-                {
+            for (size_t i = 0; i < kWeaponTypeNames.size(); ++i) {
+                if (!blades.contains(kWeaponTypeNames[i])) {
                     continue;
                 }
                 const nlohmann::json& b = blades[kWeaponTypeNames[i]];
@@ -495,21 +441,17 @@ void ComboFeelDirector::LoadSettings()
                 s.blades[i].tip = Vector3FromJson(b.value("tip", nlohmann::json { }), s.blades[i].tip);
             }
         }
-    }
-    catch (const nlohmann::json::exception&)
-    {
+    } catch (const nlohmann::json::exception&) {
         return;
     }
     settings_ = s;
 }
 
 /** @brief 編集した演出設定をJSONファイルへ保存する */
-void ComboFeelDirector::SaveSettings() const
-{
+void ComboFeelDirector::SaveSettings() const {
     const ComboFeelSettings& s = settings_;
     nlohmann::json blades = nlohmann::json::object();
-    for (size_t i = 0; i < kWeaponTypeNames.size(); ++i)
-    {
+    for (size_t i = 0; i < kWeaponTypeNames.size(); ++i) {
         blades[kWeaponTypeNames[i]] = { { "base", ToJson(s.blades[i].base) }, { "tip", ToJson(s.blades[i].tip) } };
     }
     nlohmann::json j = nlohmann::json::object();
@@ -523,16 +465,13 @@ void ComboFeelDirector::SaveSettings() const
 // ══════════════════════════════════════════════════════
 
 /** @brief F6 でデバッグパネルを開閉し、開いていれば描画する（Update フェーズから呼ぶ） */
-void ComboFeelDirector::UpdateDebugPanel(Input* input)
-{
+void ComboFeelDirector::UpdateDebugPanel(Input* input) {
 #ifdef USE_IMGUI
     // F6 でパネルの表示を切り替える
-    if (input != nullptr && input->TriggerKey(DIK_F6))
-    {
+    if (input != nullptr && input->TriggerKey(DIK_F6)) {
         showPanel_ = !showPanel_;
     }
-    if (!showPanel_)
-    {
+    if (!showPanel_) {
         return;
     }
 
@@ -561,29 +500,24 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
     ComboFeelSettings& s = settings_;
 
     // ウィンドウの×ボタンでも showPanel_ が下りて閉じる
-    if (ImGui::Begin("Combo Feel (F6)", &showPanel_))
-    {
+    if (ImGui::Begin("Combo Feel (F6)", &showPanel_)) {
         // 発表・比較用に全演出をまとめて切り替える
-        if (ImGui::Button("全部オン"))
-        {
+        if (ImGui::Button("全部オン")) {
             s.trailEnabled = s.impactEnabled = s.radialBlurEnabled = s.zoomEnabled = s.slowEnabled = s.slashEnabled = true;
         }
         ImGui::SameLine();
         // 親の3つを切れば子の演出（ブラー・ズーム・スロー）も出なくなるので、子の設定は残しておく
-        if (ImGui::Button("全部オフ"))
-        {
+        if (ImGui::Button("全部オフ")) {
             s.trailEnabled = s.impactEnabled = s.slashEnabled = false;
         }
         ImGui::SameLine();
         // コンボを出さなくても、最後のプレイヤー位置で締めの演出だけを確認できる
-        if (ImGui::Button("締め演出を試す"))
-        {
+        if (ImGui::Button("締め演出を試す")) {
             TriggerFinisherImpact(lastPlayerPos_);
         }
 
         // 刃の帯の見た目と、武器ごとの刃の範囲
-        if (ImGui::CollapsingHeader("1. 刃の軌跡", ImGuiTreeNodeFlags_DefaultOpen))
-        {
+        if (ImGui::CollapsingHeader("1. 刃の軌跡", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("軌跡を描く", &s.trailEnabled);
             ImGui::SliderInt("補間分割数 (1=補間なし)", &s.trailSubdivisions, 1, kMaxSubdivisions);
             ImGui::DragFloat("寿命(秒)", &s.trailLifetime, kTimeDragStep, kMinVisibleLifetime, 1.0f);
@@ -603,8 +537,7 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
         }
 
         // 締めの段で出すブラー・ズーム・スロー
-        if (ImGui::CollapsingHeader("2. 締めの重さ", ImGuiTreeNodeFlags_DefaultOpen))
-        {
+        if (ImGui::CollapsingHeader("2. 締めの重さ", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("締め演出を使う", &s.impactEnabled);
             ImGui::Checkbox("ラジアルブラー", &s.radialBlurEnabled);
             ImGui::SliderFloat("ブラー強度", &s.blurPeak, 0.0f, kMaxBlurStrength);
@@ -621,8 +554,7 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
         }
 
         // 命中点に出す斬撃線の大きさと表示時間
-        if (ImGui::CollapsingHeader("3. 振りの向きの斬撃線", ImGuiTreeNodeFlags_DefaultOpen))
-        {
+        if (ImGui::CollapsingHeader("3. 振りの向きの斬撃線", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("斬撃線を出す", &s.slashEnabled);
             ImGui::DragFloat("長さ(半分)", &s.slashLength, kFineDragStep, 0.0f, kMaxSlashHalfLength);
             ImGui::DragFloat("太さ", &s.slashThickness, kThicknessDragStep, 0.0f, kMaxSlashThickness);
@@ -635,8 +567,7 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
         }
 
         // 覚醒中だけ強める色・帯・斬撃線の本数
-        if (ImGui::CollapsingHeader("4. 覚醒", ImGuiTreeNodeFlags_DefaultOpen))
-        {
+        if (ImGui::CollapsingHeader("4. 覚醒", ImGuiTreeNodeFlags_DefaultOpen)) {
             constexpr int kMaxAwakenSlashCount = 7;
             ImGui::Checkbox("覚醒中に派手にする", &s.awakenEnabled);
             ImGui::Checkbox("覚醒していなくても見る（確認用）", &previewAwaken_);
@@ -654,13 +585,11 @@ void ComboFeelDirector::UpdateDebugPanel(Input* input)
 
         // 調整した値を combo_feel.json へ保存・読み直しする
         ImGui::Separator();
-        if (ImGui::Button("保存"))
-        {
+        if (ImGui::Button("保存")) {
             SaveSettings();
         }
         ImGui::SameLine();
-        if (ImGui::Button("読み直し"))
-        {
+        if (ImGui::Button("読み直し")) {
             LoadSettings();
         }
         ImGui::SameLine();

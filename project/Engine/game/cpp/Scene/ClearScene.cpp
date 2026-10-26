@@ -50,15 +50,14 @@ static constexpr Vector4 kRecordsColor = { 0.2f, 0.2f, 0.25f, 1.0f };
 // 初期化
 
 /** @brief 背景・スコア・ランキング表示のスプライトを生成して初期化する */
-void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
-{
+void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     // 背景（白）
     clearSprite_ = std::make_unique<Sprite>();
     clearSprite_->Initialize(spriteCommon_.get(), "Resources/white.png");
     clearSprite_->SetPosition({ 0.0f, 0.0f });
-    clearSprite_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
+    clearSprite_->SetSize({ gameConstants::kScreenWidth, gameConstants::kScreenHeight });
 
     // "SCORE" ラベル
     scoreLabel_ = std::make_unique<Sprite>();
@@ -81,13 +80,11 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     runScore_ = rd->IsRunActive() ? rd->GetScore() : 0;
 
     // cook中（素材をpakへ記録するために画面を開いているだけ）はスコアや通算記録を書き換えない
-    if (AssetPack::GetInstance()->IsCooking())
-    {
+    if (AssetPack::GetInstance()->IsCooking()) {
         return;
     }
 
-    if (rd->IsRunActive())
-    {
+    if (rd->IsRunActive()) {
         ScoreManager::GetInstance()->SubmitAndSave(runScore_);
         SaveDataManager::GetInstance()->RecordRunResult(true, rd->GetFloor(), rd->GetGold());
     }
@@ -96,17 +93,14 @@ void ClearScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 // 終了
 
 /** @brief 終了処理（所有する資源は unique_ptr が解放するので何もしない） */
-void ClearScene::Finalize()
-{
+void ClearScene::Finalize() {
 }
 
 // 更新
 
 /** @brief スペースキーでタイトルへ戻し、デバッグ用のスコア表示を更新する */
-void ClearScene::Update()
-{
-    if (input_->TriggerKey(DIK_SPACE))
-    {
+void ClearScene::Update() {
+    if (input_->TriggerKey(DIK_SPACE)) {
         SceneFlow::GetInstance()->Transition("CLEAR", "title", "TITLE");
     }
 
@@ -116,8 +110,7 @@ void ClearScene::Update()
 // 描画
 
 /** @brief UI 配置を反映して、背景・スコア・ランキングを描画する */
-void ClearScene::Draw()
-{
+void ClearScene::Draw() {
     // エディタ表示中はUpdate()が止まるため、配置の反映は毎フレーム必ず通るここで行う
     UILayout& layout = UILayout::Get(kLayoutName);
     clearSprite_->SetColor(layout.Color("background.color", kBackgroundColor));
@@ -145,7 +138,7 @@ void ClearScene::Draw()
         const float digitGap = layout.Float("score.digit_gap", kScoreDigitGap);
         const float scoreY = layout.Float("score.y", kScoreY);
         float totalW = s.size() * (digitSize.x + digitGap) - digitGap;
-        float startX = (GameConstants::kScreenWidth - totalW) * 0.5f;
+        float startX = (gameConstants::kScreenWidth - totalW) * 0.5f;
         scoreDisplay_.DrawNumber(runScore_, { startX, scoreY }, digitSize, digitGap);
     }
 
@@ -164,8 +157,7 @@ void ClearScene::Draw()
 }
 
 /** @brief セーブデータの通算記録を左下へ描画する */
-void ClearScene::DrawRecords(UILayout& layout)
-{
+void ClearScene::DrawRecords(UILayout& layout) {
     const SaveRecords records = SaveDataManager::GetInstance()->GetRecordSnapshot();
     const std::wstring lines[] = {
         L"通算記録",
@@ -181,8 +173,7 @@ void ClearScene::DrawRecords(UILayout& layout)
 
     fontRenderer_.Reset();
     float y = position.y;
-    for (const std::wstring& line : lines)
-    {
+    for (const std::wstring& line : lines) {
         fontRenderer_.DrawStringW(line, position.x, y, scale, color);
         y += rowSpacing;
     }
@@ -192,11 +183,9 @@ void ClearScene::DrawRecords(UILayout& layout)
 // デバッグ UI（ImGui）
 
 /** @brief このシーンのスコアを ImGui のウィンドウに表示する */
-void ClearScene::DrawScoreUI()
-{
+void ClearScene::DrawScoreUI() {
 #ifdef USE_IMGUI
-    if (!imguiManager_)
-    {
+    if (!imguiManager_) {
         return;
     }
 
@@ -208,8 +197,7 @@ void ClearScene::DrawScoreUI()
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
     ImGui::Text("Score : %d", runScore_);
     ImGui::Separator();
-    if (ImGui::Button("Reset All Scores"))
-    {
+    if (ImGui::Button("Reset All Scores")) {
         ScoreManager::GetInstance()->ResetAllScores();
     }
     ImGui::Separator();

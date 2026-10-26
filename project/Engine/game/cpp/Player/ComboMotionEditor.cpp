@@ -40,37 +40,29 @@ struct StepEntry {
 };
 
 /** @brief 今の武器で編集できる段（地上・空中・打ち上げ・固有技の連撃）を並べる */
-std::vector<StepEntry> CollectSteps(WeaponType weaponType)
-{
+std::vector<StepEntry> CollectSteps(WeaponType weaponType) {
     std::vector<StepEntry> steps;
     const MeleeComboSet& set = GetMeleeComboSet(weaponType);
-    for (int i = 0; i < set.ground.count; ++i)
-    {
+    for (int i = 0; i < set.ground.count; ++i) {
         steps.push_back({ "地上 " + std::to_string(i + 1) + " : " + set.ground[i].id, &set.ground[i] });
     }
-    for (int i = 0; i < set.air.count; ++i)
-    {
+    for (int i = 0; i < set.air.count; ++i) {
         steps.push_back({ "空中 " + std::to_string(i + 1) + " : " + set.air[i].id, &set.air[i] });
     }
-    if (set.launcher != nullptr)
-    {
+    if (set.launcher != nullptr) {
         steps.push_back({ std::string("打ち上げ : ") + set.launcher->id, set.launcher });
     }
     const ComboArray<MeleeAttackDef>& skill = GetSkillSequence(weaponType);
-    for (int i = 0; i < skill.count; ++i)
-    {
+    for (int i = 0; i < skill.count; ++i) {
         steps.push_back({ "固有技 " + std::to_string(i + 1) + " : " + skill[i].id, &skill[i] });
     }
     return steps;
 }
 
 /** @brief 武器の種類と技の ID から技の定義を探す（無ければ nullptr） */
-const MeleeAttackDef* FindAttack(WeaponType weaponType, const std::string& id)
-{
-    for (const StepEntry& step : CollectSteps(weaponType))
-    {
-        if (id == step.attack->id)
-        {
+const MeleeAttackDef* FindAttack(WeaponType weaponType, const std::string& id) {
+    for (const StepEntry& step : CollectSteps(weaponType)) {
+        if (id == step.attack->id) {
             return step.attack;
         }
     }
@@ -78,8 +70,7 @@ const MeleeAttackDef* FindAttack(WeaponType weaponType, const std::string& id)
 }
 
 /** @brief 指の骨か（一覧が長くなりすぎるので既定では隠す） */
-bool IsFingerBone(const std::string& name)
-{
+bool IsFingerBone(const std::string& name) {
     return name.find("Finger") != std::string::npos || name.find("Thumb") != std::string::npos
         || name.find("finger") != std::string::npos || name.find("thumb") != std::string::npos;
 }
@@ -87,23 +78,19 @@ bool IsFingerBone(const std::string& name)
 } // namespace
 
 /** @brief F7で開閉し、開いていればパネルを描いてプレビューを進める（Updateフェーズから呼ぶこと） */
-bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponType)
-{
+bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponType) {
 #ifdef USE_IMGUI
     // F7 でエディタの表示を切り替える
-    if (input != nullptr && input->TriggerKey(DIK_F7))
-    {
+    if (input != nullptr && input->TriggerKey(DIK_F7)) {
         open_ = !open_;
     }
 
     const MeleeAttackDef* attack = open_ ? FindAttack(weaponType, selectedAttackId_) : nullptr;
     // 武器を持ち替えて選んでいた段が無くなったら、その武器の最初の段を選び直す
     // （段が無いままだとプレビューが切れて、止めていたゲームが勝手に動き出すため）
-    if (open_ && attack == nullptr)
-    {
+    if (open_ && attack == nullptr) {
         const std::vector<StepEntry> steps = CollectSteps(weaponType);
-        if (!steps.empty())
-        {
+        if (!steps.empty()) {
             attack = steps.front().attack;
             selectedAttackId_ = attack->id;
             time_ = 0.0f;
@@ -112,15 +99,12 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
     ComboMotionLibrary* library = ComboMotionLibrary::GetInstance();
 
     // プレビュー・加算モーションの切り替えと、掛かり具合の表示
-    if (open_)
-    {
-        if (ImGui::Begin("モーションエディタ (F7)", &open_))
-        {
+    if (open_) {
+        if (ImGui::Begin("モーションエディタ (F7)", &open_)) {
             ImGui::Checkbox("プレビュー（ゲームを止める）", &previewing_);
             ImGui::SameLine();
             bool enabled = library->IsEnabled();
-            if (ImGui::Checkbox("加算モーションを掛ける", &enabled))
-            {
+            if (ImGui::Checkbox("加算モーションを掛ける", &enabled)) {
                 library->SetEnabled(enabled);
             }
             ImGui::TextDisabled("武器はQ/Eで切り替え。角度を動かすと今の時刻にキーが打たれます");
@@ -137,8 +121,7 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
 
             // 段を選び、その段のクリップを時間軸・ボーン一覧・キー編集で編集する（最後に保存・読み直し）
             attack = DrawStepList(weaponType);
-            if (attack != nullptr)
-            {
+            if (attack != nullptr) {
                 library->EditClip(player.GetMotionRigId(), attack->id, [&](MotionClip& clip) {
                     DrawTimeline(*attack, &clip);
                     DrawBoneList(player, &clip);
@@ -151,26 +134,22 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
     }
 
     // 自動再生は段の実際の長さに合わせて進める
-    if (playing_ && attack != nullptr && attack->duration > 0.0f)
-    {
-        time_ += GameConstants::kFrameDeltaTime * playSpeed_ / attack->duration;
-        if (time_ > 1.0f)
-        {
+    if (playing_ && attack != nullptr && attack->duration > 0.0f) {
+        time_ += gameConstants::kFrameDeltaTime * playSpeed_ / attack->duration;
+        if (time_ > 1.0f) {
             time_ = 0.0f;
         }
     }
 
     // プレビュー中は選んだ段の姿勢をその時刻で止めて見せ、ゲームを止めるよう呼び出し側へ伝える
     const bool previewNow = open_ && previewing_ && attack != nullptr;
-    if (previewNow)
-    {
+    if (previewNow) {
         player.PreviewMeleePose(attack, time_);
         wasPreviewing_ = true;
         return true;
     }
     // プレビューをやめた最初のフレームだけ、止めていた姿勢を元に戻す
-    if (wasPreviewing_)
-    {
+    if (wasPreviewing_) {
         player.EndMeleePreview();
         wasPreviewing_ = false;
     }
@@ -184,36 +163,29 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
 }
 
 /** @brief 開いていれば閉じてプレビューを終える（シーン終了時に呼ぶ） */
-void ComboMotionEditor::Close(Player& player)
-{
+void ComboMotionEditor::Close(Player& player) {
     open_ = false;
     playing_ = false;
-    if (wasPreviewing_)
-    {
+    if (wasPreviewing_) {
         player.EndMeleePreview();
         wasPreviewing_ = false;
     }
 }
 
 /** @brief 段の一覧を描き、選ばれている段を返す（無ければnullptr） */
-const MeleeAttackDef* ComboMotionEditor::DrawStepList(WeaponType weaponType)
-{
+const MeleeAttackDef* ComboMotionEditor::DrawStepList(WeaponType weaponType) {
     const MeleeAttackDef* selected = nullptr;
 #ifdef USE_IMGUI
     constexpr float kStepListHeight = 120.0f;
     ImGui::SeparatorText("段");
-    if (ImGui::BeginListBox("##steps", { -FLT_MIN, kStepListHeight }))
-    {
-        for (const StepEntry& step : CollectSteps(weaponType))
-        {
+    if (ImGui::BeginListBox("##steps", { -FLT_MIN, kStepListHeight })) {
+        for (const StepEntry& step : CollectSteps(weaponType)) {
             const bool isSelected = (selectedAttackId_ == step.attack->id);
-            if (ImGui::Selectable(step.label.c_str(), isSelected))
-            {
+            if (ImGui::Selectable(step.label.c_str(), isSelected)) {
                 selectedAttackId_ = step.attack->id;
                 time_ = 0.0f;
             }
-            if (selectedAttackId_ == step.attack->id)
-            {
+            if (selectedAttackId_ == step.attack->id) {
                 selected = step.attack;
             }
         }
@@ -226,8 +198,7 @@ const MeleeAttackDef* ComboMotionEditor::DrawStepList(WeaponType weaponType)
 }
 
 /** @brief 時間軸（スクラブ・再生・ヒット/キャンセル位置・キーの印）を描く */
-void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionClip* clip)
-{
+void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionClip* clip) {
 #ifdef USE_IMGUI
     // 時間軸の帯の大きさと色
     constexpr float kTimelineHeight = 34.0f;
@@ -258,8 +229,7 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 size = { ImGui::GetContentRegionAvail().x, kTimelineHeight };
     ImGui::InvisibleButton("##timeline", size);
-    if (ImGui::IsItemActive() && size.x > 0.0f)
-    {
+    if (ImGui::IsItemActive() && size.x > 0.0f) {
         time_ = std::clamp((ImGui::GetIO().MousePos.x - origin.x) / size.x, 0.0f, 1.0f);
         playing_ = false;
     }
@@ -272,14 +242,11 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
     };
     draw->AddLine({ xAt(hitRatio), origin.y }, { xAt(hitRatio), end.y }, kHitColor, kMarkerThickness);
     draw->AddLine({ xAt(cancelRatio), origin.y }, { xAt(cancelRatio), end.y }, kCancelColor, kMarkerThickness);
-    if (clip != nullptr)
-    {
-        for (const MotionTrack& track : clip->tracks)
-        {
+    if (clip != nullptr) {
+        for (const MotionTrack& track : clip->tracks) {
             const bool selectedTrack = (track.bone == selectedBone_);
             const float inset = selectedTrack ? 0.0f : kOtherKeyInset;
-            for (const MotionKey& key : track.keys)
-            {
+            for (const MotionKey& key : track.keys) {
                 const float x = xAt(key.time);
                 draw->AddRectFilled({ x - kKeyMarkHalfWidth, origin.y + inset }, { x + kKeyMarkHalfWidth, end.y - inset },
                     selectedTrack ? kSelectedKeyColor : kOtherKeyColor);
@@ -300,26 +267,21 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
 }
 
 /** @brief ボーンの一覧を描く */
-void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip* clip)
-{
+void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip* clip) {
 #ifdef USE_IMGUI
     constexpr float kBoneListHeight = 160.0f;
     ImGui::SeparatorText("ボーン");
     ImGui::Checkbox("指の骨も出す", &showFingers_);
-    if (ImGui::BeginListBox("##bones", { -FLT_MIN, kBoneListHeight }))
-    {
+    if (ImGui::BeginListBox("##bones", { -FLT_MIN, kBoneListHeight })) {
         const auto& skeleton = player.GetRigSkeleton();
-        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex)
-        {
+        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex) {
             const auto& joint = skeleton.GetJoint(jointIndex);
-            if (!showFingers_ && IsFingerBone(joint.name))
-            {
+            if (!showFingers_ && IsFingerBone(joint.name)) {
                 continue;
             }
             const bool hasTrack = (clip != nullptr && clip->FindTrack(joint.name) != nullptr);
             const std::string label = (hasTrack ? "* " : "  ") + joint.name;
-            if (ImGui::Selectable(label.c_str(), selectedBone_ == joint.name))
-            {
+            if (ImGui::Selectable(label.c_str(), selectedBone_ == joint.name)) {
                 selectedBone_ = joint.name;
             }
         }
@@ -332,13 +294,11 @@ void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip* cli
 }
 
 /** @brief 選んだボーンのキーを編集する */
-void ComboMotionEditor::DrawKeyEditor(MotionClip& clip)
-{
+void ComboMotionEditor::DrawKeyEditor(MotionClip& clip) {
 #ifdef USE_IMGUI
     // ボーンを選ぶまではキーを編集できない
     ImGui::SeparatorText("キー");
-    if (selectedBone_.empty())
-    {
+    if (selectedBone_.empty()) {
         ImGui::TextDisabled("ボーンを選んでください");
         return;
     }
@@ -349,8 +309,7 @@ void ComboMotionEditor::DrawKeyEditor(MotionClip& clip)
         : (track != nullptr ? track->EvaluateEuler(time_) : Vector3 { });
 
     ImGui::Text("%s  /  時刻 %.2f", selectedBone_.c_str(), time_);
-    if (ImGui::DragFloat3("角度 (度)", &angle.x, kAngleDragSpeed, -kMaxAngle, kMaxAngle))
-    {
+    if (ImGui::DragFloat3("角度 (度)", &angle.x, kAngleDragSpeed, -kMaxAngle, kMaxAngle)) {
         // 動かした時点でこの時刻にキーを打つ（トラックが無ければ始端・終端が無回転のトラックを作る）
         clip.SetBoneKey(selectedBone_, time_, angle, kKeySnap);
         playing_ = false;
@@ -358,30 +317,25 @@ void ComboMotionEditor::DrawKeyEditor(MotionClip& clip)
     ImGui::TextDisabled(keyHere != nullptr ? "この時刻のキーを編集中" : "動かすとこの時刻に新しいキーが打たれます");
 
     // キーの削除（今の時刻のキーだけ・このボーン全部）
-    if (track == nullptr)
-    {
+    if (track == nullptr) {
         return;
     }
-    if (keyHere != nullptr && ImGui::Button("この時刻のキーを消す"))
-    {
+    if (keyHere != nullptr && ImGui::Button("この時刻のキーを消す")) {
         track->RemoveKey(time_, kKeySnap);
     }
     ImGui::SameLine();
-    if (ImGui::Button("このボーンのキーを全部消す"))
-    {
+    if (ImGui::Button("このボーンのキーを全部消す")) {
         clip.RemoveTrack(selectedBone_);
         return;
     }
 
     // キーの一覧（押すとその時刻へ移動する）
-    for (size_t i = 0; i < track->keys.size(); ++i)
-    {
+    for (size_t i = 0; i < track->keys.size(); ++i) {
         const MotionKey& key = track->keys[i];
         char label[kKeyLabelSize];
         snprintf(label, sizeof(label), "%.2f  (%.0f, %.0f, %.0f)##key%zu",
             key.time, key.eulerDeg.x, key.eulerDeg.y, key.eulerDeg.z, i);
-        if (ImGui::Selectable(label, std::abs(key.time - time_) <= kKeySnap))
-        {
+        if (ImGui::Selectable(label, std::abs(key.time - time_) <= kKeySnap)) {
             time_ = key.time;
             playing_ = false;
         }
@@ -392,25 +346,21 @@ void ComboMotionEditor::DrawKeyEditor(MotionClip& clip)
 }
 
 /** @brief 保存・読み直しなどのファイル操作を描く */
-void ComboMotionEditor::DrawFileControls()
-{
+void ComboMotionEditor::DrawFileControls() {
 #ifdef USE_IMGUI
     ImGui::Separator();
-    if (ImGui::Button("保存"))
-    {
+    if (ImGui::Button("保存")) {
         status_ = ComboMotionLibrary::GetInstance()->Save()
             ? "Resources/Config/combo_motion.json に保存しました"
             : "保存に失敗しました（ファイルが書き込めるか確認してください）";
     }
     ImGui::SameLine();
-    if (ImGui::Button("読み直し"))
-    {
+    if (ImGui::Button("読み直し")) {
         status_ = ComboMotionLibrary::GetInstance()->Load()
             ? "読み直しました（保存していない変更は消えました）"
             : "読み直せませんでした（ファイルが無いか形が違うため、今のデータを残しています）";
     }
-    if (!status_.empty())
-    {
+    if (!status_.empty()) {
         ImGui::TextDisabled("%s", status_.c_str());
     }
 #endif

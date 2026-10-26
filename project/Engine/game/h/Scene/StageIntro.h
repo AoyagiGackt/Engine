@@ -94,6 +94,8 @@ private:
     void AdvanceGoText();
     /** @brief GO! の文字を積む（大きく弾んで出て、最後の文字のフェード時間で消える） */
     void QueueGoText(FontRenderer& font) const;
+    /** @brief 演出を飛ばせることを右下に出す（最後に使った機器に合わせてボタン名を変える） */
+    void QueueSkipHint(FontRenderer& font) const;
     void SetPlayerPosition(const Vector3& position);
     /** @brief 演出中のプレイヤーの向き・アニメ・武器の付け方を整える（入力と物理は進めない） */
     void UpdatePlayerPose();

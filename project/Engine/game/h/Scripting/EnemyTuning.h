@@ -6,6 +6,7 @@
 #pragma once
 #include <map>
 #include <string>
+#include <vector>
 namespace engine::game {
 
 /** @brief 敵の静止モデルとテクスチャ、縮尺、向き補正 */
@@ -88,6 +89,9 @@ struct EnemySeparationTuning {
     float wallBandBottom = 0.2f; ///< 位置からこの高さより上に掛かるブロックだけを壁とみなす（足元の床で横へ弾かれないように）
     float wallBandTop = 1.0f; ///< 位置からこの高さまでを体とみなす（これより上の足場の下はくぐれる）
     float wallContactMargin = 0.02f; ///< 壁にこの距離まで近い敵は押されても動かない側として扱う
+    float playerMinDistanceX = 0.7f; ///< 敵が自分から食い込んできた時に、プレイヤーの中心からこれだけ離す（プレイヤー側の minEnemyDistanceX より小さくし、プレイヤーが歩いて敵を押せないようにする）
+    float playerMinDistanceY = 0.75f; ///< プレイヤーとの高さの差がこれ以上なら離さない（プレイヤー側の minEnemyDistanceY と揃える）
+    float playerPushRate = 1.0f; ///< 1フレームで解消するプレイヤーとの重なりの割合（1で即座に離す）
 };
 
 /**
@@ -106,6 +110,8 @@ public:
 
     /** @brief 名前に対応する敵の見た目を返し、未知の名前ではnullptrを返す */
     const EnemyVisualTuning* FindVisual(const std::string& kind) const;
+    /** @brief 登録されている見た目の名前を一覧で返す（エディタの選択肢に使う） */
+    std::vector<std::string> VisualNames() const;
 
     /** @brief 通常の敵の調整値を返す */
     const BasicEnemyTuning& Basic() const {

@@ -165,8 +165,7 @@ struct CombatTuningData {
     float elementScalePerComboStep = 0.12f; ///< コンボ段が1上がるごとの属性演出の拡大率
 
     /** @brief 斬撃数と各段の待ち時間からフィニッシャーの溜め時間を求める */
-    float FinisherChargeDuration() const
-    {
+    float FinisherChargeDuration() const {
         return finisherChargeDelay + finisherSlashLines * finisherLineInterval + finisherImpactDelay;
     }
 
@@ -174,8 +173,7 @@ struct CombatTuningData {
      * @brief 斬撃線を何本出し終えたかから、次の段までの待ち時間を返す（全部出したら解放までの待ち）
      * @param linesDone 出し終えた斬撃線の本数
      */
-    float FinisherBeatDelayAfter(int linesDone) const
-    {
+    float FinisherBeatDelayAfter(int linesDone) const {
         return linesDone < finisherSlashLines ? finisherLineInterval : finisherImpactDelay;
     }
 };
@@ -195,8 +193,7 @@ public:
     void Reload();
 
     /** @brief 崩れる床の時間設定を値として取得する */
-    FallingFloorTiming FloorTiming() const
-    {
+    FallingFloorTiming FloorTiming() const {
         return fallingFloor_;
     }
 
@@ -215,8 +212,7 @@ private:
 };
 
 /** @brief 読み込み済みの戦闘調整値を共通の窓口から取得する */
-inline const CombatTuningData& CombatTune()
-{
+inline const CombatTuningData& CombatTune() {
     return CombatTuning::GetInstance()->Get();
 }
 

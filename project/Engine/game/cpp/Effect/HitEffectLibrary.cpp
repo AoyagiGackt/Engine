@@ -21,14 +21,11 @@ namespace {
 /** @brief hit_effects.json の節を読み、名前ごとのレシピを表へ登録する */
 template <class Def, size_t N>
 void ReadSection(const nlohmann::json& root, const char* section, const JsonField<Def> (&fields)[N],
-    std::unordered_map<std::string, Def>& out)
-{
+    std::unordered_map<std::string, Def>& out) {
     out.clear();
     const nlohmann::json entries = root.value(section, nlohmann::json::object());
-    for (auto it = entries.begin(); it != entries.end(); ++it)
-    {
-        if (it.value().is_object())
-        {
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+        if (it.value().is_object()) {
             out[it.key()] = ReadJsonFields(it.value(), fields);
         }
     }
@@ -202,11 +199,9 @@ constexpr JsonField<TrailDef> kTrailFields[] = {
 };
 
 /** @brief レシピの色に呼び出し側の色指定を反映する */
-Vector4 Styled(const Vector4& recipe, const EffectStyle& style)
-{
+Vector4 Styled(const Vector4& recipe, const EffectStyle& style) {
     Vector4 color = style.color ? Vector4 { style.color->x, style.color->y, style.color->z, style.color->w * recipe.w } : recipe;
-    if (style.tint)
-    {
+    if (style.tint) {
         color = { style.tint->x, style.tint->y, style.tint->z, color.w };
     }
     color.w *= style.alphaScale;
@@ -214,8 +209,7 @@ Vector4 Styled(const Vector4& recipe, const EffectStyle& style)
 }
 
 /** @brief 位置を指定の高さだけ持ち上げた位置を返す */
-Vector3 Raised(const Vector3& position, float height)
-{
+Vector3 Raised(const Vector3& position, float height) {
     return { position.x, position.y + height, position.z };
 }
 } // namespace
@@ -225,25 +219,21 @@ Vector3 Raised(const Vector3& position, float height)
 // ══════════════════════════════════════════════════════
 
 /** @brief 演出定義の共有インスタンスを取得する */
-HitEffectLibrary* HitEffectLibrary::GetInstance()
-{
-    static HitEffectLibrary instance;
-    return &instance;
+HitEffectLibrary* HitEffectLibrary::GetInstance() {
+    static HitEffectLibrary sInstance;
+    return &sInstance;
 }
 
 /** @brief hit_effects.json を読み込んで演出の表を作る */
-HitEffectLibrary::HitEffectLibrary()
-{
+HitEffectLibrary::HitEffectLibrary() {
     Reload();
 }
 
 /** @brief JSONを読み直す */
-void HitEffectLibrary::Reload()
-{
+void HitEffectLibrary::Reload() {
     // 設定が読めなくても空の設定として最後まで読み、既定値の演出で動かす
     const nlohmann::json root = JsonHelper::Load(HitEffectLibrary::kConfigPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("HitEffectLibrary: ") + HitEffectLibrary::kConfigPath + " が読めません。演出は出ません");
     }
     const nlohmann::json safeRoot = root.is_object() ? root : nlohmann::json::object();
@@ -275,8 +265,7 @@ void HitEffectLibrary::Reload()
     // 名前付きの色（読み直しで古い色が残らないよう先に空にする）
     colors_.clear();
     const nlohmann::json colors = safeRoot.value("colors", nlohmann::json::object());
-    for (auto it = colors.begin(); it != colors.end(); ++it)
-    {
+    for (auto it = colors.begin(); it != colors.end(); ++it) {
         colors_[it.key()] = JsonHelper::ReadColor(it.value(), { 1.0f, 1.0f, 1.0f, 1.0f });
     }
 }
@@ -284,21 +273,49 @@ void HitEffectLibrary::Reload()
 /** @brief 表から名前のレシピを探す（無ければ警告を出して空のレシピを返す） */
 template <class Def>
 const Def& HitEffectLibrary::Find(const std::unordered_map<std::string, Def>& table, const std::string& name,
-    const char* section) const
-{
+    const char* section) const {
     auto it = table.find(name);
-    if (it != table.end())
-    {
+    if (it != table.end()) {
         return it->second;
     }
     static const Def kEmpty {};
-    static std::unordered_set<std::string> warned;
+    static std::unordered_set<std::string> sWarned;
     const std::string key = std::string(section) + "." + name;
-    if (warned.insert(key).second)
-    {
+    if (sWarned.insert(key).second) {
         Logger::LogWarning("HitEffectLibrary: " + key + " が hit_effects.json にありません");
     }
     return kEmpty;
+}
+
+namespace {
+/** @brief 表に名前のレシピがあるか */
+template <class Def>
+bool Contains(const std::unordered_map<std::string, Def>& table, const std::string& name) {
+    return table.find(name) != table.end();
+}
+} // namespace
+
+/** @brief その節に名前のレシピがあるか */
+bool HitEffectLibrary::Has(const std::string& section, const std::string& name) const {
+    /** @brief 節の名前と、その節にレシピがあるかの対応 */
+    struct SectionHas {
+        const char* section;
+        bool found;
+    };
+    const SectionHas kSections[] = {
+        { "impacts", Contains(impacts_, name) },
+        { "rings", Contains(rings_, name) },
+        { "sparks", Contains(sparks_, name) },
+        { "slashes", Contains(slashes_, name) },
+        { "flashes", Contains(flashes_, name) },
+        { "stars", Contains(stars_, name) },
+    };
+    for (const SectionHas& entry : kSections) {
+        if (section == entry.section) {
+            return entry.found;
+        }
+    }
+    return false;
 }
 
 /** @brief 名前の衝撃（ヒットストップ・カメラの揺れ）のレシピを返す */
@@ -346,31 +363,25 @@ const Vector4& HitEffectLibrary::Color(const std::string& name) const {
 HitEffectPlayer::HitEffectPlayer(ParticleManager* particles, CameraShaker* shaker, std::mt19937* rng)
     : particles_(particles)
     , shaker_(shaker)
-    , rng_(rng)
-{
+    , rng_(rng) {
 }
 
 /** @brief ヒットストップとカメラ揺れ（style.scale は揺れの強さに掛ける） */
-void HitEffectPlayer::Impact(const std::string& name, const EffectStyle& style) const
-{
+void HitEffectPlayer::Impact(const std::string& name, const EffectStyle& style) const {
     const ImpactDef& def = HitEffectLibrary::GetInstance()->Impact(name);
-    if (def.hitStopFrames > 0)
-    {
+    if (def.hitStopFrames > 0) {
         TimeManager::GetInstance()->RequestHitStop(def.hitStopFrames);
     }
-    if (shaker_ && def.shakeAmount > 0.0f)
-    {
+    if (shaker_ && def.shakeAmount > 0.0f) {
         shaker_->Request(def.shakeAmount * style.scale, def.shakeSeconds);
     }
 }
 
 /** @brief 名前のレシピでリングを出す */
-void HitEffectPlayer::Ring(const std::string& name, const Vector3& position, const EffectStyle& style) const
-{
+void HitEffectPlayer::Ring(const std::string& name, const Vector3& position, const EffectStyle& style) const {
     const RingBurstDef& def = HitEffectLibrary::GetInstance()->Ring(name);
     const int count = def.count + style.extraCount;
-    if (!particles_ || count <= 0)
-    {
+    if (!particles_ || count <= 0) {
         return;
     }
     const float speed = (style.speed ? *style.speed * def.speed : def.speed) * style.scale;
@@ -379,12 +390,10 @@ void HitEffectPlayer::Ring(const std::string& name, const Vector3& position, con
 }
 
 /** @brief 名前のレシピで火花を出す */
-void HitEffectPlayer::Sparks(const std::string& name, const Vector3& position, const EffectStyle& style) const
-{
+void HitEffectPlayer::Sparks(const std::string& name, const Vector3& position, const EffectStyle& style) const {
     const SparkBurstDef& def = HitEffectLibrary::GetInstance()->Sparks(name);
     const int count = def.count + style.extraCount;
-    if (!particles_ || !rng_ || count <= 0)
-    {
+    if (!particles_ || !rng_ || count <= 0) {
         return;
     }
     std::uniform_real_distribution<float> speedX(def.speedXMin, def.speedXMax);
@@ -392,8 +401,7 @@ void HitEffectPlayer::Sparks(const std::string& name, const Vector3& position, c
     const Vector3 origin = Raised(position, def.height);
     const Vector4 color = Styled(def.color, style);
     const Vector4 altColor = Styled(def.altColor, style);
-    for (int i = 0; i < count; ++i)
-    {
+    for (int i = 0; i < count; ++i) {
         // 1粒ごとに左右を入れ替え、両側へ均等に散らす
         const bool even = (i % 2) == 0;
         const float side = even ? -1.0f : 1.0f;
@@ -404,11 +412,9 @@ void HitEffectPlayer::Sparks(const std::string& name, const Vector3& position, c
 }
 
 /** @brief 斬線を出す（facingX が正なら右向きの角度） */
-void HitEffectPlayer::Slash(const std::string& name, const Vector3& position, float facingX, const EffectStyle& style) const
-{
+void HitEffectPlayer::Slash(const std::string& name, const Vector3& position, float facingX, const EffectStyle& style) const {
     const SlashDef& def = HitEffectLibrary::GetInstance()->Slash(name);
-    if (!particles_ || def.particle.empty())
-    {
+    if (!particles_ || def.particle.empty()) {
         return;
     }
     const float angle = style.angle ? *style.angle : (facingX >= 0.0f ? def.angleRight : def.angleLeft);
@@ -417,39 +423,30 @@ void HitEffectPlayer::Slash(const std::string& name, const Vector3& position, fl
 }
 
 /** @brief 名前のレシピで画面フラッシュを出す */
-void HitEffectPlayer::Flash(const std::string& name, const EffectStyle& style) const
-{
+void HitEffectPlayer::Flash(const std::string& name, const EffectStyle& style) const {
     const FlashDef& def = HitEffectLibrary::GetInstance()->Flash(name);
-    if (def.seconds > 0.0f)
-    {
+    if (def.seconds > 0.0f) {
         ScreenFlash::GetInstance()->Request(Styled(def.color, style), def.seconds);
     }
 }
 
 /** @brief 名前のレシピできらめきを出す */
-void HitEffectPlayer::Star(const std::string& name, const Vector3& position, const EffectStyle& style) const
-{
+void HitEffectPlayer::Star(const std::string& name, const Vector3& position, const EffectStyle& style) const {
     const StarDef& def = HitEffectLibrary::GetInstance()->Star(name);
-    if (particles_ && !def.particle.empty())
-    {
+    if (particles_ && !def.particle.empty()) {
         particles_->EmitHitStar(def.particle, Raised(position, def.height), Styled(def.color, style));
     }
 }
 
 /** @brief 名前のレシピでパーティクルを出す */
-void HitEffectPlayer::Particle(const std::string& name, const Vector3& position, const EffectStyle& style) const
-{
+void HitEffectPlayer::Particle(const std::string& name, const Vector3& position, const EffectStyle& style) const {
     const ParticleDef& def = HitEffectLibrary::GetInstance()->Particle(name);
-    if (particles_ && !def.particle.empty())
-    {
+    if (particles_ && !def.particle.empty()) {
         const Vector3 velocity = style.velocity ? *style.velocity : Vector3 { 0.0f, def.riseSpeed, 0.0f };
         const Vector3 origin = Raised(position, def.height);
-        if (def.gravity)
-        {
+        if (def.gravity) {
             particles_->EmitGravity(def.particle, origin, velocity, Styled(def.color, style), def.lifetime, def.size * style.scale);
-        }
-        else
-        {
+        } else {
             particles_->EmitWithColor(def.particle, origin, velocity,
                 Styled(def.color, style), def.lifetime, def.size * style.scale, def.flicker);
         }
@@ -457,11 +454,9 @@ void HitEffectPlayer::Particle(const std::string& name, const Vector3& position,
 }
 
 /** @brief 武器の残像を1粒出す（毎フレーム呼んで軌跡にする） */
-void HitEffectPlayer::Trail(const std::string& name, const Vector3& position, const Vector4& color, const EffectStyle& style) const
-{
+void HitEffectPlayer::Trail(const std::string& name, const Vector3& position, const Vector4& color, const EffectStyle& style) const {
     const TrailDef& def = HitEffectLibrary::GetInstance()->Trail(name);
-    if (particles_ && !def.particle.empty())
-    {
+    if (particles_ && !def.particle.empty()) {
         particles_->EmitTrail(def.particle, Raised(position, def.height), Styled(color, style),
             def.size * style.scale, def.lifetime);
     }

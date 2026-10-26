@@ -8,17 +8,17 @@
  * ■ 使い方（毎フレーム ImGuiManager::Begin() と End() の間）
  *
  *   // 1) フレーム先頭でカメラをセット（1 回でよい）
- *   DiagnosticsDraw::SetCamera(camera, WinApp::kClientWidth, WinApp::kClientHeight);
+ *   diagnosticsDraw::SetCamera(camera, WinApp::kClientWidth, WinApp::kClientHeight);
  *
  *   // 2) 描画したいものを好きなだけ呼ぶ
- *   DiagnosticsDraw::DrawAABB   (aabb,    DiagnosticsDraw::kColorGreen);
- *   DiagnosticsDraw::DrawSphere (sphere,  DiagnosticsDraw::kColorRed);
- *   DiagnosticsDraw::DrawCapsule(capsule, DiagnosticsDraw::kColorCyan);
- *   DiagnosticsDraw::DrawRay    (ray, DiagnosticsDraw::kDefaultRayLength, DiagnosticsDraw::kColorYellow);
- *   DiagnosticsDraw::DrawCollider(obj->GetCollider(), DiagnosticsDraw::kColorWhite);
+ *   diagnosticsDraw::DrawAABB   (aabb,    diagnosticsDraw::kColorGreen);
+ *   diagnosticsDraw::DrawSphere (sphere,  diagnosticsDraw::kColorRed);
+ *   diagnosticsDraw::DrawCapsule(capsule, diagnosticsDraw::kColorCyan);
+ *   diagnosticsDraw::DrawRay    (ray, diagnosticsDraw::kDefaultRayLength, diagnosticsDraw::kColorYellow);
+ *   diagnosticsDraw::DrawCollider(obj->GetCollider(), diagnosticsDraw::kColorWhite);
  *
  * ■ カラー指定
- *   IM_COL32(R, G, B, A)  または  DiagnosticsDraw::kColorGreen など定数を使用してください
+ *   IM_COL32(R, G, B, A)  または  diagnosticsDraw::kColorGreen など定数を使用してください
  */
 #pragma once
 #include <iterator>
@@ -26,7 +26,7 @@
 #include "GameConstants.h"
 #include "MakeAffine.h"
 
-namespace engine::game::DiagnosticsDraw {
+namespace engine::game::diagnosticsDraw {
 /** @brief 線の太さの既定値（px） */
 inline constexpr float kDefaultThickness = 1.5f;
 /** @brief 球のリングの分割数の既定値 */
@@ -44,7 +44,7 @@ inline constexpr float kDefaultCrossSize = 0.3f;
 #include "imgui.h"
 #include <cmath>
 
-namespace engine::game::DiagnosticsDraw {
+namespace engine::game::diagnosticsDraw {
 /** @brief 補助軸を切り替えて外積の縮退を避けるしきい値 */
 inline constexpr float kParallelAxisThreshold = 0.9f;
 /** @brief これより小さい同次座標 w はカメラの後ろとして描かない */
@@ -72,8 +72,8 @@ namespace detail {
     /** @brief デバッグ描画の状態（SetCamera と SetImageViewport で設定する） */
     struct DrawState {
         Matrix4x4 viewProjection = { };
-        float screenWidth = GameConstants::kScreenWidth;
-        float screenHeight = GameConstants::kScreenHeight;
+        float screenWidth = gameConstants::kScreenWidth;
+        float screenHeight = gameConstants::kScreenHeight;
         float thickness = kDefaultThickness;
         ImVec2 imageOrigin = { 0.0f, 0.0f };
         ImVec2 imageSize = { 0.0f, 0.0f };
@@ -81,18 +81,16 @@ namespace detail {
     };
 
     /** @brief デバッグ描画の状態を返す（すべての呼び出しで共有する） */
-    inline DrawState& State()
-    {
-        static DrawState state;
-        return state;
+    inline DrawState& State() {
+        static DrawState sState;
+        return sState;
     }
 
     /**
      * @brief ワールド座標 → ImGui スクリーン座標に変換する
      * @return false なら画面外またはカメラ後方 → 描画しない
      */
-    inline bool WorldToScreen(const Vector3& world, ImVec2& out)
-    {
+    inline bool WorldToScreen(const Vector3& world, ImVec2& out) {
         const DrawState& state = State();
         const Matrix4x4& vp = state.viewProjection;
         // 行ベクトル規約  clip = world * VP
@@ -101,8 +99,7 @@ namespace detail {
         float cw = world.x * vp.m[0][3] + world.y * vp.m[1][3] + world.z * vp.m[2][3] + vp.m[3][3];
 
         // カメラの後ろは描かない
-        if (cw < kMinClipW)
-        {
+        if (cw < kMinClipW) {
             return false;
         }
 
@@ -113,8 +110,7 @@ namespace detail {
         out.x = (ndcX + 1.0f) * 0.5f * state.screenWidth;
         out.y = (1.0f - ndcY) * 0.5f * state.screenHeight;
         // 小窓に描く時は小窓の範囲へ縮める
-        if (state.imageDrawList)
-        {
+        if (state.imageDrawList) {
             out.x = state.imageOrigin.x + out.x * state.imageSize.x / state.screenWidth;
             out.y = state.imageOrigin.y + out.y * state.imageSize.y / state.screenHeight;
         }
@@ -122,8 +118,7 @@ namespace detail {
     }
 
     /** @brief 方向に垂直な単位ベクトルを1本返す（方向と平行に近い補助軸は避ける） */
-    inline Vector3 Perpendicular(const Vector3& direction)
-    {
+    inline Vector3 Perpendicular(const Vector3& direction) {
         const Vector3 helper = std::abs(direction.x) < kParallelAxisThreshold
             ? Vector3 { 1.0f, 0.0f, 0.0f }
             : Vector3 { 0.0f, 1.0f, 0.0f };
@@ -132,8 +127,7 @@ namespace detail {
 } // namespace detail
 
 /** @brief 小窓に合わせて診断線の描画先と投影範囲を切り替える */
-inline void SetImageViewport(ImVec2 origin = {}, ImVec2 size = {}, ImDrawList* drawList = nullptr)
-{
+inline void SetImageViewport(ImVec2 origin = {}, ImVec2 size = {}, ImDrawList* drawList = nullptr) {
     detail::DrawState& state = detail::State();
     state.imageOrigin = origin;
     state.imageSize = size;
@@ -141,8 +135,7 @@ inline void SetImageViewport(ImVec2 origin = {}, ImVec2 size = {}, ImDrawList* d
 }
 
 /** @brief デバッグ表示を描く ImGui の描画リストを返す */
-inline ImDrawList* GetDrawList()
-{
+inline ImDrawList* GetDrawList() {
     ImDrawList* imageDrawList = detail::State().imageDrawList;
     return imageDrawList ? imageDrawList : ImGui::GetForegroundDrawList();
 }
@@ -156,8 +149,7 @@ inline ImDrawList* GetDrawList()
  * @param screenH    画面の高さ px（WinApp::kClientHeight）
  * @param thickness  線の太さ（既定は kDefaultThickness）
  */
-inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float thickness = kDefaultThickness)
-{
+inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float thickness = kDefaultThickness) {
     detail::DrawState& state = detail::State();
     state.viewProjection = vp;
     state.screenWidth = screenW;
@@ -169,8 +161,7 @@ inline void SetCamera(const Matrix4x4& vp, float screenW, float screenH, float t
  * @brief ワールド座標をスクリーン座標に変換する（ギズモのピッキング等、外部から使う用）
  * @return false ならカメラ後方 → 呼び出し側は描画/判定をスキップすること
  */
-inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen)
-{
+inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen) {
     return detail::WorldToScreen(world, outScreen);
 }
 
@@ -180,23 +171,19 @@ inline bool WorldToScreen(const Vector3& world, ImVec2& outScreen)
  * @param to    終点（ワールド座標）
  * @param color IM_COL32(R,G,B,A) で指定
  */
-inline void DrawLine(const Vector3& from, const Vector3& to, ImU32 color = kColorGreen)
-{
+inline void DrawLine(const Vector3& from, const Vector3& to, ImU32 color = kColorGreen) {
     const detail::DrawState& state = detail::State();
     ImDrawList* dl = GetDrawList();
     ImVec2 s, e;
-    if (detail::WorldToScreen(from, s) && detail::WorldToScreen(to, e))
-    {
+    if (detail::WorldToScreen(from, s) && detail::WorldToScreen(to, e)) {
         // 小窓に描く時は小窓の外へはみ出さないよう切り抜く
-        if (state.imageDrawList)
-        {
+        if (state.imageDrawList) {
             const ImVec2 origin = state.imageOrigin;
             const ImVec2 size = state.imageSize;
             dl->PushClipRect(origin, { origin.x + size.x, origin.y + size.y }, true);
         }
         dl->AddLine(s, e, color, state.thickness);
-        if (state.imageDrawList)
-        {
+        if (state.imageDrawList) {
             dl->PopClipRect();
         }
     }
@@ -205,8 +192,7 @@ inline void DrawLine(const Vector3& from, const Vector3& to, ImU32 color = kColo
 /**
  * @brief AABB をワイヤーフレームで描く（12 エッジ）
  */
-inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen)
-{
+inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen) {
     const Vector3& mn = aabb.min;
     const Vector3& mx = aabb.max;
 
@@ -223,8 +209,7 @@ inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen)
         { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },
         { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }
     };
-    for (const auto& e : kEdges)
-    {
+    for (const auto& e : kEdges) {
         DrawLine(v[e[0]], v[e[1]], color);
     }
 }
@@ -233,15 +218,13 @@ inline void DrawAABB(const AABB& aabb, ImU32 color = kColorGreen)
  * @brief 球を 3 方向のリング（XY / XZ / YZ 平面）で描く
  * @param segments リングの分割数（多いほど滑らか、既定は kDefaultSphereSegments）
  */
-inline void DrawSphere(const Sphere& sphere, ImU32 color = kColorGreen, int segments = kDefaultSphereSegments)
-{
+inline void DrawSphere(const Sphere& sphere, ImU32 color = kColorGreen, int segments = kDefaultSphereSegments) {
     const float r = sphere.radius;
     const Vector3& c = sphere.center;
-    const float step = GameConstants::kTwoPi / static_cast<float>(segments);
+    const float step = gameConstants::kTwoPi / static_cast<float>(segments);
 
     // 分割ごとに3つの平面のリングを1区間ずつ描く
-    for (int i = 0; i < segments; ++i)
-    {
+    for (int i = 0; i < segments; ++i) {
         float a0 = step * i;
         float a1 = step * (i + 1);
         float c0 = std::cos(a0), s0 = std::sin(a0);
@@ -263,8 +246,7 @@ inline void DrawSphere(const Sphere& sphere, ImU32 color = kColorGreen, int segm
  * @brief カプセルを描く（胴体 4 ライン + 両端のリング）
  * @param segments 端リングの分割数
  */
-inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int segments = kDefaultCapsuleSegments)
-{
+inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int segments = kDefaultCapsuleSegments) {
     Vector3 axis = {
         capsule.end.x - capsule.start.x,
         capsule.end.y - capsule.start.y,
@@ -273,8 +255,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
     float axisLen = std::sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
 
     // 退化（点）→ 球として描画
-    if (axisLen < kMinCapsuleAxisLength)
-    {
+    if (axisLen < kMinCapsuleAxisLength) {
         DrawSphere({ capsule.start, capsule.radius }, color, segments);
         return;
     }
@@ -286,7 +267,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
     const Vector3 perp2 = Cross(axisN, perp1);
 
     const float r = capsule.radius;
-    const float pi2 = GameConstants::kTwoPi;
+    const float pi2 = gameConstants::kTwoPi;
 
     // 角度 angle の方向へ半径ぶんずらした量
     const auto offsetAt = [&](float angle) {
@@ -300,8 +281,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
     };
 
     // 胴体のライン
-    for (int i = 0; i < kCapsuleBodyLineCount; ++i)
-    {
+    for (int i = 0; i < kCapsuleBodyLineCount; ++i) {
         const Vector3 offset = offsetAt((pi2 / kCapsuleBodyLineCount) * i);
         DrawLine(
             { capsule.start.x + offset.x, capsule.start.y + offset.y, capsule.start.z + offset.z },
@@ -311,8 +291,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
 
     // 両端のリング（軸直交平面）
     const auto drawRing = [&](const Vector3& center) {
-        for (int i = 0; i < segments; ++i)
-        {
+        for (int i = 0; i < segments; ++i) {
             const Vector3 o0 = offsetAt((pi2 / segments) * i);
             const Vector3 o1 = offsetAt((pi2 / segments) * (i + 1));
             DrawLine(
@@ -332,8 +311,7 @@ inline void DrawCapsule(const Capsule& capsule, ImU32 color = kColorCyan, int se
  * @param length 描画する長さ（ワールド単位）
  * @param color  色
  */
-inline void DrawRay(const Ray& ray, float length = kDefaultRayLength, ImU32 color = kColorYellow)
-{
+inline void DrawRay(const Ray& ray, float length = kDefaultRayLength, ImU32 color = kColorYellow) {
     Vector3 to = {
         ray.origin.x + ray.direction.x * length,
         ray.origin.y + ray.direction.y * length,
@@ -361,8 +339,7 @@ inline void DrawRay(const Ray& ray, float length = kDefaultRayLength, ImU32 colo
  * @brief Collider を形状に応じて描画する（AABB→緑, Sphere→赤, Capsule→シアン）
  * @param color 既定では形状ごとの色。任意の色に上書きしたければ指定する
  */
-inline void DrawCollider(const Collider& collider, ImU32 color = 0)
-{
+inline void DrawCollider(const Collider& collider, ImU32 color = 0) {
     using Handler = void (*)(const Collider&, ImU32);
     static constexpr Handler kHandlers[] = {
         [](const Collider& value, ImU32 tint) {
@@ -378,8 +355,7 @@ inline void DrawCollider(const Collider& collider, ImU32 color = 0)
     static_assert(std::size(kHandlers) == kColliderShapeCount);
     // 形状の番号で描く関数を表から選ぶ
     const auto index = static_cast<size_t>(collider.shape);
-    if (index < std::size(kHandlers))
-    {
+    if (index < std::size(kHandlers)) {
         kHandlers[index](collider, color);
     }
 }
@@ -390,8 +366,7 @@ inline void DrawCollider(const Collider& collider, ImU32 color = 0)
  * @param size 十字の腕の長さ
  * @param color 色
  */
-inline void DrawCross(const Vector3& pos, float size = kDefaultCrossSize, ImU32 color = kColorWhite)
-{
+inline void DrawCross(const Vector3& pos, float size = kDefaultCrossSize, ImU32 color = kColorWhite) {
     DrawLine({ pos.x - size, pos.y, pos.z }, { pos.x + size, pos.y, pos.z }, color);
     DrawLine({ pos.x, pos.y - size, pos.z }, { pos.x, pos.y + size, pos.z }, color);
     DrawLine({ pos.x, pos.y, pos.z - size }, { pos.x, pos.y, pos.z + size }, color);
@@ -401,7 +376,7 @@ inline void DrawCross(const Vector3& pos, float size = kDefaultCrossSize, ImU32 
 
 #else // !USE_IMGUI
 
-namespace engine::game::DiagnosticsDraw {
+namespace engine::game::diagnosticsDraw {
 // カラー定数（型は unsigned int, 値は 0 のスタブ）
 constexpr unsigned int kColorGreen = 0;
 constexpr unsigned int kColorRed = 0;
@@ -432,5 +407,5 @@ inline void DrawCross(const engine::Vector3&, float = kDefaultCrossSize, unsigne
 
 #endif // USE_IMGUI
 
-// 既存コードの DiagnosticsDraw::DrawXxx 呼び出しとのソース互換性を維持する。
-namespace DiagnosticsDraw = engine::game::DiagnosticsDraw;
+// 既存コードの diagnosticsDraw::DrawXxx 呼び出しとのソース互換性を維持する。
+namespace diagnosticsDraw = engine::game::diagnosticsDraw;

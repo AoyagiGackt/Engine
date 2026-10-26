@@ -96,7 +96,7 @@ struct TitleDemoTuning {
     float daggerCutSpacing = 0.28f;
 };
 
-namespace title_demo_tuning_detail {
+namespace titleDemoTuningDetail {
     inline constexpr const char* kPath = "Resources/Config/title_demo.json";
 
     inline constexpr JsonField<TitleDemoTuning> kTitleDemoFields[] = {
@@ -160,29 +160,24 @@ namespace title_demo_tuning_detail {
     };
 
     /** @brief タイトルデモの調整値と初期配置を読み、未指定項目には既定値を使う */
-    inline TitleDemoTuning Load()
-    {
+    inline TitleDemoTuning Load() {
         TitleDemoTuning tuning;
         const nlohmann::json root = engine::JsonHelper::Load(kPath);
-        if (!root.is_object())
-        {
+        if (!root.is_object()) {
             engine::Logger::LogWarning(std::string("TitleDemoTuning: ") + kPath + " が読めません。既定値で動きます");
             return tuning;
         }
         ReadJsonFields(root, kTitleDemoFields, tuning);
         // 配置の配列が正しければ、的の数も含めて設定ファイルへ追従する
-        if (root.contains("initialDummies") && root["initialDummies"].is_array())
-        {
+        if (root.contains("initialDummies") && root["initialDummies"].is_array()) {
             constexpr JsonField<TitleDemoInitialDummy> kDummyFields[] = {
                 { nullptr, "x", &TitleDemoInitialDummy::x },
                 { nullptr, "airborne", &TitleDemoInitialDummy::airborne },
             };
             std::vector<TitleDemoInitialDummy> placements;
-            for (const auto& value : root["initialDummies"])
-            {
+            for (const auto& value : root["initialDummies"]) {
                 if (!value.is_object() || !value.contains("x") || !value["x"].is_number()
-                    || !std::isfinite(value["x"].get<float>()))
-                {
+                    || !std::isfinite(value["x"].get<float>())) {
                     placements.clear();
                     break;
                 }
@@ -190,19 +185,17 @@ namespace title_demo_tuning_detail {
                 ReadJsonFields(value, kDummyFields, placement);
                 placements.push_back(placement);
             }
-            if (!placements.empty())
-            {
+            if (!placements.empty()) {
                 tuning.initialDummies = std::move(placements);
             }
         }
         return tuning;
     }
-} // namespace title_demo_tuning_detail
+} // namespace titleDemoTuningDetail
 
 /** @brief 読み込み済みのタイトルデモ調整値（初回にJSONを読む） */
-inline const TitleDemoTuning& TitleDemoTune()
-{
-    static const TitleDemoTuning tuning = title_demo_tuning_detail::Load();
+inline const TitleDemoTuning& TitleDemoTune() {
+    static const TitleDemoTuning tuning = titleDemoTuningDetail::Load();
     return tuning;
 }
 

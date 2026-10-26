@@ -75,12 +75,12 @@ public:
     void Reload();
 
 private:
-    enum class Kind { Float, Vec2, Pos, Color };
+    enum class Kind { kFloat, kVec2, kPos, kColor };
 
     /** @brief 1項目ぶんの値（要素数は種類による。Floatは1、Vec2/Posは2、Colorは4） */
     struct Entry {
         std::string key;
-        Kind kind = Kind::Float;
+        Kind kind = Kind::kFloat;
         float value[4] = {};
         float defaultValue[4] = {};
     };

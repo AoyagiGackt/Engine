@@ -16,7 +16,7 @@ namespace engine::game {
 class StageEditorEventConnection {
 public:
     /** @brief 条件成立時に対象を表示・起動するか、非表示・停止するか */
-    enum class Action { Activate, Deactivate };
+    enum class Action { kActivate, kDeactivate };
 
     /** @brief 選択状態と調整値を初期値へ戻す */
     void Reset();
@@ -68,7 +68,7 @@ public:
     }
     /** @brief 接続動作を有効化または無効化の範囲内で指定する */
     void SetAction(Action action) {
-        action_ = action == Action::Deactivate ? Action::Deactivate : Action::Activate;
+        action_ = action == Action::kDeactivate ? Action::kDeactivate : Action::kActivate;
     }
     /** @brief 接続動作を始めるまでの遅れ（秒）を返す */
     float DelaySeconds() const {
@@ -85,7 +85,7 @@ private:
 
     int sourceIndex_ = -1;
     int targetIndex_ = -1;
-    Action action_ = Action::Activate;
+    Action action_ = Action::kActivate;
     float delaySeconds_ = 0.0f;
 };
 

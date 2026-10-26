@@ -1,0 +1,20 @@
+{
+    "_comment": "motion.alignSeconds: 中心Xへ寄る秒数。enterSeconds: 奥へ入る秒数。exitSeconds: 手前へ出る秒数。depth: 奥のZ座標（入口と同じ1が標準）。smallScale: 奥での本体倍率。faintAlpha: 奥での透明度（0で透明）。glow.strength: 光の強さ（0〜1）。glow.color: 光のRGBA。マップを開き直すと反映。",
+    "motion": {
+        "alignSeconds": 0.2,
+        "enterSeconds": 0.6,
+        "exitSeconds": 0.7,
+        "depth": 1,
+        "smallScale": 0.55,
+        "faintAlpha": 0
+    },
+    "glow": {
+        "strength": 0.8,
+        "color": [
+            1,
+            0.95,
+            0.7,
+            1
+        ]
+    }
+}

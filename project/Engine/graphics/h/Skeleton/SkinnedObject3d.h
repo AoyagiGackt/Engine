@@ -79,14 +79,12 @@ public:
 
     void SetModel(SkinnedModel* model); // SkinCS の初期化も行う
     // アニメーションを切り替える再生時刻は先頭に巻き戻る
-    void SetAnimation(Animation anim)
-    {
+    void SetAnimation(Animation anim) {
         animation_ = std::move(anim);
         animTime_ = 0.0f;
     }
     /** @brief スケルトンを差し替える（値で受け取り std::move で持つ） */
-    void SetSkeleton(Skeleton skeleton)
-    {
+    void SetSkeleton(Skeleton skeleton) {
         skeleton_ = std::move(skeleton);
         appliedLayerRotations_.clear(); // 添字が別のスケルトンを指さないよう巻き戻し情報を捨てる
     }
@@ -126,35 +124,29 @@ public:
     }
 
     /** @brief 色を設定する */
-    void SetColor(const Vector4& color)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
+    void SetColor(const Vector4& color) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
     }
     /** @brief ライティングを使うかを設定する */
-    void SetEnableLighting(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
+    void SetEnableLighting(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     // リムライト（縁取り発光enableLighting 有効時のみシェーダーで反映される）
-    void SetRimColor(const Vector3& color)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
+    void SetRimColor(const Vector3& color) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
     }
     /** @brief リムライトの鋭さを設定する */
-    void SetRimPower(float power)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
+    void SetRimPower(float power) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
     }
     /** @brief リムライトの強さを設定する */
-    void SetRimIntensity(float intensity)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
+    void SetRimIntensity(float intensity) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
     /** @brief リムライトを使うかを設定する */
-    void SetEnableRim(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
+    void SetEnableRim(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
 
     /** @brief 位置を返す */
@@ -216,17 +208,17 @@ private:
      * @brief VS に渡す座標変換用定数バッファのレイアウト（SkinnedVS.hlsl / Object3dVS.hlsl と一致させる）
      */
     struct TransformationMatrix {
-        Matrix4x4 WVP;
-        Matrix4x4 World;
-        Matrix4x4 WorldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
-        Matrix4x4 LightVP;
+        Matrix4x4 wvp;
+        Matrix4x4 world;
+        Matrix4x4 worldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
+        Matrix4x4 lightVP;
     };
 
-    static Camera* commonCamera_;
-    static Matrix4x4 commonLightVP_;
-    static Object3dCommon* commonObjectCommon_;
-    static ShadowManager* commonShadowManager_;
-    static ModelCommon* commonModelCommon_;
+    static Camera* sCommonCamera;
+    static Matrix4x4 sCommonLightVP;
+    static Object3dCommon* sCommonObjectCommon;
+    static ShadowManager* sCommonShadowManager;
+    static ModelCommon* sCommonModelCommon;
 
     SkinCommon* skinCommon_ = nullptr;
     SkinnedModel* model_ = nullptr;

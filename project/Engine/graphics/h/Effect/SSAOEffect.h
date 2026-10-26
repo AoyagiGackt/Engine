@@ -23,10 +23,9 @@ namespace engine::graphics {
 class SSAOEffect {
 public:
     /** @brief 共有インスタンスを取得する */
-    static SSAOEffect* GetInstance()
-    {
-        static SSAOEffect inst;
-        return &inst;
+    static SSAOEffect* GetInstance() {
+        static SSAOEffect sInst;
+        return &sInst;
     }
 
     /**
@@ -57,18 +56,14 @@ public:
         enabled_ = e;
     }
     /** @brief 遮蔽を調べる半径を設定する */
-    void SetRadius(float r)
-    {
-        if (ssaoCbData_)
-        {
+    void SetRadius(float r) {
+        if (ssaoCbData_) {
             ssaoCbData_->radius = r;
         }
     }
     /** @brief 遮蔽の強さを設定する */
-    void SetStrength(float s)
-    {
-        if (ssaoCbData_)
-        {
+    void SetStrength(float s) {
+        if (ssaoCbData_) {
             ssaoCbData_->strength = s;
         }
     }

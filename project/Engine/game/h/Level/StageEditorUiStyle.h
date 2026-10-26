@@ -9,7 +9,7 @@
 #include <imgui.h>
 #endif
 
-namespace engine::game::StageEditorUiStyle {
+namespace engine::game::stageEditorUiStyle {
 
 // 階層循環への保護上限と奥行き方向のギズモ識別値
 inline constexpr int kMaxHierarchyDepth = 8;
@@ -29,6 +29,12 @@ struct AssetPreset {
 
 inline constexpr AssetPreset kAssetPresets[] = {
     { "ブロック", "Resources/block/block.obj", "Resources/block/block.png" },
+    { "扉", "Resources/block/gimmick/gimmick_door.obj", "Resources/block/gimmick/gimmick_palette.png" },
+    { "動く足場", "Resources/block/gimmick/gimmick_platform_move.obj", "Resources/block/gimmick/gimmick_palette.png" },
+    { "落ちる足場", "Resources/block/gimmick/gimmick_platform_fall.obj", "Resources/block/gimmick/gimmick_palette.png" },
+    { "爆発する樽", "Resources/block/gimmick/gimmick_barrel.obj", "Resources/block/gimmick/gimmick_palette.png" },
+    { "武器で壊す壁", "Resources/block/gimmick/gimmick_wall.obj", "Resources/block/gimmick/gimmick_palette.png" },
+    { "エネルギーコア", "Resources/block/gimmick/gimmick_core.obj", "Resources/block/gimmick/gimmick_palette.png" },
     { "剣", "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png" },
     { "刀", "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png" },
     { "ナイト像", "Resources/Knight/OBJ/KnightCharacter.obj", "Resources/Knight/OBJ/KnightCharacterPalette.png" },
@@ -56,10 +62,12 @@ inline constexpr float kMinSnapStep = 0.1f;
 inline constexpr float kMaxSnapStep = 10.0f;
 
 // 画面中央（文章UIの初期配置）
-inline constexpr Vector3 kScreenCenterPosition = { GameConstants::kScreenCenterX, GameConstants::kScreenCenterY, 0.0f };
+inline constexpr Vector3 kScreenCenterPosition = { gameConstants::kScreenCenterX, gameConstants::kScreenCenterY, 0.0f };
 
 // ヒエラルキーとアセットパレットの高さ配分（左列の高さに対するヒエラルキーの割合）
 inline constexpr float kHierarchyHeightRatio = 0.62f;
+// 補助パネルを開いている時に、中央の列のうち下の補助パネル領域が占める高さの割合
+inline constexpr float kAuxPanelHeightRatio = 0.4f;
 
 // 同じ位置に重なった配置物とみなす距離
 inline constexpr float kOverlapEpsilon = 0.01f;
@@ -84,6 +92,10 @@ inline constexpr ImVec4 kHeadingColor = { 0.6f, 0.85f, 1.0f, 1.0f };
 inline constexpr ImVec4 kMissingSourceColor = { 1.0f, 0.55f, 0.3f, 1.0f };
 inline constexpr ImVec4 kFlagOnColor = { 0.5f, 1.0f, 0.6f, 1.0f };
 inline constexpr ImVec4 kFlagOffColor = { 0.6f, 0.6f, 0.6f, 1.0f };
+
+// 画面に固定するパネルの共通設定（動かせず、クリックしても後から開いた補助パネルより前に出ない）
+inline constexpr ImGuiWindowFlags kFixedPanelFlags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
+    | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 // 標準のボタン幅
 inline constexpr float kWideButtonWidth = 140.0f;

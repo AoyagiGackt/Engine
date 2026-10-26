@@ -20,14 +20,12 @@ using SceneCreator = std::unique_ptr<BaseScene> (*)();
 
 /** @brief 指定したシーンの型を生成する */
 template <class T>
-std::unique_ptr<BaseScene> Create()
-{
+std::unique_ptr<BaseScene> Create() {
     return std::make_unique<T>();
 }
 
 /** @brief シーン名と生成関数の対応表 */
-const std::unordered_map<std::string, SceneCreator>& SceneCreators()
-{
+const std::unordered_map<std::string, SceneCreator>& SceneCreators() {
     static const std::unordered_map<std::string, SceneCreator> kCreators = {
         { "TITLE", &Create<TitleScene> },
         { "GAMEPLAY", &Create<GamePlayScene> },
@@ -43,8 +41,7 @@ const std::unordered_map<std::string, SceneCreator>& SceneCreators()
 } // namespace
 
 /** @brief 指定されたシーン名に対応するシーンを生成する */
-std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneName)
-{
+std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneName) {
     const auto& creators = SceneCreators();
     const auto it = creators.find(sceneName);
     return it != creators.end() ? it->second() : nullptr;

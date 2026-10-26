@@ -5,6 +5,7 @@
 #pragma once
 #include "RunData.h"
 #include "json.hpp"
+#include <cstdint>
 #include <vector>
 namespace engine::game {
 
@@ -12,22 +13,22 @@ namespace engine::game {
 struct ContinueData {
     bool valid = false; ///< コンティニューデータが存在するか
 
-    int hp = 0; ///< 保存時点のHP
-    int maxHp = 0; ///< 保存時点の最大HP
-    int gold = 0; ///< 保存時点のゴールド
-    int score = 0; ///< 保存時点のスコア
-    int floor = 0; ///< 保存時点のフロア番号
+    int32_t hp = 0; ///< 保存時点のHP
+    int32_t maxHp = 0; ///< 保存時点の最大HP
+    int32_t gold = 0; ///< 保存時点のゴールド
+    int32_t score = 0; ///< 保存時点のスコア
+    int32_t floor = 0; ///< 保存時点のフロア番号
 
-    RunData::NodeType currentNode = RunData::NodeType::Combat; ///< 保存時点のノード種別
+    RunData::NodeType currentNode = RunData::NodeType::kCombat; ///< 保存時点のノード種別
     std::vector<RunData::Skill> skills; ///< 習得済みスキル一覧
 };
 
 /** @brief タイトル画面等で参照する通算記録 */
 struct SaveRecords {
-    int bestFloorReached = 0; ///< 過去最高到達フロア
-    int totalRuns = 0; ///< 累計プレイ回数
-    int totalClears = 0; ///< 累計クリア回数
-    long long totalGoldEarned = 0; ///< 累計獲得ゴールド
+    int32_t bestFloorReached = 0; ///< 過去最高到達フロア
+    int32_t totalRuns = 0; ///< 累計プレイ回数
+    int32_t totalClears = 0; ///< 累計クリア回数
+    int64_t totalGoldEarned = 0; ///< 累計獲得ゴールド
 };
 
 /**
@@ -42,6 +43,10 @@ public:
     void Load();
     /** @brief save/save.json へ書き込む */
     void Save();
+    /** @brief ファイルへの書き込みを止める（自動テスト中にプレイヤーのセーブを消さないため。止めている間も内容はメモリ上で変わる） */
+    void SetWritesEnabled(bool enabled) {
+        writesEnabled_ = enabled;
+    }
 
     /** @brief コンティニューデータが存在するか */
     bool HasContinue() const {
@@ -72,8 +77,7 @@ public:
     void RecordRunResult(bool cleared, int floorReached, int goldEarned);
 
     /** @brief 表示用の通算記録を独立した値として取得する */
-    SaveRecords GetRecordSnapshot() const
-    {
+    SaveRecords GetRecordSnapshot() const {
         return records_;
     }
 
@@ -88,6 +92,7 @@ private:
     SaveRecords records_;
 
     static constexpr const char* kFilePath = "save/save.json";
+    bool writesEnabled_ = true; ///< false の間は Save() でファイルへ書かない
     static constexpr int kCurrentVersion = 1;
 };
 

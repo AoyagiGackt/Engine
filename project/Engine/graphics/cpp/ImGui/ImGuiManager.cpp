@@ -14,14 +14,15 @@ constexpr float kJapaneseFontSize = 16.0f;
 }
 
 /** @brief ImGuiの初期化処理コンテキストの作成やDX12・Win32への紐づけを行う */
-void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon)
-{
+void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon) {
 #ifdef USE_IMGUI
 
     // ImGui生成
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
+    // ウィンドウはタイトルバーをつかんだ時だけ動かす（中身のクリックやドラッグでずれないように）
+    ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 
     // 日本語フォント読み込み（Windows 標準の游ゴシック）
     // ※ Win32Init より前に登録しないとアトラスに反映されない
@@ -55,8 +56,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 }
 
 /** @brief ImGuiの新しいフレーム開始処理 */
-void ImGuiManager::Begin()
-{
+void ImGuiManager::Begin() {
 #ifdef USE_IMGUI
 
     // フレーム開始
@@ -68,8 +68,7 @@ void ImGuiManager::Begin()
 }
 
 /** @brief ImGuiのフレーム終了（UI構築完了）処理 */
-void ImGuiManager::End()
-{
+void ImGuiManager::End() {
 #ifdef USE_IMGUI
 
     // 内部コマンド生成
@@ -79,8 +78,7 @@ void ImGuiManager::End()
 }
 
 /** @brief ImGuiの実際の描画コマンドを積む */
-void ImGuiManager::Draw(DirectXCommon* dxCommon)
-{
+void ImGuiManager::Draw(DirectXCommon* dxCommon) {
 #ifdef USE_IMGUI
 
     // コマンドリストをdxCommonから取得する
@@ -96,8 +94,7 @@ void ImGuiManager::Draw(DirectXCommon* dxCommon)
 }
 
 /** @brief ImGuiの終了処理とリソース解放 */
-void ImGuiManager::Finalize()
-{
+void ImGuiManager::Finalize() {
 #ifdef USE_IMGUI
 
     // 終了処理

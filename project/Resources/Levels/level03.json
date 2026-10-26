@@ -52,7 +52,7 @@
 
     {
       "name": "guide_s3_a", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95],
       "text": "持ち替えの試練  武器を替えた直後の {Attack} は踏み込み追撃  {Slot} で替えながら殴るとスタイル大"
     },
@@ -66,14 +66,14 @@
     },
     {
       "name": "barrel_s3_a", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [7.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
 
     {
       "name": "guide_s3_b", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_b",
       "text": "混成部隊  倒した敵の武器は {Steal} で奪える  スロットが満杯なら入れ替える武器を選べ"
     },
@@ -100,7 +100,7 @@
     },
     {
       "name": "barrel_s3_b", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [24.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
@@ -110,7 +110,7 @@
     },
     {
       "name": "door_s3_b", "type": "static", "kind": "gimmick",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_door.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [28.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
       "activationFlag": "condition_s3_room_b_clear", "activeWhenFlag": false, "activationDelay": 1.2,
       "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
@@ -134,20 +134,20 @@
     },
     {
       "name": "guide_s3_upper", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_upper",
       "text": "宝物庫  槍の壁と鎚の壁が続く  持ち替えて一気に壊せ  下の道からも先へ進める"
     },
     {
       "name": "s3_wall_spear", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "model": "Resources/block/gimmick/gimmick_wall.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [37.0, 7.0, 0.0], "scale": [1.0, 3.0, 1.0], "lighting": true, "solid": true,
       "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
       "breakableWeapon": "Spear", "breakableColor": [0.55, 0.75, 0.95, 1.0]
     },
     {
       "name": "s3_wall_hammer", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "model": "Resources/block/gimmick/gimmick_wall.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [38.3, 7.0, 0.0], "scale": [1.0, 3.0, 1.0], "lighting": true, "solid": true,
       "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
       "breakableWeapon": "Hammer", "breakableColor": [0.7, 0.7, 0.75, 1.0]
@@ -158,20 +158,20 @@
     },
     {
       "name": "pickup_s3_vault_1", "type": "static", "kind": "pickup",
-      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "model": "Resources/block/gimmick/gimmick_core.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [39.3, 6.2, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
       "pickupRadius": 1.0, "pickupGaugeAmount": 0.3
     },
     {
       "name": "pickup_s3_vault_2", "type": "static", "kind": "pickup",
-      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "model": "Resources/block/gimmick/gimmick_core.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [40.2, 6.2, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
       "pickupRadius": 1.0, "pickupGaugeAmount": 0.5, "pickupColor": [1.0, 0.85, 0.3, 1.0]
     },
 
     {
       "name": "guide_s3_d", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s3_zone_d",
       "text": "連戦  倒すと第2波が来る  回復役を先に狙い、持ち替え追撃でつなげ"
     },
@@ -216,7 +216,7 @@
     },
     {
       "name": "door_s3_d", "type": "static", "kind": "gimmick",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_door.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [54.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
       "activationFlag": "condition_s3_room_d_clear", "activeWhenFlag": false, "activationDelay": 1.2,
       "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
@@ -225,7 +225,7 @@
 
     {
       "name": "guide_s3_boss", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "s3_zone_boss",
       "text": "短剣のボス  素早い踏み込みを {Dodge} で避け、持ち替え追撃で崩せ"
     },
@@ -244,13 +244,13 @@
     },
     {
       "name": "barrel_s3_boss", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [62.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
     {
       "name": "guide_s3_done", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_s3_boss_defeated",
       "text": "撃破完了  {Steal} で短剣を奪ってステージクリア"
     }

@@ -11,22 +11,19 @@ namespace engine::graphics {
 class FrameProfiler {
 public:
     /** @brief 共有インスタンスを取得する */
-    static FrameProfiler* GetInstance()
-    {
-        static FrameProfiler inst;
-        return &inst;
+    static FrameProfiler* GetInstance() {
+        static FrameProfiler sInst;
+        return &sInst;
     }
 
     /** @brief フレームの計測を始める */
-    void BeginFrame()
-    {
+    void BeginFrame() {
         // フレーム開始時刻を記録する
         QueryPerformanceCounter(&frameStart_);
     }
 
     /** @brief フレームの計測を終え、FPSと処理時間を更新する */
-    void EndFrame()
-    {
+    void EndFrame() {
         LARGE_INTEGER now, freq;
         // フレーム終了時刻とパフォーマンスカウンタの周波数を取得し、経過時間(ms)を算出する
         QueryPerformanceCounter(&now);
@@ -37,8 +34,7 @@ public:
         sampleIdx_ = (sampleIdx_ + 1) % kSamples;
 
         float sum = 0.0f;
-        for (float s : samples_)
-        {
+        for (float s : samples_) {
             sum += s;
         }
         avgMs_ = sum / kSamples;

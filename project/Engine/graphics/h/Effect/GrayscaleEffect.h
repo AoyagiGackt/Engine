@@ -10,10 +10,9 @@ namespace engine::graphics {
 class GrayscaleEffect : public PostEffectFullscreenPass {
 public:
     /** @brief 共有インスタンスを取得する */
-    static GrayscaleEffect* GetInstance()
-    {
-        static GrayscaleEffect instance;
-        return &instance;
+    static GrayscaleEffect* GetInstance() {
+        static GrayscaleEffect sInstance;
+        return &sInstance;
     }
 
     /**
@@ -23,8 +22,7 @@ public:
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     /** @brief グレースケールの描画資源を解放する */
-    void Finalize()
-    {
+    void Finalize() {
         // オフスクリーンRTV・定数バッファ・PSOを解放する
         FinalizeCommon();
         cbData_ = nullptr;

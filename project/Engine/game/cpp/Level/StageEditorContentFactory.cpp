@@ -16,11 +16,15 @@ constexpr engine::Vector3 kRoomCameraOffset = { 4.0f, 4.0f, -24.0f };
 constexpr float kRoomCameraHoldSeconds = 2.0f;
 constexpr engine::Vector4 kBreakableWallColor = { 0.7f, 0.7f, 0.75f, 1.0f };
 constexpr engine::Vector4 kGuideTextColor = { 0.85f, 0.95f, 1.0f, 0.95f };
+// ギミックの見た目（役割ごとのモデルと、全部で共有するパレット画像）
+constexpr const char* kGimmickPalette = "Resources/block/gimmick/gimmick_palette.png";
+constexpr const char* kDoorModel = "Resources/block/gimmick/gimmick_door.obj";
+constexpr const char* kWallModel = "Resources/block/gimmick/gimmick_wall.obj";
+constexpr const char* kCoreModel = "Resources/block/gimmick/gimmick_core.obj";
 }
 
 /** @brief 進入、敵出現、全滅条件、出口、カメラを含む戦闘部屋を生成する */
-StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Vector3& center, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Vector3& center, int& nextSerial) {
     // 通し番号を名前に付け、同じテンプレートを何度置いても名前とフラグがぶつからないようにする
     StageEditorGeneratedContent result;
     const std::string serial = std::to_string(nextSerial++);
@@ -35,8 +39,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
     result.triggers.push_back(std::move(entryTrigger));
 
     // 開始フラグで出現する敵の出現地点を横一列に並べ、全員を同じグループにする
-    for (int i = 0; i < kRoomSpawnCount; ++i)
-    {
+    for (int i = 0; i < kRoomSpawnCount; ++i) {
         ObjectDesc spawn;
         spawn.name = "room_spawn_" + serial + "_" + std::to_string(i + 1);
         spawn.kind = "spawn_point";
@@ -58,8 +61,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
 
     // 出口の扉は全滅条件でせり上がって消えるスライド扉にする
     StageEditorGeneratedContent door = CreateSlidingDoor(center + kRoomExitDoorOffset, ConditionFlagName(clearConditionName), nextSerial);
-    for (ObjectDesc& desc : door.objects)
-    {
+    for (ObjectDesc& desc : door.objects) {
         result.objects.push_back(std::move(desc));
     }
 
@@ -75,8 +77,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBattleRoom(const Ve
 }
 
 /** @brief 条件フラグが立つとせり上がって消えるスライド扉を生成する */
-StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const Vector3& center, const std::string& conditionFlag, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const Vector3& center, const std::string& conditionFlag, int& nextSerial) {
     // フラグが立つとタイマーが進み、1秒で上へ抜けて1.2秒後に非表示・当たり判定消滅
     constexpr float kDoorHeight = 5.0f;
     constexpr float kOpenDelaySeconds = 1.2f;
@@ -89,9 +90,9 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     // 名前は通し番号で重ならないようにする（呼び出し側の番号も進める）
     door.name = "door_" + std::to_string(nextSerial++);
     door.kind = "gimmick";
-    // 見た目は共通のブロック素材を使う
-    door.model = "Resources/block/block.obj";
-    door.texture = "Resources/block/block.png";
+    // 見た目は鉄の枠に橙の線が入った扉のモデル
+    door.model = kDoorModel;
+    door.texture = kGimmickPalette;
     door.position = center;
     door.scale = { 1.0f, kDoorHeight, 1.0f };
     // 開くまではプレイヤーを通さない
@@ -104,8 +105,8 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
     door.activationDelay = kOpenDelaySeconds;
     // 動きは真上への平行移動だけ（回転はしない）
     door.gimmickMotion = "custom";
-    door.motionMode = MotionMode::Once;
-    door.motionEase = MotionEase::Smooth;
+    door.motionMode = MotionMode::kOnce;
+    door.motionEase = MotionEase::kSmooth;
     door.motionAxis = { 0.0f, 1.0f, 0.0f };
     door.motionRotation = { };
     door.motionAmount = kSlideAmount;
@@ -116,8 +117,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateSlidingDoor(const V
 }
 
 /** @brief 指定武器の近接攻撃でしか壊れない壁を生成する（solid、爆風なし） */
-StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const Vector3& center, const std::string& weaponType, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const Vector3& center, const std::string& weaponType, int& nextSerial) {
     constexpr float kWallHeight = 4.0f;
     constexpr int kWallHp = 3;
 
@@ -125,8 +125,8 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const
     ObjectDesc wall;
     wall.name = "wall_" + std::to_string(nextSerial++);
     wall.kind = "breakable";
-    wall.model = "Resources/block/block.obj";
-    wall.texture = "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png";
+    wall.model = kWallModel;
+    wall.texture = kGimmickPalette;
     wall.position = center;
     wall.scale = { 1.0f, kWallHeight, 1.0f };
     wall.solid = true;
@@ -142,8 +142,7 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateBreakableWall(const
 }
 
 /** @brief 区画トリガーと、そのフラグで表示される画面下の案内文をセットで生成する */
-StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vector3& center, const std::string& text, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vector3& center, const std::string& text, int& nextSerial) {
     constexpr float kTriggerRadius = 1.5f;
     constexpr float kGuideScreenX = 24.0f;
     constexpr float kGuideScreenY = 575.0f;
@@ -162,9 +161,9 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vec
     ObjectDesc guide;
     guide.name = "guide_" + serial;
     guide.kind = "ui_text";
-    guide.type = PlacementType::Static;
+    guide.type = PlacementType::kStatic;
     guide.position = { kGuideScreenX, kGuideScreenY, 0.0f };
-    guide.textSpace = TextSpace::Screen;
+    guide.textSpace = TextSpace::kScreen;
     guide.textScale = kGuideScale;
     guide.textColor = kGuideTextColor;
     guide.text = text;
@@ -174,19 +173,17 @@ StageEditorGeneratedContent StageEditorContentFactory::CreateZoneGuide(const Vec
 }
 
 /** @brief 収集物を横一列に生成する */
-StageEditorGeneratedContent StageEditorContentFactory::CreatePickupRow(const Vector3& center, int count, float spacing, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreatePickupRow(const Vector3& center, int count, float spacing, int& nextSerial) {
     constexpr float kPickupScale = 0.35f;
 
     StageEditorGeneratedContent result;
     const int clampedCount = count < 1 ? 1 : count;
-    for (int i = 0; i < clampedCount; ++i)
-    {
+    for (int i = 0; i < clampedCount; ++i) {
         ObjectDesc pickup;
         pickup.name = "pickup_" + std::to_string(nextSerial++);
         pickup.kind = "pickup";
-        pickup.model = "Resources/block/block.obj";
-        pickup.texture = "Resources/Effects/circle2.png";
+        pickup.model = kCoreModel;
+        pickup.texture = kGimmickPalette;
         pickup.position = center;
         pickup.position.x += (static_cast<float>(i) - (clampedCount - 1) * 0.5f) * spacing;
         pickup.scale = { kPickupScale, kPickupScale, kPickupScale };
@@ -198,12 +195,10 @@ StageEditorGeneratedContent StageEditorContentFactory::CreatePickupRow(const Vec
 }
 
 /** @brief 指定条件に沿った敵出現地点をまとめて生成する */
-StageEditorGeneratedContent StageEditorContentFactory::CreateWave(const StageEditorWaveConfig& config, int& nextSerial)
-{
+StageEditorGeneratedContent StageEditorContentFactory::CreateWave(const StageEditorWaveConfig& config, int& nextSerial) {
     StageEditorGeneratedContent result;
     result.objects.reserve(config.enemyCount);
-    for (int i = 0; i < config.enemyCount; ++i)
-    {
+    for (int i = 0; i < config.enemyCount; ++i) {
         ObjectDesc spawn;
         spawn.name = config.groupName + "_spawn_" + std::to_string(nextSerial++);
         spawn.kind = "spawn_point";

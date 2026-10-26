@@ -1,0 +1,72 @@
+{
+  "_comment": "クリアの決め演出。ボスを倒した最後の一撃が銃なら gun（画面に弾を浴びせる）、それ以外なら blade（画面を斬り刻む）。どちらも、細かい印を次々に入れる → silenceSeconds だけ静止 → 決めの一撃 → その画面が割れて散り、破片がガラスになって集まり直すと結果画面になる（shatter.seconds が割れてから集まり切るまでの長さ。前半で割れて散り、後半で集まる）、の順。cuts は剣の細かい斬線（count 本を interval ± intervalJitter 秒ごとに、画面の中心から spreadU / spreadV の範囲を通る向き自由な線で入れる。割れる時はすべての斬線に沿って割れる。割れに使える線は決めの一太刀と合わせて32本まで）。blade.slashes は決めの一太刀（画面の中心を通る傾き angleDegrees、静止明けからの delay、複数書けば何本も斬る）。spray は銃の弾の雨（画面の端から margin 離した範囲に count 発、弾痕の大きさは決めの一発の holeScale 倍）。gun.holeSize はひびの広がりも含めた弾痕の画像の大きさ（穴そのものはその1割ほど）。sparkScale / sparkSeconds / sparkColor は着弾の瞬間に弾痕の上へ重ねる火花。gun.shots は決めの一発の位置 [横, 縦]（画面に対する0〜1、最後の弾痕からひびが広がる）。毎回違う割れ方にするため、cuts.countJitter / spray.countJitter は本数を毎回 0〜その数だけ減らし（count が最大）、blade.angleJitter は決めの一太刀の傾きを ±度、blade.offsetJitter は通る点を画面の中心から ±（画面に対する割合）、gun.shotJitter は決めの一発の位置を ± ずらす。flash / impact が空なら出さない。sound に音のパスを書くと鳴る。揺れとフラッシュは hit_effects.json の clear_ レシピ",
+  "dimColor": [0.02, 0.03, 0.1, 0.55],
+  "dimSeconds": 0.15,
+  "soundVolume": 1.0,
+  "cuts": {
+    "count": 16,
+    "countJitter": 4,
+    "interval": 0.045,
+    "intervalJitter": 0.02,
+    "spreadU": 0.32,
+    "spreadV": 0.3,
+    "seconds": 0.05,
+    "thickness": 4.0,
+    "remainThickness": 1.5,
+    "flash": "",
+    "impact": "clear_cut",
+    "sound": "Resources/SE/slash.mp3"
+  },
+  "blade": {
+    "silenceSeconds": 0.45,
+    "slashes": [
+      { "angleDegrees": -18.0, "delay": 0.0 }
+    ],
+    "slashSeconds": 0.12,
+    "thickness": 10.0,
+    "remainThickness": 3.0,
+    "thinSeconds": 0.2,
+    "glowScale": 4.0,
+    "coreColor": [1.0, 1.0, 1.0, 1.0],
+    "glowColor": [0.7, 0.9, 1.0, 0.35],
+    "holdSeconds": 0.35,
+    "angleJitter": 30.0,
+    "offsetJitter": 0.1,
+    "flash": "clear_slash",
+    "impact": "clear_slash",
+    "sound": "Resources/SE/superSlash.mp3"
+  },
+  "spray": {
+    "count": 14,
+    "countJitter": 4,
+    "interval": 0.05,
+    "intervalJitter": 0.02,
+    "margin": 0.1,
+    "holeScale": 0.6,
+    "flash": "",
+    "impact": "clear_spray",
+    "sound": "Resources/SE/shoot.mp3"
+  },
+  "gun": {
+    "silenceSeconds": 0.4,
+    "shots": [[0.5, 0.48]],
+    "interval": 0.12,
+    "holeSize": 220.0,
+    "popScale": 1.15,
+    "popSeconds": 0.08,
+    "holeColor": [1.0, 1.0, 1.0, 1.0],
+    "sparkScale": 0.6,
+    "sparkSeconds": 0.1,
+    "sparkColor": [1.0, 0.9, 0.6, 1.0],
+    "holdSeconds": 0.35,
+    "shotJitter": 0.18,
+    "flash": "clear_shot",
+    "impact": "clear_shot",
+    "sound": "Resources/SE/shoot.mp3"
+  },
+  "shatter": {
+    "seconds": 3.2,
+    "crackWidth": 0.005,
+    "shardSpeed": 0.9
+  }
+}

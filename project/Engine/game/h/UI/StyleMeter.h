@@ -37,6 +37,12 @@ public:
      */
     void RegisterHit(const std::string& moveId, float basePoints);
 
+    /** @brief コンボの締め演出を開始する */
+    void RegisterFinisher();
+
+    /** @brief 調整値をファイルから読み直す（調整値エディタで保存した時に呼ぶ） */
+    static void ReloadTuning();
+
     /**
      * @brief 外部で採点済みの正規化スタイル値(0.0〜1.0)を表示へ反映する
      * @note 独自にスタイル値を管理するシーンが、採点ロジックはそのままに
@@ -67,6 +73,8 @@ public:
     }
     /** @brief 現在のランクに対応する表示色を返す（ランクアップ演出の色をHUDと一致させるのに使う） */
     Vector4 GetRankColor() const;
+    /** @brief ランクの文字（"S" など）に対応する表示色を返す（知らない文字なら D の色） */
+    static Vector4 ColorForRank(const std::string& letter);
     /** @brief 直前のUpdate()でランクが上がった瞬間ならtrue（1フレームだけ立つ、ランクアップ演出のトリガー用） */
     bool JustRankedUp() const {
         return justRankedUp_;
@@ -92,6 +100,9 @@ private:
 
     std::unique_ptr<Sprite> barBg_;
     std::unique_ptr<Sprite> barFg_;
+    std::unique_ptr<Sprite> hitTimerBarBg_;
+    std::unique_ptr<Sprite> hitTimerBarFg_;
+    float finisherTimer_ = 0.0f; ///< 締め演出の残り秒数
 
 };
 

@@ -29,14 +29,12 @@ constexpr float kCatmullRomBasis[kCatmullRomTerms][kCatmullRomTerms] = {
 constexpr float kCatmullRomScale = 0.5f;
 
 /** @brief Catmull-Rom曲線上の点を返す（p1→p2間をtで補間し、p0/p3は接線を決める前後の点） */
-Vector3 CatmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p2, const Vector3& p3, float t)
-{
+Vector3 CatmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p2, const Vector3& p3, float t) {
     const float powers[kCatmullRomTerms] = { 1.0f, t, t * t, t * t * t };
     // 1軸ぶんの4点の値から、t の各次数の係数を基底行列で求めて足し合わせる
     auto axis = [&powers](float a0, float a1, float a2, float a3) {
         float sum = 0.0f;
-        for (int degree = 0; degree < kCatmullRomTerms; ++degree)
-        {
+        for (int degree = 0; degree < kCatmullRomTerms; ++degree) {
             const float* w = kCatmullRomBasis[degree];
             sum += (w[0] * a0 + w[1] * a1 + w[2] * a2 + w[3] * a3) * powers[degree];
         }
@@ -48,8 +46,7 @@ Vector3 CatmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p2, cons
 } // namespace
 
 /** @brief 武器の軌跡の描画資源を用意する */
-void WeaponTrailEffect::Initialize(DirectXCommon* dxCommon)
-{
+void WeaponTrailEffect::Initialize(DirectXCommon* dxCommon) {
     ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
     style_.tipColor = GraphicsTuning::Color("weaponTrail.tipColor", style_.tipColor);
@@ -71,29 +68,23 @@ void WeaponTrailEffect::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief 今フレームの刃の位置を積む */
-void WeaponTrailEffect::AddSample(const Vector3& base, const Vector3& tip)
-{
-    if (static_cast<int>(samples_.size()) >= kMaxSamples)
-    {
+void WeaponTrailEffect::AddSample(const Vector3& base, const Vector3& tip) {
+    if (static_cast<int>(samples_.size()) >= kMaxSamples) {
         samples_.pop_front();
     }
     samples_.push_back({ base, tip, 0.0f, strokeId_ });
 }
 
 /** @brief 寿命を進めて頂点バッファを組み直す */
-void WeaponTrailEffect::Update(float dt, Camera* camera)
-{
-    if (camera != nullptr)
-    {
+void WeaponTrailEffect::Update(float dt, Camera* camera) {
+    if (camera != nullptr) {
         sceneCBData_->viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
     }
 
-    for (auto& s : samples_)
-    {
+    for (auto& s : samples_) {
         s.age += dt;
     }
-    while (!samples_.empty() && samples_.front().age >= style_.lifetime)
-    {
+    while (!samples_.empty() && samples_.front().age >= style_.lifetime) {
         samples_.pop_front();
     }
 
@@ -101,8 +92,7 @@ void WeaponTrailEffect::Update(float dt, Camera* camera)
 }
 
 /** @brief 補間位置1点ぶんの頂点色を作る */
-Vector4 WeaponTrailEffect::MakeColor(const Vector4& color, float age) const
-{
+Vector4 WeaponTrailEffect::MakeColor(const Vector4& color, float age) const {
     // 生まれた直後が最も濃く、寿命に向かって二乗で抜ける（尾がすっと消える）
     const float life = (std::max)(style_.lifetime, kMinLifetime);
     float fade = std::clamp(1.0f - age / life, 0.0f, 1.0f);
@@ -111,8 +101,7 @@ Vector4 WeaponTrailEffect::MakeColor(const Vector4& color, float age) const
 }
 
 /** @brief サンプル列から帯の三角形を組み立てる */
-void WeaponTrailEffect::RebuildVertices()
-{
+void WeaponTrailEffect::RebuildVertices() {
     // 頂点を作り直す（分割数は上限で丸める）
     vertexCount_ = 0;
     const int count = static_cast<int>(samples_.size());
@@ -123,22 +112,18 @@ void WeaponTrailEffect::RebuildVertices()
     };
 
     // 隣り合う2つの記録点の間を、同じ振りの中だけ帯でつなぐ
-    for (int i = 0; i + 1 < count; ++i)
-    {
+    for (int i = 0; i + 1 < count; ++i) {
         const Sample& a = samples_[i];
         const Sample& b = samples_[i + 1];
-        if (a.stroke != b.stroke)
-        {
+        if (a.stroke != b.stroke) {
             continue;
         }
         // 帯の端では前後の点が無いので端点自身を使う（端で曲線が外へはみ出さない）
         const Sample& prev = (i > 0 && samples_[i - 1].stroke == a.stroke) ? samples_[i - 1] : a;
         const Sample& next = (i + 2 < count && samples_[i + 2].stroke == a.stroke) ? samples_[i + 2] : b;
 
-        for (int s = 0; s < subdiv; ++s)
-        {
-            if (vertexCount_ + kVertsPerQuad > kMaxVertices)
-            {
+        for (int s = 0; s < subdiv; ++s) {
+            if (vertexCount_ + kVertsPerQuad > kMaxVertices) {
                 return;
             }
             // 区間を分割数ぶんに切り、根元と刃先をそれぞれ曲線で補間する
@@ -170,24 +155,19 @@ void WeaponTrailEffect::RebuildVertices()
 }
 
 /** @brief 最新のサンプルから指定秒数さかのぼった間に刃先が動いた量を返す */
-bool WeaponTrailEffect::GetRecentTipMotion(float window, Vector3& outMotion) const
-{
-    if (samples_.size() < 2)
-    {
+bool WeaponTrailEffect::GetRecentTipMotion(float window, Vector3& outMotion) const {
+    if (samples_.size() < 2) {
         return false;
     }
     const Sample& newest = samples_.back();
     const Sample* oldest = nullptr;
-    for (auto it = samples_.rbegin() + 1; it != samples_.rend(); ++it)
-    {
-        if (it->stroke != newest.stroke || it->age - newest.age > window)
-        {
+    for (auto it = samples_.rbegin() + 1; it != samples_.rend(); ++it) {
+        if (it->stroke != newest.stroke || it->age - newest.age > window) {
             break;
         }
         oldest = &(*it);
     }
-    if (oldest == nullptr)
-    {
+    if (oldest == nullptr) {
         return false;
     }
     outMotion = { newest.tip.x - oldest->tip.x, newest.tip.y - oldest->tip.y, newest.tip.z - oldest->tip.z };
@@ -195,21 +175,18 @@ bool WeaponTrailEffect::GetRecentTipMotion(float window, Vector3& outMotion) con
 }
 
 /** @brief 帯の描画コマンドを積む（3D描画パス内で呼ぶ） */
-void WeaponTrailEffect::Draw()
-{
-    if (vertexCount_ == 0)
-    {
+void WeaponTrailEffect::Draw() {
+    if (vertexCount_ == 0) {
         return;
     }
 
-    PipelineHelper::DrawVertexColorEffect(dxCommon_->GetCommandList(), rootSignature_.Get(), pipelineState_.Get(),
+    pipelineHelper::DrawVertexColorEffect(dxCommon_->GetCommandList(), rootSignature_.Get(), pipelineState_.Get(),
         vbv_, sceneCB_->GetGPUVirtualAddress(), vertexCount_);
 }
 
 /** @brief 武器の軌跡用のパイプラインを生成する */
-void WeaponTrailEffect::CreatePipeline()
-{
-    PipelineHelper::CreateVertexColorEffectPipeline(dxCommon_, rootSignature_, pipelineState_);
+void WeaponTrailEffect::CreatePipeline() {
+    pipelineHelper::CreateVertexColorEffectPipeline(dxCommon_, rootSignature_, pipelineState_);
 }
 
 } // namespace engine::graphics

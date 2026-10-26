@@ -39,13 +39,12 @@ static void CreateOffscreenTexture(
     Microsoft::WRL::ComPtr<ID3D12Resource>& outTexture,
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& outRtvHeap,
     D3D12_CPU_DESCRIPTOR_HANDLE& outRtvHandle,
-    uint32_t& outSrvIndex)
-{
+    uint32_t& outSrvIndex) {
     // 本体は TYPELESS にして、RTV と SRV を同じ SRGB 形式で共有する
-    constexpr PipelineHelper::RenderTargetFormats kFormats = {
+    constexpr pipelineHelper::RenderTargetFormats kFormats = {
         DXGI_FORMAT_R8G8B8A8_TYPELESS, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
     };
-    PipelineHelper::CreateRenderTarget(device, srvManager, width, height, kFormats, PipelineHelper::kOffscreenClearColor,
+    pipelineHelper::CreateRenderTarget(device, srvManager, width, height, kFormats, pipelineHelper::kOffscreenClearColor,
         { outTexture, outRtvHeap, outRtvHandle, outSrvIndex });
 }
 
@@ -56,8 +55,7 @@ static void CreateOffscreenTexture(
 // ══════════════════════════════════════════════════════
 
 /** @brief オフスクリーンテクスチャ・定数バッファ・PSO を作成して初期化する */
-void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon->GetDevice();
     const uint32_t width = WinApp::kClientWidth;
@@ -81,8 +79,7 @@ void ImageFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 // InitConstantBuffers  各エフェクト用 CB の作成とマップ
 
 /** @brief 調整値を読み込み、ブラーやノイズなど各フィルタの定数バッファを作る */
-void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height)
-{
+void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, uint32_t height) {
     // ぼかし半径・ノイズの速さを調整値から読み、1テクセルの大きさを求める
     boxRadius_ = GraphicsTuning::Int("imageFilter.boxRadius", boxRadius_, 0, kMaxBlurRadius);
     gaussianSigma_ = GraphicsTuning::Float("imageFilter.gaussianSigma", gaussianSigma_, kMinGaussianSigma);
@@ -172,33 +169,32 @@ void ImageFilter::InitConstantBuffers(DirectXCommon* dxCommon, uint32_t width, u
 // InitRootSignatures  ブラー用・アウトライン用 Root Signature 作成
 
 /** @brief 各フィルタで使うルートシグネチャを作る */
-void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
-{
+void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon) {
     ID3D12Device* device = dxCommon->GetDevice();
 
-    D3D12_STATIC_SAMPLER_DESC sampler = PipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_POINT,
+    D3D12_STATIC_SAMPLER_DESC sampler = pipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_POINT,
         D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
 
     // ブラー用 Root Signature（b0 + t0）
-    const D3D12_DESCRIPTOR_RANGE srvRange0 = PipelineHelper::MakeSrvRange(0); // t0
+    const D3D12_DESCRIPTOR_RANGE srvRange0 = pipelineHelper::MakeSrvRange(0); // t0
 
     D3D12_ROOT_PARAMETER blurParams[2] = { };
-    blurParams[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL);
-    blurParams[1] = PipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
+    blurParams[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL);
+    blurParams[1] = pipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    rootSignature_ = PipelineHelper::CreateRootSignature(device, blurParams, 2,
+    rootSignature_ = pipelineHelper::CreateRootSignature(device, blurParams, 2,
         &sampler, 1, D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(rootSignature_);
 
     // アウトライン / ディゾルブ用 Root Signature（b0 + t0 + t1）
-    const D3D12_DESCRIPTOR_RANGE srvRange1 = PipelineHelper::MakeSrvRange(1); // t1
+    const D3D12_DESCRIPTOR_RANGE srvRange1 = pipelineHelper::MakeSrvRange(1); // t1
 
     D3D12_ROOT_PARAMETER outlineParams[3] = { };
-    outlineParams[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL);
-    outlineParams[1] = PipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
-    outlineParams[2] = PipelineHelper::MakeSrvTableParam(&srvRange1, D3D12_SHADER_VISIBILITY_PIXEL);
+    outlineParams[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_PIXEL);
+    outlineParams[1] = pipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
+    outlineParams[2] = pipelineHelper::MakeSrvTableParam(&srvRange1, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    outlineRootSignature_ = PipelineHelper::CreateRootSignature(device, outlineParams, _countof(outlineParams),
+    outlineRootSignature_ = pipelineHelper::CreateRootSignature(device, outlineParams, _countof(outlineParams),
         &sampler, 1, D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(outlineRootSignature_);
 }
@@ -206,8 +202,7 @@ void ImageFilter::InitRootSignatures(DirectXCommon* dxCommon)
 // InitPipelineStates  シェーダーコンパイル + 全 PSO 作成
 
 /** @brief 各フィルタのシェーダーをコンパイルし、パイプラインステートを作る */
-void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
-{
+void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon) {
     ID3D12Device* device = dxCommon->GetDevice();
 
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/FullscreenVS.hlsl", L"vs_6_0");
@@ -220,13 +215,13 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> noiseGenPsBlob = dxCommon->CompileShader(L"Resources/shaders/postprocess/NoisePS.hlsl", L"ps_6_0");
 
     // 共通 PSO ベース（深度なし、カリングなし、フルスクリーントライアングル）
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeFullscreenPsoDesc();
     psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
 
     auto createPSO = [&](ID3D12RootSignature* sig, IDxcBlob* ps, ComPtr<ID3D12PipelineState>& out) {
         psoDesc.pRootSignature = sig;
         psoDesc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
-        out = PipelineHelper::CreateGraphicsPipeline(device, psoDesc);
+        out = pipelineHelper::CreateGraphicsPipeline(device, psoDesc);
     };
 
     // rootSignature_（b0 + t0）を使う PSO
@@ -246,12 +241,10 @@ void ImageFilter::InitPipelineStates(DirectXCommon* dxCommon)
 // ══════════════════════════════════════════════════════
 
 /** @brief 定数バッファのマップを解除し、GPU リソースをすべて解放する */
-void ImageFilter::Finalize()
-{
+void ImageFilter::Finalize() {
     // 書き込み先を開いたままの定数バッファは閉じてから解放する
     auto releaseMapped = [](Microsoft::WRL::ComPtr<ID3D12Resource>& resource, auto*& mapped) {
-        if (mapped)
-        {
+        if (mapped) {
             resource->Unmap(0, nullptr);
             mapped = nullptr;
         }
@@ -282,31 +275,27 @@ void ImageFilter::Finalize()
 }
 
 /** @brief オフスクリーンテクスチャをレンダーターゲットとしてバインドし、シーン描画を開始する */
-void ImageFilter::BeginScene()
-{
+void ImageFilter::BeginScene() {
     auto* cmd = dxCommon_->GetCommandList();
-    if (!isSceneFirstFrame_)
-    {
+    if (!isSceneFirstFrame_) {
         DirectXCommon::TransitionBarrier(cmd, sceneTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
     isSceneFirstFrame_ = false;
 
-    PipelineHelper::BindSceneTarget(dxCommon_, sceneRtvHandle_);
+    pipelineHelper::BindSceneTarget(dxCommon_, sceneRtvHandle_);
 }
 
 /** @brief シーン描画を終了し、オフスクリーンテクスチャを SRV 状態に遷移する */
-void ImageFilter::EndScene()
-{
+void ImageFilter::EndScene() {
     DirectXCommon::TransitionBarrier(dxCommon_->GetCommandList(), sceneTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 /** @brief 現在のモードに応じたフィルターをバックバッファに適用する */
-void ImageFilter::Apply(SrvManager* srvManager)
-{
+void ImageFilter::Apply(SrvManager* srvManager) {
     auto* cmd = dxCommon_->GetCommandList();
 
     D3D12_VIEWPORT vp = dxCommon_->GetBackBufferViewport();
@@ -326,30 +315,28 @@ void ImageFilter::Apply(SrvManager* srvManager)
 
 /** @brief Prewitt のエッジ検出（輝度ベース）を1パスでバックバッファへ描く */
 void ImageFilter::PrewittEdgeFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // Prewitt エッジ検出（輝度ベース）  シングルパス
-    PipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.prewittPso_.Get(),
+    pipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.prewittPso_.Get(),
         backRtv, vp, scissor, filter.outlineCbResource_->GetGPUVirtualAddress(),
         srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 /** @brief 深度バッファをSRV状態に一時遷移させ、シーンと深度の2テクスチャからアウトラインを描画する */
 void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // 深度ベースアウトライン  シングルパス、深度バリア付き
     auto* depthRes = filter.dxCommon_->GetDepthStencilResource();
     DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_DEPTH_WRITE,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    PipelineHelper::BindFullscreenPass(cmd, filter.outlineRootSignature_.Get(), filter.depthOutlinePso_.Get(),
+    pipelineHelper::BindFullscreenPass(cmd, filter.outlineRootSignature_.Get(), filter.depthOutlinePso_.Get(),
         backRtv, vp, scissor, filter.outlineCbResource_->GetGPUVirtualAddress(),
         srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kAuxiliaryTexture, srvManager->GetGPUDescriptorHandle(filter.depthSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kAuxiliaryTexture, srvManager->GetGPUDescriptorHandle(filter.depthSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 
     DirectXCommon::TransitionBarrier(cmd, depthRes,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -358,23 +345,20 @@ void ImageFilter::DepthOutlineFilterMode::Apply(ImageFilter& filter, ID3D12Graph
 
 /** @brief シーンテクスチャに対して放射状サンプリングでブラーをかけて描画する */
 void ImageFilter::RadialBlurFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // ラジアルブラー  シングルパス
-    PipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.radialBlurPso_.Get(),
+    pipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.radialBlurPso_.Get(),
         backRtv, vp, scissor, filter.radialBlurCbResource_->GetGPUVirtualAddress(),
         srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 /** @brief ノイズマスクテクスチャ（初回使用時に遅延ロード）をt1にバインドして溶解境界を描画する */
 void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // ディゾルブ  シングルパス、ノイズマスクを t1 にバインド
     // TextureManager が初期化済みになってから初回ロード
-    if (filter.noiseSrvIndex_[0] == UINT32_MAX)
-    {
+    if (filter.noiseSrvIndex_[0] == UINT32_MAX) {
         auto* texMgr = TextureManager::GetInstance();
         texMgr->LoadTexture("Resources/Effects/noise0.png");
         texMgr->LoadTexture("Resources/Effects/noise1.png");
@@ -382,45 +366,39 @@ void ImageFilter::DissolveFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsC
         filter.noiseSrvIndex_[1] = texMgr->GetTextureIndexByFilePath("Resources/Effects/noise1.png");
     }
     uint32_t maskSrv = filter.noiseSrvIndex_[filter.dissolveMaskIndex_];
-    PipelineHelper::BindFullscreenPass(cmd, filter.outlineRootSignature_.Get(), filter.dissolvePso_.Get(),
+    pipelineHelper::BindFullscreenPass(cmd, filter.outlineRootSignature_.Get(), filter.dissolvePso_.Get(),
         backRtv, vp, scissor, filter.dissolveCbResource_->GetGPUVirtualAddress(),
         srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kAuxiliaryTexture, srvManager->GetGPUDescriptorHandle(maskSrv));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kAuxiliaryTexture, srvManager->GetGPUDescriptorHandle(maskSrv));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 /** @brief アニメーション有効時はseedを毎フレーム加算してからノイズを描画する */
 void ImageFilter::NoiseGenFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // プロシージャルノイズ  シングルパス（シーンに重ね合わせ）
     // アニメーション  毎フレーム seed を加算して乱数パターンを変化させる
-    if (filter.animateNoise_)
-    {
+    if (filter.animateNoise_) {
         filter.noiseTime_ += filter.noiseSpeed_;
         filter.noiseGenCb_->seed = filter.noiseManualSeed_ + filter.noiseTime_;
-    }
-    else
-    {
+    } else {
         filter.noiseGenCb_->seed = filter.noiseManualSeed_;
     }
-    PipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.noiseGenPso_.Get(),
+    pipelineHelper::BindFullscreenPass(cmd, filter.rootSignature_.Get(), filter.noiseGenPso_.Get(),
         backRtv, vp, scissor, filter.noiseGenCbResource_->GetGPUVirtualAddress(),
         srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 /** @brief 水平パス（sceneTexture→intermediateTexture）→垂直パス（intermediateTexture→backbuffer）の順に描画する */
 void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12GraphicsCommandList* cmd, SrvManager* srvManager,
-    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const
-{
+    const D3D12_VIEWPORT& vp, const D3D12_RECT& scissor, D3D12_CPU_DESCRIPTOR_HANDLE backRtv) const {
     // Box / Gaussian  水平→垂直の 2 パス
     cmd->SetGraphicsRootSignature(filter.rootSignature_.Get());
     cmd->SetPipelineState(GetPipeline(filter));
 
     // Pass 1: 水平（sceneTexture → intermediateTexture、内部解像度は固定のまま）
-    if (!filter.isIntermediateFirstFrame_)
-    {
+    if (!filter.isIntermediateFirstFrame_) {
         DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -428,10 +406,10 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
     filter.isIntermediateFirstFrame_ = false;
 
     cmd->OMSetRenderTargets(1, &filter.intermediateRtvHandle_, FALSE, nullptr);
-    PipelineHelper::SetClientViewportAndScissor(cmd);
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, filter.cbResource_->GetGPUVirtualAddress());
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetClientViewportAndScissor(cmd);
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::fullscreenRootSlot::kConstants, filter.cbResource_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(filter.sceneSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 
     DirectXCommon::TransitionBarrier(cmd, filter.intermediateTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -439,10 +417,10 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
 
     // Pass 2: 垂直（intermediateTexture → backbuffer）
     cmd->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
-    PipelineHelper::SetViewportAndScissor(cmd, vp, scissor);
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, filter.cbResource_->GetGPUVirtualAddress() + kConstantBufferAlignment);
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(filter.intermediateSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetViewportAndScissor(cmd, vp, scissor);
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::fullscreenRootSlot::kConstants, filter.cbResource_->GetGPUVirtualAddress() + kConstantBufferAlignment);
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(filter.intermediateSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 // ══════════════════════════════════════════════════════
@@ -450,40 +428,36 @@ void ImageFilter::BoxGaussianFilterMode::Apply(ImageFilter& filter, ID3D12Graphi
 // ══════════════════════════════════════════════════════
 
 /** @brief 指定モードに対応するフィルタ処理（IFilterMode の実装）を返す */
-const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode)
-{
-    static BoxFilterMode box;
-    static GaussianFilterMode gaussian;
-    static PrewittEdgeFilterMode prewittEdge;
-    static DepthOutlineFilterMode depthOutline;
-    static RadialBlurFilterMode radialBlur;
-    static DissolveFilterMode dissolve;
-    static NoiseGenFilterMode noiseGen;
+const ImageFilter::IFilterMode& ImageFilter::GetFilterMode(Mode mode) {
+    static BoxFilterMode sBox;
+    static GaussianFilterMode sGaussian;
+    static PrewittEdgeFilterMode sPrewittEdge;
+    static DepthOutlineFilterMode sDepthOutline;
+    static RadialBlurFilterMode sRadialBlur;
+    static DissolveFilterMode sDissolve;
+    static NoiseGenFilterMode sNoiseGen;
     // Mode の並び順（Box と Gaussian はカーネルの重みが違うだけで同じ2パス処理）
     static const IFilterMode* const kModes[] = {
-        &box, // Box
-        &gaussian, // Gaussian
-        &prewittEdge, // PrewittEdge
-        &depthOutline, // DepthOutline
-        &radialBlur, // RadialBlur
-        &dissolve, // Dissolve
-        &noiseGen, // NoiseGen
+        &sBox, // Box
+        &sGaussian, // Gaussian
+        &sPrewittEdge, // PrewittEdge
+        &sDepthOutline, // DepthOutline
+        &sRadialBlur, // RadialBlur
+        &sDissolve, // Dissolve
+        &sNoiseGen, // NoiseGen
     };
     const size_t index = static_cast<size_t>(mode);
-    return index < std::size(kModes) ? *kModes[index] : box;
+    return index < std::size(kModes) ? *kModes[index] : sBox;
 }
 
 // カーネル重みの計算（Box / Gaussian のみ）
 
 /** @brief ブラーを使うモードのとき、半径とシグマからカーネルの重みを作り直す */
-void ImageFilter::RebuildKernel()
-{
-    if (!cbH_)
-    {
+void ImageFilter::RebuildKernel() {
+    if (!cbH_) {
         return;
     }
-    if (!GetFilterMode(mode_).UsesBlurKernel())
-    {
+    if (!GetFilterMode(mode_).UsesBlurKernel()) {
         return;
     }
 
@@ -494,56 +468,48 @@ void ImageFilter::RebuildKernel()
     // 横と縦の両方のぼかし用定数バッファへ同じ重みを書く
     cbH_->radius = r;
     cbV_->radius = r;
-    for (int i = 0; i <= 2 * r; ++i)
-    {
+    for (int i = 0; i <= 2 * r; ++i) {
         cbH_->kernel[i] = weights[i];
         cbV_->kernel[i] = weights[i];
     }
 }
 
 /** @brief Box フィルターのカーネル半径を設定する */
-void ImageFilter::SetRadius(int r)
-{
+void ImageFilter::SetRadius(int r) {
     boxRadius_ = r;
     RebuildKernel();
 }
 
 /** @brief Gaussian フィルターの標準偏差σを設定する */
-void ImageFilter::SetSigma(float s)
-{
+void ImageFilter::SetSigma(float s) {
     gaussianSigma_ = s;
     RebuildKernel();
 }
 
 /** @brief 均等な重みを書き込み、半径を返す */
-int ImageFilter::BoxFilterMode::BuildKernel(const ImageFilter& filter, float* weights) const
-{
+int ImageFilter::BoxFilterMode::BuildKernel(const ImageFilter& filter, float* weights) const {
     // 中心と左右のサンプルへ均等に重みを配る
     const int radius = std::clamp(filter.boxRadius_, 0, kMaxBlurRadius);
     const float weight = 1.0f / float(2 * radius + 1);
-    for (int index = 0; index <= 2 * radius; ++index)
-    {
+    for (int index = 0; index <= 2 * radius; ++index) {
         weights[index] = weight;
     }
     return radius;
 }
 
 /** @brief 合計1の正規分布の重みを書き込み、半径を返す */
-int ImageFilter::GaussianFilterMode::BuildKernel(const ImageFilter& filter, float* weights) const
-{
+int ImageFilter::GaussianFilterMode::BuildKernel(const ImageFilter& filter, float* weights) const {
     // 正規分布の重みを求め、合計が1になるよう割る
     const float sigma = (std::max)(filter.gaussianSigma_, kMinGaussianSigma);
     const int radius = std::clamp(static_cast<int>(sigma * kGaussianRadiusScale), 1, kMaxBlurRadius);
     const float variance = 2.0f * sigma * sigma;
     float total = 0.0f;
-    for (int index = 0; index <= 2 * radius; ++index)
-    {
+    for (int index = 0; index <= 2 * radius; ++index) {
         const float distance = float(index - radius);
         weights[index] = std::exp(-(distance * distance) / variance);
         total += weights[index];
     }
-    for (int index = 0; index <= 2 * radius; ++index)
-    {
+    for (int index = 0; index <= 2 * radius; ++index) {
         weights[index] /= total;
     }
     return radius;

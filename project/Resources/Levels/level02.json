@@ -47,20 +47,20 @@
     },
     {
       "name": "guide_s2_a", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95],
       "text": "探索区画  灰色の壁は奪ったハンマー(スロット切替 {Slot})の攻撃で壊せる"
     },
     {
       "name": "gate_wall", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/DowntownCityMegaKit[Standard]/Textures/T_Concrete_BaseColor.png",
+      "model": "Resources/block/gimmick/gimmick_wall.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [12.0, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
       "breakableHp": 3, "breakableRadius": 0.0, "breakablePlayerDamage": 0, "breakableEnemyDamage": 0,
       "breakableWeapon": "Hammer", "breakableColor": [0.7, 0.7, 0.75, 1.0]
     },
     {
       "name": "barrel_s2_a", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [8.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
@@ -93,26 +93,26 @@
     },
     {
       "name": "pickup_s2_1", "type": "static", "kind": "pickup",
-      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "model": "Resources/block/gimmick/gimmick_core.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [25.0, 6.0, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
       "pickupRadius": 1.0, "pickupGaugeAmount": 0.25
     },
     {
       "name": "upper_swing", "type": "static", "kind": "gimmick",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_platform_move.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [28.5, 5.0, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
       "gimmickMotion": "custom", "motionMode": "pingpong", "motionEase": "smooth",
       "motionAxis": [1.0, 0.0, 0.0], "motionRotation": [0.0, 0.0, 0.0], "motionAmount": 3.0, "motionSpeed": 0.7
     },
     {
       "name": "upper_fall", "type": "static", "kind": "gimmick",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_platform_fall.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [34.0, 5.0, 0.0], "scale": [2.5, 0.45, 1.0], "lighting": true, "solid": true,
       "gimmickMotion": "fall", "motionAmount": 6.0, "motionSpeed": 0.9
     },
     {
       "name": "pickup_s2_2", "type": "static", "kind": "pickup",
-      "model": "Resources/block/block.obj", "texture": "Resources/Effects/circle2.png",
+      "model": "Resources/block/gimmick/gimmick_core.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [37.5, 6.4, 0.0], "scale": [0.35, 0.35, 0.35], "lighting": false, "solid": false,
       "pickupRadius": 1.0, "pickupGaugeAmount": 0.25
     },
@@ -123,7 +123,7 @@
     },
     {
       "name": "guide_s2_upper", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_upper",
       "text": "上段ルート  短剣なら空中で {Skill} の空中ダッシュで足場を渡れる"
     },
@@ -154,7 +154,7 @@
     },
     {
       "name": "barrel_s2_room", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [36.0, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
@@ -164,7 +164,7 @@
     },
     {
       "name": "door_s2", "type": "static", "kind": "gimmick",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_door.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [41.5, 1.5, 0.0], "scale": [1.0, 5.0, 1.0], "lighting": true, "solid": true,
       "activationFlag": "condition_s2_room_clear", "activeWhenFlag": false, "activationDelay": 1.2,
       "gimmickMotion": "custom", "motionMode": "once", "motionEase": "smooth",
@@ -172,7 +172,7 @@
     },
     {
       "name": "guide_s2_room", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.85, 0.95, 1.0, 0.95], "activationFlag": "s2_zone_room",
       "text": "槍の敵は遠くから投げてくる  {Dodge} で紙一重に避けて踏み込め"
     },
@@ -191,19 +191,19 @@
     },
     {
       "name": "barrel_s2_boss", "type": "static", "kind": "breakable",
-      "model": "Resources/block/block.obj", "texture": "Resources/block/block.png",
+      "model": "Resources/block/gimmick/gimmick_barrel.obj", "texture": "Resources/block/gimmick/gimmick_palette.png",
       "position": [51.5, -0.35, 0.0], "scale": [0.9, 0.9, 0.9], "lighting": true, "solid": false,
       "breakableHp": 2, "breakableRadius": 3.0, "breakablePlayerDamage": 4, "breakableEnemyDamage": 3
     },
     {
       "name": "guide_s2_boss", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [1.0, 0.75, 0.25, 1.0], "activationFlag": "s2_zone_boss",
       "text": "槍のボス  投擲と範囲攻撃を避けて、覚醒 {Awaken} で一気に削れ"
     },
     {
       "name": "guide_s2_done", "type": "static", "kind": "ui_text",
-      "position": [24.0, 495.0, 0.0], "textSpace": "screen", "textScale": 1.35,
+      "position": [24.0, 200.0, 0.0], "textSpace": "screen", "textScale": 1.35,
       "textColor": [0.45, 1.0, 0.65, 1.0], "activationFlag": "condition_s2_boss_defeated",
       "text": "撃破完了  {Steal} で槍を奪ってステージクリア"
     }

@@ -13,8 +13,7 @@
 namespace engine::game {
 namespace {
 /** @brief 読み込み済みの調整値を取得する */
-const PlayerTuning& Tuning()
-{
+const PlayerTuning& Tuning() {
     return PlayerTuning::Get();
 }
 } // namespace
@@ -53,15 +52,13 @@ class Player::JuggleRampageState : public IRampageState {
 
 
 /** @brief 通常時の攻撃入力はコンボ側が扱うので何もしない */
-void Player::InactiveRampageState::HandleAttackInput(Player&, Input*, const Vector3&) const
-{
+void Player::InactiveRampageState::HandleAttackInput(Player&, Input*, const Vector3&) const {
     // 通常時の攻撃入力は MeleeComboController（Player::Update 内）が担当するため何もしない
     // （乱舞の開始判定も覚醒ソード限定なので Update 側で行う）
 }
 
 /** @brief 敵へ向かって突進し、十分近づいたら打ち上げて空中連撃へ移る */
-void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const
-{
+void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const {
     // 敵X座標へ向かって突進（重力無効）
     // ステージ外の座標が渡されてもプレイヤーが到達できる位置にクランプ
     float targetX = std::clamp(enemyPos.x, player.minX_ + kBodyHalfExtent, player.maxX_ - kBodyHalfExtent);
@@ -73,24 +70,21 @@ void Player::LaunchRampageState::UpdatePhysics(Player& player, const Vector3& en
     player.pos_.x = std::clamp(player.pos_.x, player.minX_, player.maxX_);
 
     // 十分近づいたら打ち上げヒット → ジャグルフェーズへ
-    if (std::abs(dx) < Tuning().rampageReachDistance)
-    {
-        player.SetFrameEvent(FrameEvent::Launched);
+    if (std::abs(dx) < Tuning().rampageReachDistance) {
+        player.SetFrameEvent(FrameEvent::kLaunched);
         player.velocityY_ = Tuning().rampageLaunchSpeed;
         player.rampage_ = &JuggleRampage();
     }
 }
 /** @brief 攻撃入力のたびに敵の周りの次の角度へ移って斬る（最後の一撃で乱舞を終える） */
-void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const
-{
+void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input, const Vector3& enemyPos) const {
     const int effectiveMax = Tuning().juggleMaxSlashes + player.skillMods_.juggleMaxBonus;
-    if (player.juggleSlashCount_ >= effectiveMax)
-    {
+    if (player.juggleSlashCount_ >= effectiveMax) {
         return;
     }
 
     // 乱舞中 L → 敵の周囲の次の角度へテレポートしてスラッシュ
-    float angle = player.juggleAngleIdx_ * (GameConstants::kTwoPi / effectiveMax);
+    float angle = player.juggleAngleIdx_ * (gameConstants::kTwoPi / effectiveMax);
     float dx = std::cos(angle) * Tuning().juggleRadius;
     float dy = std::sin(angle) * Tuning().juggleRadius;
     player.pos_.x = std::clamp(enemyPos.x + dx, player.minX_, player.maxX_);
@@ -101,38 +95,33 @@ void Player::JuggleRampageState::HandleAttackInput(Player& player, Input* input,
     player.juggleSlashCount_++;
 
     bool isLast = (player.juggleSlashCount_ >= effectiveMax);
-    player.SetFrameEvent(FrameEvent::RampageHit);
-    player.SetFrameEvent(FrameEvent::RampageFinish, isLast);
-    if (isLast)
-    {
+    player.SetFrameEvent(FrameEvent::kRampageHit);
+    player.SetFrameEvent(FrameEvent::kRampageFinish, isLast);
+    if (isLast) {
         player.rampage_ = &InactiveRampage();
     }
 }
 
 /** @brief 空中連撃中は重力を止めて空中に留まる */
-void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const
-{
+void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& enemyPos) const {
     // ジャグル中は重力無効でホバリング
     player.velocityY_ = 0.0f;
 }
 
 /** @brief 乱舞していない時の共有インスタンスを返す */
-const Player::IRampageState& Player::InactiveRampage()
-{
+const Player::IRampageState& Player::InactiveRampage() {
     static const InactiveRampageState instance;
     return instance;
 }
 
 /** @brief 打ち上げ中の共有インスタンスを返す */
-const Player::IRampageState& Player::LaunchRampage()
-{
+const Player::IRampageState& Player::LaunchRampage() {
     static const LaunchRampageState instance;
     return instance;
 }
 
 /** @brief 空中連撃中の共有インスタンスを返す */
-const Player::IRampageState& Player::JuggleRampage()
-{
+const Player::IRampageState& Player::JuggleRampage() {
     static const JuggleRampageState instance;
     return instance;
 }

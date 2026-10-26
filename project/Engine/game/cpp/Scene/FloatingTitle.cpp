@@ -8,15 +8,13 @@
 #include "GameConstants.h"
 #include "Input.h"
 #include "ModelManager.h"
+#include "SceneShared.h"
 #include "ShadowManager.h"
 #include "SrvManager.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
 #include <numbers>
-#ifdef USE_IMGUI
-#include <imgui.h>
-#endif
 using namespace engine::graphics;
 namespace engine::game {
 namespace {
@@ -78,8 +76,7 @@ constexpr float kRestingDepthRatio = 0.25f; // 正面向き時に横幅比で足
 }
 
 /** @brief タイトルロゴのモデルと影を用意する */
-void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommon* models, ShadowManager* shadows)
-{
+void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommon* models, ShadowManager* shadows) {
     // 描画と入力に使う共有の仕組みを受け取る
     dxCommon_ = graphics;
     input_ = input;
@@ -91,8 +88,7 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
         "Resources/title/title.obj", "Resources/white.png");
     Vector3 minimum = { FLT_MAX, FLT_MAX, FLT_MAX };
     Vector3 maximum = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-    for (const auto& vertex : model->GetVertices())
-    {
+    for (const auto& vertex : model->GetVertices()) {
         const auto& p = vertex.position;
         minimum.x = (std::min)(minimum.x, p.x); maximum.x = (std::max)(maximum.x, p.x);
         minimum.y = (std::min)(minimum.y, p.y); maximum.y = (std::max)(maximum.y, p.y);
@@ -128,8 +124,7 @@ void FloatingTitle::Initialize(DirectXCommon* graphics, Input* input, ModelCommo
     Update(false);
 }
 /** @brief タイトルロゴのカメラと浮遊の動きを進める（allowInteraction の時は操作も受ける） */
-void FloatingTitle::Update(bool allowInteraction)
-{
+void FloatingTitle::Update(bool allowInteraction) {
     // 表示枠の位置と大きさ・ロゴの色は UI レイアウトから読み、F2 で動かせるようにする
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 viewportPosition = layout.Pos("viewport.pos", kViewportPosition);
@@ -138,37 +133,26 @@ void FloatingTitle::Update(bool allowInteraction)
         ? viewportSize.x / viewportSize.y : kViewportAspect;
     camera_->SetAspectRatio(viewportAspect);
     object_->SetColor(layout.Color("logo.color", kLogoColor));
-    const float dt = GameConstants::kFrameDeltaTime;
+    const float dt = gameConstants::kFrameDeltaTime;
     floatTime_ += dt;
     // マウス位置を画面の論理座標へ直し、ロゴの表示枠の上にあるかを調べる
-    const POINT clientMouse = input_->GetMouseClientPosition();
-    const auto client = dxCommon_->GetCenteredClientViewport();
-    const Vector2 mouse = {
-        (clientMouse.x - client.TopLeftX) * GameConstants::kScreenWidth / client.Width,
-        (clientMouse.y - client.TopLeftY) * GameConstants::kScreenHeight / client.Height
-    };
+    const Vector2 mouse = sceneShared::MouseScreenPosition(input_, dxCommon_);
     const float x = mouse.x;
     const float y = mouse.y;
     const bool hovered = x >= viewportPosition.x && x <= viewportPosition.x + viewportSize.x
         && y >= viewportPosition.y && y <= viewportPosition.y + viewportSize.y;
     // 枠の上で押したらドラッグで回し始める（デバッグUIがマウスを使っている間は回さない）
-    bool canDrag = allowInteraction;
-#ifdef USE_IMGUI
-    canDrag = canDrag && !ImGui::GetIO().WantCaptureMouse;
-#endif
-    if (canDrag && hovered && input_->TriggerMouseButton(0))
-    {
+    const bool canDrag = allowInteraction && sceneShared::IsMouseFreeForGame();
+    if (canDrag && hovered && input_->TriggerMouseButton(0)) {
         dragging_ = true;
         lastMouse_ = mouse;
         yawVelocity_ = pitchVelocity_ = 0.0f;
     }
-    if (!canDrag || !input_->PushMouseButton(0))
-    {
+    if (!canDrag || !input_->PushMouseButton(0)) {
         dragging_ = false;
     }
     // ドラッグ中は動かした分だけ回して速さを覚え、離したらその速さで回り続けて徐々に止まる
-    if (dragging_)
-    {
+    if (dragging_) {
         const float yawDelta = (mouse.x - lastMouse_.x) * kDragRadiansPerPixel;
         const float pitchDelta = (mouse.y - lastMouse_.y) * kDragRadiansPerPixel;
         yaw_ += yawDelta;
@@ -176,17 +160,15 @@ void FloatingTitle::Update(bool allowInteraction)
         yawVelocity_ = std::clamp(yawDelta / dt, -kMaxSpinVelocity, kMaxSpinVelocity);
         pitchVelocity_ = std::clamp(pitchDelta / dt, -kMaxSpinVelocity, kMaxSpinVelocity);
         lastMouse_ = mouse;
-    }
-    else
-    {
+    } else {
         yaw_ += yawVelocity_ * dt;
         pitch_ += pitchVelocity_ * dt;
         const float damping = std::exp(-kSpinDamping * dt);
         yawVelocity_ *= damping;
         pitchVelocity_ *= damping;
     }
-    yaw_ = std::remainder(yaw_, GameConstants::kTwoPi);
-    pitch_ = std::remainder(pitch_, GameConstants::kTwoPi);
+    yaw_ = std::remainder(yaw_, gameConstants::kTwoPi);
+    pitch_ = std::remainder(pitch_, gameConstants::kTwoPi);
     // 異なる周期の揺れを重ね、操作していない間も滑らかな漂いを続ける。
     const float driftPitch = std::sin(floatTime_ * kDriftPitchFreqA) * kDriftPitchAmpA
         + std::sin(floatTime_ * kDriftPitchFreqB) * kDriftPitchAmpB;
@@ -220,15 +202,14 @@ void FloatingTitle::Update(bool allowInteraction)
     object_->Update();
 }
 /** @brief タイトルロゴを描画する */
-void FloatingTitle::Draw()
-{
+void FloatingTitle::Draw() {
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 viewportPosition = layout.Pos("viewport.pos", kViewportPosition);
     const Vector2 viewportSize = layout.Vec2("viewport.size", kViewportSize);
     auto* cmd = dxCommon_->GetCommandList();
     const auto client = dxCommon_->GetCenteredClientViewport();
-    const float scaleX = client.Width / GameConstants::kScreenWidth;
-    const float scaleY = client.Height / GameConstants::kScreenHeight;
+    const float scaleX = client.Width / gameConstants::kScreenWidth;
+    const float scaleY = client.Height / gameConstants::kScreenHeight;
     const D3D12_VIEWPORT viewport = { client.TopLeftX + viewportPosition.x * scaleX,
         client.TopLeftY + viewportPosition.y * scaleY,
         viewportSize.x * scaleX, viewportSize.y * scaleY, 0.0f, 1.0f };

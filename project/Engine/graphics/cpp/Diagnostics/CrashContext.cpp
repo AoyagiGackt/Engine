@@ -7,24 +7,21 @@
 namespace engine {
 
 /** @brief プロセス内で共有する実行状況管理を返す */
-CrashContext& CrashContext::GetInstance()
-{
+CrashContext& CrashContext::GetInstance() {
     // 関数ローカルstaticを利用し、初回アクセス時の生成をC++ランタイムへ委ねる
-    static CrashContext instance;
-    return instance;
+    static CrashContext sInstance;
+    return sInstance;
 }
 
 /** @brief クラッシュレポートへ記録する現在の処理名を設定する */
-void CrashContext::Set(const std::string& context)
-{
+void CrashContext::Set(const std::string& context) {
     // 更新中に例外処理スレッドから不完全な文字列を参照しないよう排他制御する
     std::scoped_lock lock(mutex_);
     context_ = context;
 }
 
 /** @brief 現在の処理名を安全に複製して返す */
-std::string CrashContext::Get() const
-{
+std::string CrashContext::Get() const {
     // ロック保持期間を短くするため、呼び出し元へ値の複製を返す
     std::scoped_lock lock(mutex_);
     return context_;

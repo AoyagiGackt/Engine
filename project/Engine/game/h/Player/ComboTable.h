@@ -16,10 +16,8 @@ namespace engine::game {
  * @param grace      段が終わった後の受付猶予（段が無い時だけ dt 減らし、0 で止める）
  * @return 段を再生中なら、進める前の経過時間。段が無ければ値なし
  */
-inline std::optional<float> AdvanceComboTime(bool stepActive, float dt, float& elapsed, float& grace)
-{
-    if (!stepActive)
-    {
+inline std::optional<float> AdvanceComboTime(bool stepActive, float dt, float& elapsed, float& grace) {
+    if (!stepActive) {
         grace = (std::max)(grace - dt, 0.0f);
         return std::nullopt;
     }
@@ -51,8 +49,7 @@ struct ComboArray {
  * @param arr 参照渡しされる constexpr 配列
  */
 template <typename StepT, int N>
-constexpr ComboArray<StepT> MakeComboArray(const StepT (&arr)[N])
-{
+constexpr ComboArray<StepT> MakeComboArray(const StepT (&arr)[N]) {
     return { arr, N };
 }
 

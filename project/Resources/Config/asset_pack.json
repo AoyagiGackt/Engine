@@ -1,5 +1,14 @@
 {
   "_comment": "auto=元素材の追加・変更・削除があればcook、それ以外はuse。元素材のない提出先はuse。pakはexeの隣のResourcesへ出力。off/cook/useの明示指定も可能。",
   "mode": "auto",
-  "path": "Resources/game.pak"
+  "path": "Resources/game.pak",
+  "textureCompression": {
+    "enabled": true,
+    "excludePrefixes": [
+      "Resources/UI/", "Resources/Time/", "Resources/score/", "Resources/ranking/",
+      "Resources/GameClear/", "Resources/GameOver/",
+      "Resources/0/", "Resources/1/", "Resources/2/", "Resources/3/", "Resources/4/",
+      "Resources/5/", "Resources/6/", "Resources/7/", "Resources/8/", "Resources/9/"
+    ]
+  }
 }

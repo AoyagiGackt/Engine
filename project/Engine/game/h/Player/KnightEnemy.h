@@ -105,8 +105,7 @@ public:
         pos_ = position;
     }
     /** @brief 当たり判定の箱を返す */
-    AABB GetAABB() const
-    {
+    AABB GetAABB() const {
         return { { pos_.x - kHitBoxHalfWidth, pos_.y - kHitBoxBelow, -kHitBoxHalfDepth },
             { pos_.x + kHitBoxHalfWidth, pos_.y + kHitBoxAbove, kHitBoxHalfDepth } };
     }

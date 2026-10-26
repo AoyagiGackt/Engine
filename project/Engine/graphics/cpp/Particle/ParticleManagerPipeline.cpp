@@ -6,7 +6,7 @@
 #include "ParticleManager.h"
 #include "PipelineHelper.h"
 #include "EngineAssert.h"
-#include "GameConstants.h"
+#include "EngineConstants.h"
 #include "TextureManager.h"
 #include <cmath>
 #include <d3dx12.h>
@@ -21,8 +21,7 @@ using namespace Microsoft::WRL;
 
 namespace engine::graphics {
 /** @brief パーティクル用のルートシグネチャを生成する */
-void ParticleManager::CreateRootSignature()
-{
+void ParticleManager::CreateRootSignature() {
     ID3D12Device* device = dxCommon_->GetDevice();
 
     D3D12_DESCRIPTOR_RANGE rangeT0[1] { };
@@ -41,13 +40,13 @@ void ParticleManager::CreateRootSignature()
     // slot 1: t1 (PS が読む Texture2D)
     // 未使用の CBV スロット (b0/b1) は宣言しない - GBV が null アドレスを検出してクラッシュするため
     D3D12_ROOT_PARAMETER rootParameters[2] { };
-    rootParameters[0] = PipelineHelper::MakeSrvTableParam(rangeT0, D3D12_SHADER_VISIBILITY_VERTEX);
-    rootParameters[1] = PipelineHelper::MakeSrvTableParam(rangeT1, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[0] = pipelineHelper::MakeSrvTableParam(rangeT0, D3D12_SHADER_VISIBILITY_VERTEX);
+    rootParameters[1] = pipelineHelper::MakeSrvTableParam(rangeT1, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    D3D12_STATIC_SAMPLER_DESC sampler = PipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+    D3D12_STATIC_SAMPLER_DESC sampler = pipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_LINEAR,
         D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
-    rootSignature_ = PipelineHelper::CreateRootSignature(device, rootParameters, _countof(rootParameters),
+    rootSignature_ = pipelineHelper::CreateRootSignature(device, rootParameters, _countof(rootParameters),
         &sampler, 1, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rootSignature_);
 }
@@ -55,16 +54,15 @@ void ParticleManager::CreateRootSignature()
 //  CS ルートシグネチャ
 
 /** @brief 粒子更新用コンピュートシェーダーのルートシグネチャ（CBV と UAV 2つ）を作る */
-void ParticleManager::CreateCSRootSignature()
-{
+void ParticleManager::CreateCSRootSignature() {
     ID3D12Device* device = dxCommon_->GetDevice();
 
     D3D12_ROOT_PARAMETER params[3] { };
-    params[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
-    params[1] = PipelineHelper::MakeUavParam(0);
-    params[2] = PipelineHelper::MakeUavParam(1);
+    params[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
+    params[1] = pipelineHelper::MakeUavParam(0);
+    params[2] = pipelineHelper::MakeUavParam(1);
 
-    csRootSignature_ = PipelineHelper::CreateRootSignature(device, params, _countof(params),
+    csRootSignature_ = pipelineHelper::CreateRootSignature(device, params, _countof(params),
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(csRootSignature_);
 }
@@ -72,8 +70,7 @@ void ParticleManager::CreateCSRootSignature()
 //  CS パイプラインステート
 
 /** @brief 粒子1枚分の板ポリゴンの頂点・インデックスバッファを作る */
-void ParticleManager::CreateQuadGeometry()
-{
+void ParticleManager::CreateQuadGeometry() {
     /** @brief パーティクル描画の頂点位置とテクスチャ座標 */
     struct Vertex {
         float pos[4];
@@ -110,38 +107,34 @@ void ParticleManager::CreateQuadGeometry()
 }
 
 /** @brief パーティクルの更新用のコンピュートPSOを生成する */
-void ParticleManager::CreateCSPipelineState()
-{
-    csPipelineState_ = PipelineHelper::CreateComputePipeline(dxCommon_, csRootSignature_.Get(),
+void ParticleManager::CreateCSPipelineState() {
+    csPipelineState_ = pipelineHelper::CreateComputePipeline(dxCommon_, csRootSignature_.Get(),
         L"Resources/shaders/Particle/ParticleUpdate.CS.hlsl");
 }
 
 //  EmitParticle CS ルートシグネチャ / パイプライン
 
 /** @brief 粒子発生用コンピュートシェーダーのルートシグネチャ（CBV と UAV）を作る */
-void ParticleManager::CreateCSEmitRootSignature()
-{
+void ParticleManager::CreateCSEmitRootSignature() {
     ID3D12Device* device = dxCommon_->GetDevice();
 
     D3D12_ROOT_PARAMETER params[2] { };
-    params[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
-    params[1] = PipelineHelper::MakeUavParam(0);
+    params[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
+    params[1] = pipelineHelper::MakeUavParam(0);
 
-    csEmitRootSignature_ = PipelineHelper::CreateRootSignature(device, params, _countof(params),
+    csEmitRootSignature_ = pipelineHelper::CreateRootSignature(device, params, _countof(params),
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(csEmitRootSignature_);
 }
 
 /** @brief パーティクルの発生用のコンピュートPSOを生成する */
-void ParticleManager::CreateCSEmitPipelineState()
-{
-    csEmitPipelineState_ = PipelineHelper::CreateComputePipeline(dxCommon_, csEmitRootSignature_.Get(),
+void ParticleManager::CreateCSEmitPipelineState() {
+    csEmitPipelineState_ = pipelineHelper::CreateComputePipeline(dxCommon_, csEmitRootSignature_.Get(),
         L"Resources/shaders/Particle/EmitParticle.CS.hlsl");
 }
 
 /** @brief 指定グループのエミッターデータへのポインタを返す */
-Emitter* ParticleManager::GetEmitter(const std::string& name)
-{
+Emitter* ParticleManager::GetEmitter(const std::string& name) {
     ENGINE_ASSERT(particleGroups_.contains(name));
     return particleGroups_[name].emitterData;
 }
@@ -149,13 +142,12 @@ Emitter* ParticleManager::GetEmitter(const std::string& name)
 //  グラフィックスパイプラインステート
 
 /** @brief 粒子描画用のグラフィックスパイプラインステートを作る */
-void ParticleManager::CreatePipelineState()
-{
+void ParticleManager::CreatePipelineState() {
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeFullscreenPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.InputLayout = { PipelineHelper::kEffectMeshInputLayout, _countof(PipelineHelper::kEffectMeshInputLayout) };
+    psoDesc.InputLayout = { pipelineHelper::kEffectMeshInputLayout, _countof(pipelineHelper::kEffectMeshInputLayout) };
 
     psoDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
     psoDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
@@ -177,11 +169,11 @@ void ParticleManager::CreatePipelineState()
     const auto ps = dxCommon_->CompileShader(L"Resources/shaders/Particle/Particle.PS.hlsl", L"ps_6_0");
     psoDesc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
     psoDesc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
-    graphicsPipelineState_ = PipelineHelper::CreateGraphicsPipeline(device, psoDesc);
+    graphicsPipelineState_ = pipelineHelper::CreateGraphicsPipeline(device, psoDesc);
 
     // Alpha blend variant: DestBlend を INV_SRC_ALPHA に変えるだけ
     psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    graphicsPipelineStateAlpha_ = PipelineHelper::CreateGraphicsPipeline(device, psoDesc);
+    graphicsPipelineStateAlpha_ = pipelineHelper::CreateGraphicsPipeline(device, psoDesc);
 }
 
 } // namespace engine::graphics

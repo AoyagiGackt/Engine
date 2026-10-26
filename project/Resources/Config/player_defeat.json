@@ -1,0 +1,88 @@
+{
+  "_comment": "プレイヤーのやられ演出。hit=被弾してその場で震えて止まる launch=向いている方と逆へ弧を描いて吹き飛び、宙で後ろへ回る weapon=やられた瞬間に手からすっぽ抜けて攻撃してきた側へ回りながら飛び、床に落ちる武器 enemyBounce=落ちる先に敵がいたら敵の頭の上で跳ね、敵のいない床へ倒れ込む（clearance=敵の中心とこれより近いと埋まるとみなす横の距離） down=床に叩きつけられて跳ねる struggle=上半身を起こしながら震える腕を空へ伸ばしてあがき、力尽きてドサッと倒れて動かなくなる（reachArm / reachForearm は伸ばす腕のボーン名、reachDirection はモデルの座標で伸ばす向き。+Z が体の前で、仰向けでは空を向く。腕が変な向きに曲がる時はここを変える） gameover=画面を暗くしてGAME OVERを上から落とす choice=GAME OVER の下に出す選択肢（retryLabel=同じステージをやり直す、mapLabel=マップへ戻る。どちらもHPを満タンに戻してから移る。lockSeconds=出てからこの間は決定を受け付けない。位置はF2の gameplay の defeat_menu）。camera.closeZoom はふだんの距離に対する寄りの割合（小さいほど寄る）、camera.closeHeight は寄り切った時のカメラの高さ（プレイヤーの位置から上へ。ふだんは3）。hit.sound に音のパスを書くと被弾の瞬間に鳴る（空なら鳴らさない）。演出の見た目は hit_effects.json の player_defeat_ レシピ。GAME OVER が出た後は決定・攻撃・ジャンプで選択肢まで飛ばせる",
+  "camera": {
+    "closeZoom": 0.55,
+    "zoomSeconds": 0.45,
+    "closeHeight": 0.8
+  },
+  "hit": {
+    "seconds": 0.35,
+    "shakeWidth": 0.08,
+    "shakeSpeed": 90.0,
+    "impact": "player_defeat_hit",
+    "flash": "player_defeat_hit",
+    "sound": "",
+    "soundVolume": 1.0
+  },
+  "launch": {
+    "seconds": 0.75,
+    "distance": 3.2,
+    "height": 2.4,
+    "spinTurns": 1.0,
+    "wallClearance": 0.9,
+    "wallBandBottom": 0.1,
+    "stageEdgeMargin": 1.0
+  },
+  "weapon": {
+    "handHeight": 0.3,
+    "distance": 1.8,
+    "height": 2.8,
+    "seconds": 0.8,
+    "spinTurns": 2.5,
+    "groundOffsetY": -0.35,
+    "lieAngleDegrees": 90.0,
+    "landSparks": "land_dust"
+  },
+  "enemyBounce": {
+    "clearance": 1.3,
+    "topOffset": 1.0,
+    "extraDistance": 0.6,
+    "seconds": 0.45,
+    "height": 1.4,
+    "spinTurns": 1.0,
+    "impact": "player_defeat_bounce",
+    "sparks": "contact"
+  },
+  "down": {
+    "lieAngleDegrees": -90.0,
+    "lieLift": 0.25,
+    "bounceHeight": 0.45,
+    "bounceSeconds": 0.28,
+    "seconds": 0.35,
+    "impact": "player_defeat_down",
+    "ring": "intro_land",
+    "sparks": "land_dust"
+  },
+  "struggle": {
+    "riseSeconds": 0.5,
+    "riseDegrees": 35.0,
+    "holdSeconds": 0.6,
+    "shakeDegrees": 3.0,
+    "shakeSpeed": 45.0,
+    "reachArm": "UpperArm.R",
+    "reachForearm": "LowerArm.R",
+    "reachDirection": [0.0, 0.35, 1.0],
+    "reachWeight": 0.85,
+    "reachForearmWeight": 0.9,
+    "reachShake": 0.15,
+    "reachShakeSpeed": 23.0,
+    "collapseSeconds": 0.18,
+    "afterSeconds": 0.5,
+    "impact": "player_defeat_collapse",
+    "sparks": "land_dust"
+  },
+  "gameover": {
+    "fadeSeconds": 0.6,
+    "textDropSeconds": 0.7,
+    "textDropHeight": 220.0,
+    "holdSeconds": 1.4,
+    "overlayColor": [0.12, 0.0, 0.0, 0.65],
+    "text": "GAME OVER",
+    "skipLockSeconds": 0.4
+  },
+  "choice": {
+    "retryLabel": "もう一度挑戦",
+    "mapLabel": "マップに戻る",
+    "lockSeconds": 0.3
+  }
+}

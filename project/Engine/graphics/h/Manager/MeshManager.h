@@ -10,10 +10,10 @@ namespace engine::graphics {
  * @brief エンジンに組み込み済みの基本図形の種類
  */
 enum class MeshType {
-    Sphere, /// 球体
-    Cube, /// 立方体
-    Plane, /// 平面
-    Count /// メッシュの種類の総数
+    kSphere, /// 球体
+    kCube, /// 立方体
+    kPlane, /// 平面
+    kCount /// メッシュの種類の総数
 };
 
 /**

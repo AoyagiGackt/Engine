@@ -154,7 +154,7 @@ private:
     std::string pendingConfirmOpenPath_;
     bool requestConfirmOpen_ = false;
 
-    char nodeSearchBuf_[TextBufferCapacity::kIdentifier] = { }; // ノード追加メニューの絞り込み検索欄
+    char nodeSearchBuf_[textBufferCapacity::kIdentifier] = { }; // ノード追加メニューの絞り込み検索欄
 
     // F1で表示/非表示を切り替える全画面表示中はゲーム画面が透けて動いて見えないようにする
     bool visible_ = false;
@@ -176,7 +176,7 @@ private:
     // データ配線（出力データピン→入力データピン）をドラッグ中の状態
     bool dataLinking_ = false;
     std::string dataLinkFromNodeId_;
-    GraphValueType dataLinkFromType_ = GraphValueType::Any;
+    GraphValueType dataLinkFromType_ = GraphValueType::kAny;
 
     // 直近フレームで描画した各データピンのスクリーン位置（DrawDataLinksと接続判定用）
     std::map<std::string, std::map<std::string, ImVec2>> dataInPins_; // ノードID → パラメータ名 → 位置

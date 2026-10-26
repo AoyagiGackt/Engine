@@ -17,25 +17,21 @@ constexpr float kParallelEpsilon = 1e-8f;
 
 /** @brief レイと1軸の区間を交差させ、共通の入射・離脱距離と入射面を更新する */
 bool IntersectRaySlab(float origin, float direction, float minimum, float maximum,
-    const Vector3& minimumNormal, float& enter, float& exit, Vector3& hitNormal)
-{
+    const Vector3& minimumNormal, float& enter, float& exit, Vector3& hitNormal) {
     // 平行なレイは区間の内側にある場合だけ他の軸の判定へ進む
-    if (std::abs(direction) < kParallelEpsilon)
-    {
+    if (std::abs(direction) < kParallelEpsilon) {
         return origin >= minimum && origin <= maximum;
     }
     const float inverseDirection = 1.0f / direction;
     float nearDistance = (minimum - origin) * inverseDirection;
     float farDistance = (maximum - origin) * inverseDirection;
     Vector3 nearNormal = minimumNormal;
-    if (nearDistance > farDistance)
-    {
+    if (nearDistance > farDistance) {
         std::swap(nearDistance, farDistance);
         nearNormal = { -nearNormal.x, -nearNormal.y, -nearNormal.z };
     }
     // 最も遅く入る面と最も早く出る面の間だけが全軸に共通する
-    if (nearDistance > enter)
-    {
+    if (nearDistance > enter) {
         enter = nearDistance;
         hitNormal = nearNormal;
     }
@@ -45,8 +41,7 @@ bool IntersectRaySlab(float origin, float direction, float minimum, float maximu
 } // namespace
 
 /** @brief 球どうしが重なっているかを返す */
-bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
-{
+bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2) {
     float dx = s2.center.x - s1.center.x;
     float dy = s2.center.y - s1.center.y;
     float dz = s2.center.z - s1.center.z;
@@ -56,8 +51,7 @@ bool Collision::CheckCollision(const Sphere& s1, const Sphere& s2)
 }
 
 // AABB × AABB
-bool Collision::CheckCollision(const AABB& a, const AABB& b)
-{
+bool Collision::CheckCollision(const AABB& a, const AABB& b) {
     return (a.min.x <= b.max.x && a.max.x >= b.min.x)
         && (a.min.y <= b.max.y && a.max.y >= b.min.y)
         && (a.min.z <= b.max.z && a.max.z >= b.min.z);
@@ -66,8 +60,7 @@ bool Collision::CheckCollision(const AABB& a, const AABB& b)
 // 内部ユーティリティ
 
 /** @brief AABB の内側に点を収め、AABB 上で点に最も近い位置を返す */
-Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b)
-{
+Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b) {
     return {
         std::max(b.min.x, std::min(p.x, b.max.x)),
         std::max(b.min.y, std::min(p.y, b.max.y)),
@@ -77,12 +70,10 @@ Vector3 Collision::ClosestPointOnAABB(const Vector3& p, const AABB& b)
 
 /** @brief 点を線分上へ投影し、線分の両端の間に収めた最も近い点を返す */
 Vector3 Collision::ClosestPointOnSegment(const Vector3& p,
-    const Vector3& a, const Vector3& b)
-{
+    const Vector3& a, const Vector3& b) {
     Vector3 ab = { b.x - a.x, b.y - a.y, b.z - a.z };
     float len2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
-    if (len2 < kDegenerateEpsilon)
-    {
+    if (len2 < kDegenerateEpsilon) {
         return a;
     }
     float t = ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y + (p.z - a.z) * ab.z) / len2;
@@ -93,8 +84,7 @@ Vector3 Collision::ClosestPointOnSegment(const Vector3& p,
 // 線分 [p0,p1] と線分 [q0,q1] の最近傍距離²
 float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     const Vector3& q0, const Vector3& q1,
-    float& outS, float& outT)
-{
+    float& outS, float& outT) {
     Vector3 d1 = { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
     Vector3 d2 = { q1.x - q0.x, q1.y - q0.y, q1.z - q0.z };
     Vector3 r = { p0.x - q0.x, p0.y - q0.y, p0.z - q0.z };
@@ -104,48 +94,34 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
     float f = d2.x * r.x + d2.y * r.y + d2.z * r.z;
 
     float s, t;
-    if (a <= kDegenerateEpsilon && e <= kDegenerateEpsilon)
-    {
+    if (a <= kDegenerateEpsilon && e <= kDegenerateEpsilon) {
         // 両線分とも点に縮退
         s = t = 0.0f;
-    }
-    else if (a <= kDegenerateEpsilon)
-    {
+    } else if (a <= kDegenerateEpsilon) {
         // p 側が点に縮退
         s = 0.0f;
         t = std::max(0.0f, std::min(1.0f, f / e));
-    }
-    else
-    {
+    } else {
         float c = d1.x * r.x + d1.y * r.y + d1.z * r.z;
-        if (e <= kDegenerateEpsilon)
-        {
+        if (e <= kDegenerateEpsilon) {
             // q 側が点に縮退
             t = 0.0f;
             s = std::max(0.0f, std::min(1.0f, -c / a));
-        }
-        else
-        {
+        } else {
             // 一般ケース
             float b = d1.x * d2.x + d1.y * d2.y + d1.z * d2.z;
             float denom = a * e - b * b;
-            if (std::abs(denom) > kDegenerateEpsilon)
-            {
+            if (std::abs(denom) > kDegenerateEpsilon) {
                 s = std::max(0.0f, std::min(1.0f, (b * f - c * e) / denom));
-            }
-            else
-            {
+            } else {
                 s = 0.0f; // 平行 任意の点を選ぶ
             }
             t = (b * s + f) / e;
             // t がクランプされた場合は s を再計算
-            if (t < 0.0f)
-            {
+            if (t < 0.0f) {
                 t = 0.0f;
                 s = std::max(0.0f, std::min(1.0f, -c / a));
-            }
-            else if (t > 1.0f)
-            {
+            } else if (t > 1.0f) {
                 t = 1.0f;
                 s = std::max(0.0f, std::min(1.0f, (b - c) / a));
             }
@@ -162,8 +138,7 @@ float Collision::SegmentToSegmentDistSq(const Vector3& p0, const Vector3& p1,
 }
 
 // 球 × AABB
-bool Collision::CheckCollision(const Sphere& s, const AABB& b)
-{
+bool Collision::CheckCollision(const Sphere& s, const AABB& b) {
     // AABB 上で球の中心に最も近い点を求め、距離と半径を比較
     Vector3 closest = ClosestPointOnAABB(s.center, b);
     float dx = s.center.x - closest.x;
@@ -173,8 +148,7 @@ bool Collision::CheckCollision(const Sphere& s, const AABB& b)
 }
 
 // 球 × カプセル
-bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
-{
+bool Collision::CheckCollision(const Sphere& s, const Capsule& c) {
     // カプセル軸上で球中心に最も近い点を求め、（球半径 + カプセル半径）と比較
     Vector3 closest = ClosestPointOnSegment(s.center, c.start, c.end);
     float dx = s.center.x - closest.x;
@@ -185,8 +159,7 @@ bool Collision::CheckCollision(const Sphere& s, const Capsule& c)
 }
 
 // カプセル × カプセル
-bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
-{
+bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2) {
     // 線分同士の最近傍距離²と（半径の和）²を比較
     float s, t;
     float distSq = SegmentToSegmentDistSq(c1.start, c1.end,
@@ -201,8 +174,7 @@ bool Collision::CheckCollision(const Capsule& c1, const Capsule& c2)
 //   P → AABB 上の最近傍点 Q を求める
 //   Q → カプセル軸上の最近傍点 R を求める（精度向上）
 //  |R - Q| < radius なら衝突
-bool Collision::CheckCollision(const Capsule& c, const AABB& b)
-{
+bool Collision::CheckCollision(const Capsule& c, const AABB& b) {
     // AABB 中心からカプセル軸への射影
     Vector3 center = { (b.min.x + b.max.x) * 0.5f,
         (b.min.y + b.max.y) * 0.5f,
@@ -222,8 +194,7 @@ bool Collision::CheckCollision(const Capsule& c, const AABB& b)
 }
 
 // レイキャスト  AABB
-bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
-{
+bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result) {
     result = { };
     float tmin = 0.0f;
     float tmax = FLT_MAX;
@@ -235,14 +206,12 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
         || !IntersectRaySlab(ray.origin.y, ray.direction.y, aabb.min.y, aabb.max.y,
             { 0.0f, -1.0f, 0.0f }, tmin, tmax, hitNormal)
         || !IntersectRaySlab(ray.origin.z, ray.direction.z, aabb.min.z, aabb.max.z,
-            { 0.0f, 0.0f, -1.0f }, tmin, tmax, hitNormal))
-    {
+            { 0.0f, 0.0f, -1.0f }, tmin, tmax, hitNormal)) {
         return false;
     }
 
     // tmin < 0 はレイ原点が AABB 内部 → 衝突なし扱い（必要に応じてゲーム側で対応）
-    if (tmin < 0.0f)
-    {
+    if (tmin < 0.0f) {
         return false;
     }
 
@@ -258,8 +227,7 @@ bool Collision::Raycast(const Ray& ray, const AABB& aabb, RaycastResult& result)
 }
 
 // レイキャスト  球体
-bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& result)
-{
+bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& result) {
     result = { };
     Vector3 oc = {
         ray.origin.x - sphere.center.x,
@@ -272,18 +240,15 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
     float c = Dot(oc, oc) - sphere.radius * sphere.radius;
     float disc = b * b - c; // 判別式 = (b/2)² - ac (a=1)
 
-    if (disc < 0.0f)
-    {
+    if (disc < 0.0f) {
         return false;
     }
 
     float sqrtDisc = std::sqrt(disc);
     float t = -b - sqrtDisc; // 手前側の交点
-    if (t < 0.0f)
-    {
+    if (t < 0.0f) {
         t = -b + sqrtDisc; // レイ原点が球内部  奥側を使う
-        if (t < 0.0f)
-        {
+        if (t < 0.0f) {
             return false;
         }
     }
@@ -310,8 +275,7 @@ bool Collision::Raycast(const Ray& ray, const Sphere& sphere, RaycastResult& res
 //   カプセル軸方向の垂直成分だけで二次方程式を立て円柱交点を求める
 //   軸方向に [0, 1] にクリップして胴体判定
 //   端球（start/end の Sphere）とも判定し最小 t を採用
-bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& result)
-{
+bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& result) {
     result = { };
 
     // 端球判定
@@ -330,8 +294,7 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
     };
     float abLen2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
 
-    if (abLen2 > kDegenerateEpsilon)
-    {
+    if (abLen2 > kDegenerateEpsilon) {
         Vector3 ao = {
             ray.origin.x - capsule.start.x,
             ray.origin.y - capsule.start.y,
@@ -349,20 +312,16 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
         float halfLinearCoefficient = dAo - aoAB * dAB / abLen2; // 係数 b/2
         float constantCoefficient = Dot(ao, ao) - aoAB * aoAB / abLen2 - capsule.radius * capsule.radius;
 
-        if (std::abs(quadraticCoefficient) > kDegenerateEpsilon)
-        {
+        if (std::abs(quadraticCoefficient) > kDegenerateEpsilon) {
             float disc = halfLinearCoefficient * halfLinearCoefficient - quadraticCoefficient * constantCoefficient;
-            if (disc >= 0.0f)
-            {
+            if (disc >= 0.0f) {
                 float sqrtDisc = std::sqrt(disc);
                 float t = (-halfLinearCoefficient - sqrtDisc) / quadraticCoefficient;
-                if (t < 0.0f)
-                {
+                if (t < 0.0f) {
                     t = (-halfLinearCoefficient + sqrtDisc) / quadraticCoefficient;
                 }
 
-                if (t >= 0.0f)
-                {
+                if (t >= 0.0f) {
                     // ヒット点がカプセル軸の区間 [0,1] 内か確認
                     Vector3 hitPt = {
                         ray.origin.x + ray.direction.x * t,
@@ -376,8 +335,7 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
                     };
                     float proj = Dot(aHit, ab) / abLen2; // [0,1] なら胴体上
 
-                    if (proj >= 0.0f && proj <= 1.0f)
-                    {
+                    if (proj >= 0.0f && proj <= 1.0f) {
                         // 軸上の最近接点から外向き法線を計算
                         Vector3 axisPoint = {
                             capsule.start.x + ab.x * proj,
@@ -402,21 +360,17 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
 
     // 最小 t のヒットを採用
     const RaycastResult* best = nullptr;
-    if (hitA)
-    {
+    if (hitA) {
         best = &capA;
     }
-    if (hitB && (!best || capB.distance < best->distance))
-    {
+    if (hitB && (!best || capB.distance < best->distance)) {
         best = &capB;
     }
-    if (hitCyl && (!best || cyl.distance < best->distance))
-    {
+    if (hitCyl && (!best || cyl.distance < best->distance)) {
         best = &cyl;
     }
 
-    if (best)
-    {
+    if (best) {
         result = *best;
         return true;
     }
@@ -424,8 +378,7 @@ bool Collision::Raycast(const Ray& ray, const Capsule& capsule, RaycastResult& r
 }
 
 /** @brief 形状の順に対応する表でレイキャストを実行する */
-bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult& result)
-{
+bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult& result) {
     using Handler = bool (*)(const Ray&, const Collider&, RaycastResult&);
     static constexpr Handler kHandlers[] = {
         [](const Ray& ray, const Collider& collider, RaycastResult& result) {
@@ -444,8 +397,7 @@ bool Collision::Raycast(const Ray& ray, const Collider& collider, RaycastResult&
 }
 
 /** @brief 形状の組み合わせに対応する表で交差を判定する */
-bool Collision::CheckCollision(const Collider& a, const Collider& b)
-{
+bool Collision::CheckCollision(const Collider& a, const Collider& b) {
     // 行が a の形状、列が b の形状（AABB・球・カプセルの順）。片側だけの判定関数しか無い組は引数を入れ替えて呼ぶ
     using Handler = bool (*)(const Collider&, const Collider&);
     static constexpr Handler kHandlers[][kColliderShapeCount] = {
@@ -502,6 +454,26 @@ bool Collision::CheckCollision(const Collider& a, const Collider& b)
     const auto column = static_cast<size_t>(b.shape);
     return row < std::size(kHandlers) && column < std::size(kHandlers[0])
         && kHandlers[row][column](a, b);
+}
+
+/** @brief fromX から toX へ横に動く時、途中にある壁の手前 clearance の位置で止めたX座標を返す */
+float Collision::LimitHorizontalMove(const std::vector<AABB>& solids, float fromX, float toX,
+    float bandBottom, float bandTop, float clearance) {
+    const bool toRight = toX >= fromX;
+    float limited = toX;
+    for (const AABB& solid : solids) {
+        // 高さの帯に掛からないブロック（足もとの床や頭上の天井）は壁ではない
+        if (solid.max.y <= bandBottom || solid.min.y >= bandTop) {
+            continue;
+        }
+        // 動く向きの先にある壁の面から clearance 手前を上限にする（出発点をまたぐブロックは今いる場所なので見ない）
+        if (toRight && solid.min.x >= fromX) {
+            limited = (std::min)(limited, solid.min.x - clearance);
+        } else if (!toRight && solid.max.x <= fromX) {
+            limited = (std::max)(limited, solid.max.x + clearance);
+        }
+    }
+    return limited;
 }
 
 } // namespace engine

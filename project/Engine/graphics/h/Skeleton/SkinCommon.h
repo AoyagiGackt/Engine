@@ -24,7 +24,7 @@ public:
      * @brief 指定ブレンドモードのルートシグネチャ・PSO・プリミティブトポロジをコマンドリストにセットする
      * @param blendMode 使用するブレンドモード（既定はアルファブレンド）
      */
-    void CommonDrawSettings(BlendMode blendMode = BlendMode::Alpha);
+    void CommonDrawSettings(BlendMode blendMode = BlendMode::kAlpha);
 
     /** @brief DirectX の共通処理を返す */
     engine::DirectXCommon* GetDxCommon() const {
@@ -35,7 +35,7 @@ private:
     engine::DirectXCommon* dxCommon_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::Count)];
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::kCount)];
 };
 
 } // namespace engine::graphics

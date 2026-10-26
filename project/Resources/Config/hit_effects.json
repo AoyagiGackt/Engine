@@ -1,6 +1,61 @@
 {
-  "_comment": "ヒット・破壊・被弾などの演出レシピ。impacts=ヒットストップとカメラ揺れ rings=放射状のリング（speedは呼び出し側が半径を渡す時は倍率） sparks=左右へ飛び散る火花 slashes=斬線 flashes=画面フラッシュ stars=きらめき particles=1粒 trails=武器の残像 colors=色。色は[R,G,B,A]。コード側が色を差し替える演出では、レシピの色の不透明度が倍率になる",
+  "_comment": "ヒット・破壊・被弾などの演出レシピ。impacts=ヒットストップとカメラ揺れ rings=放射状のリング（speedは呼び出し側が半径を渡す時は倍率） sparks=左右へ飛び散る火花 slashes=斬線 flashes=画面フラッシュ stars=きらめき particles=1粒 trails=武器の残像 colors=色。色は[R,G,B,A]。コード側が色を差し替える演出では、レシピの色の不透明度が倍率になる 武器ごとの演出: weapons.json の hitStyle（sword/spear/hammer/dagger）ごとに、slashes.combo_step_<hitStyle>（無ければ combo_step）、近接が当たった時の weapon_hit_<hitStyle>、締めの weapon_finisher_<hitStyle>（rings/sparks/stars/impacts/flashes のうち書いてあるものだけ出す）",
   "impacts": {
+    "weapon_hit_hammer": {
+      "hitStopFrames": 2,
+      "shakeAmount": 0.18,
+      "shakeSeconds": 0.14
+    },
+    "weapon_finisher_hammer": {
+      "hitStopFrames": 4,
+      "shakeAmount": 0.35,
+      "shakeSeconds": 0.2
+    },
+    "weapon_finisher_spear": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.16,
+      "shakeSeconds": 0.1
+    },
+    "clear_slash": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.5,
+      "shakeSeconds": 0.25
+    },
+    "clear_shot": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.45,
+      "shakeSeconds": 0.22
+    },
+    "clear_cut": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.12,
+      "shakeSeconds": 0.06
+    },
+    "clear_spray": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.1,
+      "shakeSeconds": 0.05
+    },
+    "player_defeat_hit": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.45,
+      "shakeSeconds": 0.25
+    },
+    "player_defeat_bounce": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.2,
+      "shakeSeconds": 0.12
+    },
+    "player_defeat_collapse": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.15,
+      "shakeSeconds": 0.12
+    },
+    "player_defeat_down": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.3,
+      "shakeSeconds": 0.18
+    },
     "intro_land": {
       "hitStopFrames": 0,
       "shakeAmount": 0.35,
@@ -83,6 +138,71 @@
     }
   },
   "rings": {
+    "weapon_hit_sword": {
+      "particle": "hit_ring",
+      "speed": 3.2,
+      "color": [
+        0.8,
+        0.95,
+        1,
+        1
+      ],
+      "count": 6,
+      "lifetime": 0.12,
+      "size": 0.06
+    },
+    "weapon_hit_spear": {
+      "particle": "hit_ring",
+      "speed": 5.5,
+      "color": [
+        0.85,
+        0.95,
+        1,
+        0.9
+      ],
+      "count": 4,
+      "lifetime": 0.18,
+      "size": 0.08
+    },
+    "weapon_hit_hammer": {
+      "particle": "hit_ring",
+      "speed": 1.6,
+      "color": [
+        1,
+        0.8,
+        0.5,
+        0.9
+      ],
+      "count": 18,
+      "lifetime": 0.3,
+      "size": 0.22
+    },
+    "weapon_finisher_spear": {
+      "particle": "hit_ring",
+      "speed": 7.5,
+      "color": [
+        0.85,
+        0.95,
+        1,
+        1
+      ],
+      "count": 10,
+      "lifetime": 0.28,
+      "size": 0.12
+    },
+    "weapon_finisher_hammer": {
+      "particle": "hit_ring",
+      "speed": 1.2,
+      "color": [
+        1,
+        0.75,
+        0.4,
+        0.95
+      ],
+      "count": 28,
+      "lifetime": 0.45,
+      "size": 0.34
+    },
     "intro_land": {
       "particle": "hit_ring",
       "speed": 5.5,
@@ -557,6 +677,86 @@
     }
   },
   "sparks": {
+    "weapon_hit_spear": {
+      "particle": "hit_spark",
+      "speedXMin": 3,
+      "speedXMax": 6,
+      "riseMin": 0,
+      "riseMax": 0.6,
+      "count": 6,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "lifetime": 0.2,
+      "size": 0.06
+    },
+    "weapon_hit_hammer": {
+      "particle": "land_dust",
+      "speedXMin": 1.2,
+      "speedXMax": 3.5,
+      "riseMin": 0.8,
+      "riseMax": 2.2,
+      "count": 10,
+      "color": [
+        0.85,
+        0.78,
+        0.65,
+        0.75
+      ],
+      "lifetime": 0.45,
+      "size": 0.26
+    },
+    "weapon_hit_dagger": {
+      "particle": "hit_spark",
+      "speedXMin": 0.5,
+      "speedXMax": 3,
+      "riseMin": 0.5,
+      "riseMax": 3,
+      "count": 12,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "lifetime": 0.2,
+      "size": 0.05
+    },
+    "weapon_finisher_hammer": {
+      "particle": "land_dust",
+      "speedXMin": 2,
+      "speedXMax": 5,
+      "riseMin": 1,
+      "riseMax": 3,
+      "count": 18,
+      "color": [
+        0.85,
+        0.78,
+        0.65,
+        0.8
+      ],
+      "lifetime": 0.6,
+      "size": 0.32
+    },
+    "weapon_finisher_dagger": {
+      "particle": "hit_spark",
+      "speedXMin": 1,
+      "speedXMax": 5,
+      "riseMin": 1,
+      "riseMax": 5,
+      "count": 24,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "lifetime": 0.3,
+      "size": 0.06
+    },
     "defeat": {
       "particle": "hit_spark",
       "speedXMin": 0,
@@ -711,6 +911,42 @@
     }
   },
   "slashes": {
+    "combo_step_spear": {
+      "particle": "sword_slash",
+      "angleRight": 0,
+      "angleLeft": 3.14159265,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "radius": 1.4
+    },
+    "combo_step_hammer": {
+      "particle": "sword_slash",
+      "angleRight": -1.2,
+      "angleLeft": 4.34,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "radius": 1.1
+    },
+    "combo_step_dagger": {
+      "particle": "sword_slash",
+      "angleRight": 0.35,
+      "angleLeft": 2.79,
+      "color": [
+        1,
+        1,
+        1,
+        0.9
+      ],
+      "radius": 0.55
+    },
     "combo_finisher": {
       "particle": "sword_slash",
       "angleRight": -0.45,
@@ -848,6 +1084,42 @@
     }
   },
   "flashes": {
+    "weapon_finisher_sword": {
+      "color": [
+        1,
+        1,
+        1,
+        0.2
+      ],
+      "seconds": 0.08
+    },
+    "clear_slash": {
+      "color": [
+        1,
+        1,
+        1,
+        0.7
+      ],
+      "seconds": 0.15
+    },
+    "clear_shot": {
+      "color": [
+        1,
+        0.95,
+        0.8,
+        0.6
+      ],
+      "seconds": 0.12
+    },
+    "player_defeat_hit": {
+      "color": [
+        1,
+        0.15,
+        0.15,
+        0.5
+      ],
+      "seconds": 0.2
+    },
     "intro_slash": {
       "color": [
         1,
@@ -922,6 +1194,24 @@
     }
   },
   "stars": {
+    "weapon_hit_sword": {
+      "particle": "hit_spark",
+      "color": [
+        0.85,
+        0.95,
+        1,
+        1
+      ]
+    },
+    "weapon_finisher_sword": {
+      "particle": "hit_spark",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
     "defeat": {
       "particle": "hit_spark",
       "color": [
@@ -1355,19 +1645,28 @@
     "releaseWarpImpulse": 1
   },
   "waterVisuals": {
-    "deepWaterColor": [
-      0.03,
-      0.18,
-      0.58,
-      0.94
-    ],
-    "surfaceWaterColor": [
-      0.2,
-      0.58,
-      0.96,
-      0.68
-    ],
-    "surfaceLayerDepth": 1.5,
+    "wavePointCount": 64,
+    "waveSpring": 28.0,
+    "waveSpread": 90.0,
+    "waveDamping": 2.8,
+    "waveMaxHeight": 0.22,
+    "waveSplashImpulse": 1.6,
+    "waveMoveImpulse": 0.12,
+    "waveImpulseRadius": 0.65,
+    "waveAmbientStrength": 0.08,
+    "waveAmbientFrequency": 1.8,
+    "waveAmbientSpeed": 1.3,
+    "refractionStrength": 0.004,
+    "refractionSpeed": 1.6,
+    "causticScale": 2.4,
+    "causticFlowSpeed": 0.7,
+    "causticStrength": 0.16,
+    "foamWidth": 0.045,
+    "foamStrength": 0.85,
+
+    "deepWaterColor": [0.025, 0.14, 0.24, 0.64],
+    "surfaceWaterColor": [0.08, 0.38, 0.43, 0.24],
+    "surfaceLayerDepth": 0.9,
     "rippleIntervalFrames": 25,
     "rippleEdgeMargin": 1.5,
     "rippleSpeed": 0.9,
@@ -1407,7 +1706,7 @@
     "bubbleIntervalFrames": 12,
     "bubbleEdgeMargin": 0.5,
     "bubbleBottomMargin": 0.2,
-    "bubbleTopMargin": 1,
+    "bubbleTopMargin": 0.18,
     "bubbleRiseSpeed": 0.9,
     "bubbleColor": [
       0.7,

@@ -121,8 +121,7 @@ public:
      * @param clip           掛けるクリップ（nullptrで何も掛けない）
      * @param normalizedTime 段の経過割合（0〜1）
      */
-    void SetClip(const MotionClip* clip, float normalizedTime)
-    {
+    void SetClip(const MotionClip* clip, float normalizedTime) {
         clip_ = clip;
         time_ = normalizedTime;
     }

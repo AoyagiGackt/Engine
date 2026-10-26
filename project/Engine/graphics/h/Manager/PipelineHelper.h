@@ -20,7 +20,7 @@
 namespace engine { class DirectXCommon; }
 namespace engine::graphics { class SrvManager; class Object3dCommon; class ShadowManager; }
 
-namespace engine::graphics::PipelineHelper {
+namespace engine::graphics::pipelineHelper {
 
 /**
  * @brief ポストエフェクト用のオフスクリーン描画先を消去する色（RGBA）
@@ -31,10 +31,10 @@ inline constexpr float kOffscreenClearColor[4] = { 0.1f, 0.25f, 0.5f, 1.0f };
 /** @brief 共通の描画設定から全ブレンドモードのPSOを生成し、診断名を付ける */
 void CreateBlendPipelines(ID3D12Device* device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
     const std::wstring& namePrefix,
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> (&pipelines)[static_cast<size_t>(BlendMode::Count)]);
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> (&pipelines)[static_cast<size_t>(BlendMode::kCount)]);
 
 // パイプラインごとのルート引数の契約。シェーダーレジスタ番号とは区別する。
-namespace ModelRootSlot {
+namespace modelRootSlot {
 inline constexpr UINT kMaterial = 0;
 inline constexpr UINT kTransform = 1;
 inline constexpr UINT kTexture = 2;
@@ -45,62 +45,62 @@ inline constexpr UINT kPointLights = 6;
 inline constexpr UINT kNormalMap = 7;
 }
 
-namespace SkinnedRootSlot {
+namespace skinnedRootSlot {
 inline constexpr UINT kPalette = 6;
 inline constexpr UINT kPointLights = 7;
 inline constexpr UINT kNormalMap = 8;
 }
 
-namespace FullscreenRootSlot {
+namespace fullscreenRootSlot {
 inline constexpr UINT kConstants = 0;
 inline constexpr UINT kTexture = 1;
 inline constexpr UINT kAuxiliaryTexture = 2;
 }
 
-namespace ShadowRootSlot {
+namespace shadowRootSlot {
 inline constexpr UINT kTransform = 0;
 }
 
-namespace OutlineRootSlot {
+namespace outlineRootSlot {
 inline constexpr UINT kParameters = 0;
 inline constexpr UINT kTransform = 1;
 }
 
-namespace EffectMeshRootSlot {
+namespace effectMeshRootSlot {
 inline constexpr UINT kConstants = 0;
 inline constexpr UINT kTexture = 1;
 }
 
-namespace VertexColorRootSlot {
+namespace vertexColorRootSlot {
 inline constexpr UINT kScene = 0;
 }
 
-namespace SpriteRootSlot {
+namespace spriteRootSlot {
 inline constexpr UINT kMaterial = 0;
 inline constexpr UINT kTransform = 1;
 inline constexpr UINT kTexture = 2;
 }
 
-namespace ParticleRootSlot {
+namespace particleRootSlot {
 inline constexpr UINT kInstances = 0;
 inline constexpr UINT kTexture = 1;
 }
 
-namespace NormalPrepassRootSlot {
+namespace normalPrepassRootSlot {
 inline constexpr UINT kTransform = 0;
 inline constexpr UINT kNormals = 1;
 }
 
-namespace BloomCompositeRootSlot {
+namespace bloomCompositeRootSlot {
 inline constexpr UINT kScene = 0;
 inline constexpr UINT kBloom = 1;
 }
 
-namespace SingleTextureRootSlot {
+namespace singleTextureRootSlot {
 inline constexpr UINT kTexture = 0;
 }
 
-namespace OverlayRootSlot {
+namespace overlayRootSlot {
 inline constexpr UINT kConstants = 0;
 }
 
@@ -277,8 +277,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadBuffer(ID3D12Device* device, 
  * @param elements 書き込む要素の並び
  */
 template <class Element>
-Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadBufferFrom(ID3D12Device* device, const std::vector<Element>& elements)
-{
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadBufferFrom(ID3D12Device* device, const std::vector<Element>& elements) {
     auto resource = CreateUploadBuffer(device, sizeof(Element) * elements.size());
     Element* mapped = nullptr;
     const HRESULT hr = resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
@@ -296,10 +295,8 @@ D3D12_RESOURCE_DESC MakeBufferDesc(UINT64 size);
 
 /** @brief マテリアルが確保済みなら指定したフィールドだけを書き換える */
 template <typename Material, typename Value>
-void SetMaterialValue(Material* material, Value Material::* const& member, const Value& value)
-{
-    if (material)
-    {
+void SetMaterialValue(Material* material, Value Material::* const& member, const Value& value) {
+    if (material) {
         material->*member = value;
     }
 }
@@ -355,11 +352,9 @@ void BindCommonLighting(ID3D12GraphicsCommandList* cmd, Object3dCommon* objectCo
 /** @brief マップした定数バッファと演出用パイプラインを順に解放する */
 template <typename Constants>
 void ReleaseEffectResources(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, Constants*& data,
-    Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipeline, Microsoft::WRL::ComPtr<ID3D12RootSignature>& signature)
-{
+    Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipeline, Microsoft::WRL::ComPtr<ID3D12RootSignature>& signature) {
     // Unmapを終えてからバッファと描画状態への参照を手放す
-    if (data)
-    {
+    if (data) {
         resource->Unmap(0, nullptr);
         data = nullptr;
     }

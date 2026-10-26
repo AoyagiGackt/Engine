@@ -16,8 +16,8 @@ namespace engine::game {
 class GraphRuntime;
 
 /** @brief ノード実行の結果次に進めるか（Continue）、フレームをまたいで待つか（Suspend） */
-enum class NodeResult { Continue,
-    Suspend };
+enum class NodeResult { kContinue,
+    kSuspend };
 
 /**
  * @brief 1ノード分の実行ロジック
@@ -32,7 +32,7 @@ using NodeExecuteFn = std::function<NodeResult(GraphRuntime& rt, const GraphNode
 /** @brief パラメータ1個ぶんのピン情報（データ配線の型チェック・エディタでのピン色分けに使う） */
 struct NodeParamSpec {
     std::string key;
-    GraphValueType type = GraphValueType::Any;
+    GraphValueType type = GraphValueType::kAny;
     std::optional<GraphValue> defaultValue; // ノード追加時の初期値（省略時は型ごとの既定値）
 
     /** @brief エディタでノードを追加した時に入れる初期値を返す */
@@ -43,7 +43,7 @@ struct NodeParamSpec {
 struct NodeTypeSpec {
     std::vector<NodeParamSpec> params; // 入力データピン（パラメータ）の並び
     bool hasOutput = false; // 出力データピンを持つか
-    GraphValueType outputType = GraphValueType::Any; // 出力データピンの型
+    GraphValueType outputType = GraphValueType::kAny; // 出力データピンの型
     std::string description; // 何ができるかの一言説明（ノード追加メニューのツールチップに使う）
     std::string category; // ノード追加メニューでのグループ分け（例  "よく使う", "敵"）空ならその他扱い
     bool branches = false; // trueなら実行出力が真/偽の2本（nextTrue/nextFalse）、falseなら1本（next）
@@ -75,8 +75,7 @@ public:
     /** @brief 型名からピン情報を引く登録が無ければnullptr（エディタはAny扱いにする） */
     const NodeTypeSpec* FindSpec(const std::string& type) const;
     /** @brief 実行出力が真/偽の2本に分かれるノード種別か（未登録の種別はfalse） */
-    bool IsBranchType(const std::string& type) const
-    {
+    bool IsBranchType(const std::string& type) const {
         const NodeTypeSpec* spec = FindSpec(type);
         return spec && spec->branches;
     }

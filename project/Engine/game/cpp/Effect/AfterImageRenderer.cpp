@@ -21,10 +21,8 @@ struct AfterImageStyle {
 };
 
 /** @brief 残像の見た目を初回にgraphics_tuning.jsonから読み込む */
-const AfterImageStyle& ImageStyle()
-{
-    static const AfterImageStyle style = []
-    {
+const AfterImageStyle& ImageStyle() {
+    static const AfterImageStyle style = [] {
         AfterImageStyle value;
         value.fadeSpeed = GraphicsTuning::Float("afterImage.fadeSpeed", value.fadeSpeed);
         value.denseAlpha = GraphicsTuning::Float("afterImage.denseAlpha", value.denseAlpha, 0.0f, 1.0f);
@@ -40,8 +38,7 @@ const AfterImageStyle& ImageStyle()
 }
 
 /** @brief 描画に使うモデルを設定して初期化する */
-void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model, float scale)
-{
+void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model, float scale) {
     object_ = std::make_unique<Object3d>();
     object_->Initialize(modelCommon);
     object_->SetModel(model);
@@ -51,40 +48,32 @@ void AfterImageRenderer::Initialize(ModelCommon* modelCommon, Model* model, floa
 }
 
 /** @brief 残像モデルを差し替える（覚醒フォーム切り替え用） */
-void AfterImageRenderer::SetModel(Model* model, float scale)
-{
+void AfterImageRenderer::SetModel(Model* model, float scale) {
     object_->SetModel(model);
     object_->SetScale({ scale, scale, scale });
-    for (auto& img : images_)
-    {
+    for (auto& img : images_) {
         img.alpha = 0.0f;
     }
 }
 
 /** @brief 毎フレーム残像を更新する */
-void AfterImageRenderer::Update(bool active, bool dense, const Vector3& pos, float yaw, float spinZ)
-{
+void AfterImageRenderer::Update(bool active, bool dense, const Vector3& pos, float yaw, float spinZ) {
     const AfterImageStyle& style = ImageStyle();
-    for (auto& img : images_)
-    {
-        if (img.alpha > 0.0f)
-        {
-            img.alpha -= GameConstants::kFrameDeltaTime * style.fadeSpeed;
-            if (img.alpha < 0.0f)
-            {
+    for (auto& img : images_) {
+        if (img.alpha > 0.0f) {
+            img.alpha -= gameConstants::kFrameDeltaTime * style.fadeSpeed;
+            if (img.alpha < 0.0f) {
                 img.alpha = 0.0f;
             }
         }
     }
 
-    if (!active)
-    {
+    if (!active) {
         return;
     }
 
-    timer_ -= GameConstants::kFrameDeltaTime;
-    if (timer_ <= 0.0f)
-    {
+    timer_ -= gameConstants::kFrameDeltaTime;
+    if (timer_ <= 0.0f) {
         timer_ = dense ? style.fastInterval : style.slowInterval;
         auto& img = images_[idx_];
         img.pos = pos;
@@ -96,14 +85,11 @@ void AfterImageRenderer::Update(bool active, bool dense, const Vector3& pos, flo
 }
 
 /** @brief 全残像を描画する（半透明のため通常の Draw() の後に呼ぶ） */
-void AfterImageRenderer::Draw()
-{
+void AfterImageRenderer::Draw() {
     const AfterImageStyle& style = ImageStyle();
-    constexpr float kDegToRad = GameConstants::kDegToRad;
-    for (const auto& img : images_)
-    {
-        if (img.alpha <= 0.0f)
-        {
+    constexpr float kDegToRad = gameConstants::kDegToRad;
+    for (const auto& img : images_) {
+        if (img.alpha <= 0.0f) {
             continue;
         }
         object_->SetPosition(img.pos);

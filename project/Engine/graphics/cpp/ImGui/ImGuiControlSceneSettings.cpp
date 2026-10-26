@@ -18,32 +18,26 @@ constexpr float kPointLightDragSpeed = 0.1f;
 }
 
 /** @brief メッシュの設定欄を出す */
-void ImGuiControlPanel::ShowMeshSettings()
-{
+void ImGuiControlPanel::ShowMeshSettings() {
     // メッシュ設定
-    if (ImGui::CollapsingHeader("メッシュ設定", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+    if (ImGui::CollapsingHeader("メッシュ設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* meshItems[] = { "球体", "立方体", "平面" };
         int currentMesh = static_cast<int>(MeshManager::GetInstance()->GetCurrentMeshType());
 
-        if (ImGui::Combo("メッシュ種類", &currentMesh, meshItems, IM_ARRAYSIZE(meshItems)))
-        {
+        if (ImGui::Combo("メッシュ種類", &currentMesh, meshItems, IM_ARRAYSIZE(meshItems))) {
             MeshManager::GetInstance()->SetCurrentMeshType(static_cast<MeshType>(currentMesh));
         }
 
         const char* meshNames[] = { "Sphere", "Cube", "Plane" };
-        for (int i = 0; i < static_cast<int>(MeshType::Count); ++i)
-        {
+        for (int i = 0; i < static_cast<int>(MeshType::kCount); ++i) {
             ImGui::PushID(i);
-            if (ImGui::TreeNode(meshNames[i]))
-            {
+            if (ImGui::TreeNode(meshNames[i])) {
                 const MeshType type = static_cast<MeshType>(i);
                 Transform transform = MeshManager::GetInstance()->GetMeshTransform(type);
                 bool changed = ImGui::DragFloat3("スケール", &transform.scale.x, kTransformDragSpeed);
                 changed |= ImGui::DragFloat3("回転", &transform.rotate.x, kTransformDragSpeed);
                 changed |= ImGui::DragFloat3("移動", &transform.translate.x, kTransformDragSpeed);
-                if (changed)
-                {
+                if (changed) {
                     MeshManager::GetInstance()->SetMeshTransform(type, transform);
                 }
                 ImGui::TreePop();
@@ -54,51 +48,39 @@ void ImGuiControlPanel::ShowMeshSettings()
 }
 
 /** @brief マテリアルの設定欄を出す */
-void ImGuiControlPanel::ShowMaterialSettings()
-{
+void ImGuiControlPanel::ShowMaterialSettings() {
     // マテリアル設定
-    if (ImGui::CollapsingHeader("マテリアル設定", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+    if (ImGui::CollapsingHeader("マテリアル設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* matItems[] = { "赤", "緑", "青", "白" };
         int currentMat = (int)MaterialManager::GetInstance()->GetCurrentMaterialIndex();
-        if (ImGui::Combo("マテリアルカラー", &currentMat, matItems, IM_ARRAYSIZE(matItems)))
-        {
+        if (ImGui::Combo("マテリアルカラー", &currentMat, matItems, IM_ARRAYSIZE(matItems))) {
             MaterialManager::GetInstance()->SetCurrentMaterialIndex(currentMat);
         }
     }
 }
 
 /** @brief ライティングの設定欄を出す */
-void ImGuiControlPanel::ShowLightingSettings()
-{
+void ImGuiControlPanel::ShowLightingSettings() {
     // ライティングモード
-    if (ImGui::CollapsingHeader("ライティング設定", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+    if (ImGui::CollapsingHeader("ライティング設定", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* lightItems[] = { "なし", "Lambert", "Half Lambert", "Lambert+Phong", "HalfLambert+Phong" };
         int currentMode = LightManager::GetInstance()->GetLightingMode();
-        if (ImGui::Combo("ライティングモード", &currentMode, lightItems, IM_ARRAYSIZE(lightItems)))
-        {
+        if (ImGui::Combo("ライティングモード", &currentMode, lightItems, IM_ARRAYSIZE(lightItems))) {
             LightManager::GetInstance()->SetLightingMode(currentMode);
         }
     }
 }
 
 /** @brief ガラス割れの設定欄を出す */
-void ImGuiControlPanel::ShowGlassShatterSection()
-{
+void ImGuiControlPanel::ShowGlassShatterSection() {
     // ガラス割れエフェクト
-    if (ImGui::CollapsingHeader("ガラス割れエフェクト"))
-    {
-        if (glassShatterTrigger_)
-        {
-            if (ImGui::Button("テスト再生"))
-            {
-                glassShatterTrigger_();
+    if (ImGui::CollapsingHeader("ガラス割れエフェクト")) {
+        if (sGlassShatterTrigger) {
+            if (ImGui::Button("テスト再生")) {
+                sGlassShatterTrigger();
             }
             ImGui::TextDisabled("※ 演出中は再度押しても無視されます");
-        }
-        else
-        {
+        } else {
             ImGui::TextWrapped("このシーンではガラス割れエフェクトの\n"
                                "テスト再生は登録されていません。");
         }
@@ -106,19 +88,14 @@ void ImGuiControlPanel::ShowGlassShatterSection()
 }
 
 /** @brief ライトの設定欄を出す */
-void ImGuiControlPanel::ShowLightSection()
-{
+void ImGuiControlPanel::ShowLightSection() {
     // ライト（平行光源 + ポイントライト）
-    if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        if (!obj3dCommon_)
-        {
+    if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (!sObj3dCommon) {
             ImGui::TextColored(kWarningTextColor,
                 "RegisterObject3dCommon() が未呼出しです。\n"
                 "初期化時に RegisterObject3dCommon(obj3dCommon) を呼んでください。");
-        }
-        else
-        {
+        } else {
             ShowDirectionalLightSection();
             ImGui::Separator();
             ShowPointLightSection();
@@ -127,11 +104,9 @@ void ImGuiControlPanel::ShowLightSection()
 }
 
 /** @brief 点光源の設定欄を出す */
-void ImGuiControlPanel::ShowPointLightSection()
-{
+void ImGuiControlPanel::ShowPointLightSection() {
     // ポイントライト
-    if (!ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+    if (!ImGui::TreeNodeEx("ポイントライト（デバッグ）", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
     const int maxLights = static_cast<int>(Object3dCommon::kMaxPointLights);
@@ -139,15 +114,11 @@ void ImGuiControlPanel::ShowPointLightSection()
     ImGui::Separator();
 
     // ライト追加ボタン（初期位置は EditorPointLight の既定値）
-    if (static_cast<int>(editorLights_.size()) < maxLights)
-    {
-        if (ImGui::Button("+ ライトを追加"))
-        {
-            editorLights_.push_back(EditorPointLight {});
+    if (static_cast<int>(sEditorLights.size()) < maxLights) {
+        if (ImGui::Button("+ ライトを追加")) {
+            sEditorLights.push_back(EditorPointLight {});
         }
-    }
-    else
-    {
+    } else {
         ImGui::TextDisabled("（上限 %d 個に達しています）", maxLights);
     }
 
@@ -164,9 +135,8 @@ void ImGuiControlPanel::ShowPointLightSection()
         { "半径", &EditorPointLight::radius, 0.1f, 50.0f, "%.1f" },
         { "強度", &EditorPointLight::intensity, 0.0f, 10.0f, "%.2f" },
     };
-    for (int i = 0; i < static_cast<int>(editorLights_.size());)
-    {
-        auto& pl = editorLights_[i];
+    for (int i = 0; i < static_cast<int>(sEditorLights.size());) {
+        auto& pl = sEditorLights[i];
         ImGui::PushID(i);
 
         char label[kPointLightLabelCapacity];
@@ -179,24 +149,19 @@ void ImGuiControlPanel::ShowPointLightSection()
         ImGui::SameLine();
         bool removed = ImGui::SmallButton("削除");
 
-        if (open)
-        {
+        if (open) {
             ImGui::DragFloat3("位置", &pl.position.x, kPointLightDragSpeed);
             ImGui::ColorEdit3("色", &pl.color.x);
-            for (const LightSlider& slider : kLightSliders)
-            {
+            for (const LightSlider& slider : kLightSliders) {
                 ImGui::SliderFloat(slider.label, &(pl.*slider.field), slider.min, slider.max, slider.format);
             }
         }
 
         ImGui::PopID();
 
-        if (removed)
-        {
-            editorLights_.erase(editorLights_.begin() + i);
-        }
-        else
-        {
+        if (removed) {
+            sEditorLights.erase(sEditorLights.begin() + i);
+        } else {
             ++i;
         }
     }

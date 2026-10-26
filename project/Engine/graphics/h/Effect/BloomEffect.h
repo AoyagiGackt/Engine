@@ -37,10 +37,9 @@ namespace engine::graphics {
 class BloomEffect {
 public:
     /** @brief 共有インスタンスを取得する */
-    static BloomEffect* GetInstance()
-    {
-        static BloomEffect instance;
-        return &instance;
+    static BloomEffect* GetInstance() {
+        static BloomEffect sInstance;
+        return &sInstance;
     }
 
     /**
@@ -85,10 +84,8 @@ public:
     }
 
     /** @brief 光らせる明るさのしきい値を設定する */
-    void SetThreshold(float t)
-    {
-        if (brightCbData_)
-        {
+    void SetThreshold(float t) {
+        if (brightCbData_) {
             brightCbData_->threshold = t;
         }
     }
@@ -98,10 +95,8 @@ public:
     }
 
     /** @brief ブルームの強さを設定する */
-    void SetIntensity(float i)
-    {
-        if (brightCbData_)
-        {
+    void SetIntensity(float i) {
+        if (brightCbData_) {
             brightCbData_->intensity = i;
         }
     }

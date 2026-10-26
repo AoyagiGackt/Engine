@@ -10,8 +10,7 @@ constexpr float kHueLimit = 180.0f;
 }
 
 /** @brief オフスクリーンRTV・定数バッファ・HSV変換用PSOを生成する */
-void HsvFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void HsvFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     cbData_ = static_cast<HsvFilterParams*>(
         InitializeCommon(dxCommon, srvManager, L"Resources/shaders/postprocess/HsvFilterPS.hlsl"));
     *cbData_ = HsvFilterParams { };
@@ -21,10 +20,8 @@ void HsvFilter::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 }
 
 /** @brief 色相のシフト量を設定する */
-void HsvFilter::SetHueShift(float degrees)
-{
-    if (cbData_)
-    {
+void HsvFilter::SetHueShift(float degrees) {
+    if (cbData_) {
         cbData_->hueShift = degrees;
     }
 }
@@ -33,10 +30,8 @@ float HsvFilter::GetHueShift() const {
     return cbData_ ? cbData_->hueShift : 0.0f;
 }
 /** @brief 彩度の倍率を設定する */
-void HsvFilter::SetSaturation(float s)
-{
-    if (cbData_)
-    {
+void HsvFilter::SetSaturation(float s) {
+    if (cbData_) {
         cbData_->saturation = s;
     }
 }
@@ -45,10 +40,8 @@ float HsvFilter::GetSaturation() const {
     return cbData_ ? cbData_->saturation : 1.0f;
 }
 /** @brief 明度の倍率を設定する */
-void HsvFilter::SetValue(float v)
-{
-    if (cbData_)
-    {
+void HsvFilter::SetValue(float v) {
+    if (cbData_) {
         cbData_->value = v;
     }
 }

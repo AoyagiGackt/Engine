@@ -10,10 +10,9 @@ namespace engine::graphics {
 class HsvFilter : public PostEffectFullscreenPass {
 public:
     /** @brief 共有インスタンスを取得する */
-    static HsvFilter* GetInstance()
-    {
-        static HsvFilter instance;
-        return &instance;
+    static HsvFilter* GetInstance() {
+        static HsvFilter sInstance;
+        return &sInstance;
     }
 
     /**
@@ -23,8 +22,7 @@ public:
      */
     void Initialize(engine::DirectXCommon* dxCommon, SrvManager* srvManager);
     /** @brief HSV フィルターの描画資源を解放する */
-    void Finalize()
-    {
+    void Finalize() {
         // オフスクリーンRTV・定数バッファ・PSOを解放する
         FinalizeCommon();
         cbData_ = nullptr;

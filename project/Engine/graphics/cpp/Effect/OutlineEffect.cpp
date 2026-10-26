@@ -12,8 +12,7 @@ namespace engine::graphics {
 using namespace Microsoft::WRL;
 
 /** @brief アウトライン用のルートシグネチャ・PSO・定数バッファを生成して初期化する */
-void OutlineEffect::Initialize(DirectXCommon* dxCommon)
-{
+void OutlineEffect::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon->GetDevice();
 
@@ -26,10 +25,10 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // slot 1 (VS only, b1)  TransformationMatrix
     //   Object3d が持つ WVP 行列などをここで受け取る
     D3D12_ROOT_PARAMETER rootParams[2] = { };
-    rootParams[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
-    rootParams[1] = PipelineHelper::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_VERTEX);
+    rootParams[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_ALL);
+    rootParams[1] = pipelineHelper::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_VERTEX);
 
-    rootSignature_ = PipelineHelper::CreateRootSignature(device, rootParams, 2,
+    rootSignature_ = pipelineHelper::CreateRootSignature(device, rootParams, 2,
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rootSignature_);
 
@@ -48,7 +47,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
 
     // ブレンド  アルファブレンド（半透明アウトラインも対応）
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeEffectMeshPsoDesc(BlendMode::Alpha, D3D12_DEPTH_WRITE_MASK_ALL);
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeEffectMeshPsoDesc(BlendMode::kAlpha, D3D12_DEPTH_WRITE_MASK_ALL);
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputElem, _countof(inputElem) };
 
@@ -57,7 +56,7 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
     // 法線方向に膨らんだメッシュの外側に見える裏面だけが描画される = アウトライン
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
 
-    pipelineState_ = PipelineHelper::CreateGraphicsPipeline(dxCommon, psoDesc,
+    pipelineState_ = pipelineHelper::CreateGraphicsPipeline(dxCommon, psoDesc,
         L"Resources/shaders/outline/OutlineVS.hlsl", L"Resources/shaders/outline/OutlinePS.hlsl");
 
     // 定数バッファ（アウトライン色と幅）
@@ -69,23 +68,21 @@ void OutlineEffect::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief GPU リソースを解放する */
-void OutlineEffect::Finalize()
-{
+void OutlineEffect::Finalize() {
     // Map 済みのバッファを解放
-    PipelineHelper::ReleaseEffectResources(cbResource_, cbData_, pipelineState_, rootSignature_);
+    pipelineHelper::ReleaseEffectResources(cbResource_, cbData_, pipelineState_, rootSignature_);
 }
 
 /** @brief アウトライン描画パスを開始する */
-void OutlineEffect::BeginOutlinePass()
-{
+void OutlineEffect::BeginOutlinePass() {
     auto* cmdList = dxCommon_->GetCommandList();
 
     // アウトライン用のルートシグネチャと PSO にコマンドリストを切り替える
-    PipelineHelper::SetTrianglePipeline(cmdList, rootSignature_.Get(), pipelineState_.Get());
+    pipelineHelper::SetTrianglePipeline(cmdList, rootSignature_.Get(), pipelineState_.Get());
 
     // slot 0 (b0)  OutlineParams（色と幅）を定数バッファとしてバインド
     // この後 Object3d::DrawOutline(this) を呼ぶと slot 1 (b1) に変換行列がバインドされる
-    cmdList->SetGraphicsRootConstantBufferView(PipelineHelper::OutlineRootSlot::kParameters, cbResource_->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootConstantBufferView(pipelineHelper::outlineRootSlot::kParameters, cbResource_->GetGPUVirtualAddress());
 }
 
 } // namespace engine::graphics

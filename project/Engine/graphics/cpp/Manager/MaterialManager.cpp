@@ -7,8 +7,7 @@
 namespace engine::graphics {
 /** @brief 既定のマテリアルを用意して初期化する */
 MaterialManager::MaterialManager()
-    : currentMaterialIndex_(0)
-{
+    : currentMaterialIndex_(0) {
     InitMaterials();
 }
 
@@ -26,8 +25,7 @@ Material MaterialManager::GetCurrentMaterial() const {
 }
 
 /** @brief 初期化時にいくつかのデフォルトマテリアル（赤、緑、青など）を生成してリストに登録する */
-void MaterialManager::InitMaterials()
-{
+void MaterialManager::InitMaterials() {
     // 赤、緑、青
     materials_.push_back({ { 1, 0, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
     materials_.push_back({ { 0, 1, 0, 1 }, 1, { 0, 0, 0 }, MakeIdentity4x4() });
@@ -36,14 +34,12 @@ void MaterialManager::InitMaterials()
 }
 
 /** @brief MaterialManagerの唯一のインスタンスを取得する */
-MaterialManager* MaterialManager::GetInstance()
-{
-    static MaterialManager instance;
-    return &instance;
+MaterialManager* MaterialManager::GetInstance() {
+    static MaterialManager sInstance;
+    return &sInstance;
 }
 
 /** @brief マネージャーの終了処理を行う（必要に応じてリソースを解放する） */
-void MaterialManager::Finalize()
-{
+void MaterialManager::Finalize() {
 }
 } // namespace engine::graphics

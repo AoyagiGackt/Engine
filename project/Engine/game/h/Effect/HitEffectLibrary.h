@@ -220,16 +220,19 @@ public:
     const ParticleDef& Particle(const std::string& name) const;
     const TrailDef& Trail(const std::string& name) const;
     const Vector4& Color(const std::string& name) const;
+    /**
+     * @brief その節（impacts・rings・sparks・slashes・flashes・stars）に名前のレシピがあるか
+     * @note 武器ごとのレシピ（名前_hitStyle）を、書いてある時だけ使うのに使う
+     */
+    bool Has(const std::string& section, const std::string& name) const;
 
     /** @brief シーン共通の演出設定を読み取り専用で取得する */
-    const SceneParticleDef& SceneParticles() const
-    {
+    const SceneParticleDef& SceneParticles() const {
         return sceneParticles_;
     }
 
     /** @brief フィニッシャーの共通演出設定を参照する */
-    const FinisherVisualDef& FinisherVisuals() const
-    {
+    const FinisherVisualDef& FinisherVisuals() const {
         return finisherVisuals_;
     }
 

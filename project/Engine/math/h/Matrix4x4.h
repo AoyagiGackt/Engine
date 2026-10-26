@@ -28,8 +28,7 @@ struct Matrix3x3 {
  * @brief 4x4 単位行列を作成する
  * @return Matrix4x4 単位行列
  */
-inline Matrix4x4 MakeIdentity4x4()
-{
+inline Matrix4x4 MakeIdentity4x4() {
     Matrix4x4 identity;
     identity.m[0][0] = 1.0f;
     identity.m[0][1] = 0.0f;
@@ -56,8 +55,7 @@ inline Matrix4x4 MakeIdentity4x4()
  * @param m2 右側の行列
  * @return Matrix4x4 計算結果
  */
-inline Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2)
-{
+inline Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
     Matrix4x4 result;
     result.m[0][0] = m1.m[0][0] * m2.m[0][0] + m1.m[0][1] * m2.m[1][0] + m1.m[0][2] * m2.m[2][0] + m1.m[0][3] * m2.m[3][0];
     result.m[0][1] = m1.m[0][0] * m2.m[0][1] + m1.m[0][1] * m2.m[1][1] + m1.m[0][2] * m2.m[2][1] + m1.m[0][3] * m2.m[3][1];
@@ -85,8 +83,7 @@ inline Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2)
 // 座標変換行列作成
 
 /** @brief X軸回転行列の作成 */
-inline Matrix4x4 MakeRotateXMatrix(float radian)
-{
+inline Matrix4x4 MakeRotateXMatrix(float radian) {
     float cosTheta = std::cos(radian);
     float sinTheta = std::sin(radian);
     return { 1.0f, 0.0f, 0.0f, 0.0f,
@@ -96,8 +93,7 @@ inline Matrix4x4 MakeRotateXMatrix(float radian)
 }
 
 /** @brief Y軸回転行列の作成 */
-inline Matrix4x4 MakeRotateYMatrix(float radian)
-{
+inline Matrix4x4 MakeRotateYMatrix(float radian) {
     float cosTheta = std::cos(radian);
     float sinTheta = std::sin(radian);
     return { cosTheta, 0.0f, -sinTheta, 0.0f,
@@ -107,8 +103,7 @@ inline Matrix4x4 MakeRotateYMatrix(float radian)
 }
 
 /** @brief Z軸回転行列の作成 */
-inline Matrix4x4 MakeRotateZMatrix(float radian)
-{
+inline Matrix4x4 MakeRotateZMatrix(float radian) {
     float cosTheta = std::cos(radian);
     float sinTheta = std::sin(radian);
     return { cosTheta, sinTheta, 0.0f, 0.0f,
@@ -120,8 +115,7 @@ inline Matrix4x4 MakeRotateZMatrix(float radian)
 /**
  * @brief スケール、回転、平行移動を合成したアフィン変換行列を作成する
  */
-inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate)
-{
+inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
     Matrix4x4 result = Multiply(Multiply(MakeRotateXMatrix(rotate.x), MakeRotateYMatrix(rotate.y)), MakeRotateZMatrix(rotate.z));
     result.m[0][0] *= scale.x;
     result.m[0][1] *= scale.x;
@@ -150,8 +144,7 @@ inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, c
  * @param nearClip 近クリップ面
  * @param farClip 遠クリップ面
  */
-inline Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip)
-{
+inline Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
     float cotHalfFovV = 1.0f / std::tan(fovY / 2.0f);
     return {
         (cotHalfFovV / aspectRatio), 0.0f, 0.0f, 0.0f,
@@ -162,14 +155,12 @@ inline Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float n
 }
 
 /** @brief ライト視点の行列を作成する。視線が縮退している場合は出力を変更せずfalseを返す */
-inline bool TryMakeLightViewMatrix(const Vector3& eye, const Vector3& target, Matrix4x4& view)
-{
+inline bool TryMakeLightViewMatrix(const Vector3& eye, const Vector3& target, Matrix4x4& view) {
     constexpr float kDirectionEpsilon = 1e-6f;
     constexpr float kVerticalDirectionThreshold = 0.99f;
     Vector3 forward = Subtract(target, eye);
     const float forwardLength = Length(forward);
-    if (forwardLength < kDirectionEpsilon)
-    {
+    if (forwardLength < kDirectionEpsilon) {
         return false;
     }
     forward = { forward.x / forwardLength, forward.y / forwardLength, forward.z / forwardLength };
@@ -177,8 +168,7 @@ inline bool TryMakeLightViewMatrix(const Vector3& eye, const Vector3& target, Ma
     const Vector3 up = std::abs(forward.y) > kVerticalDirectionThreshold ? Vector3 { 0, 0, 1 } : Vector3 { 0, 1, 0 };
     Vector3 right = Cross(up, forward);
     const float rightLength = Length(right);
-    if (rightLength < kDirectionEpsilon)
-    {
+    if (rightLength < kDirectionEpsilon) {
         return false;
     }
     right = { right.x / rightLength, right.y / rightLength, right.z / rightLength };
@@ -193,8 +183,7 @@ inline bool TryMakeLightViewMatrix(const Vector3& eye, const Vector3& target, Ma
 }
 
 /** @brief 原点を中心にDirectXの深度範囲0から1へ写す正射影行列を作成する */
-inline Matrix4x4 MakeCenteredOrthographicMatrix(float width, float height, float nearClip, float farClip)
-{
+inline Matrix4x4 MakeCenteredOrthographicMatrix(float width, float height, float nearClip, float farClip) {
     constexpr float kNdcSpan = 2.0f;
     Matrix4x4 projection = {};
     projection.m[0][0] = kNdcSpan / width;
@@ -208,8 +197,7 @@ inline Matrix4x4 MakeCenteredOrthographicMatrix(float width, float height, float
 /**
  * @brief 正射影行列（2DスプライトやUI用）の作成
  */
-inline Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip)
-{
+inline Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip) {
     return {
         2.0f / (right - left),
         0.0f,
@@ -235,8 +223,7 @@ inline Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, floa
  * @param scale 各軸の拡大倍率
  * @return Matrix4x4 スケール行列
  */
-inline Matrix4x4 MakeScaleMatrix(const Vector3& scale)
-{
+inline Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
     Matrix4x4 result = MakeIdentity4x4();
     result.m[0][0] = scale.x;
     result.m[1][1] = scale.y;
@@ -249,8 +236,7 @@ inline Matrix4x4 MakeScaleMatrix(const Vector3& scale)
  * @param translate 各軸の移動量
  * @return Matrix4x4 平行移動行列
  */
-inline Matrix4x4 MakeTranslateMatrix(const Vector3& translate)
-{
+inline Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
     Matrix4x4 result = MakeIdentity4x4();
     result.m[3][0] = translate.x;
     result.m[3][1] = translate.y;
@@ -264,8 +250,7 @@ inline Matrix4x4 MakeTranslateMatrix(const Vector3& translate)
  * @brief 4x4 行列の逆行列を求める
  * @note カメラのビュー行列作成などで使用します
  */
-inline Matrix4x4 Inverse(const Matrix4x4& m)
-{
+inline Matrix4x4 Inverse(const Matrix4x4& m) {
     float determinant = +m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]
         + m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1]
         + m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2]
@@ -324,14 +309,11 @@ inline Matrix4x4 Inverse(const Matrix4x4& m)
 }
 
 /** @brief 4x4行列の転置を求める */
-inline Matrix4x4 Transpose(const Matrix4x4& m)
-{
+inline Matrix4x4 Transpose(const Matrix4x4& m) {
     Matrix4x4 result;
     constexpr int kDimension = static_cast<int>(std::extent_v<decltype(Matrix4x4::m)>); // 4x4 の行・列の数
-    for (int i = 0; i < kDimension; ++i)
-    {
-        for (int j = 0; j < kDimension; ++j)
-        {
+    for (int i = 0; i < kDimension; ++i) {
+        for (int j = 0; j < kDimension; ++j) {
             result.m[i][j] = m.m[j][i];
         }
     }
@@ -341,8 +323,7 @@ inline Matrix4x4 Transpose(const Matrix4x4& m)
 /**
  * @brief クォタニオンから回転行列を作成する
  */
-inline Matrix4x4 MakeRotateMatrix(const Quaternion& q)
-{
+inline Matrix4x4 MakeRotateMatrix(const Quaternion& q) {
     Matrix4x4 m = MakeIdentity4x4();
     float xx = q.x * q.x, yy = q.y * q.y, zz = q.z * q.z;
     float xy = q.x * q.y, xz = q.x * q.z, yz = q.y * q.z;
@@ -367,8 +348,7 @@ inline Matrix4x4 MakeRotateMatrix(const Quaternion& q)
  * @brief スケール・クォータニオン回転・平行移動を合成したアフィン行列を作成する
  * @note アニメーション再生時に使用MakeAffineMatrix(Vector3 rotate版)とは別関数
  */
-inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate)
-{
+inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate) {
     Matrix4x4 rot = MakeRotateMatrix(rotate);
 
     rot.m[0][0] *= scale.x;
@@ -395,8 +375,7 @@ inline Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate
  * @param m アフィン変換行列
  * @return 変換後の点
  */
-inline Vector3 TransformPoint(const Vector3& p, const Matrix4x4& m)
-{
+inline Vector3 TransformPoint(const Vector3& p, const Matrix4x4& m) {
     return {
         p.x * m.m[0][0] + p.y * m.m[1][0] + p.z * m.m[2][0] + m.m[3][0],
         p.x * m.m[0][1] + p.y * m.m[1][1] + p.z * m.m[2][1] + m.m[3][1],

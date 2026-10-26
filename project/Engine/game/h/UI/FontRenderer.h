@@ -58,6 +58,9 @@ public:
         const Vector4& color = { 1.0f, 1.0f, 1.0f, 1.0f },
         bool bold = true);
 
+    /** @brief DrawStringW と同じ文字を、画面の左右中央に揃えて描画予約する */
+    void DrawStringCenteredW(const std::wstring& text, float y, float scale, const Vector4& color);
+
     /**
      * @brief 文字の下に敷く単色の板を積む（Draw()で文字より先に描く）
      * @note 明るい背景の上でも案内文が読めるようにするための下敷き

@@ -3,6 +3,7 @@
  * @brief 敵・ギミックの更新とプレイヤーへの被弾処理
  */
 #include "GamePlayScene.h"
+#include "CrashBreadcrumbs.h"
 #include "AudioBridge.h"
 #include "CombatTuning.h"
 #include "GraphicsTuning.h"
@@ -51,8 +52,7 @@ struct BreakablePulseStyle {
 };
 
 /** @brief 描画設定を初回だけ読み込み、フレーム間で共有する */
-const BreakablePulseStyle& BreakablePulse()
-{
+const BreakablePulseStyle& BreakablePulse() {
     static const BreakablePulseStyle kStyle;
     return kStyle;
 }
@@ -63,8 +63,7 @@ constexpr float kMinAimLength = 0.001f; // これ未満の距離では狙いの�
 // ボスの叩きつけの予告円（進行度で円を広げ、点滅で視線を引く）
 
 /** @brief 武器の命中時に付与する減速時間を定義表から取得する */
-float WeaponHitSlowSeconds(WeaponType type)
-{
+float WeaponHitSlowSeconds(WeaponType type) {
     using Duration = float CombatTuningData::*;
     static constexpr Duration kDurations[] = {
         nullptr, nullptr, nullptr, &CombatTuningData::daggerSlowSeconds,
@@ -77,8 +76,7 @@ float WeaponHitSlowSeconds(WeaponType type)
 }
 
 /** @brief 壊せる物の当たり判定の箱をワールド座標で返す */
-AABB BreakableBounds(const BreakableRef& barrel)
-{
+AABB BreakableBounds(const BreakableRef& barrel) {
     // 攻撃判定と射撃の的選びで同じ大きさを使う。見た目の箱よりわずかに広く当たりを取り、かすった攻撃も拾う
     const BreakableSettings desc = barrel.Settings();
     const float halfExtentX = kUnitHalfExtent * std::abs(desc.scale.x) + CombatTune().breakableHitPadding;
@@ -92,10 +90,8 @@ AABB BreakableBounds(const BreakableRef& barrel)
 }
 
 /** @brief 撃ったフレームに、ボス・道中の敵・壊せる物から銃口に一番近い1体を射撃の的に選ぶ */
-void GamePlayScene::BuildGunShotTarget()
-{
-    if (!player_->JustFired())
-    {
+void GamePlayScene::BuildGunShotTarget() {
+    if (!player_->JustFired()) {
         gunShotPicker_.Clear();
         return;
     }
@@ -105,71 +101,58 @@ void GamePlayScene::BuildGunShotTarget()
     const Vector3& playerPos = player_->GetPosition();
     const float rangeX = wm->GetRanged().range * ((shot != nullptr) ? shot->rangeMult : 1.0f);
     gunShotPicker_.Begin(playerPos, player_->GetLastDirX(),
-        SceneShared::MakeDirectionalShotRange(playerPos, player_->GetLastDirX(), rangeX, CombatTune().gunBackRange));
+        sceneShared::MakeDirectionalShotRange(playerPos, player_->GetLastDirX(), rangeX, CombatTune().gunBackRange));
 
     // 弾は最初に当たった相手で止まる（ボス・道中の敵・壊せる物の中から銃口に一番近い1つだけが的）
-    if (!enemy_->IsDefeated() && enemy_->IsVisible())
-    {
+    if (!enemy_->IsDefeated() && enemy_->IsVisible()) {
         gunShotPicker_.Consider(enemy_, GetEnemyHitBox());
     }
-    for (const auto& entry : weaponEnemies_)
-    {
-        if (entry.enemy->IsDefeated())
-        {
+    for (const auto& entry : weaponEnemies_) {
+        if (entry.enemy->IsDefeated()) {
             continue;
         }
         gunShotPicker_.Consider(entry.enemy, EnemyHitBoxAt(entry.enemy->GetPosition()));
     }
-    for (const BreakableRef& barrel : GetStageEditor().GetBreakables())
-    {
+    for (const BreakableRef& barrel : GetStageEditor().GetBreakables()) {
         gunShotPicker_.Consider(barrel.TargetIdentity(), BreakableBounds(barrel));
     }
 }
 
 /** @brief 道中の武器敵を更新し、攻撃と武器奪取を処理する */
-void GamePlayScene::UpdateWeaponEnemies()
-{
+void GamePlayScene::UpdateWeaponEnemies() {
     // entry.enemyの物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()
     // （BaseScene::Tick()がUpdate()の直後に呼ぶ）が担う。ここではヒット判定・武器奪取だけを行う
-    for (auto& entry : weaponEnemies_)
-    {
+    for (auto& entry : weaponEnemies_) {
         // 生きている敵には、このフレームの攻撃が当たったかを調べて反映する
-        if (!entry.enemy->IsDefeated())
-        {
+        if (!entry.enemy->IsDefeated()) {
             WeaponEnemyHit hit = DetectWeaponEnemyHit(entry, EnemyHitBoxAt(entry.enemy->GetPosition()));
-            if (hit.hit)
-            {
+            if (hit.hit) {
                 ApplyWeaponEnemyHit(entry, hit);
             }
         }
         // 倒れた後は、モンスターなら消えて覚醒ゲージに、武器持ちなら武器の奪取を待つ
-        if (!entry.weaponAcquired && entry.enemy->IsDefeated() && !entry.hasWeapon)
-        {
+        if (!entry.weaponAcquired && entry.enemy->IsDefeated() && !entry.hasWeapon) {
             UpdateMonsterVanish(entry);
             continue;
         }
-        if (!entry.weaponAcquired && entry.enemy->IsDefeated())
-        {
+        if (!entry.weaponAcquired && entry.enemy->IsDefeated()) {
             UpdateWeaponSteal(entry);
         }
     }
 }
 
 /** @brief 道中の武器敵に、このフレームの近接・射撃・固有技のどれが当たったかを調べる */
-GamePlayScene::WeaponEnemyHit GamePlayScene::DetectWeaponEnemyHit(const WeaponEnemyEntry& entry, const AABB& enemyBounds) const
-{
+GamePlayScene::WeaponEnemyHit GamePlayScene::DetectWeaponEnemyHit(const WeaponEnemyEntry& entry, const AABB& enemyBounds) const {
     const Vector3& playerPos = player_->GetPosition();
     const auto* wm = WeaponManager::GetInstance();
     WeaponEnemyHit result;
     // 近接: 武器の届く範囲の箱と敵の箱が重なったか
-    if (wm->HasEquippedWeapon() && player_->JustComboHit())
-    {
-        const AABB range = SceneShared::MakeDirectionalShotRange(
+    if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
+        const AABB range = sceneShared::MakeDirectionalShotRange(
             playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
             wm->GetCurrent().range * CombatTune().skillRearReachMult);
         AABB airFriendlyRange = range;
-        if (!player_->IsOnGround())
-        {
+        if (!player_->IsOnGround()) {
             // 空中では上下と横を少し広げ、高さが合わずに空振りするのを減らす
             WidenAirMeleeRange(airFriendlyRange, playerPos,
                 CombatTune().weaponEnemyAirRangeHalfHeight, CombatTune().weaponEnemyAirRangeWidthPadding);
@@ -177,15 +160,13 @@ GamePlayScene::WeaponEnemyHit GamePlayScene::DetectWeaponEnemyHit(const WeaponEn
         result.hit = Collision::CheckCollision(airFriendlyRange, enemyBounds);
         result.melee = result.hit;
     }
-    if (!result.hit && player_->JustFired())
-    {
+    if (!result.hit && player_->JustFired()) {
         // 弾は手前の相手で止まるので、射撃の的に選ばれた時だけ当たる
         result.hit = gunShotPicker_.IsTarget(entry.enemy);
         result.gun = result.hit;
     }
     // 固有技: プレイヤーを中心にした横長の範囲に入っていたか
-    if (!result.hit && player_->JustWeaponSkillHit())
-    {
+    if (!result.hit && player_->JustWeaponSkillHit()) {
         const float skillRadius = SkillRadiusFor(CombatTune().weaponEnemySkillRadius, player_->JustGreatswordSlam());
         result.hit = Collision::CheckCollision(SkillRangeAround(playerPos, skillRadius), enemyBounds);
         // スピン連射は手数の多い射撃扱い、それ以外の固有技は必殺の一撃として扱う
@@ -196,8 +177,7 @@ GamePlayScene::WeaponEnemyHit GamePlayScene::DetectWeaponEnemyHit(const WeaponEn
 }
 
 /** @brief 命中時のダメージ量を武器・段・固有技から計算する */
-int GamePlayScene::ComputeWeaponEnemyDamage(const WeaponEnemyHit& hit) const
-{
+int GamePlayScene::ComputeWeaponEnemyDamage(const WeaponEnemyHit& hit) const {
     const auto* wm = WeaponManager::GetInstance();
     // 段の倍率は近接の段定義から、素手なら素手の基礎ダメージを使う
     const float damageMult = hit.attack != nullptr ? hit.attack->damageMult : 1.0f;
@@ -214,8 +194,7 @@ int GamePlayScene::ComputeWeaponEnemyDamage(const WeaponEnemyHit& hit) const
 }
 
 /** @brief 命中した武器敵にダメージ・吹き飛び・のけぞりを与え、演出を出す */
-void GamePlayScene::ApplyWeaponEnemyHit(WeaponEnemyEntry& entry, WeaponEnemyHit& hit)
-{
+void GamePlayScene::ApplyWeaponEnemyHit(WeaponEnemyEntry& entry, WeaponEnemyHit& hit) {
     const Vector3& playerPos = player_->GetPosition();
     const auto* wm = WeaponManager::GetInstance();
     hit.attack = player_->GetActiveMeleeAttack();
@@ -240,36 +219,28 @@ void GamePlayScene::ApplyWeaponEnemyHit(WeaponEnemyEntry& entry, WeaponEnemyHit&
 
     // 吹き飛び: 固有技の連続技の締めは場外まで飛ばし、それ以外は段ごとの高さで押し出す
     const float knockY = (hit.skill ? CombatTune().skillKnockY : (hit.attack != nullptr ? hit.attack->knockY : CombatTune().defaultKnockY)) * knockbackMult;
-    if (skillSequence && hit.attack != nullptr && hit.attack->finisher)
-    {
+    if (skillSequence && hit.attack != nullptr && hit.attack->finisher) {
         entry.enemy->ApplyHomeRun(player_->GetLastDirX());
-    }
-    else
-    {
+    } else {
         entry.enemy->ApplyComboReaction(player_->GetLastDirX() * knockbackMult, knockY,
             player_->JustWeaponSwitchHit(), playerPos.x, hit.blowAway);
     }
     // のけぞり: 近接は段ごとの長さ、銃と固有技は調整値の長さ
-    if (hit.melee)
-    {
+    if (hit.melee) {
         entry.enemy->ApplyHitstun(MeleeHitstunSeconds(hit.attack), true);
-    }
-    else
-    {
+    } else {
         entry.enemy->ApplyHitstun(hit.gun ? CombatTune().gunHitstunSeconds : CombatTune().skillHitstunSeconds, !hit.gun);
     }
     // 武器によっては当てた敵の動きを遅くする
     const float slowSeconds = wm->HasEquippedWeapon() ? WeaponHitSlowSeconds(wm->GetCurrent().type) : 0.0f;
-    if (slowSeconds > 0.0f)
-    {
+    if (slowSeconds > 0.0f) {
         entry.enemy->ApplySlow(slowSeconds);
     }
     EmitWeaponEnemyHitEffects(entry.enemy->GetPosition(), hit);
 }
 
 /** @brief 命中時のパーティクル・属性演出・ヒットストップを出す */
-void GamePlayScene::EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const WeaponEnemyHit& hit)
-{
+void GamePlayScene::EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const WeaponEnemyHit& hit) {
     const auto* wm = WeaponManager::GetInstance();
     // 命中の火花は武器の色と大きさで出し、疲労している武器では色と強さを落とす
     Vector4 hitColor = wm->HasEquippedWeapon()
@@ -281,8 +252,10 @@ void GamePlayScene::EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const Wea
     const Vector4 elementColor = hitColor;
     ApplyFatigueToHitEffect(hit.fatigueMult, hitColor, hitStrength);
     EmitEnemyHitEffect(enemyPos, hitColor, hitStrength, extraBurstCount, ringRadius);
-    if (hit.melee)
-    {
+    if (hit.melee || hit.skill) {
+        EmitWeaponStyleHit(enemyPos, hit.comboFinisher || hit.skill);
+    }
+    if (hit.melee) {
         comboFeel_.OnMeleeHit(hit.attack, hit.comboFinisher, enemyPos, elementColor, player_->GetLastDirX(), camera_.get());
     }
     // 属性ごとの追加演出（銃は銃の属性、それ以外は手持ち武器の属性）。効きが落ちた武器では出さない
@@ -314,12 +287,9 @@ void GamePlayScene::EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const Wea
             } },
     };
     // 効きが落ちた武器では属性演出を出さない
-    if (hit.fatigueMult >= 1.0f)
-    {
-        for (const ElementalHitRule& rule : kElementalHitRules)
-        {
-            if (rule.applies(hit))
-            {
+    if (hit.fatigueMult >= 1.0f) {
+        for (const ElementalHitRule& rule : kElementalHitRules) {
+            if (rule.applies(hit)) {
                 rule.emit(*this, enemyPos, elementColor);
                 break;
             }
@@ -328,27 +298,21 @@ void GamePlayScene::EmitWeaponEnemyHitEffects(const Vector3& enemyPos, const Wea
 
     // 段ごとのhitStop（MeleeCombo.cppで武器・段別に調整済み）をヒットストップとカメラ揺れへ反映する
     // 固有技は段定義を持たないため、締め扱いの大きな停止と揺れにする
-    if (hit.extraHit)
-    {
+    if (hit.extraHit) {
         RequestMeleeHitStopAndShake(nullptr, false, HitEffectLibrary::GetInstance()->SceneParticles().hitStopAwakenExtra);
-    }
-    else
-    {
+    } else {
         RequestMeleeHitStopAndShake(hit.skill ? nullptr : hit.attack, hit.blowAway, CombatTune().defaultHitStopFrames);
     }
 }
 
 /** @brief 武器を持たないモンスターが倒れたら、少し待って弾けて消し、覚醒ゲージにする */
-void GamePlayScene::UpdateMonsterVanish(WeaponEnemyEntry& entry)
-{
+void GamePlayScene::UpdateMonsterVanish(WeaponEnemyEntry& entry) {
     // モンスターは奪う武器が無いので、倒れた姿を少し見せてから弾けて消え、覚醒ゲージになる
-    if (entry.vanishTimer <= 0.0f)
-    {
+    if (entry.vanishTimer <= 0.0f) {
         entry.vanishTimer = CombatTune().monsterVanishDelay;
     }
-    entry.vanishTimer -= GameConstants::kFrameDeltaTime;
-    if (entry.vanishTimer > 0.0f)
-    {
+    entry.vanishTimer -= gameConstants::kFrameDeltaTime;
+    if (entry.vanishTimer > 0.0f) {
         return;
     }
     // 消える瞬間に輪と星を出し、以後は奪取済みとして扱う
@@ -362,8 +326,7 @@ void GamePlayScene::UpdateMonsterVanish(WeaponEnemyEntry& entry)
 }
 
 /** @brief 倒れた武器持ち敵の武器を、奪取ボタンで吸い寄せて手に入れる */
-void GamePlayScene::UpdateWeaponSteal(WeaponEnemyEntry& entry)
-{
+void GamePlayScene::UpdateWeaponSteal(WeaponEnemyEntry& entry) {
     const Vector3& playerPos = player_->GetPosition();
     // 打ち飛ばされて武器を落としていれば、本体ではなく落ちた武器の場所で奪う
     const Vector3 enemyPos = entry.enemy->GetWeaponPickupPosition();
@@ -372,8 +335,7 @@ void GamePlayScene::UpdateWeaponSteal(WeaponEnemyEntry& entry)
     const float absorbRange = CombatTune().absorbRange;
     // 吸収範囲の中で奪取ボタンを押したら、突き刺し動作と演出を出して吸い寄せ始める
     if (!entry.absorbing && dx * dx + dy * dy <= absorbRange * absorbRange
-        && input_->TriggerAction(Input::Action::Steal))
-    {
+        && input_->TriggerAction(Input::Action::kSteal)) {
         entry.absorbing = true;
         entry.absorbTimer = CombatTune().absorbDuration;
         player_->PlayStealStab();
@@ -381,26 +343,21 @@ void GamePlayScene::UpdateWeaponSteal(WeaponEnemyEntry& entry)
         fx.Ring("absorb", enemyPos);
         fx.Flash("absorb");
     }
-    if (!entry.absorbing)
-    {
+    if (!entry.absorbing) {
         return;
     }
     // 吸い寄せ中: 落ちた武器か敵本体をプレイヤーの少し上へ引き寄せる
-    entry.absorbTimer -= GameConstants::kFrameDeltaTime;
+    entry.absorbTimer -= gameConstants::kFrameDeltaTime;
     const float pullRate = CombatTune().absorbPullRate;
     const Vector3 absorbTarget = { playerPos.x, playerPos.y + CombatTune().absorbTargetHeight, playerPos.z };
-    if (entry.enemy->HasDroppedWeapon())
-    {
+    if (entry.enemy->HasDroppedWeapon()) {
         entry.enemy->PullDroppedWeaponToward(absorbTarget, pullRate);
-    }
-    else
-    {
+    } else {
         entry.enemy->MoveTowardXY(absorbTarget, pullRate);
         entry.enemy->RefreshVisualTransforms();
     }
-    // 吸い寄せ終わったら武器を手に入れる（満杯なら交換待ちになる）
-    if (entry.absorbTimer <= 0.0f)
-    {
+    // 吸い寄せ終わったら武器を手に入れる（満杯なら今持っている武器と入れ替わる）
+    if (entry.absorbTimer <= 0.0f) {
         entry.weaponAcquired = true;
         entry.enemy->SetVisible(false);
         const WeaponManager::AcquireResult acquired = WeaponManager::GetInstance()->Acquire(entry.weaponType);
@@ -408,44 +365,50 @@ void GamePlayScene::UpdateWeaponSteal(WeaponEnemyEntry& entry)
     }
 }
 
-/** @brief 武器を奪った結果に応じた後処理（新しく増えたら通知、持っている武器なら覚醒ゲージへ） */
-void GamePlayScene::ApplyWeaponAcquireResult(WeaponManager::AcquireResult result)
-{
-    // AcquireResult ごとの後処理（交換が要る場合は呼び出し側が交換画面を出す）
+/** @brief 武器を奪った結果に応じた後処理（新しく増えたら通知、満杯なら持っている武器と交換、持っている武器なら覚醒ゲージへ） */
+void GamePlayScene::ApplyWeaponAcquireResult(WeaponManager::AcquireResult result) {
+    CrashBreadcrumbs::Add("game", "武器を入手（結果 " + std::to_string(static_cast<int>(result)) + "）");
+    // AcquireResult ごとの後処理（満杯の時は聞かずに今持っている武器と入れ替える）
     struct AcquireOutcome {
         WeaponManager::AcquireResult result;
         void (*apply)(GamePlayScene&);
     };
     static constexpr AcquireOutcome kOutcomes[] = {
         {
-            WeaponManager::AcquireResult::Added, [](GamePlayScene& scene) {
-                scene.hud_.Notify(HudEvent::WeaponAcquired);
+            WeaponManager::AcquireResult::kAdded, [](GamePlayScene& scene) {
+                scene.hud_.Notify(HudEvent::kWeaponAcquired);
             }
         },
-        { WeaponManager::AcquireResult::Duplicate, [](GamePlayScene& scene) {
+        {
+            WeaponManager::AcquireResult::kNeedsReplacement, [](GamePlayScene& scene) {
+                // 選んでいる枠が無い時だけ交換待ちが残り、交換画面で選ばせる
+                WeaponManager* wm = WeaponManager::GetInstance();
+                wm->ReplacePendingWeapon(wm->GetSelectedSlot());
+                if (!wm->HasPendingWeapon()) {
+                    scene.hud_.Notify(HudEvent::kWeaponAcquired);
+                }
+            }
+        },
+        { WeaponManager::AcquireResult::kDuplicate, [](GamePlayScene& scene) {
              scene.player_->ChargeAwakenGauge(CombatTune().duplicateWeaponAwakenBonus);
          } },
     };
-    for (const AcquireOutcome& outcome : kOutcomes)
-    {
-        if (outcome.result == result)
-        {
+    for (const AcquireOutcome& outcome : kOutcomes) {
+        if (outcome.result == result) {
             outcome.apply(*this);
         }
     }
 }
 
 /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
-void GamePlayScene::UpdateExplosiveBarrels()
-{
+void GamePlayScene::UpdateExplosiveBarrels() {
     // 収集物（pickup）の回収はStageEditor側が行う。ここでは壊せる物（breakable）のヒット判定と爆風ダメージだけを担当する
     const Vector3& playerPos = player_->GetPosition();
     const HitEffectPlayer fx(pm_, &cameraShaker_, &rng_);
     const auto* wm = WeaponManager::GetInstance();
-    explosiveBarrelPulse_ += GameConstants::kFrameDeltaTime;
+    explosiveBarrelPulse_ += gameConstants::kFrameDeltaTime;
 
-    for (BreakableRef barrel : GetStageEditor().GetBreakables())
-    {
+    for (BreakableRef barrel : GetStageEditor().GetBreakables()) {
         const BreakableSettings desc = barrel.Settings();
 
         // 赤く脈動させて攻撃で壊せる設置物だと分かりやすくする（表示行列の更新はStageEditor側が毎フレーム行う）
@@ -458,20 +421,17 @@ void GamePlayScene::UpdateExplosiveBarrels()
 
         // ヒット判定は道中の武器敵(UpdateWeaponEnemies)と同じ3つの攻撃窓（近接コンボ/射撃/固有技）を流用する
         bool hit = false;
-        if (wm->HasEquippedWeapon() && player_->JustComboHit())
-        {
-            const AABB range = SceneShared::MakeDirectionalRange(
+        if (wm->HasEquippedWeapon() && player_->JustComboHit()) {
+            const AABB range = sceneShared::MakeDirectionalRange(
                 playerPos, player_->GetLastDirX(), wm->GetCurrent().range,
                 wm->GetCurrent().range * CombatTune().skillRearReachMult);
             hit = Collision::CheckCollision(range, barrelBounds);
         }
-        if (!hit && player_->JustFired())
-        {
+        if (!hit && player_->JustFired()) {
             // 弾は手前の相手で止まるので、射撃の的に選ばれた時だけ当たる
             hit = gunShotPicker_.IsTarget(barrel.TargetIdentity());
         }
-        if (!hit && player_->JustWeaponSkillHit())
-        {
+        if (!hit && player_->JustWeaponSkillHit()) {
             const AABB range = {
                 { playerPos.x - CombatTune().weaponEnemySkillRadius, playerPos.y - CombatTune().skillRangeHalfHeight, -kStageHalfDepth },
                 { playerPos.x + CombatTune().weaponEnemySkillRadius, playerPos.y + CombatTune().skillRangeHalfHeight, kStageHalfDepth }
@@ -480,26 +440,22 @@ void GamePlayScene::UpdateExplosiveBarrels()
         }
 
         // 武器指定つき（壊せる壁など）は、その武器の近接攻撃・固有技でしか壊れない。銃では壊れない
-        if (hit && !desc.requiredWeapon.empty())
-        {
+        if (hit && !desc.requiredWeapon.empty()) {
             const bool weaponMatches = wm->HasEquippedWeapon()
                 && wm->GetCurrent().type == ParseWeaponTypeName(std::string(desc.requiredWeapon));
             const bool meleeOrSkillHit = player_->JustComboHit() || !player_->JustFired();
-            if (!weaponMatches || !meleeOrSkillHit)
-            {
+            if (!weaponMatches || !meleeOrSkillHit) {
                 fx.Star("breakable_deflect", barrel.GetPosition()); // 弾かれた手応え
                 hit = false;
             }
         }
-        if (!hit)
-        {
+        if (!hit) {
             continue;
         }
 
         const bool destroyed = barrel.TakeHit();
         fx.Star("breakable_damage", barrel.GetPosition());
-        if (!destroyed)
-        {
+        if (!destroyed) {
             continue;
         }
 
@@ -508,28 +464,22 @@ void GamePlayScene::UpdateExplosiveBarrels()
         GameFlags::GetInstance()->SetFlag("broken_" + std::string(desc.name), true);
 
         const float radiusSq = desc.radius * desc.radius;
-        if (DistanceSquaredXY(playerPos, barrel.GetPosition()) <= radiusSq && !TryJustDodge(barrel.GetPosition()) && !player_->IsInvincible())
-        {
+        if (DistanceSquaredXY(playerPos, barrel.GetPosition()) <= radiusSq && !TryJustDodge(barrel.GetPosition()) && !player_->IsInvincible()) {
             RunData::GetInstance()->TakeDamage(desc.playerDamage);
             player_->OnHit();
         }
-        if (enemy_ && !enemy_->IsDefeated())
-        {
+        if (enemy_ && !enemy_->IsDefeated()) {
             const Vector3& epos = enemy_->GetPosition();
-            if (DistanceSquaredXY(epos, barrel.GetPosition()) <= radiusSq)
-            {
+            if (DistanceSquaredXY(epos, barrel.GetPosition()) <= radiusSq) {
                 enemy_->TakeDamage(desc.enemyDamage);
             }
         }
-        for (auto& entry : weaponEnemies_)
-        {
-            if (entry.enemy->IsDefeated())
-            {
+        for (auto& entry : weaponEnemies_) {
+            if (entry.enemy->IsDefeated()) {
                 continue;
             }
             const Vector3& wepos = entry.enemy->GetPosition();
-            if (DistanceSquaredXY(wepos, barrel.GetPosition()) <= radiusSq)
-            {
+            if (DistanceSquaredXY(wepos, barrel.GetPosition()) <= radiusSq) {
                 entry.enemy->TakeDamage(desc.enemyDamage);
             }
         }
@@ -541,22 +491,19 @@ void GamePlayScene::UpdateExplosiveBarrels()
 }
 
 /** @brief UpdateParticles()の下請け プレイヤーと敵の接触ヒット判定・ダメージ・演出を処理する */
-void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
-{
+void GamePlayScene::UpdatePlayerEnemyContactHit(float dt) {
     const Vector3& ppos = player_->GetPosition();
 
     // 敵との当たり判定（倒れた敵・消えた敵の体には当たらない。倒した後も判定が残って止めと揺れが出続けないように）
     hitCooldown_ -= dt;
-    if (enemy_->IsDefeated() || !enemy_->IsVisible())
-    {
+    if (enemy_->IsDefeated() || !enemy_->IsVisible()) {
         return;
     }
     {
         Collider playerCol = player_->GetCollider();
         const Vector3& epos = enemy_->GetPosition();
         const AABB enemyAABB = GetEnemyHitBox();
-        if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f)
-        {
+        if (Collision::CheckCollision(playerCol.aabb, enemyAABB) && hitCooldown_ <= 0.0f) {
             hitCooldown_ = CombatTune().contactHitCooldown;
             enemy_->TakeDamage(CombatTune().contactDamage);
 
@@ -571,15 +518,13 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt)
 }
 
 /** @brief UpdateParticles()の下請け 敵の弾の発射・飛翔・プレイヤーへの命中時のダメージ・無敵開始・演出を処理する */
-void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
-{
+void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt) {
     const Vector3& ppos = player_->GetPosition();
     const HitEffectPlayer fx(pm_, &cameraShaker_, &rng_);
 
     // 予備動作に入った敵には警告リングを出す（攻撃が来る前に知らせ、回避を狙えるようにする）
     EmitEnemyTelegraphCue(enemy_);
-    for (const auto& entry : weaponEnemies_)
-    {
+    for (const auto& entry : weaponEnemies_) {
         EmitEnemyTelegraphCue(entry.enemy);
     }
 
@@ -587,17 +532,14 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
     // ボスは間合いなら薙ぎ払い、遠ければ弾（近づいても離れても攻撃が来る）
     // （発射の瞬間にプレイヤーが射程外にいる敵は撃たない遠くの敵に一方的に狙撃されないように）
     auto fireBulletFrom = [&](EnemyEntity* shooter) {
-        if (!shooter->JustFiredAttack())
-        {
+        if (!shooter->JustFiredAttack()) {
             return;
         }
-        if (shooter->IsMeleeAttacker())
-        {
+        if (shooter->IsMeleeAttacker()) {
             const bool isBoss = shooter == enemy_;
             const float reach = EnemyTuning::GetInstance()->Basic().meleeReach;
             const bool inReach = std::abs(ppos.x - shooter->GetPosition().x) <= reach;
-            if (!isBoss || inReach)
-            {
+            if (!isBoss || inReach) {
                 ApplyEnemyMeleeSwing(shooter);
                 return;
             }
@@ -606,12 +548,10 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         // pos_ はAABB中心（当たり判定の基準点）そのものなので、狙い・発射位置ともにオフセットを足さずここから直接計算する
         Vector3 dir = { ppos.x - epos.x, ppos.y - epos.y, 0.0f };
         float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (len > EnemyTuning::GetInstance()->Bullet().fireRange)
-        {
+        if (len > EnemyTuning::GetInstance()->Bullet().fireRange) {
             return;
         }
-        if (len > kMinAimLength)
-        {
+        if (len > kMinAimLength) {
             dir.x /= len;
             dir.y /= len;
         }
@@ -625,14 +565,12 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         fx.Ring("enemy_muzzle", epos);
     };
     fireBulletFrom(enemy_);
-    for (auto& entry : weaponEnemies_)
-    {
+    for (auto& entry : weaponEnemies_) {
         fireBulletFrom(entry.enemy);
     }
 
     // 飛んでいる弾を進め、寿命が尽きたら消す
-    for (auto it = enemyBullets_.begin(); it != enemyBullets_.end();)
-    {
+    for (auto it = enemyBullets_.begin(); it != enemyBullets_.end();) {
         EnemyBullet& bullet = *it;
         bullet.pos.x += bullet.vel.x * dt;
         bullet.pos.y += bullet.vel.y * dt;
@@ -640,8 +578,7 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         // 曳光弾の見た目実体（Object3d）は持たず、毎フレーム現在位置に粒を撒いて弾の軌跡に見せる
         fx.Particle("enemy_tracer", bullet.pos);
 
-        if (bullet.timer <= 0.0f)
-        {
+        if (bullet.timer <= 0.0f) {
             it = enemyBullets_.erase(it);
             continue;
         }
@@ -651,20 +588,17 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
         AABB bulletAABB = { { bullet.pos.x - bulletHalf, bullet.pos.y - bulletHalf, -kStageHalfDepth },
             { bullet.pos.x + bulletHalf, bullet.pos.y + bulletHalf, kStageHalfDepth } };
         Collider playerCol = player_->GetCollider();
-        if (!Collision::CheckCollision(playerCol.aabb, bulletAABB))
-        {
+        if (!Collision::CheckCollision(playerCol.aabb, bulletAABB)) {
             ++it;
             continue;
         }
 
         // 回避中に弾が体を通過したらジャスト回避。弾はそのまま飛び続ける（避けた感を残す）
-        if (TryJustDodge(bullet.pos))
-        {
+        if (TryJustDodge(bullet.pos)) {
             ++it;
             continue;
         }
-        if (player_->IsInvincible())
-        {
+        if (player_->IsInvincible()) {
             ++it;
             continue;
         }
@@ -681,8 +615,7 @@ void GamePlayScene::UpdateEnemyAttackOnPlayer(float dt)
 }
 
 /** @brief 近接敵の攻撃発生フレームに前方判定を出し、命中ならプレイヤーへダメージを与える */
-void GamePlayScene::ApplyEnemyMeleeSwing(EnemyEntity* attacker)
-{
+void GamePlayScene::ApplyEnemyMeleeSwing(EnemyEntity* attacker) {
     const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
     const Vector3& epos = attacker->GetPosition();
     const Vector3& ppos = player_->GetPosition();
@@ -698,12 +631,10 @@ void GamePlayScene::ApplyEnemyMeleeSwing(EnemyEntity* attacker)
         { (std::min)(epos.x, epos.x + dirX * tuning.meleeReach), epos.y - tuning.meleeHitHalfHeight, -kStageHalfDepth },
         { (std::max)(epos.x, epos.x + dirX * tuning.meleeReach), epos.y + tuning.meleeHitHalfHeight, kStageHalfDepth }
     };
-    if (!Collision::CheckCollision(player_->GetCollider().aabb, swingRange))
-    {
+    if (!Collision::CheckCollision(player_->GetCollider().aabb, swingRange)) {
         return;
     }
-    if (TryJustDodge(swingCenter) || player_->IsInvincible())
-    {
+    if (TryJustDodge(swingCenter) || player_->IsInvincible()) {
         return;
     }
 

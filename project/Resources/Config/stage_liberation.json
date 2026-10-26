@@ -1,0 +1,36 @@
+{
+  "_comment": "ステージをクリアしてマップへ戻った時の解放演出。glow=カメラをクリアした入口に合わせ、入口が color へ光り出す burst=画面全体の閃光（flashColor）と、空から入口へ下りる光の柱（pillar～）と入口からあふれる光の玉（orb～）、画面を覆う光（wash～）、入口が popScale だけふくらむ。holdSeconds だけ見せてから次へ text=入口の真上に出す文字（format の {n} にステージ番号が入る） open=カメラを次の入口へ移し（panSeconds）、次の入口が閉じた色から開いた色になる。クリア済みの入口は glow.color を少し暗くした色で光り続ける。決定・攻撃・ジャンプで飛ばせる。sound に音のパスを書くと鳴る",
+  "glow": {
+    "seconds": 0.7,
+    "color": [1.0, 0.95, 0.7, 1.0]
+  },
+  "burst": {
+    "flashColor": [1.0, 0.97, 0.85, 0.9],
+    "flashSeconds": 0.5,
+    "pillarSeconds": 1.4,
+    "pillarWidth": 260.0,
+    "pillarColor": [1.0, 0.92, 0.6, 0.85],
+    "orbSize": 420.0,
+    "orbColor": [1.0, 0.95, 0.75, 0.9],
+    "washSeconds": 1.1,
+    "washColor": [1.0, 0.95, 0.75, 0.45],
+    "popScale": 0.35,
+    "popSeconds": 0.45,
+    "holdSeconds": 1.3,
+    "sound": "",
+    "soundVolume": 1.0
+  },
+  "text": {
+    "format": "ステージ{n} クリア！",
+    "y": 150.0,
+    "scale": 2.6,
+    "color": [1.0, 0.9, 0.35, 1.0],
+    "popSeconds": 0.5
+  },
+  "open": {
+    "panSeconds": 0.9,
+    "seconds": 0.5,
+    "holdSeconds": 0.4,
+    "sound": ""
+  }
+}

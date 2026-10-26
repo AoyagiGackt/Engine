@@ -3,6 +3,7 @@
  * @brief アクション操作練習用シーン（TrainingScene）の初期化と基本更新フローの実装
  */
 #include "TrainingScene.h"
+#include "GameSounds.h"
 #include "SceneVisualTuning.h"
 #include "HitEffectLibrary.h"
 #include "CombatTuning.h"
@@ -49,9 +50,9 @@ static constexpr const char* kLayoutName = "training";
 static constexpr Vector2 kDebugTextPosition = { 1140.0f, 4.0f };
 
 /** @brief シーンの初期化プレイヤー・ステージ・UI を構築する */
-void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
-{
+void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
+    audio_->PlaySceneBGM(bgmKey::kTraining);
 
     InitializeCoreSystems();
     InitializeStageModels();
@@ -61,7 +62,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
 #ifdef _DEBUG
     // ビジュアルスクリプティングVMの動作確認用スモークテスト（エディタUIはまだ無い）
-    testGraph_ = GraphIO::Load("Resources/Graphs/test_graph.json");
+    testGraph_ = graphIO::Load("Resources/Graphs/test_graph.json");
     /** @brief 唯一のEventBusインスタンスを取得する（未生成なら生成する） */
     EventBus::GetInstance()->Subscribe("low_hp_warning", [] {
         Logger::LogInfo("[GraphTest] low_hp_warning fired");
@@ -75,8 +76,7 @@ void TrainingScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 }
 
 /** @brief Initialize()の下請け マネージャ取得・各種Common初期化・カメラ生成を行う */
-void TrainingScene::InitializeCoreSystems()
-{
+void TrainingScene::InitializeCoreSystems() {
     srvManager_ = SrvManager::GetInstance();
     weaponManager_ = WeaponManager::GetInstance();
 
@@ -84,8 +84,7 @@ void TrainingScene::InitializeCoreSystems()
 }
 
 /** @brief Initialize()の下請け 境界ブロック・ワープポータルを初期化する（背景のビルはtraining.jsonに置く） */
-void TrainingScene::InitializeStageModels()
-{
+void TrainingScene::InitializeStageModels() {
     modelBlock_ = ModelManager::GetInstance()->GetOrLoad(modelCommon_.get(),
         "Resources/block/block.obj",
         "Resources/block/block.png");
@@ -94,30 +93,27 @@ void TrainingScene::InitializeStageModels()
 
     // 背景のビルはレベルJSON（Resources/Levels/training.json）に置き、F2のステージエディタで編集する
 
-    SceneShared::CreateWarpPortalBlocks(modelCommon_.get(), modelBlock_,
+    sceneShared::CreateWarpPortalBlocks(modelCommon_.get(), modelBlock_,
         { CombatTune().trainingWarpX, CombatTune().trainingGroundY, 0.0f }, SceneVisualTuning::Training().warpPortalBlockCount,
         SceneVisualTuning::Training().warpPortalBlockSpacing, SceneVisualTuning::Training().warpPortalColor, warpPortalBlocks_);
 }
 
 /** @brief Initialize()の下請け プレイヤーと弾丸プールを初期化する */
-void TrainingScene::InitializePlayerAndBullets()
-{
+void TrainingScene::InitializePlayerAndBullets() {
     // 水平方向の移動範囲は固定値で決め打ちしない壁ブロックの当たり判定（ResolveBlockCollision）が
     // StageEditorでの編集をそのまま反映するので、それ自体が境界として機能する
     // Open()/RegisterExternalEntity("Player")はGetEditorLevelPath()等のフック経由でBaseScene::Init()が自動で行う
     // （未作成のtraining.jsonなら空のまま起動し、F2エディタの+で配置してSaveで作成できる）
-    SceneShared::InitializePlayerAndBullets(player_, bulletPool_, modelCommon_.get(), modelBlock_, audio_);
+    sceneShared::InitializePlayerAndBullets(player_, bulletPool_, modelCommon_.get(), modelBlock_, audio_);
 }
 
 /** @brief Initialize()の下請け 配置武器ピックアップ（アセット表に基づく実体生成）を初期化する */
-void TrainingScene::InitializeWeaponPickups()
-{
+void TrainingScene::InitializeWeaponPickups() {
     weaponPickups_.Initialize(modelCommon_.get());
 }
 
 /** @brief Initialize()の下請け 覚醒ゲージUI・フォント・斬撃線・SSAO・プロファイラを初期化する */
-void TrainingScene::InitializeHudAndEffects()
-{
+void TrainingScene::InitializeHudAndEffects() {
 
     fontRenderer_.Initialize(spriteCommon_.get());
     pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
@@ -135,8 +131,7 @@ void TrainingScene::InitializeHudAndEffects()
 }
 
 /** @brief 武器スロットのHUDを用意する */
-void TrainingScene::InitializeWeaponSlotHud()
-{
+void TrainingScene::InitializeWeaponSlotHud() {
     hud_.Add(std::make_unique<TrainingHud>());
     hud_.Add(std::make_unique<AwakenGaugeHud>());
     hud_.Add(std::make_unique<WeaponSlotHud>(true));
@@ -145,40 +140,35 @@ void TrainingScene::InitializeWeaponSlotHud()
 }
 
 /** @brief 武器スロットのHUDを今の装備に合わせて更新する */
-void TrainingScene::UpdateWeaponSlotHud()
-{
-    HudFrame frame { *camera_, GameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
+void TrainingScene::UpdateWeaponSlotHud() {
+    HudFrame frame { *camera_, gameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
+    frame.input = input_;
     hud_.Update(frame);
 }
 
 /** @brief 武器スロットのHUDを描画する */
-void TrainingScene::DrawWeaponSlotHud()
-{
+void TrainingScene::DrawWeaponSlotHud() {
     hud_.Draw();
 }
 
 /** @brief 入力・物理・パーティクルを毎フレーム更新する */
-void TrainingScene::Update()
-{
+void TrainingScene::Update() {
     fontRenderer_.Reset();
 
     // 一時停止中はゲームを止める（HUDは描画側で隠す）。Backspaceもポーズを閉じるのに使うため先に判定する
     const bool paused = pauseMenu_.Update(input_);
     // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
     GetStageEditor().SetGameplayHeld(paused);
-    if (paused)
-    {
+    if (paused) {
         return;
     }
 
-    if (input_->TriggerKey(DIK_BACK))
-    {
+    if (input_->TriggerKey(DIK_BACK)) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
         return;
     }
-    if (input_->TriggerKey(DIK_TAB) || input_->TriggerButton(XINPUT_GAMEPAD_BACK))
-    {
+    if (input_->TriggerKey(DIK_TAB) || input_->TriggerButton(XINPUT_GAMEPAD_BACK)) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("TRAINING", "map", "MAP");
         return;
@@ -187,7 +177,13 @@ void TrainingScene::Update()
     // ステージエディタ表示中の一時停止（GetStageEditor().IsVisible()）分岐はBaseScene::Tick()が面倒を見る
     // （表示中はこのUpdate()自体が呼ばれずRefreshVisualTransformsForEditor()が代わりに呼ばれる）
 
-    SceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
+    // モーションエディタでプレビューしている間はゲームを止め、見た目と武器の持ち替えだけ進める
+    if (motionEditor_.Update(input_, *player_, weaponManager_->GetCurrent().type)) {
+        sceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_, true);
+        RefreshVisualTransformsForEditor();
+        return;
+    }
+    sceneShared::UpdateWeaponCycle(input_, weaponManager_, weaponCycleTimer_);
     UpdatePlayerAndBullets();
     UpdateWeaponPickups();
     UpdateCameraAndEnvironment();
@@ -197,24 +193,21 @@ void TrainingScene::Update()
     testGraphRuntime_.Update(TimeManager::GetInstance()->GetDeltaTime());
 #endif
 
-    bool nearWarp = SceneShared::UpdatePortalTransition(input_, player_->GetPosition(), CombatTune().trainingWarpX, CombatTune().trainingWarpProximity, "TRAINING", "battle_test", "BATTLETEST", audio_);
+    bool nearWarp = sceneShared::UpdatePortalTransition(input_, player_->GetPosition(), CombatTune().trainingWarpX, CombatTune().trainingWarpProximity, "TRAINING", "battle_test", "BATTLETEST", audio_);
     DrawHud(nearWarp);
 }
 
 /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる */
-void TrainingScene::RefreshVisualTransformsForEditor()
-{
+void TrainingScene::RefreshVisualTransformsForEditor() {
     fontRenderer_.Reset();
     // ステージエディタ表示中はゲームプレイ（プレイヤー操作・カメラ追従）を丸ごと止める
     // （BattleTestSceneと同じ規約。TimeManagerのタイムスケールだけでは
     // このシーンの各種Updateが固定dtで動いてしまい止まらないため、BaseScene::Tick()がUpdate()の代わりにこちらを呼ぶ）
     player_->RefreshVisualTransforms();
-    for (auto& b : borderBlocks_)
-    {
+    for (auto& b : borderBlocks_) {
         b->Update();
     }
-    for (auto& portal : warpPortalBlocks_)
-    {
+    for (auto& portal : warpPortalBlocks_) {
         portal->Update();
     }
     weaponPickups_.RefreshVisuals();
@@ -223,13 +216,13 @@ void TrainingScene::RefreshVisualTransformsForEditor()
 }
 
 /** @brief プレイヤーとスピン連射弾を更新する */
-void TrainingScene::UpdatePlayerAndBullets()
-{
+void TrainingScene::UpdatePlayerAndBullets() {
     // 乱舞用ダミーターゲット（正面 8 ユニット先）
     {
         const Vector3& pp = player_->GetPosition();
         const auto stageColliders = GetStageEditor().GetSolidColliders();
         player_->Update(input_, { pp.x + player_->GetLastDirX() * CombatTune().trainingFacingTargetDistance, pp.y, 0.0f }, false, !stageColliders.empty());
+        gameSounds::PlayPlayerActions(*player_);
         player_->ResolveBlockCollision(stageColliders);
         player_->RefreshVisualTransforms();
 
@@ -238,40 +231,37 @@ void TrainingScene::UpdatePlayerAndBullets()
     }
 
     // ── スペースキー スピン連射 ──────────────────────────────────────
-    SceneShared::UpdateSpinShotFire(player_.get(), bulletPool_);
+    sceneShared::UpdateSpinShotFire(player_.get(), bulletPool_);
     bulletPool_.Update();
 
     // ── フィニッシャースラッシュ（ゲージ満タン消費）───────────────────
-    if (player_->JustFinisherSlash())
-    {
+    if (player_->JustFinisherSlash()) {
         TimeManager::GetInstance()->RequestHitStop(HitEffectLibrary::GetInstance()->SceneParticles().hitStopFinisherSlash);
         ScreenFlash::GetInstance()->Request(SceneVisualTuning::Training().finisherFlashColor, HitEffectLibrary::GetInstance()->SceneParticles().shakeFinisherSlashDur);
 
-        static std::mt19937 rng { std::random_device { }() };
-        std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
-        std::uniform_real_distribution<float> offXDist(-GameConstants::kCameraHalfW, GameConstants::kCameraHalfW);
-        std::uniform_real_distribution<float> offYDist(-GameConstants::kCameraHalfH, GameConstants::kCameraHalfH);
+        static std::mt19937 sRng { std::random_device { }() };
+        std::uniform_real_distribution<float> angleDist(0.0f, gameConstants::kTwoPi);
+        std::uniform_real_distribution<float> offXDist(-gameConstants::kCameraHalfW, gameConstants::kCameraHalfW);
+        std::uniform_real_distribution<float> offYDist(-gameConstants::kCameraHalfH, gameConstants::kCameraHalfH);
         std::uniform_real_distribution<float> lenDist(SceneVisualTuning::Training().slashLineLengthMin, SceneVisualTuning::Training().slashLineLengthMax);
         const Vector3& cam = camera_->GetTranslate();
-        for (int i = 0; i < CombatTune().finisherSlashLines; ++i)
-        {
-            const float ang = angleDist(rng);
+        for (int i = 0; i < CombatTune().finisherSlashLines; ++i) {
+            const float ang = angleDist(sRng);
             const Vector2 dir = { std::cos(ang), std::sin(ang) };
-            const Vector2 center = { cam.x + offXDist(rng), cam.y + offYDist(rng) };
-            const float len = lenDist(rng);
-            SceneShared::SpawnSlashMarkWorld(
+            const Vector2 center = { cam.x + offXDist(sRng), cam.y + offYDist(sRng) };
+            const float len = lenDist(sRng);
+            sceneShared::SpawnSlashMarkWorld(
                 { center.x - dir.x * len, center.y - dir.y * len },
                 { center.x + dir.x * len, center.y + dir.y * len },
                 cam.x, cam.y, SceneVisualTuning::Training().slashLineColor, SceneVisualTuning::Training().slashLineThickness, SceneVisualTuning::Training().slashLineSeconds);
         }
     }
-    SlashMark::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+    SlashMark::GetInstance()->Update(gameConstants::kFrameDeltaTime);
 }
 
 /** @brief カメラ追従、影、境界ブロック、PBRデモ、ワープポータル演出を更新する */
-void TrainingScene::UpdateCameraAndEnvironment()
-{
-    SceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
+void TrainingScene::UpdateCameraAndEnvironment() {
+    sceneShared::UpdateCameraFollow(camera_.get(), player_->GetPosition(), GetStageEditor().GetSolidColliders());
     player_->RefreshVisualTransforms();
 
 #ifdef _DEBUG
@@ -281,47 +271,40 @@ void TrainingScene::UpdateCameraAndEnvironment()
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     // GetStageEditor().UpdateObjects()はBaseScene::Tick()がUpdate()の後に一括して呼ぶ
-    for (auto& b : borderBlocks_)
-    {
+    for (auto& b : borderBlocks_) {
         b->Update();
     }
 
-    warpPulseTimer_ += GameConstants::kFrameDeltaTime;
+    warpPulseTimer_ += gameConstants::kFrameDeltaTime;
     float pulse = SceneVisualTuning::Training().warpPulseBase + SceneVisualTuning::Training().warpPulseAmplitude * std::sin(warpPulseTimer_ * SceneVisualTuning::Training().warpPulseSpeed);
-    for (auto& p : warpPortalBlocks_)
-    {
+    for (auto& p : warpPortalBlocks_) {
         p->SetColor({ SceneVisualTuning::Training().warpPortalColor.x * pulse, SceneVisualTuning::Training().warpPortalColor.y * pulse, SceneVisualTuning::Training().warpPortalColor.z * pulse, SceneVisualTuning::Training().warpPulseAlpha });
         p->Update();
     }
 }
 
 /** @brief 配置された武器へ触れたときの装備切り替えを更新する */
-void TrainingScene::UpdateWeaponPickups()
-{
-    if (weaponPickups_.Update(player_->GetPosition(), *weaponManager_, GameConstants::kFrameDeltaTime))
-    {
-        hud_.Notify(HudEvent::WeaponAcquired);
+void TrainingScene::UpdateWeaponPickups() {
+    if (weaponPickups_.Update(player_->GetPosition(), *weaponManager_, gameConstants::kFrameDeltaTime)) {
+        hud_.Notify(HudEvent::kWeaponAcquired);
         ScreenFlash::GetInstance()->Request(SceneVisualTuning::Training().pickupFlashColor, SceneVisualTuning::Training().pickupFlashSeconds);
     }
 }
 
 /** @brief HUD全体（武器一覧・デバッグ情報・操作説明・覚醒ゲージ）を描画する */
-void TrainingScene::DrawHud(bool nearWarpPortal)
-{
+void TrainingScene::DrawHud(bool nearWarpPortal) {
     hud_.QueueText(fontRenderer_);
     DrawWeaponHud(nearWarpPortal);
     DrawDebugHud();
 }
 
 /** @brief 武器一覧とワープポータルのラベルを描画する */
-void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
-{
+void TrainingScene::DrawWeaponHud(bool nearWarpPortal) {
     // ワープラベル（ポータルの上）
-    if (nearWarpPortal)
-    {
+    if (nearWarpPortal) {
         const Vector3& cam = camera_->GetTranslate();
         float sx, sy;
-        SceneShared::WorldToScreen(CombatTune().trainingWarpX, SceneVisualTuning::Training().warpLabelWorldY, cam.x, cam.y, sx, sy);
+        sceneShared::WorldToScreen(CombatTune().trainingWarpX, SceneVisualTuning::Training().warpLabelWorldY, cam.x, cam.y, sx, sy);
         UILayout& layout = UILayout::Get(kLayoutName);
         fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[ {Interact} ] バトルテストへ"), sx - kWarpLabelOffset.x, sy - kWarpLabelOffset.y,
             layout.Float("portal.label_scale", SceneVisualTuning::Training().warpLabelScale), layout.Color("portal.label_color", SceneVisualTuning::Training().warpLabelColor));
@@ -329,12 +312,11 @@ void TrainingScene::DrawWeaponHud(bool nearWarpPortal)
 }
 
 /** @brief デバッグ情報（FPS、PBRマテリアルエディタ、プロファイラ）を描画する */
-void TrainingScene::DrawDebugHud()
-{
+void TrainingScene::DrawDebugHud() {
     // ── デバッグ情報（右上隅） ──────────────────────────────────────
 #ifdef _DEBUG
     {
-        char dbgBuf[TextBufferCapacity::kIdentifier];
+        char dbgBuf[textBufferCapacity::kIdentifier];
         float fps = FrameProfiler::GetInstance()->GetFPS();
         float ms = FrameProfiler::GetInstance()->GetMs();
         std::snprintf(dbgBuf, sizeof(dbgBuf), "%.0f FPS  %.2f ms", fps, ms);
@@ -349,48 +331,42 @@ void TrainingScene::DrawDebugHud()
 }
 
 /** @brief ステージとプレイヤーを描画する */
-void TrainingScene::Draw()
-{
+void TrainingScene::Draw() {
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
     auto* gpuProfiler = GpuProfiler::GetInstance();
 
     // シャドウパス
-    gpuProfiler->BeginScope(GpuProfiler::Shadow, cmd);
+    gpuProfiler->BeginScope(GpuProfiler::Scope::kShadow, cmd);
     shadowManager_->RunShadowPass(cmd, modelCommon_.get());
-    gpuProfiler->EndScope(GpuProfiler::Shadow, cmd);
+    gpuProfiler->EndScope(GpuProfiler::Scope::kShadow, cmd);
 
     // SSAO ノーマルキャプチャパス
     auto* ssao = SSAOEffect::GetInstance();
-    gpuProfiler->BeginScope(GpuProfiler::SSAO, cmd);
-    if (ssao->IsEnabled())
-    {
+    gpuProfiler->BeginScope(GpuProfiler::Scope::kSSAO, cmd);
+    if (ssao->IsEnabled()) {
         ssao->BeginNormalCapture(dxCommon_, camera_.get());
-        for (auto& b : borderBlocks_)
-        {
+        for (auto& b : borderBlocks_) {
             b->DrawForNormalCapture();
         }
-        for (auto& p : warpPortalBlocks_)
-        {
+        for (auto& p : warpPortalBlocks_) {
             p->DrawForNormalCapture();
         }
         ssao->EndNormalCapture(dxCommon_);
     }
-    gpuProfiler->EndScope(GpuProfiler::SSAO, cmd);
+    gpuProfiler->EndScope(GpuProfiler::Scope::kSSAO, cmd);
 
     // メイン3D描画
-    gpuProfiler->BeginScope(GpuProfiler::Main3D, cmd);
+    gpuProfiler->BeginScope(GpuProfiler::Scope::kMain3D, cmd);
     dxCommon_->SetBackBufferRenderTarget();
 
     modelCommon_->CommonDrawSettings();
     objectCommon_->SetDefaultLight(cmd);
     shadowManager_->SetShadowMap(cmd, srvManager_);
 
-    for (auto& b : borderBlocks_)
-    {
+    for (auto& b : borderBlocks_) {
         b->Draw();
     }
-    for (auto& p : warpPortalBlocks_)
-    {
+    for (auto& p : warpPortalBlocks_) {
         p->Draw();
     }
     weaponPickups_.Draw();
@@ -402,27 +378,23 @@ void TrainingScene::Draw()
     GetStageEditor().DrawObjects();
 
     // SSAO 計算 → ブラー → 乗算合成
-    if (ssao->IsEnabled())
-    {
+    if (ssao->IsEnabled()) {
         ssao->Compute(dxCommon_, camera_.get());
         ssao->Blur(dxCommon_);
         dxCommon_->SetBackBufferRenderTarget(); // バックバッファに戻す
         ssao->Apply(dxCommon_, srvManager_);
     }
-    gpuProfiler->EndScope(GpuProfiler::Main3D, cmd);
+    gpuProfiler->EndScope(GpuProfiler::Scope::kMain3D, cmd);
 
     // GPU タイムスタンプ解決（PostDraw 後の ReadBack で取得）
     gpuProfiler->Resolve(cmd);
 
     // 2D スプライト（テキスト UI）
     spriteCommon_->CommonDrawSettings();
-    if (pauseMenu_.IsPaused())
-    {
+    if (pauseMenu_.IsPaused()) {
         // 一時停止中はHUDを隠してポーズメニューだけを見せる
         pauseMenu_.Draw(input_);
-    }
-    else
-    {
+    } else {
         DrawWeaponSlotHud();
         SlashMark::GetInstance()->Draw();
         GetStageEditor().DrawUIText(fontRenderer_);
@@ -431,8 +403,8 @@ void TrainingScene::Draw()
 }
 
 /** @brief リソースを解放する */
-void TrainingScene::Finalize()
-{
+void TrainingScene::Finalize() {
+    motionEditor_.Close(*player_);
     SlashMark::GetInstance()->Clear();
     GpuProfiler::GetInstance()->Finalize();
 }

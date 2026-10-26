@@ -1,0 +1,48 @@
+{
+  "_comment": "クリアの結果画面の背景。色はランクの色の彩度を下げて暗くした色から作る（鮮やかにしすぎると帯がぎらついて文字が読みにくくなる）。color.saturation=ランクの色を残す割合 color.baseBrightness=下地の明るさ stripe=斜めの帯（brightness は下地との差を小さめに、speed は遅めに） watermark=ランクの大きな透かし shard=漂う破片（twinkleSpeed を上げると点滅に見えるので上げすぎない） panel=結果の文字の後ろの暗い板",
+  "color": {
+    "saturation": 0.35,
+    "baseBrightness": 0.09,
+    "neutralColor": [
+      0.55,
+      0.6,
+      0.75,
+      1
+    ]
+  },
+  "stripe": {
+    "brightness": 0.15,
+    "alpha": 0.9,
+    "width": 90,
+    "gap": 150,
+    "angleDegrees": -24,
+    "speed": 18
+  },
+  "watermark": {
+    "scale": 26,
+    "brightness": 0.45,
+    "alpha": 0.12,
+    "centerX": 900,
+    "centerY": 360
+  },
+  "shard": {
+    "count": 36,
+    "minSize": 6,
+    "maxSize": 18,
+    "fallSpeed": 22,
+    "drift": 10,
+    "spin": 0.6,
+    "minAlpha": 0.08,
+    "maxAlpha": 0.22,
+    "whiteness": 0.7,
+    "twinkleSpeed": 1,
+    "twinkleDepth": 0.25
+  },
+  "panel": {
+    "x": 360,
+    "y": 160,
+    "width": 560,
+    "height": 380,
+    "alpha": 0.45
+  }
+}

@@ -6,10 +6,9 @@
 
 namespace engine::game {
 /** @brief 唯一のPlayerBridgeインスタンスを取得する（未生成なら生成する） */
-PlayerBridge* PlayerBridge::GetInstance()
-{
-    static PlayerBridge instance;
-    return &instance;
+PlayerBridge* PlayerBridge::GetInstance() {
+    static PlayerBridge sInstance;
+    return &sInstance;
 }
 
 } // namespace engine::game

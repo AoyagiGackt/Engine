@@ -22,9 +22,17 @@ struct PlayerTuning {
     float gravity = 0.012f;
     float jumpPower = 0.4f;
     float speed = 0.15f; ///< 1フレームあたりの横移動量
-    float minEnemyDistanceX = 0.75f; ///< 敵とめり込まないための最小X距離（接触ダメージの重なりしろは残す）
+    float minEnemyDistanceX = 0.85f; ///< 敵とめり込まないための最小X距離（接触ダメージの重なりしろは残す。敵側の separation.playerMinDistanceX より大きくする）
     float minEnemyDistanceY = 0.75f; ///< 上記のY版（頭上を飛び越えている間は押し出さない）
     float invincibleDuration = 1.0f; ///< 被弾後の無敵秒数
+
+    // 射撃中の滞空と構えの再生速度
+    static constexpr float kGunDefaultGravityScale = 0.25f;
+    static constexpr float kGunDefaultFloatDuration = 0.18f;
+    static constexpr float kGunBaseAnimSpeed = 1.0f;
+    float gunAirGravityScale = kGunDefaultGravityScale;
+    float gunAirFloatDuration = kGunDefaultFloatDuration;
+    float gunBaseAnimSpeed = kGunBaseAnimSpeed;
 
     // 水中
     float waterGravity = 0.003f; ///< 浮力で弱めた沈下加速度

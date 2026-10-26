@@ -31,7 +31,7 @@ class Player;
 class UILayout;
 class BulletPool;
 
-namespace SceneShared {
+namespace sceneShared {
     /** @brief プレイヤーを生成してスクリプト連携先を登録し、弾丸プールを初期化する */
     void InitializePlayerAndBullets(std::unique_ptr<Player>& player, BulletPool& bullets,
         engine::graphics::ModelCommon* modelCommon, engine::graphics::Model* bulletModel, engine::Audio* audio);
@@ -209,5 +209,14 @@ namespace SceneShared {
      */
     void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel);
 
-} // namespace SceneShared
+    /**
+     * @brief マウスの位置を画面の論理座標（gameConstants::kScreenWidth x kScreenHeight）で返す
+     * @note ウィンドウの大きさを変えても、黒帯を除いた描画領域に合わせて換算する
+     */
+    Vector2 MouseScreenPosition(const engine::Input* input, const engine::DirectXCommon* dxCommon);
+
+    /** @brief ゲーム画面のクリックを受けてよいか（デバッグUIがマウスを使っている間は false） */
+    bool IsMouseFreeForGame();
+
+} // namespace sceneShared
 } // namespace engine::game

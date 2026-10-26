@@ -18,16 +18,15 @@ public:
      * @brief LightManagerの唯一のインスタンスを取得する
      * @return LightManager* シングルトンインスタンスへのポインタ
      */
-    static LightManager* GetInstance()
-    {
-        static LightManager instance;
-        return &instance;
+    static LightManager* GetInstance() {
+        static LightManager sInstance;
+        return &sInstance;
     }
 
     /**
      * @brief 現在のライティングモードを設定する
      * @param mode 設定するライティングモード（LightingMode 列挙型の値）
-     * @note 例: LightingMode::Lambert や LightingMode::HalfLambert を指定する
+     * @note 例: LightingMode::kLambert や LightingMode::kHalfLambert を指定する
      */
     void SetLightingMode(int mode) {
         lightingMode_ = mode;
@@ -50,7 +49,7 @@ private:
     LightManager& operator=(const LightManager&) = delete;
 
     /** @brief 現在のライティングモード（初期値はハーフランバート） */
-    int lightingMode_ = static_cast<int>(LightingMode::HalfLambert);
+    int lightingMode_ = static_cast<int>(LightingMode::kHalfLambert);
 };
 
 } // namespace engine::graphics

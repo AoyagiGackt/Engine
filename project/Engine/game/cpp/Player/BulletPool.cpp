@@ -19,10 +19,8 @@ constexpr float kBoundsMaxY = 14.0f;
 }
 
 /** @brief 弾のモデルを受け取り、弾を必要な数だけ用意する */
-void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
-{
-    for (auto& s : slots_)
-    {
+void BulletPool::Initialize(ModelCommon* modelCommon, Model* model) {
+    for (auto& s : slots_) {
         s.obj = std::make_unique<Object3d>();
         s.obj->Initialize(modelCommon);
         s.obj->SetModel(model);
@@ -35,12 +33,9 @@ void BulletPool::Initialize(ModelCommon* modelCommon, Model* model)
 }
 
 /** @brief 空いている弾を位置と速度を指定して撃ち出す */
-void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
-{
-    for (auto& s : slots_)
-    {
-        if (!s.active)
-        {
+void BulletPool::Spawn(const Vector3& pos, const Vector3& vel) {
+    for (auto& s : slots_) {
+        if (!s.active) {
             s.pos = pos;
             s.vel = vel;
             s.life = kBulletLifeFrames;
@@ -53,12 +48,9 @@ void BulletPool::Spawn(const Vector3& pos, const Vector3& vel)
 }
 
 /** @brief Update に対応する状態を更新する */
-void BulletPool::Update()
-{
-    for (auto& s : slots_)
-    {
-        if (!s.active)
-        {
+void BulletPool::Update() {
+    for (auto& s : slots_) {
+        if (!s.active) {
             continue;
         }
 
@@ -66,8 +58,7 @@ void BulletPool::Update()
         s.pos.y += s.vel.y;
         s.life -= 1.0f;
 
-        if (s.pos.x < kBoundsMinX || s.pos.x > kBoundsMaxX || s.pos.y < kBoundsMinY || s.pos.y > kBoundsMaxY || s.life <= 0.0f)
-        {
+        if (s.pos.x < kBoundsMinX || s.pos.x > kBoundsMaxX || s.pos.y < kBoundsMinY || s.pos.y > kBoundsMaxY || s.life <= 0.0f) {
             s.active = false;
             continue;
         }
@@ -78,24 +69,18 @@ void BulletPool::Update()
 }
 
 /** @brief 弾を動かさず、現在のカメラで行列だけ再計算する（ステージエディタ中のカメラ移動用） */
-void BulletPool::RefreshVisualTransforms()
-{
-    for (auto& s : slots_)
-    {
-        if (s.active)
-        {
+void BulletPool::RefreshVisualTransforms() {
+    for (auto& s : slots_) {
+        if (s.active) {
             s.obj->Update();
         }
     }
 }
 
 /** @brief Draw に対応する内容を描画する */
-void BulletPool::Draw()
-{
-    for (const auto& s : slots_)
-    {
-        if (s.active)
-        {
+void BulletPool::Draw() {
+    for (const auto& s : slots_) {
+        if (s.active) {
             s.obj->Draw();
         }
     }

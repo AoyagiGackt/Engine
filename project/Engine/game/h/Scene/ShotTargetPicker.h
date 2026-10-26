@@ -24,8 +24,7 @@ public:
      * @param dirX      撃つ向き（+1/-1）
      * @param shotRange 射程の範囲
      */
-    void Begin(const Vector3& muzzle, float dirX, const engine::AABB& shotRange)
-    {
+    void Begin(const Vector3& muzzle, float dirX, const engine::AABB& shotRange) {
         muzzle_ = muzzle;
         dirX_ = (dirX >= 0.0f) ? 1.0f : -1.0f;
         shotRange_ = shotRange;
@@ -38,18 +37,15 @@ public:
      * @param key    候補を見分けるポインタ（敵や設置物の実体のアドレス）
      * @param bounds 候補の当たり判定
      */
-    void Consider(const void* key, const engine::AABB& bounds)
-    {
-        if (key == nullptr || !engine::Collision::CheckCollision(shotRange_, bounds))
-        {
+    void Consider(const void* key, const engine::AABB& bounds) {
+        if (key == nullptr || !engine::Collision::CheckCollision(shotRange_, bounds)) {
             return;
         }
         // 銃口から候補の手前の面までの距離（銃口が候補に食い込んでいれば0）
         const float distance = (dirX_ > 0.0f)
             ? (std::max)(bounds.min.x - muzzle_.x, 0.0f)
             : (std::max)(muzzle_.x - bounds.max.x, 0.0f);
-        if (distance < hitDistance_)
-        {
+        if (distance < hitDistance_) {
             hitDistance_ = distance;
             target_ = key;
         }

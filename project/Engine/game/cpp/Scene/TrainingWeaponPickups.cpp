@@ -20,8 +20,7 @@ constexpr Vector4 kTouchingColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr Vector4 kIdleColor = { 0.75f, 0.85f, 1.0f, 1.0f };
 }
 /** @brief 練習用に置く武器のモデルを用意する */
-void TrainingWeaponPickups::Initialize(ModelCommon* models)
-{
+void TrainingWeaponPickups::Initialize(ModelCommon* models) {
     modelCommon_ = models;
 
     /** @brief 拾える武器のモデルと表示姿勢の定義 */
@@ -32,14 +31,13 @@ void TrainingWeaponPickups::Initialize(ModelCommon* models)
         float scale;
     };
     static constexpr PickupAsset kPickupAssets[] = {
-        { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.28f },
-        { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.13f },
-        { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.27f },
-        { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.42f },
+        { WeaponType::kSword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.28f },
+        { WeaponType::kSpear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.13f },
+        { WeaponType::kHammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.27f },
+        { WeaponType::kDagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.42f },
     };
     static_assert(std::size(kPickupAssets) == kPickupCount, "本編で手に入る武器だけを並べる");
-    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i)
-    {
+    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i) {
         const PickupAsset& asset = kPickupAssets[i];
         Pickup& pickup = pickups_[i];
         pickup.type = asset.type;
@@ -55,19 +53,16 @@ void TrainingWeaponPickups::Initialize(ModelCommon* models)
     }
 }
 /** @brief 置いてある武器の表示を進め、プレイヤーが触れたら装備させる（装備した時 true） */
-bool TrainingWeaponPickups::Update(const Vector3& playerPosition, WeaponManager& weapons, float deltaSeconds)
-{
+bool TrainingWeaponPickups::Update(const Vector3& playerPosition, WeaponManager& weapons, float deltaSeconds) {
     bool equipped = false;
 
     pulseTime_ += deltaSeconds;
-    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i)
-    {
+    for (int i = 0; i < static_cast<int>(pickups_.size()); ++i) {
         Pickup& pickup = pickups_[i];
         const float dx = playerPosition.x - pickup.position.x;
         const float dy = playerPosition.y - pickup.position.y;
         const bool touching = dx * dx + dy * dy <= kTouchRadius * kTouchRadius;
-        if (touching && !pickup.wasTouching)
-        {
+        if (touching && !pickup.wasTouching) {
             weapons.EquipForTraining(pickup.type);
             equipped = true;
         }
@@ -84,15 +79,13 @@ bool TrainingWeaponPickups::Update(const Vector3& playerPosition, WeaponManager&
 }
 /** @brief 時間を進めずに武器の見た目の行列だけ更新する */
 void TrainingWeaponPickups::RefreshVisuals() {
-    for (auto& pickup : pickups_)
-    {
+    for (auto& pickup : pickups_) {
         pickup.object->Update();
     }
 }
 /** @brief 置いてある武器を描画する */
 void TrainingWeaponPickups::Draw() {
-    for (auto& pickup : pickups_)
-    {
+    for (auto& pickup : pickups_) {
         pickup.object->Draw();
     }
 }

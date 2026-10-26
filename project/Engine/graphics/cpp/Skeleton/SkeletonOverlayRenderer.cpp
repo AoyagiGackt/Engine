@@ -5,7 +5,7 @@
 #include "SkeletonOverlayRenderer.h"
 #include "EngineAssert.h"
 #include "PipelineHelper.h"
-#include "GameConstants.h"
+#include "EngineConstants.h"
 #ifdef USE_IMGUI
 
 #include "Camera.h"
@@ -26,11 +26,10 @@ constexpr int kIndicesPerSphereCell = 6;
 
 using namespace Microsoft::WRL;
 
-static constexpr float kPi = GameConstants::kPi;
+static constexpr float kPi = engineConstants::kPi;
 
 /** @brief ルートシグネチャ・PSO・ジョイント用球メッシュ・ボーン用動的頂点バッファを構築する */
-void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
-{
+void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -42,7 +41,7 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     rp.Constants.RegisterSpace = 0;
     rp.Constants.Num32BitValues = kOverlayConstantCount;
 
-    rootSignature_ = PipelineHelper::CreateRootSignature(device, &rp, 1,
+    rootSignature_ = pipelineHelper::CreateRootSignature(device, &rp, 1,
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rootSignature_);
 
@@ -55,16 +54,16 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     };
 
     // 三角形 PSO (ボーン・球ともに使用)
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeFullscreenPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputLayout, 1 };
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     auto& b = psoDesc.BlendState.RenderTarget[0];
-    b = PipelineHelper::MakeBlendDesc(BlendMode::Alpha);
+    b = pipelineHelper::MakeBlendDesc(BlendMode::kAlpha);
 
-    psoTri_ = PipelineHelper::CreateGraphicsPipeline(dxCommon_, psoDesc,
+    psoTri_ = pipelineHelper::CreateGraphicsPipeline(dxCommon_, psoDesc,
         L"Resources/shaders/diagnostics/SkeletonOverlayVS.hlsl", L"Resources/shaders/diagnostics/SkeletonOverlayPS.hlsl");
 
     BuildSphere();
@@ -73,8 +72,8 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
     UINT vbSize = kMaxBones * kVerticesPerBone * static_cast<UINT>(sizeof(OverlayVertex));
     UINT ibSize = kMaxBones * kIndicesPerBone * static_cast<UINT>(sizeof(uint16_t));
 
-    lineVB_ = PipelineHelper::CreateUploadBuffer(device, vbSize);
-    lineIB_ = PipelineHelper::CreateUploadBuffer(device, ibSize);
+    lineVB_ = pipelineHelper::CreateUploadBuffer(device, vbSize);
+    lineIB_ = pipelineHelper::CreateUploadBuffer(device, ibSize);
     lineVB_->Map(0, nullptr, reinterpret_cast<void**>(&lineMapped_));
     lineIB_->Map(0, nullptr, reinterpret_cast<void**>(&lineIdxMapped_));
 
@@ -83,17 +82,14 @@ void SkeletonOverlayRenderer::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief ジョイント表示用の単位球メッシュ（UV球）の頂点・インデックスを生成しGPUバッファへ書き込む */
-void SkeletonOverlayRenderer::BuildSphere()
-{
+void SkeletonOverlayRenderer::BuildSphere() {
     // 緯度・経度の格子で球の頂点を作る
     std::vector<OverlayVertex> verts;
     verts.reserve((kStacks + 1) * (kSlices + 1));
-    for (int i = 0; i <= kStacks; ++i)
-    {
+    for (int i = 0; i <= kStacks; ++i) {
         // 縦の角度は北極 0 から南極 π まで
         float phi = kPi * i / kStacks;
-        for (int j = 0; j <= kSlices; ++j)
-        {
+        for (int j = 0; j <= kSlices; ++j) {
             // 横の角度は 0 から 2π まで（最初と最後の列は同じ位置に重なる）
             float theta = 2.0f * kPi * j / kSlices;
             verts.push_back({ std::sin(phi) * std::cos(theta) * kSphereRadius,
@@ -106,10 +102,8 @@ void SkeletonOverlayRenderer::BuildSphere()
     // 格子の1マスを三角形2枚で埋める
     std::vector<uint16_t> indices;
     indices.reserve(kStacks * kSlices * kIndicesPerSphereCell);
-    for (int i = 0; i < kStacks; ++i)
-    {
-        for (int j = 0; j < kSlices; ++j)
-        {
+    for (int i = 0; i < kStacks; ++i) {
+        for (int j = 0; j < kSlices; ++j) {
             // マスの4隅: a が左上、bv が右上、c が左下、d が右下
             auto a = static_cast<uint16_t>(i * (kSlices + 1) + j);
             auto bv = static_cast<uint16_t>(a + 1);
@@ -122,7 +116,7 @@ void SkeletonOverlayRenderer::BuildSphere()
 
     // 球の頂点とインデックスは一度書いたら変えないので、アップロードヒープに置いたまま使う
     auto makeStatic = [&](size_t size) -> ComPtr<ID3D12Resource> {
-        return PipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), size);
+        return pipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), size);
     };
 
     sphereVB_ = makeStatic(verts.size() * sizeof(OverlayVertex));
@@ -146,10 +140,8 @@ void SkeletonOverlayRenderer::BuildSphere()
 }
 
 /** @brief 深度テスト無効でスケルトンのジョイント（白球）とボーン（白ビルボード）を描画する */
-void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera)
-{
-    if (!camera || skeleton.GetJointCount() == 0)
-    {
+void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& worldMatrix, Camera* camera) {
+    if (!camera || skeleton.GetJointCount() == 0) {
         return;
     }
 
@@ -166,7 +158,7 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
         };
     };
 
-    PipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), psoTri_.Get());
+    pipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), psoTri_.Get());
 
     const Vector3 camPos = camera->GetTranslate();
 
@@ -174,11 +166,9 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
     {
         uint32_t vc = 0, ic = 0;
 
-        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex)
-        {
+        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex) {
             const Joint& joint = skeleton.GetJoint(jointIndex);
-            if (!joint.parent || vc + kVerticesPerBone > kMaxBones * kVerticesPerBone)
-            {
+            if (!joint.parent || vc + kVerticesPerBone > kMaxBones * kVerticesPerBone) {
                 continue;
             }
 
@@ -202,18 +192,16 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
             lineMapped_[vc++] = { p1.x + perp.x * hw, p1.y + perp.y * hw, p1.z + perp.z * hw, 1.f };
 
             // 2三角形（クワッド）
-            for (uint16_t offset : kQuadIndexOffsets)
-            {
+            for (uint16_t offset : kQuadIndexOffsets) {
                 lineIdxMapped_[ic++] = static_cast<uint16_t>(base + offset);
             }
         }
 
-        if (ic > 0)
-        {
+        if (ic > 0) {
             OverlayConstants cb { vp, { 1.0f, 1.0f, 1.0f, 1.0f } };
             cmd->IASetVertexBuffers(0, 1, &lineVBV_);
             cmd->IASetIndexBuffer(&lineIBV_);
-            cmd->SetGraphicsRoot32BitConstants(PipelineHelper::OverlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(pipelineHelper::overlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(ic, 1, 0, 0, 0);
         }
     }
@@ -223,13 +211,12 @@ void SkeletonOverlayRenderer::Draw(const Skeleton& skeleton, const Matrix4x4& wo
         cmd->IASetVertexBuffers(0, 1, &sphereVBV_);
         cmd->IASetIndexBuffer(&sphereIBV_);
 
-        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex)
-        {
+        for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex) {
             const Joint& joint = skeleton.GetJoint(jointIndex);
             Vector3 wp = toWorld(joint.skeletonSpaceMatrix);
             Matrix4x4 wvp = Multiply(MakeTranslateMatrix(wp), vp);
             OverlayConstants cb { wvp, { 1.0f, 1.0f, 1.0f, 1.0f } };
-            cmd->SetGraphicsRoot32BitConstants(PipelineHelper::OverlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
+            cmd->SetGraphicsRoot32BitConstants(pipelineHelper::overlayRootSlot::kConstants, kOverlayConstantCount, &cb, 0);
             cmd->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
         }
     }

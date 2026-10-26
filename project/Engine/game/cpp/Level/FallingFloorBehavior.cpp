@@ -44,10 +44,8 @@ struct FallingFloorEffects {
 };
 
 /** @brief hit_effects.jsonから床の演出レシピを初回に読み込む */
-const FallingFloorEffects& FloorEffects()
-{
-    static const FallingFloorEffects effects = []
-    {
+const FallingFloorEffects& FloorEffects() {
+    static const FallingFloorEffects effects = [] {
         FallingFloorEffects result;
         // hit_effects.json の fallingFloor 節の項目名と書き込み先メンバの対応表（初回だけ読む）
         constexpr JsonField<FallingFloorEffects> kFields[] = {
@@ -85,8 +83,7 @@ const FallingFloorEffects& FloorEffects()
 } // namespace
 
 /** @brief 周期内の時刻から床の表示と衝突の有効状態を評価する */
-FallingFloorBehavior::Snapshot FallingFloorBehavior::Evaluate(float runtimeTimer, float motionSpeed, float motionAmount)
-{
+FallingFloorBehavior::Snapshot FallingFloorBehavior::Evaluate(float runtimeTimer, float motionSpeed, float motionAmount) {
     const FallingFloorTiming timing = CombatTuning::GetInstance()->FloorTiming();
     const float speed = (std::max)(motionSpeed, timing.minimumSpeed);
     const float phase = std::fmod(runtimeTimer * speed, timing.cycleEnd);
@@ -94,12 +91,10 @@ FallingFloorBehavior::Snapshot FallingFloorBehavior::Evaluate(float runtimeTimer
 
     Snapshot state;
     state.phase = phase;
-    if (phase < timing.warningEnd)
-    {
+    if (phase < timing.warningEnd) {
         return state;
     }
-    if (phase < timing.respawnStart)
-    {
+    if (phase < timing.respawnStart) {
         // 床だけが高速で下降すると、通常重力のプレイヤーが空中に取り残される。
         // 壊れる床はその場で消し、同じフレームから当たり判定も無効にする。
         state.visible = false;
@@ -111,20 +106,17 @@ FallingFloorBehavior::Snapshot FallingFloorBehavior::Evaluate(float runtimeTimer
 }
 
 /** @brief 落ちる床の破片に使う乱数生成器を返す */
-static std::mt19937& FallFloorDebrisRng()
-{
-    static std::mt19937 rng { std::random_device {}() };
-    return rng;
+static std::mt19937& FallFloorDebrisRng() {
+    static std::mt19937 sRng { std::random_device {}() };
+    return sRng;
 }
 
 // 崩落ギミックの床に、崩れる直前のひび割れ粉塵と、崩落/復帰の瞬間の土煙をまとめて出す
 // （床が消えるだけだと壊れる床だと気付きにくいので、視覚的な予告と崩落感を補う）
 void FallingFloorBehavior::EmitDebris(ParticleManager* pm, const Vector3& worldPos, const Vector3& halfExtent,
-    const Snapshot& state, bool& wasSolid)
-{
+    const Snapshot& state, bool& wasSolid) {
     // パーティクルを出せない時も、崩れた/戻った の切り替わりだけは覚えておく
-    if (!pm)
-    {
+    if (!pm) {
         wasSolid = state.solid;
         return;
     }
@@ -136,13 +128,11 @@ void FallingFloorBehavior::EmitDebris(ParticleManager* pm, const Vector3& worldP
     std::uniform_real_distribution<float> oz(-halfExtent.z, halfExtent.z);
     std::uniform_real_distribution<float> chance(0.0f, 1.0f);
 
-    if (wasSolid && !state.solid)
-    {
+    if (wasSolid && !state.solid) {
         // 崩落の瞬間：破片が飛び散り、土煙が広がる
         std::uniform_real_distribution<float> vx(-effects.collapseDebrisSpreadX, effects.collapseDebrisSpreadX);
         std::uniform_real_distribution<float> vy(effects.collapseDebrisRiseMin, effects.collapseDebrisRiseMax);
-        for (int i = 0; i < effects.collapseDebrisCount; ++i)
-        {
+        for (int i = 0; i < effects.collapseDebrisCount; ++i) {
             const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
             pm->EmitGravity("land_dust", p, { vx(rng), vy(rng), 0.0f },
                 effects.dustColor, effects.collapseDebrisLifetime, effects.collapseDebrisSizeMin + chance(rng) * effects.collapseDebrisSizeRange);
@@ -150,20 +140,15 @@ void FallingFloorBehavior::EmitDebris(ParticleManager* pm, const Vector3& worldP
         pm->EmitRing("land_dust", worldPos + Vector3 { 0.0f, halfExtent.y, 0.0f },
             effects.collapseRingSpeed, { effects.dustColor.x, effects.dustColor.y, effects.dustColor.z, effects.collapseRingAlpha },
             effects.collapseRingCount, effects.collapseRingLifetime, effects.collapseRingSize);
-    }
-    else if (!wasSolid && state.solid)
-    {
+    } else if (!wasSolid && state.solid) {
         // 復帰の瞬間：着地のような軽い土煙
-        for (int i = 0; i < effects.respawnDustCount; ++i)
-        {
+        for (int i = 0; i < effects.respawnDustCount; ++i) {
             const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y, worldPos.z + oz(rng) };
             pm->EmitGravity("land_dust", p, { 0.0f, effects.respawnDustRiseMin + chance(rng) * effects.respawnDustRiseRange, 0.0f },
                 effects.dustColor, effects.respawnDustLifetime, effects.respawnDustSize);
         }
-    }
-    else if (state.solid && state.phase >= timing.warningEnd - timing.crackLeadTime
-        && state.phase < timing.warningEnd && chance(rng) < effects.crackDustChance)
-    {
+    } else if (state.solid && state.phase >= timing.warningEnd - timing.crackLeadTime
+        && state.phase < timing.warningEnd && chance(rng) < effects.crackDustChance) {
         // 崩落直前：ひびの隙間から砂ぼこりが間欠的に噴く（崩れる床だと気付かせる警告演出）
         const Vector3 p = { worldPos.x + ox(rng), worldPos.y + halfExtent.y + effects.crackDustSurfaceOffset, worldPos.z + oz(rng) };
         pm->EmitGravity("land_dust", p, { 0.0f, effects.crackDustRiseMin + chance(rng) * effects.crackDustRiseRange, 0.0f },

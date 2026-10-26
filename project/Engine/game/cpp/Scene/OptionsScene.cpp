@@ -26,8 +26,7 @@ constexpr Vector4 kHelpTextColor = { 0.7f, 0.7f, 0.7f, 1.0f };
 }
 
 /** @brief 設定画面のメニューと文字を用意する */
-void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
-{
+void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     bgSprite_ = std::make_unique<Sprite>();
@@ -53,20 +52,17 @@ void OptionsScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audi
 }
 
 /** @brief 設定画面の資源を解放する */
-void OptionsScene::Finalize()
-{
+void OptionsScene::Finalize() {
 }
 
 /** @brief 現在カーソルが合っている行が音量行なら音量を+delta（-1.0〜1.0）だけ増減する */
-void OptionsScene::AdjustVolumeAtCursor(float delta)
-{
+void OptionsScene::AdjustVolumeAtCursor(float delta) {
     const int row = menu_.GetSelectedIndex();
-    if (row != kRowBgmVolume && row != kRowSeVolume)
-    {
+    if (row != kRowBgmVolume && row != kRowSeVolume) {
         return;
     }
 
-    SceneShared::AdjustVolume(audio_, row == kRowBgmVolume, delta);
+    sceneShared::AdjustVolume(audio_, row == kRowBgmVolume, delta);
 }
 
 // ══════════════════════════════════════════════════════
@@ -90,10 +86,8 @@ public:
 class OptionsScene::CommandListPage : public OptionsScene::IPage {
 public:
     /** @brief コマンド表のページの入力を処理する（戻るで設定へ戻る） */
-    void Update(OptionsScene& scene) const override
-    {
-        if (scene.commandList_.Update(scene.input_))
-        {
+    void Update(OptionsScene& scene) const override {
+        if (scene.commandList_.Update(scene.input_)) {
             scene.page_ = &Settings();
         }
     }
@@ -104,62 +98,50 @@ public:
 };
 
 /** @brief 設定のページの共有インスタンスを返す */
-const OptionsScene::IPage& OptionsScene::Settings()
-{
+const OptionsScene::IPage& OptionsScene::Settings() {
     static const SettingsPage page;
     return page;
 }
 
 /** @brief コマンド表のページの共有インスタンスを返す */
-const OptionsScene::IPage& OptionsScene::CommandList()
-{
+const OptionsScene::IPage& OptionsScene::CommandList() {
     static const CommandListPage page;
     return page;
 }
 
 /** @brief 設定画面を1フレーム進める */
-void OptionsScene::Update()
-{
+void OptionsScene::Update() {
     page_->Update(*this);
 }
 
 /** @brief 設定の一覧ページの入力処理 */
-void OptionsScene::UpdateSettings()
-{
+void OptionsScene::UpdateSettings() {
     menu_.Update(input_);
 
-    if (input_->TriggerMenuLeft())
-    {
-        AdjustVolumeAtCursor(-SceneShared::kVolumeStep);
+    if (input_->TriggerMenuLeft()) {
+        AdjustVolumeAtCursor(-sceneShared::kVolumeStep);
     }
-    if (input_->TriggerMenuRight())
-    {
-        AdjustVolumeAtCursor(SceneShared::kVolumeStep);
+    if (input_->TriggerMenuRight()) {
+        AdjustVolumeAtCursor(sceneShared::kVolumeStep);
     }
 
-    if (menu_.ConsumeConfirm(input_))
-    {
-        if (menu_.GetSelectedIndex() == kRowBack)
-        {
+    if (menu_.ConsumeConfirm(input_)) {
+        if (menu_.GetSelectedIndex() == kRowBack) {
             SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
-        }
-        else if (menu_.GetSelectedIndex() == kRowCommandList)
-        {
+        } else if (menu_.GetSelectedIndex() == kRowCommandList) {
             commandList_.Open();
             page_ = &CommandList();
             return;
         }
     }
-    if (input_->TriggerMenuCancel())
-    {
+    if (input_->TriggerMenuCancel()) {
         audio_->PlayMenuSelect();
         SceneFlow::GetInstance()->Transition("OPTIONS", "back", "TITLE");
     }
 }
 
 /** @brief 設定画面を描画する */
-void OptionsScene::Draw()
-{
+void OptionsScene::Draw() {
     // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄と配置の反映は毎フレーム必ず通るここで行う
     fontRenderer_.Reset();
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -173,8 +155,7 @@ void OptionsScene::Draw()
 }
 
 /** @brief 設定の一覧ページの描画 */
-void OptionsScene::DrawSettings()
-{
+void OptionsScene::DrawSettings() {
     UILayout& layout = UILayout::Get(kLayoutName);
     menu_.Draw();
 
@@ -183,8 +164,8 @@ void OptionsScene::DrawSettings()
     const Vector2 bgmPosition = layout.Pos("volume.bgm_pos", kBgmVolumeTextPosition);
     const Vector2 sePosition = layout.Pos("volume.se_pos", kSeVolumeTextPosition);
     const auto& settings = GameSettingsManager::GetInstance()->Get();
-    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.bgmVolume), bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
-    fontRenderer_.DrawString(SceneShared::VolumeLabel(settings.seVolume), sePosition.x, sePosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(sceneShared::VolumeLabel(settings.bgmVolume), bgmPosition.x, bgmPosition.y, volumeScale, volumeColor);
+    fontRenderer_.DrawString(sceneShared::VolumeLabel(settings.seVolume), sePosition.x, sePosition.y, volumeScale, volumeColor);
 
     const Vector2 helpPosition = layout.Pos("help.pos", kHelpTextPosition);
     fontRenderer_.DrawString(input_->IsUsingGamepad() ? "Left/Right: adjust   A: confirm   B: back" : "A/D or Left/Right: adjust   Space: confirm   Backspace: back",

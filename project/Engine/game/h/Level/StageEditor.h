@@ -10,15 +10,18 @@
 #include "IPositionTarget.h"
 #include "CollisionConfig.h"
 #include "EditorHistory.h"
+#include "EnemyTypeEditor.h"
 #include "LevelGraphRunner.h"
 #include "LevelLoader.h"
 #include "StageEditorContentFactory.h"
 #include "StageEditorEventConnection.h"
 #include "StageEditorViewport.h"
 #include "TriggerVolume.h"
+#include "Weapon.h"
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -45,7 +48,6 @@ class StageEditorSelectionService;
 class StageEditorHierarchyPanel;
 class StageEditorInspectorPanel;
 class ObjectKind;
-enum class WeaponType; // Weapon.h で定義
 
 /** @brief kind=="enemy_basic"かつ武器種別を持つ配置物1件ぶんの参照（GetCombatEnemies()の戻り値） */
 struct CombatEnemyRef {
@@ -75,8 +77,7 @@ public:
         engine::graphics::Object3d* object)
         : desc_(&desc), position_(position), hp_(&hp), destroyed_(&destroyed), object_(object) { }
     /** @brief 判定と爆風に必要な設定だけを値として返す */
-    BreakableSettings Settings() const
-    {
+    BreakableSettings Settings() const {
         return { desc_->scale, desc_->breakableColor, desc_->breakableRadius,
             desc_->breakablePlayerDamage, desc_->breakableEnemyDamage, desc_->breakableWeapon, desc_->name };
     }
@@ -147,7 +148,7 @@ public:
      * @note シーンは同時に1つしか動かないため、最後にOpen()したものを有効とする。Finalize()で解除する
      */
     static StageEditor* GetActive() {
-        return activeEditor_;
+        return sActiveEditor;
     }
 
     /**
@@ -196,7 +197,7 @@ public:
     /**
      * @brief kind=="ui_text"の配置物をFontRendererへ描画コマンドとして積む
      * @param font 呼び出し元シーンが所有する FontRenderer。fontRenderer_.Reset() の後、Draw() の前に呼ぶこと
-     * @note textSpace=="world"の配置物はcamera_の現在位置を基準にスクリーン座標へ投影する（SceneShared::WorldToScreenと同じ変換）
+     * @note textSpace=="world"の配置物はcamera_の現在位置を基準にスクリーン座標へ投影する（sceneShared::WorldToScreenと同じ変換）
      */
     void DrawUIText(FontRenderer& font) const;
 
@@ -269,8 +270,7 @@ public:
         return visible_ && !viewportFocusMode_;
     }
     /** @brief ゲーム画面のプレビュー用テクスチャと表示範囲（UV）を設定する */
-    void SetGamePreview(uint64_t textureId, float u0, float v0, float u1, float v1)
-    {
+    void SetGamePreview(uint64_t textureId, float u0, float v0, float u1, float v1) {
         previewTextureId_ = textureId;
         previewU0_ = u0; previewV0_ = v0; previewU1_ = u1; previewV1_ = v1;
     }
@@ -285,6 +285,10 @@ public:
     /** @brief ゲームの進行（敵のAIと重力・動く仕掛け・レベルのグラフ）を止める（ポーズ中や開始演出の間。見た目の位置だけは追従させる） */
     void SetGameplayHeld(bool held) {
         gameplayHeld_ = held;
+    }
+    /** @brief 敵をプレイヤーからも押し離すか（プレイヤーのいるシーンが毎フレーム決める。乱舞で密着させる間などは false） */
+    void SetEnemiesAvoidPlayer(bool avoid) {
+        enemiesAvoidPlayer_ = avoid;
     }
 
     /**
@@ -309,10 +313,10 @@ public:
     }
 
 private:
-    enum class SelKind { None,
-        Object,
-        Trigger,
-        External };
+    enum class SelKind { kNone,
+        kObject,
+        kTrigger,
+        kExternal };
 
     // 1オブジェクト定義ぶんの編集単位（"row"は複数インスタンスを1エントリにまとめる）
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
@@ -331,6 +335,7 @@ private:
         bool healChanneling = false; // healer用: 詠唱（回復発動までのタメ）中かどうか
         int healChannelHpAtStart = 0; // healer用: 詠唱開始時のHP。詠唱中に減ったら被弾＝中断とみなす
         bool pickupCollected = false; // pickup用: 回収済みなら描画・判定から外す
+        WeaponType enemyWeapon = WeaponType::kSword; // enemy_basic用: 実体を作った時に決めた持たせる武器（抽選した時は配置の weaponType と違う）
         int breakableHp = 0; // breakable用: 残りHP（RegenerateInstancesでdesc.breakableHpから初期化）
         bool breakableDestroyed = false; // breakable用: 破壊済みなら描画・判定から外す
         bool visibleOverride = true; // グラフのSetObjectVisibleで切り替える一時的な表示状態
@@ -380,8 +385,8 @@ private:
      * 非表示中は実体の本物のUpdate()（AI/重力）を回し、逆にdesc.positionへ現在地を書き戻す（表示専用、保存はしない）
      */
     void UpdateEnemyEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
-    /** @brief 全員の移動が終わった後に、重なった敵どうしを横へ押し離す（ボスは動かさず相手だけ押す） */
-    void SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls);
+    /** @brief 全員の移動が終わった後に、重なった敵どうしを横へ押し離す（ボスは動かさず相手だけ押す。playerPosition を渡すとプレイヤーからも離す） */
+    void SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls, const std::optional<Vector3>& playerPosition);
     /** @brief 敵の位置の真下にある床の上で、倒れた体を置く高さを返す（床が無ければ今の高さ） */
     float FindCorpseFloorY(const Vector3& position) const;
     /** @brief solid=trueの配置物のワールドAABB一覧（includeEnemyBodies=falseなら敵の体を除いた地形だけ） */
@@ -409,6 +414,12 @@ private:
     void HandleEditorShortcuts();
     /** @brief 現在のレイアウト状態に応じて編集パネルを表示する */
     void RenderEditorPanels();
+    /** @brief 補助パネル（フラグ・イベント・グラフなど）を1つでも開いているか */
+    bool HasOpenAuxPanel() const;
+    /** @brief ゲームビューの下に固定した補助パネルの領域とタブ列を始める（開いている補助パネルが無ければ false） */
+    bool BeginAuxPanelArea();
+    /** @brief BeginAuxPanelArea() が true だった時に、タブ列と領域を閉じる */
+    void EndAuxPanelArea();
     void RenderGameViewport();
     /** @brief 編集停止とゲーム動作テストを切り替えて時間倍率を同期する */
     void SetPlayTestMode(bool enabled);
@@ -470,7 +481,7 @@ private:
     /**
      * @brief クリック位置に最も近いオブジェクト/トリガー/外部エンティティを探す（画面40px以内、モデル外形にヒットすれば距離0扱い）
      * @param mouseX,mouseY 判定するスクリーン座標
-     * @param outKind 見つかった対象の種別（見つからなければSelKind::Noneのまま）
+     * @param outKind 見つかった対象の種別（見つからなければSelKind::kNoneのまま）
      * @param outIdx  見つかった対象のインデックス（見つからなければ-1のまま）
      * @return 何かヒットしたか
      */
@@ -511,9 +522,9 @@ private:
 
     // ── ビューポート直接操作（画面上のハンドル、右クリックメニュー、範囲選択、親子付け）──
     /** @brief 変形ツール（W: 移動 / E: 回転 / R: 拡縮）。ハンドルの見た目とドラッグの意味が変わる */
-    enum class TransformTool { Move,
-        Rotate,
-        Scale };
+    enum class TransformTool { kMove,
+        kRotate,
+        kScale };
     /**
      * @brief 選択物のワールド位置を返す（配置物/トリガー/外部エンティティ共通）
      * @return 何も選択していなければfalse
@@ -576,8 +587,10 @@ private:
     void ClearSelection();
     /** @brief 最後に追加した配置物だけを選択した状態にする */
     void SelectLastObject();
+    /** @brief 「敵を作る」で作った種類の敵を画面中央に置いて選択する */
+    void PlaceEnemyOfType(const EnemyTypeDef& type);
 
-    TransformTool transformTool_ = TransformTool::Move;
+    TransformTool transformTool_ = TransformTool::kMove;
     int activeDragAxis_ = 0; // ハンドルを掴んだドラッグ中の軸（0: 自由 / 1: X / 2: Y / 3: Z）。離すと0に戻る
     bool rotateDragging_ = false; // 回転ツールのドラッグ中か
     bool scaleDragging_ = false; // 拡縮ツールのドラッグ中か
@@ -585,10 +598,10 @@ private:
     bool boxSelecting_ = false; // 何も無い場所からの左ドラッグで範囲選択中か
     float boxStartX_ = 0.0f;
     float boxStartY_ = 0.0f;
-    SelKind hoverKind_ = SelKind::None; // マウス直下の対象（ハイライト表示用）
+    SelKind hoverKind_ = SelKind::kNone; // マウス直下の対象（ハイライト表示用）
     int hoverIndex_ = -1;
     bool contextMenuRequested_ = false; // 右クリックの直後、次のRenderでメニューを開く
-    SelKind contextKind_ = SelKind::None;
+    SelKind contextKind_ = SelKind::kNone;
     int contextIndex_ = -1;
     Vector3 contextWorldPos_ = { }; // 右クリックした地面位置（生成メニューの配置先）
     Vector3 contextScreenPos_ = {};
@@ -633,21 +646,20 @@ private:
     std::vector<FlagGraphBinding> flagGraphs_;
     LevelGraphRunner levelGraphs_;
 
-    static inline StageEditor* activeEditor_ = nullptr; // GetActive()用。Open()で設定、Finalize()で解除
+    static inline StageEditor* sActiveEditor = nullptr; // GetActive()用。Open()で設定、Finalize()で解除
 
     // F2で表示/非表示（GraphEditorのF1と違い、ゲーム画面を隠さない小窓パネル構成）
     bool visible_ = false;
     bool viewportFocusMode_ = false; // 編集パネルを隠してゲーム画面とギズモの確認領域を広げる
     uint64_t previewTextureId_ = 0;
-    float gameViewDisplayWidth_ = 0.0f;
-    float gameViewDisplayHeight_ = 0.0f;
     float previewU0_ = 0.0f, previewV0_ = 0.0f, previewU1_ = 1.0f, previewV1_ = 1.0f;
     bool playTestMode_ = false; // パネルを表示したままゲームを動かすテスト状態を保持する
     bool gameplayHeld_ = false; ///< SetGameplayHeld() でゲームの進行を止めている間 true
+    bool enemiesAvoidPlayer_ = false; ///< SetEnemiesAvoidPlayer() で敵をプレイヤーからも離す間 true
     float savedTimeScale_ = 1.0f;
     bool showUIText_ = true; // falseなら編集中だけui_textのマーカーと実表示を隠す（配置物の陰になって邪魔な時用）
 
-    SelKind selKind_ = SelKind::None;
+    SelKind selKind_ = SelKind::kNone;
     int selIndex_ = -1;
     std::vector<int> selectedObjectIndices_; // Ctrl選択した配置物を一括削除・複製するために保持する
 
@@ -801,12 +813,17 @@ private:
         }
         /** @brief 番号が有効なら、元に戻せるよう今の状態を記録して true を返す（編集を始める前の確認） */
         bool BeginEdit(StageEditor& editor, int index) const {
-            if (!IsValid(editor, index))
-            {
+            if (!IsValid(editor, index)) {
                 return false;
             }
             editor.RecordUndoSnapshotNow();
             return true;
+        }
+        /** @brief ドラッグなどで実際に動かした時だけ、元に戻す記録が必要だと印を付ける */
+        void MarkUndoIfMoved(StageEditor& editor, bool moved) const {
+            if (moved) {
+                editor.MarkUndoDirty();
+            }
         }
     };
     class ObjectSelectionKind;
@@ -826,15 +843,23 @@ private:
 
     bool dirty_ = false; // 最後の保存以降に編集があるか（未保存マーカーと開く時の破棄確認に使う）
 
-    char hierarchySearch_[TextBufferCapacity::kIdentifier] = { };
+    char hierarchySearch_[textBufferCapacity::kIdentifier] = { };
 
     bool snapEnabled_ = false; // グリッドスナップ（ドラッグ移動・新規配置・複製に効く）
     float snapStep_ = 1.0f;
 
     /** @brief アセットパレットでクリックした時の動作 */
-    enum class PaletteMode { PlaceNew, ReplaceSelection };
-    PaletteMode paletteMode_ = PaletteMode::PlaceNew;
-    char paletteSearch_[TextBufferCapacity::kName] = {}; // 素材名の検索語
+    enum class PaletteMode { kPlaceNew, kReplaceSelection };
+    PaletteMode paletteMode_ = PaletteMode::kPlaceNew;
+    /** @brief Resourcesから見つかった素材の表示情報 */
+    struct DiscoveredAsset {
+        std::string label;
+        std::string model;
+        std::string texture;
+    };
+    std::vector<DiscoveredAsset> discoveredAssets_;
+    bool assetsScanned_ = false; // 素材一覧を作ったか（以後は一覧を更新ボタンでだけ作り直す）
+    char paletteSearch_[textBufferCapacity::kName] = {}; // 素材名の検索語
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
     // クリックした瞬間にオブジェクト原点へ位置が飛ばないよう、掴んだ時の
@@ -859,10 +884,10 @@ private:
     bool recoveryAvailable_ = false;
     std::string recoveryPath_;
     std::vector<std::string> validationIssues_;
-    char prefabName_[TextBufferCapacity::kIdentifier] = "stage_part";
+    char prefabName_[textBufferCapacity::kIdentifier] = "stage_part";
     StageEditorEventConnection eventConnection_;
     int validationFocusIndex_ = -1;
-    char waveGroupName_[TextBufferCapacity::kIdentifier] = "wave_1";
+    char waveGroupName_[textBufferCapacity::kIdentifier] = "wave_1";
     int waveEnemyType_ = 0;
     int waveEnemyCount_ = 3;
     float waveSpacing_ = 2.0f;
@@ -876,14 +901,16 @@ private:
     bool showGraphPanel_ = false;
     bool showGrid_ = true; // スナップON時にグリッド線を描くか
     int levelFileIndex_ = -1; // レベル切替コンボの選択位置（-1は未選択）
-    char newLevelName_[TextBufferCapacity::kIdentifier] = "level03";
-    char templateGuideText_[TextBufferCapacity::kLabel] = "案内文をここに";
-    char templateDoorCondition_[TextBufferCapacity::kName] = "condition_room_clear";
+    char newLevelName_[textBufferCapacity::kIdentifier] = "level03";
+    char templateGuideText_[textBufferCapacity::kLabel] = "案内文をここに";
+    char templateDoorCondition_[textBufferCapacity::kName] = "condition_room_clear";
     int templateWallWeapon_ = 3; // 壊せる壁テンプレの武器（kWeaponTypesの添字、既定はHammer）
     bool showWavePanel_ = false;
-    char graphPathBuffer_[TextBufferCapacity::kRelativePath] = { };
-    char newFlagGraphFlag_[TextBufferCapacity::kIdentifier] = { };
-    char newFlagGraphPath_[TextBufferCapacity::kRelativePath] = "Resources/Graphs/";
+    bool showEnemyTypeEditor_ = false; ///< 「敵を作る」画面を開いているか
+    EnemyTypeEditor enemyTypeEditor_; ///< 「敵を作る」画面
+    char graphPathBuffer_[textBufferCapacity::kRelativePath] = { };
+    char newFlagGraphFlag_[textBufferCapacity::kIdentifier] = { };
+    char newFlagGraphPath_[textBufferCapacity::kRelativePath] = "Resources/Graphs/";
     /** @brief 使い方パネルの制作チェックリストの項目数（項目の文言は StageEditorWorkflowPanels.cpp の表） */
     static constexpr int kHelpChecklistCount = 5;
     bool helpChecklist_[kHelpChecklistCount] = { };

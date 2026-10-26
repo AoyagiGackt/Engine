@@ -13,7 +13,7 @@ namespace engine {
  */
 class CrashHandler {
 public:
-    /** @brief SetUnhandledExceptionFilterにハンドラを登録する */
+    /** @brief 落ちた時の報告を書くハンドラをまとめて登録する（例外・abort・純粋仮想関数の呼び出し・不正な引数・std::terminate） */
     static void Install();
 
     /**

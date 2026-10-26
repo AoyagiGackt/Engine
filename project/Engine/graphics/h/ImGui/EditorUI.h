@@ -8,7 +8,7 @@
 #ifdef USE_IMGUI
 #include <string>
 
-namespace engine::graphics::EditorUI {
+namespace engine::graphics::editorUI {
 
 /**
  * @brief ファイル選択ダイアログを開き、選んだパスを返す（取り消したら空文字列）
@@ -24,9 +24,9 @@ std::string ToProjectRelativePath(const std::string& absolutePath);
 void HelpMarker(const char* desc);
 
 enum class ConfirmResult {
-    None, ///< モーダル表示中 or 未表示（何も確定していない）
-    Ok,
-    Cancel,
+    kNone, ///< モーダル表示中 or 未表示（何も確定していない）
+    kOk,
+    kCancel,
 };
 
 /**

@@ -20,6 +20,9 @@ struct GameRulesData {
     bool requireBossWeaponSteal = true; ///< trueならボス撃破+武器奪取でクリア条件が成立する
     std::string clearFlag = "stage_clear"; ///< このGameFlagsが立ってもクリア条件が成立する（グラフからの操作用）
     bool gameOverOnHpZero = true; ///< trueならラン中にHPが0になるとゲームオーバー結果へ遷移する
+    bool debugGameOverButton = false; ///< trueならゲーム中にやられ演出をすぐ見るボタン（F9かクリック）を出す（評価・確認用）
+    bool debugClearButton = false; ///< trueならゲーム中にクリアの決め演出をすぐ見るボタン（F5かクリック。押すたびに剣と銃を交互に見せる）を出す（評価・確認用）
+    bool debugLiberationButton = false; ///< trueならマップにステージの解放演出をすぐ見るボタン（F5かクリック。進行は変えない）を出す（評価・確認用）
     float resultDisplaySeconds = 2.5f; ///< クリア結果表示の秒数
     int finalFloor = 6; ///< このフロア以上でクリア扱い（それ未満は次のフロアへ）
     int bossHpCombat = 20;
@@ -30,8 +33,10 @@ struct GameRulesData {
     int flyingWeaponEnemyHp = 5; ///< 道中の飛行型雑魚のHP（空中にいて殴りにくいため地上の雑魚より低くする）
     std::string starterWeapon = "Sword"; ///< 新規ラン開始時に最初から持っている近接武器の種別名（空文字なら素手で開始）
     std::string bossStealWeapon = "Hammer"; ///< ボスから奪取する武器種別名
+    bool gunSwitchEnabled = false; ///< trueなら銃切替のボタンで持っている銃を切り替えられる（falseなら最初の銃だけを使う）
+    bool randomEnemyWeapons = true; ///< trueなら道中の武器持ちの敵の武器を、プレイヤーがまだ持っていない武器から抽選する（ボスは配置どおり）
+    std::vector<std::string> enemyWeaponPool = { "Sword", "Spear", "Hammer", "Dagger" }; ///< 抽選する武器の候補（種別名）
     Vector4 bossColor = { 0.9f, 0.65f, 0.15f, 1.0f };
-    int waterFloor = 3; ///< 水面演出を有効にするフロア番号（負なら無効）
     std::vector<std::string> levelPaths; ///< フロア番号順のレベルJSON。フロア数を超えた分は最後のものを使う
     std::string bossTechnique = "slam_shockwave"; ///< ボス武器奪取時に習得する技の名前（RunData::AddBossTechnique）
     float bossTechniqueRadiusMult = 1.6f; ///< 習得後、叩きつけ系固有技の判定半径に掛かる倍率

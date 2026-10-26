@@ -153,36 +153,31 @@ constexpr JsonField<CombatTuningData> kFields[] = {
 } // namespace
 
 /** @brief 唯一のCombatTuningインスタンスを取得する（初回はJSONを読み込む） */
-CombatTuning* CombatTuning::GetInstance()
-{
-    static CombatTuning instance;
-    return &instance;
+CombatTuning* CombatTuning::GetInstance() {
+    static CombatTuning sInstance;
+    return &sInstance;
 }
 
 /** @brief combat_tuning.json を読み込んで初期化する */
-CombatTuning::CombatTuning()
-{
+CombatTuning::CombatTuning() {
     Reload();
 }
 
 /** @brief JSONを読み直す */
-void CombatTuning::Reload()
-{
+void CombatTuning::Reload() {
     // まず既定値に戻し、読めない時はそのまま既定値で動かす
     CombatTuningData defaults;
     data_ = defaults;
     fallingFloor_ = FallingFloorTiming {};
     const nlohmann::json root = JsonHelper::Load(kCombatTuningPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("CombatTuning: ") + kCombatTuningPath + " が読めません。既定値で動きます");
         return;
     }
     // 項目の対応表どおりに読み、壊れた組み合わせだけ既定値へ戻す
     ReadJsonFields(root, kFields, data_);
     // 水場は幅と深さが正の範囲だけを採用する。
-    if (data_.waterMaxX <= data_.waterMinX || data_.waterSurfaceY <= data_.waterBottomY)
-    {
+    if (data_.waterMaxX <= data_.waterMinX || data_.waterSurfaceY <= data_.waterBottomY) {
         data_.waterMinX = defaults.waterMinX;
         data_.waterMaxX = defaults.waterMaxX;
         data_.waterSurfaceY = defaults.waterSurfaceY;
@@ -193,8 +188,7 @@ void CombatTuning::Reload()
     data_.finisherChargeDelay = (std::max)(data_.finisherChargeDelay, 0.0f);
     data_.finisherLineInterval = (std::max)(data_.finisherLineInterval, 0.0f);
     data_.finisherImpactDelay = (std::max)(data_.finisherImpactDelay, 0.0f);
-    if (data_.FinisherChargeDuration() <= 0.0f)
-    {
+    if (data_.FinisherChargeDuration() <= 0.0f) {
         data_.finisherChargeDelay = defaults.finisherChargeDelay;
     }
     // 崩れる床の周期
@@ -204,8 +198,7 @@ void CombatTuning::Reload()
     if (!std::isfinite(floor.warningEnd) || !std::isfinite(floor.respawnStart) || !std::isfinite(floor.cycleEnd)
         || !std::isfinite(floor.crackLeadTime) || !std::isfinite(floor.minimumSpeed)
         || floor.warningEnd < 0.0f || floor.respawnStart < floor.warningEnd || floor.cycleEnd <= floor.respawnStart
-        || floor.crackLeadTime < 0.0f || floor.minimumSpeed <= 0.0f)
-    {
+        || floor.crackLeadTime < 0.0f || floor.minimumSpeed <= 0.0f) {
         fallingFloor_ = FallingFloorTiming {};
     }
 }

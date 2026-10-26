@@ -16,20 +16,17 @@ namespace engine::game {
  * @return 地面に到達（クランプ）したら true
  */
 inline bool ApplyGravityAndClampY(float& posY, float& velY, float gravity,
-    float groundY, float ceilingY, float ceilingBounceFactor = 0.0f)
-{
+    float groundY, float ceilingY, float ceilingBounceFactor = 0.0f) {
     velY -= gravity;
     posY += velY;
 
     bool grounded = false;
-    if (posY <= groundY)
-    {
+    if (posY <= groundY) {
         posY = groundY;
         velY = 0.0f;
         grounded = true;
     }
-    if (posY > ceilingY)
-    {
+    if (posY > ceilingY) {
         posY = ceilingY;
         velY *= ceilingBounceFactor;
     }

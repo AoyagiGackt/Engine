@@ -9,24 +9,20 @@
 
 namespace engine::game {
 /** @brief レベルデータのグラフ設定を読み込んで実行を開始する */
-void LevelGraphRunner::Start(const LevelData& data)
-{
+void LevelGraphRunner::Start(const LevelData& data) {
     Stop();
     mainPath_ = data.graphPath;
     bindings_ = data.flagGraphs;
-    for (const FlagGraphBinding& binding : bindings_)
-    {
+    for (const FlagGraphBinding& binding : bindings_) {
         lastFlagState_[binding.flag] = GameFlags::GetInstance()->GetFlag(binding.flag);
     }
-    if (!mainPath_.empty())
-    {
+    if (!mainPath_.empty()) {
         Launch(mainPath_);
     }
 }
 
 /** @brief 全グラフを停止して破棄する */
-void LevelGraphRunner::Stop()
-{
+void LevelGraphRunner::Stop() {
     running_.clear();
     bindings_.clear();
     lastFlagState_.clear();
@@ -34,13 +30,11 @@ void LevelGraphRunner::Stop()
 }
 
 /** @brief パスのグラフを読み込んで起動する。読み込み失敗や開始ノード未設定なら何もしない */
-void LevelGraphRunner::Launch(const std::string& path)
-{
+void LevelGraphRunner::Launch(const std::string& path) {
     RunningGraph graph;
     graph.path = path;
-    graph.desc = std::make_unique<GraphDesc>(GraphIO::Load(path));
-    if (graph.desc->startNodeId.empty())
-    {
+    graph.desc = std::make_unique<GraphDesc>(graphIO::Load(path));
+    if (graph.desc->startNodeId.empty()) {
         Logger::LogWarning("[LevelGraph] 開始ノードが無いか読み込めません: " + path);
         return;
     }
@@ -50,10 +44,8 @@ void LevelGraphRunner::Launch(const std::string& path)
 }
 
 /** @brief 毎フレーム呼ぶ。常駐グラフを進め、フラグの立ち上がりで起動グラフを開始する */
-void LevelGraphRunner::Update(float dt)
-{
-    for (auto& graph : running_)
-    {
+void LevelGraphRunner::Update(float dt) {
+    for (auto& graph : running_) {
         graph.runtime->Update(dt);
     }
     running_.erase(std::remove_if(running_.begin(), running_.end(),
@@ -63,16 +55,13 @@ void LevelGraphRunner::Update(float dt)
         running_.end());
 
     // フラグの立ち上がり（false→true）を検出して起動グラフを開始する
-    for (const FlagGraphBinding& binding : bindings_)
-    {
-        if (binding.flag.empty() || binding.graphPath.empty())
-        {
+    for (const FlagGraphBinding& binding : bindings_) {
+        if (binding.flag.empty() || binding.graphPath.empty()) {
             continue;
         }
         const bool now = GameFlags::GetInstance()->GetFlag(binding.flag);
         bool& last = lastFlagState_[binding.flag];
-        if (now && !last)
-        {
+        if (now && !last) {
             Launch(binding.graphPath);
         }
         last = now;
@@ -80,8 +69,7 @@ void LevelGraphRunner::Update(float dt)
 }
 
 /** @brief 実行中のグラフ本数（エディタの状態表示用） */
-int LevelGraphRunner::GetRunningCount() const
-{
+int LevelGraphRunner::GetRunningCount() const {
     return static_cast<int>(running_.size());
 }
 

@@ -7,10 +7,8 @@
 
 namespace engine::game {
 /** @brief プレイヤーが範囲内に入った瞬間だけフラグを立てる */
-bool TriggerVolume::Update(const Vector3& playerPos)
-{
-    if (desc_.once && consumed_)
-    {
+bool TriggerVolume::Update(const Vector3& playerPos) {
+    if (desc_.once && consumed_) {
         return false;
     }
 
@@ -20,10 +18,8 @@ bool TriggerVolume::Update(const Vector3& playerPos)
     const bool inside = (dx * dx + dy * dy + dz * dz) <= (desc_.radius * desc_.radius);
 
     const bool justEntered = inside && !wasInside_;
-    if (justEntered)
-    {
-        if (!desc_.flag.empty())
-        {
+    if (justEntered) {
+        if (!desc_.flag.empty()) {
             GameFlags::GetInstance()->SetFlag(desc_.flag, desc_.value);
         }
         consumed_ = true;

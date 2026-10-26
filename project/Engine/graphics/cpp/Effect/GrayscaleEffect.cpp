@@ -7,8 +7,7 @@
 
 namespace engine::graphics {
 /** @brief オフスクリーンRTV・定数バッファ・グレースケール変換用PSOを生成する */
-void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     cbData_ = static_cast<GrayscaleParams*>(
         InitializeCommon(dxCommon, srvManager, L"Resources/shaders/postprocess/GrayscalePS.hlsl"));
     *cbData_ = GrayscaleParams { };
@@ -16,17 +15,14 @@ void GrayscaleEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 }
 
 /** @brief グレースケール化の割合を設定する */
-void GrayscaleEffect::SetAmount(float amount)
-{
-    if (cbData_)
-    {
+void GrayscaleEffect::SetAmount(float amount) {
+    if (cbData_) {
         cbData_->amount = amount;
     }
 }
 
 /** @brief グレースケール化の割合を取得する */
-float GrayscaleEffect::GetAmount() const
-{
+float GrayscaleEffect::GetAmount() const {
     return cbData_ ? cbData_->amount : 0.f;
 }
 

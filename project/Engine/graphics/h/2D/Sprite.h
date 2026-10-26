@@ -35,10 +35,10 @@ struct MaterialSprite {
  * スプライトで不要な後半 2 行列もバッファサイズ確保のために定義する（値は単位行列固定）
  */
 struct TransformationMatrixSprite {
-    Matrix4x4 WVP; /// ワールド・ビュー・プロジェクション行列（2D正投影）
-    Matrix4x4 World; /// ワールド行列
-    Matrix4x4 WorldInverseTranspose; /// VS が読むため確保（スプライトは enableLighting=false なので未使用）
-    Matrix4x4 LightVP; /// VS が読むため確保（スプライトは影を受けないので未使用）
+    Matrix4x4 wvp; /// ワールド・ビュー・プロジェクション行列（2D正投影）
+    Matrix4x4 world; /// ワールド行列
+    Matrix4x4 worldInverseTranspose; /// VS が読むため確保（スプライトは enableLighting=false なので未使用）
+    Matrix4x4 lightVP; /// VS が読むため確保（スプライトは影を受けないので未使用）
 };
 
 /**
@@ -155,8 +155,7 @@ public:
     void SetTexture(const std::string& textureFilePath);
 
     /** @brief 外部で作成したSRVインデックスを直接指定する（動画用） */
-    void SetExternalTexture(uint32_t srvIndex)
-    {
+    void SetExternalTexture(uint32_t srvIndex) {
         textureIndex_ = srvIndex;
         useExternalTexture_ = true;
     }

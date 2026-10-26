@@ -15,8 +15,7 @@ namespace {
 }
 
 /** @brief 円柱のメッシュとパイプラインを用意する */
-void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
-{
+void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions) {
     SetupMaterialBuffers(dxCommon, textureFilePath, divisions, materialData_);
     materialData_->alphaReference = 0.0f;
 
@@ -25,15 +24,12 @@ void Cylinder::Initialize(DirectXCommon* dxCommon, const std::string& textureFil
 }
 
 /** @brief 今の形の設定から頂点を作り直す */
-void Cylinder::RebuildVertices()
-{
-    if (!vertexData_)
-    {
+void Cylinder::RebuildVertices() {
+    if (!vertexData_) {
         return;
     }
 
-    for (int index = 0; index < divisions_; ++index)
-    {
+    for (int index = 0; index < divisions_; ++index) {
         const SegmentAngles a = SegmentAt(index);
         // -sinでX方向を時計回り、側面法線はXZ平面外向き。上面側を V=0、底面側を V=1 にする
         const Vector4 topCur = { -a.s * topRadius_, height_, a.c * topRadius_, 1.0f };
@@ -46,8 +42,7 @@ void Cylinder::RebuildVertices()
 }
 
 /** @brief 円柱用のパイプラインを生成する */
-void Cylinder::CreatePipeline()
-{
+void Cylinder::CreatePipeline() {
     CreatePipelineCommon(L"Resources/shaders/cylinder/Cylinder.VS.hlsl",
         L"Resources/shaders/cylinder/Cylinder.PS.hlsl",
         D3D12_TEXTURE_ADDRESS_MODE_WRAP);

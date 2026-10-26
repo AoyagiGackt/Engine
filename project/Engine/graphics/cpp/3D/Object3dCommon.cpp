@@ -29,13 +29,12 @@ using namespace Microsoft::WRL;
 // 初期化
 
 /** @brief 平行光源とポイントライトの定数バッファを作り、既定値を書き込んで初期化する */
-void Object3dCommon::Initialize(DirectXCommon* dxCommon)
-{
+void Object3dCommon::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
     // ライト定数バッファの作成
-    lightResource_ = PipelineHelper::CreateUploadBuffer(device, kConstantBufferAlignment);
+    lightResource_ = pipelineHelper::CreateUploadBuffer(device, kConstantBufferAlignment);
 
     // Map したまま保持（毎フレーム UpdateLight() で書き換える）
     lightResource_->Map(0, nullptr, reinterpret_cast<void**>(&lightData_));
@@ -49,7 +48,7 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 
     // ポイントライト定数バッファ
     // CBV は 256 バイトアライン必須なので切り上げる
-    pointLightResource_ = PipelineHelper::CreateUploadBuffer(
+    pointLightResource_ = pipelineHelper::CreateUploadBuffer(
         device, AlignConstantBufferSize(sizeof(PointLightBuffer)));
     pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
     // ライト数 0 で初期化（シェーダーはループしない）
@@ -60,11 +59,9 @@ void Object3dCommon::Initialize(DirectXCommon* dxCommon)
 // ライト更新（時刻に合わせて方向・色・アンビエントを変える）
 
 /** @brief 時刻の割合に合わせてライトの方向・色・環境光を更新する（手動設定中は何もしない） */
-void Object3dCommon::UpdateLight(float timeRatio)
-{
+void Object3dCommon::UpdateLight(float timeRatio) {
     // 手動オーバーライード中は時刻に基づく自動更新をスキップする
-    if (manualLightOverride_)
-    {
+    if (manualLightOverride_) {
         return;
     }
 
@@ -112,10 +109,8 @@ void Object3dCommon::UpdateLight(float timeRatio)
     };
 
     constexpr int kCount = 6;
-    for (int i = 0; i + 1 < kCount; ++i)
-    {
-        if (timeRatio <= kLightKeys[i + 1].t)
-        {
+    for (int i = 0; i + 1 < kCount; ++i) {
+        if (timeRatio <= kLightKeys[i + 1].t) {
             float span = kLightKeys[i + 1].t - kLightKeys[i].t;
             float t = (timeRatio - kLightKeys[i].t) / span;
 
@@ -144,10 +139,8 @@ void Object3dCommon::UpdateLight(float timeRatio)
 // ライト方向の取得（ShadowManager に渡す用）
 
 /** @brief 現在のライト方向を返す（未初期化なら真下） */
-Vector3 Object3dCommon::GetLightDirection() const
-{
-    if (!lightData_)
-    {
+Vector3 Object3dCommon::GetLightDirection() const {
+    if (!lightData_) {
         return { 0.0f, -1.0f, 0.0f };
     }
 
@@ -157,21 +150,18 @@ Vector3 Object3dCommon::GetLightDirection() const
 // ライトをコマンドリストにセット（スロット 3）
 
 /** @brief 平行光源とポイントライト群をモデル用のルートスロットへセットする */
-void Object3dCommon::SetDefaultLight(ID3D12GraphicsCommandList* commandList)
-{
+void Object3dCommon::SetDefaultLight(ID3D12GraphicsCommandList* commandList) {
     // スロット 3: 平行光源（DirectionalLight）
-    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::ModelRootSlot::kDirectionalLight, lightResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kDirectionalLight, lightResource_->GetGPUVirtualAddress());
     // スロット 6: ポイントライト群（ModelCommon パイプライン用）
     // SkinCommon パイプラインではスロット 6 がスキニングパレットになるため、
-    // SkinnedObject3d::Draw 内で SetPointLights(cmd, PipelineHelper::SkinnedRootSlot::kPointLights) を別途呼び直す
-    SetPointLights(commandList, PipelineHelper::ModelRootSlot::kPointLights);
+    // SkinnedObject3d::Draw 内で SetPointLights(cmd, pipelineHelper::SkinnedRootSlot::kPointLights) を別途呼び直す
+    SetPointLights(commandList, pipelineHelper::modelRootSlot::kPointLights);
 }
 
 /** @brief ポイントライトを指定スロットにセットする */
-void Object3dCommon::SetPointLights(ID3D12GraphicsCommandList* commandList, UINT rootParamSlot)
-{
-    if (!pointLightData_)
-    {
+void Object3dCommon::SetPointLights(ID3D12GraphicsCommandList* commandList, UINT rootParamSlot) {
+    if (!pointLightData_) {
         return;
     }
     pointLightData_->count = pointLightCount_;

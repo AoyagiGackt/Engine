@@ -9,6 +9,7 @@
 
 namespace engine {
     class DirectXCommon;
+    class Input;
 }
 namespace engine::graphics {
     class Camera;
@@ -36,8 +37,9 @@ struct HudFrame {
     float awakenGauge = 0.0f;
     bool awakened = false;
     float pulseTime = 0.0f;
+    const engine::Input* input = nullptr; ///< 操作の案内をキー名に置き換えるのに使う（無ければ前の表示のまま）
 };
-enum class HudEvent { WeaponAcquired };
+enum class HudEvent { kWeaponAcquired };
 
 /** @brief 表示要素の共通契約。実装側だけがスプライトや演出状態を操作する。 */
 class IHudWidget {
@@ -65,36 +67,31 @@ public:
     }
     /** @brief すべてのHUD要素を初期化する */
     void Initialize(const HudServices& services) {
-        for (auto& w : widgets_)
-        {
+        for (auto& w : widgets_) {
             w->Initialize(services);
         }
     }
     /** @brief すべてのHUD要素を更新する */
     void Update(const HudFrame& frame) {
-        for (auto& w : widgets_)
-        {
+        for (auto& w : widgets_) {
             w->Update(frame);
         }
     }
     /** @brief すべてのHUD要素の文字を描画予約する */
     void QueueText(FontRenderer& font) const {
-        for (const auto& w : widgets_)
-        {
+        for (const auto& w : widgets_) {
             w->QueueText(font);
         }
     }
     /** @brief すべてのHUD要素を描画する */
     void Draw() {
-        for (auto& w : widgets_)
-        {
+        for (auto& w : widgets_) {
             w->Draw();
         }
     }
     /** @brief すべてのHUD要素へ知らせを渡す */
     void Notify(HudEvent event) {
-        for (auto& w : widgets_)
-        {
+        for (auto& w : widgets_) {
             w->Notify(event);
         }
     }

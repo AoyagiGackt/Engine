@@ -31,10 +31,8 @@ public:
      * @param amount 揺れの強さ（ワールド単位）
      * @param seconds 揺れの継続秒数
      */
-    void RequestCameraShake(float amount, float seconds) const
-    {
-        if (cameraShake_)
-        {
+    void RequestCameraShake(float amount, float seconds) const {
+        if (cameraShake_) {
             cameraShake_(amount, seconds);
         }
     }

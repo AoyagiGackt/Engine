@@ -22,18 +22,18 @@ class Model;
 namespace engine::game {
 
 /** @brief 配置物の並べ方 */
-enum class PlacementType { Static, ///< 1個だけ置く
-    Row }; ///< axis方向へcount個並べる
+enum class PlacementType { kStatic, ///< 1個だけ置く
+    kRow }; ///< axis方向へcount個並べる
 /** @brief カスタム動作の往復方式 */
-enum class MotionMode { Loop, ///< sin波で往復
-    PingPong, ///< 等速で往復
-    Once }; ///< 一度だけ進んで止まる
+enum class MotionMode { kLoop, ///< sin波で往復
+    kPingPong, ///< 等速で往復
+    kOnce }; ///< 一度だけ進んで止まる
 /** @brief カスタム動作の加減速 */
-enum class MotionEase { Linear,
-    Smooth };
+enum class MotionEase { kLinear,
+    kSmooth };
 /** @brief ui_textの座標系 */
-enum class TextSpace { Screen, ///< position.x/yをスクリーンpx座標として使う
-    World }; ///< ワールド座標をカメラ基準で画面へ投影する
+enum class TextSpace { kScreen, ///< position.x/yをスクリーンpx座標として使う
+    kWorld }; ///< ワールド座標をカメラ基準で画面へ投影する
 
 // レベルJSONに書く文字列（enum の並び順と一致させる。エディタのコンボ表示にも使う）
 inline constexpr const char* kPlacementTypeNames[] = { "static", "row" };
@@ -52,12 +52,9 @@ inline constexpr SpawnTypeDef kSpawnTypes[] = {
     { "knight", "ナイト", true },
 };
 /** @brief spawnType の文字列から kSpawnTypes の添字を引く（無ければ -1） */
-inline int FindSpawnTypeIndex(const std::string_view& name)
-{
-    for (int i = 0; i < static_cast<int>(std::size(kSpawnTypes)); ++i)
-    {
-        if (name == kSpawnTypes[i].name)
-        {
+inline int FindSpawnTypeIndex(const std::string_view& name) {
+    for (int i = 0; i < static_cast<int>(std::size(kSpawnTypes)); ++i) {
+        if (name == kSpawnTypes[i].name) {
             return i;
         }
     }
@@ -67,8 +64,7 @@ inline int FindSpawnTypeIndex(const std::string_view& name)
 /** @brief event_condition が成立した時に立てる GameFlags の接頭辞（後ろに条件の名前が付く） */
 inline constexpr std::string_view kConditionFlagPrefix = "condition_";
 /** @brief 条件の名前から、成立時に立つフラグ名を作る */
-inline std::string ConditionFlagName(const std::string& conditionName)
-{
+inline std::string ConditionFlagName(const std::string& conditionName) {
     return std::string(kConditionFlagPrefix) + conditionName;
 }
 /** @brief 親をたどる深さの上限（循環参照で止まらなくならないように） */
@@ -82,13 +78,10 @@ inline constexpr int kMaxParentDepth = 16;
  */
 /** @brief 名前の表から列挙値を探す（無ければ fallback を返す） */
 template <class E, size_t N>
-E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallback)
-{
+E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallback) {
     static_assert(std::is_enum_v<E>);
-    for (size_t i = 0; i < N; ++i)
-    {
-        if (name == names[i])
-        {
+    for (size_t i = 0; i < N; ++i) {
+        if (name == names[i]) {
             return static_cast<E>(i);
         }
     }
@@ -97,8 +90,7 @@ E ParseLevelEnum(const std::string& name, const char* const (&names)[N], E fallb
 
 /** @brief enum をレベルJSONに書く文字列へ変換する */
 template <class E, size_t N>
-const char* LevelEnumName(E value, const char* const (&names)[N])
-{
+const char* LevelEnumName(E value, const char* const (&names)[N]) {
     static_assert(std::is_enum_v<E>);
     const size_t index = static_cast<size_t>(value);
     return index < N ? names[index] : names[0];
@@ -110,7 +102,7 @@ struct ObjectDesc {
     bool enabled = true; // falseなら保存は維持するが生成・更新・描画・当たり判定から除外する
     std::string name; // 親子参照・エディタ表示用の一意な名前（空ならロード時に自動命名）
     std::string parent; // 親オブジェクトのname（空なら親なし）子のpositionは親からの相対位置になる
-    PlacementType type = PlacementType::Static;
+    PlacementType type = PlacementType::kStatic;
     // "prop"（既定、見た目のみのObject3d）| "enemy_knight"（KnightEnemy実体を生成）| "enemy_basic"（EnemyEntity実体を生成）
     // | "ui_text"（Object3dを生成せず、StageEditor::DrawUITextがFontRendererで文字列を描画する。以下のtext系フィールド専用）
     // | "pickup"（触れると回収される収集物。pickup系フィールド専用）
@@ -136,8 +128,8 @@ struct ObjectDesc {
     // "custom"専用（任意方向の移動と回転を組み合わせた汎用モーション。新しい動きをコード無しで作る）
     Vector3 motionAxis = { 1.0f, 0.0f, 0.0f }; // 移動方向（motionAmount倍して往復・周回する）
     Vector3 motionRotation = { }; // 進行度1.0に対する回転量（ラジアン）
-    MotionMode motionMode = MotionMode::Loop;
-    MotionEase motionEase = MotionEase::Linear;
+    MotionMode motionMode = MotionMode::kLoop;
+    MotionEase motionEase = MotionEase::kLinear;
     float cameraBlendSeconds = 0.5f; // カメラポイントへ補間する秒数
     float cameraHoldSeconds = 2.0f; // カメラポイントを維持する秒数
     std::string spawnType = "basic"; // spawn_pointが生成する敵種類 basicまたはknight
@@ -148,7 +140,11 @@ struct ObjectDesc {
     // "enemy_basic" 専用（GamePlayScene等が武器奪取ギミックの対象を判別するのに使う）
     std::string weaponType; // 空なら武器を持たない一般敵。"Sword"等ならその武器を持ち、倒してJキーで奪取できる
     bool isStageBoss = false; // trueならこの敵を倒して奪取するとステージクリア条件が成立する（HPはRunDataのノード種別で自動調整）
-    std::string enemyModel; // 敵の見た目。空なら騎士、"Slime" "Bat" "Dragon" "Skeleton" ならそのモンスター（武器を持たない敵になる）
+    std::string enemyModel; // 敵の見た目。空なら騎士、enemy_params.json の visuals の名前（"Slime" など）ならそのモンスター（武器を持たない敵になる）
+    std::string enemyType; // エディタの「敵を作る」で作った種類の名前（表示用。値は配置時に下の項目へ写してある）
+    float enemyHpScale = 1.0f; // HPの倍率
+    float enemyDamageScale = 1.0f; // 攻撃力の倍率
+    float enemySpeedScale = 1.0f; // 近づく速さの倍率
 
     // "pickup" 専用（プレイヤーが触れると回収され、覚醒ゲージが増える収集物。回収時にpickup_<name>フラグが立つ）
     float pickupRadius = 1.0f; // 回収判定の半径
@@ -161,8 +157,8 @@ struct ObjectDesc {
     int breakablePlayerDamage = 4; // 範囲内のプレイヤーが受けるダメージ
     int breakableEnemyDamage = 3; // 範囲内の敵が受けるダメージ
     std::string breakableWeapon; // 空なら何でも壊せる。"Hammer"等を指定するとその武器の近接攻撃でしか壊れない（壁ギミック用、solid=trueと組み合わせる）
-    Vector4 breakableColor = { 1.0f, 0.35f, 0.1f, 1.0f }; // 表示色（脈動の基準色）
-    // PlacementType::Row 専用
+    Vector4 breakableColor = { 1.0f, 0.92f, 0.88f, 1.0f }; // 表示色（脈動の基準色。モデルの色に掛けるので白寄りにする）
+    // PlacementType::kRow 専用
     char axis = 'x'; // 並べる軸  'x' | 'y' | 'z'
     int count = 1; // 個数
     float step = 1.0f; // 間隔
@@ -173,7 +169,7 @@ struct ObjectDesc {
     bool textBold = false;
     bool textShadow = true; // 明るい背景でも文章を読めるようにする
     float textScale = 1.5f;
-    TextSpace textSpace = TextSpace::Screen;
+    TextSpace textSpace = TextSpace::kScreen;
 };
 
 /**
@@ -182,14 +178,11 @@ struct ObjectDesc {
  * @param visit      たどった親ごとに呼ぶ関数（近い親から順）
  */
 template <class FindParent, class Visit>
-void VisitParentChain(const ObjectDesc& desc, const FindParent& findParent, const Visit& visit)
-{
+void VisitParentChain(const ObjectDesc& desc, const FindParent& findParent, const Visit& visit) {
     const ObjectDesc* cur = &desc;
-    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard)
-    {
+    for (int guard = 0; guard < kMaxParentDepth && !cur->parent.empty(); ++guard) {
         const ObjectDesc* parent = findParent(cur->parent);
-        if (parent == nullptr)
-        {
+        if (parent == nullptr) {
             break;
         }
         visit(*parent);
@@ -198,8 +191,7 @@ void VisitParentChain(const ObjectDesc& desc, const FindParent& findParent, cons
 }
 
 /** @brief local を Z 軸まわりに angleZ だけ回し、offset を足した位置を返す（親1段ぶんの座標の移し替え） */
-inline Vector3 RotateZAndOffset(const Vector3& local, float angleZ, const Vector3& offset)
-{
+inline Vector3 RotateZAndOffset(const Vector3& local, float angleZ, const Vector3& offset) {
     const float c = std::cos(angleZ);
     const float s = std::sin(angleZ);
     return { local.x * c - local.y * s + offset.x, local.x * s + local.y * c + offset.y, local.z + offset.z };
@@ -210,8 +202,7 @@ inline Vector3 RotateZAndOffset(const Vector3& local, float angleZ, const Vector
  * @param findParent 親の名前から配置情報を引く関数（見つからなければ nullptr を返す）
  */
 template <class FindParent>
-Vector3 ResolveWorldPosition(const ObjectDesc& desc, const FindParent& findParent)
-{
+Vector3 ResolveWorldPosition(const ObjectDesc& desc, const FindParent& findParent) {
     Vector3 result = desc.position;
     VisitParentChain(desc, findParent, [&](const ObjectDesc& parent) {
         result = RotateZAndOffset(result, parent.rotation.z, parent.position);
@@ -224,11 +215,9 @@ Vector3 ResolveWorldPosition(const ObjectDesc& desc, const FindParent& findParen
  * @param findParent 親の名前から配置情報を引く関数（見つからなければ nullptr を返す）
  */
 template <class FindParent>
-Vector3 ResolveLocalPosition(const ObjectDesc& desc, const Vector3& world, const FindParent& findParent)
-{
+Vector3 ResolveLocalPosition(const ObjectDesc& desc, const Vector3& world, const FindParent& findParent) {
     const ObjectDesc* parent = desc.parent.empty() ? nullptr : findParent(desc.parent);
-    if (parent == nullptr)
-    {
+    if (parent == nullptr) {
         return world;
     }
     // 親から見た向きは、先祖すべての Z 回転の合計になる（Z軸まわりだけなので足し合わせればよい）
@@ -252,12 +241,9 @@ inline constexpr PlacementAxis kPlacementAxes[] = {
 };
 
 /** @brief 配列配置に使う軸の添字を返す。未知の軸はXとして扱う */
-inline size_t PlacementAxisIndex(char axis)
-{
-    for (size_t i = 0; i < std::size(kPlacementAxes); ++i)
-    {
-        if (axis == kPlacementAxes[i].name)
-        {
+inline size_t PlacementAxisIndex(char axis) {
+    for (size_t i = 0; i < std::size(kPlacementAxes); ++i) {
+        if (axis == kPlacementAxes[i].name) {
             return i;
         }
     }
@@ -265,8 +251,7 @@ inline size_t PlacementAxisIndex(char axis)
 }
 
 /** @brief 配置方式の定義表から生成個数を求める */
-inline int PlacementCopyCount(const ObjectDesc& desc)
-{
+inline int PlacementCopyCount(const ObjectDesc& desc) {
     using Count = int (*)(const ObjectDesc&);
     static constexpr Count kCounts[] = {
         [](const ObjectDesc&) {
@@ -281,8 +266,7 @@ inline int PlacementCopyCount(const ObjectDesc& desc)
 }
 
 /** @brief 配置方式と軸の定義表から指定インスタンスのワールド座標を求める */
-inline Vector3 PlacementInstancePosition(const ObjectDesc& desc, const Vector3& basePosition, int instanceIndex)
-{
+inline Vector3 PlacementInstancePosition(const ObjectDesc& desc, const Vector3& basePosition, int instanceIndex) {
     using Offset = float (*)(const ObjectDesc&, int);
     static constexpr Offset kOffsets[] = {
         [](const ObjectDesc&, int) {
@@ -331,8 +315,7 @@ public:
      * @param checkpoints ステージが保持するチェックポイント一覧
      * @param fallback チェックポイント未通過時の復帰地点
      */
-    void Initialize(const std::vector<CheckpointDesc>* checkpoints, const Vector3& fallback)
-    {
+    void Initialize(const std::vector<CheckpointDesc>* checkpoints, const Vector3& fallback) {
         checkpoints_ = checkpoints;
         respawnPosition_ = fallback;
         activeIndex_ = -1;
@@ -343,14 +326,11 @@ public:
      * @param playerPosition 現在のプレイヤー座標
      * @return 新しいチェックポイントを有効化した場合はtrue
      */
-    bool Update(const Vector3& playerPosition)
-    {
-        if (!checkpoints_)
-        {
+    bool Update(const Vector3& playerPosition) {
+        if (!checkpoints_) {
             return false;
         }
-        for (size_t i = 0; i < checkpoints_->size(); ++i)
-        {
+        for (size_t i = 0; i < checkpoints_->size(); ++i) {
             const CheckpointDesc& checkpoint = (*checkpoints_)[i];
             const Vector3 delta = {
                 playerPosition.x - checkpoint.position.x,
@@ -359,8 +339,7 @@ public:
             };
             const float distanceSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
             if (distanceSquared <= checkpoint.activationRadius * checkpoint.activationRadius
-                && activeIndex_ != static_cast<int>(i))
-            {
+                && activeIndex_ != static_cast<int>(i)) {
                 activeIndex_ = static_cast<int>(i);
                 respawnPosition_ = checkpoint.position;
                 return true;
@@ -407,13 +386,13 @@ struct LevelData {
 };
 
 // Spawn() の戻り値Model と Object3d の所有権を持つ
-/** @brief LevelLoader::Spawn() が生成したModel/Object3dの所有権を保持する（シーン側が寿命を管理する） */
+/** @brief levelLoader::Spawn() が生成したModel/Object3dの所有権を保持する（シーン側が寿命を管理する） */
 struct LevelSpawnResult {
     std::vector<std::unique_ptr<engine::graphics::Model>> models;
     std::vector<std::unique_ptr<engine::graphics::Object3d>> objects;
 };
 
-namespace LevelLoader {
+namespace levelLoader {
     /**
      * @brief JSON ファイルを読み込みLevelDataへ変換する
      * @param path 読み込むレベルJSONのパス

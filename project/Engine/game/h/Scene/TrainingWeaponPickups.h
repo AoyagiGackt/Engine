@@ -22,7 +22,7 @@ public:
 private:
     /** @brief トレーニング用の武器拾得物と表示情報 */
     struct Pickup {
-        WeaponType type = WeaponType::Sword;
+        WeaponType type = WeaponType::kSword;
         engine::graphics::Model* model = nullptr;
         std::unique_ptr<engine::graphics::Object3d> object;
         Vector3 position = {};

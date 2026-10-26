@@ -82,9 +82,26 @@ public:
     /**
      * @brief 演出用に、入力と物理を進めずに見た目だけを通常どおり進める（向き・待機/落下のアニメ・武器の付け方）
      * @param airborne 宙にいるなら true（落下のアニメにする）
+     * @param bodyRotation 向きの回転に足す体の回転（ラジアン。x を負にすると後ろへのけぞる）
+     * @param moving 歩行アニメを選ぶなら true（既定は待機）
      * @note 開始演出の降下など、シーンが位置を直接動かしている間に毎フレーム呼ぶ
      */
-    void UpdateCinematicPose(bool airborne);
+    void UpdateCinematicPose(bool airborne, const Vector3& bodyRotation = {}, bool moving = false);
+    /** @brief 入口演出用に本体の倍率と本体・装備の透明度を設定する */
+    void SetPortalAppearance(float scale, float alpha);
+    /** @brief やられ演出を始める（攻撃モーションを打ち切り、武器を手から放して構えないアニメにする。銃は隠す） */
+    void BeginDefeatPose();
+    /** @brief 手放した近接武器の位置とZ軸回りの回転を決める（BeginDefeatPose の後、UpdateCinematicPose の前に毎フレーム呼ぶ） */
+    void SetDroppedWeaponPose(const Vector3& position, float spinZ);
+    /** @brief 演出中のアニメの再生速度（1=通常、0で止める。倒れたまま動かなくする時は0） */
+    void SetCinematicAnimationSpeed(float speed);
+    /** @brief 演出の間だけ、加算モーションの代わりに掛けるポーズレイヤー（nullptr で加算モーションへ戻す。レイヤーは呼び出し側が持ち続ける） */
+    void SetCinematicPoseLayer(const engine::graphics::IPoseLayer* layer);
+    /**
+     * @brief 乱舞中でない時、渡した敵のどれとも一定距離以上重ならないようX座標を押し出す
+     * @note プレイヤーが敵を押しのけず、敵の手前で止まるようにする（地形との判定 ResolveBlockCollision より前に呼ぶ）
+     */
+    void ResolveEnemyOverlaps(const std::vector<Vector3>& enemyPositions);
 
     /// @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ）
     /// @param blocks StageEditor::GetSolidColliders()等で得たワールドAABB一覧
@@ -156,7 +173,7 @@ public:
     }
     /** @brief このフレームに回避を開始したか */
     bool JustDodged() const {
-        return HasFrameEvent(FrameEvent::Dodged);
+        return HasFrameEvent(FrameEvent::kDodged);
     }
     /// @brief 直近の回避で連続回避（スパム）が何回続いているかを返す
     /// @note 0なら間隔を空けた回避。2以上は危険のない場面での連打とみなしてスタイル評価を下げる材料にする
@@ -215,19 +232,19 @@ public:
     }
     /** @brief このフレームにジャンプしたかを返す */
     bool JustJumped() const {
-        return HasFrameEvent(FrameEvent::Jumped);
+        return HasFrameEvent(FrameEvent::kJumped);
     }
     /** @brief このフレームに着地したかを返す */
     bool JustLanded() const {
-        return HasFrameEvent(FrameEvent::Landed);
+        return HasFrameEvent(FrameEvent::kLanded);
     }
     /** @brief このフレームに水へ入ったかを返す */
     bool JustEnteredWater() const {
-        return HasFrameEvent(FrameEvent::EnteredWater);
+        return HasFrameEvent(FrameEvent::kEnteredWater);
     }
     /** @brief このフレームに水から出たかを返す */
     bool JustExitedWater() const {
-        return HasFrameEvent(FrameEvent::ExitedWater);
+        return HasFrameEvent(FrameEvent::kExitedWater);
     }
 
     /** @brief 覚醒ゲージの現在値を返す（0.0〜1.0） */
@@ -247,27 +264,31 @@ public:
     // スタイル技フラグ（その1フレームだけ true）
     /** @brief このフレームにコンボの攻撃が当たったかを返す */
     bool JustComboHit() const {
-        return HasFrameEvent(FrameEvent::ComboHit);
+        return HasFrameEvent(FrameEvent::kComboHit);
     }
     /** @brief このフレームのコンボヒットが覚醒中の追加ヒット（多段の2発目以降）か */
     bool JustComboExtraHit() const {
-        return HasFrameEvent(FrameEvent::ComboExtraHit);
+        return HasFrameEvent(FrameEvent::kComboExtraHit);
     }
     /** @brief このフレームに武器の持ち替え攻撃が当たったかを返す */
     bool JustWeaponSwitchHit() const {
-        return HasFrameEvent(FrameEvent::WeaponSwitchHit);
+        return HasFrameEvent(FrameEvent::kWeaponSwitchHit);
     }
     /** @brief 今のコンボの段を返す（1始まり。打ち上げ技は0） */
     int GetComboStep() const {
         return comboStep_;
     }
+    /** @brief このフレームに近接攻撃の段を振り始めたかを返す */
+    bool JustStartedSwing() const {
+        return HasFrameEvent(FrameEvent::kSwingStarted);
+    }
     /** @brief このフレームに銃を撃ったかを返す */
     bool JustFired() const {
-        return HasFrameEvent(FrameEvent::Fired);
+        return HasFrameEvent(FrameEvent::kFired);
     }
     /** @brief このフレームに覚醒したかを返す */
     bool JustAwakened() const {
-        return HasFrameEvent(FrameEvent::Awakened);
+        return HasFrameEvent(FrameEvent::kAwakened);
     }
     /** @brief 最後に入力した左右の向きを返す（+1=右、-1=左） */
     float GetLastDirX() const {
@@ -318,8 +339,7 @@ public:
         return rig_->motionRigId;
     }
     /** @brief 加算モーションの掛かり具合（確認表示用）。トラック数と、そのうちリグにボーンが見つかった数 */
-    void GetMotionLayerStats(int& outTracks, int& outApplied) const
-    {
+    void GetMotionLayerStats(int& outTracks, int& outApplied) const {
         outTracks = motionLayer_.GetLastTrackCount();
         outApplied = motionLayer_.GetLastAppliedCount();
     }
@@ -341,7 +361,7 @@ public:
     // スペースキー スピン連射
     /** @brief このフレームにスピン連射の弾を出したかを返す */
     bool JustSpinShot() const {
-        return HasFrameEvent(FrameEvent::SpinShot);
+        return HasFrameEvent(FrameEvent::kSpinShot);
     }
     /** @brief 逆さまになっているかを返す */
     bool IsUpsideDown() const {
@@ -355,29 +375,29 @@ public:
     // 固有技（スペースキー、武器種別ごと。Dagger/Hammer/Ball は上の Just～ を使う）
     /** @brief このフレームに大剣・ハンマーの大地砕きが出たかを返す */
     bool JustGreatswordSlam() const {
-        return HasFrameEvent(FrameEvent::GreatswordSlam);
+        return HasFrameEvent(FrameEvent::kGreatswordSlam);
     }
     /** @brief グレートソード: 投げ回転斬りで大剣が静止し渦を巻いている最中か（飛行中・帰還中はfalse） */
     bool IsGreatswordSpinning() const;
     /** @brief このフレームに投げた大剣の渦の多段ヒットが出たかを返す */
     bool JustGreatswordSpinHit() const {
-        return HasFrameEvent(FrameEvent::GreatswordSpinHit);
+        return HasFrameEvent(FrameEvent::kGreatswordSpinHit);
     }
     /** @brief このフレームに大剣を投げたかを返す（発射の演出用） */
     bool JustGreatswordThrown() const {
-        return HasFrameEvent(FrameEvent::GreatswordThrown);
+        return HasFrameEvent(FrameEvent::kGreatswordThrown);
     }
     Vector3 GetGreatswordThrowPos() const; ///< 投げた大剣が静止している位置（渦の中心）
     /** @brief このフレームに斧の突進が出たかを返す */
     bool JustAxeCharge() const {
-        return HasFrameEvent(FrameEvent::AxeCharge);
+        return HasFrameEvent(FrameEvent::kAxeCharge);
     }
     bool IsAxeEnraged() const; ///< アックス: 突進後の怒り強化中か
     /** @brief アックスの怒り強化中に攻撃力へ掛けるべき倍率を返す（強化中でなければ1.0） */
     float GetAxeRageMult() const;
     /** @brief このフレームに鎌の回転を始めたかを返す */
     bool JustScytheSpin() const {
-        return HasFrameEvent(FrameEvent::ScytheSpin);
+        return HasFrameEvent(FrameEvent::kScytheSpin);
     }
     /** @brief このフレームに固有技の攻撃判定が出たか（叩きつけ・スピン連射・鎌の回転・斧の突進のどれか） */
     bool JustWeaponSkillHit() const;
@@ -389,15 +409,15 @@ public:
     }
     /** @brief このフレームに敵を打ち上げたかを返す */
     bool JustLaunched() const {
-        return HasFrameEvent(FrameEvent::Launched);
+        return HasFrameEvent(FrameEvent::kLaunched);
     }
     /** @brief このフレームに乱舞の一撃を出したかを返す */
     bool JustRampageHit() const {
-        return HasFrameEvent(FrameEvent::RampageHit);
+        return HasFrameEvent(FrameEvent::kRampageHit);
     }
     /** @brief このフレームに乱舞の最後の一撃を出したかを返す */
     bool JustRampageFinish() const {
-        return HasFrameEvent(FrameEvent::RampageFinish);
+        return HasFrameEvent(FrameEvent::kRampageFinish);
     }
     /** @brief 乱舞の空中連撃の回数を返す */
     int GetJuggleCount() const {
@@ -407,7 +427,7 @@ public:
     // フィニッシャースラッシュ（覚醒ゲージ満タン + F）
     /** @brief このフレームに締めの斬撃（フィニッシャー）を出したかを返す */
     bool JustFinisherSlash() const {
-        return HasFrameEvent(FrameEvent::FinisherSlash);
+        return HasFrameEvent(FrameEvent::kFinisherSlash);
     }
 
 private:
@@ -444,29 +464,30 @@ private:
 
     // 1フレームだけ立つ出来事（毎フレーム冒頭でまとめて消す。シーン側は Just～() で読む）
     enum class FrameEvent {
-        Jumped,
-        Landed,
-        EnteredWater,
-        ExitedWater,
-        Dodged,
-        ComboHit,
-        ComboExtraHit,
-        WeaponSwitchHit,
-        Fired,
-        Awakened,
-        SpinShot,
-        GreatswordSlam,
-        GreatswordSpinHit,
-        GreatswordThrown,
-        AxeCharge,
-        ScytheSpin,
-        Launched,
-        RampageHit,
-        RampageFinish,
-        FinisherSlash,
-        Count
+        kJumped,
+        kLanded,
+        kEnteredWater,
+        kExitedWater,
+        kDodged,
+        kComboHit,
+        kComboExtraHit,
+        kWeaponSwitchHit,
+        kFired,
+        kAwakened,
+        kSpinShot,
+        kGreatswordSlam,
+        kGreatswordSpinHit,
+        kGreatswordThrown,
+        kAxeCharge,
+        kScytheSpin,
+        kLaunched,
+        kRampageHit,
+        kRampageFinish,
+        kFinisherSlash,
+        kSwingStarted,
+        kCount
     };
-    std::bitset<static_cast<size_t>(FrameEvent::Count)> frameEvents_;
+    std::bitset<static_cast<size_t>(FrameEvent::kCount)> frameEvents_;
     /** @brief このフレームの出来事の印を立てる（on が false なら消す） */
     void SetFrameEvent(FrameEvent e, bool on = true) {
         frameEvents_.set(static_cast<size_t>(e), on);
@@ -688,8 +709,7 @@ private:
          * @brief 手元を離れて飛んでいる武器の見た目の位置と回転
          * @return 飛んでいる間だけtrue（持ち替え後も描き続ける）
          */
-        virtual bool GetThrownPose(Vector3& outPosition, float& outSpinZ) const
-        {
+        virtual bool GetThrownPose(Vector3& outPosition, float& outSpinZ) const {
             (void)outPosition;
             (void)outSpinZ;
             return false;
@@ -801,7 +821,11 @@ private:
     };
     std::vector<GunSlot> guns_;
     int activeGunIndex_ = -1; ///< 現在表示中の guns_ インデックス（-1=非表示）
+    float portalAlpha_ = 1.0f; ///< 入口演出時の輪郭の透明度
     bool gunVisible_ = true; ///< 銃のアタッチ先ボーンが見つかったか
+    bool weaponsDropped_ = false; ///< やられ演出で武器を手放したか（手に付けず、銃も隠す）
+    Vector3 droppedWeaponPosition_ {}; ///< 手放した近接武器の位置（やられ演出が毎フレーム決める）
+    float droppedWeaponSpin_ = 0.0f; ///< 手放した近接武器のZ軸回りの回転
 
     // Anim State パターン
     // 移動系のアニメーション状態ごとに、遷移した瞬間に再生するモーションを切り替える

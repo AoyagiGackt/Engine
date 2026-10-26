@@ -49,16 +49,14 @@ constexpr float kVolumeTextScale = 1.5f;
 constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 /** @brief 設定メニューの行を表示順に作る */
-std::vector<UIButton> OptionsMenuItems()
-{
+std::vector<UIButton> OptionsMenuItems() {
     return { { "BGM VOLUME" }, { "SE VOLUME" }, { "COMMAND LIST" }, { "BACK" } };
 }
 
 } // namespace
 
 /** @brief シーンの初期化 */
-void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
-{
+void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     fontRenderer_.Initialize(spriteCommon_.get());
@@ -79,7 +77,7 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
 
     InitializeDemo();
     floatingTitle_.Initialize(dxCommon_, input_, modelCommon_.get(), shadowManager_.get());
-    audio_->PlaySceneBGM(BgmKey::kTitle);
+    audio_->PlaySceneBGM(bgmKey::kTitle);
 }
 
 
@@ -112,8 +110,7 @@ public:
         scene.UpdateOptionsMenu();
     }
     /** @brief 設定メニューを描画する */
-    void Draw(TitleScene& scene) const override
-    {
+    void Draw(TitleScene& scene) const override {
         scene.optionsMenu_.Draw();
         const GameSettings& settings = GameSettingsManager::GetInstance()->Get();
         scene.DrawVolumeValue(kOptionsRowBgm, settings.bgmVolume);
@@ -125,10 +122,8 @@ public:
 class TitleScene::CommandListPage : public TitleScene::IMenuPage {
 public:
     /** @brief コマンド表のページの入力を処理する（戻るで設定へ戻る） */
-    void Update(TitleScene& scene) const override
-    {
-        if (scene.commandList_.Update(scene.input_))
-        {
+    void Update(TitleScene& scene) const override {
+        if (scene.commandList_.Update(scene.input_)) {
             scene.menuPage_ = &OptionsMenu();
         }
     }
@@ -139,29 +134,25 @@ public:
 };
 
 /** @brief メインメニューの共有インスタンスを返す */
-const TitleScene::IMenuPage& TitleScene::MainMenu()
-{
+const TitleScene::IMenuPage& TitleScene::MainMenu() {
     static const MainMenuPage page;
     return page;
 }
 
 /** @brief 設定メニューの共有インスタンスを返す */
-const TitleScene::IMenuPage& TitleScene::OptionsMenu()
-{
+const TitleScene::IMenuPage& TitleScene::OptionsMenu() {
     static const OptionsMenuPage page;
     return page;
 }
 
 /** @brief コマンド表のページの共有インスタンスを返す */
-const TitleScene::IMenuPage& TitleScene::CommandListMenu()
-{
+const TitleScene::IMenuPage& TitleScene::CommandListMenu() {
     static const CommandListPage page;
     return page;
 }
 
 /** @brief シーンの更新処理 */
-void TitleScene::Update()
-{
+void TitleScene::Update() {
     menuPage_->Update(*this);
 
     UpdateDemo();
@@ -170,8 +161,7 @@ void TitleScene::Update()
 }
 
 /** @brief NEW GAME等の選択と決定（OPTIONSでは画面を切り替えず設定メニューを開く） */
-void TitleScene::UpdateMainMenu()
-{
+void TitleScene::UpdateMainMenu() {
     // メニューの行（Initialize の SetItems と同じ並び）を選んだ時の処理
     using RowAction = void (*)(TitleScene&);
     static constexpr RowAction kMainMenuActions[] = {
@@ -200,68 +190,56 @@ void TitleScene::UpdateMainMenu()
     };
 
     menu_.Update(input_);
-    if (menu_.ConsumeConfirm(input_))
-    {
+    if (menu_.ConsumeConfirm(input_)) {
         const int row = menu_.GetSelectedIndex();
-        if (row >= 0 && row < static_cast<int>(std::size(kMainMenuActions)))
-        {
+        if (row >= 0 && row < static_cast<int>(std::size(kMainMenuActions))) {
             kMainMenuActions[row](*this);
         }
     }
 }
 
 /** @brief 設定メニューの音量調整と、BACK/Backspaceでメインメニューへ戻る処理 */
-void TitleScene::UpdateOptionsMenu()
-{
+void TitleScene::UpdateOptionsMenu() {
     optionsMenu_.Update(input_);
 
     const int row = optionsMenu_.GetSelectedIndex();
-    if (row == kOptionsRowBgm || row == kOptionsRowSe)
-    {
-        if (input_->TriggerMenuLeft())
-        {
-            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -SceneShared::kVolumeStep);
+    if (row == kOptionsRowBgm || row == kOptionsRowSe) {
+        if (input_->TriggerMenuLeft()) {
+            sceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, -sceneShared::kVolumeStep);
         }
-        if (input_->TriggerMenuRight())
-        {
-            SceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, SceneShared::kVolumeStep);
+        if (input_->TriggerMenuRight()) {
+            sceneShared::AdjustVolume(audio_, row == kOptionsRowBgm, sceneShared::kVolumeStep);
         }
     }
 
     const bool confirmed = optionsMenu_.ConsumeConfirm(input_);
-    if (confirmed && row == kOptionsRowCommandList)
-    {
+    if (confirmed && row == kOptionsRowCommandList) {
         commandList_.Open();
         menuPage_ = &CommandListMenu();
         return;
     }
     const bool backSelected = confirmed && row == kOptionsRowBack;
     const bool cancelPressed = input_->TriggerMenuCancel();
-    if (cancelPressed)
-    {
+    if (cancelPressed) {
         audio_->PlayMenuSelect();
     }
-    if (backSelected || cancelPressed)
-    {
+    if (backSelected || cancelPressed) {
         menuPage_ = &MainMenu();
     }
 }
 
 /** @brief エディタ表示中（デモ停止中）もカメラ移動に合わせてデモの見た目の行列だけ更新する */
-void TitleScene::RefreshVisualTransformsForEditor()
-{
+void TitleScene::RefreshVisualTransformsForEditor() {
     // エディタの自由カメラで視点を動かしても、止まっているデモの見た目が画面に張り付かないようにする
     skydome_->Update(camera_.get());
     player_->RefreshVisualTransforms();
-    for (auto& dummy : demoDummies_)
-    {
+    for (auto& dummy : demoDummies_) {
         dummy.object->Update();
     }
 }
 
 /** @brief シーンの描画処理 */
-void TitleScene::Draw()
-{
+void TitleScene::Draw() {
     // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄は毎フレーム必ず通るここで行う
     fontRenderer_.Reset();
     DrawDemoShadowPass();
@@ -277,8 +255,7 @@ void TitleScene::Draw()
 }
 
 /** @brief 設定メニューの音量行の右側に現在の音量を百分率で描く */
-void TitleScene::DrawVolumeValue(int row, float volume)
-{
+void TitleScene::DrawVolumeValue(int row, float volume) {
     UILayout& layout = UILayout::Get(kLayoutName);
     const float offsetX = layout.Float("options.volume_offset_x", kVolumeTextOffsetX);
     const float topRatio = layout.Float("options.volume_top_ratio", kVolumeTextTopRatio);
@@ -288,19 +265,17 @@ void TitleScene::DrawVolumeValue(int row, float volume)
     const Vector2 menuPosition = optionsMenu_.GetPosition();
     const float itemHeight = optionsMenu_.GetItemSize().y;
     const float y = menuPosition.y + itemHeight * (static_cast<float>(row) + topRatio);
-    fontRenderer_.DrawString(SceneShared::VolumeLabel(volume), menuPosition.x + offsetX, y, scale, color);
+    fontRenderer_.DrawString(sceneShared::VolumeLabel(volume), menuPosition.x + offsetX, y, scale, color);
 }
 
 /** @brief 背景デモのシャドウパス描画 */
-void TitleScene::DrawDemoShadowPass()
-{
+void TitleScene::DrawDemoShadowPass() {
     // TrainingScene::Draw()と同じ最小構成（シャドウマップの状態遷移だけ行い、投影物は描かない）
     shadowManager_->RunShadowPass(dxCommon_->GetCommandList(), modelCommon_.get());
 }
 
 /** @brief 背景デモの本描画（3Dワールド） */
-void TitleScene::DrawDemoWorld()
-{
+void TitleScene::DrawDemoWorld() {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     // 影のパスの描画先から通常画面へ戻す
     dxCommon_->SetBackBufferRenderTarget();
@@ -309,28 +284,23 @@ void TitleScene::DrawDemoWorld()
     objectCommon_->SetDefaultLight(commandList);
     shadowManager_->SetShadowMap(commandList, SrvManager::GetInstance());
     skydome_->Draw();
-    for (auto& dummy : demoDummies_)
-    {
-        if (!dummy.defeated)
-        {
+    for (auto& dummy : demoDummies_) {
+        if (!dummy.defeated) {
             dummy.object->Draw();
         }
     }
     player_->Draw();
-    if (particleManager_)
-    {
+    if (particleManager_) {
         particleManager_->Update(camera_.get());
         particleManager_->Draw(camera_.get());
     }
 }
 
 /** @brief シーンの終了処理 */
-void TitleScene::Finalize()
-{
+void TitleScene::Finalize() {
     // デモ用のグループを残すと、本編が同名のグループを生成する際に停止する。
     // シーン切り替え元でGPUの完了を待ってから呼ばれるので、安全に解放できる。
-    if (particleManager_)
-    {
+    if (particleManager_) {
         particleManager_->ClearAllGroups();
         particleManager_ = nullptr;
     }

@@ -3,6 +3,7 @@
  * @brief BattleTestScene/TrainingScene/GamePlayScene間で共通の武器切替・カメラ追従・HUD描画処理（SceneShared名前空間）の実装
  */
 #include "SceneShared.h"
+#include "GameRules.h"
 #include "PlayerBridge.h"
 #include "AudioBridge.h"
 #include "HitEffectLibrary.h"
@@ -11,6 +12,7 @@
 #include "Audio.h"
 #include "BulletPool.h"
 #include "Camera.h"
+#include "DirectXCommon.h"
 #include "FontRenderer.h"
 #include "GameConstants.h"
 #include "GameSettings.h"
@@ -33,14 +35,17 @@
 #include <cstdio>
 #include <cstring>
 #include <random>
+#include <vector>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 using namespace engine::graphics;
 
-namespace engine::game::SceneShared {
+namespace engine::game::sceneShared {
 
 /** @brief 訓練・戦闘テスト共通のプレイヤーと弾丸の準備を同じ順序で行う */
 void InitializePlayerAndBullets(std::unique_ptr<Player>& player, BulletPool& bullets,
-    ModelCommon* modelCommon, Model* bulletModel, engine::Audio* audio)
-{
+    ModelCommon* modelCommon, Model* bulletModel, engine::Audio* audio) {
     player = std::make_unique<Player>();
     player->Initialize(modelCommon);
     // 生成済みのプレイヤーを登録してから、同じモデル基盤で弾丸を準備する。
@@ -71,8 +76,7 @@ namespace {
     constexpr float kRangeHalfDepth = 0.5f; // 攻撃判定の奥行きの半分（2Dの面に沿った薄い箱にする）
 
     /** @brief 向いている方向へ frontRange、背後へ backRange 伸ばした、高さ ±halfHeight の判定の箱を作る */
-    engine::AABB MakeFacingBox(const Vector3& playerPos, float dirX, float frontRange, float backRange, float halfHeight)
-    {
+    engine::AABB MakeFacingBox(const Vector3& playerPos, float dirX, float frontRange, float backRange, float halfHeight) {
         const float left = (dirX >= 0.0f) ? backRange : frontRange;
         const float right = (dirX >= 0.0f) ? frontRange : backRange;
         return { { playerPos.x - left, playerPos.y - halfHeight, -kRangeHalfDepth },
@@ -80,50 +84,44 @@ namespace {
     }
 
     /** @brief 締めの演出の配置に使う乱数生成器を返す */
-    std::mt19937& FinisherRng()
-    {
-        static std::mt19937 rng { std::random_device { }() };
-        return rng;
+    std::mt19937& FinisherRng() {
+        static std::mt19937 sRng { std::random_device { }() };
+        return sRng;
     }
 } // namespace
 
 /** @brief 武器スロットUIの3Dアイコン素材一覧をJSONから読み込む */
-std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath)
-{
+std::vector<WeaponIconAsset> LoadWeaponIconAssets(const std::string& jsonPath) {
     std::vector<WeaponIconAsset> assets;
     nlohmann::json j = engine::JsonHelper::Load(jsonPath);
-    if (j.is_object() && j.contains("icons") && j["icons"].is_array())
-    {
-        for (const auto& entry : j["icons"])
-        {
+    if (j.is_object() && j.contains("icons") && j["icons"].is_array()) {
+        for (const auto& entry : j["icons"]) {
             WeaponIconAsset asset;
             asset.type = ParseWeaponTypeName(entry.value("type", std::string("Sword")));
             asset.modelPath = entry.value("model", std::string());
             asset.texturePath = entry.value("texture", std::string());
             asset.scale = entry.value("scale", kDefaultIconScale);
-            asset.baseYaw = entry.value("baseYawDeg", 0.0f) * GameConstants::kDegToRad;
+            asset.baseYaw = entry.value("baseYawDeg", 0.0f) * gameConstants::kDegToRad;
             assets.push_back(std::move(asset));
         }
     }
-    if (assets.empty())
-    {
+    if (assets.empty()) {
         // Resources/Config/weapon_icons.json が無い場合の後方互換の既定値（目視調整済み）
         assets = {
-            { WeaponType::Sword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
-            { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
-            { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.18f, GameConstants::kPi },
-            { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.08f, 0.0f },
-            { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.12f, 0.0f },
-            { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.14f, 0.0f },
-            { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.13f, 0.0f },
+            { WeaponType::kSword, "Resources/Knight/OBJ/Sword.obj", "Resources/Knight/OBJ/SwordPalette.png", 0.18f, 0.0f },
+            { WeaponType::kDagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", 0.31f, 0.0f },
+            { WeaponType::kHammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", 0.18f, gameConstants::kPi },
+            { WeaponType::kSpear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", 0.08f, 0.0f },
+            { WeaponType::kGreatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", 0.12f, 0.0f },
+            { WeaponType::kScythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", 0.14f, 0.0f },
+            { WeaponType::kAxe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", 0.13f, 0.0f },
         };
     }
     return assets;
 }
 
 /** @brief 大技（フィニッシャースラッシュ）演出中の画面暗転オーバーレイスプライトを生成する */
-std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
-{
+std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon) {
     auto overlay = std::make_unique<Sprite>();
     overlay->Initialize(spriteCommon, "Resources/white.png");
     overlay->SetPosition({ 0.0f, 0.0f });
@@ -136,26 +134,21 @@ std::unique_ptr<Sprite> CreateFinisherOverlay(SpriteCommon* spriteCommon)
 
 /** @brief 有効なポストエフェクトに応じたオフスクリーンRTV（未使用時はバックバッファ）を返す */
 D3D12_CPU_DESCRIPTOR_HANDLE GetActiveRTVHandle(engine::DirectXCommon* dxCommon,
-    const std::initializer_list<IPostEffectSource*>& effects)
-{
+    const std::initializer_list<IPostEffectSource*>& effects) {
     return GetActiveSceneRTVHandle(dxCommon, effects);
 }
 
 /** @brief メイン描画先（GetActiveRTVHandle）とビューポート/シザーを設定する */
 void SetupMainRenderTarget(engine::DirectXCommon* dxCommon,
-    const std::initializer_list<IPostEffectSource*>& effects)
-{
+    const std::initializer_list<IPostEffectSource*>& effects) {
     SetupSceneRenderTarget(dxCommon, GetActiveSceneRTVHandle(dxCommon, effects));
 }
 
 /** @brief JSONファイル（[{name, texture, additive}, ...]）に従ってパーティクルグループを一括登録する */
-void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPath)
-{
-    for (const auto& group : JsonHelper::Load(jsonPath))
-    {
+void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPath) {
+    for (const auto& group : JsonHelper::Load(jsonPath)) {
         std::string name = group.value("name", "");
-        if (name.empty())
-        {
+        if (name.empty()) {
             continue;
         }
         pm->CreateParticleGroup(name, group.value("texture", ""));
@@ -165,40 +158,28 @@ void CreateParticleGroupsFromJson(ParticleManager* pm, const std::string& jsonPa
 
 /** @brief 武器切替入力（Q/E、数字キー）を処理するweaponCycleTimer は呼び出し側が保持するクールダウン */
 void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
-    float& weaponCycleTimer, bool cycleAllUnlocked)
-{
+    float& weaponCycleTimer, bool cycleAllUnlocked) {
     // 武器切り替え（Q/E、数字キー 1〜スロット数）
-    weaponCycleTimer -= GameConstants::kFrameDeltaTime;
-    if (weaponCycleTimer <= 0.0f)
-    {
-        if (input->TriggerKey(DIK_Q))
-        {
-            if (cycleAllUnlocked)
-            {
+    weaponCycleTimer -= gameConstants::kFrameDeltaTime;
+    if (weaponCycleTimer <= 0.0f) {
+        if (input->TriggerKey(DIK_Q)) {
+            if (cycleAllUnlocked) {
                 weaponManager->SelectPrevUnlockedInCurrentSlot();
-            }
-            else
-            {
+            } else {
                 weaponManager->SelectPrev();
             }
             weaponCycleTimer = kWeaponCycleCooldown;
         }
-        if (input->TriggerKey(DIK_E))
-        {
-            if (cycleAllUnlocked)
-            {
+        if (input->TriggerKey(DIK_E)) {
+            if (cycleAllUnlocked) {
                 weaponManager->SelectNextUnlockedInCurrentSlot();
-            }
-            else
-            {
+            } else {
                 weaponManager->SelectNext();
             }
             weaponCycleTimer = kWeaponCycleCooldown;
         }
-        for (int i = 0; i < kWeaponSlotCount; ++i)
-        {
-            if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i)))
-            {
+        for (int i = 0; i < kWeaponSlotCount; ++i) {
+            if (input->TriggerKey(static_cast<uint8_t>(DIK_1 + i))) {
                 weaponManager->SelectSlot(i);
                 weaponCycleTimer = kWeaponCycleCooldown;
             }
@@ -207,10 +188,8 @@ void UpdateWeaponCycle(Input* input, WeaponManager* weaponManager,
 }
 
 /** @brief スペースキーのスピン連射弾を発射する（逆さ時は下方向中心に5方向ばらまき、通常時は向いている方向へ1発）JustSpinShot()でなければ何もしない */
-void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
-{
-    if (!player->JustSpinShot())
-    {
+void UpdateSpinShotFire(Player* player, BulletPool& bulletPool) {
+    if (!player->JustSpinShot()) {
         return;
     }
 
@@ -218,30 +197,25 @@ void UpdateSpinShotFire(Player* player, BulletPool& bulletPool)
     const Vector3& pp = player->GetPosition();
     Vector3 firePos = { pp.x, pp.y, 0.0f };
 
-    if (player->IsUpsideDown())
-    {
+    if (player->IsUpsideDown()) {
         // 逆さ: 下方向中心に 5 方向ばらまき
-        constexpr float kBaseAngle = 270.0f * GameConstants::kDegToRad; // 真下
-        constexpr float kSpread = 30.0f * GameConstants::kDegToRad; // 30°間隔
+        constexpr float kBaseAngle = 270.0f * gameConstants::kDegToRad; // 真下
+        constexpr float kSpread = 30.0f * gameConstants::kDegToRad; // 30°間隔
         constexpr int kSideShots = 2; // 中央の左右に撃つ本数
-        for (int i = -kSideShots; i <= kSideShots; ++i)
-        {
+        for (int i = -kSideShots; i <= kSideShots; ++i) {
             float angle = kBaseAngle + i * kSpread;
             bulletPool.Spawn(firePos, { std::cos(angle) * kBulletSpeed, std::sin(angle) * kBulletSpeed, 0.0f });
         }
         TimeManager::GetInstance()->RequestHitStop(kUpsideDownHitStopFrames);
         ScreenFlash::GetInstance()->Request(kUpsideDownFlashColor, kUpsideDownFlashSeconds);
-    }
-    else
-    {
+    } else {
         // 通常: 向いている方向に 1 発
         bulletPool.Spawn(firePos, { player->GetLastDirX() * kBulletSpeed, 0.0f, 0.0f });
     }
 }
 
 /** @brief 向いている方向に厚く、背後は控えめな攻撃判定AABBを作る（近接・射撃共通） */
-engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
-{
+engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float frontRange, float backRange) {
     // 縦方向の許容量。大きすぎると足場の上下に離れた（＝見た目では当たっていない）敵まで
     // 判定に巻き込んでしまう（高低差のあるステージで顕在化する）
     constexpr float kVerticalHalfHeight = 0.8f;
@@ -249,22 +223,19 @@ engine::AABB MakeDirectionalRange(const Vector3& playerPos, float dirX, float fr
 }
 
 /** @brief 高さの異なる敵へ誤命中しない射撃用の横長判定を生成する */
-engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange)
-{
+engine::AABB MakeDirectionalShotRange(const Vector3& playerPos, float dirX, float frontRange, float backRange) {
     constexpr float kShotHalfHeight = 0.3f;
     return MakeFacingBox(playerPos, dirX, frontRange, backRange, kShotHalfHeight);
 }
 
 /** @brief ワールド座標をスクリーン座標に変換する（ギズモのピッキング等、外部から使う用） */
-void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY)
-{
-    outX = (worldX - camX) / GameConstants::kCameraHalfW * GameConstants::kScreenCenterX + GameConstants::kScreenCenterX;
-    outY = -(worldY - camY) / GameConstants::kCameraHalfH * GameConstants::kScreenCenterY + GameConstants::kScreenCenterY;
+void WorldToScreen(float worldX, float worldY, float camX, float camY, float& outX, float& outY) {
+    outX = (worldX - camX) / gameConstants::kCameraHalfW * gameConstants::kScreenCenterX + gameConstants::kScreenCenterX;
+    outY = -(worldY - camY) / gameConstants::kCameraHalfH * gameConstants::kScreenCenterY + gameConstants::kScreenCenterY;
 }
 
 /** @brief プレイヤーにカメラを追従させる（ステージ境界クランプ込み） */
-void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids, const Vector3* lockTarget)
-{
+void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vector<AABB>& stageSolids, const Vector3* lockTarget) {
     // ロックオン中はカメラをほんの少しだけ対象側へ寄せる（気付きにくいという声への対策、
     // 派手に振るとロック対象がプレイヤーの目の前にいる時に画角が窮屈になるので控えめにする）
     constexpr float kLockOnCameraShiftRatio = 0.15f;
@@ -279,55 +250,48 @@ void UpdateCameraFollow(Camera* camera, const Vector3& playerPos, const std::vec
     float stageRight = kDefaultStageRight + kBlockRadius;
     float stageBottom = kDefaultStageBottom - kBlockRadius;
     float stageTop = kDefaultStageTop + kBlockRadius;
-    if (!stageSolids.empty())
-    {
+    if (!stageSolids.empty()) {
         stageLeft = stageSolids.front().min.x;
         stageRight = stageSolids.front().max.x;
         stageBottom = stageSolids.front().min.y;
         stageTop = stageSolids.front().max.y;
-        for (const AABB& solid : stageSolids)
-        {
+        for (const AABB& solid : stageSolids) {
             stageLeft = (std::min)(stageLeft, solid.min.x);
             stageRight = (std::max)(stageRight, solid.max.x);
             stageBottom = (std::min)(stageBottom, solid.min.y);
             stageTop = (std::max)(stageTop, solid.max.y);
         }
     }
-    const float cameraMinX = stageLeft + GameConstants::kCameraHalfW;
-    const float cameraMaxX = stageRight - GameConstants::kCameraHalfW;
+    const float cameraMinX = stageLeft + gameConstants::kCameraHalfW;
+    const float cameraMaxX = stageRight - gameConstants::kCameraHalfW;
     float cameraX = cameraMinX <= cameraMaxX
         ? std::clamp(playerPos.x, cameraMinX, cameraMaxX)
         : (stageLeft + stageRight) * 0.5f;
-    if (lockTarget != nullptr)
-    {
+    if (lockTarget != nullptr) {
         cameraX += (lockTarget->x - playerPos.x) * kLockOnCameraShiftRatio;
-        if (cameraMinX <= cameraMaxX)
-        {
+        if (cameraMinX <= cameraMaxX) {
             cameraX = std::clamp(cameraX, cameraMinX, cameraMaxX);
         }
     }
 
     // Xと同様にYも組んだブロックの範囲内へクランプし、ジャンプ等でブロックの外（未構築の空間）が
     // 画面に映り込まないようにする
-    const float cameraMinY = stageBottom + GameConstants::kCameraHalfH;
-    const float cameraMaxY = stageTop - GameConstants::kCameraHalfH;
-    const float cameraTargetY = playerPos.y + GameConstants::kCameraFollowOffsetY;
+    const float cameraMinY = stageBottom + gameConstants::kCameraHalfH;
+    const float cameraMaxY = stageTop - gameConstants::kCameraHalfH;
+    const float cameraTargetY = playerPos.y + gameConstants::kCameraFollowOffsetY;
     const float cameraY = cameraMinY <= cameraMaxY
         ? std::clamp(cameraTargetY, cameraMinY, cameraMaxY)
         : (stageBottom + stageTop) * 0.5f;
-    camera->SetTranslate({ cameraX, cameraY, GameConstants::kCameraDistanceZ });
+    camera->SetTranslate({ cameraX, cameraY, gameConstants::kCameraDistanceZ });
 }
 
 /** @brief 近接判定 + ENTER キーでのシーン遷移を行うポータル処理近接中なら true を返す */
 bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
     float portalX, float proximity, const char* sceneName, const char* outcome,
-    const char* fallbackScene, Audio* audio)
-{
+    const char* fallbackScene, Audio* audio) {
     bool isNear = std::abs(playerPos.x - portalX) < proximity;
-    if (isNear && input->TriggerAction(Input::Action::Interact))
-    {
-        if (audio)
-        {
+    if (isNear && input->TriggerAction(Input::Action::kInteract)) {
+        if (audio) {
             audio->PlayMenuSelect();
         }
         SceneFlow::GetInstance()->Transition(sceneName, outcome, fallbackScene);
@@ -336,22 +300,17 @@ bool UpdatePortalTransition(Input* input, const Vector3& playerPos,
 }
 
 /** @brief BGMまたはSEの音量を0〜1の範囲で増減し、Audioへ反映して設定ファイルへ保存する */
-void AdjustVolume(Audio* audio, bool bgm, float delta)
-{
+void AdjustVolume(Audio* audio, bool bgm, float delta) {
     GameSettings settings = GameSettingsManager::GetInstance()->Get();
     float& volume = bgm ? settings.bgmVolume : settings.seVolume;
     const float previousVolume = volume;
     volume = std::clamp(volume + delta, 0.0f, 1.0f);
-    if (volume == previousVolume)
-    {
+    if (volume == previousVolume) {
         return;
     }
-    if (bgm)
-    {
+    if (bgm) {
         audio->SetBGMVolume(volume);
-    }
-    else
-    {
+    } else {
         audio->SetSEVolume(volume);
     }
     audio->PlayMenuChoice();
@@ -360,18 +319,16 @@ void AdjustVolume(Audio* audio, bool bgm, float delta)
 }
 
 /** @brief オプション欄に出す音量の表示（< 100% > の形） */
-std::string VolumeLabel(float volume)
-{
+std::string VolumeLabel(float volume) {
     constexpr float kPercentScale = 100.0f;
     constexpr float kRoundingOffset = 0.5f;
-    char buf[TextBufferCapacity::kCodepoint];
+    char buf[textBufferCapacity::kCodepoint];
     std::snprintf(buf, sizeof(buf), "< %3d%% >", static_cast<int>(volume * kPercentScale + kRoundingOffset));
     return buf;
 }
 
 /** @brief オートコンボのON/OFFを切り替えて保存する */
-void ToggleAutoCombo(Audio* audio)
-{
+void ToggleAutoCombo(Audio* audio) {
     GameSettings settings = GameSettingsManager::GetInstance()->Get();
     settings.autoCombo = !settings.autoCombo;
     audio->PlayMenuChoice();
@@ -380,15 +337,13 @@ void ToggleAutoCombo(Audio* audio)
 }
 
 /** @brief オプション欄に出すオートコンボの状態表示（< ON > / < OFF >） */
-const char* AutoComboLabel()
-{
+const char* AutoComboLabel() {
     return GameSettingsManager::GetInstance()->Get().autoCombo ? "< ON >" : "< OFF >";
 }
 
 /** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
-    const std::vector<float>* powerRatios)
-{
+    const std::vector<float>* powerRatios) {
     constexpr float kDefaultScale = 1.15f;
     constexpr Vector4 kWeakenedColor = { 1.0f, 0.4f, 0.3f, 1.0f }; // 疲労で威力が落ちている武器
     constexpr float kPercent = 100.0f;
@@ -437,36 +392,30 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     const float columnGap = FontRenderer::kCharW * scale * kColumnGapChars;
     const auto& weaponList = weaponManager->GetList();
     float nameColumnWidth = 0.0f;
-    for (const WeaponData& weapon : weaponList)
-    {
+    for (const WeaponData& weapon : weaponList) {
         nameColumnWidth = (std::max)(nameColumnWidth, FontRenderer::MeasureStringW(WeaponManager::GetDisplayName(weapon), scale).x);
     }
-    for (int slot = 0; slot < kWeaponSlotCount; ++slot)
-    {
+    for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
         const int weaponIndex = weaponManager->GetSlotWeaponIndex(slot);
         const bool occupied = weaponIndex >= 0;
         const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
-        char head[TextBufferCapacity::kStatus];
+        char head[textBufferCapacity::kStatus];
         std::snprintf(head, sizeof(head), "%s SLOT %d", selected ? ">" : " ", slot + 1);
         const float nameX = px + static_cast<float>(std::strlen(head)) * FontRenderer::kCharW * scale + columnGap;
-        if (!occupied)
-        {
+        if (!occupied) {
             drawShadowed(head, px, py, emptyColor);
             drawShadowed("EMPTY", nameX, py, emptyColor);
             py += lineHeight;
             continue;
         }
         const auto& weapon = weaponList[weaponIndex];
-        char stats[TextBufferCapacity::kStatus];
+        char stats[textBufferCapacity::kStatus];
         bool weakened = false;
-        if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size()))
-        {
+        if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size())) {
             const float power = (*powerRatios)[weaponIndex];
             weakened = power < 1.0f;
             std::snprintf(stats, sizeof(stats), "PWR %3d%%", static_cast<int>(std::round(power * kPercent)));
-        }
-        else
-        {
+        } else {
             std::snprintf(stats, sizeof(stats), "DMG %.0f  RNG %.1f", weapon.damage, weapon.range);
         }
         // 疲労で威力が落ちた武器は赤、選択中は黄
@@ -487,15 +436,14 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
     // 切り替え操作の案内（キー/ボタン名は入力機器に合わせて置き換える）
     py += kHudHintGap;
     const Input* hintInput = Input::GetCurrent();
-    const std::wstring slotHint = L"{Slot}  武器切替    {GunSwitch}  銃切替";
+    const std::wstring slotHint = GameRules::GetInstance()->Get().gunSwitchEnabled ? L"{Slot}  武器切替    {GunSwitch}  銃切替" : L"{Slot}  武器切替";
     drawShadowedW(hintInput ? hintInput->ExpandPrompts(slotHint) : slotHint, px, py, hintColor);
     py += lineHeight;
     return py;
 }
 
 /** @brief 右側の操作説明パネルを描画する */
-void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel)
-{
+void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel) {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
     // 明るいブロックの上に乗ると薄い色の文字が背景に埋もれるため、色自体を変えるだけでなく
     // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
@@ -503,7 +451,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     constexpr Vector4 kDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // 見出し: アンバー
     constexpr Vector4 kDefaultTextColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // 本文: 暖色寄りのクリーム
     UILayout& layout = UILayout::Get(kSharedHudLayoutName);
-    const float x = anchor.x;
+    float x = anchor.x;
     const float scale = layout.Float("controls.scale", kDefaultScale);
     const float lineHeight = FontRenderer::kCharH * scale + kHudSectionGap;
     const Vector4 headerColor = layout.Color("controls.header_color", kDefaultHeaderColor);
@@ -517,38 +465,52 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
         fontRenderer.DrawStringW(text, x, y, scale, color);
     };
 
-    drawShadowed(L"-- 操作説明 --", iy, headerColor);
-    iy += lineHeight + kHudSectionGap;
+    const std::wstring header = L"-- 操作説明 --";
+    std::vector<std::wstring> rows;
 
     // {操作名} は最後に使った機器（キーボード/パッド）のボタン名へ置き換わる
     const Input* input = Input::GetCurrent();
     auto row = [&](const wchar_t* key, const wchar_t* desc) {
         const std::wstring keyText = input ? input->ExpandPrompts(key) : std::wstring(key);
-        drawShadowed(keyText + L"  " + desc, iy, textColor);
-        iy += lineHeight;
+        rows.push_back(keyText + L"  " + desc);
     };
     row(L"{Move}", L": 移動");
     row(L"{Jump}", L": ジャンプ");
-    row(L"{Dodge}", L": 回避 (全身無敵、コンボから割り込み可)");
+    row(L"{Dodge}", L": 回避（無敵）");
     row(L"{Attack}", L": コンボ (x3)");
     row(L"{Shoot}", L": 銃コンボ");
-    row(L"{GunSwitch}", L": 銃切替");
+    if (GameRules::GetInstance()->Get().gunSwitchEnabled) {
+        row(L"{GunSwitch}", L": 銃切替");
+    }
     row(L"{Skill}", L": 武器固有技");
     row(L"{Slot}", L": 武器スロット選択");
     row(L"{Interact}", portalActionLabel);
     row(L"{Awaken}", L": 覚醒発動");
     row(L"{Finisher}", L": フィニッシャー");
     row(L"{Pause}", L": ポーズ・音量設定");
+
+    // 入力機器ごとの表記と影を含めて右端に余白を確保する。
+    constexpr float kRightMargin = 16.0f;
+    float maxWidth = FontRenderer::MeasureStringW(header, scale).x;
+    for (const auto& text : rows) {
+        maxWidth = (std::max)(maxWidth, FontRenderer::MeasureStringW(text, scale).x);
+    }
+    x = (std::min)(x, gameConstants::kScreenWidth - kRightMargin - maxWidth - kShadowOffset);
+    drawShadowed(header, iy, headerColor);
+    iy += lineHeight + kHudSectionGap;
+    for (const auto& text : rows) {
+        drawShadowed(text, iy, textColor);
+        iy += lineHeight;
+    }
 }
 
 
 
 /** @brief フィニッシャー発動時の溜めエフェクト（周囲から中心へ収束する光粒＋小リング）を放出する */
 void EmitFinisherCharge(ParticleManager* pm,
-    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
-{
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos) {
     auto& rng = FinisherRng();
-    std::uniform_real_distribution<float> angleDist(0.0f, GameConstants::kTwoPi);
+    std::uniform_real_distribution<float> angleDist(0.0f, gameConstants::kTwoPi);
     constexpr float kMoteRadiusMin = 2.2f;
     constexpr float kMoteRadiusMax = 3.4f;
     constexpr float kMoteScaleMin = 0.10f;
@@ -562,8 +524,7 @@ void EmitFinisherCharge(ParticleManager* pm,
 
     // 周囲から中心へ吸い込まれる光粒溜め時間内に到達する速度を逆算する
     constexpr int kMoteCount = 20;
-    for (int i = 0; i < kMoteCount; ++i)
-    {
+    for (int i = 0; i < kMoteCount; ++i) {
         const float ang = angleDist(rng);
         const float r = radiusDist(rng);
         Vector3 spawn = { pos.x + std::cos(ang) * r, pos.y + std::sin(ang) * r, 0.0f };
@@ -579,8 +540,7 @@ void EmitFinisherCharge(ParticleManager* pm,
 /** @brief 締めの斬線を画面に出す */
 void EmitFinisherSlashLine(ParticleManager* pm,
     const std::string& slashGroup, const std::string& sparkGroup,
-    const Vector3& center, float angle, float halfLength)
-{
+    const Vector3& center, float angle, float halfLength) {
     auto& rng = FinisherRng();
     std::uniform_real_distribution<float> tDist(-halfLength, halfLength);
     constexpr float kGlintDrift = 0.8f;
@@ -592,16 +552,14 @@ void EmitFinisherSlashLine(ParticleManager* pm,
     std::uniform_real_distribution<float> driftDist(-kGlintDrift, kGlintDrift);
     std::uniform_real_distribution<float> scaleDist(kGlintScaleMin, kGlintScaleMax);
 
-    if (!slashGroup.empty())
-    {
+    if (!slashGroup.empty()) {
         pm->EmitSlash(slashGroup, center, angle, kSlashLineColor, halfLength);
     }
 
     // 斬線に沿って散る煌めき
     const Vector2 dir = { std::cos(angle), std::sin(angle) };
     constexpr int kGlintCount = 4;
-    for (int i = 0; i < kGlintCount; ++i)
-    {
+    for (int i = 0; i < kGlintCount; ++i) {
         const float t = tDist(rng);
         Vector3 spawn = { center.x + dir.x * t, center.y + dir.y * t, 0.0f };
         Vector3 vel = { driftDist(rng), driftDist(rng) + kGlintRise, 0.0f };
@@ -614,8 +572,7 @@ void EmitFinisherSlashLine(ParticleManager* pm,
 
 /** @brief 解放の瞬間の炸裂エフェクト（多重リング＋放射火花＋上昇する余韻）を放出する */
 void EmitFinisherRelease(ParticleManager* pm,
-    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos)
-{
+    const std::string& ringGroup, const std::string& sparkGroup, const Vector3& pos) {
     // 溜めの演出の大きさ・数・寿命
     constexpr float kOuterRingSpeed = 9.0f;
     constexpr Vector4 kOuterRingColor = { 0.70f, 0.90f, 1.0f, 1.0f };
@@ -650,8 +607,7 @@ void EmitFinisherRelease(ParticleManager* pm,
     // 放射状に飛び散る火花
     std::uniform_real_distribution<float> vxDist(-kSparkSpreadX, kSparkSpreadX);
     std::uniform_real_distribution<float> vyDist(kSparkRiseMin, kSparkRiseMax);
-    for (int i = 0; i < kSparkCount; ++i)
-    {
+    for (int i = 0; i < kSparkCount; ++i) {
         pm->EmitGravity(sparkGroup, pos,
             { vxDist(rng), vyDist(rng), 0.0f },
             kFinisherSparkColor, kSparkLifetime, kSparkSize);
@@ -661,8 +617,7 @@ void EmitFinisherRelease(ParticleManager* pm,
     std::uniform_real_distribution<float> offXDist(-kEmberSpread, kEmberSpread);
     std::uniform_real_distribution<float> riseDist(kEmberRiseMin, kEmberRiseMax);
     std::uniform_real_distribution<float> scaleDist(kEmberScaleMin, kEmberScaleMax);
-    for (int i = 0; i < kEmberCount; ++i)
-    {
+    for (int i = 0; i < kEmberCount; ++i) {
         Vector3 spawn = { pos.x + offXDist(rng), pos.y + offXDist(rng) * 0.5f, 0.0f };
         pm->EmitWithColor(sparkGroup, spawn, { 0.0f, riseDist(rng), 0.0f },
             kFinisherGlowColor, kEmberLifetime, scaleDist(rng), true);
@@ -675,8 +630,7 @@ void EmitFinisherRelease(ParticleManager* pm,
 
 /** @brief 画面上の2点を結ぶ斬撃の跡をワールド座標に出す */
 void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, float camY,
-    const Vector4& color, float thickness, float duration)
-{
+    const Vector4& color, float thickness, float duration) {
     SlashMarkParams sm;
     WorldToScreen(start.x, start.y, camX, camY, sm.start.x, sm.start.y);
     WorldToScreen(end.x, end.y, camX, camY, sm.end.x, sm.end.y);
@@ -688,8 +642,7 @@ void SpawnSlashMarkWorld(const Vector2& start, const Vector2& end, float camX, f
 
 /** @brief 白い画像からHPバーの下地と前景の2枚を作る */
 void CreateHpBarSprites(SpriteCommon* spriteCommon, std::unique_ptr<Sprite>& background,
-    std::unique_ptr<Sprite>& foreground, const Vector4& backgroundColor)
-{
+    std::unique_ptr<Sprite>& foreground, const Vector4& backgroundColor) {
     // 下地は指定色で塗り、前景は白のまま作る（幅と色は UpdateWorldHpBar 側で毎フレーム決める）
     background = std::make_unique<Sprite>();
     background->Initialize(spriteCommon, "Resources/white.png");
@@ -700,10 +653,8 @@ void CreateHpBarSprites(SpriteCommon* spriteCommon, std::unique_ptr<Sprite>& bac
 
 /** @brief 戻りポータルの目印になるブロックを、指定位置から上へ等間隔に積む */
 void CreateWarpPortalBlocks(ModelCommon* modelCommon, Model* blockModel, const Vector3& base, int count, float spacing,
-    const Vector4& color, std::vector<std::unique_ptr<Object3d>>& outBlocks)
-{
-    for (int i = 0; i < count; ++i)
-    {
+    const Vector4& color, std::vector<std::unique_ptr<Object3d>>& outBlocks) {
+    for (int i = 0; i < count; ++i) {
         // ライティングを切った単色のブロックを、下から順に間隔をあけて置く
         auto block = std::make_unique<Object3d>();
         block->Initialize(modelCommon);
@@ -717,15 +668,13 @@ void CreateWarpPortalBlocks(ModelCommon* modelCommon, Model* blockModel, const V
 }
 
 /** @brief 少しずらした影を先に描いてから本体を重ね、明るい背景でも読める文字にする */
-void DrawShadowedTextW(FontRenderer& fontRenderer, const std::wstring& text, float x, float y, const ShadowedTextStyle& style)
-{
+void DrawShadowedTextW(FontRenderer& fontRenderer, const std::wstring& text, float x, float y, const ShadowedTextStyle& style) {
     fontRenderer.DrawStringW(text, x + style.shadowOffset, y + style.shadowOffset, style.scale, style.shadowColor);
     fontRenderer.DrawStringW(text, x, y, style.scale, style.color);
 }
 
 /** @brief 武器一覧の下に出す操作ヒントの見た目を UI レイアウトから読む（書かれていない項目は defaults のまま） */
-ShadowedTextStyle ReadWeaponHintStyle(UILayout& layout, const ShadowedTextStyle& defaults)
-{
+ShadowedTextStyle ReadWeaponHintStyle(UILayout& layout, const ShadowedTextStyle& defaults) {
     return {
         layout.Float("weapon_list.hint_scale", defaults.scale),
         layout.Color("weapon_list.hint_color", defaults.color),
@@ -736,14 +685,12 @@ ShadowedTextStyle ReadWeaponHintStyle(UILayout& layout, const ShadowedTextStyle&
 
 /** @brief HP比率を前景の幅と色へ反映し、背景と同じ画面位置に配置する */
 void UpdateWorldHpBar(Sprite* background, Sprite* foreground, const Vector3& position,
-    const Vector3& cameraPosition, float ratio, const HpBarStyle& style)
-{
+    const Vector3& cameraPosition, float ratio, const HpBarStyle& style) {
     float screenX, screenY;
     WorldToScreen(position.x, position.y, cameraPosition.x, cameraPosition.y, screenX, screenY);
     const Vector2 screenPosition = { screenX - style.size.x * 0.5f, screenY - style.raise };
     foreground->SetColor({ 1.0f - ratio, ratio * style.greenScale + style.greenBase, 0.0f, style.alpha });
-    if (style.backgroundColor)
-    {
+    if (style.backgroundColor) {
         background->SetColor(*style.backgroundColor);
     }
     // 背景は全幅、前景は現在HPの割合だけを描く
@@ -753,6 +700,25 @@ void UpdateWorldHpBar(Sprite* background, Sprite* foreground, const Vector3& pos
     foreground->SetPosition(screenPosition);
     foreground->SetSize({ style.size.x * ratio, style.size.y });
     foreground->Update();
+}
+
+/** @brief マウスの位置を画面の論理座標で返す（黒帯を除いた描画領域に合わせて換算する） */
+Vector2 MouseScreenPosition(const engine::Input* input, const engine::DirectXCommon* dxCommon) {
+    const POINT clientMouse = input->GetMouseClientPosition();
+    const D3D12_VIEWPORT client = dxCommon->GetCenteredClientViewport();
+    return {
+        (clientMouse.x - client.TopLeftX) * gameConstants::kScreenWidth / client.Width,
+        (clientMouse.y - client.TopLeftY) * gameConstants::kScreenHeight / client.Height
+    };
+}
+
+/** @brief ゲーム画面のクリックを受けてよいか（デバッグUIがマウスを使っている間は false） */
+bool IsMouseFreeForGame() {
+#ifdef USE_IMGUI
+    return !ImGui::GetIO().WantCaptureMouse;
+#else
+    return true;
+#endif
 }
 
 } // namespace engine::game::SceneShared

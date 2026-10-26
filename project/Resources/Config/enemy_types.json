@@ -1,0 +1,25 @@
+{
+  "_comment": "エディタの「敵を作る」で作った敵の種類。behavior=動き方（basic=歩く flying=飛ぶ healer=回復役） look=見た目（enemy_params.json の visuals の名前。空なら騎士） weapon=持たせて奪わせる武器（空なら持たない） hpScale / damageScale / speedScale = HP・攻撃力・近づく速さの倍率",
+  "types": [
+    {
+      "id": "big_slime",
+      "label": "大きいスライム（例）",
+      "behavior": "basic",
+      "look": "Slime",
+      "weapon": "",
+      "hpScale": 2.0,
+      "damageScale": 1.5,
+      "speedScale": 0.7
+    },
+    {
+      "id": "fast_bat",
+      "label": "すばやいコウモリ（例）",
+      "behavior": "flying",
+      "look": "Bat",
+      "weapon": "",
+      "hpScale": 0.6,
+      "damageScale": 1.0,
+      "speedScale": 1.6
+    }
+  ]
+}
