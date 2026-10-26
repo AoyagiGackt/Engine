@@ -15,8 +15,7 @@ constexpr UINT kConstantBufferSize = 256; // 定数バッファは256バイト�
 } // namespace
 
 /** @brief 放射ブラーの描画資源を用意する */
-void ImpactRadialBlurEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void ImpactRadialBlurEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     ENGINE_ASSERT(dxCommon);
     ENGINE_ASSERT(srvManager);
     dxCommon_ = dxCommon;
@@ -27,17 +26,15 @@ void ImpactRadialBlurEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srv
     *cbData_ = RadialBlurParams { };
 
     // キャプチャテクスチャ（バックバッファと同フォーマット・同サイズ）
-    captureTexture_ = PipelineHelper::CreateBackBufferCopyTexture(dxCommon_, srvManager_, captureSrvIndex_);
+    captureTexture_ = pipelineHelper::CreateBackBufferCopyTexture(dxCommon_, srvManager_, captureSrvIndex_);
 
     CreatePipeline();
 }
 
 /** @brief ブラーの中心（画面UV 0〜1）と強さを設定する（強さ0で描画しない） */
-void ImpactRadialBlurEffect::SetParams(float centerU, float centerV, float strength, int sampleCount)
-{
+void ImpactRadialBlurEffect::SetParams(float centerU, float centerV, float strength, int sampleCount) {
     strength_ = strength;
-    if (cbData_ != nullptr)
-    {
+    if (cbData_ != nullptr) {
         cbData_->centerX = centerU;
         cbData_->centerY = centerV;
         cbData_->strength = strength;
@@ -46,19 +43,17 @@ void ImpactRadialBlurEffect::SetParams(float centerU, float centerV, float stren
 }
 
 /** @brief バックバッファをキャプチャし、ブラーを掛けて描き戻す（3D描画の後、UIの前に呼ぶ） */
-void ImpactRadialBlurEffect::CaptureAndApply()
-{
-    PipelineHelper::CaptureAndDrawFullscreen(IsActive(), dxCommon_, srvManager_, captureTexture_.Get(),
+void ImpactRadialBlurEffect::CaptureAndApply() {
+    pipelineHelper::CaptureAndDrawFullscreen(IsActive(), dxCommon_, srvManager_, captureTexture_.Get(),
         rootSignature_.Get(), pipelineState_.Get(), cbResource_.Get(), captureSrvIndex_);
 }
 
 /** @brief 放射ブラー用のパイプラインを生成する */
-void ImpactRadialBlurEffect::CreatePipeline()
-{
-    rootSignature_ = PipelineHelper::CreateCapturedFullscreenSignature(dxCommon_->GetDevice());
+void ImpactRadialBlurEffect::CreatePipeline() {
+    rootSignature_ = pipelineHelper::CreateCapturedFullscreenSignature(dxCommon_->GetDevice());
     ENGINE_ASSERT(rootSignature_);
-    pipelineState_ = PipelineHelper::CreateFullscreenPipeline(dxCommon_, rootSignature_.Get(),
-        L"Resources/shaders/postprocess/RadialBlurPS.hlsl", BlendMode::None);
+    pipelineState_ = pipelineHelper::CreateFullscreenPipeline(dxCommon_, rootSignature_.Get(),
+        L"Resources/shaders/postprocess/RadialBlurPS.hlsl", BlendMode::kNone);
 }
 
 } // namespace engine::graphics

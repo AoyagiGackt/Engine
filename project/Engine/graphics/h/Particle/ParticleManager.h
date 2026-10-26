@@ -20,11 +20,11 @@ namespace engine::graphics {
  * @brief 粒子の動き方（ParticleUpdate.CS.hlsl の curveFlag と同じ番号）
  */
 enum class ParticleMotion : uint32_t {
-    Linear = 0, ///< 初速のまま進む
-    Spiral = 1, ///< 螺旋を描く
-    Flicker = 2, ///< 明滅する
-    Gravity = 3, ///< 重力で落ちる
-    ShrinkFade = 4, ///< 縮みながら消える（残像）
+    kLinear = 0, ///< 初速のまま進む
+    kSpiral = 1, ///< 螺旋を描く
+    kFlicker = 2, ///< 明滅する
+    kGravity = 3, ///< 重力で落ちる
+    kShrinkFade = 4, ///< 縮みながら消える（残像）
 };
 
 /**
@@ -47,8 +47,8 @@ struct GPUParticleState {
  * @brief 描画のために VS が読むインスタンシングデータ (CS が書き込み)
  */
 struct ParticleForGPU {
-    Matrix4x4 WVP;
-    Matrix4x4 World;
+    Matrix4x4 wvp;
+    Matrix4x4 world;
     Vector4 color;
 };
 
@@ -330,7 +330,7 @@ private:
         Vector3 scale;
         float lifeTime = 0.0f;
         float rotateZ = 0.0f;
-        ParticleMotion motion = ParticleMotion::Linear;
+        ParticleMotion motion = ParticleMotion::kLinear;
     };
     /** @brief 空きスロットへ1粒書き込む（空きが無ければ何もせず false） */
     bool SpawnParticle(ParticleGroup& group, const ParticleSpawn& spawn);

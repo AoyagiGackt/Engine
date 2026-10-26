@@ -24,8 +24,7 @@ constexpr int kNotificationOffset = 10;
 constexpr int kWidgetIds[] = { 1, 2 };
 
 /** @brief 配置プリセットの部分座標、見た目、名前の保持と不正入力時のロールバックを検証する */
-void CheckObjectPresets(TestReport::TestResults& results)
-{
+void CheckObjectPresets(testReport::TestResults& results) {
     constexpr Vector3 kViewCenter = { 11.0f, 22.0f, 33.0f };
     constexpr Vector3 kPresetScale = { 1.5f, 2.5f, 3.5f };
     constexpr float kFixedY = -0.6f;
@@ -43,7 +42,7 @@ void CheckObjectPresets(TestReport::TestResults& results)
     desc.kind = "terrain";
     desc.activationFlag = "event_active";
     desc.position = kViewCenter;
-    results.Check(StageEditorObjectPresets::TryApply(document, "sample", desc), "正常な外部プリセットを適用できる");
+    results.Check(stageEditorObjectPresets::TryApply(document, "sample", desc), "正常な外部プリセットを適用できる");
     results.Check(desc.model == "preset.obj" && desc.texture == "preset.png"
         && !desc.lighting && desc.solid && desc.meshCollider, "モデル・材質と衝突設定を反映する");
     results.Check(desc.scale.x == kPresetScale.x && desc.scale.y == kPresetScale.y && desc.scale.z == kPresetScale.z,
@@ -52,7 +51,7 @@ void CheckObjectPresets(TestReport::TestResults& results)
         "指定座標だけ固定し、未指定のXはビュー中心を保つ");
     results.Check(desc.name == "object_1" && desc.kind == "terrain" && desc.activationFlag == "event_active",
         "配置の名前・種類・接続フラグはプリセットで変更しない");
-    results.Check(!StageEditorObjectPresets::TryApply(document, "missing", desc), "存在しないプリセットでは配置しない");
+    results.Check(!stageEditorObjectPresets::TryApply(document, "missing", desc), "存在しないプリセットでは配置しない");
 
     const std::vector<nlohmann::json> invalidOverrides = {
         { { "scale", { 1.0f, 1.0f } } },
@@ -64,12 +63,11 @@ void CheckObjectPresets(TestReport::TestResults& results)
         { { "meshCollider", "invalid" } },
         { { "model", false } },
     };
-    for (const auto& invalidOverride : invalidOverrides)
-    {
+    for (const auto& invalidOverride : invalidOverrides) {
         auto invalid = document;
         invalid["sample"]["model"] = "changed.obj";
         invalid["sample"].update(invalidOverride);
-        results.Check(!StageEditorObjectPresets::TryApply(invalid, "sample", desc)
+        results.Check(!stageEditorObjectPresets::TryApply(invalid, "sample", desc)
             && desc.model == "preset.obj" && desc.position.x == kViewCenter.x
             && desc.position.y == kFixedY && desc.position.z == kFixedZ,
             "不正な値が含まれるプリセットでは既存データを部分更新しない");
@@ -77,8 +75,7 @@ void CheckObjectPresets(TestReport::TestResults& results)
 }
 
 /** @brief 設定の記載順、未知IDの扱い、同じIDを共有する複数対象への上書きを検証する */
-void CheckNamedJsonOverrides(TestReport::TestResults& results)
-{
+void CheckNamedJsonOverrides(testReport::TestResults& results) {
     constexpr int kFirstDamage = 2;
     constexpr int kLastDamage = 5;
     constexpr int kOtherDamage = 9;
@@ -100,8 +97,7 @@ void CheckNamedJsonOverrides(TestReport::TestResults& results)
     JsonHelper::VisitNamedOverrides(root, "attacks", targets,
         [&](const std::vector<int*>& matches, const nlohmann::json& record) {
             const int damage = record.at("damage").get<int>();
-            for (int* target : matches)
-            {
+            for (int* target : matches) {
                 *target = damage;
             }
             applied.push_back(damage);
@@ -127,8 +123,7 @@ void CheckNamedJsonOverrides(TestReport::TestResults& results)
 }
 
 /** @brief イベント接続の入力を公開参照経由で書き換えず、無効な指定を安全な状態へ正規化する */
-void CheckEventConnectionInputs(TestReport::TestResults& results)
-{
+void CheckEventConnectionInputs(testReport::TestResults& results) {
     StageEditorEventConnection connection;
     constexpr int kSelectedIndex = 3;
     constexpr int kInvalidIndex = -2;
@@ -149,14 +144,13 @@ void CheckEventConnectionInputs(TestReport::TestResults& results)
     results.Check(connection.DelaySeconds() == 0.0f, "NaNの待機時間は即時実行へ戻す");
     connection.SetDelaySeconds(std::numeric_limits<float>::infinity());
     results.Check(connection.DelaySeconds() == 0.0f, "無限の待機時間は即時実行へ戻す");
-    connection.SetAction(StageEditorEventConnection::Action::Deactivate);
-    results.Check(connection.GetAction() == StageEditorEventConnection::Action::Deactivate,
+    connection.SetAction(StageEditorEventConnection::Action::kDeactivate);
+    results.Check(connection.GetAction() == StageEditorEventConnection::Action::kDeactivate,
         "対象を無効化する動作を列挙型で指定できる");
 }
 
 /** @brief Undo/Redoの対称性、履歴上限、編集分岐、連続編集とmove専用状態の復元を検証する */
-void CheckEditorHistory(TestReport::TestResults& results)
-{
+void CheckEditorHistory(testReport::TestResults& results) {
     constexpr std::size_t kCapacity = 2;
     EditorHistory<std::string> history(kCapacity);
     results.Check(!history.Undo("current") && !history.Redo("current"), "空の履歴ではUndo/Redoしても復元しない");
@@ -227,9 +221,8 @@ private:
 }
 
 /** @brief シーン遷移とポーズ状態およびHUDの所有権と呼び出し順を検証する */
-int RunArchitectureTests()
-{
-    TestReport::TestResults results;
+int RunArchitectureTests() {
+    testReport::TestResults results;
     CheckObjectPresets(results);
     CheckNamedJsonOverrides(results);
     CheckEditorHistory(results);
@@ -237,50 +230,47 @@ int RunArchitectureTests()
     using Action = SceneTransitionFlow::Action;
     SceneTransitionFlow transition;
     results.Check(!transition.IsChanging() && !transition.IsLoading(), "起動直後はシーン切り替え中でもロード画面中でもない");
-    results.Check(transition.Update(true, true) == Action::None, "何も始めていなければシーンは切り替わらない");
+    results.Check(transition.Update(true, true) == Action::kNone, "何も始めていなければシーンは切り替わらない");
     transition.Begin();
     results.Check(transition.IsChanging() && !transition.IsLoading(), "切り替えはまずフェードアウトから始まる（ロード画面はまだ）");
-    results.Check(transition.Update(false, true) == Action::None, "フェードアウトが終わる前はシーンを切り替えない");
+    results.Check(transition.Update(false, true) == Action::kNone, "フェードアウトが終わる前はシーンを切り替えない");
     transition.Begin();
-    results.Check(transition.Update(true, false) == Action::ShowLoading, "切り替え中にもう一度頼んでもフェードは最初からやり直さない");
+    results.Check(transition.Update(true, false) == Action::kShowLoading, "切り替え中にもう一度頼んでもフェードは最初からやり直さない");
     results.Check(transition.IsLoading(), "フェードアウトの後にロード画面になる");
-    results.Check(transition.Update(true, false) == Action::None, "ロード画面を1回描くまではシーンを切り替えない");
-    results.Check(transition.Update(true, true) == Action::CommitSwitch, "ロード画面を描いた後ならシーンを切り替える");
+    results.Check(transition.Update(true, false) == Action::kNone, "ロード画面を1回描くまではシーンを切り替えない");
+    results.Check(transition.Update(true, true) == Action::kCommitSwitch, "ロード画面を描いた後ならシーンを切り替える");
     transition.FinishSwitch();
     results.Check(!transition.IsChanging() && !transition.IsLoading(), "新しいシーンはフェードイン中から動き出す");
-    results.Check(transition.Update(false, true) == Action::None, "フェードイン中にシーンをもう一度切り替えない");
+    results.Check(transition.Update(false, true) == Action::kNone, "フェードイン中にシーンをもう一度切り替えない");
     transition.Begin();
     results.Check(transition.IsChanging(), "フェードイン中でも次の切り替えを始められる");
     transition.Reset();
-    results.Check(!transition.IsChanging() && transition.Update(true, true) == Action::None, "Resetで切り替えが取り消される");
+    results.Check(!transition.IsChanging() && transition.Update(true, true) == Action::kNone, "Resetで切り替えが取り消される");
     using Mode = GamePauseController::UpdateMode;
     GamePauseController pause;
-    results.Check(pause.Advance(false) == Mode::Play && !pause.IsPaused(), "最初はポーズしていないプレイ中の状態");
-    results.Check(pause.Advance(true) == Mode::SkipFrame && pause.IsPaused(), "ポーズを開いたフレームは、開くのに使った入力でメニューを操作しない");
-    results.Check(pause.Advance(false) == Mode::Menu, "ポーズ中の入力はメニューに渡る");
-    results.Check(pause.Advance(true) == Mode::Play && !pause.IsPaused(), "もう一度押すとプレイに戻る");
+    results.Check(pause.Advance(false) == Mode::kPlay && !pause.IsPaused(), "最初はポーズしていないプレイ中の状態");
+    results.Check(pause.Advance(true) == Mode::kSkipFrame && pause.IsPaused(), "ポーズを開いたフレームは、開くのに使った入力でメニューを操作しない");
+    results.Check(pause.Advance(false) == Mode::kMenu, "ポーズ中の入力はメニューに渡る");
+    results.Check(pause.Advance(true) == Mode::kPlay && !pause.IsPaused(), "もう一度押すとプレイに戻る");
     pause.Advance(true);
     pause.Resume();
-    results.Check(pause.Advance(false) == Mode::Play, "Resume()でプレイに戻る");
+    results.Check(pause.Advance(false) == Mode::kPlay, "Resume()でプレイに戻る");
     std::vector<int> calls;
     std::vector<int> expectedCalls;
-    for (int id : kWidgetIds)
-    {
+    for (int id : kWidgetIds) {
         expectedCalls.push_back(id);
     }
-    for (int id : kWidgetIds)
-    {
+    for (int id : kWidgetIds) {
         expectedCalls.push_back(id + kNotificationOffset);
     }
     {
         HudLayer hud;
         // 期待する順番は、ウィジェットを登録したのと同じ表から作る
-        for (int id : kWidgetIds)
-        {
+        for (int id : kWidgetIds) {
             hud.Add(std::make_unique<RecordingWidget>(id, calls));
         }
         hud.Draw();
-        hud.Notify(HudEvent::WeaponAcquired);
+        hud.Notify(HudEvent::kWeaponAcquired);
         results.Check(calls == expectedCalls, "HUDは描画とイベントを登録した順に各部品へ渡す");
     }
     results.Check(calls.size() == expectedCalls.size() + std::size(kWidgetIds)

@@ -18,8 +18,8 @@ namespace engine::graphics {
  * 使い方（デバッグビルドのみ推奨）:
  *   Initialize(dxCommon)        ... シーン初期化時に1回
  *   Draw() 内:
- *     BeginScope(Shadow, cmd)   ... パス開始直前
- *     EndScope(Shadow, cmd)     ... パス終了直後
+ *     BeginScope(Scope::kShadow, cmd)   ... パス開始直前
+ *     EndScope(Scope::kShadow, cmd)   ... パス終了直後
  *     Resolve(cmd)              ... Draw() 末尾（コマンドリストのフラッシュ前）
  *   PostDraw() 後（GPU 完了後）に ReadBack() を呼ぶと次フレームの DrawImGui() で表示
  */
@@ -28,10 +28,10 @@ namespace engine::graphics {
  */
 class GpuProfiler {
 public:
-    enum Scope { Shadow = 0,
-        SSAO,
-        Main3D,
-        Count };
+    enum class Scope { kShadow = 0,
+        kSSAO,
+        kMain3D,
+        kCount };
 
     /**
      * @brief シングルトンインスタンスを取得する
@@ -83,14 +83,14 @@ public:
 private:
     /** @brief GPU計測資源が未確保の状態を作る */
     GpuProfiler() = default;
-    static constexpr int kTimestampCount = static_cast<int>(Count) * 2;
+    static constexpr int kTimestampCount = static_cast<int>(Scope::kCount) * 2;
 
     engine::DirectXCommon* dxCommon_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeap_;
     Microsoft::WRL::ComPtr<ID3D12Resource> readbackBuf_;
     uint64_t gpuFreq_ = 1;
     bool resolved_ = false; // Resolve() が少なくとも1回実行されたか
-    std::array<float, Count> results_ = { };
+    std::array<float, static_cast<size_t>(Scope::kCount)> results_ = { };
 };
 
 } // namespace engine::graphics

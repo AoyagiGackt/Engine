@@ -7,22 +7,18 @@
 
 namespace engine::game {
 /** @brief 唯一のAudioBridgeインスタンスを取得する（未生成なら生成する） */
-AudioBridge* AudioBridge::GetInstance()
-{
-    static AudioBridge instance;
-    return &instance;
+AudioBridge* AudioBridge::GetInstance() {
+    static AudioBridge sInstance;
+    return &sInstance;
 }
 
 /** @brief pathのSoundDataをキャッシュから探す無ければAudio::LoadAudio()で読み込んでキャッシュする */
-const SoundData* AudioBridge::LoadOrGet(const std::string& path)
-{
+const SoundData* AudioBridge::LoadOrGet(const std::string& path) {
     auto it = cache_.find(path);
-    if (it != cache_.end())
-    {
+    if (it != cache_.end()) {
         return &it->second;
     }
-    if (!audio_)
-    {
+    if (!audio_) {
         return nullptr;
     }
     auto [inserted, ok] = cache_.emplace(path, audio_->LoadAudio(path));
@@ -30,16 +26,13 @@ const SoundData* AudioBridge::LoadOrGet(const std::string& path)
 }
 
 /** @brief SEを再生する（未ロードなら初回のみファイルを読み込みキャッシュする） */
-void AudioBridge::PlaySE(const std::string& path, float volume)
-{
-    if (!audio_)
-    {
+void AudioBridge::PlaySE(const std::string& path, float volume) {
+    if (!audio_) {
         Logger::LogError("[Graph] PlaySE: Audio未登録（AudioBridge::SetAudio()を呼んだシーンで実行してください）");
         return;
     }
     const SoundData* data = LoadOrGet(path);
-    if (!data)
-    {
+    if (!data) {
         Logger::LogError("[Graph] PlaySE: 読み込み失敗: " + path);
         return;
     }
@@ -47,16 +40,13 @@ void AudioBridge::PlaySE(const std::string& path, float volume)
 }
 
 /** @brief BGMを再生する（前のBGMは自動停止） */
-void AudioBridge::PlayBGM(const std::string& path, bool loop)
-{
-    if (!audio_)
-    {
+void AudioBridge::PlayBGM(const std::string& path, bool loop) {
+    if (!audio_) {
         Logger::LogError("[Graph] PlayBGM: Audio未登録（AudioBridge::SetAudio()を呼んだシーンで実行してください）");
         return;
     }
     const SoundData* data = LoadOrGet(path);
-    if (!data)
-    {
+    if (!data) {
         Logger::LogError("[Graph] PlayBGM: 読み込み失敗: " + path);
         return;
     }
@@ -64,10 +54,8 @@ void AudioBridge::PlayBGM(const std::string& path, bool loop)
 }
 
 /** @brief BGMを停止する */
-void AudioBridge::StopBGM()
-{
-    if (audio_)
-    {
+void AudioBridge::StopBGM() {
+    if (audio_) {
         audio_->StopBGM();
     }
 }

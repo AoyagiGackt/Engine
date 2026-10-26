@@ -48,8 +48,7 @@ constexpr float kTintGain = 0.4f;
 using namespace Microsoft::WRL;
 
 /** @brief メッシュを切る演出の描画資源を用意する */
-void MeshSliceEffect::Initialize(DirectXCommon* dxCommon)
-{
+void MeshSliceEffect::Initialize(DirectXCommon* dxCommon) {
     ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 
@@ -61,10 +60,8 @@ void MeshSliceEffect::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief モデルを切断して再生を開始する */
-void MeshSliceEffect::Start(const Model* model, const Vector3& worldPos, const Vector3& scale, uint32_t seed)
-{
-    if (model == nullptr || model->GetVertexCount() == 0)
-    {
+void MeshSliceEffect::Start(const Model* model, const Vector3& worldPos, const Vector3& scale, uint32_t seed) {
+    if (model == nullptr || model->GetVertexCount() == 0) {
         return;
     }
 
@@ -76,8 +73,7 @@ void MeshSliceEffect::Start(const Model* model, const Vector3& worldPos, const V
     std::mt19937 rng(seed);
     std::vector<SliceVertex> vertices;
     BuildPieces(model, rng, vertices);
-    if (pieces_.empty())
-    {
+    if (pieces_.empty()) {
         return;
     }
 
@@ -88,32 +84,27 @@ void MeshSliceEffect::Start(const Model* model, const Vector3& worldPos, const V
 }
 
 /** @brief 再生を打ち切って非アクティブに戻す */
-void MeshSliceEffect::Reset()
-{
+void MeshSliceEffect::Reset() {
     active_ = false;
     timer_ = 0.0f;
     pieces_.clear();
 }
 
 /** @brief 破片が飛散するフェーズに入ったか */
-bool MeshSliceEffect::IsBursting() const
-{
+bool MeshSliceEffect::IsBursting() const {
     const float holdTime = GraphicsTuning::Float("meshSlice.holdTime", kHoldTime);
     const float slideTime = GraphicsTuning::Positive("meshSlice.slideTime", kSlideTime);
     return active_ && timer_ >= holdTime + slideTime;
 }
 
 /** @brief 画面暗転オーバーレイの推奨ウェイト（静止〜ずれ中は1、飛散中は減衰、非アクティブは0） */
-float MeshSliceEffect::GetOverlayWeight() const
-{
-    if (!active_)
-    {
+float MeshSliceEffect::GetOverlayWeight() const {
+    if (!active_) {
         return 0.0f;
     }
     const float burstStart = GraphicsTuning::Float("meshSlice.holdTime", kHoldTime)
         + GraphicsTuning::Positive("meshSlice.slideTime", kSlideTime);
-    if (timer_ < burstStart)
-    {
+    if (timer_ < burstStart) {
         return 1.0f;
     }
     const float burstTime = GraphicsTuning::Positive("meshSlice.burstTime", kBurstTime);
@@ -123,8 +114,7 @@ float MeshSliceEffect::GetOverlayWeight() const
 // 切断
 
 /** @brief 2頂点の位置・UV・法線を線形補間する（三角形を平面で切るときの交点に使う） */
-MeshSliceEffect::SliceVertex MeshSliceEffect::LerpVertex(const SliceVertex& a, const SliceVertex& b, float t)
-{
+MeshSliceEffect::SliceVertex MeshSliceEffect::LerpVertex(const SliceVertex& a, const SliceVertex& b, float t) {
     SliceVertex v;
     v.position = { a.position.x + (b.position.x - a.position.x) * t,
         a.position.y + (b.position.y - a.position.y) * t,
@@ -139,38 +129,32 @@ MeshSliceEffect::SliceVertex MeshSliceEffect::LerpVertex(const SliceVertex& a, c
 
 /** @brief 平面をまたぐ三角形を片側だけ切り出す交点は outCutPoints に追加される */
 void MeshSliceEffect::ClipTriangle(const SliceVertex tri[3], const float dist[3], bool keepPositive,
-    std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints)
-{
+    std::vector<SliceVertex>& outTris, std::vector<Vector3>* outCutPoints) {
     SliceVertex poly[kClippedPolygonCapacity];
     int polyCount = 0;
 
-    for (int i = 0; i < kTriangleVertexCount; ++i)
-    {
+    for (int i = 0; i < kTriangleVertexCount; ++i) {
         const int j = (i + 1) % kTriangleVertexCount;
         const float di = keepPositive ? dist[i] : -dist[i];
         const float dj = keepPositive ? dist[j] : -dist[j];
 
-        if (di >= 0.0f)
-        {
+        if (di >= 0.0f) {
             poly[polyCount] = tri[i];
             polyCount++;
         }
-        if ((di > 0.0f && dj < 0.0f) || (di < 0.0f && dj > 0.0f))
-        {
+        if ((di > 0.0f && dj < 0.0f) || (di < 0.0f && dj > 0.0f)) {
             const float t = di / (di - dj);
             SliceVertex m = LerpVertex(tri[i], tri[j], t);
             poly[polyCount] = m;
             polyCount++;
-            if (outCutPoints != nullptr)
-            {
+            if (outCutPoints != nullptr) {
                 outCutPoints->push_back({ m.position.x, m.position.y, m.position.z });
             }
         }
     }
 
     // 扇状に三角形へ分解（頂点順序は維持される）
-    for (int k = 1; k + 1 < polyCount; ++k)
-    {
+    for (int k = 1; k + 1 < polyCount; ++k) {
         outTris.push_back(poly[0]);
         outTris.push_back(poly[k]);
         outTris.push_back(poly[k + 1]);
@@ -179,29 +163,24 @@ void MeshSliceEffect::ClipTriangle(const SliceVertex tri[3], const float dist[3]
 
 /** @brief 破片を平面（法線n・通過点p0）で表裏に分割し、切断面のフタも生成する */
 void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const Vector3& p0,
-    PieceBuild& outFront, PieceBuild& outBack)
-{
+    PieceBuild& outFront, PieceBuild& outBack) {
     std::vector<Vector3> cutPoints; // 交線上の点（2個で1辺）
 
     const size_t triCount = src.tris.size() / kTriangleVertexCount;
-    for (size_t t = 0; t < triCount; ++t)
-    {
+    for (size_t t = 0; t < triCount; ++t) {
         const SliceVertex* v = &src.tris[t * kTriangleVertexCount];
 
         float d[kTriangleVertexCount];
-        for (int i = 0; i < kTriangleVertexCount; ++i)
-        {
+        for (int i = 0; i < kTriangleVertexCount; ++i) {
             d[i] = Dot({ v[i].position.x - p0.x, v[i].position.y - p0.y, v[i].position.z - p0.z }, n);
         }
 
         // kTriangleVertexCount頂点が片側に収まる三角形はそのまま振り分ける
-        if (d[0] >= -kPlaneDistanceEpsilon && d[1] >= -kPlaneDistanceEpsilon && d[2] >= -kPlaneDistanceEpsilon)
-        {
+        if (d[0] >= -kPlaneDistanceEpsilon && d[1] >= -kPlaneDistanceEpsilon && d[2] >= -kPlaneDistanceEpsilon) {
             outFront.tris.insert(outFront.tris.end(), v, v + kTriangleVertexCount);
             continue;
         }
-        if (d[0] <= kPlaneDistanceEpsilon && d[1] <= kPlaneDistanceEpsilon && d[2] <= kPlaneDistanceEpsilon)
-        {
+        if (d[0] <= kPlaneDistanceEpsilon && d[1] <= kPlaneDistanceEpsilon && d[2] <= kPlaneDistanceEpsilon) {
             outBack.tris.insert(outBack.tris.end(), v, v + kTriangleVertexCount);
             continue;
         }
@@ -212,18 +191,15 @@ void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const 
     }
 
     // 切断面のフタ（交線の重心から扇状に張る発光フラグ付き）
-    if (cutPoints.size() >= kMinCapPointCount)
-    {
+    if (cutPoints.size() >= kMinCapPointCount) {
         Vector3 c = { };
-        for (const auto& p : cutPoints)
-        {
+        for (const auto& p : cutPoints) {
             c = c + p;
         }
         c = c * (1.0f / static_cast<float>(cutPoints.size()));
 
         auto addCap = [&c, &cutPoints](PieceBuild& dst, const Vector3& capNormal) {
-            for (size_t k = 0; k + 1 < cutPoints.size(); k += 2)
-            {
+            for (size_t k = 0; k + 1 < cutPoints.size(); k += 2) {
                 const Vector3& a = cutPoints[k];
                 const Vector3& b = cutPoints[k + 1];
                 dst.tris.push_back({ { c.x, c.y, c.z, 1.0f }, { 0.5f, 0.5f }, capNormal, 1.0f });
@@ -237,8 +213,7 @@ void MeshSliceEffect::SplitPiece(const PieceBuild& src, const Vector3& n, const 
 }
 
 /** @brief モデルを平面群で切断し、破片リストと頂点列を構築する */
-void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::vector<SliceVertex>& outVertices)
-{
+void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::vector<SliceVertex>& outVertices) {
     // 分割と飛び散り方の調整値は GraphicsTuning から読む
     const float slideRatio = GraphicsTuning::Float("meshSlice.slideRadiusRatio", kSlideRadiusRatio);
     const float planeTilt = GraphicsTuning::Float("meshSlice.planeTilt", kPlaneTilt);
@@ -256,17 +231,12 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     auto pushVert = [&whole](const Model::VertexData& v) {
         whole.tris.push_back({ v.position, v.texcoord, v.normal, 0.0f });
     };
-    if (!srcIdx.empty())
-    {
-        for (uint32_t i : srcIdx)
-        {
+    if (!srcIdx.empty()) {
+        for (uint32_t i : srcIdx) {
             pushVert(srcVerts[i]);
         }
-    }
-    else
-    {
-        for (const auto& v : srcVerts)
-        {
+    } else {
+        for (const auto& v : srcVerts) {
             pushVert(v);
         }
     }
@@ -274,8 +244,7 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     // 頂点の平均位置（破片の重心）
     auto centroidOf = [](const PieceBuild& piece) {
         Vector3 sum = { };
-        for (const auto& v : piece.tris)
-        {
+        for (const auto& v : piece.tris) {
             sum = sum + Vector3 { v.position.x, v.position.y, v.position.z };
         }
         return sum * (1.0f / static_cast<float>(piece.tris.size()));
@@ -285,12 +254,10 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     const Vector3 meshCenter = centroidOf(whole);
 
     float radius = 0.0f;
-    for (const auto& v : whole.tris)
-    {
+    for (const auto& v : whole.tris) {
         radius = (std::max)(radius, Distance(meshCenter, { v.position.x, v.position.y, v.position.z }));
     }
-    if (radius <= 0.0f)
-    {
+    if (radius <= 0.0f) {
         radius = 1.0f;
     }
     meshRadius_ = radius;
@@ -306,8 +273,7 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     built.push_back(std::move(whole));
     std::vector<std::pair<Vector3, Vector3>> planes; // 法線・通過点
 
-    for (int i = 0; i < planeCount; ++i)
-    {
+    for (int i = 0; i < planeCount; ++i) {
         const float ang = angDist(rng);
         const Vector3 n = Normalize(Vector3 { std::cos(ang), std::sin(ang), tiltDist(rng) });
         const Vector3 p0 = meshCenter + Vector3 { offDist(rng) * radius, offDist(rng) * radius, 0.0f };
@@ -315,21 +281,16 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
 
         // 今ある破片をそれぞれ平面で2つに割る（片側が空なら割らずに残す。上限に達したら以降は割らない）
         std::vector<PieceBuild> next;
-        for (auto& piece : built)
-        {
-            if (static_cast<int>(next.size()) >= kMaxPieces - 1)
-            {
+        for (auto& piece : built) {
+            if (static_cast<int>(next.size()) >= kMaxPieces - 1) {
                 next.push_back(std::move(piece));
                 continue;
             }
             PieceBuild front, back;
             SplitPiece(piece, n, p0, front, back);
-            if (front.tris.empty() || back.tris.empty())
-            {
+            if (front.tris.empty() || back.tris.empty()) {
                 next.push_back(std::move(piece));
-            }
-            else
-            {
+            } else {
                 next.push_back(std::move(front));
                 next.push_back(std::move(back));
             }
@@ -346,8 +307,7 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
     // 破片ごとに頂点を1つの配列へ並べ、重心・ずれる向き・速度・回転速度を決める
     outVertices.clear();
     pieces_.clear();
-    for (auto& pb : built)
-    {
+    for (auto& pb : built) {
         Piece pc;
         pc.vertexOffset = static_cast<uint32_t>(outVertices.size());
         pc.vertexCount = static_cast<uint32_t>(pb.tris.size());
@@ -357,14 +317,12 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
 
         // ずれる方向 = 各切断面のどちら側にいるかを合成したもの
         Vector3 dir = { };
-        for (const auto& [n, p0] : planes)
-        {
+        for (const auto& [n, p0] : planes) {
             const float side = (Dot(Subtract(pc.centroid, p0), n) >= 0.0f) ? 1.0f : -1.0f;
             dir = dir + n * side;
         }
         dir = dir + Vector3 { jitterDist(rng), jitterDist(rng), jitterDist(rng) };
-        if (Length(dir) < kDirectionEpsilon)
-        {
+        if (Length(dir) < kDirectionEpsilon) {
             dir = { 0.0f, 1.0f, 0.0f };
         }
         pc.slideDir = Normalize(dir);
@@ -378,11 +336,9 @@ void MeshSliceEffect::BuildPieces(const Model* model, std::mt19937& rng, std::ve
 }
 
 /** @brief 頂点列をGPUバッファへ転送する（容量不足時は作り直す） */
-void MeshSliceEffect::UploadVertices(const std::vector<SliceVertex>& vertices)
-{
+void MeshSliceEffect::UploadVertices(const std::vector<SliceVertex>& vertices) {
     const uint32_t count = static_cast<uint32_t>(vertices.size());
-    if (count > vertexCapacity_)
-    {
+    if (count > vertexCapacity_) {
         vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(SliceVertex) * count);
         vertexBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
         vertexCapacity_ = count;
@@ -397,10 +353,8 @@ void MeshSliceEffect::UploadVertices(const std::vector<SliceVertex>& vertices)
 // 更新・描画
 
 /** @brief 切断演出のタイムラインと破片の動きを進め、定数バッファへ書き込む（毎フレーム呼ぶ） */
-void MeshSliceEffect::Update(float dt, Camera* camera)
-{
-    if (!active_ || camera == nullptr)
-    {
+void MeshSliceEffect::Update(float dt, Camera* camera) {
+    if (!active_ || camera == nullptr) {
         return;
     }
 
@@ -427,19 +381,14 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
     const float alpha = 1.0f - burstT * burstT;
 
     // 飛び散り中は重力で落としながら回し、それまでは切断面に沿ってずらすだけ
-    if (timer_ >= burstStart)
-    {
-        for (auto& pc : pieces_)
-        {
+    if (timer_ >= burstStart) {
+        for (auto& pc : pieces_) {
             pc.velocity.y -= meshRadius_ * gravityScale * dt;
             pc.offset = pc.offset + pc.velocity * dt;
             pc.rotation = pc.rotation + pc.angularVel * dt;
         }
-    }
-    else
-    {
-        for (auto& pc : pieces_)
-        {
+    } else {
+        for (auto& pc : pieces_) {
             pc.offset = pc.slideDir * (slideEase * slideDist_);
         }
     }
@@ -452,8 +401,7 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
     const Matrix4x4 viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
     const Matrix4x4 modelMat = MakeAffineMatrix(scale_, Vector3 { }, worldPos_);
 
-    for (size_t i = 0; i < pieces_.size(); ++i)
-    {
+    for (size_t i = 0; i < pieces_.size(); ++i) {
         const Piece& pc = pieces_[i];
         const Vector3 negC = { -pc.centroid.x, -pc.centroid.y, -pc.centroid.z };
 
@@ -470,57 +418,52 @@ void MeshSliceEffect::Update(float dt, Camera* camera)
     }
 
     // 飛び散りが終わったら止める
-    if (timer_ >= endTime)
-    {
+    if (timer_ >= endTime) {
         active_ = false;
     }
 }
 
 /** @brief 全破片の描画コマンドを積む3D描画パス内で呼ぶ */
-void MeshSliceEffect::Draw()
-{
-    if (!active_ || pieces_.empty())
-    {
+void MeshSliceEffect::Draw() {
+    if (!active_ || pieces_.empty()) {
         return;
     }
 
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
 
-    PipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), pipelineState_.Get());
+    pipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), pipelineState_.Get());
     cmd->IASetVertexBuffers(0, 1, &vbv_);
 
     SrvManager::GetInstance()->PreDraw();
     D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::EffectMeshRootSlot::kTexture, texHandle);
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::effectMeshRootSlot::kTexture, texHandle);
 
     const D3D12_GPU_VIRTUAL_ADDRESS cbBase = pieceCB_->GetGPUVirtualAddress();
-    for (size_t i = 0; i < pieces_.size(); ++i)
-    {
-        cmd->SetGraphicsRootConstantBufferView(PipelineHelper::EffectMeshRootSlot::kConstants, cbBase + i * kCBSlotSize);
+    for (size_t i = 0; i < pieces_.size(); ++i) {
+        cmd->SetGraphicsRootConstantBufferView(pipelineHelper::effectMeshRootSlot::kConstants, cbBase + i * kCBSlotSize);
         cmd->DrawInstanced(pieces_[i].vertexCount, 1, pieces_[i].vertexOffset, 0);
     }
 }
 
 /** @brief 破片描画用のルートシグネチャ・PSOを生成する */
-void MeshSliceEffect::CreatePipeline()
-{
+void MeshSliceEffect::CreatePipeline() {
     ID3D12Device* device = dxCommon_->GetDevice();
 
-    D3D12_STATIC_SAMPLER_DESC sampler = PipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+    D3D12_STATIC_SAMPLER_DESC sampler = pipelineHelper::MakePixelSampler(D3D12_FILTER_MIN_MAG_MIP_LINEAR,
         D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
-    rootSignature_ = PipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_ALL,
+    rootSignature_ = pipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_ALL,
         sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rootSignature_);
 
     D3D12_INPUT_ELEMENT_DESC inputElems[] = {
-        PipelineHelper::kPositionElement,
-        PipelineHelper::kTexcoordElement,
-        PipelineHelper::kNormalElement,
+        pipelineHelper::kPositionElement,
+        pipelineHelper::kTexcoordElement,
+        pipelineHelper::kNormalElement,
         { "TEXCOORD", 1, DXGI_FORMAT_R32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeEffectMeshPsoDesc(BlendMode::Alpha, D3D12_DEPTH_WRITE_MASK_ALL);
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeEffectMeshPsoDesc(BlendMode::kAlpha, D3D12_DEPTH_WRITE_MASK_ALL);
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputElems, _countof(inputElems) };
 
@@ -530,7 +473,7 @@ void MeshSliceEffect::CreatePipeline()
 
     // 深度書き込みあり（破片同士の前後関係をZバッファで解決する）
 
-    pipelineState_ = PipelineHelper::CreateGraphicsPipeline(dxCommon_, psoDesc,
+    pipelineState_ = pipelineHelper::CreateGraphicsPipeline(dxCommon_, psoDesc,
         L"Resources/shaders/meshslice/MeshSlice.VS.hlsl", L"Resources/shaders/meshslice/MeshSlice.PS.hlsl");
 }
 

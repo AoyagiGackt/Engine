@@ -10,7 +10,7 @@
 using namespace Microsoft::WRL;
 
 namespace engine::graphics {
-namespace PH = engine::graphics::PipelineHelper;
+namespace ph = engine::graphics::pipelineHelper;
 
 // シャドウパス用ラスタライザバイアス（セルフシャドウ防止）
 // kShadowMapSize は ShadowManager::kShadowMapSize と一致させること
@@ -18,8 +18,7 @@ static constexpr INT kShadowDepthBias = 10;
 static constexpr float kShadowSlopeScaledBias = 1.0f;
 
 /** @brief 共通描画設定の初期化ルートシグネチャとPSOを生成する */
-void ModelCommon::Initialize(DirectXCommon* dxCommon)
-{
+void ModelCommon::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -34,14 +33,14 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 7 (PS, t3)   法線マップ SRV
 
     // t0: テクスチャ / t1: シャドウマップ / t2: キューブマップ / t3: 法線マップ
-    const auto ranges = PH::MakeModelTextureRanges();
-    const auto rootParameters = PH::MakeModelRootParameters(ranges);
+    const auto ranges = ph::MakeModelTextureRanges();
+    const auto rootParameters = ph::MakeModelRootParameters(ranges);
 
     // 静的サンプラー（s0: 通常テクスチャ、s1: シャドウマップ比較用）
     // 3Dモデルは最高解像度ミップのみ使用する（MaxLOD=0）
-    auto staticSamplers = PH::MakeDefaultSamplers(0.0f);
+    auto staticSamplers = ph::MakeDefaultSamplers(0.0f);
 
-    rootSignature_ = PH::CreateRootSignature(device, rootParameters.data(), static_cast<UINT>(rootParameters.size()),
+    rootSignature_ = ph::CreateRootSignature(device, rootParameters.data(), static_cast<UINT>(rootParameters.size()),
         staticSamplers.data(), static_cast<UINT>(staticSamplers.size()), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dVS.hlsl", L"vs_6_0");
@@ -49,30 +48,30 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
 
     // 通常描画用 PSO（ブレンドモード別）
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PH::MakeDefault3dPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = ph::MakeDefault3dPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
-    psoDesc.InputLayout = { PH::kStandardInputLayout, _countof(PH::kStandardInputLayout) };
+    psoDesc.InputLayout = { ph::kStandardInputLayout, _countof(ph::kStandardInputLayout) };
     psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
     psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
 
-    PH::CreateBlendPipelines(device, psoDesc, L"ModelCommon.Object3dPS.Blend", graphicsPipelineStates_);
+    ph::CreateBlendPipelines(device, psoDesc, L"ModelCommon.Object3dPS.Blend", graphicsPipelineStates_);
 
     // シャドウパス用 Root Signature（CBV 1つ  TransformationMatrix）
 
     D3D12_ROOT_PARAMETER shadowParam[1] = {
-        PH::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX), // VS, b0
+        ph::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX), // VS, b0
     };
 
-    shadowRootSignature_ = PH::CreateRootSignature(device, shadowParam, _countof(shadowParam),
+    shadowRootSignature_ = ph::CreateRootSignature(device, shadowParam, _countof(shadowParam),
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     // シャドウパス用 PSO（深度のみ書き込み）
 
     Microsoft::WRL::ComPtr<IDxcBlob> shadowVsBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/ShadowVS.hlsl", L"vs_6_0");
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = PH::MakeDefault3dPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = ph::MakeDefault3dPsoDesc();
     shadowPsoDesc.pRootSignature = shadowRootSignature_.Get();
-    shadowPsoDesc.InputLayout = { PH::kStandardInputLayout, _countof(PH::kStandardInputLayout) };
+    shadowPsoDesc.InputLayout = { ph::kStandardInputLayout, _countof(ph::kStandardInputLayout) };
     shadowPsoDesc.VS = { shadowVsBlob->GetBufferPointer(), shadowVsBlob->GetBufferSize() };
     shadowPsoDesc.PS = { nullptr, 0 }; // PSなし（深度のみ）
     shadowPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
@@ -84,26 +83,23 @@ void ModelCommon::Initialize(DirectXCommon* dxCommon)
     shadowPsoDesc.NumRenderTargets = 0; // RTVなし
     shadowPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
 
-    shadowPipelineState_ = PipelineHelper::CreateGraphicsPipeline(device, shadowPsoDesc);
+    shadowPipelineState_ = pipelineHelper::CreateGraphicsPipeline(device, shadowPsoDesc);
 }
 
 /** @brief 描画コマンドにこの共通設定をセットする */
-void ModelCommon::CommonDrawSettings(BlendMode blendMode)
-{
+void ModelCommon::CommonDrawSettings(BlendMode blendMode) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    PipelineHelper::SetTrianglePipeline(commandList, rootSignature_.Get(), graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
+    pipelineHelper::SetTrianglePipeline(commandList, rootSignature_.Get(), graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
 }
 
 /** @brief シャドウパス開始（シャドウ用 PSO + Root Signature をセット） */
-void ModelCommon::BeginShadowPass()
-{
+void ModelCommon::BeginShadowPass() {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    PipelineHelper::SetTrianglePipeline(commandList, shadowRootSignature_.Get(), shadowPipelineState_.Get());
+    pipelineHelper::SetTrianglePipeline(commandList, shadowRootSignature_.Get(), shadowPipelineState_.Get());
 }
 
 /** @brief シャドウパス終了（通常 PSO への切り替えは次の CommonDrawSettings() で行う） */
-void ModelCommon::EndShadowPass()
-{
+void ModelCommon::EndShadowPass() {
     // 通常描画への切り替えは次の CommonDrawSettings() で行う
 }
 

@@ -10,16 +10,14 @@
 namespace engine::game {
 namespace {
 /** @brief 描画設定に使う演出JSONを初回だけ読み込む */
-const nlohmann::json& VisualDocument()
-{
+const nlohmann::json& VisualDocument() {
     static const auto kRoot = JsonHelper::Load(HitEffectLibrary::kConfigPath);
     return kRoot;
 }
 
 /** @brief 指定した節の値を既定設定へ適用する */
 template<class Data, size_t N>
-Data ReadSettings(const char* section, const JsonField<Data> (&fields)[N])
-{
+Data ReadSettings(const char* section, const JsonField<Data> (&fields)[N]) {
     const auto& root = VisualDocument();
     const auto found = root.find(section);
     return found != root.end() ? ReadJsonFields(*found, fields) : Data {};
@@ -27,12 +25,29 @@ Data ReadSettings(const char* section, const JsonField<Data> (&fields)[N])
 } // namespace
 
 /** @brief 水場の色と環境粒子の設定を初回読み込みから共有する */
-const WaterVisualSettings& SceneVisualTuning::Water()
-{
-    static const WaterVisualSettings kSettings = []
-    {
+const WaterVisualSettings& SceneVisualTuning::Water() {
+    static const WaterVisualSettings sSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<WaterVisualSettings> kFields[] = {
+            { nullptr, "wavePointCount", &WaterVisualSettings::wavePointCount },
+            { nullptr, "waveSpring", &WaterVisualSettings::waveSpring },
+            { nullptr, "waveSpread", &WaterVisualSettings::waveSpread },
+            { nullptr, "waveDamping", &WaterVisualSettings::waveDamping },
+            { nullptr, "waveMaxHeight", &WaterVisualSettings::waveMaxHeight },
+            { nullptr, "waveSplashImpulse", &WaterVisualSettings::waveSplashImpulse },
+            { nullptr, "waveMoveImpulse", &WaterVisualSettings::waveMoveImpulse },
+            { nullptr, "waveImpulseRadius", &WaterVisualSettings::waveImpulseRadius },
+            { nullptr, "waveAmbientStrength", &WaterVisualSettings::waveAmbientStrength },
+            { nullptr, "waveAmbientFrequency", &WaterVisualSettings::waveAmbientFrequency },
+            { nullptr, "waveAmbientSpeed", &WaterVisualSettings::waveAmbientSpeed },
+            { nullptr, "refractionStrength", &WaterVisualSettings::refractionStrength },
+            { nullptr, "refractionSpeed", &WaterVisualSettings::refractionSpeed },
+            { nullptr, "causticScale", &WaterVisualSettings::causticScale },
+            { nullptr, "causticFlowSpeed", &WaterVisualSettings::causticFlowSpeed },
+            { nullptr, "causticStrength", &WaterVisualSettings::causticStrength },
+            { nullptr, "foamWidth", &WaterVisualSettings::foamWidth },
+            { nullptr, "foamStrength", &WaterVisualSettings::foamStrength },
+
             { nullptr, "deepWaterColor", &WaterVisualSettings::deepWaterColor },
             { nullptr, "surfaceWaterColor", &WaterVisualSettings::surfaceWaterColor },
             { nullptr, "surfaceLayerDepth", &WaterVisualSettings::surfaceLayerDepth },
@@ -78,19 +93,52 @@ const WaterVisualSettings& SceneVisualTuning::Water()
             { nullptr, "splashDropSize", &WaterVisualSettings::splashDropSize },
         };
         auto settings = ReadSettings("waterVisuals", kFields);
+        // 編集された値でも固定配列の範囲と積分の安定性を保つ。
+        constexpr int kMinPointCount = 4;
+        constexpr int kMaxPointCount = 128;
+        constexpr float kZero = 0.0f;
+        constexpr float kOne = 1.0f;
+        constexpr float kMinScale = 0.001f;
+        constexpr float kMaxSpring = 120.0f;
+        constexpr float kMaxSpread = 180.0f;
+        constexpr float kMaxDamping = 20.0f;
+        constexpr float kMaxHeight = 0.4f;
+        constexpr float kMaxImpulse = 4.0f;
+        constexpr float kMaxRadius = 5.0f;
+        constexpr float kMaxFrequency = 20.0f;
+        constexpr float kMaxRefraction = 0.02f;
+        constexpr float kMaxLayerDepth = 10.0f;
+        constexpr float kMaxFoamWidth = 0.2f;
+        settings.wavePointCount = std::clamp(settings.wavePointCount, kMinPointCount, kMaxPointCount);
+        settings.waveSpring = std::clamp(settings.waveSpring, kMinScale, kMaxSpring);
+        settings.waveSpread = std::clamp(settings.waveSpread, kZero, kMaxSpread);
+        settings.waveDamping = std::clamp(settings.waveDamping, kMinScale, kMaxDamping);
+        settings.waveMaxHeight = std::clamp(settings.waveMaxHeight, kZero, kMaxHeight);
+        settings.waveSplashImpulse = std::clamp(settings.waveSplashImpulse, kZero, kMaxImpulse);
+        settings.waveMoveImpulse = std::clamp(settings.waveMoveImpulse, kZero, kOne);
+        settings.waveImpulseRadius = std::clamp(settings.waveImpulseRadius, kMinScale, kMaxRadius);
+        settings.waveAmbientStrength = std::clamp(settings.waveAmbientStrength, kZero, kOne);
+        settings.waveAmbientFrequency = std::clamp(settings.waveAmbientFrequency, kZero, kMaxFrequency);
+        settings.waveAmbientSpeed = std::clamp(settings.waveAmbientSpeed, kZero, kMaxFrequency);
+        settings.refractionStrength = std::clamp(settings.refractionStrength, kZero, kMaxRefraction);
+        settings.refractionSpeed = std::clamp(settings.refractionSpeed, kZero, kMaxFrequency);
+        settings.causticScale = std::clamp(settings.causticScale, kMinScale, kMaxFrequency);
+        settings.causticFlowSpeed = std::clamp(settings.causticFlowSpeed, kZero, kMaxFrequency);
+        settings.causticStrength = std::clamp(settings.causticStrength, kZero, kOne);
+        settings.foamWidth = std::clamp(settings.foamWidth, kMinScale, kMaxFoamWidth);
+        settings.foamStrength = std::clamp(settings.foamStrength, kZero, kOne);
+        settings.surfaceLayerDepth = std::clamp(settings.surfaceLayerDepth, kMinScale, kMaxLayerDepth);
         // 最小・最大が逆、または0除算になる値を有効な範囲に直す
         settings.splashDropRiseMax = (std::max)(settings.splashDropRiseMin, settings.splashDropRiseMax);
         settings.bubbleRiseSpeed = (std::max)(settings.bubbleRiseSpeed, std::numeric_limits<float>::epsilon());
         return settings;
     }();
-    return kSettings;
+    return sSettings;
 }
 
 /** @brief プレイヤーの輪郭と明滅の設定を初回読み込みから共有する */
-const PlayerVisualSettings& SceneVisualTuning::Player()
-{
-    static const PlayerVisualSettings kSettings = []
-    {
+const PlayerVisualSettings& SceneVisualTuning::Player() {
+    static const PlayerVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<PlayerVisualSettings> kFields[] = {
             { nullptr, "outlineColor", &PlayerVisualSettings::outlineColor },
@@ -113,10 +161,8 @@ const PlayerVisualSettings& SceneVisualTuning::Player()
 }
 
 /** @brief 本編のヒットとフィニッシャー演出の設定を初回読み込みから共有する */
-const GameplayVisualSettings& SceneVisualTuning::Gameplay()
-{
-    static const GameplayVisualSettings kSettings = []
-    {
+const GameplayVisualSettings& SceneVisualTuning::Gameplay() {
+    static const GameplayVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<GameplayVisualSettings> kFields[] = {
             { nullptr, "hpBarBackgroundColor", &GameplayVisualSettings::hpBarBackgroundColor },
@@ -179,10 +225,8 @@ const GameplayVisualSettings& SceneVisualTuning::Gameplay()
 }
 
 /** @brief 配置物の回復と取得演出の設定を初回読み込みから共有する */
-const LevelVisualSettings& SceneVisualTuning::Level()
-{
-    static const LevelVisualSettings kSettings = []
-    {
+const LevelVisualSettings& SceneVisualTuning::Level() {
+    static const LevelVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<LevelVisualSettings> kFields[] = {
             { nullptr, "healerEffectOffset", &LevelVisualSettings::healerEffectOffset },
@@ -227,10 +271,8 @@ const LevelVisualSettings& SceneVisualTuning::Level()
 }
 
 /** @brief 訓練戦闘の命中と射撃演出の設定を初回読み込みから共有する */
-const BattleCombatVisualSettings& SceneVisualTuning::BattleCombat()
-{
-    static const BattleCombatVisualSettings kSettings = []
-    {
+const BattleCombatVisualSettings& SceneVisualTuning::BattleCombat() {
+    static const BattleCombatVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<BattleCombatVisualSettings> kFields[] = {
             { nullptr, "slamFlashColor", &BattleCombatVisualSettings::slamFlashColor },
@@ -287,10 +329,8 @@ const BattleCombatVisualSettings& SceneVisualTuning::BattleCombat()
 }
 
 /** @brief 訓練フィニッシャーの開始と解放演出の設定を初回読み込みから共有する */
-const BattleFinisherVisualSettings& SceneVisualTuning::BattleFinisher()
-{
-    static const BattleFinisherVisualSettings kSettings = []
-    {
+const BattleFinisherVisualSettings& SceneVisualTuning::BattleFinisher() {
+    static const BattleFinisherVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<BattleFinisherVisualSettings> kFields[] = {
             { nullptr, "effectHeight", &BattleFinisherVisualSettings::effectHeight },
@@ -306,10 +346,8 @@ const BattleFinisherVisualSettings& SceneVisualTuning::BattleFinisher()
 }
 
 /** @brief 訓練場のポータルと画面演出の設定を初回読み込みから共有する */
-const TrainingVisualSettings& SceneVisualTuning::Training()
-{
-    static const TrainingVisualSettings kSettings = []
-    {
+const TrainingVisualSettings& SceneVisualTuning::Training() {
+    static const TrainingVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<TrainingVisualSettings> kFields[] = {
             { nullptr, "warpPortalBlockCount", &TrainingVisualSettings::warpPortalBlockCount },
@@ -342,10 +380,8 @@ const TrainingVisualSettings& SceneVisualTuning::Training()
 }
 
 /** @brief 訓練場の案内と命中演出の設定を初回読み込みから共有する */
-const BattleVisualSettings& SceneVisualTuning::Battle()
-{
-    static const BattleVisualSettings kSettings = []
-    {
+const BattleVisualSettings& SceneVisualTuning::Battle() {
+    static const BattleVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<BattleVisualSettings> kFields[] = {
             { nullptr, "barUp", &BattleVisualSettings::barUp },
@@ -397,10 +433,8 @@ const BattleVisualSettings& SceneVisualTuning::Battle()
 }
 
 /** @brief 敵の識別色とHPバーの設定を初回読み込みから共有する */
-const InitialActorsVisualSettings& SceneVisualTuning::InitialActors()
-{
-    static const InitialActorsVisualSettings kSettings = []
-    {
+const InitialActorsVisualSettings& SceneVisualTuning::InitialActors() {
+    static const InitialActorsVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<InitialActorsVisualSettings> kFields[] = {
             { nullptr, "spearEnemyColor", &InitialActorsVisualSettings::spearEnemyColor },

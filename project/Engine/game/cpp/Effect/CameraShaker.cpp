@@ -25,18 +25,15 @@ struct CameraShakeSettings {
 };
 
 /** @brief 初めて振動を更新する時に設定を読み、以降のフレームでは同じ設定を共有する */
-const CameraShakeSettings& ShakeSettings()
-{
+const CameraShakeSettings& ShakeSettings() {
     static const CameraShakeSettings kSettings;
     return kSettings;
 }
 }
 
 /** @brief カメラ振動を開始する */
-void CameraShaker::Request(float intensity, float duration)
-{
-    if (intensity > intensity_ || timer_ <= 0.0f)
-    {
+void CameraShaker::Request(float intensity, float duration) {
+    if (intensity > intensity_ || timer_ <= 0.0f) {
         intensity_ = intensity;
         duration_ = duration;
         timer_ = duration;
@@ -45,16 +42,13 @@ void CameraShaker::Request(float intensity, float duration)
 }
 
 /** @brief 振動時間を進めて現在の位置オフセットを返す */
-Vector3 CameraShaker::Update(float dt)
-{
-    if (timer_ <= 0.0f)
-    {
+Vector3 CameraShaker::Update(float dt) {
+    if (timer_ <= 0.0f) {
         return { };
     }
 
     timer_ -= dt;
-    if (timer_ < 0.0f)
-    {
+    if (timer_ < 0.0f) {
         timer_ = 0.0f;
     }
 

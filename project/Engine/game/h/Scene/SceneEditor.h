@@ -43,14 +43,14 @@ public:
     // Hierarchy パネルで選んだオブジェクトの種類を表す
     // ChangeState の State 生成表はこの並び順で引くので、要素を足す時は表にも足す
     enum class Selection {
-        None, // 何も選んでいない
-        Camera, // カメラ
-        UIElement, // UI スプライト
-        Ring, // ドーナツ型メッシュ
-        Cylinder, // 円柱メッシュ
-        Skydome, // 天球（背景）
-        Human, // スキンメッシュキャラクター
-        WhiteParticles // 白い浮遊パーティクル
+        kNone, // 何も選んでいない
+        kCamera, // カメラ
+        kUIElement, // UI スプライト
+        kRing, // ドーナツ型メッシュ
+        kCylinder, // 円柱メッシュ
+        kSkydome, // 天球（背景）
+        kHuman, // スキンメッシュキャラクター
+        kWhiteParticles // 白い浮遊パーティクル
     };
 
     // エディタが編集できるシーンデータへの参照
@@ -241,7 +241,7 @@ private:
 
     // 状態管理
     bool visible_ = false; // F3で表示/非表示（既定は非表示にして画面を占有しない）
-    Selection selection_ = Selection::None; // 現在選んでいるオブジェクト種別
+    Selection selection_ = Selection::kNone; // 現在選んでいるオブジェクト種別
     int selectionIndex_ = -1; // UIElement リスト内のインデックス（-1 = 未選択）
     std::unique_ptr<IEditorState> currentState_; // 現在アクティブな State
 
@@ -249,7 +249,7 @@ private:
     float savedTimer_ = 0.0f; // "Saved!" メッセージを表示するための残り時間
     static constexpr int kNoEditedUiIndex = -1; // 名前の入力欄がどの UI 要素も指していない時の値
     int uiNameEditIndex_ = kNoEditedUiIndex; // 名前の入力欄に読み込んである UI 要素の番号
-    char uiNameBuffer_[TextBufferCapacity::kIdentifier] = { }; // UI 要素の名前の入力欄
+    char uiNameBuffer_[textBufferCapacity::kIdentifier] = { }; // UI 要素の名前の入力欄
 };
 
 } // namespace engine::game

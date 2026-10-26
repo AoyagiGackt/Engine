@@ -1,0 +1,136 @@
+/**
+ * @file CollisionConfig.h
+ * @brief 当たり判定に使う形状プリミティブ（Ray/Sphere/AABB/Capsule）とコライダー・レイキャスト結果を定義するファイル
+ */
+#pragma once
+#include "MakeAffine.h"
+#include <algorithm>
+#include <iterator>
+#include <cmath>
+namespace engine {
+// 形状プリミティブ
+
+/// レイ（半直線）
+/** @brief レイキャストの入力となる半直線（発射点＋方向） */
+struct Ray {
+    Vector3 origin; ///< 発射点
+    Vector3 direction; ///< 方向ベクトル（必ず正規化して渡すこと）
+};
+
+/**
+ * @brief レイキャストの結果
+ *
+ * Collision::Raycast() の戻り値として使用します
+ *   RaycastResult res;
+ *   if (Collision::Raycast(ray, aabb, res)) {
+ *       // res.distance, res.point, res.normal が有効
+ *   }
+ */
+struct RaycastResult {
+    bool hit = false; ///< ヒットしたか
+    float distance = 0.0f; ///< origin からヒット点までの距離（t 値）
+    Vector3 point = { }; ///< ヒット点のワールド座標
+    Vector3 normal = { }; ///< ヒット面の外向き法線（正規化済み）
+};
+
+/// 球体
+/** @brief 球形の当たり判定形状（中心座標と半径） */
+struct Sphere {
+    Vector3 center; ///< 中心点
+    float radius; ///< 半径
+};
+
+/// AABB（回転しない軸並行境界箱）
+/** @brief 軸並行境界箱（回転なし）の当たり判定形状。最小座標と最大座標の対角2点で表す */
+struct AABB {
+    Vector3 min; ///< 最小座標（左・下・奥）
+    Vector3 max; ///< 最大座標（右・上・手前）
+};
+
+/// カプセル（線分を軸とする球の掃引体）
+/// 使い方: キャラクターの上半身〜下半身、武器の刀身など縦長の当たり判定に最適
+/** @brief カプセル形状の当たり判定形状。始点と終点を結ぶ線分を軸に半径分だけ膨らませた形 */
+struct Capsule {
+    Vector3 start; ///< 始点（線分の根元）
+    Vector3 end; ///< 終点（線分の先端）
+    float radius; ///< 太さの半径
+};
+
+// コライダー
+
+/// コライダーが持つ形状の種類
+enum class ColliderShape {
+    kAABB,
+    kSphere,
+    kCapsule,
+};
+
+/** @brief ColliderShape の定義順に並ぶ形状表の要素数 */
+inline constexpr size_t kColliderShapeCount = static_cast<size_t>(ColliderShape::kCapsule) + 1;
+
+/**
+ * @brief GameObject が持つ当たり判定データ
+ *
+ * shape に応じた形状データを使って判定を行います
+ * SetAsAABB / SetAsSphere / SetAsCapsule でセットしてください
+ */
+struct Collider {
+    ColliderShape shape = ColliderShape::kAABB;
+    AABB aabb = { };
+    Sphere sphere = { };
+    Capsule capsule = { };
+    bool isHit = false;
+
+    // 形状セッター
+    void SetAsAABB(const AABB& a) {
+        shape = ColliderShape::kAABB;
+        aabb = a;
+    }
+    /** @brief 球の形を設定する */
+    void SetAsSphere(const Sphere& s) {
+        shape = ColliderShape::kSphere;
+        sphere = s;
+    }
+    /** @brief カプセルの形を設定する */
+    void SetAsCapsule(const Capsule& c) {
+        shape = ColliderShape::kCapsule;
+        capsule = c;
+    }
+
+    /**
+     * @brief ブロードフェーズ判定用の包含 AABB を返す
+     * どの形状でもオブジェクトを完全に包む AABB を計算します
+     */
+    AABB GetBroadAABB() const {
+        using Handler = AABB (*)(const Collider&);
+        static constexpr Handler kHandlers[] = {
+            [](const Collider& collider) {
+                return collider.aabb;
+            },
+            [](const Collider& collider) -> AABB {
+                const Sphere& sphere = collider.sphere;
+                return {
+                    { sphere.center.x - sphere.radius, sphere.center.y - sphere.radius, sphere.center.z - sphere.radius },
+                    { sphere.center.x + sphere.radius, sphere.center.y + sphere.radius, sphere.center.z + sphere.radius }
+                };
+            },
+            [](const Collider& collider) -> AABB {
+                const Capsule& capsule = collider.capsule;
+                const float radius = capsule.radius;
+                return {
+                    { (std::min)(capsule.start.x, capsule.end.x) - radius,
+                        (std::min)(capsule.start.y, capsule.end.y) - radius,
+                        (std::min)(capsule.start.z, capsule.end.z) - radius },
+                    { (std::max)(capsule.start.x, capsule.end.x) + radius,
+                        (std::max)(capsule.start.y, capsule.end.y) + radius,
+                        (std::max)(capsule.start.z, capsule.end.z) + radius }
+                };
+            },
+        };
+        static_assert(std::size(kHandlers) == kColliderShapeCount);
+        const auto index = static_cast<size_t>(shape);
+        return index < std::size(kHandlers) ? kHandlers[index](*this) : aabb;
+    }
+};
+
+} // namespace engine

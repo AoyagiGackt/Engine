@@ -28,10 +28,9 @@ namespace engine::graphics {
 class CascadedShadowMap {
 public:
     /** @brief 共有インスタンスを取得する */
-    static CascadedShadowMap* GetInstance()
-    {
-        static CascadedShadowMap inst;
-        return &inst;
+    static CascadedShadowMap* GetInstance() {
+        static CascadedShadowMap sInst;
+        return &sInst;
     }
 
     static const uint32_t kNumCascades = 3;
@@ -88,8 +87,7 @@ public:
     }
 
     // ダミーバッファアドレス（SpriteCommon 等のスロットバインド用）
-    D3D12_GPU_VIRTUAL_ADDRESS GetDummyCBVAddress() const
-    {
+    D3D12_GPU_VIRTUAL_ADDRESS GetDummyCBVAddress() const {
         return dummyCBRes_ ? dummyCBRes_->GetGPUVirtualAddress() : 0;
     }
 
@@ -111,7 +109,7 @@ private:
         Matrix4x4 cascadeVP[kNumCascades];
         float splitDist[kNumCascades]; // カメラ距離スプリット (m)
         float numCascades; // 有効カスケード数（float のため 16 バイトアライン）
-        float _pad[3];
+        float pad[3];
     };
 
     engine::DirectXCommon* dxCommon_ = nullptr;

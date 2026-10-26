@@ -24,11 +24,10 @@ constexpr float kToastOpacity = 0.75f;
 
 }
 
-namespace engine::graphics::EditorUI {
+namespace engine::graphics::editorUI {
 
 /** @brief ファイル選択ダイアログを開き、選んだパスを返す（取り消したら空文字列） */
-std::string OpenFileDialog(const char* filter, const char* initialDirectory)
-{
+std::string OpenFileDialog(const char* filter, const char* initialDirectory) {
     char path[MAX_PATH] = { };
     OPENFILENAMEA dialog = { };
     dialog.lStructSize = sizeof(dialog);
@@ -42,8 +41,7 @@ std::string OpenFileDialog(const char* filter, const char* initialDirectory)
 }
 
 /** @brief 絶対パスを Resources/ から始まるプロジェクト内の相対パスへ変換する（Resources/ を含まなければそのまま） */
-std::string ToProjectRelativePath(const std::string& absolutePath)
-{
+std::string ToProjectRelativePath(const std::string& absolutePath) {
     std::string path = absolutePath;
     std::replace(path.begin(), path.end(), '\\', '/');
     const size_t resourcesPosition = path.find("Resources/");
@@ -51,12 +49,10 @@ std::string ToProjectRelativePath(const std::string& absolutePath)
 }
 
 /** @brief 直前のウィジェットの右に (?) を表示し、ホバーで説明ツールチップを出す */
-void HelpMarker(const char* desc)
-{
+void HelpMarker(const char* desc) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered())
-    {
+    if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * kDialogWrapEm);
         ImGui::TextUnformatted(desc);
@@ -67,27 +63,23 @@ void HelpMarker(const char* desc)
 
 /** @brief 確認モーダル（破棄・上書きなど取り返しのつかない操作の前に挟む） */
 ConfirmResult ConfirmModal(const char* popupId, const char* message,
-    const char* okLabel, const char* cancelLabel)
-{
-    ConfirmResult result = ConfirmResult::None;
+    const char* okLabel, const char* cancelLabel) {
+    ConfirmResult result = ConfirmResult::kNone;
 
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f),
         ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    if (ImGui::BeginPopupModal(popupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-    {
+    if (ImGui::BeginPopupModal(popupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextUnformatted(message);
         ImGui::Separator();
-        if (ImGui::Button(okLabel, ImVec2(kDialogButtonWidth, 0)))
-        {
-            result = ConfirmResult::Ok;
+        if (ImGui::Button(okLabel, ImVec2(kDialogButtonWidth, 0))) {
+            result = ConfirmResult::kOk;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button(cancelLabel, ImVec2(kDialogButtonWidth, 0)))
-        {
-            result = ConfirmResult::Cancel;
+        if (ImGui::Button(cancelLabel, ImVec2(kDialogButtonWidth, 0))) {
+            result = ConfirmResult::kCancel;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -96,8 +88,7 @@ ConfirmResult ConfirmModal(const char* popupId, const char* message,
 }
 
 /** @brief エディタ起動ホットキーの常時表示オーバーレイ（画面左下、半透明、入力を奪わない） */
-void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* extraLine)
-{
+void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* extraLine) {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + kToastInset, vp->Pos.y + vp->Size.y - kToastInset),
         ImGuiCond_Always, ImVec2(0.0f, 1.0f));
@@ -115,12 +106,10 @@ void ShowHotkeyOverlay(bool nodeEditorOpen, bool stageEditorOpen, const char* ex
         | ImGuiWindowFlags_NoInputs;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, kWarningGreen, kWarningBlue, 1.0f));
-    if (ImGui::Begin("##EditorHotkeyOverlay", nullptr, flags))
-    {
+    if (ImGui::Begin("##EditorHotkeyOverlay", nullptr, flags)) {
         ImGui::Text("F1: ノードエディタ%s", nodeEditorOpen ? " (表示中)" : "");
         ImGui::Text("F2: ステージエディタ%s", stageEditorOpen ? " (表示中)" : "");
-        if (extraLine)
-        {
+        if (extraLine) {
             ImGui::TextUnformatted(extraLine);
         }
     }

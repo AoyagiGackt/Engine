@@ -19,15 +19,13 @@ public:
         materialData_->color = color;
     }
     /** @brief 内側の半径を設定する（頂点を作り直す） */
-    void SetInnerRadius(float r)
-    {
+    void SetInnerRadius(float r) {
         innerRadius_ = r;
         // 半径変更を反映して頂点データを再生成する
         RebuildVertices();
     }
     /** @brief 外側の半径を設定する（頂点を作り直す） */
-    void SetOuterRadius(float R)
-    {
+    void SetOuterRadius(float R) {
         outerRadius_ = R;
         // 半径変更を反映して頂点データを再生成する
         RebuildVertices();
@@ -36,7 +34,7 @@ public:
 protected:
     /** @brief ワールド・ビュー・プロジェクション行列を設定する */
     void SetWVP(const Matrix4x4& wvp) override {
-        materialData_->WVP = wvp;
+        materialData_->wvp = wvp;
     }
 
 private:
@@ -48,7 +46,7 @@ private:
      * @brief Ring描画PS/VS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct MaterialCB {
-        Matrix4x4 WVP;
+        Matrix4x4 wvp;
         Vector4 color;
     };
 

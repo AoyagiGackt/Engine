@@ -1,6 +1,6 @@
 /**
  * @file PauseMenu.h
- * @brief プレイ中のシーンで共通に使う一時停止画面（再開・音量・オートコンボ・コマンド表・退出）を定義するファイル
+ * @brief プレイ中のシーンで共通に使う一時停止画面（再開・音量・オートコンボ・コマンド表・コンボ練習・退出の確認）を定義するファイル
  */
 #pragma once
 #include "CommandListView.h"
@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace engine {
 class Audio;
@@ -17,6 +18,7 @@ class Input;
 
 namespace engine::game {
 
+class ComboTrial;
 class FontRenderer;
 
 /**
@@ -52,6 +54,12 @@ public:
      */
     bool Update(engine::Input* input, bool canOpen = true);
 
+    /**
+     * @brief コンボ練習の項目を出す（Initialize の後に呼ぶ。呼ばなければ項目は出ない）
+     * @param trial 練習の本体（非所有。シーンが持つ）
+     */
+    void EnableComboTrial(ComboTrial* trial);
+
     /** @brief ポーズ中かを返す */
     bool IsPaused() const {
         return controller_.IsPaused();
@@ -64,8 +72,33 @@ private:
     class IPage;
     class MenuPage;
     class CommandListPage;
+    class ComboTrialPage;
+    class ConfirmExitPage;
     static const IPage& Menu();
     static const IPage& CommandList();
+    static const IPage& ComboTrialList();
+    static const IPage& ConfirmExit();
+
+    /** @brief メニューの行の種類（並び順は RebuildItems が決める） */
+    enum class Row {
+        kResume,
+        kBgmVolume,
+        kSeVolume,
+        kAutoCombo,
+        kCommandList,
+        kComboTrial,
+        kExit,
+    };
+    /** @brief 今の設定に合わせてメニューの項目を並べ直す */
+    void RebuildItems();
+    /** @brief コンボ練習の一覧を、今練習中かに合わせて並べ直して開く */
+    void OpenComboTrialList();
+    /** @brief コンボ練習の一覧の入力（決定で練習を始めて再開、戻るでメニューへ） */
+    void UpdateComboTrialList(engine::Input* input);
+    /** @brief 退出の確認の入力（はいで退出、いいえ・戻るでメニューへ） */
+    void UpdateConfirmExit(engine::Input* input);
+    /** @brief 見出しと選択肢を中央に積む（コンボ練習の一覧と退出の確認で共通） */
+    void DrawSubMenu(const wchar_t* title, UIMenu& menu);
 
     /** @brief メニューページの入力（音量・オートコンボ・決定） */
     void UpdateMenu(engine::Input* input);
@@ -75,6 +108,10 @@ private:
     GamePauseController controller_;
     const IPage* page_ = nullptr;
     UIMenu menu_;
+    std::vector<Row> rows_; ///< メニューの行番号ごとの種類
+    UIMenu trialMenu_; ///< コンボ練習の一覧（練習するコンボ名・練習をやめる・もどる）
+    UIMenu confirmMenu_; ///< 退出の確認（いいえ・はい）
+    ComboTrial* comboTrial_ = nullptr;
     CommandListView commandList_;
     std::unique_ptr<engine::graphics::Sprite> overlay_;
     FontRenderer* fontRenderer_ = nullptr;

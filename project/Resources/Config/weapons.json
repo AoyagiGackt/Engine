@@ -12,8 +12,7 @@
             "element": "Water",
             "effectColor": [0.2, 0.6, 1.0, 1.0],
             "commands": [
-                { "key": "K", "desc": "4段速射" },
-                { "key": "G", "desc": "銃切替" }
+                { "key": "K", "desc": "4段速射" }
             ]
         },
         {
@@ -26,8 +25,7 @@
             "description": "溜めて撃つ大口径、締めは打ち上げ",
             "color": [0.95, 0.90, 0.70, 1.0],
             "commands": [
-                { "key": "K", "desc": "重い2段(締めは打ち上げ)" },
-                { "key": "G", "desc": "銃切替" }
+                { "key": "K", "desc": "重い2段(締めは打ち上げ)" }
             ]
         },
         {
@@ -40,8 +38,7 @@
             "description": "2発ずつばらまく超高速コンボ",
             "color": [0.45, 0.60, 0.85, 1.0],
             "commands": [
-                { "key": "K", "desc": "高速6段連射" },
-                { "key": "G", "desc": "銃切替" }
+                { "key": "K", "desc": "高速6段連射" }
             ]
         },
         {
@@ -54,8 +51,7 @@
             "description": "近距離特化の散弾、締めはゼロ距離打ち上げ",
             "color": [0.90, 0.50, 0.25, 1.0],
             "commands": [
-                { "key": "K", "desc": "散弾3段(踏み込み)" },
-                { "key": "G", "desc": "銃切替" }
+                { "key": "K", "desc": "散弾3段(踏み込み)" }
             ]
         },
         {
@@ -68,8 +64,7 @@
             "description": "長い構えから貫く最長射程の一撃",
             "color": [0.30, 0.85, 0.90, 1.0],
             "commands": [
-                { "key": "K", "desc": "チャージ2段(貫通)" },
-                { "key": "G", "desc": "銃切替" }
+                { "key": "K", "desc": "チャージ2段(貫通)" }
             ]
         }
     ],
@@ -77,6 +72,7 @@
         {
             "name": "Sword",
             "type": "Sword",
+            "hitStyle": "sword",
             "styleNameJp": "鬼神",
             "damage": 30.0,
             "range": 2.5,
@@ -98,6 +94,7 @@
         {
             "name": "Spear",
             "type": "Spear",
+            "hitStyle": "spear",
             "styleNameJp": "銃士",
             "damage": 20.0,
             "range": 4.0,
@@ -118,6 +115,7 @@
         {
             "name": "Dagger",
             "type": "Dagger",
+            "hitStyle": "dagger",
             "styleNameJp": "奇術師",
             "damage": 15.0,
             "range": 1.5,
@@ -138,6 +136,7 @@
         {
             "name": "Hammer",
             "type": "Hammer",
+            "hitStyle": "hammer",
             "styleNameJp": "守護者",
             "damage": 60.0,
             "range": 1.8,
@@ -158,6 +157,7 @@
         {
             "name": "Claymore",
             "type": "Greatsword",
+            "hitStyle": "hammer",
             "styleNameJp": "重騎士",
             "damage": 45.0,
             "range": 3.0,
@@ -179,6 +179,7 @@
         {
             "name": "Scythe",
             "type": "Scythe",
+            "hitStyle": "spear",
             "styleNameJp": "死神",
             "damage": 25.0,
             "range": 3.5,
@@ -199,6 +200,7 @@
         {
             "name": "Axe",
             "type": "Axe",
+            "hitStyle": "hammer",
             "styleNameJp": "狂戦士",
             "damage": 35.0,
             "range": 2.8,

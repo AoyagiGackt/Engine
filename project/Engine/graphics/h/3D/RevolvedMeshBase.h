@@ -96,12 +96,11 @@ protected:
     /** @brief 回転体のバッファを確保し、共通のマテリアル初期値を設定する */
     template <typename Material>
     void SetupMaterialBuffers(engine::DirectXCommon* dxCommon, const std::string& textureFilePath,
-        int divisions, Material*& material)
-    {
+        int divisions, Material*& material) {
         // 派生マテリアルのサイズを保って共通の行列と色を初期化する
         SetupCommonBuffers(dxCommon, textureFilePath, divisions, sizeof(Material),
             reinterpret_cast<void**>(&material));
-        material->WVP = MakeIdentity4x4();
+        material->wvp = MakeIdentity4x4();
         material->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     }
 

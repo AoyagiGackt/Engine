@@ -35,8 +35,7 @@ using namespace engine::graphics;
 
 namespace engine::game {
 /** @brief 武器スロットUIのスプライトを初期化する */
-void BattleTestScene::InitializeWeaponSlotHud()
-{
+void BattleTestScene::InitializeWeaponSlotHud() {
     hud_.Add(std::make_unique<AwakenGaugeHud>());
     hud_.Add(std::make_unique<WeaponSlotHud>());
     hud_.Initialize({ *spriteCommon_, *modelCommon_, *dxCommon_, *weaponManager_ });
@@ -44,15 +43,14 @@ void BattleTestScene::InitializeWeaponSlotHud()
 }
 
 /** @brief 武器スロットUI（枠・アイコン・光る演出）を毎フレーム更新する */
-void BattleTestScene::UpdateWeaponSlotHud()
-{
-    HudFrame frame { *camera_, GameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
+void BattleTestScene::UpdateWeaponSlotHud() {
+    HudFrame frame { *camera_, gameConstants::kFrameDeltaTime, player_->GetAwakenGauge(), player_->IsAwakened(), warpPulseTimer_ };
+    frame.input = input_;
     hud_.Update(frame);
 }
 
 /** @brief 武器スロットUIを描画する */
-void BattleTestScene::DrawWeaponSlotHud()
-{
+void BattleTestScene::DrawWeaponSlotHud() {
     hud_.Draw();
 }
 

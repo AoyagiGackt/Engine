@@ -14,7 +14,7 @@
 #include "VideoPlayer.h"
 #include "PipelineHelper.h"
 #include "EngineAssert.h"
-#include "GameConstants.h"
+#include "EngineConstants.h"
 #include "Logger.h"
 #include "SrvManager.h"
 #include "StringUtility.h"
@@ -34,8 +34,7 @@ constexpr int kRgbaBytesPerPixel = 4;
 using namespace Microsoft::WRL;
 
 // デストラクタ  オブジェクトが破棄されるときに自動でリソースを解放する
-VideoPlayer::~VideoPlayer()
-{
+VideoPlayer::~VideoPlayer() {
     Finalize();
 }
 
@@ -43,8 +42,7 @@ VideoPlayer::~VideoPlayer()
 // dxCommon  DirectX12 の中核（GPU コマンド発行に使う）
 // spriteCommon  2D描画の共通設定
 // filePath  再生する動画ファイルのパス（例  "Resources/movie.mp4"）
-void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon, const std::string& filePath)
-{
+void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon, const std::string& filePath) {
     dxCommon_ = dxCommon;
     spriteCommon_ = spriteCommon;
 
@@ -67,8 +65,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 
     // 動画ファイルを開く
     hr = MFCreateSourceReaderFromURL(wFilePath.c_str(), attributes.Get(), &pSourceReader_);
-    if (FAILED(hr))
-    {
+    if (FAILED(hr)) {
         Logger::LogError("Failed to load video: " + filePath);
         ENGINE_ASSERT(false);
     }
@@ -119,7 +116,7 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
     UINT64 uploadBufferSize = 0;
     dxCommon_->GetDevice()->GetCopyableFootprints(&resDesc, 0, 1, 0, nullptr, nullptr, nullptr, &uploadBufferSize);
 
-    uploadBuffer_ = PipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), uploadBufferSize);
+    uploadBuffer_ = pipelineHelper::CreateUploadBuffer(dxCommon_->GetDevice(), uploadBufferSize);
 
     // テクスチャを GPU のシェーダーから参照できるよう SRV（シェーダーリソースビュー）を作成する
     srvIndex_ = SrvManager::GetInstance()->Allocate();
@@ -138,17 +135,14 @@ void VideoPlayer::Initialize(DirectXCommon* dxCommon, SpriteCommon* spriteCommon
 }
 
 // 毎フレーム呼ぶ動画の次のフレームを取り出して GPU テクスチャに転送する
-void VideoPlayer::Update()
-{
+void VideoPlayer::Update() {
     // 動画のフレームレートより速く読み取らないよう、タイマーで間引きを行う
     // frameDuration_ = 動画の 1フレームあたりの時間（例  30FPS なら約0.0333秒）
-    timeCount_ += GameConstants::kFrameDeltaTime;
+    timeCount_ += engineConstants::kFrameDeltaTime;
 
-    if (timeCount_ < frameDuration_)
-    {
+    if (timeCount_ < frameDuration_) {
         // まだ次のフレームに進む時間でなければスプライトだけ更新して終わる
-        if (sprite_)
-        {
+        if (sprite_) {
             sprite_->Update();
         }
         return;
@@ -156,8 +150,7 @@ void VideoPlayer::Update()
 
     timeCount_ -= frameDuration_;
 
-    if (!pSourceReader_)
-    {
+    if (!pSourceReader_) {
         return;
     }
 
@@ -168,14 +161,12 @@ void VideoPlayer::Update()
     HRESULT hr = pSourceReader_->ReadSample(
         MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, &flags, &timestamp, &pSample);
 
-    if (SUCCEEDED(hr) && pSample)
-    {
+    if (SUCCEEDED(hr) && pSample) {
         // サンプルをひとつの連続したメモリバッファに変換する
         ComPtr<IMFMediaBuffer> pBuffer;
         hr = pSample->ConvertToContiguousBuffer(&pBuffer);
 
-        if (SUCCEEDED(hr))
-        {
+        if (SUCCEEDED(hr)) {
             // バッファをロックしてピクセルデータへのポインタを取得する
             BYTE* pData = nullptr;
             DWORD maxLength = 0, currentLength = 0;
@@ -197,8 +188,7 @@ void VideoPlayer::Update()
             LONG mfStride = videoWidth_ * kRgbaBytesPerPixel;
 
             // 1行ずつコピーする（GPU の RowPitch に合わせてアドレスを計算）
-            for (int y = 0; y < videoHeight_; ++y)
-            {
+            for (int y = 0; y < videoHeight_; ++y) {
                 memcpy(
                     pMappedData + y * footprint.Footprint.RowPitch, // コピー先（GPU 行境界に合わせる）
                     pData + y * mfStride, // コピー元（動画データ）
@@ -215,9 +205,7 @@ void VideoPlayer::Update()
             // コピー中はテクスチャのリソースバリアをコピー先に切り替える必要がある
             UploadFrame(footprint);
         }
-    }
-    else if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
-    {
+    } else if (flags & MF_SOURCE_READERF_ENDOFSTREAM) {
         // 動画の最後まで再生したら先頭に戻してループ再生する
         PROPVARIANT var;
         PropVariantInit(&var);
@@ -227,32 +215,27 @@ void VideoPlayer::Update()
         PropVariantClear(&var);
     }
 
-    if (sprite_)
-    {
+    if (sprite_) {
         sprite_->Update();
     }
 }
 
 // 毎フレーム呼ぶスプライトとしてスクリーンに動画フレームを描画する
-void VideoPlayer::Draw()
-{
-    if (isNewFrame_)
-    {
+void VideoPlayer::Draw() {
+    if (isNewFrame_) {
         // 新しいフレームを描画前にもアップロードする。
         UploadFrame(currentFootprint_);
 
         isNewFrame_ = false; // フラグをリセットして次のフレームを待つ
     }
 
-    if (sprite_)
-    {
+    if (sprite_) {
         sprite_->Draw();
     }
 }
 
 // リソースをすべて解放するデストラクタから自動的に呼ばれる
-void VideoPlayer::Finalize()
-{
+void VideoPlayer::Finalize() {
     pSourceReader_.Reset(); // Media Foundation のリーダーを解放
     textureResource_.Reset(); // GPU テクスチャを解放
     uploadBuffer_.Reset(); // アップロードバッファを解放
@@ -260,8 +243,7 @@ void VideoPlayer::Finalize()
 }
 
 /** @brief 動画フレームを転送し、テクスチャをシェーダー参照状態へ戻す */
-void VideoPlayer::UploadFrame(const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& footprint)
-{
+void VideoPlayer::UploadFrame(const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& footprint) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
     DirectXCommon::TransitionBarrier(commandList, textureResource_.Get(),

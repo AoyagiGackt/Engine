@@ -5,9 +5,9 @@
 #pragma once
 #include "Camera.h"
 #include "GameConstants.h"
-#include "Sprite.h"
+#include "WaterSurfaceEffect.h"
 #include "SpriteCommon.h"
-#include <memory>
+#include <array>
 #include <random>
 #include <string>
 namespace engine::graphics {
@@ -17,7 +17,7 @@ class ParticleManager;
 namespace engine::game {
 using engine::graphics::Camera;
 using engine::graphics::ParticleManager;
-using engine::graphics::Sprite;
+
 using engine::graphics::SpriteCommon;
 
 /**
@@ -27,7 +27,14 @@ using engine::graphics::SpriteCommon;
 class WaterPool {
 public:
     void Initialize(SpriteCommon* spriteCommon);
-    void Update();
+    /** @brief プレイヤーの移動から波を励起して点列を積分する */
+    void Update(const Vector3& playerPosition, bool movementEnabled);
+    /** @brief 水より奥の背景を描く前に描画先を準備する */
+    void BeginBackground(bool targetsBackBuffer);
+    /** @brief 水場の横方向の範囲に含まれるかを返す */
+    static bool ContainsX(float worldX);
+    /** @brief 水域の外では水中判定が成立しない高さを返す */
+    static float PlayerWaterLevel(float worldX);
     void Draw(Camera* camera);
 
     /**
@@ -47,26 +54,33 @@ private:
     SpriteCommon* spriteCommon_ = nullptr;
     ParticleManager* pm_ = nullptr;
 
-    // 水の本体（暗い深海色）
-    std::unique_ptr<Sprite> waterSprite_;
-    // 水面付近のグラデーション層（明るい浅瀬色）
-    std::unique_ptr<Sprite> waterSpriteTop_;
+    // 波形と描画資源は初期化時に確保して再利用する。
+    engine::graphics::WaterSurfaceEffect waterEffect_;
+    std::array<float, engine::graphics::WaterSurfaceEffect::kMaxSamples> heights_{};
+    std::array<float, engine::graphics::WaterSurfaceEffect::kMaxSamples> velocities_{};
+    size_t pointCount_{};
+    Vector3 previousPlayerPosition_{};
+    bool hasPreviousPlayer_ = false;
+    float time_{};
+
+    /** @brief 周囲の点へ距離に応じて速度を加える */
+    void AddImpulse(float worldX, float strength);
+    /** @brief 点列を補間して実際の水面高さを返す */
+    float SurfaceAt(float worldX) const;
 
     // パーティクルタイマー
     int rippleTimer_ = 0;
     int glintTimer_ = 0;
-    int causticTimer_ = 0;
     int bubbleTimer_ = 0;
 
     std::mt19937 rippleRng_;
     std::mt19937 glintRng_;
-    std::mt19937 causticRng_;
     std::mt19937 bubbleRng_;
     std::mt19937 splashRng_;
 
     // fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高（GameConstants と共有）
-    static constexpr float kHalfW = GameConstants::kCameraHalfW;
-    static constexpr float kHalfH = GameConstants::kCameraHalfH;
+    static constexpr float kHalfW = gameConstants::kCameraHalfW;
+    static constexpr float kHalfH = gameConstants::kCameraHalfH;
 };
 
 } // namespace engine::game

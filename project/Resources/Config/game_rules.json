@@ -1,8 +1,11 @@
 {
-  "_comment": "本編ステージの進行ルール。clearFlagはノードグラフのRequestStageClearノードやSetFlagノードからも立てられる。finalFloorが0ならlevelPathsの数が最終フロアになる",
+  "_comment": "本編ステージの進行ルール。clearFlagはノードグラフのRequestStageClearノードやSetFlagノードからも立てられる。finalFloorが0ならlevelPathsの数が最終フロアになる。debugGameOverButtonをtrueにするとゲーム中にやられ演出をすぐ見るボタン（F9かクリック）が出る。debugClearButtonをtrueにするとクリアの決め演出をすぐ見るボタン（F5かクリック、押すたびに剣と銃を交互に見せる）が出る。debugLiberationButtonをtrueにするとマップにステージの解放演出をすぐ見るボタン（F5かクリック、進行は変えない）が出る（いずれも評価・確認用。提出時はfalseに）。gunSwitchEnabledをfalseにすると銃は最初の1丁だけになり、銃切替の案内も出さない。randomEnemyWeaponsをtrueにすると、道中の武器持ちの敵の武器を、プレイヤーがまだ持っていない enemyWeaponPool の武器から抽選する（ボスは配置どおり）",
   "requireBossWeaponSteal": true,
   "clearFlag": "stage_clear",
   "gameOverOnHpZero": true,
+  "debugGameOverButton": true,
+  "debugClearButton": true,
+  "debugLiberationButton": true,
   "resultDisplaySeconds": 2.5,
   "finalFloor": 0,
   "bossHp": {
@@ -15,13 +18,15 @@
   "playerMaxHp": 30,
   "starterWeapon": "Sword",
   "bossStealWeapon": "Hammer",
+  "gunSwitchEnabled": false,
+  "randomEnemyWeapons": true,
+  "enemyWeaponPool": ["Sword", "Spear", "Hammer", "Dagger"],
   "bossColor": [
     0.9,
     0.65,
     0.15,
     1
   ],
-  "waterFloor": -1,
   "levelPaths": [
     "Resources/Levels/level01.json",
     "Resources/Levels/level02.json",

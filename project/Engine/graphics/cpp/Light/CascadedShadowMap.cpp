@@ -18,13 +18,11 @@ using namespace Microsoft::WRL;
 
 
 /** @brief Texture2DArray シャドウマップ・DSV/SRV・カスケード定数バッファを確保する */
-void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     // 投影範囲を初期化時に読み込み、不正な距離順序は既定設定に戻す。
     float defaultSplits[kNumCascades] = {};
     bool validSplits = true;
-    for (uint32_t i = 0; i < kNumCascades; ++i)
-    {
+    for (uint32_t i = 0; i < kNumCascades; ++i) {
         auto& config = cascadeConfigs_[i];
         const auto defaults = config;
         defaultSplits[i] = defaults.splitDist;
@@ -34,18 +32,15 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         config.nearZ = GraphicsTuning::Positive((prefix + "nearClip").c_str(), defaults.nearZ);
         config.farZ = GraphicsTuning::Positive((prefix + "farClip").c_str(), defaults.farZ);
         config.splitDist = GraphicsTuning::Positive((prefix + "splitDistance").c_str(), defaults.splitDist);
-        if (config.farZ <= config.nearZ)
-        {
+        if (config.farZ <= config.nearZ) {
             config.nearZ = defaults.nearZ;
             config.farZ = defaults.farZ;
         }
         validSplits = validSplits && (i == 0 || config.splitDist > cascadeConfigs_[i - 1].splitDist);
     }
     // 分割距離が手前から順に並んでいなければ、分割距離だけ全段既定値に戻す
-    if (!validSplits)
-    {
-        for (uint32_t i = 0; i < kNumCascades; ++i)
-        {
+    if (!validSplits) {
+        for (uint32_t i = 0; i < kNumCascades; ++i) {
             cascadeConfigs_[i].splitDist = defaultSplits[i];
         }
     }
@@ -56,7 +51,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
 
     // Texture2DArray[3] (R32_TYPELESS)
     {
-        shadowTex_ = PipelineHelper::CreateDepthTexture(device, kShadowMapSize, kShadowMapSize, kNumCascades, DXGI_FORMAT_R32_TYPELESS);
+        shadowTex_ = pipelineHelper::CreateDepthTexture(device, kShadowMapSize, kShadowMapSize, kNumCascades, DXGI_FORMAT_R32_TYPELESS);
 
         // DSV ヒープ（3スライス分）
         dsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, kNumCascades);
@@ -64,8 +59,7 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
         UINT dsvSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         D3D12_CPU_DESCRIPTOR_HANDLE base = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
 
-        for (uint32_t i = 0; i < kNumCascades; ++i)
-        {
+        for (uint32_t i = 0; i < kNumCascades; ++i) {
             dsvHandles_[i] = { base.ptr + (SIZE_T)i * dsvSize };
 
             D3D12_DEPTH_STENCIL_VIEW_DESC dsvViewDesc = { };
@@ -94,12 +88,11 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
 
     // 定数バッファ
     {
-        cascadeCBRes_ = PipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(CascadeDataLayout)));
+        cascadeCBRes_ = pipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(CascadeDataLayout)));
         cascadeCBRes_->Map(0, nullptr, reinterpret_cast<void**>(&cascadeCBData_));
 
         cascadeCBData_->numCascades = float(kNumCascades);
-        for (uint32_t i = 0; i < kNumCascades; ++i)
-        {
+        for (uint32_t i = 0; i < kNumCascades; ++i) {
             cascadeCBData_->splitDist[i] = cascadeConfigs_[i].splitDist;
             cascadeCBData_->cascadeVP[i] = MakeIdentity4x4();
         }
@@ -107,15 +100,14 @@ void CascadedShadowMap::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
 
     // ダミー定数バッファ (256 bytes 以上)
     {
-        dummyCBRes_ = PipelineHelper::CreateUploadBuffer(device, kConstantBufferAlignment);
+        dummyCBRes_ = pipelineHelper::CreateUploadBuffer(device, kConstantBufferAlignment);
     }
 }
 
 // ComputeCascadeVP
 
 /** @brief 指定カスケードのライトのビュー射影行列を求める（作れなければ単位行列） */
-Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t cascadeIdx)
-{
+Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t cascadeIdx) {
     const CascadeConfig& cfg = cascadeConfigs_[cascadeIdx];
 
     // 通常の影と同じ設定から投影中心とライト位置を求める
@@ -123,8 +115,7 @@ Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t 
     const Vector3 eye = ShadowManager::LightPosition(lightDir);
 
     Matrix4x4 view {};
-    if (!TryMakeLightViewMatrix(eye, center, view))
-    {
+    if (!TryMakeLightViewMatrix(eye, center, view)) {
         return MakeIdentity4x4();
     }
     const Matrix4x4 proj = MakeCenteredOrthographicMatrix(cfg.orthoWidth, cfg.orthoHeight, cfg.nearZ, cfg.farZ);
@@ -133,10 +124,8 @@ Matrix4x4 CascadedShadowMap::ComputeCascadeVP(const Vector3& lightDir, uint32_t 
 }
 
 /** @brief 各カスケードの固定フラスタムパラメータからライト視点の VP 行列を再計算する */
-void CascadedShadowMap::Update(const Vector3& lightDir)
-{
-    for (uint32_t i = 0; i < kNumCascades; ++i)
-    {
+void CascadedShadowMap::Update(const Vector3& lightDir) {
+    for (uint32_t i = 0; i < kNumCascades; ++i) {
         cascadeVP_[i] = ComputeCascadeVP(lightDir, i);
         cascadeCBData_->cascadeVP[i] = cascadeVP_[i];
     }
@@ -145,15 +134,13 @@ void CascadedShadowMap::Update(const Vector3& lightDir)
 // BeginCascade / EndCascade
 
 /** @brief 指定カスケードの DSV を深度書き込み用にセットし、クリアしてビューポートを設定する */
-void CascadedShadowMap::BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t cascadeIdx)
-{
+void CascadedShadowMap::BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t cascadeIdx) {
     ENGINE_ASSERT(cascadeIdx < kNumCascades);
 
     // サブリソース = 配列スライス (mip0, arraySlice=cascadeIdx)
     UINT subresource = cascadeIdx; // D3D12CalcSubresource(0, cascadeIdx, 0, 1, kNumCascades)
 
-    if (!cascadeInDepthWrite_[cascadeIdx])
-    {
+    if (!cascadeInDepthWrite_[cascadeIdx]) {
         D3D12_RESOURCE_BARRIER b = { };
         b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         b.Transition.pResource = shadowTex_.Get();
@@ -169,17 +156,14 @@ void CascadedShadowMap::BeginCascade(ID3D12GraphicsCommandList* cmd, uint32_t ca
 
     D3D12_VIEWPORT vp = { 0, 0, float(kShadowMapSize), float(kShadowMapSize), 0.0f, 1.0f };
     D3D12_RECT scissor = { 0, 0, static_cast<LONG>(kShadowMapSize), static_cast<LONG>(kShadowMapSize) };
-    PipelineHelper::SetViewportAndScissor(cmd, vp, scissor);
+    pipelineHelper::SetViewportAndScissor(cmd, vp, scissor);
 }
 
 /** @brief BeginCascade で書き込み状態にした全カスケードを PIXEL_SHADER_RESOURCE 状態へ遷移する */
-void CascadedShadowMap::EndCascade(ID3D12GraphicsCommandList* cmd)
-{
+void CascadedShadowMap::EndCascade(ID3D12GraphicsCommandList* cmd) {
     // すべてのカスケードを SRV 状態に遷移（BeginCascade をすべて終えてから呼ぶ）
-    for (uint32_t i = 0; i < kNumCascades; ++i)
-    {
-        if (!cascadeInDepthWrite_[i])
-        {
+    for (uint32_t i = 0; i < kNumCascades; ++i) {
+        if (!cascadeInDepthWrite_[i]) {
             continue;
         }
 
@@ -197,14 +181,12 @@ void CascadedShadowMap::EndCascade(ID3D12GraphicsCommandList* cmd)
 // SetShadowMapSRV / SetCascadeDataCBV
 
 /** @brief シャドウマップ（Texture2DArray）の SRV を影用のルートスロットへバインドする */
-void CascadedShadowMap::SetShadowMapSRV(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager)
-{
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kShadow, srvManager->GetGPUDescriptorHandle(shadowSrvIndex_));
+void CascadedShadowMap::SetShadowMapSRV(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager) {
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::modelRootSlot::kShadow, srvManager->GetGPUDescriptorHandle(shadowSrvIndex_));
 }
 
 /** @brief カスケードVP行列・スプリット距離を格納した定数バッファを指定スロットへバインドする */
-void CascadedShadowMap::SetCascadeDataCBV(ID3D12GraphicsCommandList* cmd, uint32_t slot)
-{
+void CascadedShadowMap::SetCascadeDataCBV(ID3D12GraphicsCommandList* cmd, uint32_t slot) {
     cmd->SetGraphicsRootConstantBufferView(slot, cascadeCBRes_->GetGPUVirtualAddress());
 }
 

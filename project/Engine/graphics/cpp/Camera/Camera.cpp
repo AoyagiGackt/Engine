@@ -19,8 +19,7 @@ constexpr float kDefaultFarClip = 100.0f;
 }
 
 /** @brief カメラを既定の位置と画角で初期化する */
-Camera::Camera()
-{
+Camera::Camera() {
     transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, kDefaultCameraZ } };
     fovY_ = kDefaultFovY;
     aspectRatio_ = (float)WinApp::kClientWidth / (float)WinApp::kClientHeight;
@@ -31,8 +30,7 @@ Camera::Camera()
 }
 
 /** @brief ビュー行列とプロジェクション行列を再計算する */
-void Camera::RecalcMatrices() const
-{
+void Camera::RecalcMatrices() const {
     Matrix4x4 cameraWorldMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, transform_.rotate, transform_.translate);
     viewMatrix_ = Inverse(cameraWorldMatrix);
     projectionMatrix_ = MakePerspectiveFovMatrix(fovY_, aspectRatio_, nearClip_, farClip_);

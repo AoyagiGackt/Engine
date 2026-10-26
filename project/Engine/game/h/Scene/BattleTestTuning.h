@@ -82,7 +82,7 @@ struct BattleTestTuning {
     float rampageRushHalfHeight = 1.5f; ///< 乱舞ラッシュの判定半径（縦）
 };
 
-namespace battle_test_tuning_detail {
+namespace battleTestTuningDetail {
     inline constexpr const char* kPath = "Resources/Config/battle_test.json";
 
     inline constexpr JsonField<BattleTestTuning> kBattleTestFields[] = {
@@ -148,24 +148,21 @@ namespace battle_test_tuning_detail {
     };
 
     /** @brief JSONファイルからグラフを読み込む（読み込み失敗時は空のGraphDescを返す） */
-    inline BattleTestTuning Load()
-    {
+    inline BattleTestTuning Load() {
         BattleTestTuning tuning;
         const nlohmann::json root = engine::JsonHelper::Load(kPath);
-        if (!root.is_object())
-        {
+        if (!root.is_object()) {
             engine::Logger::LogWarning(std::string("BattleTestTuning: ") + kPath + " が読めません。既定値で動きます");
             return tuning;
         }
         ReadJsonFields(root, kBattleTestFields, tuning);
         return tuning;
     }
-} // namespace battle_test_tuning_detail
+} // namespace battleTestTuningDetail
 
 /** @brief 読み込み済みのバトルテスト調整値（初回にJSONを読む） */
-inline const BattleTestTuning& BattleTestTune()
-{
-    static const BattleTestTuning tuning = battle_test_tuning_detail::Load();
+inline const BattleTestTuning& BattleTestTune() {
+    static const BattleTestTuning tuning = battleTestTuningDetail::Load();
     return tuning;
 }
 

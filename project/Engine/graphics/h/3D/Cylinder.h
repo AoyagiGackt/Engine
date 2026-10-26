@@ -19,22 +19,19 @@ public:
         materialData_->color = color;
     }
     /** @brief 上面の半径を設定する（頂点を作り直す） */
-    void SetTopRadius(float r)
-    {
+    void SetTopRadius(float r) {
         topRadius_ = r;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
     }
     /** @brief 底面の半径を設定する（頂点を作り直す） */
-    void SetBottomRadius(float r)
-    {
+    void SetBottomRadius(float r) {
         bottomRadius_ = r;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
     }
     /** @brief 高さを設定する（頂点を作り直す） */
-    void SetHeight(float h)
-    {
+    void SetHeight(float h) {
         height_ = h;
         // 形状変更を反映して頂点データを再生成する
         RebuildVertices();
@@ -47,7 +44,7 @@ public:
 protected:
     /** @brief ワールド・ビュー・プロジェクション行列を設定する */
     void SetWVP(const Matrix4x4& wvp) override {
-        materialData_->WVP = wvp;
+        materialData_->wvp = wvp;
     }
 
 private:
@@ -59,10 +56,10 @@ private:
      * @brief Cylinder描画PS/VS用の定数バッファに1:1で対応するパラメータ構造体
      */
     struct MaterialCB {
-        Matrix4x4 WVP;
+        Matrix4x4 wvp;
         Vector4 color;
         float alphaReference;
-        float _pad[3];
+        float pad[3];
     };
 
     MaterialCB* materialData_ = nullptr;

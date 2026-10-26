@@ -54,8 +54,7 @@ constexpr Vector2 kControlsAnchor = { 800.0f, 12.0f };
 }
 
 /** @brief トレーニング用HUDのスプライトを用意する */
-void TrainingHud::Initialize(const HudServices& services)
-{
+void TrainingHud::Initialize(const HudServices& services) {
     weapons_ = &services.weapons;
     auto create = [&](Vector2 position, Vector2 size, const Vector4& color) {
         auto sprite = std::make_unique<engine::graphics::Sprite>();
@@ -72,8 +71,7 @@ void TrainingHud::Initialize(const HudServices& services)
     controlsPanel_ = create(kControlsPanelPosition, kControlsPanelSize, kPanelBackgroundColor);
 }
 /** @brief トレーニング用HUDの表示を更新する */
-void TrainingHud::Update(const HudFrame&)
-{
+void TrainingHud::Update(const HudFrame&) {
     // 位置はエディタで動かされても止まった画面に反映できるよう、毎フレームUILayoutから読む
     UILayout& layout = UILayout::Get(kLayoutName);
     weaponAnchor_ = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
@@ -102,12 +100,11 @@ void TrainingHud::Update(const HudFrame&)
     accent_->Update();
 }
 /** @brief トレーニング用HUDの文字を描画予約する */
-void TrainingHud::QueueText(FontRenderer& font) const
-{
+void TrainingHud::QueueText(FontRenderer& font) const {
     UILayout& layout = UILayout::Get(kLayoutName);
     const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
     const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
-    const float y = SceneShared::DrawWeaponListHud(font, weapons_, L"トレーニングルーム", weaponAnchor_);
+    const float y = sceneShared::DrawWeaponListHud(font, weapons_, L"トレーニングルーム", weaponAnchor_);
     const Input* input = Input::GetCurrent();
     auto prompt = [&](const wchar_t* text) {
         return input ? input->ExpandPrompts(text) : std::wstring(text);
@@ -118,7 +115,7 @@ void TrainingHud::QueueText(FontRenderer& font) const
     };
     hint(prompt(L"{Attack}：コンボ　{Down}+{Attack}：打ち上げ　空中{Attack}：追撃"), y);
     hint(prompt(L"{Dodge}：回避　{Skill}：武器固有技"), y + kHintLineHeight);
-    SceneShared::DrawControlsHud(font, controlsAnchor_, L": バトルテストへ移動");
+    sceneShared::DrawControlsHud(font, controlsAnchor_, L": バトルテストへ移動");
 
     const Vector2 stageSelect = { navigationPosition_.x + kStageSelectTextOffset.x, navigationPosition_.y + kStageSelectTextOffset.y };
     const float stageSelectScale = layout.Float("navigation.stage_select_scale", kStageSelectTextScale);
@@ -131,8 +128,7 @@ void TrainingHud::QueueText(FontRenderer& font) const
         layout.Float("navigation.title_scale", kTitleTextScale), layout.Color("navigation.title_color", kTitleTextColor));
 }
 /** @brief トレーニング用HUDを描画する */
-void TrainingHud::Draw()
-{
+void TrainingHud::Draw() {
     weaponPanel_->Draw();
     controlsPanel_->Draw();
     navigation_->Draw();

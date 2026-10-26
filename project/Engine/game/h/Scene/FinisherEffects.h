@@ -13,7 +13,7 @@ class GlassShatterEffect;
 class SpaceDistortionEffect;
 }
 
-namespace engine::game::FinisherEffects {
+namespace engine::game::finisherEffects {
 
 /** @brief 斬り刻みで出した斬撃線1本の位置と向き（演出をそろえて出すのに使う） */
 struct BeatSlash {

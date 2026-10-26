@@ -17,32 +17,31 @@ namespace engine::game {
 class RunData {
 public:
     /** @brief RunData の唯一のインスタンスを取得する */
-    static RunData* GetInstance()
-    {
-        static RunData inst;
-        return &inst;
+    static RunData* GetInstance() {
+        static RunData sInst;
+        return &sInst;
     }
 
     /** @brief プレイヤーが習得可能なスキルの種類 */
     enum class Skill {
-        BlinkPlus, ///< ブリンク距離 x1.5
-        ComboExtend, ///< コンボ最大数 +1
-        FastFire, ///< 連射速度 2倍
-        AwakenBoost, ///< 覚醒ゲージ蓄積 x1.5
-        SpeedUp, ///< 移動速度 x1.2
-        HighJump, ///< ジャンプ力 x1.25
-        JuggleExtend, ///< 乱舞スラッシュ +4
-        StylePersist, ///< スタイルメーター減少 x0.6
+        kBlinkPlus, ///< ブリンク距離 x1.5
+        kComboExtend, ///< コンボ最大数 +1
+        kFastFire, ///< 連射速度 2倍
+        kAwakenBoost, ///< 覚醒ゲージ蓄積 x1.5
+        kSpeedUp, ///< 移動速度 x1.2
+        kHighJump, ///< ジャンプ力 x1.25
+        kJuggleExtend, ///< 乱舞スラッシュ +4
+        kStylePersist, ///< スタイルメーター減少 x0.6
         kCount
     };
     static constexpr int kSkillCount = static_cast<int>(Skill::kCount);
 
     /** @brief マップ上のノードの種類 */
-    enum class NodeType { Combat,
-        Elite,
-        Shop,
-        Rest,
-        Boss };
+    enum class NodeType { kCombat,
+        kElite,
+        kShop,
+        kRest,
+        kBoss };
 
     /** @brief ラン進行中かどうか */
     bool IsRunActive() const {
@@ -74,29 +73,50 @@ public:
         return floor_;
     }
 
+    /** @brief 今遊んでいる（これから遊ぶ）ステージの番号。クリア済みのステージを遊び直す時は GetFloor より小さい */
+    int GetPlayFloor() const {
+        return playFloor_;
+    }
+
+    /** @brief ステージから戻る時に入口から出る印を立てる */
+    void MarkPortalReturnPending() {
+        portalReturnPending_ = true;
+    }
+    /** @brief 入口から出る印を消費する */
+    bool ConsumePortalReturnPending() {
+        const bool pending = portalReturnPending_;
+        portalReturnPending_ = false;
+        return pending;
+    }
+    /** @brief マップで入ったステージの番号を覚える（進行度の GetFloor は変えない） */
+    void SetPlayFloor(int floor) {
+        playFloor_ = floor;
+    }
+
+    /** @brief クリア済みのステージを遊び直しているか（クリアしても進行度は進めない） */
+    bool IsReplayingClearedStage() const {
+        return playFloor_ < floor_;
+    }
+
     /** @brief 現在選択されているノード種別 */
     NodeType GetCurrentNode() const {
         return currentNode_;
     }
 
     /** @brief セーブ用に習得済みスキルの独立したコピーを取得する */
-    std::vector<Skill> GetSkillSnapshot() const
-    {
+    std::vector<Skill> GetSkillSnapshot() const {
         return skills_;
     }
 
     /** @brief 習得済みスキル数を取得する */
-    size_t GetSkillCount() const
-    {
+    size_t GetSkillCount() const {
         return skills_.size();
     }
 
     /** @brief 習得順に各スキルを渡す。処理中は習得状態を変更しない */
     template<class Visitor>
-    void VisitSkills(const Visitor& visitor) const
-    {
-        for (Skill skill : skills_)
-        {
+    void VisitSkills(const Visitor& visitor) const {
+        for (Skill skill : skills_) {
             visitor(skill);
         }
     }
@@ -106,25 +126,30 @@ public:
         currentNode_ = node;
     }
 
-    /** @brief フロアを1つ進める */
+    /** @brief フロアを1つ進める（次にマップを開いた時に、クリアしたステージの解放演出を見せる） */
     void AdvanceFloor() {
         ++floor_;
+        liberationPending_ = true;
+    }
+
+    /** @brief クリアしたステージの解放演出をまだ見せていなければ true を返し、見せた扱いにする */
+    bool ConsumeLiberationPending() {
+        const bool pending = liberationPending_;
+        liberationPending_ = false;
+        return pending;
     }
 
     /**
      * @brief ボスから奪った技を習得済みにする（game_rules.jsonのbossTechnique名）
      * @note ボスの武器奪取と同時に呼ばれる。以降、該当する固有技が強化版になる
      */
-    void AddBossTechnique(const std::string& name)
-    {
-        if (!name.empty() && !HasBossTechnique(name))
-        {
+    void AddBossTechnique(const std::string& name) {
+        if (!name.empty() && !HasBossTechnique(name)) {
             bossTechniques_.push_back(name);
         }
     }
     /** @brief ボス技を習得済みか */
-    bool HasBossTechnique(const std::string& name) const
-    {
+    bool HasBossTechnique(const std::string& name) const {
         return std::find(bossTechniques_.begin(), bossTechniques_.end(), name) != bossTechniques_.end();
     }
 
@@ -159,12 +184,9 @@ public:
      * @param s チェックするスキル
      * @return 習得済みなら true
      */
-    bool HasSkill(Skill s) const
-    {
-        for (auto sk : skills_)
-        {
-            if (sk == s)
-            {
+    bool HasSkill(Skill s) const {
+        for (auto sk : skills_) {
+            if (sk == s) {
                 return true;
             }
         }
@@ -182,16 +204,18 @@ public:
     /**
      * @brief 新しいランを開始し、全データを初期状態にリセットする
      */
-    void StartNewRun()
-    {
+    void StartNewRun() {
         isRunActive_ = true;
         hp_ = maxHp_ = GameRules::GetInstance()->Get().playerMaxHp;
         gold_ = 0;
         score_ = 0;
         floor_ = 0;
+        playFloor_ = 0;
+        portalReturnPending_ = false;
+        liberationPending_ = false;
         skills_.clear();
         bossTechniques_.clear();
-        currentNode_ = NodeType::Combat;
+        currentNode_ = NodeType::kCombat;
     }
 
     /** @brief ランを終了扱いにする（素材の事前記録で一時的に開始したランを、タイトル前の状態へ戻すため） */
@@ -203,14 +227,16 @@ public:
      * @brief セーブデータからラン状態を復元する
      * @note SaveDataManager::LoadContinue から呼び出される
      */
-    void RestoreFromSave(int hp, int maxHp, int gold, int score, int floor, NodeType node, const std::vector<Skill>& skills)
-    {
+    void RestoreFromSave(int hp, int maxHp, int gold, int score, int floor, NodeType node, const std::vector<Skill>& skills) {
         isRunActive_ = true;
         hp_ = hp;
         maxHp_ = maxHp;
         gold_ = gold;
         score_ = score;
         floor_ = floor;
+        playFloor_ = floor;
+        portalReturnPending_ = false;
+        liberationPending_ = false;
         currentNode_ = node;
         skills_ = skills;
     }
@@ -227,8 +253,7 @@ public:
      * @param s 文字列を取得したいスキル
      * @return 範囲外のスキルには不明表示を返す
      */
-    static const SkillText& GetSkillText(Skill s)
-    {
+    static const SkillText& GetSkillText(Skill s) {
         // Skill の並び順と一致させる
         static constexpr SkillText kTexts[kSkillCount] = {
             { "BLINK+    dist x1.5", L"ブリンク強化", L"ブリンク距離が 1.5倍になる" },
@@ -259,8 +284,7 @@ public:
      * @param peak スタイルゲージのピーク値（0.0〜1.0）
      * @return ランク文字列（"SSS" 〜 "D"）
      */
-    static const char* CalcRank(float peak)
-    {
+    static const char* CalcRank(float peak) {
         return FindRankReward(peak).rank;
     }
 
@@ -269,8 +293,7 @@ public:
      * @param peak スタイルゲージのピーク値（0.0〜1.0）
      * @return 獲得ゴールド量
      */
-    static int CalcGold(float peak)
-    {
+    static int CalcGold(float peak) {
         return FindRankReward(peak).gold;
     }
 
@@ -291,12 +314,9 @@ private:
         { 0.0f, "D", 5 },
     };
     /** @brief スタイルの最高値に対応するランクの報酬を返す */
-    static const RankReward& FindRankReward(float peak)
-    {
-        for (const RankReward& reward : kRankRewards)
-        {
-            if (peak >= reward.minPeak)
-            {
+    static const RankReward& FindRankReward(float peak) {
+        for (const RankReward& reward : kRankRewards) {
+            if (peak >= reward.minPeak) {
                 return reward;
             }
         }
@@ -312,7 +332,10 @@ private:
     int gold_ = 0; ///< 所持ゴールド
     int score_ = 0; ///< このランのスコア（フロアクリア時のランクに応じて加算）
     int floor_ = 0; ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
-    NodeType currentNode_ = NodeType::Combat; ///< 現在選択されているノード種別
+    int playFloor_ = 0; ///< 今遊んでいるステージ（クリア済みを遊び直す時は floor_ より小さい）
+    bool portalReturnPending_ = false; ///< 入口から戻る演出の印
+    bool liberationPending_ = false; ///< クリアしたステージの解放演出をマップでまだ見せていないか
+    NodeType currentNode_ = NodeType::kCombat; ///< 現在選択されているノード種別
 
     /** @brief 習得済みスキルのリスト */
     std::vector<Skill> skills_;

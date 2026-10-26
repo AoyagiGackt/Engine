@@ -57,6 +57,10 @@ namespace {
         { nullptr, "weaponType", &ObjectDesc::weaponType },
         { nullptr, "isStageBoss", &ObjectDesc::isStageBoss },
         { nullptr, "enemyModel", &ObjectDesc::enemyModel },
+        { nullptr, "enemyType", &ObjectDesc::enemyType },
+        { nullptr, "enemyHpScale", &ObjectDesc::enemyHpScale },
+        { nullptr, "enemyDamageScale", &ObjectDesc::enemyDamageScale },
+        { nullptr, "enemySpeedScale", &ObjectDesc::enemySpeedScale },
         { nullptr, "pickupRadius", &ObjectDesc::pickupRadius },
         { nullptr, "pickupGaugeAmount", &ObjectDesc::pickupGaugeAmount },
         { nullptr, "pickupColor", &ObjectDesc::pickupColor },
@@ -104,15 +108,12 @@ namespace {
 
     /** @brief JSON配列の各要素を対応表で読み、読んだ後に extra で個別の項目を足す */
     template <class Desc, size_t N, class Extra>
-    std::vector<Desc> ReadList(const nlohmann::json& list, const JsonField<Desc> (&fields)[N], const Extra& extra)
-    {
+    std::vector<Desc> ReadList(const nlohmann::json& list, const JsonField<Desc> (&fields)[N], const Extra& extra) {
         std::vector<Desc> result;
-        if (!list.is_array())
-        {
+        if (!list.is_array()) {
             return result;
         }
-        for (const nlohmann::json& item : list)
-        {
+        for (const nlohmann::json& item : list) {
             Desc desc;
             ReadJsonFields(item, fields, desc);
             extra(item, desc);
@@ -123,11 +124,9 @@ namespace {
 
     /** @brief 一覧の各要素を対応表で書き出し、extra で個別の項目を足したJSON配列を返す */
     template <class Desc, size_t N, class Extra>
-    nlohmann::json WriteList(const std::vector<Desc>& list, const JsonField<Desc> (&fields)[N], const Extra& extra)
-    {
+    nlohmann::json WriteList(const std::vector<Desc>& list, const JsonField<Desc> (&fields)[N], const Extra& extra) {
         nlohmann::json result = nlohmann::json::array();
-        for (const Desc& desc : list)
-        {
+        for (const Desc& desc : list) {
             nlohmann::json item = nlohmann::json::object();
             WriteJsonFields(item, fields, desc);
             extra(item, desc);
@@ -138,24 +137,21 @@ namespace {
 
     /** @brief 追加で読み書きする項目が無い時に使う何もしない処理 */
     template <class Item, class Desc>
-    void NoExtra(const Item&, const Desc&)
-    {
+    void NoExtra(const Item&, const Desc&) {
     }
 
 
 }
 
 /** @brief レベルファイルを読み込む（項目が無いものは既定値のまま） */
-LevelData LevelLoader::Load(const std::string& path)
-{
+LevelData levelLoader::Load(const std::string& path) {
     auto j = JsonHelper::Load(path);
     LevelData data;
 
     // ファイルが存在しない/壊れている場合、JsonHelper::Load()はnull型のjsonを返す
     // （空オブジェクト{}ではない）。.value()/operator[]はobject型以外に呼ぶとtype_errorを投げるため、
     // ここで空のLevelDataとして扱う（新規レベルを起動時に自動作成するようなシーンで必須のガード）
-    if (!j.is_object())
-    {
+    if (!j.is_object()) {
         return data;
     }
 
@@ -179,8 +175,7 @@ LevelData LevelLoader::Load(const std::string& path)
 }
 
 /** @brief レベルデータをファイルへ保存する */
-void LevelLoader::Save(const std::string& path, const LevelData& data)
-{
+void levelLoader::Save(const std::string& path, const LevelData& data) {
     nlohmann::json j = nlohmann::json::object();
     WriteJsonFields(j, kLevelFields, data);
     j["objects"] = WriteList(data.objects, kObjectFields, [](nlohmann::json& item, const ObjectDesc& desc) {
@@ -198,9 +193,8 @@ void LevelLoader::Save(const std::string& path, const LevelData& data)
 }
 
 /** @brief 配置情報の回転・拡縮・ライティングで、見た目のオブジェクトを1つ作る */
-std::unique_ptr<Object3d> LevelLoader::CreatePlacedObject(ModelCommon* modelCommon, Model* model,
-    const ObjectDesc& desc, const Vector3& position)
-{
+std::unique_ptr<Object3d> levelLoader::CreatePlacedObject(ModelCommon* modelCommon, Model* model,
+    const ObjectDesc& desc, const Vector3& position) {
     auto obj = std::make_unique<Object3d>();
     obj->Initialize(modelCommon);
     obj->SetModel(model);
@@ -213,18 +207,15 @@ std::unique_ptr<Object3d> LevelLoader::CreatePlacedObject(ModelCommon* modelComm
 }
 
 /** @brief レベルデータから配置物の実体を生成する */
-LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCommon)
-{
+LevelSpawnResult levelLoader::Spawn(const LevelData& data, ModelCommon* modelCommon) {
     // 同じモデルとテクスチャの組は1回だけ読み込んで使い回す
     LevelSpawnResult result;
     std::unordered_map<std::string, Model*> modelCache;
 
     // 親チェーンをたどってワールド位置を求める（エディタと同じく親のZ回転も反映し、循環参照は深さ上限で打ち切る）
     std::unordered_map<std::string, const ObjectDesc*> byName;
-    for (const auto& desc : data.objects)
-    {
-        if (!desc.name.empty())
-        {
+    for (const auto& desc : data.objects) {
+        if (!desc.name.empty()) {
             byName[desc.name] = &desc;
         }
     }
@@ -240,8 +231,7 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
     auto getModel = [&](const std::string& modelPath, const std::string& texPath) -> Model* {
         std::string key = modelPath + '|' + texPath;
         auto it = modelCache.find(key);
-        if (it != modelCache.end())
-        {
+        if (it != modelCache.end()) {
             return it->second;
         }
 
@@ -258,11 +248,9 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
         result.objects.push_back(CreatePlacedObject(modelCommon, model, desc, pos));
     };
 
-    for (const auto& desc : data.objects)
-    {
+    for (const auto& desc : data.objects) {
         // enemy系はStageEditor側が実体を生成する担当なので、この単純な見た目専用スポナーでは無視する
-        if (!desc.enabled || !ObjectKind::Of(desc.kind).IsVisual() || desc.model.empty())
-        {
+        if (!desc.enabled || !ObjectKind::Of(desc.kind).IsVisual() || desc.model.empty()) {
             continue;
         }
         Model* model = getModel(desc.model, desc.texture);
@@ -270,8 +258,7 @@ LevelSpawnResult LevelLoader::Spawn(const LevelData& data, ModelCommon* modelCom
 
         // 1個置くか、axis方向へ count 個並べる
         const int copies = PlacementCopyCount(desc);
-        for (int i = 0; i < copies; ++i)
-        {
+        for (int i = 0; i < copies; ++i) {
             const Vector3 pos = PlacementInstancePosition(desc, basePos, i);
             spawnOne(model, desc, pos);
         }

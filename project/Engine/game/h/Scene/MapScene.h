@@ -6,6 +6,7 @@
 #include "Audio.h"
 #include "BaseScene.h"
 #include "Camera.h"
+#include "DebugButton.h"
 #include "DirectXCommon.h"
 #include "FontRenderer.h"
 #include "ImGuiManager.h"
@@ -19,6 +20,7 @@
 #include "ShadowManager.h"
 #include "Sprite.h"
 #include "SpriteCommon.h"
+#include "StageLiberation.h"
 #include <memory>
 #include <vector>
 namespace engine::game {
@@ -73,6 +75,17 @@ private:
     void InitializeStageObjects();
     /** @brief Initialize()の下請け フロア構成を組み、現在のフロアに応じた開始位置へプレイヤーを置く(クリア済みならCLEARへ遷移) */
     void InitializeFloorsAndStartPosition();
+    /** @brief Initialize()の下請け ステージをクリアして戻ってきた時だけ、クリアした入口の解放演出を始める */
+    void StartLiberationIfPending();
+    /** @brief クリアした入口の番号を渡して解放演出を始める（次の入口が無ければ光るだけ） */
+    void StartLiberation(int clearedIndex);
+
+    /** @brief Update()の下請け 入力でプレイヤーを動かし、通路の端で止めた位置を返す */
+    Vector3 MovePlayer();
+    /** @brief Update()の下請け 解放演出を進め、その間はプレイヤーをその場で待機させた位置を返す */
+    Vector3 HoldPlayerForLiberation();
+    /** @brief Update()の下請け 入口の位置・大きさ・色を更新する（選択中・クリア済み・まだ行けない入口、解放演出の光） */
+    void UpdatePortals(int curFloor);
 
     /** @brief Draw()の下請け 街並み・地面ブロックのシャドウマップパスを描画する */
     void DrawShadowPass();
@@ -84,6 +97,17 @@ private:
     void DrawHintPanel(const std::wstring& text, const Vector2& position, float scale);
     /** @brief 選択中ノードの説明パネル（右側）を描画する */
     void DrawSelectedNodeInfo(int curFloor, RunData::NodeType hoveredNode);
+
+    /** @brief 入口の出入りを始める */
+    void StartPortalMotion(int index, bool entering);
+    /** @brief 入口の出入りを入力なしで進める */
+    Vector3 UpdatePortalMotion();
+    enum class PortalMotion { kNone, kExiting, kEntering, kTransitioning };
+    PortalMotion portalMotion_ = PortalMotion::kNone;
+    int motionPortalIndex_ = -1;
+    float portalMotionTimer_ = 0.0f;
+    Vector3 portalMotionStart_ = {};
+    bool playerVisible_ = true;
 
     DirectXCommon* dxCommon_ = nullptr;
     Input* input_ = nullptr;
@@ -102,6 +126,8 @@ private:
     std::vector<std::unique_ptr<Object3d>> portalObjects_;
 
     FontRenderer fontRenderer_;
+    StageLiberation liberation_; ///< クリアして戻ってきた時の解放演出
+    DebugButton debugLiberationButton_; ///< 解放演出をすぐ見る確認用ボタン（game_rules.json の debugLiberationButton で出し入れ）
 
     // マップ定義  floors_[floor][col] = NodeType
     std::vector<std::vector<RunData::NodeType>> floors_;

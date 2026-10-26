@@ -49,12 +49,16 @@
 #include "SceneShared.h"
 #include "Skydome.h"
 #include "SpaceDistortionEffect.h"
+#include "ClearFinish.h"
+#include "DebugButton.h"
+#include "PlayerDefeat.h"
 #include "StageIntro.h"
+#include "ResultBackdrop.h"
 #include "StyleMeter.h"
 #include "TimeManager.h"
+#include "ComboMotionEditor.h"
 #include "PauseMenu.h"
 #include "UIMenu.h"
-#include "WaterPool.h"
 namespace engine::graphics {
 class GrayscaleEffect;
 class HsvFilter;
@@ -163,18 +167,24 @@ public:
      */
     void SyncCombatEnemies();
 
-    /** @brief ガラス割れ演出を手動テストとして開始する */
+    /** @brief クリアの決め演出を確認用に始める（剣か銃かはランダム。ランの結果やセーブには反映しない） */
     void TriggerGlassShatterTest();
+    /** @brief デバッグ用にその場でクリアする（進行度を進め、マップで解放演出を見せる） */
+    void TriggerDebugClear();
+    /** @brief ボスを倒さずにクリアの決め演出を始める（previewOnly なら進行とセーブに反映しない） */
+    void StartDebugClear(bool previewOnly);
 
     /**
      * @brief 追加ホットキーの案内文字列を返す
      * @return シーン調整パネルのホットキー文字列
      */
     const char* GetHotkeyOverlayExtra() const override {
-        return "F3: シーン調整パネル\nF6: コンボ演出の調整";
+        return "F3: シーン調整パネル\nF6: コンボ演出の調整\nF7: モーションエディタ";
     }
 
 private:
+    static constexpr const char* kSceneName = "GAMEPLAY"; ///< scene_flow.json のキー（SceneFactory の登録名と同じ）
+
     /** @brief シーンが所有するゲーム実体、描画資源、演出を責務順に初期化する */
     void InitializeCoreSystems();
     /** @brief InitializeCoreSystems()の下請け 描画基盤(Common類・シャドウ・カメラ)とスカイドームを初期化する */
@@ -182,7 +192,7 @@ private:
     /** @brief InitializeCoreSystems()の下請け レンダーテクスチャとクリア演出用オーバーレイスプライトを初期化する */
     void InitializeRenderTargetsAndOverlays();
     /** @brief InitializeCoreSystems()の下請け パーティクル・水面・武器スロットHUDを初期化する */
-    void InitializeParticlesWaterAndHud();
+    void InitializeParticlesAndHud();
     /** @brief InitializeCoreSystems()の下請け 残像用オブジェクト・シーンエディタ・画面演出エフェクトを初期化する */
     void InitializeGhostEditorAndEffects();
     // シャドウマップ描画パス
@@ -209,8 +219,6 @@ private:
     void ApplyWeaponAcquireResult(WeaponManager::AcquireResult result);
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
     void UpdateExplosiveBarrels();
-    /** @brief 現在のフロアが水面演出の対象か（game_rules.jsonのwaterFloor） */
-    bool IsWaterFloor() const;
     /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
     void DrawWeaponListPanel();
     /** @brief ボス・道中の武器敵の頭上HPバーの位置と色を更新する（BattleTestSceneのダミーHPバーと同じ体裁） */
@@ -249,6 +257,20 @@ private:
     void StartStageIntro();
     /** @brief 開始演出の間の1フレーム（操作・HUD・敵を止め、カメラだけ演出に合わせて動かす） */
     void UpdateStageIntro();
+    /** @brief プレイヤーのやられ演出を始める（ラン中にHPが尽きた時に1回） */
+    void StartPlayerDefeat();
+    /** @brief やられ演出の間の1フレーム（操作・HUD・敵を止め、カメラだけ演出に合わせて動かし、見せ終えたら選ばれた行き先（同じステージ／マップ）へ） */
+    void UpdatePlayerDefeat();
+    /** @brief 敵（ボスと道中の武器敵）の見た目の行列だけを今のカメラで計算し直す */
+    void RefreshEnemyVisualTransforms();
+    /** @brief 立っている敵（倒れた敵と消えた敵は除く）の位置を集める */
+    std::vector<Vector3> CollectStandingEnemyPositions() const;
+    /** @brief カメラに映っている、まだ倒れていない敵（ステージの主の敵と道中の敵）を集める（フィニッシャーの当たる相手） */
+    std::vector<EnemyEntity*> CollectOnScreenEnemies() const;
+    /** @brief クリアの決め演出を始める（ボスを倒した最後の一撃が銃なら弾痕、それ以外なら斬線） */
+    void StartClearFinish();
+    /** @brief クリアの結果画面（黒い背景に CLEAR!。withRunResult ならランク・獲得ゴールド・スコアも）を描く */
+    void DrawClearResultScreen(bool withRunResult);
     // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
     /** @brief Shift長押しで最寄りの敵をロックオンし、その方向へ向かせる（BattleTestSceneと同じ規約） */
@@ -325,6 +347,12 @@ private:
      * @param finisher      コンボの締めか
      * @param defaultFrames 段定義がない時のヒットストップフレーム数
      */
+    /**
+     * @brief 近接が当たった時の、武器ごとの演出と音（hit_effects.json の weapon_hit_<hitStyle>、締めは weapon_finisher_<hitStyle>）
+     * @param position 当たった敵の位置
+     * @param finisher 締めの一撃か
+     */
+    void EmitWeaponStyleHit(const Vector3& position, bool finisher);
     void RequestMeleeHitStopAndShake(const MeleeAttackDef* attack, bool finisher, int defaultFrames);
     /** @brief 叩きつけ系固有技が習得済みボス技で強化されているか */
     bool HasBossSlamTechnique() const;
@@ -409,8 +437,10 @@ private:
     // 敵撃破などのクリア条件判定
     void CheckClearCondition();
 
-    /** @brief ガラス割れ演出をサンドボックス扱いで再生すべきか（非ラン中、またはデバッグテスト再生中） */
-    bool IsGlassShatterFlow() const;
+    /** @brief ラン外（エディタのテストプレイなど）のクリアか（結果画面は CLEAR! だけにして、終わったらクリア画面へ） */
+    bool IsSandboxClear() const;
+    /** @brief ラン中のクリアの結果（ランク・ゴールド・スコア）を求め、apply なら進行とセーブにも反映する（確認用の再生は false） */
+    void RecordRunClear(bool apply);
 
     /** @brief Draw()の下請け クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す */
     bool DrawClearOverlayIfNeeded();
@@ -445,7 +475,7 @@ private:
     // ボス敵。実体はStageEditorの配置物(kind=="enemy_basic", isStageBoss=true)が所有し、
     // OnEditorLevelLoaded()でポインタだけを受け取る（非所有）
     EnemyEntity* enemy_ = nullptr;
-    WeaponType bossWeaponType_ = WeaponType::Sword; ///< ボスの配置物に設定された武器種別（撃破後にこれを奪う）
+    WeaponType bossWeaponType_ = WeaponType::kSword; ///< ボスの配置物に設定された武器種別（撃破後にこれを奪う）
     // ボス頭上のHPバー（BattleTestSceneのDummy::hpBarBg/Fgと同じ体裁、GamePlayScene初期化時に一度だけ生成）
     bool hudReady_ = false; ///< 通常HUDの位置と色を更新し終えたか（済むまで描画しない）
     std::unique_ptr<Sprite> bossHpBarBg_;
@@ -458,7 +488,7 @@ private:
     /** @brief 道中に配置された武器持ち敵1体分の状態（撃破後、Jキーで吸収して武器を奪取する） */
     struct WeaponEnemyEntry {
         EnemyEntity* enemy = nullptr; // 非所有。StageEditorの配置物が実体を所有する
-        WeaponType weaponType = WeaponType::Sword;
+        WeaponType weaponType = WeaponType::kSword;
         bool hasWeapon = true; ///< falseなら武器を持たないモンスター（倒すと消えて覚醒ゲージになる）
         float vanishTimer = 0.0f; ///< モンスターが倒れてから消えるまでの残り秒数
         bool weaponAcquired = false; ///< 武器を奪い終えた（モンスターは消え終えた）
@@ -573,6 +603,9 @@ private:
     StyleMeter styleRankHud_;
     StageIntro stageIntro_; ///< ステージ開始演出（Resources/Config/stage_intro.json）
     bool stageIntroStarted_ = false; ///< エディタでレベルを読み直しても演出をやり直さないための印
+    PlayerDefeat playerDefeat_; ///< プレイヤーのやられ演出（Resources/Config/player_defeat.json）
+    DebugButton debugGameOverButton_; ///< やられ演出をすぐ見る確認用ボタン（game_rules.json の debugGameOverButton で出し入れ）
+    DebugButton debugClearButton_; ///< クリアの決め演出をすぐ見る確認用ボタン（game_rules.json の debugClearButton で出し入れ）
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;
     /** @brief 武器ごとの疲労（0〜1）。添字は近接武器のWeaponManager::GetList()順、末尾が銃 */
@@ -606,8 +639,7 @@ private:
     /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
 
-    bool showResult_ = false;
-    float resultTimer_ = 0.0f;
+    bool showResult_ = false; ///< フロアクリアの結果（ゴールド・スコア・セーブ）を反映し終えたか
     int lastGold_ = 0;
     int lastScore_ = 0; ///< 直近のフロアクリアで加算したスコア（結果表示用）
 
@@ -626,13 +658,15 @@ private:
     bool mainWeaponAbsorbing_ = false;
     float mainWeaponAbsorbTimer_ = 0.0f;
     bool requestClear_ = false;
-    bool glassShatterDebugTest_ = false;
+    bool glassShatterDebugTest_ = false; ///< 確認用の再生か（結果は見せるが、進行とセーブに反映しない）
+    bool bossFinishedByGun_ = false; ///< ボスを倒した最後の一撃が銃だったか（クリアの決め演出の見せ方を変える）
+    ClearFinish clearFinish_; ///< クリアの決め演出（Resources/Config/clear_finish.json）
 
-    std::unique_ptr<Sprite> clearBgSprite_;
-    std::unique_ptr<WaterPool> waterPool_;
+    ResultBackdrop resultBackdrop_; ///< クリアの結果画面の背景（ランクの色の帯・透かし・漂う破片）
 
     // 一時停止メニュー（Pauseキーで開閉、ゲームプレイ中限定。クリア演出中・武器交換中は開けない）
     PauseMenu pauseMenu_;
+    ComboMotionEditor motionEditor_; ///< F7 で開く、コンボの段ごとのモーションの調整（開いている間はゲームを止める）
 };
 
 } // namespace engine::game

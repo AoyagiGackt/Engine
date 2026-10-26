@@ -41,8 +41,7 @@ constexpr float kMinLife = 0.001f;
 using namespace Microsoft::WRL;
 
 /** @brief 刃の閃光の描画資源を用意する */
-void BladeFlashEffect::Initialize(DirectXCommon* dxCommon)
-{
+void BladeFlashEffect::Initialize(DirectXCommon* dxCommon) {
     ENGINE_ASSERT(dxCommon);
     dxCommon_ = dxCommon;
 
@@ -60,8 +59,7 @@ void BladeFlashEffect::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief 指定位置の周囲に刃を発生させる */
-void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, float minLen, float maxLen)
-{
+void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, float minLen, float maxLen) {
     // 大きさ・寿命・色の範囲は GraphicsTuning から読む
     const float depthSpread = GraphicsTuning::Float("bladeFlash.depthSpread", kDepthSpread);
     const float widthMin = GraphicsTuning::Float("bladeFlash.widthRatioMin", kWidthRatioMin);
@@ -85,10 +83,8 @@ void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, floa
     std::uniform_real_distribution<float> hueDist(0.0f, 1.0f);
 
     // 上限に達するまで、中心の周りのランダムな位置・向き・長さで刃を足す
-    for (int i = 0; i < count; ++i)
-    {
-        if (static_cast<int>(blades_.size()) >= kMaxBlades)
-        {
+    for (int i = 0; i < count; ++i) {
+        if (static_cast<int>(blades_.size()) >= kMaxBlades) {
             break;
         }
 
@@ -107,13 +103,10 @@ void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, floa
         b.drift = Vector3 { std::cos(b.angle), std::sin(b.angle), 0.0f } * driftDist(rng_);
 
         // 大半は氷青、たまに紫がかった刃を混ぜる
-        if (hueDist(rng_) < blueProbability)
-        {
+        if (hueDist(rng_) < blueProbability) {
             b.coreColor = blueCore;
             b.edgeColor = blueEdge;
-        }
-        else
-        {
+        } else {
             b.coreColor = purpleCore;
             b.edgeColor = purpleEdge;
         }
@@ -123,19 +116,16 @@ void BladeFlashEffect::Emit(const Vector3& center, int count, float radius, floa
 }
 
 /** @brief 寿命更新と頂点バッファの再構築毎フレーム呼ぶ */
-void BladeFlashEffect::Update(float dt, Camera* camera)
-{
+void BladeFlashEffect::Update(float dt, Camera* camera) {
     const float growthRate = GraphicsTuning::Float("bladeFlash.growthRate", kGrowthRate);
     const float fadeInRate = GraphicsTuning::Float("bladeFlash.fadeInRate", kFadeInRate);
     const float initialOpacity = GraphicsTuning::Float("bladeFlash.initialOpacity", kInitialOpacity, 0.0f, 1.0f);
-    if (camera != nullptr)
-    {
+    if (camera != nullptr) {
         sceneCBData_->viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
     }
 
     // 刃を流し、寿命を過ぎたものを消す
-    for (auto& b : blades_)
-    {
+    for (auto& b : blades_) {
         b.age += dt;
         b.pos = b.pos + b.drift * dt;
     }
@@ -148,8 +138,7 @@ void BladeFlashEffect::Update(float dt, Camera* camera)
 
     // 頂点バッファ再構築（中心が白熱し、先端・側面へ透ける菱形）
     vertexCount_ = 0;
-    for (const auto& b : blades_)
-    {
+    for (const auto& b : blades_) {
         const float t = b.age / b.life;
 
         // 出現直後に一気に伸び、余韻で消える
@@ -188,21 +177,18 @@ void BladeFlashEffect::Update(float dt, Camera* camera)
 }
 
 /** @brief 全刃の描画コマンドを積む3D描画パス内で呼ぶ */
-void BladeFlashEffect::Draw()
-{
-    if (vertexCount_ == 0)
-    {
+void BladeFlashEffect::Draw() {
+    if (vertexCount_ == 0) {
         return;
     }
 
-    PipelineHelper::DrawVertexColorEffect(dxCommon_->GetCommandList(), rootSignature_.Get(), pipelineState_.Get(),
+    pipelineHelper::DrawVertexColorEffect(dxCommon_->GetCommandList(), rootSignature_.Get(), pipelineState_.Get(),
         vbv_, sceneCB_->GetGPUVirtualAddress(), vertexCount_);
 }
 
 /** @brief 刃描画用のルートシグネチャ・PSOを生成する */
-void BladeFlashEffect::CreatePipeline()
-{
-    PipelineHelper::CreateVertexColorEffectPipeline(dxCommon_, rootSignature_, pipelineState_);
+void BladeFlashEffect::CreatePipeline() {
+    pipelineHelper::CreateVertexColorEffectPipeline(dxCommon_, rootSignature_, pipelineState_);
 }
 
 } // namespace engine::graphics

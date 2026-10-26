@@ -15,6 +15,7 @@
 #include "FontRenderer.h"
 #include <Fade.h>
 #include <memory>
+#include <cstdint>
 #include <string>
 namespace engine::game {
 using engine::Audio;
@@ -105,9 +106,21 @@ public:
      * @brief 現在のシーンがポストエフェクト（グレースケール等）のオフスクリーンRTVリダイレクトに対応しているか
      * @note 未対応シーン中は Game.cpp 側で BeginScene/EndScene/Apply を呼ばないようにするためのガード
      */
-    bool CurrentScenePostEffectsSupported() const
-    {
+    bool CurrentScenePostEffectsSupported() const {
         return currentScene_ && currentScene_->SupportsPostEffects();
+    }
+
+    /** @brief 今の画面の名前を返す（"TITLE" "MAP" "GAMEPLAY" など） */
+    const std::string& GetCurrentSceneName() const {
+        return currentSceneName_;
+    }
+    /** @brief 起動してから画面が切り替わった回数を返す（同じ名前の画面へ入り直したことも分かるように） */
+    uint32_t GetSceneSwitchCount() const {
+        return sceneSwitchCount_;
+    }
+    /** @brief 画面の切り替えの途中（フェードや読み込みの間）か */
+    bool IsChangingScene() const {
+        return transition_.IsChanging();
     }
 
 private:
@@ -147,6 +160,8 @@ private:
 
     /** @brief 次に読み込むシーン名 **/
     std::string nextSceneName_;
+    std::string currentSceneName_; ///< 今の画面の名前（GetCurrentSceneName 参照）
+    uint32_t sceneSwitchCount_ = 0; ///< 画面が切り替わった回数
     std::string debugStartScene_ = "TITLE";
 
 };

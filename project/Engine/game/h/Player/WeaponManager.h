@@ -16,9 +16,9 @@ public:
 
     /** @brief 武器入手をスロットへ反映した結果 */
     enum class AcquireResult {
-        Added,
-        Duplicate,
-        NeedsReplacement,
+        kAdded,
+        kDuplicate,
+        kNeedsReplacement,
     };
 
     /// @brief シングルトンインスタンスを取得する
@@ -76,13 +76,14 @@ public:
     void SelectSlot(int slot);
     /** @brief スロットに登録された武器インデックスを返す */
     int GetSlotWeaponIndex(int slot) const;
+    /** @brief その種類の武器をどれかのスロットに持っているか */
+    bool Owns(WeaponType type) const;
     /** @brief 現在選択しているスロット番号を返す */
     int GetSelectedSlot() const {
         return selectedSlot_;
     }
     /** @brief 武器を装備しているかを返す */
-    bool HasEquippedWeapon() const
-    {
+    bool HasEquippedWeapon() const {
         return selectedSlot_ >= 0 && selectedSlot_ < static_cast<int>(slots_.size())
             && slots_[selectedSlot_] >= 0;
     }

@@ -34,6 +34,15 @@ constexpr float kGoY = 300.0f;
 constexpr float kGoScale = 8.0f;
 constexpr Vector4 kGoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 constexpr float kGoHidden = -1.0f; // goTimer_ がこの値なら GO! の文字を出していない
+// 演出中に右下へ出すスキップの案内（右端からの余白と、画面下からの高さ）
+constexpr float kSkipHintRightMargin = 24.0f;
+constexpr float kSkipHintY = 650.0f;
+constexpr float kSkipHintScale = 1.2f;
+constexpr Vector4 kSkipHintColor = { 1.0f, 1.0f, 1.0f, 0.85f };
+constexpr Vector4 kSkipHintShadowColor = { 0.0f, 0.0f, 0.0f, 0.8f };
+constexpr float kSkipHintShadowOffset = 1.6f;
+constexpr const wchar_t* kSkipHintText = L"Enter: スキップ";
+constexpr const wchar_t* kSkipHintTextGamepad = L"A: スキップ";
 
 /** @brief 開始演出の調整値（stage_intro.json。初期値はJSONに項目が無い時の既定値） */
 struct IntroTuning {
@@ -105,18 +114,14 @@ struct IntroSequence {
 };
 
 /** @brief JSON配列から文字列の一覧を読む（無ければ fallback を返す） */
-std::vector<std::string> StringList(const nlohmann::json& root, const char* key, const std::vector<std::string>& fallback)
-{
+std::vector<std::string> StringList(const nlohmann::json& root, const char* key, const std::vector<std::string>& fallback) {
     const auto it = root.find(key);
-    if (it == root.end() || !it->is_array())
-    {
+    if (it == root.end() || !it->is_array()) {
         return fallback;
     }
     std::vector<std::string> values;
-    for (const auto& item : *it)
-    {
-        if (item.is_string())
-        {
+    for (const auto& item : *it) {
+        if (item.is_string()) {
             values.push_back(item.get<std::string>());
         }
     }
@@ -130,12 +135,10 @@ struct IntroConfig {
 };
 
 /** @brief stage_intro.json から開始演出の設定を読み込む */
-IntroConfig LoadConfig()
-{
+IntroConfig LoadConfig() {
     IntroConfig config;
     const nlohmann::json root = JsonHelper::Load(kConfigPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("StageIntro: ") + kConfigPath + " が読めません。既定値で動きます");
         return config;
     }
@@ -148,8 +151,7 @@ IntroConfig LoadConfig()
 }
 
 /** @brief 読み込み済みの設定（初回に読む。変更は次回起動時に反映） */
-const IntroConfig& Config()
-{
+const IntroConfig& Config() {
     static const IntroConfig config = LoadConfig();
     return config;
 }
@@ -159,30 +161,15 @@ const IntroTuning& Tune() {
     return Config().tuning;
 }
 
-/** @brief 経過秒を 0〜1 の進み具合にする（長さ0以下なら終わったものとして1） */
-float Progress(float elapsed, float duration)
-{
-    return duration > 0.0f ? std::clamp(elapsed / duration, 0.0f, 1.0f) : 1.0f;
-}
-
 /** @brief 2つのベクトルを要素ごとに割合 t で補間する */
-Vector3 LerpVector(const Vector3& a, const Vector3& b, float t)
-{
+Vector3 LerpVector(const Vector3& a, const Vector3& b, float t) {
     return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t };
 }
 
 /** @brief 見たことのあるステージ（アプリを起動している間だけ覚える） */
-std::set<std::string>& VisitedStages()
-{
-    static std::set<std::string> visited;
-    return visited;
-}
-
-/** @brief 文字列を画面中央に揃えて積む */
-void DrawCentered(FontRenderer& font, const std::wstring& text, float y, float scale, const Vector4& color)
-{
-    const Vector2 size = FontRenderer::MeasureStringW(text, scale);
-    font.DrawStringW(text, GameConstants::kScreenCenterX - size.x * 0.5f, y, scale, color);
+std::set<std::string>& VisitedStages() {
+    static std::set<std::string> sVisited;
+    return sVisited;
 }
 } // namespace
 
@@ -209,36 +196,31 @@ public:
 class StageIntro::SlashPhase final : public StageIntro::IPhase {
 public:
     /** @brief この状態へ入る際の初期設定を適用する */
-    void Enter(StageIntro& intro) const override
-    {
+    void Enter(StageIntro& intro) const override {
         intro.curtainOpen_ = 0.0f;
         intro.slashProgress_ = 0.0f;
         intro.slashAlpha_ = 1.0f;
         intro.slashFlashed_ = false;
     }
     /** @brief 画面を斬り開く演出を進める（終わったら true） */
-    bool Update(StageIntro& intro) const override
-    {
+    bool Update(StageIntro& intro) const override {
         const IntroTuning& tune = Tune();
         const float sinceClosed = intro.phaseTimer_ - tune.closedSeconds;
-        if (sinceClosed < 0.0f)
-        {
+        if (sinceClosed < 0.0f) {
             return false;
         }
-        intro.slashProgress_ = Easing::EaseOutCubic(Progress(sinceClosed, tune.slashSeconds));
+        intro.slashProgress_ = easing::EaseOutCubic(easing::Progress(sinceClosed, tune.slashSeconds));
         const float sinceSlash = sinceClosed - tune.slashSeconds;
-        if (sinceSlash < 0.0f)
-        {
+        if (sinceSlash < 0.0f) {
             return false;
         }
-        if (!intro.slashFlashed_)
-        {
+        if (!intro.slashFlashed_) {
             intro.slashFlashed_ = true;
             const HitEffectPlayer fx(intro.services_.particles, intro.services_.shaker, intro.services_.rng);
             fx.Flash(tune.slashFlash);
         }
-        const float open = Progress(sinceSlash, tune.openSeconds);
-        intro.curtainOpen_ = Easing::EaseOutCubic(open);
+        const float open = easing::Progress(sinceSlash, tune.openSeconds);
+        intro.curtainOpen_ = easing::EaseOutCubic(open);
         intro.slashAlpha_ = 1.0f - open;
         return open >= 1.0f;
     }
@@ -251,13 +233,12 @@ public:
 class StageIntro::OverviewPhase final : public StageIntro::IPhase {
 public:
     /** @brief 後ろの段階で決まる寄る先を使って、見渡すカメラの動きを決める */
-    void BeforeSequence(StageIntro& intro) const override
-    {
+    void BeforeSequence(StageIntro& intro) const override {
         // 準備は後ろの段階から行うので、ここでは寄る先（zoomInTarget_）が決まっている
         const IntroTuning& tune = Tune();
         const Setup& setup = intro.setup_;
-        const float fitHeight = setup.stageHeight / (GameConstants::kCameraHalfH * 2.0f);
-        const float fitWidth = (setup.stageRight - setup.stageLeft) / (GameConstants::kCameraHalfW * 2.0f);
+        const float fitHeight = setup.stageHeight / (gameConstants::kCameraHalfH * 2.0f);
+        const float fitWidth = (setup.stageRight - setup.stageLeft) / (gameConstants::kCameraHalfW * 2.0f);
         intro.overviewZoom_ = std::clamp((std::min)(fitHeight, fitWidth), 1.0f, (std::max)(tune.overviewMaxZoom, 1.0f));
         // 寄る先から遠い方の端から流し始める
         const float targetX = intro.zoomInTarget_.x;
@@ -268,18 +249,16 @@ public:
         intro.hasOverview_ = true;
     }
     /** @brief この状態へ入る際の初期設定を適用する */
-    void Enter(StageIntro& intro) const override
-    {
+    void Enter(StageIntro& intro) const override {
         intro.cameraFocus_ = intro.overviewFocus_;
         intro.cameraZoom_ = intro.overviewZoom_;
     }
     /** @brief ステージ全体を見渡すカメラの動きを進める（終わったら true） */
-    bool Update(StageIntro& intro) const override
-    {
+    bool Update(StageIntro& intro) const override {
         const IntroTuning& tune = Tune();
         const float sinceHold = intro.phaseTimer_ - tune.overviewHoldSeconds;
-        const float pan = Easing::EaseInOutSine(Progress(sinceHold, tune.overviewPanSeconds));
-        const float zoomIn = Easing::EaseInOutCubic(Progress(sinceHold - tune.overviewPanSeconds, tune.overviewZoomSeconds));
+        const float pan = easing::EaseInOutSine(easing::Progress(sinceHold, tune.overviewPanSeconds));
+        const float zoomIn = easing::EaseInOutCubic(easing::Progress(sinceHold - tune.overviewPanSeconds, tune.overviewZoomSeconds));
         const Vector3& from = intro.overviewFocus_;
         const Vector3& to = intro.zoomInTarget_;
         intro.cameraFocus_ = { from.x + (to.x - from.x) * pan, from.y + (to.y - from.y) * zoomIn, from.z };
@@ -292,56 +271,48 @@ public:
 class StageIntro::BossPhase final : public StageIntro::IPhase {
 public:
     /** @brief ボスがいれば、カメラの寄る先をボスにする */
-    void BeforeSequence(StageIntro& intro) const override
-    {
+    void BeforeSequence(StageIntro& intro) const override {
         // 幕が開いた時（見渡す段階があれば寄った先）にもうボスが映っているよう、ボスを向いておく
-        if (intro.setup_.hasBoss)
-        {
+        if (intro.setup_.hasBoss) {
             intro.zoomInTarget_ = intro.setup_.bossFocus;
         }
     }
     /** @brief この状態へ入る際の初期設定を適用する */
-    void Enter(StageIntro& intro) const override
-    {
+    void Enter(StageIntro& intro) const override {
         intro.textAlpha_ = 0.0f;
         intro.cameraZoom_ = 1.0f;
-        if (intro.setup_.hasBoss)
-        {
+        if (intro.setup_.hasBoss) {
             intro.cameraFocus_ = intro.setup_.bossFocus;
         }
     }
     /** @brief ボスと奪える武器の紹介を進める（終わったら true） */
-    bool Update(StageIntro& intro) const override
-    {
-        if (!intro.setup_.hasBoss)
-        {
+    bool Update(StageIntro& intro) const override {
+        if (!intro.setup_.hasBoss) {
             return true;
         }
         const IntroTuning& tune = Tune();
         const float t = intro.phaseTimer_;
         // 文字は出だしで浮かび上がり、カメラが戻り始めたら消えていく
-        const float fadeIn = Progress(t, tune.textFadeSeconds);
-        const float fadeOut = 1.0f - Progress(t - tune.bossHoldSeconds, tune.textFadeSeconds);
+        const float fadeIn = easing::Progress(t, tune.textFadeSeconds);
+        const float fadeOut = 1.0f - easing::Progress(t - tune.bossHoldSeconds, tune.textFadeSeconds);
         intro.textAlpha_ = (std::min)(fadeIn, fadeOut);
-        const float pan = Easing::EaseInOutSine(Progress(t - tune.bossHoldSeconds, tune.bossPanSeconds));
+        const float pan = easing::EaseInOutSine(easing::Progress(t - tune.bossHoldSeconds, tune.bossPanSeconds));
         intro.cameraFocus_ = LerpVector(intro.setup_.bossFocus, intro.setup_.landing, pan);
         return t >= tune.bossHoldSeconds + tune.bossPanSeconds;
     }
     /** @brief ボスの名前と奪える武器の文字を出す */
-    void QueueText(const StageIntro& intro, FontRenderer& font) const override
-    {
-        if (!intro.setup_.hasBoss || intro.textAlpha_ <= 0.0f)
-        {
+    void QueueText(const StageIntro& intro, FontRenderer& font) const override {
+        if (!intro.setup_.hasBoss || intro.textAlpha_ <= 0.0f) {
             return;
         }
         UILayout& layout = UILayout::Get(kLayoutName);
         Vector4 labelColor = layout.Color("intro.boss_label_color", kBossLabelColor);
         labelColor.w *= intro.textAlpha_;
-        DrawCentered(font, StringUtility::ConvertString(Tune().bossLabel), layout.Float("intro.boss_label_y", kBossLabelY),
+        font.DrawStringCenteredW(StringUtility::ConvertString(Tune().bossLabel), layout.Float("intro.boss_label_y", kBossLabelY),
             layout.Float("intro.boss_label_scale", kBossLabelScale), labelColor);
         Vector4 nameColor = intro.setup_.weaponColor;
         nameColor.w *= intro.textAlpha_;
-        DrawCentered(font, intro.setup_.weaponName, layout.Float("intro.weapon_name_y", kWeaponNameY),
+        font.DrawStringCenteredW(intro.setup_.weaponName, layout.Float("intro.weapon_name_y", kWeaponNameY),
             layout.Float("intro.weapon_name_scale", kWeaponNameScale), nameColor);
     }
 };
@@ -350,24 +321,21 @@ public:
 class StageIntro::DropPhase final : public StageIntro::IPhase {
 public:
     /** @brief 降下するまでプレイヤーを画面に映らない高さへ隠しておく */
-    void BeforeSequence(StageIntro& intro) const override
-    {
+    void BeforeSequence(StageIntro& intro) const override {
         // 降下するまではプレイヤーを、引いた画にも映らない高さへ隠しておく
         Vector3 hidden = intro.setup_.landing;
         hidden.y += Tune().hideHeight;
         intro.SetPlayerPosition(hidden);
     }
     /** @brief この状態へ入る際の初期設定を適用する */
-    void Enter(StageIntro& intro) const override
-    {
+    void Enter(StageIntro& intro) const override {
         intro.cameraFocus_ = intro.setup_.landing;
         intro.cameraZoom_ = 1.0f;
     }
     /** @brief プレイヤーの降下を進め、着地したら衝撃の演出を出す（終わったら true） */
-    bool Update(StageIntro& intro) const override
-    {
+    bool Update(StageIntro& intro) const override {
         const IntroTuning& tune = Tune();
-        const float fall = Easing::EaseInQuad(Progress(intro.phaseTimer_, tune.dropSeconds));
+        const float fall = easing::EaseInQuad(easing::Progress(intro.phaseTimer_, tune.dropSeconds));
         Vector3 position = intro.setup_.landing;
         position.y += tune.dropHeight * (1.0f - fall);
         intro.SetPlayerPosition(position);
@@ -379,8 +347,7 @@ public:
 class StageIntro::LandPhase final : public StageIntro::IPhase {
 public:
     /** @brief この状態へ入る際の初期設定を適用する */
-    void Enter(StageIntro& intro) const override
-    {
+    void Enter(StageIntro& intro) const override {
         const IntroTuning& tune = Tune();
         intro.SetPlayerPosition(intro.setup_.landing);
         intro.cameraFocus_ = intro.setup_.landing;
@@ -392,16 +359,14 @@ public:
         fx.Flash(tune.goFlash);
     }
     /** @brief GO! を出した時点で段階を終え、すぐ操作できるようにする（文字は StageIntro が演出の後も出し続ける） */
-    bool Update(StageIntro&) const override
-    {
+    bool Update(StageIntro&) const override {
         return true;
     }
 };
 
 namespace {
 /** @brief stage_intro.json の sequence に書く段階名と段階の対応 */
-const StageIntro::IPhase* PhaseNamed(const std::string& name)
-{
+const StageIntro::IPhase* PhaseNamed(const std::string& name) {
     static const StageIntro::SlashPhase slash;
     static const StageIntro::OverviewPhase overview;
     static const StageIntro::BossPhase boss;
@@ -419,10 +384,8 @@ const StageIntro::IPhase* PhaseNamed(const std::string& name)
         { "drop", &drop },
         { "land", &land },
     };
-    for (const NamedPhase& entry : kPhases)
-    {
-        if (name == entry.name)
-        {
+    for (const NamedPhase& entry : kPhases) {
+        if (name == entry.name) {
             return entry.phase;
         }
     }
@@ -440,8 +403,7 @@ StageIntro::StageIntro() = default;
 StageIntro::~StageIntro() = default;
 
 /** @brief 幕と斬線のスプライトを作る（シーンの Initialize で1回） */
-void StageIntro::Initialize(SpriteCommon* spriteCommon)
-{
+void StageIntro::Initialize(SpriteCommon* spriteCommon) {
     auto create = [spriteCommon] {
         auto sprite = std::make_unique<Sprite>();
         sprite->Initialize(spriteCommon, "Resources/white.png");
@@ -454,8 +416,7 @@ void StageIntro::Initialize(SpriteCommon* spriteCommon)
 }
 
 /** @brief 演出を最初から始める（このステージを見るのが2回目以降なら初回だけの段階を飛ばす） */
-void StageIntro::Start(const Setup& setup, const Services& services)
-{
+void StageIntro::Start(const Setup& setup, const Services& services) {
     // 設定を受け取り、組み立て直す段階の並びを空にする
     setup_ = setup;
     services_ = services;
@@ -463,14 +424,11 @@ void StageIntro::Start(const Setup& setup, const Services& services)
     // 2回目以降のステージでは、初回だけの段階を外す
     const bool firstVisit = VisitedStages().insert(setup.stageKey).second;
     const IntroSequence& sequence = Config().sequence;
-    for (const std::string& name : sequence.phases)
-    {
-        if (!firstVisit && sequence.firstVisitOnly.contains(name))
-        {
+    for (const std::string& name : sequence.phases) {
+        if (!firstVisit && sequence.firstVisitOnly.contains(name)) {
             continue;
         }
-        if (const IPhase* phase = PhaseNamed(name))
-        {
+        if (const IPhase* phase = PhaseNamed(name)) {
             phases_.push_back(phase);
         }
     }
@@ -488,18 +446,15 @@ void StageIntro::Start(const Setup& setup, const Services& services)
     zoomInTarget_ = setup.landing;
     hasOverview_ = false;
     playing_ = !phases_.empty();
-    if (!playing_)
-    {
+    if (!playing_) {
         return;
     }
     // 後ろの段階から準備する（前の段階が、後ろの段階の決めた位置へつなげられるように）
-    for (auto phase = phases_.rbegin(); phase != phases_.rend(); ++phase)
-    {
+    for (auto phase = phases_.rbegin(); phase != phases_.rend(); ++phase) {
         (*phase)->BeforeSequence(*this);
     }
     // 降ってくる時から、奪いに行くボスの方（いなければステージの奥＝右）を向かせておく
-    if (services_.player != nullptr)
-    {
+    if (services_.player != nullptr) {
         const Vector3 lookAt = setup.hasBoss ? setup.bossFocus : Vector3 { setup.stageRight, setup.landing.y, setup.landing.z };
         services_.player->FaceTarget(lookAt);
     }
@@ -512,38 +467,31 @@ void StageIntro::Start(const Setup& setup, const Services& services)
 }
 
 /** @brief 1フレーム進める（決定・攻撃ボタンで最後まで飛ばせる。演出の後も GO! の文字の時間は進める） */
-void StageIntro::Update(const Input* input)
-{
+void StageIntro::Update(const Input* input) {
     AdvanceGoText();
-    if (!playing_)
-    {
+    if (!playing_) {
         return;
     }
-    totalTimer_ += GameConstants::kFrameDeltaTime;
-    const bool skipPressed = input != nullptr
-        && (input->TriggerMenuConfirm() || input->TriggerAction(Input::Action::Attack) || input->TriggerAction(Input::Action::Jump));
-    if (skipPressed && totalTimer_ >= Tune().skipLockSeconds)
-    {
+    totalTimer_ += gameConstants::kFrameDeltaTime;
+    const bool skipPressed = input != nullptr && input->TriggerCinematicSkip();
+    if (skipPressed && totalTimer_ >= Tune().skipLockSeconds) {
         // 飛ばした時は GO! も出さずにそのまま始める
         Finish();
         goTimer_ = kGoHidden;
         return;
     }
-    phaseTimer_ += GameConstants::kFrameDeltaTime;
-    if (phases_[phaseIndex_]->Update(*this))
-    {
+    phaseTimer_ += gameConstants::kFrameDeltaTime;
+    if (phases_[phaseIndex_]->Update(*this)) {
         AdvancePhase();
     }
     UpdatePlayerPose();
 }
 
 /** @brief 段階を次へ進める（最後まで行ったら終える） */
-void StageIntro::AdvancePhase()
-{
+void StageIntro::AdvancePhase() {
     ++phaseIndex_;
     phaseTimer_ = 0.0f;
-    if (phaseIndex_ >= phases_.size())
-    {
+    if (phaseIndex_ >= phases_.size()) {
         Finish();
         return;
     }
@@ -551,22 +499,18 @@ void StageIntro::AdvancePhase()
 }
 
 /** @brief GO! の文字を出してからの時間を進め、出し終えたら消す */
-void StageIntro::AdvanceGoText()
-{
-    if (goTimer_ < 0.0f)
-    {
+void StageIntro::AdvanceGoText() {
+    if (goTimer_ < 0.0f) {
         return;
     }
-    goTimer_ += GameConstants::kFrameDeltaTime;
-    if (goTimer_ >= Tune().goSeconds)
-    {
+    goTimer_ += gameConstants::kFrameDeltaTime;
+    if (goTimer_ >= Tune().goSeconds) {
         goTimer_ = kGoHidden;
     }
 }
 
 /** @brief 残りを飛ばして、操作できる状態にする（出ている GO! の文字は残す） */
-void StageIntro::Finish()
-{
+void StageIntro::Finish() {
     playing_ = false;
     curtainOpen_ = 1.0f;
     slashAlpha_ = 0.0f;
@@ -578,19 +522,15 @@ void StageIntro::Finish()
 }
 
 /** @brief 開始演出中のプレイヤーの位置を設定する */
-void StageIntro::SetPlayerPosition(const Vector3& position)
-{
-    if (services_.player != nullptr)
-    {
+void StageIntro::SetPlayerPosition(const Vector3& position) {
+    if (services_.player != nullptr) {
         services_.player->SetPosition(position);
     }
 }
 
 /** @brief 演出中のプレイヤーの向き・アニメ・武器の付け方を整える（入力と物理は進めない） */
-void StageIntro::UpdatePlayerPose()
-{
-    if (services_.player == nullptr)
-    {
+void StageIntro::UpdatePlayerPose() {
+    if (services_.player == nullptr) {
         return;
     }
     // 着地点より上にいる間は落下のアニメ、着地したら待機のアニメにする
@@ -600,46 +540,52 @@ void StageIntro::UpdatePlayerPose()
 }
 
 /** @brief 演出の文字を積む（シーンの Update 中、fontRenderer.Reset() の後に呼ぶ。演出の後も GO! が残っていれば積む） */
-void StageIntro::QueueText(FontRenderer& font) const
-{
-    if (playing_ && phaseIndex_ < phases_.size())
-    {
+void StageIntro::QueueText(FontRenderer& font) const {
+    if (playing_ && phaseIndex_ < phases_.size()) {
         phases_[phaseIndex_]->QueueText(*this, font);
+        QueueSkipHint(font);
     }
     QueueGoText(font);
 }
 
+/** @brief 演出を飛ばせることを右下に出す（最後に使った機器に合わせてボタン名を変える） */
+void StageIntro::QueueSkipHint(FontRenderer& font) const {
+    const Input* input = Input::GetCurrent();
+    const std::wstring text = input != nullptr && input->IsUsingGamepad() ? kSkipHintTextGamepad : kSkipHintText;
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float scale = layout.Float("intro.skip_scale", kSkipHintScale);
+    const float x = gameConstants::kScreenWidth - kSkipHintRightMargin - FontRenderer::MeasureStringW(text, scale).x;
+    const float y = layout.Float("intro.skip_y", kSkipHintY);
+    font.DrawStringW(text, x + kSkipHintShadowOffset, y + kSkipHintShadowOffset, scale, kSkipHintShadowColor);
+    font.DrawStringW(text, x, y, scale, layout.Color("intro.skip_color", kSkipHintColor));
+}
+
 /** @brief GO! の文字を積む（大きく弾んで出て、最後の文字のフェード時間で消える） */
-void StageIntro::QueueGoText(FontRenderer& font) const
-{
-    if (goTimer_ < 0.0f)
-    {
+void StageIntro::QueueGoText(FontRenderer& font) const {
+    if (goTimer_ < 0.0f) {
         return;
     }
     const IntroTuning& tune = Tune();
     UILayout& layout = UILayout::Get(kLayoutName);
-    const float pop = Easing::EaseOutBack(Progress(goTimer_, tune.goPopSeconds));
+    const float pop = easing::EaseOutBack(easing::Progress(goTimer_, tune.goPopSeconds));
     Vector4 color = layout.Color("intro.go_color", kGoColor);
-    color.w *= 1.0f - Progress(goTimer_ - (tune.goSeconds - tune.textFadeSeconds), tune.textFadeSeconds);
-    DrawCentered(font, L"GO!", layout.Float("intro.go_y", kGoY), layout.Float("intro.go_scale", kGoScale) * pop, color);
+    color.w *= 1.0f - easing::Progress(goTimer_ - (tune.goSeconds - tune.textFadeSeconds), tune.textFadeSeconds);
+    font.DrawStringCenteredW(L"GO!", layout.Float("intro.go_y", kGoY), layout.Float("intro.go_scale", kGoScale) * pop, color);
 }
 
 /** @brief 幕と斬線を描く（SpriteCommon の共通設定を済ませた後に呼ぶ） */
-void StageIntro::Draw()
-{
-    if (!playing_)
-    {
+void StageIntro::Draw() {
+    if (!playing_) {
         return;
     }
     const IntroTuning& tune = Tune();
-    const float halfHeight = GameConstants::kScreenHeight * 0.5f;
-    if (curtainOpen_ < 1.0f)
-    {
+    const float halfHeight = gameConstants::kScreenHeight * 0.5f;
+    if (curtainOpen_ < 1.0f) {
         // 上下の幕を画面の外へ押し出していく
         const float offset = halfHeight * curtainOpen_;
         auto drawCurtain = [&](Sprite& curtain, float top) {
             curtain.SetPosition({ 0.0f, top });
-            curtain.SetSize({ GameConstants::kScreenWidth, halfHeight });
+            curtain.SetSize({ gameConstants::kScreenWidth, halfHeight });
             curtain.SetColor(tune.curtainColor);
             curtain.Update();
             curtain.Draw();
@@ -647,13 +593,12 @@ void StageIntro::Draw()
         drawCurtain(*curtainTop_, -offset);
         drawCurtain(*curtainBottom_, halfHeight + offset);
     }
-    if (slashAlpha_ > 0.0f && slashProgress_ > 0.0f)
-    {
+    if (slashAlpha_ > 0.0f && slashProgress_ > 0.0f) {
         // 画面の対角より長く伸ばし、傾けても端が見えないようにする
-        const float fullLength = std::hypot(GameConstants::kScreenWidth, GameConstants::kScreenHeight);
+        const float fullLength = std::hypot(gameConstants::kScreenWidth, gameConstants::kScreenHeight);
         Vector4 color = tune.slashColor;
         color.w *= slashAlpha_;
-        slashLine_->SetPosition({ GameConstants::kScreenCenterX, GameConstants::kScreenCenterY });
+        slashLine_->SetPosition({ gameConstants::kScreenCenterX, gameConstants::kScreenCenterY });
         slashLine_->SetSize({ fullLength * slashProgress_, tune.slashThickness });
         slashLine_->SetRotation(tune.slashAngle);
         slashLine_->SetColor(color);

@@ -37,15 +37,14 @@ constexpr int kRowRestart = 0;
 // 初期化
 
 /** @brief 半透明の背景と選択肢メニューを生成して初期化する */
-void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
-{
+void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio) {
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
 
     // 半透明の黒背景
     overlay_ = std::make_unique<Sprite>();
     overlay_->Initialize(spriteCommon_.get(), "Resources/white.png");
     overlay_->SetPosition({ 0.0f, 0.0f });
-    overlay_->SetSize({ GameConstants::kScreenWidth, GameConstants::kScreenHeight });
+    overlay_->SetSize({ gameConstants::kScreenWidth, gameConstants::kScreenHeight });
 
     fontRenderer_.Initialize(spriteCommon_.get());
 
@@ -58,8 +57,7 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 
     // ローグライトのラン中に力尽きた場合のみ通算記録へ反映し、コンティニューデータを破棄する
     auto* rd = RunData::GetInstance();
-    if (rd->IsRunActive())
-    {
+    if (rd->IsRunActive()) {
         SaveDataManager::GetInstance()->RecordRunResult(false, rd->GetFloor(), rd->GetGold());
         SaveDataManager::GetInstance()->ClearContinue();
     }
@@ -68,29 +66,23 @@ void GameOverScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
 // 終了
 
 /** @brief 終了処理（所有する資源は unique_ptr が解放するので何もしない） */
-void GameOverScene::Finalize()
-{
+void GameOverScene::Finalize() {
 }
 
 // 更新
 
 /** @brief メニューを操作し、決定された項目（リスタート/タイトルへ）へ遷移する */
-void GameOverScene::Update()
-{
+void GameOverScene::Update() {
     menu_.Update(input_);
-    if (!menu_.ConsumeConfirm(input_))
-    {
+    if (!menu_.ConsumeConfirm(input_)) {
         return;
     }
-    if (menu_.GetSelectedIndex() == kRowRestart)
-    {
+    if (menu_.GetSelectedIndex() == kRowRestart) {
         // リスタートHP0のままGAMEPLAYへ戻ると即ゲームオーバーになるため、新規ランとして開始し直す
         RunData::GetInstance()->StartNewRun();
         WeaponManager::GetInstance()->ResetForNewRun();
         SceneFlow::GetInstance()->Transition("GAMEOVER", "restart", "MAP");
-    }
-    else
-    {
+    } else {
         SceneFlow::GetInstance()->Transition("GAMEOVER", "title", "TITLE");
     }
 }
@@ -98,8 +90,7 @@ void GameOverScene::Update()
 // 描画
 
 /** @brief 半透明の背景と選択肢（リスタート/タイトルへ）を描画する */
-void GameOverScene::Draw()
-{
+void GameOverScene::Draw() {
     // エディタ表示中はUpdate()が止まるため、文字コマンドの破棄と配置の反映は毎フレーム必ず通るここで行う
     fontRenderer_.Reset();
     UILayout& layout = UILayout::Get(kLayoutName);

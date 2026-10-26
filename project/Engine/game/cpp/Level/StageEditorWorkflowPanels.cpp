@@ -27,16 +27,10 @@ using namespace engine::graphics;
 
 namespace engine::game {
 namespace {
-namespace EditorUi = engine::game::StageEditorUiStyle;
+namespace editorUi = engine::game::stageEditorUiStyle;
 
-// 各ウィンドウの初期配置
-constexpr ImVec2 kWorkflowWindowPos = { 290.0f, 0.0f };
-constexpr ImVec2 kWorkflowWindowSize = { 300.0f, 230.0f };
-constexpr ImVec2 kAnalysisWindowSize = { 520.0f, 420.0f };
-constexpr ImVec2 kDiffWindowSize = { 480.0f, 400.0f };
-constexpr ImVec2 kHelpWindowSize = { 520.0f, 500.0f };
-constexpr ImVec2 kWideButtonSize = { EditorUi::kWideButtonWidth, 0.0f };
-constexpr ImVec2 kButtonSize = { EditorUi::kButtonWidth, 0.0f };
+constexpr ImVec2 kWideButtonSize = { editorUi::kWideButtonWidth, 0.0f };
+constexpr ImVec2 kButtonSize = { editorUi::kButtonWidth, 0.0f };
 
 
 // ヘルプの操作一覧に並べるキー割り当て（HandleEditorShortcuts・StageEditorViewport::UpdateCamera等の実装と揃える）
@@ -101,23 +95,19 @@ constexpr int kControlTableColumns = 2;
 constexpr float kControlKeyColumnWidth = 190.0f;
 
 /** @brief 操作一覧を項目ごとの表で描く */
-void DrawControlsReference()
-{
+void DrawControlsReference() {
     ImGui::TextDisabled("カメラとマウス操作は中央のシーンビュー上で行う / 文字入力中はショートカット無効");
-    for (const ControlSection& section : kControlSections)
-    {
+    for (const ControlSection& section : kControlSections) {
         ImGui::SeparatorText(section.title);
-        if (!ImGui::BeginTable(section.title, kControlTableColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
-        {
+        if (!ImGui::BeginTable(section.title, kControlTableColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
             continue;
         }
         ImGui::TableSetupColumn("キー", ImGuiTableColumnFlags_WidthFixed, kControlKeyColumnWidth);
         ImGui::TableSetupColumn("動作", ImGuiTableColumnFlags_WidthStretch);
-        for (int i = 0; i < section.count; ++i)
-        {
+        for (int i = 0; i < section.count; ++i) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextColored(EditorUi::kChangedColor, "%s", section.bindings[i].key);
+            ImGui::TextColored(editorUi::kChangedColor, "%s", section.bindings[i].key);
             ImGui::TableNextColumn();
             ImGui::TextWrapped("%s", section.bindings[i].action);
         }
@@ -127,95 +117,83 @@ void DrawControlsReference()
 } // namespace
 
 /** @brief プレハブ、検証、自動保存、編集とテストの切り替えをまとめて表示する */
-void StageEditor::RenderWorkflowPanel()
-{
-    // 初回だけ決まった位置と大きさで開く（その後はユーザーが動かした位置を保つ）
-    ImGui::SetNextWindowPos(kWorkflowWindowPos, ImGuiCond_Once);
-    ImGui::SetNextWindowSize(kWorkflowWindowSize, ImGuiCond_Once);
-    ImGui::Begin("編集ワークフロー");
+void StageEditor::RenderWorkflowPanel() {
+    // 補助パネル領域のタブとして出す
+    if (!ImGui::BeginTabItem("編集ワークフロー", &showWorkflowPanel_)) {
+        return;
+    }
 
     // 編集とテストプレイの切り替えと、今どちらの状態かの表示
-    if (ImGui::Button(playTestMode_ ? "編集モードへ戻る" : "現在の配置でテスト", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button(playTestMode_ ? "編集モードへ戻る" : "現在の配置でテスト", ImVec2(-1.0f, 0.0f))) {
         SetPlayTestMode(!playTestMode_);
     }
     ImGui::TextDisabled(playTestMode_ ? "ゲーム更新中  F2で終了" : "ゲーム停止中  配置を安全に編集できます");
 
     // 画面中央・選択位置からのテスト開始と、カメラ・グリッドの補助
     ImGui::SeparatorText("テスト");
-    if (ImGui::Button("画面中央からテスト", kWideButtonSize))
-    {
+    if (ImGui::Button("画面中央からテスト", kWideButtonSize)) {
         StartPlayTestOrWarn(ViewCenterOnGround());
     }
     ImGui::SameLine();
     // 何も選んでいない時は開始位置が決まらないので押せなくする
-    ImGui::BeginDisabled(selKind_ == SelKind::None);
-    if (ImGui::Button("選択位置からテスト", kWideButtonSize))
-    {
+    ImGui::BeginDisabled(selKind_ == SelKind::kNone);
+    if (ImGui::Button("選択位置からテスト", kWideButtonSize)) {
         // 選択物の位置が取れない種類なら画面中央から始める
         Vector3 start;
-        if (!SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, start))
-        {
+        if (!SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, start)) {
             start = ViewCenterOnGround();
         }
         StartPlayTestOrWarn(start);
     }
     ImGui::EndDisabled();
-    EditorUI::HelpMarker("プレイヤーをその場所へ移してテストを始めます。後半の区画を何度も確かめる時に使います。F2で編集へ戻ります");
-    if (ImGui::Button("選択へカメラ (F)", kWideButtonSize))
-    {
+    editorUI::HelpMarker("プレイヤーをその場所へ移してテストを始めます。後半の区画を何度も確かめる時に使います。F2で編集へ戻ります");
+    if (ImGui::Button("選択へカメラ (F)", kWideButtonSize)) {
         FocusCameraOnSelection();
     }
     ImGui::SameLine();
     ImGui::Checkbox("グリッド線", &showGrid_);
-    EditorUI::HelpMarker("スナップON中、スナップ間隔のグリッド線を表示します。矢印キーで選択物をスナップ間隔ぶん動かせます（Shift+上下で奥行き）");
+    editorUI::HelpMarker("スナップON中、スナップ間隔のグリッド線を表示します。矢印キーで選択物をスナップ間隔ぶん動かせます（Shift+上下で奥行き）");
 
     // ドラッグで動かす時の軸の制限
     ImGui::SeparatorText("移動ギズモ");
-    ImGui::RadioButton("自由", &gizmoAxis_, StageEditorUiStyle::kGizmoAxisFree);
+    ImGui::RadioButton("自由", &gizmoAxis_, stageEditorUiStyle::kGizmoAxisFree);
     ImGui::SameLine();
-    ImGui::RadioButton("X", &gizmoAxis_, StageEditorUiStyle::kGizmoAxisX);
+    ImGui::RadioButton("X", &gizmoAxis_, stageEditorUiStyle::kGizmoAxisX);
     ImGui::SameLine();
-    ImGui::RadioButton("Y", &gizmoAxis_, StageEditorUiStyle::kGizmoAxisY);
+    ImGui::RadioButton("Y", &gizmoAxis_, stageEditorUiStyle::kGizmoAxisY);
     ImGui::SameLine();
-    ImGui::RadioButton("Z", &gizmoAxis_, StageEditorUiStyle::kGizmoAxisZ);
+    ImGui::RadioButton("Z", &gizmoAxis_, stageEditorUiStyle::kGizmoAxisZ);
 
     // 選択物をプレハブとして保存・画面中央へ配置
     ImGui::SeparatorText("プレハブ");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##prefabName", "英数字のプレハブ名", prefabName_, sizeof(prefabName_));
     // 保存できるのは配置物を選んでいる時だけ
-    ImGui::BeginDisabled(selKind_ != SelKind::Object);
-    if (ImGui::Button("選択物を保存", kWideButtonSize))
-    {
+    ImGui::BeginDisabled(selKind_ != SelKind::kObject);
+    if (ImGui::Button("選択物を保存", kWideButtonSize)) {
         SaveSelectedPrefab();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("配置", kWideButtonSize))
-    {
+    if (ImGui::Button("配置", kWideButtonSize)) {
         InstantiatePrefab();
     }
 
     // 自動保存の切り替えと、解析・差分・ヘルプの各パネルを開くボタン
     ImGui::Checkbox("30秒ごとに自動保存", &autoSaveEnabled_);
-    if (ImGui::Button("ステージ解析"))
-    {
+    if (ImGui::Button("ステージ解析")) {
         showStageAnalysis_ = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("保存差分"))
-    {
+    if (ImGui::Button("保存差分")) {
         showSavedDiff_ = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("ヘルプ"))
-    {
+    if (ImGui::Button("ヘルプ")) {
         showEditorHelp_ = true;
     }
     // 保存前検証を実行し、問題の数を知らせる
-    if (ImGui::Button("保存前検証", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("保存前検証", ImVec2(-1.0f, 0.0f))) {
         // 結果は下の一覧で見られるよう残しておく
         validationIssues_ = ValidateLevel();
         statusMessage_ = validationIssues_.empty()
@@ -224,27 +202,21 @@ void StageEditor::RenderWorkflowPanel()
         statusTimer_ = StageEditor::kStatusLongSeconds;
     }
     // 問題があった時だけ、1件ずつ移動ボタンと問題文を並べる
-    if (!validationIssues_.empty() && ImGui::TreeNode("検証結果"))
-    {
-        for (int issueIndex = 0; issueIndex < static_cast<int>(validationIssues_.size()); ++issueIndex)
-        {
+    if (!validationIssues_.empty() && ImGui::TreeNode("検証結果")) {
+        for (int issueIndex = 0; issueIndex < static_cast<int>(validationIssues_.size()); ++issueIndex) {
             const std::string& issue = validationIssues_[issueIndex];
             // 移動ボタンが並ぶので問題の番号で区別する
             ImGui::PushID(issueIndex);
             // 問題文に名前が含まれる配置物を選び、カメラをそこへ寄せる
-            if (ImGui::SmallButton("移動"))
-            {
-                for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex)
-                {
+            if (ImGui::SmallButton("移動")) {
+                for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
                     if (!objects_[objectIndex].desc.name.empty()
-                        && issue.find(objects_[objectIndex].desc.name) != std::string::npos)
-                    {
-                        selKind_ = SelKind::Object;
+                        && issue.find(objects_[objectIndex].desc.name) != std::string::npos) {
+                        selKind_ = SelKind::kObject;
                         selIndex_ = objectIndex;
                         selectedObjectIndices_ = { objectIndex };
                         // 奥行きは変えず、横と高さだけを配置物に合わせる
-                        if (camera_)
-                        {
+                        if (camera_) {
                             const Vector3 target = WorldPositionOf(objects_[objectIndex].desc);
                             camera_->SetTranslate({ target.x, target.y, camera_->GetTranslate().z });
                         }
@@ -260,18 +232,15 @@ void StageEditor::RenderWorkflowPanel()
     }
 
     // 通常保存より新しい自動保存が見つかったら、復旧するかを1度だけ聞く
-    if (recoveryAvailable_)
-    {
+    if (recoveryAvailable_) {
         ImGui::OpenPopup("自動保存の復旧");
         recoveryAvailable_ = false;
     }
-    if (ImGui::BeginPopupModal("自動保存の復旧", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-    {
+    if (ImGui::BeginPopupModal("自動保存の復旧", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextUnformatted("通常保存より新しい自動保存データがあります。");
-        if (ImGui::Button("復旧する", kButtonSize))
-        {
+        if (ImGui::Button("復旧する", kButtonSize)) {
             // 自動保存を読み、元に戻す履歴と同じ形にして丸ごと差し替える（復旧後は未保存扱い）
-            LevelData recovered = LevelLoader::Load(recoveryPath_);
+            LevelData recovered = levelLoader::Load(recoveryPath_);
             LevelSnapshot snapshot;
             snapshot.objects = std::move(recovered.objects);
             snapshot.triggers = std::move(recovered.triggers);
@@ -285,32 +254,27 @@ void StageEditor::RenderWorkflowPanel()
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("使用しない", kButtonSize))
-        {
+        if (ImGui::Button("使用しない", kButtonSize)) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 /** @brief 右クリックメニューを描く（RenderEditorPanelsから毎フレーム呼ぶ） */
-void StageEditor::RenderViewportContextMenu()
-{
+void StageEditor::RenderViewportContextMenu() {
     // ビューで右クリックされたフレームだけメニューを開く
-    if (contextMenuRequested_)
-    {
+    if (contextMenuRequested_) {
         ImGui::OpenPopup("SceneContextMenu");
         contextMenuRequested_ = false;
     }
-    if (!ImGui::BeginPopup("SceneContextMenu"))
-    {
+    if (!ImGui::BeginPopup("SceneContextMenu")) {
         return;
     }
 
     // 配置物やトリガーの上なら、その種類のメニュー（複製・削除など）を出して終わる
-    if (SelectionKindOf(contextKind_).DrawContextMenu(*this, contextIndex_))
-    {
+    if (SelectionKindOf(contextKind_).DrawContextMenu(*this, contextIndex_)) {
         ImGui::EndPopup();
         return;
     }
@@ -340,52 +304,41 @@ void StageEditor::RenderViewportContextMenu()
     };
     // 表の順にメニューへ並べ、選ばれた種類をその場所に置く
     auto placeMenu = [&](const auto& items) {
-        for (const PlaceMenuItem& item : items)
-        {
-            if (ImGui::MenuItem(item.label))
-            {
+        for (const PlaceMenuItem& item : items) {
+            if (ImGui::MenuItem(item.label)) {
                 AddObjectAt(item.kind, at);
             }
         }
     };
     placeMenu(kPlaceItems);
-    if (ImGui::MenuItem("トリガー"))
-    {
+    if (ImGui::MenuItem("トリガー")) {
         AddTriggerAt(at);
     }
-    if (ImGui::MenuItem("文章UI（画面に固定）"))
-    {
+    if (ImGui::MenuItem("文章UI（画面に固定）")) {
         AddUITextAt(contextScreenPos_);
     }
-    if (ImGui::BeginMenu("その他"))
-    {
+    if (ImGui::BeginMenu("その他")) {
         placeMenu(kOtherPlaceItems);
-        if (ImGui::MenuItem("ワールドテキスト"))
-        {
+        if (ImGui::MenuItem("ワールドテキスト")) {
             AddUITextAt(at, false);
         }
         ImGui::EndMenu();
     }
     // まとめて生成するテンプレート（元に戻せるよう先に履歴を取る）
-    if (ImGui::BeginMenu("テンプレート"))
-    {
-        if (ImGui::MenuItem("スライド扉"))
-        {
+    if (ImGui::BeginMenu("テンプレート")) {
+        if (ImGui::MenuItem("スライド扉")) {
             RecordUndoSnapshotNow();
             AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(at, templateDoorCondition_, nextSerial_));
         }
-        if (ImGui::MenuItem("壊せる壁（ハンマー）"))
-        {
+        if (ImGui::MenuItem("壊せる壁（ハンマー）")) {
             RecordUndoSnapshotNow();
             AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(at, "Hammer", nextSerial_));
         }
-        if (ImGui::MenuItem("区画トリガー＋案内文"))
-        {
+        if (ImGui::MenuItem("区画トリガー＋案内文")) {
             RecordUndoSnapshotNow();
             AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(at, templateGuideText_, nextSerial_));
         }
-        if (ImGui::MenuItem("戦闘部屋"))
-        {
+        if (ImGui::MenuItem("戦闘部屋")) {
             RecordUndoSnapshotNow();
             AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(at, nextSerial_));
         }
@@ -393,121 +346,99 @@ void StageEditor::RenderViewportContextMenu()
     }
     ImGui::Separator();
     // その場所からのテスト開始とカメラ移動
-    if (ImGui::MenuItem("ここからテスト"))
-    {
+    if (ImGui::MenuItem("ここからテスト")) {
         StartPlayTestOrWarn(at);
     }
-    if (ImGui::MenuItem("ここへカメラ"))
-    {
+    if (ImGui::MenuItem("ここへカメラ")) {
         FocusCameraOn(at);
     }
     ImGui::EndPopup();
 }
 
 /** @brief 配置・接続・到達性の問題を解析して一覧表示する */
-void StageEditor::RenderStageAnalysisPanel()
-{
-    if (!showStageAnalysis_)
-    {
+void StageEditor::RenderStageAnalysisPanel() {
+    if (!showStageAnalysis_) {
         return;
     }
-    ImGui::SetNextWindowSize(kAnalysisWindowSize, ImGuiCond_FirstUseEver);
-    ImGui::Begin("ステージ解析", &showStageAnalysis_);
+    if (!ImGui::BeginTabItem("ステージ解析", &showStageAnalysis_)) {
+        return;
+    }
     std::vector<std::string> findings = ValidateLevel();
 
     // 敵グループごとに、敵の数と、そのグループの全滅を待つ条件の数を数える
     std::map<std::string, int> groupEnemyCounts;
     std::map<std::string, int> groupConditionCounts;
-    for (const auto& entry : objects_)
-    {
+    for (const auto& entry : objects_) {
         if (!entry.desc.enemyGroup.empty()
-            && ObjectKind::Of(entry.desc.kind).PlacesEnemy())
-        {
+            && ObjectKind::Of(entry.desc.kind).PlacesEnemy()) {
             ++groupEnemyCounts[entry.desc.enemyGroup];
         }
-        if (ObjectKind::Of(entry.desc.kind).WatchesEnemyGroup(entry.desc))
-        {
+        if (ObjectKind::Of(entry.desc.kind).WatchesEnemyGroup(entry.desc)) {
             ++groupConditionCounts[entry.desc.enemyGroup];
         }
     }
     // 敵のいない全滅条件と、全滅しても何も起きない敵グループを知らせる
-    for (const auto& [group, count] : groupConditionCounts)
-    {
-        if (group.empty() || !groupEnemyCounts.contains(group))
-        {
+    for (const auto& [group, count] : groupConditionCounts) {
+        if (group.empty() || !groupEnemyCounts.contains(group)) {
             findings.push_back("敵が存在しない全滅条件です: " + group);
         }
     }
-    for (const auto& [group, count] : groupEnemyCounts)
-    {
-        if (!groupConditionCounts.contains(group))
-        {
+    for (const auto& [group, count] : groupEnemyCounts) {
+        if (!groupConditionCounts.contains(group)) {
             findings.push_back("全滅後の処理がない敵グループです: " + group);
         }
     }
     // ほぼ同じ位置に重なって置かれた配置物の組を知らせる
-    for (size_t i = 0; i < objects_.size(); ++i)
-    {
-        for (size_t j = i + 1; j < objects_.size(); ++j)
-        {
+    for (size_t i = 0; i < objects_.size(); ++i) {
+        for (size_t j = i + 1; j < objects_.size(); ++j) {
             const Vector3 a = WorldPositionOf(objects_[i].desc);
             const Vector3 b = WorldPositionOf(objects_[j].desc);
-            if (std::abs(a.x - b.x) < EditorUi::kOverlapEpsilon && std::abs(a.y - b.y) < EditorUi::kOverlapEpsilon
-                && std::abs(a.z - b.z) < EditorUi::kOverlapEpsilon)
-            {
+            if (std::abs(a.x - b.x) < editorUi::kOverlapEpsilon && std::abs(a.y - b.y) < editorUi::kOverlapEpsilon
+                && std::abs(a.z - b.z) < editorUi::kOverlapEpsilon) {
                 findings.push_back("同じ位置に配置されています: " + objects_[i].desc.name + " / " + objects_[j].desc.name);
             }
         }
     }
 
     // 見つかった項目を一覧で出す
-    if (findings.empty())
-    {
-        ImGui::TextColored(EditorUi::kOkColor, "問題は見つかりませんでした");
-    }
-    else
-    {
+    if (findings.empty()) {
+        ImGui::TextColored(editorUi::kOkColor, "問題は見つかりませんでした");
+    } else {
         ImGui::Text("%d件の確認項目", static_cast<int>(findings.size()));
-        for (const std::string& finding : findings)
-        {
+        for (const std::string& finding : findings) {
             ImGui::BulletText("%s", finding.c_str());
         }
     }
     ImGui::Separator();
     // 選択中の配置物の位置からテストを始める
-    ImGui::BeginDisabled(selKind_ != SelKind::Object || selIndex_ < 0);
-    if (ImGui::Button("選択位置からテスト開始", ImVec2(-1.0f, 0.0f)))
-    {
+    ImGui::BeginDisabled(selKind_ != SelKind::kObject || selIndex_ < 0);
+    if (ImGui::Button("選択位置からテスト開始", ImVec2(-1.0f, 0.0f))) {
         StartPlayTestOrWarn(WorldPositionOf(objects_[selIndex_].desc));
     }
     ImGui::EndDisabled();
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 /** @brief 最後に保存した状態との差分を一覧表示する */
-void StageEditor::RenderDiffPanel()
-{
+void StageEditor::RenderDiffPanel() {
     // 閉じている時は比べない
-    if (!showSavedDiff_)
-    {
+    if (!showSavedDiff_) {
         return;
     }
-    ImGui::SetNextWindowSize(kDiffWindowSize, ImGuiCond_FirstUseEver);
-    ImGui::Begin("保存内容との差分", &showSavedDiff_);
+    if (!ImGui::BeginTabItem("保存内容との差分", &showSavedDiff_)) {
+        return;
+    }
     // 最後に保存した時の配置物を名前で引けるようにする
     std::map<std::string, const ObjectDesc*> saved;
-    for (const auto& desc : lastSavedSnapshot_.objects)
-    {
+    for (const auto& desc : lastSavedSnapshot_.objects) {
         saved[desc.name] = &desc;
     }
     // 今の配置物を1つずつ保存時と比べ、無ければ追加、位置・回転・拡縮・有効・種類・フラグが違えば変更として出す
     int differenceCount = 0;
-    for (const auto& entry : objects_)
-    {
+    for (const auto& entry : objects_) {
         auto found = saved.find(entry.desc.name);
-        if (found == saved.end())
-        {
-            ImGui::TextColored(EditorUi::kOkColor, "+ 追加  %s", entry.desc.name.c_str());
+        if (found == saved.end()) {
+            ImGui::TextColored(editorUi::kOkColor, "+ 追加  %s", entry.desc.name.c_str());
             ++differenceCount;
             continue;
         }
@@ -516,53 +447,47 @@ void StageEditor::RenderDiffPanel()
         if (old.position.x != now.position.x || old.position.y != now.position.y || old.position.z != now.position.z
             || old.rotation.x != now.rotation.x || old.rotation.y != now.rotation.y || old.rotation.z != now.rotation.z
             || old.scale.x != now.scale.x || old.scale.y != now.scale.y || old.scale.z != now.scale.z
-            || old.enabled != now.enabled || old.kind != now.kind || old.activationFlag != now.activationFlag)
-        {
-            ImGui::TextColored(EditorUi::kChangedColor, "~ 変更  %s", now.name.c_str());
+            || old.enabled != now.enabled || old.kind != now.kind || old.activationFlag != now.activationFlag) {
+            ImGui::TextColored(editorUi::kChangedColor, "~ 変更  %s", now.name.c_str());
             ++differenceCount;
         }
         saved.erase(found);
     }
     // 比べ終えて保存時の側にだけ残った物は削除された物
-    for (const auto& [name, desc] : saved)
-    {
-        ImGui::TextColored(EditorUi::kErrorColor, "- 削除  %s", name.c_str());
+    for (const auto& [name, desc] : saved) {
+        ImGui::TextColored(editorUi::kErrorColor, "- 削除  %s", name.c_str());
         ++differenceCount;
     }
-    if (differenceCount == 0)
-    {
+    if (differenceCount == 0) {
         ImGui::TextDisabled("最後の保存から変更はありません");
     }
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 /** @brief 制作手順と確認項目をエディタ内に表示する */
-void StageEditor::RenderEditorHelpPanel()
-{
+void StageEditor::RenderEditorHelpPanel() {
     // 閉じている時は何も出さない。開いた時はタブで操作一覧と制作手順を切り替える
-    if (!showEditorHelp_)
-    {
+    if (!showEditorHelp_) {
         return;
     }
-    ImGui::SetNextWindowSize(kHelpWindowSize, ImGuiCond_FirstUseEver);
-    ImGui::Begin("ステージ制作ヘルプ", &showEditorHelp_);
-    // ウィンドウが畳まれていてタブが出せない時は、ウィンドウを閉じて終わる
-    if (!ImGui::BeginTabBar("##helpTabs"))
-    {
-        ImGui::End();
+    // 補助パネル領域のタブとして出し、その中にさらにタブを並べる
+    if (!ImGui::BeginTabItem("ステージ制作ヘルプ", &showEditorHelp_)) {
+        return;
+    }
+    // 中のタブが出せない時は、外側のタブを閉じて終わる
+    if (!ImGui::BeginTabBar("##helpTabs")) {
+        ImGui::EndTabItem();
         return;
     }
     // 1つ目のタブ: キーとマウスの操作一覧
-    if (ImGui::BeginTabItem("操作一覧"))
-    {
+    if (ImGui::BeginTabItem("操作一覧")) {
         DrawControlsReference();
         ImGui::EndTabItem();
     }
     // 2つ目のタブ: 制作の手順・用語・困った時の確認・チェックリスト（タブが閉じていれば終わる）
-    if (!ImGui::BeginTabItem("制作手順"))
-    {
+    if (!ImGui::BeginTabItem("制作手順")) {
         ImGui::EndTabBar();
-        ImGui::End();
+        ImGui::EndTabItem();
         return;
     }
     ImGui::SeparatorText("最初のステージを作る手順");
@@ -580,8 +505,7 @@ void StageEditor::RenderEditorHelpPanel()
     ImGui::BulletText("5  制作パネルで保存前検証を行い、問題がなければ保存する");
 
     // 種類・イベントの考え方・困った時の確認は、必要な時だけ開く折りたたみにする
-    if (ImGui::CollapsingHeader("配置物の種類"))
-    {
+    if (ImGui::CollapsingHeader("配置物の種類")) {
         ImGui::BulletText("地形  見た目と当たり判定を持つ床や壁を作る");
         ImGui::BulletText("敵  ステージ開始時から存在する敵を置く");
         ImGui::BulletText("出現地点  条件成立後に敵を出現させる");
@@ -591,8 +515,7 @@ void StageEditor::RenderEditorHelpPanel()
         ImGui::BulletText("トリガー  プレイヤーが範囲へ入ったことを条件にする");
     }
     // イベントを3つの問いに分けて説明する
-    if (ImGui::CollapsingHeader("イベントの考え方"))
-    {
+    if (ImGui::CollapsingHeader("イベントの考え方")) {
         ImGui::TextWrapped("イベントは、いつ、何を、どうするの3項目で作ります。");
         ImGui::BulletText("いつ  進入トリガー、敵グループ全滅などを選ぶ");
         ImGui::BulletText("何を  敵の出現地点、扉、カメラ地点を選ぶ");
@@ -600,8 +523,7 @@ void StageEditor::RenderEditorHelpPanel()
         ImGui::TextWrapped("一つの条件から複数の対象へ接続できます。敵を出し、扉を閉め、カメラを動かす処理を同じ進入トリガーから作れます。");
     }
     // よくある症状と、まず確かめる場所の組
-    if (ImGui::CollapsingHeader("困ったとき"))
-    {
+    if (ImGui::CollapsingHeader("困ったとき")) {
         ImGui::BulletText("敵が出ない  開始条件と出現地点の接続、対象の有効設定を確認する");
         ImGui::BulletText("出口が開かない  敵と全滅条件のグループ名を確認する");
         ImGui::BulletText("選択できない  中央シーンビュー内でクリックし、パネル上では操作しない");
@@ -620,14 +542,13 @@ void StageEditor::RenderEditorHelpPanel()
     };
     // 項目数とチェック状態の配列の大きさがずれたらコンパイル時に気付けるようにする
     static_assert(std::size(kChecklistLabels) == kHelpChecklistCount);
-    for (int i = 0; i < kHelpChecklistCount; ++i)
-    {
+    for (int i = 0; i < kHelpChecklistCount; ++i) {
         ImGui::Checkbox(kChecklistLabels[i], &helpChecklist_[i]);
     }
-    // 開いたタブ・タブバー・ウィンドウを内側から順に閉じる
+    // 中のタブ・中のタブ列・外側のタブを内側から順に閉じる
     ImGui::EndTabItem();
     ImGui::EndTabBar();
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 } // namespace engine::game

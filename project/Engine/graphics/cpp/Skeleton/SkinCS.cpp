@@ -13,7 +13,7 @@ namespace {
 constexpr UINT kComputeThreadsPerGroup = 64;
 
 /** @brief スキニング用コンピュートシェーダーのルートパラメータ番号 */
-namespace SkinComputeRootSlot {
+namespace skinComputeRootSlot {
 constexpr UINT kVertexCount = 0; ///< 頂点数（32ビット定数, b1）
 constexpr UINT kInputVertices = 1; ///< 入力頂点バッファ（SRV, t0）
 constexpr UINT kPalette = 2; ///< スキニングパレット（CBV, b0）
@@ -28,8 +28,7 @@ using namespace Microsoft::WRL;
 /** @brief スキニング計算用のコンピュートシェーダーの資源を用意する */
 void SkinCS::Initialize(DirectXCommon* dxCommon,
     ID3D12Resource* inputBuffer,
-    UINT vertexCount)
-{
+    UINT vertexCount) {
     ENGINE_ASSERT(inputBuffer);
     ENGINE_ASSERT(vertexCount > 0);
 
@@ -43,33 +42,33 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     //   スロット 2 (b0): スキニングパレット (CBV)
     //   スロット 3 (u0): 出力頂点バッファ (UAV)
 
-    D3D12_ROOT_PARAMETER params[SkinComputeRootSlot::kCount] { };
+    D3D12_ROOT_PARAMETER params[skinComputeRootSlot::kCount] { };
 
-    params[SkinComputeRootSlot::kVertexCount].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    params[SkinComputeRootSlot::kVertexCount].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[SkinComputeRootSlot::kVertexCount].Constants.ShaderRegister = 1; // b1
-    params[SkinComputeRootSlot::kVertexCount].Constants.RegisterSpace = 0;
-    params[SkinComputeRootSlot::kVertexCount].Constants.Num32BitValues = 1;
+    params[skinComputeRootSlot::kVertexCount].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[skinComputeRootSlot::kVertexCount].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[skinComputeRootSlot::kVertexCount].Constants.ShaderRegister = 1; // b1
+    params[skinComputeRootSlot::kVertexCount].Constants.RegisterSpace = 0;
+    params[skinComputeRootSlot::kVertexCount].Constants.Num32BitValues = 1;
 
-    params[SkinComputeRootSlot::kInputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-    params[SkinComputeRootSlot::kInputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[SkinComputeRootSlot::kInputVertices].Descriptor.ShaderRegister = 0; // t0
-    params[SkinComputeRootSlot::kInputVertices].Descriptor.RegisterSpace = 0;
+    params[skinComputeRootSlot::kInputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[skinComputeRootSlot::kInputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[skinComputeRootSlot::kInputVertices].Descriptor.ShaderRegister = 0; // t0
+    params[skinComputeRootSlot::kInputVertices].Descriptor.RegisterSpace = 0;
 
-    params[SkinComputeRootSlot::kPalette].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[SkinComputeRootSlot::kPalette].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[SkinComputeRootSlot::kPalette].Descriptor.ShaderRegister = 0; // b0
-    params[SkinComputeRootSlot::kPalette].Descriptor.RegisterSpace = 0;
+    params[skinComputeRootSlot::kPalette].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[skinComputeRootSlot::kPalette].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[skinComputeRootSlot::kPalette].Descriptor.ShaderRegister = 0; // b0
+    params[skinComputeRootSlot::kPalette].Descriptor.RegisterSpace = 0;
 
-    params[SkinComputeRootSlot::kOutputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-    params[SkinComputeRootSlot::kOutputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    params[SkinComputeRootSlot::kOutputVertices].Descriptor.ShaderRegister = 0; // u0
-    params[SkinComputeRootSlot::kOutputVertices].Descriptor.RegisterSpace = 0;
+    params[skinComputeRootSlot::kOutputVertices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    params[skinComputeRootSlot::kOutputVertices].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[skinComputeRootSlot::kOutputVertices].Descriptor.ShaderRegister = 0; // u0
+    params[skinComputeRootSlot::kOutputVertices].Descriptor.RegisterSpace = 0;
 
     D3D12_ROOT_SIGNATURE_DESC rsDesc { };
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
     rsDesc.pParameters = params;
-    rsDesc.NumParameters = SkinComputeRootSlot::kCount;
+    rsDesc.NumParameters = skinComputeRootSlot::kCount;
 
     ComPtr<ID3DBlob> sigBlob, errBlob;
     HRESULT hr = D3D12SerializeRootSignature(
@@ -95,7 +94,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
     UINT64 outputSize = static_cast<UINT64>(sizeof(OutputVertex)) * vertexCount;
 
     D3D12_HEAP_PROPERTIES heap { D3D12_HEAP_TYPE_DEFAULT };
-    D3D12_RESOURCE_DESC rd = PipelineHelper::MakeBufferDesc(outputSize);
+    D3D12_RESOURCE_DESC rd = pipelineHelper::MakeBufferDesc(outputSize);
     rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     device->CreateCommittedResource(
@@ -110,11 +109,9 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
 
 /** @brief スキニング計算をコマンドリストに積む */
 void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
-    D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress)
-{
+    D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress) {
     // 前フレームの描画パスで VERTEX_AND_CONSTANT_BUFFER に遷移済みなら UAV に戻す
-    if (needsPreTransition_)
-    {
+    if (needsPreTransition_) {
         DirectXCommon::TransitionBarrier(cmd, outputBuffer_.Get(),
             D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
@@ -123,13 +120,13 @@ void SkinCS::Dispatch(ID3D12GraphicsCommandList* cmd,
     cmd->SetPipelineState(csPSO_.Get());
 
     // スロット 0: 頂点数 (32ビット定数, b1)
-    cmd->SetComputeRoot32BitConstant(SkinComputeRootSlot::kVertexCount, vertexCount_, 0);
+    cmd->SetComputeRoot32BitConstant(skinComputeRootSlot::kVertexCount, vertexCount_, 0);
     // スロット 1: 入力頂点バッファ (SRV, t0)
-    cmd->SetComputeRootShaderResourceView(SkinComputeRootSlot::kInputVertices, inputGpuVA_);
+    cmd->SetComputeRootShaderResourceView(skinComputeRootSlot::kInputVertices, inputGpuVA_);
     // スロット 2: スキニングパレット (CBV, b0)
-    cmd->SetComputeRootConstantBufferView(SkinComputeRootSlot::kPalette, paletteCBAddress);
+    cmd->SetComputeRootConstantBufferView(skinComputeRootSlot::kPalette, paletteCBAddress);
     // スロット 3: 出力頂点バッファ (UAV, u0)
-    cmd->SetComputeRootUnorderedAccessView(SkinComputeRootSlot::kOutputVertices, outputBuffer_->GetGPUVirtualAddress());
+    cmd->SetComputeRootUnorderedAccessView(skinComputeRootSlot::kOutputVertices, outputBuffer_->GetGPUVirtualAddress());
 
     UINT threadGroups = (vertexCount_ + kComputeThreadsPerGroup - 1) / kComputeThreadsPerGroup;
     cmd->Dispatch(threadGroups, 1, 1);

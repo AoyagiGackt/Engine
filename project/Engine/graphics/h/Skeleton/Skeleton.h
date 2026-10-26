@@ -80,24 +80,20 @@ public:
         return root_;
     }
     /** @brief 名前に一致するジョイント番号を返す。未登録なら値を持たない */
-    std::optional<int32_t> FindJointIndex(const std::string& name) const
-    {
+    std::optional<int32_t> FindJointIndex(const std::string& name) const {
         const auto found = jointMap_.find(name);
         return found != jointMap_.end() ? std::optional<int32_t>(found->second) : std::nullopt;
     }
     /** @brief 指定名のジョイントを持つか調べる */
-    bool HasJoint(const std::string& name) const
-    {
+    bool HasJoint(const std::string& name) const {
         return FindJointIndex(name).has_value();
     }
     /** @brief ジョイント数を返す */
-    size_t GetJointCount() const
-    {
+    size_t GetJointCount() const {
         return joints_.size();
     }
     /** @brief 指定番号のジョイントだけを読み取り専用で参照する */
-    const Joint& GetJoint(size_t index) const
-    {
+    const Joint& GetJoint(size_t index) const {
         return joints_.at(index);
     }
     /** @brief 指定ジョイントのローカル変換だけを更新する */

@@ -31,10 +31,8 @@ public:
 
     /** @brief デバッグ点光源を順に参照する。処理中は一覧を変更しない */
     template<class Visitor>
-    static void VisitEditorPointLights(const Visitor& visitor)
-    {
-        for (const auto& light : editorLights_)
-        {
+    static void VisitEditorPointLights(const Visitor& visitor) {
+        for (const auto& light : sEditorLights) {
             visitor(light);
         }
     }
@@ -60,9 +58,9 @@ private:
     static void ShowDirectionalLightSection();
     static void ShowPointLightSection();
 
-    static Object3dCommon* obj3dCommon_;
-    static std::vector<EditorPointLight> editorLights_;
-    static std::function<void()> glassShatterTrigger_;
+    static Object3dCommon* sObj3dCommon;
+    static std::vector<EditorPointLight> sEditorLights;
+    static std::function<void()> sGlassShatterTrigger;
 };
 
 } // namespace engine::graphics

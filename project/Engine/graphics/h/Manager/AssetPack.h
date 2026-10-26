@@ -31,30 +31,26 @@ public:
     /** @brief 数値や数値だけでできた構造体をそのまま書く */
     /** @brief 値をバイト列の末尾へ書き足す */
     template <typename T>
-    void Write(const T& value)
-    {
+    void Write(const T& value) {
         static_assert(std::is_trivially_copyable_v<T>, "メモリをそのまま書ける型だけを渡す");
         const auto* p = reinterpret_cast<const uint8_t*>(&value);
         bytes_.insert(bytes_.end(), p, p + sizeof(T));
     }
     /** @brief 配列を要素数と中身の順でバイト列へ書き足す */
     template <typename T>
-    void WriteVector(const std::vector<T>& values)
-    {
+    void WriteVector(const std::vector<T>& values) {
         static_assert(std::is_trivially_copyable_v<T>, "メモリをそのまま書ける型だけを渡す");
         Write(static_cast<uint64_t>(values.size()));
         const auto* p = reinterpret_cast<const uint8_t*>(values.data());
         bytes_.insert(bytes_.end(), p, p + sizeof(T) * values.size());
     }
     /** @brief 長さを先頭に付けて文字列を書く */
-    void WriteString(const std::string& text)
-    {
+    void WriteString(const std::string& text) {
         Write(static_cast<uint64_t>(text.size()));
         bytes_.insert(bytes_.end(), text.begin(), text.end());
     }
     /** @brief 書き込んだバイト列の所有権を呼び出し元へ渡す */
-    std::vector<uint8_t> TakeBytes()
-    {
+    std::vector<uint8_t> TakeBytes() {
         return std::move(bytes_);
     }
 
@@ -67,18 +63,15 @@ class BinaryReader {
 public:
     /** @brief 読み取り対象のバイト列を参照し、先頭から読み始める */
     explicit BinaryReader(const std::vector<uint8_t>& bytes)
-        : bytes_(bytes)
-    {
+        : bytes_(bytes) {
     }
 
     /** @brief バイト列から次の値を読む */
     template <typename T>
-    T Read()
-    {
+    T Read() {
         static_assert(std::is_trivially_copyable_v<T>, "メモリをそのまま読める型だけを渡す");
         T value {};
-        if (!Has(sizeof(T)))
-        {
+        if (!Has(sizeof(T))) {
             return value;
         }
         std::memcpy(&value, bytes_.data() + cursor_, sizeof(T));
@@ -87,12 +80,10 @@ public:
     }
     /** @brief バイト列から要素数と中身の順で配列を読む */
     template <typename T>
-    std::vector<T> ReadVector()
-    {
+    std::vector<T> ReadVector() {
         const uint64_t count = Read<uint64_t>();
         std::vector<T> values;
-        if (!Has(static_cast<size_t>(count * sizeof(T))))
-        {
+        if (!Has(static_cast<size_t>(count * sizeof(T)))) {
             return values;
         }
         values.resize(static_cast<size_t>(count));
@@ -101,11 +92,9 @@ public:
         return values;
     }
     /** @brief バイト列から長さと中身の順で文字列を読む */
-    std::string ReadString()
-    {
+    std::string ReadString() {
         const uint64_t length = Read<uint64_t>();
-        if (!Has(static_cast<size_t>(length)))
-        {
+        if (!Has(static_cast<size_t>(length))) {
             return {};
         }
         std::string text(reinterpret_cast<const char*>(bytes_.data() + cursor_), static_cast<size_t>(length));
@@ -119,10 +108,8 @@ public:
 
 private:
     /** @brief 残りのバイト数が size 以上あるかを返す（足りなければ読み込み失敗にする） */
-    bool Has(size_t size)
-    {
-        if (!valid_ || cursor_ + size > bytes_.size())
-        {
+    bool Has(size_t size) {
+        if (!valid_ || cursor_ + size > bytes_.size()) {
             valid_ = false;
             return false;
         }
@@ -137,7 +124,7 @@ private:
 /** @brief pakファイルの読み込み（use）と書き出し（cook）を管理するシングルトン */
 class AssetPack {
 public:
-    enum class Mode { Off, Use, Cook };
+    enum class Mode { kOff, kUse, kCook };
 
     static AssetPack* GetInstance();
 
@@ -152,7 +139,7 @@ public:
     }
     /** @brief pak を作っている最中かを返す */
     bool IsCooking() const {
-        return mode_ == Mode::Cook;
+        return mode_ == Mode::kCook;
     }
 
     /**
@@ -162,7 +149,10 @@ public:
     bool Read(const std::string& key, std::vector<uint8_t>& out);
 
     /** @brief cookモードで、変換済みデータを記録する（同じキーは最初の1回だけ） */
-    void Record(const std::string& key, std::vector<uint8_t> data);
+    void Record(const std::string& key, std::vector<uint8_t> data, size_t uncompressedTextureBytes = 0);
+
+    /** @brief 設定で指定パスのテクスチャ圧縮が許可されているかを返す */
+    bool ShouldCompressTexture(const std::string& path) const;
 
     /** @brief useモードで、pakにキーが入っているか（元ファイルが無くても読めるかの判定用） */
     bool Contains(const std::string& key) const;
@@ -204,7 +194,7 @@ private:
     /** @brief cook終了時に、Resources内のJSONと音声を元ファイルのまま記録する（配布時にResourcesが無くても動くように） */
     void RecordRawFiles();
 
-    Mode mode_ = Mode::Off;
+    Mode mode_ = Mode::kOff;
     std::wstring packPath_;
     std::string sourceSnapshot_;
     std::ifstream file_;
@@ -212,6 +202,11 @@ private:
     std::vector<std::pair<std::string, std::vector<uint8_t>>> recorded_;
     std::unordered_map<std::string, size_t> recordedIndex_;
     mutable std::mutex mutex_;
+    bool textureCompressionEnabled_ = true;
+    std::vector<std::string> textureCompressionExcludePrefixes_;
+    size_t compressedTextureCount_ = 0;
+    uint64_t textureBytesBefore_ = 0;
+    uint64_t textureBytesAfter_ = 0;
     size_t hitCount_ = 0;
     size_t missCount_ = 0;
 };

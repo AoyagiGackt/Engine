@@ -113,8 +113,7 @@ public:
      * @param interval 追加ヒット同士の間隔（秒）
      * @note 段の長さを超える分は出ない。打ち上げ技と固有技の連撃には付かない
      */
-    void SetExtraHits(int count, float interval)
-    {
+    void SetExtraHits(int count, float interval) {
         extraHits_ = count;
         extraHitInterval_ = interval;
     }

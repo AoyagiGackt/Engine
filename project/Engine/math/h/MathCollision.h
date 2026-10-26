@@ -15,8 +15,7 @@ namespace engine {
  * @param aabbMax AABBの最大座標
  * @return bool 接触していれば true
  */
-inline bool IsCollisionSphereAABB(const Vector3& spherePos, float radius, const Vector3& aabbMin, const Vector3& aabbMax)
-{
+inline bool IsCollisionSphereAABB(const Vector3& spherePos, float radius, const Vector3& aabbMin, const Vector3& aabbMax) {
     // AABB上で、球の中心に最も近い点を探す
     Vector3 closestPoint = {
         Clamp(spherePos.x, aabbMin.x, aabbMax.x),
@@ -39,19 +38,15 @@ inline bool IsCollisionSphereAABB(const Vector3& spherePos, float radius, const 
  * @param max2 物体2の最大座標
  * @return bool 接触していれば true
  */
-inline bool IsCollisionAABB(const Vector3& min1, const Vector3& max1, const Vector3& min2, const Vector3& max2)
-{
+inline bool IsCollisionAABB(const Vector3& min1, const Vector3& max1, const Vector3& min2, const Vector3& max2) {
     // 1つでも重なっていない軸があれば当たっていない
-    if (max1.x < min2.x || min1.x > max2.x)
-    {
+    if (max1.x < min2.x || min1.x > max2.x) {
         return false;
     }
-    if (max1.y < min2.y || min1.y > max2.y)
-    {
+    if (max1.y < min2.y || min1.y > max2.y) {
         return false;
     }
-    if (max1.z < min2.z || min1.z > max2.z)
-    {
+    if (max1.z < min2.z || min1.z > max2.z) {
         return false;
     }
 
@@ -67,8 +62,7 @@ inline bool IsCollisionAABB(const Vector3& min1, const Vector3& max1, const Vect
  * @param radius 球の半径
  * @return bool レイが球に当たっていれば true
  */
-inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& spherePos, float radius)
-{
+inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& spherePos, float radius) {
     // レイの始点から球の中心へのベクトル
     Vector3 m = { spherePos.x - rayOrigin.x, spherePos.y - rayOrigin.y, spherePos.z - rayOrigin.z };
 
@@ -79,8 +73,7 @@ inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDir
     float c = Dot(m, m) - radius * radius;
 
     // 始点が球の外側にあり、かつレイが球と反対方向を向いている場合は当たらない
-    if (c > 0.0f && b <= 0.0f)
-    {
+    if (c > 0.0f && b <= 0.0f) {
         return false;
     }
 
@@ -88,8 +81,7 @@ inline bool IsCollisionRaySphere(const Vector3& rayOrigin, const Vector3& rayDir
     float discr = b * b - c;
 
     // 判別式が負ならレイは球をかすりもしない
-    if (discr < 0.0f)
-    {
+    if (discr < 0.0f) {
         return false;
     }
 

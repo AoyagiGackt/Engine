@@ -15,7 +15,7 @@ public:
     virtual void Exit(SceneTransitionFlow&) const { }
     /** @brief 何もしない（遷移していない状態の既定） */
     virtual Action Update(SceneTransitionFlow&, bool, bool) const {
-        return Action::None;
+        return Action::kNone;
     }
     /** @brief シーンを切り替え中かを返す */
     virtual bool IsChanging() const {
@@ -31,8 +31,8 @@ class SceneTransitionFlow::Idle final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const Idle& Instance() {
-        static Idle state;
-        return state;
+        static Idle sState;
+        return sState;
     }
 };
 /** @brief ロード画面の送信完了後にシーン切り替えを許可する状態 */
@@ -40,12 +40,12 @@ class SceneTransitionFlow::Loading final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const Loading& Instance() {
-        static Loading state;
-        return state;
+        static Loading sState;
+        return sState;
     }
     /** @brief 読み込み画面を表示し終えたらシーンの切り替えを指示する */
     Action Update(SceneTransitionFlow&, bool, bool presented) const override {
-        return presented ? Action::CommitSwitch : Action::None;
+        return presented ? Action::kCommitSwitch : Action::kNone;
     }
     /** @brief 読み込み中も切り替え中として true を返す */
     bool IsChanging() const override {
@@ -61,17 +61,16 @@ class SceneTransitionFlow::FadingOut final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const FadingOut& Instance() {
-        static FadingOut state;
-        return state;
+        static FadingOut sState;
+        return sState;
     }
     /** @brief フェードアウトが終わったら読み込み中へ移り、読み込み画面の表示を指示する */
     Action Update(SceneTransitionFlow& flow, bool finished, bool) const override {
-        if (!finished)
-        {
-            return Action::None;
+        if (!finished) {
+            return Action::kNone;
         }
         flow.ChangeState(Loading::Instance());
-        return Action::ShowLoading;
+        return Action::kShowLoading;
     }
     /** @brief フェードアウト中は切り替え中として true を返す */
     bool IsChanging() const override {
@@ -83,21 +82,19 @@ class SceneTransitionFlow::FadingIn final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const FadingIn& Instance() {
-        static FadingIn state;
-        return state;
+        static FadingIn sState;
+        return sState;
     }
     /** @brief フェードインが終わったら待機へ戻る */
     Action Update(SceneTransitionFlow& flow, bool finished, bool) const override {
-        if (finished)
-        {
+        if (finished) {
             flow.ChangeState(Idle::Instance());
         }
-        return Action::None;
+        return Action::kNone;
     }
 };
 /** @brief 旧状態の終了と新状態の開始を順に実行する */
-void SceneTransitionFlow::ChangeState(const State& next)
-{
+void SceneTransitionFlow::ChangeState(const State& next) {
     state_->Exit(*this);
     state_ = &next;
     state_->Enter(*this);
@@ -107,8 +104,7 @@ void SceneTransitionFlow::ChangeState(const State& next)
 SceneTransitionFlow::SceneTransitionFlow() : state_(&Idle::Instance()) {}
 /** @brief 切り替え中でなければフェードアウトを始める */
 void SceneTransitionFlow::Begin() {
-    if (!IsChanging())
-    {
+    if (!IsChanging()) {
         ChangeState(FadingOut::Instance());
     }
 }
@@ -118,8 +114,7 @@ SceneTransitionFlow::Action SceneTransitionFlow::Update(bool finished, bool pres
 }
 /** @brief シーンの切り替えが済んだらフェードインへ移る */
 void SceneTransitionFlow::FinishSwitch() {
-    if (IsLoading())
-    {
+    if (IsLoading()) {
         ChangeState(FadingIn::Instance());
     }
 }

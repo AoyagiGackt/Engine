@@ -35,10 +35,8 @@ constexpr float kCommentMinWidth = 80.0f;
 constexpr float kCommentMinHeight = 60.0f;
 
 // ASCIIの大文字小文字を無視した部分一致（日本語などマルチバイト部分はバイト列そのまま比較）
-bool ContainsCI(const std::string& hay, const std::string& needle)
-{
-    if (needle.empty())
-    {
+bool ContainsCI(const std::string& hay, const std::string& needle) {
+    if (needle.empty()) {
         return true;
     }
     auto eq = [](char a, char b) {
@@ -53,8 +51,7 @@ bool ContainsCI(const std::string& hay, const std::string& needle)
 // ══════════════════════════════════════════════════════
 
 /** @brief 指定した型のノードを、ノード定義の初期パラメータを入れて追加位置に1つ作る */
-void GraphEditor::AddNodeOfType(const std::string& type)
-{
+void GraphEditor::AddNodeOfType(const std::string& type) {
     std::string id = "node_" + std::to_string(nextNodeSerial_++);
     GraphNode node;
     node.id = id;
@@ -63,18 +60,15 @@ void GraphEditor::AddNodeOfType(const std::string& type)
     node.editorY = pendingAddY_;
 
     // 初期パラメータはノード定義（NodeRegistryの表）から入れる（空だと編集の取っ掛かりが無いため）
-    if (const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type))
-    {
-        for (const NodeParamSpec& param : spec->params)
-        {
+    if (const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type)) {
+        for (const NodeParamSpec& param : spec->params) {
             node.params[param.key] = param.InitialValue();
         }
     }
 
     RecordUndoSnapshotNow();
     graph_.nodes[id] = std::move(node);
-    if (graph_.startNodeId.empty())
-    {
+    if (graph_.startNodeId.empty()) {
         graph_.startNodeId = id;
     }
     selectedNodeId_ = id;
@@ -82,13 +76,10 @@ void GraphEditor::AddNodeOfType(const std::string& type)
 }
 
 /** @brief ノードを追加するメニューを出す */
-void GraphEditor::DrawAddNodeMenu()
-{
-    if (ImGui::BeginPopup("AddNodePopup"))
-    {
+void GraphEditor::DrawAddNodeMenu() {
+    if (ImGui::BeginPopup("AddNodePopup")) {
         // メニューを開いた直後は検索欄へフォーカスし、そのままタイプして絞り込めるようにする
-        if (ImGui::IsWindowAppearing())
-        {
+        if (ImGui::IsWindowAppearing()) {
             ImGui::SetKeyboardFocusHere();
         }
         ImGui::SetNextItemWidth(kNodeSearchWidth);
@@ -98,41 +89,34 @@ void GraphEditor::DrawAddNodeMenu()
         // メニュー項目を出し、マウスを乗せたら説明、押したらそのノードを追加する
         auto drawItem = [&](const std::string& type) {
             bool clicked = ImGui::MenuItem(type.c_str());
-            if (ImGui::IsItemHovered())
-            {
+            if (ImGui::IsItemHovered()) {
                 // 説明が登録されているノードだけツールチップを出す
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
-                if (spec && !spec->description.empty())
-                {
+                if (spec && !spec->description.empty()) {
                     ImGui::SetTooltip("%s", spec->description.c_str());
                 }
             }
-            if (clicked)
-            {
+            if (clicked) {
                 AddNodeOfType(type);
             }
         };
 
-        if (nodeSearchBuf_[0] != '\0')
-        {
+        if (nodeSearchBuf_[0] != '\0') {
             // 検索中はカテゴリ分けをやめ、名前・ジャンル・説明のどれかに一致した物をフラットに並べる
             const std::string query = nodeSearchBuf_;
             bool anyMatch = false;
-            for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes())
-            {
+            for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes()) {
                 // 大文字小文字を区別せずに比べる（説明の無いノードは名前だけで判定）
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
                 bool match = ContainsCI(type, query)
                     || (spec && (ContainsCI(spec->category, query) || ContainsCI(spec->description, query)));
-                if (match)
-                {
+                if (match) {
                     drawItem(type);
                     anyMatch = true;
                 }
             }
             // 1件も当たらなかったことを伝える
-            if (!anyMatch)
-            {
+            if (!anyMatch) {
                 ImGui::TextDisabled("該当なし");
             }
             // 検索中はカテゴリ一覧とコメント枠の項目を出さずに閉じる
@@ -142,8 +126,7 @@ void GraphEditor::DrawAddNodeMenu()
 
         // カテゴリごとにグループ化する（よく使う分類は直接、他はサブメニューにまとめる）
         std::map<std::string, std::vector<std::string>> byCategory;
-        for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes())
-        {
+        for (const std::string& type : NodeRegistry::GetInstance()->GetRegisteredTypes()) {
             const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
             std::string cat = (spec && !spec->category.empty()) ? spec->category : "その他";
             byCategory[cat].push_back(type);
@@ -151,10 +134,8 @@ void GraphEditor::DrawAddNodeMenu()
 
         // よく使う分類はサブメニューに入れず、先頭に直接並べる
         auto itFreq = byCategory.find("よく使う");
-        if (itFreq != byCategory.end())
-        {
-            for (const std::string& type : itFreq->second)
-            {
+        if (itFreq != byCategory.end()) {
+            for (const std::string& type : itFreq->second) {
                 drawItem(type);
             }
             // 下のサブメニューに二重に出ないよう表から外す
@@ -163,12 +144,9 @@ void GraphEditor::DrawAddNodeMenu()
         }
 
         // 残りの分類はサブメニューにする（map なので分類名の順に並ぶ）
-        for (auto& [cat, types] : byCategory)
-        {
-            if (ImGui::BeginMenu(cat.c_str()))
-            {
-                for (const std::string& type : types)
-                {
+        for (auto& [cat, types] : byCategory) {
+            if (ImGui::BeginMenu(cat.c_str())) {
+                for (const std::string& type : types) {
                     drawItem(type);
                 }
                 ImGui::EndMenu();
@@ -177,8 +155,7 @@ void GraphEditor::DrawAddNodeMenu()
 
         ImGui::Separator();
         // 右クリックした位置にコメント枠を作って選択する
-        if (ImGui::MenuItem("コメント枠"))
-        {
+        if (ImGui::MenuItem("コメント枠")) {
             RecordUndoSnapshotNow();
             // 名前は通し番号で重ならないようにする
             std::string id = "comment_" + std::to_string(nextCommentSerial_++);
@@ -196,13 +173,11 @@ void GraphEditor::DrawAddNodeMenu()
 }
 
 /** @brief コメント（注釈用の色付き矩形）の描画・ドラッグ移動・リサイズ・テキスト編集 */
-void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
-{
+void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin) {
     constexpr float kHeaderH = 20.0f;
     constexpr float kHandleSize = 10.0f;
 
-    for (auto& [id, c] : graph_.comments)
-    {
+    for (auto& [id, c] : graph_.comments) {
         // ボタンの名前がコメントごとに重ならないよう id で区別する
         ImGui::PushID(id.c_str());
 
@@ -227,14 +202,12 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         // ヘッダー（ドラッグハンドル兼選択領域）。掴んだら選択し、ドラッグした分だけ動かす
         ImGui::SetCursorScreenPos(screenMin);
         ImGui::InvisibleButton("##commentDrag", ImVec2(c.w * zoom_, kHeaderH * zoom_));
-        if (ImGui::IsItemActivated())
-        {
+        if (ImGui::IsItemActivated()) {
             selectedCommentId_ = id;
             selectedNodeId_.clear();
         }
         const bool moving = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
-        if (moving)
-        {
+        if (moving) {
             // マウスの移動量は画面の単位なので、拡大率で割ってグラフ上の量にする
             const ImVec2 d = ImGui::GetIO().MouseDelta;
             c.x += d.x / zoom_;
@@ -244,11 +217,10 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
 
         // テキスト編集欄（ヘッダーの下、ボックス幅いっぱい）
         ImGui::SetCursorScreenPos(ImVec2(screenMin.x + kCommentTextPadding, screenMin.y + kHeaderH * zoom_));
-        char buf[TextBufferCapacity::kPath];
+        char buf[textBufferCapacity::kPath];
         strncpy_s(buf, c.text.c_str(), _TRUNCATE);
         ImGui::SetNextItemWidth(c.w * zoom_ - kCommentTextPadding * 2.0f);
-        if (CaptureItemUndo(ImGui::InputText("##commentText", buf, sizeof(buf))))
-        {
+        if (CaptureItemUndo(ImGui::InputText("##commentText", buf, sizeof(buf)))) {
             c.text = buf;
         }
 
@@ -257,8 +229,7 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
         ImGui::SetCursorScreenPos(handleMin);
         ImGui::InvisibleButton("##commentResize", ImVec2(kHandleSize * zoom_, kHandleSize * zoom_));
         const bool resizing = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
-        if (resizing)
-        {
+        if (resizing) {
             const ImVec2 d = ImGui::GetIO().MouseDelta;
             c.w = (std::max)(kCommentMinWidth, c.w + d.x / zoom_);
             c.h = (std::max)(kCommentMinHeight, c.h + d.y / zoom_);
@@ -272,10 +243,8 @@ void GraphEditor::DrawComments(ImDrawList* dl, const ImVec2& origin)
 }
 
 /** @brief Run中のグラフ変数を一覧表示し、その場で上書きテストできるパネル */
-void GraphEditor::DrawVariablesPanel()
-{
-    if (!testRuntime_.IsRunning())
-    {
+void GraphEditor::DrawVariablesPanel() {
+    if (!testRuntime_.IsRunning()) {
         return;
     }
 
@@ -285,12 +254,10 @@ void GraphEditor::DrawVariablesPanel()
     ImGui::TextDisabled("実行中の変数一覧値を直接書き換えて上書きテストできます");
     ImGui::Separator();
 
-    testRuntime_.VisitVariables([this](const std::string& name, const GraphValue& value)
-    {
+    testRuntime_.VisitVariables([this](const std::string& name, const GraphValue& value) {
         ImGui::PushID(name.c_str());
         GraphValueEditResult edit = DrawGraphValueInput(name.c_str(), value);
-        if (edit.changed)
-        {
+        if (edit.changed) {
             testRuntime_.SetVariable(name, std::move(edit.value));
         }
         ImGui::PopID();

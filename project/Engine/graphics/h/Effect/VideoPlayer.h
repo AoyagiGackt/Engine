@@ -71,10 +71,8 @@ public:
      * @brief 動画の表示座標を設定
      * @param pos 座標(x, y)
      */
-    void SetPosition(const Vector2& pos)
-    {
-        if (sprite_)
-        {
+    void SetPosition(const Vector2& pos) {
+        if (sprite_) {
             sprite_->SetPosition(pos);
         }
     }
@@ -91,10 +89,8 @@ public:
      * @brief 動画の表示サイズを設定
      * @param size サイズ(width, height)
      */
-    void SetSize(const Vector2& size)
-    {
-        if (sprite_)
-        {
+    void SetSize(const Vector2& size) {
+        if (sprite_) {
             sprite_->SetSize(size);
         }
     }
@@ -111,10 +107,8 @@ public:
      * @brief 動画の回転角を設定
      * @param rot 回転角（ラジアン）
      */
-    void SetRotation(float rot)
-    {
-        if (sprite_)
-        {
+    void SetRotation(float rot) {
+        if (sprite_) {
             sprite_->SetRotation(rot);
         }
     }

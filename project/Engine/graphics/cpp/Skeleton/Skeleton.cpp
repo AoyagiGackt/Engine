@@ -40,8 +40,7 @@ namespace engine::graphics {
 #ifdef USE_IMGUI
 namespace {
 /** @brief 骨の位置をデバッグ表示の画面座標へ変換する */
-ImVec2 ProjectJoint(const Joint& joint, const ImVec2& origin, float scale)
-{
+ImVec2 ProjectJoint(const Joint& joint, const ImVec2& origin, float scale) {
     // 表示原点からの距離を倍率に合わせる
     return { origin.x + joint.skeletonSpaceMatrix.m[3][0] * scale,
         origin.y - joint.skeletonSpaceMatrix.m[3][1] * scale };
@@ -53,8 +52,7 @@ ImVec2 ProjectJoint(const Joint& joint, const ImVec2& origin, float scale)
 // NodeHierarchy 読み込み（assimp）
 
 /** @brief assimp のノードを左手系に変換しながら、子ノードも含めて Node に写す */
-static Node ConvertAiNode(const aiNode* ainode)
-{
+static Node ConvertAiNode(const aiNode* ainode) {
     Node node;
     node.name = ainode->mName.C_Str();
 
@@ -69,63 +67,54 @@ static Node ConvertAiNode(const aiNode* ainode)
     node.transform.translate = { -aiTranslate.x, aiTranslate.y, aiTranslate.z };
     node.localMatrix = MakeAffineMatrix(node.transform.scale, node.transform.rotate, node.transform.translate);
 
-    for (uint32_t i = 0; i < ainode->mNumChildren; ++i)
-    {
+    for (uint32_t i = 0; i < ainode->mNumChildren; ++i) {
         node.children.push_back(ConvertAiNode(ainode->mChildren[i]));
     }
     return node;
 }
 
 /** @brief pakへ入れるため、ノード階層を親→子の順に並べる */
-static void SerializeNode(const Node& node, BinaryWriter& writer)
-{
+static void SerializeNode(const Node& node, BinaryWriter& writer) {
     writer.WriteString(node.name);
     writer.Write(node.transform);
     writer.Write(node.localMatrix);
     writer.Write(static_cast<uint64_t>(node.children.size()));
-    for (const Node& child : node.children)
-    {
+    for (const Node& child : node.children) {
         SerializeNode(child, writer);
     }
 }
 
 /** @brief SerializeNodeの逆 */
-static Node DeserializeNode(BinaryReader& reader)
-{
+static Node DeserializeNode(BinaryReader& reader) {
     Node node;
     node.name = reader.ReadString();
     node.transform = reader.Read<QuaternionTransform>();
     node.localMatrix = reader.Read<Matrix4x4>();
     const uint64_t childCount = reader.Read<uint64_t>();
-    for (uint64_t i = 0; i < childCount && reader.IsValid(); ++i)
-    {
+    for (uint64_t i = 0; i < childCount && reader.IsValid(); ++i) {
         node.children.push_back(DeserializeNode(reader));
     }
     return node;
 }
 
 /** @brief モデルファイルからノードの階層を読み込む */
-Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::string& filename)
-{
+Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::string& filename) {
     // 同じ敵種別を複数体・複数レベルで生成する際にassimpの再解析を避けるため、結果を使い回す
-    static std::map<std::string, Node> cache;
+    static std::map<std::string, Node> sCache;
     const std::string key = directoryPath + "/" + filename;
-    auto it = cache.find(key);
-    if (it != cache.end())
-    {
+    auto it = sCache.find(key);
+    if (it != sCache.end()) {
         return it->second;
     }
 
     // pakに骨の階層があれば、glbファイル全体のassimp解析を省く
     const std::string packKey = "skel:" + key;
     std::vector<uint8_t> packed;
-    if (AssetPack::GetInstance()->Read(packKey, packed))
-    {
+    if (AssetPack::GetInstance()->Read(packKey, packed)) {
         BinaryReader reader(packed);
         Node packedNode = DeserializeNode(reader);
-        if (reader.IsValid())
-        {
-            cache[key] = packedNode;
+        if (reader.IsValid()) {
+            sCache[key] = packedNode;
             return packedNode;
         }
     }
@@ -134,13 +123,12 @@ Node LoadNodeHierarchyFromFile(const std::string& directoryPath, const std::stri
     const aiScene* scene = importer.ReadFile(key.c_str(), 0);
     ENGINE_ASSERT(scene && scene->mRootNode);
     Node node = ConvertAiNode(scene->mRootNode);
-    if (AssetPack::GetInstance()->IsCooking())
-    {
+    if (AssetPack::GetInstance()->IsCooking()) {
         BinaryWriter writer;
         SerializeNode(node, writer);
         AssetPack::GetInstance()->Record(packKey, writer.TakeBytes());
     }
-    cache[key] = node;
+    sCache[key] = node;
     return node;
 }
 
@@ -151,8 +139,7 @@ int32_t Skeleton::CreateJoint(
     const Node& node,
     const std::optional<int32_t>& parent,
     std::vector<Joint>& joints,
-    std::map<std::string, int32_t>& jointMap)
-{
+    std::map<std::string, int32_t>& jointMap) {
     Joint joint;
     joint.name = node.name;
     joint.localMatrix = node.localMatrix;
@@ -164,16 +151,14 @@ int32_t Skeleton::CreateJoint(
     joints.push_back(joint);
     jointMap[joint.name] = joint.index;
 
-    for (const Node& child : node.children)
-    {
+    for (const Node& child : node.children) {
         CreateJoint(child, joint.index, joints, jointMap);
     }
     return joint.index;
 }
 
 /** @brief Node階層をDFSで辿り、親子関係を保持したJoint配列としてSkeletonを構築する */
-Skeleton Skeleton::Create(const Node& rootNode)
-{
+Skeleton Skeleton::Create(const Node& rootNode) {
     Skeleton skeleton;
     skeleton.root_ = CreateJoint(rootNode, std::nullopt, skeleton.joints_, skeleton.jointMap_);
     return skeleton;
@@ -182,21 +167,16 @@ Skeleton Skeleton::Create(const Node& rootNode)
 // 更新（DFS順なので前から順に計算するだけでよい）
 
 /** @brief 全 Joint のローカル行列を作り直し、親から順にスケルトン空間の行列へ反映する */
-void Skeleton::Update()
-{
-    for (Joint& joint : joints_)
-    {
+void Skeleton::Update() {
+    for (Joint& joint : joints_) {
         joint.localMatrix = MakeAffineMatrix(
             joint.transform.scale,
             joint.transform.rotate,
             joint.transform.translate);
 
-        if (joint.parent)
-        {
+        if (joint.parent) {
             joint.skeletonSpaceMatrix = Multiply(joint.localMatrix, joints_[*joint.parent].skeletonSpaceMatrix);
-        }
-        else
-        {
+        } else {
             joint.skeletonSpaceMatrix = joint.localMatrix;
         }
     }
@@ -207,19 +187,15 @@ void Skeleton::Update()
 #ifdef USE_IMGUI
 
 /** @brief 関節の木構造を ImGui に表示する */
-static void DrawJointTree(const std::vector<Joint>& joints, int32_t index)
-{
+static void DrawJointTree(const std::vector<Joint>& joints, int32_t index) {
     const Joint& joint = joints[index];
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
     bool open = ImGui::TreeNodeEx(joint.name.c_str(), flags);
-    if (open)
-    {
+    if (open) {
         const auto& m = joint.skeletonSpaceMatrix;
         ImGui::Text("pos: (%.1f, %.1f, %.1f)", m.m[3][0], m.m[3][1], m.m[3][2]);
-        for (const Joint& other : joints)
-        {
-            if (other.parent && *other.parent == index)
-            {
+        for (const Joint& other : joints) {
+            if (other.parent && *other.parent == index) {
                 DrawJointTree(joints, other.index);
             }
         }
@@ -230,12 +206,10 @@ static void DrawJointTree(const std::vector<Joint>& joints, int32_t index)
 #endif // USE_IMGUI
 
 /** @brief ImGuiウィンドウに全ジョイントを2D投影したスティックフィギュアとツリービューを表示する */
-void Skeleton::DrawDiagnostics()
-{
+void Skeleton::DrawDiagnostics() {
 #ifdef USE_IMGUI
     ImGui::SetNextWindowSize(ImVec2(kSkeletonWindowWidth, kSkeletonWindowHeight), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Skeleton Overlay"))
-    {
+    if (!ImGui::Begin("Skeleton Overlay")) {
         ImGui::End();
         return;
     }
@@ -257,12 +231,10 @@ void Skeleton::DrawDiagnostics()
     // 全ジョイントのXY範囲を自動計算してスケールを決める
     float minX = 0.0f, maxX = 0.0f, minY = 0.0f, maxY = 0.0f;
     bool first = true;
-    for (const Joint& joint : joints_)
-    {
+    for (const Joint& joint : joints_) {
         float x = joint.skeletonSpaceMatrix.m[3][0];
         float y = joint.skeletonSpaceMatrix.m[3][1];
-        if (first)
-        {
+        if (first) {
             minX = maxX = x;
             minY = maxY = y;
             first = false;
@@ -292,10 +264,8 @@ void Skeleton::DrawDiagnostics()
         kAxisColor, 1.0f);
 
     // 骨の線（親→子）
-    for (const Joint& joint : joints_)
-    {
-        if (!joint.parent)
-        {
+    for (const Joint& joint : joints_) {
+        if (!joint.parent) {
             continue;
         }
         const Joint& p = joints_[*joint.parent];
@@ -306,8 +276,7 @@ void Skeleton::DrawDiagnostics()
     }
 
     // ジョイントの点
-    for (const Joint& joint : joints_)
-    {
+    for (const Joint& joint : joints_) {
         const ImVec2 p = ProjectJoint(joint, origin, scale);
         ImU32 col = (joint.index == root_)
             ? kRootColor
@@ -317,12 +286,10 @@ void Skeleton::DrawDiagnostics()
 
     // マウスホバーでジョイント名ツールチップ
     ImVec2 mousePos = ImGui::GetMousePos();
-    for (const Joint& joint : joints_)
-    {
+    for (const Joint& joint : joints_) {
         const ImVec2 p = ProjectJoint(joint, origin, scale);
         float dx = mousePos.x - p.x, dy = mousePos.y - p.y;
-        if (dx * dx + dy * dy < kJointHoverRadius * kJointHoverRadius)
-        {
+        if (dx * dx + dy * dy < kJointHoverRadius * kJointHoverRadius) {
             ImGui::SetNextWindowBgAlpha(kTooltipOpacity);
             ImGui::BeginTooltip();
             ImGui::TextUnformatted(joint.name.c_str());
@@ -337,8 +304,7 @@ void Skeleton::DrawDiagnostics()
     // ジョイントツリービュー
     ImGui::Separator();
     ImGui::Text("Joints: %d", static_cast<int>(joints_.size()));
-    if (ImGui::BeginChild("##jointTree", ImVec2(0.0f, 0.0f), false))
-    {
+    if (ImGui::BeginChild("##jointTree", ImVec2(0.0f, 0.0f), false)) {
         DrawJointTree(joints_, root_);
     }
     ImGui::EndChild();

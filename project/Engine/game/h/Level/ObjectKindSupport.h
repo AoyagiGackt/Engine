@@ -4,21 +4,20 @@
 #pragma once
 #include "ObjectKind.h"
 #include <string>
+#include <vector>
 #ifdef USE_IMGUI
 #include <imgui.h>
 #include <cstring>
 #endif
-namespace engine::game::ObjectKindDetail {
+namespace engine::game::objectKindDetail {
 #ifdef USE_IMGUI
 constexpr size_t kTextFieldSize = 96;
 
 /** @brief 文字列の設定項目を1行の入力欄で編集する */
-inline bool InputString(const char* label, std::string& value, const ObjectKind::UndoCapture& capture)
-{
+inline bool InputString(const char* label, std::string& value, const ObjectKind::UndoCapture& capture) {
     char buffer[kTextFieldSize] = { };
     strncpy_s(buffer, value.c_str(), _TRUNCATE);
-    if (capture(ImGui::InputText(label, buffer, sizeof(buffer))))
-    {
+    if (capture(ImGui::InputText(label, buffer, sizeof(buffer)))) {
         value = buffer;
         return true;
     }
@@ -30,21 +29,45 @@ inline bool InputString(const char* label, std::string& value, const ObjectKind:
  * @param selected 選び直された時だけ新しい値を書き込む（Undoの記録を値の書き換えより先に行えるよう、元の値は変えない）
  * @return 選び直されたか
  */
-/** @brief コンボボックスで文字列を選ぶ（先頭の項目は空として扱う） */
-template <size_t N>
-bool ComboWithEmptyFirst(const char* label, const std::string& current, const char* const (&items)[N], std::string& selected)
-{
+/**
+ * @brief 実行時に作った選択肢から文字列を選ぶ（先頭の項目は空として扱う。表から選択肢を作る時用）
+ * @param labels 表示名（values と同じ並び）
+ * @param values 選んだ時に入る値
+ */
+inline bool ComboFromList(const char* label, const std::string& current,
+    const std::vector<std::string>& labels, const std::vector<std::string>& values, std::string& selected) {
     int index = 0;
-    for (int i = 1; i < static_cast<int>(N); ++i)
-    {
-        if (current == items[i])
-        {
+    for (int i = 1; i < static_cast<int>(values.size()); ++i) {
+        if (current == values[i]) {
             index = i;
             break;
         }
     }
-    if (!ImGui::Combo(label, &index, items, static_cast<int>(N)))
-    {
+    const char* preview = index < static_cast<int>(labels.size()) ? labels[index].c_str() : "";
+    bool changed = false;
+    if (ImGui::BeginCombo(label, preview)) {
+        for (int i = 0; i < static_cast<int>(labels.size()) && i < static_cast<int>(values.size()); ++i) {
+            if (ImGui::Selectable(labels[i].c_str(), i == index)) {
+                selected = i == 0 ? "" : values[i];
+                changed = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+/** @brief コンボボックスで文字列を選ぶ（先頭の項目は空として扱う） */
+template <size_t N>
+bool ComboWithEmptyFirst(const char* label, const std::string& current, const char* const (&items)[N], std::string& selected) {
+    int index = 0;
+    for (int i = 1; i < static_cast<int>(N); ++i) {
+        if (current == items[i]) {
+            index = i;
+            break;
+        }
+    }
+    if (!ImGui::Combo(label, &index, items, static_cast<int>(N))) {
         return false;
     }
     selected = index == 0 ? "" : items[index];

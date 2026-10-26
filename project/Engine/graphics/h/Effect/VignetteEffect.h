@@ -14,10 +14,9 @@ namespace engine::graphics {
 class VignetteEffect {
 public:
     /** @brief 共有インスタンスを取得する */
-    static VignetteEffect* GetInstance()
-    {
-        static VignetteEffect instance;
-        return &instance;
+    static VignetteEffect* GetInstance() {
+        static VignetteEffect sInstance;
+        return &sInstance;
     }
 
     /**

@@ -8,6 +8,44 @@ namespace engine::game {
 
 /** @brief 水場の色と環境粒子の調整値 */
 struct WaterVisualSettings {
+    // 水面シミュレーションと光学表現の既定値。
+    static constexpr int kDefaultWavePointCount = 64;
+    int wavePointCount = kDefaultWavePointCount;
+    static constexpr float kDefaultWaveSpring = 28.0f;
+    float waveSpring = kDefaultWaveSpring;
+    static constexpr float kDefaultWaveSpread = 90.0f;
+    float waveSpread = kDefaultWaveSpread;
+    static constexpr float kDefaultWaveDamping = 2.8f;
+    float waveDamping = kDefaultWaveDamping;
+    static constexpr float kDefaultWaveMaxHeight = 0.22f;
+    float waveMaxHeight = kDefaultWaveMaxHeight;
+    static constexpr float kDefaultWaveSplashImpulse = 1.6f;
+    float waveSplashImpulse = kDefaultWaveSplashImpulse;
+    static constexpr float kDefaultWaveMoveImpulse = 0.12f;
+    float waveMoveImpulse = kDefaultWaveMoveImpulse;
+    static constexpr float kDefaultWaveImpulseRadius = 0.65f;
+    float waveImpulseRadius = kDefaultWaveImpulseRadius;
+    static constexpr float kDefaultWaveAmbientStrength = 0.08f;
+    float waveAmbientStrength = kDefaultWaveAmbientStrength;
+    static constexpr float kDefaultWaveAmbientFrequency = 1.8f;
+    float waveAmbientFrequency = kDefaultWaveAmbientFrequency;
+    static constexpr float kDefaultWaveAmbientSpeed = 1.3f;
+    float waveAmbientSpeed = kDefaultWaveAmbientSpeed;
+    static constexpr float kDefaultRefractionStrength = 0.004f;
+    float refractionStrength = kDefaultRefractionStrength;
+    static constexpr float kDefaultRefractionSpeed = 1.6f;
+    float refractionSpeed = kDefaultRefractionSpeed;
+    static constexpr float kDefaultCausticScale = 2.4f;
+    float causticScale = kDefaultCausticScale;
+    static constexpr float kDefaultCausticFlowSpeed = 0.7f;
+    float causticFlowSpeed = kDefaultCausticFlowSpeed;
+    static constexpr float kDefaultCausticStrength = 0.16f;
+    float causticStrength = kDefaultCausticStrength;
+    static constexpr float kDefaultFoamWidth = 0.045f;
+    float foamWidth = kDefaultFoamWidth;
+    static constexpr float kDefaultFoamStrength = 0.85f;
+    float foamStrength = kDefaultFoamStrength;
+
     Vector4 deepWaterColor = { 0.03f, 0.18f, 0.58f, 0.94f };
     Vector4 surfaceWaterColor = { 0.20f, 0.58f, 0.96f, 0.68f };
     float surfaceLayerDepth = 1.5f; ///< 水面から明るい層を重ねる深さ

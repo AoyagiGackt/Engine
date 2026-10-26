@@ -6,34 +6,29 @@
 
 namespace engine::game {
 /** @brief 唯一のEnemyRegistryインスタンスを取得する（未生成なら生成する） */
-EnemyRegistry* EnemyRegistry::GetInstance()
-{
-    static EnemyRegistry instance;
-    return &instance;
+EnemyRegistry* EnemyRegistry::GetInstance() {
+    static EnemyRegistry sInstance;
+    return &sInstance;
 }
 
 /** @brief idで敵を登録する（同じidが既にあれば上書き） */
-void EnemyRegistry::Register(const std::string& id, EnemyEntity* enemy)
-{
+void EnemyRegistry::Register(const std::string& id, EnemyEntity* enemy) {
     enemies_[id] = enemy;
 }
 
 /** @brief 登録を解除する（敵を破棄する前に呼ぶこと） */
-void EnemyRegistry::Unregister(const std::string& id)
-{
+void EnemyRegistry::Unregister(const std::string& id) {
     enemies_.erase(id);
 }
 
 /** @brief idから敵を検索する未登録なら nullptr */
-EnemyEntity* EnemyRegistry::Find(const std::string& id) const
-{
+EnemyEntity* EnemyRegistry::Find(const std::string& id) const {
     auto it = enemies_.find(id);
     return (it != enemies_.end()) ? it->second : nullptr;
 }
 
 /** @brief 全登録を消去する（シーン遷移時などに使う想定） */
-void EnemyRegistry::Clear()
-{
+void EnemyRegistry::Clear() {
     enemies_.clear();
 }
 

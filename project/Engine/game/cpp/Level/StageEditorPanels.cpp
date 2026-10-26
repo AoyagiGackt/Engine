@@ -24,7 +24,7 @@
 namespace engine::game {
 using namespace engine::graphics;
 namespace {
-namespace EditorUi = engine::game::StageEditorUiStyle;
+namespace editorUi = engine::game::stageEditorUiStyle;
 
 constexpr int kGuideStepCount = 4; // 制作手順の項目数（地面・敵・トリガー・イベント接続）
 constexpr float kNewLevelNameWidth = 150.0f;
@@ -34,10 +34,8 @@ constexpr Vector3 kNewLevelPlayerSpawn = { 4.0f, 0.4f, 0.0f };
 constexpr int kNewLevelLeftColumn = 2; // 新規レベルの床・天井・左壁を並べ始める列
 
 /** @brief 検索語(小文字化済み)がtext(小文字化して比較)に部分一致するか。空検索語は常にtrue */
-bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
-{
-    if (searchTextLower.empty())
-    {
+bool MatchesSearch(const std::string& searchTextLower, const std::string& text) {
+    if (searchTextLower.empty()) {
         return true;
     }
     std::string target = text;
@@ -49,16 +47,13 @@ bool MatchesSearch(const std::string& searchTextLower, const std::string& text)
 }
 } // namespace
 /** @brief 制作ガイドの進捗チェックリストと、開く/保存等のファイル操作行を描画する */
-void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
-{
-    if (ImGui::CollapsingHeader("制作ガイド"))
-    {
+void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor) {
+    if (ImGui::CollapsingHeader("制作ガイド")) {
         // 地形・敵・トリガー・イベント接続の4手順がそれぞれ済んでいるかを配置物から数える
         bool hasGround = false;
         bool hasEnemy = false;
         bool hasEventConnection = false;
-        for (const auto& entry : editor.objects_)
-        {
+        for (const auto& entry : editor.objects_) {
             // 当たり判定のある物か地面扱いの種類があれば地形は済み、敵を置く種類があれば敵は済み
             const ObjectKind& kind = ObjectKind::Of(entry.desc.kind);
             hasGround |= entry.desc.solid || kind.CountsAsGround();
@@ -82,19 +77,16 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
         ImGui::BulletText("%s 4 イベントで条件と動作対象を接続する",
             hasEventConnection ? "[完了]" : "[未]  ");
         // 次の手順に使うパネルを開くボタン
-        if (ImGui::SmallButton("Waveを作る"))
-        {
+        if (ImGui::SmallButton("Waveを作る")) {
             editor.showWavePanel_ = true;
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton("イベントを作る"))
-        {
+        if (ImGui::SmallButton("イベントを作る")) {
             editor.showNoCodeEventPanel_ = true;
         }
         ImGui::SameLine();
         // 画面中央に水しぶきトリガーを1つ作り、そのまま選択する
-        if (ImGui::SmallButton("水イベントを作る"))
-        {
+        if (ImGui::SmallButton("水イベントを作る")) {
             editor.RecordUndoSnapshotNow();
             const Vector3 center = editor.ViewCenterOnGround();
             // 名前は通し番号で重ならないようにし、水しぶきを出す設定だけを入れる
@@ -106,18 +98,16 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
             editor.statusMessage_ = "水イベントを画面中央に作成しました。ドラッグして位置を調整してください";
             editor.statusTimer_ = StageEditor::kStatusNormalSeconds;
         }
-        EditorUI::HelpMarker("動作対象やイベントパネルでの接続を行わず、この場所に来たら水しぶきが出るトリガーを1回で作ります");
+        editorUI::HelpMarker("動作対象やイベントパネルでの接続を行わず、この場所に来たら水しぶきが出るトリガーを1回で作ります");
         ImGui::SameLine();
         // 手順の詳しい説明は使い方パネルに任せる
-        if (ImGui::SmallButton("詳しい説明"))
-        {
+        if (ImGui::SmallButton("詳しい説明")) {
             editor.showEditorHelp_ = true;
         }
         ImGui::TextDisabled("最後に上部のテストで確認し、制作パネルから検証して保存する");
     }
     // 操作方法の一覧
-    if (ImGui::CollapsingHeader("使い方"))
-    {
+    if (ImGui::CollapsingHeader("使い方")) {
         // カメラと変形ツールの操作
         ImGui::BulletText("右ボタンを押しながらWASD/QE: カメラ移動    中ドラッグ: 平行移動    ホイール: ズーム");
         ImGui::BulletText("W/E/R: 移動・回転・拡縮ツール。選択物の矢印・リング・四角をつかんで操作");
@@ -151,8 +141,7 @@ void StageEditorHierarchyPanel::RenderGuideAndFileActions(StageEditor& editor)
     }
 }
 /** @brief オブジェクトエンティティトリガーの各ツリーをまとめて描画する（RenderObjectTree等の呼び出し元） */
-void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
-{
+void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor) {
     const std::string searchTextLower = RenderSearchBar(editor);
     RenderObjectTree(editor, searchTextLower);
     RenderExternalEntityList(editor, searchTextLower);
@@ -160,26 +149,21 @@ void StageEditorHierarchyPanel::RenderEntityBrowser(StageEditor& editor)
     ImGui::Separator();
 }
 /** @brief ゲームカメラの位置・回転を編集するセクションを描画する */
-void StageEditorHierarchyPanel::RenderCameraSection(StageEditor& editor)
-{
-    if (editor.camera_ && ImGui::CollapsingHeader("ゲームカメラ", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+void StageEditorHierarchyPanel::RenderCameraSection(StageEditor& editor) {
+    if (editor.camera_ && ImGui::CollapsingHeader("ゲームカメラ", ImGuiTreeNodeFlags_DefaultOpen)) {
         Vector3 position = editor.camera_->GetTranslate();
         Vector3 rotation = editor.camera_->GetRotate();
-        if (ImGui::DragFloat3("カメラ位置", &position.x, EditorUi::kDragStepPosition))
-        {
+        if (ImGui::DragFloat3("カメラ位置", &position.x, editorUi::kDragStepPosition)) {
             editor.camera_->SetTranslate(position);
         }
-        if (ImGui::DragFloat3("カメラ回転", &rotation.x, EditorUi::kDragStepRotation))
-        {
+        if (ImGui::DragFloat3("カメラ回転", &rotation.x, editorUi::kDragStepRotation)) {
             editor.camera_->SetRotate(rotation);
         }
         ImGui::TextDisabled("WASD: XY移動 / Q,E: 奥行き移動");
     }
 }
 /** @brief レベルファイルの開く/保存、元に戻す/やり直す、スナップ、親子リンク等の操作行を描画する */
-void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
-{
+void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor) {
     // レベル切替: Resources/Levels 直下のJSONを列挙して選ぶ（自動保存ファイルは除外）
     // 選んだ瞬間に読み込み直す。未保存の編集があれば下の開く確認モーダルに回す
     constexpr const char* kLevelsDirectory = "Resources/Levels";
@@ -187,43 +171,37 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     bool requestOpen = false;
     const std::string currentFile = std::filesystem::path(editor.levelPath_).filename().string();
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::BeginCombo("##levelFile", currentFile.empty() ? "レベルを選択" : currentFile.c_str()))
-    {
+    if (ImGui::BeginCombo("##levelFile", currentFile.empty() ? "レベルを選択" : currentFile.c_str())) {
         // フォルダが無くても例外にせず、空の一覧として扱う
         std::error_code fileError;
         std::vector<std::string> files;
-        for (const auto& entry : std::filesystem::directory_iterator(kLevelsDirectory, fileError))
-        {
+        for (const auto& entry : std::filesystem::directory_iterator(kLevelsDirectory, fileError)) {
             // 通常の .json ファイルだけを候補にする
             const std::string name = entry.path().filename().string();
-            if (!entry.is_regular_file() || entry.path().extension() != ".json" || name.ends_with(kAutoSaveSuffix))
-            {
+            if (!entry.is_regular_file() || entry.path().extension() != ".json" || name.ends_with(kAutoSaveSuffix)) {
                 continue;
             }
             files.push_back(name);
         }
         // 列挙の順番は環境で変わるので名前順に並べる
         std::sort(files.begin(), files.end());
-        for (const std::string& name : files)
-        {
+        for (const std::string& name : files) {
             // 今開いているファイルを選び直した時は読み込み直さない
             const bool selected = name == currentFile;
-            if (ImGui::Selectable(name.c_str(), selected) && !selected)
-            {
+            if (ImGui::Selectable(name.c_str(), selected) && !selected) {
                 editor.levelPath_ = std::string(kLevelsDirectory) + "/" + name;
                 requestOpen = true;
             }
         }
         ImGui::EndCombo();
     }
-    EditorUI::HelpMarker("Resources/Levels のレベルを切り替えます。本編で使うレベルは game_rules.json の levelPaths で指定します");
+    editorUI::HelpMarker("Resources/Levels のレベルを切り替えます。本編で使うレベルは game_rules.json の levelPaths で指定します");
     // 新規レベル名を入れると作成ボタンが押せるようになる
     ImGui::SetNextItemWidth(kNewLevelNameWidth);
     ImGui::InputTextWithHint("##newLevel", "新規レベル名", editor.newLevelName_, sizeof(editor.newLevelName_));
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.newLevelName_[0] == '\0');
-    if (ImGui::Button("新規作成"))
-    {
+    if (ImGui::Button("新規作成")) {
         // 床・左右の壁・天井だけの土台を書き出してから開く（真っ白なレベルだと足場が無く落ちて始まらない）
         constexpr int kNewLevelWidth = 40;
         constexpr int kNewLevelHeight = 13;
@@ -235,7 +213,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         auto makeRow = [](const char* name, char axis, int count, const Vector3& position) {
             ObjectDesc row;
             row.name = name;
-            row.type = PlacementType::Row;
+            row.type = PlacementType::kRow;
             row.kind = "prop";
             row.axis = axis;
             row.count = count;
@@ -253,86 +231,71 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + kNewLevelLeftColumn), kFloorY, 0.0f }));
         // 土台をファイルに書き出し、そのファイルを開く
         const std::string newPath = std::string(kLevelsDirectory) + "/" + editor.newLevelName_ + ".json";
-        LevelLoader::Save(newPath, data);
+        levelLoader::Save(newPath, data);
         editor.levelPath_ = newPath;
         requestOpen = true;
     }
     ImGui::EndDisabled();
     // レベルのパスは直接入力でも指定できる
-    char pathBuf[TextBufferCapacity::kPath];
+    char pathBuf[textBufferCapacity::kPath];
     strncpy_s(pathBuf, editor.levelPath_.c_str(), _TRUNCATE);
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf)))
-    {
+    if (ImGui::InputText("##path", pathBuf, sizeof(pathBuf))) {
         editor.levelPath_ = pathBuf;
     }
     // 未保存の編集がある時は黙って破棄せず、確認モーダルを挟んでから開く
     auto openOrConfirm = [&editor]() {
-        if (editor.dirty_)
-        {
+        if (editor.dirty_) {
             ImGui::OpenPopup("開くの確認");
-        }
-        else
-        {
+        } else {
             editor.Open(editor.levelPath_, editor.modelCommon_, editor.camera_);
         }
     };
     // 一覧で選んだ・新規作成した時と、開くボタンを押した時に開く
     // ボタンは毎フレーム描くので、requestOpen より先に評価する
     const bool openPressed = ImGui::Button("開く", ImVec2(kFileButtonWidth, 0.0f));
-    if (requestOpen || openPressed)
-    {
+    if (requestOpen || openPressed) {
         openOrConfirm();
     }
     // 確認で破棄を選んだ時だけ開く
-    if (EditorUI::ConfirmModal("開くの確認",
+    if (editorUI::ConfirmModal("開くの確認",
             "未保存の変更があります。\n変更を破棄して読み込み直しますか？",
             "破棄して開く")
-        == EditorUI::ConfirmResult::Ok)
-    {
+        == editorUI::ConfirmResult::kOk) {
         editor.Open(editor.levelPath_, editor.modelCommon_, editor.camera_);
     }
     ImGui::SameLine();
     // 保存と、未保存の表示
-    if (ImGui::Button("保存", ImVec2(kFileButtonWidth, 0.0f)))
-    {
+    if (ImGui::Button("保存", ImVec2(kFileButtonWidth, 0.0f))) {
         editor.Save();
     }
-    if (editor.dirty_)
-    {
+    if (editor.dirty_) {
         ImGui::SameLine();
-        ImGui::TextColored(EditorUi::kWarningColor, "未保存");
+        ImGui::TextColored(editorUi::kWarningColor, "未保存");
     }
     // 元に戻す・選んだ発生条件のフラグを立てて試す・やり直す
     ImGui::BeginDisabled(!editor.history_.CanUndo());
-    if (ImGui::Button("元に戻す", ImVec2(kFileButtonWidth, 0.0f)))
-    {
+    if (ImGui::Button("元に戻す", ImVec2(kFileButtonWidth, 0.0f))) {
         editor.Undo();
     }
     ImGui::EndDisabled();
-    if (ImGui::Button("選択条件をテスト発火"))
-    {
+    if (ImGui::Button("選択条件をテスト発火")) {
         // 発生条件の番号はトリガーが先、その後ろに配置物の番号が続く
         const int sourceIndex = editor.eventConnection_.SourceIndex();
-        if (sourceIndex >= 0 && sourceIndex < static_cast<int>(editor.triggers_.size()))
-        {
+        if (sourceIndex >= 0 && sourceIndex < static_cast<int>(editor.triggers_.size())) {
             // トリガーなら、そのトリガーのフラグを立てる
             GameFlags::GetInstance()->SetFlag(editor.triggers_[sourceIndex].GetDesc().flag, true);
-        }
-        else
-        {
+        } else {
             // イベント条件なら、条件名から作ったフラグを立てる
             const int conditionIndex = sourceIndex - static_cast<int>(editor.triggers_.size());
-            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(editor.objects_.size()))
-            {
+            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(editor.objects_.size())) {
                 GameFlags::GetInstance()->SetFlag(ConditionFlagName(editor.objects_[conditionIndex].desc.name), true);
             }
         }
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(!editor.history_.CanRedo());
-    if (ImGui::Button("やり直す", ImVec2(kFileButtonWidth, 0.0f)))
-    {
+    if (ImGui::Button("やり直す", ImVec2(kFileButtonWidth, 0.0f))) {
         editor.Redo();
     }
     ImGui::EndDisabled();
@@ -340,32 +303,28 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     ImGui::Checkbox("スナップ", &editor.snapEnabled_);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(kSnapStepWidth);
-    ImGui::DragFloat("##snapStep", &editor.snapStep_, EditorUi::kDragStepPosition, EditorUi::kMinSnapStep, EditorUi::kMaxSnapStep, "%.1f");
+    ImGui::DragFloat("##snapStep", &editor.snapStep_, editorUi::kDragStepPosition, editorUi::kMinSnapStep, editorUi::kMaxSnapStep, "%.1f");
     // 選択物を子にして、次にクリックした物を親にする親子付け
-    const bool canLink = editor.selKind_ == StageEditor::SelKind::Object
+    const bool canLink = editor.selKind_ == StageEditor::SelKind::kObject
         && editor.selIndex_ >= 0 && editor.selIndex_ < static_cast<int>(editor.objects_.size());
     ImGui::BeginDisabled(!canLink);
-    if (ImGui::Button(editor.parentLinkChildIndex_ >= 0 ? "親子リンクをキャンセル" : "選択物を子にして親をクリック"))
-    {
+    if (ImGui::Button(editor.parentLinkChildIndex_ >= 0 ? "親子リンクをキャンセル" : "選択物を子にして親をクリック")) {
         editor.parentLinkChildIndex_ = editor.parentLinkChildIndex_ >= 0 ? -1 : editor.selIndex_;
     }
     ImGui::EndDisabled();
     // 親を選ぶ待ちの間は、次に何をすればよいかを出す
-    if (editor.parentLinkChildIndex_ >= 0)
-    {
-        ImGui::TextColored(EditorUi::kNoticeColor, "接続する親ブロックを画面上でクリック");
+    if (editor.parentLinkChildIndex_ >= 0) {
+        ImGui::TextColored(editorUi::kNoticeColor, "接続する親ブロックを画面上でクリック");
     }
-    EditorUI::HelpMarker("ドラッグ移動・新規配置・複製の座標を、この間隔の倍数に揃えます");
+    editorUI::HelpMarker("ドラッグ移動・新規配置・複製の座標を、この間隔の倍数に揃えます");
     // 直前の操作結果
-    if (editor.statusTimer_ > 0.0f)
-    {
+    if (editor.statusTimer_ > 0.0f) {
         ImGui::TextDisabled("%s", editor.statusMessage_.c_str());
     }
     ImGui::Separator();
 }
 /** @brief 階層検索ボックスを描画し、小文字化した検索語を返す（空なら全件一致扱い） */
-std::string StageEditorHierarchyPanel::RenderSearchBar(StageEditor& editor)
-{
+std::string StageEditorHierarchyPanel::RenderSearchBar(StageEditor& editor) {
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##hierarchySearch", "名前・種類・モデルを検索", editor.hierarchySearch_, sizeof(editor.hierarchySearch_));
     std::string searchText = editor.hierarchySearch_;
@@ -376,32 +335,27 @@ std::string StageEditorHierarchyPanel::RenderSearchBar(StageEditor& editor)
     return searchText;
 }
 /** @brief オブジェクトツリー（新規追加ポップアップ・検索一致時のフラット表示・通常時の親子階層表示）を描画する */
-void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std::string& searchTextLower)
-{
+void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std::string& searchTextLower) {
     auto matchesSearch = [&](const std::string& text) {
         return MatchesSearch(searchTextLower, text);
     };
-    char objHeader[TextBufferCapacity::kSectionTitle];
+    char objHeader[textBufferCapacity::kSectionTitle];
     // 見出しに配置物の数を出す
     snprintf(objHeader, sizeof(objHeader), "オブジェクト (%d)", static_cast<int>(editor.objects_.size()));
     bool objOpen = ImGui::TreeNodeEx(objHeader, ImGuiTreeNodeFlags_DefaultOpen);
     // 見出しへ落とすと親を外す（一番上の階層へ戻す）
-    if (ImGui::BeginDragDropTarget())
-    {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("STAGE_OBJECT"))
-        {
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("STAGE_OBJECT")) {
             editor.SetParentPreservingWorld(*static_cast<const int*>(payload->Data), -1);
         }
         ImGui::EndDragDropTarget();
     }
     ImGui::SameLine();
     // 追加ボタンで種類を選ぶメニューを開く
-    if (ImGui::SmallButton("追加##addObj"))
-    {
+    if (ImGui::SmallButton("追加##addObj")) {
         ImGui::OpenPopup("AddObjectPopup");
     }
-    if (ImGui::BeginPopup("AddObjectPopup"))
-    {
+    if (ImGui::BeginPopup("AddObjectPopup")) {
         // 見えている画面の中央（z=0平面上）に置くカメラをどこへ動かしていても手元に出る
         const Vector3 center = editor.ViewCenterOnGround();
         /** @brief 完成した配置設定をUndo記録後に追加し、実体生成と選択更新を一度だけ行う */
@@ -413,16 +367,14 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             entry.desc.position = center;
             entry.desc.position.x = editor.SnapValue(entry.desc.position.x);
             entry.desc.position.y = editor.SnapValue(entry.desc.position.y);
-            if (preset && !StageEditorObjectPresets::TryApply(preset, entry.desc))
-            {
+            if (preset && !stageEditorObjectPresets::TryApply(preset, entry.desc)) {
                 editor.statusMessage_ = "配置プリセットを読み込めませんでした。設定ファイルを確認してください";
                 editor.statusTimer_ = StageEditor::kStatusNormalSeconds;
                 return;
             }
             editor.RecordUndoSnapshotNow();
             entry.desc.name = namePrefix + "_" + std::to_string(editor.nextSerial_++);
-            if (activateOnFlag)
-            {
+            if (activateOnFlag) {
                 entry.desc.activationFlag = entry.desc.name + "_active";
             }
             editor.objects_.push_back(std::move(entry));
@@ -454,68 +406,50 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
             { "Terrain", "terrain", "terrain", "terrain", false },
         };
         // 表の順に並べ、選ばれた項目だけを追加する
-        for (const AddMenuItem& item : kAddMenuItems)
-        {
-            if (!ImGui::MenuItem(item.label))
-            {
+        for (const AddMenuItem& item : kAddMenuItems) {
+            if (!ImGui::MenuItem(item.label)) {
                 continue;
             }
-            if (item.namePrefix == nullptr)
-            {
-                editor.AddUITextAt(EditorUi::kScreenCenterPosition);
-            }
-            else
-            {
+            if (item.namePrefix == nullptr) {
+                editor.AddUITextAt(editorUi::kScreenCenterPosition);
+            } else {
                 addEntry(item.namePrefix, item.kind, item.preset, item.activateOnFlag);
             }
         }
         ImGui::EndPopup();
     }
-    if (objOpen)
-    {
+    if (objOpen) {
         // 検索中は親子をたどらず、名前・種類・モデルが一致するものを平らに並べる（Ctrlで複数選択の切り替え）
-        if (!searchTextLower.empty())
-        {
-            for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i)
-            {
+        if (!searchTextLower.empty()) {
+            for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
                 const ObjectDesc& d = editor.objects_[i].desc;
-                if (!matchesSearch(d.name) && !matchesSearch(d.kind) && !matchesSearch(d.model))
-                {
+                if (!matchesSearch(d.name) && !matchesSearch(d.kind) && !matchesSearch(d.model)) {
                     continue;
                 }
                 bool selected = std::find(editor.selectedObjectIndices_.begin(), editor.selectedObjectIndices_.end(), i)
                     != editor.selectedObjectIndices_.end();
                 std::string label = d.name + "  " + d.kind + "##searchObj" + std::to_string(i);
-                if (ImGui::Selectable(label.c_str(), selected))
-                {
-                    editor.selKind_ = StageEditor::SelKind::Object;
+                if (ImGui::Selectable(label.c_str(), selected)) {
+                    editor.selKind_ = StageEditor::SelKind::kObject;
                     editor.selIndex_ = i;
-                    if (!ImGui::GetIO().KeyCtrl)
-                    {
+                    if (!ImGui::GetIO().KeyCtrl) {
                         editor.selectedObjectIndices_.clear();
                     }
                     auto selectedIt = std::find(editor.selectedObjectIndices_.begin(), editor.selectedObjectIndices_.end(), i);
-                    if (selectedIt == editor.selectedObjectIndices_.end())
-                    {
+                    if (selectedIt == editor.selectedObjectIndices_.end()) {
                         editor.selectedObjectIndices_.push_back(i);
-                    }
-                    else if (ImGui::GetIO().KeyCtrl)
-                    {
+                    } else if (ImGui::GetIO().KeyCtrl) {
                         editor.selectedObjectIndices_.erase(selectedIt);
                     }
                 }
             }
-        }
-        else
-        {
+        } else {
             // 検索していない時は、親のいない物から子をたどって木構造で並べる
             auto parentExists = [&](const std::string& parentName) {
                 return !parentName.empty() && editor.FindDescByName(parentName) != nullptr;
             };
-            for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i)
-            {
-                if (!parentExists(editor.objects_[i].desc.parent))
-                {
+            for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
+                if (!parentExists(editor.objects_[i].desc.parent)) {
                     editor.DrawHierarchyEntry(i, 0);
                 }
             }
@@ -524,29 +458,23 @@ void StageEditorHierarchyPanel::RenderObjectTree(StageEditor& editor, const std:
     }
 }
 /** @brief エンティティ（Player/Enemy等の外部登録実体）の一覧を描画する */
-void StageEditorHierarchyPanel::RenderExternalEntityList(StageEditor& editor, const std::string& searchTextLower)
-{
-    if (editor.externalEntities_.empty())
-    {
+void StageEditorHierarchyPanel::RenderExternalEntityList(StageEditor& editor, const std::string& searchTextLower) {
+    if (editor.externalEntities_.empty()) {
         return;
     }
-    char entHeader[TextBufferCapacity::kSectionTitle];
+    char entHeader[textBufferCapacity::kSectionTitle];
     snprintf(entHeader, sizeof(entHeader), "エンティティ (%d)", static_cast<int>(editor.externalEntities_.size()));
     bool entOpen = ImGui::TreeNodeEx(entHeader, ImGuiTreeNodeFlags_DefaultOpen);
-    if (entOpen)
-    {
-        for (int i = 0; i < static_cast<int>(editor.externalEntities_.size()); ++i)
-        {
-            if (!MatchesSearch(searchTextLower, editor.externalEntities_[i].name))
-            {
+    if (entOpen) {
+        for (int i = 0; i < static_cast<int>(editor.externalEntities_.size()); ++i) {
+            if (!MatchesSearch(searchTextLower, editor.externalEntities_[i].name)) {
                 continue;
             }
-            bool sel = (editor.selKind_ == StageEditor::SelKind::External && editor.selIndex_ == i);
-            char label[TextBufferCapacity::kName];
+            bool sel = (editor.selKind_ == StageEditor::SelKind::kExternal && editor.selIndex_ == i);
+            char label[textBufferCapacity::kName];
             snprintf(label, sizeof(label), "  %s##ent%d", editor.externalEntities_[i].name.c_str(), i);
-            if (ImGui::Selectable(label, sel))
-            {
-                editor.selKind_ = StageEditor::SelKind::External;
+            if (ImGui::Selectable(label, sel)) {
+                editor.selKind_ = StageEditor::SelKind::kExternal;
                 editor.selIndex_ = i;
             }
         }
@@ -554,15 +482,13 @@ void StageEditorHierarchyPanel::RenderExternalEntityList(StageEditor& editor, co
     }
 }
 /** @brief トリガーの一覧と新規追加ボタンを描画する */
-void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std::string& searchTextLower)
-{
-    char trgHeader[TextBufferCapacity::kSectionTitle];
+void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std::string& searchTextLower) {
+    char trgHeader[textBufferCapacity::kSectionTitle];
     // 見出しにトリガーの数を出し、追加ボタンで画面中央に新しいトリガーを置く
     snprintf(trgHeader, sizeof(trgHeader), "トリガー (%d)", static_cast<int>(editor.triggers_.size()));
     bool trgOpen = ImGui::TreeNodeEx(trgHeader, ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
-    if (ImGui::SmallButton("追加##addTrg"))
-    {
+    if (ImGui::SmallButton("追加##addTrg")) {
         editor.RecordUndoSnapshotNow();
         TriggerDesc desc;
         desc.name = "trigger_" + std::to_string(editor.nextSerial_++);
@@ -571,21 +497,17 @@ void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std
         editor.AppendTriggerAndSelect(desc);
     }
     // 検索語に一致するトリガーを、フラグと値つきで並べる
-    if (trgOpen)
-    {
-        for (int i = 0; i < static_cast<int>(editor.triggers_.size()); ++i)
-        {
-            bool sel = (editor.selKind_ == StageEditor::SelKind::Trigger && editor.selIndex_ == i);
+    if (trgOpen) {
+        for (int i = 0; i < static_cast<int>(editor.triggers_.size()); ++i) {
+            bool sel = (editor.selKind_ == StageEditor::SelKind::kTrigger && editor.selIndex_ == i);
             const TriggerDesc& d = editor.triggers_[i].GetDesc();
-            if (!MatchesSearch(searchTextLower, d.name) && !MatchesSearch(searchTextLower, d.flag))
-            {
+            if (!MatchesSearch(searchTextLower, d.name) && !MatchesSearch(searchTextLower, d.flag)) {
                 continue;
             }
-            char label[TextBufferCapacity::kName];
+            char label[textBufferCapacity::kName];
             snprintf(label, sizeof(label), "  %s -> %s=%s", d.name.c_str(), d.flag.c_str(), d.value ? "true" : "false");
-            if (ImGui::Selectable(label, sel))
-            {
-                editor.selKind_ = StageEditor::SelKind::Trigger;
+            if (ImGui::Selectable(label, sel)) {
+                editor.selKind_ = StageEditor::SelKind::kTrigger;
                 editor.selIndex_ = i;
             }
         }
@@ -593,83 +515,71 @@ void StageEditorHierarchyPanel::RenderTriggerList(StageEditor& editor, const std
     }
 }
 /** @brief 選択中の配置物/トリガーに対する削除・複製・コピー&ペーストのボタン行を描画する */
-void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor)
-{
+void StageEditorHierarchyPanel::RenderSelectionActions(StageEditor& editor) {
     // エンティティ(Player/Enemy等)はエディタが生成したものではないため複製・削除の対象外
-    bool canDuplicate = (editor.selKind_ == StageEditor::SelKind::Object || editor.selKind_ == StageEditor::SelKind::Trigger);
+    bool canDuplicate = (editor.selKind_ == StageEditor::SelKind::kObject || editor.selKind_ == StageEditor::SelKind::kTrigger);
     bool canDelete = canDuplicate;
     float halfWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     ImGui::BeginDisabled(!canDuplicate);
-    if (ImGui::Button("複製 (Ctrl+D)", ImVec2(halfWidth, 0)))
-    {
+    if (ImGui::Button("複製 (Ctrl+D)", ImVec2(halfWidth, 0))) {
         editor.DuplicateSelected();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(!canDelete);
-    if (ImGui::Button("選択を削除 (Del)", ImVec2(halfWidth, 0)))
-    {
+    if (ImGui::Button("選択を削除 (Del)", ImVec2(halfWidth, 0))) {
         editor.DeleteSelected();
     }
     ImGui::EndDisabled();
 }
 /** @brief 現在の編集内容から階層パネルを描画する */
-void StageEditorHierarchyPanel::Render(StageEditor& editor)
-{
+void StageEditorHierarchyPanel::Render(StageEditor& editor) {
     // ツールバーの下、左端の上半分に固定する
     const auto* display = ImGui::GetMainViewport();
-    const float hierarchyHeight = (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight) * EditorUi::kHierarchyHeightRatio;
+    const float hierarchyHeight = (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight) * editorUi::kHierarchyHeightRatio;
     ImGui::SetNextWindowPos(ImVec2(display->Pos.x, display->Pos.y + StageEditor::kToolbarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(StageEditor::kLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
-    ImGui::Begin("配置物一覧", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("配置物一覧", nullptr, editorUi::kFixedPanelFlags);
     // 一覧だけをスクロールさせ、選択中の操作を下端に固定する。
     ImGui::BeginChild("配置物スクロール", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);
     // ファイル操作・カメラ・制作ガイドは普段は畳んでおく
-    if (ImGui::CollapsingHeader("ファイル・制作ガイド"))
-    {
+    if (ImGui::CollapsingHeader("ファイル・制作ガイド")) {
         RenderFileAndHistoryActions(editor);
         RenderCameraSection(editor);
         RenderGuideAndFileActions(editor);
     }
     // 文章UIだけを抜き出した一覧（マウスを乗せると文章を出す）
-    if (ImGui::CollapsingHeader("文章UI", ImGuiTreeNodeFlags_DefaultOpen))
-    {
+    if (ImGui::CollapsingHeader("文章UI", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::BeginDisabled(editor.playTestMode_);
-        if (ImGui::Button("文章を追加", ImVec2(-1.0f, 0.0f)))
-        {
-            editor.AddUITextAt(EditorUi::kScreenCenterPosition);
+        if (ImGui::Button("文章を追加", ImVec2(-1.0f, 0.0f))) {
+            editor.AddUITextAt(editorUi::kScreenCenterPosition);
         }
         ImGui::EndDisabled();
         ImGui::TextWrapped("選択すると右側で文章を編集できます。改行も使えます。");
         // 1件も無い時の案内に使うので数えておく
         int textCount = 0;
-        for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i)
-        {
+        for (int i = 0; i < static_cast<int>(editor.objects_.size()); ++i) {
             // 文章UI以外の配置物は下の一覧に出るのでここでは飛ばす
             const auto& desc = editor.objects_[i].desc;
-            if (desc.kind != ObjectKindName::kUIText)
-            {
+            if (desc.kind != objectKindName::kUIText) {
                 continue;
             }
             ++textCount;
             ImGui::PushID(i);
             // 画面に固定の文章か、ステージに置いた文章かを名前の前に付ける
-            const std::string label = std::string(desc.textSpace == TextSpace::Screen ? "[画面] " : "[ステージ] ") + desc.name;
-            if (ImGui::Selectable(label.c_str(), editor.selKind_ == StageEditor::SelKind::Object && editor.selIndex_ == i))
-            {
+            const std::string label = std::string(desc.textSpace == TextSpace::kScreen ? "[画面] " : "[ステージ] ") + desc.name;
+            if (ImGui::Selectable(label.c_str(), editor.selKind_ == StageEditor::SelKind::kObject && editor.selIndex_ == i)) {
                 // クリックしたものだけを選んだ状態にする
-                editor.selKind_ = StageEditor::SelKind::Object;
+                editor.selKind_ = StageEditor::SelKind::kObject;
                 editor.selIndex_ = i;
                 editor.selectedObjectIndices_ = { i };
             }
-            if (ImGui::IsItemHovered())
-            {
+            if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("%s", desc.text.c_str());
             }
             ImGui::PopID();
         }
-        if (textCount == 0)
-        {
+        if (textCount == 0) {
             ImGui::TextDisabled("まだ文章UIがありません");
         }
     }

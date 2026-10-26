@@ -6,6 +6,8 @@
 #include "BaseScene.h"
 #include "Framework.h"
 #include "SceneFactory.h"
+#include "SmokeTestRunner.h"
+#include "SoundAssignEditor.h"
 #include <memory>
 namespace engine {
 using engine::game::AbstractSceneFactory;
@@ -50,6 +52,12 @@ private:
     std::unique_ptr<AbstractSceneFactory> sceneFactory_;
     /** @brief F8 で開閉するエンジン共通の実行時診断パネルを表示しているか */
     bool showEngineDiagnostics_ = false;
+    /** @brief 効果音・BGMの割り当て画面（F8のパネルから開く） */
+    engine::game::SoundAssignEditor soundAssignEditor_;
+    /** @brief 音の割り当て画面を表示しているか */
+    bool showSoundAssignEditor_ = false;
+    /** @brief 自動テストプレイ（--smoke-test で起動した時だけ動く） */
+    engine::game::SmokeTestRunner smokeTest_;
 };
 
 } // namespace engine

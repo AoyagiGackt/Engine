@@ -36,10 +36,8 @@ public:
 
     /** @brief 各フラグを名前順に読み取り専用の処理へ渡す。処理中は登録・消去しない */
     template<class Visitor>
-    void VisitFlags(const Visitor& visitor) const
-    {
-        for (const auto& [name, value] : flags_)
-        {
+    void VisitFlags(const Visitor& visitor) const {
+        for (const auto& [name, value] : flags_) {
             visitor(name, value);
         }
     }

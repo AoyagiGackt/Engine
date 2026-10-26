@@ -30,20 +30,17 @@ using namespace Microsoft::WRL;
 // ランダム半球カーネル
 
 /** @brief 法線側の半球に偏った SSAO のサンプル方向を count 個作る */
-static void GenerateKernel(Vector4* out, int count)
-{
+static void GenerateKernel(Vector4* out, int count) {
     std::mt19937 rng(kKernelSeed);
     std::uniform_real_distribution<float> distF(-1.0f, 1.0f);
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
     int n = 0;
-    while (n < count)
-    {
+    while (n < count) {
         // z を[0,1]にすることで法線側（+Z）半球に偏ったサンプルにする（SSAOは表面より上だけを見ればよい）
         float x = distF(rng), y = distF(rng), z = dist01(rng);
         float len = std::sqrt(x * x + y * y + z * z);
-        if (len < kKernelDirectionEpsilon)
-        {
+        if (len < kKernelDirectionEpsilon) {
             continue;
         }
         // 単位ベクトル化して方向だけを残す長さ（強さ）は次のscaleで別途つける
@@ -67,8 +64,7 @@ static void GenerateKernel(Vector4* out, int count)
 
 /** @brief リソースの状態を切り替えるバリアを積む */
 void SSAOEffect::Barrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res,
-    D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const
-{
+    D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const {
     DirectXCommon::TransitionBarrier(cmd, res, before, after);
 }
 
@@ -79,48 +75,44 @@ void SSAOEffect::CreateRT(ID3D12Device* device, SrvManager* srvManager,
     ComPtr<ID3D12DescriptorHeap>& rtvHeap,
     D3D12_CPU_DESCRIPTOR_HANDLE& rtvHandle,
     uint32_t& srvIndex,
-    const float (&clearColor)[4])
-{
+    const float (&clearColor)[4]) {
     // 生成直後からシェーダで読める状態(PIXEL_SHADER_RESOURCE)にしておく。描画時はここからRTV用に遷移する
     // 消去値は実際に消去で使う色を登録し、ドライバ側のクリア最適化を効かせる
-    PipelineHelper::CreateRenderTarget(device, srvManager, w, h, { fmt, fmt, fmt }, clearColor,
+    pipelineHelper::CreateRenderTarget(device, srvManager, w, h, { fmt, fmt, fmt }, clearColor,
         { res, rtvHeap, rtvHandle, srvIndex }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 // ルートシグネチャ生成ヘルパー（static）
 
 // NormalCapture RS: slot0 = CBV (VS, b0) per-object transform / slot1 = CBV (PS, b1) view matrix
-static ComPtr<ID3D12RootSignature> CreateNormalCaptureRS(ID3D12Device* device)
-{
+static ComPtr<ID3D12RootSignature> CreateNormalCaptureRS(ID3D12Device* device) {
     D3D12_ROOT_PARAMETER params[2] = { };
-    params[0] = PipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX);
-    params[1] = PipelineHelper::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_PIXEL);
+    params[0] = pipelineHelper::MakeCbvParam(0, D3D12_SHADER_VISIBILITY_VERTEX);
+    params[1] = pipelineHelper::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    auto rs = PipelineHelper::CreateRootSignature(device, params, 2,
+    auto rs = pipelineHelper::CreateRootSignature(device, params, 2,
         nullptr, 0, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rs);
     return rs;
 }
 
 // SSAO・ブラー用のルートシグネチャ: slot0 = CBV (全ステージ, b0) / slot1 = SRVのディスクリプタテーブル (PS, t0)
-static ComPtr<ID3D12RootSignature> CreateRS_CBV_SRV(ID3D12Device* device)
-{
-    auto rs = PipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_PIXEL,
-        PipelineHelper::MakeLinearClampSampler(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+static ComPtr<ID3D12RootSignature> CreateRS_CBV_SRV(ID3D12Device* device) {
+    auto rs = pipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_PIXEL,
+        pipelineHelper::MakeLinearClampSampler(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rs);
     return rs;
 }
 
 // 合成用のルートシグネチャ: slot0 = SRVのディスクリプタテーブル (PS, t0)
-static ComPtr<ID3D12RootSignature> CreateApplyRS(ID3D12Device* device)
-{
-    const D3D12_DESCRIPTOR_RANGE srvRange = PipelineHelper::MakeSrvRange(0); // t0
+static ComPtr<ID3D12RootSignature> CreateApplyRS(ID3D12Device* device) {
+    const D3D12_DESCRIPTOR_RANGE srvRange = pipelineHelper::MakeSrvRange(0); // t0
 
-    D3D12_ROOT_PARAMETER param = PipelineHelper::MakeSrvTableParam(&srvRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    D3D12_ROOT_PARAMETER param = pipelineHelper::MakeSrvTableParam(&srvRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    D3D12_STATIC_SAMPLER_DESC sampler = PipelineHelper::MakeLinearClampSampler();
+    D3D12_STATIC_SAMPLER_DESC sampler = pipelineHelper::MakeLinearClampSampler();
 
-    auto rs = PipelineHelper::CreateRootSignature(device, &param, 1,
+    auto rs = pipelineHelper::CreateRootSignature(device, &param, 1,
         &sampler, 1, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     ENGINE_ASSERT(rs);
     return rs;
@@ -130,9 +122,8 @@ static ComPtr<ID3D12RootSignature> CreateApplyRS(ID3D12Device* device)
 static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
     ID3D12Device* device, ID3D12RootSignature* rs,
     IDxcBlob* vs, IDxcBlob* ps, DXGI_FORMAT fmt,
-    bool multiplyBlend = false)
-{
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = PipelineHelper::MakeFullscreenPsoDesc();
+    bool multiplyBlend = false) {
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = pipelineHelper::MakeFullscreenPsoDesc();
     desc.pRootSignature = rs;
     desc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
     desc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
@@ -140,8 +131,7 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
 
     auto& b = desc.BlendState.RenderTarget[0];
     b.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    if (multiplyBlend)
-    {
+    if (multiplyBlend) {
         b.BlendEnable = TRUE;
         b.SrcBlend = D3D12_BLEND_DEST_COLOR;
         b.DestBlend = D3D12_BLEND_ZERO;
@@ -152,7 +142,7 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
     }
 
     ComPtr<ID3D12PipelineState> pso;
-    pso = PipelineHelper::CreateGraphicsPipeline(device, desc);
+    pso = pipelineHelper::CreateGraphicsPipeline(device, desc);
     return pso;
 }
 
@@ -160,9 +150,8 @@ static ComPtr<ID3D12PipelineState> CreateFullscreenPSO(
 
 /** @brief アップロードヒープに定数バッファを作り、書き込み先を mapped へ返す */
 template <typename T>
-static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* device, T** mapped)
-{
-    auto res = PipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(T)));
+static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* device, T** mapped) {
+    auto res = pipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(T)));
     res->Map(0, nullptr, reinterpret_cast<void**>(mapped));
     return res;
 }
@@ -172,8 +161,7 @@ static Microsoft::WRL::ComPtr<ID3D12Resource> CreateUploadCB(ID3D12Device* devic
 // ══════════════════════════════════════════════════════
 
 /** @brief レンダーターゲット・PSO・定数バッファを作成して初期化する */
-void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     dxCommon_ = dxCommon;
     srvManager_ = srvManager;
     ID3D12Device* device = dxCommon->GetDevice();
@@ -194,7 +182,7 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
     // NormalCapture 専用深度バッファ
     {
-        depthTex_ = PipelineHelper::CreateDepthTexture(device, width, height, 1, DXGI_FORMAT_D32_FLOAT);
+        depthTex_ = pipelineHelper::CreateDepthTexture(device, width, height, 1, DXGI_FORMAT_D32_FLOAT);
 
         dsvHeap_ = DirectXCommon::CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1);
         dsvHandle_ = dsvHeap_->GetCPUDescriptorHandleForHeapStart();
@@ -238,7 +226,7 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 
         normalRS_ = CreateNormalCaptureRS(device);
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeFullscreenPsoDesc();
         psoDesc.pRootSignature = normalRS_.Get();
         psoDesc.InputLayout = { layout, _countof(layout) };
         psoDesc.DepthStencilState.DepthEnable = TRUE;
@@ -246,7 +234,7 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
         psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        normalPSO_ = PipelineHelper::CreateGraphicsPipeline(dxCommon, psoDesc,
+        normalPSO_ = pipelineHelper::CreateGraphicsPipeline(dxCommon, psoDesc,
             L"Resources/shaders/object3d/Object3dVS.hlsl", L"Resources/shaders/postprocess/NormalCapturePS.hlsl");
     }
 
@@ -264,20 +252,16 @@ void SSAOEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 }
 
 /** @brief SSAOの描画資源を解放する */
-void SSAOEffect::Finalize()
-{
-    if (normalCbData_)
-    {
+void SSAOEffect::Finalize() {
+    if (normalCbData_) {
         normalCb_->Unmap(0, nullptr);
         normalCbData_ = nullptr;
     }
-    if (ssaoCbData_)
-    {
+    if (ssaoCbData_) {
         ssaoCb_->Unmap(0, nullptr);
         ssaoCbData_ = nullptr;
     }
-    if (blurCbData_)
-    {
+    if (blurCbData_) {
         blurCb_->Unmap(0, nullptr);
         blurCbData_ = nullptr;
     }
@@ -290,10 +274,8 @@ void SSAOEffect::Finalize()
 // ══════════════════════════════════════════════════════
 
 /** @brief 法線を書き出すパスを開始する（メイン描画の前に呼ぶ） */
-void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera)
-{
-    if (!enabled_)
-    {
+void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera) {
+    if (!enabled_) {
         return;
     }
 
@@ -307,22 +289,20 @@ void SSAOEffect::BeginNormalCapture(DirectXCommon* dxCommon, Camera* camera)
     cmd->ClearRenderTargetView(normalRtvHandle_, kNormalClearColor, 0, nullptr);
     cmd->OMSetRenderTargets(1, &normalRtvHandle_, FALSE, &dsvHandle_);
 
-    PipelineHelper::SetClientViewportAndScissor(cmd);
+    pipelineHelper::SetClientViewportAndScissor(cmd);
 
-    PipelineHelper::SetTrianglePipeline(cmd, normalRS_.Get(), normalPSO_.Get());
+    pipelineHelper::SetTrianglePipeline(cmd, normalRS_.Get(), normalPSO_.Get());
 
     // slot1 = NormalCaptureCB (PS, b1) - view matrix
     normalCbData_->view = camera->GetViewMatrix();
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::NormalPrepassRootSlot::kNormals, normalCb_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::normalPrepassRootSlot::kNormals, normalCb_->GetGPUVirtualAddress());
 
     normalInRTV_ = true;
 }
 
 /** @brief ノーマルキャプチャパスを終了する */
-void SSAOEffect::EndNormalCapture(DirectXCommon* dxCommon)
-{
-    if (!enabled_ || !normalInRTV_)
-    {
+void SSAOEffect::EndNormalCapture(DirectXCommon* dxCommon) {
+    if (!enabled_ || !normalInRTV_) {
         return;
     }
 
@@ -334,9 +314,8 @@ void SSAOEffect::EndNormalCapture(DirectXCommon* dxCommon)
 
 /** @brief ノーマルキャプチャ中に Object3d から呼ぶper-object トランスフォームを slot 0 に設定する */
 void SSAOEffect::SetObjectTransform(ID3D12GraphicsCommandList* cmd,
-    D3D12_GPU_VIRTUAL_ADDRESS transformAddr) const
-{
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::NormalPrepassRootSlot::kTransform, transformAddr);
+    D3D12_GPU_VIRTUAL_ADDRESS transformAddr) const {
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::normalPrepassRootSlot::kTransform, transformAddr);
 }
 
 // SSAO Compute
@@ -346,10 +325,8 @@ void SSAOEffect::SetObjectTransform(ID3D12GraphicsCommandList* cmd,
 // ══════════════════════════════════════════════════════
 
 /** @brief 法線と深度から AO の値を計算する */
-void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
-{
-    if (!enabled_)
-    {
+void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera) {
+    if (!enabled_) {
         return;
     }
 
@@ -362,15 +339,15 @@ void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
     cmd->ClearRenderTargetView(ssaoRtvHandle_, kOcclusionClearColor, 0, nullptr);
     cmd->OMSetRenderTargets(1, &ssaoRtvHandle_, FALSE, nullptr);
 
-    PipelineHelper::SetClientViewportAndScissor(cmd);
+    pipelineHelper::SetClientViewportAndScissor(cmd);
 
     ssaoCbData_->projection = camera->GetProjectionMatrix();
     ssaoCbData_->projectionInverse = Inverse(camera->GetProjectionMatrix());
 
-    PipelineHelper::SetTrianglePipeline(cmd, ssaoRS_.Get(), ssaoPSO_.Get());
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, ssaoCb_->GetGPUVirtualAddress());
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kTexture, srvManager_->GetGPUDescriptorHandle(normalSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetTrianglePipeline(cmd, ssaoRS_.Get(), ssaoPSO_.Get());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::fullscreenRootSlot::kConstants, ssaoCb_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kTexture, srvManager_->GetGPUDescriptorHandle(normalSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 
     Barrier(cmd, ssaoTex_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -378,10 +355,8 @@ void SSAOEffect::Compute(DirectXCommon* dxCommon, Camera* camera)
 }
 
 /** @brief AO テクスチャにブラーをかける */
-void SSAOEffect::Blur(DirectXCommon* dxCommon)
-{
-    if (!enabled_)
-    {
+void SSAOEffect::Blur(DirectXCommon* dxCommon) {
+    if (!enabled_) {
         return;
     }
 
@@ -394,12 +369,12 @@ void SSAOEffect::Blur(DirectXCommon* dxCommon)
     cmd->ClearRenderTargetView(blurRtvHandle_, kOcclusionClearColor, 0, nullptr);
     cmd->OMSetRenderTargets(1, &blurRtvHandle_, FALSE, nullptr);
 
-    PipelineHelper::SetClientViewportAndScissor(cmd);
+    pipelineHelper::SetClientViewportAndScissor(cmd);
 
-    PipelineHelper::SetTrianglePipeline(cmd, blurRS_.Get(), blurPSO_.Get());
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, blurCb_->GetGPUVirtualAddress()); // BlurParams {texW, texH}
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kTexture, srvManager_->GetGPUDescriptorHandle(ssaoSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetTrianglePipeline(cmd, blurRS_.Get(), blurPSO_.Get());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::fullscreenRootSlot::kConstants, blurCb_->GetGPUVirtualAddress()); // BlurParams {texW, texH}
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kTexture, srvManager_->GetGPUDescriptorHandle(ssaoSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 
     Barrier(cmd, blurTex_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -409,19 +384,17 @@ void SSAOEffect::Blur(DirectXCommon* dxCommon)
 // Apply (乗算ブレンドで AO をシーンに合成)
 
 /** @brief 計算した AO をシーンに乗算して適用する（メイン描画の後に呼ぶ） */
-void SSAOEffect::Apply(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
-    if (!enabled_)
-    {
+void SSAOEffect::Apply(DirectXCommon* dxCommon, SrvManager* srvManager) {
+    if (!enabled_) {
         return;
     }
 
     ID3D12GraphicsCommandList* cmd = dxCommon->GetCommandList();
 
     // blurTex_ はすでに PIXEL_SHADER_RESOURCE 状態
-    PipelineHelper::SetTrianglePipeline(cmd, applyRS_.Get(), applyPSO_.Get());
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::SingleTextureRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(blurSrvIndex_));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetTrianglePipeline(cmd, applyRS_.Get(), applyPSO_.Get());
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::singleTextureRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(blurSrvIndex_));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 }
 
 } // namespace engine::graphics

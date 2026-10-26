@@ -16,22 +16,21 @@ namespace engine::graphics {
 class ImageFilter : public IPostEffectSource {
 public:
     /** @brief 適用するポストプロセスの種類 */
-    enum class Mode { Box,
-        Gaussian,
-        PrewittEdge,
-        DepthOutline,
-        RadialBlur,
-        Dissolve,
-        NoiseGen };
+    enum class Mode { kBox,
+        kGaussian,
+        kPrewittEdge,
+        kDepthOutline,
+        kRadialBlur,
+        kDissolve,
+        kNoiseGen };
 
     /**
      * @brief ImageFilterの唯一のインスタンスを取得する
      * @return ImageFilter* シングルトンインスタンスへのポインタ
      */
-    static ImageFilter* GetInstance()
-    {
-        static ImageFilter instance;
-        return &instance;
+    static ImageFilter* GetInstance() {
+        static ImageFilter sInstance;
+        return &sInstance;
     }
 
     /**
@@ -65,8 +64,7 @@ public:
         return enabled_;
     }
     /** @brief 適用するフィルターモードを変更する（カーネルを自動再計算） */
-    void SetMode(Mode mode)
-    {
+    void SetMode(Mode mode) {
         mode_ = mode;
         RebuildKernel();
     }
@@ -90,10 +88,8 @@ public:
     }
 
     // アウトライン共通パラメータ
-    void SetOutlineThreshold(float t)
-    {
-        if (outlineCb_)
-        {
+    void SetOutlineThreshold(float t) {
+        if (outlineCb_) {
             outlineCb_->threshold = t;
         }
     }
@@ -102,10 +98,8 @@ public:
         return outlineCb_ ? outlineCb_->threshold : kDefaultOutlineThreshold;
     }
     /** @brief 輪郭の強さを設定する */
-    void SetOutlineStrength(float s)
-    {
-        if (outlineCb_)
-        {
+    void SetOutlineStrength(float s) {
+        if (outlineCb_) {
             outlineCb_->edgeStrength = s;
         }
     }
@@ -114,10 +108,8 @@ public:
         return outlineCb_ ? outlineCb_->edgeStrength : kDefaultOutlineStrength;
     }
     /** @brief 輪郭の色を設定する */
-    void SetOutlineColor(float r, float g, float b, float a = 1.0f)
-    {
-        if (!outlineCb_)
-        {
+    void SetOutlineColor(float r, float g, float b, float a = 1.0f) {
+        if (!outlineCb_) {
             return;
         }
         outlineCb_->outlineR = r;
@@ -126,10 +118,8 @@ public:
         outlineCb_->outlineA = a;
     }
     /** @brief 輪郭の色を out へ入れる */
-    void GetOutlineColor(float out[4]) const
-    {
-        if (!outlineCb_)
-        {
+    void GetOutlineColor(float out[4]) const {
+        if (!outlineCb_) {
             out[0] = out[1] = out[2] = 0.f;
             out[3] = 1.f;
             return;
@@ -141,10 +131,8 @@ public:
     }
 
     // 深度アウトライン専用
-    void SetDepthScale(float s)
-    {
-        if (outlineCb_)
-        {
+    void SetDepthScale(float s) {
+        if (outlineCb_) {
             outlineCb_->depthScale = s;
         }
     }
@@ -154,10 +142,8 @@ public:
     }
 
     // ラジアルブラーパラメータ
-    void SetRadialCenter(float x, float y)
-    {
-        if (!radialBlurCb_)
-        {
+    void SetRadialCenter(float x, float y) {
+        if (!radialBlurCb_) {
             return;
         }
         radialBlurCb_->centerX = x;
@@ -172,10 +158,8 @@ public:
         return radialBlurCb_ ? radialBlurCb_->centerY : 0.5f;
     }
     /** @brief 放射ブラーの強さを設定する */
-    void SetRadialStrength(float s)
-    {
-        if (radialBlurCb_)
-        {
+    void SetRadialStrength(float s) {
+        if (radialBlurCb_) {
             radialBlurCb_->strength = s;
         }
     }
@@ -184,10 +168,8 @@ public:
         return radialBlurCb_ ? radialBlurCb_->strength : kDefaultRadialStrength;
     }
     /** @brief 放射ブラーのサンプル数を設定する */
-    void SetRadialSampleCount(int n)
-    {
-        if (radialBlurCb_)
-        {
+    void SetRadialSampleCount(int n) {
+        if (radialBlurCb_) {
             radialBlurCb_->sampleCount = n;
         }
     }
@@ -197,10 +179,8 @@ public:
     }
 
     // ディゾルブパラメータ
-    void SetDissolveThreshold(float t)
-    {
-        if (dissolveCb_)
-        {
+    void SetDissolveThreshold(float t) {
+        if (dissolveCb_) {
             dissolveCb_->threshold = t;
         }
     }
@@ -209,10 +189,8 @@ public:
         return dissolveCb_ ? dissolveCb_->threshold : 0.0f;
     }
     /** @brief ディゾルブの縁の幅を設定する */
-    void SetDissolveEdgeWidth(float w)
-    {
-        if (dissolveCb_)
-        {
+    void SetDissolveEdgeWidth(float w) {
+        if (dissolveCb_) {
             dissolveCb_->edgeWidth = w;
         }
     }
@@ -221,10 +199,8 @@ public:
         return dissolveCb_ ? dissolveCb_->edgeWidth : kDefaultDissolveEdgeWidth;
     }
     /** @brief ディゾルブの縁の色を設定する */
-    void SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f)
-    {
-        if (!dissolveCb_)
-        {
+    void SetDissolveEdgeColor(float r, float g, float b, float a = 1.0f) {
+        if (!dissolveCb_) {
             return;
         }
         dissolveCb_->edgeR = r;
@@ -233,10 +209,8 @@ public:
         dissolveCb_->edgeA = a;
     }
     /** @brief ディゾルブの縁の色を out へ入れる */
-    void GetDissolveEdgeColor(float out[4]) const
-    {
-        if (!dissolveCb_)
-        {
+    void GetDissolveEdgeColor(float out[4]) const {
+        if (!dissolveCb_) {
             out[0] = 1.f;
             out[1] = 0.5f;
             out[2] = 0.f;
@@ -258,10 +232,8 @@ public:
     }
 
     // プロシージャルノイズパラメータ
-    void SetNoiseScale(float x, float y)
-    {
-        if (!noiseGenCb_)
-        {
+    void SetNoiseScale(float x, float y) {
+        if (!noiseGenCb_) {
             return;
         }
         noiseGenCb_->scaleX = x;
@@ -284,10 +256,8 @@ public:
         return noiseManualSeed_;
     }
     /** @brief ノイズのオクターブ数を設定する */
-    void SetNoiseOctaves(int n)
-    {
-        if (noiseGenCb_)
-        {
+    void SetNoiseOctaves(int n) {
+        if (noiseGenCb_) {
             noiseGenCb_->octaves = n;
         }
     }
@@ -296,10 +266,8 @@ public:
         return noiseGenCb_ ? noiseGenCb_->octaves : kDefaultNoiseOctaves;
     }
     /** @brief ノイズのオクターブごとの振幅の減り方を設定する */
-    void SetNoisePersistence(float p)
-    {
-        if (noiseGenCb_)
-        {
+    void SetNoisePersistence(float p) {
+        if (noiseGenCb_) {
             noiseGenCb_->persistence = p;
         }
     }
@@ -308,10 +276,8 @@ public:
         return noiseGenCb_ ? noiseGenCb_->persistence : 0.5f;
     }
     /** @brief ノイズのオクターブごとの周波数の増え方を設定する */
-    void SetNoiseLacunarity(float l)
-    {
-        if (noiseGenCb_)
-        {
+    void SetNoiseLacunarity(float l) {
+        if (noiseGenCb_) {
             noiseGenCb_->lacunarity = l;
         }
     }
@@ -320,10 +286,8 @@ public:
         return noiseGenCb_ ? noiseGenCb_->lacunarity : 2.0f;
     }
     /** @brief ノイズの色の付け方を設定する */
-    void SetNoiseColorMode(int m)
-    {
-        if (noiseGenCb_)
-        {
+    void SetNoiseColorMode(int m) {
+        if (noiseGenCb_) {
             noiseGenCb_->colorMode = m;
         }
     }
@@ -332,10 +296,8 @@ public:
         return noiseGenCb_ ? noiseGenCb_->colorMode : 0;
     }
     /** @brief ノイズの不透明度を設定する */
-    void SetNoiseOpacity(float o)
-    {
-        if (noiseGenCb_)
-        {
+    void SetNoiseOpacity(float o) {
+        if (noiseGenCb_) {
             noiseGenCb_->opacity = o;
         }
     }
@@ -626,7 +588,7 @@ private:
     uint32_t noiseSrvIndex_[2] = { UINT32_MAX, UINT32_MAX };
     int dissolveMaskIndex_ = 0;
 
-    Mode mode_ = Mode::Box;
+    Mode mode_ = Mode::kBox;
     int boxRadius_ = 2;
     float gaussianSigma_ = 1.5f;
     bool enabled_ = false;

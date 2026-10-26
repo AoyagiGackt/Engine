@@ -124,8 +124,7 @@ public:
     }
 
     /** @brief 各シーンのデバッグUIに使用するImGui管理を設定する */
-    virtual void SetImGuiManager(ImGuiManager* imgui)
-    {
+    virtual void SetImGuiManager(ImGuiManager* imgui) {
         imguiManager_ = imgui;
     }
 

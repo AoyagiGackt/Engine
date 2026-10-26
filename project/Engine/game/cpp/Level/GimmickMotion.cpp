@@ -24,12 +24,10 @@ class SlideMotion : public GimmickMotion {
 public:
     /** @brief 動かす向きを指定して初期化する */
     explicit SlideMotion(const Vector3& axis)
-        : axis_(axis)
-    {
+        : axis_(axis) {
     }
     /** @brief 経過時間から往復移動の位置を求める */
-    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
-    {
+    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override {
         GimmickPose pose;
         pose.position = axis_ * (std::sin(timer * desc.motionSpeed) * desc.motionAmount);
         return pose;
@@ -49,12 +47,10 @@ public:
     /** @brief 回転軸と、子オブジェクトも一緒に回すかを指定して初期化する */
     SpinMotion(const Vector3& axis, bool carriesChildren)
         : axis_(axis)
-        , carriesChildren_(carriesChildren)
-    {
+        , carriesChildren_(carriesChildren) {
     }
     /** @brief 経過時間から回転の角度を求める */
-    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
-    {
+    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override {
         GimmickPose pose;
         pose.rotation = axis_ * (timer * desc.motionSpeed);
         return pose;
@@ -73,8 +69,7 @@ private:
 class FallMotion : public GimmickMotion {
 public:
     /** @brief 経過時間から落下の位置を求める */
-    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
-    {
+    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override {
         const FallingFloorBehavior::Snapshot state = FallingFloorBehavior::Evaluate(timer, desc.motionSpeed, desc.motionAmount);
         GimmickPose pose;
         pose.position.y = state.yOffset;
@@ -84,8 +79,7 @@ public:
     }
     /** @brief 落下に合わせた演出（パーティクル）を出す */
     void EmitEffects(engine::graphics::ParticleManager* pm, const ObjectDesc& desc, const Vector3& worldPosition,
-        float timer, bool& wasSolid) const override
-    {
+        float timer, bool& wasSolid) const override {
         const FallingFloorBehavior::Snapshot state = FallingFloorBehavior::Evaluate(timer, desc.motionSpeed, desc.motionAmount);
         const Vector3 halfExtent = { 0.5f * std::abs(desc.scale.x), 0.5f * std::abs(desc.scale.y), 0.5f * std::abs(desc.scale.z) };
         FallingFloorBehavior::EmitDebris(pm, worldPosition, halfExtent, state, wasSolid);
@@ -96,8 +90,7 @@ public:
 class BlinkMotion : public GimmickMotion {
 public:
     /** @brief 経過時間から点滅（出現・消失）の状態を求める */
-    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
-    {
+    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override {
         GimmickPose pose;
         pose.visible = std::sin(timer * desc.motionSpeed) >= 0.0f;
         return pose;
@@ -107,28 +100,24 @@ public:
 //  自由動作（custom）の進行度と加減速
 
 /** @brief 波のように往復する（-1〜1） */
-float LoopProgress(float phase)
-{
+float LoopProgress(float phase) {
     return std::sin(phase);
 }
 
 /** @brief 等速の三角波で往復する（0→1→0、1周期=2） */
-float PingPongProgress(float phase)
-{
+float PingPongProgress(float phase) {
     constexpr float kPingPongPeriod = 2.0f;
     const float cycle = std::fmod(std::abs(phase), kPingPongPeriod);
     return cycle <= 1.0f ? cycle : kPingPongPeriod - cycle;
 }
 
 /** @brief 有効化から一度だけ進んで止まる（0〜1） */
-float OnceProgress(float phase)
-{
+float OnceProgress(float phase) {
     return std::clamp(phase, 0.0f, 1.0f);
 }
 
 /** @brief 往復方式から進行度の求め方を返す */
-float (*ProgressOf(MotionMode mode))(float)
-{
+float (*ProgressOf(MotionMode mode))(float) {
     // MotionMode の並び順と一致させる
     static constexpr float (*kProgresses[])(float) = { &LoopProgress, &PingPongProgress, &OnceProgress };
     const size_t index = static_cast<size_t>(mode);
@@ -136,22 +125,19 @@ float (*ProgressOf(MotionMode mode))(float)
 }
 
 /** @brief 加速の無い等速の進み具合を返す */
-float LinearEase(float t)
-{
+float LinearEase(float t) {
     return t;
 }
 
 /** @brief 符号を保ったままsmoothstepで加減速を付ける */
-float SmoothEase(float t)
-{
+float SmoothEase(float t) {
     const float sign = t < 0.0f ? -1.0f : 1.0f;
     const float mag = std::abs(t);
-    return sign * Easing::SmoothStep(mag);
+    return sign * easing::SmoothStep(mag);
 }
 
 /** @brief 加減速の種類から緩急の付け方を返す */
-float (*EaseOf(MotionEase ease))(float)
-{
+float (*EaseOf(MotionEase ease))(float) {
     using EasingFunction = float (*)(float);
     static constexpr EasingFunction kEasingFunctions[] = { &LinearEase, &SmoothEase };
     const size_t index = static_cast<size_t>(ease);
@@ -162,8 +148,7 @@ float (*EaseOf(MotionEase ease))(float)
 class FreeformMotion : public GimmickMotion {
 public:
     /** @brief 経過時間から経路に沿った位置を求める */
-    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override
-    {
+    GimmickPose Evaluate(const ObjectDesc& desc, float timer) const override {
         // 進行度t（-1〜1または0〜1）をモードごとに求め、移動方向×量と回転量へ同じtを掛ける
         const float t = EaseOf(desc.motionEase)(ProgressOf(desc.motionMode)(timer * desc.motionSpeed));
         GimmickPose pose;
@@ -177,18 +162,16 @@ public:
     }
     /** @brief 片道だけ動く（往復しない）設定かを返す */
     bool IsOneWay(const ObjectDesc& desc) const override {
-        return desc.motionMode == MotionMode::Once;
+        return desc.motionMode == MotionMode::kOnce;
     }
     /** @brief 自由な経路で動く種類かを返す */
     bool IsFreeform() const override {
         return true;
     }
     /** @brief 設定を検査し、問題があれば説明文を issues へ追加する */
-    void Validate(const ObjectDesc& desc, std::vector<std::string>& issues) const override
-    {
+    void Validate(const ObjectDesc& desc, std::vector<std::string>& issues) const override {
         if (desc.motionAxis.x == 0.0f && desc.motionAxis.y == 0.0f && desc.motionAxis.z == 0.0f
-            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f)
-        {
+            && desc.motionRotation.x == 0.0f && desc.motionRotation.y == 0.0f && desc.motionRotation.z == 0.0f) {
             issues.push_back("カスタム動作の移動方向と回転量が両方0です: " + desc.name);
         }
     }
@@ -197,8 +180,7 @@ public:
 } // namespace
 
 /** @brief 動き方の名前に対応する動き方を返す（未知の名前は動かない） */
-const GimmickMotion& GimmickMotion::Of(const std::string& name)
-{
+const GimmickMotion& GimmickMotion::Of(const std::string& name) {
     static const StillMotion still;
     static const SlideMotion moveX({ 1.0f, 0.0f, 0.0f });
     static const SlideMotion moveY({ 0.0f, 1.0f, 0.0f });
@@ -218,10 +200,8 @@ const GimmickMotion& GimmickMotion::Of(const std::string& name)
         { "blink", &blink },
         { "custom", &custom },
     };
-    for (const auto& [motionName, motion] : kMotions)
-    {
-        if (name == motionName)
-        {
+    for (const auto& [motionName, motion] : kMotions) {
+        if (name == motionName) {
             return *motion;
         }
     }

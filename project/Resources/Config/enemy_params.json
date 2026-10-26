@@ -1,5 +1,5 @@
 {
-  "_comment": "敵AIの調整値。basic=汎用敵(EnemyEntity) knight=ナイト(KnightEnemy) bullet=敵弾 bossSlam=ボスの範囲攻撃 separation=敵どうしの押し離し",
+  "_comment": "敵AIの調整値。basic=汎用敵(EnemyEntity) knight=ナイト(KnightEnemy) bullet=敵弾 bossSlam=ボスの範囲攻撃 separation=敵どうし・敵とプレイヤーの押し離し（playerMinDistanceX は player_params.json の minEnemyDistanceX より小さくする。大きいとプレイヤーが歩いて敵を押せてしまう）",
   "basic": {
     "attackInterval": 1.5,
     "attackTelegraph": 0.38,
@@ -62,7 +62,10 @@
     "bodyHalfWidth": 0.4,
     "wallBandBottom": 0.2,
     "wallBandTop": 1,
-    "wallContactMargin": 0.02
+    "wallContactMargin": 0.02,
+    "playerMinDistanceX": 0.7,
+    "playerMinDistanceY": 0.75,
+    "playerPushRate": 1
   },
   "visuals": {
     "Slime": {

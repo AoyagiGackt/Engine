@@ -91,12 +91,9 @@ inline constexpr RigVisualDef kAwakenedRigVisual = {
 inline constexpr const RigVisualDef* kPlayerVisualPresets[] = { &kNormalRigVisual, &kAwakenedRigVisual };
 
 /** @brief モデルパスに対応するリグのプリセット番号を返し、未登録なら-1を返す */
-inline int FindPlayerVisualPreset(const std::string& modelPath)
-{
-    for (size_t index = 0; index < std::size(kPlayerVisualPresets); ++index)
-    {
-        if (modelPath.find(kPlayerVisualPresets[index]->file) != std::string::npos)
-        {
+inline int FindPlayerVisualPreset(const std::string& modelPath) {
+    for (size_t index = 0; index < std::size(kPlayerVisualPresets); ++index) {
+        if (modelPath.find(kPlayerVisualPresets[index]->file) != std::string::npos) {
             return static_cast<int>(index);
         }
     }
@@ -104,10 +101,8 @@ inline int FindPlayerVisualPreset(const std::string& modelPath)
 }
 
 /** @brief プリセット番号から表示用のモデルパスを組み立てる */
-inline std::string PlayerVisualPresetModelPath(int preset)
-{
-    if (preset < 0 || static_cast<size_t>(preset) >= std::size(kPlayerVisualPresets))
-    {
+inline std::string PlayerVisualPresetModelPath(int preset) {
+    if (preset < 0 || static_cast<size_t>(preset) >= std::size(kPlayerVisualPresets)) {
         return {};
     }
     const RigVisualDef& visual = *kPlayerVisualPresets[preset];
@@ -118,7 +113,7 @@ inline std::string PlayerVisualPresetModelPath(int preset)
 // 見た目の大きさを変えたい時はここだけ調整すればよい）
 constexpr float kWeaponScaleBoost = 2.0f;
 
-constexpr float kMeleeYaw180 = GameConstants::kPi;
+constexpr float kMeleeYaw180 = gameConstants::kPi;
 
 /** @brief 近接武器1種ぶんのモデルパスと、手ボーンへ握らせる際のローカルスケール/回転/位置 */
 struct HeldWeaponVisual {
@@ -133,24 +128,24 @@ struct HeldWeaponVisual {
 constexpr HeldWeaponVisual kHeldWeaponVisuals[] = {
     // カタナ: 原点は柄と鍔の境目、刃が +Y（実寸高さ約4.35）
 
-    { WeaponType::Sword, "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", { 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
+    { WeaponType::kSword, "Resources/Knight/OBJ/Katana.obj", "Resources/Knight/OBJ/KatanaPalette.png", { 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost, 0.40f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // ダガー: 柄が根元(-Y側)、刃が +Y（実寸高さ約2.6）
-    { WeaponType::Dagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    { WeaponType::kDagger, "Resources/MedievalWeaponsPack/OBJ/Dagger.obj", "Resources/MedievalWeaponsPack/OBJ/DaggerPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // ハンマー: 柄が根元(-Y側)、柄自体は原点をまっすぐ通っている（実寸高さ約4.33）。
     // ただしヘッド(+Y側)は左右非対称な形状で、+X側だけに大きく張り出す(頂点実測でmaxAbsXが柄の
     // 直径の6倍以上)。回転無しだとその張り出しが自分側を向いてしまうため、Y軸180度で反転させる
-    { WeaponType::Hammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
+    { WeaponType::kHammer, "Resources/MedievalWeaponsPack/OBJ/Hammer_Small.obj", "Resources/MedievalWeaponsPack/OBJ/Hammer_SmallPalette.png", { 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost, 0.35f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f } },
     // スピア: 実寸高さ約9.7と長いため小さめのスケール
 
-    { WeaponType::Spear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", { 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
+    { WeaponType::kSpear, "Resources/MedievalWeaponsPack/OBJ/Spear.obj", "Resources/MedievalWeaponsPack/OBJ/SpearPalette.png", { 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost, 0.18f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // クレイモア: 柄が根元付近(Y=-0.32)、刃が +Y（実寸高さ約6.6）
 
-    { WeaponType::Greatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", { 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
+    { WeaponType::kGreatsword, "Resources/MedievalWeaponsPack/OBJ/Claymore.obj", "Resources/MedievalWeaponsPack/OBJ/ClaymorePalette.png", { 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost, 0.26f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // 鎌: 柄の中程が原点、刃が +X 側へ張り出す（実寸高さ約5.6）。
     // 他の武器と違い刃が柄と同軸(+Y)ではなく横に張り出す形状のため、回転無しだと刃が自分側を向いてしまう。
     // Y軸180度で+X側の張り出しを反転させ、刃が外側（キャラの正面側）を向くようにする
 
-    { WeaponType::Scythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
+    { WeaponType::kScythe, "Resources/MedievalWeaponsPack/OBJ/Scythe.obj", "Resources/MedievalWeaponsPack/OBJ/ScythePalette.png", { 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost, 0.22f * kWeaponScaleBoost }, { 0.0f, kMeleeYaw180, 0.0f }, { 0.0f, 0.05f, 0.0f }, true },
     // 両刃斧: 頂点座標を実測したところ、刃(左右対称の両刃ヘッド)は+Y端のみにあり(実寸高さ約6.35)、
     // 柄そのものが原点(X=0)ではなくX≈+0.605の位置を通っている(=原点は柄から外れた位置にある)。
     // 刃は左右対称なので回転は無意味(向きに関係無い)、回転はせずXだけ補正する。
@@ -158,17 +153,14 @@ constexpr HeldWeaponVisual kHeldWeaponVisuals[] = {
     // ・X: 柄の実際の通り道(+0.605相当)を握り手(原点)に合わせるため-0.29ぶんずらす。
     //      これをしないと武器全体が横にずれ、キャラの向きによっては刃が体のほうへ回り込んで見えていた
 
-    { WeaponType::Axe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { -0.29f, 1.58f, 0.0f }, true },
+    { WeaponType::kAxe, "Resources/MedievalWeaponsPack/OBJ/Axe_Double.obj", "Resources/MedievalWeaponsPack/OBJ/Axe_DoublePalette.png", { 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost, 0.24f * kWeaponScaleBoost }, { 0.0f, 0.0f, 0.0f }, { -0.29f, 1.58f, 0.0f }, true },
 };
 constexpr int kHeldWeaponVisualCount = static_cast<int>(sizeof(kHeldWeaponVisuals) / sizeof(kHeldWeaponVisuals[0]));
 
 /** @brief 武器を構えた待機/走りモーション（IdleHold/RunHold）を使うタイプか */
-constexpr bool UsesHoldPose(WeaponType type)
-{
-    for (const HeldWeaponVisual& visual : kHeldWeaponVisuals)
-    {
-        if (visual.type == type)
-        {
+constexpr bool UsesHoldPose(WeaponType type) {
+    for (const HeldWeaponVisual& visual : kHeldWeaponVisuals) {
+        if (visual.type == type) {
             return visual.holdPose;
         }
     }
@@ -189,20 +181,20 @@ struct GunVisual {
     Vector3 gripRotate; // ラジアン
     Vector3 gripTranslate;
 };
-constexpr float kGunYaw90 = GameConstants::kHalfPi;
+constexpr float kGunYaw90 = gameConstants::kHalfPi;
 constexpr float kGunYaw180 = kGunYaw90 * 2.0f;
 // gripScaleの基準値は剣等と同じ最終見た目基準に合わせてあり、kWeaponScaleBoostも共通で適用される
 constexpr GunVisual kGunVisuals[] = {
     // ハンドガン: 原点はグリップ中心（実寸長さ約9.7）
-    { GunType::Pistol, "Resources/AnimatedFPSGuns/OBJ/Pistol.obj", "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, -kGunYaw90, 0.0f }, { 0.0f, 0.0f, 0.0f } },
+    { GunType::kPistol, "Resources/AnimatedFPSGuns/OBJ/Pistol.obj", "Resources/AnimatedFPSGuns/OBJ/PistolPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, -kGunYaw90, 0.0f }, { 0.0f, 0.0f, 0.0f } },
     // マグナム: グリップ(Wood)が +Z 側（実寸長さ約9.6）
-    { GunType::Magnum, "Resources/AnimatedFPSGuns/OBJ/Revolver.obj", "Resources/AnimatedFPSGuns/OBJ/RevolverPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { -0.17f, 0.065f, 0.0f } },
+    { GunType::kMagnum, "Resources/AnimatedFPSGuns/OBJ/Revolver.obj", "Resources/AnimatedFPSGuns/OBJ/RevolverPalette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { -0.17f, 0.065f, 0.0f } },
     // マシンピストル: ブルパップ型、グリップは中央やや前（実寸長さ約11.1）
-    { GunType::SMG, "Resources/AnimatedFPSGuns/OBJ/P90.obj", "Resources/AnimatedFPSGuns/OBJ/P90Palette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.04f, 0.0f } },
+    { GunType::kSMG, "Resources/AnimatedFPSGuns/OBJ/P90.obj", "Resources/AnimatedFPSGuns/OBJ/P90Palette.png", { 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost, 0.09f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.04f, 0.0f } },
     // ショットガン: トリガーが中央やや前（実寸長さ約8.5）
-    { GunType::Shotgun, "Resources/AnimatedFPSGuns/OBJ/Shotgun.obj", "Resources/AnimatedFPSGuns/OBJ/ShotgunPalette.png", { 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.013f, 0.0f } },
+    { GunType::kShotgun, "Resources/AnimatedFPSGuns/OBJ/Shotgun.obj", "Resources/AnimatedFPSGuns/OBJ/ShotgunPalette.png", { 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { 0.08f, 0.013f, 0.0f } },
     // レールガン: トリガーが +Z 側（実寸長さ約9.8、スナイパーライフルを流用）
-    { GunType::Railgun, "Resources/AnimatedFPSGuns/OBJ/SniperRifle.obj", "Resources/AnimatedFPSGuns/OBJ/SniperRiflePalette.png", { 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { -0.16f, 0.026f, 0.0f } },
+    { GunType::kRailgun, "Resources/AnimatedFPSGuns/OBJ/SniperRifle.obj", "Resources/AnimatedFPSGuns/OBJ/SniperRiflePalette.png", { 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost, 0.13f * kWeaponScaleBoost }, { 0.0f, kGunYaw90, 0.0f }, { -0.16f, 0.026f, 0.0f } },
 };
 constexpr int kGunVisualCount = static_cast<int>(sizeof(kGunVisuals) / sizeof(kGunVisuals[0]));
 
@@ -212,11 +204,9 @@ constexpr int kGunVisualCount = static_cast<int>(sizeof(kGunVisuals) / sizeof(kG
  *       ボーンが見つからない（リグにその部位が無い）場合は何もしない。
  */
 inline void AttachToBone(Object3d* obj, const Skeleton& skel, const Matrix4x4& rootWorld,
-    const char* boneName, const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate)
-{
+    const char* boneName, const Vector3& gripScale, const Vector3& gripRotate, const Vector3& gripTranslate) {
     const auto jointIndex = skel.FindJointIndex(boneName);
-    if (!jointIndex)
-    {
+    if (!jointIndex) {
         return;
     }
 

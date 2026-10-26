@@ -16,7 +16,8 @@
     "training": { "scene": "TRAINING" }
   },
   "GAMEPLAY": {
-    "gameover": { "scene": "GAMEOVER" },
+    "retry": { "scene": "GAMEPLAY" },
+    "defeat_map": { "scene": "MAP" },
     "next": { "scene": "MAP" },
     "clear": { "scene": "CLEAR" },
     "sandbox_clear": { "scene": "CLEAR" },

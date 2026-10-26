@@ -3,6 +3,7 @@
  * @brief SceneFlowのシーン遷移設定の読み込みと解決を実装するファイル
  */
 #include "SceneFlow.h"
+#include "CrashBreadcrumbs.h"
 #include "JsonHelper.h"
 #include "Logger.h"
 #include "SceneManager.h"
@@ -14,49 +15,38 @@ constexpr float kDefaultFadeSeconds = SceneManager::kDefaultFadeSeconds;
 }
 
 /** @brief 唯一のSceneFlowインスタンスを取得する（初回はJSONを読み込む） */
-SceneFlow* SceneFlow::GetInstance()
-{
-    static SceneFlow instance;
-    return &instance;
+SceneFlow* SceneFlow::GetInstance() {
+    static SceneFlow sInstance;
+    return &sInstance;
 }
 
 /** @brief シーンの流れの定義を読み込んで初期化する */
-SceneFlow::SceneFlow()
-{
+SceneFlow::SceneFlow() {
     Reload();
 }
 
 /** @brief JSONを読み直す（エディタでの調整後に使う想定） */
-void SceneFlow::Reload()
-{
+void SceneFlow::Reload() {
     transitions_.clear();
     const nlohmann::json root = JsonHelper::Load(kSceneFlowPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("SceneFlow: ") + kSceneFlowPath + " が読めません。遷移はコード側の既定値で動きます");
         return;
     }
-    for (const auto& [sceneName, outcomes] : root.items())
-    {
-        if (!outcomes.is_object())
-        {
+    for (const auto& [sceneName, outcomes] : root.items()) {
+        if (!outcomes.is_object()) {
             continue;
         }
-        for (const auto& [outcome, entry] : outcomes.items())
-        {
+        for (const auto& [outcome, entry] : outcomes.items()) {
             SceneTransition transition;
-            if (entry.is_string())
-            {
+            if (entry.is_string()) {
                 transition.scene = entry.get<std::string>();
-            }
-            else if (entry.is_object())
-            {
+            } else if (entry.is_object()) {
                 transition.scene = entry.value("scene", "");
                 transition.fadeOut = entry.value("fadeOut", kDefaultFadeSeconds);
                 transition.fadeIn = entry.value("fadeIn", kDefaultFadeSeconds);
             }
-            if (!transition.scene.empty())
-            {
+            if (!transition.scene.empty()) {
                 transitions_[sceneName][outcome] = transition;
             }
         }
@@ -65,14 +55,11 @@ void SceneFlow::Reload()
 
 /** @brief 遷移先を解決する */
 SceneTransition SceneFlow::Resolve(const std::string& sceneName, const std::string& outcome,
-    const std::string& fallbackScene) const
-{
+    const std::string& fallbackScene) const {
     auto sceneIt = transitions_.find(sceneName);
-    if (sceneIt != transitions_.end())
-    {
+    if (sceneIt != transitions_.end()) {
         auto outcomeIt = sceneIt->second.find(outcome);
-        if (outcomeIt != sceneIt->second.end())
-        {
+        if (outcomeIt != sceneIt->second.end()) {
             return outcomeIt->second;
         }
     }
@@ -84,9 +71,9 @@ SceneTransition SceneFlow::Resolve(const std::string& sceneName, const std::stri
 
 /** @brief 解決した遷移先へSceneManager経由で切り替える（Resolve+ChangeSceneの一括版） */
 void SceneFlow::Transition(const std::string& sceneName, const std::string& outcome,
-    const std::string& fallbackScene) const
-{
+    const std::string& fallbackScene) const {
     const SceneTransition transition = Resolve(sceneName, outcome, fallbackScene);
+    CrashBreadcrumbs::Add("flow", sceneName + " --" + outcome + "--> " + transition.scene);
     SceneManager::GetInstance()->ChangeScene(transition.scene, transition.fadeOut, transition.fadeIn);
 }
 

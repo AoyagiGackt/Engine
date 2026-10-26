@@ -38,16 +38,16 @@ public:
      * @note SkinnedObject3d 等、別の描画クラスと共通カメラを共有したい場合に使う
      */
     static Camera* GetCommonCamera() {
-        return commonCamera_;
+        return sCommonCamera;
     }
 
     /** @brief 全 Object3d で共通して使うライトマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
     static void SetCommonObjectCommon(Object3dCommon* objectCommon) {
-        commonObjectCommon_ = objectCommon;
+        sCommonObjectCommon = objectCommon;
     }
     /** @brief 全 Object3d で共通して使うシャドウマネージャーを設定する（シーンの Initialize で1回呼ぶ） */
     static void SetCommonShadowManager(ShadowManager* shadowManager) {
-        commonShadowManager_ = shadowManager;
+        sCommonShadowManager = shadowManager;
     }
 
     /**
@@ -138,8 +138,7 @@ public:
      *       SetLocalMatrix() 使用中は SetPosition() / SetRotation() / SetScale() の値は無視される
      *       通常のトランスフォーム制御に戻すには ClearLocalMatrix() を呼ぶこと
      */
-    void SetLocalMatrix(const Matrix4x4& mat)
-    {
+    void SetLocalMatrix(const Matrix4x4& mat) {
         localMatrix_ = mat;
         useLocalMatrix_ = true;
     }
@@ -188,10 +187,8 @@ public:
      * @note SetLocalMatrix()（ボーン追従など）でセットされている場合はその行列の平行移動成分を、
      *       そうでなければ通常のtransform_.translateを返す
      */
-    Vector3 GetWorldPosition() const
-    {
-        if (useLocalMatrix_)
-        {
+    Vector3 GetWorldPosition() const {
+        if (useLocalMatrix_) {
             return { localMatrix_.m[3][0], localMatrix_.m[3][1], localMatrix_.m[3][2] };
         }
         return transform_.translate;
@@ -201,80 +198,68 @@ public:
      * @brief ライティングの有効/無効を設定する
      * @param enable 有効にする場合はtrue、無効にする場合はfalse
      */
-    void SetEnableLighting(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
+    void SetEnableLighting(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     /**
      * @brief マテリアルの基本色（RGBA）を設定する
      * @param color テクスチャ色と乗算される色（白なら変化なし）
      */
-    void SetColor(const Vector4& color)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
+    void SetColor(const Vector4& color) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
     }
 
     /**
      * @brief スペキュラ（鏡面反射）の色を設定する
      * @param color 反射色（白ならハイライトが白くなる）
      */
-    void SetSpecularColor(const Vector3& color)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::specularColor, color);
+    void SetSpecularColor(const Vector3& color) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::specularColor, color);
     }
 
     /**
      * @brief 光沢度（スペキュラの鋭さ）を設定する
      * @param shininess 大きいほどシャープな光沢（8〜256程度が目安）
      */
-    void SetShininess(float shininess)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::shininess, shininess);
+    void SetShininess(float shininess) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::shininess, shininess);
     }
 
     /** @brief キューブマップを使うかを設定する */
-    void SetUseCubemap(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useCubemap, enable ? 1 : 0);
+    void SetUseCubemap(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useCubemap, enable ? 1 : 0);
     }
 
     /** @brief テクスチャを使うかを設定する */
-    void SetUseTexture(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useTexture, enable ? 1 : 0);
+    void SetUseTexture(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useTexture, enable ? 1 : 0);
     }
 
     /** @brief 環境マップの強さを設定する */
-    void SetEnvMapIntensity(float intensity)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::envMapIntensity, intensity);
+    void SetEnvMapIntensity(float intensity) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::envMapIntensity, intensity);
     }
 
     /** @brief リムライトの色を設定する */
-    void SetRimColor(const Vector3& color)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
+    void SetRimColor(const Vector3& color) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
     }
     /** @brief リムライトの鋭さを設定する */
-    void SetRimPower(float power)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
+    void SetRimPower(float power) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
     }
     /** @brief リムライトの強さを設定する */
-    void SetRimIntensity(float intensity)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
+    void SetRimIntensity(float intensity) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
     /** @brief リムライトを使うかを設定する */
-    void SetEnableRim(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
+    void SetEnableRim(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
     /** @brief UV の変換行列を設定する */
-    void SetUVTransform(const Matrix4x4& m)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::uvTransform, m);
+    void SetUVTransform(const Matrix4x4& m) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::uvTransform, m);
     }
 
     /**
@@ -283,26 +268,21 @@ public:
      */
     void SetNormalMap(const std::string& filePath);
     /** @brief 法線マップを使うかを設定する */
-    void SetUseNormalMap(bool enable)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useNormalMap, enable ? 1 : 0);
+    void SetUseNormalMap(bool enable) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useNormalMap, enable ? 1 : 0);
     }
 
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
-    void SetMetallic(float v)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::metallic, v);
+    void SetMetallic(float v) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::metallic, v);
     }
     /** @brief 表面の粗さを設定する */
-    void SetRoughness(float v)
-    {
-        PipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::roughness, v);
+    void SetRoughness(float v) {
+        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::roughness, v);
     }
     /** @brief 陰影の計算を PBR にする */
-    void SetShadingTypePBR()
-    {
-        if (materialData_)
-        {
+    void SetShadingTypePBR() {
+        if (materialData_) {
             materialData_->shadingType = kPbrShadingType;
             lockShadingType_ = true;
         }
@@ -318,21 +298,21 @@ private:
      * @brief GPUに送るための座標変換行列データ
      */
     struct TransformationMatrix {
-        Matrix4x4 WVP; ///< ワールド・ビュー・プロジェクション行列
-        Matrix4x4 World; ///< ワールド行列
-        Matrix4x4 WorldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
-        Matrix4x4 LightVP; ///< ライト空間のビュープロジェクション行列（シャドウ用）
+        Matrix4x4 wvp; ///< ワールド・ビュー・プロジェクション行列
+        Matrix4x4 world; ///< ワールド行列
+        Matrix4x4 worldInverseTranspose; ///< World の逆転置行列（非均一スケール対応法線変換用）
+        Matrix4x4 lightVP; ///< ライト空間のビュープロジェクション行列（シャドウ用）
     };
 
     /** @brief 全オブジェクトで共通して使うカメラのポインタ */
-    static Camera* commonCamera_;
+    static Camera* sCommonCamera;
 
     /** @brief 全オブジェクトで共通して使うライト空間行列 */
-    static Matrix4x4 commonLightVP_;
+    static Matrix4x4 sCommonLightVP;
 
     /** @brief RebindCommonLighting() で使う共通ライト/シャドウマネージャー */
-    static Object3dCommon* commonObjectCommon_;
-    static ShadowManager* commonShadowManager_;
+    static Object3dCommon* sCommonObjectCommon;
+    static ShadowManager* sCommonShadowManager;
 
     /** @brief 共通描画設定のポインタ */
     ModelCommon* modelCommon_ = nullptr;

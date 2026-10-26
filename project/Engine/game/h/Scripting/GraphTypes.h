@@ -15,30 +15,30 @@ using GraphValue = std::variant<float, bool, std::string>;
 
 /** @brief データピンの型（エディタでのピン色分け・接続可否の判定に使う） */
 /// Any は何にでも接続できるワイルドカード（SetVariableのvalue等、実行時に型が決まるもの）
-enum class GraphValueType { Float,
-    Bool,
-    String,
-    Any };
+enum class GraphValueType { kFloat,
+    kBool,
+    kString,
+    kAny };
 
 float AsFloat(const GraphValue& v);
 bool AsBool(const GraphValue& v);
 std::string AsString(const GraphValue& v);
 
 /** @brief Ifノードの比較演算子 */
-enum class CompareOp { Equal,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual };
+enum class CompareOp { kEqual,
+    kNotEqual,
+    kLess,
+    kLessEqual,
+    kGreater,
+    kGreaterEqual };
 CompareOp ParseCompareOp(const std::string& s); // "==" "!=" "<" "<=" ">" ">="
 bool Compare(CompareOp op, const GraphValue& lhs, const GraphValue& rhs);
 
 /** @brief Mathノードの数値演算子 */
-enum class MathOp { Add,
-    Subtract,
-    Multiply,
-    Divide };
+enum class MathOp { kAdd,
+    kSubtract,
+    kMultiply,
+    kDivide };
 MathOp ParseMathOp(const std::string& s); // "+" "-" "*" "/"
 float ApplyMath(MathOp op, float a, float b); // Divide の 0除算は 0.0f を返す
 
@@ -96,7 +96,7 @@ struct GraphDesc {
 };
 
 /** @brief ノードを新しく置いた時、または引数が未接続の時に使う既定値（パレットと実行側で共有する） */
-namespace GraphNodeDefaults {
+namespace graphNodeDefaults {
     inline constexpr float kFlashAlpha = 0.5f;
     inline constexpr float kFlashDuration = 0.15f;
     inline constexpr float kHitStopFrames = 3.0f;
@@ -104,14 +104,14 @@ namespace GraphNodeDefaults {
     inline constexpr float kShakeAmount = 0.25f;
     inline constexpr float kShakeSeconds = 0.2f;
     inline constexpr float kRingRadius = 3.0f;
-} // namespace GraphNodeDefaults
+} // namespace graphNodeDefaults
 
-namespace GraphIO {
+namespace graphIO {
     /** @brief JSONファイルからグラフを読み込む（読み込み失敗時は空のGraphDescを返す） */
     GraphDesc Load(const std::string& path);
 
     /** @brief グラフをJSONファイルへ保存する（GraphEditorの保存機能から使う） */
     void Save(const std::string& path, const GraphDesc& graph);
-} // namespace GraphIO
+} // namespace graphIO
 
 } // namespace engine::game

@@ -4,7 +4,7 @@
  */
 #include "Sprite.h"
 #include "PipelineHelper.h"
-#include "GameConstants.h"
+#include "EngineConstants.h"
 #include "Logger.h"
 #include "TextureManager.h"
 #include "WinApp.h"
@@ -22,8 +22,7 @@ constexpr float kSpriteFarClip = 100.0f;
 using namespace Microsoft::WRL;
 
 /** @brief スプライトの初期化とバッファの生成 */
-void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFilePath)
-{
+void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFilePath) {
     spriteCommon_ = spriteCommon;
     textureFilePath_ = textureFilePath;
 
@@ -88,8 +87,7 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFi
 }
 
 /** @brief 描画するテクスチャを別の画像に変更する */
-void Sprite::SetTexture(const std::string& textureFilePath)
-{
+void Sprite::SetTexture(const std::string& textureFilePath) {
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath);
     // UV切り出しサイズを新しいテクスチャの全体サイズにリセット
@@ -98,8 +96,7 @@ void Sprite::SetTexture(const std::string& textureFilePath)
 }
 
 /** @brief テクスチャサイズと実際の描画サイズを調整・反映する内部処理 */
-void Sprite::AdjustTextureSize()
-{
+void Sprite::AdjustTextureSize() {
     // テクスチャのメタデータを取得
     const auto& metadata = TextureManager::GetInstance()->GetMetaData(textureFilePath_);
 
@@ -108,14 +105,12 @@ void Sprite::AdjustTextureSize()
     Vector2 uvSize = { textureSize_.x / metadata.width, textureSize_.y / metadata.height };
 
     // 反転処理
-    if (isFlipX_)
-    {
+    if (isFlipX_) {
         uvPos.x += uvSize.x;
         uvSize.x = -uvSize.x;
     }
 
-    if (isFlipY_)
-    {
+    if (isFlipY_) {
         uvPos.y += uvSize.y;
         uvSize.y = -uvSize.y;
     }
@@ -129,8 +124,7 @@ void Sprite::AdjustTextureSize()
 }
 
 /** @brief 毎フレームの更新処理座標やサイズから行列を再計算する */
-void Sprite::Update()
-{
+void Sprite::Update() {
     AdjustTextureSize();
 
     // ワールド行列の計算
@@ -161,35 +155,31 @@ void Sprite::Update()
 
     Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 
-    transformationMatrixData_->WVP = worldViewProjectionMatrix;
-    transformationMatrixData_->World = worldMatrix;
+    transformationMatrixData_->wvp = worldViewProjectionMatrix;
+    transformationMatrixData_->world = worldMatrix;
 }
 
 /** @brief スプライトを描画するコマンドを積む */
-void Sprite::Draw()
-{
+void Sprite::Draw() {
     ID3D12GraphicsCommandList* commandList = spriteCommon_->GetCommandList();
 
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
     // マテリアル (色・UV)
-    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::SpriteRootSlot::kMaterial, materialResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kMaterial, materialResource_->GetGPUVirtualAddress());
     // 座標変換
-    commandList->SetGraphicsRootConstantBufferView(PipelineHelper::SpriteRootSlot::kTransform, transformationMatrixResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kTransform, transformationMatrixResource_->GetGPUVirtualAddress());
 
     // テクスチャ (TextureManagerからハンドルを取得してセット)
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, textureSrvHandle);
+    commandList->SetGraphicsRootDescriptorTable(pipelineHelper::spriteRootSlot::kTexture, textureSrvHandle);
 
-    if (useExternalTexture_)
-    {
+    if (useExternalTexture_) {
         // 動画など、外部で作成したテクスチャを使う場合
-        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, SrvManager::GetInstance()->GetGPUDescriptorHandle(textureIndex_));
-    }
-    else
-    {
+        commandList->SetGraphicsRootDescriptorTable(pipelineHelper::spriteRootSlot::kTexture, SrvManager::GetInstance()->GetGPUDescriptorHandle(textureIndex_));
+    } else {
         // 通常のテクスチャを使う場合
-        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::SpriteRootSlot::kTexture, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
+        commandList->SetGraphicsRootDescriptorTable(pipelineHelper::spriteRootSlot::kTexture, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
     }
 
     commandList->DrawInstanced(kSpriteVertexCount, 1, 0, 0);

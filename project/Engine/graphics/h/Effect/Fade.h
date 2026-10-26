@@ -13,9 +13,9 @@ namespace engine::graphics {
 class Fade {
 public:
     enum class Status {
-        None, ///< 待機中
-        FadeIn, ///< 暗い状態から明るくなる
-        FadeOut, ///< 明るい状態から暗くなる
+        kNone, ///< 待機中
+        kFadeIn, ///< 暗い状態から明るくなる
+        kFadeOut, ///< 明るい状態から暗くなる
     };
 
     /**

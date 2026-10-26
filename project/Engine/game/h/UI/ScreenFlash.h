@@ -40,7 +40,7 @@ public:
 
     /**
      * @brief 残り時間を減らし、経過に応じてスプライトの不透明度を線形フェードさせる
-     * @param dt 実時間の経過秒数（GameConstants::kFrameDeltaTime 推奨）
+     * @param dt 実時間の経過秒数（gameConstants::kFrameDeltaTime 推奨）
      */
     void Update(float dt);
 

@@ -17,8 +17,7 @@ namespace engine::game {
 class TriggerVolume {
 public:
     /** @brief トリガー設定と進入状態を初期化する @param desc 判定範囲と通知先を含む設定 */
-    void Init(const TriggerDesc& desc)
-    {
+    void Init(const TriggerDesc& desc) {
         desc_ = desc;
         consumed_ = false;
         wasInside_ = false;

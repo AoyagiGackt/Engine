@@ -1,0 +1,3047 @@
+{
+  "_comment": "調整値エディタに出す日本語の名前。_files=ファイルの表示名 _sections=グループ名 _keys=どのファイルでも使う名前 _hidden=一覧に出さないファイル。ファイル名ごとの表は \"グループ.キー\" で引く。type が int なら整数で編集する。名前を直したい時はここを書き換える",
+  "_files": {
+    "player_params.json": "プレイヤー",
+    "combat_tuning.json": "戦闘",
+    "enemy_params.json": "敵",
+    "weapons.json": "武器",
+    "game_rules.json": "ゲームのルール",
+    "style_meter.json": "スタイルランク",
+    "hit_effects.json": "ヒット演出",
+    "element_effects.json": "属性の演出",
+    "combo_feel.json": "コンボの手応え",
+    "clear_finish.json": "クリア演出",
+    "player_defeat.json": "やられ演出",
+    "stage_intro.json": "ステージ開始演出",
+    "stage_liberation.json": "ステージ解放演出",
+    "graphics_tuning.json": "グラフィック",
+    "sounds.json": "効果音",
+    "bgm.json": "BGM",
+    "input_bindings.json": "操作キー",
+    "scene_flow.json": "シーンの流れ",
+    "scene_cameras.json": "シーンのカメラ",
+    "combo_trials.json": "コンボ練習",
+    "combos.json": "コンボ表",
+    "command_list.json": "コマンド表",
+    "battle_test.json": "バトルテスト",
+    "title_demo.json": "タイトルのデモ",
+    "weapon_icons.json": "武器アイコン",
+    "debug_startup.json": "デバッグ起動",
+    "editor_params.json": "エディター設定",
+    "editor_enemy.json": "エディターの敵",
+    "editor_object_presets.json": "エディターの配置プリセット",
+    "editor_ui.json": "エディターの見た目",
+    "asset_pack.json": "アセットパック",
+    "border_layout.json": "枠のレイアウト",
+    "map_portal_motion.json": "マップの入口の出入り",
+    "enemy_types.json": "敵の種類",
+    "result_backdrop.json": "結果画面の背景",
+    "smoke_test.json": "自動テストの手順"
+  },
+  "_sections": {
+    "movement": "移動",
+    "gun": "射撃",
+    "water": "水中",
+    "dodge": "回避",
+    "warp": "テレポート斬り",
+    "awaken": "覚醒",
+    "combo": "近接コンボ",
+    "rampage": "覚醒乱舞",
+    "skills": "武器の固有技",
+    "basic": "雑魚敵",
+    "knight": "騎士",
+    "bullet": "敵の弾",
+    "bossSlam": "ボスの叩きつけ",
+    "separation": "敵同士の押し合い",
+    "visuals": "見た目",
+    "fallingFloor": "落ちる床",
+    "bossHp": "敵のHP",
+    "rankScore": "ランクの点数",
+    "rankThresholds": "ランクの境目",
+    "awakened": "覚醒中",
+    "finisherVisuals": "フィニッシャーの見た目",
+    "sceneParticles": "シーンのパーティクル",
+    "recipes": "演出の組み合わせ",
+    "motion": "動き",
+    "glow": "入口の光",
+    "types": "種類の一覧",
+    "color": "色",
+    "stripe": "斜めの帯",
+    "watermark": "ランクの透かし",
+    "shard": "漂う破片",
+    "panel": "文字の後ろの板",
+    "steps": "手順"
+  },
+  "_keys": {
+    "model": {
+      "name": "モデル"
+    },
+    "texture": {
+      "name": "テクスチャ"
+    },
+    "scale": {
+      "name": "大きさ"
+    },
+    "yawOffset": {
+      "name": "向きの補正（度）"
+    },
+    "damage": {
+      "name": "ダメージ"
+    },
+    "color": {
+      "name": "色"
+    },
+    "volume": {
+      "name": "音量"
+    },
+    "path": {
+      "name": "ファイル"
+    },
+    "sound": {
+      "name": "音"
+    },
+    "seconds": {
+      "name": "秒数"
+    },
+    "duration": {
+      "name": "長さ（秒）"
+    },
+    "name": {
+      "name": "名前"
+    },
+    "type": {
+      "name": "種類"
+    },
+    "hitStyle": {
+      "name": "当たり方の種類"
+    },
+    "range": {
+      "name": "射程"
+    },
+    "speed": {
+      "name": "速さ"
+    },
+    "radius": {
+      "name": "半径"
+    },
+    "count": {
+      "name": "数",
+      "type": "int"
+    }
+  },
+  "_hidden": [
+    "combo_motion.json"
+  ],
+  "clear_finish.json": {
+    "dimSeconds": {
+      "name": "暗幕が濃くなり切るまでの長さ",
+      "type": "float"
+    },
+    "cuts.count": {
+      "name": "本数",
+      "type": "int"
+    },
+    "cuts.interval": {
+      "name": "次の斬線までの間隔",
+      "type": "float"
+    },
+    "cuts.intervalJitter": {
+      "name": "間隔のばらつき",
+      "help": "間隔のばらつき（±）",
+      "type": "float"
+    },
+    "cuts.spreadU": {
+      "name": "斬線が通る点の横の散らばり",
+      "help": "斬線が通る点の横の散らばり（画面の中心から±、画面の幅に対する割合）",
+      "type": "float"
+    },
+    "cuts.spreadV": {
+      "name": "縦の散らばり",
+      "type": "float"
+    },
+    "cuts.seconds": {
+      "name": "斬線が画面の端から端まで走る長さ",
+      "type": "float"
+    },
+    "cuts.thickness": {
+      "name": "走った瞬間の芯の太さ",
+      "type": "float"
+    },
+    "cuts.remainThickness": {
+      "name": "走り終えた後に残る傷の太さ",
+      "type": "float"
+    },
+    "cuts.flash": {
+      "name": "斬線が走った瞬間の画面フラッシュ",
+      "help": "斬線が走った瞬間の画面フラッシュ（空なら出さない）"
+    },
+    "cuts.impact": {
+      "name": "斬線が走った瞬間のカメラ揺れ"
+    },
+    "cuts.sound": {
+      "name": "斬線が走った瞬間に鳴らす音",
+      "help": "斬線が走った瞬間に鳴らす音（空なら鳴らさない）"
+    },
+    "blade.silenceSeconds": {
+      "name": "細かい斬線を入れ終えてから決めの一太刀までの静止",
+      "type": "float"
+    },
+    "blade.slashSeconds": {
+      "name": "斬線が画面の端から端まで走る長さ",
+      "type": "float"
+    },
+    "blade.thickness": {
+      "name": "振った瞬間の芯の太さ",
+      "type": "float"
+    },
+    "blade.remainThickness": {
+      "name": "振り終えた後に残る傷の太さ",
+      "type": "float"
+    },
+    "blade.thinSeconds": {
+      "name": "走り終えてから傷の太さに細るまでの長さ",
+      "help": "走り終えてから傷の太さに細るまでの長さ（細かい斬線も同じ）",
+      "type": "float"
+    },
+    "blade.glowScale": {
+      "name": "光の帯の太さ",
+      "help": "光の帯の太さ（芯の何倍か）",
+      "type": "float"
+    },
+    "blade.holdSeconds": {
+      "name": "決めの一太刀を振り終えてから割れ始めるまでの長さ",
+      "type": "float"
+    },
+    "blade.flash": {
+      "name": "振った瞬間の画面フラッシュ",
+      "help": "振った瞬間の画面フラッシュ（hit_effects.json の flashes）"
+    },
+    "blade.impact": {
+      "name": "振った瞬間のカメラ揺れ",
+      "help": "振った瞬間のカメラ揺れ（impacts）"
+    },
+    "blade.sound": {
+      "name": "振った瞬間に鳴らす音",
+      "help": "振った瞬間に鳴らす音（空なら鳴らさない）"
+    },
+    "spray.count": {
+      "name": "弾の数",
+      "type": "int"
+    },
+    "spray.interval": {
+      "name": "次の弾までの間隔",
+      "type": "float"
+    },
+    "spray.intervalJitter": {
+      "name": "間隔のばらつき",
+      "help": "間隔のばらつき（±）",
+      "type": "float"
+    },
+    "spray.margin": {
+      "name": "弾痕を画面の端からどれだけ離すか",
+      "help": "弾痕を画面の端からどれだけ離すか（画面に対する割合）",
+      "type": "float"
+    },
+    "spray.holeScale": {
+      "name": "弾痕の大きさ",
+      "help": "弾痕の大きさ（決めの一発の何倍か）",
+      "type": "float"
+    },
+    "spray.flash": {
+      "name": "弾が入った瞬間の画面フラッシュ",
+      "help": "弾が入った瞬間の画面フラッシュ（空なら出さない）"
+    },
+    "spray.impact": {
+      "name": "弾が入った瞬間のカメラ揺れ"
+    },
+    "spray.sound": {
+      "name": "弾が入った瞬間に鳴らす音",
+      "help": "弾が入った瞬間に鳴らす音（空なら鳴らさない）"
+    },
+    "gun.silenceSeconds": {
+      "name": "弾を浴びせ終えてから決めの一発までの静止",
+      "type": "float"
+    },
+    "gun.interval": {
+      "name": "決めの一発が複数ある時の間隔",
+      "type": "float"
+    },
+    "gun.holeSize": {
+      "name": "弾痕の大きさ",
+      "help": "弾痕の大きさ（画面の座標。ひびの広がりも含めた画像の大きさ）",
+      "type": "float"
+    },
+    "gun.popScale": {
+      "name": "弾が入った瞬間の大きさ",
+      "help": "弾が入った瞬間の大きさ（元の何倍か）",
+      "type": "float"
+    },
+    "gun.popSeconds": {
+      "name": "元の大きさに縮むまでの長さ",
+      "type": "float"
+    },
+    "gun.sparkScale": {
+      "name": "着弾の火花の大きさ",
+      "help": "着弾の火花の大きさ（弾痕の何倍か）",
+      "type": "float"
+    },
+    "gun.sparkSeconds": {
+      "name": "着弾の火花が消えるまでの長さ",
+      "type": "float"
+    },
+    "gun.holdSeconds": {
+      "name": "決めの一発が入ってから割れ始めるまでの長さ",
+      "type": "float"
+    },
+    "gun.flash": {
+      "name": "弾が入った瞬間の画面フラッシュ",
+      "help": "弾が入った瞬間の画面フラッシュ（flashes）"
+    },
+    "gun.impact": {
+      "name": "弾が入った瞬間のカメラ揺れ",
+      "help": "弾が入った瞬間のカメラ揺れ（impacts）"
+    },
+    "gun.sound": {
+      "name": "弾が入った瞬間に鳴らす音",
+      "help": "弾が入った瞬間に鳴らす音（空なら鳴らさない）"
+    },
+    "shatter.seconds": {
+      "name": "ひびが広がって破片が散り、集まり直して結果画面になるまでの長さ",
+      "type": "float"
+    },
+    "shatter.crackWidth": {
+      "name": "ひびの線の太さ",
+      "help": "ひびの線の太さ（画面の幅に対する割合）",
+      "type": "float"
+    },
+    "shatter.shardSpeed": {
+      "name": "破片が落ちる速さ",
+      "type": "float"
+    },
+    "soundVolume": {
+      "type": "float"
+    }
+  },
+  "combat_tuning.json": {
+    "fallingFloor.warningEnd": {
+      "type": "float",
+      "name": "落ちる床: 予告が終わる時刻"
+    },
+    "fallingFloor.respawnStart": {
+      "type": "float",
+      "name": "落ちる床: 戻り始める時刻"
+    },
+    "fallingFloor.cycleEnd": {
+      "type": "float",
+      "name": "落ちる床: 1周の長さ"
+    },
+    "fallingFloor.crackLeadTime": {
+      "type": "float",
+      "name": "落ちる床: ひびが入るまでの秒数"
+    },
+    "fallingFloor.minimumSpeed": {
+      "type": "float",
+      "name": "落ちる床: 最低の落下速度"
+    },
+    "waterMinX": {
+      "type": "float",
+      "name": "水場の左端（今は未使用）"
+    },
+    "waterMaxX": {
+      "type": "float",
+      "name": "水場の右端（今は未使用）"
+    },
+    "waterSurfaceY": {
+      "type": "float",
+      "name": "水面の高さ（今は未使用）"
+    },
+    "waterBottomY": {
+      "type": "float",
+      "name": "水底の高さ（今は未使用）"
+    },
+    "trainingWarpX": {
+      "type": "float",
+      "name": "トレーニング: ワープ先のX"
+    },
+    "trainingWarpProximity": {
+      "type": "float",
+      "name": "トレーニング: ワープが起きる距離"
+    },
+    "trainingGroundY": {
+      "type": "float",
+      "name": "トレーニング: 地面の高さ"
+    },
+    "trainingFacingTargetDistance": {
+      "type": "float",
+      "name": "トレーニング: 的の方を向く距離"
+    },
+    "finisherLaunchRatio": {
+      "type": "float",
+      "name": "フィニッシャーの打ち上げの割合"
+    },
+    "waypointArrivalDistance": {
+      "type": "float",
+      "name": "移動先に着いたとみなす距離"
+    },
+    "awakenExtraHitKnockScale": {
+      "name": "多段ヒットの2発目以降のノックバック倍率",
+      "help": "多段ヒットの2発目以降のノックバック倍率（敵が押し出されすぎないように）",
+      "type": "float"
+    },
+    "launchSpeed": {
+      "type": "float",
+      "name": "打ち上げの速さ"
+    },
+    "skillRearReachMult": {
+      "name": "背面リーチ",
+      "help": "背面リーチ（前方リーチ比）",
+      "type": "float"
+    },
+    "finisherLineDamage": {
+      "name": "斬撃線1本ごとのダメージ",
+      "type": "int"
+    },
+    "finisherSlashDamage": {
+      "name": "本命",
+      "help": "本命（解放の一撃）の固定ダメージ",
+      "type": "int"
+    },
+    "finisherSlashLines": {
+      "name": "斬撃線の本数",
+      "type": "int"
+    },
+    "finisherChargeDelay": {
+      "name": "発動から最初の斬撃までの溜め",
+      "help": "発動から最初の斬撃までの溜め（秒）",
+      "type": "float"
+    },
+    "finisherLineInterval": {
+      "name": "斬撃線の出現間隔",
+      "help": "斬撃線の出現間隔（秒）",
+      "type": "float"
+    },
+    "finisherImpactDelay": {
+      "name": "最後の斬撃線から解放までの溜め",
+      "help": "最後の斬撃線から解放までの溜め（秒）",
+      "type": "float"
+    },
+    "weaponAbsorbRange": {
+      "name": "武器を奪える距離",
+      "type": "float"
+    },
+    "weaponAbsorbDuration": {
+      "name": "武器吸収が完了するまでの秒数",
+      "type": "float"
+    },
+    "finisherBeatLaunchSpeed": {
+      "type": "float",
+      "name": "フィニッシャーの斬撃の打ち上げの速さ"
+    },
+    "finisherBeatStyleGain": {
+      "type": "float",
+      "name": "フィニッシャーの斬撃1本のスタイル加点"
+    },
+    "finisherReleaseStyleGain": {
+      "type": "float",
+      "name": "フィニッシャーを放った時のスタイル加点"
+    },
+    "meleeDamageDivisor": {
+      "name": "武器ダメージ×倍率を敵HPスケールへ落とし込む除数",
+      "type": "float"
+    },
+    "styleDecayRate": {
+      "name": "スタイルゲージの毎秒減衰量",
+      "type": "float"
+    },
+    "stylePersistDecayMult": {
+      "name": "StylePersistスキル所持時の減衰倍率",
+      "type": "float"
+    },
+    "enemyHitBoxHalfExtent": {
+      "name": "敵の当たり判定AABBの半径",
+      "type": "float"
+    },
+    "meleeRepeatPenaltyPerHit": {
+      "type": "float",
+      "name": "同じ技の連打で下がるスタイル（1回あたり）"
+    },
+    "meleeRepeatPenaltyCap": {
+      "type": "float",
+      "name": "同じ技の連打で下がるスタイルの上限"
+    },
+    "meleeWeaponSwitchBonus": {
+      "type": "float",
+      "name": "武器を持ち替えて当てた時のスタイル加点"
+    },
+    "meleeBaseStyleGain": {
+      "type": "float",
+      "name": "近接ヒットのスタイル加点"
+    },
+    "meleeComboStepStyleGain": {
+      "type": "float",
+      "name": "コンボの段が進むごとのスタイル加点"
+    },
+    "meleeAwakenGaugeGain": {
+      "type": "float",
+      "name": "近接ヒットで溜まる覚醒ゲージ"
+    },
+    "chainSkillRange": {
+      "type": "float",
+      "name": "連鎖する技の届く範囲"
+    },
+    "skillSlamRadius": {
+      "type": "float",
+      "name": "叩きつけ技の半径"
+    },
+    "skillDefaultRadius": {
+      "type": "float",
+      "name": "技の既定の半径"
+    },
+    "skillRangeHalfHeight": {
+      "type": "float",
+      "name": "技の当たる高さ（半分）"
+    },
+    "weaponEnemySkillRadius": {
+      "type": "float",
+      "name": "武器持ちの敵に技が当たる半径"
+    },
+    "skillVarietyBonusRepeat": {
+      "type": "float",
+      "name": "同じ技を続けた時のスタイル加点"
+    },
+    "skillVarietyBonusFresh": {
+      "type": "float",
+      "name": "違う技を出した時のスタイル加点"
+    },
+    "skillAwakenGaugeGain": {
+      "type": "float",
+      "name": "技のヒットで溜まる覚醒ゲージ"
+    },
+    "gunBackRange": {
+      "type": "float",
+      "name": "銃が後ろに届く距離"
+    },
+    "gunBaseStyleGain": {
+      "type": "float",
+      "name": "射撃ヒットのスタイル加点"
+    },
+    "gunComboStepStyleGain": {
+      "type": "float",
+      "name": "射撃の段が進むごとのスタイル加点"
+    },
+    "gunAwakenGaugeGain": {
+      "type": "float",
+      "name": "射撃ヒットで溜まる覚醒ゲージ"
+    },
+    "rampageRushRadiusX": {
+      "type": "float",
+      "name": "乱舞が当たる横の範囲"
+    },
+    "rampageRushRadiusY": {
+      "type": "float",
+      "name": "乱舞が当たる縦の範囲"
+    },
+    "rampageBaseStyleGain": {
+      "type": "float",
+      "name": "乱舞ヒットのスタイル加点"
+    },
+    "rampageJuggleStyleGain": {
+      "type": "float",
+      "name": "乱舞の空中ヒットのスタイル加点"
+    },
+    "justDodgeStyleGain": {
+      "name": "敵の攻撃を回避の無敵で紙一重にかわした時のスタイル加点",
+      "type": "float"
+    },
+    "justDodgeGaugeGain": {
+      "name": "ジャスト回避で溜まる覚醒ゲージ量",
+      "type": "float"
+    },
+    "dodgeSpamPenalty": {
+      "name": "連打回避1回ごとに減るスタイル量",
+      "help": "連打回避1回ごとに減るスタイル量（2回目以降）",
+      "type": "float"
+    },
+    "justDodgeBonusSeconds": {
+      "name": "ジャスト回避直後に攻撃力が上がる強化窓の長さ",
+      "type": "float"
+    },
+    "justDodgeDamageMult": {
+      "name": "強化窓中のダメージ倍率",
+      "type": "float"
+    },
+    "airborneHitStyleBonus": {
+      "name": "空中で近接ヒットを当てた時の追加スタイル加点",
+      "type": "float"
+    },
+    "duplicateWeaponAwakenBonus": {
+      "name": "所持済み武器タイプを再度奪った時に覚醒ゲージへ転用する量",
+      "type": "float"
+    },
+    "styleRankAwakenGaugeBonus": {
+      "name": "スタイルランク1段ごとに攻撃・ジャスト回避の覚醒ゲージ量へ足す倍率",
+      "help": "スタイルランク1段ごとに攻撃・ジャスト回避の覚醒ゲージ量へ足す倍率（D=1.0倍、SSS=1.6倍）",
+      "type": "float"
+    },
+    "weaponFatiguePerHit": {
+      "name": "近接で当てるたびにその武器へたまる疲労",
+      "help": "近接で当てるたびにその武器へたまる疲労（0〜1）",
+      "type": "float"
+    },
+    "gunFatiguePerHit": {
+      "name": "銃で当てるたびに銃へたまる疲労",
+      "help": "銃で当てるたびに銃へたまる疲労（連射が速いぶん近接より小さい）",
+      "type": "float"
+    },
+    "weaponFatigueRecoverPerSecond": {
+      "name": "最後に当てた武器以外の疲労が1秒あたりに抜ける量",
+      "type": "float"
+    },
+    "weaponFatigueFreeRatio": {
+      "name": "この疲労まではダメージが落ちない",
+      "help": "この疲労まではダメージが落ちない（コンボ1周ぶんは気持ちよく殴れる）",
+      "type": "float"
+    },
+    "weaponFatigueMinDamageMult": {
+      "name": "疲労が上限の時のダメージ倍率",
+      "type": "float"
+    },
+    "weaponFatigueRestDelay": {
+      "name": "戦闘から離れてこの秒数たてば、最後に使った武器も休ませている扱いにする",
+      "type": "float"
+    },
+    "fatigueDullStrengthMin": {
+      "name": "疲労が上限の時のヒット演出の大きさ倍率",
+      "type": "float"
+    },
+    "lockOnCameraShiftRatio": {
+      "name": "ロック中にカメラを対象側へ寄せる割合",
+      "type": "float"
+    },
+    "airMeleeRangeHalfHeight": {
+      "name": "空中の近接攻撃の縦判定",
+      "help": "空中の近接攻撃の縦判定（ボス）",
+      "type": "float"
+    },
+    "airMeleeRangeWidthPadding": {
+      "name": "空中の近接攻撃の横の広げ幅",
+      "help": "空中の近接攻撃の横の広げ幅（ボス）",
+      "type": "float"
+    },
+    "weaponEnemyAirRangeHalfHeight": {
+      "name": "空中の近接攻撃の縦判定",
+      "help": "空中の近接攻撃の縦判定（道中の敵）",
+      "type": "float"
+    },
+    "weaponEnemyAirRangeWidthPadding": {
+      "type": "float",
+      "name": "空中の武器持ちの敵の当たり判定の余白"
+    },
+    "breakableHitPadding": {
+      "name": "壊せる物の見た目より広く取る当たり",
+      "type": "float"
+    },
+    "enemyBulletHalfExtent": {
+      "name": "敵弾の当たり判定の半径",
+      "type": "float"
+    },
+    "unarmedBaseDamage": {
+      "name": "素手の時の基礎ダメージ",
+      "type": "float"
+    },
+    "weaponEnemySkillDamageMult": {
+      "name": "道中の敵への固有技の倍率",
+      "help": "道中の敵への固有技の倍率（通常段より大きく削る）",
+      "type": "float"
+    },
+    "contactHitCooldown": {
+      "name": "体当たりの連続ヒットを防ぐ間隔",
+      "type": "float"
+    },
+    "daggerSlowSeconds": {
+      "name": "短剣: 当てた敵の行動を遅くする秒数",
+      "type": "float"
+    },
+    "knockbackScale": {
+      "name": "武器のノックバック倍率に掛ける全体の倍率",
+      "type": "float"
+    },
+    "defaultKnockY": {
+      "name": "段定義がない時の打ち上げ量",
+      "type": "float"
+    },
+    "skillKnockY": {
+      "name": "固有技は浮かせて吹き飛ばし、通常段との格の違いを見せる",
+      "type": "float"
+    },
+    "bossHitstunScale": {
+      "name": "ボスは長く拘束しすぎると一方的になるため硬直を短くする",
+      "type": "float"
+    },
+    "hitstunPadding": {
+      "name": "段の長さに足す硬直の余裕",
+      "help": "段の長さに足す硬直の余裕（次の段の発生までは確実に拘束する）",
+      "type": "float"
+    },
+    "defaultHitstunSeconds": {
+      "type": "float",
+      "name": "当たった時に敵が止まる秒数（既定）"
+    },
+    "skillHitstunSeconds": {
+      "type": "float",
+      "name": "技で敵が止まる秒数"
+    },
+    "gunHitstunSeconds": {
+      "name": "銃は怯ませるだけで攻撃は潰さない",
+      "type": "float"
+    },
+    "midStepShakePerFrame": {
+      "name": "途中の段の揺れ",
+      "help": "途中の段の揺れ（ヒットストップ1フレームあたり）",
+      "type": "float"
+    },
+    "finisherShakePerFrame": {
+      "name": "締めの段の揺れ",
+      "help": "締めの段の揺れ（ヒットストップ1フレームあたり）",
+      "type": "float"
+    },
+    "hitShakeDurationBase": {
+      "type": "float",
+      "name": "ヒット時の画面揺れの基本秒数"
+    },
+    "hitShakeDurationPerFrame": {
+      "type": "float",
+      "name": "ヒットストップ1フレームあたりの揺れ秒数"
+    },
+    "comboStepHitStrengthGain": {
+      "name": "段が1つ進むごとに弾けを大きくする量",
+      "type": "float"
+    },
+    "weaponSwitchHitStrength": {
+      "type": "float",
+      "name": "持ち替えヒットの弾け方の強さ"
+    },
+    "skillHitStrength": {
+      "name": "ボスへの固有技",
+      "type": "float"
+    },
+    "slamHitStrength": {
+      "type": "float",
+      "name": "叩きつけヒットの弾け方の強さ"
+    },
+    "weaponEnemySkillHitStrength": {
+      "name": "道中の敵への固有技",
+      "type": "float"
+    },
+    "gunHitStrength": {
+      "type": "float",
+      "name": "射撃ヒットの弾け方の強さ"
+    },
+    "rampageHitStrength": {
+      "type": "float",
+      "name": "乱舞ヒットの弾け方の強さ"
+    },
+    "skillElementScale": {
+      "type": "float",
+      "name": "技の属性演出の大きさ"
+    },
+    "gunElementScale": {
+      "name": "連射で画面が埋まらないよう近接より小さく",
+      "type": "float"
+    },
+    "monsterVanishDelay": {
+      "name": "倒れた姿を見せてから弾けて消えるまで",
+      "type": "float"
+    },
+    "monsterVanishGauge": {
+      "name": "消えたモンスターから溜まる覚醒ゲージ",
+      "type": "float"
+    },
+    "absorbRange": {
+      "name": "武器を奪える距離",
+      "type": "float"
+    },
+    "absorbDuration": {
+      "type": "float",
+      "name": "武器を吸い寄せる秒数"
+    },
+    "absorbPullRate": {
+      "name": "1フレームで武器をプレイヤーへ寄せる割合",
+      "type": "float"
+    },
+    "absorbTargetHeight": {
+      "name": "武器を吸い寄せる先の高さ",
+      "help": "武器を吸い寄せる先の高さ（足元からの高さ）",
+      "type": "float"
+    },
+    "hitEscalationKeepSeconds": {
+      "name": "この秒数ヒットが無いと盛り度合いが初撃に戻る",
+      "type": "float"
+    },
+    "hitEscalationStrengthGain": {
+      "name": "上限時に弾けの大きさへ足す割合",
+      "type": "float"
+    },
+    "hitEscalationExtraBurstGain": {
+      "name": "上限時に武器固有の追加バーストへ足す割合",
+      "type": "float"
+    },
+    "hitEscalationOuterRingThreshold": {
+      "name": "この盛り度合い以上で外側のリングを重ねる",
+      "type": "float"
+    },
+    "hitEscalationMaxThreshold": {
+      "name": "この盛り度合いで星をもう1つ重ねる",
+      "type": "float"
+    },
+    "elementEscalationScaleGain": {
+      "name": "連続ヒットが上限の時に属性演出へ足す拡大率",
+      "type": "float"
+    },
+    "elementScalePerComboStep": {
+      "name": "コンボ段が1上がるごとの属性演出の拡大率",
+      "type": "float"
+    },
+    "justDodgeHitStopFrames": {
+      "name": "ジャスト回避の瞬間に世界を止めるフレーム数",
+      "type": "int"
+    },
+    "bossSkillBaseDamage": {
+      "name": "ボスへの固有技の固定ダメージ",
+      "type": "int"
+    },
+    "bossSlamBaseDamage": {
+      "name": "ボスへの叩きつけの固定ダメージ",
+      "type": "int"
+    },
+    "weaponEnemySlamBaseDamage": {
+      "name": "道中の敵への叩きつけの固定ダメージ",
+      "type": "int"
+    },
+    "gunBaseDamage": {
+      "type": "int",
+      "name": "銃の基礎ダメージ"
+    },
+    "rampageDamage": {
+      "name": "乱舞スラッシュ1回のダメージ",
+      "type": "int"
+    },
+    "contactDamage": {
+      "name": "体当たりで敵に与えるダメージ",
+      "type": "int"
+    },
+    "swordBonusStartStep": {
+      "name": "剣: 追加ダメージが乗り始める段",
+      "type": "int"
+    },
+    "swordBonusDamage": {
+      "type": "int",
+      "name": "剣の追加ダメージ"
+    },
+    "spearChainDamage": {
+      "name": "槍: 周囲の武器持ちの敵へ連鎖するダメージ",
+      "type": "int"
+    },
+    "defaultHitStopFrames": {
+      "type": "int",
+      "name": "ヒットストップのフレーム数（既定）"
+    },
+    "finisherMinHitStopFrames": {
+      "type": "int",
+      "name": "締めのヒットストップの最小フレーム数"
+    },
+    "comboMilestoneInterval": {
+      "name": "このヒット数ごとに締めと同じ山場の演出を出す",
+      "type": "int"
+    },
+    "dodgeSpamPenaltyStartCount": {
+      "name": "この回数目の連打回避からスタイルを削る",
+      "type": "int"
+    },
+    "hitEscalationMaxHits": {
+      "name": "この連続ヒット数で盛り度合いが上限になる",
+      "type": "int"
+    },
+    "hitEscalationExtraSparks": {
+      "name": "上限時に足す火花の数",
+      "type": "int"
+    }
+  },
+  "combo_feel.json": {
+    "trailSubdivisions": {
+      "name": "サンプル間の補間分割数",
+      "help": "サンプル間の補間分割数（1で補間なし）",
+      "type": "int"
+    },
+    "trailLifetime": {
+      "name": "帯が消えるまでの秒数",
+      "type": "float"
+    },
+    "trailTipAlpha": {
+      "name": "刃先側の不透明度",
+      "type": "float"
+    },
+    "trailBaseAlpha": {
+      "name": "根元側の不透明度",
+      "type": "float"
+    },
+    "trailTint": {
+      "name": "刃先の色を武器の属性色へ寄せる割合",
+      "help": "刃先の色を武器の属性色へ寄せる割合（0で白）",
+      "type": "float"
+    },
+    "blurPeak": {
+      "name": "ラジアルブラーの最大強度",
+      "type": "float"
+    },
+    "blurSeconds": {
+      "name": "ブラーが抜けきるまでの秒数",
+      "type": "float"
+    },
+    "blurSamples": {
+      "name": "ブラーのサンプル数",
+      "type": "int"
+    },
+    "zoomDistance": {
+      "name": "カメラを寄せる最大距離",
+      "type": "float"
+    },
+    "zoomSeconds": {
+      "name": "寄って戻るまでの秒数",
+      "type": "float"
+    },
+    "slowScale": {
+      "name": "ヒットストップ明けのスローでゲームを進める割合",
+      "type": "float"
+    },
+    "slowSeconds": {
+      "name": "スローを続ける秒数",
+      "type": "float"
+    },
+    "slashLength": {
+      "name": "斬撃線の半分の長さ",
+      "help": "斬撃線の半分の長さ（ワールド単位）",
+      "type": "float"
+    },
+    "slashThickness": {
+      "name": "通常段の太さ",
+      "help": "通常段の太さ（ピクセル）",
+      "type": "float"
+    },
+    "finisherSlashThickness": {
+      "name": "締めの太さ",
+      "help": "締めの太さ（ピクセル）",
+      "type": "float"
+    },
+    "finisherSlashScale": {
+      "name": "締めの長さ倍率",
+      "type": "float"
+    },
+    "slashSeconds": {
+      "name": "表示時間",
+      "type": "float"
+    },
+    "slashDirectionWindow": {
+      "name": "刃先の動きを何秒さかのぼって向きを決めるか",
+      "type": "float"
+    },
+    "awakenColor": {
+      "name": "覚醒中の軌跡・斬撃線の色"
+    },
+    "awakenTint": {
+      "name": "軌跡の刃先を覚醒色へ寄せる割合",
+      "type": "float"
+    },
+    "awakenTrailLifetimeScale": {
+      "name": "軌跡の寿命の倍率",
+      "help": "軌跡の寿命の倍率（長く残す）",
+      "type": "float"
+    },
+    "awakenGlowExtend": {
+      "name": "外側の光の帯を刃先からさらに伸ばす割合",
+      "help": "外側の光の帯を刃先からさらに伸ばす割合（刃の長さに対する比）",
+      "type": "float"
+    },
+    "awakenGlowAlpha": {
+      "name": "外側の光の帯の不透明度",
+      "type": "float"
+    },
+    "awakenSlashCount": {
+      "name": "1ヒットで出す斬撃線の本数",
+      "type": "int"
+    },
+    "awakenSlashSpreadDeg": {
+      "name": "斬撃線を扇状に広げる角度",
+      "help": "斬撃線を扇状に広げる角度（度）",
+      "type": "float"
+    },
+    "awakenImpactScale": {
+      "name": "締め演出",
+      "help": "締め演出（ブラー・ズーム・スロー）の強さの倍率",
+      "type": "float"
+    }
+  },
+  "element_effects.json": {
+    "count": {
+      "type": "int"
+    },
+    "lifetime": {
+      "type": "float"
+    },
+    "size": {
+      "type": "float"
+    },
+    "chance": {
+      "name": "毎回出すとうるさい層は確率で間引く",
+      "type": "float"
+    },
+    "speed": {
+      "type": "float"
+    },
+    "speedX": {
+      "type": "float"
+    },
+    "riseMin": {
+      "type": "float"
+    },
+    "riseMax": {
+      "type": "float"
+    },
+    "columns": {
+      "type": "int"
+    },
+    "centerColumn": {
+      "type": "int"
+    },
+    "columnSpacing": {
+      "type": "float"
+    },
+    "facingSpeed": {
+      "type": "float"
+    },
+    "facingSpeedStep": {
+      "type": "float"
+    },
+    "riseBase": {
+      "type": "float"
+    },
+    "riseSteps": {
+      "type": "int"
+    },
+    "riseStep": {
+      "type": "float"
+    },
+    "angleRight": {
+      "type": "float"
+    },
+    "angleLeft": {
+      "type": "float"
+    },
+    "radius": {
+      "type": "float"
+    },
+    "riseSpeed": {
+      "type": "float"
+    },
+    "length": {
+      "type": "float"
+    },
+    "thickness": {
+      "type": "float"
+    },
+    "vertical": {
+      "name": "true なら縦長"
+    },
+    "driftX": {
+      "type": "float"
+    },
+    "driftY": {
+      "type": "float"
+    },
+    "gridColumnsX": {
+      "type": "int"
+    },
+    "gridColumnsY": {
+      "type": "int"
+    },
+    "gridCenterX": {
+      "type": "int"
+    },
+    "gridCenterY": {
+      "type": "int"
+    },
+    "gridSpeedX": {
+      "type": "float"
+    },
+    "gridSpeedY": {
+      "type": "float"
+    },
+    "pullSpeed": {
+      "type": "float"
+    }
+  },
+  "enemy_params.json": {
+    "basic.attackInterval": {
+      "name": "攻撃と攻撃の間隔",
+      "help": "攻撃と攻撃の間隔（秒）",
+      "type": "float"
+    },
+    "basic.attackTelegraph": {
+      "name": "予備動作の長さ",
+      "help": "予備動作の長さ（秒）",
+      "type": "float"
+    },
+    "basic.attackActive": {
+      "name": "発射直後の不応期",
+      "help": "発射直後の不応期（秒）",
+      "type": "float"
+    },
+    "basic.attackDamage": {
+      "type": "int",
+      "name": "攻撃のダメージ"
+    },
+    "basic.heavyAttackDamage": {
+      "name": "Hammer/Axe",
+      "type": "int"
+    },
+    "basic.daggerTelegraph": {
+      "type": "float",
+      "name": "短剣の敵: 攻撃の予備動作（秒）"
+    },
+    "basic.spearTelegraph": {
+      "type": "float",
+      "name": "槍の敵: 攻撃の予備動作（秒）"
+    },
+    "basic.heavyTelegraph": {
+      "type": "float",
+      "name": "重い武器の敵: 攻撃の予備動作（秒）"
+    },
+    "basic.daggerRecovery": {
+      "type": "float",
+      "name": "短剣の敵: 攻撃後のすき（秒）"
+    },
+    "basic.spearRecovery": {
+      "type": "float",
+      "name": "槍の敵: 攻撃後のすき（秒）"
+    },
+    "basic.heavyRecovery": {
+      "type": "float",
+      "name": "重い武器の敵: 攻撃後のすき（秒）"
+    },
+    "basic.approachSpeed": {
+      "name": "1フレームあたりの歩行距離",
+      "type": "float"
+    },
+    "basic.engageRange": {
+      "name": "これより近づいたら歩みを止める",
+      "type": "float"
+    },
+    "basic.aggroRange": {
+      "name": "持ち場からこの距離にプレイヤーが来たら接近・攻撃を始める",
+      "type": "float"
+    },
+    "basic.leashDistance": {
+      "name": "持ち場から離れられる上限",
+      "type": "float"
+    },
+    "basic.meleeAttackRange": {
+      "name": "近接敵が振りかぶりを始めるプレイヤーとの距離",
+      "type": "float"
+    },
+    "basic.meleeReach": {
+      "name": "近接攻撃が届く前方距離",
+      "help": "近接攻撃が届く前方距離（発生の瞬間にこの範囲内なら命中）",
+      "type": "float"
+    },
+    "basic.meleeHitHalfHeight": {
+      "name": "近接攻撃判定の縦方向半径",
+      "type": "float"
+    },
+    "basic.gravity": {
+      "type": "float",
+      "name": "重力"
+    },
+    "basic.ceilingY": {
+      "type": "float",
+      "name": "天井の高さ"
+    },
+    "basic.knockbackDecay": {
+      "type": "float",
+      "name": "吹き飛びの減り方"
+    },
+    "basic.knockbackSlowMultiplier": {
+      "type": "float",
+      "name": "吹き飛び中の減速の倍率"
+    },
+    "basic.airComboGravityScale": {
+      "type": "float",
+      "name": "空中コンボ中の重力の倍率"
+    },
+    "basic.airComboHold": {
+      "type": "float",
+      "name": "空中コンボで浮かせておく秒数"
+    },
+    "basic.flyingBobAmplitude": {
+      "name": "flying種別の上下浮遊の振幅",
+      "type": "float"
+    },
+    "basic.flyingBobSpeed": {
+      "name": "flying種別の上下浮遊の速さ",
+      "type": "float"
+    },
+    "basic.healerPulseSeconds": {
+      "type": "float",
+      "name": "回復役: 回復の間隔（秒）"
+    },
+    "basic.healerCastSeconds": {
+      "type": "float",
+      "name": "回復役: 詠唱の秒数"
+    },
+    "basic.healerRange": {
+      "type": "float",
+      "name": "回復役: 回復が届く範囲"
+    },
+    "basic.healerAmount": {
+      "type": "int",
+      "name": "回復役: 回復量"
+    },
+    "basic.corpseFootOffset": {
+      "name": "倒れた体を落とす時、床の上面からどれだけ上に位置を置くか",
+      "help": "倒れた体を落とす時、床の上面からどれだけ上に位置を置くか（配置した敵の足元と同じ）",
+      "type": "float"
+    },
+    "knight.maxHp": {
+      "type": "int",
+      "name": "最大HP"
+    },
+    "knight.idleDuration": {
+      "type": "float",
+      "name": "待機の秒数"
+    },
+    "knight.telegraphDuration": {
+      "type": "float",
+      "name": "突進の予備動作（秒）"
+    },
+    "knight.dashDuration": {
+      "type": "float",
+      "name": "突進の秒数"
+    },
+    "knight.recoverDuration": {
+      "type": "float",
+      "name": "突進後のすき（秒）"
+    },
+    "knight.maxDashDistance": {
+      "type": "float",
+      "name": "突進の最大距離"
+    },
+    "knight.knockbackSpeed": {
+      "type": "float",
+      "name": "吹き飛びの速さ"
+    },
+    "knight.knockbackDecay": {
+      "type": "float",
+      "name": "吹き飛びの減り方"
+    },
+    "bullet.speed": {
+      "type": "float",
+      "name": "弾の速さ"
+    },
+    "bullet.lifetime": {
+      "type": "float",
+      "name": "弾が消えるまでの秒数"
+    },
+    "bullet.fireRange": {
+      "name": "発射の瞬間にプレイヤーがこの距離より遠い敵は撃たない",
+      "type": "float"
+    },
+    "bossSlam.engageRange": {
+      "type": "float",
+      "name": "叩きつけを始める距離"
+    },
+    "bossSlam.interval": {
+      "type": "float",
+      "name": "叩きつけの間隔（秒）"
+    },
+    "bossSlam.warningDuration": {
+      "type": "float",
+      "name": "叩きつけの予告の秒数"
+    },
+    "bossSlam.radius": {
+      "type": "float",
+      "name": "叩きつけの半径"
+    },
+    "bossSlam.damage": {
+      "type": "int",
+      "name": "叩きつけのダメージ"
+    },
+    "separation.minDistanceX": {
+      "name": "敵どうしの中心がこれより近いと押し離す",
+      "type": "float"
+    },
+    "separation.minDistanceY": {
+      "name": "高さの差がこれ以上なら重なっていないとみなす",
+      "help": "高さの差がこれ以上なら重なっていないとみなす（空中の敵や打ち上げ中の敵）",
+      "type": "float"
+    },
+    "separation.pushRate": {
+      "name": "1フレームで解消する重なりの割合",
+      "help": "1フレームで解消する重なりの割合（1で即座に離す、小さいほどなめらか）",
+      "type": "float"
+    },
+    "separation.bodyHalfWidth": {
+      "name": "壁から押し出す時の体の横幅の半分",
+      "type": "float"
+    },
+    "separation.wallBandBottom": {
+      "name": "位置からこの高さより上に掛かるブロックだけを壁とみなす",
+      "help": "位置からこの高さより上に掛かるブロックだけを壁とみなす（足元の床で横へ弾かれないように）",
+      "type": "float"
+    },
+    "separation.wallBandTop": {
+      "name": "位置からこの高さまでを体とみなす",
+      "help": "位置からこの高さまでを体とみなす（これより上の足場の下はくぐれる）",
+      "type": "float"
+    },
+    "separation.playerMinDistanceX": {
+      "name": "敵が自分から食い込んできた時に、プレイヤーの中心からこれだけ離す",
+      "help": "敵が自分から食い込んできた時に、プレイヤーの中心からこれだけ離す（プレイヤー側の minEnemyDistanceX より小さくし、プレイヤーが歩いて敵を押せないようにする）",
+      "type": "float"
+    },
+    "separation.playerMinDistanceY": {
+      "name": "プレイヤーとの高さの差がこれ以上なら離さない",
+      "help": "プレイヤーとの高さの差がこれ以上なら離さない（プレイヤー側の minEnemyDistanceY と揃える）",
+      "type": "float"
+    },
+    "separation.playerPushRate": {
+      "name": "1フレームで解消するプレイヤーとの重なりの割合",
+      "help": "1フレームで解消するプレイヤーとの重なりの割合（1で即座に離す）",
+      "type": "float"
+    },
+    "separation.wallContactMargin": {
+      "name": "壁にこの距離まで近い敵は押されても動かない側として扱う",
+      "type": "float"
+    },
+    "scale": {
+      "type": "float"
+    },
+    "yawOffset": {
+      "type": "float"
+    }
+  },
+  "game_rules.json": {
+    "requireBossWeaponSteal": {
+      "name": "trueならボス撃破+武器奪取でクリア条件が成立する"
+    },
+    "clearFlag": {
+      "name": "このGameFlagsが立ってもクリア条件が成立する",
+      "help": "このGameFlagsが立ってもクリア条件が成立する（グラフからの操作用）"
+    },
+    "gameOverOnHpZero": {
+      "name": "trueならラン中にHPが0になるとゲームオーバー結果へ遷移する"
+    },
+    "debugGameOverButton": {
+      "name": "trueならゲーム中にやられ演出をすぐ見るボタン",
+      "help": "trueならゲーム中にやられ演出をすぐ見るボタン（F9かクリック）を出す（評価・確認用）"
+    },
+    "debugClearButton": {
+      "name": "trueならゲーム中にクリアの決め演出をすぐ見るボタン",
+      "help": "trueならゲーム中にクリアの決め演出をすぐ見るボタン（F5かクリック。剣か銃かはランダム）を出す（評価・確認用）"
+    },
+    "debugLiberationButton": {
+      "name": "trueならマップにステージの解放演出をすぐ見るボタン",
+      "help": "trueならマップにステージの解放演出をすぐ見るボタン（F5かクリック。進行は変えない）を出す（評価・確認用）"
+    },
+    "resultDisplaySeconds": {
+      "name": "クリア結果表示の秒数",
+      "type": "float"
+    },
+    "finalFloor": {
+      "name": "このフロア以上でクリア扱い",
+      "help": "このフロア以上でクリア扱い（それ未満は次のフロアへ）",
+      "type": "int"
+    },
+    "bossHp.combat": {
+      "type": "int",
+      "name": "戦闘部屋の敵のHP"
+    },
+    "bossHp.elite": {
+      "type": "int",
+      "name": "強敵のHP"
+    },
+    "bossHp.boss": {
+      "type": "int",
+      "name": "ボスのHP"
+    },
+    "weaponEnemyHp": {
+      "name": "道中の武器持ち雑魚のHP",
+      "type": "int"
+    },
+    "flyingWeaponEnemyHp": {
+      "name": "道中の飛行型雑魚のHP",
+      "help": "道中の飛行型雑魚のHP（空中にいて殴りにくいため地上の雑魚より低くする）",
+      "type": "int"
+    },
+    "playerMaxHp": {
+      "name": "ラン開始時のプレイヤーの最大HP",
+      "type": "int"
+    },
+    "starterWeapon": {
+      "name": "新規ラン開始時に最初から持っている近接武器の種別名",
+      "help": "新規ラン開始時に最初から持っている近接武器の種別名（空文字なら素手で開始）"
+    },
+    "randomEnemyWeapons": {
+      "name": "trueなら道中の武器持ちの敵の武器を、プレイヤーがまだ持っていない武器から抽選する",
+      "help": "trueなら道中の武器持ちの敵の武器を、プレイヤーがまだ持っていない武器から抽選する（ボスは配置どおり）"
+    },
+    "gunSwitchEnabled": {
+      "name": "trueなら銃切替のボタンで持っている銃を切り替えられる",
+      "help": "trueなら銃切替のボタンで持っている銃を切り替えられる（falseなら最初の銃だけを使う）"
+    },
+    "bossStealWeapon": {
+      "name": "ボスから奪取する武器種別名"
+    },
+    "bossTechnique": {
+      "name": "ボス武器奪取時に習得する技の名前",
+      "help": "ボス武器奪取時に習得する技の名前（RunData::AddBossTechnique）"
+    },
+    "bossTechniqueRadiusMult": {
+      "name": "習得後、叩きつけ系固有技の判定半径に掛かる倍率",
+      "type": "float"
+    },
+    "bossTechniqueBonusDamage": {
+      "name": "習得後、叩きつけ系固有技に上乗せするダメージ",
+      "type": "int"
+    },
+    "enemyWeaponPool": {
+      "name": "敵に持たせる武器の候補"
+    },
+    "bossColor": {
+      "name": "ボスの色"
+    },
+    "levelPaths": {
+      "name": "フロアごとのステージファイル"
+    },
+    "rankScore.SSS": {
+      "name": "SSS の点数",
+      "type": "int"
+    },
+    "rankScore.SS": {
+      "name": "SS の点数",
+      "type": "int"
+    },
+    "rankScore.S": {
+      "name": "S の点数",
+      "type": "int"
+    },
+    "rankScore.A": {
+      "name": "A の点数",
+      "type": "int"
+    },
+    "rankScore.B": {
+      "name": "B の点数",
+      "type": "int"
+    },
+    "rankScore.C": {
+      "name": "C の点数",
+      "type": "int"
+    },
+    "rankScore.D": {
+      "name": "D の点数",
+      "type": "int"
+    },
+    "stagePortalXs": {
+      "name": "ステージ入口のX座標"
+    }
+  },
+  "hit_effects.json": {
+    "slashLineLengthMin": {
+      "type": "float"
+    },
+    "slashLineLengthMax": {
+      "type": "float"
+    },
+    "slashLineThicknessMin": {
+      "type": "float"
+    },
+    "slashLineThicknessMax": {
+      "type": "float"
+    },
+    "slashLineLingerSeconds": {
+      "type": "float"
+    },
+    "beatBladeCount": {
+      "type": "int"
+    },
+    "beatBladeRadius": {
+      "type": "float"
+    },
+    "beatBladeSpeedMin": {
+      "type": "float"
+    },
+    "beatBladeSpeedMax": {
+      "type": "float"
+    },
+    "slashFlashSeconds": {
+      "type": "float"
+    },
+    "releaseSlashCount": {
+      "type": "int"
+    },
+    "releaseSlashThickness": {
+      "type": "float"
+    },
+    "releaseSlashSeconds": {
+      "type": "float"
+    },
+    "releaseBladeCount": {
+      "type": "int"
+    },
+    "releaseBladeSpeedMin": {
+      "type": "float"
+    },
+    "releaseBladeSpeedMax": {
+      "type": "float"
+    },
+    "releaseWarpImpulse": {
+      "type": "float"
+    },
+    "hitStopLaunch": {
+      "name": "打ち上げ",
+      "type": "int"
+    },
+    "hitStopAwakenExtra": {
+      "name": "覚醒中の多段ヒットの2発目以降",
+      "help": "覚醒中の多段ヒットの2発目以降（刻みを速く見せるため短く）",
+      "type": "int"
+    },
+    "hitStopJuggle": {
+      "name": "ジャグル",
+      "type": "int"
+    },
+    "hitStopFinish": {
+      "name": "フィニッシュ",
+      "type": "int"
+    },
+    "hitStopFinisherSlash": {
+      "name": "大技 本命ヒット",
+      "type": "int"
+    },
+    "hitStopFinisherBeat": {
+      "name": "大技 斬撃線が1本出るごとの小停止",
+      "type": "int"
+    },
+    "shakeLaunchAmt": {
+      "type": "float"
+    },
+    "shakeLaunchDur": {
+      "type": "float"
+    },
+    "shakeFinishAmt": {
+      "type": "float"
+    },
+    "shakeFinishDur": {
+      "type": "float"
+    },
+    "shakeFinisherSlashAmt": {
+      "type": "float"
+    },
+    "shakeFinisherSlashDur": {
+      "type": "float"
+    },
+    "finisherSlashRadius": {
+      "name": "斬撃線の最大半長",
+      "type": "float"
+    },
+    "finisherOverlayAlpha": {
+      "name": "演出中の画面暗転の濃さ",
+      "type": "float"
+    },
+    "ghostSpawnInterval": {
+      "name": "残像を追加する間隔",
+      "help": "残像を追加する間隔（秒）",
+      "type": "float"
+    },
+    "ghostLifetime": {
+      "name": "残像が消えるまでの秒数",
+      "type": "float"
+    },
+    "ghostMaxAlpha": {
+      "name": "残像の最大不透明度",
+      "type": "float"
+    },
+    "ghostColor": {
+      "name": "残像の色"
+    },
+    "swingCenterHeight": {
+      "name": "敵の近接攻撃演出を出す高さ",
+      "type": "float"
+    },
+    "beatShakeAmount": {
+      "name": "フィニッシャー各段の揺れ幅",
+      "type": "float"
+    },
+    "beatShakeSeconds": {
+      "name": "フィニッシャー各段の揺れ時間",
+      "type": "float"
+    },
+    "beatWarpImpulse": {
+      "name": "各段で足す画面歪み",
+      "type": "float"
+    },
+    "releaseFlashColor": {
+      "name": "フィニッシャー解放時の閃光色"
+    },
+    "releaseFlashSeconds": {
+      "name": "解放時の閃光時間",
+      "type": "float"
+    },
+    "absorbTargetHeight": {
+      "name": "武器を吸い寄せる位置の高さ",
+      "type": "float"
+    },
+    "absorbGlowColor": {
+      "name": "吸収粒子の色"
+    },
+    "absorbOrbCount": {
+      "name": "吸収粒子の数",
+      "type": "int"
+    },
+    "absorbOrbSpeedBase": {
+      "name": "吸収粒子の基準速度",
+      "type": "float"
+    },
+    "absorbOrbSpeedStep": {
+      "name": "粒子ごとに足す速度",
+      "type": "float"
+    },
+    "absorbOrbLifetime": {
+      "name": "吸収粒子の寿命",
+      "type": "float"
+    },
+    "absorbOrbSize": {
+      "name": "吸収粒子の大きさ",
+      "type": "float"
+    },
+    "absorbPullRate": {
+      "name": "1フレームあたりの吸引率",
+      "type": "float"
+    },
+    "surfaceLerp": {
+      "name": "敵中心から命中演出を手前へ寄せる割合",
+      "type": "float"
+    },
+    "extraRingCountDivisor": {
+      "name": "武器の追加粒子数からリング追加数を求める除数",
+      "type": "int"
+    },
+    "chestHeight": {
+      "name": "プレイヤー足元から胸までの高さ",
+      "type": "float"
+    },
+    "comboSlashGrowthPerStep": {
+      "name": "コンボ段ごとに足す斬線倍率",
+      "type": "float"
+    },
+    "comboFinisherStep": {
+      "name": "締め演出を出すコンボ段",
+      "type": "int"
+    },
+    "burstColumns": {
+      "name": "武器粒子の奥行き方向の列数",
+      "type": "int"
+    },
+    "burstCenterColumn": {
+      "name": "奥行き方向の中央列",
+      "type": "int"
+    },
+    "burstSpreadZ": {
+      "name": "列ごとの奥行き間隔",
+      "type": "float"
+    },
+    "burstSpeedBase": {
+      "name": "武器粒子の横速度の基準",
+      "type": "float"
+    },
+    "burstSpeedStep": {
+      "name": "粒子ごとに足す横速度",
+      "type": "float"
+    },
+    "burstRiseBase": {
+      "name": "武器粒子の上昇速度の基準",
+      "type": "float"
+    },
+    "burstRiseSteps": {
+      "name": "上昇速度の繰り返し段数",
+      "type": "int"
+    },
+    "burstRiseStep": {
+      "name": "段ごとに足す上昇速度",
+      "type": "float"
+    },
+    "minBullets": {
+      "name": "発砲演出の最小粒子数",
+      "type": "int"
+    },
+    "fallbackBullets": {
+      "name": "射撃定義が無い場合の粒子数",
+      "type": "int"
+    },
+    "fallbackSpread": {
+      "name": "射撃定義が無い場合の拡散係数",
+      "type": "float"
+    },
+    "fanSpeedBase": {
+      "name": "扇状に出す弾煙の基準速度",
+      "type": "float"
+    },
+    "fanSpeedStep": {
+      "name": "粒子ごとに足す扇状速度",
+      "type": "float"
+    },
+    "halfRange": {
+      "name": "扇状分布の中心補正",
+      "type": "float"
+    },
+    "sequenceSlashAngleStep": {
+      "name": "連撃の段ごとの斬線角度",
+      "type": "float"
+    },
+    "bladeCount": {
+      "name": "固有技命中時に出す刃の数",
+      "type": "int"
+    },
+    "bladeRadius": {
+      "name": "刃の発生半径",
+      "type": "float"
+    },
+    "bladeSpeedMin": {
+      "name": "刃の最小速度",
+      "type": "float"
+    },
+    "bladeSpeedMax": {
+      "name": "刃の最大速度",
+      "type": "float"
+    },
+    "slashLineHalfLength": {
+      "name": "固有技の斬線の半分の長さ",
+      "type": "float"
+    },
+    "slashLineColor": {
+      "name": "固有技の斬線色"
+    },
+    "slashLineThickness": {
+      "name": "固有技の斬線の太さ",
+      "type": "float"
+    },
+    "slashLineSeconds": {
+      "name": "固有技の斬線の表示時間",
+      "type": "float"
+    },
+    "auraInterval": {
+      "name": "覚醒オーラの発生間隔",
+      "type": "float"
+    },
+    "auraJitter": {
+      "name": "武器オーラの位置の揺らぎ幅",
+      "type": "float"
+    },
+    "warningMinScale": {
+      "name": "予告開始時の着弾範囲に対する倍率",
+      "type": "float"
+    },
+    "warningBlinkSpeed": {
+      "name": "予告円の点滅速度",
+      "type": "float"
+    },
+    "warningGreenBase": {
+      "name": "予告円の緑成分の基準",
+      "type": "float"
+    },
+    "warningGreenGrowth": {
+      "name": "予告進行に応じて足す緑成分",
+      "type": "float"
+    },
+    "warningBlue": {
+      "name": "予告円の青成分",
+      "type": "float"
+    },
+    "warningAlphaBase": {
+      "name": "予告円の基準不透明度",
+      "type": "float"
+    },
+    "warningAlphaBlink": {
+      "name": "点滅で足す不透明度",
+      "type": "float"
+    },
+    "warningRingGreenBase": {
+      "name": "予告リングの緑成分の基準",
+      "type": "float"
+    },
+    "warningRingGreenFade": {
+      "name": "進行に応じて引く緑成分",
+      "type": "float"
+    },
+    "warningRingBlueBase": {
+      "name": "予告リングの青成分の基準",
+      "type": "float"
+    },
+    "warningRingBlueFade": {
+      "name": "進行に応じて引く青成分",
+      "type": "float"
+    },
+    "hitStopFrames": {
+      "type": "int"
+    },
+    "shakeAmount": {
+      "type": "float"
+    },
+    "shakeSeconds": {
+      "type": "float"
+    },
+    "speed": {
+      "type": "float"
+    },
+    "count": {
+      "type": "int"
+    },
+    "lifetime": {
+      "type": "float"
+    },
+    "size": {
+      "type": "float"
+    },
+    "height": {
+      "type": "float"
+    },
+    "speedXMin": {
+      "type": "float"
+    },
+    "speedXMax": {
+      "type": "float"
+    },
+    "riseMin": {
+      "type": "float"
+    },
+    "riseMax": {
+      "type": "float"
+    },
+    "altColor": {
+      "name": "alternateColor の時に1粒おきに使う色"
+    },
+    "angleRight": {
+      "type": "float"
+    },
+    "angleLeft": {
+      "type": "float"
+    },
+    "radius": {
+      "type": "float"
+    },
+    "seconds": {
+      "type": "float"
+    },
+    "riseSpeed": {
+      "name": "上向きの初速",
+      "type": "float"
+    },
+    "flicker": {
+      "name": "明滅させるか"
+    },
+    "gravity": {
+      "name": "重力で落とすか",
+      "help": "重力で落とすか（velocity と組み合わせて火花にする）"
+    }
+  },
+  "player_defeat.json": {
+    "camera.closeZoom": {
+      "name": "寄った時の引き",
+      "help": "寄った時の引き（ふだんの距離に対する割合）",
+      "type": "float"
+    },
+    "camera.zoomSeconds": {
+      "name": "やられてから寄り切るまでの長さ",
+      "type": "float"
+    },
+    "camera.closeHeight": {
+      "name": "寄り切った時に、カメラを追う位置よりどれだけ上に置くか",
+      "help": "寄り切った時に、カメラを追う位置よりどれだけ上に置くか（ふだんは gameConstants::kCameraFollowOffsetY）",
+      "type": "float"
+    },
+    "hit.seconds": {
+      "name": "被弾した姿勢のまま震えて止まる長さ",
+      "type": "float"
+    },
+    "hit.shakeWidth": {
+      "name": "震えの左右の幅",
+      "type": "float"
+    },
+    "hit.shakeSpeed": {
+      "name": "震えの速さ",
+      "help": "震えの速さ（ラジアン毎秒）",
+      "type": "float"
+    },
+    "hit.impact": {
+      "name": "被弾の瞬間のカメラ揺れ",
+      "help": "被弾の瞬間のカメラ揺れ（hit_effects.json の impacts）"
+    },
+    "hit.flash": {
+      "name": "被弾の瞬間の画面フラッシュ",
+      "help": "被弾の瞬間の画面フラッシュ（flashes）"
+    },
+    "hit.sound": {
+      "name": "被弾の瞬間に鳴らす声や効果音",
+      "help": "被弾の瞬間に鳴らす声や効果音（空なら鳴らさない）"
+    },
+    "hit.soundVolume": {
+      "type": "float"
+    },
+    "launch.seconds": {
+      "name": "吹き飛んで床に落ちるまでの長さ",
+      "type": "float"
+    },
+    "launch.distance": {
+      "name": "後ろへ吹き飛ぶ横の距離",
+      "type": "float"
+    },
+    "launch.height": {
+      "name": "吹き飛ぶ弧の高さ",
+      "type": "float"
+    },
+    "launch.stageEdgeMargin": {
+      "name": "吹き飛ぶ先をステージの端からこれだけ内側に収める",
+      "type": "float"
+    },
+    "launch.wallClearance": {
+      "name": "吹き飛ぶ先を壁の面からこれだけ離す",
+      "help": "吹き飛ぶ先を壁の面からこれだけ離す（倒れた体の半分の長さ）",
+      "type": "float"
+    },
+    "launch.wallBandBottom": {
+      "name": "やられた位置からこれより高い所に掛かるブロックを壁とみなす",
+      "help": "やられた位置からこれより高い所に掛かるブロックを壁とみなす（低い段差は床として越える）",
+      "type": "float"
+    },
+    "launch.spinTurns": {
+      "name": "宙で後ろへ回る回数",
+      "help": "宙で後ろへ回る回数（最後に仰向けになる分は別に足す）",
+      "type": "float"
+    },
+    "weapon.handHeight": {
+      "name": "武器が手から離れる高さ",
+      "help": "武器が手から離れる高さ（プレイヤーの中心から上へ）",
+      "type": "float"
+    },
+    "weapon.distance": {
+      "name": "武器が飛ぶ横の距離",
+      "help": "武器が飛ぶ横の距離（プレイヤーが吹き飛ぶのと逆、攻撃してきた側へ）",
+      "type": "float"
+    },
+    "weapon.height": {
+      "name": "武器が飛ぶ弧の高さ",
+      "type": "float"
+    },
+    "weapon.seconds": {
+      "name": "武器が床に落ちるまでの長さ",
+      "type": "float"
+    },
+    "weapon.spinTurns": {
+      "name": "武器が飛びながら回る回数",
+      "type": "float"
+    },
+    "weapon.groundOffsetY": {
+      "name": "床に落ちた武器の高さ",
+      "help": "床に落ちた武器の高さ（プレイヤーが床に立った時の中心の高さから）",
+      "type": "float"
+    },
+    "weapon.lieAngleDegrees": {
+      "name": "床に落ちた武器の傾き",
+      "help": "床に落ちた武器の傾き（Z軸回り）",
+      "type": "float"
+    },
+    "weapon.landSparks": {
+      "name": "武器が床に落ちた時の砂ぼこり",
+      "help": "武器が床に落ちた時の砂ぼこり（sparks）"
+    },
+    "enemyBounce.clearance": {
+      "name": "倒れ込む位置と敵の中心の横の距離がこれより近いと、体が敵に埋まるとみなす",
+      "type": "float"
+    },
+    "enemyBounce.topOffset": {
+      "name": "敵の上で跳ねる時の高さ",
+      "help": "敵の上で跳ねる時の高さ（敵の中心から上へ）。高さの差がこれ以上の敵は避けない",
+      "type": "float"
+    },
+    "enemyBounce.extraDistance": {
+      "name": "跳ねた先を、埋まらない距離からさらにこれだけ離す",
+      "type": "float"
+    },
+    "enemyBounce.seconds": {
+      "name": "敵の上で跳ねてから床に落ちるまでの長さ",
+      "type": "float"
+    },
+    "enemyBounce.height": {
+      "name": "敵の上で跳ねる弧の高さ",
+      "type": "float"
+    },
+    "enemyBounce.spinTurns": {
+      "name": "跳ねている間に後ろへ回る回数",
+      "type": "float"
+    },
+    "enemyBounce.impact": {
+      "name": "敵の上で跳ねた時のカメラ揺れ",
+      "help": "敵の上で跳ねた時のカメラ揺れ（impacts）"
+    },
+    "enemyBounce.sparks": {
+      "name": "敵の上で跳ねた時の火花",
+      "help": "敵の上で跳ねた時の火花（sparks）"
+    },
+    "down.lieAngleDegrees": {
+      "name": "倒れた時ののけぞり",
+      "help": "倒れた時ののけぞり（負で仰向け）",
+      "type": "float"
+    },
+    "down.lieLift": {
+      "name": "倒れた体が床へめり込まないよう持ち上げる高さ",
+      "type": "float"
+    },
+    "down.bounceHeight": {
+      "name": "床に当たって跳ねる高さ",
+      "type": "float"
+    },
+    "down.bounceSeconds": {
+      "type": "float"
+    },
+    "down.seconds": {
+      "name": "倒れたまま動かない長さ",
+      "help": "倒れたまま動かない長さ（跳ね返りも含む）",
+      "type": "float"
+    },
+    "down.impact": {
+      "name": "床に叩きつけられた時のカメラ揺れ",
+      "help": "床に叩きつけられた時のカメラ揺れ（impacts）"
+    },
+    "down.ring": {
+      "name": "床に叩きつけられた時の衝撃リング",
+      "help": "床に叩きつけられた時の衝撃リング（rings）"
+    },
+    "down.sparks": {
+      "name": "床に叩きつけられた時の砂ぼこり",
+      "help": "床に叩きつけられた時の砂ぼこり（sparks）"
+    },
+    "struggle.riseSeconds": {
+      "name": "上半身を起こそうとするまでの長さ",
+      "type": "float"
+    },
+    "struggle.riseDegrees": {
+      "name": "上半身を起こす角度",
+      "help": "上半身を起こす角度（倒れた姿勢から）",
+      "type": "float"
+    },
+    "struggle.holdSeconds": {
+      "name": "起こしかけたまま震えてあがく長さ",
+      "type": "float"
+    },
+    "struggle.shakeDegrees": {
+      "name": "あがく間の震えの角度",
+      "type": "float"
+    },
+    "struggle.shakeSpeed": {
+      "name": "震えの速さ",
+      "help": "震えの速さ（ラジアン毎秒）",
+      "type": "float"
+    },
+    "struggle.reachArm": {
+      "name": "空へ伸ばす腕の付け根のボーン"
+    },
+    "struggle.reachForearm": {
+      "name": "空へ伸ばす腕の肘から先のボーン",
+      "help": "空へ伸ばす腕の肘から先のボーン（肘を伸ばす）"
+    },
+    "struggle.reachDirection": {
+      "name": "腕を伸ばす向き",
+      "help": "腕を伸ばす向き（モデルの座標。+Zが体の前で、仰向けでは空になる）"
+    },
+    "struggle.reachWeight": {
+      "name": "腕を目標の向きへ寄せる割合",
+      "help": "腕を目標の向きへ寄せる割合（1で真っすぐその向き）",
+      "type": "float"
+    },
+    "struggle.reachForearmWeight": {
+      "name": "肘から先を目標の向きへ寄せる割合",
+      "type": "float"
+    },
+    "struggle.reachShake": {
+      "name": "伸ばした腕の震えの大きさ",
+      "help": "伸ばした腕の震えの大きさ（向きに足す横と縦のぶれ）",
+      "type": "float"
+    },
+    "struggle.reachShakeSpeed": {
+      "name": "腕の震えの速さ",
+      "help": "腕の震えの速さ（ラジアン毎秒）",
+      "type": "float"
+    },
+    "struggle.collapseSeconds": {
+      "name": "力尽きて倒れ込むまでの長さ",
+      "type": "float"
+    },
+    "struggle.afterSeconds": {
+      "name": "倒れてから GAME OVER を出すまでの長さ",
+      "type": "float"
+    },
+    "struggle.impact": {
+      "name": "力尽きて倒れた時のカメラ揺れ",
+      "help": "力尽きて倒れた時のカメラ揺れ（impacts）"
+    },
+    "struggle.sparks": {
+      "name": "力尽きて倒れた時の砂ぼこり",
+      "help": "力尽きて倒れた時の砂ぼこり（sparks）"
+    },
+    "gameover.fadeSeconds": {
+      "name": "暗転が濃くなり切るまでの長さ",
+      "type": "float"
+    },
+    "gameover.textDropSeconds": {
+      "name": "文字が上から落ちて弾み終えるまでの長さ",
+      "type": "float"
+    },
+    "gameover.textDropHeight": {
+      "name": "文字が落ちてくる高さ",
+      "help": "文字が落ちてくる高さ（画面の座標）",
+      "type": "float"
+    },
+    "gameover.holdSeconds": {
+      "name": "文字が落ち着いてからゲームオーバー画面へ移るまでの長さ",
+      "type": "float"
+    },
+    "gameover.skipLockSeconds": {
+      "name": "GAME OVER が出始めてからこの間はボタンで飛ばせない",
+      "help": "GAME OVER が出始めてからこの間はボタンで飛ばせない（連打していた攻撃を拾わないように）",
+      "type": "float"
+    },
+    "choice.retryLabel": {
+      "name": "同じステージをやり直す項目の文字"
+    },
+    "choice.mapLabel": {
+      "name": "マップへ戻る項目の文字"
+    },
+    "choice.lockSeconds": {
+      "name": "選択肢が出てからこの間は決定を受け付けない",
+      "help": "選択肢が出てからこの間は決定を受け付けない（連打していたジャンプで決まらないように）",
+      "type": "float"
+    }
+  },
+  "player_params.json": {
+    "gun.airGravityScale": {
+      "type": "float",
+      "name": "空中で撃った時の重力の倍率"
+    },
+    "gun.airFloatDuration": {
+      "type": "float",
+      "name": "空中で撃った時に落下が遅くなる秒数"
+    },
+    "gun.baseAnimSpeed": {
+      "type": "float",
+      "name": "撃っている間のアニメ速度"
+    },
+    "skills.skillBlinkPlusDistanceMult": {
+      "type": "float",
+      "name": "強化: テレポート距離の倍率"
+    },
+    "skills.skillComboExtendBonus": {
+      "type": "int",
+      "name": "強化: コンボ延長のボーナス"
+    },
+    "skills.skillFastFireIntervalMult": {
+      "type": "float",
+      "name": "強化: 連射間隔の倍率"
+    },
+    "skills.skillAwakenBoostChargeMult": {
+      "type": "float",
+      "name": "強化: 覚醒ゲージの溜まりやすさ"
+    },
+    "skills.skillSpeedUpMult": {
+      "type": "float",
+      "name": "強化: 移動速度の倍率"
+    },
+    "skills.skillHighJumpMult": {
+      "type": "float",
+      "name": "強化: ジャンプの倍率"
+    },
+    "skills.skillJuggleExtendBonus": {
+      "type": "int",
+      "name": "強化: 空中コンボ延長のボーナス"
+    },
+    "movement.groundY": {
+      "name": "配置床が無いステージの地面の高さ",
+      "type": "float"
+    },
+    "movement.ceilingY": {
+      "type": "float",
+      "name": "天井の高さ"
+    },
+    "movement.gravity": {
+      "type": "float",
+      "name": "重力"
+    },
+    "movement.jumpPower": {
+      "type": "float",
+      "name": "ジャンプの強さ"
+    },
+    "movement.speed": {
+      "name": "1フレームあたりの横移動量",
+      "type": "float"
+    },
+    "movement.minEnemyDistanceX": {
+      "name": "敵とめり込まないための最小X距離",
+      "help": "敵とめり込まないための最小X距離（接触ダメージの重なりしろは残す。敵側の separation.playerMinDistanceX より大きくする）",
+      "type": "float"
+    },
+    "movement.minEnemyDistanceY": {
+      "name": "上記のY版",
+      "help": "上記のY版（頭上を飛び越えている間は押し出さない）",
+      "type": "float"
+    },
+    "movement.invincibleDuration": {
+      "name": "被弾後の無敵秒数",
+      "type": "float"
+    },
+    "water.waterGravity": {
+      "name": "浮力で弱めた沈下加速度",
+      "type": "float"
+    },
+    "water.waterSpeed": {
+      "type": "float",
+      "name": "水中の横移動の速さ"
+    },
+    "water.swimAccel": {
+      "name": "長押しで上昇する加速度",
+      "type": "float"
+    },
+    "water.swimMaxVY": {
+      "type": "float",
+      "name": "泳いで上がる最大速度"
+    },
+    "water.sinkMaxVY": {
+      "type": "float",
+      "name": "沈む最大速度"
+    },
+    "water.waterEntryImpactDamping": {
+      "name": "入水時に落下速度へ掛ける倍率",
+      "type": "float"
+    },
+    "dodge.dodgeDistance": {
+      "type": "float",
+      "name": "回避の距離"
+    },
+    "dodge.dodgeDuration": {
+      "name": "全区間無敵",
+      "type": "float"
+    },
+    "dodge.dodgeCooldown": {
+      "type": "float",
+      "name": "回避の再使用までの秒数"
+    },
+    "dodge.dodgeSpamWindow": {
+      "name": "この秒数以内の次の回避は連打扱い",
+      "type": "float"
+    },
+    "dodge.dodgeAnimSpeed": {
+      "type": "float",
+      "name": "回避のアニメ速度"
+    },
+    "dodge.backDodgeAnimSpeed": {
+      "type": "float",
+      "name": "バックステップのアニメ速度"
+    },
+    "dodge.backDodgeLean": {
+      "name": "バックステップで後ろへ反る最大角度",
+      "help": "バックステップで後ろへ反る最大角度（ラジアン）",
+      "type": "float"
+    },
+    "dodge.backDodgeHopHeight": {
+      "name": "バックステップで見た目だけ浮かせる高さ",
+      "type": "float"
+    },
+    "warp.warpDistance": {
+      "type": "float",
+      "name": "テレポート斬りの距離"
+    },
+    "warp.warpAwakenedDistance": {
+      "type": "float",
+      "name": "覚醒中のテレポート斬りの距離"
+    },
+    "warp.warpDuration": {
+      "type": "float",
+      "name": "テレポートにかかる秒数"
+    },
+    "warp.warpCooldown": {
+      "type": "float",
+      "name": "テレポート斬りの再使用までの秒数"
+    },
+    "warp.warpAwakenedCooldown": {
+      "type": "float",
+      "name": "覚醒中の再使用までの秒数"
+    },
+    "warp.warpGaugeCost": {
+      "name": "通常時に消費する覚醒ゲージ量",
+      "type": "float"
+    },
+    "warp.warpAnimSpeed": {
+      "type": "float",
+      "name": "テレポート斬りのアニメ速度"
+    },
+    "awaken.awakenDuration": {
+      "type": "float",
+      "name": "覚醒が続く秒数"
+    },
+    "awaken.awakenActivationThreshold": {
+      "name": "このゲージ量が溜まっていれば発動できる",
+      "type": "float"
+    },
+    "awaken.awakenedSpeedMult": {
+      "type": "float",
+      "name": "覚醒中の移動速度の倍率"
+    },
+    "awaken.awakenedJumpMult": {
+      "type": "float",
+      "name": "覚醒中のジャンプの倍率"
+    },
+    "awaken.awakenExtraHitInterval": {
+      "type": "float",
+      "name": "覚醒中の追加ヒットの間隔（秒）"
+    },
+    "combo.weaponSwitchWindow": {
+      "name": "持ち替え直後の攻撃が持ち替え攻撃になる猶予",
+      "type": "float"
+    },
+    "combo.weaponSwitchLunge": {
+      "type": "float",
+      "name": "武器持ち替え攻撃の踏み込み距離"
+    },
+    "combo.launchFollowWindow": {
+      "name": "打ち上げ後に追撃ジャンプが強化される秒数",
+      "type": "float"
+    },
+    "combo.launchFollowJumpMult": {
+      "type": "float",
+      "name": "打ち上げ後に追うジャンプの倍率"
+    },
+    "combo.airAttackFallDamping": {
+      "name": "空中攻撃中に落下速度へ掛ける倍率",
+      "type": "float"
+    },
+    "combo.attackAnimSpeed": {
+      "name": "乱舞の自動斬撃のモーション速度",
+      "type": "float"
+    },
+    "combo.finisherReleaseAnimSpeed": {
+      "type": "float",
+      "name": "フィニッシャーを放つアニメ速度"
+    },
+    "combo.stealStabAnimSpeed": {
+      "type": "float",
+      "name": "武器を奪う突きのアニメ速度"
+    },
+    "rampage.rampageSpeed": {
+      "name": "打ち上げ突進の速度",
+      "type": "float"
+    },
+    "rampage.rampageReachDistance": {
+      "name": "この距離まで近づいたら打ち上げる",
+      "type": "float"
+    },
+    "rampage.rampageLaunchSpeed": {
+      "type": "float",
+      "name": "乱舞の打ち上げの速さ"
+    },
+    "rampage.juggleRadius": {
+      "name": "敵からのスラッシュ距離",
+      "type": "float"
+    },
+    "skills.dashDuration": {
+      "name": "踏み込み・突進系の技が移動しきる秒数",
+      "type": "float"
+    },
+    "skills.skillHoldHeight": {
+      "name": "投げた武器を浮かせる高さ",
+      "help": "投げた武器を浮かせる高さ（胸の高さ）",
+      "type": "float"
+    },
+    "skills.daggerAirDashDist": {
+      "type": "float",
+      "name": "短剣: 空中ダッシュの距離"
+    },
+    "skills.daggerAirDashAnimSpeed": {
+      "type": "float",
+      "name": "短剣: 空中ダッシュのアニメ速度"
+    },
+    "skills.daggerSkillCooldown": {
+      "type": "float",
+      "name": "短剣: 技の再使用までの秒数"
+    },
+    "skills.swordSkillCooldown": {
+      "type": "float",
+      "name": "剣: 技の再使用までの秒数"
+    },
+    "skills.spearSkillCooldown": {
+      "type": "float",
+      "name": "槍: 技の再使用までの秒数"
+    },
+    "skills.hammerSkillCooldown": {
+      "type": "float",
+      "name": "ハンマー: 技の再使用までの秒数"
+    },
+    "skills.ballShootInterval": {
+      "type": "float",
+      "name": "ボール: 撃つ間隔（秒）"
+    },
+    "skills.ballSpinSpeed": {
+      "name": "空中回転の速さ",
+      "help": "空中回転の速さ（度/フレーム）",
+      "type": "float"
+    },
+    "skills.ballSpinShotAnimSpeed": {
+      "type": "float",
+      "name": "ボール: 回転撃ちのアニメ速度"
+    },
+    "skills.greatswordThrowDist": {
+      "type": "float",
+      "name": "大剣: 投げる距離"
+    },
+    "skills.greatswordThrowTravelTime": {
+      "type": "float",
+      "name": "大剣: 飛んでいく秒数"
+    },
+    "skills.greatswordVortexMaxDuration": {
+      "name": "再入力が無くても渦が終わる上限",
+      "type": "float"
+    },
+    "skills.greatswordSpinHitInterval": {
+      "type": "float",
+      "name": "大剣: 回転中のヒット間隔（秒）"
+    },
+    "skills.greatswordThrowCooldown": {
+      "type": "float",
+      "name": "大剣: 投げの再使用までの秒数"
+    },
+    "skills.greatswordReturnTime": {
+      "type": "float",
+      "name": "大剣: 戻ってくる秒数"
+    },
+    "skills.greatswordThrowAnimSpeed": {
+      "type": "float",
+      "name": "大剣: 投げのアニメ速度"
+    },
+    "skills.greatswordThrowSpinSpeed": {
+      "name": "投げた大剣の回転速度",
+      "help": "投げた大剣の回転速度（ラジアン/秒）",
+      "type": "float"
+    },
+    "skills.greatswordVortexBobAmplitude": {
+      "type": "float",
+      "name": "大剣: 渦の上下の揺れ幅"
+    },
+    "skills.greatswordVortexBobSpeed": {
+      "type": "float",
+      "name": "大剣: 渦の上下の揺れの速さ"
+    },
+    "skills.scytheHoverMax": {
+      "name": "最大連続ホバー秒数",
+      "type": "float"
+    },
+    "skills.scytheHoverRecoverRate": {
+      "name": "接地中の回復速度倍率",
+      "type": "float"
+    },
+    "skills.scytheHoverVYCap": {
+      "name": "ホバー中の落下速度の下限",
+      "type": "float"
+    },
+    "skills.scytheHoverAnimSpeed": {
+      "type": "float",
+      "name": "鎌: 滞空のアニメ速度"
+    },
+    "skills.axeChargeDist": {
+      "type": "float",
+      "name": "斧: 突進の距離"
+    },
+    "skills.axeSkillCooldown": {
+      "type": "float",
+      "name": "斧: 技の再使用までの秒数"
+    },
+    "skills.axeRageDuration": {
+      "type": "float",
+      "name": "斧: 怒り状態の秒数"
+    },
+    "skills.axeRageDamageMult": {
+      "type": "float",
+      "name": "斧: 怒り状態のダメージ倍率"
+    },
+    "skills.axeChargeAnimSpeed": {
+      "type": "float",
+      "name": "斧: 突進のアニメ速度"
+    },
+    "dodge.dodgeBufferFrames": {
+      "name": "回避の先行入力を保持するフレーム数",
+      "type": "int"
+    },
+    "awaken.awakenExtraHits": {
+      "name": "覚醒中に1段ごとに出す追加ヒットの回数",
+      "type": "int"
+    },
+    "rampage.juggleMaxSlashes": {
+      "type": "int",
+      "name": "乱舞の最大斬撃数"
+    }
+  },
+  "stage_intro.json": {
+    "slash.closedSeconds": {
+      "name": "真っ暗なまま待つ長さ",
+      "type": "float"
+    },
+    "slash.slashSeconds": {
+      "name": "斬線が画面を横切る長さ",
+      "type": "float"
+    },
+    "slash.openSeconds": {
+      "name": "幕が上下へ開き切るまでの長さ",
+      "type": "float"
+    },
+    "slash.thickness": {
+      "type": "float"
+    },
+    "slash.angle": {
+      "name": "斬線の傾き",
+      "help": "斬線の傾き（ラジアン）",
+      "type": "float"
+    },
+    "slash.flash": {
+      "name": "斬った瞬間の画面フラッシュ",
+      "help": "斬った瞬間の画面フラッシュ（hit_effects.json の flashes）"
+    },
+    "overview.holdSeconds": {
+      "name": "流し始める前に止めて見せる長さ",
+      "type": "float"
+    },
+    "overview.panSeconds": {
+      "name": "ステージの端から寄る先まで流す長さ",
+      "type": "float"
+    },
+    "overview.zoomSeconds": {
+      "name": "流し終えてから、ふだんの距離まで寄る長さ",
+      "type": "float"
+    },
+    "overview.maxZoom": {
+      "name": "引きの上限",
+      "help": "引きの上限（ふだんの距離の何倍まで引くか）。空の球の半径が約95・遠くを切る距離が100なので、距離24の3.6倍=約86までにする",
+      "type": "float"
+    },
+    "boss.holdSeconds": {
+      "name": "ボスを映したまま文字を見せる長さ",
+      "type": "float"
+    },
+    "boss.panSeconds": {
+      "name": "ボスから開始位置へカメラを戻す長さ",
+      "type": "float"
+    },
+    "boss.textFadeSeconds": {
+      "type": "float"
+    },
+    "drop.height": {
+      "name": "着地位置のどれだけ上から落ちてくるか",
+      "type": "float"
+    },
+    "drop.seconds": {
+      "type": "float"
+    },
+    "drop.hideHeight": {
+      "name": "降下するまでプレイヤーを置いておく高さ",
+      "help": "降下するまでプレイヤーを置いておく高さ（引いた画にも映らない所）",
+      "type": "float"
+    },
+    "land.goSeconds": {
+      "name": "GO の文字を出しておく長さ",
+      "type": "float"
+    },
+    "land.goPopSeconds": {
+      "name": "GO の文字が弾んで大きさが落ち着くまでの長さ",
+      "type": "float"
+    },
+    "land.impact": {
+      "name": "着地のヒットストップとカメラ揺れ",
+      "help": "着地のヒットストップとカメラ揺れ（impacts）"
+    },
+    "land.ring": {
+      "name": "着地の衝撃リング",
+      "help": "着地の衝撃リング（rings）"
+    },
+    "land.sparks": {
+      "name": "着地の砂ぼこり",
+      "help": "着地の砂ぼこり（sparks）"
+    },
+    "land.flash": {
+      "name": "GO の瞬間の画面フラッシュ",
+      "help": "GO の瞬間の画面フラッシュ（flashes）"
+    },
+    "skipLockSeconds": {
+      "name": "開始直後のこの間はボタンで飛ばせない",
+      "help": "開始直後のこの間はボタンで飛ばせない（前の画面の決定ボタンを拾わないように）",
+      "type": "float"
+    }
+  },
+  "stage_liberation.json": {
+    "glow.seconds": {
+      "name": "入口が光り切るまでの長さ",
+      "type": "float"
+    },
+    "glow.color": {
+      "name": "光り切った入口の色"
+    },
+    "burst.flashColor": {
+      "name": "画面全体の閃光"
+    },
+    "burst.flashSeconds": {
+      "type": "float"
+    },
+    "burst.pillarSeconds": {
+      "name": "光の柱が立って消えるまでの長さ",
+      "type": "float"
+    },
+    "burst.pillarWidth": {
+      "name": "光の柱の太さ",
+      "help": "光の柱の太さ（広がり切った時、画面の座標）",
+      "type": "float"
+    },
+    "burst.orbSize": {
+      "name": "入口からあふれる光の玉の大きさ",
+      "help": "入口からあふれる光の玉の大きさ（広がり切った時、画面の座標）",
+      "type": "float"
+    },
+    "burst.washSeconds": {
+      "name": "画面全体を覆う光が引くまでの長さ",
+      "type": "float"
+    },
+    "burst.popScale": {
+      "name": "入口がふくらむ量",
+      "help": "入口がふくらむ量（元の大きさに足す割合）",
+      "type": "float"
+    },
+    "burst.popSeconds": {
+      "type": "float"
+    },
+    "burst.sound": {
+      "name": "光った瞬間に鳴らす音",
+      "help": "光った瞬間に鳴らす音（空なら鳴らさない）"
+    },
+    "burst.soundVolume": {
+      "type": "float"
+    },
+    "burst.holdSeconds": {
+      "name": "光ってから次の入口へカメラを移すまでの長さ",
+      "type": "float"
+    },
+    "text.format": {
+      "name": "{n} にステージ番号",
+      "help": "{n} にステージ番号（1から）が入る"
+    },
+    "text.y": {
+      "name": "文字の高さ",
+      "help": "文字の高さ（画面の座標）",
+      "type": "float"
+    },
+    "text.scale": {
+      "type": "float"
+    },
+    "text.popSeconds": {
+      "name": "文字が弾んで落ち着くまでの長さ",
+      "type": "float"
+    },
+    "open.panSeconds": {
+      "name": "カメラが次の入口へ移る長さ",
+      "type": "float"
+    },
+    "open.seconds": {
+      "name": "次の入口が開いた色になるまでの長さ",
+      "type": "float"
+    },
+    "open.holdSeconds": {
+      "name": "開いてから操作を戻すまでの長さ",
+      "type": "float"
+    },
+    "open.sound": {
+      "name": "次の入口が開いた瞬間に鳴らす音",
+      "help": "次の入口が開いた瞬間に鳴らす音（空なら鳴らさない）"
+    }
+  },
+  "style_meter.json": {
+    "maxPoints": {
+      "type": "float",
+      "name": "スタイルポイントの上限"
+    },
+    "finisherSeconds": {
+      "name": "FINISH! を出しておく秒数",
+      "type": "float"
+    },
+    "finisherPopSeconds": {
+      "name": "FINISH! が弾んで登場する秒数",
+      "type": "float"
+    },
+    "finisherFadeSeconds": {
+      "name": "FINISH! が消えていく秒数",
+      "help": "FINISH! が消えていく秒数（表示の最後）",
+      "type": "float"
+    },
+    "timerBarBlinkSeconds": {
+      "name": "残り時間バーが切れかけの時に点滅する周期",
+      "type": "float"
+    },
+    "timerBarWarningRatio": {
+      "name": "残りがこの割合以下で残り時間バーを赤く点滅させる",
+      "type": "float"
+    },
+    "chainKeep": {
+      "name": "ヒットチェーンが切れるまでの秒数",
+      "type": "float"
+    },
+    "decayGrace": {
+      "name": "攻撃をやめてから減衰が始まるまでの秒数",
+      "type": "float"
+    },
+    "heatCool": {
+      "name": "技の熱が1秒あたりに冷める量",
+      "type": "float"
+    },
+    "heatPenaltyScale": {
+      "name": "連発ペナルティの強さ",
+      "help": "連発ペナルティの強さ（熱1あたりの倍率減衰）",
+      "type": "float"
+    },
+    "variationBonusMult": {
+      "name": "直前と違う技を出した時の加点倍率",
+      "type": "float"
+    },
+    "decayBase": {
+      "name": "ポイント減衰の基礎速度",
+      "help": "ポイント減衰の基礎速度（秒あたり）",
+      "type": "float"
+    },
+    "decayPointScale": {
+      "name": "ポイントが高いほど減衰を速める係数",
+      "type": "float"
+    },
+    "hudFadeSpeed": {
+      "name": "チェーンが切れてポイントも尽きた後にHUDを消す速さ",
+      "type": "float"
+    },
+    "hitPopSeconds": {
+      "name": "ヒット数が加算の瞬間に弾む長さ",
+      "type": "float"
+    },
+    "hitHighlightCount": {
+      "name": "この数以上で強調表示する",
+      "type": "int"
+    },
+    "rankUpFlashSeconds": {
+      "type": "float",
+      "name": "ランクが上がった時に光る秒数"
+    },
+    "rankDownFlashSeconds": {
+      "type": "float",
+      "name": "ランクが下がった時に光る秒数"
+    },
+    "rankWhiteFlashStart": {
+      "name": "演出の残り時間がこれ以上の間だけ白く光らせる",
+      "type": "float"
+    },
+    "rankThresholds.C": {
+      "name": "C になる点数"
+    },
+    "rankThresholds.B": {
+      "name": "B になる点数"
+    },
+    "rankThresholds.A": {
+      "name": "A になる点数"
+    },
+    "rankThresholds.S": {
+      "name": "S になる点数"
+    },
+    "rankThresholds.SS": {
+      "name": "SS になる点数"
+    },
+    "rankThresholds.SSS": {
+      "name": "SSS になる点数"
+    }
+  },
+  "weapons.json": {
+    "damage": {
+      "type": "float"
+    },
+    "range": {
+      "type": "float"
+    },
+    "attackInterval": {
+      "type": "float"
+    },
+    "element": {
+      "name": "炎や氷など演出と追加効果を識別する属性名"
+    },
+    "knockbackMult": {
+      "name": "ノックバック倍率",
+      "help": "ノックバック倍率（覚醒中は敵が大きく飛ぶ）",
+      "type": "float"
+    },
+    "hitStyle": {
+      "name": "当たった時の演出と音の種類",
+      "help": "当たった時の演出と音の種類（hit_effects.json / sounds.json の 名前_hitStyle を使う。空なら共通の演出だけ）"
+    },
+    "effect.burstCount": {
+      "name": "ヒット時に放出する属性粒子数",
+      "type": "int"
+    },
+    "effect.ringRadius": {
+      "name": "ヒット時に広げる属性リング半径",
+      "type": "float"
+    },
+    "damageMult": {
+      "name": "近接・固有技・銃ダメージの倍率",
+      "type": "float"
+    },
+    "skillRadiusMult": {
+      "name": "固有技の判定範囲の倍率",
+      "type": "float"
+    },
+    "skillCooldownMult": {
+      "name": "固有技クールタイムの倍率",
+      "help": "固有技クールタイムの倍率（<1で短くなる）",
+      "type": "float"
+    }
+  },
+  "map_portal_motion.json": {
+    "motion.alignSeconds": {
+      "name": "入口の中心へ寄る秒数",
+      "type": "float"
+    },
+    "motion.enterSeconds": {
+      "name": "奥へ入っていく秒数",
+      "type": "float"
+    },
+    "motion.exitSeconds": {
+      "name": "手前へ出てくる秒数",
+      "type": "float"
+    },
+    "motion.depth": {
+      "name": "入口の奥の位置（Z）",
+      "type": "float"
+    },
+    "motion.smallScale": {
+      "name": "奥にいる時の大きさの倍率",
+      "type": "float"
+    },
+    "motion.faintAlpha": {
+      "name": "奥にいる時の濃さ",
+      "help": "0で見えない、1でそのまま",
+      "type": "float"
+    },
+    "glow.strength": {
+      "name": "入口が光る強さ",
+      "help": "0〜1",
+      "type": "float"
+    },
+    "glow.color": {
+      "name": "入口が光る色"
+    }
+  },
+  "enemy_types.json": {
+    "types.id": {
+      "name": "保存用の名前"
+    },
+    "types.label": {
+      "name": "名前"
+    },
+    "types.behavior": {
+      "name": "動き方",
+      "help": "basic=歩く flying=飛ぶ healer=回復役"
+    },
+    "types.look": {
+      "name": "見た目",
+      "help": "enemy_params.json の visuals の名前。空なら騎士"
+    },
+    "types.weapon": {
+      "name": "奪える武器"
+    },
+    "types.hpScale": {
+      "name": "HPの倍率",
+      "type": "float"
+    },
+    "types.damageScale": {
+      "name": "攻撃力の倍率",
+      "type": "float"
+    },
+    "types.speedScale": {
+      "name": "速さの倍率",
+      "type": "float"
+    }
+  },
+  "result_backdrop.json": {
+    "color.saturation": {
+      "name": "ランクの色を残す割合",
+      "help": "0で灰色、1でランクの色そのまま。上げすぎると帯がぎらつく",
+      "type": "float"
+    },
+    "color.baseBrightness": {
+      "name": "下地の明るさ",
+      "type": "float"
+    },
+    "color.neutralColor": {
+      "name": "ランクが無い時の色"
+    },
+    "stripe.brightness": {
+      "name": "帯の明るさ",
+      "help": "下地との差が小さいほど落ち着く",
+      "type": "float"
+    },
+    "stripe.alpha": {
+      "name": "帯の濃さ",
+      "type": "float"
+    },
+    "stripe.width": {
+      "name": "帯の太さ",
+      "type": "float"
+    },
+    "stripe.gap": {
+      "name": "帯と帯の間",
+      "type": "float"
+    },
+    "stripe.angleDegrees": {
+      "name": "帯の傾き（度）",
+      "type": "float"
+    },
+    "stripe.speed": {
+      "name": "帯が流れる速さ",
+      "help": "速いと目が疲れる",
+      "type": "float"
+    },
+    "watermark.scale": {
+      "name": "透かしの文字の大きさ",
+      "type": "float"
+    },
+    "watermark.brightness": {
+      "name": "透かしの明るさ",
+      "type": "float"
+    },
+    "watermark.alpha": {
+      "name": "透かしの濃さ",
+      "type": "float"
+    },
+    "watermark.centerX": {
+      "name": "透かしの中心X",
+      "type": "float"
+    },
+    "watermark.centerY": {
+      "name": "透かしの中心Y",
+      "type": "float"
+    },
+    "shard.count": {
+      "name": "破片の数",
+      "type": "int"
+    },
+    "shard.minSize": {
+      "name": "破片の最小の大きさ",
+      "type": "float"
+    },
+    "shard.maxSize": {
+      "name": "破片の最大の大きさ",
+      "type": "float"
+    },
+    "shard.fallSpeed": {
+      "name": "破片が落ちる速さ",
+      "type": "float"
+    },
+    "shard.drift": {
+      "name": "破片が横へ流れる幅",
+      "type": "float"
+    },
+    "shard.spin": {
+      "name": "破片が回る速さ",
+      "type": "float"
+    },
+    "shard.minAlpha": {
+      "name": "破片の最小の濃さ",
+      "type": "float"
+    },
+    "shard.maxAlpha": {
+      "name": "破片の最大の濃さ",
+      "type": "float"
+    },
+    "shard.whiteness": {
+      "name": "破片を白に寄せる割合",
+      "type": "float"
+    },
+    "shard.twinkleSpeed": {
+      "name": "きらめきの速さ",
+      "help": "上げすぎると点滅に見える",
+      "type": "float"
+    },
+    "shard.twinkleDepth": {
+      "name": "きらめきの深さ",
+      "type": "float"
+    },
+    "panel.x": {
+      "name": "板の左上X",
+      "type": "float"
+    },
+    "panel.y": {
+      "name": "板の左上Y",
+      "type": "float"
+    },
+    "panel.width": {
+      "name": "板の幅",
+      "type": "float"
+    },
+    "panel.height": {
+      "name": "板の高さ",
+      "type": "float"
+    },
+    "panel.alpha": {
+      "name": "板の濃さ",
+      "type": "float"
+    }
+  },
+  "smoke_test.json": {
+    "settleSeconds": {
+      "name": "画面が切り替わってから待つ秒数",
+      "type": "float"
+    },
+    "steps.action": {
+      "name": "やること"
+    },
+    "steps.scene": {
+      "name": "画面"
+    },
+    "steps.key": {
+      "name": "キー"
+    },
+    "steps.keys": {
+      "name": "キー（複数）"
+    },
+    "steps.seconds": {
+      "name": "秒数",
+      "type": "float"
+    },
+    "steps.timeout": {
+      "name": "止まったとみなす秒数",
+      "type": "float"
+    },
+    "steps.interval": {
+      "name": "押し直す間隔（秒）",
+      "type": "float"
+    },
+    "steps.text": {
+      "name": "目印の文"
+    },
+    "steps.count": {
+      "name": "繰り返す回数",
+      "type": "int"
+    }
+  }
+}

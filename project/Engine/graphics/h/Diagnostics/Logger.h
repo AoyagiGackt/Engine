@@ -8,9 +8,9 @@
 namespace engine {
 
 /** @brief ログの重要度 */
-enum class LogLevel { Info,
-    Warning,
-    Error };
+enum class LogLevel { kInfo,
+    kWarning,
+    kError };
 
 /** @brief 重要度に応じたログの出力先と書式を管理する */
 class Logger {
@@ -21,19 +21,19 @@ public:
      * @param message 出力するメッセージ
      * @param level   重要度（省略時はInfo）
      */
-    static void Log(const std::string& message, LogLevel level = LogLevel::Info);
+    static void Log(const std::string& message, LogLevel level = LogLevel::kInfo);
 
     /** @brief Info（通常の進行状況）としてログを出力する */
     static void LogInfo(const std::string& message) {
-        Log(message, LogLevel::Info);
+        Log(message, LogLevel::kInfo);
     }
     /** @brief Warning（異常だが継続可能）としてログを出力する */
     static void LogWarning(const std::string& message) {
-        Log(message, LogLevel::Warning);
+        Log(message, LogLevel::kWarning);
     }
     /** @brief Error（処理続行が困難な失敗）としてログを出力する */
     static void LogError(const std::string& message) {
-        Log(message, LogLevel::Error);
+        Log(message, LogLevel::kError);
     }
 
 private:

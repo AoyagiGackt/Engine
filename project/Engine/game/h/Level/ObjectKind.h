@@ -20,7 +20,7 @@ class StageEditor;
 class GimmickMotion;
 
 /** @brief レベルJSONの kind に書く種類名（保存形式の一部なので値を変えない） */
-namespace ObjectKindName {
+namespace objectKindName {
     inline constexpr const char* kProp = "prop";
     inline constexpr const char* kBackground = "background";
     inline constexpr const char* kGimmick = "gimmick";
@@ -166,8 +166,7 @@ public:
 protected:
     /** @brief 種類名を指定して初期化する */
     explicit ObjectKind(const char* name)
-        : name_(name)
-    {
+        : name_(name) {
     }
     /** @brief 名前を接頭辞+連番の形にする */
     static void NameWithSerial(ObjectDesc& desc, const char* prefix, int serial);
@@ -205,6 +204,8 @@ protected:
     static void DrawPatrolRouteField(ObjectDesc& desc, const UndoCapture& capture);
     static void DrawEnemyMovementFields(ObjectDesc& desc, const UndoCapture& capture);
     static void DrawEnemyLooksFields(StageEditor& editor, ObjectDesc& desc, bool& structuralDirty);
+    /** @brief 敵の種類・動き方・強さの倍率の欄を出す（エディタの「敵を作る」で作った種類を当てられる） */
+    static void DrawEnemyTypeFields(StageEditor& editor, ObjectDesc& desc, bool& structuralDirty, const UndoCapture& capture);
 
     static void RecordUndo(StageEditor& editor);
     static bool PickupCollected(const StageEditor& editor, int index);

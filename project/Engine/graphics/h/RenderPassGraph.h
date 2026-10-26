@@ -18,8 +18,7 @@ class RenderPassGraph {
 public:
     /** @brief グラフの実行に使うDirectX基盤を設定する */
     explicit RenderPassGraph(engine::DirectXCommon* dxCommon)
-        : dxCommon_(dxCommon)
-    {
+        : dxCommon_(dxCommon) {
     }
 
     /**
@@ -28,18 +27,14 @@ public:
      * @param execute 描画コマンドを記録する処理
      * @param enabled falseの場合はパスを登録するが実行しない
      */
-    void AddPass(std::string name, std::function<void()> execute, bool enabled = true)
-    {
+    void AddPass(std::string name, std::function<void()> execute, bool enabled = true) {
         passes_.push_back({ std::move(name), std::move(execute), enabled });
     }
 
     /** @brief 有効な描画パスを登録順に実行する */
-    void Execute()
-    {
-        for (const Pass& pass : passes_)
-        {
-            if (!pass.enabled)
-            {
+    void Execute() {
+        for (const Pass& pass : passes_) {
+            if (!pass.enabled) {
                 continue;
             }
             // D3D12のBeginEventはPIX形式のメタデータが必要になる環境があるため使わない

@@ -22,8 +22,7 @@ namespace engine {
 namespace {
 
     /** @brief ログの重要度に対応する表示タグを返す */
-    const char* LevelToTag(LogLevel level)
-    {
+    const char* LevelToTag(LogLevel level) {
         // LogLevel の並び順
         static constexpr const char* kTags[] = { "INFO", "WARN", "ERROR" };
         const size_t index = static_cast<size_t>(level);
@@ -31,8 +30,7 @@ namespace {
     }
 
     /** @brief ログに付ける今の時刻の文字列を返す */
-    std::string CurrentTimeString()
-    {
+    std::string CurrentTimeString() {
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm local;
         localtime_s(&local, &t);
@@ -44,26 +42,23 @@ namespace {
 } // namespace
 
 /** @brief ログメッセージをデバッグ出力ウィンドウとログファイル（log/engine.log）の両方に出力する */
-void Logger::Log(const std::string& message, LogLevel level)
-{
+void Logger::Log(const std::string& message, LogLevel level) {
     std::string line = "[" + CurrentTimeString() + "][" + LevelToTag(level) + "] " + message + "\n";
 
     OutputDebugStringA(line.c_str());
 
 #ifndef ENGINE_RELEASE
     auto parent = std::filesystem::path(kLogFilePath).parent_path();
-    if (!parent.empty())
-    {
+    if (!parent.empty()) {
         std::filesystem::create_directories(parent);
     }
 
     // このプロセスで最初の書き込み時だけファイルを空にする（前回起動分の肥大化を防ぐ）
-    static bool isFirstWrite = true;
-    std::ofstream file(kLogFilePath, isFirstWrite ? std::ios::trunc : std::ios::app);
-    isFirstWrite = false;
+    static bool sIsFirstWrite = true;
+    std::ofstream file(kLogFilePath, sIsFirstWrite ? std::ios::trunc : std::ios::app);
+    sIsFirstWrite = false;
 
-    if (file)
-    {
+    if (file) {
         file << line;
     }
 #endif

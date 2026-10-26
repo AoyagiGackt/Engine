@@ -1,27 +1,25 @@
 /**
  * @file GameConstants.h
  * @brief ゲーム全体で使う定数をまとめたファイル
+ * @note フレームレート・画面サイズ・数学定数はエンジンの EngineConstants.h にあり、ここからも同じ名前で使える
  */
 #pragma once
+#include "EngineConstants.h"
 
 namespace engine {
-namespace GameConstants {
+namespace gameConstants {
 
-    // フレームレート
-    inline constexpr float kTargetFps = 60.0f;
-    inline constexpr float kFrameDeltaTime = 1.0f / kTargetFps;
-
-    // 画面サイズ・画面中心
-    inline constexpr float kScreenWidth = 1280.0f;
-    inline constexpr float kScreenHeight = 720.0f;
-    inline constexpr float kScreenCenterX = kScreenWidth * 0.5f;
-    inline constexpr float kScreenCenterY = kScreenHeight * 0.5f;
-
-    // 数学定数
-    inline constexpr float kPi = 3.14159265358979323846f;
-    inline constexpr float kTwoPi = kPi * 2.0f;
-    inline constexpr float kHalfPi = kPi / 2.0f;
-    inline constexpr float kDegToRad = kPi / 180.0f;
+    // エンジンの定数（ゲーム側では gameConstants:: のまま使えるようにする）
+    using engineConstants::kTargetFps;
+    using engineConstants::kFrameDeltaTime;
+    using engineConstants::kScreenWidth;
+    using engineConstants::kScreenHeight;
+    using engineConstants::kScreenCenterX;
+    using engineConstants::kScreenCenterY;
+    using engineConstants::kPi;
+    using engineConstants::kTwoPi;
+    using engineConstants::kHalfPi;
+    using engineConstants::kDegToRad;
 
     // カメラ投影半幅・半高（fovY=0.45, dist=24 のカメラで Z=0 面に映る可視半幅・半高）
     inline constexpr float kCameraHalfW = 9.800f;

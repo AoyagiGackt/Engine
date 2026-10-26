@@ -4,6 +4,19 @@
  */
 #include "Game.h"
 #include "AssetPack.h"
+#include "Audio.h"
+#include "CombatTuning.h"
+#include "EnemyTuning.h"
+#include "EnemyTypeLibrary.h"
+#include "GameRules.h"
+#include "GameSounds.h"
+#include "HitEffectLibrary.h"
+#include "JsonConfigEditor.h"
+#include "PlayerDefeat.h"
+#include "PlayerTuning.h"
+#include "ResultBackdrop.h"
+#include "StageLiberation.h"
+#include "StyleMeter.h"
 #include "Logger.h"
 #include "FrameProfiler.h"
 #include "GameConstants.h"
@@ -36,8 +49,7 @@ namespace {
 constexpr double kFileTimeTicksPerMillisecond = 10000.0; // FILETIMEは100ナノ秒単位
 
 /** @brief exeのプロセスが作られてからの経過ミリ秒（main()より前の起動処理も含めて測るため） */
-double MillisecondsSinceProcessStart()
-{
+double MillisecondsSinceProcessStart() {
     FILETIME creation {}, exitTime {}, kernel {}, user {};
     GetProcessTimes(GetCurrentProcess(), &creation, &exitTime, &kernel, &user);
     FILETIME now {};
@@ -48,19 +60,38 @@ double MillisecondsSinceProcessStart()
 }
 
 /** @brief ロード時間の比較用に、目印付きでログへ出す（素材の読み方のモードも添える） */
-void LogLoadProfile(const std::string& label)
-{
-    const char* mode = AssetPack::GetInstance()->GetMode() == AssetPack::Mode::Use ? "use"
+void LogLoadProfile(const std::string& label) {
+    const char* mode = AssetPack::GetInstance()->GetMode() == AssetPack::Mode::kUse ? "use"
         : AssetPack::GetInstance()->IsCooking() ? "cook" : "off";
     Logger::Log("[LoadProfile] " + label + ": " + std::to_string(static_cast<int>(MillisecondsSinceProcessStart()))
         + " ms（exe起動から, pak=" + mode + "）");
 }
+
+#ifdef USE_IMGUI
+/** @brief 調整値エディタの対象フォルダと、保存したらすぐ読み直す設定ファイルを登録する */
+void SetupConfigEditor() {
+    auto* editor = JsonConfigEditor::GetInstance();
+    editor->Initialize("Resources/Config", "Resources/Config/UI/tuning_labels.json", "Resources");
+    // ここに無いファイルは保存しても次回起動時の反映になる（起動時に部品の数を決める演出などは、途中で読み直すと数が合わなくなるため登録しない）
+    editor->SetReloadCallback("player_params.json", [] { game::PlayerTuning::Reload(); });
+    editor->SetReloadCallback("combat_tuning.json", [] { game::CombatTuning::GetInstance()->Reload(); });
+    editor->SetReloadCallback("enemy_params.json", [] { game::EnemyTuning::GetInstance()->Reload(); });
+    editor->SetReloadCallback("enemy_types.json", [] { game::EnemyTypeLibrary::GetInstance()->Reload(); });
+    editor->SetReloadCallback("game_rules.json", [] { game::GameRules::GetInstance()->Reload(); });
+    editor->SetReloadCallback("hit_effects.json", [] { game::HitEffectLibrary::GetInstance()->Reload(); });
+    editor->SetReloadCallback("style_meter.json", [] { game::StyleMeter::ReloadTuning(); });
+    editor->SetReloadCallback("player_defeat.json", [] { game::PlayerDefeat::ReloadTuning(); });
+    editor->SetReloadCallback("stage_liberation.json", [] { game::StageLiberation::ReloadTuning(); });
+    editor->SetReloadCallback("result_backdrop.json", [] { game::ResultBackdrop::ReloadTuning(); });
+    editor->SetReloadCallback("sounds.json", [] { game::gameSounds::Reload(); });
+    editor->SetReloadCallback("bgm.json", [] { Audio::ReloadBGMConfig(); });
+}
+#endif
 } // namespace
 using namespace engine::game;
 
 /** @brief ゲーム固有の初期化処理 */
-void MyGame::Initialize()
-{
+void MyGame::Initialize() {
     // 基盤の初期化
     Framework::Initialize();
 
@@ -91,11 +122,19 @@ void MyGame::Initialize()
 
     // スクリーンフラッシュ初期化
     ScreenFlash::GetInstance()->Initialize(dxCommon_.get());
+
+    // --smoke-test で起動したら自動テストプレイを始める（画面の更新を待たずに速く回すため VSync は切る）
+    if (smokeTest_.StartIfRequested(input_.get())) {
+        dxCommon_->SetVSyncEnabled(false);
+    }
+
+#ifdef USE_IMGUI
+    SetupConfigEditor();
+#endif
 }
 
 /** @brief ゲーム固有の更新処理 */
-void MyGame::Update()
-{
+void MyGame::Update() {
     // 基盤の更新
     Framework::Update();
 
@@ -104,10 +143,10 @@ void MyGame::Update()
 
     // 時間管理・オーディオフェードを毎フレーム更新
     TimeManager::GetInstance()->Update();
-    audio_->Update(GameConstants::kFrameDeltaTime);
+    audio_->Update(gameConstants::kFrameDeltaTime);
 
     // 遅延コールバック・スクリーンフラッシュを毎フレーム更新
-    ScreenFlash::GetInstance()->Update(GameConstants::kFrameDeltaTime);
+    ScreenFlash::GetInstance()->Update(gameConstants::kFrameDeltaTime);
 
 #ifdef _DEBUG
     // テクスチャのホットリロード（保存したら即座に反映、開発時のみ）
@@ -117,29 +156,29 @@ void MyGame::Update()
     // シーンマネージャー更新
     SceneManager::GetInstance()->Update();
 
+    // 自動テストプレイの手順を進める（押したキーは次のフレームの入力から効く）。終えたらゲームを閉じる
+    if (smokeTest_.Update()) {
+        endRequest_ = true;
+    }
+
 #ifdef USE_IMGUI
     // F8でエンジン共通の実行時診断を開閉する
-    if (input_->TriggerKey(DIK_F8))
-    {
+    if (input_->TriggerKey(DIK_F8)) {
         showEngineDiagnostics_ = !showEngineDiagnostics_;
     }
-    if (showEngineDiagnostics_)
-    {
+    if (showEngineDiagnostics_) {
         const bool panelOpen = ImGui::Begin("Engine Diagnostics", &showEngineDiagnostics_);
-        if (panelOpen)
-        {
+        if (panelOpen) {
             auto* profiler = FrameProfiler::GetInstance();
             ImGui::Text("CPU %.2f ms  %.1f FPS", profiler->GetMs(), profiler->GetFPS());
             ImGui::Text("Gamepad %s", input_->IsGamepadConnected() ? "Connected" : "Disconnected");
             bool hotReloadEnabled = TextureManager::GetInstance()->IsHotReloadEnabled();
-            if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled))
-            {
+            if (ImGui::Checkbox("ゲーム中のテクスチャホットリロード", &hotReloadEnabled)) {
                 TextureManager::GetInstance()->SetHotReloadEnabled(hotReloadEnabled);
             }
 
             bool vsync = dxCommon_->IsVSyncEnabled();
-            if (ImGui::Checkbox("VSync", &vsync))
-            {
+            if (ImGui::Checkbox("VSync", &vsync)) {
                 dxCommon_->SetVSyncEnabled(vsync);
             }
 
@@ -147,36 +186,43 @@ void MyGame::Update()
             bool settingsChanged = false;
             settingsChanged |= ImGui::SliderFloat("BGM", &settings.bgmVolume, 0.0f, 1.0f);
             settingsChanged |= ImGui::SliderFloat("SE", &settings.seVolume, 0.0f, 1.0f);
-            if (settingsChanged)
-            {
+            if (settingsChanged) {
                 audio_->SetBGMVolume(settings.bgmVolume);
                 audio_->SetSEVolume(settings.seVolume);
                 GameSettingsManager::GetInstance()->Apply(settings);
                 GameSettingsManager::GetInstance()->Save();
             }
 
+            // JSONを手で書かずに直すための編集画面
             ImGui::Separator();
-            if (ImGui::Button("Title"))
-            {
+            if (ImGui::Button("調整値エディタ")) {
+                JsonConfigEditor::GetInstance()->Toggle();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("音の割り当て")) {
+                showSoundAssignEditor_ = !showSoundAssignEditor_;
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("Title")) {
                 SceneManager::GetInstance()->ChangeScene("TITLE");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Stage Select"))
-            {
+            if (ImGui::Button("Stage Select")) {
                 SceneManager::GetInstance()->ChangeScene("MAP");
             }
-            if (ImGui::Button("Training"))
-            {
+            if (ImGui::Button("Training")) {
                 SceneManager::GetInstance()->ChangeScene("TRAINING");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Battle Test"))
-            {
+            if (ImGui::Button("Battle Test")) {
                 SceneManager::GetInstance()->ChangeScene("BATTLETEST");
             }
         }
         ImGui::End();
     }
+    JsonConfigEditor::GetInstance()->Draw();
+    soundAssignEditor_.Draw(&showSoundAssignEditor_);
 #endif
 
     ImGuiControlPanel::ShowControls();
@@ -186,8 +232,7 @@ void MyGame::Update()
 }
 
 /** @brief ゲーム固有の描画処理 */
-void MyGame::Draw()
-{
+void MyGame::Draw() {
     // バックバッファとSRVヒープを描画できる状態にする
     dxCommon_->PreDraw();
     SrvManager::GetInstance()->PreDraw();
@@ -206,8 +251,7 @@ void MyGame::Draw()
 
     // 同じ優先順で選んだエフェクトに開始と合成を委譲する
     IPostEffectSource* activeEffect = postEffectsSupported ? FindActivePostEffect({ imgFilter, gs, hsv }) : nullptr;
-    graph.AddPass("Scene Capture Begin", [activeEffect]
-    {
+    graph.AddPass("Scene Capture Begin", [activeEffect] {
         activeEffect->BeginScene();
     }, activeEffect != nullptr);
 
@@ -215,8 +259,7 @@ void MyGame::Draw()
         SceneManager::GetInstance()->Draw();
     });
 
-    graph.AddPass("Post Effects", [activeEffect]
-    {
+    graph.AddPass("Post Effects", [activeEffect] {
         activeEffect->EndScene();
         activeEffect->Apply(SrvManager::GetInstance());
     }, activeEffect != nullptr);
@@ -243,8 +286,7 @@ void MyGame::Draw()
 }
 
 /** @brief ゲーム固有の終了処理 */
-void MyGame::Finalize()
-{
+void MyGame::Finalize() {
     SceneManager::GetInstance()->Finalize();
 
     Framework::Finalize();

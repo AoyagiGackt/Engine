@@ -85,7 +85,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\core\h;$(ProjectDir)Engine\core\h\Window;$(ProjectDir)Engine\core\h\Device;$(ProjectDir)Engine\core\h\Input;$(ProjectDir)Engine\core\h\Audio;$(ProjectDir)Engine\core\h\Time;$(ProjectDir)Engine\core\h\App;$(ProjectDir)Engine\core\h\Util;$(ProjectDir)Engine\core\h\Object;$(ProjectDir)Engine\core\h\Collision;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -120,7 +120,7 @@ if errorlevel 1 exit /b 1
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>MinSpace</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\core\h;$(ProjectDir)Engine\core\h\Window;$(ProjectDir)Engine\core\h\Device;$(ProjectDir)Engine\core\h\Input;$(ProjectDir)Engine\core\h\Audio;$(ProjectDir)Engine\core\h\Time;$(ProjectDir)Engine\core\h\App;$(ProjectDir)Engine\core\h\Util;$(ProjectDir)Engine\core\h\Object;$(ProjectDir)Engine\core\h\Collision;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -155,7 +155,7 @@ if errorlevel 1 exit /b 1
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\Window;$(ProjectDir)Engine\game\h\Core\Time;$(ProjectDir)Engine\game\h\Core\Object;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Core\Input;$(ProjectDir)Engine\game\h\Core\Audio;$(ProjectDir)Engine\game\h\Core\Device;$(ProjectDir)Engine\game\h\Core\Lighting;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\math\h;$(ProjectDir)Engine\graphics\cpp;$(ProjectDir)Engine\graphics\h;$(ProjectDir)Engine\core\h;$(ProjectDir)Engine\core\h\Window;$(ProjectDir)Engine\core\h\Device;$(ProjectDir)Engine\core\h\Input;$(ProjectDir)Engine\core\h\Audio;$(ProjectDir)Engine\core\h\Time;$(ProjectDir)Engine\core\h\App;$(ProjectDir)Engine\core\h\Util;$(ProjectDir)Engine\core\h\Object;$(ProjectDir)Engine\core\h\Collision;$(ProjectDir)Engine\game\h;$(ProjectDir)Engine\graphics\h\2D;$(ProjectDir)Engine\graphics\h\3D;$(ProjectDir)Engine\graphics\h\Camera;$(ProjectDir)Engine\graphics\h\Diagnostics;$(ProjectDir)Engine\graphics\h\Effect;$(ProjectDir)Engine\graphics\h\ImGui;$(ProjectDir)Engine\graphics\h\Light;$(ProjectDir)Engine\graphics\h\Manager;$(ProjectDir)Engine\graphics\h\Offscreen;$(ProjectDir)Engine\graphics\h\Particle;$(ProjectDir)Engine\graphics\h\Skeleton;$(ProjectDir)Engine\game\h\Collision;$(ProjectDir)Engine\game\h\Core;$(ProjectDir)Engine\game\h\Core\App;$(ProjectDir)Engine\game\h\Effect;$(ProjectDir)Engine\game\h\Level;$(ProjectDir)Engine\game\h\Player;$(ProjectDir)Engine\game\h\Scene;$(ProjectDir)Engine\game\h\UI;$(ProjectDir)Engine\game\h\Util;$(ProjectDir)Engine\game\h\Scripting;$(ProjectDir)Engine\game\cpp;$(ProjectDir)Resources\shaders\lighting;$(ProjectDir)Resources\shaders\object3d;$(SolutionDir)..\externals\imgui;$(SolutionDir)..\externals\DirectXTex;$(SolutionDir)..\externals\assimp\include;$(SolutionDir)..\externals\json;$(ProjectDir)Resources\shaders\Particle;$(ProjectDir)Resources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -179,15 +179,16 @@ if errorlevel 1 exit /b 1
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Engine\game\cpp\Util\Animation.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Audio\Audio.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Skeleton\Animation.cpp" />
+    <ClCompile Include="Engine\core\cpp\Audio\Audio.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ClearScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GameOverScene.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp" />
     <ClCompile Include="Engine\game\cpp\Collision\Collision.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\App\Framework.cpp" />
+    <ClCompile Include="Engine\core\cpp\App\Framework.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\Game.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Object\GameObject.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\App\SmokeTestRunner.cpp" />
+    <ClCompile Include="Engine\core\cpp\Object\GameObject.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BattleTestSceneCombat.cpp" />
@@ -202,11 +203,14 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Effect\SceneVisualTuning.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\CommandListView.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\SlashMark.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\GameSounds.cpp" />
+    <ClCompile Include="Engine\game\cpp\Effect\SoundAssignEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\ElementEffect.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlayScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCombat.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneDraw.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneUI.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneClear.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneInitializer.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\GameSettings.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\SaveData.cpp" />
@@ -216,7 +220,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\PlayerRampageStates.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\PlayerWeaponBehaviors.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\PlayerTuning.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Time\TimeManager.cpp" />
+    <ClCompile Include="Engine\core\cpp\Time\TimeManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScreenFlash.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TrainingScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WaterPool.cpp" />
@@ -224,10 +228,12 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\MeleeCombo.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\AutoComboAssist.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\ComboMotion.cpp" />
+    <ClCompile Include="Engine\game\cpp\Player\ReachPoseLayer.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\ComboMotionEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\GunCombo.cpp" />
     <ClCompile Include="Engine\game\cpp\Player\WeaponManager.cpp" />
-    <ClCompile Include="Engine\game\cpp\Util\JsonHelper.cpp" />
+    <ClCompile Include="Engine\core\cpp\Util\JsonHelper.cpp" />
+    <ClCompile Include="Engine\core\cpp\Util\CrashBreadcrumbs.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\EventBus.cpp" />
     <ClCompile Include="Engine\game\cpp\Util\PlaytestLog.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GraphTypes.cpp" />
@@ -242,6 +248,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Scripting\SceneFlow.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\GameRules.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\EnemyTuning.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scripting\EnemyTypeLibrary.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\CombatTuning.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\LevelGraphRunner.cpp" />
     <ClCompile Include="Engine\game\cpp\Scripting\AudioBridge.cpp" />
@@ -249,6 +256,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Level\LevelLoader.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\TriggerVolume.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditor.cpp" />
+    <ClCompile Include="Engine\game\cpp\Level\EnemyTypeEditor.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorRuntime.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorInteraction.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorContentPanels.cpp" />
@@ -264,31 +272,37 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Level\GimmickMotion.cpp" />
     <ClCompile Include="Engine\game\cpp\Level\StageEditorViewport.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditor.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Lighting\LightingMode.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Light\LightingMode.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneFactory.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneManager.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\BaseScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\DebugButton.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\ResultBackdrop.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\PlayerDefeat.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\ClearFinish.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\StageLiberation.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\StageIntro.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\FinisherEffects.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommon.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Device\DirectXCommonInit.cpp" />
+    <ClCompile Include="Engine\core\cpp\Device\DirectXCommon.cpp" />
+    <ClCompile Include="Engine\core\cpp\Device\DirectXCommonInit.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashHandler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashContext.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\Logger.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Window\WinApp.cpp" />
-    <ClCompile Include="Engine\game\cpp\Util\StringUtility.cpp" />
+    <ClCompile Include="Engine\core\cpp\Window\WinApp.cpp" />
+    <ClCompile Include="Engine\core\cpp\Util\StringUtility.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\GpuProfiler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\Fade.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\BladeFlashEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\WeaponTrailEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\ImpactRadialBlurEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GlassShatterEffect.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\Effect\WaterSurfaceEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\MeshSliceEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SpaceDistortionEffect.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\GrayscaleEffect.cpp" />
@@ -296,6 +310,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\graphics\cpp\Effect\PostEffectFullscreenPass.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />
@@ -303,7 +318,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\graphics\cpp\Manager\MeshManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\PipelineHelper.cpp" />
     <ClCompile Include="Engine\base\main.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\Input\Input.cpp" />
+    <ClCompile Include="Engine\core\cpp\Input\Input.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Skeleton\Skeleton.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Skeleton\SkeletonOverlayRenderer.cpp" />
@@ -319,6 +334,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\graphics\cpp\3D\Object3dCommon.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\ShadowManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Model.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\3D\ModelThumbnailBaker.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\Object3d.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\ModelManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\3D\ModelCommon.cpp" />
@@ -633,16 +649,17 @@ if errorlevel 1 exit /b 1
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\game\h\Scene\AbstractSceneFactory.h" />
-    <ClInclude Include="Engine\game\h\Util\Animation.h" />
-    <ClInclude Include="Engine\game\h\Core\Audio\Audio.h" />
+    <ClInclude Include="Engine\graphics\h\Skeleton\Animation.h" />
+    <ClInclude Include="Engine\core\h\Audio\Audio.h" />
     <ClInclude Include="Engine\game\h\Scene\BaseScene.h" />
     <ClInclude Include="Engine\game\h\Scene\ClearScene.h" />
     <ClInclude Include="Engine\game\h\Scene\GameOverScene.h" />
     <ClInclude Include="Engine\game\h\Collision\Collision.h" />
-    <ClInclude Include="Engine\game\h\Collision\CollisionConfig.h" />
-    <ClInclude Include="Engine\game\h\Core\App\Framework.h" />
+    <ClInclude Include="Engine\core\h\Collision\CollisionConfig.h" />
+    <ClInclude Include="Engine\core\h\App\Framework.h" />
     <ClInclude Include="Engine\game\h\Core\App\Game.h" />
-    <ClInclude Include="Engine\game\h\Core\Object\GameObject.h" />
+    <ClInclude Include="Engine\game\h\Core\App\SmokeTestRunner.h" />
+    <ClInclude Include="Engine\core\h\Object\GameObject.h" />
     <ClInclude Include="Engine\game\h\Util\GameConstants.h" />
     <ClInclude Include="Engine\game\h\Util\GravityBody.h" />
     <ClInclude Include="Engine\game\h\Util\BorderBlockBuilder.h" />
@@ -650,6 +667,9 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scene\BattleTestScene.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleDemoTuning.h" />
+    <ClInclude Include="Engine\game\h\Scene\PlayerDefeat.h" />
+    <ClInclude Include="Engine\game\h\Scene\ClearFinish.h" />
+    <ClInclude Include="Engine\game\h\Scene\StageLiberation.h" />
     <ClInclude Include="Engine\game\h\Scene\StageIntro.h" />
     <ClInclude Include="Engine\game\h\Scene\FinisherEffects.h" />
     <ClInclude Include="Engine\game\h\Scene\BattleTestSceneRenderer.h" />
@@ -664,13 +684,15 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scene\ShotTargetPicker.h" />
     <ClInclude Include="Engine\game\h\UI\CommandListView.h" />
     <ClInclude Include="Engine\game\h\Effect\SlashMark.h" />
+    <ClInclude Include="Engine\game\h\Effect\GameSounds.h" />
+    <ClInclude Include="Engine\game\h\Effect\SoundAssignEditor.h" />
     <ClInclude Include="Engine\game\h\Effect\ElementEffect.h" />
     <ClInclude Include="Engine\game\h\Effect\Easing.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlayScene.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePlaySceneInitializer.h" />
     <ClInclude Include="Engine\game\h\Core\App\GameSettings.h" />
     <ClInclude Include="Engine\game\h\Core\App\SaveData.h" />
-    <ClInclude Include="Engine\game\h\Core\Time\TimeManager.h" />
+    <ClInclude Include="Engine\core\h\Time\TimeManager.h" />
     <ClInclude Include="Engine\game\h\UI\ScreenFlash.h" />
     <ClInclude Include="Engine\game\h\Player\Player.h" />
     <ClInclude Include="Engine\game\h\Player\PlayerTuning.h" />
@@ -682,17 +704,19 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Player\MeleeCombo.h" />
     <ClInclude Include="Engine\game\h\Player\AutoComboAssist.h" />
     <ClInclude Include="Engine\game\h\Player\ComboMotion.h" />
+    <ClInclude Include="Engine\game\h\Player\ReachPoseLayer.h" />
     <ClInclude Include="Engine\game\h\Player\ComboMotionEditor.h" />
     <ClInclude Include="Engine\game\h\Player\GunCombo.h" />
     <ClInclude Include="Engine\game\h\Player\ComboTable.h" />
     <ClInclude Include="Engine\game\h\Player\WeaponManager.h" />
-    <ClInclude Include="Engine\game\h\Util\JsonHelper.h" />
+    <ClInclude Include="Engine\core\h\Util\JsonHelper.h" />
+    <ClInclude Include="Engine\core\h\Util\CrashBreadcrumbs.h" />
     <ClInclude Include="Engine\game\h\Util\JsonFieldTable.h" />
     <ClInclude Include="Engine\game\h\Util\PlaytestLog.h" />
     <ClInclude Include="Engine\game\h\Level\LevelLoader.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneEditor.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreDisplay.h" />
-    <ClInclude Include="Engine\game\h\Core\Lighting\LightingMode.h" />
+    <ClInclude Include="Engine\graphics\h\Light\LightingMode.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\CrashHandler.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\CrashContext.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\EngineAssert.h" />
@@ -701,15 +725,17 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scene\SceneManager.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneShared.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h" />
+    <ClInclude Include="Engine\game\h\UI\DebugButton.h" />
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h" />
+    <ClInclude Include="Engine\game\h\UI\ResultBackdrop.h" />
     <ClInclude Include="Engine\game\h\Scene\OptionsScene.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleScene.h" />
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
     <ClInclude Include="Engine\game\h\Util\DiagnosticsDraw.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\D3DResourceLeakChecker.h" />
-    <ClInclude Include="Engine\game\h\Core\Device\DirectXCommon.h" />
-    <ClInclude Include="Engine\game\h\Core\Window\WinApp.h" />
+    <ClInclude Include="Engine\core\h\Device\DirectXCommon.h" />
+    <ClInclude Include="Engine\core\h\Window\WinApp.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\GpuProfiler.h" />
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h" />
     <ClInclude Include="Engine\graphics\h\Light\LightManager.h" />
@@ -735,8 +761,8 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\math\h\Vector2.h" />
     <ClInclude Include="Engine\math\h\Vector3.h" />
     <ClInclude Include="Engine\math\h\Vector4.h" />
-    <ClInclude Include="Engine\game\h\Core\Input\Input.h" />
-    <ClInclude Include="Engine\game\h\Util\StringUtility.h" />
+    <ClInclude Include="Engine\core\h\Input\Input.h" />
+    <ClInclude Include="Engine\core\h\Util\StringUtility.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiManager.h" />
     <ClInclude Include="Engine\graphics\h\2D\SpriteCommon.h" />
     <ClInclude Include="Engine\graphics\h\2D\Sprite.h" />
@@ -746,6 +772,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\3D\ObjectMaterialLayout.h" />
     <ClInclude Include="Engine\graphics\h\Light\ShadowManager.h" />
     <ClInclude Include="Engine\graphics\h\3D\Model.h" />
+    <ClInclude Include="Engine\graphics\h\3D\ModelThumbnailBaker.h" />
     <ClInclude Include="Engine\graphics\h\3D\AssimpVertexReader.h" />
     <ClInclude Include="Engine\graphics\h\3D\Object3d.h" />
     <ClInclude Include="Engine\graphics\h\Manager\ModelManager.h" />
@@ -760,6 +787,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\Effect\WeaponTrailEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\ImpactRadialBlurEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GlassShatterEffect.h" />
+    <ClInclude Include="Engine\graphics\h\Effect\WaterSurfaceEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\MeshSliceEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SpaceDistortionEffect.h" />
     <ClInclude Include="Engine\graphics\h\Effect\GrayscaleEffect.h" />
@@ -769,6 +797,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\Effect\PostEffectFullscreenPass.h" />
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h" />
+    <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditor.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
@@ -786,12 +815,14 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scripting\SceneFlow.h" />
     <ClInclude Include="Engine\game\h\Scripting\GameRules.h" />
     <ClInclude Include="Engine\game\h\Scripting\EnemyTuning.h" />
+    <ClInclude Include="Engine\game\h\Scripting\EnemyTypeLibrary.h" />
     <ClInclude Include="Engine\game\h\Scripting\CombatTuning.h" />
     <ClInclude Include="Engine\game\h\Scripting\LevelGraphRunner.h" />
     <ClInclude Include="Engine\game\h\Scripting\AudioBridge.h" />
     <ClInclude Include="Engine\game\h\Scripting\PlayerBridge.h" />
     <ClInclude Include="Engine\game\h\Level\TriggerVolume.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditor.h" />
+    <ClInclude Include="Engine\game\h\Level\EnemyTypeEditor.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorSelectionService.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorUiStyle.h" />
     <ClInclude Include="Engine\game\h\Level\StageEditorPanels.h" />
@@ -832,6 +863,9 @@ if errorlevel 1 exit /b 1
     <None Include="Resources\Config\element_effects.json" />
     <None Include="Resources\Config\graphics_tuning.json" />
     <None Include="Resources\Config\stage_intro.json" />
+    <None Include="Resources\Config\clear_finish.json" />
+    <None Include="Resources\Config\player_defeat.json" />
+    <None Include="Resources\Config\stage_liberation.json" />
     <None Include="Resources\Config\scene_cameras.json" />
   </ItemGroup>
   <ItemGroup>
@@ -846,6 +880,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Scene\FloatingTitle.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePauseController.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\PauseMenu.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\ComboTrial.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionFlow.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneTransitionOverlay.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TrainingWeaponPickups.cpp" />
@@ -856,6 +891,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Scene\FloatingTitle.h" />
     <ClInclude Include="Engine\game\h\Scene\GamePauseController.h" />
     <ClInclude Include="Engine\game\h\Scene\PauseMenu.h" />
+    <ClInclude Include="Engine\game\h\Scene\ComboTrial.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionFlow.h" />
     <ClInclude Include="Engine\game\h\Scene\SceneTransitionOverlay.h" />
     <ClInclude Include="Engine\game\h\Scene\TrainingWeaponPickups.h" />
@@ -902,7 +938,8 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Player\EnemyEntityVisuals.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Engine\game\h\Util\TextBufferCapacity.h" />
+    <ClInclude Include="Engine\core\h\Util\TextBufferCapacity.h" />
+    <ClInclude Include="Engine\core\h\Util\EngineConstants.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlSceneSettings.cpp" />

@@ -10,15 +10,13 @@ using namespace Microsoft::WRL;
 
 namespace engine::graphics {
 /** @brief SrvManagerの唯一のインスタンスを取得する */
-SrvManager* SrvManager::GetInstance()
-{
-    static SrvManager instance;
-    return &instance;
+SrvManager* SrvManager::GetInstance() {
+    static SrvManager sInstance;
+    return &sInstance;
 }
 
 /** @brief マネージャーの初期化デスクリプタヒープの生成とサイズ設定を行う */
-void SrvManager::Initialize(DirectXCommon* dxCommon)
-{
+void SrvManager::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -39,8 +37,7 @@ void SrvManager::Initialize(DirectXCommon* dxCommon)
 }
 
 /** @brief 描画前準備コマンドリストにデスクリプタヒープをセットする */
-void SrvManager::PreDraw()
-{
+void SrvManager::PreDraw() {
     ++frameCount_;
 
     // 解放から十分なフレーム数が経過した（＝GPUが使い終わったはずの）インデックスを
@@ -48,8 +45,7 @@ void SrvManager::PreDraw()
     pendingFree_.erase(
         std::remove_if(pendingFree_.begin(), pendingFree_.end(),
             [this](const std::pair<uint64_t, uint32_t>& p) {
-                if (p.first + kFreeDelayFrames > frameCount_)
-                {
+                if (p.first + kFreeDelayFrames > frameCount_) {
                     return false;
                 }
                 freeList_.push_back(p.second);
@@ -64,10 +60,8 @@ void SrvManager::PreDraw()
 }
 
 /** @brief 未使用のデスクリプタインデックスを1つ確保する */
-uint32_t SrvManager::Allocate()
-{
-    if (!freeList_.empty())
-    {
+uint32_t SrvManager::Allocate() {
+    if (!freeList_.empty()) {
         uint32_t index = freeList_.back();
         freeList_.pop_back();
         return index;
@@ -78,14 +72,12 @@ uint32_t SrvManager::Allocate()
 }
 
 /** @brief 使い終わったデスクリプタインデックスを解放し、以後のAllocate()で再利用可能にする */
-void SrvManager::Free(uint32_t srvIndex)
-{
+void SrvManager::Free(uint32_t srvIndex) {
     pendingFree_.push_back({ frameCount_, srvIndex });
 }
 
 /** @brief 指定したインデックスの場所に、テクスチャ2D用のSRVを生成する */
-void SrvManager::CreateSrvForTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels)
-{
+void SrvManager::CreateSrvForTexture2D(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels) {
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
     srvDesc.Format = format;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -97,8 +89,7 @@ void SrvManager::CreateSrvForTexture2D(uint32_t srvIndex, ID3D12Resource* pResou
 }
 
 /** @brief 指定したインデックスの場所に、キューブマップ用のSRVを生成する */
-void SrvManager::CreateSrvForTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels)
-{
+void SrvManager::CreateSrvForTextureCube(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format, UINT mipLevels) {
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
     srvDesc.Format = format;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -111,8 +102,7 @@ void SrvManager::CreateSrvForTextureCube(uint32_t srvIndex, ID3D12Resource* pRes
 }
 
 /** @brief 深度テクスチャ（R24G8_TYPELESS）用のSRVを生成する */
-void SrvManager::CreateSrvForDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource)
-{
+void SrvManager::CreateSrvForDepthTexture(uint32_t srvIndex, ID3D12Resource* pResource) {
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = { };
     srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -123,22 +113,19 @@ void SrvManager::CreateSrvForDepthTexture(uint32_t srvIndex, ID3D12Resource* pRe
 }
 
 /** @brief マネージャーの終了処理デスクリプタヒープを解放する */
-void SrvManager::Finalize()
-{
+void SrvManager::Finalize() {
     descriptorHeap_.Reset();
 }
 
 /** @brief 指定したインデックスに対応するCPU側のハンドルを取得する */
-D3D12_CPU_DESCRIPTOR_HANDLE SrvManager::GetCPUDescriptorHandle(uint32_t index)
-{
+D3D12_CPU_DESCRIPTOR_HANDLE SrvManager::GetCPUDescriptorHandle(uint32_t index) {
     D3D12_CPU_DESCRIPTOR_HANDLE handleCPU = descriptorHeap_->GetCPUDescriptorHandleForHeapStart();
     handleCPU.ptr += (static_cast<unsigned long long>(index) * descriptorSize_);
     return handleCPU;
 }
 
 /** @brief 指定したインデックスに対応するGPU側のハンドルを取得する */
-D3D12_GPU_DESCRIPTOR_HANDLE SrvManager::GetGPUDescriptorHandle(uint32_t index)
-{
+D3D12_GPU_DESCRIPTOR_HANDLE SrvManager::GetGPUDescriptorHandle(uint32_t index) {
     D3D12_GPU_DESCRIPTOR_HANDLE handleGPU = descriptorHeap_->GetGPUDescriptorHandleForHeapStart();
     handleGPU.ptr += (static_cast<unsigned long long>(index) * descriptorSize_);
     return handleGPU;

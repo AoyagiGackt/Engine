@@ -9,11 +9,10 @@
 using namespace Microsoft::WRL;
 
 namespace engine::graphics {
-namespace PH = engine::graphics::PipelineHelper;
+namespace ph = engine::graphics::pipelineHelper;
 
 /** @brief ルートシグネチャと SkinnedVS/Object3dPS を使った PSO 一式（各ブレンドモード分）を構築する */
-void SkinCommon::Initialize(DirectXCommon* dxCommon)
-{
+void SkinCommon::Initialize(DirectXCommon* dxCommon) {
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -29,20 +28,20 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     // スロット 8 (PS, t3) : 法線マップ SRV
 
     // t0: テクスチャ / t1: シャドウマップ / t2: キューブマップ / t3: 法線マップ
-    const auto ranges = PH::MakeModelTextureRanges();
-    const auto modelParameters = PH::MakeModelRootParameters(ranges);
+    const auto ranges = ph::MakeModelTextureRanges();
+    const auto modelParameters = ph::MakeModelRootParameters(ranges);
     // スロット6へスキニングパレットを挿入し、ライトと法線マップを後ろへ送る。
-    const std::array<D3D12_ROOT_PARAMETER, PH::kModelRootParameterCount + 1> rootParameters = {
+    const std::array<D3D12_ROOT_PARAMETER, ph::kModelRootParameterCount + 1> rootParameters = {
         modelParameters[0], modelParameters[1], modelParameters[2],
         modelParameters[3], modelParameters[4], modelParameters[5],
-        PH::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_VERTEX), // 6: スキニングパレット (VS, b1)
+        ph::MakeCbvParam(1, D3D12_SHADER_VISIBILITY_VERTEX), // 6: スキニングパレット (VS, b1)
         modelParameters[6], modelParameters[7],
     };
 
     // スキンメッシュも3Dモデルと同じく最高解像度ミップのみ使用する（MaxLOD=0）
-    auto staticSamplers = PH::MakeDefaultSamplers(0.0f);
+    auto staticSamplers = ph::MakeDefaultSamplers(0.0f);
 
-    rootSignature_ = PH::CreateRootSignature(device, rootParameters.data(), static_cast<UINT>(rootParameters.size()),
+    rootSignature_ = ph::CreateRootSignature(device, rootParameters.data(), static_cast<UINT>(rootParameters.size()),
         staticSamplers.data(), static_cast<UINT>(staticSamplers.size()), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     // 入力レイアウト（スキニング用: 法線+ボーン情報追加）
@@ -57,20 +56,19 @@ void SkinCommon::Initialize(DirectXCommon* dxCommon)
     Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"Resources/shaders/skinned/SkinnedVS.hlsl", L"vs_6_0");
     Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"Resources/shaders/object3d/Object3dPS.hlsl", L"ps_6_0");
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PH::MakeDefault3dPsoDesc();
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = ph::MakeDefault3dPsoDesc();
     psoDesc.pRootSignature = rootSignature_.Get();
     psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
     psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
     psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
 
-    PH::CreateBlendPipelines(device, psoDesc, L"SkinCommon.Object3dPS.Blend", graphicsPipelineStates_);
+    ph::CreateBlendPipelines(device, psoDesc, L"SkinCommon.Object3dPS.Blend", graphicsPipelineStates_);
 }
 
 /** @brief 指定ブレンドモードのルートシグネチャ・PSO・プリミティブトポロジをコマンドリストにセットする */
-void SkinCommon::CommonDrawSettings(BlendMode blendMode)
-{
+void SkinCommon::CommonDrawSettings(BlendMode blendMode) {
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
-    PipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
+    pipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get());
 }
 
 } // namespace engine::graphics

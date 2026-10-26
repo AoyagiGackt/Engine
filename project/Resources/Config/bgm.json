@@ -1,6 +1,10 @@
 {
-  "_comment": "シーンごとのBGM。キーはコードの BgmKey（title=タイトル stage_select=ステージセレクト stage=ステージ本編）。同じ曲が鳴っている間にもう一度指定しても最初からにはしない",
+  "_comment": "シーンごとのBGM。キーはコードの BgmKey（title=タイトル stage_select=ステージセレクト stage=ステージ本編 training=トレーニング battle_test=バトルテスト game_over=やられて GAME OVER の文字が出た時 game_clear=クリアして割れたガラスが集まり直し結果画面になった時。game_over と game_clear はループせず1回だけ流す）。同じ曲が鳴っている間にもう一度指定しても最初からにはしない",
   "title": "Resources/bgm/titleBgm.mp3",
   "stage_select": "Resources/bgm/selectBgm.mp3",
-  "stage": "Resources/bgm/gameBgm.mp3"
+  "stage": "Resources/bgm/gameBgm.mp3",
+  "training": "Resources/bgm/gameBgm.mp3",
+  "battle_test": "Resources/bgm/gameBgm.mp3",
+  "game_over": "Resources/bgm/gameOver.mp3",
+  "game_clear": "Resources/bgm/gameClear.mp3"
 }

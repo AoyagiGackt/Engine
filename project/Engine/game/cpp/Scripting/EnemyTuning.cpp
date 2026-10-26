@@ -79,29 +79,29 @@ constexpr JsonField<EnemySeparationTuning> kSeparationFields[] = {
     { "separation", "bodyHalfWidth", &EnemySeparationTuning::bodyHalfWidth },
     { "separation", "wallBandBottom", &EnemySeparationTuning::wallBandBottom },
     { "separation", "wallBandTop", &EnemySeparationTuning::wallBandTop },
+    { "separation", "playerMinDistanceX", &EnemySeparationTuning::playerMinDistanceX },
+    { "separation", "playerMinDistanceY", &EnemySeparationTuning::playerMinDistanceY },
+    { "separation", "playerPushRate", &EnemySeparationTuning::playerPushRate },
     { "separation", "wallContactMargin", &EnemySeparationTuning::wallContactMargin },
 };
 }
 
 /** @brief 唯一のEnemyTuningインスタンスを取得する（初回はJSONを読み込む） */
-EnemyTuning* EnemyTuning::GetInstance()
-{
-    static EnemyTuning instance;
-    return &instance;
+EnemyTuning* EnemyTuning::GetInstance() {
+    static EnemyTuning sInstance;
+    return &sInstance;
 }
 
 /** @brief enemy_params.json を読み込んで初期化する */
-EnemyTuning::EnemyTuning()
-{
+EnemyTuning::EnemyTuning() {
     Reload();
 }
 
 /** @brief JSONを読み直す */
-void EnemyTuning::Reload()
-{
+void EnemyTuning::Reload() {
     // 設定が無い場合のモデル・縮尺は既存の配置に合わせる
     visuals_ = {
-        { "Slime", { "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SlimePalette.png", 0.47f, -GameConstants::kHalfPi } },
+        { "Slime", { "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SlimePalette.png", 0.47f, -gameConstants::kHalfPi } },
         { "Bat", { "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Bat_Palette.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/BatPalette.png", 0.21f, 0.0f } },
         { "Dragon", { "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Dragon_Palette.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/DragonPalette.png", 0.38f, 0.0f } },
         { "Skeleton", { "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Skeleton_Palette.obj", "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SkeletonPalette.png", 0.215f, 0.0f } },
@@ -113,31 +113,26 @@ void EnemyTuning::Reload()
     separation_ = EnemySeparationTuning { };
 
     const nlohmann::json root = JsonHelper::Load(kEnemyParamsPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("EnemyTuning: ") + kEnemyParamsPath + " が読めません。既定値で動きます");
         return;
     }
 
     // 名前ごとの見た目は共通の項目表で読み、未知の種類も同じ方式で追加できる
-    if (root.contains("visuals") && root["visuals"].is_object())
-    {
+    if (root.contains("visuals") && root["visuals"].is_object()) {
         constexpr JsonField<EnemyVisualTuning> kVisualFields[] = {
             { nullptr, "model", &EnemyVisualTuning::model },
             { nullptr, "texture", &EnemyVisualTuning::texture },
             { nullptr, "scale", &EnemyVisualTuning::scale },
             { nullptr, "yawOffset", &EnemyVisualTuning::yawOffset },
         };
-        for (const auto& [kind, value] : root["visuals"].items())
-        {
-            if (!value.is_object())
-            {
+        for (const auto& [kind, value] : root["visuals"].items()) {
+            if (!value.is_object()) {
                 continue;
             }
             EnemyVisualTuning visual = visuals_.contains(kind) ? visuals_.at(kind) : EnemyVisualTuning {};
             ReadJsonFields(value, kVisualFields, visual);
-            if (!visual.model.empty() && !visual.texture.empty() && visual.scale > 0.0f)
-            {
+            if (!visual.model.empty() && !visual.texture.empty() && visual.scale > 0.0f) {
                 visuals_[kind] = std::move(visual);
             }
         }
@@ -150,10 +145,19 @@ void EnemyTuning::Reload()
 }
 
 /** @brief 見た目の設定を種類名で検索する */
-const EnemyVisualTuning* EnemyTuning::FindVisual(const std::string& kind) const
-{
+const EnemyVisualTuning* EnemyTuning::FindVisual(const std::string& kind) const {
     const auto found = visuals_.find(kind);
     return found != visuals_.end() ? &found->second : nullptr;
+}
+
+/** @brief 登録されている見た目の名前を一覧で返す（エディタの選択肢に使う） */
+std::vector<std::string> EnemyTuning::VisualNames() const {
+    std::vector<std::string> names;
+    names.reserve(visuals_.size());
+    for (const auto& [name, visual] : visuals_) {
+        names.push_back(name);
+    }
+    return names;
 }
 
 } // namespace engine::game

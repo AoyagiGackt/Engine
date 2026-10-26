@@ -7,26 +7,22 @@
 
 namespace engine::game {
 /** @brief 唯一のEventBusインスタンスを取得する（未生成なら生成する） */
-EventBus* EventBus::GetInstance()
-{
-    static EventBus instance;
-    return &instance;
+EventBus* EventBus::GetInstance() {
+    static EventBus sInstance;
+    return &sInstance;
 }
 
 /** @brief イベントを購読する */
-int EventBus::Subscribe(const std::string& eventName, Callback callback)
-{
+int EventBus::Subscribe(const std::string& eventName, Callback callback) {
     int handle = nextHandle_++;
     subscribers_[eventName].push_back({ handle, std::move(callback) });
     return handle;
 }
 
 /** @brief 購読を解除する */
-void EventBus::Unsubscribe(const std::string& eventName, int handle)
-{
+void EventBus::Unsubscribe(const std::string& eventName, int handle) {
     auto it = subscribers_.find(eventName);
-    if (it == subscribers_.end())
-    {
+    if (it == subscribers_.end()) {
         return;
     }
 
@@ -40,18 +36,15 @@ void EventBus::Unsubscribe(const std::string& eventName, int handle)
 }
 
 /** @brief イベントを発火し、購読者のコールバックを同期的に全て呼ぶ */
-void EventBus::Emit(const std::string& eventName)
-{
+void EventBus::Emit(const std::string& eventName) {
     auto it = subscribers_.find(eventName);
-    if (it == subscribers_.end())
-    {
+    if (it == subscribers_.end()) {
         return;
     }
 
     // コールバック内でSubscribe/Unsubscribeされてもいいようにコピーを回す
     auto entries = it->second;
-    for (auto& e : entries)
-    {
+    for (auto& e : entries) {
         e.callback();
     }
 }

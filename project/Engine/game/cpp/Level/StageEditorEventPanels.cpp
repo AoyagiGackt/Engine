@@ -27,12 +27,8 @@ using namespace engine::graphics;
 
 namespace engine::game {
 namespace {
-namespace EditorUi = engine::game::StageEditorUiStyle;
+namespace editorUi = engine::game::stageEditorUiStyle;
 
-constexpr ImVec2 kEventWindowPos = { 600.0f, 0.0f };
-constexpr ImVec2 kEventWindowSize = { 360.0f, 310.0f };
-constexpr ImVec2 kWaveWindowPos = { 290.0f, 240.0f };
-constexpr ImVec2 kWaveWindowSize = { 300.0f, 245.0f };
 constexpr float kMaxEventDelaySeconds = 30.0f;
 constexpr int kMaxWaveEnemyCount = 32;
 constexpr float kMinWaveSpacing = 0.5f;
@@ -40,11 +36,11 @@ constexpr float kMaxWaveSpacing = 20.0f;
 } // namespace
 
 /** @brief トリガーと配置対象を選ぶだけでイベント接続を構築する */
-void StageEditor::RenderNoCodeEventPanel()
-{
-    ImGui::SetNextWindowPos(kEventWindowPos, ImGuiCond_Once);
-    ImGui::SetNextWindowSize(kEventWindowSize, ImGuiCond_Once);
-    ImGui::Begin("イベント");
+void StageEditor::RenderNoCodeEventPanel() {
+    // 補助パネル領域のタブとして出す（選ばれていない間は中身を作らない）
+    if (!ImGui::BeginTabItem("イベント", &showNoCodeEventPanel_)) {
+        return;
+    }
     ImGui::TextWrapped("条件が成立したとき、敵・扉・カメラなどへ動作を伝える設定です。上から条件、対象、動作の順に選びます。");
     ImGui::TextDisabled("例  部屋へ入る  0秒後  敵を出現させる");
     // 上から順に テンプレート生成→発生条件→動作対象→動作→接続→接続一覧 を並べる
@@ -54,22 +50,19 @@ void StageEditor::RenderNoCodeEventPanel()
     RenderEventActionSettings();
     RenderEventConnectButton();
     RenderEventConnectionList();
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 /** @brief 戦闘部屋・扉・壊せる壁などの部品テンプレートを画面中央に生成するボタン群 */
-void StageEditor::RenderEventTemplateButtons()
-{
+void StageEditor::RenderEventTemplateButtons() {
     // 戦闘部屋は一番よく使うので、折りたたみの外に置く
-    if (ImGui::Button("戦闘部屋テンプレートを生成", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("戦闘部屋テンプレートを生成", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         AppendGeneratedContent(StageEditorContentFactory::CreateBattleRoom(ViewCenterOnGround(), nextSerial_));
         statusMessage_ = "戦闘部屋テンプレートを生成しました";
         statusTimer_ = StageEditor::kStatusNormalSeconds;
     }
-    if (!ImGui::CollapsingHeader("部品テンプレート（画面中央に生成）"))
-    {
+    if (!ImGui::CollapsingHeader("部品テンプレート（画面中央に生成）")) {
         return;
     }
     constexpr float kTemplateStatusSeconds = 3.0f;
@@ -81,8 +74,7 @@ void StageEditor::RenderEventTemplateButtons()
     // スライド扉: 入力した条件フラグが立つと開く
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##doorCondition", "開く条件のフラグ名（condition_xxx）", templateDoorCondition_, sizeof(templateDoorCondition_));
-    if (ImGui::Button("スライド扉", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("スライド扉", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         AppendGeneratedContent(StageEditorContentFactory::CreateSlidingDoor(ViewCenterOnGround(), templateDoorCondition_, nextSerial_));
         statusMessage_ = "スライド扉を生成しました（条件フラグが立つとせり上がって消えます）";
@@ -92,8 +84,7 @@ void StageEditor::RenderEventTemplateButtons()
     // 壊せる壁: 先頭の何でも以外を選ぶと、その武器でしか壊せない
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::Combo("##wallWeapon", &templateWallWeapon_, kWallWeapons, kWallWeaponCount);
-    if (ImGui::Button("壊せる壁", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("壊せる壁", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         const std::string weapon = templateWallWeapon_ == 0 ? "" : kWallWeapons[templateWallWeapon_];
         AppendGeneratedContent(StageEditorContentFactory::CreateBreakableWall(ViewCenterOnGround(), weapon, nextSerial_));
@@ -104,8 +95,7 @@ void StageEditor::RenderEventTemplateButtons()
     // 区画トリガー＋案内文: 範囲に入ると入力した案内文を出す
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##guideText", "案内文", templateGuideText_, sizeof(templateGuideText_));
-    if (ImGui::Button("区画トリガー＋案内文", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("区画トリガー＋案内文", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         AppendGeneratedContent(StageEditorContentFactory::CreateZoneGuide(ViewCenterOnGround(), templateGuideText_, nextSerial_));
         statusMessage_ = "区画トリガーと案内文を生成しました（前の案内はグラフのSetObjectEnabledで消せます）";
@@ -113,8 +103,7 @@ void StageEditor::RenderEventTemplateButtons()
     }
 
     // 収集物を等間隔に並べる
-    if (ImGui::Button("収集物を3つ並べる", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("収集物を3つ並べる", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         AppendGeneratedContent(StageEditorContentFactory::CreatePickupRow(ViewCenterOnGround(), kPickupRowCount, kPickupRowSpacing, nextSerial_));
         statusMessage_ = "収集物を生成しました";
@@ -123,47 +112,36 @@ void StageEditor::RenderEventTemplateButtons()
 }
 
 /** @brief イベントの発生条件（トリガー/イベント条件）を選ぶ欄 */
-void StageEditor::RenderEventSourceSelector()
-{
+void StageEditor::RenderEventSourceSelector() {
     // 発生条件の番号は トリガー → イベント条件の配置物 の順に通し番号で持っている
     const int triggerCount = static_cast<int>(triggers_.size());
     const char* sourcePreview = "イベントトリガーを選択";
     const int sourceIndex = eventConnection_.SourceIndex();
-    if (sourceIndex >= 0 && sourceIndex < triggerCount)
-    {
+    if (sourceIndex >= 0 && sourceIndex < triggerCount) {
         sourcePreview = triggers_[sourceIndex].GetDesc().name.c_str();
-    }
-    else if (sourceIndex >= triggerCount)
-    {
+    } else if (sourceIndex >= triggerCount) {
         const int objectIndex = sourceIndex - triggerCount;
         if (objectIndex >= 0 && objectIndex < static_cast<int>(objects_.size())
-            && objects_[objectIndex].desc.kind == ObjectKindName::kEventCondition)
-        {
+            && objects_[objectIndex].desc.kind == objectKindName::kEventCondition) {
             sourcePreview = objects_[objectIndex].desc.name.c_str();
         }
     }
-    if (ImGui::BeginCombo("発生条件", sourcePreview))
-    {
+    if (ImGui::BeginCombo("発生条件", sourcePreview)) {
         // トリガーを先に並べる
-        for (int i = 0; i < triggerCount; ++i)
-        {
+        for (int i = 0; i < triggerCount; ++i) {
             const TriggerDesc& trigger = triggers_[i].GetDesc();
-            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.SourceIndex() == i))
-            {
+            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.SourceIndex() == i)) {
                 eventConnection_.SetSourceIndex(i);
             }
         }
         // 続けてイベント条件の配置物を、条件の種類つきで並べる
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i)
-        {
-            if (objects_[i].desc.kind != ObjectKindName::kEventCondition)
-            {
+        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            if (objects_[i].desc.kind != objectKindName::kEventCondition) {
                 continue;
             }
             std::string label = objects_[i].desc.name + "  [" + objects_[i].desc.conditionType + "]";
             const int encodedIndex = triggerCount + i;
-            if (ImGui::Selectable(label.c_str(), eventConnection_.SourceIndex() == encodedIndex))
-            {
+            if (ImGui::Selectable(label.c_str(), eventConnection_.SourceIndex() == encodedIndex)) {
                 eventConnection_.SetSourceIndex(encodedIndex);
             }
         }
@@ -173,35 +151,28 @@ void StageEditor::RenderEventSourceSelector()
     // 3Dビューでトリガー/イベント条件を選択中なら、それをそのまま発生条件に使えるようにする
     const int selectedSourceIndex = SelectionKindOf(selKind_).EventSourceIndex(*this, selIndex_);
     ImGui::BeginDisabled(selectedSourceIndex < 0);
-    if (ImGui::SmallButton("選択中を使う##sourceUseSelection"))
-    {
+    if (ImGui::SmallButton("選択中を使う##sourceUseSelection")) {
         eventConnection_.SetSourceIndex(selectedSourceIndex);
     }
     ImGui::EndDisabled();
-    EditorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。3Dビューでトリガー/条件を選択中なら「選択中を使う」で反映できます。");
+    editorUI::HelpMarker("いつ動かすかを選択します。進入トリガーはプレイヤーが範囲へ入った時、全滅条件は指定グループの敵が全員倒れた時に成立します。3Dビューでトリガー/条件を選択中なら「選択中を使う」で反映できます。");
 }
 
 /** @brief イベントの動作対象（出現地点・ギミック・カメラ）を選ぶ欄 */
-void StageEditor::RenderEventTargetSelector()
-{
+void StageEditor::RenderEventTargetSelector() {
     const char* targetPreview = "動作対象を選択";
-    if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size()))
-    {
+    if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())) {
         targetPreview = objects_[eventConnection_.TargetIndex()].desc.name.c_str();
     }
     // 動作対象になれる配置物だけを、種類つきで並べる
-    if (ImGui::BeginCombo("動作対象", targetPreview))
-    {
-        for (int i = 0; i < static_cast<int>(objects_.size()); ++i)
-        {
-            if (!StageEditorEventConnection::SupportsTarget(objects_[i].desc))
-            {
+    if (ImGui::BeginCombo("動作対象", targetPreview)) {
+        for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+            if (!StageEditorEventConnection::SupportsTarget(objects_[i].desc)) {
                 continue;
             }
             const ObjectDesc& object = objects_[i].desc;
             std::string label = object.name + "  [" + object.kind + "]";
-            if (ImGui::Selectable(label.c_str(), eventConnection_.TargetIndex() == i))
-            {
+            if (ImGui::Selectable(label.c_str(), eventConnection_.TargetIndex() == i)) {
                 eventConnection_.SetTargetIndex(i);
             }
         }
@@ -209,40 +180,35 @@ void StageEditor::RenderEventTargetSelector()
     }
     ImGui::SameLine();
     // 3Dビューで動作対象になれる配置物を選択中なら、それをそのまま動作対象に使えるようにする
-    const bool hasValidSelection = selKind_ == SelKind::Object && selIndex_ >= 0
+    const bool hasValidSelection = selKind_ == SelKind::kObject && selIndex_ >= 0
         && selIndex_ < static_cast<int>(objects_.size())
         && StageEditorEventConnection::SupportsTarget(objects_[selIndex_].desc);
     ImGui::BeginDisabled(!hasValidSelection);
-    if (ImGui::SmallButton("選択中を使う##targetUseSelection"))
-    {
+    if (ImGui::SmallButton("選択中を使う##targetUseSelection")) {
         eventConnection_.SetTargetIndex(selIndex_);
     }
     ImGui::EndDisabled();
-    EditorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。3Dビューで対象を選択中なら「選択中を使う」で反映できます。");
+    editorUI::HelpMarker("何を動かすかを選択します。敵の出現地点、扉などのギミック、演出用カメラを対象にできます。3Dビューで対象を選択中なら「選択中を使う」で反映できます。");
 }
 
 /** @brief 実行する動作と遅延秒数の欄 */
-void StageEditor::RenderEventActionSettings()
-{
+void StageEditor::RenderEventActionSettings() {
     // 動作の並びは StageEditorEventConnection::Action の値の順
     const char* actions[] = { "対象を有効化", "対象を無効化" };
     int actionIndex = static_cast<int>(eventConnection_.GetAction());
-    if (ImGui::Combo("実行する動作", &actionIndex, actions, static_cast<int>(std::size(actions))))
-    {
+    if (ImGui::Combo("実行する動作", &actionIndex, actions, static_cast<int>(std::size(actions)))) {
         eventConnection_.SetAction(static_cast<StageEditorEventConnection::Action>(actionIndex));
     }
-    EditorUI::HelpMarker("有効化は対象を出現または動作させます。無効化は対象を消す、または停止する用途に使います。");
+    editorUI::HelpMarker("有効化は対象を出現または動作させます。無効化は対象を消す、または停止する用途に使います。");
     float delaySeconds = eventConnection_.DelaySeconds();
-    if (ImGui::DragFloat("実行までの遅延 秒", &delaySeconds, EditorUi::kDragStepSeconds, 0.0f, kMaxEventDelaySeconds, "%.1f"))
-    {
+    if (ImGui::DragFloat("実行までの遅延 秒", &delaySeconds, editorUi::kDragStepSeconds, 0.0f, kMaxEventDelaySeconds, "%.1f")) {
         eventConnection_.SetDelaySeconds(delaySeconds);
     }
-    EditorUI::HelpMarker("条件成立から動作開始まで待つ秒数です。0なら即座に実行します。");
+    editorUI::HelpMarker("条件成立から動作開始まで待つ秒数です。0なら即座に実行します。");
 }
 
 /** @brief 選んだ発生条件と動作対象を接続するボタン */
-void StageEditor::RenderEventConnectButton()
-{
+void StageEditor::RenderEventConnectButton() {
     // 発生条件と動作対象の両方がそろうまでボタンを押せなくする
     ObjectDesc* selectedTarget = eventConnection_.TargetIndex() >= 0
             && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())
@@ -250,24 +216,19 @@ void StageEditor::RenderEventConnectButton()
         : nullptr;
     const bool canConnect = eventConnection_.CanConnect(static_cast<int>(objects_.size()), selectedTarget);
     ImGui::BeginDisabled(!canConnect);
-    if (ImGui::Button("接続する", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("接続する", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         std::string sourceName;
-        if (eventConnection_.SourceIndex() < static_cast<int>(triggers_.size()))
-        {
+        if (eventConnection_.SourceIndex() < static_cast<int>(triggers_.size())) {
             // トリガーは設定をコピーして書き換え、トリガー本体へ戻す
             TriggerVolume& volume = triggers_[eventConnection_.SourceIndex()];
             TriggerDesc trigger = volume.GetDesc();
             sourceName = eventConnection_.Connect(trigger, *selectedTarget);
             volume.SetDesc(trigger);
-        }
-        else
-        {
+        } else {
             // イベント条件は配置物の設定を直接書き換える
             const int conditionIndex = eventConnection_.SourceIndex() - static_cast<int>(triggers_.size());
-            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size()))
-            {
+            if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size())) {
                 sourceName = eventConnection_.Connect(objects_[conditionIndex].desc, *selectedTarget);
             }
         }
@@ -278,14 +239,11 @@ void StageEditor::RenderEventConnectButton()
 }
 
 /** @brief 指定フラグで動く動作対象の配置物番号を集める */
-std::vector<int> StageEditor::CollectEventTargets(const std::string& flag) const
-{
+std::vector<int> StageEditor::CollectEventTargets(const std::string& flag) const {
     std::vector<int> targetIndices;
-    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex)
-    {
+    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
         const ObjectDesc& target = objects_[objectIndex].desc;
-        if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == flag)
-        {
+        if (StageEditorEventConnection::SupportsTarget(target) && target.activationFlag == flag) {
             targetIndices.push_back(objectIndex);
         }
     }
@@ -293,8 +251,7 @@ std::vector<int> StageEditor::CollectEventTargets(const std::string& flag) const
 }
 
 /** @brief 現在の接続を発生条件ごとに一覧表示し、解除ボタンを出す */
-void StageEditor::RenderEventConnectionList()
-{
+void StageEditor::RenderEventConnectionList() {
     ImGui::SeparatorText("現在の接続");
     // 解除は一覧を描き終えてから行う（描画中に配置物の設定を書き換えないため）
     int disconnectIndex = -1;
@@ -308,110 +265,90 @@ void StageEditor::RenderEventConnectionList()
         ImGui::TextWrapped("%.1f秒 -> %s -> %s", target.activationDelay,
             target.activeWhenFlag ? "有効化" : "無効化", target.name.c_str());
         ImGui::SameLine();
-        if (ImGui::SmallButton("解除"))
-        {
+        if (ImGui::SmallButton("解除")) {
             disconnectIndex = objectIndex;
         }
         ImGui::PopID();
     };
 
     // 1つの発生条件から複数へ繋げているケースが一目で分かるよう、対象ごとではなく発生条件ごとにまとめて表示する
-    for (const auto& triggerEntry : triggers_)
-    {
+    for (const auto& triggerEntry : triggers_) {
         const TriggerDesc& trigger = triggerEntry.GetDesc();
         // このトリガーのフラグで動く配置物を集める（1件も無ければ見出しも出さない）
         const std::vector<int> targetIndices = CollectEventTargets(trigger.flag);
-        if (targetIndices.empty())
-        {
+        if (targetIndices.empty()) {
             continue;
         }
         // 見出しにトリガー名と接続数を出し、その下に接続先を並べる
-        ImGui::TextColored(EditorUi::kHeadingColor, "%s (%d件)", trigger.name.c_str(),
+        ImGui::TextColored(editorUi::kHeadingColor, "%s (%d件)", trigger.name.c_str(),
             static_cast<int>(targetIndices.size()));
-        for (int objectIndex : targetIndices)
-        {
+        for (int objectIndex : targetIndices) {
             renderConnectionTarget(objectIndex);
         }
     }
     // イベント条件の配置物も同じく条件ごとにまとめる（見出しに条件の種類も出す）
-    for (const auto& conditionEntry : objects_)
-    {
-        if (conditionEntry.desc.kind != ObjectKindName::kEventCondition)
-        {
+    for (const auto& conditionEntry : objects_) {
+        if (conditionEntry.desc.kind != objectKindName::kEventCondition) {
             continue;
         }
         const std::vector<int> targetIndices = CollectEventTargets(ConditionFlagName(conditionEntry.desc.name));
-        if (targetIndices.empty())
-        {
+        if (targetIndices.empty()) {
             continue;
         }
-        ImGui::TextColored(EditorUi::kHeadingColor, "%s [%s] (%d件)",
+        ImGui::TextColored(editorUi::kHeadingColor, "%s [%s] (%d件)",
             conditionEntry.desc.name.c_str(), conditionEntry.desc.conditionType.c_str(),
             static_cast<int>(targetIndices.size()));
-        for (int objectIndex : targetIndices)
-        {
+        for (int objectIndex : targetIndices) {
             renderConnectionTarget(objectIndex);
         }
     }
     // トリガー/条件が削除された等で接続元が見つからないものは最後にまとめて警告表示する
-    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex)
-    {
+    for (int objectIndex = 0; objectIndex < static_cast<int>(objects_.size()); ++objectIndex) {
         const ObjectDesc& target = objects_[objectIndex].desc;
         // 接続先になれない種類と、どこにも繋がっていない配置物は対象外
-        if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty())
-        {
+        if (!StageEditorEventConnection::SupportsTarget(target) || target.activationFlag.empty()) {
             continue;
         }
         // フラグを立てる元が見つかれば正常な接続なので飛ばす
         Vector3 sourcePosition = { };
-        if (FindEventSourcePosition(target.activationFlag, sourcePosition))
-        {
+        if (FindEventSourcePosition(target.activationFlag, sourcePosition)) {
             continue;
         }
         ImGui::PushID(objectIndex);
-        ImGui::TextColored(EditorUi::kMissingSourceColor, "接続元なし -> %s", target.name.c_str());
+        ImGui::TextColored(editorUi::kMissingSourceColor, "接続元なし -> %s", target.name.c_str());
         ImGui::SameLine();
-        if (ImGui::SmallButton("解除"))
-        {
+        if (ImGui::SmallButton("解除")) {
             disconnectIndex = objectIndex;
         }
         ImGui::PopID();
     }
     // 押された解除をまとめて反映する（元に戻せるよう先に履歴を取る）
-    if (disconnectIndex >= 0)
-    {
+    if (disconnectIndex >= 0) {
         RecordUndoSnapshotNow();
         eventConnection_.Disconnect(objects_[disconnectIndex].desc);
     }
 }
 
 /** @brief レベルに紐付ける常駐グラフとフラグ起動グラフの一覧を編集する */
-void StageEditor::RenderGraphPanel()
-{
-    constexpr float kPanelPosX = 600.0f;
-    constexpr float kPanelPosY = 320.0f;
-    constexpr float kPanelWidth = 380.0f;
-    constexpr float kPanelHeight = 300.0f;
+void StageEditor::RenderGraphPanel() {
     constexpr float kRemoveButtonWidth = 24.0f;
     constexpr float kStatusSeconds = 3.0f;
-    // 初回だけ決まった位置と大きさで開き、常駐とフラグ起動の違いを先頭に説明する
-    ImGui::SetNextWindowPos(ImVec2(kPanelPosX, kPanelPosY), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth, kPanelHeight), ImGuiCond_Once);
-    ImGui::Begin("グラフ", &showGraphPanel_);
+    // 補助パネル領域のタブとして出し、常駐とフラグ起動の違いを先頭に説明する
+    if (!ImGui::BeginTabItem("グラフ", &showGraphPanel_)) {
+        return;
+    }
     ImGui::TextWrapped("このレベルで動かすノードグラフ（F1で編集）を紐付けます。常駐グラフは読込直後から走り、フラグ起動グラフは指定フラグが立った瞬間に走ります。");
 
     // 常駐グラフ: パスを入力すると元に戻す履歴を取ってから反映する
     ImGui::SeparatorText("常駐グラフ");
     ImGui::SetNextItemWidth(-1.0f);
     const bool graphPathChanged = ImGui::InputTextWithHint("##graphPath", "Resources/Graphs/xxx.json（空なら無し）", graphPathBuffer_, sizeof(graphPathBuffer_));
-    if (CaptureItemUndo(graphPathChanged))
-    {
+    if (CaptureItemUndo(graphPathChanged)) {
         graphPath_ = graphPathBuffer_;
     }
     // パスが空の間は開く対象が無いので押せなくする
     ImGui::BeginDisabled(graphPath_.empty());
-    if (ImGui::Button("ノードエディタで開く##main", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("ノードエディタで開く##main", ImVec2(-1.0f, 0.0f))) {
         GraphEditor::GetInstance()->OpenAndShow(graphPath_);
     }
     ImGui::EndDisabled();
@@ -419,12 +356,10 @@ void StageEditor::RenderGraphPanel()
     // フラグ起動グラフの一覧（x で削除、開くでノードエディタへ）
     ImGui::SeparatorText("フラグ起動グラフ");
     ImGui::TextDisabled("例  トリガーのフラグ room_start_0 → 敵出現の演出グラフ");
-    for (int i = 0; i < static_cast<int>(flagGraphs_.size()); ++i)
-    {
+    for (int i = 0; i < static_cast<int>(flagGraphs_.size()); ++i) {
         // 削除した時点で並びが変わるので、この回で一覧の表示を打ち切る
         ImGui::PushID(i);
-        if (ImGui::Button("x", ImVec2(kRemoveButtonWidth, 0.0f)))
-        {
+        if (ImGui::Button("x", ImVec2(kRemoveButtonWidth, 0.0f))) {
             RecordUndoSnapshotNow();
             flagGraphs_.erase(flagGraphs_.begin() + i);
             ImGui::PopID();
@@ -432,8 +367,7 @@ void StageEditor::RenderGraphPanel()
         }
         ImGui::SameLine();
         // この紐付けのグラフをノードエディタで開く
-        if (ImGui::SmallButton("開く"))
-        {
+        if (ImGui::SmallButton("開く")) {
             GraphEditor::GetInstance()->OpenAndShow(flagGraphs_[i].graphPath);
         }
         ImGui::SameLine();
@@ -448,8 +382,7 @@ void StageEditor::RenderGraphPanel()
     ImGui::InputTextWithHint("##newFlagPath", "グラフJSONのパス", newFlagGraphPath_, sizeof(newFlagGraphPath_));
     const bool canAdd = newFlagGraphFlag_[0] != '\0' && newFlagGraphPath_[0] != '\0';
     ImGui::BeginDisabled(!canAdd);
-    if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("紐付けを追加", ImVec2(-1.0f, 0.0f))) {
         // 元に戻せるよう、追加する前に履歴を取る
         RecordUndoSnapshotNow();
         FlagGraphBinding binding;
@@ -464,8 +397,7 @@ void StageEditor::RenderGraphPanel()
     // 編集した内容でレベルのグラフを最初から走らせ直す
     ImGui::SeparatorText("実行状態");
     ImGui::Text("実行中のグラフ: %d", levelGraphs_.GetRunningCount());
-    if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("グラフを再起動（保存内容で読み直す）", ImVec2(-1.0f, 0.0f))) {
         // 今の編集内容からグラフの設定だけを詰めて渡す
         LevelData data;
         data.graphPath = graphPath_;
@@ -474,69 +406,60 @@ void StageEditor::RenderGraphPanel()
         statusMessage_ = "レベルのグラフを再起動しました";
         statusTimer_ = kStatusSeconds;
     }
-    EditorUI::HelpMarker("グラフの編集はF1のノードエディタで行い、保存後にここで再起動すると反映されます");
-    ImGui::End();
+    editorUI::HelpMarker("グラフの編集はF1のノードエディタで行い、保存後にここで再起動すると反映されます");
+    ImGui::EndTabItem();
 }
 
 /** @brief 敵Wave用のSpawnPoint群を表形式の設定から生成する */
-void StageEditor::RenderWavePanel()
-{
-    // 初回だけ決まった位置と大きさで開き、使い方の説明を先頭に出す
-    ImGui::SetNextWindowPos(kWaveWindowPos, ImGuiCond_Once);
-    ImGui::SetNextWindowSize(kWaveWindowSize, ImGuiCond_Once);
-    ImGui::Begin("Wave作成");
+void StageEditor::RenderWavePanel() {
+    // 補助パネル領域のタブとして出し、使い方の説明を先頭に出す
+    if (!ImGui::BeginTabItem("Wave作成", &showWavePanel_)) {
+        return;
+    }
     ImGui::TextWrapped("同じグループの敵をまとめて生成します。生成後は各出現地点を個別に移動できます。");
     ImGui::TextDisabled("例  room_1、敵数 3、開始条件 room_entry");
     // グループ名・敵の種類・数・間隔を入力する（敵数は上限で丸める）
     ImGui::InputText("グループ名", waveGroupName_, sizeof(waveGroupName_));
-    EditorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
+    editorUI::HelpMarker("全滅判定でまとめて扱うための名前です。同じ戦闘に出す敵は同じ名前にします。");
     // 出現できる敵の表から、選択肢に出す表示名だけを取り出す
     const char* enemyTypes[std::size(kSpawnTypes)] = {};
-    for (size_t i = 0; i < std::size(kSpawnTypes); ++i)
-    {
+    for (size_t i = 0; i < std::size(kSpawnTypes); ++i) {
         enemyTypes[i] = kSpawnTypes[i].label;
     }
     ImGui::Combo("敵種類", &waveEnemyType_, enemyTypes, static_cast<int>(std::size(enemyTypes)));
     // 敵数は1体以上、上限以下に収める
     ImGui::InputInt("敵数", &waveEnemyCount_);
     waveEnemyCount_ = std::clamp(waveEnemyCount_, 1, kMaxWaveEnemyCount);
-    ImGui::DragFloat("配置間隔", &waveSpacing_, EditorUi::kDragStepPosition, kMinWaveSpacing, kMaxWaveSpacing);
-    EditorUI::HelpMarker("生成する敵同士の横方向の間隔です。単位はワールド座標です。");
+    ImGui::DragFloat("配置間隔", &waveSpacing_, editorUi::kDragStepPosition, kMinWaveSpacing, kMaxWaveSpacing);
+    editorUI::HelpMarker("生成する敵同士の横方向の間隔です。単位はワールド座標です。");
 
     // 開始条件は 開始直後 か、トリガーの中から1つを選ぶ
     // 閉じている時の表示は、選んだトリガーの名前（番号が範囲外なら開始直後）
     const char* triggerPreview = "開始直後";
-    if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size()))
-    {
+    if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
         triggerPreview = triggers_[waveStartTrigger_].GetDesc().name.c_str();
     }
-    if (ImGui::BeginCombo("開始条件", triggerPreview))
-    {
+    if (ImGui::BeginCombo("開始条件", triggerPreview)) {
         // 開始直後は番号 -1 で表す
-        if (ImGui::Selectable("開始直後", waveStartTrigger_ < 0))
-        {
+        if (ImGui::Selectable("開始直後", waveStartTrigger_ < 0)) {
             waveStartTrigger_ = -1;
         }
         // 配置済みのトリガーを順に選択肢へ並べる
-        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i)
-        {
-            if (ImGui::Selectable(triggers_[i].GetDesc().name.c_str(), waveStartTrigger_ == i))
-            {
+        for (int i = 0; i < static_cast<int>(triggers_.size()); ++i) {
+            if (ImGui::Selectable(triggers_[i].GetDesc().name.c_str(), waveStartTrigger_ == i)) {
                 waveStartTrigger_ = i;
             }
         }
         ImGui::EndCombo();
     }
-    EditorUI::HelpMarker("開始直後ならステージ開始時に出現します。トリガーを選ぶとプレイヤーが範囲へ入った時に出現します。");
+    editorUI::HelpMarker("開始直後ならステージ開始時に出現します。トリガーを選ぶとプレイヤーが範囲へ入った時に出現します。");
 
     // 画面中央を基準に、選んだ設定で出現地点をまとめて生成する
-    if (ImGui::Button("Waveを生成", ImVec2(-1.0f, 0.0f)))
-    {
+    if (ImGui::Button("Waveを生成", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         const Vector3 center = ViewCenterOnGround();
         std::string startFlag;
-        if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size()))
-        {
+        if (waveStartTrigger_ >= 0 && waveStartTrigger_ < static_cast<int>(triggers_.size())) {
             startFlag = triggers_[waveStartTrigger_].GetDesc().flag;
         }
         StageEditorWaveConfig config;
@@ -551,7 +474,7 @@ void StageEditor::RenderWavePanel()
         statusTimer_ = StageEditor::kStatusShortSeconds;
     }
     ImGui::TextDisabled("生成後も各SpawnPointを個別に移動できます");
-    ImGui::End();
+    ImGui::EndTabItem();
 }
 
 } // namespace engine::game

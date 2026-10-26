@@ -18,8 +18,7 @@ public:
         SetPosition(GetPosition() + delta);
     }
     /** @brief 奥行きを保ち、目標へ水平と垂直の位置を補間する */
-    void MoveTowardXY(const Vector3& target, float ratio)
-    {
+    void MoveTowardXY(const Vector3& target, float ratio) {
         Vector3 position = GetPosition();
         position.x += (target.x - position.x) * ratio;
         position.y += (target.y - position.y) * ratio;

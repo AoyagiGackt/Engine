@@ -1,0 +1,35 @@
+{
+  "_comment": "操作や演出に合わせて鳴らす効果音。path に音のパス（空なら鳴らさない）、volume は 0〜1。dodge=回避 swing=近接攻撃の各段を振った時 shot=銃を撃った時 finisherBeat=フィニッシャーの斬撃1本ごと finisherRelease=フィニッシャーの溜めた斬撃を解き放った時 glassShatter=画面がガラスのように割れた時（フィニッシャーとクリア演出）。クリア演出の斬線・弾痕の音は clear_finish.json の各 sound meleeHit=近接が当たった時 meleeFinisher=締めの一撃が当たった時（meleeHit_spear のように _<hitStyle> を付けると武器ごとに変えられる。無ければ付けない方を鳴らす）",
+  "dodge": {
+    "path": "Resources/SE/avoidance.mp3",
+    "volume": 0.8
+  },
+  "swing": {
+    "path": "Resources/SE/slash.mp3",
+    "volume": 0.7
+  },
+  "shot": {
+    "path": "Resources/SE/shoot.mp3",
+    "volume": 0.6
+  },
+  "finisherBeat": {
+    "path": "Resources/SE/slash.mp3",
+    "volume": 0.6
+  },
+  "finisherRelease": {
+    "path": "Resources/SE/superSlash.mp3",
+    "volume": 1
+  },
+  "glassShatter": {
+    "path": "Resources/SE/glass.mp3",
+    "volume": 1
+  },
+  "meleeHit": {
+    "path": "",
+    "volume": 0.8
+  },
+  "meleeFinisher": {
+    "path": "",
+    "volume": 1
+  }
+}

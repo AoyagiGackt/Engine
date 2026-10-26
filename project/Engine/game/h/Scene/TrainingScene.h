@@ -22,6 +22,7 @@
 #include "ModelCommon.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
+#include "ComboMotionEditor.h"
 #include "PauseMenu.h"
 #include "Player.h"
 #include "SceneShared.h"
@@ -85,6 +86,10 @@ public:
     }
     /** @brief エディタ表示中（ゲームプレイ停止中）にプレイヤーの見た目だけ追従させる */
     void RefreshVisualTransformsForEditor() override;
+    /** @brief 追加ホットキーの案内文字列を返す */
+    const char* GetHotkeyOverlayExtra() const override {
+        return "F7: モーションエディタ";
+    }
 
 private:
     /** @brief Initialize()の下請け マネージャ取得・各種Common初期化・カメラ生成を行う */
@@ -152,6 +157,7 @@ private:
 
     FontRenderer fontRenderer_;
     PauseMenu pauseMenu_; ///< Pauseキーで開く一時停止画面（退出項目はタイトルへ戻る）
+    ComboMotionEditor motionEditor_; ///< F7 で開く、コンボの段ごとのモーションの調整（開いている間はゲームを止める）
 
 #ifdef _DEBUG
     // ビジュアルスクリプティングVMの動作確認用（Resources/Graphs/test_graph.jsonを読み込んで実行する）

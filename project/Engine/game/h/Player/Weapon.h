@@ -8,48 +8,45 @@
 #include <vector>
 namespace engine::game {
 /** @brief 近接武器の種類（WeaponManagerが読み込むJSONの"type"と対応） */
-enum class WeaponType { Sword,
-    Spear,
-    Hammer,
-    Dagger,
-    Ball,
-    Greatsword,
-    Scythe,
-    Axe };
+enum class WeaponType { kSword,
+    kSpear,
+    kHammer,
+    kDagger,
+    kBall,
+    kGreatsword,
+    kScythe,
+    kAxe };
 
 /** @brief WeaponType の要素数（種別ごとの表はこの長さで WeaponType の並び順に持つ） */
-inline constexpr std::size_t kWeaponTypeCount = static_cast<std::size_t>(WeaponType::Axe) + 1;
+inline constexpr std::size_t kWeaponTypeCount = static_cast<std::size_t>(WeaponType::kAxe) + 1;
 
 /**
  * @brief 武器種別名（weapons.jsonの"type"・レベルJSONのweaponType・game_rules.jsonと同じ文字列規約）をWeaponTypeへ変換する
  * @param type "Sword" "Spear" "Hammer" "Dagger" "Ball" "Greatsword" "Scythe" "Axe" のいずれか
  * @return 対応する種別。未知の文字列はSword
  */
-inline WeaponType ParseWeaponTypeName(const std::string& type)
-{
+inline WeaponType ParseWeaponTypeName(const std::string& type) {
     /** @brief 近接武器種と設定ファイル内の識別名の対応 */
     struct NamedWeaponType {
         const char* name;
         WeaponType type;
     };
     static constexpr NamedWeaponType kNames[] = {
-        { "Sword", WeaponType::Sword },
-        { "Spear", WeaponType::Spear },
-        { "Hammer", WeaponType::Hammer },
-        { "Dagger", WeaponType::Dagger },
-        { "Ball", WeaponType::Ball },
-        { "Greatsword", WeaponType::Greatsword },
-        { "Scythe", WeaponType::Scythe },
-        { "Axe", WeaponType::Axe },
+        { "Sword", WeaponType::kSword },
+        { "Spear", WeaponType::kSpear },
+        { "Hammer", WeaponType::kHammer },
+        { "Dagger", WeaponType::kDagger },
+        { "Ball", WeaponType::kBall },
+        { "Greatsword", WeaponType::kGreatsword },
+        { "Scythe", WeaponType::kScythe },
+        { "Axe", WeaponType::kAxe },
     };
-    for (const NamedWeaponType& entry : kNames)
-    {
-        if (type == entry.name)
-        {
+    for (const NamedWeaponType& entry : kNames) {
+        if (type == entry.name) {
             return entry.type;
         }
     }
-    return WeaponType::Sword;
+    return WeaponType::kSword;
 }
 
 /** @brief 操作説明HUDに表示する1コマンドぶんのキー表示と説明 */
@@ -84,19 +81,20 @@ struct WeaponData {
     float effectColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; ///< ヒット時の属性色
     int effectBurstCount = 0; ///< ヒット時に放出する属性粒子数
     float effectRingRadius = 0.0f; ///< ヒット時に広げる属性リング半径
+    std::string hitStyle; ///< 当たった時の演出と音の種類（hit_effects.json / sounds.json の 名前_hitStyle を使う。空なら共通の演出だけ）
     AwakenedWeaponMods awakened; ///< 覚醒中の強化倍率
     std::vector<WeaponCommand> commands;
 };
 
 /** @brief 射撃武器の種類（GunComboが読み込むJSONの"type"と対応） */
-enum class GunType { Pistol,
-    Magnum,
-    SMG,
-    Shotgun,
-    Railgun };
+enum class GunType { kPistol,
+    kMagnum,
+    kSMG,
+    kShotgun,
+    kRailgun };
 
 /** @brief GunType の要素数（銃種ごとの表はこの長さで GunType の並び順に持つ） */
-inline constexpr std::size_t kGunTypeCount = static_cast<std::size_t>(GunType::Railgun) + 1;
+inline constexpr std::size_t kGunTypeCount = static_cast<std::size_t>(GunType::kRailgun) + 1;
 
 /** @brief 1丁ぶんの射撃武器データ（Gキーで切り替え、コンボは GunCombo.cpp のテーブルが持つ） */
 struct RangedWeaponData {

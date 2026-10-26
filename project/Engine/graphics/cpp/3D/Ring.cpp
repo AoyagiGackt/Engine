@@ -15,8 +15,7 @@ namespace {
 }
 
 /** @brief リングのメッシュとパイプラインを用意する */
-void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions)
-{
+void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePath, int divisions) {
     SetupMaterialBuffers(dxCommon, textureFilePath, divisions, materialData_);
 
     RebuildVertices();
@@ -24,17 +23,14 @@ void Ring::Initialize(DirectXCommon* dxCommon, const std::string& textureFilePat
 }
 
 /** @brief 今の形の設定から頂点を作り直す */
-void Ring::RebuildVertices()
-{
-    if (!vertexData_)
-    {
+void Ring::RebuildVertices() {
+    if (!vertexData_) {
         return;
     }
 
     const Vector3 normal = { 0.0f, 0.0f, -1.0f }; // XY平面の面法線
 
-    for (int index = 0; index < divisions_; ++index)
-    {
+    for (int index = 0; index < divisions_; ++index) {
         const SegmentAngles a = SegmentAt(index);
         // XY平面上（Z=0）、-sinでX方向を時計回りに。外周を V=0、内周を V=1 にする
         const Vector4 outerCur = { -a.s * outerRadius_, a.c * outerRadius_, 0.0f, 1.0f };
@@ -46,8 +42,7 @@ void Ring::RebuildVertices()
 }
 
 /** @brief リング用のパイプラインを生成する */
-void Ring::CreatePipeline()
-{
+void Ring::CreatePipeline() {
     CreatePipelineCommon(L"Resources/shaders/ring/Ring.VS.hlsl",
         L"Resources/shaders/ring/Ring.PS.hlsl",
         D3D12_TEXTURE_ADDRESS_MODE_CLAMP);

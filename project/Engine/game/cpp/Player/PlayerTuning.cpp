@@ -13,6 +13,9 @@ namespace {
 constexpr const char* kPlayerParamsPath = "Resources/Config/player_params.json";
 
 constexpr JsonField<PlayerTuning> kFields[] = {
+    { "gun", "airGravityScale", &PlayerTuning::gunAirGravityScale },
+    { "gun", "airFloatDuration", &PlayerTuning::gunAirFloatDuration },
+    { "gun", "baseAnimSpeed", &PlayerTuning::gunBaseAnimSpeed },
     { "skills", "skillBlinkPlusDistanceMult", &PlayerTuning::skillBlinkPlusDistanceMult },
     { "skills", "skillComboExtendBonus", &PlayerTuning::skillComboExtendBonus },
     { "skills", "skillFastFireIntervalMult", &PlayerTuning::skillFastFireIntervalMult },
@@ -102,12 +105,10 @@ constexpr JsonField<PlayerTuning> kFields[] = {
 };
 
 /** @brief player_params.json からプレイヤーの調整値を読み込む */
-PlayerTuning LoadFromFile()
-{
+PlayerTuning LoadFromFile() {
     PlayerTuning loaded;
     const nlohmann::json root = JsonHelper::Load(kPlayerParamsPath);
-    if (!root.is_object())
-    {
+    if (!root.is_object()) {
         Logger::LogWarning(std::string("PlayerTuning: ") + kPlayerParamsPath + " が読めません。既定値で動きます");
         return loaded;
     }
@@ -116,22 +117,19 @@ PlayerTuning LoadFromFile()
 }
 
 /** @brief この状態の共有インスタンスを返す */
-PlayerTuning& Instance()
-{
-    static PlayerTuning tuning = LoadFromFile();
-    return tuning;
+PlayerTuning& Instance() {
+    static PlayerTuning sTuning = LoadFromFile();
+    return sTuning;
 }
 } // namespace
 
 /** @brief 読み込み済みの調整値を返す（初回はJSONを読む） */
-const PlayerTuning& PlayerTuning::Get()
-{
+const PlayerTuning& PlayerTuning::Get() {
     return Instance();
 }
 
 /** @brief JSONを読み直す */
-void PlayerTuning::Reload()
-{
+void PlayerTuning::Reload() {
     Instance() = LoadFromFile();
 }
 

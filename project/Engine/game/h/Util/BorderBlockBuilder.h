@@ -34,12 +34,10 @@ struct BorderBlockLayout {
  * @param jsonPath レイアウトJSONのパス
  * @return 読み込んだレイアウト。ファイルが無い・フィールドが欠けている場合はBorderBlockLayoutの既定値を使う
  */
-inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath)
-{
+inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath) {
     BorderBlockLayout layout;
     nlohmann::json j = engine::JsonHelper::Load(jsonPath);
-    if (!j.is_object())
-    {
+    if (!j.is_object()) {
         return layout;
     }
     static constexpr JsonField<BorderBlockLayout> kFields[] = {
@@ -63,8 +61,7 @@ inline BorderBlockLayout LoadBorderBlockLayout(const std::string& jsonPath)
  */
 inline void BuildBorderBlocks(engine::graphics::ModelCommon* modelCommon, engine::graphics::Model* modelBlock,
     std::vector<std::unique_ptr<engine::graphics::Object3d>>& borderBlocks,
-    const std::string& jsonPath = "Resources/Config/border_layout.json")
-{
+    const std::string& jsonPath = "Resources/Config/border_layout.json") {
     const BorderBlockLayout layout = LoadBorderBlockLayout(jsonPath);
 
     auto addBlock = [&](float x, float y, float z) {
@@ -76,20 +73,16 @@ inline void BuildBorderBlocks(engine::graphics::ModelCommon* modelCommon, engine
         b->Update();
         borderBlocks.push_back(std::move(b));
     };
-    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x)
-    {
+    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x) {
         addBlock(static_cast<float>(x), layout.floorY, layout.blockZ);
     }
-    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x)
-    {
+    for (int x = layout.wallMinIndex; x <= layout.floorCeilingMaxIndex; ++x) {
         addBlock(static_cast<float>(x), layout.ceilingY, layout.blockZ);
     }
-    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y)
-    {
+    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y) {
         addBlock(layout.leftWallX, static_cast<float>(y), layout.blockZ);
     }
-    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y)
-    {
+    for (int y = layout.wallMinIndex; y <= layout.wallMaxIndex; ++y) {
         addBlock(layout.rightWallX, static_cast<float>(y), layout.blockZ);
     }
 }

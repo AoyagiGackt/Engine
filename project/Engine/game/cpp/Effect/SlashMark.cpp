@@ -9,23 +9,19 @@ using namespace engine::graphics;
 
 namespace engine::game {
 /** @brief シングルトンインスタンスを取得する */
-SlashMark* SlashMark::GetInstance()
-{
-    static SlashMark instance;
-    return &instance;
+SlashMark* SlashMark::GetInstance() {
+    static SlashMark sInstance;
+    return &sInstance;
 }
 
 /** @brief 斬撃線用Spriteの生成に使う共通設定を受け取って初期化する */
-void SlashMark::Initialize(SpriteCommon* spriteCommon)
-{
+void SlashMark::Initialize(SpriteCommon* spriteCommon) {
     spriteCommon_ = spriteCommon;
 }
 
 /** @brief プールから空きスプライトを取り出す（無ければ新しく作る） */
-std::unique_ptr<Sprite> SlashMark::AcquireSprite()
-{
-    if (!spritePool_.empty())
-    {
+std::unique_ptr<Sprite> SlashMark::AcquireSprite() {
+    if (!spritePool_.empty()) {
         std::unique_ptr<Sprite> sprite = std::move(spritePool_.back());
         spritePool_.pop_back();
         return sprite;
@@ -37,10 +33,8 @@ std::unique_ptr<Sprite> SlashMark::AcquireSprite()
 }
 
 /** @brief 新しい斬撃線を登録する */
-void SlashMark::Spawn(const SlashMarkParams& params)
-{
-    if (!spriteCommon_)
-    {
+void SlashMark::Spawn(const SlashMarkParams& params) {
+    if (!spriteCommon_) {
         return;
     }
 
@@ -58,8 +52,7 @@ void SlashMark::Spawn(const SlashMarkParams& params)
 }
 
 /** @brief 1枚分のスプライトを生成してエントリに登録する */
-void SlashMark::SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color)
-{
+void SlashMark::SpawnLayer(const SlashMarkParams& params, float thickness, const Vector4& color) {
     const float dx = params.end.x - params.start.x;
     const float dy = params.end.y - params.start.y;
     const float length = std::sqrt(dx * dx + dy * dy);
@@ -78,10 +71,8 @@ void SlashMark::SpawnLayer(const SlashMarkParams& params, float thickness, const
 }
 
 /** @brief 毎フレームタイマーを更新し、時間切れの斬撃線を削除する */
-void SlashMark::Update(float dt)
-{
-    for (auto& entry : entries_)
-    {
+void SlashMark::Update(float dt) {
+    for (auto& entry : entries_) {
         entry.timer += dt;
         const float t = std::clamp(entry.timer / entry.duration, 0.0f, 1.0f);
         const float fade = (1.0f - t) * (1.0f - t); // 出だしは明るく残し、終わり際に一気に消す
@@ -92,10 +83,8 @@ void SlashMark::Update(float dt)
     }
 
     // 時間切れの線はスプライトを破棄せずプールへ戻す
-    for (auto& entry : entries_)
-    {
-        if (entry.timer >= entry.duration)
-        {
+    for (auto& entry : entries_) {
+        if (entry.timer >= entry.duration) {
             spritePool_.push_back(std::move(entry.sprite));
         }
     }
@@ -105,19 +94,15 @@ void SlashMark::Update(float dt)
 }
 
 /** @brief 全斬撃線を描画コマンドとして積む */
-void SlashMark::Draw()
-{
-    for (auto& entry : entries_)
-    {
+void SlashMark::Draw() {
+    for (auto& entry : entries_) {
         entry.sprite->Draw();
     }
 }
 
 /** @brief 表示中の全斬撃線を指定色で一斉に光らせ、指定時間で消えるようにする */
-void SlashMark::FlashAll(const Vector4& color, float duration)
-{
-    for (auto& entry : entries_)
-    {
+void SlashMark::FlashAll(const Vector4& color, float duration) {
+    for (auto& entry : entries_) {
         // 残光レイヤーの淡さは保ったまま色だけ差し替える
         const float alpha = (std::min)(entry.baseColor.w, color.w);
         entry.baseColor = { color.x, color.y, color.z, alpha };
@@ -127,8 +112,7 @@ void SlashMark::FlashAll(const Vector4& color, float duration)
 }
 
 /** @brief 全斬撃線とプールを解放する（GPUの完了を待った後、シーン終了時にだけ呼ぶ） */
-void SlashMark::Clear()
-{
+void SlashMark::Clear() {
     // シーン終了時（SceneManagerがGPUの完了を待った後）に呼ばれるので、プールごと解放してよい
     entries_.clear();
     spritePool_.clear();

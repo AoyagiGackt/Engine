@@ -97,13 +97,11 @@ float LerpF(float a, float b, float t) {
 
 /** @brief 状態を待機にして初期化する */
 KnightEnemy::KnightEnemy()
-    : state_(&StateOf<IdleState>())
-{
+    : state_(&StateOf<IdleState>()) {
 }
 
 /** @brief モデルを読み込み、出現位置に置いて初期化する */
-void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
-{
+void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos) {
     // 地面に立たせ、予備動作の状態から始める
     pos_ = spawnPos;
     pos_.y = kGroundY;
@@ -151,30 +149,25 @@ void KnightEnemy::Initialize(ModelCommon* modelCommon, const Vector3& spawnPos)
 }
 
 /** @brief 通常行動中（攻撃で倒せる状態）か */
-bool KnightEnemy::IsAlive() const
-{
+bool KnightEnemy::IsAlive() const {
     return state_->IsAlive();
 }
 
 /** @brief 撃破後、武器を奪われるのを待っている（灰色で静止）状態か */
-bool KnightEnemy::IsAwaitingSteal() const
-{
+bool KnightEnemy::IsAwaitingSteal() const {
     return state_->IsAwaitingSteal();
 }
 
 /** @brief ダメージを与える生存中のみ有効撃破すると凍結状態(Defeated)へ遷移する */
-void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
-{
-    if (!IsAlive())
-    {
+void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY) {
+    if (!IsAlive()) {
         return;
     }
     hp_ -= damage;
     hitFlash_ = kHitFlashDuration;
     knockVelX_ += knockDirX * Tuning().knockbackSpeed;
     knockVelY_ = knockY;
-    if (hp_ <= 0)
-    {
+    if (hp_ <= 0) {
         ChangeState(StateOf<DefeatedState>());
         object_->SetAnimSpeed(0.0f);
         object_->SetColor(kDefeatedColor);
@@ -185,10 +178,8 @@ void KnightEnemy::TakeDamage(int damage, float knockDirX, float knockY)
 }
 
 /** @brief 武器の吸収を開始する。IsAwaitingSteal() が true の時だけ受け付ける */
-bool KnightEnemy::TryBeginAbsorb()
-{
-    if (!state_->IsAwaitingSteal())
-    {
+bool KnightEnemy::TryBeginAbsorb() {
+    if (!state_->IsAwaitingSteal()) {
         return false;
     }
     ChangeState(StateOf<AbsorbingState>());
@@ -196,34 +187,28 @@ bool KnightEnemy::TryBeginAbsorb()
 }
 
 /** @brief 見た目のトランスフォーム行列だけを再計算する（AIは一切進めない） */
-void KnightEnemy::RefreshVisualTransforms()
-{
+void KnightEnemy::RefreshVisualTransforms() {
     // 位置・AI状態は変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
     // （状態のApplyTransforms()はpos_/yaw_等の現在値を読むだけでAIやタイマーは一切進めない）
     state_->ApplyTransforms(*this);
 }
 
 /** @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ） */
-void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
-{
-    if (blocks.empty() || !IsAlive())
-    {
+void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks) {
+    if (blocks.empty() || !IsAlive()) {
         return;
     } // 撃破後は演出中なので押し出さない
 
     AABB self = GetAABB();
-    for (const auto& b : blocks)
-    {
+    for (const auto& b : blocks) {
         bool overlapY = self.max.y > b.min.y && self.min.y < b.max.y;
         bool overlapZ = self.max.z > b.min.z && self.min.z < b.max.z;
-        if (!overlapY || !overlapZ)
-        {
+        if (!overlapY || !overlapZ) {
             continue;
         }
 
         bool overlapX = self.max.x > b.min.x && self.min.x < b.max.x;
-        if (!overlapX)
-        {
+        if (!overlapX) {
             continue;
         }
 
@@ -236,42 +221,35 @@ void KnightEnemy::ResolveBlockCollision(const std::vector<AABB>& blocks)
 }
 
 /** @brief AI（Idle/Telegraph/Dash/Recover）または吸収演出を1フレーム進める */
-void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos)
-{
-    if (hitFlash_ > 0.0f)
-    {
-        hitFlash_ = (std::max)(0.0f, hitFlash_ - GameConstants::kFrameDeltaTime);
+void KnightEnemy::Update(ParticleManager* pm, const Vector3& playerPos) {
+    if (hitFlash_ > 0.0f) {
+        hitFlash_ = (std::max)(0.0f, hitFlash_ - gameConstants::kFrameDeltaTime);
     }
 
     // 打ち上げ等でノックバック中はAIを一時停止する（さもないと空中でDash等の地上移動が割り込む）
     bool inKnockback = (knockVelX_ != 0.0f || knockVelY_ != 0.0f);
-    if (!(IsAlive() && inKnockback))
-    {
-        stateTimer_ += GameConstants::kFrameDeltaTime;
+    if (!(IsAlive() && inKnockback)) {
+        stateTimer_ += gameConstants::kFrameDeltaTime;
         state_->Update(*this, pm, playerPos);
     }
 
     // 被弾ノックバック（AIの位置更新の後に上乗せし、時間で減衰させる）
-    if (inKnockback)
-    {
+    if (inKnockback) {
         pos_.x += knockVelX_;
         pos_.y += knockVelY_;
         knockVelX_ *= Tuning().knockbackDecay;
         knockVelY_ -= kKnockbackGravity; // 重力っぽく落ちる
-        if (pos_.y <= kGroundY)
-        {
+        if (pos_.y <= kGroundY) {
             pos_.y = kGroundY;
             knockVelY_ = 0.0f;
         }
-        if (std::abs(knockVelX_) < kKnockbackStopSpeed)
-        {
+        if (std::abs(knockVelX_) < kKnockbackStopSpeed) {
             knockVelX_ = 0.0f;
         }
     }
 
     const bool wantsAttackAnimation = state_->PlaysAttackAnimation();
-    if (IsAlive() && wantsAttackAnimation != playingAttackAnimation_)
-    {
+    if (IsAlive() && wantsAttackAnimation != playingAttackAnimation_) {
         object_->SetAnimation(wantsAttackAnimation ? attackAnimation_ : idleAnimation_);
         playingAttackAnimation_ = wantsAttackAnimation;
     }
@@ -357,11 +335,9 @@ public:
 
 
 /** @brief 待機時間が過ぎたら、プレイヤーへ向けた突進先を決めて予備動作へ移る */
-void KnightEnemy::IdleState::Update(KnightEnemy& knight, ParticleManager*, const Vector3& playerPos) const
-{
+void KnightEnemy::IdleState::Update(KnightEnemy& knight, ParticleManager*, const Vector3& playerPos) const {
     knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kIdleSwordFollowRate);
-    if (knight.stateTimer_ >= Tuning().idleDuration)
-    {
+    if (knight.stateTimer_ >= Tuning().idleDuration) {
         knight.ChangeState(StateOf<TelegraphState>());
         knight.dashStart_ = knight.pos_;
         float dx = std::clamp(playerPos.x - knight.pos_.x, -Tuning().maxDashDistance, Tuning().maxDashDistance);
@@ -370,67 +346,56 @@ void KnightEnemy::IdleState::Update(KnightEnemy& knight, ParticleManager*, const
 }
 
 /** @brief 剣を引いて構え、予備動作が終わったら突進へ移る */
-void KnightEnemy::TelegraphState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
-{
+void KnightEnemy::TelegraphState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const {
     float t = std::clamp(knight.stateTimer_ / Tuning().telegraphDuration, 0.0f, 1.0f);
     knight.swordSwing_ = LerpF(knight.swordSwing_, kSwordPullBack, kTelegraphSwordFollowRate);
-    if (t >= 1.0f)
-    {
+    if (t >= 1.0f) {
         knight.ChangeState(StateOf<DashState>());
     }
 }
 
 /** @brief 突進先へ移動しながら靄の軌跡を出し、終わったら硬直へ移る */
-void KnightEnemy::DashState::Update(KnightEnemy& knight, ParticleManager* pm, const Vector3&) const
-{
+void KnightEnemy::DashState::Update(KnightEnemy& knight, ParticleManager* pm, const Vector3&) const {
     float t = std::clamp(knight.stateTimer_ / Tuning().dashDuration, 0.0f, 1.0f);
     float eased = EaseOutQuad(t);
     knight.pos_.x = LerpF(knight.dashStart_.x, knight.dashTarget_.x, eased);
-    if (knight.dashTarget_.x != knight.dashStart_.x)
-    {
-        knight.yaw_ = (knight.dashTarget_.x >= knight.dashStart_.x) ? GameConstants::kHalfPi : -GameConstants::kHalfPi;
+    if (knight.dashTarget_.x != knight.dashStart_.x) {
+        knight.yaw_ = (knight.dashTarget_.x >= knight.dashStart_.x) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
     }
     knight.swordSwing_ = LerpF(knight.swordSwing_, kSwordSwingFwd, kDashSwordFollowRate);
     // 派手な閃光とは対照的な、暗い靄の軌跡
-    if (pm)
-    {
+    if (pm) {
         pm->EmitTrail(kDashSmokeEmitterName, { knight.pos_.x, knight.pos_.y + kDashSmokeHeight, knight.pos_.z },
             kDashSmokeColor, kDashSmokeSize, kDashSmokeLifetime);
     }
-    if (t >= 1.0f)
-    {
+    if (t >= 1.0f) {
         knight.ChangeState(StateOf<RecoverState>());
     }
 }
 
 /** @brief 剣を戻し、硬直が終わったら待機へ戻る */
-void KnightEnemy::RecoverState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const
-{
+void KnightEnemy::RecoverState::Update(KnightEnemy& knight, ParticleManager*, const Vector3&) const {
     knight.swordSwing_ = LerpF(knight.swordSwing_, 0.0f, kRecoverSwordFollowRate);
-    if (knight.stateTimer_ >= Tuning().recoverDuration)
-    {
+    if (knight.stateTimer_ >= Tuning().recoverDuration) {
         knight.ChangeState(StateOf<IdleState>());
     }
 }
 
 /** @brief 現在の状態の共有インスタンスを返す */
 template <class T>
-const KnightEnemy::IState& KnightEnemy::StateOf()
-{
+const KnightEnemy::IState& KnightEnemy::StateOf() {
     static const T instance;
     return instance;
 }
 
 /** @brief 状態を切り替えて経過時間をリセットする */
-void KnightEnemy::ChangeState(const IState& next)
-{
+void KnightEnemy::ChangeState(const IState& next) {
     state_ = &next;
     stateTimer_ = 0.0f;
 }
 
 /** @brief 武器がプレイヤーへ吸い込まれる演出を進める */
-void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
-{
+void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos) {
     // 吸収の進み具合（0〜1）を加速する曲線で使う
     float t = std::clamp(stateTimer_ / kAbsorbDuration, 0.0f, 1.0f);
     float eased = EaseInQuad(t);
@@ -461,8 +426,7 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
 
     // 剣・体ともに光の粒に変わりながら吸い込まれていく軌跡
     Vector4 glowColor = { LerpF(kAbsorbGlowStartRed, 1.0f, t), LerpF(kAbsorbGlowStartGreen, 1.0f, t), 1.0f, 1.0f };
-    if (pm)
-    {
+    if (pm) {
         pm->EmitTrail("bt_weapon_orb", swordFlyPos, glowColor, LerpF(kSwordTrailScaleStart, kSwordTrailScaleEnd, t), kSwordTrailLifetime);
         pm->EmitTrail("bt_weapon_orb", bodyFlyPos, glowColor, LerpF(kBodyTrailScaleStart, kBodyTrailScaleEnd, bodyEased), kBodyTrailLifetime);
     }
@@ -477,25 +441,22 @@ void KnightEnemy::UpdateAbsorb(ParticleManager* pm, const Vector3& playerPos)
 
     // 体は高速回転させながら縮め、球状に丸まっていくように見せる
     object_->SetPosition(bodyFlyPos);
-    object_->SetRotation({ bodyEased * GameConstants::kTwoPi * kBodyAbsorbSpins, yaw_ + bodyEased * GameConstants::kTwoPi * kBodyAbsorbSpins, 0.0f });
+    object_->SetRotation({ bodyEased * gameConstants::kTwoPi * kBodyAbsorbSpins, yaw_ + bodyEased * gameConstants::kTwoPi * kBodyAbsorbSpins, 0.0f });
     object_->SetScale({ bodyScale, bodyScale, bodyScale });
     object_->SetColor(glowColor);
     object_->Update();
 
     // 吸収し終えたら吸い込まれた状態へ移る
-    if (t >= 1.0f)
-    {
+    if (t >= 1.0f) {
         ChangeState(StateOf<ConsumedState>());
     }
 }
 
 /** @brief 立ち姿勢（倒れた時は倒れた姿勢）でモデルの行列を更新する */
-void KnightEnemy::ApplyStandingTransforms(bool defeatedPose)
-{
+void KnightEnemy::ApplyStandingTransforms(bool defeatedPose) {
     float facingSign = (yaw_ >= 0.0f) ? 1.0f : -1.0f;
 
-    if (!defeatedPose)
-    {
+    if (!defeatedPose) {
         // 被弾直後は白く明滅させ、ヒットがはっきり伝わるようにする
         float f = hitFlash_ / kHitFlashDuration;
         object_->SetColor({ 1.0f + f, 1.0f + f, 1.0f + f, 1.0f });
@@ -520,10 +481,8 @@ void KnightEnemy::ApplyStandingTransforms(bool defeatedPose)
 }
 
 /** @brief 騎士のモデルと武器を描画する */
-void KnightEnemy::Draw()
-{
-    if (!state_->IsVisible())
-    {
+void KnightEnemy::Draw() {
+    if (!state_->IsVisible()) {
         return;
     }
     object_->Draw();

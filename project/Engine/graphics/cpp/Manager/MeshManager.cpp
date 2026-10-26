@@ -14,19 +14,16 @@ constexpr float kPi = 3.14159265358979323846f;
 constexpr float kTwoPi = kPi * 2.0f;
 
 /** @brief 球のメッシュ（頂点とインデックス）を作る */
-MeshData GenerateSphereMesh(int subdivision = kSphereSubdivisions, float radius = 1.0f)
-{
+MeshData GenerateSphereMesh(int subdivision = kSphereSubdivisions, float radius = 1.0f) {
     MeshData mesh;
     mesh.transform = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
 
-    for (int lat = 0; lat < subdivision; ++lat)
-    {
+    for (int lat = 0; lat < subdivision; ++lat) {
         float lat0 = kPi * (float(lat) / subdivision - 0.5f);
         float lat1 = kPi * (float(lat + 1) / subdivision - 0.5f);
 
-        for (int lon = 0; lon < subdivision; ++lon)
-        {
+        for (int lon = 0; lon < subdivision; ++lon) {
             float lon0 = kTwoPi * float(lon) / subdivision;
             float lon1 = kTwoPi * float(lon + 1) / subdivision;
 
@@ -53,8 +50,7 @@ MeshData GenerateSphereMesh(int subdivision = kSphereSubdivisions, float radius 
 }
 
 /** @brief 立方体のメッシュ（頂点とインデックス）を作る */
-MeshData GenerateCubeMesh(float size = 1.0f)
-{
+MeshData GenerateCubeMesh(float size = 1.0f) {
     MeshData mesh;
     mesh.transform = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
@@ -82,8 +78,7 @@ MeshData GenerateCubeMesh(float size = 1.0f)
         { { s, -s, -s, 1 }, { -s, -s, -s, 1 }, { -s, s, -s, 1 }, { s, s, -s, 1 }, { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 }, { 0, 0, -1 } },
     };
 
-    for (const auto& f : faces)
-    {
+    for (const auto& f : faces) {
         mesh.vertices.push_back({ f.p0, f.uv0, f.normal });
         mesh.vertices.push_back({ f.p1, f.uv1, f.normal });
         mesh.vertices.push_back({ f.p2, f.uv2, f.normal });
@@ -97,8 +92,7 @@ MeshData GenerateCubeMesh(float size = 1.0f)
 }
 
 /** @brief 平面のメッシュ（頂点とインデックス）を作る */
-MeshData GeneratePlaneMesh(float width = 1.0f, float height = 1.0f)
-{
+MeshData GeneratePlaneMesh(float width = 1.0f, float height = 1.0f) {
     MeshData mesh;
     mesh.transform = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
@@ -128,8 +122,7 @@ MeshData GeneratePlaneMesh(float width = 1.0f, float height = 1.0f)
 
 /** @brief 組み込みのメッシュ（球・立方体・平面）を用意して初期化する */
 MeshManager::MeshManager()
-    : currentMeshType_(MeshType::Sphere)
-{
+    : currentMeshType_(MeshType::kSphere) {
     InitMeshes();
 }
 
@@ -151,8 +144,7 @@ void MeshManager::SetMeshTransform(MeshType type, const Transform& transform) {
 }
 
 /** @brief 初期化時に各基本図形（球体、立方体、平面）の頂点データを計算してリストに登録する */
-void MeshManager::InitMeshes()
-{
+void MeshManager::InitMeshes() {
     meshes_.clear();
     meshes_.push_back(GenerateSphereMesh());
     meshes_.push_back(GenerateCubeMesh());
@@ -160,15 +152,13 @@ void MeshManager::InitMeshes()
 }
 
 /** @brief MeshManagerの唯一のインスタンスを取得する */
-MeshManager* MeshManager::GetInstance()
-{
-    static MeshManager instance;
-    return &instance;
+MeshManager* MeshManager::GetInstance() {
+    static MeshManager sInstance;
+    return &sInstance;
 }
 
 /** @brief マネージャーの終了処理を行う（リストのクリアなど） */
-void MeshManager::Finalize()
-{
+void MeshManager::Finalize() {
     meshes_.clear();
 }
 } // namespace engine::graphics

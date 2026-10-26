@@ -9,6 +9,10 @@ namespace engine::game {
 /** @brief スコアランキングの読み込みと保存を管理する */
 class ScoreManager {
 public:
+    /** @brief ファイルへの書き込みを止める（自動テストのスコアをランキングに残さないため） */
+    void SetWritesEnabled(bool enabled) {
+        writesEnabled_ = enabled;
+    }
     /** @brief ランキング管理の共有インスタンスを取得する */
     static ScoreManager* GetInstance();
 
@@ -22,12 +26,12 @@ public:
     void LoadScores();
 
     /** @brief 表示用のランキングを独立したスナップショットとして取得する */
-    std::vector<int> GetRankingSnapshot() const
-    {
+    std::vector<int> GetRankingSnapshot() const {
         return ranking_;
     }
 
 private:
+    bool writesEnabled_ = true; ///< false の間は SaveScores() でファイルへ書かない
     /** @brief 空のランキングを生成する */
     ScoreManager() = default;
 

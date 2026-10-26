@@ -37,10 +37,9 @@ namespace engine::graphics {
 class OutlineEffect {
 public:
     /** @brief シングルトンインスタンスを取得する */
-    static OutlineEffect* GetInstance()
-    {
-        static OutlineEffect instance;
-        return &instance;
+    static OutlineEffect* GetInstance() {
+        static OutlineEffect sInstance;
+        return &sInstance;
     }
 
     // 初期化 / 破棄
@@ -66,10 +65,8 @@ public:
      * @brief アウトラインの色を設定する
      * @param color RGBA（アルファで半透明アウトラインも可能）
      */
-    void SetColor(const Vector4& color)
-    {
-        if (cbData_)
-        {
+    void SetColor(const Vector4& color) {
+        if (cbData_) {
             cbData_->color = color;
         }
     }
@@ -78,10 +75,8 @@ public:
      * @brief アウトラインの太さを設定する
      * @param width クリップ空間単位（推奨 0.01〜0.05）大きすぎると正面も塗りつぶされる
      */
-    void SetWidth(float width)
-    {
-        if (cbData_)
-        {
+    void SetWidth(float width) {
+        if (cbData_) {
             cbData_->width = width;
         }
     }

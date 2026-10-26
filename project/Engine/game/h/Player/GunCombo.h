@@ -82,6 +82,14 @@ public:
     /** @brief 現在の銃回転オフセットを返す（構え→リコイル→構え直しの補間） */
     Vector3 GetPoseOffset() const;
 
+    /** @brief 現在の段の経過秒数を返す */
+    float GetElapsedTime() const {
+        return timer_;
+    }
+
+    /** @brief 発砲を中央のキーに合わせた加算モーションの再生割合を返す */
+    float GetMotionProgress() const;
+
 private:
     void StartStep(const GunShotDef* def, int tableIdx);
 

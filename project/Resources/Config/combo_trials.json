@@ -1,0 +1,10 @@
+{
+  "_comment": "バトルテストのポーズメニュー → コンボ練習 で選べるコンボ。name=一覧に出す名前、steps=出す順の行動（attack=地上で攻撃を当てる launch=打ち上げ jump=ジャンプ airAttack=空中で攻撃を当てる shoot=銃を撃つ skill=武器の固有技を当てる dodge=回避）。1つのコンボは12手順まで。手順の間が空きすぎると最初からやり直し",
+  "trials": [
+    { "name": "基本コンボ", "steps": ["attack", "attack", "attack"] },
+    { "name": "銃を混ぜる", "steps": ["attack", "attack", "shoot", "attack"] },
+    { "name": "回避から反撃", "steps": ["dodge", "attack", "attack", "attack"] },
+    { "name": "打ち上げて空中へ", "steps": ["attack", "attack", "launch", "jump", "airAttack", "airAttack"] },
+    { "name": "固有技でしめる", "steps": ["attack", "attack", "skill"] }
+  ]
+}

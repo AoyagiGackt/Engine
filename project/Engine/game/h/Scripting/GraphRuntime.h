@@ -42,10 +42,8 @@ public:
 
     /** @brief 内部の格納形式を公開せず、変数の名前と値を1件ずつ通知する */
     template <typename Visitor>
-    void VisitVariables(const Visitor& visitor) const
-    {
-        for (const auto& [name, value] : variables_)
-        {
+    void VisitVariables(const Visitor& visitor) const {
+        for (const auto& [name, value] : variables_) {
             visitor(name, value);
         }
     }
@@ -61,10 +59,8 @@ public:
      * @note GraphEditorが今開いているグラフと実際に実行中のグラフが一致するかを
      * パスで突き合わせ、サブグラフを開いて見ている最中でもハイライトを追従させるために使う
      */
-    const GraphRuntime& GetActiveLeaf(std::string& outPath) const
-    {
-        if (child_)
-        {
+    const GraphRuntime& GetActiveLeaf(std::string& outPath) const {
+        if (child_) {
             outPath = activeChildPath_;
             return child_->GetActiveLeaf(outPath);
         }

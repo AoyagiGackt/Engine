@@ -25,23 +25,19 @@ using namespace engine::graphics;
 namespace engine::game {
 namespace {
 /** @brief 読み込み済みの調整値を取得する */
-const PlayerTuning& Tuning()
-{
+const PlayerTuning& Tuning() {
     return PlayerTuning::Get();
 }
 
 /** @brief 体の移動キーの高さを最初の値に固定する（高さは物理で決めるため） */
-void LockClipVerticalRootMotion(Animation& animation)
-{
+void LockClipVerticalRootMotion(Animation& animation) {
     auto body = animation.nodeAnimations.find("Body");
-    if (body == animation.nodeAnimations.end() || body->second.translate.keyframes.empty())
-    {
+    if (body == animation.nodeAnimations.end() || body->second.translate.keyframes.empty()) {
         return;
     }
 
     const float baseY = body->second.translate.keyframes.front().value.y;
-    for (auto& keyframe : body->second.translate.keyframes)
-    {
+    for (auto& keyframe : body->second.translate.keyframes) {
         keyframe.value.y = baseY;
     }
 }
@@ -52,8 +48,7 @@ void LockClipVerticalRootMotion(Animation& animation)
 // ══════════════════════════════════════════════════════
 
 /** @brief 描画基盤・アニメーション・手持ち武器とプレイヤー状態を初期化する */
-void Player::Initialize(ModelCommon* modelCommon)
-{
+void Player::Initialize(ModelCommon* modelCommon) {
     modelCommon_ = modelCommon;
 
     // スキンメッシュ共通設定（両フォームのリグで共有）
@@ -130,8 +125,7 @@ void Player::Initialize(ModelCommon* modelCommon)
     auto initializeSlots = [&](auto& slots, const auto& assets) {
         using Slot = typename std::decay_t<decltype(slots)>::value_type;
         slots.clear();
-        for (const auto& asset : assets)
-        {
+        for (const auto& asset : assets) {
             Slot slot;
             slot.type = asset.type;
             slot.gripScale = asset.gripScale;
@@ -147,23 +141,19 @@ void Player::Initialize(ModelCommon* modelCommon)
 }
 
 /** @brief 武器奪取の刺突モーションを頭から再生する（外部トリガー用、既存の斬撃を流用） */
-void Player::PlayStealStab()
-{
+void Player::PlayStealStab() {
     // 武器奪取の刺突（専用素材が無いため斬撃を流用）
     PlayAttackAnim(rig_->slashAnim, Tuning().stealStabAnimSpeed);
 }
 
 /** @brief 被弾時の無敵時間を開始する */
-void Player::OnHit()
-{
+void Player::OnHit() {
     invincibleTimer_ = Tuning().invincibleDuration;
 }
 
 /** @brief スキル補正込みのコンボ最大数を返す（現在の武器の地上コンボ段数基準） */
-int Player::GetComboMax() const
-{
-    if (!WeaponManager::GetInstance()->HasEquippedWeapon())
-    {
+int Player::GetComboMax() const {
+    if (!WeaponManager::GetInstance()->HasEquippedWeapon()) {
         return 0;
     }
     // 現在の武器の地上コンボ段数を基準にする（HUDのx段目/最大表示用）
@@ -172,40 +162,34 @@ int Player::GetComboMax() const
 }
 
 /** @brief 現在の武器と覚醒状態から攻撃ダメージ倍率を返す（覚醒中はweapons.jsonのawakened.damageMult） */
-float Player::GetAwakenedDamageMult() const
-{
+float Player::GetAwakenedDamageMult() const {
     const auto* wm = WeaponManager::GetInstance();
     return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.damageMult : 1.0f;
 }
 
 /** @brief 現在の武器と覚醒状態から固有技の判定範囲倍率を返す（非覚醒時は1.0） */
-float Player::GetAwakenedSkillRadiusMult() const
-{
+float Player::GetAwakenedSkillRadiusMult() const {
     const auto* wm = WeaponManager::GetInstance();
     return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.skillRadiusMult : 1.0f;
 }
 
 /** @brief 現在の武器と覚醒状態からノックバック倍率を返す（非覚醒時は1.0） */
-float Player::GetAwakenedKnockbackMult() const
-{
+float Player::GetAwakenedKnockbackMult() const {
     const auto* wm = WeaponManager::GetInstance();
     return (isAwakened_ && wm->HasEquippedWeapon()) ? wm->GetCurrent().awakened.knockbackMult : 1.0f;
 }
 
 /** @brief 回避ボタンの押下を先行入力として記憶する */
-void Player::BufferDodgeInput(Input* input)
-{
-    if (input->TriggerAction(Input::Action::Dodge))
-    {
+void Player::BufferDodgeInput(Input* input) {
+    if (input->TriggerAction(Input::Action::kDodge)) {
         dodgeBufferFrames_ = Tuning().dodgeBufferFrames;
     }
 }
 
 /** @brief 回避入力の受付と回避移動の進行を処理する */
-void Player::HandleDodge(Input* input)
-{
-    dodgeCooldown_ = (std::max)(dodgeCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
-    dodgeSpamTimer_ += GameConstants::kFrameDeltaTime;
+void Player::HandleDodge(Input* input) {
+    dodgeCooldown_ = (std::max)(dodgeCooldown_ - gameConstants::kFrameDeltaTime, 0.0f);
+    dodgeSpamTimer_ += gameConstants::kFrameDeltaTime;
 
     // 先行入力の残りフレームを消費しつつ、このフレームの押下も同じバッファに載せる
     // （シーンがBufferDodgeInput()を呼んでいなくても直押しで回避できるように）
@@ -214,10 +198,8 @@ void Player::HandleDodge(Input* input)
     dodgeBufferFrames_ = (std::max)(dodgeBufferFrames_ - 1, 0);
 
     // 進行中の回避を進める（イージングで滑らかに移動し、終わったら無敵を解く）
-    if (dodgeActive_)
-    {
-        if (AdvanceHorizontalMove(dodgeTimer_, Tuning().dodgeDuration, dodgeStartX_, dodgeTargetX_))
-        {
+    if (dodgeActive_) {
+        if (AdvanceHorizontalMove(dodgeTimer_, Tuning().dodgeDuration, dodgeStartX_, dodgeTargetX_)) {
             dodgeActive_ = false;
             dodgeCooldown_ = Tuning().dodgeCooldown;
         }
@@ -226,8 +208,7 @@ void Player::HandleDodge(Input* input)
 
     const bool blocked = inWater_ || finisherCharging_ || IsRampaging()
         || dodgeCooldown_ > 0.0f || warpActive_;
-    if (blocked || !dodgeRequested)
-    {
+    if (blocked || !dodgeRequested) {
         return;
     }
     dodgeBufferFrames_ = 0; // 消費した先行入力で二重に回避しない
@@ -237,8 +218,7 @@ void Player::HandleDodge(Input* input)
     const float heldDirX = GetHeldMoveDirection(input);
     dodgeBackward_ = heldDirX == 0.0f;
     const float dirX = dodgeBackward_ ? -lastDirX_ : heldDirX;
-    if (!dodgeBackward_)
-    {
+    if (!dodgeBackward_) {
         lastDirX_ = dirX;
     }
 
@@ -247,7 +227,7 @@ void Player::HandleDodge(Input* input)
     dodgeSpamTimer_ = 0.0f;
 
     dodgeActive_ = true;
-    SetFrameEvent(FrameEvent::Dodged);
+    SetFrameEvent(FrameEvent::kDodged);
     dodgeRewardClaimed_ = false;
     dodgeTimer_ = 0.0f;
     dodgeStartX_ = pos_.x;
@@ -263,24 +243,20 @@ void Player::HandleDodge(Input* input)
 }
 
 /** @brief 時間を正規化して減速補間し、共通のステージ境界に収めてから終了を判定する */
-bool Player::AdvanceHorizontalMove(float& timer, float duration, float startX, float targetX)
-{
-    timer += GameConstants::kFrameDeltaTime;
+bool Player::AdvanceHorizontalMove(float& timer, float duration, float startX, float targetX) {
+    timer += gameConstants::kFrameDeltaTime;
     const float progress = std::clamp(timer / duration, 0.0f, 1.0f);
-    pos_.x = std::clamp(startX + (targetX - startX) * Easing::EaseOutQuad(progress), minX_, maxX_);
+    pos_.x = std::clamp(startX + (targetX - startX) * easing::EaseOutQuad(progress), minX_, maxX_);
     return progress >= 1.0f;
 }
 
 /** @brief テレポート斬り入力の受付とワープ移動の進行を処理する */
-void Player::HandleWarp(Input* input)
-{
-    warpCooldown_ = (std::max)(warpCooldown_ - GameConstants::kFrameDeltaTime, 0.0f);
+void Player::HandleWarp(Input* input) {
+    warpCooldown_ = (std::max)(warpCooldown_ - gameConstants::kFrameDeltaTime, 0.0f);
 
     // 進行中のワープを進める（イージングで滑らかに移動し、終わったら無敵を解く）
-    if (warpActive_)
-    {
-        if (AdvanceHorizontalMove(warpTimer_, Tuning().warpDuration, warpStartX_, warpTargetX_))
-        {
+    if (warpActive_) {
+        if (AdvanceHorizontalMove(warpTimer_, Tuning().warpDuration, warpStartX_, warpTargetX_)) {
             warpActive_ = false;
             warpCooldown_ = isAwakened_ ? Tuning().warpAwakenedCooldown : Tuning().warpCooldown;
         }
@@ -290,13 +266,11 @@ void Player::HandleWarp(Input* input)
     const bool blocked = inWater_ || finisherCharging_ || IsRampaging()
         || warpCooldown_ > 0.0f || dodgeActive_;
     const bool hasGauge = isAwakened_ || awakenGauge_ >= Tuning().warpGaugeCost;
-    if (blocked || !hasGauge || !input->TriggerAction(Input::Action::Warp))
-    {
+    if (blocked || !hasGauge || !input->TriggerAction(Input::Action::kWarp)) {
         return;
     }
 
-    if (!isAwakened_)
-    {
+    if (!isAwakened_) {
         awakenGauge_ -= Tuning().warpGaugeCost;
     }
 
@@ -313,8 +287,7 @@ void Player::HandleWarp(Input* input)
 }
 
 /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
-void Player::PlayAttackAnim(const Animation& anim, float speed)
-{
+void Player::PlayAttackAnim(const Animation& anim, float speed) {
     rig_->object->SetAnimation(anim);
     rig_->object->SetAnimSpeed(speed);
     animState_ = &AttackAnim();
@@ -326,17 +299,15 @@ void Player::PlayAttackAnim(const Animation& anim, float speed)
 // ══════════════════════════════════════════════════════
 
 /** @brief 入力・移動・戦闘・アニメーションなどプレイヤーの状態を1フレーム分更新する */
-void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool useStageFloor)
-{
+void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool useStageFloor) {
     useStageFloor_ = useStageFloor;
     ResetFrameFlags();
 
-    if (invincibleTimer_ > 0.0f)
-    {
-        invincibleTimer_ -= GameConstants::kFrameDeltaTime;
+    if (invincibleTimer_ > 0.0f) {
+        invincibleTimer_ -= gameConstants::kFrameDeltaTime;
     }
 
-    justDodgeWindowTimer_ = (std::max)(justDodgeWindowTimer_ - GameConstants::kFrameDeltaTime, 0.0f);
+    justDodgeWindowTimer_ = (std::max)(justDodgeWindowTimer_ - gameConstants::kFrameDeltaTime, 0.0f);
 
     HandleStyleSwitch(input);
     HandleDodge(input);
@@ -344,8 +315,7 @@ void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool
 
     GetPhysicsState(inWater_).Update(*this, input);
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
-    if (onGround_)
-    {
+    if (onGround_) {
         NotifyWeaponSkillsLanded(); // 空中ダッシュなどは着地で回復する
     }
 
@@ -355,8 +325,7 @@ void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool
     HandleWeaponSkill(input);
     UpdateRampagePhysics(enemyPos);
     UpdateAwakenState(input);
-    if (enemySolid)
-    {
+    if (enemySolid) {
         ResolveEnemyOverlap(enemyPos);
     }
     UpdateWaterState();
@@ -365,20 +334,16 @@ void Player::Update(Input* input, const Vector3& enemyPos, bool enemySolid, bool
 }
 
 /** @brief 指定した位置の真下にある床へ立った時の位置を返す（足元より下で一番高いブロックの上面に足を合わせる） */
-Vector3 Player::FindStandingPosition(const Vector3& position, const std::vector<AABB>& blocks) const
-{
+Vector3 Player::FindStandingPosition(const Vector3& position, const std::vector<AABB>& blocks) const {
     const auto floor = FindSupportingFloor(position, kBodyHalfExtent, kBodyHalfExtent, kBodyHalfExtent, blocks);
     return floor ? Vector3 { position.x, *floor + kBodyHalfExtent, position.z } : position;
 }
 
 /** @brief ステージ上のsolidブロックとの当たり判定を解決する（Update()の後に毎フレーム呼ぶ） */
-void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
-{
+void Player::ResolveBlockCollision(const std::vector<AABB>& blocks) {
     groundVisualCorrection_ = 0.0f;
-    if (blocks.empty())
-    {
-        if (pos_.y > Tuning().groundY && velocityY_ <= 0.0f)
-        {
+    if (blocks.empty()) {
+        if (pos_.y > Tuning().groundY && velocityY_ <= 0.0f) {
             onGround_ = false;
         }
         return;
@@ -388,26 +353,21 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     constexpr float kHalf = kBodyHalfExtent;
 
     // 上昇中に頭がブロック下面を横切った場合は、下面の直下へ戻して上昇速度を止める。
-    if (velocityY_ > 0.0f)
-    {
+    if (velocityY_ > 0.0f) {
         const float previousHeadY = pos_.y - velocityY_ + kHalf;
         const float currentHeadY = pos_.y + kHalf;
         float nearestCeiling = (std::numeric_limits<float>::max)();
-        for (const auto& b : blocks)
-        {
+        for (const auto& b : blocks) {
             const bool overlapXZ = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x
                 && (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
-            if (!overlapXZ)
-            {
+            if (!overlapXZ) {
                 continue;
             }
-            if (previousHeadY <= b.min.y && currentHeadY >= b.min.y)
-            {
+            if (previousHeadY <= b.min.y && currentHeadY >= b.min.y) {
                 nearestCeiling = (std::min)(nearestCeiling, b.min.y);
             }
         }
-        if (nearestCeiling != (std::numeric_limits<float>::max)())
-        {
+        if (nearestCeiling != (std::numeric_limits<float>::max)()) {
             pos_.y = nearestCeiling - kHalf;
             velocityY_ = 0.0f;
             onGround_ = false;
@@ -432,22 +392,18 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     };
 
     // 水平方向  側面から重なっているブロックがあれば侵入量が小さい側へ押し出す
-    for (const auto& b : blocks)
-    {
-        if (landedOnTop(b))
-        {
+    for (const auto& b : blocks) {
+        if (landedOnTop(b)) {
             continue;
         }
         bool overlapY = (pos_.y + kHalf) > b.min.y + kSideOverlapMargin && (pos_.y - kHalf) < b.max.y - kSideOverlapMargin;
-        if (!overlapY)
-        {
+        if (!overlapY) {
             continue;
         } // 乗っているだけの上面はここでは無視する
 
         bool overlapX = (pos_.x + kHalf) > b.min.x && (pos_.x - kHalf) < b.max.x;
         bool overlapZ = (pos_.z + kHalf) > b.min.z && (pos_.z - kHalf) < b.max.z;
-        if (!overlapX || !overlapZ)
-        {
+        if (!overlapX || !overlapZ) {
             continue;
         }
 
@@ -460,16 +416,11 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         // （突進やワープで一気に動いて壁の中心を越えても、壁の向こうへ抜けないように）
         const bool cameFromLeft = prevFrameX_ + kHalf <= b.min.x + kSideOverlapMargin;
         const bool cameFromRight = prevFrameX_ - kHalf >= b.max.x - kSideOverlapMargin;
-        if (cameFromLeft)
-        {
+        if (cameFromLeft) {
             pos_.x += pushLeft;
-        }
-        else if (cameFromRight)
-        {
+        } else if (cameFromRight) {
             pos_.x += pushRight;
-        }
-        else
-        {
+        } else {
             pos_.x += (std::abs(pushLeft) < std::abs(pushRight)) ? pushLeft : pushRight;
         }
     }
@@ -480,20 +431,16 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     // 壁のように同じX/Zに積み重なったブロックの途中の継ぎ目に、ジャンプで壁へ突っ込んだ際に
     // 乗ってしまわないよう、頭上（立った時に体が収まる高さ）に別のブロックが無いことも確認する
     auto hasClearanceAbove = [&](const AABB& candidate) {
-        for (const auto& other : blocks)
-        {
-            if (&other == &candidate)
-            {
+        for (const auto& other : blocks) {
+            if (&other == &candidate) {
                 continue;
             }
             bool otherOverlapXZ = (pos_.x + kHalf) > other.min.x && (pos_.x - kHalf) < other.max.x
                 && (pos_.z + kHalf) > other.min.z && (pos_.z - kHalf) < other.max.z;
-            if (!otherOverlapXZ)
-            {
+            if (!otherOverlapXZ) {
                 continue;
             }
-            if (other.min.y < candidate.max.y + kHalf * 2.0f && other.max.y > candidate.max.y)
-            {
+            if (other.min.y < candidate.max.y + kHalf * 2.0f && other.max.y > candidate.max.y) {
                 return false;
             }
         }
@@ -501,12 +448,10 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
     };
     // 支持判定は体の幅よりかなり狭くし、見た目上ブロックの外（空中）なのに乗れてしまうのを防ぐ
     constexpr float kSupportHalf = 0.15f;
-    for (const auto& b : blocks)
-    {
+    for (const auto& b : blocks) {
         bool overlapXZ = (pos_.x + kSupportHalf) > b.min.x && (pos_.x - kSupportHalf) < b.max.x
             && (pos_.z + kSupportHalf) > b.min.z && (pos_.z - kSupportHalf) < b.max.z;
-        if (!overlapXZ)
-        {
+        if (!overlapXZ) {
             continue;
         }
 
@@ -514,23 +459,19 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
         // 床をエディタで上下させたときも、古い高さに張り付かないようにする
         // 上から跨いで落ちてきたフレームは、めり込み量が段差許容を超えていても着地を成立させる
         const bool reachable = b.max.y <= feetY + kGroundStepTolerance || landedOnTop(b);
-        if (reachable && (b.max.y + kHalf) > bestTop && hasClearanceAbove(b))
-        {
+        if (reachable && (b.max.y + kHalf) > bestTop && hasClearanceAbove(b)) {
             bestTop = b.max.y + kHalf;
         }
     }
-    if (velocityY_ <= 0.0f && pos_.y <= bestTop + kLandingSnapTolerance)
-    {
+    if (velocityY_ <= 0.0f && pos_.y <= bestTop + kLandingSnapTolerance) {
         pos_.y = bestTop;
         velocityY_ = 0.0f;
         onGround_ = true;
-        SetFrameEvent(FrameEvent::Landed, !prevOnGround_);
+        SetFrameEvent(FrameEvent::kLanded, !prevOnGround_);
         NotifyWeaponSkillsLanded();
-    }
-    else if (velocityY_ <= 0.0f)
-    {
+    } else if (velocityY_ <= 0.0f) {
         onGround_ = false;
-        SetFrameEvent(FrameEvent::Landed, false);
+        SetFrameEvent(FrameEvent::kLanded, false);
     }
 
     pos_.x = std::clamp(pos_.x, minX_, maxX_);
@@ -541,8 +482,7 @@ void Player::ResolveBlockCollision(const std::vector<AABB>& blocks)
 // ══════════════════════════════════════════════════════
 
 /** @brief 現在位置から worldDeltaX だけ先（移動範囲内に収める）へのダッシュを開始する */
-void Player::BeginDash(DashMotion& dash, float worldDeltaX)
-{
+void Player::BeginDash(DashMotion& dash, float worldDeltaX) {
     dash.active = true;
     dash.timer = 0.0f;
     dash.startX = pos_.x;
@@ -550,17 +490,14 @@ void Player::BeginDash(DashMotion& dash, float worldDeltaX)
 }
 
 /** @brief ダッシュを1フレーム進める（pos_.xを更新）。ちょうど完了したフレームだけtrueを返す */
-bool Player::AdvanceDash(DashMotion& dash)
-{
-    if (!dash.active)
-    {
+bool Player::AdvanceDash(DashMotion& dash) {
+    if (!dash.active) {
         return false;
     }
-    dash.timer += GameConstants::kFrameDeltaTime;
+    dash.timer += gameConstants::kFrameDeltaTime;
     const float t = std::clamp(dash.timer / Tuning().dashDuration, 0.0f, 1.0f);
-    pos_.x = dash.startX + (dash.targetX - dash.startX) * Easing::EaseOutQuad(t);
-    if (t >= 1.0f)
-    {
+    pos_.x = dash.startX + (dash.targetX - dash.startX) * easing::EaseOutQuad(t);
+    if (t >= 1.0f) {
         dash.active = false;
         return true;
     }

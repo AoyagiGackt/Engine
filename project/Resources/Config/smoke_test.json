@@ -1,0 +1,248 @@
+{
+  "_comment": "自動テストプレイの手順（--smoke-test を付けて起動すると、この順にゲームを自分で遊ぶ）。action: waitScene=その画面になるまで待つ（timeout 秒で止まった扱い） waitSceneChange=画面が切り替わるまで待つ pressUntilScene=その画面になるまで key を interval 秒ごとに押す press=key を1回押す hold=keys を seconds 秒押し続ける random=keys からランダムに seconds 秒操作する wait=seconds 秒待つ changeScene=その画面へ直接行く mark=報告に目印を書く repeat=steps を count 回繰り返す。キーの名前は input_bindings.json と同じ（F5 F9 T Backspace なども使える。Escape はゲームが閉じるので使えない）。結果は smoke_test フォルダに出る",
+  "settleSeconds": 0.5,
+  "steps": [
+    {
+      "action": "mark",
+      "text": "タイトルから NEW GAME"
+    },
+    {
+      "action": "waitScene",
+      "scene": "TITLE",
+      "timeout": 30
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "pressUntilScene",
+      "key": "Enter",
+      "scene": "MAP",
+      "interval": 0.6,
+      "timeout": 20
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "mark",
+      "text": "ステージ1"
+    },
+    {
+      "action": "mark",
+      "text": "入口へ入る"
+    },
+    {
+      "action": "pressUntilScene",
+      "key": "Enter",
+      "scene": "GAMEPLAY",
+      "interval": 0.5,
+      "timeout": 20
+    },
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "mark",
+      "text": "ステージ内でいろいろ操作する"
+    },
+    {
+      "action": "random",
+      "keys": [
+        "A",
+        "D",
+        "W",
+        "S",
+        "L",
+        "K",
+        "Space",
+        "F",
+        "R",
+        "J"
+      ],
+      "seconds": 12
+    },
+    {
+      "action": "mark",
+      "text": "すぐクリアして戻る"
+    },
+    {
+      "action": "press",
+      "key": "F5"
+    },
+    {
+      "action": "waitSceneChange",
+      "timeout": 40
+    },
+    {
+      "action": "repeat",
+      "count": 2,
+      "steps": [
+        {
+          "action": "mark",
+          "text": "解放演出と、入口から出てくる動きを待つ"
+        },
+        {
+          "action": "wait",
+          "seconds": 8
+        },
+        {
+          "action": "mark",
+          "text": "次の入口まで歩く"
+        },
+        {
+          "action": "hold",
+          "keys": [
+            "D"
+          ],
+          "seconds": 1.1
+        },
+        {
+          "action": "wait",
+          "seconds": 0.5
+        },
+        {
+          "action": "mark",
+          "text": "入口へ入る"
+        },
+        {
+          "action": "pressUntilScene",
+          "key": "Enter",
+          "scene": "GAMEPLAY",
+          "interval": 0.5,
+          "timeout": 20
+        },
+        {
+          "action": "wait",
+          "seconds": 4
+        },
+        {
+          "action": "mark",
+          "text": "ステージ内でいろいろ操作する"
+        },
+        {
+          "action": "random",
+          "keys": [
+            "A",
+            "D",
+            "W",
+            "S",
+            "L",
+            "K",
+            "Space",
+            "F",
+            "R",
+            "J"
+          ],
+          "seconds": 12
+        },
+        {
+          "action": "mark",
+          "text": "すぐクリアして戻る"
+        },
+        {
+          "action": "press",
+          "key": "F5"
+        },
+        {
+          "action": "waitSceneChange",
+          "timeout": 40
+        }
+      ]
+    },
+    {
+      "action": "mark",
+      "text": "やられ演出から戻る流れ"
+    },
+    {
+      "action": "changeScene",
+      "scene": "TITLE"
+    },
+    {
+      "action": "waitScene",
+      "scene": "TITLE",
+      "timeout": 30
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "pressUntilScene",
+      "key": "Enter",
+      "scene": "MAP",
+      "interval": 0.6,
+      "timeout": 20
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "pressUntilScene",
+      "key": "Enter",
+      "scene": "GAMEPLAY",
+      "interval": 0.5,
+      "timeout": 20
+    },
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "press",
+      "key": "F9"
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "press",
+      "key": "Enter"
+    },
+    {
+      "action": "waitSceneChange",
+      "timeout": 20
+    },
+    {
+      "action": "mark",
+      "text": "トレーニングへ行って操作する"
+    },
+    {
+      "action": "changeScene",
+      "scene": "MAP"
+    },
+    {
+      "action": "waitScene",
+      "scene": "MAP",
+      "timeout": 20
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "pressUntilScene",
+      "key": "T",
+      "scene": "TRAINING",
+      "interval": 0.8,
+      "timeout": 20
+    },
+    {
+      "action": "random",
+      "keys": [
+        "A",
+        "D",
+        "W",
+        "L",
+        "K",
+        "Space"
+      ],
+      "seconds": 6
+    }
+  ]
+}

@@ -10,9 +10,9 @@ class GamePauseController {
 public:
     /** @brief このフレームにシーンが何を更新するか */
     enum class UpdateMode {
-        Play,      ///< ゲームを進める
-        Menu,      ///< ポーズメニューだけ操作する
-        SkipFrame, ///< ポーズを開いたフレーム（どちらも操作しない）
+        kPlay,      ///< ゲームを進める
+        kMenu,      ///< ポーズメニューだけ操作する
+        kSkipFrame, ///< ポーズを開いたフレーム（どちらも操作しない）
     };
 
     GamePauseController();

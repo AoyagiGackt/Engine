@@ -19,23 +19,20 @@ constexpr std::size_t kMatrixElementNameCapacity = 48;
 
 // 以下のテストにある数値は、テストの入力と期待値
 /** @brief ベクトルの各要素を共通の誤差比較で確かめる */
-void CheckVector3(TestReport::TestResults& results, const Vector3& actual,
+void CheckVector3(testReport::TestResults& results, const Vector3& actual,
     const Vector3& expected, const std::string& name,
-    const std::source_location& where = std::source_location::current())
-{
+    const std::source_location& where = std::source_location::current()) {
     constexpr const char* kAxisNames[] = { "x", "y", "z" };
     const float actualAxes[] = { actual.x, actual.y, actual.z };
     const float expectedAxes[] = { expected.x, expected.y, expected.z };
-    for (std::size_t axis = 0; axis < std::size(kAxisNames); ++axis)
-    {
+    for (std::size_t axis = 0; axis < std::size(kAxisNames); ++axis) {
         results.CheckNear(actualAxes[axis], expectedAxes[axis], name + " (" + kAxisNames[axis] + ")",
-            TestReport::TestResults::kDefaultEpsilon, where);
+            testReport::TestResults::kDefaultEpsilon, where);
     }
 }
 
 /** @brief ベクトルの四則演算・正規化・幾何計算を確かめる */
-void TestVector3(TestReport::TestResults& results)
-{
+void TestVector3(testReport::TestResults& results) {
     Vector3 a = { 1.0f, 2.0f, 3.0f };
     Vector3 b = { 4.0f, 5.0f, 6.0f };
 
@@ -78,15 +75,13 @@ void TestVector3(TestReport::TestResults& results)
         { -1.0f, 0.0f, 10.0f, 0.0f, "Clamp below range" },
         { 11.0f, 0.0f, 10.0f, 10.0f, "Clamp above range" },
     };
-    for (const auto& sample : kClampCases)
-    {
+    for (const auto& sample : kClampCases) {
         results.CheckNear(Clamp(sample.input, sample.lower, sample.upper), sample.expected, sample.name);
     }
 }
 
 /** @brief 行列の合成・逆行列・転置を確かめる */
-void TestMatrix4x4(TestReport::TestResults& results)
-{
+void TestMatrix4x4(testReport::TestResults& results) {
     Matrix4x4 identity = MakeIdentity4x4();
     Matrix4x4 translate = MakeTranslateMatrix({ 1.0f, 2.0f, 3.0f });
 
@@ -109,10 +104,8 @@ void TestMatrix4x4(TestReport::TestResults& results)
     Matrix4x4 m = MakeAffineMatrix({ 2.0f, 3.0f, 1.0f }, Vector3{ 0.4f, 0.1f, 0.2f }, { 10.0f, -5.0f, 2.0f });
     Matrix4x4 inv = Inverse(m);
     Matrix4x4 shouldBeIdentity = Multiply(m, inv);
-    for (int i = 0; i < std::size(shouldBeIdentity.m); ++i)
-    {
-        for (int j = 0; j < std::size(shouldBeIdentity.m[i]); ++j)
-        {
+    for (int i = 0; i < std::size(shouldBeIdentity.m); ++i) {
+        for (int j = 0; j < std::size(shouldBeIdentity.m[i]); ++j) {
             char name[kMatrixElementNameCapacity];
             std::snprintf(name, sizeof(name), "Inverse(m) * m ≒ 単位行列 [%d][%d]", i, j);
             float expected = (i == j) ? 1.0f : 0.0f;
@@ -127,8 +120,7 @@ void TestMatrix4x4(TestReport::TestResults& results)
 }
 
 /** @brief クォータニオンの補間の両端を確かめる */
-void TestQuaternion(TestReport::TestResults& results)
-{
+void TestQuaternion(testReport::TestResults& results) {
     Quaternion q1 = { 0.0f, 0.0f, 0.0f, 1.0f };
     Quaternion q2 = { 0.0f, 1.0f, 0.0f, 0.0f };
 
@@ -140,8 +132,7 @@ void TestQuaternion(TestReport::TestResults& results)
 }
 
 /** @brief 基本の形どうしの重なりとレイ判定を確かめる */
-void TestCollision(TestReport::TestResults& results)
-{
+void TestCollision(testReport::TestResults& results) {
     Vector3 min1 = { 0.0f, 0.0f, 0.0f };
     Vector3 max1 = { 1.0f, 1.0f, 1.0f };
     Vector3 min2 = { 0.5f, 0.5f, 0.5f };
@@ -163,8 +154,7 @@ void TestCollision(TestReport::TestResults& results)
 
 // 実際にゲーム側で使われている engine::Collision クラスの形状テスト
 /** @brief 当たり判定の形と共通の判定の窓口を確かめる */
-void TestCollisionShapes(TestReport::TestResults& results)
-{
+void TestCollisionShapes(testReport::TestResults& results) {
     // ---- 球 × 球 ----
     Sphere s1{ { 0.0f, 0.0f, 0.0f }, 1.0f };
     Sphere s2{ { 1.5f, 0.0f, 0.0f }, 1.0f };
@@ -272,12 +262,11 @@ void TestCollisionShapes(TestReport::TestResults& results)
 int RunArchitectureTests();
 
 /** @brief 登録した数学のテストをすべて実行し、失敗の数を返す */
-int RunMathTests()
-{
+int RunMathTests() {
     /** @brief テストの区切りの名前と、実行するテスト関数の組 */
     struct TestSection {
         const char* name;
-        void (*run)(TestReport::TestResults&);
+        void (*run)(testReport::TestResults&);
     };
     constexpr TestSection kSections[] = {
         { "Vector3", TestVector3 },
@@ -286,9 +275,8 @@ int RunMathTests()
         { "Collision (Math functions)", TestCollision },
         { "Collision (Sphere/AABB/Capsule/Raycast)", TestCollisionShapes },
     };
-    TestReport::TestResults results;
-    for (const auto& section : kSections)
-    {
+    testReport::TestResults results;
+    for (const auto& section : kSections) {
         results.RunSection(section.name, section.run);
     }
     results.PrintSummary("Mathematics");
@@ -297,8 +285,7 @@ int RunMathTests()
 } // namespace engine::tests
 
 /** @brief 両方のテストを実行し、失敗があれば終了コードで知らせる */
-int main()
-{
+int main() {
     const int mathFailures = engine::tests::RunMathTests();
     const int architectureFailures = engine::tests::RunArchitectureTests();
     return (mathFailures == 0 && architectureFailures == 0) ? 0 : 1;

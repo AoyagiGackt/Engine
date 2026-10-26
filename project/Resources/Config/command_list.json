@@ -77,10 +77,9 @@
     }
   },
   "common": [
-    { "category": "覚醒", "name": "覚醒", "input": "{Awaken}", "detail": "ゲージを使って覚醒する。覚醒中は近接攻撃が1振りで3回当たり、軌跡と斬撃が蒼く輝く。" },
+    { "category": "覚醒", "name": "覚醒", "input": "{Awaken}", "detail": "覚醒ゲージが白い印を超えると使える（R/F の文字が明るくなる）。覚醒中は近接攻撃が1振りで3回当たり、軌跡と斬撃が蒼く輝く。" },
     { "category": "共通", "name": "銃コンボ", "input": "{Shoot}", "detail": "押すたびに銃の段が進む。弾は最初に当たった敵で止まる。" },
-    { "category": "共通", "name": "銃切替", "input": "{GunSwitch}", "detail": "持っている銃を切り替える。" },
     { "category": "共通", "name": "回避", "input": "{Dodge}", "detail": "全身無敵の回避。コンボの途中からでも割り込める。" },
-    { "category": "共通", "name": "フィニッシャー", "input": "{Finisher}", "detail": "空間ごと斬り刻む大技。" }
+    { "category": "共通", "name": "フィニッシャー", "input": "{Finisher}", "detail": "覚醒ゲージが満タンで金色に光っている時だけ使える（覚醒中と水中は不可）。空間ごと斬り刻む大技。" }
   ]
 }

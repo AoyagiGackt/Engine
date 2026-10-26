@@ -4,7 +4,7 @@
  */
 #include "Fade.h"
 #include "GraphicsTuning.h"
-#include "GameConstants.h"
+#include "EngineConstants.h"
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
@@ -62,7 +62,7 @@ class Fade::IdleState final : public IState {
 public:
     /** @brief 待機状態の識別子を返す */
     Status Id() const override {
-        return Status::None;
+        return Status::kNone;
     }
     /** @brief 帯の位置を返す（覆っていれば画面全体、開いていれば画面の左外） */
     float Position(float width, float, bool covered) const override {
@@ -79,7 +79,7 @@ public:
     }
     /** @brief フェードインの識別子を返す */
     Status Id() const override {
-        return Status::FadeIn;
+        return Status::kFadeIn;
     }
     /** @brief 進み具合に応じて帯を画面右へ退けた位置を返す */
     float Position(float width, float eased, bool) const override {
@@ -96,7 +96,7 @@ public:
     }
     /** @brief フェードアウトの識別子を返す */
     Status Id() const override {
-        return Status::FadeOut;
+        return Status::kFadeOut;
     }
     /** @brief 進み具合に応じて帯を画面左から進めた位置を返す */
     float Position(float width, float eased, bool) const override {
@@ -125,8 +125,7 @@ const Fade::IState& Fade::FadingOut() {
 }
 
 /** @brief 旧状態を終了して新状態へ入る */
-void Fade::ChangeState(const IState& next)
-{
+void Fade::ChangeState(const IState& next) {
     state_->Exit(*this);
     state_ = &next;
     state_->Enter(*this);
@@ -142,13 +141,11 @@ Fade::Status Fade::GetStatus() const {
 }
 
 /** @brief 初期化 */
-void Fade::Initialize(SpriteCommon* spriteCommon)
-{
+void Fade::Initialize(SpriteCommon* spriteCommon) {
     spriteCommon_ = spriteCommon;
     ChangeState(Idle());
     covered_ = false;
-    for (size_t i = 0; i < kBandCount; ++i)
-    {
+    for (size_t i = 0; i < kBandCount; ++i) {
         bands_[i] = std::make_unique<Sprite>();
         bands_[i]->Initialize(spriteCommon, "Resources/white.png");
         edges_[i] = std::make_unique<Sprite>();
@@ -158,41 +155,35 @@ void Fade::Initialize(SpriteCommon* spriteCommon)
 }
 
 /** @brief フェード開始 */
-void Fade::Start(Status status, float duration)
-{
+void Fade::Start(Status status, float duration) {
     static const IState* const kStates[] = { &Idle(), &FadingIn(), &FadingOut() };
     const size_t index = static_cast<size_t>(status);
     ChangeState(index < std::size(kStates) ? *kStates[index] : Idle());
     duration_ = std::isfinite(duration) ? (std::max)(duration, 0.0f) : 0.0f;
     counter_ = 0.0f;
-    if (status == Status::None)
-    {
+    if (status == Status::kNone) {
         covered_ = false;
     }
     UpdateSprites();
 }
 
 /** @brief 現在の段階に1フレームの更新を委譲する */
-void Fade::Update()
-{
+void Fade::Update() {
     state_->Update(*this);
 }
 
 /** @brief 経過時間と描画を更新してから完了状態へ遷移する */
-void Fade::Advance(bool coverWhenFinished)
-{
-    counter_ = (std::min)(counter_ + GameConstants::kFrameDeltaTime, duration_);
+void Fade::Advance(bool coverWhenFinished) {
+    counter_ = (std::min)(counter_ + engineConstants::kFrameDeltaTime, duration_);
     UpdateSprites();
-    if (counter_ >= duration_)
-    {
+    if (counter_ >= duration_) {
         covered_ = coverWhenFinished;
         ChangeState(Idle());
     }
 }
 
 /** @brief 現在状態の補間値を帯と縁へ反映する */
-void Fade::UpdateSprites()
-{
+void Fade::UpdateSprites() {
     const float bandStagger = GraphicsTuning::Float("fade.bandStagger", kBandStagger, 0.0f, kMaxBandStagger);
     const float edgeWidth = GraphicsTuning::Float("fade.edgeWidth", kEdgeWidth);
     const float bandShadeStep = GraphicsTuning::Float("fade.bandShadeStep", kBandShadeStep);
@@ -201,8 +192,7 @@ void Fade::UpdateSprites()
     const float width = static_cast<float>(WinApp::kClientWidth);
     const float height = static_cast<float>(WinApp::kClientHeight) / kBandCount;
     const float progress = duration_ > 0.0f ? std::clamp(counter_ / duration_, 0.0f, 1.0f) : 1.0f;
-    for (size_t i = 0; i < kBandCount; ++i)
-    {
+    for (size_t i = 0; i < kBandCount; ++i) {
         // 上から順に開始をずらし、加速と減速を滑らかにする。
         const float delay = bandStagger * static_cast<float>(i) / (kBandCount - 1);
         const float t = std::clamp((progress - delay) / (1.0f - bandStagger), 0.0f, 1.0f);
@@ -224,21 +214,16 @@ void Fade::UpdateSprites()
 }
 
 /** @brief 描画処理 */
-void Fade::Draw()
-{
-    if (!spriteCommon_ || (IsFinished() && !covered_))
-    {
+void Fade::Draw() {
+    if (!spriteCommon_ || (IsFinished() && !covered_)) {
         return;
     }
     spriteCommon_->CommonDrawSettings();
-    for (size_t i = 0; i < kBandCount; ++i)
-    {
+    for (size_t i = 0; i < kBandCount; ++i) {
         bands_[i]->Draw();
     }
-    for (size_t i = 0; i < kBandCount; ++i)
-    {
-        if (edges_[i]->GetColor().w > 0.0f)
-        {
+    for (size_t i = 0; i < kBandCount; ++i) {
+        if (edges_[i]->GetColor().w > 0.0f) {
             edges_[i]->Draw();
         }
     }

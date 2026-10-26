@@ -9,11 +9,9 @@ namespace engine::graphics {
 namespace {
 /** @brief 登録済み実体を再利用し、未登録なら生成してキャッシュへ所有権を移す */
 template<class Cache, class Create>
-auto FindOrLoadSharedModel(Cache& cache, const std::string& key, const Create& create)
-{
+auto FindOrLoadSharedModel(Cache& cache, const std::string& key, const Create& create) {
     const auto found = cache.find(key);
-    if (found != cache.end())
-    {
+    if (found != cache.end()) {
         return found->second.get();
     }
     auto model = create();
@@ -23,23 +21,19 @@ auto FindOrLoadSharedModel(Cache& cache, const std::string& key, const Create& c
 }
 }
 /** @brief ModelManagerの唯一のインスタンスを取得する */
-ModelManager* ModelManager::GetInstance()
-{
-    static ModelManager instance;
-    return &instance;
+ModelManager* ModelManager::GetInstance() {
+    static ModelManager sInstance;
+    return &sInstance;
 }
 
 /** @brief マネージャーの初期化モデル生成に必要な共通設定を登録する */
-void ModelManager::Initialize(ModelCommon* modelCommon)
-{
+void ModelManager::Initialize(ModelCommon* modelCommon) {
     modelCommon_ = modelCommon;
 }
 
 /** @brief 指定したファイルパスのモデルを読み込み、メモリに保持する */
-void ModelManager::LoadModel(const std::string& filePath, const std::string& textureFilePath)
-{
-    if (models_.contains(filePath))
-    {
+void ModelManager::LoadModel(const std::string& filePath, const std::string& textureFilePath) {
+    if (models_.contains(filePath)) {
         return;
     }
 
@@ -50,10 +44,8 @@ void ModelManager::LoadModel(const std::string& filePath, const std::string& tex
 }
 
 /** @brief 読み込み済みのモデルを検索して取得する */
-Model* ModelManager::FindModel(const std::string& filePath)
-{
-    if (models_.contains(filePath))
-    {
+Model* ModelManager::FindModel(const std::string& filePath) {
+    if (models_.contains(filePath)) {
         return models_[filePath].get();
     }
 
@@ -61,8 +53,7 @@ Model* ModelManager::FindModel(const std::string& filePath)
 }
 
 /** @brief モデル+テクスチャの組み合わせで読み込み済みなら共有し、無ければ読み込んで登録する */
-Model* ModelManager::GetOrLoad(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath)
-{
+Model* ModelManager::GetOrLoad(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath) {
     const std::string key = modelFilePath + '|' + textureFilePath;
     return FindOrLoadSharedModel(sharedModels_, key, [&] {
         auto model = std::make_unique<Model>();
@@ -73,8 +64,7 @@ Model* ModelManager::GetOrLoad(ModelCommon* modelCommon, const std::string& mode
 
 /** @brief GetOrLoad()のSkinnedModel版（アニメーション付きモデルの静的メッシュ・ボーン情報を共有する） */
 SkinnedModel* ModelManager::GetOrLoadSkinned(engine::DirectXCommon* dxCommon,
-    const std::string& gltfFilePath, const std::string& textureFilePath)
-{
+    const std::string& gltfFilePath, const std::string& textureFilePath) {
     const std::string key = gltfFilePath + '|' + textureFilePath;
     return FindOrLoadSharedModel(sharedSkinnedModels_, key, [&] {
         auto model = std::make_unique<SkinnedModel>();
@@ -84,8 +74,7 @@ SkinnedModel* ModelManager::GetOrLoadSkinned(engine::DirectXCommon* dxCommon,
 }
 
 /** @brief マネージャーの終了処理保持しているすべてのモデルデータを破棄する */
-void ModelManager::Finalize()
-{
+void ModelManager::Finalize() {
     models_.clear();
     sharedModels_.clear();
     sharedSkinnedModels_.clear();

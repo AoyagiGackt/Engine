@@ -16,10 +16,9 @@ namespace engine::game {
 class PlaytestLog {
 public:
     /** @brief 共有インスタンスを取得する */
-    static PlaytestLog* GetInstance()
-    {
-        static PlaytestLog instance;
-        return &instance;
+    static PlaytestLog* GetInstance() {
+        static PlaytestLog sInstance;
+        return &sInstance;
     }
 
     /**

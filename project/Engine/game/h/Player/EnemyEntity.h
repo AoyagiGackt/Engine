@@ -38,7 +38,7 @@ public:
      * @param startPos    初期ワールド座標
      */
     void Initialize(ModelCommon* modelCommon, const Vector3& startPos,
-        WeaponType weaponType = WeaponType::Sword);
+        WeaponType weaponType = WeaponType::kSword);
 
     /**
      * @brief 物理・アニメーションを毎フレーム更新する
@@ -89,12 +89,10 @@ public:
     void Draw();
 
     /** @brief 所持武器を識別するための表示色を設定する（被弾フラッシュが明けた後に戻る基準色になる） */
-    void SetColor(const Vector4& color)
-    {
+    void SetColor(const Vector4& color) {
         baseColor_ = color;
         SetBodyColor(color);
-        if (weaponObject_)
-        {
+        if (weaponObject_) {
             weaponObject_->SetColor(color);
         }
     }
@@ -137,10 +135,8 @@ public:
     bool HasDroppedWeapon() const {
         return weaponDropped_;
     }
-    /** @brief 武器を奪いに行く位置（落とした武器があればそこ、無ければ本体） */
-    Vector3 GetWeaponPickupPosition() const {
-        return weaponDropped_ ? droppedWeaponPos_ : pos_;
-    }
+    /** @brief 武器を奪いに行く位置（落とした武器があればそこ、倒れていれば寝た体の真ん中、それ以外は足元） */
+    Vector3 GetWeaponPickupPosition() const;
     /**
      * @brief 落とした武器を指定位置へ寄せる（武器回収の吸い込み演出用）
      * @param target 寄せる先
@@ -168,25 +164,32 @@ public:
     /** @brief 攻撃がヒットした際に与えるダメージ量を返す */
     int GetAttackDamage() const;
 
+    /** @brief この敵だけの強さの倍率を設定する（エディタで作った敵の種類から。HPは SetMaxHp に渡す側が GetHpScale() を掛ける） */
+    void SetStatScales(float hpScale, float damageScale, float speedScale) {
+        hpScale_ = hpScale;
+        damageScale_ = damageScale;
+        speedScale_ = speedScale;
+    }
+    /** @brief HPの倍率を返す */
+    float GetHpScale() const {
+        return hpScale_;
+    }
+
     /**
      * @brief ダメージを与えるHP が 0 以下になると撃破状態になる
      * @param dmg 与えるダメージ量（デフォルト 1）
      */
-    void TakeDamage(int dmg = 1)
-    {
-        if (defeated_)
-        {
+    void TakeDamage(int dmg = 1) {
+        if (defeated_) {
             return;
         }
         hitFlashTimer_ = kHitFlashDuration; // 白く光って一瞬膨らむ（当たった手応えを見た目でも返す）
         hp_ -= dmg;
-        if (hp_ <= 0)
-        {
+        if (hp_ <= 0) {
             hp_ = 0;
             defeated_ = true;
             // 撃破後もUpdate自体は落下・吸収演出のため続くが、歩行アニメだけはその場で完全停止する。
-            if (object_)
-            {
+            if (object_) {
                 object_->SetAnimSpeed(0.0f);
             }
         }
@@ -197,21 +200,16 @@ public:
      * @param amount 与えるダメージ量（疲労で減った近接ダメージなど）
      * @note 端数しか溜まっていないヒットでも被弾フラッシュは出す（当たったこと自体は伝える）
      */
-    void TakeDamageScaled(float amount)
-    {
-        if (defeated_)
-        {
+    void TakeDamageScaled(float amount) {
+        if (defeated_) {
             return;
         }
         damageCarry_ += (std::max)(amount, 0.0f);
         const int whole = static_cast<int>(damageCarry_);
         damageCarry_ -= static_cast<float>(whole);
-        if (whole > 0)
-        {
+        if (whole > 0) {
             TakeDamage(whole);
-        }
-        else
-        {
+        } else {
             hitFlashTimer_ = kHitFlashDuration;
         }
     }
@@ -220,18 +218,22 @@ public:
      * @brief 最大 HP を設定し、現在 HP をリセットする
      * @param v 設定する最大 HP 値
      */
-    void SetMaxHp(int v)
-    {
+    void SetMaxHp(int v) {
         maxHp_ = v;
         hp_ = v;
         damageCarry_ = 0.0f;
         weaponDropped_ = false;
+        weaponPulled_ = false;
+        offerTimer_ = 0.0f;
         homeRunSpinTimer_ = 0.0f;
         defeated_ = false;
         corpseFallStarted_ = false;
-        if (object_)
-        {
+        if (object_) {
             object_->SetAnimSpeed(1.0f);
+        }
+        // 浮かべた時に大きくした武器を手に持つ大きさへ戻す
+        if (weaponObject_) {
+            weaponObject_->SetScale(weaponScale_);
         }
     }
 
@@ -239,10 +241,8 @@ public:
      * @brief HP を回復する（maxHp を超えない、撃破済みは復活しない）
      * @param amount 回復量
      */
-    void Heal(int amount)
-    {
-        if (defeated_)
-        {
+    void Heal(int amount) {
+        if (defeated_) {
             return;
         }
         hp_ = (std::min)(hp_ + amount, maxHp_);
@@ -267,8 +267,7 @@ public:
     /**
      * @brief 位置だけ再計算する（AI/物理は一切進めない、StageEditor等が外部からpos_を書き換えた後の追従用）
      */
-    void RefreshVisualTransforms() override
-    {
+    void RefreshVisualTransforms() override {
         object_->SetPosition(pos_);
         object_->Update();
         SyncMonsterVisual(false);
@@ -392,6 +391,18 @@ private:
     static constexpr float kDroppedWeaponRestHeight = 0.1f; // 地面から少し浮かせて置く高さ
     static constexpr float kDroppedWeaponLieTilt = 1.5708f; // 地面に寝かせる傾き（90度）
     static constexpr float kDroppedWeaponSpinPerFrame = 0.35f; // 落ちている間に回る量（ラジアン）
+
+    // 撃破後に武器が手を離れて浮かび、拾えることを見せる姿（トレーニングの置き武器と同じ見せ方）
+    static constexpr float kOfferRiseSeconds = 0.6f; // 手元（落ちた場所）から浮かぶ位置まで上がる長さ
+    static constexpr float kOfferHeight = 0.8f; // 回収位置からどれだけ上に浮かべるか
+    static constexpr float kCorpseCenterHeight = 0.75f; // 立った時の体の真ん中の高さ（足元を軸に倒れた体の真ん中を求めるのに使う）
+    static constexpr float kOfferHoverSpeed = 2.5f; // 上下にゆれる速さ（ラジアン毎秒）
+    static constexpr float kOfferHoverAmplitude = 0.15f; // 上下にゆれる幅
+    static constexpr float kOfferTilt = 0.2f; // 浮かべた武器の前への傾き
+    static constexpr float kOfferSpinSpeed = 1.6f; // 縦軸まわりに回る速さ（ラジアン毎秒）
+    static constexpr float kOfferScaleBoost = 1.8f; // 手に持っていた時に対する大きさの倍率（遠目でも形が分かるように）
+    static constexpr float kOfferPulseSpeed = 4.0f; // 色が明滅する速さ（ラジアン毎秒）
+    static constexpr Vector4 kOfferDimColor = { 0.75f, 0.85f, 1.0f, 1.0f }; // 明滅の暗い側（明るい側は白）
     static constexpr float kLaunchThreshold = 0.08f; // これを超えるknockYで打ち上げが発生する
 
     /** @brief 攻撃ステートマシンを毎フレーム進める（Update() から呼ぶ）
@@ -432,9 +443,9 @@ private:
 
     /** @brief 表示アニメーションの種類（攻撃ステートと歩行状態の組み合わせから決まる） */
     enum class VisualAnim {
-        Idle, ///< 立ち姿勢
-        Run, ///< 接近歩行中の走り
-        Attack, ///< 予備動作〜攻撃中
+        kIdle, ///< 立ち姿勢
+        kRun, ///< 接近歩行中の走り
+        kAttack, ///< 予備動作〜攻撃中
     };
 
     // 本体・武器のモデル実体はModelManagerが所有・共有する（同種の敵/同じ武器なら読み込みは1回だけで済む）
@@ -445,13 +456,16 @@ private:
     Animation idleAnimation_;
     Animation runAnimation_;
     Animation attackAnimation_;
-    VisualAnim animationState_ = VisualAnim::Attack;
+    VisualAnim animationState_ = VisualAnim::kAttack;
     Model* weaponModel_ = nullptr;
     std::unique_ptr<Object3d> weaponObject_;
     Vector3 weaponScale_ = kDefaultWeaponScale;
 
     int maxHp_ = 20;
     int hp_ = 20;
+    float hpScale_ = 1.0f; ///< HPの倍率（エディタで作った敵の種類から）
+    float damageScale_ = 1.0f; ///< 攻撃力の倍率
+    float speedScale_ = 1.0f; ///< 近づく速さの倍率
     bool defeated_ = false;
     bool visible_ = true;
     Vector4 baseColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -466,7 +480,7 @@ private:
     bool corpseFallStarted_ = false; ///< 倒れた体を床へ落とし始めたか（DropCorpseTo() を一度だけ受け付ける）
     bool justLanded_ = false;
     float launchOriginY_ = 0.0f; ///< 打ち上げ直前のpos_.y（着地時にここへ戻す。Launch()の最初の呼び出しでだけ更新する）
-    WeaponType weaponType_ = WeaponType::Sword;
+    WeaponType weaponType_ = WeaponType::kSword;
     float spawnY_ = 0.0f;
     float archetypeTimer_ = 0.0f;
     /**
@@ -514,6 +528,8 @@ private:
     float droppedWeaponGroundY_ = 0.0f;
     float droppedWeaponSpin_ = 0.0f;
     bool droppedWeaponLanded_ = false;
+    float offerTimer_ = 0.0f; ///< 撃破されて武器を浮かべ始めてからの秒数
+    bool weaponPulled_ = false; ///< 回収で落ちた武器を吸い寄せ始めたか（以後は浮かべない）
 
     // モンスターの見た目（設定されていれば騎士の代わりにこれを描画する）
     std::unique_ptr<Object3d> monsterObject_;
@@ -525,8 +541,7 @@ private:
     static constexpr float kMonsterBobAmplitude = 0.05f;
 
     /** @brief 本体の色を設定する（騎士とモンスターの見た目の両方に効かせる） */
-    void SetBodyColor(const Vector4& color)
-    {
+    void SetBodyColor(const Vector4& color) {
         bodyColor_ = color;
         object_->SetColor(color);
     }
@@ -540,6 +555,11 @@ private:
     void UpdateDroppedWeapon();
     /** @brief 武器の位置を本体の手元（落としていれば落とした場所）へ合わせる */
     void PlaceWeapon(const Vector3& bodyPos);
+    /**
+     * @brief 撃破後、まだ吸い寄せていない武器を回収位置の上へ浮かべて回し、光らせる（PlaceWeapon と色・向きを決めた後に呼ぶ）
+     * @param advance 時間を進めるか（ヒットストップ中は false で姿だけ保つ）
+     */
+    void UpdateOfferedWeapon(bool advance);
     int hitStopShakeFrame_ = 0; ///< ヒットストップ中の震えの左右を交互にするカウンタ
 
     /** @brief ヒットストップ中の1フレーム（物理・AIを止め、被弾直後なら本体を左右に震わせて描画行列だけ更新する） */

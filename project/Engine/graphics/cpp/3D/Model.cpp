@@ -37,8 +37,7 @@ constexpr float kTangentEpsilon = 1e-6f;
 using namespace Microsoft::WRL;
 
 /** @brief モデルとテクスチャを読み込み、頂点とインデックスのバッファを生成する */
-void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath)
-{
+void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePath, const std::string& textureFilePath) {
     // テクスチャを読み、キューブマップかどうかを覚えておく
     modelCommon_ = modelCommon;
     textureFilePath_ = textureFilePath;
@@ -58,8 +57,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     // pakに頂点・インデックスがあれば、assimpやOBJの解析と法線・接線の計算を丸ごと省く
     const std::string packKey = "model:" + modelFilePath;
     std::vector<uint8_t> packed;
-    if (!AssetPack::GetInstance()->Read(packKey, packed) || !LoadPackedGeometry(packed))
-    {
+    if (!AssetPack::GetInstance()->Read(packKey, packed) || !LoadPackedGeometry(packed)) {
         vertices_.clear();
         indices_.clear();
         // 拡張子と読み込み関数の対応（載っていない拡張子は assimp 経由で読む）
@@ -82,7 +80,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     ID3D12Device* device = modelCommon_->GetDxCommon()->GetDevice();
     size_t sizeInBytes = sizeof(VertexData) * vertices_.size();
 
-    vertexResource_ = PipelineHelper::CreateUploadBufferFrom(device, vertices_);
+    vertexResource_ = pipelineHelper::CreateUploadBufferFrom(device, vertices_);
 
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(sizeInBytes);
@@ -91,7 +89,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
     // インデックスバッファ作成
     size_t indexSizeInBytes = sizeof(uint32_t) * indices_.size();
 
-    indexResource_ = PipelineHelper::CreateUploadBufferFrom(device, indices_);
+    indexResource_ = pipelineHelper::CreateUploadBufferFrom(device, indices_);
 
     indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
     indexBufferView_.SizeInBytes = static_cast<UINT>(indexSizeInBytes);
@@ -99,33 +97,28 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& modelFilePat
 }
 
 /** @brief モデルの描画コマンド（DrawIndexedInstanced）を積む */
-void Model::Draw(ModelCommon* modelCommon)
-{
+void Model::Draw(ModelCommon* modelCommon) {
     ID3D12GraphicsCommandList* commandList = modelCommon->GetDxCommon()->GetCommandList();
 
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
     commandList->IASetIndexBuffer(&indexBufferView_);
 
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);
-    commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kTexture, textureSrvHandle);
+    commandList->SetGraphicsRootDescriptorTable(pipelineHelper::modelRootSlot::kTexture, textureSrvHandle);
 
     // スロット5（TextureCube）  環境マップが指定されていればそちらを、なければ通常テクスチャを流用
-    if (!envCubemapFilePath_.empty())
-    {
+    if (!envCubemapFilePath_.empty()) {
         D3D12_GPU_DESCRIPTOR_HANDLE cubeHandle = TextureManager::GetInstance()->GetSrvHandleGPU(envCubemapFilePath_);
-        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kEnvironment, cubeHandle);
-    }
-    else
-    {
-        commandList->SetGraphicsRootDescriptorTable(PipelineHelper::ModelRootSlot::kEnvironment, textureSrvHandle);
+        commandList->SetGraphicsRootDescriptorTable(pipelineHelper::modelRootSlot::kEnvironment, cubeHandle);
+    } else {
+        commandList->SetGraphicsRootDescriptorTable(pipelineHelper::modelRootSlot::kEnvironment, textureSrvHandle);
     }
 
     commandList->DrawIndexedInstanced(static_cast<UINT>(indices_.size()), 1, 0, 0, 0);
 }
 
 /** @brief シャドウパス用の描画（テクスチャバインドなし、頂点バッファのみ） */
-void Model::DrawGeometryOnly(ModelCommon* modelCommon)
-{
+void Model::DrawGeometryOnly(ModelCommon* modelCommon) {
     ID3D12GraphicsCommandList* commandList = modelCommon->GetDxCommon()->GetCommandList();
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
     commandList->IASetIndexBuffer(&indexBufferView_);
@@ -133,15 +126,13 @@ void Model::DrawGeometryOnly(ModelCommon* modelCommon)
 }
 
 // OBJファイル読み込み
-void Model::LoadObjFile(const std::string& filePath)
-{
+void Model::LoadObjFile(const std::string& filePath) {
     ParseObjFile(filePath);
     ComputeTangents();
 }
 
 /** @brief OBJファイルのテキストを解析し vertices_/indices_ を構築する */
-void Model::ParseObjFile(const std::string& filePath)
-{
+void Model::ParseObjFile(const std::string& filePath) {
     // OBJ は v/vt/vn で位置・UV・法線を、f で面を並べた行の集まり
     std::ifstream file(filePath);
     ENGINE_ASSERT(file.is_open());
@@ -186,8 +177,7 @@ void Model::ParseObjFile(const std::string& filePath)
             std::string s;
 
             // 面の各頂点 v/vt/vn を読み、同じ組み合わせは同じ頂点を使い回す（番号は1始まり）
-            while (ss >> s)
-            {
+            while (ss >> s) {
                 std::stringstream ss2(s);
                 std::string indexStr;
                 // 省略された番号は 0 のまま残し、後で使わない印にする
@@ -195,10 +185,8 @@ void Model::ParseObjFile(const std::string& filePath)
                 int count = 0;
 
                 // / で区切って位置・UV・法線の順に読む（v//vn のように間が空の場合もある）
-                while (std::getline(ss2, indexStr, '/'))
-                {
-                    if (!indexStr.empty())
-                    {
+                while (std::getline(ss2, indexStr, '/')) {
+                    if (!indexStr.empty()) {
                         idx[count] = std::stoi(indexStr);
                     }
                     count++;
@@ -207,12 +195,9 @@ void Model::ParseObjFile(const std::string& filePath)
                 auto key = std::make_tuple(idx[0], idx[1], idx[2]);
                 auto it = indexMap.find(key);
                 // 前に出てきた組み合わせなら、その頂点の番号をそのまま使う
-                if (it != indexMap.end())
-                {
+                if (it != indexMap.end()) {
                     faceIndices.push_back(it->second);
-                }
-                else
-                {
+                } else {
                     // 初めての組み合わせは末尾に頂点を足し、その番号を覚える
                     uint32_t newIndex = static_cast<uint32_t>(vertices_.size());
                     indexMap[key] = newIndex;
@@ -220,16 +205,13 @@ void Model::ParseObjFile(const std::string& filePath)
 
                     // 番号が 0（省略）の要素は既定値のままにする
                     VertexData vd { };
-                    if (idx[0] > 0)
-                    {
+                    if (idx[0] > 0) {
                         vd.position = positions[idx[0] - 1];
                     }
-                    if (idx[1] > 0)
-                    {
+                    if (idx[1] > 0) {
                         vd.texcoord = texcoords[idx[1] - 1];
                     }
-                    if (idx[2] > 0)
-                    {
+                    if (idx[2] > 0) {
                         vd.normal = normals[idx[2] - 1];
                     }
                     vertices_.push_back(vd);
@@ -237,8 +219,7 @@ void Model::ParseObjFile(const std::string& filePath)
             }
 
             // ファン状に三角形へ分割してインデックスを登録
-            for (size_t i = 1; i < faceIndices.size() - 1; ++i)
-            {
+            for (size_t i = 1; i < faceIndices.size() - 1; ++i) {
                 indices_.push_back(faceIndices[0]);
                 indices_.push_back(faceIndices[i]);
                 indices_.push_back(faceIndices[i + 1]);
@@ -246,16 +227,13 @@ void Model::ParseObjFile(const std::string& filePath)
         } },
     };
     // 1行ずつ先頭の識別子を見て、対応する読み取り処理に渡す
-    while (std::getline(file, line))
-    {
+    while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string identifier;
         ss >> identifier;
         // 表に無い識別子（コメント行の # やマテリアル指定など）は読み飛ばす
-        for (const auto& handler : handlers)
-        {
-            if (identifier == handler.identifier)
-            {
+        for (const auto& handler : handlers) {
+            if (identifier == handler.identifier) {
                 handler.parse(ss);
                 break;
             }
@@ -264,12 +242,10 @@ void Model::ParseObjFile(const std::string& filePath)
 }
 
 /** @brief vertices_/indices_ から三角形ごとにタンジェントを計算し格納する */
-void Model::ComputeTangents()
-{
+void Model::ComputeTangents() {
     // タンジェント計算（三角形ごとに dPos/dUV から求めてアキュムレート）
     std::vector<Vector3> tangentAccum(vertices_.size(), { 0.0f, 0.0f, 0.0f });
-    for (size_t i = 0; i + 2 < indices_.size(); i += kTriangleIndexCount)
-    {
+    for (size_t i = 0; i + 2 < indices_.size(); i += kTriangleIndexCount) {
         // 三角形の2辺の位置の差と UV の差から、UV の U 方向に当たる向きを求める
         uint32_t i0 = indices_[i], i1 = indices_[i + 1], i2 = indices_[i + 2];
         Vector3 p0 = { vertices_[i0].position.x, vertices_[i0].position.y, vertices_[i0].position.z };
@@ -283,8 +259,7 @@ void Model::ComputeTangents()
         float du2 = uv2.x - uv0.x, dv2 = uv2.y - uv0.y;
 
         float denom = du1 * dv2 - du2 * dv1;
-        if (std::abs(denom) < kTangentEpsilon)
-        {
+        if (std::abs(denom) < kTangentEpsilon) {
             continue;
         }
         float invR = 1.0f / denom;
@@ -294,24 +269,21 @@ void Model::ComputeTangents()
             (e1.z * dv2 - e2.z * dv1) * invR
         };
         // 三角形の3頂点に足し込み、共有する頂点では平均の向きになるようにする
-        for (uint32_t idx : { i0, i1, i2 })
-        {
+        for (uint32_t idx : { i0, i1, i2 }) {
             tangentAccum[idx].x += t.x;
             tangentAccum[idx].y += t.y;
             tangentAccum[idx].z += t.z;
         }
     }
     // 法線に直交するよう補正して長さ1にする
-    for (size_t i = 0; i < vertices_.size(); ++i)
-    {
+    for (size_t i = 0; i < vertices_.size(); ++i) {
         Vector3 n = vertices_[i].normal;
         Vector3 t = tangentAccum[i];
         // Gram-Schmidt 直交化
         float dot = n.x * t.x + n.y * t.y + n.z * t.z;
         t = { t.x - n.x * dot, t.y - n.y * dot, t.z - n.z * dot };
         float len = std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
-        if (len > kTangentEpsilon)
-        {
+        if (len > kTangentEpsilon) {
             t.x /= len;
             t.y /= len;
             t.z /= len;
@@ -321,26 +293,22 @@ void Model::ComputeTangents()
 }
 
 /** @brief Assimpを使ってGLTF/FBX等のメッシュを読み込む内部関数 */
-void Model::LoadGltfFile(const std::string& filePath)
-{
+void Model::LoadGltfFile(const std::string& filePath) {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filePath,
         aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_MakeLeftHanded | aiProcess_FlipWindingOrder);
 
     ENGINE_ASSERT(scene && scene->mNumMeshes > 0);
 
-    for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex)
-    {
+    for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
         aiMesh* mesh = scene->mMeshes[meshIndex];
         uint32_t baseVertex = static_cast<uint32_t>(vertices_.size());
 
         // 頂点データをそのまま追加
-        for (uint32_t vIdx = 0; vIdx < mesh->mNumVertices; ++vIdx)
-        {
+        for (uint32_t vIdx = 0; vIdx < mesh->mNumVertices; ++vIdx) {
             VertexData vd { };
             ReadAssimpVertex(vd, *mesh, vIdx, 1.0f);
-            if (mesh->HasTangentsAndBitangents())
-            {
+            if (mesh->HasTangentsAndBitangents()) {
                 vd.tangent = {
                     mesh->mTangents[vIdx].x,
                     mesh->mTangents[vIdx].y,
@@ -351,11 +319,9 @@ void Model::LoadGltfFile(const std::string& filePath)
         }
 
         // Assimpのフェイスインデックスをそのままインデックスバッファへ追加
-        for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex)
-        {
+        for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
             const aiFace& face = mesh->mFaces[faceIndex];
-            for (uint32_t i = 0; i < face.mNumIndices; ++i)
-            {
+            for (uint32_t i = 0; i < face.mNumIndices; ++i) {
                 indices_.push_back(baseVertex + face.mIndices[i]);
             }
         }
@@ -363,8 +329,7 @@ void Model::LoadGltfFile(const std::string& filePath)
 }
 
 /** @brief pakの頂点と付随データを復元して有効性を確認する */
-bool Model::LoadPackedGeometry(const std::vector<uint8_t>& packed)
-{
+bool Model::LoadPackedGeometry(const std::vector<uint8_t>& packed) {
     // 保存した順に読み、不完全なデータは呼び出し元で破棄する
     BinaryReader reader(packed);
     vertices_ = reader.ReadVector<VertexData>();
@@ -373,11 +338,9 @@ bool Model::LoadPackedGeometry(const std::vector<uint8_t>& packed)
 }
 
 /** @brief pak作成中に頂点と付随データを保存する */
-void Model::RecordPackedGeometry(const std::string& packKey) const
-{
+void Model::RecordPackedGeometry(const std::string& packKey) const {
     // 通常の読み込み時には記録を行わない
-    if (!AssetPack::GetInstance()->IsCooking())
-    {
+    if (!AssetPack::GetInstance()->IsCooking()) {
         return;
     }
     BinaryWriter writer;

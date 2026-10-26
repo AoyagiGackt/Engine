@@ -6,6 +6,7 @@
  * ENGINE_ASSERTはその文脈を log/engine.log に残してから同じように停止させる
  */
 #pragma once
+#include "CrashBreadcrumbs.h"
 #include "Logger.h"
 #include <cassert>
 #include <string>
@@ -16,7 +17,9 @@
         bool engineAssertResult_ = static_cast<bool>(expr);                                                                               \
         if (!engineAssertResult_)                                                                                                         \
         {                                                                                                                                 \
-            engine::Logger::LogError(std::string("Assertion failed: ") + #expr + " (" + __FILE__ + ":" + std::to_string(__LINE__) + ")"); \
+            const std::string engineAssertMessage_ = std::string(#expr) + " (" + __FILE__ + ":" + std::to_string(__LINE__) + ")"; \
+            engine::Logger::LogError("Assertion failed: " + engineAssertMessage_); \
+            engine::CrashBreadcrumbs::Add("assert", engineAssertMessage_); \
         }                                                                                                                                 \
         assert(engineAssertResult_);                                                                                                      \
     } while (0)

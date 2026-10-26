@@ -30,6 +30,7 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "ComboTrial.h"
 #include "PauseMenu.h"
 #include "Player.h"
 #include "SceneShared.h"
@@ -185,6 +186,7 @@ private:
         float knockVelY = 0.0f;
         float returnTimer = 0.0f; // 最後に被弾してからの秒数（超えたら中央へ戻る）
         bool sliced = false; // 切断演出中は本体モデルを非表示にする
+        float yaw = 0.0f; // 今の向き（縦軸まわり。プレイヤーの方へなめらかに振り向く）
 
         // HP バー用スプライト
         std::unique_ptr<Sprite> hpBarBg;
@@ -328,8 +330,7 @@ private:
     // ロックオン（Shift長押し中だけ最寄りの生存ダミーを自動ロック乱舞/コンボの誘導先・プレイヤーの向き・カメラ寄せに使う）
     std::optional<size_t> lockedDummyIndex_; ///< ロック中のダミーの添字（ロックしていなければ空）
     /** @brief ロック中のダミーを返す（ロックしていないか添字が範囲外ならnullptr） */
-    const Dummy* LockedDummy() const
-    {
+    const Dummy* LockedDummy() const {
         return lockedDummyIndex_ && *lockedDummyIndex_ < dummies_.size() ? &dummies_[*lockedDummyIndex_] : nullptr;
     }
 
@@ -363,6 +364,7 @@ private:
 
     FontRenderer fontRenderer_;
     PauseMenu pauseMenu_; ///< Pauseキーで開く一時停止画面（退出項目はトレーニングへ戻る）
+    ComboTrial comboTrial_; ///< ポーズメニューから始めるコンボ練習（Resources/Config/combo_trials.json）
 };
 
 } // namespace engine::game

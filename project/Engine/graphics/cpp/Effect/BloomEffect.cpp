@@ -18,8 +18,7 @@ using namespace Microsoft::WRL;
 void BloomEffect::Barrier(ID3D12GraphicsCommandList* cmd,
     ID3D12Resource* res,
     D3D12_RESOURCE_STATES before,
-    D3D12_RESOURCE_STATES after) const
-{
+    D3D12_RESOURCE_STATES after) const {
     DirectXCommon::TransitionBarrier(cmd, res, before, after);
 }
 
@@ -32,39 +31,36 @@ void BloomEffect::CreateRenderTexture(ID3D12Device* device,
     D3D12_CPU_DESCRIPTOR_HANDLE& outRtvHandle,
     uint32_t& outSrvIndex,
     DXGI_FORMAT rtvFmt,
-    DXGI_FORMAT srvFmt)
-{
+    DXGI_FORMAT srvFmt) {
     // 途中結果は透明な黒で消去する。本体・RTV は同じ形式で作る
     constexpr float kTransparentBlack[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    PipelineHelper::CreateRenderTarget(device, srvManager, width, height, { rtvFmt, rtvFmt, srvFmt }, kTransparentBlack,
+    pipelineHelper::CreateRenderTarget(device, srvManager, width, height, { rtvFmt, rtvFmt, srvFmt }, kTransparentBlack,
         { outRes, outRtvHeap, outRtvHandle, outSrvIndex });
 }
 
 /** @brief 定数バッファ1つとSRV1つを使うルートシグネチャを生成する */
-ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_CB_SRV(ID3D12Device* device) const
-{
-    auto rs = PipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_PIXEL,
-        PipelineHelper::MakeLinearClampSampler(), D3D12_ROOT_SIGNATURE_FLAG_NONE);
+ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_CB_SRV(ID3D12Device* device) const {
+    auto rs = pipelineHelper::CreateConstantTextureSignature(device, D3D12_SHADER_VISIBILITY_PIXEL,
+        pipelineHelper::MakeLinearClampSampler(), D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(rs);
     return rs;
 }
 
 /** @brief SRVを2つ使うルートシグネチャを生成する */
-ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_SRV2(ID3D12Device* device) const
-{
+ComPtr<ID3D12RootSignature> BloomEffect::CreateRS_SRV2(ID3D12Device* device) const {
     // t0 と t1 を別々のルートパラメータとして定義
-    const D3D12_DESCRIPTOR_RANGE srvRange0 = PipelineHelper::MakeSrvRange(0); // t0
+    const D3D12_DESCRIPTOR_RANGE srvRange0 = pipelineHelper::MakeSrvRange(0); // t0
 
-    const D3D12_DESCRIPTOR_RANGE srvRange1 = PipelineHelper::MakeSrvRange(1); // t1
+    const D3D12_DESCRIPTOR_RANGE srvRange1 = pipelineHelper::MakeSrvRange(1); // t1
 
     D3D12_ROOT_PARAMETER params[2] = { };
-    params[0] = PipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
+    params[0] = pipelineHelper::MakeSrvTableParam(&srvRange0, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    params[1] = PipelineHelper::MakeSrvTableParam(&srvRange1, D3D12_SHADER_VISIBILITY_PIXEL);
+    params[1] = pipelineHelper::MakeSrvTableParam(&srvRange1, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    D3D12_STATIC_SAMPLER_DESC sampler = PipelineHelper::MakeLinearClampSampler();
+    D3D12_STATIC_SAMPLER_DESC sampler = pipelineHelper::MakeLinearClampSampler();
 
-    auto rs = PipelineHelper::CreateRootSignature(device, params, 2,
+    auto rs = pipelineHelper::CreateRootSignature(device, params, 2,
         &sampler, 1, D3D12_ROOT_SIGNATURE_FLAG_NONE);
     ENGINE_ASSERT(rs);
     return rs;
@@ -75,22 +71,20 @@ ComPtr<ID3D12PipelineState> BloomEffect::CreatePSO(ID3D12Device* device,
     ID3D12RootSignature* rootSig,
     IDxcBlob* vsBlob,
     IDxcBlob* psBlob,
-    DXGI_FORMAT rtvFmt) const
-{
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = PipelineHelper::MakeFullscreenPsoDesc();
+    DXGI_FORMAT rtvFmt) const {
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = pipelineHelper::MakeFullscreenPsoDesc();
     psoDesc.pRootSignature = rootSig;
     psoDesc.VS = { vsBlob->GetBufferPointer(), vsBlob->GetBufferSize() };
     psoDesc.PS = { psBlob->GetBufferPointer(), psBlob->GetBufferSize() };
     psoDesc.RTVFormats[0] = rtvFmt;
 
     ComPtr<ID3D12PipelineState> pso;
-    pso = PipelineHelper::CreateGraphicsPipeline(device, psoDesc);
+    pso = pipelineHelper::CreateGraphicsPipeline(device, psoDesc);
     return pso;
 }
 
 /** @brief シーンキャプチャ用RT・ブルームピンポンRT・各パスのPSO/定数バッファを生成する */
-void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
-{
+void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
     // 描画先はすべて画面と同じ大きさで作る
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon->GetDevice();
@@ -99,16 +93,15 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     const UINT height = WinApp::kClientHeight;
 
     // シーンキャプチャ RT（GrayscaleEffect と同じ TYPELESS → RTV=SRGB, SRV=SRGB）
-    constexpr PipelineHelper::RenderTargetFormats kSceneFormats = {
+    constexpr pipelineHelper::RenderTargetFormats kSceneFormats = {
         DXGI_FORMAT_R8G8B8A8_TYPELESS, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
     };
-    PipelineHelper::CreateRenderTarget(device, srvManager, width, height, kSceneFormats, PipelineHelper::kOffscreenClearColor,
+    pipelineHelper::CreateRenderTarget(device, srvManager, width, height, kSceneFormats, pipelineHelper::kOffscreenClearColor,
         { sceneTexture_, sceneRtvHeap_, sceneRtvHandle_, sceneSrvIndex_ });
 
     // Bloom ピンポン RT
     constexpr DXGI_FORMAT kBloomFmt = DXGI_FORMAT_R8G8B8A8_UNORM;
-    for (size_t i = 0; i < std::size(bloomTex_); ++i)
-    {
+    for (size_t i = 0; i < std::size(bloomTex_); ++i) {
         CreateRenderTexture(device, srvManager,
             width, height,
             bloomTex_[i],
@@ -149,8 +142,7 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
     // ぼかしは1回目を横、2回目を縦にかける（テクセルの大きさは両方同じ）
     constexpr Vector2 kBlurDirections[] = { { 1.0f, 0.0f }, { 0.0f, 1.0f } };
     static_assert(std::size(kBlurDirections) == std::size(blurCb_));
-    for (size_t i = 0; i < std::size(blurCb_); ++i)
-    {
+    for (size_t i = 0; i < std::size(blurCb_); ++i) {
         blurCb_[i] = dxCommon->CreateBufferResource(kConstantBufferAlignment);
         blurCb_[i]->Map(0, nullptr, reinterpret_cast<void**>(&blurCbData_[i]));
         blurCbData_[i]->dirX = kBlurDirections[i].x;
@@ -161,12 +153,9 @@ void BloomEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 }
 
 /** @brief 生成した全RT・PSO・定数バッファを解放する */
-void BloomEffect::Finalize()
-{
-    for (size_t i = 0; i < std::size(bloomTex_); ++i)
-    {
-        if (blurCbData_[i])
-        {
+void BloomEffect::Finalize() {
+    for (size_t i = 0; i < std::size(bloomTex_); ++i) {
+        if (blurCbData_[i]) {
             blurCb_[i]->Unmap(0, nullptr);
             blurCbData_[i] = nullptr;
         }
@@ -174,8 +163,7 @@ void BloomEffect::Finalize()
         bloomTex_[i].Reset();
         bloomRtvHeap_[i].Reset();
     }
-    if (brightCbData_)
-    {
+    if (brightCbData_) {
         brightCb_->Unmap(0, nullptr);
         brightCbData_ = nullptr;
     }
@@ -191,24 +179,21 @@ void BloomEffect::Finalize()
 }
 
 /** @brief シーンキャプチャ用RTをレンダーターゲットに設定する */
-void BloomEffect::BeginScene()
-{
+void BloomEffect::BeginScene() {
     auto* cmd = dxCommon_->GetCommandList();
 
-    if (!sceneFirstFrame_)
-    {
+    if (!sceneFirstFrame_) {
         Barrier(cmd, sceneTexture_.Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
     }
     sceneFirstFrame_ = false;
 
-    PipelineHelper::BindSceneTarget(dxCommon_, sceneRtvHandle_);
+    pipelineHelper::BindSceneTarget(dxCommon_, sceneRtvHandle_);
 }
 
 /** @brief シーンキャプチャ用テクスチャをSRV状態へ遷移させる */
-void BloomEffect::EndScene()
-{
+void BloomEffect::EndScene() {
     auto* cmd = dxCommon_->GetCommandList();
     Barrier(cmd, sceneTexture_.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -218,8 +203,7 @@ void BloomEffect::EndScene()
 /** @brief ブルームの途中結果 bloomTex_[index] へ全画面パスを1回描き、描き終えたらシェーダーから参照できる状態にする */
 void BloomEffect::DrawToBloomTexture(ID3D12GraphicsCommandList* cmd, SrvManager* srvManager, int index,
     ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
-    D3D12_GPU_VIRTUAL_ADDRESS constants, uint32_t sourceSrvIndex)
-{
+    D3D12_GPU_VIRTUAL_ADDRESS constants, uint32_t sourceSrvIndex) {
     const UINT width = WinApp::kClientWidth;
     const UINT height = WinApp::kClientHeight;
     const D3D12_VIEWPORT vp = { 0.f, 0.f, (float)width, (float)height, 0.f, 1.f };
@@ -227,8 +211,7 @@ void BloomEffect::DrawToBloomTexture(ID3D12GraphicsCommandList* cmd, SrvManager*
     constexpr float kBlack[4] = { 0.f, 0.f, 0.f, 0.f };
 
     // 参照用の状態なら描画先の状態へ戻す
-    if (bloomInSrv_[index])
-    {
+    if (bloomInSrv_[index]) {
         Barrier(cmd, bloomTex_[index].Get(),
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -238,11 +221,11 @@ void BloomEffect::DrawToBloomTexture(ID3D12GraphicsCommandList* cmd, SrvManager*
     // 黒で消してから全画面三角形を描く
     cmd->OMSetRenderTargets(1, &bloomRtvHandle_[index], FALSE, nullptr);
     cmd->ClearRenderTargetView(bloomRtvHandle_[index], kBlack, 0, nullptr);
-    PipelineHelper::SetViewportAndScissor(cmd, vp, sc);
-    PipelineHelper::SetTrianglePipeline(cmd, rootSignature, pipelineState);
-    cmd->SetGraphicsRootConstantBufferView(PipelineHelper::FullscreenRootSlot::kConstants, constants);
-    cmd->SetGraphicsRootDescriptorTable(PipelineHelper::FullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(sourceSrvIndex));
-    PipelineHelper::DrawFullscreenTriangle(cmd);
+    pipelineHelper::SetViewportAndScissor(cmd, vp, sc);
+    pipelineHelper::SetTrianglePipeline(cmd, rootSignature, pipelineState);
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::fullscreenRootSlot::kConstants, constants);
+    cmd->SetGraphicsRootDescriptorTable(pipelineHelper::fullscreenRootSlot::kTexture, srvManager->GetGPUDescriptorHandle(sourceSrvIndex));
+    pipelineHelper::DrawFullscreenTriangle(cmd);
 
     // 次のパスで読めるよう参照用の状態にする
     Barrier(cmd, bloomTex_[index].Get(),
@@ -252,8 +235,7 @@ void BloomEffect::DrawToBloomTexture(ID3D12GraphicsCommandList* cmd, SrvManager*
 }
 
 /** @brief 輝度抽出→水平ブラー→垂直ブラー→加算合成の4パスを実行しバックバッファへ合成する */
-void BloomEffect::Apply(SrvManager* srvManager)
-{
+void BloomEffect::Apply(SrvManager* srvManager) {
     auto* cmd = dxCommon_->GetCommandList();
 
     // Pass 1: 輝度抽出（シーン → bloomTex_[0]）
@@ -270,13 +252,13 @@ void BloomEffect::Apply(SrvManager* srvManager)
 
     // Pass 4: 合成（内部解像度のテクスチャを実バックバッファへレターボックス表示）
     {
-        PipelineHelper::BindBackBufferTarget(dxCommon_, cmd);
+        pipelineHelper::BindBackBufferTarget(dxCommon_, cmd);
 
-        PipelineHelper::SetTrianglePipeline(cmd, combineRS_.Get(), combinePSO_.Get());
+        pipelineHelper::SetTrianglePipeline(cmd, combineRS_.Get(), combinePSO_.Get());
         // t0 = scene, t1 = bloom
-        cmd->SetGraphicsRootDescriptorTable(PipelineHelper::BloomCompositeRootSlot::kScene, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
-        cmd->SetGraphicsRootDescriptorTable(PipelineHelper::BloomCompositeRootSlot::kBloom, srvManager->GetGPUDescriptorHandle(bloomSrvIndex_[0]));
-        PipelineHelper::DrawFullscreenTriangle(cmd);
+        cmd->SetGraphicsRootDescriptorTable(pipelineHelper::bloomCompositeRootSlot::kScene, srvManager->GetGPUDescriptorHandle(sceneSrvIndex_));
+        cmd->SetGraphicsRootDescriptorTable(pipelineHelper::bloomCompositeRootSlot::kBloom, srvManager->GetGPUDescriptorHandle(bloomSrvIndex_[0]));
+        pipelineHelper::DrawFullscreenTriangle(cmd);
     }
 }
 
