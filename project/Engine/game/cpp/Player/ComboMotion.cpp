@@ -302,13 +302,8 @@ bool ComboMotionLibrary::Save() const {
         }
     }
     const nlohmann::json root = { { "schemaVersion", kSchemaVersion }, { "rigs", rigs } };
-    // JsonHelper::Save()は書き込みに失敗しても何も返さないため、読み戻して同じ内容になったかで成否を決める
-    try {
-        JsonHelper::Save(kMotionPath, root);
-    } catch (const std::exception&) {
-        return false;
-    }
-    return JsonHelper::Load(kMotionPath) == root;
+    // 書き込みと置換の結果を、そのまま呼び出し元へ伝える。
+    return JsonHelper::Save(kMotionPath, root);
 }
 
 /** @brief クリップを返す（無ければnullptr） */

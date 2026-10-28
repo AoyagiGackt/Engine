@@ -78,7 +78,11 @@ void GraphEditor::OpenAndShow(const std::string& path) {
 
 /** @brief 現在編集中のグラフをOpen()したパスへ保存する */
 void GraphEditor::Save() {
-    graphIO::Save(graphPath_, graph_);
+    if (!graphIO::Save(graphPath_, graph_)) {
+        statusMessage_ = "保存に失敗しました: " + graphPath_;
+        statusTimer_ = kStatusShortSeconds;
+        return;
+    }
     dirty_ = false;
     statusMessage_ = "Saved: " + graphPath_;
     statusTimer_ = kStatusShortSeconds;

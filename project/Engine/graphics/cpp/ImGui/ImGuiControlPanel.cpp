@@ -1,8 +1,8 @@
 /**
- * @file ImGuiControl.cpp
+ * @file ImGuiControlPanel.cpp
  * @brief 描画設定を調整する ImGui のパネル（ImGuiControlPanel）の実装
  */
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "BloomEffect.h"
 #include "GlassShatterEffect.h"
 #include "GrayscaleEffect.h"

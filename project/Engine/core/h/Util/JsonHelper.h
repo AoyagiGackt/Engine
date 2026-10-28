@@ -69,6 +69,6 @@ public:
      * @param j 書き出すJSONデータ
      * @param indent インデントの空白数（0以下ならnlohmann::jsonのdump()の仕様に従う）
      */
-    static void Save(const std::string& path, const nlohmann::json& j, int indent = 2);
+    static bool Save(const std::string& path, const nlohmann::json& j, int indent = 2);
 };
 } // namespace engine

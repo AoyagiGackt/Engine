@@ -50,7 +50,10 @@ private:
         Vector4 color;
     };
 
-    MaterialCB* materialData_ = nullptr;
+    /** @brief 描画ごとに転送するCPU側のマテリアル */
+    MaterialCB material_ {};
+    /** @brief 質感設定の編集先 */
+    MaterialCB* materialData_ = &material_;
 
     float innerRadius_ = 1.0f;
     float outerRadius_ = 2.0f;

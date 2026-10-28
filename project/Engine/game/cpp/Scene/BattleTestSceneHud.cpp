@@ -13,7 +13,7 @@
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "JsonHelper.h"
 #include "ModelManager.h"
 #include "PipelineStateGuard.h"

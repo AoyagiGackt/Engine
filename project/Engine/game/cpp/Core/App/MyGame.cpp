@@ -1,8 +1,8 @@
 /**
- * @file Game.cpp
+ * @file MyGame.cpp
  * @brief Frameworkを継承したゲーム固有の初期化・更新・描画・シーン遷移制御（MyGame）の実装
  */
-#include "Game.h"
+#include "MyGame.h"
 #include "AssetPack.h"
 #include "Audio.h"
 #include "CombatTuning.h"
@@ -24,7 +24,7 @@
 #include "GameSettings.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "InputBuffer.h"
 #include "RenderPassGraph.h"
@@ -107,6 +107,9 @@ void MyGame::Initialize() {
     audio_->SetBGMVolume(s.bgmVolume);
     audio_->SetSEVolume(s.seVolume);
 
+    // タイトルのメニュー判定より前に、セーブを読み込む。
+    SaveDataManager::GetInstance()->Load();
+
     // 最初のシーンを工場経由でセットする
     LogLoadProfile("エンジン初期化完了");
     SceneManager::GetInstance()->Initialize(
@@ -116,8 +119,7 @@ void MyGame::Initialize() {
         imguiManager_.get());
     LogLoadProfile("タイトル準備完了");
 
-    // コンティニューデータ・通算記録・スコアランキングを読み込む
-    SaveDataManager::GetInstance()->Load();
+    // スコアランキングを読み込む（コンティニューデータと通算記録はシーン生成の前に読み込み済み）
     ScoreManager::GetInstance()->LoadScores();
 
     // スクリーンフラッシュ初期化
@@ -235,6 +237,8 @@ void MyGame::Update() {
 void MyGame::Draw() {
     // バックバッファとSRVヒープを描画できる状態にする
     dxCommon_->PreDraw();
+    // 解放待ちの数え上げはここで1フレームに1回だけ進める（PreDraw は描画中に何度も呼ばれる）
+    SrvManager::GetInstance()->BeginFrame();
     SrvManager::GetInstance()->PreDraw();
 
     // ポストエフェクトの候補（FindActivePostEffect に渡す優先順）

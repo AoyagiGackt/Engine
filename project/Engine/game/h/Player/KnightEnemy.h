@@ -180,8 +180,8 @@ private:
     std::unique_ptr<SkinCommon> skinCommon_;
     SkinnedModel* model_ = nullptr;
     std::unique_ptr<SkinnedObject3d> object_;
-    Animation idleAnimation_;
-    Animation attackAnimation_;
+    engine::graphics::Animation idleAnimation_;
+    engine::graphics::Animation attackAnimation_;
     bool playingAttackAnimation_ = false; ///< いま攻撃モーションを再生中か（切り替わった時だけSetAnimationし直す）
     Model* swordModel_ = nullptr;
     std::unique_ptr<Object3d> swordObject_;

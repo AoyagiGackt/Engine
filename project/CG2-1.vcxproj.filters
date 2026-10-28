@@ -394,7 +394,7 @@
     <ClCompile Include="Engine\core\cpp\App\Framework.cpp">
       <Filter>ソースファイル\Engine\core\cpp\App</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\game\cpp\Core\App\Game.cpp">
+    <ClCompile Include="Engine\game\cpp\Core\App\MyGame.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Core\App</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Core\App\SmokeTestRunner.cpp">
@@ -706,6 +706,9 @@
     <ClCompile Include="Engine\core\cpp\Device\DirectXCommon.cpp">
       <Filter>ソースファイル\Engine\core\cpp\Device</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\core\cpp\Device\FrameUploadAllocator.cpp">
+      <Filter>ソースファイル\Engine\core\cpp\Device</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\core\cpp\Device\DirectXCommonInit.cpp">
       <Filter>ソースファイル\Engine\core\cpp\Device</Filter>
     </ClCompile>
@@ -763,7 +766,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect\ポストエフェクト</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp">
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlPanel.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp">
@@ -932,7 +935,7 @@
     <ClInclude Include="Engine\core\h\App\Framework.h">
       <Filter>ヘッダーファイル\Engine\core\h\App</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\game\h\Core\App\Game.h">
+    <ClInclude Include="Engine\game\h\Core\App\MyGame.h">
       <Filter>ヘッダーファイル\Engine\game\h\Core\App</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Core\App\SmokeTestRunner.h">
@@ -1253,10 +1256,13 @@
     <ClInclude Include="Engine\game\h\Util\DiagnosticsDraw.h">
       <Filter>ヘッダーファイル\Engine\game\h\Util</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\Diagnostics\D3DResourceLeakChecker.h">
+    <ClInclude Include="Engine\graphics\h\Diagnostics\D3D12ResourceLeakChecker.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="Engine\core\h\Device\DirectXCommon.h">
+      <Filter>ヘッダーファイル\Engine\core\h\Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\core\h\Device\FrameUploadAllocator.h">
       <Filter>ヘッダーファイル\Engine\core\h\Device</Filter>
     </ClInclude>
     <ClInclude Include="Engine\core\h\Window\WinApp.h">
@@ -1441,7 +1447,7 @@
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Offscreen</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h">
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControlPanel.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h">

@@ -106,6 +106,7 @@ void ObjectKind::EnsureKnightInstance(StageEditor& editor, int index) {
     if (entry.knight) {
         return;
     }
+    entry.enemyInstanceId = editor.AllocateEnemyInstanceId();
     entry.knight = std::make_unique<KnightEnemy>();
     entry.knight->Initialize(editor.modelCommon_, editor.WorldPositionOf(entry.desc));
 }
@@ -148,6 +149,7 @@ void ObjectKind::EnsureBasicEnemyInstance(StageEditor& editor, int index) {
     }
     const ObjectDesc& desc = entry.desc;
     entry.enemyWeapon = ChooseEnemyWeapon(desc);
+    entry.enemyInstanceId = editor.AllocateEnemyInstanceId();
     entry.enemy = std::make_unique<EnemyEntity>();
     entry.enemy->Initialize(editor.modelCommon_, editor.WorldPositionOf(desc), entry.enemyWeapon);
     entry.enemy->SetArchetype(desc.spawnType);

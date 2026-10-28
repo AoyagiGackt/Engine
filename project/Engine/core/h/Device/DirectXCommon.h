@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <Windows.h>
+#include "FrameUploadAllocator.h"
 #include <cassert>
 #include <chrono>
 #include <d3d12.h>
@@ -42,6 +43,10 @@ public: // メンバ関数
      * @note コマンドアロケータとリストのリセット、バックバッファの状態遷移、画面クリアなどを行います
      */
     void PreDraw();
+    /** @brief 描画ごとの定数データを書き込む、フレーム別のアップロード領域を取得する */
+    FrameUploadAllocator& GetFrameUploadAllocator() {
+        return frameUploadAllocator_;
+    }
 
     /**
      * @brief 描画後処理
@@ -296,6 +301,9 @@ private:
 private:
     /** @brief フレームインフライト数（スワップチェーンのバッファ数と一致させる） */
     static constexpr UINT kFrameCount = 2;
+
+    /** @brief 描画ごとの定数データを書き込む、フレーム別のアップロード領域 */
+    FrameUploadAllocator frameUploadAllocator_;
 
     // DirectX12基盤オブジェクト
     Microsoft::WRL::ComPtr<IDXGIFactory7> dxgiFactory_;

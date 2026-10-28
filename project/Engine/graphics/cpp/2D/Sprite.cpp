@@ -3,6 +3,7 @@
  * @brief スプライト（Sprite）の頂点・定数バッファの用意と描画の実装
  */
 #include "Sprite.h"
+#include "FrameUploadAllocator.h"
 #include "PipelineHelper.h"
 #include "EngineConstants.h"
 #include "Logger.h"
@@ -34,7 +35,6 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFi
     size_ = { static_cast<float>(metadata.width), static_cast<float>(metadata.height) };
     textureSize_ = size_; // 切り出しサイズも全体に設定
 
-    ID3D12Device* device = spriteCommon_->GetDevice();
 
     // 頂点バッファ作成
     vertexResource_ = spriteCommon_->GetDxCommon()->CreateBufferResource(sizeof(VertexDataSprite) * kSpriteVertexCount);
@@ -71,19 +71,15 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, const std::string& textureFi
     vertexData[5] = vertexData[2];
 
     // マテリアル作成
-    materialResource_ = spriteCommon_->GetDxCommon()->CreateBufferResource(sizeof(MaterialSprite));
-    materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    materialData_->enableLighting = false;
-    materialData_->shadingType = 0;
-    materialData_->useCubemap = 0;
-    materialData_->useTexture = 1;
-    materialData_->uvTransform = MakeIdentity4x4();
+    material_.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    material_.enableLighting = false;
+    material_.shadingType = 0;
+    material_.useCubemap = 0;
+    material_.useTexture = 1;
+    material_.uvTransform = MakeIdentity4x4();
 
     // WVP作成
-    transformationMatrixResource_ = spriteCommon_->GetDxCommon()->CreateBufferResource(sizeof(TransformationMatrixSprite));
-    transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
-    *transformationMatrixData_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
+    transformationMatrix_ = { MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4(), MakeIdentity4x4() };
 }
 
 /** @brief 描画するテクスチャを別の画像に変更する */
@@ -120,7 +116,7 @@ void Sprite::AdjustTextureSize() {
     uvMatrix = Multiply(uvMatrix, MakeScaleMatrix({ uvSize.x, uvSize.y, 1.0f }));
     uvMatrix = Multiply(uvMatrix, MakeTranslateMatrix({ uvPos.x, uvPos.y, 0.0f }));
 
-    materialData_->uvTransform = uvMatrix;
+    material_.uvTransform = uvMatrix;
 }
 
 /** @brief 毎フレームの更新処理座標やサイズから行列を再計算する */
@@ -155,8 +151,8 @@ void Sprite::Update() {
 
     Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 
-    transformationMatrixData_->wvp = worldViewProjectionMatrix;
-    transformationMatrixData_->world = worldMatrix;
+    transformationMatrix_.wvp = worldViewProjectionMatrix;
+    transformationMatrix_.world = worldMatrix;
 }
 
 /** @brief スプライトを描画するコマンドを積む */
@@ -166,9 +162,9 @@ void Sprite::Draw() {
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
     // マテリアル (色・UV)
-    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kMaterial, materialResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kMaterial, spriteCommon_->GetDxCommon()->GetFrameUploadAllocator().Allocate(&material_, sizeof(material_)));
     // 座標変換
-    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kTransform, transformationMatrixResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(pipelineHelper::spriteRootSlot::kTransform, spriteCommon_->GetDxCommon()->GetFrameUploadAllocator().Allocate(&transformationMatrix_, sizeof(transformationMatrix_)));
 
     // テクスチャ (TextureManagerからハンドルを取得してセット)
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);

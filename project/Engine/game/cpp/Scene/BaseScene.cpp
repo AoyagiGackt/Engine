@@ -120,9 +120,13 @@ void BaseScene::Init(DirectXCommon* dxCommon, Input* input, Audio* audio) {
 
 /** @brief SceneManagerが毎フレーム呼ぶ更新の入口（非virtual） */
 void BaseScene::Tick() {
+    // 前の描画以降にエディタ操作で配置物が作り直されていれば、更新の前に参照を取り直す
+    SynchronizeEditorReferences();
     if (GetStageEditor().ShouldPauseGame()) {
         // エディタ表示中はゲームプレイを丸ごと止め、配置物/enemy系の見た目だけ追従させる
         GetStageEditor().UpdateObjects(GetEditorParticleManager(), GetEditorPlayerPos());
+        // 表示の更新で敵を参照する前に、作り直された実体へ付け替える
+        SynchronizeEditorReferences();
         RefreshVisualTransformsForEditor();
         return;
     }
@@ -130,6 +134,8 @@ void BaseScene::Tick() {
     Update();
     // 親子追従やenemy系のAI/重力は表示状態に関係なく毎フレーム進める
     GetStageEditor().UpdateObjects(GetEditorParticleManager(), GetEditorPlayerPos());
+    // 配置物の更新で実体が作り直された場合に備えて取り直す
+    SynchronizeEditorReferences();
 }
 
 /** @brief 各シーンのInitialize()冒頭で重複しがちな共通初期化をまとめて行う */
@@ -183,6 +189,8 @@ void BaseScene::BuildRenderFoundation(DirectXCommon* dxCommon, engine::graphics:
 
 /** @brief SceneManagerが呼ぶ描画の入口（非virtual） */
 void BaseScene::Render() {
+    // 更新中のエディタ操作で実体が作り直されていれば、描画の前に取り直す
+    SynchronizeEditorReferences();
     Draw();
     // Draw()内でHUDより前に自分でDrawObjects()を呼んだシーンは、ここでの二重描画をスキップする
     // （呼んでいなければ、これまで通りフレーム最後に上乗せ描画する＝自己完結・PSO状態に依存しない）

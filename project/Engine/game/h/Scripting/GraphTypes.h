@@ -111,7 +111,7 @@ namespace graphIO {
     GraphDesc Load(const std::string& path);
 
     /** @brief グラフをJSONファイルへ保存する（GraphEditorの保存機能から使う） */
-    void Save(const std::string& path, const GraphDesc& graph);
+    bool Save(const std::string& path, const GraphDesc& graph);
 } // namespace graphIO
 
 } // namespace engine::game

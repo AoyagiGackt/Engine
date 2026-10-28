@@ -62,7 +62,10 @@ private:
         float pad[3];
     };
 
-    MaterialCB* materialData_ = nullptr;
+    /** @brief 描画ごとに転送するCPU側のマテリアル */
+    MaterialCB material_ {};
+    /** @brief 質感設定の編集先 */
+    MaterialCB* materialData_ = &material_;
 
     float topRadius_ = 1.0f;
     float bottomRadius_ = 1.0f;

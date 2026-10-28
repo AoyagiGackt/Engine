@@ -17,7 +17,7 @@
 #include "GrayscaleEffect.h"
 #include "HitEffectLibrary.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"

@@ -1,7 +1,7 @@
 /** @file ImGuiControlSceneSettings.cpp
  * @brief メッシュ・マテリアル・ライト・シーン演出の設定欄
  */
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImGuiManager.h"
 #include "LightManager.h"
 #include "MaterialManager.h"

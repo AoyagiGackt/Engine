@@ -386,7 +386,7 @@ void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime
     meleeCombo_.SetPreviewPose(attack, normalizedTime);
 
     // ベースアニメもゲーム中と同じ対応（段の経過秒 × 再生速度）で同じ時刻に合わせる
-    const Animation& anim = attack->slashAnim ? rig_->slashAnim : rig_->punchAnim;
+    const engine::graphics::Animation& anim = attack->slashAnim ? rig_->slashAnim : rig_->punchAnim;
     if (previewAnim_ != &anim) {
         rig_->object->SetAnimation(anim);
         previewAnim_ = &anim;

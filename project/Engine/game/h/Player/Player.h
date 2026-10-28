@@ -541,7 +541,7 @@ private:
     ComboMotionLayer motionLayer_;
     /** @brief 今の段と経過割合を加算モーションのレイヤーへ渡す（リグを評価する直前に呼ぶ） */
     void SyncMotionLayer();
-    const Animation* previewAnim_ = nullptr; ///< プレビュー中に設定済みのベースアニメ（毎フレームのクリップ複製を避ける）
+    const engine::graphics::Animation* previewAnim_ = nullptr; ///< プレビュー中に設定済みのベースアニメ（毎フレームのクリップ複製を避ける）
     // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
     GunComboController gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数
@@ -662,15 +662,15 @@ private:
         const char* meleeBoneName = ""; ///< 近接武器のアタッチ先ボーン
         const char* gunBoneName = ""; ///< 銃のアタッチ先ボーン
         const char* motionRigId = ""; ///< 加算モーションの保存キー（リグのモデルファイル名）
-        Animation idleAnim;
-        Animation runAnim;
-        Animation jumpAnim;
-        Animation runningJumpAnim; ///< 移動しながらのジャンプ
-        Animation swimAnim; ///< 水中
-        Animation idleHoldAnim; ///< 武器持ち待機（構え系スタイル）
-        Animation runHoldAnim; ///< 武器持ち走り（構え系スタイル）
-        Animation slashAnim; ///< 斬撃（ソード攻撃・乱舞・フィニッシャー）
-        Animation punchAnim; ///< パンチ（ソード以外のスタイルのコンボ）
+        engine::graphics::Animation idleAnim;
+        engine::graphics::Animation runAnim;
+        engine::graphics::Animation jumpAnim;
+        engine::graphics::Animation runningJumpAnim; ///< 移動しながらのジャンプ
+        engine::graphics::Animation swimAnim; ///< 水中
+        engine::graphics::Animation idleHoldAnim; ///< 武器持ち待機（構え系スタイル）
+        engine::graphics::Animation runHoldAnim; ///< 武器持ち走り（構え系スタイル）
+        engine::graphics::Animation slashAnim; ///< 斬撃（ソード攻撃・乱舞・フィニッシャー）
+        engine::graphics::Animation punchAnim; ///< パンチ（ソード以外のスタイルのコンボ）
     };
     CharacterRig normalRig_; ///< 通常フォーム
     CharacterRig awakenedRig_; ///< 覚醒フォーム（メカ）
@@ -763,7 +763,7 @@ private:
         velocityY_ = (std::max)(velocityY_, minVelocityY);
     }
     /** @brief 今のリグの指定クリップを攻撃モーションとして再生する */
-    void PlaySkillAnim(Animation CharacterRig::* clip, float speed);
+    void PlaySkillAnim(engine::graphics::Animation CharacterRig::* clip, float speed);
     /** @brief 体を空中で回す（1周したら0へ戻す） */
     void AddSpin(float degrees);
     /** @brief 投げた武器などを浮かせる高さの位置（足元の pos_ から胸の高さへ上げた位置） */
@@ -874,7 +874,7 @@ private:
     void UpdateAnimationState(bool isMoving, bool airborne);
 
     /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
-    void PlayAttackAnim(const Animation& anim, float speed);
+    void PlayAttackAnim(const engine::graphics::Animation& anim, float speed);
 
     // Update() 分割ヘルパー（呼び出し順に定義、詳細は Player.cpp 参照）
     /** @brief 毎フレーム冒頭でJust～系の単発フラグ（ジャンプ・着地・被弾等）を全てリセットする */

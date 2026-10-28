@@ -263,7 +263,12 @@ void StageEditor::UpdateAutoSave(float realDt) {
         return;
     }
     recoveryPath_ = levelPath_ + ".autosave.json";
-    SaveToPath(recoveryPath_);
+    if (!SaveToPath(recoveryPath_)) {
+        autoSaveElapsed_ = 0.0f;
+        statusMessage_ = "自動保存に失敗しました: " + recoveryPath_;
+        statusTimer_ = StageEditor::kStatusLongSeconds;
+        return;
+    }
     autoSaveElapsed_ = 0.0f;
     statusMessage_ = "自動保存しました: " + recoveryPath_;
     statusTimer_ = StageEditor::kStatusShortSeconds;

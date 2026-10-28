@@ -54,18 +54,26 @@ void LevelGraphRunner::Update(float dt) {
                        }),
         running_.end());
 
-    // フラグの立ち上がり（false→true）を検出して起動グラフを開始する
+    // 起動したグラフがフラグを書き換えても判定が変わらないよう、先に今のフラグ値を全部読んでおく
+    decltype(lastFlagState_) currentStates;
+    for (const FlagGraphBinding& binding : bindings_) {
+        if (!binding.flag.empty()) {
+            currentStates[binding.flag] = GameFlags::GetInstance()->GetFlag(binding.flag);
+        }
+    }
+    // フラグの立ち上がり（false→true）を検出して起動グラフを開始する（同じフラグの紐付けはすべて起動する）
     for (const FlagGraphBinding& binding : bindings_) {
         if (binding.flag.empty() || binding.graphPath.empty()) {
             continue;
         }
-        const bool now = GameFlags::GetInstance()->GetFlag(binding.flag);
-        bool& last = lastFlagState_[binding.flag];
-        if (now && !last) {
+        const auto last = lastFlagState_.find(binding.flag);
+        const bool wasSet = last != lastFlagState_.end() && last->second;
+        if (currentStates[binding.flag] && !wasSet) {
             Launch(binding.graphPath);
         }
-        last = now;
     }
+    // 前回値の更新は全紐付けの判定が終わってから1回だけ行う
+    lastFlagState_ = std::move(currentStates);
 }
 
 /** @brief 実行中のグラフ本数（エディタの状態表示用） */

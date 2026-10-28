@@ -7,6 +7,7 @@
 #include "MakeAffine.h"
 #include <d3d12.h>
 #include <string>
+#include <vector>
 #include <wrl/client.h>
 namespace engine {
 class DirectXCommon;
@@ -17,12 +18,18 @@ namespace engine::graphics {
 /**
  * @brief 分割数（divisions）指定で生成する回転体状メッシュの共通GPUリソース管理・描画処理を提供する抽象基底クラス
  * @note ジオメトリ生成（RebuildVertices相当）とマテリアル定数バッファの内容は派生クラス（Cylinder/Ring）が持つ。
- *       このクラスは頂点/マテリアルバッファの確保、PSO生成の共通部分、Update/Drawの共通処理のみを担う。
+ *       このクラスはCPU側の頂点とマテリアルの保持、PSO生成の共通部分、Update/Drawの共通処理のみを担う。
  */
 class RevolvedMeshBase {
 public:
+    /** @brief 未初期化の回転体メッシュを作る（Initialize で中身を用意する） */
+    RevolvedMeshBase() = default;
     /** @brief 派生クラスを基底クラスから正しく破棄できるようにする仮想デストラクタ */
     virtual ~RevolvedMeshBase() = default;
+    /** @brief 派生クラスのマテリアルを指すポインタを持つため、コピーを禁止する */
+    RevolvedMeshBase(const RevolvedMeshBase&) = delete;
+    /** @brief 派生クラスのマテリアルを指すポインタを持つため、コピー代入を禁止する */
+    RevolvedMeshBase& operator=(const RevolvedMeshBase&) = delete;
 
     /** @brief カメラのビュー射影から求めたWVP行列を派生クラスのマテリアル定数バッファへ反映する */
     void Update(Camera* camera);
@@ -86,9 +93,9 @@ protected:
         const Vector3& normalCur, const Vector3& normalNext);
 
     /**
-     * @brief テクスチャ読み込み・頂点バッファ・マテリアル定数バッファの確保を行う（Initialize共通部）
+     * @brief テクスチャを読み込み、CPU側の頂点と定数データを用意する
      * @param materialCBSize     派生クラスのマテリアル定数バッファ構造体のサイズ
-     * @param mappedMaterialOut  Map後のマテリアル定数バッファ書き込みポインタの受け取り先
+     * @param mappedMaterialOut  派生クラスが所有する、CPU側の質感データの参照先
      */
     void SetupCommonBuffers(engine::DirectXCommon* dxCommon, const std::string& textureFilePath,
         int divisions, size_t materialCBSize, void** mappedMaterialOut);
@@ -118,11 +125,15 @@ protected:
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer_;
+    /** @brief 形状を変更するためのCPU側の頂点配列 */
+    std::vector<VertexData> vertices_;
     D3D12_VERTEX_BUFFER_VIEW vbv_ { };
     VertexData* vertexData_ = nullptr;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialBuffer_;
+    /** @brief 派生クラスが所有するCPU側の定数データ */
+    const void* materialData_ = nullptr;
+    /** @brief 転送する定数データのバイト数 */
+    size_t materialBytes_ = 0;
 
     Vector3 position_ = { };
     Vector3 rotation_ = { };

@@ -231,9 +231,13 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
         data.objects.push_back(makeRow("wall_right", 'y', kNewLevelHeight + 1, { static_cast<float>(kNewLevelWidth + kNewLevelLeftColumn), kFloorY, 0.0f }));
         // 土台をファイルに書き出し、そのファイルを開く
         const std::string newPath = std::string(kLevelsDirectory) + "/" + editor.newLevelName_ + ".json";
-        levelLoader::Save(newPath, data);
-        editor.levelPath_ = newPath;
-        requestOpen = true;
+        if (levelLoader::Save(newPath, data)) {
+            editor.levelPath_ = newPath;
+            requestOpen = true;
+        } else {
+            editor.statusMessage_ = "レベルの保存に失敗しました";
+            editor.statusTimer_ = StageEditor::kStatusLongSeconds;
+        }
     }
     ImGui::EndDisabled();
     // レベルのパスは直接入力でも指定できる
@@ -281,7 +285,7 @@ void StageEditorHierarchyPanel::RenderFileAndHistoryActions(StageEditor& editor)
     ImGui::EndDisabled();
     if (ImGui::Button("選択条件をテスト発火")) {
         // 発生条件の番号はトリガーが先、その後ろに配置物の番号が続く
-        const int sourceIndex = editor.eventConnection_.SourceIndex();
+        const int sourceIndex = editor.eventConnection_.GetSourceIndex();
         if (sourceIndex >= 0 && sourceIndex < static_cast<int>(editor.triggers_.size())) {
             // トリガーなら、そのトリガーのフラグを立てる
             GameFlags::GetInstance()->SetFlag(editor.triggers_[sourceIndex].GetDesc().flag, true);

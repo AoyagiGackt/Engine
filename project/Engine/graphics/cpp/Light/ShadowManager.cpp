@@ -63,10 +63,23 @@ Vector3 ShadowManager::LightPosition(const Vector3& lightDirection) {
 
 using namespace Microsoft::WRL;
 
+/** @brief 確保した SRV を返却する（GPU が使い終わるまで SrvManager 側で再利用を待たせる） */
+ShadowManager::~ShadowManager() {
+    // 初期化済みのときだけ返却する
+    if (srvManager_) {
+        srvManager_->Free(shadowSrvIndex_);
+    }
+}
+
 // 初期化
 
 /** @brief シャドウマップ用の深度テクスチャと DSV・SRV を作成して初期化する */
 void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
+    // 作り直す場合は、前回確保した SRV を先に返却して二重確保を防ぐ
+    if (srvManager_) {
+        srvManager_->Free(shadowSrvIndex_);
+    }
+    srvManager_ = nullptr;
     dxCommon_ = dxCommon;
     ID3D12Device* device = dxCommon_->GetDevice();
 
@@ -84,6 +97,7 @@ void ShadowManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) 
 
     // SRV（PS でシャドウマップを読む用）
     shadowSrvIndex_ = srvManager->Allocate();
+    srvManager_ = srvManager;
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc { };
     srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;

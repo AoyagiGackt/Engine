@@ -3,6 +3,7 @@
  * @brief メインの戦闘シーン（ローグライト／サンドボックス両対応）
  */
 #pragma once
+#include <cstdint>
 #include "HudLayer.h"
 
 // 標準ライブラリ
@@ -166,6 +167,12 @@ public:
      * @note spawn_pointが後から出した敵を取り込み、無効化された敵を外す。既存の項目はHP・奪取状態を保つ
      */
     void SyncCombatEnemies();
+    /** @brief エディタが配置物の実体を作り直していたら、ボスとロック対象を含む参照を取得し直す */
+    void SynchronizeEditorReferences() override;
+    /** @brief 配置されたボスを取得し、新しい実体の時だけ初期のHPと色を設定する */
+    void BindEditorBoss();
+    /** @brief 現在参照しているボス実体の識別番号 */
+    uint64_t bossInstanceId_ = 0;
 
     /** @brief クリアの決め演出を確認用に始める（剣か銃かはランダム。ランの結果やセーブには反映しない） */
     void TriggerGlassShatterTest();
@@ -487,6 +494,8 @@ private:
 
     /** @brief 道中に配置された武器持ち敵1体分の状態（撃破後、Jキーで吸収して武器を奪取する） */
     struct WeaponEnemyEntry {
+        /** @brief 登録時の敵の識別番号 */
+        uint64_t instanceId = 0;
         EnemyEntity* enemy = nullptr; // 非所有。StageEditorの配置物が実体を所有する
         WeaponType weaponType = WeaponType::kSword;
         bool hasWeapon = true; ///< falseなら武器を持たないモンスター（倒すと消えて覚醒ゲージになる）

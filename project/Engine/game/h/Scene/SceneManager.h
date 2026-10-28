@@ -104,7 +104,7 @@ public:
 
     /**
      * @brief 現在のシーンがポストエフェクト（グレースケール等）のオフスクリーンRTVリダイレクトに対応しているか
-     * @note 未対応シーン中は Game.cpp 側で BeginScene/EndScene/Apply を呼ばないようにするためのガード
+     * @note 未対応シーン中は MyGame.cpp 側で BeginScene/EndScene/Apply を呼ばないようにするためのガード
      */
     bool CurrentScenePostEffectsSupported() const {
         return currentScene_ && currentScene_->SupportsPostEffects();

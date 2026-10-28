@@ -57,7 +57,7 @@ void EnemyTypeLibrary::Reload() {
 }
 
 /** @brief 今の一覧をファイルへ書き出す */
-void EnemyTypeLibrary::Save() const {
+bool EnemyTypeLibrary::Save() const {
     nlohmann::json root = nlohmann::json::object();
     root["_comment"] = kComment;
     root["types"] = nlohmann::json::array();
@@ -66,7 +66,7 @@ void EnemyTypeLibrary::Save() const {
         WriteJsonFields(value, kTypeFields, type);
         root["types"].push_back(std::move(value));
     }
-    JsonHelper::Save(kEnemyTypesPath, root);
+    return JsonHelper::Save(kEnemyTypesPath, root);
 }
 
 /** @brief 名前から種類を探す（無ければ nullptr） */

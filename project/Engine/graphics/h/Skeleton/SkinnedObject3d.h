@@ -14,6 +14,7 @@
 #include "SkinCommon.h"
 #include "SkinnedModel.h"
 #include <string>
+#include <array>
 #include <wrl/client.h>
 
 #ifdef USE_IMGUI
@@ -22,7 +23,6 @@
 #endif
 
 namespace engine::graphics {
-using engine::game::Animation;
 
 class Camera;
 class Object3dCommon;
@@ -125,28 +125,28 @@ public:
 
     /** @brief 色を設定する */
     void SetColor(const Vector4& color) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::color, color);
     }
     /** @brief ライティングを使うかを設定する */
     void SetEnableLighting(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     // リムライト（縁取り発光enableLighting 有効時のみシェーダーで反映される）
     void SetRimColor(const Vector3& color) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimColor, color);
     }
     /** @brief リムライトの鋭さを設定する */
     void SetRimPower(float power) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimPower, power);
     }
     /** @brief リムライトの強さを設定する */
     void SetRimIntensity(float intensity) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
     /** @brief リムライトを使うかを設定する */
     void SetEnableRim(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
 
     /** @brief 位置を返す */
@@ -202,7 +202,18 @@ private:
 
     /** @brief どちらの描画パスでも同じスロット（0: マテリアル、1: 変換行列、3: ライト、4: 影、5: 環境マップ）を設定する */
     void BindSharedSlots(ID3D12GraphicsCommandList* cmd) const;
-    static const int kMaxJoints = 128;
+    /** @brief シェーダーと共有する最大ジョイント数 */
+    static constexpr int kMaxJoints = 128;
+    /** @brief 定数バッファが参照できる最大バイト数 */
+    static constexpr size_t kMaxConstantBufferBytes = 64 * 1024;
+    static_assert(sizeof(Matrix4x4) * kMaxJoints <= kMaxConstantBufferBytes);
+
+    /** @brief 描画時点の変換行列をフレーム領域へ転送する */
+    D3D12_GPU_VIRTUAL_ADDRESS UploadTransform() const;
+    /** @brief 描画時点の質感設定をフレーム領域へ転送する */
+    D3D12_GPU_VIRTUAL_ADDRESS UploadMaterial() const;
+    /** @brief 計算時点のスキニング行列をフレーム領域へ転送する */
+    D3D12_GPU_VIRTUAL_ADDRESS UploadPalette() const;
 
     /**
      * @brief VS に渡す座標変換用定数バッファのレイアウト（SkinnedVS.hlsl / Object3dVS.hlsl と一致させる）
@@ -262,15 +273,15 @@ private:
     std::unique_ptr<SkeletonOverlayRenderer> skeletonDebugRenderer_;
 #endif
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> transformCB_;
-    TransformationMatrix* transformData_ = nullptr;
+    /** @brief CPU側で保持する変換行列 */
+    TransformationMatrix transformationMatrix_ {};
 
     // Object3dPS.hlsl の Material 構造体と一致する共用レイアウト（Object3d と共通）
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialCB_;
-    ObjectMaterialLayout* materialData_ = nullptr;
+    /** @brief CPU側で保持する質感設定 */
+    ObjectMaterialLayout material_ {};
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> paletteCB_;
-    Matrix4x4* paletteData_ = nullptr;
+    /** @brief CPU側で保持するスキニング行列の配列 */
+    std::array<Matrix4x4, kMaxJoints> palette_ {};
 };
 
 } // namespace engine::graphics

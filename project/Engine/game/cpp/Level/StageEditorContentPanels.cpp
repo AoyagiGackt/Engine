@@ -541,6 +541,11 @@ void StageEditor::SaveSelectedPrefab() {
         return;
     }
     const std::string path = StageEditorPrefabService::Save(prefabName_, objects_[selIndex_].desc);
+    if (path.empty()) {
+        statusMessage_ = "プレハブの保存に失敗しました";
+        statusTimer_ = kStatusLongSeconds;
+        return;
+    }
     statusMessage_ = "プレハブを保存しました: " + path;
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }

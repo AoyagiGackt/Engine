@@ -100,7 +100,7 @@ void ClearScene::Finalize() {
 
 /** @brief スペースキーでタイトルへ戻し、デバッグ用のスコア表示を更新する */
 void ClearScene::Update() {
-    if (input_->TriggerKey(DIK_SPACE)) {
+    if (input_->TriggerMenuConfirm()) {
         SceneFlow::GetInstance()->Transition("CLEAR", "title", "TITLE");
     }
 

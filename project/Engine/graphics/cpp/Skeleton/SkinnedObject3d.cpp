@@ -3,6 +3,7 @@
  * @brief アニメーションするスキンメッシュのオブジェクト（SkinnedObject3d）の実装
  */
 #include "SkinnedObject3d.h"
+#include "FrameUploadAllocator.h"
 #include "PipelineHelper.h"
 #include "EngineConstants.h"
 #include "ResourceAlignment.h"
@@ -27,7 +28,6 @@ namespace {
 constexpr float kAnimationFramesPerSecond = engineConstants::kTargetFps;
 
 }
-using namespace engine::game;
 
 using namespace Microsoft::WRL;
 
@@ -88,22 +88,14 @@ void SkinnedObject3d::InitializeSkinCS() {
 /** @brief 変換行列・マテリアル・スキニングパレットの定数バッファを確保し既定値で初期化する */
 void SkinnedObject3d::Initialize(SkinCommon* skinCommon) {
     skinCommon_ = skinCommon;
-    ID3D12Device* device = skinCommon_->GetDxCommon()->GetDevice();
 
-    // CBV は 256 バイトアライン必須なので切り上げる
-    transformCB_ = pipelineHelper::CreateUploadBuffer(device, AlignConstantBufferSize(sizeof(TransformationMatrix)));
-    transformCB_->Map(0, nullptr, reinterpret_cast<void**>(&transformData_));
-
-    materialCB_ = pipelineHelper::CreateUploadBuffer(device, sizeof(ObjectMaterialLayout));
-    materialCB_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    *materialData_ = ObjectMaterialLayout { }; // 既定値（ライティング有効・リム無効など）
-    materialData_->uvTransform = MakeIdentity4x4();
+    // 定数はCPU側で編集し、各描画でフレーム専用領域へ転送する
+    material_ = ObjectMaterialLayout { }; // 既定値（ライティング有効・リム無効など）
+    material_.uvTransform = MakeIdentity4x4();
 
     // パレット: 256 バイト境界に合わせる（128 * 64 = 8192 はすでに倍数）
-    paletteCB_ = pipelineHelper::CreateUploadBuffer(device, sizeof(Matrix4x4) * kMaxJoints);
-    paletteCB_->Map(0, nullptr, reinterpret_cast<void**>(&paletteData_));
     for (int i = 0; i < kMaxJoints; ++i) {
-        paletteData_[i] = MakeIdentity4x4();
+        palette_[i] = MakeIdentity4x4();
     }
 
 #ifdef USE_IMGUI
@@ -189,7 +181,7 @@ void SkinnedObject3d::Update() {
     for (uint32_t i = 0; i < static_cast<uint32_t>(boneNames.size()) && i < kMaxJoints; ++i) {
         const auto jointIndex = skeleton_.FindJointIndex(boneNames[i]);
         if (jointIndex) {
-            paletteData_[i] = Multiply(ibms[i], skeleton_.GetJoint(*jointIndex).skeletonSpaceMatrix);
+            palette_[i] = Multiply(ibms[i], skeleton_.GetJoint(*jointIndex).skeletonSpaceMatrix);
         } else {
             // ボーン名がスケルトンに存在しない場合、パレットは単位行列のまま（初期化済み）
             if (sWarnedBones.insert(boneNames[i]).second) {
@@ -204,14 +196,14 @@ void SkinnedObject3d::Update() {
     Matrix4x4 vp = MakeIdentity4x4();
     if (sCommonCamera) {
         vp = Multiply(sCommonCamera->GetViewMatrix(), sCommonCamera->GetProjectionMatrix());
-        materialData_->cameraWorldPos = sCommonCamera->GetTranslate();
+        material_.cameraWorldPos = sCommonCamera->GetTranslate();
     }
-    transformData_->wvp = Multiply(world, vp);
-    transformData_->world = world;
-    transformData_->worldInverseTranspose = Transpose(Inverse(world));
-    transformData_->lightVP = sCommonLightVP;
+    transformationMatrix_.wvp = Multiply(world, vp);
+    transformationMatrix_.world = world;
+    transformationMatrix_.worldInverseTranspose = Transpose(Inverse(world));
+    transformationMatrix_.lightVP = sCommonLightVP;
 
-    materialData_->shadingType = LightManager::GetInstance()->GetLightingMode();
+    material_.shadingType = LightManager::GetInstance()->GetLightingMode();
 }
 
 /** @brief ImGui 有効時にスケルトンのジョイント・ボーンをワールド空間へデバッグ描画する */
@@ -223,10 +215,25 @@ void SkinnedObject3d::DiagnosticsDraw() {
 #endif
 }
 
+/** @brief 変換行列のスナップショットをGPU用のフレーム領域へ書き込む */
+D3D12_GPU_VIRTUAL_ADDRESS SkinnedObject3d::UploadTransform() const {
+    return skinCommon_->GetDxCommon()->GetFrameUploadAllocator().Allocate(&transformationMatrix_, sizeof(transformationMatrix_));
+}
+
+/** @brief 質感設定のスナップショットをGPU用のフレーム領域へ書き込む */
+D3D12_GPU_VIRTUAL_ADDRESS SkinnedObject3d::UploadMaterial() const {
+    return skinCommon_->GetDxCommon()->GetFrameUploadAllocator().Allocate(&material_, sizeof(material_));
+}
+
+/** @brief スキニングパレットのスナップショットをGPU用のフレーム領域へ書き込む */
+D3D12_GPU_VIRTUAL_ADDRESS SkinnedObject3d::UploadPalette() const {
+    return skinCommon_->GetDxCommon()->GetFrameUploadAllocator().Allocate(palette_.data(), sizeof(palette_));
+}
+
 /** @brief どちらの描画パスでも同じスロット（0: マテリアル、1: 変換行列、3: ライト、4: 影、5: 環境マップ）を設定する */
 void SkinnedObject3d::BindSharedSlots(ID3D12GraphicsCommandList* cmd) const {
-    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kMaterial, materialCB_->GetGPUVirtualAddress());
-    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kTransform, transformCB_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kMaterial, UploadMaterial());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kTransform, UploadTransform());
     pipelineHelper::BindCommonLighting(cmd, sCommonObjectCommon, sCommonShadowManager);
     // 環境マップが未設定なら通常のテクスチャで代用する
     const std::string& envTexture = envCubemapFilePath_.empty() ? model_->GetTextureFilePath() : envCubemapFilePath_;
@@ -244,9 +251,9 @@ void SkinnedObject3d::Draw() {
     if (skinCSReady_ && sCommonModelCommon) {
         // CS スキニング済みパス:
         // Draw() 内で Dispatch することでコマンドリストが確実に開いている状態で実行される
-        skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
+        skinCS_.Dispatch(cmd, UploadPalette());
 
-        // 計算済み頂点バッファ (position/texcoord/normal のみ) を使い、
+        // 計算済み頂点バッファ (position/texcoord/normal/tangent) を使い、
         // ModelCommon の標準 PSO (Object3dVS + Object3dPS) で描画する
         sCommonModelCommon->CommonDrawSettings();
 
@@ -256,14 +263,14 @@ void SkinnedObject3d::Draw() {
         const D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(model_->GetTextureFilePath());
         cmd->SetGraphicsRootDescriptorTable(pipelineHelper::modelRootSlot::kTexture, texHandle);
 
-        // CS が書き込んだ頂点バッファをセット (ボーンデータなし: pos/uv/normal のみ)
+        // CS が書き込んだ頂点バッファをセット (ボーンデータなし: pos/uv/normal/tangent)
         DrawSkinnedVertices(cmd);
     } else {
         // フォールバック: SkinCommon の PSO (SkinnedVS) でボーン計算を VS 内で行う従来パス
         BindSharedSlots(cmd);
 
         // スロット 6 (VS, b1): スキニングパレット
-        cmd->SetGraphicsRootConstantBufferView(pipelineHelper::skinnedRootSlot::kPalette, paletteCB_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootConstantBufferView(pipelineHelper::skinnedRootSlot::kPalette, UploadPalette());
         // スロット 7 (PS, b2): ポイントライト
         if (sCommonObjectCommon) {
             sCommonObjectCommon->SetPointLights(cmd, pipelineHelper::skinnedRootSlot::kPointLights);
@@ -292,11 +299,11 @@ void SkinnedObject3d::DrawOutline(OutlineEffect* effect) {
     // ※ Dispatch はコンピュート用 PSO にコマンドリストを切り替えるため、
     //    このあと BeginOutlinePass() でグラフィックス用ルートシグネチャ/PSO に戻す必要がある
     //    （通常の Draw() は直後に CommonDrawSettings() で戻しているが、こちらは戻していなかった）
-    skinCS_.Dispatch(cmd, paletteCB_->GetGPUVirtualAddress());
+    skinCS_.Dispatch(cmd, UploadPalette());
     effect->BeginOutlinePass();
 
     // slot 1 (VS b1): 座標変換行列（OutlineEffect のルートシグネチャに合わせる）
-    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kTransform, transformCB_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::modelRootSlot::kTransform, UploadTransform());
 
     DrawSkinnedVertices(cmd);
 }

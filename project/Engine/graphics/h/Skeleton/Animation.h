@@ -19,7 +19,7 @@
 #include <map>
 #include <string>
 #include <vector>
-namespace engine::game {
+namespace engine::graphics {
 // キーフレーム
 
 /**
@@ -95,4 +95,4 @@ Vector3 CalculateValue(const AnimationCurve<Vector3>& curve, float time);
  */
 Quaternion CalculateValue(const AnimationCurve<Quaternion>& curve, float time);
 
-} // namespace engine::game
+} // namespace engine::graphics

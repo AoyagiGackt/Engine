@@ -16,7 +16,7 @@
 #include "GameConstants.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "PipelineStateGuard.h"
 #include "PlayerBridge.h"
 #include "PostEffectRenderTarget.h"

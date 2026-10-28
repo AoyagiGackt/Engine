@@ -116,7 +116,7 @@ void StageEditor::RenderEventSourceSelector() {
     // 発生条件の番号は トリガー → イベント条件の配置物 の順に通し番号で持っている
     const int triggerCount = static_cast<int>(triggers_.size());
     const char* sourcePreview = "イベントトリガーを選択";
-    const int sourceIndex = eventConnection_.SourceIndex();
+    const int sourceIndex = eventConnection_.GetSourceIndex();
     if (sourceIndex >= 0 && sourceIndex < triggerCount) {
         sourcePreview = triggers_[sourceIndex].GetDesc().name.c_str();
     } else if (sourceIndex >= triggerCount) {
@@ -130,7 +130,7 @@ void StageEditor::RenderEventSourceSelector() {
         // トリガーを先に並べる
         for (int i = 0; i < triggerCount; ++i) {
             const TriggerDesc& trigger = triggers_[i].GetDesc();
-            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.SourceIndex() == i)) {
+            if (ImGui::Selectable(trigger.name.c_str(), eventConnection_.GetSourceIndex() == i)) {
                 eventConnection_.SetSourceIndex(i);
             }
         }
@@ -141,7 +141,7 @@ void StageEditor::RenderEventSourceSelector() {
             }
             std::string label = objects_[i].desc.name + "  [" + objects_[i].desc.conditionType + "]";
             const int encodedIndex = triggerCount + i;
-            if (ImGui::Selectable(label.c_str(), eventConnection_.SourceIndex() == encodedIndex)) {
+            if (ImGui::Selectable(label.c_str(), eventConnection_.GetSourceIndex() == encodedIndex)) {
                 eventConnection_.SetSourceIndex(encodedIndex);
             }
         }
@@ -161,8 +161,8 @@ void StageEditor::RenderEventSourceSelector() {
 /** @brief イベントの動作対象（出現地点・ギミック・カメラ）を選ぶ欄 */
 void StageEditor::RenderEventTargetSelector() {
     const char* targetPreview = "動作対象を選択";
-    if (eventConnection_.TargetIndex() >= 0 && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())) {
-        targetPreview = objects_[eventConnection_.TargetIndex()].desc.name.c_str();
+    if (eventConnection_.GetTargetIndex() >= 0 && eventConnection_.GetTargetIndex() < static_cast<int>(objects_.size())) {
+        targetPreview = objects_[eventConnection_.GetTargetIndex()].desc.name.c_str();
     }
     // 動作対象になれる配置物だけを、種類つきで並べる
     if (ImGui::BeginCombo("動作対象", targetPreview)) {
@@ -172,7 +172,7 @@ void StageEditor::RenderEventTargetSelector() {
             }
             const ObjectDesc& object = objects_[i].desc;
             std::string label = object.name + "  [" + object.kind + "]";
-            if (ImGui::Selectable(label.c_str(), eventConnection_.TargetIndex() == i)) {
+            if (ImGui::Selectable(label.c_str(), eventConnection_.GetTargetIndex() == i)) {
                 eventConnection_.SetTargetIndex(i);
             }
         }
@@ -200,7 +200,7 @@ void StageEditor::RenderEventActionSettings() {
         eventConnection_.SetAction(static_cast<StageEditorEventConnection::Action>(actionIndex));
     }
     editorUI::HelpMarker("有効化は対象を出現または動作させます。無効化は対象を消す、または停止する用途に使います。");
-    float delaySeconds = eventConnection_.DelaySeconds();
+    float delaySeconds = eventConnection_.GetDelaySeconds();
     if (ImGui::DragFloat("実行までの遅延 秒", &delaySeconds, editorUi::kDragStepSeconds, 0.0f, kMaxEventDelaySeconds, "%.1f")) {
         eventConnection_.SetDelaySeconds(delaySeconds);
     }
@@ -210,24 +210,24 @@ void StageEditor::RenderEventActionSettings() {
 /** @brief 選んだ発生条件と動作対象を接続するボタン */
 void StageEditor::RenderEventConnectButton() {
     // 発生条件と動作対象の両方がそろうまでボタンを押せなくする
-    ObjectDesc* selectedTarget = eventConnection_.TargetIndex() >= 0
-            && eventConnection_.TargetIndex() < static_cast<int>(objects_.size())
-        ? &objects_[eventConnection_.TargetIndex()].desc
+    ObjectDesc* selectedTarget = eventConnection_.GetTargetIndex() >= 0
+            && eventConnection_.GetTargetIndex() < static_cast<int>(objects_.size())
+        ? &objects_[eventConnection_.GetTargetIndex()].desc
         : nullptr;
     const bool canConnect = eventConnection_.CanConnect(static_cast<int>(objects_.size()), selectedTarget);
     ImGui::BeginDisabled(!canConnect);
     if (ImGui::Button("接続する", ImVec2(-1.0f, 0.0f))) {
         RecordUndoSnapshotNow();
         std::string sourceName;
-        if (eventConnection_.SourceIndex() < static_cast<int>(triggers_.size())) {
+        if (eventConnection_.GetSourceIndex() < static_cast<int>(triggers_.size())) {
             // トリガーは設定をコピーして書き換え、トリガー本体へ戻す
-            TriggerVolume& volume = triggers_[eventConnection_.SourceIndex()];
+            TriggerVolume& volume = triggers_[eventConnection_.GetSourceIndex()];
             TriggerDesc trigger = volume.GetDesc();
             sourceName = eventConnection_.Connect(trigger, *selectedTarget);
             volume.SetDesc(trigger);
         } else {
             // イベント条件は配置物の設定を直接書き換える
-            const int conditionIndex = eventConnection_.SourceIndex() - static_cast<int>(triggers_.size());
+            const int conditionIndex = eventConnection_.GetSourceIndex() - static_cast<int>(triggers_.size());
             if (conditionIndex >= 0 && conditionIndex < static_cast<int>(objects_.size())) {
                 sourceName = eventConnection_.Connect(objects_[conditionIndex].desc, *selectedTarget);
             }

@@ -57,6 +57,7 @@ void DirectXCommon::Initialize(WinApp* winApp) {
     InitializeFixFPS();
     // デバイス初期化
     InitializeDevice();
+    frameUploadAllocator_.Initialize(this, kFrameCount);
     // コマンド関連初期化
     CreateCommand();
     // ディスクリプタヒープ作成
@@ -115,6 +116,9 @@ void DirectXCommon::PreDraw() {
         fence_->SetEventOnCompletion(frameFenceValues_[backBufferIndex], fenceEvent_);
         WaitForSingleObject(fenceEvent_, INFINITE);
     }
+
+    // GPUの使用が完了した定数領域を再利用する。
+    frameUploadAllocator_.BeginFrame(backBufferIndex);
 
     // コマンドアロケータとリストをリセット
     HRESULT hr = commandAllocators_[backBufferIndex]->Reset();

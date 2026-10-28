@@ -24,16 +24,24 @@ namespace engine::graphics {
 class SkinCS {
 public:
     // 出力頂点レイアウト  ModelCommon の入力レイアウトと完全一致
-    // POSITION (R32G32B32A32_FLOAT) + TEXCOORD (R32G32_FLOAT) + NORMAL (R32G32B32_FLOAT)
+    // POSITION + TEXCOORD + NORMAL + TANGENT の順に格納する
     /**
-     * @brief SkinningCS.hlsl が書き込む変形後頂点1個分のレイアウト（36バイト）
+     * @brief SkinningCS.hlsl が書き込む変形後頂点1個分のレイアウト（接線を含む48バイト）
      */
     struct OutputVertex {
+        /** @brief 変形後の同次座標 */
         float position[4]; // 16 バイト
+        /** @brief 元の頂点から引き継ぐUV座標 */
         float texcoord[2]; //  8 バイト
+        /** @brief スキン行列で変換した法線 */
         float normal[3]; // 12 バイト
-                         // 合計  36 バイト
+        /** @brief 法線と直交する接線 */
+        float tangent[3];
     };
+
+    /** @brief 標準頂点を構成する浮動小数点要素数 */
+    static constexpr size_t kOutputFloatCount = 12;
+    static_assert(sizeof(OutputVertex) == sizeof(float) * kOutputFloatCount);
 
     // inputBuffer   SkinnedModel::GetVertexResource() を渡す (GENERIC_READ 状態)
     // vertexCount   SkinnedModel::GetVertexCount()
@@ -42,7 +50,7 @@ public:
         UINT vertexCount);
 
     // スキニング計算を Dispatch する。Draw() より前に呼ぶこと
-    // paletteCBAddress   paletteCB_->GetGPUVirtualAddress()
+    // paletteCBAddress は、フレーム領域へ転送済みのパレットを指す
     void Dispatch(ID3D12GraphicsCommandList* cmd,
         D3D12_GPU_VIRTUAL_ADDRESS paletteCBAddress);
 

@@ -11,7 +11,7 @@
 #include <cmath>
 #include <map>
 
-namespace engine::game {
+namespace engine::graphics {
 
 namespace {
 /** @brief pakへ入れるため、アニメーション1本をノード名とキーフレーム配列の並びに変換する */

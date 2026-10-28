@@ -186,7 +186,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\UI\ScoreDisplay.cpp" />
     <ClCompile Include="Engine\game\cpp\Collision\Collision.cpp" />
     <ClCompile Include="Engine\core\cpp\App\Framework.cpp" />
-    <ClCompile Include="Engine\game\cpp\Core\App\Game.cpp" />
+    <ClCompile Include="Engine\game\cpp\Core\App\MyGame.cpp" />
     <ClCompile Include="Engine\game\cpp\Core\App\SmokeTestRunner.cpp" />
     <ClCompile Include="Engine\core\cpp\Object\GameObject.cpp" />
     <ClCompile Include="Engine\game\cpp\Effect\AfterImageRenderer.cpp" />
@@ -290,6 +290,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\game\cpp\Scene\FinisherEffects.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Camera\Camera.cpp" />
     <ClCompile Include="Engine\core\cpp\Device\DirectXCommon.cpp" />
+    <ClCompile Include="Engine\core\cpp\Device\FrameUploadAllocator.cpp" />
     <ClCompile Include="Engine\core\cpp\Device\DirectXCommonInit.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashHandler.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Diagnostics\CrashContext.cpp" />
@@ -311,7 +312,7 @@ if errorlevel 1 exit /b 1
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp" />
-    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControl.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlPanel.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Manager\MaterialManager.cpp" />
@@ -657,7 +658,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\game\h\Collision\Collision.h" />
     <ClInclude Include="Engine\core\h\Collision\CollisionConfig.h" />
     <ClInclude Include="Engine\core\h\App\Framework.h" />
-    <ClInclude Include="Engine\game\h\Core\App\Game.h" />
+    <ClInclude Include="Engine\game\h\Core\App\MyGame.h" />
     <ClInclude Include="Engine\game\h\Core\App\SmokeTestRunner.h" />
     <ClInclude Include="Engine\core\h\Object\GameObject.h" />
     <ClInclude Include="Engine\game\h\Util\GameConstants.h" />
@@ -733,8 +734,9 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\3D\BlendMode.h" />
     <ClInclude Include="Engine\graphics\h\Camera\Camera.h" />
     <ClInclude Include="Engine\game\h\Util\DiagnosticsDraw.h" />
-    <ClInclude Include="Engine\graphics\h\Diagnostics\D3DResourceLeakChecker.h" />
+    <ClInclude Include="Engine\graphics\h\Diagnostics\D3D12ResourceLeakChecker.h" />
     <ClInclude Include="Engine\core\h\Device\DirectXCommon.h" />
+    <ClInclude Include="Engine\core\h\Device\FrameUploadAllocator.h" />
     <ClInclude Include="Engine\core\h\Window\WinApp.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\GpuProfiler.h" />
     <ClInclude Include="Engine\graphics\h\Effect\Fade.h" />
@@ -798,7 +800,7 @@ if errorlevel 1 exit /b 1
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditor.h" />
-    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControl.h" />
+    <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControlPanel.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
     <ClInclude Include="Engine\graphics\h\Effect\OutlineEffect.h" />
