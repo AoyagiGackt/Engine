@@ -110,18 +110,18 @@ public:
 
 /** @brief フェード待機の共有状態を返す */
 const Fade::IState& Fade::Idle() {
-    static const IdleState state;
-    return state;
+    static const IdleState kState;
+    return kState;
 }
 /** @brief フェードインの共有状態を返す */
 const Fade::IState& Fade::FadingIn() {
-    static const FadeInState state;
-    return state;
+    static const FadeInState kState;
+    return kState;
 }
 /** @brief フェードアウトの共有状態を返す */
 const Fade::IState& Fade::FadingOut() {
-    static const FadeOutState state;
-    return state;
+    static const FadeOutState kState;
+    return kState;
 }
 
 /** @brief 旧状態を終了して新状態へ入る */

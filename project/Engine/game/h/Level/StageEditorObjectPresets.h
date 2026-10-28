@@ -88,7 +88,7 @@ inline bool TryApply(const nlohmann::json& document, const char* key, ObjectDesc
 
 /** @brief 設定ファイルを初回だけ読み、配置メニューで指定されたプリセットを適用する */
 inline bool TryApply(const char* key, ObjectDesc& desc) {
-    static const auto document = engine::JsonHelper::Load(kConfigPath);
-    return TryApply(document, key, desc);
+    static const auto kDocument = engine::JsonHelper::Load(kConfigPath);
+    return TryApply(kDocument, key, desc);
 }
 }

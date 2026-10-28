@@ -548,15 +548,15 @@ bool IsScreenAnchorObject(const ObjectDesc& desc) {
 /** @brief 種類名に対応する種類を返す（未知の名前は名前だけ持つ汎用の種類） */
 const ObjectKind& ObjectKind::Of(const std::string& name) {
     // 登録済みの種類は名前で引けるよう一覧にしておく（各種類は初回だけ作る）
-    static const PropKind prop;
-    static const BackgroundKind background;
-    static const GimmickKind gimmick;
-    static const TerrainKind terrain;
-    static const PickupKind pickup;
-    static const BreakableKind breakable;
-    static const EnemyBasicKind enemyBasic;
-    static const EnemyKnightKind enemyKnight;
-    static const SpawnPointKind spawnPoint;
+    static const PropKind kProp;
+    static const BackgroundKind kBackground;
+    static const GimmickKind kGimmick;
+    static const TerrainKind kTerrain;
+    static const PickupKind kPickup;
+    static const BreakableKind kBreakable;
+    static const EnemyBasicKind kEnemyBasic;
+    static const EnemyKnightKind kEnemyKnight;
+    static const SpawnPointKind kSpawnPoint;
     // 位置の目印・条件・文字の種類は別ファイルで作ったものを借りる
     const ObjectKind& cameraPoint = objectKindDetail::CameraPoint();
     const ObjectKind& patrolPoint = objectKindDetail::PatrolPoint();
@@ -564,8 +564,8 @@ const ObjectKind& ObjectKind::Of(const std::string& name) {
     const ObjectKind& uiText = objectKindDetail::UIText();
     // 名前で探す対象の一覧（新しい種類を足すときはここにも並べる）
     static const ObjectKind* const kKinds[] = {
-        &prop, &background, &gimmick, &terrain, &pickup, &breakable, &enemyBasic,
-        &enemyKnight, &spawnPoint, &cameraPoint, &patrolPoint, &eventCondition, &uiText,
+        &kProp, &kBackground, &kGimmick, &kTerrain, &kPickup, &kBreakable, &kEnemyBasic,
+        &kEnemyKnight, &kSpawnPoint, &cameraPoint, &patrolPoint, &eventCondition, &uiText,
     };
     // 名前が一致する登録済みの種類を返す
     for (const ObjectKind* kind : kKinds) {

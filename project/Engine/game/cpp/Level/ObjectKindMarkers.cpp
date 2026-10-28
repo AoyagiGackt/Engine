@@ -207,13 +207,13 @@ public:
 
 /** @brief 成立のさせ方の名前と実体（インスペクタの選択肢もこの順に並ぶ） */
 const std::pair<const char*, const ConditionRule*>* ConditionRules() {
-    static const ManualRule manual;
-    static const TimerRule timer;
-    static const EnemyGroupDefeatedRule enemyGroupDefeated;
+    static const ManualRule kManual;
+    static const TimerRule kTimer;
+    static const EnemyGroupDefeatedRule kEnemyGroupDefeated;
     static const std::pair<const char*, const ConditionRule*> kRules[] = {
-        { "manual", &manual },
-        { "timer", &timer },
-        { "enemy_group_defeated", &enemyGroupDefeated },
+        { "manual", &kManual },
+        { "timer", &kTimer },
+        { "enemy_group_defeated", &kEnemyGroupDefeated },
     };
     return kRules;
 }
@@ -312,26 +312,26 @@ public:
 }
 /** @brief CameraPointの共有定義を取得する */
 const ObjectKind& objectKindDetail::CameraPoint() {
-    static const CameraPointKind kind;
-    return kind;
+    static const CameraPointKind kKind;
+    return kKind;
 }
 
 /** @brief PatrolPointの共有定義を取得する */
 const ObjectKind& objectKindDetail::PatrolPoint() {
-    static const PatrolPointKind kind;
-    return kind;
+    static const PatrolPointKind kKind;
+    return kKind;
 }
 
 /** @brief EventConditionの共有定義を取得する */
 const ObjectKind& objectKindDetail::EventCondition() {
-    static const EventConditionKind kind;
-    return kind;
+    static const EventConditionKind kKind;
+    return kKind;
 }
 
 /** @brief UITextの共有定義を取得する */
 const ObjectKind& objectKindDetail::UIText() {
-    static const UITextKind kind;
-    return kind;
+    static const UITextKind kKind;
+    return kKind;
 }
 
 /** @brief エディタで新しく置いた時の初期値を入れる */

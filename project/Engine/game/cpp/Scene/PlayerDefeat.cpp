@@ -206,8 +206,8 @@ DefeatTuning LoadTuning() {
 
 /** @brief 読み込み済みの調整値の置き場（初回に読み、調整値エディタで保存した時に読み直す） */
 DefeatTuning& MutableTune() {
-    static DefeatTuning tuning = LoadTuning();
-    return tuning;
+    static DefeatTuning sTuning = LoadTuning();
+    return sTuning;
 }
 
 /** @brief 読み込み済みの調整値 */
@@ -438,13 +438,13 @@ public:
 namespace {
 /** @brief 段階の並び（被弾 → 吹き飛び → 敵の上なら跳ねる → 倒れ込み → あがいて力尽きる → GAME OVER） */
 const PlayerDefeat::IPhase* PhaseAt(size_t index) {
-    static const PlayerDefeat::HitPhase hit;
-    static const PlayerDefeat::LaunchPhase launch;
-    static const PlayerDefeat::EnemyBouncePhase enemyBounce;
-    static const PlayerDefeat::DownPhase down;
-    static const PlayerDefeat::StrugglePhase struggle;
-    static const PlayerDefeat::GameOverPhase gameOver;
-    static const PlayerDefeat::IPhase* const kPhases[] = { &hit, &launch, &enemyBounce, &down, &struggle, &gameOver };
+    static const PlayerDefeat::HitPhase kHit;
+    static const PlayerDefeat::LaunchPhase kLaunch;
+    static const PlayerDefeat::EnemyBouncePhase kEnemyBounce;
+    static const PlayerDefeat::DownPhase kDown;
+    static const PlayerDefeat::StrugglePhase kStruggle;
+    static const PlayerDefeat::GameOverPhase kGameOver;
+    static const PlayerDefeat::IPhase* const kPhases[] = { &kHit, &kLaunch, &kEnemyBounce, &kDown, &kStruggle, &kGameOver };
     return index < std::size(kPhases) ? kPhases[index] : nullptr;
 }
 

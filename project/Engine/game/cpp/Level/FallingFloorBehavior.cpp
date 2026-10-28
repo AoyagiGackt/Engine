@@ -45,7 +45,7 @@ struct FallingFloorEffects {
 
 /** @brief hit_effects.jsonから床の演出レシピを初回に読み込む */
 const FallingFloorEffects& FloorEffects() {
-    static const FallingFloorEffects effects = [] {
+    static const FallingFloorEffects kEffects = [] {
         FallingFloorEffects result;
         // hit_effects.json の fallingFloor 節の項目名と書き込み先メンバの対応表（初回だけ読む）
         constexpr JsonField<FallingFloorEffects> kFields[] = {
@@ -78,7 +78,7 @@ const FallingFloorEffects& FloorEffects() {
         ReadJsonFields(JsonHelper::Load(HitEffectLibrary::kConfigPath), kFields, result);
         return result;
     }();
-    return effects;
+    return kEffects;
 }
 } // namespace
 

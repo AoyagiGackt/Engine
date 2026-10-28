@@ -26,7 +26,7 @@ Data ReadSettings(const char* section, const JsonField<Data> (&fields)[N]) {
 
 /** @brief 水場の色と環境粒子の設定を初回読み込みから共有する */
 const WaterVisualSettings& SceneVisualTuning::Water() {
-    static const WaterVisualSettings sSettings = [] {
+    static const WaterVisualSettings kSettings = [] {
         // JSON の項目名と書き込み先メンバの対応表（初回呼び出しで一度だけ読む）
         constexpr JsonField<WaterVisualSettings> kFields[] = {
             { nullptr, "wavePointCount", &WaterVisualSettings::wavePointCount },
@@ -133,7 +133,7 @@ const WaterVisualSettings& SceneVisualTuning::Water() {
         settings.bubbleRiseSpeed = (std::max)(settings.bubbleRiseSpeed, std::numeric_limits<float>::epsilon());
         return settings;
     }();
-    return sSettings;
+    return kSettings;
 }
 
 /** @brief プレイヤーの輪郭と明滅の設定を初回読み込みから共有する */

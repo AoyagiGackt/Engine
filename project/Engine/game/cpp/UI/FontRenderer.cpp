@@ -189,7 +189,7 @@ void ReportGlyphPoolFull(int limit) {
 
 /** @brief 日本語のアトラスに焼く文字の表を返す（初回に作る） */
 const JpGlyphTable& GetJpGlyphTable() {
-    static const JpGlyphTable table = [] {
+    static const JpGlyphTable kTable = [] {
         JpGlyphTable t;
         // ひらがな・カタカナは範囲ごと登録する
         for (int i = 0; i < kHiraganaCount; ++i) {
@@ -230,7 +230,7 @@ const JpGlyphTable& GetJpGlyphTable() {
         }
         return t;
     }();
-    return table;
+    return kTable;
 }
 } // namespace
 

@@ -25,8 +25,8 @@ class GamePauseController::Playing final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const Playing& Instance() {
-        static const Playing state;
-        return state;
+        static const Playing kState;
+        return kState;
     }
 
     UpdateMode Advance(GamePauseController& controller, bool toggle) const override;
@@ -41,8 +41,8 @@ class GamePauseController::Paused final : public State {
 public:
     /** @brief この状態の共有インスタンスを返す */
     static const Paused& Instance() {
-        static const Paused state;
-        return state;
+        static const Paused kState;
+        return kState;
     }
 
     UpdateMode Advance(GamePauseController& controller, bool toggle) const override;

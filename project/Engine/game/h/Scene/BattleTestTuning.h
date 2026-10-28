@@ -162,8 +162,8 @@ namespace battleTestTuningDetail {
 
 /** @brief 読み込み済みのバトルテスト調整値（初回にJSONを読む） */
 inline const BattleTestTuning& BattleTestTune() {
-    static const BattleTestTuning tuning = battleTestTuningDetail::Load();
-    return tuning;
+    static const BattleTestTuning kTuning = battleTestTuningDetail::Load();
+    return kTuning;
 }
 
 } // namespace engine::game

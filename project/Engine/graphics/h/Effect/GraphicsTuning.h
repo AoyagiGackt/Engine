@@ -71,8 +71,8 @@ private:
 
     /** @brief 描画演出の設定ファイルを初回に読み、読み取り専用で共有する */
     static const nlohmann::json& Document() {
-        static const auto root = engine::JsonHelper::Load("Resources/Config/graphics_tuning.json");
-        return root;
+        static const auto kRoot = engine::JsonHelper::Load("Resources/Config/graphics_tuning.json");
+        return kRoot;
     }
 };
 

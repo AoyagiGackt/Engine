@@ -278,7 +278,7 @@ std::array<RuntimeComboSet, kWeaponTypeCount>& GetRuntimeComboSets() {
     // （一時変数で作ってから返すと、移動した後の launcher を指さなくなる）
     static std::array<RuntimeComboSet, kWeaponTypeCount> sSets;
     // 初回だけ、元の表を武器ごとにコピーし、combos.json の上書きを当てて表示用の見方を作る
-    static const bool built = [] {
+    static const bool kBuilt = [] {
         std::array<RuntimeComboSet, kWeaponTypeCount>& result = sSets;
         for (size_t i = 0; i < kWeaponTypeCount; ++i) {
             result[i] = CopyComboSet(*kSourceSets[i]);
@@ -314,7 +314,7 @@ std::array<RuntimeComboSet, kWeaponTypeCount>& GetRuntimeComboSets() {
         }
         return true;
     }();
-    (void)built;
+    (void)kBuilt;
     return sSets;
 }
 

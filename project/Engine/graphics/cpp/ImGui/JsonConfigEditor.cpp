@@ -24,6 +24,8 @@ constexpr double kAssetRescanSeconds = 3.0; // 素材フォルダを調べ直す
 constexpr float kDragSpeedRatio = 0.01f; // ドラッグ1ピクセルで値の何割動かすか
 constexpr float kMinDragSpeed = 0.001f;
 constexpr float kIntDragSpeed = 0.2f;
+constexpr float kVectorDragSpeedScale = 10.0f; // ベクトルは単体の数値よりこの倍だけ速く動かす
+constexpr ImVec2 kInitialWindowSize = { 760.0f, 560.0f }; // 初めて開いた時のウィンドウの大きさ
 constexpr size_t kVector3Size = 3;
 constexpr size_t kColorSize = 4;
 constexpr ImVec4 kDirtyColor = { 1.0f, 0.75f, 0.2f, 1.0f };
@@ -49,11 +51,12 @@ std::string ToUtf8(const std::filesystem::path& path) {
 }
 
 /** @brief 小文字にした文字列を返す（英字だけ。日本語はそのまま） */
-std::string ToLower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+std::string ToLower(const std::string& text) {
+    std::string lower = text;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
-    return text;
+    return lower;
 }
 
 /** @brief 拡張子から素材の種類を返す（素材でなければ空） */
@@ -110,6 +113,7 @@ std::string ElementCaption(const nlohmann::json& element, size_t index) {
 
 } // namespace
 
+/** @brief ただ1つのエディタを返す（初回の呼び出しで作る） */
 JsonConfigEditor* JsonConfigEditor::GetInstance() {
     static JsonConfigEditor sInstance;
     return &sInstance;
@@ -227,7 +231,7 @@ void JsonConfigEditor::Draw() {
         lastAssetScanTime_ = now;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(760.0f, 560.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(kInitialWindowSize, ImGuiCond_FirstUseEver);
     if (!ImGui::Begin(kWindowTitle, &open_)) {
         ImGui::End();
         return;
@@ -445,7 +449,7 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
         for (size_t i = 0; i < kVector3Size; ++i) {
             vector[i] = value[i].get<float>();
         }
-        if (ImGui::DragFloat3("##value", vector, kMinDragSpeed * 10.0f, 0.0f, 0.0f, "%.4g")) {
+        if (ImGui::DragFloat3("##value", vector, kMinDragSpeed * kVectorDragSpeedScale, 0.0f, 0.0f, "%.4g")) {
             value = nlohmann::json::array({ vector[0], vector[1], vector[2] });
             return true;
         }

@@ -100,8 +100,8 @@ LiberationTuning LoadTuning() {
 
 /** @brief 読み込み済みの調整値の置き場（初回に読み、調整値エディタで保存した時に読み直す） */
 LiberationTuning& MutableTune() {
-    static LiberationTuning tuning = LoadTuning();
-    return tuning;
+    static LiberationTuning sTuning = LoadTuning();
+    return sTuning;
 }
 
 /** @brief 読み込み済みの調整値 */
@@ -214,11 +214,11 @@ public:
 namespace {
 /** @brief 段階の並び（光り出す → 光が弾ける → 次の入口へ → 次の入口が開く） */
 const StageLiberation::IPhase* PhaseAt(size_t index) {
-    static const StageLiberation::GlowPhase glow;
-    static const StageLiberation::BurstPhase burst;
-    static const StageLiberation::PanPhase pan;
-    static const StageLiberation::OpenPhase open;
-    static const StageLiberation::IPhase* const kPhases[] = { &glow, &burst, &pan, &open };
+    static const StageLiberation::GlowPhase kGlow;
+    static const StageLiberation::BurstPhase kBurst;
+    static const StageLiberation::PanPhase kPan;
+    static const StageLiberation::OpenPhase kOpen;
+    static const StageLiberation::IPhase* const kPhases[] = { &kGlow, &kBurst, &kPan, &kOpen };
     return index < std::size(kPhases) ? kPhases[index] : nullptr;
 }
 } // namespace

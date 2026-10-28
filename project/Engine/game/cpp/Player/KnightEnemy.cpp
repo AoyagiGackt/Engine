@@ -384,8 +384,8 @@ void KnightEnemy::RecoverState::Update(KnightEnemy& knight, ParticleManager*, co
 /** @brief 現在の状態の共有インスタンスを返す */
 template <class T>
 const KnightEnemy::IState& KnightEnemy::StateOf() {
-    static const T instance;
-    return instance;
+    static const T kInstance;
+    return kInstance;
 }
 
 /** @brief 状態を切り替えて経過時間をリセットする */

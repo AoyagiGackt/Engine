@@ -99,14 +99,14 @@ public:
 
 /** @brief 設定のページの共有インスタンスを返す */
 const OptionsScene::IPage& OptionsScene::Settings() {
-    static const SettingsPage page;
-    return page;
+    static const SettingsPage kPage;
+    return kPage;
 }
 
 /** @brief コマンド表のページの共有インスタンスを返す */
 const OptionsScene::IPage& OptionsScene::CommandList() {
-    static const CommandListPage page;
-    return page;
+    static const CommandListPage kPage;
+    return kPage;
 }
 
 /** @brief 設定画面を1フレーム進める */

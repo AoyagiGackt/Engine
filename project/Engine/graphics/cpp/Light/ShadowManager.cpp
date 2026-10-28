@@ -25,7 +25,7 @@ struct ShadowProjectionTuning {
 
 /** @brief 影の投影設定を初回にgraphics_tuning.jsonから読み込む */
 const ShadowProjectionTuning& ProjectionTuning() {
-    static const ShadowProjectionTuning tuning = [] {
+    static const ShadowProjectionTuning kTuning = [] {
         ShadowProjectionTuning value;
         const float lower = -(std::numeric_limits<float>::max)();
         value.center.x = GraphicsTuning::Float("shadow.centerX", value.center.x, lower);
@@ -43,7 +43,7 @@ const ShadowProjectionTuning& ProjectionTuning() {
         }
         return value;
     }();
-    return tuning;
+    return kTuning;
 }
 } // namespace
 

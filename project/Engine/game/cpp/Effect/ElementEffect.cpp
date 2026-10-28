@@ -413,7 +413,7 @@ std::unique_ptr<IElementLayer> CreateLayer(const nlohmann::json& json) {
 
 /** @brief JSONの "type" から層を作る表 */
 const std::unordered_map<std::string, LayerFactory>& LayerFactories() {
-    static const std::unordered_map<std::string, LayerFactory> factories = {
+    static const std::unordered_map<std::string, LayerFactory> kFactories = {
         { "ring", &CreateLayer<RingLayer> },
         { "scatter", &CreateLayer<ScatterLayer> },
         { "fan", &CreateLayer<FanLayer> },
@@ -422,7 +422,7 @@ const std::unordered_map<std::string, LayerFactory>& LayerFactories() {
         { "mote", &CreateLayer<MoteLayer> },
         { "pull", &CreateLayer<PullLayer> },
     };
-    return factories;
+    return kFactories;
 }
 
 /** @brief JSONに書かれた層を重ねて出す属性演出 */
@@ -488,9 +488,9 @@ std::unordered_map<std::string, std::unique_ptr<IElementEffect>> BuildRegistry()
 
 /** @brief 属性名に対応するエフェクトを取得する */
 const IElementEffect* IElementEffect::Find(const std::string& element) {
-    static const auto registry = BuildRegistry();
-    const auto it = registry.find(element);
-    return it != registry.end() ? it->second.get() : nullptr;
+    static const auto kRegistry = BuildRegistry();
+    const auto it = kRegistry.find(element);
+    return it != kRegistry.end() ? it->second.get() : nullptr;
 }
 
 } // namespace engine::game

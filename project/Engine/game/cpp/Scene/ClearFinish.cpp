@@ -215,8 +215,8 @@ FinishConfig LoadConfig() {
 
 /** @brief 読み込み済みの設定（初回に読む。変更は次回起動時に反映） */
 const FinishConfig& Config() {
-    static const FinishConfig config = LoadConfig();
-    return config;
+    static const FinishConfig kConfig = LoadConfig();
+    return kConfig;
 }
 
 /** @brief 読み込み済みの調整値を取得する */
@@ -546,18 +546,18 @@ public:
 namespace {
 /** @brief 段階の並び（決め → 割れる → 結果。倒し方の違いは IStrikeStyle が持つ） */
 const std::vector<const ClearFinish::IPhase*>& Phases() {
-    static const ClearFinish::StrikePhase strike;
-    static const ClearFinish::ShatterPhase shatter;
-    static const ClearFinish::ResultPhase result;
-    static const std::vector<const ClearFinish::IPhase*> phases = { &strike, &shatter, &result };
-    return phases;
+    static const ClearFinish::StrikePhase kStrike;
+    static const ClearFinish::ShatterPhase kShatter;
+    static const ClearFinish::ResultPhase kResult;
+    static const std::vector<const ClearFinish::IPhase*> kPhases = { &kStrike, &kShatter, &kResult };
+    return kPhases;
 }
 
 /** @brief 倒し方に合う見せ方（Style の並び順で引く） */
 const ClearFinish::IStrikeStyle& StyleFor(ClearFinish::Style style) {
-    static const ClearFinish::BladeStyle blade;
-    static const ClearFinish::GunStyle gun;
-    static const ClearFinish::IStrikeStyle* const kStyles[] = { &blade, &gun };
+    static const ClearFinish::BladeStyle kBlade;
+    static const ClearFinish::GunStyle kGun;
+    static const ClearFinish::IStrikeStyle* const kStyles[] = { &kBlade, &kGun };
     return *kStyles[static_cast<size_t>(style)];
 }
 } // namespace

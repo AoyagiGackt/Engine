@@ -22,7 +22,7 @@ struct AfterImageStyle {
 
 /** @brief 残像の見た目を初回にgraphics_tuning.jsonから読み込む */
 const AfterImageStyle& ImageStyle() {
-    static const AfterImageStyle style = [] {
+    static const AfterImageStyle kStyle = [] {
         AfterImageStyle value;
         value.fadeSpeed = GraphicsTuning::Float("afterImage.fadeSpeed", value.fadeSpeed);
         value.denseAlpha = GraphicsTuning::Float("afterImage.denseAlpha", value.denseAlpha, 0.0f, 1.0f);
@@ -33,7 +33,7 @@ const AfterImageStyle& ImageStyle() {
         value.slowInterval = GraphicsTuning::Positive("afterImage.slowInterval", value.slowInterval);
         return value;
     }();
-    return style;
+    return kStyle;
 }
 }
 

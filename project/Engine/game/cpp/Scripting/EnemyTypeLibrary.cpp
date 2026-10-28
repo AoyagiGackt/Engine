@@ -27,11 +27,13 @@ constexpr JsonField<EnemyTypeDef> kTypeFields[] = {
 };
 } // namespace
 
+/** @brief ただ1つの敵の種類一覧を返す（初回の呼び出しで作る） */
 EnemyTypeLibrary* EnemyTypeLibrary::GetInstance() {
     static EnemyTypeLibrary sInstance;
     return &sInstance;
 }
 
+/** @brief 作った時に種類の定義を読み込む */
 EnemyTypeLibrary::EnemyTypeLibrary() {
     Reload();
 }

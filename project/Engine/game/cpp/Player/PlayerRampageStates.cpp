@@ -110,20 +110,20 @@ void Player::JuggleRampageState::UpdatePhysics(Player& player, const Vector3& en
 
 /** @brief 乱舞していない時の共有インスタンスを返す */
 const Player::IRampageState& Player::InactiveRampage() {
-    static const InactiveRampageState instance;
-    return instance;
+    static const InactiveRampageState kInstance;
+    return kInstance;
 }
 
 /** @brief 打ち上げ中の共有インスタンスを返す */
 const Player::IRampageState& Player::LaunchRampage() {
-    static const LaunchRampageState instance;
-    return instance;
+    static const LaunchRampageState kInstance;
+    return kInstance;
 }
 
 /** @brief 空中連撃中の共有インスタンスを返す */
 const Player::IRampageState& Player::JuggleRampage() {
-    static const JuggleRampageState instance;
-    return instance;
+    static const JuggleRampageState kInstance;
+    return kInstance;
 }
 
 } // namespace engine::game

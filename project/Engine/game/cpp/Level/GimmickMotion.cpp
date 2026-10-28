@@ -181,31 +181,31 @@ public:
 
 /** @brief 動き方の名前に対応する動き方を返す（未知の名前は動かない） */
 const GimmickMotion& GimmickMotion::Of(const std::string& name) {
-    static const StillMotion still;
+    static const StillMotion kStill;
     static const SlideMotion moveX({ 1.0f, 0.0f, 0.0f });
     static const SlideMotion moveY({ 0.0f, 1.0f, 0.0f });
     static const SpinMotion rotateY({ 0.0f, 1.0f, 0.0f }, false);
     // Z回転は歯車や観覧車のように、子の足場も一緒に回して見せる
     static const SpinMotion rotateZ({ 0.0f, 0.0f, 1.0f }, true);
-    static const FallMotion fall;
-    static const BlinkMotion blink;
-    static const FreeformMotion custom;
+    static const FallMotion kFall;
+    static const BlinkMotion kBlink;
+    static const FreeformMotion kCustom;
     static const std::pair<const char*, const GimmickMotion*> kMotions[] = {
-        { "none", &still },
+        { "none", &kStill },
         { "move_x", &moveX },
         { "move_y", &moveY },
         { "rotate_y", &rotateY },
         { "rotate_z", &rotateZ },
-        { "fall", &fall },
-        { "blink", &blink },
-        { "custom", &custom },
+        { "fall", &kFall },
+        { "blink", &kBlink },
+        { "custom", &kCustom },
     };
     for (const auto& [motionName, motion] : kMotions) {
         if (name == motionName) {
             return *motion;
         }
     }
-    return still;
+    return kStill;
 }
 
 } // namespace engine::game

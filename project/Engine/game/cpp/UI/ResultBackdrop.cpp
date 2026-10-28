@@ -111,8 +111,8 @@ BackdropTuning LoadTuning() {
 
 /** @brief 読み込み済みの調整値の置き場（初回に読み、調整値エディタで保存した時に読み直す） */
 BackdropTuning& MutableTune() {
-    static BackdropTuning tuning = LoadTuning();
-    return tuning;
+    static BackdropTuning sTuning = LoadTuning();
+    return sTuning;
 }
 
 /** @brief 読み込み済みの調整値 */

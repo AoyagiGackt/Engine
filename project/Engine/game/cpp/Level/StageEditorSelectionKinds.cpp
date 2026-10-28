@@ -438,14 +438,14 @@ protected:
 
 /** @brief 選択種別に対応する操作を取得する */
 const StageEditor::ISelectionKind& StageEditor::SelectionKindOf(SelKind kind) {
-    static const ISelectionKind none {};
-    static const ObjectSelectionKind object {};
-    static const TriggerSelectionKind trigger {};
-    static const ExternalSelectionKind external {};
+    static const ISelectionKind kNone {};
+    static const ObjectSelectionKind kObject {};
+    static const TriggerSelectionKind kTrigger {};
+    static const ExternalSelectionKind kExternal {};
     // SelKind の並び順と一致させる
-    static const ISelectionKind* const kKinds[] = { &none, &object, &trigger, &external };
+    static const ISelectionKind* const kKinds[] = { &kNone, &kObject, &kTrigger, &kExternal };
     const size_t index = static_cast<size_t>(kind);
-    return index < std::size(kKinds) ? *kKinds[index] : none;
+    return index < std::size(kKinds) ? *kKinds[index] : kNone;
 }
 
 /** @brief 指定位置からテストを始め、プレイヤー未登録なら警告を出す */

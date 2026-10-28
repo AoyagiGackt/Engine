@@ -130,7 +130,7 @@ void ApplyShotOverride(GunShotDef& shot, const nlohmann::json& data) {
 std::array<RuntimeGunComboSet, kGunTypeCount>& GetRuntimeComboSets() {
     // view は各要素の配列を指すので、最終的な置き場所（この static）の上で直接組み立てる
     static std::array<RuntimeGunComboSet, kGunTypeCount> sSets;
-    static const bool built = [] {
+    static const bool kBuilt = [] {
         std::array<RuntimeGunComboSet, kGunTypeCount>& result = sSets;
         for (size_t i = 0; i < kGunTypeCount; ++i) {
             result[i] = CopyComboSet(*kSourceSets[i]);
@@ -157,7 +157,7 @@ std::array<RuntimeGunComboSet, kGunTypeCount>& GetRuntimeComboSets() {
         }
         return true;
     }();
-    (void)built;
+    (void)kBuilt;
     return sSets;
 }
 

@@ -174,24 +174,24 @@ public:
 
 /** @brief 武器種に対応する振る舞いを取得する */
 const DemoWeaponStyle& DemoWeaponStyle::For(WeaponType type) {
-    static const SwordDemoStyle sword {};
-    static const SpearDemoStyle spear {};
-    static const DaggerDemoStyle dagger {};
-    static const HammerDemoStyle hammer {};
-    static const DemoWeaponStyle def {};
+    static const SwordDemoStyle kSword {};
+    static const SpearDemoStyle kSpear {};
+    static const DaggerDemoStyle kDagger {};
+    static const HammerDemoStyle kHammer {};
+    static const DemoWeaponStyle kDef {};
     // WeaponType の並び順。専用の見せ方が無い武器は既定の見せ方
     static const std::array<const DemoWeaponStyle*, kWeaponTypeCount> kStyles = {
-        &sword, // Sword
-        &spear, // Spear
-        &hammer, // Hammer
-        &dagger, // Dagger
-        &def, // Ball
-        &def, // Greatsword
-        &def, // Scythe
-        &def, // Axe
+        &kSword, // Sword
+        &kSpear, // Spear
+        &kHammer, // Hammer
+        &kDagger, // Dagger
+        &kDef, // Ball
+        &kDef, // Greatsword
+        &kDef, // Scythe
+        &kDef, // Axe
     };
     const size_t index = static_cast<size_t>(type);
-    return index < kStyles.size() ? *kStyles[index] : def;
+    return index < kStyles.size() ? *kStyles[index] : kDef;
 }
 } // namespace
 

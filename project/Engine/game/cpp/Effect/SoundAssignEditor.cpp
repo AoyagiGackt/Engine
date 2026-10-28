@@ -83,7 +83,7 @@ void Collect(const Json& value, const Json::json_pointer& pointer,
 
 /** @brief 既知の場面を日本語にし、未知のキーはそのまま返す */
 std::string SceneName(const std::string& key) {
-    static const std::pair<const char*, const char*> names[] = {
+    static const std::pair<const char*, const char*> kNames[] = {
         { "dodge", "回避" }, { "swing", "近接攻撃の各段を振った時" },
         { "shot", "銃を撃った時" }, { "finisherBeat", "フィニッシャーの斬撃1本ごと" },
         { "finisherRelease", "フィニッシャーの溜めた斬撃を解き放った時" },
@@ -94,7 +94,7 @@ std::string SceneName(const std::string& key) {
         { "battle_test", "バトルテスト" }, { "game_over", "ゲームオーバー" },
         { "game_clear", "ゲームクリア" }
     };
-    for (const auto& name : names) {
+    for (const auto& name : kNames) {
         if (key == name.first) {
             return name.second;
         }

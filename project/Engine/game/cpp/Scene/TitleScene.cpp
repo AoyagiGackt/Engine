@@ -135,20 +135,20 @@ public:
 
 /** @brief メインメニューの共有インスタンスを返す */
 const TitleScene::IMenuPage& TitleScene::MainMenu() {
-    static const MainMenuPage page;
-    return page;
+    static const MainMenuPage kPage;
+    return kPage;
 }
 
 /** @brief 設定メニューの共有インスタンスを返す */
 const TitleScene::IMenuPage& TitleScene::OptionsMenu() {
-    static const OptionsMenuPage page;
-    return page;
+    static const OptionsMenuPage kPage;
+    return kPage;
 }
 
 /** @brief コマンド表のページの共有インスタンスを返す */
 const TitleScene::IMenuPage& TitleScene::CommandListMenu() {
-    static const CommandListPage page;
-    return page;
+    static const CommandListPage kPage;
+    return kPage;
 }
 
 /** @brief シーンの更新処理 */

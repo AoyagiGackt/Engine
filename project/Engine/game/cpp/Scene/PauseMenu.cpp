@@ -132,26 +132,26 @@ public:
 
 /** @brief メニューのページの共有インスタンスを返す */
 const PauseMenu::IPage& PauseMenu::Menu() {
-    static const MenuPage page;
-    return page;
+    static const MenuPage kPage;
+    return kPage;
 }
 
 /** @brief コマンド表のページの共有インスタンスを返す */
 const PauseMenu::IPage& PauseMenu::CommandList() {
-    static const CommandListPage page;
-    return page;
+    static const CommandListPage kPage;
+    return kPage;
 }
 
 /** @brief コンボ練習の一覧のページの共有インスタンスを返す */
 const PauseMenu::IPage& PauseMenu::ComboTrialList() {
-    static const ComboTrialPage page;
-    return page;
+    static const ComboTrialPage kPage;
+    return kPage;
 }
 
 /** @brief 退出の確認のページの共有インスタンスを返す */
 const PauseMenu::IPage& PauseMenu::ConfirmExit() {
-    static const ConfirmExitPage page;
-    return page;
+    static const ConfirmExitPage kPage;
+    return kPage;
 }
 
 // ══════════════════════════════════════════════════════

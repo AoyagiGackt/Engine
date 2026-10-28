@@ -195,8 +195,8 @@ namespace titleDemoTuningDetail {
 
 /** @brief 読み込み済みのタイトルデモ調整値（初回にJSONを読む） */
 inline const TitleDemoTuning& TitleDemoTune() {
-    static const TitleDemoTuning tuning = titleDemoTuningDetail::Load();
-    return tuning;
+    static const TitleDemoTuning kTuning = titleDemoTuningDetail::Load();
+    return kTuning;
 }
 
 } // namespace engine::game

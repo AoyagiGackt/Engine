@@ -476,8 +476,8 @@ void StageEditor::RenderAssetPalette() {
     }
 
     // 生成はパレット表示中に1フレーム1件だけ進める
-    static ModelThumbnailBaker thumbnailBaker;
-    thumbnailBaker.Update();
+    static ModelThumbnailBaker sThumbnailBaker;
+    sThumbnailBaker.Update();
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
     const float frame = ImGui::GetStyle().FramePadding.x;
     const float tileWidth = kAssetTileSize + frame + frame;
@@ -494,7 +494,7 @@ void StageEditor::RenderAssetPalette() {
         }
         ++visibleCount;
         ImGui::PushID(model);
-        const uint64_t thumbnail = thumbnailBaker.RequestThumbnail(model, texture);
+        const uint64_t thumbnail = sThumbnailBaker.RequestThumbnail(model, texture);
         const bool clicked = thumbnail != 0
             ? ImGui::ImageButton("##thumbnail", (ImTextureID)thumbnail, ImVec2(kAssetTileSize, kAssetTileSize))
             : ImGui::Button(label, ImVec2(tileWidth, kAssetTileSize + ImGui::GetStyle().FramePadding.y * 2.0f));

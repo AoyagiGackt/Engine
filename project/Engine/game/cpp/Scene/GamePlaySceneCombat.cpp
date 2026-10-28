@@ -104,23 +104,23 @@ public:
 
 /** @brief 武器種に対応する追加効果を取得する */
 const WeaponHitBonus& WeaponHitBonus::For(WeaponType type) {
-    static const SwordHitBonus sword {};
-    static const DaggerHitBonus dagger {};
-    static const SpearHitBonus spear {};
-    static const WeaponHitBonus none {};
-    // WeaponType の並び順。ヒット時の追加効果が無い武器は none
+    static const SwordHitBonus kSword {};
+    static const DaggerHitBonus kDagger {};
+    static const SpearHitBonus kSpear {};
+    static const WeaponHitBonus kNone {};
+    // WeaponType の並び順。ヒット時の追加効果が無い武器は kNone
     static const std::array<const WeaponHitBonus*, kWeaponTypeCount> kBonuses = {
-        &sword, // Sword
-        &spear, // Spear
-        &none, // Hammer
-        &dagger, // Dagger
-        &none, // Ball
-        &none, // Greatsword
-        &none, // Scythe
-        &none, // Axe
+        &kSword, // Sword
+        &kSpear, // Spear
+        &kNone, // Hammer
+        &kDagger, // Dagger
+        &kNone, // Ball
+        &kNone, // Greatsword
+        &kNone, // Scythe
+        &kNone, // Axe
     };
     const size_t index = static_cast<size_t>(type);
-    return index < kBonuses.size() ? *kBonuses[index] : none;
+    return index < kBonuses.size() ? *kBonuses[index] : kNone;
 }
 } // namespace
 

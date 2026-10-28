@@ -117,20 +117,20 @@ public:
 
 /** @brief 名前に対応する性格を返す（未知の名前はbasic） */
 const EnemyEntity::IArchetype& EnemyEntity::FindArchetype(const std::string& name) {
-    static const BasicArchetype basic;
-    static const FlyingArchetype flying;
-    static const HealerArchetype healer;
+    static const BasicArchetype kBasic;
+    static const FlyingArchetype kFlying;
+    static const HealerArchetype kHealer;
     static const std::pair<const char*, const IArchetype*> kArchetypes[] = {
-        { "basic", &basic },
-        { "flying", &flying },
-        { "healer", &healer },
+        { "basic", &kBasic },
+        { "flying", &kFlying },
+        { "healer", &kHealer },
     };
     for (const auto& [archetypeName, archetype] : kArchetypes) {
         if (name == archetypeName) {
             return *archetype;
         }
     }
-    return basic;
+    return kBasic;
 }
 
 /** @brief 性格名（レベルJSONの spawnType）が空を飛ぶ性格か（エディタの配置チェック用） */
@@ -441,8 +441,8 @@ void EnemyEntity::ActiveAttackState::Advance(EnemyEntity& enemy, const BasicEnem
 /** @brief 現在の攻撃状態の共有インスタンスを返す */
 template <class T>
 const EnemyEntity::IAttackState& EnemyEntity::AttackStateOf() {
-    static const T instance;
-    return instance;
+    static const T kInstance;
+    return kInstance;
 }
 /** @brief クールダウン状態へ戻す（被弾・打ち飛ばし・回復役など、攻撃を中断する時に使う） */
 void EnemyEntity::ResetAttackState() {

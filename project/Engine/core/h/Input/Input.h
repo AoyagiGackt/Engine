@@ -49,6 +49,8 @@ public: // メンバ関数
     static constexpr WORD kGamepadRightTrigger = 0x0800;
     /** @brief DirectInput のキーボードで扱うキーの数 */
     static constexpr int kKeyCount = 256;
+    /** @brief DirectInput のマウスで扱うボタンの数（DIMOUSESTATE2 の rgbButtons の要素数） */
+    static constexpr int32_t kMouseButtonMax = static_cast<int32_t>(sizeof(DIMOUSESTATE2::rgbButtons));
     // namespace省略
     template <class T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -182,7 +184,7 @@ public: // メンバ関数
     bool TriggerMouseButton(int32_t buttonNumber);
     /** @brief マウスボタンが押されている間trueを返す */
     bool PushMouseButton(int32_t buttonNumber) const {
-        return buttonNumber >= 0 && buttonNumber < 8 && (mouseState_.rgbButtons[buttonNumber] & 0x80) != 0;
+        return buttonNumber >= 0 && buttonNumber < kMouseButtonMax && (mouseState_.rgbButtons[buttonNumber] & 0x80) != 0;
     }
     /** @brief クライアント領域を基準にしたマウス座標を取得する */
     POINT GetMouseClientPosition() const {

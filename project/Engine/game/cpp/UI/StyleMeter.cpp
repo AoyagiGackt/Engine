@@ -124,8 +124,8 @@ StyleTuning LoadStyleTuning() {
 
 /** @brief 読み込み済みの調整値の置き場（初回に読み、調整値エディタで保存した時に読み直す） */
 StyleTuning& MutableStyleTune() {
-    static StyleTuning tuning = LoadStyleTuning();
-    return tuning;
+    static StyleTuning sTuning = LoadStyleTuning();
+    return sTuning;
 }
 
 /** @brief 読み込み済みの調整値 */

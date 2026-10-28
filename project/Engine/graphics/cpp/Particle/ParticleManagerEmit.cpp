@@ -66,7 +66,7 @@ struct SlashPreset {
 const SlashPreset& LoadedSlashPreset() {
     constexpr int kMinShardCount = 2; // 先頭と最後の光片で速さを補間するため2本以上
     constexpr int kMaxShardCount = 32;
-    static const SlashPreset preset = {
+    static const SlashPreset kPreset = {
         GraphicsTuning::Positive("slash.glowLifeTime", kSlashGlowLifeTime),
         GraphicsTuning::Float("slash.glowAlpha", kSlashGlowAlpha, 0.0f, 1.0f),
         GraphicsTuning::Float("slash.glowLength", kSlashGlowLength),
@@ -84,7 +84,7 @@ const SlashPreset& LoadedSlashPreset() {
         GraphicsTuning::Float("slash.shardLength", kSlashShardLength),
         GraphicsTuning::Float("slash.shardWidth", kSlashShardWidth),
     };
-    return preset;
+    return kPreset;
 }
 
 /** @brief 命中のきらめきの設定（graphics_tuning.json の hitStar.～。既定値は上の定数） */
@@ -96,7 +96,7 @@ struct HitStarPreset {
 /** @brief きらめきの描画パラメーターを設定から読んで返す（初回だけ読む） */
 const HitStarPreset& LoadedHitStarPreset() {
     static constexpr int kMaxHitStarCount = 64;
-    static const HitStarPreset preset = [] {
+    static const HitStarPreset kPreset = [] {
         HitStarPreset p {
             GraphicsTuning::Int("hitStar.count", kHitStarCount, 0, kMaxHitStarCount),
             GraphicsTuning::Float("hitStar.width", kHitStarWidth),
@@ -113,7 +113,7 @@ const HitStarPreset& LoadedHitStarPreset() {
         p.lifeMax = (std::max)(p.lifeMax, p.lifeMin);
         return p;
     }();
-    return preset;
+    return kPreset;
 }
 
 /** @brief 3要素すべてが scale のベクトルを返す */

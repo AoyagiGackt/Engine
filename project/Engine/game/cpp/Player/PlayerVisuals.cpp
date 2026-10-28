@@ -179,32 +179,32 @@ public:
 
 /** @brief 待機アニメーションの共有インスタンスを返す */
 const Player::IAnimState& Player::IdleAnim() {
-    static const IdleAnimState instance;
-    return instance;
+    static const IdleAnimState kInstance;
+    return kInstance;
 }
 
 /** @brief 走りアニメーションの共有インスタンスを返す */
 const Player::IAnimState& Player::RunAnim() {
-    static const RunAnimState instance;
-    return instance;
+    static const RunAnimState kInstance;
+    return kInstance;
 }
 
 /** @brief ジャンプアニメーションの共有インスタンスを返す */
 const Player::IAnimState& Player::JumpAnim() {
-    static const JumpAnimState instance;
-    return instance;
+    static const JumpAnimState kInstance;
+    return kInstance;
 }
 
 /** @brief 泳ぎアニメーションの共有インスタンスを返す */
 const Player::IAnimState& Player::SwimAnim() {
-    static const SwimAnimState instance;
-    return instance;
+    static const SwimAnimState kInstance;
+    return kInstance;
 }
 
 /** @brief 攻撃アニメーションの共有インスタンスを返す */
 const Player::IAnimState& Player::AttackAnim() {
-    static const AttackAnimState instance;
-    return instance;
+    static const AttackAnimState kInstance;
+    return kInstance;
 }
 
 /** @brief 本体のボーンへ装備を付け直して各モデルの行列を更新する */

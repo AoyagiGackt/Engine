@@ -37,8 +37,8 @@ struct SceneBgmConfig {
 
 /** @brief シーンの BGM 設定を取得する */
 SceneBgmConfig& BgmConfig() {
-    static SceneBgmConfig config;
-    return config;
+    static SceneBgmConfig sConfig;
+    return sConfig;
 }
 
 /**

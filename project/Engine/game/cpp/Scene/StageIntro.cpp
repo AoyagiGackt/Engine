@@ -152,8 +152,8 @@ IntroConfig LoadConfig() {
 
 /** @brief 読み込み済みの設定（初回に読む。変更は次回起動時に反映） */
 const IntroConfig& Config() {
-    static const IntroConfig config = LoadConfig();
-    return config;
+    static const IntroConfig kConfig = LoadConfig();
+    return kConfig;
 }
 
 /** @brief 読み込み済みの調整値を取得する */
@@ -367,22 +367,22 @@ public:
 namespace {
 /** @brief stage_intro.json の sequence に書く段階名と段階の対応 */
 const StageIntro::IPhase* PhaseNamed(const std::string& name) {
-    static const StageIntro::SlashPhase slash;
-    static const StageIntro::OverviewPhase overview;
-    static const StageIntro::BossPhase boss;
-    static const StageIntro::DropPhase drop;
-    static const StageIntro::LandPhase land;
+    static const StageIntro::SlashPhase kSlash;
+    static const StageIntro::OverviewPhase kOverview;
+    static const StageIntro::BossPhase kBoss;
+    static const StageIntro::DropPhase kDrop;
+    static const StageIntro::LandPhase kLand;
     /** @brief 開始演出の設定名と状態オブジェクトの対応 */
     struct NamedPhase {
         const char* name;
         const StageIntro::IPhase* phase;
     };
     const NamedPhase kPhases[] = {
-        { "slash", &slash },
-        { "overview", &overview },
-        { "boss", &boss },
-        { "drop", &drop },
-        { "land", &land },
+        { "slash", &kSlash },
+        { "overview", &kOverview },
+        { "boss", &kBoss },
+        { "drop", &kDrop },
+        { "land", &kLand },
     };
     for (const NamedPhase& entry : kPhases) {
         if (name == entry.name) {
