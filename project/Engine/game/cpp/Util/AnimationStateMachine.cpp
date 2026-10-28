@@ -11,7 +11,7 @@
 namespace engine::game {
 /** @brief 状態を追加する */
 void AnimationStateMachine::AddState(const std::string& name,
-    Animation* anim,
+    engine::graphics::Animation* anim,
     bool loop,
     float speed) {
     State s;
@@ -100,8 +100,8 @@ void AnimationStateMachine::Update(float dt) {
 
 // 情報取得
 
-/** @brief 今の状態の Animation を返す（状態が無ければ nullptr） */
-const Animation* AnimationStateMachine::GetCurrentAnimation() const {
+/** @brief 今の状態の engine::graphics::Animation を返す（状態が無ければ nullptr） */
+const engine::graphics::Animation* AnimationStateMachine::GetCurrentAnimation() const {
     if (currentState_.empty()) {
         return nullptr;
     }

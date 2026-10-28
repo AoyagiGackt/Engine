@@ -2,8 +2,8 @@
 // 入力: 元の頂点バッファ (SRV, t0) + スキニングパレット (CBV, b0)
 // 出力: 計算済み頂点バッファ (UAV, u0) → 描画パスで頂点バッファとして使用
 
-struct InputVertex
-{
+/** @brief 元のスキンメッシュの頂点とボーン影響 */
+struct InputVertex {
     float4 position;
     float2 texcoord;
     float3 normal;
@@ -11,12 +11,14 @@ struct InputVertex
     float4 boneWeights;
 };
 
-// ModelCommon の入力レイアウト (POSITION/TEXCOORD/NORMAL) と完全一致させること
-struct OutputVertex
-{
+// ModelCommon の入力レイアウト (POSITION/TEXCOORD/NORMAL/TANGENT) と一致させる
+/** @brief 標準描画の入力と一致する、接線付きの計算結果 */
+struct OutputVertex {
     float4 position;
     float2 texcoord;
     float3 normal;
+    /** @brief 法線から構築する直交接線 */
+    float3 tangent;
 };
 
 #define MAX_JOINTS 128
@@ -35,11 +37,12 @@ cbuffer DispatchParams : register(b1)
 StructuredBuffer<InputVertex> gInput : register(t0);
 RWStructuredBuffer<OutputVertex> gOutput : register(u0);
 
+/** @brief 各頂点をスキニングし、標準描画用の頂点として出力する */
 [numthreads(64, 1, 1)]
-void main(uint3 dtid : SV_DispatchThreadID)
-{
-    if (dtid.x >= gNumVertices)
+void main(uint3 dtid : SV_DispatchThreadID) {
+    if (dtid.x >= gNumVertices) {
         return;
+    }
 
     InputVertex input = gInput[dtid.x];
 
@@ -59,5 +62,9 @@ void main(uint3 dtid : SV_DispatchThreadID)
     output.texcoord = input.texcoord;
     output.normal = normalize(mul(input.normal, (float3x3) skinMatrix));
 
+    // 元の頂点に接線が無いため、法線と平行でない軸から接線を構築する
+    const float kParallelThreshold = 0.999f;
+    float3 referenceAxis = abs(output.normal.y) < kParallelThreshold ? float3(0, 1, 0) : float3(1, 0, 0);
+    output.tangent = normalize(cross(referenceAxis, output.normal));
     gOutput[dtid.x] = output;
 }

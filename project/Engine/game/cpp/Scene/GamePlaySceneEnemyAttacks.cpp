@@ -15,7 +15,7 @@
 #include "GrayscaleEffect.h"
 #include "HitEffectLibrary.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
@@ -104,7 +104,7 @@ void GamePlayScene::BuildGunShotTarget() {
         sceneShared::MakeDirectionalShotRange(playerPos, player_->GetLastDirX(), rangeX, CombatTune().gunBackRange));
 
     // 弾は最初に当たった相手で止まる（ボス・道中の敵・壊せる物の中から銃口に一番近い1つだけが的）
-    if (!enemy_->IsDefeated() && enemy_->IsVisible()) {
+    if (enemy_ && !enemy_->IsDefeated() && enemy_->IsVisible()) {
         gunShotPicker_.Consider(enemy_, GetEnemyHitBox());
     }
     for (const auto& entry : weaponEnemies_) {
@@ -496,7 +496,7 @@ void GamePlayScene::UpdatePlayerEnemyContactHit(float dt) {
 
     // 敵との当たり判定（倒れた敵・消えた敵の体には当たらない。倒した後も判定が残って止めと揺れが出続けないように）
     hitCooldown_ -= dt;
-    if (enemy_->IsDefeated() || !enemy_->IsVisible()) {
+    if (!enemy_ || enemy_->IsDefeated() || !enemy_->IsVisible()) {
         return;
     }
     {

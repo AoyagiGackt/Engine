@@ -30,7 +30,7 @@ const PlayerTuning& Tuning() {
 }
 
 /** @brief 体の移動キーの高さを最初の値に固定する（高さは物理で決めるため） */
-void LockClipVerticalRootMotion(Animation& animation) {
+void LockClipVerticalRootMotion(engine::graphics::Animation& animation) {
     auto body = animation.nodeAnimations.find("Body");
     if (body == animation.nodeAnimations.end() || body->second.translate.keyframes.empty()) {
         return;
@@ -287,7 +287,7 @@ void Player::HandleWarp(Input* input) {
 }
 
 /** @brief 攻撃モーションを頭から再生し、再生し切るまで状態遷移をロックする */
-void Player::PlayAttackAnim(const Animation& anim, float speed) {
+void Player::PlayAttackAnim(const engine::graphics::Animation& anim, float speed) {
     rig_->object->SetAnimation(anim);
     rig_->object->SetAnimSpeed(speed);
     animState_ = &AttackAnim();

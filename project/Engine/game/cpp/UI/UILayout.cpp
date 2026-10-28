@@ -247,7 +247,9 @@ void UILayout::Save() {
             root[entry.key] = std::vector<float>(entry.value, entry.value + count);
         }
     }
-    JsonHelper::Save(path_, root);
+    if (!JsonHelper::Save(path_, root)) {
+        return;
+    }
     loaded_ = root;
     unsaved_ = false;
 }

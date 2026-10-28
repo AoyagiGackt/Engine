@@ -15,7 +15,7 @@
 #include "GameSettings.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ModelManager.h"
 #include "ParticleManager.h"
@@ -226,8 +226,8 @@ void GamePlayScene::DrawRogueliteHUD() {
     }
 
     // 敵の残り体力を上部中央に数値で表示する
-    const int enemyHp = enemy_->GetHp();
-    const int enemyMaxHp = enemy_->GetMaxHp();
+    const int enemyHp = enemy_ ? enemy_->GetHp() : 0;
+    const int enemyMaxHp = enemy_ ? enemy_->GetMaxHp() : 0;
     const std::wstring enemyHpText = L"ボス体力  "
         + std::to_wstring(enemyHp) + L" / " + std::to_wstring(enemyMaxHp);
     UILayout& layout = UILayout::Get(kLayoutName);
@@ -414,7 +414,7 @@ void GamePlayScene::DrawStyleUI() {
             weaponStealPromptColor);
     };
     // ボスと道中の敵のうち、倒れて武器を奪える敵の頭上に出す
-    if (enemy_->IsDefeated() && !weaponStealTriggered_ && !mainWeaponAbsorbing_) {
+    if (enemy_ && enemy_->IsDefeated() && !weaponStealTriggered_ && !mainWeaponAbsorbing_) {
         drawWeaponStealPrompt(enemy_->GetWeaponPickupPosition());
     }
     for (const auto& weaponEnemy : weaponEnemies_) {

@@ -66,7 +66,8 @@ public:
     static void SetLightViewProjection(const Matrix4x4& lvp);
 
     /**
-     * @brief オブジェクトの初期化GPUに送るための定数バッファ（WVPやマテリアル用）を生成する
+     * @brief オブジェクトを初期化し、変換行列とマテリアルを既定値にする
+     * @note GPU へは描画のたびに FrameUploadAllocator 経由で写すので、ここでは定数バッファを作らない
      * @param modelCommon 共通描画設定のポインタ
      */
     void Initialize(ModelCommon* modelCommon);
@@ -199,7 +200,7 @@ public:
      * @param enable 有効にする場合はtrue、無効にする場合はfalse
      */
     void SetEnableLighting(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::enableLighting, enable ? 1 : 0);
     }
 
     /**
@@ -207,7 +208,7 @@ public:
      * @param color テクスチャ色と乗算される色（白なら変化なし）
      */
     void SetColor(const Vector4& color) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::color, color);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::color, color);
     }
 
     /**
@@ -215,7 +216,7 @@ public:
      * @param color 反射色（白ならハイライトが白くなる）
      */
     void SetSpecularColor(const Vector3& color) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::specularColor, color);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::specularColor, color);
     }
 
     /**
@@ -223,43 +224,43 @@ public:
      * @param shininess 大きいほどシャープな光沢（8〜256程度が目安）
      */
     void SetShininess(float shininess) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::shininess, shininess);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::shininess, shininess);
     }
 
     /** @brief キューブマップを使うかを設定する */
     void SetUseCubemap(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useCubemap, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::useCubemap, enable ? 1 : 0);
     }
 
     /** @brief テクスチャを使うかを設定する */
     void SetUseTexture(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useTexture, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::useTexture, enable ? 1 : 0);
     }
 
     /** @brief 環境マップの強さを設定する */
     void SetEnvMapIntensity(float intensity) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::envMapIntensity, intensity);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::envMapIntensity, intensity);
     }
 
     /** @brief リムライトの色を設定する */
     void SetRimColor(const Vector3& color) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimColor, color);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimColor, color);
     }
     /** @brief リムライトの鋭さを設定する */
     void SetRimPower(float power) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimPower, power);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimPower, power);
     }
     /** @brief リムライトの強さを設定する */
     void SetRimIntensity(float intensity) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::rimIntensity, intensity);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::rimIntensity, intensity);
     }
     /** @brief リムライトを使うかを設定する */
     void SetEnableRim(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::enableRim, enable ? 1 : 0);
     }
     /** @brief UV の変換行列を設定する */
     void SetUVTransform(const Matrix4x4& m) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::uvTransform, m);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::uvTransform, m);
     }
 
     /**
@@ -269,23 +270,21 @@ public:
     void SetNormalMap(const std::string& filePath);
     /** @brief 法線マップを使うかを設定する */
     void SetUseNormalMap(bool enable) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::useNormalMap, enable ? 1 : 0);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::useNormalMap, enable ? 1 : 0);
     }
 
     // PBR パラメータ（shadingType を 5 にすると Cook-Torrance BRDF が有効）
     void SetMetallic(float v) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::metallic, v);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::metallic, v);
     }
     /** @brief 表面の粗さを設定する */
     void SetRoughness(float v) {
-        pipelineHelper::SetMaterialValue(materialData_, &ObjectMaterialLayout::roughness, v);
+        pipelineHelper::SetMaterialValue(&material_, &ObjectMaterialLayout::roughness, v);
     }
     /** @brief 陰影の計算を PBR にする */
     void SetShadingTypePBR() {
-        if (materialData_) {
-            materialData_->shadingType = kPbrShadingType;
-            lockShadingType_ = true;
-        }
+        material_.shadingType = kPbrShadingType;
+        lockShadingType_ = true;
     }
     /** @brief 陰影の計算方法を固定し、エディタから変えられないようにする */
     void LockShadingType(bool lock = true) {
@@ -293,6 +292,10 @@ public:
     }
 
 private:
+    /** @brief 現在の変換行列を、このフレームの描画用領域へコピーしてアドレスを返す */
+    D3D12_GPU_VIRTUAL_ADDRESS UploadTransform();
+    /** @brief 現在のマテリアルを、このフレームの描画用領域へコピーしてアドレスを返す */
+    D3D12_GPU_VIRTUAL_ADDRESS UploadMaterial();
     static constexpr int kPbrShadingType = 5;
     /**
      * @brief GPUに送るための座標変換行列データ
@@ -326,19 +329,13 @@ private:
     /** @brief オブジェクトのトランスフォーム（初期値はスケール1、原点） */
     Transform transform_ = { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 
-    // GPUリソース関連
+    // 描画データ（GPU へは描画のたびに FrameUploadAllocator で写す）
 
-    /** @brief 座標変換行列用のGPUリソース（定数バッファ） */
-    Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
+    /** @brief 座標変換行列（Update で計算し、描画のたびに GPU 用の領域へ写す） */
+    TransformationMatrix transformationMatrix_ {};
 
-    /** @brief CPU側で書き込むための座標変換行列データのポインタ（マップ済み） */
-    TransformationMatrix* transformationMatrixData_ = nullptr;
-
-    /** @brief マテリアル用のGPUリソース（定数バッファ） */
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-
-    /** @brief CPU側で書き込むためのマテリアルデータのポインタ（マップ済み） */
-    ObjectMaterialLayout* materialData_ = nullptr;
+    /** @brief マテリアル（Set～ で書き換え、描画のたびに GPU 用の領域へ写す） */
+    ObjectMaterialLayout material_ {};
 
     /** @brief SetShadingTypePBR() 等でロックするとLightManagerの毎フレーム上書きを防ぐ */
     bool lockShadingType_ = false;

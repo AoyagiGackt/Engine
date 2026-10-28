@@ -36,8 +36,8 @@ void SrvManager::Initialize(DirectXCommon* dxCommon) {
     useIndex_ = 0;
 }
 
-/** @brief 描画前準備コマンドリストにデスクリプタヒープをセットする */
-void SrvManager::PreDraw() {
+/** @brief フレームの数を1つ進め、待ち時間を過ぎた解放済みインデックスを再利用できるようにする */
+void SrvManager::BeginFrame() {
     ++frameCount_;
 
     // 解放から十分なフレーム数が経過した（＝GPUが使い終わったはずの）インデックスを
@@ -52,7 +52,10 @@ void SrvManager::PreDraw() {
                 return true;
             }),
         pendingFree_.end());
+}
 
+/** @brief 描画前準備コマンドリストにデスクリプタヒープをセットする（1フレームに何度呼んでもよい） */
+void SrvManager::PreDraw() {
     // 描画フレームの最初にヒープをセットする
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap_.Get() };

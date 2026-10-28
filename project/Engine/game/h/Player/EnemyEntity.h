@@ -453,9 +453,9 @@ private:
     std::unique_ptr<SkinCommon> skinCommon_;
     SkinnedModel* animatedModel_ = nullptr;
     std::unique_ptr<SkinnedObject3d> object_;
-    Animation idleAnimation_;
-    Animation runAnimation_;
-    Animation attackAnimation_;
+    engine::graphics::Animation idleAnimation_;
+    engine::graphics::Animation runAnimation_;
+    engine::graphics::Animation attackAnimation_;
     VisualAnim animationState_ = VisualAnim::kAttack;
     Model* weaponModel_ = nullptr;
     std::unique_ptr<Object3d> weaponObject_;

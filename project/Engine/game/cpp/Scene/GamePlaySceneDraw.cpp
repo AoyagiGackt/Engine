@@ -15,7 +15,7 @@
 #include "GamePlaySceneInitializer.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
@@ -102,7 +102,7 @@ void GamePlayScene::UpdateFinisherSlash(float dt) {
     }
 
     auto* tm = TimeManager::GetInstance();
-    const Vector3& epos = enemy_->GetPosition();
+    const Vector3 epos = enemy_ ? enemy_->GetPosition() : player_->GetPosition();
 
     if (finisherLineIdx_ < CombatTune().finisherSlashLines) {
         // カメラ視界全体にランダムな位置を高速で斬り刻む
@@ -170,7 +170,7 @@ void GamePlayScene::CheckClearCondition() {
     const GameRulesData& rules = GameRules::GetInstance()->Get();
 
     // 最終敵の撃破後にgame_rules.jsonで指定した武器を奪い、スロットを完成させる
-    if (!weaponStealTriggered_ && enemy_->IsDefeated()
+    if (enemy_ && !weaponStealTriggered_ && enemy_->IsDefeated()
         && !finisherActive_ && !enemySlice_.IsActive()) {
         // 打ち飛ばされて武器を落としていれば、本体ではなく落ちた武器の場所で奪う
         const Vector3 epos = enemy_->GetWeaponPickupPosition();
@@ -219,7 +219,7 @@ void GamePlayScene::CheckClearCondition() {
     }
 
     // ローグライト: 敵撃破でクリア（大技・切断演出は見せ切ってから遷移する）
-    if (rules.requireBossWeaponSteal && !clearTriggered_ && enemy_->IsDefeated() && weaponStealTriggered_
+    if (enemy_ && rules.requireBossWeaponSteal && !clearTriggered_ && enemy_->IsDefeated() && weaponStealTriggered_
         && !finisherActive_ && !enemySlice_.IsActive()
         /** @brief RunData の唯一のインスタンスを取得する */
         && RunData::GetInstance()->IsRunActive()) {

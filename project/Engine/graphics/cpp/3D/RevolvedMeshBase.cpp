@@ -3,6 +3,7 @@
  * @brief 回転体メッシュ（円柱・リング）の共通のGPU資源と描画（RevolvedMeshBase）の実装
  */
 #include "RevolvedMeshBase.h"
+#include "FrameUploadAllocator.h"
 #include "PipelineHelper.h"
 #include "DirectXCommon.h"
 #include "EngineAssert.h"
@@ -20,7 +21,7 @@ constexpr int kMinDivisions = 3;
 }
 using namespace Microsoft::WRL;
 
-/** @brief テクスチャ読み込み・頂点バッファ・マテリアル定数バッファの確保を行う（Initialize共通部） */
+/** @brief テクスチャを読み込み、CPU側の頂点と定数データを用意する */
 void RevolvedMeshBase::SetupCommonBuffers(DirectXCommon* dxCommon, const std::string& textureFilePath,
     int divisions, size_t materialCBSize, void** mappedMaterialOut) {
     ENGINE_ASSERT(dxCommon);
@@ -32,12 +33,12 @@ void RevolvedMeshBase::SetupCommonBuffers(DirectXCommon* dxCommon, const std::st
 
     TextureManager::GetInstance()->LoadTexture(textureFilePath_);
 
-    materialBuffer_ = dxCommon_->CreateBufferResource(materialCBSize);
-    materialBuffer_->Map(0, nullptr, mappedMaterialOut);
+    // 派生側のCPUデータを保持し、描画時にフレーム領域へコピーする
+    materialData_ = *mappedMaterialOut;
+    materialBytes_ = materialCBSize;
 
-    vertexBuffer_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * vertexCount_);
-    vertexBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
-    vbv_.BufferLocation = vertexBuffer_->GetGPUVirtualAddress();
+    vertices_.resize(vertexCount_);
+    vertexData_ = vertices_.data();
     vbv_.SizeInBytes = static_cast<UINT>(sizeof(VertexData) * vertexCount_);
     vbv_.StrideInBytes = sizeof(VertexData);
 }
@@ -54,9 +55,11 @@ void RevolvedMeshBase::Draw() {
     ID3D12GraphicsCommandList* cmd = dxCommon_->GetCommandList();
 
     pipelineHelper::SetTrianglePipeline(cmd, rootSignature_.Get(), pipelineState_.Get());
+    // 形状の変更が、先行する描画の頂点を上書きしないようにする
+    vbv_.BufferLocation = dxCommon_->GetFrameUploadAllocator().Allocate(vertices_.data(), vbv_.SizeInBytes);
     cmd->IASetVertexBuffers(0, 1, &vbv_);
 
-    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::effectMeshRootSlot::kConstants, materialBuffer_->GetGPUVirtualAddress());
+    cmd->SetGraphicsRootConstantBufferView(pipelineHelper::effectMeshRootSlot::kConstants, dxCommon_->GetFrameUploadAllocator().Allocate(materialData_, materialBytes_));
 
     SrvManager::GetInstance()->PreDraw();
     D3D12_GPU_DESCRIPTOR_HANDLE texHandle = TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_);

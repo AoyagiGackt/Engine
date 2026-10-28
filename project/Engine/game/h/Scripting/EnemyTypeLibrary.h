@@ -31,7 +31,7 @@ public:
     /** @brief ファイルから読み直す */
     void Reload();
     /** @brief 今の一覧をファイルへ書き出す */
-    void Save() const;
+    bool Save() const;
 
     /** @brief 一覧を返す */
     const std::vector<EnemyTypeDef>& Types() const {

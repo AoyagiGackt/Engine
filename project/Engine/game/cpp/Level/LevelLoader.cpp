@@ -175,7 +175,7 @@ LevelData levelLoader::Load(const std::string& path) {
 }
 
 /** @brief レベルデータをファイルへ保存する */
-void levelLoader::Save(const std::string& path, const LevelData& data) {
+bool levelLoader::Save(const std::string& path, const LevelData& data) {
     nlohmann::json j = nlohmann::json::object();
     WriteJsonFields(j, kLevelFields, data);
     j["objects"] = WriteList(data.objects, kObjectFields, [](nlohmann::json& item, const ObjectDesc& desc) {
@@ -189,7 +189,7 @@ void levelLoader::Save(const std::string& path, const LevelData& data) {
     j["checkpoints"] = WriteList(data.checkpoints, kCheckpointFields, NoExtra<nlohmann::json, CheckpointDesc>);
     j["flagGraphs"] = WriteList(data.flagGraphs, kFlagGraphFields, NoExtra<nlohmann::json, FlagGraphBinding>);
 
-    JsonHelper::Save(path, j);
+    return JsonHelper::Save(path, j);
 }
 
 /** @brief 配置情報の回転・拡縮・ライティングで、見た目のオブジェクトを1つ作る */

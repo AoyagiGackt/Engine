@@ -16,7 +16,7 @@
 #include "SceneFlow.h"
 #include "GrayscaleEffect.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ModelManager.h"
 #include "ParticleManager.h"
@@ -345,7 +345,7 @@ void GamePlayScene::Update() {
     bladeFlash_.Update(dt, camera_.get());
 
     // 敵位置を画面UVへ投影して空間歪みの中心に設定する
-    if (spaceWarp_.IsActive() || finisherActive_) {
+    if (enemy_ && (spaceWarp_.IsActive() || finisherActive_)) {
         finisherEffects::UpdateWarpCenter(spaceWarp_, *camera_, enemy_->GetPosition());
     }
     spaceWarp_.Update(dt);
@@ -359,7 +359,7 @@ void GamePlayScene::Update() {
     // 切断演出が飛散に移ったら、敵本体を再表示する
     // 撃破済みでもJの武器吸収で本体を消費するまでは戻す（フィニッシャーで倒した場合に
     // 透明な敵へJを当てる状態にならないように）。吸収完了後はweaponStealTriggered_が立つので戻さない
-    if (!enemy_->IsVisible() && !weaponStealTriggered_
+    if (enemy_ && !enemy_->IsVisible() && !weaponStealTriggered_
         && (enemySlice_.IsBursting() || !enemySlice_.IsActive())) {
         enemy_->SetVisible(true);
     }
@@ -476,6 +476,10 @@ void GamePlayScene::UpdatePlayerDefeat() {
 // 戦闘とカメラの更新
 // ══════════════════════════════════════════════════════
 void GamePlayScene::UpdateCombatEvents() {
+    // ボスに対する専用演出は、実体がある時だけ進める
+    if (!enemy_) {
+        return;
+    }
     auto* tm = TimeManager::GetInstance();
     // 乱舞 打ち上げヒット
     // 打ち上げ: 敵を浮かせ、止めと揺れと輪と火花を出す
@@ -554,7 +558,7 @@ void GamePlayScene::UpdateCombat() {
         SyncCombatEnemies(); // spawn_pointが出した敵をこのフレームから戦闘対象に含める
         UpdateTargetLock();
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
-        player_->Update(input_, enemy_->GetPosition(), !enemy_->IsDefeated() && enemy_->IsVisible(), !activeColliders.empty());
+        player_->Update(input_, enemy_ ? enemy_->GetPosition() : player_->GetPosition(), enemy_ && !enemy_->IsDefeated() && enemy_->IsVisible(), !activeColliders.empty());
         gameSounds::PlayPlayerActions(*player_);
         // ボスだけでなく道中の敵の手前でも止め、プレイヤーが歩いて敵を押しのけないようにする
         player_->ResolveEnemyOverlaps(CollectStandingEnemyPositions());
@@ -579,7 +583,7 @@ void GamePlayScene::UpdateCombat() {
         // enemy_の物理/アニメーション更新自体はStageEditor所有のためGetStageEditor().UpdateObjects()
         // （BaseScene::Tick()がUpdate()の直後に呼ぶ）が担う。ここでは前フレーム分の着地判定だけ読む
         // （1フレーム遅延するが60fps下では実用上無視できる差）
-        if (enemy_->JustLanded()) {
+        if (enemy_ && enemy_->JustLanded()) {
             player_->EndRampage(); // 敵が着地したらジャグル強制終了
         }
         skydome_->Update(camera_.get());

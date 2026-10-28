@@ -11,8 +11,7 @@ namespace engine::game {
 
 /** @brief 配置物を原点基準のプレハブとして保存し、保存先を返す */
 std::string StageEditorPrefabService::Save(const std::string& name, const ObjectDesc& object) {
-    std::filesystem::create_directories("Resources/Prefabs");
-
+    // 保存先のフォルダーは JsonHelper::Save が作るので、ここでは配置物を原点基準に直すだけ
     ObjectDesc prefabObject = object;
     prefabObject.parent.clear();
     prefabObject.position = { };
@@ -20,7 +19,9 @@ std::string StageEditorPrefabService::Save(const std::string& name, const Object
     LevelData prefab;
     prefab.objects.push_back(std::move(prefabObject));
     const std::string path = MakePath(name);
-    levelLoader::Save(path, prefab);
+    if (!levelLoader::Save(path, prefab)) {
+        return {};
+    }
     return path;
 }
 

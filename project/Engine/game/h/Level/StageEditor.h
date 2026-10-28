@@ -19,6 +19,7 @@
 #include "TriggerVolume.h"
 #include "Weapon.h"
 #include <functional>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -51,6 +52,8 @@ class ObjectKind;
 
 /** @brief kind=="enemy_basic"かつ武器種別を持つ配置物1件ぶんの参照（GetCombatEnemies()の戻り値） */
 struct CombatEnemyRef {
+    /** @brief 生成された敵の一意な識別番号 */
+    uint64_t instanceId = 0;
     std::string name;
     WeaponType weaponType;
     bool hasWeapon = true; ///< falseなら武器を持たないモンスター（倒しても奪う物が無く、消えて覚醒ゲージになる）
@@ -322,6 +325,8 @@ private:
     // kind=="prop"ならinstancesを使い、kindがenemy系ならknight/enemyのどちらかだけが生成される
     /** @brief 配置物1件ぶんの編集データと、生成済みランタイム実体（見た目のみ/ナイト/汎用敵のいずれか）を束ねる */
     struct ObjectEntry {
+        /** @brief この配置物が現在所有する敵の識別番号 */
+        uint64_t enemyInstanceId = 0;
         ObjectDesc desc;
         std::vector<std::unique_ptr<engine::graphics::Object3d>> instances;
         std::unique_ptr<KnightEnemy> knight;
@@ -394,6 +399,10 @@ private:
 
     /** @brief 削除・Open()の再読み込み・破棄の前に、enemy_basic配置分をEnemyRegistryから解除する（ダングリングポインタ防止） */
     void UnregisterEnemyEntity(const ObjectEntry& entry);
+    /** @brief 敵の実体を作るたびに増やす、再利用しない識別番号 */
+    uint64_t nextEnemyInstanceId_ = 0;
+    /** @brief 生成する敵に、再利用しない番号を発行する */
+    uint64_t AllocateEnemyInstanceId();
     /** @brief 配置物が所有する描画実体と敵実体を安全な順序で破棄する */
     void DestroyObjectRuntime(ObjectEntry& entry, bool waitForGpu);
     /** @brief enabledとactivationFlagを評価してゲーム側で有効な配置か返す */
@@ -678,7 +687,7 @@ private:
     float statusTimer_ = 0.0f;
 
     /** @brief 現在の編集内容を指定パスへ書き出す */
-    void SaveToPath(const std::string& path) const;
+    bool SaveToPath(const std::string& path) const;
 
     /** @brief 読み込み済みレベルの実体を依存関係に沿った順序で破棄する */
     void ReleaseLevelResources(bool releaseExternalEntities);

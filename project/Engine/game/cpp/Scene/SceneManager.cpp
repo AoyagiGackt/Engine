@@ -212,6 +212,14 @@ void SceneManager::CookAllScenes() {
 
 /** @brief フェードアウト完了後のシーン切替本体（Update()の冒頭から呼ばれる） */
 void SceneManager::PerformSceneSwitch() {
+    // 生成できることを確かめてから、現在のシーンを終了する。
+    auto nextScene = sceneFactory_ ? sceneFactory_->CreateScene(nextSceneName_) : nullptr;
+    if (!nextScene) {
+        Logger::LogError("シーンを生成できません: " + nextSceneName_);
+        nextSceneName_ = currentSceneName_;
+        transition_.FinishSwitch();
+        return;
+    }
     const auto loadingStarted = std::chrono::steady_clock::now();
     audio_->StopWave(); // 前のシーンの音を止める
 
@@ -230,7 +238,7 @@ void SceneManager::PerformSceneSwitch() {
     UILayout::ResetUsedLayouts();
 
     // 工場を使って新しいシーンを作成・初期化
-    currentScene_ = sceneFactory_->CreateScene(nextSceneName_);
+    currentScene_ = std::move(nextScene);
     currentScene_->Init(dxCommon_, input_, audio_);
     // シーン切り替え時にロードされたテクスチャを一括転送・同期する
     TextureManager::GetInstance()->FlushUploads();

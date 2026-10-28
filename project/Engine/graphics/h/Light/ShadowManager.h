@@ -24,6 +24,14 @@ class ModelCommon;
  */
 class ShadowManager {
 public:
+    /** @brief 未初期化の影管理を作る */
+    ShadowManager() = default;
+    /** @brief 確保したSRVを返却する */
+    ~ShadowManager();
+    /** @brief 所有権の複製を禁止する */
+    ShadowManager(const ShadowManager&) = delete;
+    /** @brief 所有権の代入を禁止する */
+    ShadowManager& operator=(const ShadowManager&) = delete;
     static const UINT kShadowMapSize = 2048; ///< シャドウマップ解像度
     /** @brief 影の投影が中心にするワールド座標を値で取得する */
     static Vector3 SceneCenter();
@@ -78,6 +86,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> shadowMapResource_;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> shadowDsvHeap_;
     uint32_t shadowSrvIndex_ = 0;
+    SrvManager* srvManager_ = nullptr;
 
     Matrix4x4 lightVP_ = MakeIdentity4x4();
     bool shadowMapInDepthWrite_ = true; ///< リソース初期状態は DEPTH_WRITE

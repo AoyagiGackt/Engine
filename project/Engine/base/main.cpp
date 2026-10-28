@@ -3,8 +3,8 @@
  * @brief アプリケーションの入口。クラッシュ時の処理を登録し、ゲームを起動して終了まで回す
  */
 #include "CrashHandler.h"
-#include "D3DResourceLeakChecker.h"
-#include "Game.h"
+#include "D3D12ResourceLeakChecker.h"
+#include "MyGame.h"
 #include "Logger.h"
 #include <Windows.h>
 #include <memory>

@@ -131,9 +131,12 @@ void EnemyTypeEditor::Draw(bool* open, const PlaceCallback& place) {
     // 保存・元に戻すと状態の表示
     ImGui::BeginDisabled(!dirty_);
     if (ImGui::Button("保存")) {
-        EnemyTypeLibrary::GetInstance()->Save();
-        dirty_ = false;
-        status_ = "保存しました（Resources/Config/enemy_types.json）";
+        if (EnemyTypeLibrary::GetInstance()->Save()) {
+            dirty_ = false;
+            status_ = "保存しました（Resources/Config/enemy_types.json）";
+        } else {
+            status_ = "保存に失敗しました";
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("元に戻す")) {
@@ -341,7 +344,9 @@ bool EnemyTypeEditor::SaveNewLook(const NewLook& look) {
         { "scale", look.scale },
         { "yawOffset", look.yawDegrees * gameConstants::kDegToRad },
     };
-    JsonHelper::Save(kEnemyParamsPath, root);
+    if (!JsonHelper::Save(kEnemyParamsPath, root)) {
+        return false;
+    }
     EnemyTuning::GetInstance()->Reload();
     return true;
 }

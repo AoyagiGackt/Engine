@@ -11,6 +11,18 @@ namespace engine::game {
 
 /** @brief タイトルのコンティニューで復元するラン継続データ */
 struct ContinueData {
+    /** @brief スロット順の武器番号。負の番号は空きスロット */
+    std::vector<int32_t> weaponSlots;
+    /** @brief 武器定義順の解放状態。0は未解放、1は解放済み */
+    std::vector<int32_t> unlockedWeapons;
+    /** @brief 現在の近接武器番号 */
+    int32_t weaponIndex = 0;
+    /** @brief 選択中の近接武器スロット */
+    int32_t selectedWeaponSlot = -1;
+    /** @brief 交換待ちの近接武器番号 */
+    int32_t pendingWeaponIndex = -1;
+    /** @brief 選択中の射撃武器番号 */
+    int32_t rangedWeaponIndex = 0;
     bool valid = false; ///< コンティニューデータが存在するか
 
     int32_t hp = 0; ///< 保存時点のHP
@@ -93,7 +105,7 @@ private:
 
     static constexpr const char* kFilePath = "save/save.json";
     bool writesEnabled_ = true; ///< false の間は Save() でファイルへ書かない
-    static constexpr int kCurrentVersion = 1;
+    static constexpr int kCurrentVersion = 2;
 };
 
 } // namespace engine::game

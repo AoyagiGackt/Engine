@@ -104,7 +104,7 @@ void SkinCS::Initialize(DirectXCommon* dxCommon,
 
     outputVBV_.BufferLocation = outputBuffer_->GetGPUVirtualAddress();
     outputVBV_.SizeInBytes = static_cast<UINT>(outputSize);
-    outputVBV_.StrideInBytes = sizeof(OutputVertex); // 36 bytes
+    outputVBV_.StrideInBytes = sizeof(OutputVertex); // 接線を含む標準頂点と同じストライド
 }
 
 /** @brief スキニング計算をコマンドリストに積む */

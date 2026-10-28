@@ -340,6 +340,7 @@ std::vector<CombatEnemyRef> StageEditor::GetCombatEnemies() const {
         ref.hasWeapon = hasWeapon;
         ref.isStageBoss = entry.desc.isStageBoss;
         ref.enemy = entry.enemy.get();
+        ref.instanceId = entry.enemyInstanceId;
         result.push_back(ref);
     }
     return result;

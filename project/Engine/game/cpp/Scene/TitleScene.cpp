@@ -176,6 +176,7 @@ void TitleScene::UpdateMainMenu() {
         [](TitleScene& scene) { // CONTINUE
             WeaponManager::GetInstance()->RestoreSnapshot(scene.weaponManagerSnapshot_);
             SaveDataManager::GetInstance()->LoadContinue(*RunData::GetInstance());
+            scene.weaponManagerSnapshot_ = WeaponManager::GetInstance()->SaveSnapshot();
             SceneFlow::GetInstance()->Transition("TITLE", "continue", "MAP");
         },
         [](TitleScene& scene) { // TRAINING

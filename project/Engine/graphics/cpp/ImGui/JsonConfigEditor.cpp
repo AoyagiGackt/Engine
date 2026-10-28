@@ -210,7 +210,9 @@ void JsonConfigEditor::LoadEntry(FileEntry& entry) {
 
 /** @brief 編集中の内容を書き出し、登録された読み直しを呼ぶ */
 void JsonConfigEditor::SaveEntry(FileEntry& entry) {
-    JsonHelper::Save(entry.path, entry.data);
+    if (!JsonHelper::Save(entry.path, entry.data)) {
+        return;
+    }
     entry.saved = entry.data;
     entry.dirty = false;
     const auto callback = reloadCallbacks_.find(entry.fileName);

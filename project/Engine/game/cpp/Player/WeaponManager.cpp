@@ -412,6 +412,27 @@ void WeaponManager::RestoreSnapshot(const Snapshot& snapshot) {
     selectedSlot_ = snapshot.selectedSlot;
     pendingWeaponIndex_ = snapshot.pendingWeaponIndex;
     rangedIndex_ = snapshot.rangedIndex;
+    // 保存データ内の番号を、現在の武器定義の範囲へ制限する
+    unlocked_.resize(weapons_.size(), false);
+    for (int& slot : slots_) {
+        if (!IsUnlocked(slot)) {
+            slot = -1;
+        }
+    }
+    if (index_ < 0 || index_ >= static_cast<int>(weapons_.size())) {
+        index_ = 0;
+    }
+    if (selectedSlot_ < 0 || selectedSlot_ >= kSlotCount || slots_[selectedSlot_] < 0) {
+        selectedSlot_ = -1;
+    } else {
+        index_ = slots_[selectedSlot_];
+    }
+    if (pendingWeaponIndex_ < 0 || pendingWeaponIndex_ >= static_cast<int>(weapons_.size())) {
+        pendingWeaponIndex_ = -1;
+    }
+    if (rangedIndex_ < 0 || rangedIndex_ >= static_cast<int>(rangedWeapons_.size())) {
+        rangedIndex_ = 0;
+    }
 }
 
 } // namespace engine::game

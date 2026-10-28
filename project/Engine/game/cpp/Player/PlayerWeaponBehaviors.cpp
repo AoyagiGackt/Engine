@@ -447,7 +447,7 @@ bool Player::TryStartSkillSequence(Input* input, WeaponType type, float& cooldow
 }
 
 /** @brief 今のリグの指定クリップを攻撃モーションとして再生する */
-void Player::PlaySkillAnim(Animation CharacterRig::* clip, float speed) {
+void Player::PlaySkillAnim(engine::graphics::Animation CharacterRig::* clip, float speed) {
     PlayAttackAnim(rig_->*clip, speed);
 }
 

@@ -65,6 +65,8 @@ public:
      * UpdateObjects()を呼ぶ（オブジェクトの親子追従・enemy系AIの本更新は毎フレーム必要なため）
      */
     void Tick();
+    /** @brief エディタが配置物の実体を作り直した後に、シーンが持つ参照を取り直す（参照を持つシーンだけ実装する） */
+    virtual void SynchronizeEditorReferences() { }
 
     /**
      * @brief シーンの初期化（各シーンが実装）
@@ -131,7 +133,7 @@ public:
     /**
      * @brief グレースケール／イメージフィルター／HSVフィルターのオフスクリーンRTVリダイレクトに対応しているか
      * @note 対応シーンのみ Draw() 内で GetActiveRTVHandle() 相当の切り替えを行っている
-     *       未対応シーンで Game.cpp 側が BeginScene/EndScene/Apply を呼ぶと、
+     *       未対応シーンで MyGame.cpp 側が BeginScene/EndScene/Apply を呼ぶと、
      *       何も描かれていないオフスクリーンテクスチャでバックバッファが上書きされ、
      *       画面から絵が消えてしまうため、対応シーンのみ true を返すこと
      */

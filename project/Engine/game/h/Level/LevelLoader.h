@@ -405,7 +405,7 @@ namespace levelLoader {
      * @param path 書き出し先のパス
      * @param data 書き出すレベルデータ
      */
-    void Save(const std::string& path, const LevelData& data);
+    bool Save(const std::string& path, const LevelData& data);
 
     /**
      * @brief kindがprop/gimmick/terrainの配置物からModel/Object3dを生成する（enemy系の実体生成はStageEditor側が担当）

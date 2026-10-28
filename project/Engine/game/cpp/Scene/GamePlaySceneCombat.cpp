@@ -14,7 +14,7 @@
 #include "GrayscaleEffect.h"
 #include "HitEffectLibrary.h"
 #include "HsvFilter.h"
-#include "ImGuiControl.h"
+#include "ImGuiControlPanel.h"
 #include "ImageFilter.h"
 #include "ParticleManager.h"
 #include "PipelineStateGuard.h"
@@ -126,7 +126,7 @@ const WeaponHitBonus& WeaponHitBonus::For(WeaponType type) {
 
 /** @brief UpdateStyleAndUI()の下請け 敵の当たり判定AABBを現在位置から算出する */
 AABB GamePlayScene::GetEnemyHitBox() const {
-    return EnemyHitBoxAt(enemy_->GetPosition());
+    return enemy_ ? EnemyHitBoxAt(enemy_->GetPosition()) : AABB {};
 }
 
 /** @brief 空中の近接判定を上下と左右に広げる（高さが合わずに空振りするのを減らす） */
@@ -156,6 +156,10 @@ AABB GamePlayScene::EnemyHitBoxAt(const Vector3& position) {
 
 /** @brief UpdateStyleAndUI()の下請け 近接コンボのヒット判定とスタイル加点・属性追撃を処理する */
 void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB) {
+    // 近接攻撃を受けるボスがいなければ、ダメージ処理を省く
+    if (!enemy_) {
+        return;
+    }
     const auto* wm = WeaponManager::GetInstance();
     if (!(wm->HasEquippedWeapon() && player_->JustComboHit())) {
         return;
@@ -273,6 +277,10 @@ void GamePlayScene::ApplyMeleeComboStyleHit(const AABB& enemyAABB) {
 
 /** @brief UpdateStyleAndUI()の下請け 武器固有技（SPACE）のヒット判定とスタイル加点を処理する */
 void GamePlayScene::ApplyWeaponSkillStyleHit(const AABB& enemyAABB) {
+    // 固有技の対象となるボスがいなければ、命中を成立させない
+    if (!enemy_) {
+        return;
+    }
     if (!player_->JustWeaponSkillHit()) {
         return;
     }
@@ -426,6 +434,10 @@ bool GamePlayScene::HasBossSlamTechnique() const {
 
 /** @brief UpdateStyleAndUI()の下請け 銃コンボのヒット判定とスタイル加点を処理する */
 void GamePlayScene::ApplyGunShotStyleHit() {
+    // 射撃対象のボスが存在することを、命中判定の前に確認する
+    if (!enemy_) {
+        return;
+    }
     if (!player_->JustFired()) {
         return;
     }
@@ -465,6 +477,10 @@ void GamePlayScene::ApplyGunShotStyleHit() {
 
 /** @brief UpdateStyleAndUI()の下請け 覚醒乱舞ラッシュのヒット判定とスタイル加点を処理する */
 void GamePlayScene::ApplyRampageStyleHit(const AABB& enemyAABB) {
+    // 乱舞のボス向け加点は、対象の実体がある場合に限る
+    if (!enemy_) {
+        return;
+    }
     if (!player_->JustRampageHit()) {
         return;
     }

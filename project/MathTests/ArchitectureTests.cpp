@@ -129,21 +129,21 @@ void CheckEventConnectionInputs(testReport::TestResults& results) {
     constexpr int kInvalidIndex = -2;
     connection.SetSourceIndex(kSelectedIndex);
     connection.SetTargetIndex(kSelectedIndex);
-    results.Check(connection.SourceIndex() == kSelectedIndex && connection.TargetIndex() == kSelectedIndex,
+    results.Check(connection.GetSourceIndex() == kSelectedIndex && connection.GetTargetIndex() == kSelectedIndex,
         "接続元と接続先の選択をメソッドから設定できる");
     connection.SetSourceIndex(kInvalidIndex);
     connection.SetTargetIndex(kInvalidIndex);
-    results.Check(connection.SourceIndex() == -1 && connection.TargetIndex() == -1,
+    results.Check(connection.GetSourceIndex() == -1 && connection.GetTargetIndex() == -1,
         "負の接続番号は未選択へ正規化する");
     constexpr float kDelaySeconds = 1.25f;
     connection.SetDelaySeconds(kDelaySeconds);
-    results.Check(connection.DelaySeconds() == kDelaySeconds, "有限の待機時間を保持する");
+    results.Check(connection.GetDelaySeconds() == kDelaySeconds, "有限の待機時間を保持する");
     connection.SetDelaySeconds(-kDelaySeconds);
-    results.Check(connection.DelaySeconds() == 0.0f, "負の待機時間は即時実行へ戻す");
+    results.Check(connection.GetDelaySeconds() == 0.0f, "負の待機時間は即時実行へ戻す");
     connection.SetDelaySeconds(std::numeric_limits<float>::quiet_NaN());
-    results.Check(connection.DelaySeconds() == 0.0f, "NaNの待機時間は即時実行へ戻す");
+    results.Check(connection.GetDelaySeconds() == 0.0f, "NaNの待機時間は即時実行へ戻す");
     connection.SetDelaySeconds(std::numeric_limits<float>::infinity());
-    results.Check(connection.DelaySeconds() == 0.0f, "無限の待機時間は即時実行へ戻す");
+    results.Check(connection.GetDelaySeconds() == 0.0f, "無限の待機時間は即時実行へ戻す");
     connection.SetAction(StageEditorEventConnection::Action::kDeactivate);
     results.Check(connection.GetAction() == StageEditorEventConnection::Action::kDeactivate,
         "対象を無効化する動作を列挙型で指定できる");

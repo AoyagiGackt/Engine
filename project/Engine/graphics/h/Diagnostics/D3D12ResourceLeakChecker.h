@@ -1,5 +1,5 @@
 /**
- * @file D3DResourceLeakChecker.h
+ * @file D3D12ResourceLeakChecker.h
  * @brief DirectX12のリソースリーク（メモリの解放忘れ）を自動でチェック・報告するファイル
  */
 #pragma once

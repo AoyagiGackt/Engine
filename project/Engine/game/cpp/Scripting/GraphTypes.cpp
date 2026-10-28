@@ -269,7 +269,7 @@ GraphDesc engine::game::graphIO::Load(const std::string& path) {
 }
 
 /** @brief グラフをファイルへ保存する */
-void engine::game::graphIO::Save(const std::string& path, const GraphDesc& graph) {
+bool engine::game::graphIO::Save(const std::string& path, const GraphDesc& graph) {
     nlohmann::json j;
     j["start"] = graph.startNodeId;
 
@@ -306,7 +306,7 @@ void engine::game::graphIO::Save(const std::string& path, const GraphDesc& graph
     }
     j["comments"] = commentsJson;
 
-    JsonHelper::Save(path, j);
+    return JsonHelper::Save(path, j);
 }
 
 } // namespace engine::game

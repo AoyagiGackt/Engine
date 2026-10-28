@@ -51,7 +51,7 @@ public:
         sourceIndex_ = (std::max)(index, -1);
     }
     /** @brief 選択中の接続元の番号を返す */
-    int SourceIndex() const {
+    int GetSourceIndex() const {
         return sourceIndex_;
     }
     /** @brief 接続先の番号を指定する。負の番号は未選択として扱う */
@@ -59,7 +59,7 @@ public:
         targetIndex_ = (std::max)(index, -1);
     }
     /** @brief 選択中の接続先の番号を返す */
-    int TargetIndex() const {
+    int GetTargetIndex() const {
         return targetIndex_;
     }
     /** @brief 選択中の接続動作を返す */
@@ -71,7 +71,7 @@ public:
         action_ = action == Action::kDeactivate ? Action::kDeactivate : Action::kActivate;
     }
     /** @brief 接続動作を始めるまでの遅れ（秒）を返す */
-    float DelaySeconds() const {
+    float GetDelaySeconds() const {
         return delaySeconds_;
     }
     /** @brief 接続動作の遅れを非負の有限秒数で指定する。不正値は待機なしに戻す */

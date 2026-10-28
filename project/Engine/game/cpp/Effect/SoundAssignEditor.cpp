@@ -181,8 +181,7 @@ bool SaveChanges(const char* path, const Json& original, const Json& edited) {
         }
     }
     current = current.patch(changes);
-    JsonHelper::Save(path, current);
-    return JsonHelper::Load(path) == current;
+    return JsonHelper::Save(path, current);
 }
 } // namespace
 

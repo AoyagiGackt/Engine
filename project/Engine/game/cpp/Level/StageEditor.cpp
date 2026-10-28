@@ -45,6 +45,11 @@ using namespace engine::graphics;
 // ══════════════════════════════════════════════════════
 
 namespace engine::game {
+/** @brief 生成する敵に、再利用しない番号を発行する（0 は未割り当ての意味で使うので 1 から） */
+uint64_t StageEditor::AllocateEnemyInstanceId() {
+    return ++nextEnemyInstanceId_;
+}
+
 namespace {
 namespace editorUi = engine::game::stageEditorUiStyle;
 constexpr float kNudgeStep = 0.25f; // スナップOFF時に矢印キーで動かす量（ワールド単位）
@@ -308,7 +313,11 @@ void StageEditor::Save() {
         return;
     }
 #endif
-    SaveToPath(levelPath_);
+    if (!SaveToPath(levelPath_)) {
+        statusMessage_ = "保存に失敗しました: " + levelPath_;
+        statusTimer_ = StageEditor::kStatusLongSeconds;
+        return;
+    }
 #ifdef USE_IMGUI
     dirty_ = false;
     autoSaveElapsed_ = 0.0f;
@@ -319,7 +328,7 @@ void StageEditor::Save() {
 }
 
 /** @brief 現在の編集内容を指定パスへ書き出す */
-void StageEditor::SaveToPath(const std::string& path) const {
+bool StageEditor::SaveToPath(const std::string& path) const {
     LevelData data;
     data.playerSpawn = playerSpawn_;
     data.enemySpawn = enemySpawn_;
@@ -332,7 +341,7 @@ void StageEditor::SaveToPath(const std::string& path) const {
     data.checkpoints = checkpoints_;
     data.graphPath = graphPath_;
     data.flagGraphs = flagGraphs_;
-    levelLoader::Save(path, data);
+    return levelLoader::Save(path, data);
 }
 
 /** @brief 毎フレーム呼ぶF2でパネルの表示/非表示を切り替える */

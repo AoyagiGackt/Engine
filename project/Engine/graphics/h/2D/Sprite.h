@@ -108,12 +108,12 @@ public:
 
     /** @brief スプライトの色（RGBA）を取得 */
     const Vector4& GetColor() const {
-        return materialData_->color;
+        return material_.color;
     }
 
     /** @brief スプライトの色・透明度を設定（デフォは {1,1,1,1}） */
     void SetColor(const Vector4& color) {
-        materialData_->color = color;
+        material_.color = color;
     }
 
     /** @brief 左右反転フラグを設定 */
@@ -174,11 +174,11 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_ { };
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-    MaterialSprite* materialData_ = nullptr;
+    /** @brief CPU上で編集するスプライトの質感 */
+    MaterialSprite material_ {};
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
-    TransformationMatrixSprite* transformationMatrixData_ = nullptr;
+    /** @brief CPU上で計算するスプライトの変換行列 */
+    TransformationMatrixSprite transformationMatrix_ {};
 
     // スプライト固有データ
     std::string textureFilePath_; /// 使用中のテクスチャパス

@@ -39,7 +39,7 @@ namespace engine::game {
  *   if (!input->PushKey(DIK_W)) { sm.Trigger("stopWalk"); }
  *
  *   // アニメーション値の取得（SkinnedObject3d や Object3d に適用）
- *   const Animation* anim = sm.GetCurrentAnimation();
+ *   const engine::graphics::Animation* anim = sm.GetCurrentAnimation();
  *   float t = sm.GetCurrentTime();
  *   NodeAnimation& nodeAnim = anim->nodeAnimations.at("Bone_001");
  *   Vector3    pos = CalculateValue(nodeAnim.translate, t);
@@ -63,7 +63,7 @@ public:
      * @param loop  true=ループ再生 / false=1回再生して停止
      * @param speed 再生速度の倍率（デフォルト 1.0）
      */
-    void AddState(const std::string& name, Animation* anim, bool loop = true, float speed = 1.0f);
+    void AddState(const std::string& name, engine::graphics::Animation* anim, bool loop = true, float speed = 1.0f);
 
     // 遷移ルールの登録
 
@@ -119,10 +119,10 @@ public:
     }
 
     /**
-     * @brief 現在の Animation データへのポインタを返す
+     * @brief 現在の engine::graphics::Animation データへのポインタを返す
      * @return nullptr は状態が未セットの場合
      */
-    const Animation* GetCurrentAnimation() const;
+    const engine::graphics::Animation* GetCurrentAnimation() const;
 
     /**
      * @brief 現在の状態が指定した名前かどうかを返す
@@ -141,7 +141,7 @@ private:
     /** @brief アニメーションと再生方針および終了後の遷移先を保持する状態定義 */
     struct State {
         std::string name;
-        Animation* anim = nullptr;
+        engine::graphics::Animation* anim = nullptr;
         bool loop = true;
         float speed = 1.0f;
         std::string autoTransitionTo; ///< loop=false 終了後に遷移する先（空文字=自動遷移なし）
