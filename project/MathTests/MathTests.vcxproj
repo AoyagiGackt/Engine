@@ -83,15 +83,6 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <PostBuildEvent>
-      <Command>"$(TargetPath)"
-if errorlevel 1 (
-echo MathTests: テストに失敗しました。上の error MATHTEST の行（ダブルクリックでその行へ飛べます）を確認してください
-exit /b 1
-)
-</Command>
-      <Message>MathTests を実行</Message>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -126,6 +117,13 @@ exit /b 1
     <ClInclude Include="TestReport.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="RunMathTests" AfterTargets="Build">
+    <Message Text="MathTests を実行" Importance="high" />
+    <Exec Command="&quot;$(TargetPath)&quot;" ContinueOnError="ErrorAndContinue">
+      <Output TaskParameter="ExitCode" PropertyName="MathTestsExitCode" />
+    </Exec>
+    <Error Condition="'$(MathTestsExitCode)' != '0'" Text="MathTests: テストに失敗しました。上の error MATHTEST の行（ダブルクリックでその行へ飛べます）を確認してください" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

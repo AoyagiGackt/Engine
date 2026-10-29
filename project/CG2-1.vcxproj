@@ -95,17 +95,6 @@
       <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;$(SolutionDir)..\externals\assimp\lib\Debug\</AdditionalLibraryDirectories>
       <AdditionalDependencies>imgui.lib;assimp-vc143-mdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
-if errorlevel 1 exit /b 1
-if not defined GITHUB_ACTIONS (
-cd /d "$(ProjectDir)"
-if errorlevel 1 exit /b 1
-"$(TargetPath)" --prepare-assets
-if errorlevel 1 exit /b 1
-)
-</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -130,17 +119,6 @@ if errorlevel 1 exit /b 1
       <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;$(SolutionDir)..\externals\assimp\lib\Release\</AdditionalLibraryDirectories>
       <AdditionalDependencies>assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
-if errorlevel 1 exit /b 1
-if not defined GITHUB_ACTIONS (
-cd /d "$(ProjectDir)"
-if errorlevel 1 exit /b 1
-"$(TargetPath)" --prepare-assets
-if errorlevel 1 exit /b 1
-)
-</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">
     <ClCompile>
@@ -166,17 +144,6 @@ if errorlevel 1 exit /b 1
       <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;$(SolutionDir)..\externals\assimp\lib\Release\</AdditionalLibraryDirectories>
       <AdditionalDependencies>assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
-if errorlevel 1 exit /b 1
-if not defined GITHUB_ACTIONS (
-cd /d "$(ProjectDir)"
-if errorlevel 1 exit /b 1
-"$(TargetPath)" --prepare-assets
-if errorlevel 1 exit /b 1
-)
-</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Engine\graphics\cpp\Skeleton\Animation.cpp" />
@@ -876,6 +843,13 @@ if errorlevel 1 exit /b 1
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="PrepareEngineAssets" AfterTargets="Build">
+    <Copy SourceFiles="$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll"
+          DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <Exec Command="&quot;$(TargetPath)&quot; --prepare-assets"
+          WorkingDirectory="$(ProjectDir)"
+          Condition="'$(GITHUB_ACTIONS)' == ''" />
+  </Target>
   <ImportGroup Label="ExtensionTargets" />
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Level\EditorGamePreview.cpp" />
