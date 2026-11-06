@@ -66,7 +66,7 @@ constexpr Vector2 kEnemyHpTextPosition = { 460.0f, 10.0f };
 constexpr float kEnemyHpTextScale = 1.5f;
 constexpr Vector4 kEnemyHpTextColor = { 1.0f, 0.35f, 0.35f, 1.0f };
 
-// プレイヤーHP・ゴールドの数値表示（左下の武器スロットの真上）
+// プレイヤーHPの数値表示（左下の武器スロットの真上）
 constexpr Vector2 kInfoPosition = { 24.0f, 600.0f };
 constexpr float kInfoScale = 1.5f;
 constexpr Vector4 kInfoColor = { 0.3f, 1.0f, 0.4f, 1.0f };
@@ -235,9 +235,8 @@ void GamePlayScene::DrawRogueliteHUD() {
     fontRenderer_.DrawStringW(enemyHpText, enemyHpPosition.x, enemyHpPosition.y,
         layout.Float("enemy_hp.scale", kEnemyHpTextScale), layout.Color("enemy_hp.color", kEnemyHpTextColor));
 
-    // プレイヤーHP + ゴールド左上は武器一覧パネルと被るため、左下の武器スロットHUDの真上に置く
-    std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp())
-        + "  G:" + std::to_string(rd->GetGold());
+    // プレイヤーHPは左上だと武器一覧パネルと被るため、左下の武器スロットHUDの真上に置く
+    std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp());
     const Vector2 infoPosition = layout.Pos("info.pos", kInfoPosition);
     fontRenderer_.DrawString(info.c_str(), infoPosition.x, infoPosition.y,
         layout.Float("info.scale", kInfoScale), layout.Color("info.color", kInfoColor));

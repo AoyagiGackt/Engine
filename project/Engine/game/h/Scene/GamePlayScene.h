@@ -232,7 +232,7 @@ private:
     void UpdateEnemyHpBars();
     /** @brief 左下のプレイヤーHPゲージの位置と色を更新する */
     void UpdatePlayerHpBar();
-    // ローグライトのHP/Gold/フロア情報HUD描画
+    // ローグライトのHP/フロア情報HUD描画
     void DrawRogueliteHUD();
     // モデル共通描画設定（PSO/ルートシグネチャ）の適用
     void SetupModelRenderState();
@@ -276,7 +276,7 @@ private:
     std::vector<EnemyEntity*> CollectOnScreenEnemies() const;
     /** @brief クリアの決め演出を始める（ボスを倒した最後の一撃が銃なら弾痕、それ以外なら斬線） */
     void StartClearFinish();
-    /** @brief クリアの結果画面（黒い背景に CLEAR!。withRunResult ならランク・獲得ゴールド・スコアも）を描く */
+    /** @brief クリアの結果画面（黒い背景に CLEAR!。withRunResult ならランク・スコアも）を描く */
     void DrawClearResultScreen(bool withRunResult);
     // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
@@ -446,7 +446,7 @@ private:
 
     /** @brief ラン外（エディタのテストプレイなど）のクリアか（結果画面は CLEAR! だけにして、終わったらクリア画面へ） */
     bool IsSandboxClear() const;
-    /** @brief ラン中のクリアの結果（ランク・ゴールド・スコア）を求め、apply なら進行とセーブにも反映する（確認用の再生は false） */
+    /** @brief ラン中のクリアの結果（ランク・スコア）を求め、apply なら進行とセーブにも反映する（確認用の再生は false） */
     void RecordRunClear(bool apply);
 
     /** @brief Draw()の下請け クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す */
@@ -648,8 +648,7 @@ private:
     /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
 
-    bool showResult_ = false; ///< フロアクリアの結果（ゴールド・スコア・セーブ）を反映し終えたか
-    int lastGold_ = 0;
+    bool showResult_ = false; ///< フロアクリアの結果（スコア・セーブ）を反映し終えたか
     int lastScore_ = 0; ///< 直近のフロアクリアで加算したスコア（結果表示用）
 
     FontRenderer fontRenderer_;

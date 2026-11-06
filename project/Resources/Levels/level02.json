@@ -133,7 +133,7 @@
     },
     {
       "name": "room_skeleton", "type": "static", "kind": "enemy_basic",
-      "position": [32.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Skeleton", "enemyGroup": "s2_room"
+      "position": [31.4, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Skeleton", "enemyGroup": "s2_room"
     },
     {
       "name": "room_dragon", "type": "static", "kind": "enemy_basic",

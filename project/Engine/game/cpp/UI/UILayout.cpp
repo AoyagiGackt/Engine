@@ -21,6 +21,9 @@ constexpr int kColorComponents = 4;
 constexpr float kDragSpeed = 1.0f;
 #ifdef USE_IMGUI
 constexpr ImVec4 kSelectedLabelColor = { 1.0f, 0.85f, 0.2f, 1.0f };
+constexpr ImVec2 kEditorPanelSize = { 340.0f, 300.0f }; // パネルの初回の大きさ
+constexpr ImVec2 kEditorPanelPivot = { 1.0f, 1.0f }; // パネルの右下を基準に置く
+constexpr float kEditorPanelMargin = 320.0f; // 初回は右の列を避けて、ビューの右下へ置く
 #endif
 
 /** @brief 名前ごとのUIレイアウトの表を返す */
@@ -39,12 +42,19 @@ std::vector<std::string>& UsedOrder() {
 struct HandleSelection {
     const UILayout* layout = nullptr;
     size_t index = 0;
+    bool scrollPending = false; // 画面上で選んだので、次に描く時にパネルの該当項目までスクロールする
 };
 
 /** @brief 選択中の位置項目を返す */
 HandleSelection& SelectedHandle() {
     static HandleSelection sSelection;
     return sSelection;
+}
+
+/** @brief 画面の印とパネルを出すかの設定を返す */
+bool& EditingEnabled() {
+    static bool sEnabled = true;
+    return sEnabled;
 }
 
 /** @brief キーの "." より前（グループ名）。無ければ空文字 */
@@ -221,13 +231,58 @@ std::vector<UILayout::PositionHandle> UILayout::CollectPositionHandles() {
 
 /** @brief 画面上で選択中の位置項目を設定する（パネル上で強調表示する） */
 void UILayout::SetSelectedHandle(const UILayout* layout, size_t index) {
-    SelectedHandle() = { layout, index };
+    SelectedHandle() = { layout, index, layout != nullptr };
 }
 
 /** @brief 画面上で選択中の位置項目か */
 bool UILayout::IsSelectedHandle(const UILayout* layout, size_t index) {
     const HandleSelection& selection = SelectedHandle();
     return selection.layout == layout && selection.index == index;
+}
+
+/** @brief 画面上で選択中の位置項目を取得する */
+bool UILayout::FindSelectedHandle(PositionHandle& outHandle) {
+    for (const PositionHandle& handle : CollectPositionHandles()) {
+        if (IsSelectedHandle(handle.layout, handle.index)) {
+            outHandle = handle;
+            return true;
+        }
+    }
+    return false;
+}
+
+/** @brief 画面の印とパネルを出すかを返す */
+bool UILayout::IsEditingEnabled() {
+    return EditingEnabled();
+}
+
+/** @brief 画面の印とパネルを出すかを設定する（配置物を選ぶ邪魔になる時に隠す） */
+void UILayout::SetEditingEnabled(bool enabled) {
+    EditingEnabled() = enabled;
+}
+
+/** @brief 未保存の変更があるレイアウトをすべてJSONへ書き出す */
+int UILayout::SaveAllUnsaved() {
+    int savedCount = 0;
+    for (auto& [name, layout] : Layouts()) {
+        if (!layout->unsaved_) {
+            continue;
+        }
+        layout->Save();
+        // 書き込みに失敗すると未保存のまま残るので、数えない
+        if (!layout->unsaved_) {
+            ++savedCount;
+        }
+    }
+    return savedCount;
+}
+
+/** @brief 未保存の変更があるレイアウトがあるかを返す */
+bool UILayout::HasUnsavedLayouts() {
+    const auto& layouts = Layouts();
+    return std::any_of(layouts.begin(), layouts.end(), [](const auto& item) {
+        return item.second->unsaved_;
+    });
 }
 
 /** @brief 既定値と違う項目だけをJSONへ書き出す */
@@ -271,14 +326,20 @@ void UILayout::Reload() {
 /** @brief 現在のシーンで参照されたレイアウトの編集パネルを描く（ImGuiのUpdateフェーズで呼ぶ） */
 void UILayout::DrawEditorPanel() {
 #ifdef USE_IMGUI
-    if (UsedOrder().empty()) {
+    if (UsedOrder().empty() || !EditingEnabled()) {
         return;
     }
+    // 初めて開く時はビューの右下へ置く（動かした位置は以後 ImGui が覚える）
+    const auto* display = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + display->Size.x - kEditorPanelMargin, display->Pos.y + display->Size.y),
+        ImGuiCond_FirstUseEver, kEditorPanelPivot);
+    ImGui::SetNextWindowSize(kEditorPanelSize, ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("UIレイアウト")) {
         ImGui::End();
         return;
     }
-    ImGui::TextDisabled("画面上の四角い印はドラッグで動かせる。保存すると Resources/Config/UI/ に書き出す");
+    ImGui::TextDisabled("画面上の印をドラッグで移動（Ctrl:10px刻み Shift:縦か横だけ）。印を選ぶと矢印キーで微調整できる");
+    ImGui::TextDisabled("Uでこのパネルと印を隠す / Altを押している間は印を無視 / Ctrl+Sでレベルと一緒に保存");
     ImGui::TextDisabled("項目を右クリックすると既定値に戻せる");
     for (const std::string& name : UsedOrder()) {
         Layouts()[name]->DrawEntries();
@@ -362,6 +423,15 @@ void UILayout::DrawEntries() {
                 && kValueWidgets[kindIndex](label.c_str(), entry.value);
             if (selected) {
                 ImGui::PopStyleColor();
+            }
+            // パネルで位置の項目を触ったら、その項目の印を選ぶ
+            if (entry.kind == Kind::kPos && ImGui::IsItemActivated()) {
+                SelectedHandle() = { this, i, false };
+            }
+            // 画面上で印を選んだ時は、その項目が見える位置までスクロールする
+            if (selected && SelectedHandle().scrollPending) {
+                ImGui::SetScrollHereY();
+                SelectedHandle().scrollPending = false;
             }
             if (ImGui::BeginPopupContextItem("reset")) {
                 if (ImGui::MenuItem("既定値に戻す")) {

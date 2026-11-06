@@ -14,6 +14,7 @@
 #include <cfloat>
 #include <filesystem>
 #include <imgui.h>
+#include <utility>
 
 namespace engine::game {
 namespace {
@@ -83,10 +84,9 @@ bool ComboFromArray(const char* label, std::string& value, const std::array<cons
 bool ComboFromFiles(const char* label, std::string& value, const std::vector<std::string>& files, char* filter, size_t filterSize) {
     bool changed = false;
     if (ImGui::BeginCombo(label, value.empty() ? "（未選択）" : value.c_str(), ImGuiComboFlags_HeightLarge)) {
-        ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::InputTextWithHint("##filter", "絞り込み", filter, filterSize);
+        editorUI::ComboFilterInput(filter, filterSize);
         for (const std::string& file : files) {
-            if (filter[0] != '\0' && file.find(filter) == std::string::npos) {
+            if (!editorUI::ContainsIgnoreCase(file, filter)) {
                 continue;
             }
             if (ImGui::Selectable(file.c_str(), file == value)) {
@@ -139,15 +139,14 @@ void EnemyTypeEditor::Draw(bool* open, const PlaceCallback& place) {
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button("元に戻す")) {
+    if (editorUI::ConfirmButton("元に戻す", "未保存の変更を捨てて、保存した内容に戻しますか？", "戻す")) {
         EnemyTypeLibrary::GetInstance()->Reload();
         dirty_ = false;
         status_.clear();
     }
     ImGui::EndDisabled();
     if (dirty_) {
-        ImGui::SameLine();
-        ImGui::TextColored(kDirtyColor, "未保存");
+        editorUI::DrawUnsavedMark();
     }
     if (!status_.empty()) {
         ImGui::SameLine();
@@ -194,7 +193,7 @@ void EnemyTypeEditor::DrawTypeList() {
         dirty_ = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("削除")) {
+    if (editorUI::ConfirmButton("削除", "選んでいる敵の種類を消しますか？\nステージに置いた敵はそのまま残ります。") && !types.empty()) {
         types.erase(types.begin() + selected_);
         selected_ = (std::max)(selected_ - 1, 0);
         dirty_ = true;
@@ -202,10 +201,19 @@ void EnemyTypeEditor::DrawTypeList() {
     ImGui::EndDisabled();
     editorUI::HelpMarker("消しても、もうステージに置いた敵はそのまま残ります（置いた時に値を写しているため）");
     ImGui::Separator();
+    ImGui::TextDisabled("ドラッグで並べ替え");
     for (int i = 0; i < static_cast<int>(types.size()); ++i) {
         const std::string caption = (types[i].label.empty() ? types[i].id : types[i].label) + "##" + types[i].id;
-        if (ImGui::Selectable(caption.c_str(), i == selected_)) {
+        // 押した時点で選択を移し、並べ替えの間も選択が付いてくるようにする
+        ImGui::Selectable(caption.c_str(), i == selected_);
+        if (ImGui::IsItemActivated()) {
             selected_ = i;
+        }
+        const int step = editorUI::ListReorderStep(i, static_cast<int>(types.size()));
+        if (step != 0) {
+            std::swap(types[i], types[i + step]);
+            selected_ = i + step;
+            dirty_ = true;
         }
     }
     ImGui::EndChild();
@@ -213,7 +221,8 @@ void EnemyTypeEditor::DrawTypeList() {
 
 /** @brief 選んだ種類の設定欄を描く */
 void EnemyTypeEditor::DrawTypeFields(EnemyTypeDef& type, const PlaceCallback& place) {
-    ImGui::PushID(type.id.c_str());
+    // 保存用の名前を編集しても入力欄のIDが変わらないよう、行番号で区別する
+    ImGui::PushID(selected_);
     dirty_ |= InputText("名前", type.label);
     dirty_ |= InputText("保存用の名前", type.id);
     editorUI::HelpMarker("ステージのデータに残る名前です（英数字にしてください）");

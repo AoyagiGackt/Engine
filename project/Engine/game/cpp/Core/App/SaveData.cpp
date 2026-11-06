@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 namespace engine::game {
 namespace {
@@ -22,7 +23,6 @@ constexpr JsonField<ContinueData> kContinueFields[] = {
     { "continue", "valid", &ContinueData::valid },
     { "continue", "hp", &ContinueData::hp },
     { "continue", "max_hp", &ContinueData::maxHp },
-    { "continue", "gold", &ContinueData::gold },
     { "continue", "score", &ContinueData::score },
     { "continue", "floor", &ContinueData::floor },
 };
@@ -31,7 +31,6 @@ constexpr JsonField<SaveRecords> kRecordFields[] = {
     { "records", "best_floor", &SaveRecords::bestFloorReached },
     { "records", "total_runs", &SaveRecords::totalRuns },
     { "records", "total_clears", &SaveRecords::totalClears },
-    { "records", "total_gold_earned", &SaveRecords::totalGoldEarned },
 };
 
 /** @brief 型と整数範囲を検証し、不正な値は既定値のまま残す */
@@ -101,6 +100,38 @@ void ReadEquipmentArray(const nlohmann::json& section, const std::string& key, s
         target.push_back(number);
     }
 }
+
+/** @brief ステージの戦績の配列を読み込む（無い項目は0、負の値は0に丸める） */
+void ReadStageRecords(const nlohmann::json& section, std::vector<RunData::StageRecord>& target) {
+    const auto values = section.find("stage_records");
+    if (values == section.end()) {
+        return;
+    }
+    if (!values->is_array()) {
+        Logger::LogWarning("セーブのステージ戦績が不正です");
+        return;
+    }
+    // 1つの戦績の項目と、読み込み先のメンバの対応
+    static constexpr std::pair<const char*, int32_t RunData::StageRecord::*> kFields[] = {
+        { "floor", &RunData::StageRecord::floor },
+        { "style_permille", &RunData::StageRecord::stylePermille },
+        { "seconds", &RunData::StageRecord::seconds },
+        { "score", &RunData::StageRecord::score },
+    };
+    for (const auto& value : *values) {
+        if (!value.is_object()) {
+            continue;
+        }
+        RunData::StageRecord record;
+        for (const auto& [key, member] : kFields) {
+            if (value.contains(key)) {
+                ReadSaveValue(value[key], record.*member, key);
+                record.*member = (std::max)(record.*member, 0);
+            }
+        }
+        target.push_back(record);
+    }
+}
 } // namespace
 
 /** @brief 共有インスタンスを取得する */
@@ -144,10 +175,10 @@ void SaveDataManager::Load() {
         ReadSaveFields(j, kContinueFields, continue_);
         ReadEquipmentArray(c, "weapon_slots", continue_.weaponSlots);
         ReadEquipmentArray(c, "unlocked_weapons", continue_.unlockedWeapons);
+        ReadStageRecords(c, continue_.stageRecords);
         // 手で書き換えられた値でも壊れないよう、負の値やHPの上限超えを丸める
         continue_.maxHp = (std::max)(continue_.maxHp, 0);
         continue_.hp = std::clamp(continue_.hp, 0, continue_.maxHp);
-        continue_.gold = (std::max)(continue_.gold, 0);
         continue_.score = (std::max)(continue_.score, 0);
         continue_.floor = (std::max)(continue_.floor, 0);
         int currentNode = 0;
@@ -199,6 +230,17 @@ void SaveDataManager::Save() {
     }
     j["continue"]["skills"] = skillsArray;
 
+    nlohmann::json stageRecordsArray = nlohmann::json::array();
+    for (const RunData::StageRecord& record : continue_.stageRecords) {
+        stageRecordsArray.push_back({
+            { "floor", record.floor },
+            { "style_permille", record.stylePermille },
+            { "seconds", record.seconds },
+            { "score", record.score },
+        });
+    }
+    j["continue"]["stage_records"] = stageRecordsArray;
+
     WriteJsonFields(j, kRecordFields, records_);
 
     engine::JsonHelper::Save(kFilePath, j);
@@ -222,11 +264,11 @@ void SaveDataManager::SaveContinue(const RunData& rd) {
     continue_.valid = true;
     continue_.hp = rd.GetHp();
     continue_.maxHp = rd.GetMaxHp();
-    continue_.gold = rd.GetGold();
     continue_.score = rd.GetScore();
     continue_.floor = rd.GetFloor();
     continue_.currentNode = rd.GetCurrentNode();
     continue_.skills = rd.GetSkillSnapshot();
+    continue_.stageRecords = rd.GetStageRecordSnapshot();
     // ラン情報と同じタイミングで、武器管理が保持する装備を退避する
     const auto equipment = WeaponManager::GetInstance()->SaveSnapshot();
     continue_.weaponSlots.assign(equipment.slots.begin(), equipment.slots.end());
@@ -240,8 +282,8 @@ void SaveDataManager::SaveContinue(const RunData& rd) {
 
 /** @brief 保存済みのコンティニューデータを RunData へ復元する */
 void SaveDataManager::LoadContinue(RunData& rd) const {
-    rd.RestoreFromSave(continue_.hp, continue_.maxHp, continue_.gold, continue_.score, continue_.floor,
-        continue_.currentNode, continue_.skills);
+    rd.RestoreFromSave(continue_.hp, continue_.maxHp, continue_.score, continue_.floor,
+        continue_.currentNode, continue_.skills, continue_.stageRecords);
     // 再起動後もセーブの装備を使用し、タイトルデモ中の装備を引き継がない
     auto* manager = WeaponManager::GetInstance();
     // 装備を記録していない古い版のセーブは、新しいランと同じ初期武器で再開する
@@ -271,7 +313,7 @@ void SaveDataManager::ClearContinue() {
 }
 
 /** @brief ラン終了結果を通算記録へ反映する */
-void SaveDataManager::RecordRunResult(bool cleared, int floorReached, int goldEarned) {
+void SaveDataManager::RecordRunResult(bool cleared, int floorReached) {
     records_.totalRuns++;
     if (cleared) {
         records_.totalClears++;
@@ -279,7 +321,6 @@ void SaveDataManager::RecordRunResult(bool cleared, int floorReached, int goldEa
     if (floorReached > records_.bestFloorReached) {
         records_.bestFloorReached = floorReached;
     }
-    records_.totalGoldEarned += goldEarned;
     Save();
 }
 

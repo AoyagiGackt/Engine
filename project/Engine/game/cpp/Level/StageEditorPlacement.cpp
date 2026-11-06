@@ -12,6 +12,7 @@
 #include "Matrix4x4.h"
 #include "Object3d.h"
 #include "StageEditorUiStyle.h"
+#include "UILayout.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -24,19 +25,35 @@ namespace engine::game {
 namespace {
 using stageEditorUiStyle::kZDragPerPixel;
 using stageEditorUiStyle::kPickRadiusPx;
+using stageEditorUiStyle::kPickMarkerPriorityPx;
+using stageEditorUiStyle::kDragStartThresholdPx;
 } // namespace
 
-/** @brief クリック位置に最も近いオブジェクト/トリガー/外部エンティティを探す（画面 kPickRadiusPx 以内、モデル外形にヒットすれば距離0扱い） */
+/** @brief クリック位置の対象を探す（印のすぐ近くの物を最優先し、次にモデル外形に重なる物のうち画面上で小さい物、最後に kPickRadiusPx 以内で最も近い物） */
 bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKind, int& outIdx) const {
     float bestDist = kPickRadiusPx;
+    float bestArea = FLT_MAX; // 外形や印で直接当たった候補の大きさ（小さい物ほど優先する）
     SelKind bestKind = SelKind::kNone;
     int bestIdx = -1;
 
-    // 画面上の点とマウスの距離を比べ、今までで一番近ければ候補を入れ替える
+    // 大きな床や壁の外形に隠れて小さな物が選べなくならないよう、直接当たった候補は小さい物を優先する
+    auto considerDirectHit = [&](float area, SelKind kind, int index) {
+        if (area < bestArea) {
+            bestArea = area;
+            bestDist = 0.0f;
+            bestKind = kind;
+            bestIdx = index;
+        }
+    };
+    // 画面上の点とマウスの距離を比べる（印のすぐ近くなら直接当たった扱い。それ以外は今までで一番近ければ候補を入れ替える）
     auto considerScreen = [&](float screenX, float screenY, SelKind kind, int index) {
         const float dx = screenX - mouseX;
         const float dy = screenY - mouseY;
         const float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist <= kPickMarkerPriorityPx) {
+            considerDirectHit(dist * dist, kind, index);
+            return;
+        }
         if (dist < bestDist) {
             bestDist = dist;
             bestKind = kind;
@@ -88,16 +105,14 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
             return;
         }
         const ObjectDesc& desc = entry.desc;
-        // 外接矩形に少し余白を足した中にマウスがあれば、距離0として最優先で選ぶ
+        // 外接矩形に少し余白を足した中にマウスがあれば直接当たった扱いにする
         const Matrix4x4 worldMatrix = MakeAffineMatrix(desc.scale, desc.rotation, WorldPositionOf(desc));
         float minX, minY, maxX, maxY;
         constexpr float kPickPadding = 4.0f;
         if (projectedBounds(vertices, worldMatrix, minX, minY, maxX, maxY)
             && mouseX >= minX - kPickPadding && mouseX <= maxX + kPickPadding
-            && mouseY >= minY - kPickPadding && mouseY <= maxY + kPickPadding && bestDist > 0.0f) {
-            bestDist = 0.0f;
-            bestKind = SelKind::kObject;
-            bestIdx = index;
+            && mouseY >= minY - kPickPadding && mouseY <= maxY + kPickPadding) {
+            considerDirectHit((maxX - minX) * (maxY - minY), SelKind::kObject, index);
         }
     };
 
@@ -130,43 +145,36 @@ bool StageEditor::PickViewportTarget(float mouseX, float mouseY, SelKind& outKin
 
 /** @brief 左クリック時の選択処理（親子リンク待機中ならその接続、それ以外は選択+ドラッグ開始準備）を行う */
 void StageEditor::HandleViewportClick(float mouseX, float mouseY) {
+    const bool linkingParent = parentLinkChildIndex_ >= 0;
+    ClearViewportHover();
+
     // 1. 選択物のハンドル（軸矢印・回転リング・中央）を掴んだら、選択を変えずにその操作を始める
     int handleAxis = 0;
     bool handleUniform = false;
-    if (parentLinkChildIndex_ < 0 && PickTransformHandle(mouseX, mouseY, handleAxis, handleUniform)) {
+    if (!linkingParent && PickTransformHandle(mouseX, mouseY, handleAxis, handleUniform)) {
         viewportDragging_ = true;
         BeginUndoCapture();
-        if (transformTool_ == TransformTool::kRotate) {
-            rotateDragging_ = true;
-            return;
-        }
-        if (transformTool_ == TransformTool::kScale) {
-            scaleDragging_ = true;
-            scaleUniform_ = handleUniform;
-            activeDragAxis_ = handleAxis;
-            return;
-        }
-        // 移動: 軸矢印なら軸制限、中央なら自由移動。掴んだ位置のオフセットを控えて飛びを防ぐ
+        CaptureDragStart(mouseX, mouseY);
         activeDragAxis_ = handleAxis;
-        Vector3 grabWorldPos;
-        Vector3 grabGround;
-        dragGrabOffsetX_ = 0.0f;
-        dragGrabOffsetY_ = 0.0f;
-        if (SelectionWorldPosition(grabWorldPos)) {
-            dragRawZ_ = grabWorldPos.z;
-            if (MouseToGround(mouseX, mouseY, grabGround)) {
-                dragGrabOffsetX_ = grabWorldPos.x - grabGround.x;
-                dragGrabOffsetY_ = grabWorldPos.y - grabGround.y;
-            }
-        }
+        scaleUniform_ = handleUniform;
+        rotateDragging_ = transformTool_ == TransformTool::kRotate;
+        scaleDragging_ = transformTool_ == TransformTool::kScale;
+        return;
+    }
+
+    // 2. 画面UIの印（3Dの配置物より手前に表示されているので先に見る。Altで無視できる）
+    UILayout* uiLayout = nullptr;
+    size_t uiIndex = 0;
+    if (!linkingParent && PickUILayoutHandle(mouseX, mouseY, uiLayout, uiIndex)) {
+        BeginUILayoutDrag(uiLayout, uiIndex, mouseX, mouseY);
         return;
     }
 
     SelKind bestKind = SelKind::kNone;
     int bestIdx = -1;
     if (!PickViewportTarget(mouseX, mouseY, bestKind, bestIdx)) {
-        // 2. 何も無い場所: 範囲選択を始める（離した時に矩形が小さければ選択解除）
-        if (parentLinkChildIndex_ < 0) {
+        // 3. 何も無い場所: 範囲選択を始める（離した時に矩形が小さければ選択解除）
+        if (!linkingParent) {
             boxSelecting_ = true;
             boxStartX_ = mouseX;
             boxStartY_ = mouseY;
@@ -174,48 +182,175 @@ void StageEditor::HandleViewportClick(float mouseX, float mouseY) {
         return;
     }
 
-    if (parentLinkChildIndex_ >= 0 && bestKind == SelKind::kObject) {
+    if (linkingParent && bestKind == SelKind::kObject) {
         const int childIndex = parentLinkChildIndex_;
         parentLinkChildIndex_ = -1;
         SetParentPreservingWorld(childIndex, bestIdx);
         return;
     }
 
-    const ISelectionKind& grabbed = SelectionKindOf(bestKind);
-    grabbed.SelectFromClick(*this, bestIdx, ImGui::GetIO().KeyCtrl);
+    // 4. 配置物など: 選択してドラッグの準備をする
+    // 選択中の物を押した時は、まとめて動かせるよう今の選択を保つ（動かさず離した時に FinishViewportDrag で確定する）
+    const bool additive = ImGui::GetIO().KeyCtrl;
+    const bool alreadySelected = selKind_ == SelKind::kObject && bestKind == SelKind::kObject
+        && std::find(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), bestIdx) != selectedObjectIndices_.end();
+    if (alreadySelected) {
+        selIndex_ = bestIdx;
+        clickPendingIndex_ = bestIdx;
+        clickPendingAdditive_ = additive;
+    } else {
+        SelectionKindOf(bestKind).SelectFromClick(*this, bestIdx, additive);
+    }
+    UILayout::SetSelectedHandle(nullptr, 0);
     viewportDragging_ = true;
 
     // ドラッグ1回ぶんを1つのUndoにまとめるため、変更前をここで控える
     // （エンティティはスナップショット対象外なので、動かしても確定時に捨てられる）
     BeginUndoCapture();
+    CaptureDragStart(mouseX, mouseY);
+}
 
-    // "screen"座標のui_textはワールド平面と無関係なので、マウスのスクリーンpx位置基準でオフセットを控える
-    if (grabbed.IsScreenAnchor(*this, bestIdx)) {
-        const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
-        dragGrabOffsetX_ = objects_[bestIdx].desc.position.x - logicalMouse.x;
-        dragGrabOffsetY_ = objects_[bestIdx].desc.position.y - logicalMouse.y;
+/** @brief ドラッグ開始時のマウス位置と選択物の値を控える */
+void StageEditor::CaptureDragStart(float mouseX, float mouseY) {
+    dragStartMouseX_ = mouseX;
+    dragStartMouseY_ = mouseY;
+    dragThresholdPassed_ = false;
+    rotateAccumRadians_ = 0.0f;
+    rotateAngleValid_ = false;
+    dragGrabOffsetX_ = 0.0f;
+    dragGrabOffsetY_ = 0.0f;
+    dragStarts_.clear();
+    if (selKind_ == SelKind::kNone) {
         return;
     }
 
-    // Shift+ドラッグ(Z移動)用に、選択物の現在のZをスナップ前の生値として持つ
-    Vector3 grabWorldPos { };
-    const bool hasGrabWorldPos = grabbed.WorldPosition(*this, bestIdx, grabWorldPos);
-    if (hasGrabWorldPos) {
-        dragRawZ_ = grabbed.LocalZ(*this, bestIdx);
+    const ISelectionKind& selected = SelectionKindOf(selKind_);
+    const int objectCount = static_cast<int>(objects_.size());
+    // 1件ぶんの開始時の値を控える
+    const auto addStart = [&](int index) {
+        DragStartTransform start;
+        start.index = index;
+        selected.WorldPosition(*this, index, start.world);
+        start.localZ = selected.LocalZ(*this, index);
+        if (selKind_ == SelKind::kObject && index >= 0 && index < objectCount) {
+            start.rotation = objects_[index].desc.rotation;
+            start.scale = objects_[index].desc.scale;
+        }
+        dragStarts_.push_back(start);
+    };
+    // 主選択を先頭に、複数選択の残りを続けて控える
+    addStart(selIndex_);
+    if (selKind_ == SelKind::kObject) {
+        for (int index : selectedObjectIndices_) {
+            if (index == selIndex_ || index < 0 || index >= objectCount) {
+                continue;
+            }
+            addStart(index);
+            // 画面座標の文章UIはワールドの移動量で動かさない
+            // 親も選択中の子は親と一緒に動くので、自分でも動かすと2倍動いてしまう
+            bool followsMove = !selected.IsScreenAnchor(*this, index);
+            const std::string& name = objects_[index].desc.name;
+            for (int other : selectedObjectIndices_) {
+                if (other != index && other >= 0 && other < objectCount && IsDescendantOf(name, objects_[other].desc.name)) {
+                    followsMove = false;
+                    break;
+                }
+            }
+            dragStarts_.back().followsMove = followsMove;
+        }
     }
 
+    // Shift+ドラッグ(Z移動)用に、主選択の現在のZをスナップ前の生値として持つ
+    dragRawZ_ = dragStarts_.front().localZ;
+
     // クリックした位置がオブジェクト原点とずれていても、その場で原点まで飛ばないよう、
-    // 掴んだ瞬間の(オブジェクト位置 - マウス接地位置)のオフセットを控えておく
-    dragGrabOffsetX_ = 0.0f;
-    dragGrabOffsetY_ = 0.0f;
+    // 掴んだ瞬間の(オブジェクト位置 - マウス位置)のオフセットを控えておく
+    // （"screen"座標のui_textはワールド平面と無関係なので、ゲーム画面のpx位置を基準にする）
+    if (selected.IsScreenAnchor(*this, selIndex_)) {
+        const Vector3 logicalMouse = viewport_.ImageToScreen(mouseX, mouseY);
+        dragGrabOffsetX_ = objects_[selIndex_].desc.position.x - logicalMouse.x;
+        dragGrabOffsetY_ = objects_[selIndex_].desc.position.y - logicalMouse.y;
+        return;
+    }
+    Vector3 grabWorld { };
     Vector3 grabGround { };
-    if (hasGrabWorldPos && MouseToGround(mouseX, mouseY, grabGround)) {
-        dragGrabOffsetX_ = grabWorldPos.x - grabGround.x;
-        dragGrabOffsetY_ = grabWorldPos.y - grabGround.y;
+    if (selected.WorldPosition(*this, selIndex_, grabWorld) && MouseToGround(mouseX, mouseY, grabGround)) {
+        dragGrabOffsetX_ = grabWorld.x - grabGround.x;
+        dragGrabOffsetY_ = grabWorld.y - grabGround.y;
     }
 }
 
-/** @brief ドラッグ中の選択物を移動させる（Shift中はマウス垂直移動をZ移動、それ以外はXY平面移動） */
+/** @brief ドラッグ中の処理を1フレーム進める（ボタンが離れていれば確定する） */
+bool StageEditor::UpdateActiveViewportDrag(float mouseX, float mouseY) {
+    if (!IsViewportDragActive()) {
+        return false;
+    }
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        FinishViewportDrag(mouseX, mouseY);
+        return true;
+    }
+    // 範囲選択は矩形を描くだけなので、離すまで何もしない
+    if (boxSelecting_) {
+        return true;
+    }
+    // 押してから少し動くまでは何も変えない（クリックだけで物がずれるのを防ぐ）
+    if (!dragThresholdPassed_) {
+        const float dx = mouseX - dragStartMouseX_;
+        const float dy = mouseY - dragStartMouseY_;
+        if (dx * dx + dy * dy < kDragStartThresholdPx * kDragStartThresholdPx) {
+            return true;
+        }
+        dragThresholdPassed_ = true;
+    }
+    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    if (uiDragLayout_) {
+        UpdateUILayoutDrag(mouseX, mouseY);
+    } else if (rotateDragging_ || scaleDragging_) {
+        UpdateRotateScaleDrag(mouseX, mouseY);
+    } else {
+        UpdateViewportDrag(mouseX, mouseY);
+    }
+    return true;
+}
+
+/** @brief ドラッグ・範囲選択を確定して状態を戻す */
+void StageEditor::FinishViewportDrag(float mouseX, float mouseY) {
+    // 実際に動かしていた場合だけ1回分のUndoとして確定する
+    if (viewportDragging_ || uiDragLayout_) {
+        CommitUndoCapture();
+    }
+    if (boxSelecting_) {
+        FinishBoxSelect(mouseX, mouseY);
+    }
+    // 選択中の物を動かさずに離した: Ctrl付きなら選択から外し、Ctrl無しならその1つだけを選択する
+    if (clickPendingIndex_ >= 0 && !dragThresholdPassed_) {
+        if (!clickPendingAdditive_) {
+            selectedObjectIndices_ = { clickPendingIndex_ };
+        } else {
+            selectedObjectIndices_.erase(std::remove(selectedObjectIndices_.begin(), selectedObjectIndices_.end(), clickPendingIndex_),
+                selectedObjectIndices_.end());
+            selIndex_ = selectedObjectIndices_.empty() ? -1 : selectedObjectIndices_.back();
+            selKind_ = selectedObjectIndices_.empty() ? SelKind::kNone : SelKind::kObject;
+        }
+    }
+    ResetViewportDragState();
+}
+
+/** @brief ドラッグに関わる状態をすべて戻す */
+void StageEditor::ResetViewportDragState() {
+    viewportDragging_ = false;
+    rotateDragging_ = false;
+    scaleDragging_ = false;
+    boxSelecting_ = false;
+    activeDragAxis_ = 0;
+    uiDragLayout_ = nullptr;
+    clickPendingIndex_ = -1;
+    dragThresholdPassed_ = false;
+    dragStarts_.clear();
+    ClearViewportHover();
+}
+
+/** @brief ドラッグ中の選択物を移動させる（Shift中はマウス垂直移動をZ移動、それ以外はXY平面移動。複数選択は同じ量だけ動かす） */
 void StageEditor::UpdateViewportDrag(float mouseX, float mouseY) {
     ImGuiIO& io = ImGui::GetIO();
     const bool mouseMoved = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
@@ -232,6 +367,10 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY) {
         }
         return;
     }
+    if (dragStarts_.empty()) {
+        return;
+    }
+    const DragStartTransform& primary = dragStarts_.front();
 
     // ハンドルの軸矢印を掴んだ場合はその軸、そうでなければワークフローパネルの軸制限に従う
     const int axis = activeDragAxis_ != 0 ? activeDragAxis_ : gizmoAxis_;
@@ -242,8 +381,17 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY) {
         if (camera_) {
             camDist = (std::max)(1.0f, std::abs(camera_->GetTranslate().z));
         }
-        dragRawZ_ += -io.MouseDelta.y * camDist * kZDragPerPixel;
-        selected.SetLocalZ(*this, selIndex_, SnapValue(dragRawZ_), mouseMoved);
+        // Zの矢印を掴んでいる時は矢印の向きに沿って動かす。それ以外はマウスの上下で動かす
+        const float pixels = activeDragAxis_ == stageEditorUiStyle::kGizmoAxisZ
+            ? AxisDragPixels(activeDragAxis_, io.MouseDelta.x, io.MouseDelta.y)
+            : -io.MouseDelta.y;
+        dragRawZ_ += pixels * camDist * kZDragPerPixel * viewport_.ImagePixelScale();
+        const float deltaZ = SnapValue(dragRawZ_) - primary.localZ;
+        for (const DragStartTransform& start : dragStarts_) {
+            if (start.followsMove) {
+                selected.SetLocalZ(*this, start.index, start.localZ + deltaZ, mouseMoved);
+            }
+        }
         return;
     }
 
@@ -252,10 +400,14 @@ void StageEditor::UpdateViewportDrag(float mouseX, float mouseY) {
         return;
     }
     // 掴んだ時のオフセットを保ったまま追従させる（クリック位置がオブジェクト原点からずれていても飛ばない）
-    // スナップはワールド座標側で丸めてから、親がいる場合はローカル座標へ逆算する
-    const float wx = SnapValue(ground.x + dragGrabOffsetX_);
-    const float wy = SnapValue(ground.y + dragGrabOffsetY_);
-    selected.DragTo(*this, selIndex_, wx, wy, axis, mouseMoved);
+    // スナップは主選択のワールド座標側で丸めてから、他の選択物へ同じ移動量を渡す（親がいる場合はローカル座標へ逆算される）
+    const float deltaX = SnapValue(ground.x + dragGrabOffsetX_) - primary.world.x;
+    const float deltaY = SnapValue(ground.y + dragGrabOffsetY_) - primary.world.y;
+    for (const DragStartTransform& start : dragStarts_) {
+        if (start.followsMove) {
+            selected.DragTo(*this, start.index, start.world.x + deltaX, start.world.y + deltaY, axis, mouseMoved);
+        }
+    }
 }
 
 /** @brief 見た目の位置を変えずに親を付け替える */
@@ -389,6 +541,7 @@ void StageEditor::ClearSelection() {
     selIndex_ = -1;
     selectedObjectIndices_.clear();
     parentLinkChildIndex_ = -1;
+    UILayout::SetSelectedHandle(nullptr, 0);
 }
 
 } // namespace engine::game

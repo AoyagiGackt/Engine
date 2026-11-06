@@ -542,7 +542,7 @@ void StageEditorHierarchyPanel::Render(StageEditor& editor) {
     const auto* display = ImGui::GetMainViewport();
     const float hierarchyHeight = (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight) * editorUi::kHierarchyHeightRatio;
     ImGui::SetNextWindowPos(ImVec2(display->Pos.x, display->Pos.y + StageEditor::kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(StageEditor::kLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::sLeftPanelWidth, hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("配置物一覧", nullptr, editorUi::kFixedPanelFlags);
     // 一覧だけをスクロールさせ、選択中の操作を下端に固定する。
     ImGui::BeginChild("配置物スクロール", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);

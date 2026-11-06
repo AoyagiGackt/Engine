@@ -14,6 +14,7 @@
 #include <imgui.h>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,6 +24,24 @@ class Input;
 namespace engine::game {
 class GraphEditorInteraction;
 class GraphNodeRenderer;
+
+/** @brief キャンバス上のピンの種類（配線解除の表はこの並びで引く） */
+enum class GraphPinKind {
+    kExecIn,
+    kExecOut,
+    kDataIn,
+    kDataOut,
+};
+
+/** @brief そのフレームに描いたピン1つぶんの位置と接続情報 */
+struct GraphCanvasPin {
+    GraphPinKind kind = GraphPinKind::kExecIn;
+    std::string nodeId;
+    std::string name; ///< 実行出力ならピン名（next/true/false）、データ入力ならパラメータ名
+    ImVec2 position = { 0.0f, 0.0f };
+    float radius = 0.0f;
+    GraphValueType type = GraphValueType::kAny;
+};
 
 /**
  * @brief ノードグラフをキャンバス上で編集するImGuiエディタ本体
@@ -73,53 +92,147 @@ private:
     GraphEditor(const GraphEditor&) = delete;
     GraphEditor& operator=(const GraphEditor&) = delete;
 
-    /** @brief キャンバス1フレーム分のリンクドラッグ共有状態（ノード描画→プレビュー描画で受け渡す） */
+    /** @brief キャンバス1フレーム分の共有状態（ノード描画で集め、その後の入力処理で使う） */
     struct CanvasFrameState {
-        ImVec2 linkFromScreenPos = { 0, 0 }; ///< ドラッグ中の実行リンクの始点
-        bool linkFromFound = false;
-        bool linkCompletedThisFrame = false;
-        bool hoveringAnyPin = false; ///< 何かのピンにカーソルが乗っているか（右クリックメニュー抑制用）
-        bool hoveringNode = false; ///< 何かのノードタイトルにカーソルが乗っているか（キャンバスの追加メニュー抑制用）
-        ImVec2 dataLinkFromScreenPos = { 0, 0 }; ///< ドラッグ中のデータ配線の始点
-        bool dataLinkFromFound = false;
-        bool dataLinkCompletedThisFrame = false;
+        bool canvasHovered = false; ///< カーソルがキャンバス上にあり、他のウィンドウやポップアップに遮られていないか
+        bool nodePressedThisFrame = false; ///< このフレームにノードのタイトルが押されたか
+        std::vector<GraphCanvasPin> pins; ///< このフレームに描いた全ピン
+        const GraphCanvasPin* hoveredPin = nullptr; ///< カーソルの下のピン
+        const GraphCanvasPin* snapPin = nullptr; ///< 配線中に吸着しているピン
+        std::string hoveredNodeId; ///< カーソルの下のノード（無ければ空）
+        std::optional<GraphCanvasPin> hoveredLink; ///< カーソルの下の配線（配線の持ち主のピンで表す）
+        ImVec2 hoveredLinkFrom = { 0.0f, 0.0f };
+        ImVec2 hoveredLinkTo = { 0.0f, 0.0f };
+        float hoveredLinkDistance = 0.0f;
 
         // Run中ハイライト用（DrawCanvasが1フレームに1回だけ求めてDrawNodeへ配る）
         bool viewingActiveGraph = false; ///< 今表示中のグラフが実行チェーンの実際に動いている階層と一致するか
         std::string activeRunNodeId; ///< viewingActiveGraphがtrueの時だけ有効な、ハイライト対象ノードID
     };
 
-    /** @brief 表示切替と編集入力の実処理を実行する */
+    /** @brief キャンバス上でマウスを押したまま続く操作の種類 */
+    enum class CanvasDragKind {
+        kNone,
+        kNodes,
+        kCommentMove,
+        kCommentResize,
+        kBoxSelect,
+    };
+
+    /** @brief マウスを押したまま続く操作の開始時点の値（ホバーが外れても離すまで続ける） */
+    struct CanvasDrag {
+        CanvasDragKind kind = CanvasDragKind::kNone;
+        ImVec2 startMouseGraph = { 0.0f, 0.0f }; ///< 押した時のマウス位置（グラフ座標）
+        std::map<std::string, ImVec2> nodeStarts; ///< 動かすノードの開始位置
+        std::string pressedNodeId; ///< 動かさずに離したら単独選択に絞るノード
+        std::string commentId; ///< 操作中のコメント
+        ImVec2 commentStart = { 0.0f, 0.0f }; ///< コメントの開始位置または開始サイズ
+        std::set<std::string> baseSelection; ///< 範囲選択を始める前からの選択
+        bool moved = false; ///< しきい値を超えて動いたか（クリックだけでは動かさない）
+    };
+
+    /** @brief コメント枠の画面上の矩形 */
+    struct CommentScreenRect {
+        ImVec2 min;
+        ImVec2 max;
+        ImVec2 headerMax; ///< つかんで動かす帯の右下
+        ImVec2 handleMin; ///< 大きさを変える掴みの左上
+    };
 
     void DrawCanvas();
     // DrawCanvas() 分割ヘルパー（呼び出し順に宣言）
-    /** @brief マウスホイールズームと中ボタンドラッグパンを処理する */
+    /** @brief ホイールズーム（カーソル位置が中心）・中ドラッグとスペース+左ドラッグのパン・端での自動スクロールを処理する */
     void UpdateCanvasView(bool canvasHovered);
+    /** @brief 配線中とドラッグ中にカーソルがキャンバスの端へ寄ったら表示を流す */
+    void UpdateEdgeAutoPan();
+    /** @brief 背景の格子を描く（パンとズームの量を見て分かるようにする） */
+    void DrawGrid(ImDrawList* dl);
     /** @brief ノード1つ分（タイトル・パラメータ・ピン・枠）を描画し、ドラッグ操作を処理する */
     void DrawNode(ImDrawList* dl, const ImVec2& origin, const std::string& id, GraphNode& node, CanvasFrameState& state);
     /** @brief ノード一件の表示と操作の実処理を実行する */
     /** @brief ノードのパラメータ編集ウィジェットと左端のデータ入力ピンを描画する */
     void DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNode& node, const ImVec2& nodeScreenPos, CanvasFrameState& state);
-    /** @brief ドラッグ中のリンク／データ配線のプレビュー線を描き、空振り時はキャンセルする */
+    /** @brief カーソルの下のノードを求める */
+    void UpdateHoveredNode(CanvasFrameState& state);
+    /** @brief ピンのホバー・配線の開始と吸着と接続・右クリックの配線解除を処理する */
+    void UpdatePinInteraction(ImDrawList* dl, CanvasFrameState& state);
+    /** @brief ピンにつながる配線を外す（外す物が無ければ履歴に残さない） */
+    void DisconnectPin(const GraphCanvasPin& pin);
+    /** @brief 今の配線ドラッグをこのピンへつなげられるか */
+    bool CanConnectLinkTo(const GraphCanvasPin& pin) const;
+    /** @brief 配線ドラッグをピンへつなぐ */
+    void ConnectLinkTo(const GraphCanvasPin& pin);
+    /** @brief つなげない場所で離した時に、ピンの近くなら理由を表示する */
+    void ReportRejectedDrop(const CanvasFrameState& state);
+    /** @brief ドラッグ中のリンク／データ配線のプレビュー線を描く（吸着中は吸着先のピンまで引く） */
     void DrawLinkPreviews(ImDrawList* dl, const CanvasFrameState& state);
-    /** @brief 右クリックのノード追加メニューとDeleteキー削除を処理する */
-    void HandleCanvasShortcuts(const ImVec2& origin, bool canvasHovered, const CanvasFrameState& state);
+    /** @brief 配線を1本描き、カーソルが近ければホバー中の配線の候補にする */
+    void DrawWire(ImDrawList* dl, const ImVec2& from, const ImVec2& to, ImU32 color, float thickness,
+        const GraphCanvasPin& owner, CanvasFrameState& state);
+    /** @brief 左クリックを押した場所に応じてノード移動・コメント操作・範囲選択を始める */
+    void HandleCanvasPress(const CanvasFrameState& state);
+    /** @brief ノードを押した時の選択（Ctrl/Shiftで追加と解除）と移動の準備をする */
+    void BeginNodePress(const std::string& id);
+    /** @brief コメントの掴みや帯を押していたら操作を始める */
+    bool TryBeginCommentDrag();
+    /** @brief 押したまま続くノード移動をマウス位置に合わせて進める */
+    void UpdateNodeDrag();
+    /** @brief 押したまま続くコメントの移動とリサイズをマウス位置に合わせて進める */
+    void UpdateCommentDrag();
+    /** @brief 押したまま続く範囲選択を進め、選択枠を描く */
+    void UpdateBoxSelect(ImDrawList* dl);
+    /** @brief カーソルの下の掴める物に合わせてカーソルの形を変える */
+    void UpdateHoverCursor(const CanvasFrameState& state);
+    /** @brief 右クリックメニュー・Delete・全体表示などの操作を処理する */
+    void HandleCanvasShortcuts(const CanvasFrameState& state);
+    /** @brief 選択中のノードを対象にする右クリックメニューを描く */
+    void DrawNodeContextMenu();
 
-    void DrawLinks(ImDrawList* dl);
+    void DrawLinks(ImDrawList* dl, CanvasFrameState& state);
     void DrawAddNodeMenu();
     /** @brief pendingAddX_/Y_の位置に、型ごとの初期パラメータを埋めたtype型のノードを1つ追加する */
     void AddNodeOfType(const std::string& type);
-    void DeleteNode(const std::string& id);
-    /** @brief idのノードを丸ごと複製する（新しいidを振り、少しずらした位置に置く） */
-    void DuplicateNode(const std::string& id);
+    /** @brief 指定ノードと、そのノードへの参照を取り除く（履歴の記録は呼び出し側で行う） */
+    void RemoveNode(const std::string& id);
+    /** @brief 選択中のノードをまとめて1回の操作として削除する */
+    void DeleteSelectedNodes();
+    /** @brief 選択中のノードを複製する（選択の中どうしの配線は複製先へつなぎ替える） */
+    void DuplicateSelectedNodes();
+    /** @brief グラフ内で使われていないノードIDを作る */
+    std::string MakeUniqueNodeId();
+    /** @brief グラフ内で使われていないコメントIDを作る */
+    std::string MakeUniqueCommentId();
     void ArrangeNodes();
 
-    /** @brief コメント（注釈用の色付き矩形）の描画・ドラッグ移動・リサイズ・テキスト編集 */
-    void DrawComments(ImDrawList* dl, const ImVec2& origin);
+    /** @brief ノードを1つだけ選択する */
+    void SelectOnlyNode(const std::string& id);
+    /** @brief ノードとコメントの選択をすべて解除する */
+    void ClearSelection();
+    /** @brief ノードが選択中か */
+    bool IsNodeSelected(const std::string& id) const;
+    /** @brief 全ノードを選択する */
+    void SelectAllNodes();
+    /** @brief 消えたノードを選択から外し、基準ノードを選び直す */
+    void SyncSelection();
+    /** @brief 進行中の配線とドラッグをすべて取り消す */
+    void CancelCanvasInteractions();
+
+    /** @brief 全ノード（selectedOnly なら選択中のノードだけ）が収まるように表示を合わせる */
+    void FrameNodes(bool selectedOnly);
+
+    /** @brief 画面座標をグラフ座標へ変換する */
+    ImVec2 ScreenToGraph(const ImVec2& screen) const;
+    /** @brief グラフ座標を画面座標へ変換する */
+    ImVec2 GraphToScreen(const ImVec2& graph) const;
+
+    /** @brief コメント枠の画面上の矩形を求める */
+    CommentScreenRect GetCommentScreenRect(const GraphComment& comment) const;
+    /** @brief コメント（注釈用の色付き矩形）の描画とテキスト編集（移動とリサイズは UpdateCommentDrag） */
+    void DrawComments(ImDrawList* dl);
     void DeleteComment(const std::string& id);
 
     /** @brief データ配線（paramLinks）の線をまとめて描く（ピン位置はDrawCanvasが同フレームで記録済み） */
-    void DrawDataLinks(ImDrawList* dl);
+    void DrawDataLinks(ImDrawList* dl, CanvasFrameState& state);
 
     /** @brief Run中のグラフ変数を一覧表示し、その場で上書きテストできるパネル */
     void DrawVariablesPanel();
@@ -162,9 +275,19 @@ private:
 
     float panOffsetX_ = 40.0f;
     float panOffsetY_ = 40.0f;
-    float zoom_ = 1.0f; // マウスホイールで変更（0.3〜2.5）
+    float zoom_ = 1.0f; // マウスホイールで変更（カーソル位置を中心に拡大縮小する）
 
-    std::string selectedNodeId_;
+    ImVec2 canvasOrigin_ = { 0.0f, 0.0f }; // キャンバスの原点（画面座標、毎フレーム更新）
+    ImVec2 canvasSize_ = { 0.0f, 0.0f }; // キャンバスの大きさ（毎フレーム更新）
+    bool requestFrameAll_ = false; // 次のキャンバス描画で全体表示に合わせる（グラフを開いた時など）
+    bool panning_ = false; // パン中か（押した場所がキャンバスなら離すまで続ける）
+    ImGuiMouseButton panButton_ = ImGuiMouseButton_Middle; // パンを始めたボタン
+    CanvasDrag drag_; // 押したまま続く操作の状態
+    bool showHelpPanel_ = true; // 右側の説明パネルを出すか
+    std::string contextNodeId_; // 右クリックメニューの対象ノード
+
+    std::string selectedNodeId_; // 選択の基準ノード（説明の表示や開始ノードの設定に使う）
+    std::set<std::string> selectedNodeIds_; // 選択中の全ノード（selectedNodeId_ を含む）
     std::string selectedCommentId_; // ノードとコメントは排他選択（片方を選んだらもう片方はクリア）
     int nextCommentSerial_ = 0; // 新規コメントID生成用（"comment_0", "comment_1", ...）
 
@@ -178,17 +301,8 @@ private:
     std::string dataLinkFromNodeId_;
     GraphValueType dataLinkFromType_ = GraphValueType::kAny;
 
-    // 直近フレームで描画した各データピンのスクリーン位置（DrawDataLinksと接続判定用）
-    std::map<std::string, std::map<std::string, ImVec2>> dataInPins_; // ノードID → パラメータ名 → 位置
-    std::map<std::string, ImVec2> dataOutPins_; // ノードID → 出力ピン位置
-
     // Subgraphノードの開くボタン用ノード走査ループ中にOpen()を呼ぶとイテレータが壊れるため遅延させる
     std::string pendingOpenPath_;
-
-    // ノード右クリックメニューの削除/コピーも、同じ理由（ノード走査ループ中にgraph_.nodesを書き換えると
-    // イテレータが壊れる）で遅延させるループの外（DrawCanvas末尾）でまとめて処理する
-    std::string pendingDeleteNodeId_;
-    std::string pendingDuplicateNodeId_;
 
     // ノード追加メニューを開いた位置（グラフ座標系）
     float pendingAddX_ = 0.0f;

@@ -56,6 +56,28 @@ public:
     /** @brief 画面上で選択中の位置項目か */
     static bool IsSelectedHandle(const UILayout* layout, size_t index);
 
+    /**
+     * @brief 画面上で選択中の位置項目を取得する
+     * @param outHandle 見つかった項目の格納先
+     * @return 選択中の項目があればtrue
+     */
+    static bool FindSelectedHandle(PositionHandle& outHandle);
+
+    /** @brief 画面の印とパネルを出すかを返す */
+    static bool IsEditingEnabled();
+
+    /** @brief 画面の印とパネルを出すかを設定する（配置物を選ぶ邪魔になる時に隠す） */
+    static void SetEditingEnabled(bool enabled);
+
+    /**
+     * @brief 未保存の変更があるレイアウトをすべてJSONへ書き出す
+     * @return 保存できたレイアウトの数
+     */
+    static int SaveAllUnsaved();
+
+    /** @brief 未保存の変更があるレイアウトがあるかを返す */
+    static bool HasUnsavedLayouts();
+
     /** @brief 数値を取得する（未登録なら既定値で登録する） */
     float Float(const std::string& key, float defaultValue);
     /** @brief 2次元の値（サイズ・間隔など）を取得する（未登録なら既定値で登録する） */

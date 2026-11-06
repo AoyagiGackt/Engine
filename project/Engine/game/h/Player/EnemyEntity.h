@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "Animation.h"
+#include "CollisionConfig.h"
 #include "EnemyTuning.h"
 #include "IEnemyEntity.h"
 #include "Model.h"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <vector>
 namespace engine::game {
 using engine::graphics::Model;
 using engine::graphics::ModelCommon;
@@ -43,10 +45,31 @@ public:
     /**
      * @brief 物理・アニメーションを毎フレーム更新する
      * @param playerX プレイヤーのワールドX座標（自分から見た左右どちらを向くか判定するために使う）
-     * @note 接地中（!isLaunched_）はpos_.yに一切触れない。ステージエディタで配置した高さ・
-     * StageEditorInteractionのドラッグでpos_を書き換えた高さをそのまま信用する
+     * @note 接地中（!isLaunched_）の高さはここでは変えない。地形に合わせた高さの変更は UpdateTerrain() が行う
      */
     void Update(float playerX);
+
+    /** @brief プレイヤーの高さを教える（高い所にいるなら近づいて壁を登る。Update() の前に呼ぶ） */
+    void SetTargetHeight(float y) {
+        targetY_ = y;
+        hasTargetHeight_ = true;
+    }
+
+    /**
+     * @brief 地形に合わせて高さを変える（壁を登る・段差に乗る・足場から落ちる）
+     * @param solids 地形のブロック（敵の体を含まない）
+     * @note Update() で歩いた後、壁からの押し出しの前に呼ぶ
+     */
+    void UpdateTerrain(const std::vector<engine::AABB>& solids);
+
+    /** @brief 壁と当たる体の横幅の半分を返す（モンスターは素材の大きさに合わせる） */
+    float WallBodyHalfWidth(float fallback) const override {
+        return monsterBodyHalfWidth_ > 0.0f ? monsterBodyHalfWidth_ : fallback;
+    }
+    /** @brief 壁と当たる体の高さを返す（モンスターは素材の大きさに合わせる） */
+    float WallBodyHeight(float fallback) const override {
+        return monsterBodyHeight_ > 0.0f ? monsterBodyHeight_ : fallback;
+    }
 
     /**
      * @brief 敵の性格（"basic" "flying" "healer"）を設定し、性格ごとの色に塗る
@@ -476,6 +499,11 @@ private:
     float spawnX_ = 0.0f; ///< 配置時のワールドX（接近AIの持ち場判定の基準。Initialize()で記録する）
     float facingSign_ = -1.0f; ///< 現在向いている方向(+1=+X向き/-1=-X向き)。Update()毎にプレイヤー位置から再計算する
     float velY_ = 0.0f;
+    float fallVelY_ = 0.0f; ///< 足場から落ちている間の縦の速さ
+    float walkDirX_ = 0.0f; ///< このフレームに歩いた向き（歩いていなければ0）
+    float targetY_ = 0.0f; ///< プレイヤーの高さ
+    bool hasTargetHeight_ = false; ///< プレイヤーの高さを教えられているか
+    bool climbing_ = false; ///< 壁を登っている途中か（登っている間は攻撃しない）
     bool isLaunched_ = false;
     bool corpseFallStarted_ = false; ///< 倒れた体を床へ落とし始めたか（DropCorpseTo() を一度だけ受け付ける）
     bool justLanded_ = false;
@@ -534,6 +562,8 @@ private:
     // モンスターの見た目（設定されていれば騎士の代わりにこれを描画する）
     std::unique_ptr<Object3d> monsterObject_;
     float monsterScale_ = 1.0f;
+    float monsterBodyHalfWidth_ = 0.0f; ///< 壁と当たる体の横幅の半分（0なら共通の値）
+    float monsterBodyHeight_ = 0.0f; ///< 壁と当たる体の高さ（0なら共通の値）
     float monsterYawOffset_ = 0.0f; ///< モデルの正面を+Zへ揃える向き補正（ラジアン）
     float monsterBobTimer_ = 0.0f;
     Vector4 bodyColor_ = { 1.0f, 1.0f, 1.0f, 1.0f }; ///< 本体に今かけている色（モンスターの見た目へ写す）

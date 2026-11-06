@@ -1748,6 +1748,9 @@
     <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemo.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemoDummies.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCamera.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\ゲームプレイ</Filter>
     </ClCompile>

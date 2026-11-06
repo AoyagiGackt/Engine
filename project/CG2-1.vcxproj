@@ -897,6 +897,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemo.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemoDummies.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCamera.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\SceneEditorPersistence.cpp" />
     <ClInclude Include="Engine\game\h\Level\ObjectKindSupport.h" />

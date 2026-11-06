@@ -1,0 +1,25 @@
+{
+  "_comment": "全ステージを終えた後のエンディング画面の時間の調整。単位は秒（slideDistanceはピクセル、blinkSpeedは1秒あたりのラジアン）。配置はF2のエディタで動かすと Resources/Config/UI/clear.json に保存される。背景は result_backdrop.json を共用する",
+  "title": {
+    "delay": 0.3,
+    "seconds": 0.9
+  },
+  "rows": {
+    "interval": 0.35,
+    "slideSeconds": 0.35,
+    "slideDistance": 60
+  },
+  "total": {
+    "delay": 0.3,
+    "countUpSeconds": 1.2
+  },
+  "ranking": {
+    "delay": 0.3,
+    "interval": 0.12
+  },
+  "prompt": {
+    "delay": 0.4,
+    "blinkSpeed": 2.5,
+    "blinkDepth": 0.45
+  }
+}

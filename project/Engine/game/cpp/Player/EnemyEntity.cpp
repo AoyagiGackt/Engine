@@ -5,11 +5,13 @@
 #include "EnemyEntity.h"
 #include "GameConstants.h"
 #include "GravityBody.h"
+#include "GroundSupport.h"
 #include "ModelManager.h"
 #include "TimeManager.h"
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <optional>
 using namespace engine::graphics;
 
 namespace engine::game {
@@ -235,6 +237,7 @@ void EnemyEntity::Update(float playerX) {
 
     // 横移動: ノックバック中はその勢いで滑り、そうでなければ条件付きでプレイヤーへ歩く
     bool walkedThisFrame = false;
+    walkDirX_ = 0.0f;
     if (std::abs(knockVelX_) > kKnockbackStopSpeed) {
         pos_.x += knockVelX_ * (slowTimer_ > 0.0f ? tuning.knockbackSlowMultiplier : 1.0f);
         knockVelX_ *= tuning.knockbackDecay;
@@ -244,9 +247,13 @@ void EnemyEntity::Update(float playerX) {
         const bool playerNearPost = std::abs(playerX - spawnX_) <= tuning.aggroRange;
         const bool withinLeash = std::abs(pos_.x - spawnX_) < tuning.leashDistance;
         const float dx = playerX - pos_.x;
-        if (playerNearPost && withinLeash && std::abs(dx) > tuning.engageRange) {
+        // プレイヤーが高い所にいる時は、壁を登れるよう間合いの中でも近づく
+        const bool playerAbove = hasTargetHeight_ && targetY_ - pos_.y > tuning.climbChaseHeight;
+        const float stopDistance = playerAbove ? tuning.climbChaseStopDistance : tuning.engageRange;
+        if (playerNearPost && withinLeash && std::abs(dx) > stopDistance) {
             const float speed = tuning.approachSpeed * speedScale_;
-            pos_.x += dx > 0.0f ? speed : -speed;
+            walkDirX_ = dx > 0.0f ? 1.0f : -1.0f;
+            pos_.x += walkDirX_ * speed;
             walkedThisFrame = true;
         }
     }
@@ -260,7 +267,7 @@ void EnemyEntity::Update(float playerX) {
             justLanded_ = true;
         }
     }
-    // 非打ち上げ中はpos_.yに一切触れない。ステージエディタで配置・ドラッグした高さをそのまま信用する
+    // 非打ち上げ中の高さは UpdateTerrain() が地形に合わせる
 
     // 飛ぶ種類は出現位置の高さを中心に上下にゆらゆらさせる
     if (archetype_->Hovers() && !isLaunched_ && !defeated_) {
@@ -272,7 +279,11 @@ void EnemyEntity::Update(float playerX) {
     UpdateDroppedWeapon();
     PlaceWeapon(pos_);
 
-    if (archetype_->Attacks()) {
+    if (climbing_) {
+        // 登っている間は攻撃を始めない（壁に向かって振らないように）
+        justFiredAttack_ = false;
+        justStartedTelegraph_ = false;
+    } else if (archetype_->Attacks()) {
         UpdateAttack(playerX);
     } else {
         ResetAttackState();
@@ -472,11 +483,82 @@ void EnemyEntity::SetMonsterVisual(ModelCommon* modelCommon, const std::string& 
     monsterObject_->SetModel(ModelManager::GetInstance()->GetOrLoad(modelCommon, def->model, def->texture));
     monsterObject_->SetEnableLighting(true);
     monsterScale_ = def->scale;
+    monsterBodyHalfWidth_ = def->bodyHalfWidth;
+    monsterBodyHeight_ = def->bodyHeight;
     monsterYawOffset_ = def->yawOffset;
     // 素材の色をそのまま見せる（回復役だけは緑で見分けられるようにする）
     SetColor(IsHealer() ? kHealerColor : kDefaultArchetypeColor);
     SyncMonsterVisual(false);
 }
+/** @brief 地形に合わせて高さを変える（壁を登る・段差に乗る・足場から落ちる） */
+void EnemyEntity::UpdateTerrain(const std::vector<engine::AABB>& solids) {
+    // 打ち上げや倒れた後の落下は別の処理が動かし、飛ぶ種類は地形に関係なく浮く
+    if (defeated_ || isLaunched_ || archetype_->Hovers()) {
+        climbing_ = false;
+        fallVelY_ = 0.0f;
+        return;
+    }
+    const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
+    const EnemySeparationTuning& separation = EnemyTuning::GetInstance()->Separation();
+    const float halfWidth = WallBodyHalfWidth(separation.bodyHalfWidth);
+    const float height = WallBodyHeight(separation.wallBandTop);
+    const float footOffset = tuning.corpseFootOffset;
+    const float startY = pos_.y;
+    const auto spansDepth = [this](const engine::AABB& block) {
+        return pos_.z >= block.min.z && pos_.z <= block.max.z;
+    };
+
+    // 歩いている向きの体の端に当たるブロックを探し、上に積まれた分も含めた壁の上面を求める
+    std::optional<float> wallTop;
+    if (walkDirX_ != 0.0f) {
+        const float edgeX = pos_.x + walkDirX_ * halfWidth;
+        const auto touchesEdge = [&](const engine::AABB& block) {
+            return spansDepth(block) && edgeX + separation.wallContactMargin > block.min.x
+                && edgeX - separation.wallContactMargin < block.max.x;
+        };
+        for (const engine::AABB& block : solids) {
+            if (touchesEdge(block) && block.max.y > pos_.y + separation.wallBandBottom && block.min.y < pos_.y + height) {
+                wallTop = wallTop ? (std::max)(*wallTop, block.max.y) : block.max.y;
+            }
+        }
+        // 接しているブロックが新しく見つからなくなるまで、上へたどる（並べた壁は1個ずつのブロックになっている）
+        for (bool extended = wallTop.has_value(); extended;) {
+            extended = false;
+            for (const engine::AABB& block : solids) {
+                if (touchesEdge(block) && block.min.y <= *wallTop + separation.wallContactMargin && block.max.y > *wallTop) {
+                    wallTop = block.max.y;
+                    extended = true;
+                }
+            }
+        }
+    }
+    // 登れる高さの壁で、頭の上が塞がれていなければ登る（頭の判定は壁に掛からないよう体の中ほどだけで見る）
+    constexpr float kHeadCheckWidthRatio = 0.5f;
+    const float headHalfWidth = halfWidth * kHeadCheckWidthRatio;
+    const bool headBlocked = std::any_of(solids.begin(), solids.end(), [&](const engine::AABB& block) {
+        return spansDepth(block) && pos_.x + headHalfWidth > block.min.x && pos_.x - headHalfWidth < block.max.x
+            && block.max.y > pos_.y + height && block.min.y < pos_.y + height + tuning.climbSpeed;
+    });
+    climbing_ = wallTop && !headBlocked && *wallTop + footOffset - pos_.y <= tuning.climbMaxHeight;
+    if (climbing_) {
+        pos_.y = (std::min)(pos_.y + tuning.climbSpeed, *wallTop + footOffset);
+        fallVelY_ = 0.0f;
+    } else if (const auto floor = FindSupportingFloor(pos_, halfWidth, 0.0f, footOffset - tuning.stepUpHeight, solids)) {
+        // 足元が床より下なら段差に乗せ、上なら重力で落とす（床が無い場所では配置した高さのまま）
+        const float standY = *floor + footOffset;
+        if (pos_.y <= standY) {
+            pos_.y = standY;
+            fallVelY_ = 0.0f;
+        } else {
+            fallVelY_ -= tuning.gravity;
+            pos_.y = (std::max)(pos_.y + fallVelY_, standY);
+        }
+    }
+    if (pos_.y != startY) {
+        RefreshVisualTransforms();
+    }
+}
+
 /** @brief 騎士の本体に計算した位置・向き・大きさ・色を、モンスターの見た目へ写す */
 void EnemyEntity::SyncMonsterVisual(bool advanceBob) {
     if (!monsterObject_) {

@@ -42,8 +42,6 @@ constexpr float kMaxHumanScale = 100.0f;
 constexpr float kMaxAnimSpeed = 5.0f;
 constexpr float kMaxParticleScale = 10.0f;
 constexpr int kMaxParticleCount = 1024;
-constexpr float kMinSpritePixels = 1.0f;
-constexpr float kMaxSpritePixels = 4096.0f;
 constexpr float kRadiusGap = 0.01f; // 内径と外径が重ならないように空ける最小差
 #ifdef USE_IMGUI
 // 見出し色
@@ -55,6 +53,9 @@ constexpr ImVec4 kHumanHeaderColor = { 0.4f, 0.8f, 1.0f, 1.0f };
 #endif
 constexpr float kSavedMessageSeconds = 1.5f;
 constexpr Vector2 kNewUIElementSize = { 100.0f, 100.0f };
+// スナップの間隔の範囲（ピクセル）
+constexpr int kMinUISnapStep = 1;
+constexpr int kMaxUISnapStep = 128;
 // 白パーティクルの再放出
 constexpr float kWhiteParticleSpread = 20.0f;
 constexpr float kWhiteParticleSpeedMin = 2.0f;
@@ -162,6 +163,7 @@ void SceneEditor::Update(const EditContext& ctx, engine::Input* input) {
     RenderInspector(ctx); // 右 選択中オブジェクトのプロパティ
     RenderSceneControls(ctx); // 左下 スコア・ゲーム時刻・シーン操作
     RenderCameraControl(ctx); // 上中央 カメラ位置の簡易操作
+    UpdateUIGizmo(); // ゲーム画面の上のUI要素の枠
 #else
     (void)ctx;
     (void)input;
@@ -205,6 +207,9 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx) {
         entry.sprite->SetPosition({ gameConstants::kScreenCenterX, gameConstants::kScreenCenterY }); // 画面中央に配置
         entry.sprite->SetSize(kNewUIElementSize);
         uiElements_.push_back(std::move(entry));
+        // 要素の数が変わると履歴を復元できないので消す
+        uiHistory_.Clear();
+        uiDirty_ = true;
     }
     if (uiOpen) {
         for (int i = 0; i < (int)uiElements_.size(); ++i) {
@@ -212,10 +217,7 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx) {
             char label[textBufferCapacity::kStatus];
             snprintf(label, sizeof(label), "  %s", uiElements_[i].name.c_str());
             if (ImGui::Selectable(label, sel)) {
-                // UIElement を選択したときはインデックスも一緒に保存する
-                selection_ = Selection::kUIElement;
-                selectionIndex_ = i;
-                currentState_ = std::make_unique<UIElementState>();
+                SelectUIElement(i);
             }
         }
         ImGui::TreePop();
@@ -228,6 +230,8 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx) {
         savedTimer_ -= gameConstants::kFrameDeltaTime;
         ImGui::TextColored(kSavedTextColor, "Saved!");
     } else {
+        // 保存先があるのはカメラとUI要素だけなので、それ以外は押せなくする
+        ImGui::BeginDisabled(selection_ != Selection::kCamera && selection_ != Selection::kUIElement);
         if (ImGui::Button("Save", ImVec2(-1, 0))) {
             if (selection_ == Selection::kCamera) {
                 SaveCameraParams(ctx);
@@ -238,6 +242,10 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx) {
                 savedTimer_ = kSavedMessageSeconds;
             }
         }
+        ImGui::EndDisabled();
+    }
+    if (uiDirty_) {
+        ImGui::TextDisabled("UI Elements: 未保存");
     }
 
     ImGui::End();
@@ -540,6 +548,28 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     // 何を編集中か分かるよう、色付きの見出しを出す
     constexpr ImVec4 kHeadingColor = { 1.0f, 0.5f, 1.0f, 1.0f };
     ImGui::TextColored(kHeadingColor, "[UI Element]");
+    if (editor.uiDirty_) {
+        graphics::editorUI::DrawUnsavedMark();
+    }
+    ImGui::Separator();
+    // 元に戻す・やり直す（ウィンドウにフォーカスがある時はキーでも操作できる）
+    ImGui::BeginDisabled(!editor.uiHistory_.CanUndo());
+    if (ImGui::Button("Undo") || graphics::editorUI::CtrlShortcut(ImGuiKey_Z)) {
+        editor.UndoUIEdit();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!editor.uiHistory_.CanRedo());
+    if (ImGui::Button("Redo") || graphics::editorUI::CtrlShortcut(ImGuiKey_Y)) {
+        editor.RedoUIEdit();
+    }
+    ImGui::EndDisabled();
+    // 画面上のドラッグのスナップ
+    ImGui::Checkbox("Snap", &editor.uiSnapEnabled_);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderInt("##snapStep", &editor.uiSnapStep_, kMinUISnapStep, kMaxUISnapStep, "%d px");
+    ImGui::TextDisabled("画面上のスプライトをドラッグで移動、枠の四角で大きさ変更\nCtrl: スナップ反転  Shift+角: 縦横比を保つ");
     ImGui::Separator();
     // 選択が変わったときだけ名前の入力欄を読み直す
     if (editor.uiNameEditIndex_ != idx) {
@@ -554,20 +584,20 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     ImGui::Separator();
     // 位置・サイズ・回転・色を編集する（変わった値だけスプライトへ書き戻す）
     Vector2 pos = sp->GetPosition();
-    if (ImGui::DragFloat2("Position", &pos.x, kDragStepPixel)) {
+    if (editor.TrackUIEdit(ImGui::DragFloat2("Position", &pos.x, kDragStepPixel))) {
         sp->SetPosition(pos);
     }
     // サイズは小さすぎて見えなくならないよう上下限を付ける
     Vector2 sz = sp->GetSize();
-    if (ImGui::DragFloat2("Size", &sz.x, kDragStepPixel, kMinSpritePixels, kMaxSpritePixels)) {
+    if (editor.TrackUIEdit(ImGui::DragFloat2("Size", &sz.x, kDragStepPixel, kMinSpritePixels, kMaxSpritePixels))) {
         sp->SetSize(sz);
     }
     float rot = sp->GetRotation();
-    if (ImGui::DragFloat("Rotation", &rot, kDragStepRotation)) {
+    if (editor.TrackUIEdit(ImGui::DragFloat("Rotation", &rot, kDragStepRotation))) {
         sp->SetRotation(rot);
     }
     Vector4 col = sp->GetColor();
-    if (ImGui::ColorEdit4("Color", &col.x)) {
+    if (editor.TrackUIEdit(ImGui::ColorEdit4("Color", &col.x))) {
         sp->SetColor(col);
     }
     ImGui::Separator();
@@ -581,15 +611,18 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
             const std::string p = ToProjectRelativePath(selected);
             entry.texPath = p;
             sp->SetTexture(p);
+            editor.uiDirty_ = true;
         }
     }
     ImGui::Separator();
-    // Delete で一覧から削除、Save/Load で JSON に保存・復元する
-    if (ImGui::Button("Delete##ui")) {
+    // Delete で一覧から削除、Save/Load で JSON に保存・復元する（削除は保存まで行うので元に戻せず、確認を挟む）
+    if (graphics::editorUI::ConfirmButton("Delete##ui", "このUI要素を消して、レイアウトを保存しますか？\n元に戻せません。")) {
         // 消した要素を指したままにならないよう、選択を外して名前の編集状態も戻す
         editor.uiElements_.erase(editor.uiElements_.begin() + idx);
         editor.ChangeState(Selection::kNone);
         editor.uiNameEditIndex_ = kNoEditedUiIndex;
+        editor.uiHistory_.Clear();
+        editor.uiDrag_ = UIDragState { };
         editor.SaveUILayout();
     } else {
         ImGui::SameLine();
@@ -597,7 +630,9 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
             editor.SaveUILayout();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Load##inspUI")) {
+        // 未保存の変更があれば読み込み前に確認する
+        const char* const loadLabel = "Load##inspUI";
+        if (editor.uiDirty_ ? graphics::editorUI::ConfirmButton(loadLabel, "未保存の変更を捨てて読み込みますか？", "読み込む") : ImGui::Button(loadLabel)) {
             editor.LoadUILayout(ctx);
         }
     }

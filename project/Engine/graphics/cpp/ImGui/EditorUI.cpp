@@ -6,6 +6,8 @@
 #include "EditorUI.h"
 #include <Windows.h>
 #include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <commdlg.h>
 #include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
@@ -21,6 +23,32 @@ constexpr float kDialogWrapEm = 20.0f;
 constexpr float kDialogButtonWidth = 120.0f;
 constexpr float kToastInset = 10.0f;
 constexpr float kToastOpacity = 0.75f;
+
+// 未保存の印の色
+constexpr ImVec4 kUnsavedColor = { 1.0f, 0.75f, 0.2f, 1.0f };
+
+// 値に合わせたドラッグ感度
+constexpr float kDragSpeedRatio = 0.01f; // ドラッグ1ピクセルで値の何割動かすか
+constexpr float kMinDragSpeed = 0.001f; // 値が小さい時の感度の下限
+constexpr float kZeroValueDragSpeed = 0.01f; // 値が0の時は桁が分からないので少し大きめに動かす
+constexpr float kMinIntDragSpeed = 0.2f;
+
+// 掴んでいるドラッグ項目と、掴んだ時点で決めた感度
+ImGuiID sFrozenDragItem = 0;
+float sFrozenDragSpeed = 0.0f;
+
+/** @brief 掴んでいる項目なら固定した感度を、それ以外は渡された感度を返す */
+float ResolveDragSpeed(ImGuiID item, float freshSpeed) {
+    return (item == sFrozenDragItem && ImGui::IsAnyItemActive()) ? sFrozenDragSpeed : freshSpeed;
+}
+
+/** @brief 直前の項目を掴んだ瞬間の感度を覚える（途中で値が0に近づいても感度が落ちないように） */
+void RememberDragSpeed(ImGuiID item, float speed) {
+    if (ImGui::IsItemActivated()) {
+        sFrozenDragItem = item;
+        sFrozenDragSpeed = speed;
+    }
+}
 
 }
 
@@ -85,6 +113,112 @@ ConfirmResult ConfirmModal(const char* popupId, const char* message,
         ImGui::EndPopup();
     }
     return result;
+}
+
+/** @brief ボタンを押すと確認モーダルを挟み、はいを選んだフレームだけ true を返す */
+bool ConfirmButton(const char* label, const char* message, const char* okLabel) {
+    // モーダルの ID はボタンごとに分ける
+    const std::string popupId = std::string("確認##") + label;
+    if (ImGui::Button(label)) {
+        ImGui::OpenPopup(popupId.c_str());
+    }
+    return ConfirmModal(popupId.c_str(), message, okLabel) == ConfirmResult::kOk;
+}
+
+/** @brief 直前の項目の右に未保存の印を出す */
+void DrawUnsavedMark() {
+    ImGui::SameLine();
+    ImGui::TextColored(kUnsavedColor, "未保存");
+}
+
+/** @brief 英字の大文字小文字を無視して部分一致を調べる（検索語が空なら常に一致） */
+bool ContainsIgnoreCase(const std::string& text, const std::string& query) {
+    const auto sameLetter = [](char a, char b) {
+        return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+    };
+    return query.empty() || std::search(text.begin(), text.end(), query.begin(), query.end(), sameLetter) != text.end();
+}
+
+/** @brief コンボの先頭に置く絞り込み欄を出す（開いた直後にフォーカスし、前回の文字を消す） */
+void ComboFilterInput(char* buffer, size_t bufferSize) {
+    if (ImGui::IsWindowAppearing()) {
+        buffer[0] = '\0';
+        ImGui::SetKeyboardFocusHere();
+    }
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::InputTextWithHint("##comboFilter", "絞り込み", buffer, bufferSize);
+    ImGui::Separator();
+}
+
+/** @brief 今のウィンドウにフォーカスがある時の Ctrl+キーを判定する */
+bool CtrlShortcut(ImGuiKey key, bool allowWhileTyping) {
+    const ImGuiIO& io = ImGui::GetIO();
+    if (!io.KeyCtrl || (io.WantTextInput && !allowWhileTyping)) {
+        return false;
+    }
+    // 押しっぱなしで連続して実行しないようリピートを切る
+    return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(key, false);
+}
+
+/** @brief 値の大きさに合わせた感度の小数ドラッグを出す（感度は掴んだ時点の値で固定する） */
+bool AutoDragFloat(const char* label, float* values, int components, const char* format) {
+    // いちばん大きい成分を基準に感度を決める
+    float largest = 0.0f;
+    for (int i = 0; i < components; ++i) {
+        largest = (std::max)(largest, std::fabs(values[i]));
+    }
+    const float freshSpeed = largest > 0.0f ? (std::max)(largest * kDragSpeedRatio, kMinDragSpeed) : kZeroValueDragSpeed;
+    const ImGuiID item = ImGui::GetID(label);
+    const float speed = ResolveDragSpeed(item, freshSpeed);
+    const bool changed = ImGui::DragScalarN(label, ImGuiDataType_Float, values, components, speed, nullptr, nullptr, format);
+    RememberDragSpeed(item, speed);
+    return changed;
+}
+
+/** @brief 値の大きさに合わせた感度の整数ドラッグを出す（感度は掴んだ時点の値で固定する） */
+bool AutoDragInt(const char* label, int* value) {
+    const float freshSpeed = (std::max)(std::fabs(static_cast<float>(*value)) * kDragSpeedRatio, kMinIntDragSpeed);
+    const ImGuiID item = ImGui::GetID(label);
+    const float speed = ResolveDragSpeed(item, freshSpeed);
+    const bool changed = ImGui::DragInt(label, value, speed);
+    RememberDragSpeed(item, speed);
+    return changed;
+}
+
+/** @brief 直前の一覧の行をドラッグした時の並べ替え方向を返す */
+int ListReorderStep(int index, int count) {
+    // 掴んだまま行の外へ出た時だけ動かす（クリックしただけでは動かない）
+    if (!ImGui::IsItemActive() || ImGui::IsItemHovered()) {
+        return 0;
+    }
+    const float dragY = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left).y;
+    if (dragY == 0.0f) {
+        return 0;
+    }
+    const int step = dragY < 0.0f ? -1 : 1;
+    const int next = index + step;
+    if (next < 0 || next >= count) {
+        return 0;
+    }
+    // 次の行へ移ったら移動量を数え直す
+    ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+    return step;
+}
+
+/** @brief 一覧の行の左に上下の並べ替えボタンを出す（端の行は外へ動かせない） */
+int ListMoveButtons(int index, int count) {
+    int step = 0;
+    const auto moveButton = [&step](const char* id, ImGuiDir direction, bool disabled, int offset) {
+        ImGui::BeginDisabled(disabled);
+        if (ImGui::ArrowButton(id, direction)) {
+            step = offset;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+    };
+    moveButton("##up", ImGuiDir_Up, index <= 0, -1);
+    moveButton("##down", ImGuiDir_Down, index + 1 >= count, 1);
+    return step;
 }
 
 /** @brief エディタ起動ホットキーの常時表示オーバーレイ（画面左下、半透明、入力を奪わない） */

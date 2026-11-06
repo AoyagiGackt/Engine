@@ -15,13 +15,23 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <optional>
+#include <utility>
 #include <vector>
 #ifdef USE_IMGUI
+#include "EditorUI.h"
 #include <imgui.h>
 #endif
 
 namespace engine::game {
 namespace {
+#ifdef USE_IMGUI
+namespace editorUI = engine::graphics::editorUI;
+constexpr ImVec2 kInitialWindowSize = { 460.0f, 680.0f }; // 初めて開いた時のウィンドウの大きさ
+#endif
+constexpr float kTimeKeyStep = 0.01f; // 左右キーで時刻を送る量
+constexpr float kKeyGrabPixels = 7.0f; // 時間軸のキーを掴める距離（ピクセル）
+constexpr float kKeyScrubSnapPixels = 6.0f; // スクラブ中にキーへ吸着する距離（ピクセル）
 
 constexpr float kKeySnap = 0.01f; // この時刻差以内のキーは同じキーとして扱う
 constexpr float kAngleDragSpeed = 0.5f; // 角度ドラッグの感度（度/ピクセル）
@@ -100,7 +110,9 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
 
     // プレビュー・加算モーションの切り替えと、掛かり具合の表示
     if (open_) {
+        ImGui::SetNextWindowSize(kInitialWindowSize, ImGuiCond_FirstUseEver);
         if (ImGui::Begin("モーションエディタ (F7)", &open_)) {
+            HandlePlaybackKeys();
             ImGui::Checkbox("プレビュー（ゲームを止める）", &previewing_);
             ImGui::SameLine();
             bool enabled = library->IsEnabled();
@@ -108,6 +120,9 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
                 library->SetEnabled(enabled);
             }
             ImGui::TextDisabled("武器はQ/Eで切り替え。角度を動かすと今の時刻にキーが打たれます");
+            ImGui::TextDisabled("Space: 再生/停止  左右キー: 時刻送り  時間軸の黄色いキーはドラッグで移動");
+            // 長い一覧に隠れないよう、保存は上に置く
+            DrawFileControls();
 
             // 掛かり具合の確認（データが読めていない・ボーン名が合わない時はここが0になる）
             int trackCount = 0;
@@ -123,12 +138,12 @@ bool ComboMotionEditor::Update(Input* input, Player& player, WeaponType weaponTy
             attack = DrawStepList(weaponType);
             if (attack != nullptr) {
                 library->EditClip(player.GetMotionRigId(), attack->id, [&](MotionClip& clip) {
-                    DrawTimeline(*attack, &clip);
-                    DrawBoneList(player, &clip);
+                    DrawClipHistoryControls(clip);
+                    DrawTimeline(*attack, clip);
+                    DrawBoneList(player, clip);
                     DrawKeyEditor(clip);
                 });
             }
-            DrawFileControls();
         }
         ImGui::End();
     }
@@ -197,8 +212,125 @@ const MeleeAttackDef* ComboMotionEditor::DrawStepList(WeaponType weaponType) {
     return selected;
 }
 
+/** @brief 今の段の編集履歴を返す */
+EditorHistory<MotionClip>& ComboMotionEditor::CurrentHistory() {
+    return histories_[selectedAttackId_];
+}
+
+/** @brief 元に戻す・やり直すのボタンとショートカットを処理する */
+void ComboMotionEditor::DrawClipHistoryControls(MotionClip& clip) {
+#ifdef USE_IMGUI
+    EditorHistory<MotionClip>& history = CurrentHistory();
+    // 履歴の前後へ移す処理（ドラッグの途中は順番が崩れるので受け付けない）
+    const auto apply = [&](std::optional<MotionClip> snapshot) {
+        if (snapshot) {
+            clip = std::move(*snapshot);
+            dirty_ = true;
+            draggedKey_ = kNoDraggedKey;
+        }
+    };
+    const bool canStep = !history.IsCapturing();
+    ImGui::BeginDisabled(!history.CanUndo() || !canStep);
+    const bool undoPressed = ImGui::Button("元に戻す (Ctrl+Z)");
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!history.CanRedo() || !canStep);
+    const bool redoPressed = ImGui::Button("やり直す (Ctrl+Y)");
+    ImGui::EndDisabled();
+    if (canStep && (undoPressed || editorUI::CtrlShortcut(ImGuiKey_Z))) {
+        apply(history.Undo(clip));
+    } else if (canStep && (redoPressed || editorUI::CtrlShortcut(ImGuiKey_Y))) {
+        apply(history.Redo(clip));
+    }
+#else
+    (void)clip;
+#endif
+}
+
+/** @brief ウィンドウにフォーカスがある時の再生と時刻送りのキーを処理する */
+void ComboMotionEditor::HandlePlaybackKeys() {
+#ifdef USE_IMGUI
+    if (ImGui::GetIO().WantTextInput || !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+        return;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+        playing_ = !playing_;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+        time_ = std::clamp(time_ - kTimeKeyStep, 0.0f, 1.0f);
+        playing_ = false;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+        time_ = std::clamp(time_ + kTimeKeyStep, 0.0f, 1.0f);
+        playing_ = false;
+    }
+#endif
+}
+
+/** @brief 時間軸の帯の操作（時刻のスクラブと、選んだボーンのキーのドラッグ移動）を処理する */
+void ComboMotionEditor::UpdateTimelineDrag(MotionClip& clip, float mouseX, float originX, float width) {
+#ifdef USE_IMGUI
+    MotionTrack* track = clip.FindTrack(selectedBone_);
+    const float ratio = std::clamp((mouseX - originX) / width, 0.0f, 1.0f);
+
+    // 帯の上で一番近いキーを探す（選んでいるボーンのキーだけが動かせる）
+    int nearestKey = kNoDraggedKey;
+    float nearestPixels = FLT_MAX;
+    if (track != nullptr) {
+        for (int i = 0; i < static_cast<int>(track->keys.size()); ++i) {
+            const float pixels = std::abs(originX + width * track->keys[i].time - mouseX);
+            if (pixels < nearestPixels) {
+                nearestPixels = pixels;
+                nearestKey = i;
+            }
+        }
+    }
+    if (ImGui::IsItemHovered() && nearestPixels <= kKeyGrabPixels) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    }
+    // キーの上で押したらキーを掴み、それ以外は時刻を動かす
+    if (ImGui::IsItemActivated()) {
+        playing_ = false;
+        if (nearestPixels <= kKeyGrabPixels) {
+            draggedKey_ = nearestKey;
+            CurrentHistory().Begin(clip);
+        }
+    }
+    if (ImGui::IsItemDeactivated()) {
+        if (draggedKey_ != kNoDraggedKey) {
+            CurrentHistory().Commit();
+        }
+        draggedKey_ = kNoDraggedKey;
+    }
+    if (!ImGui::IsItemActive()) {
+        return;
+    }
+    if (draggedKey_ != kNoDraggedKey && track != nullptr && draggedKey_ < static_cast<int>(track->keys.size())) {
+        // 押しただけでは動かさず、隣のキーは追い越さない
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+            const float lower = draggedKey_ > 0 ? track->keys[draggedKey_ - 1].time + kKeySnap : 0.0f;
+            const float upper = draggedKey_ + 1 < static_cast<int>(track->keys.size()) ? track->keys[draggedKey_ + 1].time - kKeySnap : 1.0f;
+            track->keys[draggedKey_].time = std::clamp(ratio, lower, (std::max)(lower, upper));
+            CurrentHistory().MarkChanged();
+            dirty_ = true;
+        }
+        time_ = track->keys[draggedKey_].time;
+        return;
+    }
+    // スクラブは選んだボーンのキーに吸着する（キーの上に止めやすくする。Altで吸着を切る）
+    const bool snapToKey = nearestKey != kNoDraggedKey && nearestPixels <= kKeyScrubSnapPixels && !ImGui::GetIO().KeyAlt;
+    time_ = snapToKey ? track->keys[nearestKey].time : ratio;
+    playing_ = false;
+#else
+    (void)clip;
+    (void)mouseX;
+    (void)originX;
+    (void)width;
+#endif
+}
+
 /** @brief 時間軸（スクラブ・再生・ヒット/キャンセル位置・キーの印）を描く */
-void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionClip* clip) {
+void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, MotionClip& clip) {
 #ifdef USE_IMGUI
     // 時間軸の帯の大きさと色
     constexpr float kTimelineHeight = 34.0f;
@@ -229,9 +361,8 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 size = { ImGui::GetContentRegionAvail().x, kTimelineHeight };
     ImGui::InvisibleButton("##timeline", size);
-    if (ImGui::IsItemActive() && size.x > 0.0f) {
-        time_ = std::clamp((ImGui::GetIO().MousePos.x - origin.x) / size.x, 0.0f, 1.0f);
-        playing_ = false;
+    if (size.x > 0.0f) {
+        UpdateTimelineDrag(clip, ImGui::GetIO().MousePos.x, origin.x, size.x);
     }
     // 背景 → ヒットとキャンセルの線 → キーの印 → 今の時刻の線 の順に描く
     ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -242,15 +373,13 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
     };
     draw->AddLine({ xAt(hitRatio), origin.y }, { xAt(hitRatio), end.y }, kHitColor, kMarkerThickness);
     draw->AddLine({ xAt(cancelRatio), origin.y }, { xAt(cancelRatio), end.y }, kCancelColor, kMarkerThickness);
-    if (clip != nullptr) {
-        for (const MotionTrack& track : clip->tracks) {
-            const bool selectedTrack = (track.bone == selectedBone_);
-            const float inset = selectedTrack ? 0.0f : kOtherKeyInset;
-            for (const MotionKey& key : track.keys) {
-                const float x = xAt(key.time);
-                draw->AddRectFilled({ x - kKeyMarkHalfWidth, origin.y + inset }, { x + kKeyMarkHalfWidth, end.y - inset },
-                    selectedTrack ? kSelectedKeyColor : kOtherKeyColor);
-            }
+    for (const MotionTrack& track : clip.tracks) {
+        const bool selectedTrack = (track.bone == selectedBone_);
+        const float inset = selectedTrack ? 0.0f : kOtherKeyInset;
+        for (const MotionKey& key : track.keys) {
+            const float x = xAt(key.time);
+            draw->AddRectFilled({ x - kKeyMarkHalfWidth, origin.y + inset }, { x + kKeyMarkHalfWidth, end.y - inset },
+                selectedTrack ? kSelectedKeyColor : kOtherKeyColor);
         }
     }
     draw->AddLine({ xAt(time_), origin.y }, { xAt(time_), end.y }, kCursorColor, kMarkerThickness);
@@ -267,11 +396,14 @@ void ComboMotionEditor::DrawTimeline(const MeleeAttackDef& attack, const MotionC
 }
 
 /** @brief ボーンの一覧を描く */
-void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip* clip) {
+void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip& clip) {
 #ifdef USE_IMGUI
     constexpr float kBoneListHeight = 160.0f;
     ImGui::SeparatorText("ボーン");
     ImGui::Checkbox("指の骨も出す", &showFingers_);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::InputTextWithHint("##boneFilter", "ボーンを探す", boneFilter_, sizeof(boneFilter_));
     if (ImGui::BeginListBox("##bones", { -FLT_MIN, kBoneListHeight })) {
         const auto& skeleton = player.GetRigSkeleton();
         for (size_t jointIndex = 0; jointIndex < skeleton.GetJointCount(); ++jointIndex) {
@@ -279,7 +411,10 @@ void ComboMotionEditor::DrawBoneList(const Player& player, const MotionClip* cli
             if (!showFingers_ && IsFingerBone(joint.name)) {
                 continue;
             }
-            const bool hasTrack = (clip != nullptr && clip->FindTrack(joint.name) != nullptr);
+            if (!editorUI::ContainsIgnoreCase(joint.name, boneFilter_)) {
+                continue;
+            }
+            const bool hasTrack = clip.FindTrack(joint.name) != nullptr;
             const std::string label = (hasTrack ? "* " : "  ") + joint.name;
             if (ImGui::Selectable(label.c_str(), selectedBone_ == joint.name)) {
                 selectedBone_ = joint.name;
@@ -309,27 +444,49 @@ void ComboMotionEditor::DrawKeyEditor(MotionClip& clip) {
         : (track != nullptr ? track->EvaluateEuler(time_) : Vector3 { });
 
     ImGui::Text("%s  /  時刻 %.2f", selectedBone_.c_str(), time_);
-    if (ImGui::DragFloat3("角度 (度)", &angle.x, kAngleDragSpeed, -kMaxAngle, kMaxAngle)) {
+    const bool angleChanged = ImGui::DragFloat3("角度 (度)", &angle.x, kAngleDragSpeed, -kMaxAngle, kMaxAngle);
+    // 掴んでから離すまでを1回分の履歴にする
+    EditorHistory<MotionClip>& history = CurrentHistory();
+    if (ImGui::IsItemActivated()) {
+        history.Begin(clip);
+    }
+    if (angleChanged) {
         // 動かした時点でこの時刻にキーを打つ（トラックが無ければ始端・終端が無回転のトラックを作る）
         clip.SetBoneKey(selectedBone_, time_, angle, kKeySnap);
+        history.MarkChanged();
+        dirty_ = true;
         playing_ = false;
     }
+    if (ImGui::IsItemDeactivated()) {
+        history.Commit();
+    }
+    // SetBoneKey でトラックが作られた時に古いポインタを使わないよう引き直す
+    track = clip.FindTrack(selectedBone_);
+    keyHere = (track != nullptr) ? track->FindKey(time_, kKeySnap) : nullptr;
     ImGui::TextDisabled(keyHere != nullptr ? "この時刻のキーを編集中" : "動かすとこの時刻に新しいキーが打たれます");
 
     // キーの削除（今の時刻のキーだけ・このボーン全部）
     if (track == nullptr) {
         return;
     }
-    if (keyHere != nullptr && ImGui::Button("この時刻のキーを消す")) {
-        track->RemoveKey(time_, kKeySnap);
+    if (keyHere != nullptr) {
+        if (ImGui::Button("この時刻のキーを消す")) {
+            history.Record(clip);
+            track->RemoveKey(time_, kKeySnap);
+            dirty_ = true;
+        }
+        ImGui::SameLine();
     }
-    ImGui::SameLine();
-    if (ImGui::Button("このボーンのキーを全部消す")) {
+    if (editorUI::ConfirmButton("このボーンのキーを全部消す", "このボーンのキーをすべて消しますか？\nCtrl+Z で元に戻せます。")) {
+        history.Record(clip);
         clip.RemoveTrack(selectedBone_);
+        dirty_ = true;
         return;
     }
 
-    // キーの一覧（押すとその時刻へ移動する）
+    // キーの一覧（押すとその時刻へ移動する）。下へ伸びすぎないよう枠の中でスクロールする
+    constexpr float kKeyListHeight = 130.0f;
+    ImGui::BeginChild("##keyList", { 0.0f, kKeyListHeight }, ImGuiChildFlags_Borders);
     for (size_t i = 0; i < track->keys.size(); ++i) {
         const MotionKey& key = track->keys[i];
         char label[kKeyLabelSize];
@@ -340,25 +497,44 @@ void ComboMotionEditor::DrawKeyEditor(MotionClip& clip) {
             playing_ = false;
         }
     }
+    ImGui::EndChild();
 #else
     (void)clip;
 #endif
+}
+
+/** @brief 全クリップをファイルへ保存し、結果を表示する */
+void ComboMotionEditor::SaveClips() {
+    if (ComboMotionLibrary::GetInstance()->Save()) {
+        dirty_ = false;
+        status_ = "Resources/Config/combo_motion.json に保存しました";
+    } else {
+        status_ = "保存に失敗しました（ファイルが書き込めるか確認してください）";
+    }
 }
 
 /** @brief 保存・読み直しなどのファイル操作を描く */
 void ComboMotionEditor::DrawFileControls() {
 #ifdef USE_IMGUI
     ImGui::Separator();
-    if (ImGui::Button("保存")) {
-        status_ = ComboMotionLibrary::GetInstance()->Save()
-            ? "Resources/Config/combo_motion.json に保存しました"
-            : "保存に失敗しました（ファイルが書き込めるか確認してください）";
+    if (ImGui::Button("保存 (Ctrl+S)") || editorUI::CtrlShortcut(ImGuiKey_S, true)) {
+        SaveClips();
     }
     ImGui::SameLine();
-    if (ImGui::Button("読み直し")) {
-        status_ = ComboMotionLibrary::GetInstance()->Load()
-            ? "読み直しました（保存していない変更は消えました）"
-            : "読み直せませんでした（ファイルが無いか形が違うため、今のデータを残しています）";
+    // 未保存の変更がある時は確認を挟む
+    const char* const reloadLabel = "読み直し";
+    if (dirty_ ? editorUI::ConfirmButton(reloadLabel, "保存していない変更と履歴を捨てて読み直しますか？", "読み直す") : ImGui::Button(reloadLabel)) {
+        if (ComboMotionLibrary::GetInstance()->Load()) {
+            // 読み直した後は前の内容へ戻せないので履歴も消す
+            histories_.clear();
+            dirty_ = false;
+            status_ = "読み直しました（保存していない変更は消えました）";
+        } else {
+            status_ = "読み直せませんでした（ファイルが無いか形が違うため、今のデータを残しています）";
+        }
+    }
+    if (dirty_) {
+        editorUI::DrawUnsavedMark();
     }
     if (!status_.empty()) {
         ImGui::TextDisabled("%s", status_.c_str());

@@ -27,12 +27,12 @@ struct ContinueData {
 
     int32_t hp = 0; ///< 保存時点のHP
     int32_t maxHp = 0; ///< 保存時点の最大HP
-    int32_t gold = 0; ///< 保存時点のゴールド
     int32_t score = 0; ///< 保存時点のスコア
     int32_t floor = 0; ///< 保存時点のフロア番号
 
     RunData::NodeType currentNode = RunData::NodeType::kCombat; ///< 保存時点のノード種別
     std::vector<RunData::Skill> skills; ///< 習得済みスキル一覧
+    std::vector<RunData::StageRecord> stageRecords; ///< クリア済みステージの戦績
 };
 
 /** @brief タイトル画面等で参照する通算記録 */
@@ -40,7 +40,6 @@ struct SaveRecords {
     int32_t bestFloorReached = 0; ///< 過去最高到達フロア
     int32_t totalRuns = 0; ///< 累計プレイ回数
     int32_t totalClears = 0; ///< 累計クリア回数
-    int64_t totalGoldEarned = 0; ///< 累計獲得ゴールド
 };
 
 /**
@@ -84,9 +83,8 @@ public:
      * @brief ラン終了結果を通算記録へ反映する
      * @param cleared     ボスを撃破してクリアしたか
      * @param floorReached 到達したフロア番号
-     * @param goldEarned   そのランで獲得したゴールド
      */
-    void RecordRunResult(bool cleared, int floorReached, int goldEarned);
+    void RecordRunResult(bool cleared, int floorReached);
 
     /** @brief 表示用の通算記録を独立した値として取得する */
     SaveRecords GetRecordSnapshot() const {

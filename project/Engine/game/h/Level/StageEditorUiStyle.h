@@ -74,7 +74,14 @@ inline constexpr float kOverlapEpsilon = 0.01f;
 
 // ビューポートでの選択・ドラッグ
 inline constexpr float kZDragPerPixel = 0.0015f; // Shift+ドラッグのZ移動。マウス垂直1pxあたりの移動量（カメラ距離1.0・720p基準）
-inline constexpr float kPickRadiusPx = 40.0f; // クリックで選ぶ最大の距離（画面px）。これより遠いものは選ばない
+inline constexpr float kPickRadiusPx = 24.0f; // クリックで選ぶ最大の距離（画面px）。これより遠いものは選ばない
+inline constexpr float kPickMarkerPriorityPx = 12.0f; // 印までこの距離以内なら、モデル外形で当たった物より優先して選ぶ
+inline constexpr float kDragStartThresholdPx = 4.0f; // 押してからこの距離を超えるまでは動かさない（クリックだけで物がずれるのを防ぐ）
+
+// パネルの幅を変えるつまみ
+inline constexpr float kPanelSplitterWidth = 6.0f;
+inline constexpr float kPanelMinWidth = 180.0f;
+inline constexpr float kPanelMaxWidthRatio = 0.35f; // 画面の幅に対する列の幅の上限
 
 // 配置物の印（ワールド単位）
 inline constexpr float kSpawnMarkerHalf = 0.4f; // spawn_pointを示す赤い枠の半径

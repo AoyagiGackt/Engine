@@ -31,7 +31,12 @@
     "healerCastSeconds": 0.5,
     "healerRange": 7,
     "healerAmount": 4,
-    "corpseFootOffset": 0.1
+    "corpseFootOffset": 0.1,
+    "climbSpeed": 0.06,
+    "climbMaxHeight": 4,
+    "climbChaseHeight": 1.2,
+    "climbChaseStopDistance": 0.3,
+    "stepUpHeight": 0.35
   },
   "knight": {
     "maxHp": 3,
@@ -72,7 +77,9 @@
       "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Slime.obj",
       "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SlimePalette.png",
       "scale": 0.47,
-      "yawOffset": -1.5707963267948966
+      "yawOffset": -1.5707963267948966,
+      "bodyHalfWidth": 0.6,
+      "bodyHeight": 0.95
     },
     "Bat": {
       "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Bat_Palette.obj",
@@ -84,13 +91,16 @@
       "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Dragon_Palette.obj",
       "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/DragonPalette.png",
       "scale": 0.38,
-      "yawOffset": 0
+      "yawOffset": 0,
+      "bodyHalfWidth": 0.8,
+      "bodyHeight": 1.4
     },
     "Skeleton": {
       "model": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/Skeleton_Palette.obj",
       "texture": "Resources/AnimatedMonsterPackby@Quaternius/OBJ/SkeletonPalette.png",
       "scale": 0.215,
-      "yawOffset": 0
+      "yawOffset": 0,
+      "bodyHeight": 1.1
     }
   }
 }

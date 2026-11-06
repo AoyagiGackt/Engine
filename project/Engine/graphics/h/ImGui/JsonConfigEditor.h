@@ -56,6 +56,10 @@ private:
         nlohmann::json saved; ///< 最後に読み込んだ・保存した内容（元に戻す用）
         bool loaded = false;
         bool dirty = false;
+        std::vector<nlohmann::json> undoStack; ///< 元に戻す履歴（ドラッグや文字入力は離した時に1回分になる）
+        std::vector<nlohmann::json> redoStack; ///< やり直す履歴
+        nlohmann::json undoBase; ///< 最後に履歴へ確定した時点の内容
+        bool pendingEdit = false; ///< 履歴へまだ確定していない変更があるか
     };
 
     /** @brief フォルダを調べてファイルの一覧を作り直す（開いている内容は残す） */
@@ -64,6 +68,12 @@ private:
     void ScanAssets();
     void LoadEntry(FileEntry& entry);
     void SaveEntry(FileEntry& entry);
+    /** @brief 操作中の項目が無くなったら、溜めていた変更を1回分の履歴として確定する */
+    void CommitPendingEdit(FileEntry& entry);
+    /** @brief 片方の履歴の最新の内容へ移り、今の内容をもう片方の履歴へ積む（元に戻す・やり直すの共通処理） */
+    void StepHistory(FileEntry& entry, std::vector<nlohmann::json>& source, std::vector<nlohmann::json>& destination);
+    /** @brief 保存・履歴・読み直しのボタンと、そのショートカットを処理する */
+    void DrawFileToolbar(FileEntry& entry);
 
     void DrawFileList();
     void DrawFileContents(FileEntry& entry);
@@ -81,6 +91,8 @@ private:
     /** @brief 項目名を左側に出し、続く編集部品を右側に置く準備をする */
     void BeginRow(const std::string& label, const std::string& path);
 
+    /** @brief 項目自身の名前かキーが検索語に当てはまるか */
+    bool OwnNameMatches(const std::string& path, const std::string& key) const;
     /** @brief 検索語に当てはまる項目を含むか（入れ子の中も調べる） */
     bool MatchesFilter(const nlohmann::json& value, const std::string& path, const std::string& key) const;
     /** @brief 名前の表から表示名を引く（無ければキー） */
@@ -102,6 +114,8 @@ private:
     int selected_ = 0;
     char filter_[128] = {};
     char assetFilter_[128] = {};
+    int filterMatchedAncestors_ = 0; ///< 検索語に当てはまった親の数（親が当たれば中身はすべて表示する）
+    std::string status_; ///< 保存に失敗した時などの表示
     bool open_ = false;
 };
 

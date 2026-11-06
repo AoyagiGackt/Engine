@@ -33,6 +33,7 @@
 #include <unordered_set>
 #ifdef USE_IMGUI
 #include "EditorUI.h"
+#include "UILayout.h"
 #include <commdlg.h>
 #include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
@@ -85,10 +86,26 @@ void StageEditor::ApplySnapshot(const LevelSnapshot& snap) {
     flagGraphs_ = snap.flagGraphs;
     strncpy_s(graphPathBuffer_, graphPath_.c_str(), _TRUNCATE);
 
-    // 戻した後は消えた配置物を指さないよう選択とドラッグを解除する
-    selKind_ = SelKind::kNone;
-    selIndex_ = -1;
-    viewportDragging_ = false;
+    // 画面UIの位置も戻す
+    for (const UIPositionRecord& record : snap.uiPositions) {
+        if (record.layout) {
+            record.layout->SetPosition(record.index, { record.x, record.y });
+        }
+    }
+
+    // 戻した後も残っている物の選択は保ち、消えた物を指さないよう外す。ドラッグは解除する
+    const int objectCount = static_cast<int>(objects_.size());
+    selectedObjectIndices_.erase(std::remove_if(selectedObjectIndices_.begin(), selectedObjectIndices_.end(),
+        [objectCount](int index) {
+            return index < 0 || index >= objectCount;
+        }), selectedObjectIndices_.end());
+    Vector3 selectedPosition;
+    if (!SelectionKindOf(selKind_).WorldPosition(*this, selIndex_, selectedPosition)) {
+        selKind_ = SelKind::kNone;
+        selIndex_ = -1;
+        selectedObjectIndices_.clear();
+    }
+    ResetViewportDragState();
 }
 
 /** @brief 現在の状態を即座にUndoスタックへ積む（追加/削除など単発で完結する変更の直前に呼ぶ） */
