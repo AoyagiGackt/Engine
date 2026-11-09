@@ -260,6 +260,10 @@ public:
     /// @note 空振りでは溜まらないよう、振った瞬間ではなく命中確定フレームで呼ぶこと
     /// @param amount 加算量（skillMods_.gaugeChargeMult 込みで計算される）
     void ChargeAwakenGauge(float amount);
+    /** @brief オートコンボを設定に関係なく一時的に止める（コンボ練習の間など。保存している設定は変えない） */
+    void SetAutoComboSuppressed(bool suppressed) {
+        autoComboSuppressed_ = suppressed;
+    }
 
     // スタイル技フラグ（その1フレームだけ true）
     /** @brief このフレームにコンボの攻撃が当たったかを返す */
@@ -537,6 +541,7 @@ private:
     // 近接コンボ（武器タイプ別の段・タイミング・スイングは MeleeCombo.cpp のテーブルが持つ）
     MeleeComboController meleeCombo_;
     AutoComboAssist autoCombo_; ///< オプションのオートコンボ（GameSettings::autoComboを毎フレーム反映）
+    bool autoComboSuppressed_ = false; ///< true の間はオートコンボを設定に関係なく止める（コンボ練習中）
     /// 段ごとの加算モーション（両リグの SkinnedObject3d が参照するので、リグより先に宣言して長く生存させる）
     ComboMotionLayer motionLayer_;
     /** @brief 今の段と経過割合を加算モーションのレイヤーへ渡す（リグを評価する直前に呼ぶ） */
