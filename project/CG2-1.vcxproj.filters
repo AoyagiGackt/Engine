@@ -13,6 +13,10 @@
     <Filter Include="Shader\object3d"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a01}</UniqueIdentifier></Filter>
     <Filter Include="Shader\Particle"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a02}</UniqueIdentifier></Filter>
     <Filter Include="Shader\cylinder"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a03}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\deferred"><UniqueIdentifier>{96340779-c742-438a-bdbe-737018a3d748}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\instance"><UniqueIdentifier>{e9185164-f31a-4317-8f7c-258b3be926f9}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\outline"><UniqueIdentifier>{a256968f-bfe8-4078-8eb3-c23f2f95705c}</UniqueIdentifier></Filter>
+    <Filter Include="Shader\sprite"><UniqueIdentifier>{c8d64c76-2c65-4f35-910e-c0a12cf22bd0}</UniqueIdentifier></Filter>
     <Filter Include="Shader\postprocess"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a04}</UniqueIdentifier></Filter>
     <Filter Include="Shader\ring"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a05}</UniqueIdentifier></Filter>
     <Filter Include="Shader\meshslice"><UniqueIdentifier>{cb9d3977-0575-4ad9-9c56-d194317d0a06}</UniqueIdentifier></Filter>
@@ -1583,6 +1587,48 @@
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\DepthOutlinePS.hlsl">
       <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\deferred\DeferredLightingPS.hlsl">
+      <Filter>Shader\deferred</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\deferred\GBufferPS.hlsl">
+      <Filter>Shader\deferred</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\diagnostics\OverlayDrawPS.hlsl">
+      <Filter>Shader\diagnostics</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\diagnostics\OverlayDrawVS.hlsl">
+      <Filter>Shader\diagnostics</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\instance\InstanceVS.hlsl">
+      <Filter>Shader\instance</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\outline\OutlinePS.hlsl">
+      <Filter>Shader\outline</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\outline\OutlineVS.hlsl">
+      <Filter>Shader\outline</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\ChromaticAberrationPS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\GlassShatterPS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\MotionBlurPS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\TAAPS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\TonemapPS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\postprocess\WaterSurfacePS.hlsl">
+      <Filter>Shader\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\shaders\sprite\SpritePS.hlsl">
+      <Filter>Shader\sprite</Filter>
     </FxCompile>
     <FxCompile Include="Resources\shaders\postprocess\RadialBlurPS.hlsl">
       <Filter>Shader\postprocess</Filter>
