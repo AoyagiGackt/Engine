@@ -32,6 +32,7 @@ constexpr float kCameraFastMultiplier = 3.0f; // Shiftを押している間の�
 constexpr float kPanPerPixelPerDepth = 0.00064f; // ゲーム画面1px・奥行き1あたりの平行移動量（掴んだ地面が指に付いてくる速さ）
 constexpr float kWheelMinStep = 0.5f; // ホイール1回で動く最小の距離
 constexpr float kWheelStepPerDistance = 0.12f; // ホイール1回で動く、カメラと地面の距離に対する割合
+constexpr float kWheelMinDistance = 1.0f; // ホイールで地面へ寄れる限界の距離（これ以上は寄らない）
 constexpr float kMinUnprojectW = 1e-8f; // 逆投影の w がこれより小さい時は0除算を避けてこの値にする
 constexpr float kMinDepthDelta = 1e-6f; // 手前と奥の点の奥行きの差がこれより小さければ平面と交わらないとみなす
 }
@@ -147,7 +148,11 @@ void StageEditorViewport::ZoomAtCursor(float wheel, float mouseX, float mouseY) 
         return;
     }
     Vector3 position = camera_->GetTranslate();
-    const float step = (std::max)(kWheelMinStep, std::abs(position.z) * kWheelStepPerDistance) * wheel;
+    float step = (std::max)(kWheelMinStep, std::abs(position.z) * kWheelStepPerDistance) * wheel;
+    // 寄る時は地面を突き抜けないよう手前で止める（カメラは z の負の側にある）
+    if (step > 0.0f && position.z < 0.0f) {
+        step = (std::min)(step, (std::max)(-position.z - kWheelMinDistance, 0.0f));
+    }
     // カーソルの下の地面へ向かう線に沿って動かすと、その点が画面上で動かない
     Vector3 ground;
     if (std::abs(position.z) > std::abs(step) && ScreenToGround(mouseX, mouseY, ground)) {

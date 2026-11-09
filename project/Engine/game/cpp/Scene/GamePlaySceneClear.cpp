@@ -16,6 +16,9 @@
 
 namespace engine::game {
 namespace {
+constexpr int kNoPickups = 0; // 収集物の個数の初期値（置かれていないレベルはこのまま）
+constexpr int kNoPickupBonus = 0; // 全回収していない時のボーナス
+
 // 確認用のクリアで、次に銃の演出を見せるか（剣と銃を交互に見せる。シーンが作り直されても順番を覚えておく）
 bool sNextDebugClearByGun = false;
 }
@@ -82,6 +85,12 @@ bool GamePlayScene::IsSandboxClear() const {
 void GamePlayScene::RecordRunClear(bool apply) {
     // 結果画面に出す値は確認用の再生でも求める
     lastScore_ = GameRules::GetInstance()->ScoreForRank(RunData::CalcRank(peakStyle_));
+    lastPickupCollected_ = kNoPickups;
+    lastPickupTotal_ = kNoPickups;
+    GetStageEditor().GetPickupCounts(lastPickupCollected_, lastPickupTotal_);
+    lastPickupBonus_ = lastPickupTotal_ > kNoPickups && lastPickupCollected_ >= lastPickupTotal_
+        ? GameRules::GetInstance()->Get().allPickupsBonus : kNoPickupBonus;
+    lastScore_ += lastPickupBonus_;
     if (!apply) {
         return;
     }

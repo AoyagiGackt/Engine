@@ -3,6 +3,7 @@
  * @brief ID から敵を引ける登録簿（EnemyRegistry）の実装
  */
 #include "EnemyRegistry.h"
+#include "EnemyEntity.h"
 
 namespace engine::game {
 /** @brief 唯一のEnemyRegistryインスタンスを取得する（未生成なら生成する） */
@@ -27,6 +28,15 @@ EnemyEntity* EnemyRegistry::Find(const std::string& id) const {
     return (it != enemies_.end()) ? it->second : nullptr;
 }
 
+/** @brief 登録中の敵に、まだ倒されていない敵がいるか（出現前の敵は数えない） */
+bool EnemyRegistry::AnyAlive() const {
+    for (const auto& [id, enemy] : enemies_) {
+        if (enemy != nullptr && !enemy->IsDefeated()) {
+            return true;
+        }
+    }
+    return false;
+}
 /** @brief 全登録を消去する（シーン遷移時などに使う想定） */
 void EnemyRegistry::Clear() {
     enemies_.clear();

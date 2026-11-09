@@ -76,7 +76,9 @@ void GraphEditor::DrawAddNodeMenu() {
 
         // メニュー項目を出し、マウスを乗せたら説明、押したらそのノードを追加する
         auto drawItem = [&](const std::string& type) {
-            bool clicked = ImGui::MenuItem(type.c_str());
+            // 日本語名で並べ、右に type 名を薄く添える
+            const std::string label = GraphNodeLabels::TypeName(type) + "##" + type;
+            bool clicked = ImGui::MenuItem(label.c_str(), type.c_str());
             if (ImGui::IsItemHovered()) {
                 // 説明が登録されているノードだけツールチップを出す
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
@@ -98,6 +100,7 @@ void GraphEditor::DrawAddNodeMenu() {
                 // 大文字小文字を区別せずに比べる（説明の無いノードは名前だけで判定）
                 const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(type);
                 bool match = editorUI::ContainsIgnoreCase(type, query)
+                    || editorUI::ContainsIgnoreCase(GraphNodeLabels::TypeName(type), query)
                     || (spec && (editorUI::ContainsIgnoreCase(spec->category, query) || editorUI::ContainsIgnoreCase(spec->description, query)));
                 if (match) {
                     // 検索欄でEnterを押したら先頭の候補を追加して閉じる
@@ -279,12 +282,8 @@ void GraphEditor::BeginNodePress(const std::string& id) {
     const ImGuiIO& io = ImGui::GetIO();
     const bool additive = io.KeyCtrl || io.KeyShift;
     selectedCommentId_.clear();
-    if (additive && IsNodeSelected(id)) {
-        // 追加選択中に選択済みのノードを押したら選択から外す
-        selectedNodeIds_.erase(id);
-        SyncSelection();
-        return;
-    }
+    // 追加選択中に選択済みのノードを押した時は、動かさずに離した時だけ選択から外す（Ctrl+ドラッグで格子に揃えて動かせるように）
+    const bool deselectOnRelease = additive && IsNodeSelected(id);
     if (additive) {
         selectedNodeIds_.insert(id);
         selectedNodeId_ = id;
@@ -296,6 +295,7 @@ void GraphEditor::BeginNodePress(const std::string& id) {
     drag_.kind = CanvasDragKind::kNodes;
     drag_.startMouseGraph = ScreenToGraph(io.MousePos);
     drag_.pressedNodeId = additive ? std::string() : id;
+    drag_.deselectOnRelease = deselectOnRelease ? id : std::string();
     for (const std::string& selectedId : selectedNodeIds_) {
         if (const GraphNode* node = graph_.FindNode(selectedId)) {
             drag_.nodeStarts[selectedId] = ImVec2(node->editorX, node->editorY);
@@ -347,6 +347,9 @@ void GraphEditor::UpdateNodeDrag() {
         // 動かさずに離したら、複数選択の中の1つを押した時はそのノードだけの選択に絞る
         if (drag_.moved) {
             CommitUndoCapture();
+        } else if (!drag_.deselectOnRelease.empty()) {
+            selectedNodeIds_.erase(drag_.deselectOnRelease);
+            SyncSelection();
         } else if (!drag_.pressedNodeId.empty()) {
             SelectOnlyNode(drag_.pressedNodeId);
         }
@@ -487,7 +490,9 @@ void GraphEditor::UpdateHoverCursor(const CanvasFrameState& state) {
 /** @brief 右クリックメニュー・Delete・全体表示などの操作を処理する */
 void GraphEditor::HandleCanvasShortcuts(const CanvasFrameState& state) {
     // 右クリックはカーソルの下の物で分ける（ピンの配線解除は UpdatePinInteraction で処理済み）
-    if (state.canvasHovered && state.hoveredPin == nullptr && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+    // ドラッグや配線の途中はメニューを開かない
+    const bool busy = drag_.kind != CanvasDragKind::kNone || linking_ || dataLinking_;
+    if (!busy && state.canvasHovered && state.hoveredPin == nullptr && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         if (state.hoveredLink) {
             DisconnectPin(*state.hoveredLink);
         } else if (!state.hoveredNodeId.empty()) {
@@ -509,7 +514,7 @@ void GraphEditor::HandleCanvasShortcuts(const CanvasFrameState& state) {
     DrawNodeContextMenu();
 
     // 文字入力中とメニュー表示中は単独キーを奪わない
-    if (ImGui::GetIO().WantTextInput || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup)) {
+    if (busy || ImGui::GetIO().WantTextInput || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup)) {
         return;
     }
     // Deleteキーで選択中のノード／コメントを削除

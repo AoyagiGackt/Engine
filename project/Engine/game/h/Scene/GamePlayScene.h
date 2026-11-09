@@ -226,8 +226,14 @@ private:
     void ApplyWeaponAcquireResult(WeaponManager::AcquireResult result);
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
     void UpdateExplosiveBarrels();
-    /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
+    /** @brief 左上にステージ名の見出しを描画する */
     void DrawWeaponListPanel();
+    /** @brief ノードグラフの ShowMessage で出した文字を画面中央に描画し、残り時間を減らす */
+    void DrawScriptMessage();
+    /** @brief ノードグラフのメッセージ・カメラ・操作停止の受け口を登録する */
+    void RegisterScriptEffectHandlers();
+    /** @brief ノードグラフで操作を止めている間は、ポーズ以外の操作を押していない扱いにする */
+    void ApplyScriptControlLock();
     /** @brief ボス・道中の武器敵の頭上HPバーの位置と色を更新する（BattleTestSceneのダミーHPバーと同じ体裁） */
     void UpdateEnemyHpBars();
     /** @brief 左下のプレイヤーHPゲージの位置と色を更新する */
@@ -650,6 +656,14 @@ private:
 
     bool showResult_ = false; ///< フロアクリアの結果（スコア・セーブ）を反映し終えたか
     int lastScore_ = 0; ///< 直近のフロアクリアで加算したスコア（結果表示用）
+    int lastPickupBonus_ = 0; ///< 直近のクリアで加えたエネルギーコア全回収のボーナス（結果表示用。無ければ0）
+    int lastPickupCollected_ = 0; ///< 直近のクリアまでに集めたエネルギーコアの数（結果表示用）
+    int lastPickupTotal_ = 0; ///< 直近のクリアしたステージに置かれたエネルギーコアの数（0なら結果に出さない）
+    std::wstring scriptMessage_; ///< ShowMessage ノードが出した文字
+    float scriptMessageSeconds_ = 0.0f; ///< その文字を出しておく残り秒数
+    Vector3 scriptCameraFocus_ = {}; ///< FocusCamera ノードが向けた先
+    float scriptCameraFocusSeconds_ = 0.0f; ///< カメラを向けておく残り秒数（0ならプレイヤーを追う）
+    bool scriptControlLocked_ = false; ///< LockPlayerControl ノードで操作を止めているか
 
     FontRenderer fontRenderer_;
     CameraShaker cameraShaker_;

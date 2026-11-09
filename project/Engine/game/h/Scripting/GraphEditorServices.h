@@ -28,6 +28,20 @@ bool ClearExecLinksTo(GraphDesc& graph, const std::string& nodeId);
 /** @brief 指定ノードを供給元にするデータ配線をすべて外す（外した物があれば true） */
 bool ClearDataLinksFrom(GraphDesc& graph, const std::string& nodeId);
 
+/**
+ * @brief ノード名とパラメータ名の日本語表示を引く（Resources/Config/UI/node_labels.json）
+ * @details 表示だけを置き換え、グラフJSONに保存する type 名とパラメータ名は変えない。表に無いものは元の名前を返す
+ */
+class GraphNodeLabels {
+public:
+    /** @brief ノード種別の表示名を返す */
+    static std::string TypeName(const std::string& type);
+    /** @brief ノードのパラメータの表示名を返す */
+    static std::string ParamName(const std::string& type, const std::string& param);
+    /** @brief 表を読み直す（JSONを書き換えた後にエディタから呼ぶ） */
+    static void Reload();
+};
+
 class GraphEditor;
 struct GraphNode;
 enum class GraphValueType;

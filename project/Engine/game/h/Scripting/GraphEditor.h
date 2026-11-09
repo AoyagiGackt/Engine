@@ -125,6 +125,7 @@ private:
         ImVec2 startMouseGraph = { 0.0f, 0.0f }; ///< 押した時のマウス位置（グラフ座標）
         std::map<std::string, ImVec2> nodeStarts; ///< 動かすノードの開始位置
         std::string pressedNodeId; ///< 動かさずに離したら単独選択に絞るノード
+        std::string deselectOnRelease; ///< 動かさずに離したら選択から外すノード
         std::string commentId; ///< 操作中のコメント
         ImVec2 commentStart = { 0.0f, 0.0f }; ///< コメントの開始位置または開始サイズ
         std::set<std::string> baseSelection; ///< 範囲選択を始める前からの選択

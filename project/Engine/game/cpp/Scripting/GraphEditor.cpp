@@ -213,7 +213,8 @@ void GraphEditor::RemoveNode(const std::string& id) {
 
 /** @brief 選択中のノードをまとめて1回の操作として削除する */
 void GraphEditor::DeleteSelectedNodes() {
-    if (selectedNodeIds_.empty()) {
+    // ドラッグの途中は履歴の順番が崩れるので受け付けない
+    if (selectedNodeIds_.empty() || drag_.kind != CanvasDragKind::kNone) {
         return;
     }
     RecordUndoSnapshotNow();
@@ -225,7 +226,8 @@ void GraphEditor::DeleteSelectedNodes() {
 
 /** @brief 選択中のノードを複製する（選択の中どうしの配線は複製先へつなぎ替える） */
 void GraphEditor::DuplicateSelectedNodes() {
-    if (selectedNodeIds_.empty()) {
+    // ドラッグの途中は履歴の順番が崩れるので受け付けない
+    if (selectedNodeIds_.empty() || drag_.kind != CanvasDragKind::kNone) {
         return;
     }
     RecordUndoSnapshotNow();

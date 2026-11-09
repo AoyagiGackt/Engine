@@ -38,6 +38,7 @@ constexpr JsonField<GameRulesData> kFields[] = {
     { nullptr, "bossTechnique", &GameRulesData::bossTechnique },
     { nullptr, "bossTechniqueRadiusMult", &GameRulesData::bossTechniqueRadiusMult },
     { nullptr, "bossTechniqueBonusDamage", &GameRulesData::bossTechniqueBonusDamage },
+    { nullptr, "allPickupsBonus", &GameRulesData::allPickupsBonus },
 };
 }
 

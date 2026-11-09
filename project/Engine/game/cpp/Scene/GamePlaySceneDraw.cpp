@@ -56,6 +56,15 @@ constexpr Vector4 kRankColor = { 1.0f, 0.5f, 0.1f, 1.0f };
 constexpr Vector2 kScorePosition = { 500.0f, 410.0f };
 constexpr float kScoreScale = 2.5f;
 constexpr Vector4 kScoreColor = { 0.85f, 0.95f, 1.0f, 1.0f };
+// エネルギーコアの回収数の行（スコアの下。全部集めていない時は控えめな色）
+constexpr Vector2 kPickupCountPosition = { 500.0f, 480.0f };
+constexpr Vector4 kPickupCountColor = { 0.75f, 0.8f, 0.85f, 1.0f };
+// エネルギーコア全回収のボーナス行（回収数の下）
+constexpr Vector2 kPickupBonusPosition = { 500.0f, 515.0f };
+constexpr float kPickupBonusScale = 1.6f;
+constexpr Vector4 kPickupBonusColor = { 1.0f, 0.9f, 0.35f, 1.0f };
+constexpr int kNoPickupBonus = 0; // 全回収していない時のボーナス
+constexpr int kNoPickups = 0; // エネルギーコアが置かれていないステージの個数
 
 // フィニッシャーが当たる範囲（画面の端に体がかかった敵も入るよう、映る範囲より少し広げる）
 constexpr float kFinisherScreenMargin = 1.0f;
@@ -315,6 +324,18 @@ void GamePlayScene::DrawClearResultScreen(bool withRunResult) {
         char scoreBuf[textBufferCapacity::kShortText];
         snprintf(scoreBuf, sizeof(scoreBuf), "+%d pts", lastScore_);
         drawResultText(scoreBuf, "score", kScorePosition, kScoreScale, kScoreColor);
+        // エネルギーコアがあるステージでは集めた数を出し、全部集めていればボーナスも出す
+        if (lastPickupTotal_ > kNoPickups) {
+            char coreBuf[textBufferCapacity::kShortText];
+            snprintf(coreBuf, sizeof(coreBuf), "CORES %d / %d", lastPickupCollected_, lastPickupTotal_);
+            drawResultText(coreBuf, "pickup_count", kPickupCountPosition, kPickupBonusScale,
+                lastPickupBonus_ > kNoPickupBonus ? kPickupBonusColor : kPickupCountColor);
+        }
+        if (lastPickupBonus_ > kNoPickupBonus) {
+            char bonusBuf[textBufferCapacity::kShortText];
+            snprintf(bonusBuf, sizeof(bonusBuf), "ALL CORES BONUS +%d", lastPickupBonus_);
+            drawResultText(bonusBuf, "pickup_bonus", kPickupBonusPosition, kPickupBonusScale, kPickupBonusColor);
+        }
     }
     fontRenderer_.Draw();
 }

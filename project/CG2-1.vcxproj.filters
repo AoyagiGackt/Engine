@@ -775,6 +775,9 @@
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorLabels.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>

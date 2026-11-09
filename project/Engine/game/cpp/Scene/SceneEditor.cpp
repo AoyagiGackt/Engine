@@ -239,7 +239,8 @@ void SceneEditor::RenderHierarchy(const EditContext& ctx) {
             }
             if (selection_ == Selection::kUIElement) {
                 SaveUILayout();
-                savedTimer_ = kSavedMessageSeconds;
+                // 書き込めなかった時は未保存の表示を残し、保存した表示は出さない
+                savedTimer_ = uiDirty_ ? 0.0f : kSavedMessageSeconds;
             }
         }
         ImGui::EndDisabled();
@@ -580,6 +581,7 @@ void SceneEditor::UIElementState::RenderInspector(const EditContext& ctx, SceneE
     ImGui::SetNextItemWidth(-1);
     if (ImGui::InputText("##uiname", editor.uiNameBuffer_, sizeof(editor.uiNameBuffer_))) {
         entry.name = editor.uiNameBuffer_;
+        editor.uiDirty_ = true;
     }
     ImGui::Separator();
     // 位置・サイズ・回転・色を編集する（変わった値だけスプライトへ書き戻す）

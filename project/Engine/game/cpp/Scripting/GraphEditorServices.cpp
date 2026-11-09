@@ -9,6 +9,7 @@
 #include "GraphEditor.h"
 #include "GraphRuntime.h"
 #include "Input.h"
+#include "JsonHelper.h"
 #include "NodeRegistry.h"
 #include "TimeManager.h"
 #include <algorithm>
@@ -43,7 +44,54 @@ GraphWidgetEdit DrawValueWidget(const char* label, std::string& value) {
     }
     return { changed, false };
 }
+
+constexpr const char* kNodeLabelsPath = "Resources/Config/UI/node_labels.json";
+
+/** @brief 読み込み済みの表示名の表（最初に引いた時に読む） */
+nlohmann::json& NodeLabelTable() {
+    static nlohmann::json sTable = JsonHelper::Load(kNodeLabelsPath);
+    return sTable;
+}
+
+/** @brief ノード種別の項目を返す（無ければ null） */
+const nlohmann::json* FindTypeLabels(const std::string& type) {
+    const nlohmann::json& table = NodeLabelTable();
+    if (!table.is_object() || !table.contains("types") || !table["types"].is_object()) {
+        return nullptr;
+    }
+    const auto entry = table["types"].find(type);
+    return entry != table["types"].end() && entry->is_object() ? &*entry : nullptr;
+}
 } // namespace
+
+/** @brief ノード種別の表示名を返す（表に無ければ type 名のまま） */
+std::string GraphNodeLabels::TypeName(const std::string& type) {
+    const nlohmann::json* labels = FindTypeLabels(type);
+    if (labels == nullptr) {
+        return type;
+    }
+    const auto name = labels->find("name");
+    return name != labels->end() && name->is_string() ? name->get<std::string>() : type;
+}
+
+/** @brief ノードのパラメータの表示名を返す（表に無ければパラメータ名のまま） */
+std::string GraphNodeLabels::ParamName(const std::string& type, const std::string& param) {
+    const nlohmann::json* labels = FindTypeLabels(type);
+    if (labels == nullptr) {
+        return param;
+    }
+    const auto params = labels->find("params");
+    if (params == labels->end() || !params->is_object()) {
+        return param;
+    }
+    const auto name = params->find(param);
+    return name != params->end() && name->is_string() ? name->get<std::string>() : param;
+}
+
+/** @brief 表を読み直す */
+void GraphNodeLabels::Reload() {
+    NodeLabelTable() = JsonHelper::Load(kNodeLabelsPath);
+}
 
 /** @brief 型別の入力を共通の通知へまとめ、元の値を変更せず結果を返す */
 GraphValueEditResult DrawGraphValueInput(const char* label, const GraphValue& value) {
@@ -80,6 +128,8 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
     }
     if (editor.visible_ != wasVisible) {
         if (editor.visible_) {
+            // 開くたびに日本語の表示名を読み直す（node_labels.json の書き換えを再起動せずに見られる）
+            GraphNodeLabels::Reload();
             // 開いている間は背後のゲームを止める（TimeManager のタイムスケールを流用する）
             editor.savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
             TimeManager::GetInstance()->SetTimeScale(0.0f);
@@ -109,33 +159,34 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
         struct CtrlShortcut {
             ImGuiKey key;
             void (*action)(GraphEditor&);
+            bool repeats; ///< 押しっぱなしで繰り返すか
         };
         static constexpr CtrlShortcut kCtrlShortcuts[] = {
             {
                 ImGuiKey_Z, [](GraphEditor& e) {
                     e.Undo();
-                }
+                }, true
             },
             {
                 ImGuiKey_Y, [](GraphEditor& e) {
                     e.Redo();
-                }
+                }, true
             },
             // editor.DrawCanvas()のノード走査ループの外なので、ここでは直接複製してよい
             {
                 ImGuiKey_D, [](GraphEditor& e) {
                     e.DuplicateSelectedNodes();
-                }
+                }, false
             },
             {
                 ImGuiKey_A, [](GraphEditor& e) {
                     e.SelectAllNodes();
-                }
+                }, false
             },
         };
         if (ImGui::GetIO().KeyCtrl) {
             for (const CtrlShortcut& shortcut : kCtrlShortcuts) {
-                if (ImGui::IsKeyPressed(shortcut.key)) {
+                if (ImGui::IsKeyPressed(shortcut.key, shortcut.repeats)) {
                     shortcut.action(editor);
                     break; // 1フレームに実行するのは1つだけ
                 }
@@ -194,7 +245,8 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
             : nullptr;
         if (selected && selectedSpec && ImGui::CollapsingHeader("選択中ノードの説明", ImGuiTreeNodeFlags_DefaultOpen)) {
             // 種類名と分類、ノード全体の説明
-            ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
+            ImGui::Text("%s (%s)  %s", GraphNodeLabels::TypeName(selected->type).c_str(), selected->type.c_str(),
+                selectedSpec->category.c_str());
             ImGui::TextWrapped("%s", selectedSpec->description.c_str());
             /** @brief ノードのパラメーター名と編集時に表示する説明の対応 */
             struct ParamHelp {
@@ -221,6 +273,15 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
                 { "b", "計算や比較へ渡す入力値" },
                 { "loop", "ONなら停止するまで繰り返し再生する" },
                 { "visible", "ONなら表示し、OFFなら非表示にする" },
+                { "text", "画面に出す文字" },
+                { "scale", "ゲームを進める速さの倍率  1で通常" },
+                { "count", "くり返す回数  0ならずっと" },
+                { "interval", "次の回までの間隔  単位は秒" },
+                { "weapon", "武器の種類名  Sword Spear Hammer Dagger Ball Greatsword Scythe Axe" },
+                { "locked", "ONなら操作を止め、OFFなら戻す" },
+                { "width", "範囲の横幅  ワールド座標の単位" },
+                { "height", "範囲の高さ  ワールド座標の単位" },
+                { "condition", "真偽を決める入力  CompareやAndの出力をつなぐ" },
             };
             // パラメーター名から説明文を引く
             auto parameterHelp = [](const std::string& key) -> const char* {
@@ -233,7 +294,8 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
             };
             // 表に無いパラメーター名は汎用の説明を出す
             for (const NodeParamSpec& param : selectedSpec->params) {
-                ImGui::BulletText("%s  %s", param.key.c_str(), parameterHelp(param.key));
+                ImGui::BulletText("%s (%s)  %s", GraphNodeLabels::ParamName(selected->type, param.key).c_str(),
+                    param.key.c_str(), parameterHelp(param.key));
             }
             // 値を出力するノードかどうかで、次のノードへの渡し方の案内を変える
             ImGui::TextDisabled(selectedSpec->hasOutput
@@ -424,11 +486,15 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
 
     // タイトル（このボタン自体がドラッグハンドル兼用）
-    ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
+    // 表示は日本語名、マウスを乗せるとグラフJSONに書く type 名と説明を出す
+    const std::string title = GraphNodeLabels::TypeName(node.type) + "##title";
+    ImGui::Button(title.c_str(), ImVec2(nodeW, 0));
     if (ImGui::IsItemHovered()) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         if (spec && !spec->description.empty()) {
-            ImGui::SetTooltip("%s", spec->description.c_str());
+            ImGui::SetTooltip("%s\n%s", node.type.c_str(), spec->description.c_str());
+        } else {
+            ImGui::SetTooltip("%s", node.type.c_str());
         }
     }
     // タイトルを掴んだら選択して移動の準備をする（移動は全ノードを描いた後に UpdateNodeDrag で進める）

@@ -34,9 +34,10 @@ void Framework::Run() {
         assetPack->Finalize();
         return;
     }
+    isAssetBuildOnly_ = forceCook || prepareAssets;
     Initialize();
     // 素材準備専用の起動では、全シーンを収集してpakを書き出したら終了する。
-    if (forceCook || prepareAssets) {
+    if (isAssetBuildOnly_) {
         Finalize();
         return;
     }
@@ -58,7 +59,7 @@ void Framework::Run() {
 /** @brief システムの初期化 */
 void Framework::Initialize() {
     winApp_ = std::make_unique<WinApp>();
-    winApp_->Initialize();
+    winApp_->Initialize(!isAssetBuildOnly_);
 
     dxCommon_ = std::make_unique<DirectXCommon>();
     dxCommon_->Initialize(winApp_.get());

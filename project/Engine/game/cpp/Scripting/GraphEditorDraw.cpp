@@ -356,12 +356,14 @@ void GraphEditor::DrawNodeParams(ImDrawList* dl, const std::string& id, GraphNod
     for (auto& [key, val] : node.params) {
         ImGui::PushID(key.c_str());
         bool isLinked = node.paramLinks.count(key) > 0;
+        // 表示は日本語名にする（ImGui の識別子は PushID の key で区別しているので表示名が重なってもよい）
+        const std::string paramLabel = GraphNodeLabels::ParamName(node.type, key);
         if (isLinked) {
             // データ配線されているパラメータはリテラル編集を出さず、接続元を表示する
-            ImGui::TextDisabled("%s ← %s", key.c_str(), node.paramLinks[key].c_str());
+            ImGui::TextDisabled("%s ← %s", paramLabel.c_str(), node.paramLinks[key].c_str());
         } else {
             ImGui::SetNextItemWidth(nodeW);
-            GraphValueEditResult edit = DrawGraphValueInput(key.c_str(), val);
+            GraphValueEditResult edit = DrawGraphValueInput(paramLabel.c_str(), val);
             // チェック操作は1回、テキストと数値は入力開始から終了までを1回のUndoにする
             if (!edit.discrete && edit.activated) {
                 BeginUndoCapture();

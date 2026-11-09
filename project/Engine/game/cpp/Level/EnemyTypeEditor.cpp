@@ -289,7 +289,7 @@ void EnemyTypeEditor::DrawNewLookFields(EnemyTypeDef& type) {
     if (ImGui::Button("一覧を更新")) {
         ScanAssets();
     }
-    editorUI::HelpMarker("Resources フォルダにモデルや画像を置くと、数秒で候補に出ます");
+    editorUI::HelpMarker("Resources フォルダにモデルや画像を置いたら、このボタンで候補に出せます");
     ImGui::SameLine();
     const bool ready = newLook_.name[0] != '\0' && !newLook_.model.empty() && !newLook_.texture.empty();
     ImGui::BeginDisabled(!ready);

@@ -87,6 +87,17 @@ public:
         nodeOutputs_[nodeId] = std::move(value);
     }
 
+    /** @brief ノードの出力（または内部の状態）を読む。まだ無ければ nullptr */
+    const GraphValue* GetNodeOutput(const std::string& nodeId) const {
+        const auto it = nodeOutputs_.find(nodeId);
+        return it != nodeOutputs_.end() ? &it->second : nullptr;
+    }
+
+    /** @brief ノードの出力（または内部の状態）を消す */
+    void ClearNodeOutput(const std::string& nodeId) {
+        nodeOutputs_.erase(nodeId);
+    }
+
     /**
      * @brief パラメータの値を解決する
      * @note データ配線（paramLinks）があれば供給元ノードの出力値を優先し、

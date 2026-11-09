@@ -79,7 +79,7 @@ LRESULT CALLBACK WinApp::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 }
 
 /** @brief ウィンドウシステムの初期化 */
-void WinApp::Initialize() {
+void WinApp::Initialize(bool visible) {
     // DPI スケーリングを無効化して実ピクセルで描画する
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -126,8 +126,10 @@ void WinApp::Initialize() {
     // WindowProc（static関数）から自分自身を参照できるようにしておく（WM_SIZE等で使用）
     SetWindowLongPtrW(hwnd_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
-    // ウィンドウを表示する
-    ShowWindow(hwnd_, SW_NORMAL);
+    // ウィンドウを表示する（裏で素材を準備するだけの起動では出さない）
+    if (visible) {
+        ShowWindow(hwnd_, SW_NORMAL);
+    }
 
     // システムタイマーの分解能を上げる
     timeBeginPeriod(kTimerResolutionMs);

@@ -279,6 +279,7 @@
     <ClCompile Include="Engine\graphics\cpp\Effect\ImageFilter.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorLabels.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlPanel.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />

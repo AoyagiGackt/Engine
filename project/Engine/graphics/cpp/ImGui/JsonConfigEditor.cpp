@@ -12,6 +12,7 @@
 #include <cfloat>
 #include <filesystem>
 #include <imgui.h>
+#include <iterator>
 
 namespace engine::graphics {
 namespace {
@@ -136,6 +137,8 @@ void JsonConfigEditor::ScanConfigFiles() {
     }
     const nlohmann::json hidden = labels_.value("_hidden", nlohmann::json::array());
     const nlohmann::json titles = labels_.value("_files", nlohmann::json::object());
+    // 並びが変わっても同じファイルを選んだままにする
+    const std::string selectedFile = selected_ >= 0 && selected_ < static_cast<int>(files_.size()) ? files_[selected_].fileName : std::string();
     std::vector<FileEntry> scanned;
     for (const auto& item : std::filesystem::directory_iterator(configDirectory_, error)) {
         if (!item.is_regular_file() || ToLower(ToUtf8(item.path().extension())) != ".json") {
@@ -148,6 +151,7 @@ void JsonConfigEditor::ScanConfigFiles() {
         // 開いたことのあるファイルは編集中の内容を引き継ぐ
         const auto existing = std::find_if(files_.begin(), files_.end(), [&](const FileEntry& e) { return e.fileName == fileName; });
         if (existing != files_.end()) {
+            existing->title = titles.value(fileName, fileName);
             scanned.push_back(std::move(*existing));
             continue;
         }
@@ -167,6 +171,10 @@ void JsonConfigEditor::ScanConfigFiles() {
         return a.fileName < b.fileName;
     });
     files_ = std::move(scanned);
+    const auto reselected = std::find_if(files_.begin(), files_.end(), [&](const FileEntry& e) { return e.fileName == selectedFile; });
+    if (reselected != files_.end()) {
+        selected_ = static_cast<int>(std::distance(files_.begin(), reselected));
+    }
     selected_ = std::clamp(selected_, 0, (std::max)(static_cast<int>(files_.size()) - 1, 0));
 }
 
@@ -283,8 +291,8 @@ void JsonConfigEditor::Draw() {
 void JsonConfigEditor::DrawFileList() {
     ImGui::BeginChild("##files", ImVec2(kFileListWidth, 0.0f), ImGuiChildFlags_Borders);
     if (ImGui::Button("一覧を更新")) {
-        ScanConfigFiles();
         labels_ = JsonHelper::Load(labelsPath_);
+        ScanConfigFiles();
     }
     editorUI::HelpMarker("フォルダに足したJSONや、名前の表（tuning_labels.json）の変更を読み込み直します");
     ImGui::Separator();
@@ -634,63 +642,6 @@ bool JsonConfigEditor::MatchesFilter(const nlohmann::json& value, const std::str
         }
     }
     return false;
-}
-
-/** @brief 名前の表から表示名を引く（ファイルの表 → どのファイルでも使う表 → グループ名 → キーの順） */
-std::string JsonConfigEditor::LabelFor(const std::string& path, const std::string& key) const {
-    const auto file = labels_.find(currentFile_);
-    if (file != labels_.end() && file->is_object()) {
-        const auto entry = file->find(path);
-        if (entry != file->end() && entry->is_object() && entry->contains("name")) {
-            return entry->value("name", key);
-        }
-    }
-    for (const char* table : { "_keys", "_sections" }) {
-        const auto common = labels_.find(table);
-        if (common == labels_.end() || !common->is_object()) {
-            continue;
-        }
-        const auto entry = common->find(key);
-        if (entry == common->end()) {
-            continue;
-        }
-        if (entry->is_string()) {
-            return entry->get<std::string>();
-        }
-        if (entry->is_object() && entry->contains("name")) {
-            return entry->value("name", key);
-        }
-    }
-    return key;
-}
-
-/** @brief 名前の表から説明を引く */
-std::string JsonConfigEditor::HelpFor(const std::string& path) const {
-    const auto file = labels_.find(currentFile_);
-    if (file == labels_.end() || !file->is_object()) {
-        return {};
-    }
-    const auto entry = file->find(path);
-    return entry != file->end() && entry->is_object() ? entry->value("help", std::string()) : std::string();
-}
-
-/** @brief 名前の表から型（"int" / "float"）を引く */
-std::string JsonConfigEditor::TypeFor(const std::string& path, const std::string& key) const {
-    const auto file = labels_.find(currentFile_);
-    if (file != labels_.end() && file->is_object()) {
-        const auto entry = file->find(path);
-        if (entry != file->end() && entry->is_object() && entry->contains("type")) {
-            return entry->value("type", std::string());
-        }
-    }
-    const auto common = labels_.find("_keys");
-    if (common != labels_.end() && common->is_object()) {
-        const auto entry = common->find(key);
-        if (entry != common->end() && entry->is_object()) {
-            return entry->value("type", std::string());
-        }
-    }
-    return {};
 }
 
 } // namespace engine::graphics

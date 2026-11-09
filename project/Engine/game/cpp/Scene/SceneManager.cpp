@@ -194,6 +194,8 @@ void SceneManager::CookAllScenes() {
         for (int i = 0; i < floor; ++i) {
             runData->AdvanceFloor();
         }
+        // 本編が読むレベルは進行度ではなく今遊ぶステージの番号で決まるので、そちらも合わせる
+        runData->SetPlayFloor(floor);
         weapons->Reset();
         loadOnce("MAP");
         loadOnce("GAMEPLAY");

@@ -173,6 +173,7 @@ void GamePlayScene::InitializeGhostEditorAndEffects() {
         [this](float amount, float seconds) {
             cameraShaker_.Request(amount, seconds);
         });
+    RegisterScriptEffectHandlers();
 }
 
 /** @brief 編集中にプレイヤーの表示座標を現在位置へ同期する */
@@ -558,6 +559,7 @@ void GamePlayScene::UpdateCombat() {
         SyncCombatEnemies(); // spawn_pointが出した敵をこのフレームから戦闘対象に含める
         UpdateTargetLock();
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
+        ApplyScriptControlLock();
         player_->Update(input_, enemy_ ? enemy_->GetPosition() : player_->GetPosition(), enemy_ && !enemy_->IsDefeated() && enemy_->IsVisible(), !activeColliders.empty());
         gameSounds::PlayPlayerActions(*player_);
         // ボスだけでなく道中の敵の手前でも止め、プレイヤーが歩いて敵を押しのけないようにする

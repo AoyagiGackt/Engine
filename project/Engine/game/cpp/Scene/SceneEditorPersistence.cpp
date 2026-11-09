@@ -376,8 +376,9 @@ void SceneEditor::SaveUILayout() {
             { "rot", rot },
             { "color", { col.x, col.y, col.z, col.w } } });
     }
-    JsonHelper::Save("Resources/Config/editor_ui.json", arr);
-    uiDirty_ = false;
+    if (JsonHelper::Save("Resources/Config/editor_ui.json", arr)) {
+        uiDirty_ = false;
+    }
 }
 
 // 起動時に1度だけ呼ばれ、カメラパラメータと UI レイアウトを一括で読み込む
@@ -399,6 +400,8 @@ void SceneEditor::LoadUILayout(const EditContext& ctx) {
     uiHistory_.Clear();
     uiDrag_ = UIDragState { };
     uiDirty_ = false;
+    // 名前の入力欄に読み直す前の名前が残らないようにする
+    uiNameEditIndex_ = kNoEditedUiIndex;
 
     for (const auto& item : j) {
         UIEntry entry;
