@@ -196,10 +196,10 @@ void PauseMenu::EnableComboTrial(ComboTrial* trial) {
 /** @brief 今の設定に合わせてメニューの項目を並べ直す（音量の値は行1〜3の横に出すので、その並びは変えない） */
 void PauseMenu::RebuildItems() {
     rows_ = { Row::kResume, Row::kBgmVolume, Row::kSeVolume, Row::kAutoCombo, Row::kCommandList };
-    std::vector<UIButton> items = { { "RESUME" }, { "BGM VOLUME" }, { "SE VOLUME" }, { "AUTO COMBO" }, { "COMMAND LIST" } };
+    std::vector<UIButton> items = { { "ゲームに戻る" }, { "BGM音量" }, { "SE音量" }, { "オートコンボ" }, { "コマンド表" } };
     if (comboTrial_ != nullptr && !comboTrial_->Trials().empty()) {
         rows_.push_back(Row::kComboTrial);
-        items.push_back({ "COMBO PRACTICE" });
+        items.push_back({ "コンボ練習" });
     }
     rows_.push_back(Row::kExit);
     items.push_back({ exitItem_.label });
@@ -357,7 +357,7 @@ void PauseMenu::DrawMenu() {
     fontRenderer_->DrawString(sceneShared::AutoComboLabel(), autoComboPosition.x, autoComboPosition.y, valueScale, valueColor);
 
     const Vector2 titlePosition = layout.Pos("pause.title_pos", kTitlePosition);
-    fontRenderer_->DrawString("PAUSED", titlePosition.x, titlePosition.y,
+    fontRenderer_->DrawStringW(L"ポーズ", titlePosition.x, titlePosition.y,
         layout.Float("pause.title_scale", kTitleScale), layout.Color("pause.title_color", kTitleColor));
 }
 

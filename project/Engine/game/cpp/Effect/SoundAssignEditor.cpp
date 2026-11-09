@@ -5,6 +5,7 @@
 #include "SoundAssignEditor.h"
 #ifdef USE_IMGUI
 #include "AudioBridge.h"
+#include "EditorUI.h"
 #include "GameSounds.h"
 #include "JsonHelper.h"
 #include <imgui.h>
@@ -18,6 +19,7 @@
 namespace engine::game {
 namespace {
 using Json = nlohmann::json;
+namespace editorUI = engine::graphics::editorUI;
 constexpr const char* kConfigPaths[] = {
     "Resources/Config/sounds.json", "Resources/Config/bgm.json",
     "Resources/Config/clear_finish.json", "Resources/Config/player_defeat.json",
@@ -28,8 +30,7 @@ constexpr size_t kBgmIndex = 1;
 constexpr size_t kEffectsBegin = 2;
 constexpr float kMinVolume = 0.0f;
 constexpr float kDefaultVolume = 1.0f;
-constexpr float kFileWidth = 310.0f;
-constexpr float kVolumeWidth = 130.0f;
+constexpr ImVec2 kInitialWindowSize = { 820.0f, 560.0f }; // 初めて開いた時のウィンドウの大きさ
 constexpr int kSoundColumns = 5;
 constexpr int kBgmColumns = 3;
 constexpr int kEffectColumns = 3;
@@ -118,8 +119,11 @@ void DrawComment(const Json& root) {
 /** @brief 空文字・現在値・フォルダ内のファイルを選択する */
 bool FileCombo(const char* id, std::string& path, const std::vector<std::string>& files) {
     bool changed = false;
-    ImGui::SetNextItemWidth(kFileWidth);
-    if (ImGui::BeginCombo(id, path.empty() ? "（鳴らさない）" : path.c_str())) {
+    // 表の列幅に合わせて伸びるようにする
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo(id, path.empty() ? "（鳴らさない）" : path.c_str(), ImGuiComboFlags_HeightLarge)) {
+        static char sFileFilter[kStyleCapacity] = { };
+        editorUI::ComboFilterInput(sFileFilter, sizeof(sFileFilter));
         if (ImGui::Selectable("（鳴らさない）", path.empty())) {
             changed = !path.empty();
             path.clear();
@@ -128,6 +132,9 @@ bool FileCombo(const char* id, std::string& path, const std::vector<std::string>
             ImGui::Selectable(path.c_str(), true);
         }
         for (const auto& file : files) {
+            if (!editorUI::ContainsIgnoreCase(file, sFileFilter)) {
+                continue;
+            }
             if (ImGui::Selectable(file.c_str(), path == file)) {
                 changed = path != file;
                 path = file;
@@ -190,6 +197,7 @@ void SoundAssignEditor::Draw(bool* open) {
     if (!open || !*open) {
         return;
     }
+    ImGui::SetNextWindowSize(kInitialWindowSize, ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("音の割り当て", open)) {
         ImGui::End();
         return;
@@ -212,7 +220,13 @@ void SoundAssignEditor::Draw(bool* open) {
         bgmFiles_ = FindFiles("Resources/bgm");
         initialized_ = true;
     }
-    if (ImGui::Button("保存")) {
+    const bool hasChanges = original_ != edited_;
+    // 変更が無い間は保存を押せなくして、未保存かどうかを一目で分かるようにする
+    ImGui::BeginDisabled(!hasChanges);
+    bool saveRequested = ImGui::Button("保存 (Ctrl+S)");
+    ImGui::EndDisabled();
+    saveRequested |= hasChanges && editorUI::CtrlShortcut(ImGuiKey_S, true);
+    if (saveRequested) {
         bool success = true;
         for (size_t i = 0; i < edited_.size(); ++i) {
             if (original_[i] == edited_[i]) {
@@ -240,9 +254,13 @@ void SoundAssignEditor::Draw(bool* open) {
             status_ = "保存しました";
         }
     }
-    if (original_ != edited_) {
+    if (hasChanges) {
+        editorUI::DrawUnsavedMark();
         ImGui::SameLine();
-        ImGui::TextUnformatted("未保存");
+        if (editorUI::ConfirmButton("変更を捨てる", "未保存の変更を捨てて、保存した内容に戻しますか？", "捨てる")) {
+            edited_ = original_;
+            status_.clear();
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("ファイル一覧を更新")) {
@@ -291,7 +309,7 @@ void SoundAssignEditor::Draw(bool* open) {
                         entry["path"] = path;
                     }
                     ImGui::TableNextColumn();
-                    ImGui::SetNextItemWidth(kVolumeWidth);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
                     if (ImGui::SliderFloat("##volume", &volume, kMinVolume, kDefaultVolume)) {
                         entry["volume"] = volume;
                     }
@@ -300,7 +318,7 @@ void SoundAssignEditor::Draw(bool* open) {
                         Preview(path, std::clamp(volume, kMinVolume, kDefaultVolume), false);
                     }
                     ImGui::TableNextColumn();
-                    if (IsWeaponKey(item.key()) && ImGui::Button("削除")) {
+                    if (IsWeaponKey(item.key()) && editorUI::ConfirmButton("削除", "この武器別の音を一覧から消しますか？\n保存するまでファイルは変わりません。")) {
                         removeKey = item.key();
                     }
                     ImGui::PopID();

@@ -45,6 +45,11 @@ constexpr JsonField<BasicEnemyTuning> kBasicFields[] = {
     { "basic", "healerRange", &BasicEnemyTuning::healerRange },
     { "basic", "healerAmount", &BasicEnemyTuning::healerAmount },
     { "basic", "corpseFootOffset", &BasicEnemyTuning::corpseFootOffset },
+    { "basic", "climbSpeed", &BasicEnemyTuning::climbSpeed },
+    { "basic", "climbMaxHeight", &BasicEnemyTuning::climbMaxHeight },
+    { "basic", "climbChaseHeight", &BasicEnemyTuning::climbChaseHeight },
+    { "basic", "climbChaseStopDistance", &BasicEnemyTuning::climbChaseStopDistance },
+    { "basic", "stepUpHeight", &BasicEnemyTuning::stepUpHeight },
 };
 
 constexpr JsonField<KnightEnemyTuning> kKnightFields[] = {
@@ -125,6 +130,8 @@ void EnemyTuning::Reload() {
             { nullptr, "texture", &EnemyVisualTuning::texture },
             { nullptr, "scale", &EnemyVisualTuning::scale },
             { nullptr, "yawOffset", &EnemyVisualTuning::yawOffset },
+            { nullptr, "bodyHalfWidth", &EnemyVisualTuning::bodyHalfWidth },
+            { nullptr, "bodyHeight", &EnemyVisualTuning::bodyHeight },
         };
         for (const auto& [kind, value] : root["visuals"].items()) {
             if (!value.is_object()) {

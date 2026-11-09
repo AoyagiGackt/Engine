@@ -12,9 +12,13 @@
 #include "SaveData.h"
 #include "SceneFlow.h"
 #include "StageEditor.h"
+#include <cmath>
 
 namespace engine::game {
 namespace {
+constexpr int kNoPickups = 0; // 収集物の個数の初期値（置かれていないレベルはこのまま）
+constexpr int kNoPickupBonus = 0; // 全回収していない時のボーナス
+
 // 確認用のクリアで、次に銃の演出を見せるか（剣と銃を交互に見せる。シーンが作り直されても順番を覚えておく）
 bool sNextDebugClearByGun = false;
 }
@@ -46,7 +50,7 @@ bool GamePlayScene::UpdateClearState() {
     auto* rd = RunData::GetInstance();
     const GameRulesData& rules = GameRules::GetInstance()->Get();
     const bool runResult = !IsSandboxClear();
-    // ラン中は結果（ランク・ゴールド・スコア）を最初の1回だけ求める（確認用の再生では反映しない）
+    // ラン中は結果（ランク・スコア）を最初の1回だけ求める（確認用の再生では反映しない）
     if (runResult && !showResult_) {
         showResult_ = true;
         RecordRunClear(!glassShatterDebugTest_);
@@ -77,17 +81,25 @@ bool GamePlayScene::IsSandboxClear() const {
     return !RunData::GetInstance()->IsRunActive();
 }
 
-/** @brief ラン中のクリアの結果（ランク・ゴールド・スコア）を求め、apply なら進行とセーブにも反映する */
+/** @brief ラン中のクリアの結果（ランク・スコア）を求め、apply なら進行とセーブにも反映する */
 void GamePlayScene::RecordRunClear(bool apply) {
     // 結果画面に出す値は確認用の再生でも求める
-    lastGold_ = RunData::CalcGold(peakStyle_);
     lastScore_ = GameRules::GetInstance()->ScoreForRank(RunData::CalcRank(peakStyle_));
+    lastPickupCollected_ = kNoPickups;
+    lastPickupTotal_ = kNoPickups;
+    GetStageEditor().GetPickupCounts(lastPickupCollected_, lastPickupTotal_);
+    lastPickupBonus_ = lastPickupTotal_ > kNoPickups && lastPickupCollected_ >= lastPickupTotal_
+        ? GameRules::GetInstance()->Get().allPickupsBonus : kNoPickupBonus;
+    lastScore_ += lastPickupBonus_;
     if (!apply) {
         return;
     }
     auto* rd = RunData::GetInstance();
-    rd->AddGold(lastGold_);
     rd->AddScore(lastScore_);
+    rd->RecordStage({ rd->GetPlayFloor(),
+        static_cast<int32_t>(std::lround(peakStyle_ * RunData::kStylePermilleScale)),
+        static_cast<int32_t>(std::lround(floorElapsedSeconds_)),
+        lastScore_ });
     PlaytestLog::GetInstance()->RecordRunResult(true, rd->GetPlayFloor(), floorElapsedSeconds_,
         peakStyle_, styleRankHud_.GetBestChain(), player_->GetPosition());
     // クリア済みのステージを遊び直した時は、報酬だけ受け取って進行度と解放演出はそのまま

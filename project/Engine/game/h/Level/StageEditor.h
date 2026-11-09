@@ -392,6 +392,8 @@ private:
     void UpdateEnemyEntry(ObjectEntry& entry, engine::graphics::ParticleManager* pm, const Vector3& playerPos);
     /** @brief 全員の移動が終わった後に、重なった敵どうしを横へ押し離す（ボスは動かさず相手だけ押す。playerPosition を渡すとプレイヤーからも離す） */
     void SeparateOverlappingEnemies(const std::vector<engine::AABB>& walls, const std::optional<Vector3>& playerPosition);
+    /** @brief 歩く敵の高さを地形に合わせる（壁を登る・段差に乗る・足場から落ちる。ボスと巡回する敵は配置どおり） */
+    void UpdateEnemiesOnTerrain(const std::vector<engine::AABB>& solids);
     /** @brief 敵の位置の真下にある床の上で、倒れた体を置く高さを返す（床が無ければ今の高さ） */
     float FindCorpseFloorY(const Vector3& position) const;
     /** @brief solid=trueの配置物のワールドAABB一覧（includeEnemyBodies=falseなら敵の体を除いた地形だけ） */
@@ -488,7 +490,7 @@ private:
     void UpdateViewportInteraction();
     // UpdateViewportInteraction()の下請け（責務ごとに分割）
     /**
-     * @brief クリック位置に最も近いオブジェクト/トリガー/外部エンティティを探す（画面40px以内、モデル外形にヒットすれば距離0扱い）
+     * @brief クリック位置の対象を探す（印のすぐ近くの物を最優先し、次にモデル外形に重なる物のうち画面上で小さい物、最後に kPickRadiusPx 以内で最も近い物）
      * @param mouseX,mouseY 判定するスクリーン座標
      * @param outKind 見つかった対象の種別（見つからなければSelKind::kNoneのまま）
      * @param outIdx  見つかった対象のインデックス（見つからなければ-1のまま）
@@ -548,8 +550,8 @@ private:
     bool PickTransformHandle(float mouseX, float mouseY, int& outAxis, bool& outUniform) const;
     /** @brief 選択物にツールごとのハンドルを画面固定サイズで描く（DrawGizmosから呼ぶ） */
     void DrawTransformHandles();
-    /** @brief 回転/拡縮ツールのドラッグを1フレームぶん反映する（マウス移動量のピクセル） */
-    void UpdateRotateScaleDrag(float deltaX, float deltaY);
+    /** @brief 回転/拡縮ツールのドラッグを反映する（ドラッグ開始時の値へ、開始からの累積量を掛ける） */
+    void UpdateRotateScaleDrag(float mouseX, float mouseY);
     /** @brief 範囲選択の矩形を確定し、内側の配置物を選択する（小さすぎる矩形はクリック扱いで選択解除） */
     void FinishBoxSelect(float mouseX, float mouseY);
     /**
@@ -559,7 +561,7 @@ private:
      * @return 印の上をクリックしていたらtrue
      */
     bool PickUILayoutHandle(float mouseX, float mouseY, UILayout*& outLayout, size_t& outIndex) const;
-    /** @brief 画面UIの位置項目を四角い印と名前で描く（DrawGizmosから呼ぶ） */
+    /** @brief 画面UIの位置項目を四角い印で描く（名前はマウスが乗った印と選択中の印にだけ出す。DrawGizmosから呼ぶ） */
     void DrawUILayoutHandles();
     /** @brief 右クリックメニューを描く（RenderEditorPanelsから毎フレーム呼ぶ） */
     void RenderViewportContextMenu();
@@ -712,6 +714,13 @@ private:
     // Undo/Redo（GraphEditorと同じスナップショット方式、Ctrl+Z/Ctrl+Y）
     // ObjectEntryは実体(unique_ptr)を持ちコピーできないため、Save()の保存対象と同じdescだけを控え、
     // 復元時はRegenerateInstances()で実体を作り直す（modelCache_は生きているので再構築は軽い）
+    /** @brief 履歴に控える、画面UIの位置項目1件ぶんの座標 */
+    struct UIPositionRecord {
+        UILayout* layout = nullptr;
+        size_t index = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+    };
     struct LevelSnapshot {
         std::vector<ObjectDesc> objects;
         std::vector<TriggerDesc> triggers;
@@ -720,6 +729,7 @@ private:
         Vector3 enemySpawn;
         std::string graphPath;
         std::vector<FlagGraphBinding> flagGraphs;
+        std::vector<UIPositionRecord> uiPositions;
     };
     /**
      * @brief 現在の配置物・トリガー・チェックポイント・スポーン位置からUndo用スナップショットを構築する
@@ -869,6 +879,80 @@ private:
     std::vector<DiscoveredAsset> discoveredAssets_;
     bool assetsScanned_ = false; // 素材一覧を作ったか（以後は一覧を更新ボタンでだけ作り直す）
     char paletteSearch_[textBufferCapacity::kName] = {}; // 素材名の検索語
+
+    // ── ビューのドラッグ操作（掴んだ後はマウスがビューの外へ出ても続け、どこで離しても確定する）──
+    /** @brief ドラッグ開始時の対象1件ぶんの値（移動量・回転量・拡縮量はここからの累積で求める） */
+    struct DragStartTransform {
+        int index = -1;
+        Vector3 world = { };
+        float localZ = 0.0f;
+        Vector3 rotation = { };
+        Vector3 scale = { };
+        bool followsMove = true; // falseなら自分では動かない（親と一緒に動く子、画面座標の文章UI）
+    };
+    /** @brief 左ボタンのドラッグ（配置物・範囲選択・画面UIの印）の途中か */
+    bool IsViewportDragActive() const {
+        return viewportDragging_ || boxSelecting_ || uiDragLayout_ != nullptr;
+    }
+    /**
+     * @brief ドラッグ中の処理を1フレーム進める（ボタンが離れていれば確定する）
+     * @return ドラッグ中だったならtrue（このフレームは新しい操作を受け付けない）
+     */
+    bool UpdateActiveViewportDrag(float mouseX, float mouseY);
+    /** @brief ドラッグ・範囲選択を確定して状態を戻す */
+    void FinishViewportDrag(float mouseX, float mouseY);
+    /** @brief ドラッグに関わる状態をすべて戻す */
+    void ResetViewportDragState();
+    /** @brief ドラッグ開始時のマウス位置と選択物の値を控える */
+    void CaptureDragStart(float mouseX, float mouseY);
+    /** @brief マウス直下のハンドル・印・配置物を調べてカーソルを決める */
+    void UpdateViewportHover(float mouseX, float mouseY);
+    /** @brief マウス直下の情報を消す */
+    void ClearViewportHover();
+    /**
+     * @brief ハンドルの軸の画面上の向きに沿ったマウス移動量を返す
+     * @param axis 1: X / 2: Y / 3: Z
+     * @param deltaX,deltaY マウスの移動量
+     * @return 矢印の向きへ動かすと正になるピクセル数
+     */
+    float AxisDragPixels(int axis, float deltaX, float deltaY) const;
+    /** @brief 画面UIの印のドラッグを始める */
+    void BeginUILayoutDrag(UILayout* layout, size_t index, float mouseX, float mouseY);
+    /** @brief 画面UIの印をマウスへ追従させる（Ctrlで格子に揃え、Shiftで動きの大きい軸だけ動かす） */
+    void UpdateUILayoutDrag(float mouseX, float mouseY);
+    /**
+     * @brief 選択中の画面UIの印を矢印キーで動かす
+     * @param dirX,dirY 動かす向き（上が正）
+     * @return 印を動かしたならtrue（配置物を選択中や、印を選択していない時はfalse）
+     */
+    bool NudgeSelectedUILayoutHandle(float dirX, float dirY);
+    /** @brief 画面UIの印とパネルの表示を切り替える（Uキー） */
+    void ToggleUILayoutEditing();
+    /** @brief ドラッグ中の移動量や数値をカーソルの近くに出す */
+    void DrawDragReadout();
+    /** @brief 左右のパネルとゲームビューの境目に、幅を変えるつまみを出す */
+    void RenderPanelSplitters();
+
+    std::vector<DragStartTransform> dragStarts_; // ドラッグ開始時の値（先頭が主選択）
+    float dragStartMouseX_ = 0.0f;
+    float dragStartMouseY_ = 0.0f;
+    float dragLastMouseX_ = 0.0f; // 最後に分かったマウス位置（ウィンドウ外で座標が取れない時に使う）
+    float dragLastMouseY_ = 0.0f;
+    bool dragThresholdPassed_ = false; // 遊びの距離を超えて実際に動かし始めたか
+    int clickPendingIndex_ = -1; // 選択中の物を押した時の番号。動かさず離したら選択を確定する
+    bool clickPendingAdditive_ = false; // 押した時にCtrlを押していたか（動かさず離したら選択から外す）
+    float rotateAccumRadians_ = 0.0f; // 回転ドラッグの開始からの累積角度
+    float rotateLastAngle_ = 0.0f; // 前フレームの、ハンドル中心から見たマウスの角度
+    bool rotateAngleValid_ = false; // rotateLastAngle_ が有効か
+    bool hoverHandleActive_ = false; // マウスが変形ハンドルの上にあるか
+    int hoverAxis_ = 0; // マウス直下のハンドルの軸（0: 中央 / 1: X / 2: Y / 3: Z）
+    bool hoverNeedsRefresh_ = true; // マウスが止まっていても次のフレームで配置物を調べ直すか
+    UILayout* uiHoverLayout_ = nullptr; // マウス直下の画面UIの印（nullptrなら無し）
+    size_t uiHoverIndex_ = 0;
+    float uiDragStartX_ = 0.0f; // ドラッグ開始時の印の座標
+    float uiDragStartY_ = 0.0f;
+    static inline float sLeftPanelWidth = kLeftPanelWidth; // 左の列の幅（シーンをまたいで保つ）
+    static inline float sRightPanelWidth = kRightPanelWidth; // 右の列の幅
 
     float dragRawZ_ = 0.0f; // Shift+ドラッグ(奥行き移動)中のスナップ前のZ累積値
     // クリックした瞬間にオブジェクト原点へ位置が飛ばないよう、掴んだ時の

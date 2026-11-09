@@ -1,0 +1,340 @@
+{
+  "_comment": "ノードエディタ(F1)に出すノード名とパラメータ名の日本語表示。キーはグラフJSONに書く type 名とパラメータ名（ここを変えても保存されるJSONは変わらない）。書いていないものは英語名のまま出る",
+  "types": {
+    "SetVariable": {
+      "name": "変数に代入",
+      "params": {
+        "name": "変数名",
+        "value": "値"
+      }
+    },
+    "If": {
+      "name": "条件で分岐",
+      "params": {
+        "var": "変数名",
+        "op": "比べ方",
+        "value": "比べる値"
+      }
+    },
+    "Wait": {
+      "name": "待つ",
+      "params": {
+        "seconds": "秒数"
+      }
+    },
+    "EmitEvent": {
+      "name": "イベントを送る",
+      "params": {
+        "event": "イベント名"
+      }
+    },
+    "Compare": {
+      "name": "比べる",
+      "params": {
+        "a": "値A",
+        "b": "値B",
+        "op": "比べ方"
+      }
+    },
+    "SetFlag": {
+      "name": "フラグを設定",
+      "params": {
+        "flag": "フラグ名",
+        "value": "値"
+      }
+    },
+    "GetFlag": {
+      "name": "フラグを読む",
+      "params": {
+        "flag": "フラグ名",
+        "into": "写す変数"
+      }
+    },
+    "Subgraph": {
+      "name": "別グラフを呼ぶ",
+      "params": {
+        "path": "グラフのパス"
+      }
+    },
+    "Math": {
+      "name": "計算",
+      "params": {
+        "a": "値A",
+        "b": "値B",
+        "op": "演算"
+      }
+    },
+    "Random": {
+      "name": "乱数",
+      "params": {
+        "min": "最小",
+        "max": "最大"
+      }
+    },
+    "And": {
+      "name": "かつ (AND)",
+      "params": {
+        "a": "条件A",
+        "b": "条件B"
+      }
+    },
+    "Or": {
+      "name": "または (OR)",
+      "params": {
+        "a": "条件A",
+        "b": "条件B"
+      }
+    },
+    "Not": {
+      "name": "反転 (NOT)",
+      "params": {
+        "a": "条件"
+      }
+    },
+    "DamagePlayer": {
+      "name": "プレイヤーにダメージ",
+      "params": {
+        "amount": "ダメージ量"
+      }
+    },
+    "HealPlayer": {
+      "name": "プレイヤーを回復",
+      "params": {
+        "amount": "回復量"
+      }
+    },
+    "TeleportPlayer": {
+      "name": "プレイヤーを瞬間移動",
+      "params": {
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      }
+    },
+    "DamageEnemy": {
+      "name": "敵にダメージ",
+      "params": {
+        "target": "敵の名前",
+        "amount": "ダメージ量"
+      }
+    },
+    "HealEnemy": {
+      "name": "敵を回復",
+      "params": {
+        "target": "敵の名前",
+        "amount": "回復量"
+      }
+    },
+    "SetEnemyVisible": {
+      "name": "敵の表示切替",
+      "params": {
+        "target": "敵の名前",
+        "visible": "表示する"
+      }
+    },
+    "TeleportEnemy": {
+      "name": "敵を瞬間移動",
+      "params": {
+        "target": "敵の名前",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      }
+    },
+    "PlaySE": {
+      "name": "効果音を鳴らす",
+      "params": {
+        "path": "音のパス",
+        "volume": "音量"
+      }
+    },
+    "PlayBGM": {
+      "name": "BGMを流す",
+      "params": {
+        "path": "音のパス",
+        "loop": "ループ"
+      }
+    },
+    "StopBGM": {
+      "name": "BGMを止める",
+      "params": {}
+    },
+    "ScreenFlash": {
+      "name": "画面フラッシュ",
+      "params": {
+        "r": "赤",
+        "g": "緑",
+        "b": "青",
+        "a": "濃さ",
+        "duration": "秒数"
+      }
+    },
+    "HitStop": {
+      "name": "ヒットストップ",
+      "params": {
+        "frames": "止めるフレーム数"
+      }
+    },
+    "SetObjectVisible": {
+      "name": "配置物の表示切替",
+      "params": {
+        "target": "配置物の名前",
+        "visible": "表示する"
+      }
+    },
+    "SetObjectEnabled": {
+      "name": "配置物の有効切替",
+      "params": {
+        "target": "配置物の名前",
+        "enabled": "有効にする"
+      }
+    },
+    "TeleportObject": {
+      "name": "配置物を瞬間移動",
+      "params": {
+        "target": "配置物の名前",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      }
+    },
+    "MoveObject": {
+      "name": "配置物を動かす",
+      "params": {
+        "target": "配置物の名前",
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "seconds": "秒数"
+      }
+    },
+    "ChangeScene": {
+      "name": "シーンを切り替える",
+      "params": {
+        "scene": "シーン名",
+        "fadeOut": "暗転の秒数",
+        "fadeIn": "明転の秒数"
+      }
+    },
+    "RequestStageClear": {
+      "name": "ステージクリア",
+      "params": {}
+    },
+    "SpawnEnemy": {
+      "name": "敵を出す",
+      "params": {
+        "target": "出現地点の名前"
+      }
+    },
+    "ShakeCamera": {
+      "name": "カメラを揺らす",
+      "params": {
+        "amount": "強さ",
+        "seconds": "秒数"
+      }
+    },
+    "EmitRing": {
+      "name": "リングを出す",
+      "params": {
+        "group": "パーティクルのグループ",
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "radius": "半径",
+        "r": "赤",
+        "g": "緑",
+        "b": "青"
+      }
+    },
+    "ShowMessage": {
+      "name": "メッセージを出す",
+      "params": {
+        "text": "文字",
+        "seconds": "秒数"
+      }
+    },
+    "SlowMotion": {
+      "name": "スローモーション",
+      "params": {
+        "scale": "速さの倍率",
+        "seconds": "秒数"
+      }
+    },
+    "FocusCamera": {
+      "name": "カメラを向ける",
+      "params": {
+        "x": "X",
+        "y": "Y",
+        "seconds": "秒数"
+      }
+    },
+    "Repeat": {
+      "name": "くり返す",
+      "params": {
+        "count": "回数 (0でずっと)",
+        "interval": "間隔の秒数"
+      }
+    },
+    "Branch": {
+      "name": "真偽で分岐",
+      "params": {
+        "condition": "条件"
+      }
+    },
+    "WaitForFlag": {
+      "name": "フラグを待つ",
+      "params": {
+        "flag": "フラグ名",
+        "value": "待つ値"
+      }
+    },
+    "WaitAllEnemiesDefeated": {
+      "name": "敵の全滅を待つ",
+      "params": {}
+    },
+    "WaitEnemyDefeated": {
+      "name": "敵が倒されるのを待つ",
+      "params": {
+        "target": "敵の名前"
+      }
+    },
+    "GiveWeapon": {
+      "name": "武器を渡す",
+      "params": {
+        "weapon": "武器の種類"
+      }
+    },
+    "ChargeAwaken": {
+      "name": "覚醒ゲージを増やす",
+      "params": {
+        "amount": "増やす量 (1で満タン)"
+      }
+    },
+    "LockPlayerControl": {
+      "name": "操作を止める",
+      "params": {
+        "locked": "止める"
+      }
+    },
+    "IfPlayerInArea": {
+      "name": "範囲にいるかで分岐",
+      "params": {
+        "x": "中心X",
+        "y": "中心Y",
+        "width": "幅",
+        "height": "高さ"
+      }
+    },
+    "IfPlayerHp": {
+      "name": "HPで分岐",
+      "params": {
+        "op": "比べ方",
+        "value": "比べるHP"
+      }
+    },
+    "GetPlayerHp": {
+      "name": "プレイヤーのHP",
+      "params": {}
+    }
+  }
+}

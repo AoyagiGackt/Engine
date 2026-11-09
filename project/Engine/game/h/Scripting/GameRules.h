@@ -40,6 +40,7 @@ struct GameRulesData {
     std::vector<std::string> levelPaths; ///< フロア番号順のレベルJSON。フロア数を超えた分は最後のものを使う
     std::string bossTechnique = "slam_shockwave"; ///< ボス武器奪取時に習得する技の名前（RunData::AddBossTechnique）
     float bossTechniqueRadiusMult = 1.6f; ///< 習得後、叩きつけ系固有技の判定半径に掛かる倍率
+    int allPickupsBonus = 1000; ///< ステージのエネルギーコアを全部集めてクリアした時に加えるスコア
     int bossTechniqueBonusDamage = 3; ///< 習得後、叩きつけ系固有技に上乗せするダメージ
     /** @brief フロアクリア時のスタイルランクごとの加算スコア（キーはRunData::CalcRankのランク文字列） */
     std::map<std::string, int> rankScores = {

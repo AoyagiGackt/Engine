@@ -14,6 +14,7 @@
 #pragma once
 #include "Camera.h"
 #include "Cylinder.h"
+#include "EditorHistory.h"
 #include "Ring.h"
 #include "SkinnedObject3d.h"
 #include "Skydome.h"
@@ -154,6 +155,30 @@ public:
 
 
 private:
+    // UI スプライトの大きさの下限と上限（ピクセル）
+    static constexpr float kMinSpritePixels = 1.0f;
+    static constexpr float kMaxSpritePixels = 4096.0f;
+
+    /** @brief UI要素1つぶんの編集値（元に戻す時の復元に使う） */
+    struct UISpriteState {
+        Vector2 position;
+        Vector2 size;
+        float rotation = 0.0f;
+        Vector4 color;
+    };
+
+    /** @brief 画面上でUI要素を掴んでいる間の状態（離すまで続ける） */
+    struct UIDragState {
+        bool active = false;
+        bool moved = false; ///< しきい値を超えて動いたか（クリックだけでは動かさない）
+        int index = -1; ///< 掴んでいるUI要素の番号
+        int handleX = 0; ///< 掴んだ辺（-1=左 0=動かさない 1=右。縦横とも0なら移動）
+        int handleY = 0; ///< 掴んだ辺（-1=上 0=動かさない 1=下）
+        Vector2 startMouse; ///< 押した時のマウス位置（ゲーム画面の座標）
+        Vector2 startPosition;
+        Vector2 startSize;
+    };
+
     // State パターンの基底クラス
     // 今何を選んでいるかによって Inspector パネルの内容を切り替える仕組み
     // 新しいオブジェクト種別を増やしたいときは、このクラスを継承して RenderInspector を実装する
@@ -239,6 +264,27 @@ private:
      */
     void LoadUILayout(const EditContext& ctx);
 
+    /** @brief UI要素を選択し、インスペクタを切り替える */
+    void SelectUIElement(int index);
+    /** @brief 全UI要素の編集値を取り出す */
+    std::vector<UISpriteState> CaptureUIState() const;
+    /** @brief 取り出しておいた編集値をUI要素へ書き戻す（数が違えば何もしない） */
+    void RestoreUIState(const std::vector<UISpriteState>& states);
+    /** @brief UI要素の編集を1つ戻す */
+    void UndoUIEdit();
+    /** @brief 戻したUI要素の編集をやり直す */
+    void RedoUIEdit();
+    /**
+     * @brief 直前のImGui項目の操作開始・変更・終了に合わせて履歴を記録する
+     * @param changed この項目でこのフレームに値が変わったか
+     * @return changed をそのまま返す
+     */
+    bool TrackUIEdit(bool changed);
+    /** @brief ゲーム画面の上でUI要素を選択・移動・リサイズする枠を処理して描く */
+    void UpdateUIGizmo();
+    /** @brief 掴んでいるUI要素をマウス位置に合わせて動かす */
+    void UpdateUIDrag();
+
     // 状態管理
     bool visible_ = false; // F3で表示/非表示（既定は非表示にして画面を占有しない）
     Selection selection_ = Selection::kNone; // 現在選んでいるオブジェクト種別
@@ -250,6 +296,12 @@ private:
     static constexpr int kNoEditedUiIndex = -1; // 名前の入力欄がどの UI 要素も指していない時の値
     int uiNameEditIndex_ = kNoEditedUiIndex; // 名前の入力欄に読み込んである UI 要素の番号
     char uiNameBuffer_[textBufferCapacity::kIdentifier] = { }; // UI 要素の名前の入力欄
+    EditorHistory<std::vector<UISpriteState>> uiHistory_; // UI 要素の編集履歴（追加・削除・読み込みをしたら消す）
+    UIDragState uiDrag_; // 画面上でUI要素を掴んでいる間の状態
+    bool uiDirty_ = false; // UI 要素に未保存の変更があるか
+    bool uiSnapEnabled_ = false; // 画面上のドラッグを格子に合わせるか（Ctrlで一時的に反転）
+    static constexpr int kDefaultUISnapStep = 8; // スナップの間隔の初期値（ピクセル）
+    int uiSnapStep_ = kDefaultUISnapStep; // スナップの間隔（ピクセル）
 };
 
 } // namespace engine::game

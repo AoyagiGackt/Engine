@@ -29,7 +29,7 @@ struct TitleDemoTuning {
     float stageMaxX = 44.0f; ///< 的が歩ける範囲の右端
     float arenaMinX = 12.0f; ///< プレイヤーと復帰した的が収まる範囲の左端
     float arenaMaxX = 32.0f; ///< プレイヤーと復帰した的が収まる範囲の右端
-    float arenaEdgeMargin = 0.5f; ///< 範囲の端から内側へ収める余白
+    float arenaEdgeMargin = 2.0f; ///< 範囲の端から内側へ収める余白
     float groundY = 0.4f; ///< プレイヤー・的の立ち位置Y
     float startX = 22.0f; ///< プレイヤーの開始位置X
     float cameraX = 22.0f;
@@ -38,7 +38,7 @@ struct TitleDemoTuning {
 
     // 的の見た目
     float dummyScale = 0.55f;
-    float dummyFootOffsetY = -0.65f; ///< モデルの足元を地面に合わせるずらし量
+    float dummyFootOffsetY = -0.49f; ///< モデルの足元を地面に合わせるずらし量
     float dummyAirborneHeight = 2.4f; ///< 空中の的を浮かべる高さ
     float dummyBobAmplitude = 0.32f; ///< 空中の的の上下の揺れ幅
     float dummyHitFlashSeconds = 0.12f;
@@ -65,11 +65,15 @@ struct TitleDemoTuning {
     float respawnAttackDelayMin = 0.2f;
     float respawnAttackDelayMax = 1.1f;
     float respawnRightChance = 0.5f; ///< プレイヤーの右側に出る確率
+    float respawnCenterBiasDistance = 3.0f; ///< プレイヤーが中央からこれより離れていたら、必ず中央側に出す
 
     // 的の接近と攻撃
-    float dummyPreferredDistanceBase = 1.05f; ///< プレイヤーの手前で止まる距離
+    float dummyPreferredDistanceBase = 1.7f; ///< プレイヤーの手前で止まる距離
     int dummyPreferredDistanceVariants = 3; ///< 止まる距離を何通りに散らすか
     float dummyPreferredDistanceStep = 0.38f;
+    float dummyBodyGap = 1.2f; ///< プレイヤーと的の体が重ならないように空ける距離
+    float dummyBodyHeight = 2.0f; ///< 高さの差がこれより大きければ、上下にすれ違えるので押し出さない
+    float dummySpacing = 1.0f; ///< 地上の的どうしが重ならないように空ける距離
     float dummyAttackAnimSeconds = 0.34f;
     float dummyNextAttackMin = 0.75f;
     float dummyNextAttackMax = 1.65f;
@@ -77,6 +81,8 @@ struct TitleDemoTuning {
 
     // デモのプレイヤーの動き
     float approachStopDistance = 1.6f; ///< この距離まで近づいたら攻撃を始める
+    float wallAvoidDistance = 2.0f; ///< 動ける範囲の端からこの距離の中では、端の側へ下がらない
+    float centerReturnDeadzone = 1.0f; ///< 的がいない間、中央からこれより離れていたら中央へ戻る
     float attackPulseInterval = 0.32f; ///< 攻撃ボタンを押す間隔
     float hitHeightTolerance = 0.7f; ///< 地上の的と高さがこの差以内なら攻撃する
     float backstepSeconds = 0.18f; ///< 連打の合間に一歩引く長さ
@@ -134,14 +140,20 @@ namespace titleDemoTuningDetail {
         { "respawn", "attackDelayMin", &TitleDemoTuning::respawnAttackDelayMin },
         { "respawn", "attackDelayMax", &TitleDemoTuning::respawnAttackDelayMax },
         { "respawn", "rightChance", &TitleDemoTuning::respawnRightChance },
+        { "respawn", "centerBiasDistance", &TitleDemoTuning::respawnCenterBiasDistance },
         { "dummyAttack", "preferredDistanceBase", &TitleDemoTuning::dummyPreferredDistanceBase },
         { "dummyAttack", "preferredDistanceVariants", &TitleDemoTuning::dummyPreferredDistanceVariants },
         { "dummyAttack", "preferredDistanceStep", &TitleDemoTuning::dummyPreferredDistanceStep },
+        { "dummyAttack", "bodyGap", &TitleDemoTuning::dummyBodyGap },
+        { "dummyAttack", "bodyHeight", &TitleDemoTuning::dummyBodyHeight },
+        { "dummyAttack", "spacing", &TitleDemoTuning::dummySpacing },
         { "dummyAttack", "attackAnimSeconds", &TitleDemoTuning::dummyAttackAnimSeconds },
         { "dummyAttack", "nextAttackMin", &TitleDemoTuning::dummyNextAttackMin },
         { "dummyAttack", "nextAttackMax", &TitleDemoTuning::dummyNextAttackMax },
         { "dummyAttack", "lungeDistance", &TitleDemoTuning::dummyLungeDistance },
         { "player", "approachStopDistance", &TitleDemoTuning::approachStopDistance },
+        { "player", "wallAvoidDistance", &TitleDemoTuning::wallAvoidDistance },
+        { "player", "centerReturnDeadzone", &TitleDemoTuning::centerReturnDeadzone },
         { "player", "attackPulseInterval", &TitleDemoTuning::attackPulseInterval },
         { "player", "hitHeightTolerance", &TitleDemoTuning::hitHeightTolerance },
         { "player", "backstepSeconds", &TitleDemoTuning::backstepSeconds },

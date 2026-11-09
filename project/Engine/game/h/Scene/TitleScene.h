@@ -257,6 +257,8 @@ private:
     void DefeatDemoTarget(DemoFrame& frame);
     /** @brief 決めたボタンを Input のアクションオーバーライドへ書き込む */
     void ApplyDemoInput(DemoFrame& frame);
+    /** @brief 的を押し出して、的どうしとプレイヤーとの体の重なりをなくす（プレイヤーは動かさない） */
+    void SeparateDummies();
     /** @brief 的の上下の揺れ・被弾時の点滅・向き・位置をモデルへ反映する */
     void UpdateDummyVisuals();
     /** @brief 装備中の武器が常に出している軌跡を出す */

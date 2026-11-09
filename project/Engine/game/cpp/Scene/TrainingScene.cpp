@@ -118,7 +118,7 @@ void TrainingScene::InitializeHudAndEffects() {
     fontRenderer_.Initialize(spriteCommon_.get());
     pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
         {
-            "QUIT TO TITLE", [] {
+            "タイトルに戻る", [] {
                 SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
             }
         });

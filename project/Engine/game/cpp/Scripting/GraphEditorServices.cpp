@@ -9,6 +9,7 @@
 #include "GraphEditor.h"
 #include "GraphRuntime.h"
 #include "Input.h"
+#include "JsonHelper.h"
 #include "NodeRegistry.h"
 #include "TimeManager.h"
 #include <algorithm>
@@ -43,7 +44,54 @@ GraphWidgetEdit DrawValueWidget(const char* label, std::string& value) {
     }
     return { changed, false };
 }
+
+constexpr const char* kNodeLabelsPath = "Resources/Config/UI/node_labels.json";
+
+/** @brief 読み込み済みの表示名の表（最初に引いた時に読む） */
+nlohmann::json& NodeLabelTable() {
+    static nlohmann::json sTable = JsonHelper::Load(kNodeLabelsPath);
+    return sTable;
+}
+
+/** @brief ノード種別の項目を返す（無ければ null） */
+const nlohmann::json* FindTypeLabels(const std::string& type) {
+    const nlohmann::json& table = NodeLabelTable();
+    if (!table.is_object() || !table.contains("types") || !table["types"].is_object()) {
+        return nullptr;
+    }
+    const auto entry = table["types"].find(type);
+    return entry != table["types"].end() && entry->is_object() ? &*entry : nullptr;
+}
 } // namespace
+
+/** @brief ノード種別の表示名を返す（表に無ければ type 名のまま） */
+std::string GraphNodeLabels::TypeName(const std::string& type) {
+    const nlohmann::json* labels = FindTypeLabels(type);
+    if (labels == nullptr) {
+        return type;
+    }
+    const auto name = labels->find("name");
+    return name != labels->end() && name->is_string() ? name->get<std::string>() : type;
+}
+
+/** @brief ノードのパラメータの表示名を返す（表に無ければパラメータ名のまま） */
+std::string GraphNodeLabels::ParamName(const std::string& type, const std::string& param) {
+    const nlohmann::json* labels = FindTypeLabels(type);
+    if (labels == nullptr) {
+        return param;
+    }
+    const auto params = labels->find("params");
+    if (params == labels->end() || !params->is_object()) {
+        return param;
+    }
+    const auto name = params->find(param);
+    return name != params->end() && name->is_string() ? name->get<std::string>() : param;
+}
+
+/** @brief 表を読み直す */
+void GraphNodeLabels::Reload() {
+    NodeLabelTable() = JsonHelper::Load(kNodeLabelsPath);
+}
 
 /** @brief 型別の入力を共通の通知へまとめ、元の値を変更せず結果を返す */
 GraphValueEditResult DrawGraphValueInput(const char* label, const GraphValue& value) {
@@ -71,13 +119,6 @@ ImU32 GraphEditorDrawingStyle::ColorForType(GraphValueType type) {
     return index < kTypeColors.size() ? kTypeColors[index] : kTypeColors.back();
 }
 
-/** @brief マウス座標が円形ピンの判定範囲内か調べる */
-bool GraphEditorDrawingStyle::IsHoveringCircle(const ImVec2& center, float radius) {
-    const ImVec2 mousePosition = ImGui::GetIO().MousePos;
-    const float deltaX = mousePosition.x - center.x;
-    const float deltaY = mousePosition.y - center.y;
-    return deltaX * deltaX + deltaY * deltaY <= radius * radius;
-}
 /** @brief F1 でエディタの表示を切り替え、開いている間はゲームの時間を止める（表示中は true） */
 bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* input, float& realDeltaTime) {
 
@@ -87,6 +128,8 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
     }
     if (editor.visible_ != wasVisible) {
         if (editor.visible_) {
+            // 開くたびに日本語の表示名を読み直す（node_labels.json の書き換えを再起動せずに見られる）
+            GraphNodeLabels::Reload();
             // 開いている間は背後のゲームを止める（TimeManager のタイムスケールを流用する）
             editor.savedTimeScale_ = TimeManager::GetInstance()->GetTimeScale();
             TimeManager::GetInstance()->SetTimeScale(0.0f);
@@ -105,39 +148,45 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
         editor.statusTimer_ -= realDeltaTime;
     }
 
+    // 保存は入力欄の編集と競合しないので、入力中でも受け付ける
+    if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+        editor.Save();
+    }
+
     // Ctrl系ショートカット（テキスト入力欄にフォーカスがある間はImGui自身の入力欄内編集に譲る）
     if (!ImGui::GetIO().WantTextInput) {
         /** @brief 修飾キー付きのショートカットと実行操作の対応 */
         struct CtrlShortcut {
             ImGuiKey key;
             void (*action)(GraphEditor&);
+            bool repeats; ///< 押しっぱなしで繰り返すか
         };
         static constexpr CtrlShortcut kCtrlShortcuts[] = {
             {
                 ImGuiKey_Z, [](GraphEditor& e) {
                     e.Undo();
-                }
+                }, true
             },
             {
                 ImGuiKey_Y, [](GraphEditor& e) {
                     e.Redo();
-                }
-            },
-            {
-                ImGuiKey_S, [](GraphEditor& e) {
-                    e.Save();
-                }
+                }, true
             },
             // editor.DrawCanvas()のノード走査ループの外なので、ここでは直接複製してよい
-            { ImGuiKey_D, [](GraphEditor& e) {
-                 if (!e.selectedNodeId_.empty() && e.graph_.FindNode(e.selectedNodeId_)) {
-                     e.DuplicateNode(e.selectedNodeId_);
-                 }
-             } },
+            {
+                ImGuiKey_D, [](GraphEditor& e) {
+                    e.DuplicateSelectedNodes();
+                }, false
+            },
+            {
+                ImGuiKey_A, [](GraphEditor& e) {
+                    e.SelectAllNodes();
+                }, false
+            },
         };
         if (ImGui::GetIO().KeyCtrl) {
             for (const CtrlShortcut& shortcut : kCtrlShortcuts) {
-                if (ImGui::IsKeyPressed(shortcut.key)) {
+                if (ImGui::IsKeyPressed(shortcut.key, shortcut.repeats)) {
                     shortcut.action(editor);
                     break; // 1フレームに実行するのは1つだけ
                 }
@@ -149,23 +198,29 @@ bool GraphEditorInteraction::PrepareFrame(GraphEditor& editor, engine::Input* in
 
 /** @brief 操作の案内を出す */
 void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
-    // 基本操作の1行案内と、折りたためる使い方一覧
-    ImGui::TextDisabled("F1: 表示/非表示    右クリック: ノード/コメント追加    ホイール: ズーム    中ドラッグ: パン");
+    // 折りたためる使い方一覧
     if (ImGui::CollapsingHeader("使い方")) {
         // ノードの追加と探し方
         ImGui::BulletText("何もない所を右クリック → ノードやコメント枠を追加（よく使う物は直接、他はジャンル別サブメニューに分類）");
         ImGui::BulletText("追加メニュー上部の検索欄に入力すると、名前・ジャンル・説明で絞り込める");
         ImGui::BulletText("ノードにマウスを乗せると、何ができるノードか説明がツールチップで出る");
-        ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存  Ctrl+D: 選択ノードを複製");
+        ImGui::BulletText("Ctrl+Z: 元に戻す  Ctrl+Y: やり直す  Ctrl+S: 保存  Ctrl+D: 選択ノードを複製  Ctrl+A: 全選択");
+        ImGui::BulletText("F: 選択中のノード（無ければ全体）が収まるように表示");
+        ImGui::BulletText("ホイール: カーソル位置を中心にズーム  中ドラッグかスペース+左ドラッグ: パン");
         // 実行の線と値の線のつなぎ方
-        ImGui::BulletText("実行の流れ: ノード右上の黄ピンを、次ノード左上の白ピンへドラッグして接続");
+        ImGui::BulletText("実行の流れ: ノード右上の黄ピンを、次のノードへドラッグして接続（ノードのどこに落としてもよい）");
+        ImGui::BulletText("配線中は接続できるピンに輪が付き、近づくと吸着する");
         ImGui::BulletText("Ifノードは緑ピン=条件が真のとき、赤ピン=偽のときの行き先");
         ImGui::BulletText("値の受け渡し: ノード右下の出力ピンを、パラメータ左の同じ色のピンへドラッグ");
         ImGui::BulletText("　ピンの色 = 型: 緑=数値  赤=ON/OFF  紫=文字列  白=なんでも接続可");
-        ImGui::BulletText("パラメータ左のピンを右クリック → データ配線を解除");
+        ImGui::BulletText("線かピンを右クリック → 配線を解除");
+        ImGui::BulletText("つながったパラメータ左のピンをドラッグ → 線を抜いて別の場所へつなぎ替え（何もない所で離すと切断）");
         // ノードの移動・削除と、テスト実行・ほかの機能との連携
-        ImGui::BulletText("タイトルをドラッグ: ノード移動    ノード選択+Deleteキー: 削除");
-        ImGui::BulletText("何もない所を左クリック → 選択解除");
+        ImGui::BulletText("タイトルかノードの余白をドラッグ: 選択中のノードをまとめて移動（Ctrlで格子に吸着）");
+        ImGui::BulletText("Delete: 選択中のノードを削除");
+        ImGui::BulletText("何もない所をドラッグ: 範囲選択（Ctrl/Shiftで追加）  クリック: 選択解除");
+        ImGui::BulletText("Ctrl/Shift+クリック: ノードを選択に追加、もう一度で外す");
+        ImGui::BulletText("コメント枠は上の帯をドラッグで移動、右下の角をドラッグで大きさ変更");
         ImGui::BulletText("実行ボタンでこのグラフをその場でテスト（黄色い枠 = 今実行中のノード）");
         ImGui::BulletText("Subgraphノード: 別のグラフJSONを部品として呼び出す（カプセル化）");
         ImGui::BulletText("フラグはステージエディタ(F2)のトリガーと共有（GetFlag/SetFlagで読み書き）");
@@ -190,7 +245,8 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
             : nullptr;
         if (selected && selectedSpec && ImGui::CollapsingHeader("選択中ノードの説明", ImGuiTreeNodeFlags_DefaultOpen)) {
             // 種類名と分類、ノード全体の説明
-            ImGui::Text("%s  %s", selected->type.c_str(), selectedSpec->category.c_str());
+            ImGui::Text("%s (%s)  %s", GraphNodeLabels::TypeName(selected->type).c_str(), selected->type.c_str(),
+                selectedSpec->category.c_str());
             ImGui::TextWrapped("%s", selectedSpec->description.c_str());
             /** @brief ノードのパラメーター名と編集時に表示する説明の対応 */
             struct ParamHelp {
@@ -217,6 +273,15 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
                 { "b", "計算や比較へ渡す入力値" },
                 { "loop", "ONなら停止するまで繰り返し再生する" },
                 { "visible", "ONなら表示し、OFFなら非表示にする" },
+                { "text", "画面に出す文字" },
+                { "scale", "ゲームを進める速さの倍率  1で通常" },
+                { "count", "くり返す回数  0ならずっと" },
+                { "interval", "次の回までの間隔  単位は秒" },
+                { "weapon", "武器の種類名  Sword Spear Hammer Dagger Ball Greatsword Scythe Axe" },
+                { "locked", "ONなら操作を止め、OFFなら戻す" },
+                { "width", "範囲の横幅  ワールド座標の単位" },
+                { "height", "範囲の高さ  ワールド座標の単位" },
+                { "condition", "真偽を決める入力  CompareやAndの出力をつなぐ" },
             };
             // パラメーター名から説明文を引く
             auto parameterHelp = [](const std::string& key) -> const char* {
@@ -229,7 +294,8 @@ void GraphEditorInteraction::DrawGuidance(GraphEditor& editor) {
             };
             // 表に無いパラメーター名は汎用の説明を出す
             for (const NodeParamSpec& param : selectedSpec->params) {
-                ImGui::BulletText("%s  %s", param.key.c_str(), parameterHelp(param.key));
+                ImGui::BulletText("%s (%s)  %s", GraphNodeLabels::ParamName(selected->type, param.key).c_str(),
+                    param.key.c_str(), parameterHelp(param.key));
             }
             // 値を出力するノードかどうかで、次のノードへの渡し方の案内を変える
             ImGui::TextDisabled(selectedSpec->hasOutput
@@ -265,8 +331,7 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor) {
     }
     // 保存し忘れに気付けるよう、未保存の変更がある時だけ表示する
     if (editor.dirty_) {
-        ImGui::SameLine();
-        ImGui::TextColored(GraphEditorDrawingStyle::kUnsavedTextColor, "未保存");
+        graphics::editorUI::DrawUnsavedMark();
     }
 
     // Subgraphの開くボタン等、ウィンドウスコープ外で予約された分もここでモーダルを開く
@@ -299,6 +364,12 @@ void GraphEditorInteraction::DrawToolbar(GraphEditor& editor) {
     if (ImGui::Button("自動整列")) {
         editor.ArrangeNodes();
     }
+    ImGui::SameLine();
+    if (ImGui::Button("全体表示 (F)")) {
+        editor.FrameNodes(false);
+    }
+    ImGui::SameLine();
+    ImGui::Checkbox("説明", &editor.showHelpPanel_);
 
     ImGui::SameLine();
     ImGui::TextDisabled("|");
@@ -379,10 +450,17 @@ void GraphEditorInteraction::Update(GraphEditor& editor, engine::Input* input) {
         return;
     }
 
-    DrawGuidance(editor);
+    // 説明の開閉でキャンバスが上下に動かないよう、説明は右側のパネルへ分ける
     DrawToolbar(editor);
+    ImGui::TextDisabled("F1: 表示/非表示    右クリック: 追加/メニュー/配線解除    ホイール: ズーム    中ドラッグ: パン    左ドラッグ: 範囲選択    F: 全体表示");
     ImGui::Separator();
     editor.DrawCanvas();
+    if (editor.showHelpPanel_) {
+        ImGui::SameLine();
+        ImGui::BeginChild("GraphHelpPanel", ImVec2(0.0f, 0.0f), true);
+        DrawGuidance(editor);
+        ImGui::EndChild();
+    }
     ImGui::End();
     editor.DrawVariablesPanel();
     FinishFrame(editor, realDeltaTime);
@@ -399,7 +477,7 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     const float boxPad = GraphEditorDrawingStyle::kNodeBoxPadding * editor.zoom_;
 
     ImGui::PushID(id.c_str());
-    dl->ChannelsSetCurrent(1);
+    dl->ChannelsSetCurrent(GraphEditorDrawingStyle::kNodeFrontChannel);
 
     ImVec2 nodeScreenPos(origin.x + (editor.panOffsetX_ + node.editorX) * editor.zoom_, origin.y + (editor.panOffsetY_ + node.editorY) * editor.zoom_);
     ImGui::SetCursorScreenPos(nodeScreenPos);
@@ -408,25 +486,22 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     const NodeTypeSpec* spec = NodeRegistry::GetInstance()->FindSpec(node.type);
 
     // タイトル（このボタン自体がドラッグハンドル兼用）
-    ImGui::Button(node.type.c_str(), ImVec2(nodeW, 0));
+    // 表示は日本語名、マウスを乗せるとグラフJSONに書く type 名と説明を出す
+    const std::string title = GraphNodeLabels::TypeName(node.type) + "##title";
+    ImGui::Button(title.c_str(), ImVec2(nodeW, 0));
     if (ImGui::IsItemHovered()) {
-        state.hoveringNode = true; // キャンバス右クリックのノード追加メニューと衝突しないよう抑制する
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         if (spec && !spec->description.empty()) {
-            ImGui::SetTooltip("%s", spec->description.c_str());
+            ImGui::SetTooltip("%s\n%s", node.type.c_str(), spec->description.c_str());
+        } else {
+            ImGui::SetTooltip("%s", node.type.c_str());
         }
     }
-    // タイトルを掴んだら選択し、ドラッグした分だけノードを動かす（離した時に1回分の履歴にする）
-    if (ImGui::IsItemActivated()) {
-        editor.selectedNodeId_ = id;
-        editor.selectedCommentId_.clear();
+    // タイトルを掴んだら選択して移動の準備をする（移動は全ノードを描いた後に UpdateNodeDrag で進める）
+    if (ImGui::IsItemActivated() && !editor.panning_) {
+        editor.BeginNodePress(id);
+        state.nodePressedThisFrame = true;
     }
-    const bool moving = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
-    if (moving) {
-        const ImVec2 d = ImGui::GetIO().MouseDelta;
-        node.editorX += d.x / editor.zoom_;
-        node.editorY += d.y / editor.zoom_;
-    }
-    editor.CaptureItemUndo(moving);
     ImGui::TextDisabled("%s", id.c_str());
 
     // パラメータの入力欄とデータ入力ピン
@@ -447,37 +522,13 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     ImVec2 nodeMax = ImGui::GetItemRectMax();
     editor.nodeRects_[id] = { nodeMin, nodeMax };
 
-    // タイトルやパラメータを含むノード全体で右クリックメニューを開く
-    // ノード走査中にコンテナを変更しないよう、複製と削除はキャンバス描画後に遅延実行する
-    // ノードの外枠（パラメータまで含む矩形に余白を足したもの）。右クリックの判定と背景・枠の描画で共通に使う
+    // ノードの外枠（パラメータまで含む矩形に余白を足したもの）
     const ImVec2 interactionMin(nodeMin.x - boxPad, nodeMin.y - boxPad * GraphEditorDrawingStyle::kNodeTopPaddingRatio);
     const ImVec2 interactionMax(nodeMax.x + boxPad, nodeMax.y + boxPad);
-    if (ImGui::IsMouseHoveringRect(interactionMin, interactionMax)) {
-        state.hoveringNode = true;
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            editor.selectedNodeId_ = id;
-            editor.selectedCommentId_.clear();
-            ImGui::OpenPopup("NodeContextMenu");
-        }
-    }
-    if (ImGui::BeginPopup("NodeContextMenu")) {
-        if (ImGui::MenuItem("開始ノードに設定")) {
-            editor.RecordUndoSnapshotNow();
-            editor.graph_.startNodeId = id;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("複製")) {
-            editor.pendingDuplicateNodeId_ = id;
-        }
-        if (ImGui::MenuItem("削除")) {
-            editor.pendingDeleteNodeId_ = id;
-        }
-        ImGui::EndPopup();
-    }
 
     // 背景（枠・塗り、開始ノードは緑枠で強調）
-    dl->ChannelsSetCurrent(0);
-    ImU32 bg = (id == editor.selectedNodeId_) ? GraphEditorDrawingStyle::kSelectedBackgroundColor : GraphEditorDrawingStyle::kBackgroundColor;
+    dl->ChannelsSetCurrent(GraphEditorDrawingStyle::kNodeBackChannel);
+    ImU32 bg = editor.IsNodeSelected(id) ? GraphEditorDrawingStyle::kSelectedBackgroundColor : GraphEditorDrawingStyle::kBackgroundColor;
     dl->AddRectFilled(interactionMin, interactionMax, bg, GraphEditorDrawingStyle::kNodeCornerRadius * editor.zoom_);
     ImU32 border = (id == editor.graph_.startNodeId) ? GraphEditorDrawingStyle::kStartColor : GraphEditorDrawingStyle::kBorderColor;
     float borderThickness = GraphEditorDrawingStyle::kNodeBorderThickness * editor.zoom_;
@@ -493,44 +544,18 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
         dl->AddText(labelPos, GraphEditorDrawingStyle::kStartColor, "開始");
     }
 
-    dl->ChannelsSetCurrent(1);
+    dl->ChannelsSetCurrent(GraphEditorDrawingStyle::kNodeFrontChannel);
 
+    // ピンは描いて記録するだけにする（掴む・つなぐ判定は全ピンが出そろった後に近い物を選ぶ）
     // 実行入力ピン（左上。タイトル行の高さに合わせる）
     ImVec2 inPin(nodeMin.x - pinPad, nodeMin.y + GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_);
     dl->AddCircleFilled(inPin, pinR, GraphEditorDrawingStyle::kInputPinColor);
-    if (GraphEditorDrawingStyle::IsHoveringCircle(inPin, pinR + GraphEditorDrawingStyle::kExecPinHoverPadding)) {
-        state.hoveringAnyPin = true;
-        if (editor.linking_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && editor.linkFromNodeId_ != id) {
-            auto fromIt = editor.graph_.nodes.find(editor.linkFromNodeId_);
-            if (fromIt != editor.graph_.nodes.end()) {
-                editor.RecordUndoSnapshotNow();
-                GraphNode& fromNode = fromIt->second;
-                for (const ExecPinDef& pin : kExecPins) {
-                    if (editor.linkFromPin_ == pin.name) {
-                        fromNode.*pin.target = id;
-                    }
-                }
-            }
-            editor.linking_ = false;
-            state.linkCompletedThisFrame = true;
-        }
-    }
+    state.pins.push_back({ GraphPinKind::kExecIn, id, GraphEditorDrawingStyle::kExecInPinName, inPin, pinR, GraphValueType::kAny });
 
     // 実行出力ピン（右上。Ifのみtrue/falseの2つ、他は1つ）
     auto drawOutputPin = [&](const char* pinKind, ImVec2 pos, ImU32 col) {
         dl->AddCircleFilled(pos, pinR, col);
-        if (GraphEditorDrawingStyle::IsHoveringCircle(pos, pinR + GraphEditorDrawingStyle::kExecPinHoverPadding)) {
-            state.hoveringAnyPin = true;
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
-                editor.linking_ = true;
-                editor.linkFromNodeId_ = id;
-                editor.linkFromPin_ = pinKind;
-            }
-        }
-        if (editor.linking_ && editor.linkFromNodeId_ == id && editor.linkFromPin_ == pinKind) {
-            state.linkFromScreenPos = pos;
-            state.linkFromFound = true;
-        }
+        state.pins.push_back({ GraphPinKind::kExecOut, id, pinKind, pos, pinR, GraphValueType::kAny });
     };
 
     if (spec && spec->branches) {
@@ -543,22 +568,10 @@ void GraphNodeRenderer::Draw(GraphEditor& editor, ImDrawList* dl, const ImVec2& 
     // データ出力ピン（右下。値を出力するノードだけ）
     if (spec && spec->hasOutput) {
         ImVec2 outPin(nodeMax.x + pinPad, nodeMax.y - GraphEditorDrawingStyle::kPinRowOffset * editor.zoom_);
-        editor.dataOutPins_[id] = outPin;
 
         float dataPinR = pinR * GraphEditorDrawingStyle::kDataPinRadiusRatio;
         dl->AddCircleFilled(outPin, dataPinR, GraphEditorDrawingStyle::ColorForType(spec->outputType));
-        if (GraphEditorDrawingStyle::IsHoveringCircle(outPin, dataPinR + GraphEditorDrawingStyle::kPinHoverPadding)) {
-            state.hoveringAnyPin = true;
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editor.linking_ && !editor.dataLinking_) {
-                editor.dataLinking_ = true;
-                editor.dataLinkFromNodeId_ = id;
-                editor.dataLinkFromType_ = spec->outputType;
-            }
-        }
-        if (editor.dataLinking_ && editor.dataLinkFromNodeId_ == id) {
-            state.dataLinkFromScreenPos = outPin;
-            state.dataLinkFromFound = true;
-        }
+        state.pins.push_back({ GraphPinKind::kDataOut, id, "", outPin, dataPinR, spec->outputType });
     }
 
     ImGui::PopID();

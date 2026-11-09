@@ -53,12 +53,18 @@ constexpr Vector4 kStyleLabelColor = { 0.8f, 0.8f, 0.8f, 1.0f };
 constexpr Vector2 kRankPosition = { 580.0f, 305.0f };
 constexpr float kRankScale = 4.0f;
 constexpr Vector4 kRankColor = { 1.0f, 0.5f, 0.1f, 1.0f };
-constexpr Vector2 kGoldPosition = { 540.0f, 400.0f };
-constexpr float kGoldScale = 3.0f;
-constexpr Vector4 kGoldColor = { 0.9f, 0.85f, 0.2f, 1.0f };
-constexpr Vector2 kScorePosition = { 500.0f, 470.0f };
+constexpr Vector2 kScorePosition = { 500.0f, 410.0f };
 constexpr float kScoreScale = 2.5f;
 constexpr Vector4 kScoreColor = { 0.85f, 0.95f, 1.0f, 1.0f };
+// エネルギーコアの回収数の行（スコアの下。全部集めていない時は控えめな色）
+constexpr Vector2 kPickupCountPosition = { 500.0f, 480.0f };
+constexpr Vector4 kPickupCountColor = { 0.75f, 0.8f, 0.85f, 1.0f };
+// エネルギーコア全回収のボーナス行（回収数の下）
+constexpr Vector2 kPickupBonusPosition = { 500.0f, 515.0f };
+constexpr float kPickupBonusScale = 1.6f;
+constexpr Vector4 kPickupBonusColor = { 1.0f, 0.9f, 0.35f, 1.0f };
+constexpr int kNoPickupBonus = 0; // 全回収していない時のボーナス
+constexpr int kNoPickups = 0; // エネルギーコアが置かれていないステージの個数
 
 // フィニッシャーが当たる範囲（画面の端に体がかかった敵も入るよう、映る範囲より少し広げる）
 constexpr float kFinisherScreenMargin = 1.0f;
@@ -292,7 +298,7 @@ bool GamePlayScene::DrawClearOverlayIfNeeded() {
     return true;
 }
 
-/** @brief クリアの結果画面（ランクの色の背景に CLEAR!。withRunResult ならランク・獲得ゴールド・スコアも）を描く */
+/** @brief クリアの結果画面（ランクの色の背景に CLEAR!。withRunResult ならランク・スコアも）を描く */
 void GamePlayScene::DrawClearResultScreen(bool withRunResult) {
     // 配置物を描いた上に、画面全体を結果画面の背景で覆う
     GetStageEditor().DrawObjects();
@@ -315,12 +321,21 @@ void GamePlayScene::DrawClearResultScreen(bool withRunResult) {
     if (withRunResult) {
         drawResultText("Style:", "style_label", kStyleLabelPosition, kStyleLabelScale, kStyleLabelColor);
         drawResultText(RunData::CalcRank(peakStyle_), "rank", kRankPosition, kRankScale, kRankColor);
-        char goldBuf[textBufferCapacity::kShortText];
-        snprintf(goldBuf, sizeof(goldBuf), "+%dG", lastGold_);
-        drawResultText(goldBuf, "gold", kGoldPosition, kGoldScale, kGoldColor);
         char scoreBuf[textBufferCapacity::kShortText];
         snprintf(scoreBuf, sizeof(scoreBuf), "+%d pts", lastScore_);
         drawResultText(scoreBuf, "score", kScorePosition, kScoreScale, kScoreColor);
+        // エネルギーコアがあるステージでは集めた数を出し、全部集めていればボーナスも出す
+        if (lastPickupTotal_ > kNoPickups) {
+            char coreBuf[textBufferCapacity::kShortText];
+            snprintf(coreBuf, sizeof(coreBuf), "CORES %d / %d", lastPickupCollected_, lastPickupTotal_);
+            drawResultText(coreBuf, "pickup_count", kPickupCountPosition, kPickupBonusScale,
+                lastPickupBonus_ > kNoPickupBonus ? kPickupBonusColor : kPickupCountColor);
+        }
+        if (lastPickupBonus_ > kNoPickupBonus) {
+            char bonusBuf[textBufferCapacity::kShortText];
+            snprintf(bonusBuf, sizeof(bonusBuf), "ALL CORES BONUS +%d", lastPickupBonus_);
+            drawResultText(bonusBuf, "pickup_bonus", kPickupBonusPosition, kPickupBonusScale, kPickupBonusColor);
+        }
     }
     fontRenderer_.Draw();
 }

@@ -49,6 +49,14 @@ constexpr Vector4 kFinisherOverlayTint = { 0.0f, 0.0f, 0.05f, 0.0f }; // アル�
 // 以下は既定の配置（F2のエディタで動かした値は Resources/Config/UI/gameplay.json に保存される）
 constexpr const char* kLayoutName = "gameplay";
 
+// ノードグラフの ShowMessage で出す文字（画面の下寄り中央。最後の時間で薄く消える）
+constexpr float kScriptMessageY = 560.0f;
+constexpr float kScriptMessageScale = 1.6f;
+constexpr Vector4 kScriptMessageColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+constexpr Vector4 kScriptMessageShadowColor = { 0.0f, 0.0f, 0.0f, 0.85f };
+constexpr float kScriptMessageShadowOffset = 2.0f;
+constexpr float kScriptMessageFadeSeconds = 0.3f;
+
 // 武器の疲労警告はデバッグボタンの下に配置する
 constexpr Vector2 kFatigueWarningPosition = { gameConstants::kScreenCenterX, 140.0f };
 constexpr float kFatigueTitleScale = 1.6f;
@@ -66,7 +74,7 @@ constexpr Vector2 kEnemyHpTextPosition = { 460.0f, 10.0f };
 constexpr float kEnemyHpTextScale = 1.5f;
 constexpr Vector4 kEnemyHpTextColor = { 1.0f, 0.35f, 0.35f, 1.0f };
 
-// プレイヤーHP・ゴールドの数値表示（左下の武器スロットの真上）
+// プレイヤーHPの数値表示（左下の武器スロットの真上）
 constexpr Vector2 kInfoPosition = { 24.0f, 600.0f };
 constexpr float kInfoScale = 1.5f;
 constexpr Vector4 kInfoColor = { 0.3f, 1.0f, 0.4f, 1.0f };
@@ -235,9 +243,8 @@ void GamePlayScene::DrawRogueliteHUD() {
     fontRenderer_.DrawStringW(enemyHpText, enemyHpPosition.x, enemyHpPosition.y,
         layout.Float("enemy_hp.scale", kEnemyHpTextScale), layout.Color("enemy_hp.color", kEnemyHpTextColor));
 
-    // プレイヤーHP + ゴールド左上は武器一覧パネルと被るため、左下の武器スロットHUDの真上に置く
-    std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp())
-        + "  G:" + std::to_string(rd->GetGold());
+    // プレイヤーHPは左上だと武器一覧パネルと被るため、左下の武器スロットHUDの真上に置く
+    std::string info = "HP:" + std::to_string(rd->GetHp()) + "/" + std::to_string(rd->GetMaxHp());
     const Vector2 infoPosition = layout.Pos("info.pos", kInfoPosition);
     fontRenderer_.DrawString(info.c_str(), infoPosition.x, infoPosition.y,
         layout.Float("info.scale", kInfoScale), layout.Color("info.color", kInfoColor));
@@ -398,8 +405,9 @@ void GamePlayScene::DrawStyleUI() {
             }
         }
     }
-    // 武器の疲労警告・武器一覧・操作説明
+    // 武器の疲労警告・ノードグラフのメッセージ・武器一覧・操作説明
     DrawWeaponFatigueWarning();
+    DrawScriptMessage();
     DrawWeaponListPanel();
     sceneShared::DrawControlsHud(fontRenderer_,
         layout.Pos("controls.pos", kGameplayControlsAnchor), L": ステージを進む");
@@ -515,7 +523,7 @@ void GamePlayScene::DrawWeaponExchange() {
 /** @brief 一時停止メニューの項目を登録する（退出はステージセレクトへ戻る） */
 void GamePlayScene::SetupPauseMenu() {
     pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
-        { "STAGE SELECT", [] {
+        { "ステージセレクト", [] {
              auto* rd = RunData::GetInstance();
              if (rd->IsRunActive()) {
                  SaveDataManager::GetInstance()->SaveContinue(*rd);
@@ -595,18 +603,68 @@ void GamePlayScene::DrawWeaponFatigueWarning() {
     fontRenderer_.DrawStringW(detail, pos.x - FontRenderer::MeasureStringW(detail, detailScale).x * kCenterFactor,
         pos.y + fatigueDetailOffsetY, detailScale, color);
 }
-/** @brief 左上の武器スロット一覧を描画する（BattleTestSceneと同じ体裁） */
+/** @brief 左上にステージ名の見出しを描画する（武器は左下の武器スロットHUDに出すので一覧は出さない） */
 void GamePlayScene::DrawWeaponListPanel() {
     UILayout& layout = UILayout::Get(kLayoutName);
-    // 左上には武器一覧と切り替え案内を表示する。
     const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
-    std::vector<float> powerRatios(WeaponManager::GetInstance()->GetList().size(), 1.0f);
-    for (int i = 0; i < static_cast<int>(powerRatios.size()); ++i) {
-        powerRatios[i] = WeaponFatigueDamageMult(i);
-    }
-    sceneShared::DrawWeaponListHud(fontRenderer_, WeaponManager::GetInstance(),
-        L"メインステージ", weaponHudAnchor, &powerRatios);
+    sceneShared::DrawHudHeader(fontRenderer_, L"メインステージ", weaponHudAnchor);
 }
+/** @brief ノードグラフの ShowMessage で出した文字を画面中央に描画し、残り時間を減らす */
+void GamePlayScene::DrawScriptMessage() {
+    if (scriptMessageSeconds_ <= 0.0f || scriptMessage_.empty()) {
+        return;
+    }
+    scriptMessageSeconds_ -= gameConstants::kFrameDeltaTime;
+    UILayout& layout = UILayout::Get(kLayoutName);
+    const float y = layout.Float("script_message.y", kScriptMessageY);
+    const float scale = layout.Float("script_message.scale", kScriptMessageScale);
+    // 最後の少しの間で薄くして消す
+    const float alpha = std::clamp(scriptMessageSeconds_ / kScriptMessageFadeSeconds, 0.0f, 1.0f);
+    Vector4 shadow = kScriptMessageShadowColor;
+    shadow.w *= alpha;
+    Vector4 color = layout.Color("script_message.color", kScriptMessageColor);
+    color.w *= alpha;
+    // 影は少し右下にずらすため、中央揃えの位置を同じだけずらした文字で描く
+    constexpr float kCenterFactor = 0.5f;
+    const float width = FontRenderer::MeasureStringW(scriptMessage_, scale).x;
+    const float x = gameConstants::kScreenCenterX - width * kCenterFactor;
+    fontRenderer_.DrawStringW(scriptMessage_, x + kScriptMessageShadowOffset, y + kScriptMessageShadowOffset, scale, shadow);
+    fontRenderer_.DrawStringW(scriptMessage_, x, y, scale, color);
+}
+
+/** @brief ノードグラフのメッセージ・カメラ・操作停止の受け口を登録する */
+void GamePlayScene::RegisterScriptEffectHandlers() {
+    auto* bridge = SceneEffectBridge::GetInstance();
+    bridge->SetMessageHandler([this](const std::string& text, float seconds) {
+        scriptMessage_ = StringUtility::ConvertString(text);
+        scriptMessageSeconds_ = seconds;
+    });
+    bridge->SetCameraFocusHandler([this](float x, float y, float seconds) {
+        scriptCameraFocus_ = { x, y, 0.0f };
+        scriptCameraFocusSeconds_ = seconds;
+    });
+    bridge->SetControlLockHandler([this](bool locked) {
+        // 戻した時は上書きを外して、実機の入力をそのまま使う
+        if (scriptControlLocked_ && !locked) {
+            input_->ClearActionOverrides();
+        }
+        scriptControlLocked_ = locked;
+    });
+}
+
+/** @brief ノードグラフで操作を止めている間は、ポーズ以外の操作を押していない扱いにする */
+void GamePlayScene::ApplyScriptControlLock() {
+    if (!scriptControlLocked_) {
+        return;
+    }
+    for (int i = 0; i < static_cast<int>(Input::Action::kCount); ++i) {
+        const auto action = static_cast<Input::Action>(i);
+        if (action != Input::Action::kPause) {
+            input_->SetActionOverride(action, false);
+        }
+    }
+}
+
 /** @brief シーン固有の演出資源と登録済みコールバックを破棄する */
 void GamePlayScene::Finalize() {
     motionEditor_.Close(*player_);
@@ -615,6 +673,14 @@ void GamePlayScene::Finalize() {
     // デバッグパネルとカメラ揺れの受け口から、このシーンの登録を外す
     ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
     SceneEffectBridge::GetInstance()->SetCameraShakeHandler({ });
+    SceneEffectBridge::GetInstance()->SetMessageHandler({ });
+    SceneEffectBridge::GetInstance()->SetCameraFocusHandler({ });
+    SceneEffectBridge::GetInstance()->SetControlLockHandler({ });
+    // 操作を止めたままシーンを抜けても、次の画面に上書きを残さない
+    if (scriptControlLocked_) {
+        input_->ClearActionOverrides();
+        scriptControlLocked_ = false;
+    }
     // 描画先と演出の資源を片付ける
     renderTexture_->Finalize(srvManager_);
     pm_->ClearAllGroups();

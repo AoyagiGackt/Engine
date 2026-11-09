@@ -26,6 +26,14 @@ public:
     virtual void RefreshVisualTransforms() = 0;
     /** @brief ほかの敵を押し退ける体として扱うか（倒れた敵は重なってよい） */
     virtual bool BlocksOtherEnemies() const = 0;
+    /** @brief 壁と当たる体の横幅の半分を返す（専用の大きさが無ければ fallback） */
+    virtual float WallBodyHalfWidth(float fallback) const {
+        return fallback;
+    }
+    /** @brief 壁と当たる体の高さを返す（専用の大きさが無ければ fallback） */
+    virtual float WallBodyHeight(float fallback) const {
+        return fallback;
+    }
 };
 
 } // namespace engine::game

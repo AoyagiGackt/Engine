@@ -460,9 +460,9 @@ bool StageEditorInspectorPanel::RenderExternalInspector(StageEditor& editor) {
 /** @brief 現在の選択対象に対応する詳細パネルを描画する */
 void StageEditorInspectorPanel::Render(StageEditor& editor) {
     const auto* display = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + display->Size.x - StageEditor::kRightPanelWidth,
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + display->Size.x - StageEditor::sRightPanelWidth,
         display->Pos.y + StageEditor::kToolbarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(StageEditor::kRightPanelWidth,
+    ImGui::SetNextWindowSize(ImVec2(StageEditor::sRightPanelWidth,
         (std::max)(1.0f, display->Size.y - StageEditor::kToolbarHeight)), ImGuiCond_Always);
     ImGui::Begin("選択した物の設定", nullptr, editorUi::kFixedPanelFlags);
     const bool hasSelection = editor.selKind_ != StageEditor::SelKind::kNone;

@@ -234,6 +234,7 @@ void StageEditor::UpdateObjects(ParticleManager* pm, const Vector3& playerPos) {
         UpdateRuntimeEntry(entry, pm, playerPos, kRuntimeDeltaSeconds);
     }
     if (separateEnemies) {
+        UpdateEnemiesOnTerrain(walls);
         SeparateOverlappingEnemies(walls, enemiesAvoidPlayer_ ? std::optional<Vector3>(playerPos) : std::nullopt);
     }
     // レベル紐付きグラフは配置物の状態が確定した後に進める（編集停止中はロジックも止める）
@@ -255,6 +256,16 @@ void StageEditor::SeparateOverlappingEnemies(const std::vector<engine::AABB>& wa
     }
     for (IEnemyEntity* enemy : EnemySeparation::Resolve(targets, walls, playerPosition)) {
         entries.at(enemy)->desc.position = enemy->GetPosition();
+    }
+}
+
+/** @brief 歩く敵の高さを地形に合わせる（壁を登る・段差に乗る・足場から落ちる。ボスと巡回する敵は配置どおり） */
+void StageEditor::UpdateEnemiesOnTerrain(const std::vector<engine::AABB>& solids) {
+    for (auto& entry : objects_) {
+        if (entry.runtimeActive && entry.enemy && !entry.desc.isStageBoss && entry.desc.patrolRoute.empty()) {
+            entry.enemy->UpdateTerrain(solids);
+            entry.desc.position = entry.enemy->GetPosition();
+        }
     }
 }
 

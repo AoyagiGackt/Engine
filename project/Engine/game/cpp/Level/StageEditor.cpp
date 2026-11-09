@@ -34,6 +34,7 @@
 #include <unordered_set>
 #ifdef USE_IMGUI
 #include "EditorUI.h"
+#include "UILayout.h"
 #include <commdlg.h>
 #include <imgui.h>
 #pragma comment(lib, "comdlg32.lib")
@@ -306,6 +307,8 @@ Vector3 StageEditor::ViewCenterOnGround() const {
 /** @brief 現在の内容をOpenで指定したパスへ書き戻す */
 void StageEditor::Save() {
 #ifdef USE_IMGUI
+    // 画面UIの位置は保存前検証の対象外なので、レベルの検証結果に関係なく先に書き出す
+    const int savedLayouts = UILayout::SaveAllUnsaved();
     validationIssues_ = ValidateLevel();
     if (!validationIssues_.empty()) {
         statusMessage_ = "保存前検証で問題が見つかりました";
@@ -324,6 +327,11 @@ void StageEditor::Save() {
     lastSavedSnapshot_ = MakeSnapshot();
 #endif
     statusMessage_ = "保存しました: " + levelPath_;
+#ifdef USE_IMGUI
+    if (savedLayouts > 0) {
+        statusMessage_ += " / 画面UI " + std::to_string(savedLayouts) + " 件";
+    }
+#endif
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }
 
@@ -426,8 +434,8 @@ void StageEditor::UpdateEditorVisibility(Input* input) {
 
 /** @brief 編集操作のキーボードショートカットを処理する */
 void StageEditor::HandleEditorShortcuts() {
-    // テストプレイ中と、文字入力欄に入力している間はショートカットを受け付けない
-    if (playTestMode_) {
+    // テストプレイ中とドラッグの途中、文字入力欄に入力している間はショートカットを受け付けない
+    if (playTestMode_ || IsViewportDragActive()) {
         return;
     }
     ImGuiIO& io = ImGui::GetIO();
@@ -439,22 +447,24 @@ void StageEditor::HandleEditorShortcuts() {
         ImGuiKey key;
         bool needsCtrl;
         void (StageEditor::*action)();
+        bool repeats; ///< 押しっぱなしで繰り返すか（削除や複製は1回押して1回だけにする）
     };
     static constexpr EditShortcut kEditShortcuts[] = {
-        { ImGuiKey_Z, true, &StageEditor::Undo },
-        { ImGuiKey_Y, true, &StageEditor::Redo },
-        { ImGuiKey_S, true, &StageEditor::Save },
-        { ImGuiKey_D, true, &StageEditor::DuplicateSelected },
-        { ImGuiKey_C, true, &StageEditor::CopySelected },
-        { ImGuiKey_V, true, &StageEditor::PasteClipboard },
-        { ImGuiKey_Delete, false, &StageEditor::DeleteSelected },
-        { ImGuiKey_F, false, &StageEditor::FocusCameraOnSelection },
-        { ImGuiKey_Escape, false, &StageEditor::ClearSelection },
-        { ImGuiKey_A, true, &StageEditor::SelectAllObjects },
+        { ImGuiKey_Z, true, &StageEditor::Undo, true },
+        { ImGuiKey_Y, true, &StageEditor::Redo, true },
+        { ImGuiKey_S, true, &StageEditor::Save, false },
+        { ImGuiKey_D, true, &StageEditor::DuplicateSelected, false },
+        { ImGuiKey_C, true, &StageEditor::CopySelected, false },
+        { ImGuiKey_V, true, &StageEditor::PasteClipboard, false },
+        { ImGuiKey_Delete, false, &StageEditor::DeleteSelected, false },
+        { ImGuiKey_F, false, &StageEditor::FocusCameraOnSelection, false },
+        { ImGuiKey_U, false, &StageEditor::ToggleUILayoutEditing, false },
+        { ImGuiKey_Escape, false, &StageEditor::ClearSelection, false },
+        { ImGuiKey_A, true, &StageEditor::SelectAllObjects, false },
     };
     for (const EditShortcut& shortcut : kEditShortcuts) {
         // Ctrl が要るものは Ctrl を押している時だけ反応する
-        if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key)) {
+        if ((!shortcut.needsCtrl || io.KeyCtrl) && ImGui::IsKeyPressed(shortcut.key, shortcut.repeats)) {
             (this->*shortcut.action)();
             break;
         }
@@ -496,6 +506,10 @@ void StageEditor::HandleEditorShortcuts() {
     const float step = snapEnabled_ && snapStep_ > 0.0f ? snapStep_ : kNudgeStep;
     for (const NudgeKey& nudge : kNudgeKeys) {
         if (ImGui::IsKeyPressed(nudge.key)) {
+            // 配置物を選んでおらず画面UIの印を選んでいる時は、印を動かす
+            if (NudgeSelectedUILayoutHandle(nudge.dir[0], nudge.dir[1])) {
+                break;
+            }
             const float* dir = io.KeyShift ? nudge.shiftDir : nudge.dir;
             NudgeSelection(dir[0] * step, dir[1] * step, dir[2] * step);
             break;
@@ -538,6 +552,8 @@ void StageEditor::DrawGridOverlay() {
 
 /** @brief 現在のレイアウト状態に応じて編集パネルを表示する */
 void StageEditor::RenderEditorPanels() {
+    // 右クリックメニューは画面優先モードでも開く
+    RenderViewportContextMenu();
     if (viewportFocusMode_) {
         RenderViewportFocusBar();
         return;
@@ -546,7 +562,7 @@ void StageEditor::RenderEditorPanels() {
     RenderHierarchy();
     RenderInspector();
     RenderAssetPalette();
-    RenderViewportContextMenu();
+    RenderPanelSplitters();
     // 補助パネルは浮いたウィンドウにせず、ゲームビューの下の領域にタブで並べる
     if (!BeginAuxPanelArea()) {
         return;
@@ -590,9 +606,9 @@ bool StageEditor::BeginAuxPanelArea() {
     const auto* display = ImGui::GetMainViewport();
     const float columnHeight = (std::max)(1.0f, display->Size.y - kToolbarHeight);
     const float areaHeight = columnHeight * editorUi::kAuxPanelHeightRatio;
-    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + kLeftPanelWidth,
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + sLeftPanelWidth,
         display->Pos.y + kToolbarHeight + columnHeight - areaHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2((std::max)(1.0f, display->Size.x - kLeftPanelWidth - kRightPanelWidth), areaHeight),
+    ImGui::SetNextWindowSize(ImVec2((std::max)(1.0f, display->Size.x - sLeftPanelWidth - sRightPanelWidth), areaHeight),
         ImGuiCond_Always);
     ImGui::Begin("補助パネル", nullptr, editorUi::kFixedPanelFlags | ImGuiWindowFlags_NoTitleBar);
     // 新しく開いたパネルのタブをすぐ前に出す。並べ替えもできるようにする
@@ -630,6 +646,9 @@ StageEditor::LevelSnapshot StageEditor::MakeSnapshot() const {
     snap.enemySpawn = enemySpawn_;
     snap.graphPath = graphPath_;
     snap.flagGraphs = flagGraphs_;
+    for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
+        snap.uiPositions.push_back({ handle.layout, handle.index, handle.position.x, handle.position.y });
+    }
     return snap;
 }
 

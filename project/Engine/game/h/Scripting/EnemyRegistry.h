@@ -32,6 +32,9 @@ public:
     /** @brief idから敵を検索する未登録なら nullptr */
     EnemyEntity* Find(const std::string& id) const;
 
+    /** @brief 登録中の敵に、まだ倒されていない敵がいるか（出現前の敵は数えない） */
+    bool AnyAlive() const;
+
     /** @brief 全登録を消去する（シーン遷移時などに使う想定） */
     void Clear();
 

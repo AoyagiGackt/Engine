@@ -226,13 +226,19 @@ private:
     void ApplyWeaponAcquireResult(WeaponManager::AcquireResult result);
     /** @brief レベルに配置された壊せる物（kind=="breakable"）のヒット判定・爆発ダメージ・演出を処理する */
     void UpdateExplosiveBarrels();
-    /** @brief 左上の武器スロット一覧と操作ヒントを描画する（BattleTestSceneと同じ体裁） */
+    /** @brief 左上にステージ名の見出しを描画する */
     void DrawWeaponListPanel();
+    /** @brief ノードグラフの ShowMessage で出した文字を画面中央に描画し、残り時間を減らす */
+    void DrawScriptMessage();
+    /** @brief ノードグラフのメッセージ・カメラ・操作停止の受け口を登録する */
+    void RegisterScriptEffectHandlers();
+    /** @brief ノードグラフで操作を止めている間は、ポーズ以外の操作を押していない扱いにする */
+    void ApplyScriptControlLock();
     /** @brief ボス・道中の武器敵の頭上HPバーの位置と色を更新する（BattleTestSceneのダミーHPバーと同じ体裁） */
     void UpdateEnemyHpBars();
     /** @brief 左下のプレイヤーHPゲージの位置と色を更新する */
     void UpdatePlayerHpBar();
-    // ローグライトのHP/Gold/フロア情報HUD描画
+    // ローグライトのHP/フロア情報HUD描画
     void DrawRogueliteHUD();
     // モデル共通描画設定（PSO/ルートシグネチャ）の適用
     void SetupModelRenderState();
@@ -276,7 +282,7 @@ private:
     std::vector<EnemyEntity*> CollectOnScreenEnemies() const;
     /** @brief クリアの決め演出を始める（ボスを倒した最後の一撃が銃なら弾痕、それ以外なら斬線） */
     void StartClearFinish();
-    /** @brief クリアの結果画面（黒い背景に CLEAR!。withRunResult ならランク・獲得ゴールド・スコアも）を描く */
+    /** @brief クリアの結果画面（黒い背景に CLEAR!。withRunResult ならランク・スコアも）を描く */
     void DrawClearResultScreen(bool withRunResult);
     // 攻撃ヒット判定・ダメージ処理などの戦闘イベント更新
     void UpdateCombatEvents();
@@ -446,7 +452,7 @@ private:
 
     /** @brief ラン外（エディタのテストプレイなど）のクリアか（結果画面は CLEAR! だけにして、終わったらクリア画面へ） */
     bool IsSandboxClear() const;
-    /** @brief ラン中のクリアの結果（ランク・ゴールド・スコア）を求め、apply なら進行とセーブにも反映する（確認用の再生は false） */
+    /** @brief ラン中のクリアの結果（ランク・スコア）を求め、apply なら進行とセーブにも反映する（確認用の再生は false） */
     void RecordRunClear(bool apply);
 
     /** @brief Draw()の下請け クリア演出中の専用画面（ローグライト結果表示／サンドボックスのガラス割れ導入）を描画する。描画してDraw()を打ち切るべきなら true を返す */
@@ -648,9 +654,16 @@ private:
     /** @brief 敵中心の空間歪み（レンズ歪み+色収差） */
     SpaceDistortionEffect spaceWarp_;
 
-    bool showResult_ = false; ///< フロアクリアの結果（ゴールド・スコア・セーブ）を反映し終えたか
-    int lastGold_ = 0;
+    bool showResult_ = false; ///< フロアクリアの結果（スコア・セーブ）を反映し終えたか
     int lastScore_ = 0; ///< 直近のフロアクリアで加算したスコア（結果表示用）
+    int lastPickupBonus_ = 0; ///< 直近のクリアで加えたエネルギーコア全回収のボーナス（結果表示用。無ければ0）
+    int lastPickupCollected_ = 0; ///< 直近のクリアまでに集めたエネルギーコアの数（結果表示用）
+    int lastPickupTotal_ = 0; ///< 直近のクリアしたステージに置かれたエネルギーコアの数（0なら結果に出さない）
+    std::wstring scriptMessage_; ///< ShowMessage ノードが出した文字
+    float scriptMessageSeconds_ = 0.0f; ///< その文字を出しておく残り秒数
+    Vector3 scriptCameraFocus_ = {}; ///< FocusCamera ノードが向けた先
+    float scriptCameraFocusSeconds_ = 0.0f; ///< カメラを向けておく残り秒数（0ならプレイヤーを追う）
+    bool scriptControlLocked_ = false; ///< LockPlayerControl ノードで操作を止めているか
 
     FontRenderer fontRenderer_;
     CameraShaker cameraShaker_;

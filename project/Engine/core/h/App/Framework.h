@@ -96,6 +96,9 @@ public:
     }
 
 protected:
+    /** @brief 素材のpak化だけ行って終わる起動か（ウィンドウを画面に出さない） */
+    bool isAssetBuildOnly_ = false;
+
     // 主要な基盤システム（スマートポインタによる自動管理）
 
     /** @brief ウィンドウ管理 */

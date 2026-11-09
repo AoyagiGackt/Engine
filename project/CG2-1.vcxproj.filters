@@ -775,6 +775,9 @@
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorLabels.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Light</Filter>
     </ClCompile>
@@ -1746,6 +1749,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemo.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\TitleSceneDemoDummies.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneCamera.cpp">

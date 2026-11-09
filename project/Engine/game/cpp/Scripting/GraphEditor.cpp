@@ -37,8 +37,8 @@ GraphEditor* GraphEditor::GetInstance() {
 void GraphEditor::Open(const std::string& path) {
     graphPath_ = path;
     graph_ = graphIO::Load(path);
-    selectedNodeId_.clear();
-    linking_ = false;
+    ClearSelection();
+    CancelCanvasInteractions();
 
     // 手書きJSON等でeditorX/Yが無い（全ノードが原点に重なっている）場合は自動整列する
     bool allAtOrigin = !graph_.nodes.empty();
@@ -55,6 +55,8 @@ void GraphEditor::Open(const std::string& path) {
     // 別ファイルを開いたら、直前のグラフに対するUndo/Redo履歴は無関係になるため破棄する
     history_.Clear();
     dirty_ = false;
+    // 開いたグラフが画面の外に置かれていても見失わないよう、次の描画で全体を表示する
+    requestFrameAll_ = true;
 
     statusMessage_ = "Opened: " + path;
     statusTimer_ = kStatusShortSeconds;
@@ -141,10 +143,13 @@ void GraphEditor::ApplyHistorySnapshot(std::optional<GraphDesc> snapshot, const 
     if (!snapshot) {
         return;
     }
-    // 古いグラフの選択を解除し、保存が必要な状態へ切り替える
+    // 残っているノードの選択は保ち、保存が必要な状態へ切り替える
     graph_ = std::move(*snapshot);
-    selectedNodeId_.clear();
-    selectedCommentId_.clear();
+    SyncSelection();
+    if (graph_.comments.count(selectedCommentId_) == 0) {
+        selectedCommentId_.clear();
+    }
+    CancelCanvasInteractions();
     dirty_ = true;
     statusMessage_ = message;
     statusTimer_ = kStatusBriefSeconds;
@@ -152,11 +157,18 @@ void GraphEditor::ApplyHistorySnapshot(std::optional<GraphDesc> snapshot, const 
 
 /** @brief 1つ前に記録したグラフの状態へ戻す */
 void GraphEditor::Undo() {
+    // ドラッグの途中で戻すと、離した時に履歴の順番が崩れるので受け付けない
+    if (drag_.kind != CanvasDragKind::kNone) {
+        return;
+    }
     ApplyHistorySnapshot(history_.Undo(graph_), "元に戻しました");
 }
 
 /** @brief Undo で戻した状態をやり直す */
 void GraphEditor::Redo() {
+    if (drag_.kind != CanvasDragKind::kNone) {
+        return;
+    }
     ApplyHistorySnapshot(history_.Redo(graph_), "やり直しました");
 }
 
@@ -164,47 +176,165 @@ void GraphEditor::Redo() {
 // ノードとコメントの編集
 // ══════════════════════════════════════════════════════
 
-/** @brief 指定ノードを削除し、開始ノードや他ノードからの参照も外す */
-void GraphEditor::DeleteNode(const std::string& id) {
-    RecordUndoSnapshotNow();
+/** @brief 指定ノードへ向かう実行の配線をすべて外す（外した物があれば true） */
+bool ClearExecLinksTo(GraphDesc& graph, const std::string& nodeId) {
+    bool changed = false;
+    for (auto& [otherId, node] : graph.nodes) {
+        for (const ExecPinDef& pin : kExecPins) {
+            if (node.*pin.target == nodeId) {
+                (node.*pin.target).clear();
+                changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
+/** @brief 指定ノードを供給元にするデータ配線をすべて外す（外した物があれば true） */
+bool ClearDataLinksFrom(GraphDesc& graph, const std::string& nodeId) {
+    size_t removed = 0;
+    for (auto& [otherId, node] : graph.nodes) {
+        removed += std::erase_if(node.paramLinks, [&nodeId](const auto& link) {
+            return link.second == nodeId;
+        });
+    }
+    return removed > 0;
+}
+
+/** @brief 指定ノードと、そのノードへの参照を取り除く（履歴の記録は呼び出し側で行う） */
+void GraphEditor::RemoveNode(const std::string& id) {
     graph_.nodes.erase(id);
     if (graph_.startNodeId == id) {
         graph_.startNodeId.clear();
     }
-    for (auto& [otherId, node] : graph_.nodes) {
+    ClearExecLinksTo(graph_, id);
+    ClearDataLinksFrom(graph_, id);
+}
+
+/** @brief 選択中のノードをまとめて1回の操作として削除する */
+void GraphEditor::DeleteSelectedNodes() {
+    // ドラッグの途中は履歴の順番が崩れるので受け付けない
+    if (selectedNodeIds_.empty() || drag_.kind != CanvasDragKind::kNone) {
+        return;
+    }
+    RecordUndoSnapshotNow();
+    for (const std::string& id : selectedNodeIds_) {
+        RemoveNode(id);
+    }
+    ClearSelection();
+}
+
+/** @brief 選択中のノードを複製する（選択の中どうしの配線は複製先へつなぎ替える） */
+void GraphEditor::DuplicateSelectedNodes() {
+    // ドラッグの途中は履歴の順番が崩れるので受け付けない
+    if (selectedNodeIds_.empty() || drag_.kind != CanvasDragKind::kNone) {
+        return;
+    }
+    RecordUndoSnapshotNow();
+
+    // 新しいIDを振って、元と重ならないよう少しずらして置く
+    std::map<std::string, std::string> newIds;
+    for (const std::string& id : selectedNodeIds_) {
+        const GraphNode* source = graph_.FindNode(id);
+        if (source == nullptr) {
+            continue;
+        }
+        GraphNode copy = *source; // params/paramLinks/next系も含めてまるごと複製する
+        copy.id = MakeUniqueNodeId();
+        copy.editorX += kDuplicateOffset;
+        copy.editorY += kDuplicateOffset;
+        newIds[id] = copy.id;
+        graph_.nodes[copy.id] = std::move(copy);
+    }
+
+    // 選択の中どうしの配線は複製先どうしをつなぐ（選択の外への配線はそのまま残す）
+    const auto remap = [&newIds](std::string& target) {
+        const auto found = newIds.find(target);
+        if (found != newIds.end()) {
+            target = found->second;
+        }
+    };
+    selectedNodeIds_.clear();
+    for (const auto& [oldId, newId] : newIds) {
+        GraphNode& copy = graph_.nodes[newId];
         for (const ExecPinDef& pin : kExecPins) {
-            if (node.*pin.target == id) {
-                (node.*pin.target).clear();
-            }
+            remap(copy.*pin.target);
         }
-        // 削除したノードを供給元にしているデータ配線も切る
-        for (auto it = node.paramLinks.begin(); it != node.paramLinks.end();) {
-            if (it->second == id) {
-                it = node.paramLinks.erase(it);
-            } else {
-                ++it;
-            }
+        for (auto& [key, sourceId] : copy.paramLinks) {
+            remap(sourceId);
         }
+        selectedNodeIds_.insert(newId);
+    }
+    remap(selectedNodeId_);
+    SyncSelection();
+    selectedCommentId_.clear();
+}
+
+/** @brief グラフ内で使われていないノードIDを作る */
+std::string GraphEditor::MakeUniqueNodeId() {
+    // 読み込んだグラフに同じ番号があると上書きしてしまうので、空いている番号まで進める
+    std::string id;
+    do {
+        id = "node_" + std::to_string(nextNodeSerial_++);
+    } while (graph_.nodes.count(id) > 0);
+    return id;
+}
+
+/** @brief グラフ内で使われていないコメントIDを作る */
+std::string GraphEditor::MakeUniqueCommentId() {
+    std::string id;
+    do {
+        id = "comment_" + std::to_string(nextCommentSerial_++);
+    } while (graph_.comments.count(id) > 0);
+    return id;
+}
+
+/** @brief ノードを1つだけ選択する */
+void GraphEditor::SelectOnlyNode(const std::string& id) {
+    selectedNodeIds_.clear();
+    selectedNodeIds_.insert(id);
+    selectedNodeId_ = id;
+    selectedCommentId_.clear();
+}
+
+/** @brief ノードとコメントの選択をすべて解除する */
+void GraphEditor::ClearSelection() {
+    selectedNodeIds_.clear();
+    selectedNodeId_.clear();
+    selectedCommentId_.clear();
+}
+
+/** @brief ノードが選択中か */
+bool GraphEditor::IsNodeSelected(const std::string& id) const {
+    return selectedNodeIds_.count(id) > 0;
+}
+
+/** @brief 全ノードを選択する */
+void GraphEditor::SelectAllNodes() {
+    selectedNodeIds_.clear();
+    for (const auto& [id, node] : graph_.nodes) {
+        selectedNodeIds_.insert(id);
+    }
+    selectedCommentId_.clear();
+    SyncSelection();
+}
+
+/** @brief 消えたノードを選択から外し、基準ノードを選び直す */
+void GraphEditor::SyncSelection() {
+    std::erase_if(selectedNodeIds_, [this](const std::string& id) {
+        return graph_.nodes.count(id) == 0;
+    });
+    if (selectedNodeIds_.count(selectedNodeId_) == 0) {
+        selectedNodeId_ = selectedNodeIds_.empty() ? std::string() : *selectedNodeIds_.begin();
     }
 }
 
-/** @brief idのノードを丸ごと複製する（新しいidを振り、少しずらした位置に置く） */
-void GraphEditor::DuplicateNode(const std::string& id) {
-    const GraphNode* src = graph_.FindNode(id);
-    if (!src) {
-        return;
-    }
-
-    RecordUndoSnapshotNow();
-    std::string newId = "node_" + std::to_string(nextNodeSerial_++);
-    GraphNode copy = *src; // params/paramLinks/next系も含めてまるごと複製する
-    copy.id = newId;
-    copy.editorX = src->editorX + kDuplicateOffset; // 元と重ならないよう少しずらして置く
-    copy.editorY = src->editorY + kDuplicateOffset;
-
-    graph_.nodes[newId] = std::move(copy);
-    selectedNodeId_ = newId;
-    selectedCommentId_.clear();
+/** @brief 進行中の配線とドラッグをすべて取り消す */
+void GraphEditor::CancelCanvasInteractions() {
+    linking_ = false;
+    dataLinking_ = false;
+    panning_ = false;
+    drag_ = CanvasDrag { };
 }
 
 /** @brief 指定したコメントをグラフから削除する */

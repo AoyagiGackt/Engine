@@ -37,6 +37,11 @@ public:
     /** @brief 下地・帯・破片・文字の後ろの暗い板を描く（SpriteCommon の共通設定を済ませた後、文字より先に呼ぶ） */
     void Draw();
 
+    /** @brief 文字の後ろの暗い板を出すかを決める（自前の板を敷く画面では消す） */
+    void SetPanelVisible(bool visible) {
+        panelVisible_ = visible;
+    }
+
     /** @brief 大きなランクの文字の透かしを文字の描画予約に積む（結果の文字より先に積む） */
     void QueueWatermark(FontRenderer& font, const std::string& rankLetter) const;
 
@@ -69,6 +74,7 @@ private:
     std::mt19937 rng_ { std::random_device {}() };
     Vector4 tone_ = { 0.5f, 0.5f, 0.5f, 1.0f }; ///< ランクの色の彩度を落とした色（明るさは使う所ごとに掛ける）
     float time_ = 0.0f;
+    bool panelVisible_ = true; ///< 文字の後ろの暗い板を出すか
 };
 
 } // namespace engine::game

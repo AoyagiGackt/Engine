@@ -5,6 +5,7 @@
 #include "MyGame.h"
 #include "AssetPack.h"
 #include "Audio.h"
+#include "ClearScene.h"
 #include "CombatTuning.h"
 #include "EnemyTuning.h"
 #include "EnemyTypeLibrary.h"
@@ -83,6 +84,7 @@ void SetupConfigEditor() {
     editor->SetReloadCallback("player_defeat.json", [] { game::PlayerDefeat::ReloadTuning(); });
     editor->SetReloadCallback("stage_liberation.json", [] { game::StageLiberation::ReloadTuning(); });
     editor->SetReloadCallback("result_backdrop.json", [] { game::ResultBackdrop::ReloadTuning(); });
+    editor->SetReloadCallback("clear_scene.json", [] { game::ClearScene::ReloadTuning(); });
     editor->SetReloadCallback("sounds.json", [] { game::gameSounds::Reload(); });
     editor->SetReloadCallback("bgm.json", [] { Audio::ReloadBGMConfig(); });
 }

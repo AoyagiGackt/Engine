@@ -8,10 +8,16 @@
 #include <cmath>
 namespace engine::game {
 namespace {
+/** @brief 壁と当たる体の大きさ（敵の種類ごとに違う） */
+struct WallBodyShape {
+    float halfWidth;
+    float height;
+};
+
 /** @brief 敵の体のうち壁と当たる範囲（足元の床に掛からないよう、位置より少し上から頭まで） */
-engine::AABB EnemyWallBody(const Vector3& pos, const EnemySeparationTuning& tuning) {
-    return { { pos.x - tuning.bodyHalfWidth, pos.y + tuning.wallBandBottom, pos.z },
-        { pos.x + tuning.bodyHalfWidth, pos.y + tuning.wallBandTop, pos.z } };
+engine::AABB EnemyWallBody(const Vector3& pos, const WallBodyShape& shape, const EnemySeparationTuning& tuning) {
+    return { { pos.x - shape.halfWidth, pos.y + tuning.wallBandBottom, pos.z },
+        { pos.x + shape.halfWidth, pos.y + shape.height, pos.z } };
 }
 
 /** @brief 体がブロックと横に重なっているか（奥行きは敵の位置の1点で見る） */
@@ -22,10 +28,10 @@ bool OverlapsWall(const engine::AABB& body, const engine::AABB& wall) {
 }
 
 /** @brief 壁にめり込んでいれば、入り込みの浅い側へ押し出した後のX座標を返す */
-float PushOutOfWalls(const Vector3& pos, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning) {
+float PushOutOfWalls(const Vector3& pos, const WallBodyShape& shape, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning) {
     Vector3 resolved = pos;
     for (const engine::AABB& wall : walls) {
-        const engine::AABB body = EnemyWallBody(resolved, tuning);
+        const engine::AABB body = EnemyWallBody(resolved, shape, tuning);
         if (!OverlapsWall(body, wall)) {
             continue;
         }
@@ -37,10 +43,10 @@ float PushOutOfWalls(const Vector3& pos, const std::vector<engine::AABB>& walls,
 }
 
 /** @brief 指定した向き（左=-1, 右=+1）のすぐ横に壁があるか（その向きへは押されても動けない） */
-bool WallOnSide(const Vector3& pos, float side, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning) {
+bool WallOnSide(const Vector3& pos, const WallBodyShape& shape, float side, const std::vector<engine::AABB>& walls, const EnemySeparationTuning& tuning) {
     // 体のその向きの端だけを細い帯で調べる（反対側の壁に触れていても誤判定しない）
     const float margin = tuning.wallContactMargin;
-    engine::AABB probe = EnemyWallBody(pos, tuning);
+    engine::AABB probe = EnemyWallBody(pos, shape, tuning);
     const float edgeX = side < 0.0f ? probe.min.x : probe.max.x;
     probe.min.x = edgeX - margin;
     probe.max.x = edgeX + margin;
@@ -60,6 +66,7 @@ std::vector<IEnemyEntity*> EnemySeparation::Resolve(const std::vector<Target>& t
     struct Body {
         IEnemyEntity* enemy;
         bool anchored; ///< 押されても動かない（ボス）
+        WallBodyShape shape; ///< 壁と当たる体の大きさ
         bool wallLeft = false; ///< 左に壁が接していて左へは動けない
         bool wallRight = false; ///< 右に壁が接していて右へは動けない
         bool moved = false;
@@ -75,7 +82,7 @@ std::vector<IEnemyEntity*> EnemySeparation::Resolve(const std::vector<Target>& t
     // 敵ごとに、動かせるか・左右に壁があるかを持つ
     std::vector<Body> bodies;
     for (const auto& [enemy, anchored] : targets) {
-        bodies.push_back({ enemy, anchored });
+        bodies.push_back({ enemy, anchored, { enemy->WallBodyHalfWidth(tuning.bodyHalfWidth), enemy->WallBodyHeight(tuning.wallBandTop) } });
     }
     std::vector<IEnemyEntity*> moved;
     // 自分の移動で壁にめり込んだ敵を先に押し戻し、壁際の敵は壁の方へは押されないようにする
@@ -83,12 +90,12 @@ std::vector<IEnemyEntity*> EnemySeparation::Resolve(const std::vector<Target>& t
     constexpr float kRight = 1.0f;
     for (Body& body : bodies) {
         Vector3 pos = body.enemy->GetPosition();
-        const float resolvedX = PushOutOfWalls(pos, walls, tuning);
+        const float resolvedX = PushOutOfWalls(pos, body.shape, walls, tuning);
         body.moved = resolvedX != pos.x;
         pos.x = resolvedX;
         body.enemy->SetPosition(pos);
-        body.wallLeft = WallOnSide(pos, kLeft, walls, tuning);
-        body.wallRight = WallOnSide(pos, kRight, walls, tuning);
+        body.wallLeft = WallOnSide(pos, body.shape, kLeft, walls, tuning);
+        body.wallRight = WallOnSide(pos, body.shape, kRight, walls, tuning);
     }
 
     // 近すぎる2体の組ごとに、横へ押し離す
@@ -152,7 +159,7 @@ std::vector<IEnemyEntity*> EnemySeparation::Resolve(const std::vector<Target>& t
         }
         // 押し離しで壁へ入った分も戻してから見た目へ反映する
         Vector3 pos = body.enemy->GetPosition();
-        pos.x = PushOutOfWalls(pos, walls, tuning);
+        pos.x = PushOutOfWalls(pos, body.shape, walls, tuning);
         body.enemy->SetPosition(pos);
         body.enemy->RefreshVisualTransforms();
         moved.push_back(body.enemy);

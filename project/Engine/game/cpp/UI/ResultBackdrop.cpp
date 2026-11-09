@@ -239,6 +239,9 @@ void ResultBackdrop::Draw() {
         sprite->Draw();
     }
 
+    if (!panelVisible_) {
+        return;
+    }
     // 結果の文字の後ろを暗くして、背景より文字を目立たせる
     panel_->SetPosition({ tune.panelX, tune.panelY });
     panel_->SetSize({ tune.panelWidth, tune.panelHeight });

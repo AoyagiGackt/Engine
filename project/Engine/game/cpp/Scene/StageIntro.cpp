@@ -60,11 +60,11 @@ struct IntroTuning {
     float overviewPanSeconds = 2.2f; ///< ステージの端から寄る先まで流す長さ
     float overviewZoomSeconds = 0.6f; ///< 流し終えてから、ふだんの距離まで寄る長さ
     float overviewMaxZoom = 3.6f; ///< 引きの上限（ふだんの距離の何倍まで引くか）。空の球の半径が約95・遠くを切る距離が100なので、距離24の3.6倍=約86までにする
-    // 奪う武器の紹介（そのステージの初回だけ）
+    // 奪う武器の紹介（firstVisitOnly に入れるとそのステージの初回だけになる）
     float bossHoldSeconds = 1.6f; ///< ボスを映したまま文字を見せる長さ
     float bossPanSeconds = 0.5f; ///< ボスから開始位置へカメラを戻す長さ
     float textFadeSeconds = 0.2f;
-    std::string bossLabel = "この武器を奪え";
+    std::string bossLabel = "この敵を倒して武器を奪え";
     // 降下と着地
     float dropHeight = 9.0f; ///< 着地位置のどれだけ上から落ちてくるか
     float dropSeconds = 0.45f;
@@ -110,7 +110,7 @@ constexpr JsonField<IntroTuning> kIntroFields[] = {
 /** @brief 演出の段階の並び（sequence）と、そのステージの初回だけ出す段階（firstVisitOnly） */
 struct IntroSequence {
     std::vector<std::string> phases = { "slash", "overview", "boss", "drop", "land" };
-    std::set<std::string> firstVisitOnly = { "boss" };
+    std::set<std::string> firstVisitOnly;
 };
 
 /** @brief JSON配列から文字列の一覧を読む（無ければ fallback を返す） */

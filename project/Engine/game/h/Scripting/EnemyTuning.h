@@ -15,6 +15,8 @@ struct EnemyVisualTuning {
     std::string texture;
     float scale = 1.0f;
     float yawOffset = 0.0f;
+    float bodyHalfWidth = 0.0f; ///< 壁と当たる体の横幅の半分（0なら共通の値）
+    float bodyHeight = 0.0f; ///< 壁と当たる体の高さ（0なら共通の値）
 };
 
 /** @brief 汎用敵(EnemyEntity)の調整値 */
@@ -50,6 +52,11 @@ struct BasicEnemyTuning {
     float healerRange = 7.0f;
     int healerAmount = 4;
     float corpseFootOffset = 0.1f; ///< 倒れた体を落とす時、床の上面からどれだけ上に位置を置くか（配置した敵の足元と同じ）
+    float climbSpeed = 0.06f; ///< 壁を登る速さ（1フレームあたり）
+    float climbMaxHeight = 4.0f; ///< 足元からこの高さまでの壁を登る（閉じた扉はこれより高くして、部屋の区切りを保つ）
+    float climbChaseHeight = 1.2f; ///< プレイヤーが自分よりこれだけ高い所にいる時は、間合いの中でも近づいて登る
+    float climbChaseStopDistance = 0.3f; ///< プレイヤーが高い所にいる時に、横の差がこれ以下なら止まる
+    float stepUpHeight = 0.35f; ///< この高さまでの段差は歩いたまま乗り越える
 };
 
 /** @brief ナイト型敵(KnightEnemy)の調整値 */

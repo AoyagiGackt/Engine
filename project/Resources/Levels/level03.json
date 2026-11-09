@@ -83,7 +83,7 @@
     },
     {
       "name": "room_b_dragon", "type": "static", "kind": "enemy_basic",
-      "position": [20.5, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Dragon", "enemyGroup": "s3_room_b"
+      "position": [23.7, -0.38, 0.0], "spawnType": "basic", "weaponType": "", "enemyModel": "Dragon", "enemyGroup": "s3_room_b"
     },
     {
       "name": "room_b_dagger", "type": "static", "kind": "enemy_basic",

@@ -20,6 +20,7 @@
 #include "StageEditorPrefabService.h"
 #include "StageEditorUiStyle.h"
 #include "ModelThumbnailBaker.h"
+#include "UILayout.h"
 #include <cctype>
 #include <cstring>
 #include <filesystem>
@@ -46,6 +47,7 @@ constexpr ImVec4 kActiveToolColor = { 0.2f, 0.46f, 0.75f, 1.0f };
 constexpr ImVec4 kStopPlayTestColor = { 0.65f, 0.32f, 0.15f, 1.0f };
 constexpr ImVec4 kStartPlayTestColor = { 0.16f, 0.48f, 0.34f, 1.0f };
 constexpr float kToolbarSnapStepWidth = 55.0f;
+constexpr ImU32 kPanelSplitterHoverColor = IM_COL32(90, 150, 255, 160);
 constexpr float kDebugStartSceneComboWidth = 240.0f;
 constexpr ImVec2 kPlayTestOverlayPos = { 10.0f, 10.0f };
 constexpr float kPlayTestOverlayAlpha = 0.85f;
@@ -199,7 +201,9 @@ void StageEditor::RenderGameViewport() {
         const ImVec2 origin(display->Pos.x + (display->Size.x - size.x) * 0.5f,
             display->Pos.y + (display->Size.y - size.y) * 0.5f);
         const ImVec2 mouse = ImGui::GetIO().MousePos;
-        const bool hovered = mouse.x >= origin.x && mouse.x < origin.x + size.x
+        // 画面の上に浮いているウィンドウの操作を、ビューの操作として扱わない
+        const bool hovered = !ImGui::GetIO().WantCaptureMouse
+            && mouse.x >= origin.x && mouse.x < origin.x + size.x
             && mouse.y >= origin.y && mouse.y < origin.y + size.y;
         viewport_.SetImageRect(origin.x, origin.y, size.x, size.y, hovered);
         diagnosticsDraw::SetImageViewport(origin, size, ImGui::GetForegroundDrawList());
@@ -213,10 +217,10 @@ void StageEditor::RenderGameViewport() {
     // 左右のパネルとツールバーに挟まれた中央の領域に毎フレーム固定する（補助パネルを開いている間は、下をその領域に譲る）
     const float columnHeight = display->Size.y - kToolbarHeight;
     const float viewHeight = HasOpenAuxPanel() ? columnHeight * (1.0f - editorUi::kAuxPanelHeightRatio) : columnHeight;
-    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + kLeftPanelWidth,
+    ImGui::SetNextWindowPos(ImVec2(display->Pos.x + sLeftPanelWidth,
         display->Pos.y + kToolbarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(
-        (std::max)(kContentWindowMinSize.x, display->Size.x - kLeftPanelWidth - kRightPanelWidth),
+        (std::max)(kContentWindowMinSize.x, display->Size.x - sLeftPanelWidth - sRightPanelWidth),
         (std::max)(kContentWindowMinSize.y, viewHeight)), ImGuiCond_Always);
     // ウィンドウの中に、縦横比を保ったまま入る最大の大きさでゲーム画面を中央に置く
     ImGui::Begin("ゲームビュー", nullptr,
@@ -236,6 +240,38 @@ void StageEditor::RenderGameViewport() {
     diagnosticsDraw::SetImageViewport(origin, size, ImGui::GetWindowDrawList());
     ImGui::End();
 }
+/** @brief 左右のパネルとゲームビューの境目に、幅を変えるつまみを出す */
+void StageEditor::RenderPanelSplitters() {
+    const auto* display = ImGui::GetMainViewport();
+    const float maxWidth = (std::max)(editorUi::kPanelMinWidth, display->Size.x * editorUi::kPanelMaxWidthRatio);
+    const float height = (std::max)(1.0f, display->Size.y - kToolbarHeight);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground
+        | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+    // つまみ1本を描く（direction は右へ動かした時に幅が増えるなら 1、減るなら -1）
+    const auto splitter = [&](const char* name, float seamX, float& width, float direction) {
+        ImGui::SetNextWindowPos(ImVec2(seamX - editorUi::kPanelSplitterWidth * 0.5f, display->Pos.y + kToolbarHeight), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(editorUi::kPanelSplitterWidth, height), ImGuiCond_Always);
+        // ウィンドウの最小サイズに広げられないよう、つまみの間だけ最小サイズと余白を小さくする
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1.0f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::Begin(name, nullptr, flags);
+        ImGui::InvisibleButton("##grip", ImVec2(editorUi::kPanelSplitterWidth, height));
+        if (ImGui::IsItemActive()) {
+            width = std::clamp(width + ImGui::GetIO().MouseDelta.x * direction, editorUi::kPanelMinWidth, maxWidth);
+        }
+        // 掴めることが分かるよう、乗っている間はカーソルと色を変える
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            ImGui::GetWindowDrawList()->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), kPanelSplitterHoverColor);
+        }
+        ImGui::End();
+        ImGui::PopStyleVar(3);
+    };
+    splitter("##leftPanelSplitter", display->Pos.x + sLeftPanelWidth, sLeftPanelWidth, 1.0f);
+    splitter("##rightPanelSplitter", display->Pos.x + display->Size.x - sRightPanelWidth, sRightPanelWidth, -1.0f);
+}
+
 /** @brief 中央シーンビューの上部に編集モードと補助パネルの操作を表示する */
 void StageEditor::RenderEditorToolbar() {
     // 画面上端に固定した、タイトルバー無しの細長いウィンドウにする
@@ -252,9 +288,10 @@ void StageEditor::RenderEditorToolbar() {
         Save();
     }
     ImGui::SameLine();
-    // 保存し忘れに気付けるよう、未保存の変更があれば色を変えて出す
-    ImGui::TextColored(dirty_ ? kUnsavedColor : kSavedColor,
-        dirty_ ? "未保存" : "保存済み");
+    // 保存し忘れに気付けるよう、未保存の変更があれば色を変えて出す（Ctrl+Sで一緒に保存する画面UIの位置も含める）
+    const bool hasUnsaved = dirty_ || UILayout::HasUnsavedLayouts();
+    ImGui::TextColored(hasUnsaved ? kUnsavedColor : kSavedColor,
+        hasUnsaved ? "未保存" : "保存済み");
     ImGui::SameLine();
     // 戻せる履歴・やり直せる履歴が無い間はボタンを押せなくする
     ImGui::BeginDisabled(!history_.CanUndo());
@@ -359,6 +396,10 @@ void StageEditor::RenderEditorToolbar() {
         ImGui::MenuItem("グラフを編集", nullptr, &showGraphPanel_);
         ImGui::MenuItem("配置したテキストを表示", nullptr, &showUIText_);
         ImGui::MenuItem("グリッド線を表示", nullptr, &showGrid_);
+        // 画面UIの印が配置物のクリックの邪魔になる時に隠す
+        if (ImGui::MenuItem("画面UIの印とパネルを表示", "U", UILayout::IsEditingEnabled())) {
+            ToggleUILayoutEditing();
+        }
         ImGui::EndPopup();
     }
     ImGui::SameLine();
@@ -378,9 +419,15 @@ void StageEditor::RenderEditorToolbar() {
     } else if (playTestMode_) {
         ImGui::TextUnformatted("ゲーム操作で確認 / 「編集へ戻る」で調整を再開");
     } else if (selKind_ == SelKind::kNone) {
-        ImGui::TextUnformatted("素材で配置 / クリックで選択 / 右ボタン+WASDでカメラ / ホイールでズーム");
+        ImGui::TextUnformatted("素材で配置 / クリックで選択 / 右ボタン+WASDでカメラ / ホイールでズーム / Uで画面UIの印を隠す");
     } else {
-        ImGui::TextUnformatted("つかんで移動 / Fでカメラ / Ctrl+Dで複製 / Ctrl+Zで戻す");
+        // 今の変形ツールでできること（TransformTool の並び順）
+        static constexpr const char* kToolHints[] = {
+            "つかんで移動 (Shift:奥行き Ctrl:揃える) / Fでカメラ / Ctrl+Dで複製",
+            "輪をつかんで回す (Ctrl:15度刻み) / Fでカメラ / Ctrl+Dで複製",
+            "軸か中央をつかんで拡縮 (Ctrl:0.1刻み) / Fでカメラ / Ctrl+Dで複製",
+        };
+        ImGui::TextUnformatted(kToolHints[static_cast<size_t>(transformTool_)]);
     }
     ImGui::End();
 }
@@ -412,7 +459,7 @@ void StageEditor::RenderAssetPalette() {
     const float availableHeight = (std::max)(1.0f, display->Size.y - kToolbarHeight);
     const float hierarchyHeight = availableHeight * editorUi::kHierarchyHeightRatio;
     ImGui::SetNextWindowPos(ImVec2(display->Pos.x, display->Pos.y + kToolbarHeight + hierarchyHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kLeftPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(sLeftPanelWidth, availableHeight - hierarchyHeight), ImGuiCond_Always);
     ImGui::Begin("素材を配置", nullptr, editorUi::kFixedPanelFlags);
 
     // どちらの動作になるかを隠れた自動判定にせず、ラジオボタンで明示的に選ばせる

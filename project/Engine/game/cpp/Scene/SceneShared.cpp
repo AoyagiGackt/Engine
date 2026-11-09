@@ -341,33 +341,50 @@ const char* AutoComboLabel() {
     return GameSettingsManager::GetInstance()->Get().autoCombo ? "< ON >" : "< OFF >";
 }
 
+namespace {
+// 武器一覧HUDの文字の既定値（hud.json の weapon_list.* で上書きできる）
+constexpr float kWeaponListDefaultScale = 1.15f;
+// 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
+constexpr Vector4 kWeaponListDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
+constexpr Vector4 kWeaponListShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
+constexpr float kWeaponListShadowOffset = 1.6f;
+} // namespace
+
+/** @brief 武器一覧HUDと同じ体裁でシーン名の見出しだけを描画し、次に描画すべきY座標を返す */
+float DrawHudHeader(FontRenderer& fontRenderer, const wchar_t* headerText, const Vector2& anchor) {
+    UILayout& layout = UILayout::Get(kSharedHudLayoutName);
+    const float scale = layout.Float("weapon_list.scale", kWeaponListDefaultScale);
+    const Vector4 headerColor = layout.Color("weapon_list.header_color", kWeaponListDefaultHeaderColor);
+    fontRenderer.DrawStringW(headerText, anchor.x + kWeaponListShadowOffset, anchor.y + kWeaponListShadowOffset,
+        scale, kWeaponListShadow);
+    fontRenderer.DrawStringW(headerText, anchor.x, anchor.y, scale, headerColor);
+    return anchor.y + FontRenderer::kCharH * scale + kHudSectionGap;
+}
+
 /** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
 float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
     const std::vector<float>* powerRatios) {
-    constexpr float kDefaultScale = 1.15f;
+    constexpr float kDefaultScale = kWeaponListDefaultScale;
     constexpr Vector4 kWeakenedColor = { 1.0f, 0.4f, 0.3f, 1.0f }; // 疲労で威力が落ちている武器
     constexpr float kPercent = 100.0f;
-    // 操作説明パネルと同じく、明るいブロックの上でも埋もれないよう暖色系＋影付きにする
-    constexpr Vector4 kDefaultHeaderColor = { 1.0f, 0.78f, 0.15f, 1.0f }; // アンバー
     constexpr Vector4 kDefaultNormalColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
     constexpr Vector4 kDefaultSelectedColor = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
     constexpr Vector4 kDefaultLockedColor = { 0.55f, 0.50f, 0.40f, 0.85f };
     constexpr Vector4 kDefaultHintColor = { 0.80f, 0.76f, 0.65f, 1.0f };
-    constexpr Vector4 kShadow = { 0.05f, 0.04f, 0.02f, 0.9f };
-    constexpr float kShadowOffset = 1.6f;
+    constexpr Vector4 kShadow = kWeaponListShadow;
+    constexpr float kShadowOffset = kWeaponListShadowOffset;
 
     // 文字の大きさと色は全シーン共通のHUDレイアウト（Resources/Config/UI/hud.json）で調整する
     UILayout& layout = UILayout::Get(kSharedHudLayoutName);
     const float scale = layout.Float("weapon_list.scale", kDefaultScale);
     const float lineHeight = FontRenderer::kCharH * scale;
-    const Vector4 headerColor = layout.Color("weapon_list.header_color", kDefaultHeaderColor);
     const Vector4 textColor = layout.Color("weapon_list.text_color", kDefaultNormalColor);
     const Vector4 selectedColor = layout.Color("weapon_list.selected_color", kDefaultSelectedColor);
     const Vector4 emptyColor = layout.Color("weapon_list.empty_color", kDefaultLockedColor);
     const Vector4 hintColor = layout.Color("weapon_list.hint_color", kDefaultHintColor);
 
     const float px = anchor.x;
-    float py = anchor.y;
+    float py = DrawHudHeader(fontRenderer, headerText, anchor);
 
     // 文字は少しずらした影を先に描いてから本体を重ねる
     auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
@@ -379,9 +396,7 @@ float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager
         fontRenderer.DrawString(text, x, y, scale, color);
     };
 
-    // 見出しと区切り
-    drawShadowedW(headerText, px, py, headerColor);
-    py += lineHeight + kHudSectionGap;
+    // 見出しの下の区切り
     drawShadowedW(L"-- 武器選択 --", px, py, textColor);
     py += lineHeight + kHudSectionGap;
 

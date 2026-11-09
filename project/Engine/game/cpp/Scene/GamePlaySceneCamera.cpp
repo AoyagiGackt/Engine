@@ -39,6 +39,7 @@ namespace engine::game {
 namespace {
 constexpr float kDefaultStageLeft = 1.5f;
 constexpr float kDefaultStageRight = 36.5f;
+constexpr float kScriptFocusHeightOffset = 0.0f; // FocusCamera で向けた先は、上へずらさずそのまま画面の中心にする
 }
 
 /** @brief ロック操作中に画面内で最も近い敵を選ぶ */
@@ -88,6 +89,11 @@ void GamePlayScene::UpdateCamera() {
         ppos = playerDefeat_.CameraFocus();
         zoom = playerDefeat_.CameraZoom();
         followHeight = playerDefeat_.CameraHeight();
+    } else if (scriptCameraFocusSeconds_ > 0.0f) {
+        // ノードグラフの FocusCamera で向けた先を映す（向けた先の高さをそのまま中心にする）
+        scriptCameraFocusSeconds_ -= gameConstants::kFrameDeltaTime;
+        ppos = scriptCameraFocus_;
+        followHeight = kScriptFocusHeightOffset;
     }
     const float viewHalfW = gameConstants::kCameraHalfW * zoom;
     const float viewHalfH = gameConstants::kCameraHalfH * zoom;

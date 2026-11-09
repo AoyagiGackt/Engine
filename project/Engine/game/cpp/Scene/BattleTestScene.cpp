@@ -151,7 +151,7 @@ void BattleTestScene::InitializeHud() {
     fontRenderer_.Initialize(spriteCommon_.get());
     pauseMenu_.Initialize(spriteCommon_.get(), &fontRenderer_, audio_, kLayoutName,
         {
-            "BACK TO TRAINING", [] {
+            "トレーニングに戻る", [] {
                 SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING");
             }
         });

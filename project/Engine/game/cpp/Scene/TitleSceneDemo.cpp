@@ -30,8 +30,6 @@ using namespace engine::graphics;
 
 namespace engine::game {
 namespace {
-constexpr Vector4 kDummyNormalColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-
 // 武器ごとのデモのコンボ段数
 constexpr int kSwordComboLength = 4;
 constexpr int kSpearComboLength = 3;
@@ -321,6 +319,7 @@ void TitleScene::UpdateDemo() {
     playerPosition.x = std::clamp(playerPosition.x, arenaLeft, arenaRight);
     player_->SetPosition(playerPosition);
     player_->RefreshVisualTransforms();
+    SeparateDummies();
 
     UpdateDummyVisuals();
     EmitDemoIdleTrail();
@@ -335,86 +334,6 @@ void TitleScene::UpdateDemo() {
     shadowManager_->Update(objectCommon_->GetLightDirection());
     Object3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
     SkinnedObject3d::SetLightViewProjection(shadowManager_->GetLightViewProjection());
-}
-
-/** @brief 倒された的のうち復帰時間を過ぎたものを、プレイヤーの左右どちらかに出し直す */
-void TitleScene::RespawnDefeatedDummies(float arenaLeft, float arenaRight) {
-    const TitleDemoTuning& tune = TitleDemoTune();
-    // 復帰ごとに位置・速さ・攻撃までの時間をばらつかせ、同じ動きの繰り返しに見せない
-    std::uniform_real_distribution<float> respawnDistanceDist(tune.respawnDistanceMin, tune.respawnDistanceMax);
-    std::uniform_real_distribution<float> moveSpeedDist(tune.respawnMoveSpeedMin, tune.respawnMoveSpeedMax);
-    std::uniform_real_distribution<float> attackDelayDist(tune.respawnAttackDelayMin, tune.respawnAttackDelayMax);
-    std::uniform_real_distribution<float> phaseDist(0.0f, gameConstants::kTwoPi);
-    std::bernoulli_distribution sideDist(std::clamp(tune.respawnRightChance, 0.0f, 1.0f));
-    for (auto& dummy : demoDummies_) {
-        // 倒されていて、復帰の待ち時間が終わった的だけを出し直す
-        if (!dummy.defeated) {
-            continue;
-        }
-        dummy.respawnTimer -= gameConstants::kFrameDeltaTime;
-        if (dummy.respawnTimer > 0.0f) {
-            continue;
-        }
-        // プレイヤーの左右どちらかに、舞台からはみ出さない位置で地上に出す
-        const float side = sideDist(demoRng_) ? 1.0f : -1.0f;
-        dummy.x = std::clamp(player_->GetPosition().x + side * respawnDistanceDist(demoRng_), arenaLeft, arenaRight);
-        dummy.airborne = false;
-        dummy.baseY = tune.groundY + tune.dummyFootOffsetY;
-        dummy.currentY = dummy.baseY;
-        dummy.bobPhase = phaseDist(demoRng_);
-        dummy.moveSpeed = moveSpeedDist(demoRng_);
-        dummy.attackCooldown = attackDelayDist(demoRng_);
-        // 撃破前の攻撃・被弾の途中状態を消す
-        dummy.attackAnimTimer = 0.0f;
-        dummy.lungeOffset = 0.0f;
-        dummy.hitFlashTimer = 0.0f;
-        dummy.defeated = false;
-        // 見た目を通常の色・大きさに戻して、新しい位置へ置く
-        dummy.object->SetColor(kDummyNormalColor);
-        dummy.object->SetScale({ tune.dummyScale, tune.dummyScale, tune.dummyScale });
-        dummy.object->SetPosition({ dummy.x, dummy.currentY, 0.0f });
-        dummy.object->Update();
-    }
-}
-
-/** @brief 生きている的をそれぞれの速度でプレイヤーへ近づけ、間合いに入ったら攻撃動作を始めさせる */
-void TitleScene::UpdateDummyBehavior(float playerX) {
-    const TitleDemoTuning& tune = TitleDemoTune();
-    const float attackAnimSeconds = (std::max)(tune.dummyAttackAnimSeconds, gameConstants::kFrameDeltaTime);
-    const int distanceVariants = (std::max)(tune.dummyPreferredDistanceVariants, 1);
-    // 各敵は独立して行動する。それぞれの速度でプレイヤーに近づき、
-    // 少しずつ異なる距離で止まって、個別の待機時間で攻撃する。
-    for (size_t i = 0; i < demoDummies_.size(); ++i) {
-        auto& dummy = demoDummies_[i];
-        if (dummy.defeated) {
-            continue;
-        }
-        // 止まる距離は的の番号ごとに数段階ずらす（全員が同じ位置に重ならないように）
-        const float delta = playerX - dummy.x;
-        const float distance = std::abs(delta);
-        const float preferredDistance = tune.dummyPreferredDistanceBase
-            + static_cast<float>(static_cast<int>(i) % distanceVariants) * tune.dummyPreferredDistanceStep;
-        dummy.attackCooldown = (std::max)(0.0f,
-            dummy.attackCooldown - gameConstants::kFrameDeltaTime);
-        dummy.attackAnimTimer = (std::max)(0.0f,
-            dummy.attackAnimTimer - gameConstants::kFrameDeltaTime);
-        // 遠ければ近づき、止まる距離まで来たら待ち時間が明けしだい攻撃を始める
-        if (distance > preferredDistance && dummy.attackAnimTimer <= 0.0f) {
-            const float direction = delta >= 0.0f ? 1.0f : -1.0f;
-            dummy.x += direction * dummy.moveSpeed * gameConstants::kFrameDeltaTime;
-            dummy.x = std::clamp(dummy.x, tune.stageMinX + tune.arenaEdgeMargin, tune.stageMaxX - tune.arenaEdgeMargin);
-        } else if (dummy.attackCooldown <= 0.0f) {
-            dummy.attackAnimTimer = attackAnimSeconds;
-            std::uniform_real_distribution<float> nextAttackDist(tune.dummyNextAttackMin, tune.dummyNextAttackMax);
-            dummy.attackCooldown = nextAttackDist(demoRng_);
-        }
-        // 攻撃動作中はプレイヤー側へ半周期の sin で踏み込んで戻る
-        const float attackPhase = 1.0f - dummy.attackAnimTimer / attackAnimSeconds;
-        const float lungeDirection = delta >= 0.0f ? 1.0f : -1.0f;
-        dummy.lungeOffset = dummy.attackAnimTimer > 0.0f
-            ? std::sin(std::clamp(attackPhase, 0.0f, 1.0f) * gameConstants::kPi) * tune.dummyLungeDistance * lungeDirection
-            : 0.0f;
-    }
 }
 
 /** @brief 最も近い生きている的を狙いに決める */
@@ -438,10 +357,22 @@ TitleScene::DemoDummy* TitleScene::SelectNearestDummy(float playerX) {
 /** @brief 敵の攻撃の回避・攻撃間の後退・道中のジャンプや回避を決める */
 void TitleScene::DecideDemoMovement(DemoFrame& frame) {
     const TitleDemoTuning& tune = TitleDemoTune();
+    const float arenaLeft = tune.arenaMinX + tune.arenaEdgeMargin;
+    const float arenaRight = tune.arenaMaxX - tune.arenaEdgeMargin;
+    // 的がいない間は中央へ戻り、次の的をどちらから来ても迎えられるようにする
+    if (frame.target == nullptr) {
+        const float toCenter = (arenaLeft + arenaRight) * 0.5f - frame.playerX;
+        frame.walkingRight = toCenter > tune.centerReturnDeadzone;
+        frame.walkingLeft = toCenter < -tune.centerReturnDeadzone;
+    }
+    // 端の近くでは的から離れる向きへ下がらない（下がり続けて端に張り付くのを防ぐ）
+    const bool retreatBlocked = frame.targetDeltaX < 0.0f
+        ? frame.playerX > arenaRight - tune.wallAvoidDistance
+        : frame.playerX < arenaLeft + tune.wallAvoidDistance;
     // 近くの敵が攻撃の当たる瞬間に入っていたら、的から離れる向きへ回避する（連続で回避しないよう待ち時間を置く）
     demoEnemyDodgeCooldown_ = (std::max)(0.0f,
         demoEnemyDodgeCooldown_ - gameConstants::kFrameDeltaTime);
-    if (frame.target != nullptr && demoEnemyDodgeCooldown_ <= 0.0f) {
+    if (frame.target != nullptr && demoEnemyDodgeCooldown_ <= 0.0f && !retreatBlocked) {
         for (const auto& enemy : demoDummies_) {
             const bool incomingStrike = !enemy.defeated
                 && enemy.attackAnimTimer > tune.incomingStrikeWindowStart && enemy.attackAnimTimer < tune.incomingStrikeWindowEnd
@@ -454,7 +385,7 @@ void TitleScene::DecideDemoMovement(DemoFrame& frame) {
             }
         }
     }
-    demoBackstepTimer_ = (std::max)(demoBackstepTimer_ - gameConstants::kFrameDeltaTime, 0.0f);
+    demoBackstepTimer_ = retreatBlocked ? 0.0f : (std::max)(demoBackstepTimer_ - gameConstants::kFrameDeltaTime, 0.0f);
     if (demoBackstepTimer_ > 0.0f) {
         // 対象から離れる方向へ短くステップする。
         frame.walkingRight = frame.targetDeltaX < 0.0f;
@@ -617,36 +548,6 @@ void TitleScene::ApplyDemoInput(DemoFrame& frame) {
     // 実機の入力に一切左右されないよう、全アクションを毎フレーム明示的に指定する
     for (size_t i = 0; i < frame.pressed.size(); ++i) {
         input_->SetActionOverride(static_cast<Input::Action>(i), frame.pressed[i]);
-    }
-}
-
-/** @brief 的の上下の揺れ・被弾時の点滅・向き・位置をモデルへ反映する */
-void TitleScene::UpdateDummyVisuals() {
-    const TitleDemoTuning& tune = TitleDemoTune();
-    for (auto& dummy : demoDummies_) {
-        dummy.hitFlashTimer = (std::max)(dummy.hitFlashTimer - gameConstants::kFrameDeltaTime, 0.0f);
-        if (dummy.defeated) {
-            continue;
-        }
-        // 空中の的だけ sin で上下に揺らす
-        if (dummy.airborne) {
-            dummy.bobPhase += gameConstants::kFrameDeltaTime * dummy.bobSpeed;
-            dummy.currentY = dummy.baseY + std::sin(dummy.bobPhase) * tune.dummyBobAmplitude;
-        } else {
-            dummy.currentY = dummy.baseY;
-        }
-        // 被弾直後は色を変えて少し縮め、当たったことを見せる
-        const bool flashing = dummy.hitFlashTimer > 0.0f;
-        dummy.object->SetColor(flashing ? tune.dummyFlashColor : kDummyNormalColor);
-        const float shrink = flashing ? tune.dummyFlashShrink : 1.0f;
-        dummy.object->SetScale({ tune.dummyScale * shrink, tune.dummyScale * shrink, tune.dummyScale * shrink });
-        // プレイヤーのいる側を向かせ、攻撃の踏み込みぶんずらして置く
-        const float facingYaw = player_->GetPosition().x >= dummy.x
-            ? 0.0f
-            : gameConstants::kPi;
-        dummy.object->SetRotation({ 0.0f, facingYaw, 0.0f });
-        dummy.object->SetPosition({ dummy.x + dummy.lungeOffset, dummy.currentY, 0.0f });
-        dummy.object->Update();
     }
 }
 

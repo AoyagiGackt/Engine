@@ -242,6 +242,7 @@ void StageEditor::UpdateEnemyEntry(ObjectEntry& entry, ParticleManager* pm, cons
             entry.enemy->FaceTowardX(playerPos.x);
             entry.enemy->RefreshVisualTransforms();
         } else {
+            entry.enemy->SetTargetHeight(playerPos.y);
             entry.enemy->Update(playerPos.x);
             // 宙で倒れた敵は、真下の床まで落とす（床探しは倒れた時に一度だけ）
             if (entry.enemy->NeedsCorpseFloor()) {

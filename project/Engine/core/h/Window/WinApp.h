@@ -29,8 +29,9 @@ public: // メンバ関数
     /**
      * @brief ウィンドウシステムの初期化
      * @note ウィンドウクラスの登録を行い、指定された解像度でウィンドウを表示します
+     * @param visible false ならウィンドウを作るだけで画面には出さない（素材のpak化を裏で行う時）
      */
-    void Initialize();
+    void Initialize(bool visible = true);
 
     /**
      * @brief ウィンドウの更新処理

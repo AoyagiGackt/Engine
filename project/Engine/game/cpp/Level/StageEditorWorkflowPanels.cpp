@@ -54,16 +54,16 @@ constexpr ControlBinding kGeneralControls[] = {
 };
 
 constexpr ControlBinding kCameraControls[] = {
-    { "右ボタン押しながら WASD", "カメラを上下左右へ移動" },
+    { "右ボタン押しながら WASD", "カメラを上下左右へ移動（カメラが遠いほど速い。Shiftでさらに速く）" },
     { "右ボタン押しながら Q / E", "カメラを奥 / 手前へ移動" },
-    { "マウスホイール", "ズーム" },
+    { "マウスホイール", "カーソルの位置へズーム（カメラが遠いほど大きく動く）" },
     { "中ボタンドラッグ", "カメラを平行移動" },
     { "F", "選択物へカメラを寄せる（未選択ならプレイヤー）" },
 };
 
 constexpr ControlBinding kSelectionControls[] = {
-    { "左クリック", "選択" },
-    { "Ctrl+左クリック", "選択に追加" },
+    { "左クリック", "選択（小さい物・印の近くの物を優先。複数選択の中を押すとその1つだけに）" },
+    { "Ctrl+左クリック", "選択に追加 / 選択中の物は選択から外す" },
     { "何も無い所から左ドラッグ", "範囲選択" },
     { "Ctrl+A", "すべての配置物を選択" },
     { "右クリック", "その場のメニュー（配置・テスト開始など）" },
@@ -71,10 +71,18 @@ constexpr ControlBinding kSelectionControls[] = {
 
 constexpr ControlBinding kTransformControls[] = {
     { "W / E / R", "移動 / 回転 / 拡縮ツールに切り替え" },
-    { "左ドラッグ", "選択物を動かす（ハンドルの軸を掴むとその軸だけ）" },
+    { "左ドラッグ", "選択物を動かす（ハンドルの軸を掴むとその軸だけ。複数選択はまとめて動く。ビューの外へ出ても続く）" },
     { "Shift+ドラッグ", "奥行き(Z)方向へ移動" },
-    { "Ctrl+ドラッグ", "グリッドに揃える / 回転は15度刻み" },
+    { "Ctrl+ドラッグ", "グリッドに揃える / 回転は15度刻み / 拡縮は0.1刻み" },
     { "矢印キー", "少しずつ動かす（Shift+上下で奥行き）" },
+};
+
+constexpr ControlBinding kUILayoutControls[] = {
+    { "印をドラッグ", "画面UIを動かす（Ctrlで10px刻み、Shiftで縦か横だけ）" },
+    { "印を選んで矢印キー", "1pxずつ動かす（Shiftで10px）" },
+    { "Alt+クリック", "印を無視して下の配置物を選ぶ" },
+    { "U", "印と画面UIパネルの表示を切り替える" },
+    { "Ctrl+S", "レベルと一緒に画面UIの位置も保存する" },
 };
 
 constexpr ControlBinding kEditControls[] = {
@@ -88,6 +96,7 @@ constexpr ControlSection kControlSections[] = {
     { "カメラ", kCameraControls, static_cast<int>(std::size(kCameraControls)) },
     { "選択", kSelectionControls, static_cast<int>(std::size(kSelectionControls)) },
     { "移動・回転・拡縮", kTransformControls, static_cast<int>(std::size(kTransformControls)) },
+    { "画面UIの印", kUILayoutControls, static_cast<int>(std::size(kUILayoutControls)) },
     { "編集", kEditControls, static_cast<int>(std::size(kEditControls)) },
 };
 

@@ -66,15 +66,6 @@ constexpr float kHoverCrossRadius = 0.55f;
 // 親子関係の接続線の色（白、半透明）
 constexpr ImU32 kParentLinkLineColor = IM_COL32(255, 255, 255, 90);
 
-// 画面UI（UILayoutの位置項目）の印
-constexpr float kUIHandleHalfSize = 6.0f; // 四角い印の半分の大きさ（表示上のpx）
-constexpr float kUIHandlePickRadiusPx = 12.0f; // これより近ければ印を掴める
-constexpr float kUIHandleLabelGapX = 4.0f;
-constexpr float kUIHandleLineThickness = 2.0f;
-constexpr ImU32 kUIHandleColor = IM_COL32(255, 150, 40, 230);
-constexpr ImU32 kUIHandleSelectedColor = IM_COL32(255, 230, 60, 255);
-constexpr ImU32 kUIHandleFill = IM_COL32(255, 150, 40, 70);
-
 // "screen"座標ui_textのマーカー（十字＋枠＋文言）関連のスクリーンpx単位のサイズ
 constexpr float kScreenTextMarkerSize = 10.0f;
 constexpr float kScreenTextMarkerLineThickness = 2.0f;
@@ -199,6 +190,9 @@ void StageEditor::DrawGizmos() {
         dl->AddRectFilled(a, b, kBoxSelectFill);
         dl->AddRect(a, b, kBoxSelectBorder);
     }
+
+    // ドラッグ中の数値（カーソルの近く）
+    DrawDragReadout();
 }
 
 /** @brief 3Dビュー上での左クリック選択とドラッグ移動（ImGuiウィンドウ上のマウスは無視する） */
@@ -208,103 +202,31 @@ void StageEditor::UpdateViewportInteraction() {
         return;
     }
     ImGuiIO& io = ImGui::GetIO();
-    const bool insideSceneView = viewport_.Contains(io.MousePos.x, io.MousePos.y, viewportFocusMode_);
+
+    // 掴んだ後はビューの外やパネルの上でも追従を続け、どこで離しても確定する
+    if (ImGui::IsMousePosValid()) {
+        dragLastMouseX_ = io.MousePos.x;
+        dragLastMouseY_ = io.MousePos.y;
+    }
+    if (UpdateActiveViewportDrag(dragLastMouseX_, dragLastMouseY_)) {
+        return;
+    }
 
     // 編集パネル上の操作をシーンビューの選択やカメラ移動として扱わない
-    if ((io.WantCaptureMouse && !viewport_.IsImageHovered()) || !insideSceneView) {
-        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            if (viewportDragging_) {
-                CommitUndoCapture(); // パネル上で離した場合もドラッグ分をここで確定する
-            }
-            viewportDragging_ = false;
-            uiDragLayout_ = nullptr;
-        }
-        return;
-    }
-
     const ImVec2 m = io.MousePos;
-
-    // 画面UIの位置項目は3Dの配置物より優先して掴む（UIは常に手前に表示されているため）
-    if (uiDragLayout_) {
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            const Vector3 logicalMouse = viewport_.ImageToScreen(m.x, m.y);
-            uiDragLayout_->SetPosition(uiDragIndex_,
-                { std::round(logicalMouse.x + uiDragGrabOffsetX_), std::round(logicalMouse.y + uiDragGrabOffsetY_) });
-        } else {
-            uiDragLayout_ = nullptr;
-        }
+    if ((io.WantCaptureMouse && !viewport_.IsImageHovered()) || !viewport_.Contains(m.x, m.y, viewportFocusMode_)) {
+        ClearViewportHover();
         return;
     }
-    // UIの位置ハンドルの上でクリックしたら、掴んだ点とハンドルのずれを覚えてドラッグを始める
-    {
-        UILayout* layout = nullptr;
-        size_t index = 0;
-        if (PickUILayoutHandle(m.x, m.y, layout, index)) {
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
-                    if (handle.layout == layout && handle.index == index) {
-                        const Vector3 logicalMouse = viewport_.ImageToScreen(m.x, m.y);
-                        uiDragGrabOffsetX_ = handle.position.x - logicalMouse.x;
-                        uiDragGrabOffsetY_ = handle.position.y - logicalMouse.y;
-                        break;
-                    }
-                }
-                uiDragLayout_ = layout;
-                uiDragIndex_ = index;
-                UILayout::SetSelectedHandle(layout, index);
-                return;
-            }
-        }
-    }
 
-    // マウスホイール  カメラを奥/手前へ移動（Q/Eと同じ軸、手前に回すと近づく）
-    if (camera_ && io.MouseWheel != 0.0f) {
-        constexpr float kWheelSpeed = 2.0f;
-        Vector3 position = camera_->GetTranslate();
-        position.z += io.MouseWheel * kWheelSpeed;
-        camera_->SetTranslate(position);
-    }
+    UpdateViewportHover(m.x, m.y);
 
-    // マウス直下の対象をハイライトする（ドラッグ中以外、マウスが動いた時だけ判定する）
-    if (!viewportDragging_ && !boxSelecting_ && (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f)) {
-        hoverKind_ = SelKind::kNone;
-        hoverIndex_ = -1;
-        int handleAxis = 0;
-        bool handleUniform = false;
-        if (PickTransformHandle(m.x, m.y, handleAxis, handleUniform)) {
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        } else if (PickViewportTarget(m.x, m.y, hoverKind_, hoverIndex_)) {
-            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        }
-    }
+    // マウスホイール  カーソル位置へ寄る/離れる（手前に回すと近づく）
+    viewport_.ZoomAtCursor(io.MouseWheel, m.x, m.y);
 
-    // 左クリック  ハンドル → オブジェクト → 何も無ければ範囲選択、の順に判定する
+    // 左クリック  ハンドル → 画面UIの印 → オブジェクト → 何も無ければ範囲選択、の順に判定する
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         HandleViewportClick(m.x, m.y);
-    }
-
-    // ドラッグ中  移動ツールはz=0平面上へ追従（Shiftまたは軸ハンドルで軸制限）、回転/拡縮はマウス移動量で反映する
-    if (viewportDragging_ && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-        if (rotateDragging_ || scaleDragging_) {
-            UpdateRotateScaleDrag(io.MouseDelta.x, io.MouseDelta.y);
-        } else {
-            UpdateViewportDrag(m.x, m.y);
-        }
-    }
-
-    // 左ボタンを離したら、ドラッグと範囲選択を確定して状態を戻す
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-        if (viewportDragging_) {
-            CommitUndoCapture(); // 実際に動かしていた場合だけ1回分のUndoとして確定する
-        }
-        if (boxSelecting_) {
-            FinishBoxSelect(m.x, m.y);
-        }
-        viewportDragging_ = false;
-        rotateDragging_ = false;
-        scaleDragging_ = false;
-        activeDragAxis_ = 0;
     }
 
     // 右クリック（ドラッグせずに離した時だけ）で、その場の対象に応じたメニューを開く
@@ -325,25 +247,83 @@ void StageEditor::UpdateViewportInteraction() {
     }
 }
 
+/** @brief マウス直下のハンドル・印・配置物を調べてカーソルを決める */
+void StageEditor::UpdateViewportHover(float mouseX, float mouseY) {
+    const ImGuiIO& io = ImGui::GetIO();
+    const bool linkingParent = parentLinkChildIndex_ >= 0;
+
+    // ハンドルと印の判定は軽いので毎フレーム行う（カーソルの形は毎フレーム指定しないと矢印へ戻る）
+    bool handleUniform = false;
+    hoverHandleActive_ = !linkingParent && PickTransformHandle(mouseX, mouseY, hoverAxis_, handleUniform);
+    uiHoverLayout_ = nullptr;
+    if (!hoverHandleActive_ && !linkingParent) {
+        PickUILayoutHandle(mouseX, mouseY, uiHoverLayout_, uiHoverIndex_);
+    }
+    if (hoverHandleActive_ || uiHoverLayout_) {
+        hoverKind_ = SelKind::kNone;
+        hoverIndex_ = -1;
+        hoverNeedsRefresh_ = true;
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        return;
+    }
+
+    // 配置物の判定は全頂点を投影して重いので、マウスかカメラが動いた時だけやり直す
+    const bool mouseMoved = io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f;
+    const bool cameraMoving = io.MouseWheel != 0.0f || ImGui::IsMouseDown(ImGuiMouseButton_Right)
+        || ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+    if (mouseMoved || cameraMoving || hoverNeedsRefresh_) {
+        hoverKind_ = SelKind::kNone;
+        hoverIndex_ = -1;
+        PickViewportTarget(mouseX, mouseY, hoverKind_, hoverIndex_);
+        hoverNeedsRefresh_ = false;
+    }
+    if (hoverKind_ != SelKind::kNone) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    }
+}
+
+/** @brief マウス直下の情報を消す */
+void StageEditor::ClearViewportHover() {
+    hoverKind_ = SelKind::kNone;
+    hoverIndex_ = -1;
+    hoverHandleActive_ = false;
+    hoverAxis_ = 0;
+    uiHoverLayout_ = nullptr;
+    hoverNeedsRefresh_ = true;
+}
+
 namespace {
 // ハンドルの見た目と判定（スクリーンpx固定。カメラの遠近に関係なく同じ大きさで掴める）
 constexpr float kHandleLengthPx = 70.0f;
-constexpr float kHandlePickPx = 10.0f;
-constexpr float kHandleCenterPx = 9.0f;
+constexpr float kHandlePickPx = 13.0f; // 軸の線からこの距離までなら掴める
+constexpr float kHandleTipPickPx = 20.0f; // 軸の先端からこの距離までなら優先して掴める
+constexpr float kHandleCenterPx = 10.0f;
+constexpr float kHandleCenterPickPx = 15.0f; // 中央の四角を掴める距離
 constexpr float kHandleArrowPx = 10.0f;
 constexpr float kRotateRingPx = 60.0f;
-constexpr float kRotateRingPickPx = 9.0f;
+constexpr float kRotateRingPickPx = 15.0f;
 constexpr float kScaleTipPx = 6.0f;
 constexpr float kHandleThicknessPx = 2.5f;
+constexpr float kHandleHoverThicknessPx = 5.0f; // マウスが乗っている軸や掴んでいる軸の太さ
+constexpr float kHandleHoverTipScale = 1.4f; // マウスが乗っている軸の先端の拡大率
+constexpr float kAxisLabelGapPx = 8.0f; // 軸の先端から軸の名前までの距離
+constexpr float kAxisLabelHalfHeight = 8.0f; // 軸の名前を先端の高さへ揃える量
+constexpr float kMinProjectedPx = 8.0f; // 単位長さの投影がこれより短い軸は奥行きで潰れているとみなす
+constexpr float kParallelAxisDot = 0.92f; // 向きの内積がこれより大きい軸は重なっているとみなす
 constexpr int kRotateRingSegments = 48;
 constexpr ImU32 kHandleColorX = IM_COL32(255, 70, 70, 230);
 constexpr ImU32 kHandleColorY = IM_COL32(90, 255, 90, 230);
 constexpr ImU32 kHandleColorZ = IM_COL32(90, 150, 255, 230);
 constexpr ImU32 kHandleColorCenter = IM_COL32(255, 255, 255, 200);
 constexpr ImU32 kHandleColorRing = IM_COL32(90, 150, 255, 230);
+constexpr ImU32 kHandleColorHover = IM_COL32(255, 240, 90, 255); // マウスが乗っている軸
+constexpr ImU32 kHandleColorDimmed = IM_COL32(150, 150, 150, 110); // ドラッグ中の、掴んでいない軸
+constexpr ImU32 kHandleCenterFillColor = IM_COL32(255, 255, 255, 60); // 中央の半透明の白
+constexpr ImU32 kHandleCenterHoverFillColor = IM_COL32(255, 240, 90, 130); // マウスが乗っている時の中央
+constexpr const char* kAxisLabels[kGizmoAxisCount] = { "X", "Y", "Z 奥行き" };
 constexpr float kBoxSelectMinPx = 4.0f;
 
-// 各軸のスクリーン上の向き（原点と原点+単位ベクトルを投影した差）。奥行き軸は投影がつぶれるので斜めへ逃がす
+/** @brief 各軸のスクリーン上の向きを求める（原点と原点+単位ベクトルを投影した差）。奥行き軸が潰れたりX/Y軸と重なる時は斜めへ逃がす */
 bool AxisScreenDirections(const Vector3& world, ImVec2& outOrigin, ImVec2 outDirs[3]) {
     if (!diagnosticsDraw::WorldToScreen(world, outOrigin)) {
         return false;
@@ -351,7 +331,6 @@ bool AxisScreenDirections(const Vector3& world, ImVec2& outOrigin, ImVec2 outDir
     const Vector3 units[kGizmoAxisCount] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
     constexpr float kInvSqrt2 = 0.70710678f; // 斜め45度の単位ベクトル成分
     const ImVec2 fallback[kGizmoAxisCount] = { { 1.0f, 0.0f }, { 0.0f, -1.0f }, { -kInvSqrt2, kInvSqrt2 } };
-    constexpr float kMinProjectedPx = 2.0f;
     for (int i = 0; i < kGizmoAxisCount; ++i) {
         ImVec2 tip;
         ImVec2 dir = fallback[i];
@@ -364,6 +343,15 @@ bool AxisScreenDirections(const Vector3& world, ImVec2& outOrigin, ImVec2 outDir
             }
         }
         outDirs[i] = dir;
+    }
+    // 奥行き軸がX/Y軸と重なると掴み分けられないので、斜めの向きへ逃がす
+    const int depthAxis = kGizmoAxisCount - 1;
+    for (int i = 0; i < depthAxis; ++i) {
+        const float dot = outDirs[depthAxis].x * outDirs[i].x + outDirs[depthAxis].y * outDirs[i].y;
+        if (std::abs(dot) > kParallelAxisDot) {
+            outDirs[depthAxis] = fallback[depthAxis];
+            break;
+        }
     }
     return true;
 }
@@ -409,7 +397,7 @@ bool StageEditor::PickTransformHandle(float mouseX, float mouseY, int& outAxis, 
     }
 
     // 中央の四角は全軸（拡縮なら等倍拡縮）
-    if (centerDist <= kHandleCenterPx) {
+    if (centerDist <= kHandleCenterPickPx) {
         outAxis = 0;
         outUniform = transformTool_ == TransformTool::kScale;
         return true;
@@ -417,15 +405,35 @@ bool StageEditor::PickTransformHandle(float mouseX, float mouseY, int& outAxis, 
     if (transformTool_ == TransformTool::kScale && selKind_ != SelKind::kObject) {
         return false;
     }
-    // 各軸の線分に十分近ければ、その軸（1=X, 2=Y, 3=Z）を掴む
+    // 線分に十分近い軸のうち一番近いもの（1=X, 2=Y, 3=Z）を掴む。先端の近くはその軸を優先する
+    float bestDistance = kHandlePickPx;
+    bool found = false;
     for (int i = 0; i < kGizmoAxisCount; ++i) {
         const ImVec2 tip = { origin.x + dirs[i].x * kHandleLengthPx, origin.y + dirs[i].y * kHandleLengthPx };
-        if (DistancePointToSegment(mouseX, mouseY, origin, tip) <= kHandlePickPx) {
+        const float tipDx = mouseX - tip.x;
+        const float tipDy = mouseY - tip.y;
+        const bool nearTip = tipDx * tipDx + tipDy * tipDy <= kHandleTipPickPx * kHandleTipPickPx;
+        const float distance = nearTip ? 0.0f : DistancePointToSegment(mouseX, mouseY, origin, tip);
+        if (distance <= bestDistance) {
+            bestDistance = distance;
             outAxis = i + 1;
-            return true;
+            found = true;
         }
     }
-    return false;
+    return found;
+}
+
+/** @brief ハンドルの軸の画面上の向きに沿ったマウス移動量を返す */
+float StageEditor::AxisDragPixels(int axis, float deltaX, float deltaY) const {
+    // 向きが分からない時は、右か上へ動かすと正になる量を返す
+    const int index = axis - stageEditorUiStyle::kGizmoAxisX;
+    Vector3 world;
+    ImVec2 origin;
+    ImVec2 dirs[kGizmoAxisCount];
+    if (index < 0 || index >= kGizmoAxisCount || !SelectionWorldPosition(world) || !AxisScreenDirections(world, origin, dirs)) {
+        return deltaX - deltaY;
+    }
+    return deltaX * dirs[index].x + deltaY * dirs[index].y;
 }
 
 /** @brief 選択物にツールごとのハンドルを画面固定サイズで描く（DrawGizmosから呼ぶ） */
@@ -443,34 +451,48 @@ void StageEditor::DrawTransformHandles() {
     ImDrawList* dl = diagnosticsDraw::GetDrawList();
     const ImU32 axisColors[3] = { kHandleColorX, kHandleColorY, kHandleColorZ };
 
-    // 回転ツールは配置物にだけ輪を描く
+    // 回転ツールは配置物にだけ輪を描く（マウスが乗っている時と回している時は太くする）
     if (transformTool_ == TransformTool::kRotate) {
         if (selKind_ == SelKind::kObject) {
-            dl->AddCircle(origin, kRotateRingPx, kHandleColorRing, kRotateRingSegments, kHandleThicknessPx);
+            const bool ringActive = hoverHandleActive_ || rotateDragging_;
+            dl->AddCircle(origin, kRotateRingPx, ringActive ? kHandleColorHover : kHandleColorRing, kRotateRingSegments,
+                ringActive ? kHandleHoverThicknessPx : kHandleThicknessPx);
             dl->AddCircleFilled(origin, kHandleCenterPx * 0.5f, kHandleColorCenter);
         }
         return;
     }
 
-    // 各軸の線を描き、先端は拡縮なら四角、移動なら矢印にする（掴んでいる軸は強調色）
+    // 各軸の線を描き、先端は拡縮なら四角、移動なら矢印にする
+    // 掴んでいる軸は白、マウスが乗っている軸は黄色で太くし、ドラッグ中の他の軸は薄くする
+    const bool axisDragging = viewportDragging_ && activeDragAxis_ != 0;
+    const bool centerHovered = hoverHandleActive_ && hoverAxis_ == 0;
     for (int i = 0; i < kGizmoAxisCount; ++i) {
         const bool active = activeDragAxis_ == i + 1;
-        const ImU32 color = active ? kHandleColorCenter : axisColors[i];
+        const bool hovered = hoverHandleActive_ && hoverAxis_ == i + 1;
+        const bool emphasized = active || hovered;
+        const ImU32 color = active ? kHandleColorCenter
+            : hovered              ? kHandleColorHover
+            : axisDragging         ? kHandleColorDimmed
+                                   : axisColors[i];
+        const float tipScale = emphasized ? kHandleHoverTipScale : 1.0f;
         const ImVec2 tip = { origin.x + dirs[i].x * kHandleLengthPx, origin.y + dirs[i].y * kHandleLengthPx };
-        dl->AddLine(origin, tip, color, kHandleThicknessPx);
+        dl->AddLine(origin, tip, color, emphasized ? kHandleHoverThicknessPx : kHandleThicknessPx);
         if (transformTool_ == TransformTool::kScale) {
-            dl->AddRectFilled({ tip.x - kScaleTipPx, tip.y - kScaleTipPx }, { tip.x + kScaleTipPx, tip.y + kScaleTipPx }, color);
+            const float half = kScaleTipPx * tipScale;
+            dl->AddRectFilled({ tip.x - half, tip.y - half }, { tip.x + half, tip.y + half }, color);
         } else {
             // 矢印の先端（軸方向に対して左右へ開いた三角形）
-            const ImVec2 back = { tip.x - dirs[i].x * kHandleArrowPx, tip.y - dirs[i].y * kHandleArrowPx };
-            const ImVec2 side = { -dirs[i].y * kHandleArrowPx * 0.5f, dirs[i].x * kHandleArrowPx * 0.5f };
+            const float arrow = kHandleArrowPx * tipScale;
+            const ImVec2 back = { tip.x - dirs[i].x * arrow, tip.y - dirs[i].y * arrow };
+            const ImVec2 side = { -dirs[i].y * arrow * 0.5f, dirs[i].x * arrow * 0.5f };
             dl->AddTriangleFilled(tip, { back.x + side.x, back.y + side.y }, { back.x - side.x, back.y - side.y }, color);
         }
+        // どの軸か分かるよう、先端の外側に名前を添える
+        dl->AddText({ tip.x + dirs[i].x * kAxisLabelGapPx, tip.y + dirs[i].y * kAxisLabelGapPx - kAxisLabelHalfHeight }, color, kAxisLabels[i]);
     }
     // 中央の全軸ハンドル
-    constexpr ImU32 kHandleCenterFillColor = IM_COL32(255, 255, 255, 60); // 中央の半透明の白
     dl->AddRectFilled({ origin.x - kHandleCenterPx, origin.y - kHandleCenterPx },
-        { origin.x + kHandleCenterPx, origin.y + kHandleCenterPx }, kHandleCenterFillColor);
+        { origin.x + kHandleCenterPx, origin.y + kHandleCenterPx }, centerHovered ? kHandleCenterHoverFillColor : kHandleCenterFillColor);
     dl->AddRect({ origin.x - kHandleCenterPx, origin.y - kHandleCenterPx },
         { origin.x + kHandleCenterPx, origin.y + kHandleCenterPx }, kHandleColorCenter);
 }
@@ -521,38 +543,6 @@ void StageEditor::FinishBoxSelect(float mouseX, float mouseY) {
     statusMessage_ = std::to_string(selectedObjectIndices_.size()) + " 個を選択しました";
     statusTimer_ = StageEditor::kStatusShortSeconds;
 }
-/** @brief 画面UI（UILayoutの位置項目）の印をクリック位置から探す */
-bool StageEditor::PickUILayoutHandle(float mouseX, float mouseY, UILayout*& outLayout, size_t& outIndex) const {
-    float bestDistanceSq = kUIHandlePickRadiusPx * kUIHandlePickRadiusPx;
-    bool found = false;
-    for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
-        const Vector3 image = viewport_.ScreenToImage(handle.position.x, handle.position.y);
-        const float dx = image.x - mouseX;
-        const float dy = image.y - mouseY;
-        const float distanceSq = dx * dx + dy * dy;
-        if (distanceSq <= bestDistanceSq) {
-            bestDistanceSq = distanceSq;
-            outLayout = handle.layout;
-            outIndex = handle.index;
-            found = true;
-        }
-    }
-    return found;
-}
-/** @brief 画面UIの位置項目を四角い印と名前で描く（DrawGizmosから呼ぶ） */
-void StageEditor::DrawUILayoutHandles() {
-    ImDrawList* dl = diagnosticsDraw::GetDrawList();
-    for (const UILayout::PositionHandle& handle : UILayout::CollectPositionHandles()) {
-        const bool selected = UILayout::IsSelectedHandle(handle.layout, handle.index);
-        const ImU32 color = selected ? kUIHandleSelectedColor : kUIHandleColor;
-        const Vector3 image = viewport_.ScreenToImage(handle.position.x, handle.position.y);
-        const ImVec2 minCorner = { image.x - kUIHandleHalfSize, image.y - kUIHandleHalfSize };
-        const ImVec2 maxCorner = { image.x + kUIHandleHalfSize, image.y + kUIHandleHalfSize };
-        dl->AddRectFilled(minCorner, maxCorner, kUIHandleFill);
-        dl->AddRect(minCorner, maxCorner, color, 0.0f, 0, kUIHandleLineThickness);
-        dl->AddText({ maxCorner.x + kUIHandleLabelGapX, minCorner.y }, color, handle.label.c_str());
-    }
-}
 #else
 /** @brief 見た目の位置を変えずに親を付け替える */
 void StageEditor::SetParentPreservingWorld(int, int) { }
@@ -586,7 +576,7 @@ bool StageEditor::PickTransformHandle(float, float, int&, bool&) const {
 }
 /** @brief 選択物にツールごとのハンドルを画面固定サイズで描く（DrawGizmosから呼ぶ） */
 void StageEditor::DrawTransformHandles() { }
-/** @brief 回転/拡縮ツールのドラッグを1フレームぶん反映する（マウス移動量のピクセル） */
+/** @brief 回転/拡縮ツールのドラッグを反映する（ドラッグ開始時の値へ、開始からの累積量を掛ける） */
 void StageEditor::UpdateRotateScaleDrag(float, float) { }
 /** @brief 範囲選択の矩形を確定し、内側の配置物を選択する（小さすぎる矩形はクリック扱いで選択解除） */
 void StageEditor::FinishBoxSelect(float, float) { }
@@ -594,7 +584,7 @@ void StageEditor::FinishBoxSelect(float, float) { }
 bool StageEditor::PickUILayoutHandle(float, float, UILayout*&, size_t&) const {
     return false;
 }
-/** @brief 画面UIの位置項目を四角い印と名前で描く（DrawGizmosから呼ぶ） */
+/** @brief 画面UIの位置項目を四角い印で描く（名前はマウスが乗った印と選択中の印にだけ出す。DrawGizmosから呼ぶ） */
 void StageEditor::DrawUILayoutHandles() { }
 #endif
 } // namespace engine::game

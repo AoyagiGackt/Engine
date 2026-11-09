@@ -10,9 +10,9 @@
 #include <array>
 #include <cctype>
 #include <cfloat>
-#include <cmath>
 #include <filesystem>
 #include <imgui.h>
+#include <iterator>
 
 namespace engine::graphics {
 namespace {
@@ -21,14 +21,10 @@ constexpr const char* kWindowTitle = "調整値エディタ";
 constexpr float kFileListWidth = 210.0f;
 constexpr float kLabelWidthRatio = 0.45f; // 項目名に使う横幅の割合
 constexpr double kAssetRescanSeconds = 3.0; // 素材フォルダを調べ直す間隔
-constexpr float kDragSpeedRatio = 0.01f; // ドラッグ1ピクセルで値の何割動かすか
-constexpr float kMinDragSpeed = 0.001f;
-constexpr float kIntDragSpeed = 0.2f;
-constexpr float kVectorDragSpeedScale = 10.0f; // ベクトルは単体の数値よりこの倍だけ速く動かす
+constexpr size_t kMaxUndoCount = 50; // 元に戻せる回数
 constexpr ImVec2 kInitialWindowSize = { 760.0f, 560.0f }; // 初めて開いた時のウィンドウの大きさ
 constexpr size_t kVector3Size = 3;
 constexpr size_t kColorSize = 4;
-constexpr ImVec4 kDirtyColor = { 1.0f, 0.75f, 0.2f, 1.0f };
 constexpr ImVec4 kLiveColor = { 0.45f, 0.9f, 0.5f, 1.0f };
 constexpr ImVec4 kNextBootColor = { 0.75f, 0.75f, 0.75f, 1.0f };
 constexpr const char* kNoFileLabel = "（なし）";
@@ -141,6 +137,8 @@ void JsonConfigEditor::ScanConfigFiles() {
     }
     const nlohmann::json hidden = labels_.value("_hidden", nlohmann::json::array());
     const nlohmann::json titles = labels_.value("_files", nlohmann::json::object());
+    // 並びが変わっても同じファイルを選んだままにする
+    const std::string selectedFile = selected_ >= 0 && selected_ < static_cast<int>(files_.size()) ? files_[selected_].fileName : std::string();
     std::vector<FileEntry> scanned;
     for (const auto& item : std::filesystem::directory_iterator(configDirectory_, error)) {
         if (!item.is_regular_file() || ToLower(ToUtf8(item.path().extension())) != ".json") {
@@ -153,6 +151,7 @@ void JsonConfigEditor::ScanConfigFiles() {
         // 開いたことのあるファイルは編集中の内容を引き継ぐ
         const auto existing = std::find_if(files_.begin(), files_.end(), [&](const FileEntry& e) { return e.fileName == fileName; });
         if (existing != files_.end()) {
+            existing->title = titles.value(fileName, fileName);
             scanned.push_back(std::move(*existing));
             continue;
         }
@@ -172,6 +171,10 @@ void JsonConfigEditor::ScanConfigFiles() {
         return a.fileName < b.fileName;
     });
     files_ = std::move(scanned);
+    const auto reselected = std::find_if(files_.begin(), files_.end(), [&](const FileEntry& e) { return e.fileName == selectedFile; });
+    if (reselected != files_.end()) {
+        selected_ = static_cast<int>(std::distance(files_.begin(), reselected));
+    }
     selected_ = std::clamp(selected_, 0, (std::max)(static_cast<int>(files_.size()) - 1, 0));
 }
 
@@ -206,19 +209,53 @@ void JsonConfigEditor::LoadEntry(FileEntry& entry) {
     entry.saved = entry.data;
     entry.loaded = true;
     entry.dirty = false;
+    // 読み直した後は前の内容へ戻せないので履歴も作り直す
+    entry.undoBase = entry.data;
+    entry.undoStack.clear();
+    entry.redoStack.clear();
+    entry.pendingEdit = false;
 }
 
 /** @brief 編集中の内容を書き出し、登録された読み直しを呼ぶ */
 void JsonConfigEditor::SaveEntry(FileEntry& entry) {
     if (!JsonHelper::Save(entry.path, entry.data)) {
+        status_ = "保存に失敗しました: " + entry.path;
         return;
     }
+    status_ = "保存しました: " + entry.fileName;
     entry.saved = entry.data;
     entry.dirty = false;
     const auto callback = reloadCallbacks_.find(entry.fileName);
     if (callback != reloadCallbacks_.end() && callback->second) {
         callback->second();
     }
+}
+
+/** @brief 操作中の項目が無くなったら、溜めていた変更を1回分の履歴として確定する */
+void JsonConfigEditor::CommitPendingEdit(FileEntry& entry) {
+    if (!entry.pendingEdit || ImGui::IsAnyItemActive()) {
+        return;
+    }
+    entry.pendingEdit = false;
+    entry.undoStack.push_back(std::move(entry.undoBase));
+    if (entry.undoStack.size() > kMaxUndoCount) {
+        entry.undoStack.erase(entry.undoStack.begin());
+    }
+    entry.redoStack.clear();
+    entry.undoBase = entry.data;
+    entry.dirty = entry.data != entry.saved;
+}
+
+/** @brief 片方の履歴の最新の内容へ移り、今の内容をもう片方の履歴へ積む（元に戻す・やり直すの共通処理） */
+void JsonConfigEditor::StepHistory(FileEntry& entry, std::vector<nlohmann::json>& source, std::vector<nlohmann::json>& destination) {
+    if (entry.pendingEdit || source.empty()) {
+        return;
+    }
+    destination.push_back(std::move(entry.data));
+    entry.data = std::move(source.back());
+    source.pop_back();
+    entry.undoBase = entry.data;
+    entry.dirty = entry.data != entry.saved;
 }
 
 /** @brief 表示中ならウィンドウを描く */
@@ -254,8 +291,8 @@ void JsonConfigEditor::Draw() {
 void JsonConfigEditor::DrawFileList() {
     ImGui::BeginChild("##files", ImVec2(kFileListWidth, 0.0f), ImGuiChildFlags_Borders);
     if (ImGui::Button("一覧を更新")) {
-        ScanConfigFiles();
         labels_ = JsonHelper::Load(labelsPath_);
+        ScanConfigFiles();
     }
     editorUI::HelpMarker("フォルダに足したJSONや、名前の表（tuning_labels.json）の変更を読み込み直します");
     ImGui::Separator();
@@ -272,6 +309,54 @@ void JsonConfigEditor::DrawFileList() {
     ImGui::EndChild();
 }
 
+/** @brief 保存・履歴・読み直しのボタンと、そのショートカットを処理する */
+void JsonConfigEditor::DrawFileToolbar(FileEntry& entry) {
+    // 保存（変更が無い間は押せない）
+    ImGui::BeginDisabled(!entry.dirty);
+    if (ImGui::Button("保存 (Ctrl+S)")) {
+        SaveEntry(entry);
+    }
+    ImGui::EndDisabled();
+    if (entry.dirty && editorUI::CtrlShortcut(ImGuiKey_S, true)) {
+        SaveEntry(entry);
+    }
+    // 元に戻す・やり直す（どちらもボタンとキーを受ける）
+    const auto historyButton = [&](const char* label, ImGuiKey key, std::vector<nlohmann::json>& source, std::vector<nlohmann::json>& destination) {
+        ImGui::SameLine();
+        ImGui::BeginDisabled(source.empty());
+        const bool pressed = ImGui::Button(label);
+        ImGui::EndDisabled();
+        if (pressed || editorUI::CtrlShortcut(key)) {
+            StepHistory(entry, source, destination);
+        }
+    };
+    historyButton("元に戻す (Ctrl+Z)", ImGuiKey_Z, entry.undoStack, entry.redoStack);
+    historyButton("やり直す (Ctrl+Y)", ImGuiKey_Y, entry.redoStack, entry.undoStack);
+    // 保存した時の内容へ戻す（これも1回の変更なので元に戻せる）
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!entry.dirty);
+    if (ImGui::Button("保存時の内容に戻す")) {
+        entry.data = entry.saved;
+        entry.pendingEdit = true;
+    }
+    ImGui::EndDisabled();
+    // ファイルから読み直すと履歴も消えるので、未保存の変更がある時は確認する
+    ImGui::SameLine();
+    const char* const reloadLabel = "ファイルから読み直す";
+    if (entry.dirty ? editorUI::ConfirmButton(reloadLabel, "未保存の変更と履歴を捨てて読み直しますか？", "読み直す") : ImGui::Button(reloadLabel)) {
+        LoadEntry(entry);
+    }
+    const bool live = reloadCallbacks_.count(entry.fileName) > 0;
+    ImGui::TextColored(live ? kLiveColor : kNextBootColor, live ? "保存するとすぐ反映" : "保存すると次回起動時に反映");
+    if (entry.dirty) {
+        editorUI::DrawUnsavedMark();
+    }
+    if (!status_.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", status_.c_str());
+    }
+}
+
 /** @brief 右側に選んだファイルの中身を描く */
 void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
     if (!entry.loaded) {
@@ -279,30 +364,10 @@ void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
     }
     currentFile_ = entry.fileName;
 
-    // 保存・元に戻すと、保存した時にすぐ効くかの表示
-    ImGui::BeginDisabled(!entry.dirty);
-    if (ImGui::Button("保存")) {
-        SaveEntry(entry);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("元に戻す")) {
-        entry.data = entry.saved;
-        entry.dirty = false;
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button("ファイルから読み直す")) {
-        LoadEntry(entry);
-    }
-    ImGui::SameLine();
-    const bool live = reloadCallbacks_.count(entry.fileName) > 0;
-    ImGui::TextColored(live ? kLiveColor : kNextBootColor, live ? "保存するとすぐ反映" : "保存すると次回起動時に反映");
-    if (entry.dirty) {
-        ImGui::SameLine();
-        ImGui::TextColored(kDirtyColor, "未保存");
-    }
+    DrawFileToolbar(entry);
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##filter", "項目を探す（日本語の名前かキー）", filter_, sizeof(filter_));
+    ImGui::TextDisabled("数値は左右にドラッグ（Shiftで速く、Altで細かく）。ダブルクリックで直接入力");
 
     if (!entry.data.is_object()) {
         ImGui::TextDisabled("中身を読めませんでした（%s）", entry.path.c_str());
@@ -319,8 +384,11 @@ void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
     ImGui::BeginChild("##tree");
     if (DrawValue(entry.data, "", "", entry.title, 0)) {
         entry.dirty = true;
+        entry.pendingEdit = true;
     }
     ImGui::EndChild();
+    // ドラッグや文字入力は、離して操作が終わった時に1回分の履歴にする
+    CommitPendingEdit(entry);
 }
 
 /** @brief JSONの1つの値を編集部品として描く */
@@ -330,6 +398,10 @@ bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path,
     }
     bool changed = false;
     if (value.is_object()) {
+        // 検索中は畳まれていても中身が見えるように開く
+        if (depth > 0 && filter_[0] != '\0') {
+            ImGui::SetNextItemOpen(true);
+        }
         // 直下はそのまま並べ、入れ子は畳める見出しにする
         const bool opened = depth == 0
             || (depth == 1 ? ImGui::CollapsingHeader((label + "##" + path).c_str(), ImGuiTreeNodeFlags_DefaultOpen)
@@ -337,6 +409,9 @@ bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path,
         if (!opened) {
             return false;
         }
+        // 見出し自身が検索語に当たったら中身はすべて出す
+        const bool ownMatch = depth > 0 && filter_[0] != '\0' && OwnNameMatches(path, key);
+        filterMatchedAncestors_ += ownMatch ? 1 : 0;
         for (auto it = value.begin(); it != value.end(); ++it) {
             // _comment などの "_" で始まるキーは説明用なので編集対象にしない
             if (it.key().empty() || it.key()[0] == '_') {
@@ -347,6 +422,7 @@ bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path,
             changed |= DrawValue(it.value(), childPath, it.key(), LabelFor(childPath, it.key()), depth + 1);
             ImGui::PopID();
         }
+        filterMatchedAncestors_ -= ownMatch ? 1 : 0;
         if (depth >= 2) {
             ImGui::TreePop();
         }
@@ -380,15 +456,14 @@ bool JsonConfigEditor::DrawNumber(nlohmann::json& value, const std::string& path
     const bool isInt = type == "int" || (type.empty() && value.is_number_integer());
     if (isInt) {
         int number = value.get<int>();
-        if (ImGui::DragInt("##value", &number, kIntDragSpeed)) {
+        if (editorUI::AutoDragInt("##value", &number)) {
             value = number;
             return true;
         }
         return false;
     }
     float number = value.get<float>();
-    const float speed = (std::max)(std::fabs(number) * kDragSpeedRatio, kMinDragSpeed);
-    if (ImGui::DragFloat("##value", &number, speed, 0.0f, 0.0f, "%.4g")) {
+    if (editorUI::AutoDragFloat("##value", &number)) {
         value = number;
         return true;
     }
@@ -402,15 +477,13 @@ bool JsonConfigEditor::DrawString(nlohmann::json& value) {
     if (LooksLikeAssetPath(text) && !category.empty()) {
         bool changed = false;
         if (ImGui::BeginCombo("##value", text.empty() ? kNoFileLabel : text.c_str(), ImGuiComboFlags_HeightLarge)) {
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            ImGui::InputTextWithHint("##assetFilter", "絞り込み", assetFilter_, sizeof(assetFilter_));
+            editorUI::ComboFilterInput(assetFilter_, sizeof(assetFilter_));
             if (ImGui::Selectable(kNoFileLabel, text.empty())) {
                 value = std::string();
                 changed = true;
             }
-            const std::string filter = ToLower(assetFilter_);
             for (const std::string& candidate : assetsByCategory_[category]) {
-                if (!filter.empty() && ToLower(candidate).find(filter) == std::string::npos) {
+                if (!editorUI::ContainsIgnoreCase(candidate, assetFilter_)) {
                     continue;
                 }
                 if (ImGui::Selectable(candidate.c_str(), candidate == text)) {
@@ -451,7 +524,7 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
         for (size_t i = 0; i < kVector3Size; ++i) {
             vector[i] = value[i].get<float>();
         }
-        if (ImGui::DragFloat3("##value", vector, kMinDragSpeed * kVectorDragSpeedScale, 0.0f, 0.0f, "%.4g")) {
+        if (editorUI::AutoDragFloat("##value", vector, static_cast<int>(kVector3Size))) {
             value = nlohmann::json::array({ vector[0], vector[1], vector[2] });
             return true;
         }
@@ -459,16 +532,31 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
     }
 
     const std::string caption = label + " (" + std::to_string(value.size()) + ")##" + path;
+    // 検索中は畳まれていても中身が見えるように開く
+    const bool filtering = filter_[0] != '\0';
+    if (filtering) {
+        ImGui::SetNextItemOpen(true);
+    }
     const bool opened = depth <= 1 ? ImGui::CollapsingHeader(caption.c_str()) : ImGui::TreeNode(caption.c_str());
     if (!opened) {
         return false;
     }
     bool changed = false;
     int removeIndex = -1;
+    int moveFrom = -1;
+    int moveTo = -1;
     for (size_t i = 0; i < value.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         nlohmann::json& element = value[i];
+        const int moveStep = editorUI::ListMoveButtons(static_cast<int>(i), static_cast<int>(value.size()));
+        if (moveStep != 0) {
+            moveFrom = static_cast<int>(i);
+            moveTo = moveFrom + moveStep;
+        }
         if (element.is_object() || element.is_array()) {
+            if (filtering) {
+                ImGui::SetNextItemOpen(true);
+            }
             // 要素の中身は配列の場所と同じ名前の表で引く（例: 各武器の damage は "damage"）
             if (ImGui::TreeNode("##element", "%s", ElementCaption(element, i).c_str())) {
                 for (auto it = element.begin(); element.is_object() && it != element.end(); ++it) {
@@ -501,6 +589,10 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
         value.erase(static_cast<size_t>(removeIndex));
         changed = true;
     }
+    if (moveFrom >= 0 && removeIndex < 0) {
+        value[static_cast<size_t>(moveFrom)].swap(value[static_cast<size_t>(moveTo)]);
+        changed = true;
+    }
     // 追加は最後の要素を複製する（形をそろえたまま増やせる）
     if (!value.empty() && ImGui::SmallButton("最後の要素を複製して追加")) {
         value.push_back(value.back());
@@ -525,13 +617,14 @@ void JsonConfigEditor::BeginRow(const std::string& label, const std::string& pat
     ImGui::SetNextItemWidth(-FLT_MIN);
 }
 
+/** @brief 項目自身の名前かキーが検索語に当てはまるか */
+bool JsonConfigEditor::OwnNameMatches(const std::string& path, const std::string& key) const {
+    return editorUI::ContainsIgnoreCase(path, filter_) || editorUI::ContainsIgnoreCase(LabelFor(path, key), filter_);
+}
+
 /** @brief 検索語に当てはまる項目を含むか（入れ子の中も調べる） */
 bool JsonConfigEditor::MatchesFilter(const nlohmann::json& value, const std::string& path, const std::string& key) const {
-    const std::string filter = ToLower(filter_);
-    if (filter.empty()) {
-        return true;
-    }
-    if (ToLower(path).find(filter) != std::string::npos || ToLower(LabelFor(path, key)).find(filter) != std::string::npos) {
+    if (filter_[0] == '\0' || filterMatchedAncestors_ > 0 || OwnNameMatches(path, key)) {
         return true;
     }
     if (value.is_object()) {
@@ -549,63 +642,6 @@ bool JsonConfigEditor::MatchesFilter(const nlohmann::json& value, const std::str
         }
     }
     return false;
-}
-
-/** @brief 名前の表から表示名を引く（ファイルの表 → どのファイルでも使う表 → グループ名 → キーの順） */
-std::string JsonConfigEditor::LabelFor(const std::string& path, const std::string& key) const {
-    const auto file = labels_.find(currentFile_);
-    if (file != labels_.end() && file->is_object()) {
-        const auto entry = file->find(path);
-        if (entry != file->end() && entry->is_object() && entry->contains("name")) {
-            return entry->value("name", key);
-        }
-    }
-    for (const char* table : { "_keys", "_sections" }) {
-        const auto common = labels_.find(table);
-        if (common == labels_.end() || !common->is_object()) {
-            continue;
-        }
-        const auto entry = common->find(key);
-        if (entry == common->end()) {
-            continue;
-        }
-        if (entry->is_string()) {
-            return entry->get<std::string>();
-        }
-        if (entry->is_object() && entry->contains("name")) {
-            return entry->value("name", key);
-        }
-    }
-    return key;
-}
-
-/** @brief 名前の表から説明を引く */
-std::string JsonConfigEditor::HelpFor(const std::string& path) const {
-    const auto file = labels_.find(currentFile_);
-    if (file == labels_.end() || !file->is_object()) {
-        return {};
-    }
-    const auto entry = file->find(path);
-    return entry != file->end() && entry->is_object() ? entry->value("help", std::string()) : std::string();
-}
-
-/** @brief 名前の表から型（"int" / "float"）を引く */
-std::string JsonConfigEditor::TypeFor(const std::string& path, const std::string& key) const {
-    const auto file = labels_.find(currentFile_);
-    if (file != labels_.end() && file->is_object()) {
-        const auto entry = file->find(path);
-        if (entry != file->end() && entry->is_object() && entry->contains("type")) {
-            return entry->value("type", std::string());
-        }
-    }
-    const auto common = labels_.find("_keys");
-    if (common != labels_.end() && common->is_object()) {
-        const auto entry = common->find(key);
-        if (entry != common->end() && entry->is_object()) {
-            return entry->value("type", std::string());
-        }
-    }
-    return {};
 }
 
 } // namespace engine::graphics

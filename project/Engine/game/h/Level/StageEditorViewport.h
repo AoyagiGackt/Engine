@@ -56,6 +56,17 @@ public:
     void UpdateCamera(engine::Input* input, float deltaTime, bool focusMode);
 
     /**
+     * @brief マウスホイールでカーソル位置へ寄る（カメラが遠いほど1回の移動量を増やす）
+     * @param wheel ホイールの回転量  手前に回すと正
+     * @param mouseX ウィンドウ左端からのマウス座標  単位はピクセル
+     * @param mouseY ウィンドウ上端からのマウス座標  単位はピクセル
+     */
+    void ZoomAtCursor(float wheel, float mouseX, float mouseY);
+
+    /** @brief プレビュー画像の1ピクセルがゲーム画面の何ピクセルにあたるかを返す */
+    float ImagePixelScale() const;
+
+    /**
      * @brief マウス座標が操作可能な中央ビュー内にあるか返す
      * @param mouseX ウィンドウ左端からのマウス座標  単位はピクセル
      * @param mouseY ウィンドウ上端からのマウス座標  単位はピクセル
@@ -77,6 +88,8 @@ private:
     engine::graphics::Camera* camera_ = nullptr;
     bool imageMode_ = false;
     bool imageHovered_ = false;
+    bool panning_ = false; // ビュー内で中ボタンを押して、平行移動している間true
+    bool flying_ = false; // ビュー内で右ボタンを押して、WASD/QEで飛んでいる間true
     float imageX_ = 0.0f, imageY_ = 0.0f;
     float imageWidth_ = 1280.0f, imageHeight_ = 720.0f;
 };

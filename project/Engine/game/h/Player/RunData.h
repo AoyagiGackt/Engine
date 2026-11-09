@@ -5,13 +5,14 @@
 #pragma once
 #include "GameRules.h"
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <string>
 #include <vector>
 namespace engine::game {
 /**
  * @brief 保持するデータを管理するシングルトンクラス
- * @note シーン遷移をまたいで HP・ゴールド・スキル・フロア番号を共有する
+ * @note シーン遷移をまたいで HP・スコア・スキル・フロア番号を共有する
  * 新しいランを開始する際は StartNewRun() で全データをリセットすること
  */
 class RunData {
@@ -56,11 +57,6 @@ public:
     /** @brief 最大 HP */
     int GetMaxHp() const {
         return maxHp_;
-    }
-
-    /** @brief 所持ゴールド */
-    int GetGold() const {
-        return gold_;
     }
 
     /** @brief このランで積み上げたスコア */
@@ -153,9 +149,34 @@ public:
         return std::find(bossTechniques_.begin(), bossTechniques_.end(), name) != bossTechniques_.end();
     }
 
-    /** @brief ゴールドを加算する */
-    void AddGold(int amount) {
-        gold_ += amount;
+    /** @brief ステージ1つ分の戦績（スタイルの最高値はセーブのため千分率の整数で持つ） */
+    struct StageRecord {
+        int32_t floor = 0; ///< ステージの番号
+        int32_t stylePermille = 0; ///< スタイルゲージの最高値（0〜1000）
+        int32_t seconds = 0; ///< クリアにかかった秒数
+        int32_t score = 0; ///< このステージで得たスコア
+    };
+    static constexpr float kStylePermilleScale = 1000.0f; ///< スタイルゲージの値から千分率への倍率
+
+    /** @brief ステージの戦績を記録する（遊び直した時は、前よりスタイルが良い時だけ置き換える） */
+    void RecordStage(const StageRecord& record) {
+        for (StageRecord& existing : stageRecords_) {
+            if (existing.floor == record.floor) {
+                if (record.stylePermille > existing.stylePermille) {
+                    existing = record;
+                }
+                return;
+            }
+        }
+        stageRecords_.push_back(record);
+        std::sort(stageRecords_.begin(), stageRecords_.end(), [](const StageRecord& a, const StageRecord& b) {
+            return a.floor < b.floor;
+        });
+    }
+
+    /** @brief ステージ順に並んだ戦績の独立したコピーを取得する */
+    std::vector<StageRecord> GetStageRecordSnapshot() const {
+        return stageRecords_;
     }
 
     /** @brief スコアを加算する */
@@ -207,7 +228,6 @@ public:
     void StartNewRun() {
         isRunActive_ = true;
         hp_ = maxHp_ = GameRules::GetInstance()->Get().playerMaxHp;
-        gold_ = 0;
         score_ = 0;
         floor_ = 0;
         playFloor_ = 0;
@@ -215,6 +235,7 @@ public:
         liberationPending_ = false;
         skills_.clear();
         bossTechniques_.clear();
+        stageRecords_.clear();
         currentNode_ = NodeType::kCombat;
     }
 
@@ -227,11 +248,11 @@ public:
      * @brief セーブデータからラン状態を復元する
      * @note SaveDataManager::LoadContinue から呼び出される
      */
-    void RestoreFromSave(int hp, int maxHp, int gold, int score, int floor, NodeType node, const std::vector<Skill>& skills) {
+    void RestoreFromSave(int hp, int maxHp, int score, int floor, NodeType node, const std::vector<Skill>& skills,
+        const std::vector<StageRecord>& stageRecords) {
         isRunActive_ = true;
         hp_ = hp;
         maxHp_ = maxHp;
-        gold_ = gold;
         score_ = score;
         floor_ = floor;
         playFloor_ = floor;
@@ -239,6 +260,7 @@ public:
         liberationPending_ = false;
         currentNode_ = node;
         skills_ = skills;
+        stageRecords_ = stageRecords;
     }
 
     /** @brief スキル1つ分の表示文字列 */
@@ -285,42 +307,32 @@ public:
      * @return ランク文字列（"SSS" 〜 "D"）
      */
     static const char* CalcRank(float peak) {
-        return FindRankReward(peak).rank;
-    }
-
-    /**
-     * @brief スタイルゲージのピーク値から獲得ゴールドを計算して返す
-     * @param peak スタイルゲージのピーク値（0.0〜1.0）
-     * @return 獲得ゴールド量
-     */
-    static int CalcGold(float peak) {
-        return FindRankReward(peak).gold;
+        return FindRankThreshold(peak).rank;
     }
 
 private:
-    /** @brief スタイルゲージのピーク値ごとのランクと報酬（閾値の高い順に並べる） */
-    struct RankReward {
+    /** @brief スタイルゲージのピーク値ごとのランク（閾値の高い順に並べる） */
+    struct RankThreshold {
         float minPeak;
         const char* rank;
-        int gold;
     };
-    static constexpr RankReward kRankRewards[] = {
-        { 0.95f, "SSS", 50 },
-        { 0.90f, "SS", 35 },
-        { 0.80f, "S", 25 },
-        { 0.65f, "A", 18 },
-        { 0.45f, "B", 12 },
-        { 0.25f, "C", 8 },
-        { 0.0f, "D", 5 },
+    static constexpr RankThreshold kRankThresholds[] = {
+        { 0.95f, "SSS" },
+        { 0.90f, "SS" },
+        { 0.80f, "S" },
+        { 0.65f, "A" },
+        { 0.45f, "B" },
+        { 0.25f, "C" },
+        { 0.0f, "D" },
     };
-    /** @brief スタイルの最高値に対応するランクの報酬を返す */
-    static const RankReward& FindRankReward(float peak) {
-        for (const RankReward& reward : kRankRewards) {
-            if (peak >= reward.minPeak) {
-                return reward;
+    /** @brief スタイルの最高値に対応するランクを返す */
+    static const RankThreshold& FindRankThreshold(float peak) {
+        for (const RankThreshold& threshold : kRankThresholds) {
+            if (peak >= threshold.minPeak) {
+                return threshold;
             }
         }
-        return kRankRewards[std::size(kRankRewards) - 1];
+        return kRankThresholds[std::size(kRankThresholds) - 1];
     }
 
     /** @brief ラン開始前の進行データを生成する */
@@ -329,7 +341,6 @@ private:
     bool isRunActive_ = false; ///< ラン進行中かどうか
     int hp_ = kDefaultPlayerMaxHp; ///< 現在 HP
     int maxHp_ = kDefaultPlayerMaxHp; ///< 最大 HP
-    int gold_ = 0; ///< 所持ゴールド
     int score_ = 0; ///< このランのスコア（フロアクリア時のランクに応じて加算）
     int floor_ = 0; ///< 現在フロア（0=floor1, 1=floor2, 2=floor3, 3=boss）
     int playFloor_ = 0; ///< 今遊んでいるステージ（クリア済みを遊び直す時は floor_ より小さい）
@@ -339,6 +350,7 @@ private:
 
     /** @brief 習得済みスキルのリスト */
     std::vector<Skill> skills_;
+    std::vector<StageRecord> stageRecords_; ///< クリア済みステージの戦績（ステージ順）
     std::vector<std::string> bossTechniques_; ///< ボスから奪って習得した技名（StartNewRunで消える。セーブ対象外）
 };
 
