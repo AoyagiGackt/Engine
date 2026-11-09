@@ -41,6 +41,12 @@ namespace engine::game {
 // トレーニングへ戻るポータル
 static constexpr Vector2 kWarpLabelOffset = { 110.0f, 36.0f };
 
+// 見出しの下に出すコンボ練習の案内（UI/battletest.json の combo_trial_hint.* で上書きできる）
+static constexpr Vector4 kComboTrialHintColor = { 0.88f, 0.9f, 0.96f, 1.0f };
+static constexpr Vector4 kComboTrialActiveColor = { 1.0f, 0.95f, 0.35f, 1.0f }; // 練習中は明るい黄
+static constexpr Vector4 kComboTrialHintShadow = { 0.0f, 0.0f, 0.0f, 0.9f };
+static constexpr float kComboTrialHintShadowOffset = 1.5f;
+
 // ダミー
 
 // ヒット演出
@@ -370,6 +376,8 @@ void BattleTestScene::UpdatePlayerAndCamera() {
                 }
             }
         }
+        // コンボ練習の間は自分の入力で出せたかを見るので、オートコンボを設定に関係なく止める
+        player_->SetAutoComboSuppressed(comboTrial_.IsActive());
         player_->Update(input_, rampTarget, targetSolid, !stageColliders.empty());
         gameSounds::PlayPlayerActions(*player_);
         comboTrial_.Observe(*player_);
@@ -455,15 +463,25 @@ void BattleTestScene::DrawHud(bool nearReturnPortal) {
             layout.Float("lock_marker.scale", SceneVisualTuning::Battle().lockMarkerScale), layout.Color("lock_marker.color", SceneVisualTuning::Battle().lockMarkerColor));
     }
 }
-/** @brief 武器一覧と戻りポータルのラベルを描画する */
+/** @brief 左上の見出しと戻りポータルのラベルを描画する */
 void BattleTestScene::DrawWeaponHud(bool nearReturnPortal) {
     UILayout& layout = UILayout::Get(kLayoutName);
     const Vector2 warpLabelOffset = layout.Vec2("portal.label_offset", kWarpLabelOffset);
     // ポータルとコライダー表示の文字サイズを取得する。
     const float hintScale = layout.Float("weapon_list.hint_scale", SceneVisualTuning::Battle().hintScale);
-    // 左上には武器一覧と切り替え案内を表示する。
+    // 左上にはステージ名の見出しと、コンボ練習の案内を出す（武器は左下の武器スロットHUDで分かる）
     const Vector2 weaponHudAnchor = layout.Pos("weapon_list.pos", kDefaultHudWeaponAnchor);
-    sceneShared::DrawWeaponListHud(fontRenderer_, weaponManager_, L"テストステージ", weaponHudAnchor);
+    const float hintY = sceneShared::DrawHudHeader(fontRenderer_, L"テストステージ", weaponHudAnchor);
+    const bool practicing = comboTrial_.IsActive();
+    const std::wstring trialHint = input_->ExpandPrompts(practicing
+            ? L"コンボ練習中（オートコンボは自動でOFF）"
+            : L"{Pause} → コンボ練習 でコンボの練習ができます");
+    const Vector4 trialHintColor = practicing
+        ? layout.Color("combo_trial_hint.active_color", kComboTrialActiveColor)
+        : layout.Color("combo_trial_hint.color", kComboTrialHintColor);
+    fontRenderer_.DrawStringW(trialHint, weaponHudAnchor.x + kComboTrialHintShadowOffset, hintY + kComboTrialHintShadowOffset,
+        hintScale, kComboTrialHintShadow);
+    fontRenderer_.DrawStringW(trialHint, weaponHudAnchor.x, hintY, hintScale, trialHintColor);
     // 戻りポータルのラベル
     if (nearReturnPortal) {
         const Vector3& cam = camera_->GetTranslate();

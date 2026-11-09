@@ -66,7 +66,6 @@ namespace {
 
     // HUDの行送り
     constexpr float kHudSectionGap = 2.0f; // 見出しの下に空ける余白
-    constexpr float kHudHintGap = 4.0f; // 操作ヒントの前に空ける余白
     constexpr const char* kSharedHudLayoutName = "hud"; // 武器一覧・操作説明の文字の見た目（全シーン共通）
 
     // 逆さ状態のスピン連射
@@ -359,102 +358,6 @@ float DrawHudHeader(FontRenderer& fontRenderer, const wchar_t* headerText, const
         scale, kWeaponListShadow);
     fontRenderer.DrawStringW(headerText, anchor.x, anchor.y, scale, headerColor);
     return anchor.y + FontRenderer::kCharH * scale + kHudSectionGap;
-}
-
-/** @brief 武器一覧HUD（ヘッダー・リスト・Q/E切替ヒント）を描画し、次に描画すべきY座標を返す */
-float DrawWeaponListHud(FontRenderer& fontRenderer, WeaponManager* weaponManager, const wchar_t* headerText, const Vector2& anchor,
-    const std::vector<float>* powerRatios) {
-    constexpr float kDefaultScale = kWeaponListDefaultScale;
-    constexpr Vector4 kWeakenedColor = { 1.0f, 0.4f, 0.3f, 1.0f }; // 疲労で威力が落ちている武器
-    constexpr float kPercent = 100.0f;
-    constexpr Vector4 kDefaultNormalColor = { 0.95f, 0.92f, 0.80f, 1.0f }; // クリーム
-    constexpr Vector4 kDefaultSelectedColor = { 1.0f, 0.95f, 0.35f, 1.0f }; // 選択中は明るい黄
-    constexpr Vector4 kDefaultLockedColor = { 0.55f, 0.50f, 0.40f, 0.85f };
-    constexpr Vector4 kDefaultHintColor = { 0.80f, 0.76f, 0.65f, 1.0f };
-    constexpr Vector4 kShadow = kWeaponListShadow;
-    constexpr float kShadowOffset = kWeaponListShadowOffset;
-
-    // 文字の大きさと色は全シーン共通のHUDレイアウト（Resources/Config/UI/hud.json）で調整する
-    UILayout& layout = UILayout::Get(kSharedHudLayoutName);
-    const float scale = layout.Float("weapon_list.scale", kDefaultScale);
-    const float lineHeight = FontRenderer::kCharH * scale;
-    const Vector4 textColor = layout.Color("weapon_list.text_color", kDefaultNormalColor);
-    const Vector4 selectedColor = layout.Color("weapon_list.selected_color", kDefaultSelectedColor);
-    const Vector4 emptyColor = layout.Color("weapon_list.empty_color", kDefaultLockedColor);
-    const Vector4 hintColor = layout.Color("weapon_list.hint_color", kDefaultHintColor);
-
-    const float px = anchor.x;
-    float py = DrawHudHeader(fontRenderer, headerText, anchor);
-
-    // 文字は少しずらした影を先に描いてから本体を重ねる
-    auto drawShadowedW = [&](const std::wstring& text, float x, float y, const Vector4& color) {
-        fontRenderer.DrawStringW(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
-        fontRenderer.DrawStringW(text, x, y, scale, color);
-    };
-    auto drawShadowed = [&](const std::string& text, float x, float y, const Vector4& color) {
-        fontRenderer.DrawString(text, x + kShadowOffset, y + kShadowOffset, scale, kShadow);
-        fontRenderer.DrawString(text, x, y, scale, color);
-    };
-
-    // 見出しの下の区切り
-    drawShadowedW(L"-- 武器選択 --", px, py, textColor);
-    py += lineHeight + kHudSectionGap;
-
-    // スロットごとに、武器名と威力（威力倍率が渡されていなければダメージと射程）を1行で出す
-    // 武器名は日本語のスタイル名で出す。日本語と英数字で文字幅が違うので、
-    // スロット番号・武器名・数値 の3列に分け、武器名の列幅は一番長い名前に合わせる
-    constexpr int kColumnGapChars = 2; // 列と列の間に空ける英数字の文字数
-    const float columnGap = FontRenderer::kCharW * scale * kColumnGapChars;
-    const auto& weaponList = weaponManager->GetList();
-    float nameColumnWidth = 0.0f;
-    for (const WeaponData& weapon : weaponList) {
-        nameColumnWidth = (std::max)(nameColumnWidth, FontRenderer::MeasureStringW(WeaponManager::GetDisplayName(weapon), scale).x);
-    }
-    for (int slot = 0; slot < kWeaponSlotCount; ++slot) {
-        const int weaponIndex = weaponManager->GetSlotWeaponIndex(slot);
-        const bool occupied = weaponIndex >= 0;
-        const bool selected = occupied && slot == weaponManager->GetSelectedSlot();
-        char head[textBufferCapacity::kStatus];
-        std::snprintf(head, sizeof(head), "%s SLOT %d", selected ? ">" : " ", slot + 1);
-        const float nameX = px + static_cast<float>(std::strlen(head)) * FontRenderer::kCharW * scale + columnGap;
-        if (!occupied) {
-            drawShadowed(head, px, py, emptyColor);
-            drawShadowed("EMPTY", nameX, py, emptyColor);
-            py += lineHeight;
-            continue;
-        }
-        const auto& weapon = weaponList[weaponIndex];
-        char stats[textBufferCapacity::kStatus];
-        bool weakened = false;
-        if (powerRatios != nullptr && weaponIndex < static_cast<int>(powerRatios->size())) {
-            const float power = (*powerRatios)[weaponIndex];
-            weakened = power < 1.0f;
-            std::snprintf(stats, sizeof(stats), "PWR %3d%%", static_cast<int>(std::round(power * kPercent)));
-        } else {
-            std::snprintf(stats, sizeof(stats), "DMG %.0f  RNG %.1f", weapon.damage, weapon.range);
-        }
-        // 疲労で威力が落ちた武器は赤、選択中は黄
-        const Vector4& color = weakened ? kWeakenedColor : selected ? selectedColor : textColor;
-        drawShadowed(head, px, py, color);
-        drawShadowedW(WeaponManager::GetDisplayName(weapon), nameX, py, color);
-        drawShadowed(stats, nameX + nameColumnWidth + columnGap, py, color);
-        py += lineHeight;
-    }
-
-    // 選択中の銃（近接スタイルとは独立に G キーで循環）
-    py += kHudSectionGap;
-    const RangedWeaponData& gun = weaponManager->GetRanged();
-    std::wstring gunLine = L"銃: " + gun.nameJp;
-    drawShadowedW(gunLine, px, py, selectedColor);
-    py += lineHeight;
-
-    // 切り替え操作の案内（キー/ボタン名は入力機器に合わせて置き換える）
-    py += kHudHintGap;
-    const Input* hintInput = Input::GetCurrent();
-    const std::wstring slotHint = GameRules::GetInstance()->Get().gunSwitchEnabled ? L"{Slot}  武器切替    {GunSwitch}  銃切替" : L"{Slot}  武器切替";
-    drawShadowedW(hintInput ? hintInput->ExpandPrompts(slotHint) : slotHint, px, py, hintColor);
-    py += lineHeight;
-    return py;
 }
 
 /** @brief 右側の操作説明パネルを描画する */

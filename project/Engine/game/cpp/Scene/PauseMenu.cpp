@@ -354,7 +354,12 @@ void PauseMenu::DrawMenu() {
     drawVolume("pause.bgm_volume_pos", kBgmVolumeTextPosition, settings.bgmVolume);
     drawVolume("pause.se_volume_pos", kSeVolumeTextPosition, settings.seVolume);
     const Vector2 autoComboPosition = layout.Pos("pause.auto_combo_pos", kAutoComboTextPosition);
-    fontRenderer_->DrawString(sceneShared::AutoComboLabel(), autoComboPosition.x, autoComboPosition.y, valueScale, valueColor);
+    // コンボ練習の間はオートコンボを止めているので、設定が ON でも今は切れていると分かるように出す
+    if (comboTrial_ != nullptr && comboTrial_->IsActive()) {
+        fontRenderer_->DrawStringW(L"< OFF >（練習中）", autoComboPosition.x, autoComboPosition.y, valueScale, valueColor);
+    } else {
+        fontRenderer_->DrawString(sceneShared::AutoComboLabel(), autoComboPosition.x, autoComboPosition.y, valueScale, valueColor);
+    }
 
     const Vector2 titlePosition = layout.Pos("pause.title_pos", kTitlePosition);
     fontRenderer_->DrawStringW(L"ポーズ", titlePosition.x, titlePosition.y,

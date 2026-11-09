@@ -50,7 +50,7 @@ constexpr Vector4 kVolumeTextColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 /** @brief 設定メニューの行を表示順に作る */
 std::vector<UIButton> OptionsMenuItems() {
-    return { { "BGM VOLUME" }, { "SE VOLUME" }, { "COMMAND LIST" }, { "BACK" } };
+    return { { "BGM音量" }, { "SE音量" }, { "コマンド表" }, { "もどる" } };
 }
 
 } // namespace
@@ -66,10 +66,10 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     menu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize);
     optionsMenu_.BindLayout(kLayoutName, "menu", kMenuPosition, kMenuItemSize);
     menu_.SetItems({
-        { "NEW GAME" },
-        { "CONTINUE", SaveDataManager::GetInstance()->HasContinue() },
-        { "TRAINING" },
-        { "OPTIONS" },
+        { "はじめから" },
+        { "つづきから", SaveDataManager::GetInstance()->HasContinue() },
+        { "トレーニング" },
+        { "オプション" },
     });
     optionsMenu_.SetItems(OptionsMenuItems());
     commandList_.Initialize(&fontRenderer_, audio_);

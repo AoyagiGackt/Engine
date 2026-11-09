@@ -112,7 +112,7 @@ void Player::HandleMeleeCombat(Input* input, const Vector3& enemyPos) {
         return;
     }
 
-    autoCombo_.SetEnabled(GameSettingsManager::GetInstance()->Get().autoCombo);
+    autoCombo_.SetEnabled(GameSettingsManager::GetInstance()->Get().autoCombo && !autoComboSuppressed_);
     autoCombo_.Update(gameConstants::kFrameDeltaTime);
 
     // ── 格闘コンボ / 打ち上げ / 乱舞（L キー、水上のみ）─────────────

@@ -14,7 +14,6 @@ public:
     void QueueText(FontRenderer& font) const override;
     void Draw() override;
 private:
-    WeaponManager* weapons_ = nullptr;
     Vector2 weaponAnchor_ = {};
     Vector2 controlsAnchor_ = {};
     Vector2 navigationPosition_ = {};

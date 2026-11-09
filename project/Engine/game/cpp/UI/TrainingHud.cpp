@@ -19,9 +19,9 @@ constexpr Vector2 kNavigationSize = { 404.0f, 58.0f };
 constexpr Vector2 kAccentSize = { 3.0f, 58.0f };
 constexpr Vector4 kAccentColor = { 0.95f, 0.72f, 0.3f, 1.0f };
 
-// 武器一覧と操作説明の背景パネル（初期位置。毎フレームアンカーに追従させる）
+// 左上の見出し＋操作ヒントと、右の操作説明の背景パネル（初期位置。毎フレームアンカーに追従させる）
 constexpr Vector2 kWeaponPanelPosition = { 4.0f, 4.0f };
-constexpr Vector2 kWeaponPanelSize = { 520.0f, 228.0f };
+constexpr Vector2 kWeaponPanelSize = { 520.0f, 78.0f }; // 見出し1行と操作ヒント2行が収まる高さ
 constexpr Vector2 kControlsPanelPosition = { 792.0f, 4.0f };
 constexpr Vector2 kControlsPanelSize = { 480.0f, 254.0f };
 constexpr float kPanelPadding = 8.0f; ///< アンカーから背景パネルを外側へ広げる量
@@ -35,7 +35,7 @@ constexpr float kControlsAnchorMaxY = 450.0f;
 constexpr float kShadowOffset = 1.5f;
 constexpr Vector4 kShadowColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 
-// 武器一覧の下に出す操作ヒント
+// 見出しの下に出す操作ヒント
 constexpr float kHintScale = 1.05f;
 constexpr float kHintLineHeight = 23.0f;
 constexpr Vector4 kHintColor = { 0.88f, 0.9f, 0.96f, 1.0f };
@@ -55,7 +55,6 @@ constexpr Vector2 kControlsAnchor = { 800.0f, 12.0f };
 
 /** @brief トレーニング用HUDのスプライトを用意する */
 void TrainingHud::Initialize(const HudServices& services) {
-    weapons_ = &services.weapons;
     auto create = [&](Vector2 position, Vector2 size, const Vector4& color) {
         auto sprite = std::make_unique<engine::graphics::Sprite>();
         sprite->Initialize(&services.sprites, kPanelTexture);
@@ -104,7 +103,8 @@ void TrainingHud::QueueText(FontRenderer& font) const {
     UILayout& layout = UILayout::Get(kLayoutName);
     const float hintScale = layout.Float("weapon_list.hint_scale", kHintScale);
     const Vector4 hintColor = layout.Color("weapon_list.hint_color", kHintColor);
-    const float y = sceneShared::DrawWeaponListHud(font, weapons_, L"トレーニングルーム", weaponAnchor_);
+    // 左上はステージ名の見出しと操作の案内だけ（武器は左下の武器スロットHUDで分かる）
+    const float y = sceneShared::DrawHudHeader(font, L"トレーニングルーム", weaponAnchor_);
     const Input* input = Input::GetCurrent();
     auto prompt = [&](const wchar_t* text) {
         return input ? input->ExpandPrompts(text) : std::wstring(text);
