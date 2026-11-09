@@ -4,10 +4,10 @@
   "dimSeconds": 0.15,
   "soundVolume": 1.0,
   "cuts": {
-    "count": 16,
+    "count": 26,
     "countJitter": 4,
-    "interval": 0.045,
-    "intervalJitter": 0.02,
+    "interval": 0.032,
+    "intervalJitter": 0.015,
     "spreadU": 0.32,
     "spreadV": 0.3,
     "seconds": 0.05,

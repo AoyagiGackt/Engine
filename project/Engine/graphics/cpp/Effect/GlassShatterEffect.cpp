@@ -11,6 +11,9 @@
 #include "WinApp.h"
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace engine::graphics {
 namespace {
@@ -20,6 +23,18 @@ constexpr float kMinDuration = 0.01f;
 // 斬線で割る時の、分離が終わる時刻と破片ごとの落下の遅れの上限（どちらも演出全体に対する割合）
 constexpr float kMaxPhaseEnd = 0.99f;
 constexpr float kMaxFallDelay = 0.95f;
+// 破片の中心を求める時に画面を区切る細かさと、シェーダーと同じ画面の縦横比
+constexpr int kPieceGridX = 192;
+constexpr int kPieceGridY = 108;
+constexpr float kShaderAspect = 16.0f / 9.0f;
+constexpr float kHalf = 0.5f;
+
+/** @brief 斬線の破片1つぶんの集計（区切った点の数と位置の合計） */
+struct PieceAccumulator {
+    int count = 0;
+    float sumU = 0.0f;
+    float sumV = 0.0f;
+};
 
 }
 
@@ -195,6 +210,88 @@ void GlassShatterEffect::SetCutLines(const std::vector<CutLine>& lines) {
         const float v = std::isfinite(line.v) ? line.v : 0.5f;
         cbData_->cutLines[index] = { u, v, -std::sin(angle), std::cos(angle) };
     }
+    BuildCutPieces();
+}
+
+/** @brief 斬線で分かれた破片ごとの中心と大きさを、画面を細かく区切って数えて求める */
+void GlassShatterEffect::BuildCutPieces() {
+    // 定数バッファは GPU へ送るための書き込み専用のメモリで、読み返すととても遅い。
+    // 計算は手元の写しで行い、結果を最後に1回だけ書き込む
+    const uint32_t lineCount = cbData_->cutLineCount;
+    const auto lines = cbData_->cutLines;
+    auto masks = decltype(ShatterParams::cutPieceMasks) {};
+    auto centers = decltype(ShatterParams::cutPieceCenters) {};
+    if (lineCount == 0) {
+        cbData_->cutPieceCount = 0;
+        cbData_->cutPieceMasks = masks;
+        cbData_->cutPieceCenters = centers;
+        return;
+    }
+
+    // シェーダーの CutMask と同じ判定で、点がどの破片に入るかを求める
+    auto maskAt = [&](float u, float v) {
+        uint32_t mask = 0;
+        for (uint32_t index = 0; index < lineCount; ++index) {
+            const auto& line = lines[index];
+            const float signedDistance = (u - line[0]) * kShaderAspect * line[2] + (v - line[1]) * line[3];
+            if (signedDistance >= 0.0f) {
+                mask |= 1u << index;
+            }
+        }
+        return mask;
+    };
+    auto forEachGridPoint = [](auto&& visit) {
+        for (int y = 0; y < kPieceGridY; ++y) {
+            for (int x = 0; x < kPieceGridX; ++x) {
+                visit((static_cast<float>(x) + kHalf) / kPieceGridX, (static_cast<float>(y) + kHalf) / kPieceGridY);
+            }
+        }
+    };
+
+    // 区切った点を破片ごとに数え、位置の平均を中心にする
+    std::unordered_map<uint32_t, PieceAccumulator> pieces;
+    forEachGridPoint([&](float u, float v) {
+        PieceAccumulator& piece = pieces[maskAt(u, v)];
+        ++piece.count;
+        piece.sumU += u;
+        piece.sumV += v;
+    });
+
+    // 大きい破片から上限まで載せる（載らない小さな破片は、シェーダーで回さずに戻す）
+    std::vector<std::pair<uint32_t, PieceAccumulator>> sorted(pieces.begin(), pieces.end());
+    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+        return a.second.count > b.second.count;
+    });
+    const size_t count = (std::min)(sorted.size(), kMaxCutPieces);
+    std::unordered_map<uint32_t, size_t> slotOf;
+    for (size_t slot = 0; slot < count; ++slot) {
+        const auto& [mask, piece] = sorted[slot];
+        const float inverseCount = 1.0f / static_cast<float>(piece.count);
+        masks[slot / kMasksPerVector][slot % kMasksPerVector] = mask;
+        centers[slot] = { piece.sumU * inverseCount, piece.sumV * inverseCount, 0.0f, 0.0f };
+        slotOf[mask] = slot;
+    }
+
+    // 半径は中心から一番遠い点まで（画面の高さ単位）。区切りの大きさぶんの余裕を足し、端が欠けないようにする
+    forEachGridPoint([&](float u, float v) {
+        const auto it = slotOf.find(maskAt(u, v));
+        if (it == slotOf.end()) {
+            return;
+        }
+        auto& center = centers[it->second];
+        const float du = (u - center[0]) * kShaderAspect;
+        const float dv = v - center[1];
+        center[2] = (std::max)(center[2], std::sqrt(du * du + dv * dv));
+    });
+    const float cellWidth = kShaderAspect / kPieceGridX;
+    const float cellHeight = 1.0f / kPieceGridY;
+    const float cellDiagonal = std::sqrt(cellWidth * cellWidth + cellHeight * cellHeight);
+    for (size_t slot = 0; slot < count; ++slot) {
+        centers[slot][2] += cellDiagonal;
+    }
+    cbData_->cutPieceMasks = masks;
+    cbData_->cutPieceCenters = centers;
+    cbData_->cutPieceCount = static_cast<uint32_t>(count);
 }
 
 /** @brief 割れ始める点を、定数バッファへ転送する */

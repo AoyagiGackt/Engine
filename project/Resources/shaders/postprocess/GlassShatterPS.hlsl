@@ -6,7 +6,7 @@
 //   t 0.35-1.00 : 割れ始めの点に近い破片から順に、光りながら落ちてフェードアウトする（後ろの画面が見える）
 // reassemble = 1（クリア演出）:
 //   t 0.00-0.45 : 上と同じ割れ方を縮めて再生し、破片の抜けた所は暗い空間にする
-//   t 0.45-1.00 : 散った破片がガラスになって外から飛んで戻り、はまった所から後ろの画面（結果画面）が見える
+//   t 0.50-1.00 : 割れて落ちた動きを巻き戻し、割れた時と同じ形の破片がガラスになって戻る。はまった所から後ろの画面（結果画面）が見える
 
 cbuffer ShatterParams : register(b0)
 {
@@ -27,6 +27,10 @@ cbuffer ShatterParams : register(b0)
     uint reassemble;    // 1 なら割れた後に破片が集まり直して後ろの画面になる
     float2 padding;
     float4 impacts[16]; // 銃の弾痕など、割れ始める点（xy）
+    uint cutPieceCount;           // 中心を求めた斬線の破片の数
+    uint3 piecePadding;
+    uint4 cutPieceMasks[64];      // 破片の識別（斬線の左右の組み合わせ）を4つずつ
+    float4 cutPieceCenters[256];  // 破片の中心（xy、UV）と半径（z、画面の高さ単位）
 };
 
 Texture2D<float4> sceneTex    : register(t0); // キャプチャしたゲーム画面
@@ -74,7 +78,6 @@ static const float kShardSpread = 0.25f;      // 落ちる時の横の散らば�
 static const float kMinFallSpeed = 0.1f;
 static const float2 kDelaySeed = float2(7.1f, 9.4f);
 static const float2 kSpreadSeed2 = float2(3.7f, 1.3f);
-static const float2 kAssembleSeed = float2(5.3f, 2.9f);
 
 // 落ちる破片のきらめきと濃淡
 static const float kGlintSpeed = 9.0f;
@@ -86,11 +89,8 @@ static const float kShadeRampSpeed = 4.0f;
 // 集まり直す時の動き（reassemble = 1）
 static const float kBreakEnd = 0.45f;          // ここまでで割れて散る
 static const float kAssembleStart = 0.5f;      // ここから破片が戻り始める
-static const float kAssembleTravel = 0.35f;    // 1枚が飛んで戻るのにかかる長さ（集まる段階に対する割合）
-static const float kAssembleMaxDelay = 0.5f;   // 戻り始めの遅れの上限（割れ始めの点に近い破片から戻る）
-static const float kAssembleDistance = 1.3f;   // 戻ってくる破片が飛んでくる距離（画面の高さ単位）
-static const float kAssembleSwirl = 0.6f;      // 真っすぐでなく少し回り込んで戻る角度（ラジアン）
-static const float kLandFlashSeconds = 0.06f;  // はまった瞬間に白く光る長さ（集まる段階に対する割合）
+static const float kRewindEnd = 0.8f;          // 集まる段階のここまでで割れた動きを巻き戻し終える（残りは光とひびが消えるのを見せる）
+static const float kLandFlashSpan = 0.07f;     // はまった瞬間に白く光る長さ（割れの時刻の単位で、巻き戻した量）
 static const float kLandFlashStrength = 0.9f;
 static const float kCrackFadeStart = 0.85f;    // はまった破片のひびが消え始める
 static const float kAssembledCrack = 0.8f;
@@ -100,8 +100,19 @@ static const float kGlassAlpha = 0.6f;
 static const float kGlassRimWidth = 0.15f;     // 飛んでいるガラスの縁を明るくする幅（セル空間の単位）
 static const float kGlassRimStrength = 0.8f;
 
-// 斬線の破片に重ねる放射状のひび
-static const float kCutInnerCrackStrength = 0.6f;
+// 斬線の破片が集まり直す時の縁とひび（画面の高さ単位）
+static const float kCutRimWidth = 0.012f;       // 飛んでいる破片の縁を明るくする幅
+static const float kCutLandCrackWidth = 0.003f; // はまった破片の切れ目の太さ
+
+// 集まり直す時に破片ごとに回す
+static const float kReassembleSpin = 6.5f;      // 落ち切った所での回転の最大（ラジアン、約1周）。はまるにつれて0へ減る
+static const uint kReassembleIterations = 6;    // 回っている放射状の破片を探す反復の回数
+static const int kNeighborRadius = 1;           // 反復で見つからない時に確かめる周りのセルの範囲
+static const uint kMaxCutPieces = 256;         // 中心を送ってくる斬線の破片の上限（C++ 側と同じ）
+static const uint kMasksPerVector = 4u;
+static const float2 kSpinSeed = float2(8.3f, 4.7f);
+static const uint kCutSpinSeed = 0x165667b1u;
+static const float kFallNotFound = 2.0f;        // まだ破片が見つかっていない印（落ちる量は0〜1）
 
 // ---- 乱数 ----
 // セルごとの二次元乱数を作る。
@@ -260,12 +271,18 @@ float ShardGlint(float seed, float fall)
     return pow(wave, kGlintSharpness) * kGlintStrength * saturate(fall * kShadeRampSpeed);
 }
 
+// 破片が落ち始めるまでの遅れ（落ちる段階に対する割合。割れ始めの点に近い破片ほど早い）。
+float GlassFallDelay(float3 cell)
+{
+    float order = saturate(GlassCellPolar(cell).z / kImpactReach);
+    return lerp(hash1(cell.xy + kDelaySeed), order, kImpactOrderWeight) * kImpactMaxDelay;
+}
+
 // 破片ごとの落ちる進み具合（割れ始めの点に近い破片から順に落ちる）。
 float GlassFallProgress(float3 cell, float t)
 {
     float flyT = saturate((t - kSeparateEnd) / (1.0f - kSeparateEnd));
-    float order = saturate(GlassCellPolar(cell).z / kImpactReach);
-    float delay = lerp(hash1(cell.xy + kDelaySeed), order, kImpactOrderWeight) * kImpactMaxDelay;
+    float delay = GlassFallDelay(cell);
     return saturate((flyT - delay) / max(1.0f - delay, kMinInterval));
 }
 
@@ -281,11 +298,10 @@ float2 GlassFallOffset(float3 cell, float t)
     return offset / float2(kScreenAspect, 1.0f);
 }
 
-// 放射状のガラスで割って落とす（破片の無い所は透明）。
-float4 DrawGlassFall(float2 uv, float t)
+// 時刻 t にこのピクセルへ来ている放射状の破片を、元の位置へ戻して探す（見つからなければ false）。
+bool FindGlassShard(float2 uv, float t, out float3 cell, out float2 sampleUV)
 {
-    // このピクセルへ落ちてきた破片を、元の位置へ戻して確かめる
-    float3 cell = GlassCell(uv);
+    cell = GlassCell(uv);
     [unroll]
     for (uint iteration = 0u; iteration < kInverseIterations; ++iteration)
     {
@@ -296,8 +312,16 @@ float4 DrawGlassFall(float2 uv, float t)
         }
         cell = source;
     }
-    float2 sampleUV = uv - GlassFallOffset(cell, t);
-    if (any(GlassCell(sampleUV) != cell) || any(sampleUV < 0.0f) || any(sampleUV > 1.0f))
+    sampleUV = uv - GlassFallOffset(cell, t);
+    return all(GlassCell(sampleUV) == cell) && all(sampleUV >= 0.0f) && all(sampleUV <= 1.0f);
+}
+
+// 放射状のガラスで割って落とす（破片の無い所は透明）。
+float4 DrawGlassFall(float2 uv, float t)
+{
+    float3 cell;
+    float2 sampleUV;
+    if (!FindGlassShard(uv, t, cell, sampleUV))
     {
         return 0.0f;
     }
@@ -359,14 +383,45 @@ uint CutMask(float2 uv)
     return mask;
 }
 
+// 破片の順番（決めの一太刀が通る破片が0、間にある斬線が多い破片ほど1に近い）。
+float CutImpactOrder(uint mask)
+{
+    uint impactMask = CutMask(float2(impactU, impactV));
+    return saturate(float(countbits(mask ^ impactMask)) / max(float(min(cutLineCount, kCutMaxLines)) * kHalf, 1.0f));
+}
+
+// 画面の点から一番近い斬線までの距離（画面の高さ単位）。
+float CutEdgeDistance(float2 uv)
+{
+    float edge = kCutAspect;
+    [loop]
+    for (uint index = 0u; index < min(cutLineCount, kCutMaxLines); ++index)
+    {
+        float4 cutLine = cutLines[index];
+        edge = min(edge, abs(dot((uv - cutLine.xy) * float2(kCutAspect, 1.0f), cutLine.zw)));
+    }
+    return edge;
+}
+
+// 斬線の破片が落ち始めるまでの遅れ（落ちる段階に対する割合。決めの一太刀が通る破片から）。
+float CutFallDelay(uint mask)
+{
+    return lerp(CutHash(mask ^ kFallSeed), CutImpactOrder(mask), kImpactOrderWeight) * cutFallDelay;
+}
+
 // 破片ごとの落下の進み具合（決めの一太刀が通る破片から、間にある斬線が多い破片ほど後に落ちる）。
 float CutFallProgress(uint mask, float t)
 {
     float flyTime = saturate((t - cutSeparateEnd) / max(1.0f - cutSeparateEnd, kMinInterval));
-    uint impactMask = CutMask(float2(impactU, impactV));
-    float order = saturate(float(countbits(mask ^ impactMask)) / max(float(min(cutLineCount, kCutMaxLines)) * kHalf, 1.0f));
-    float delay = lerp(CutHash(mask ^ kFallSeed), order, kImpactOrderWeight) * cutFallDelay;
+    float delay = CutFallDelay(mask);
     return saturate((flyTime - delay) / max(1.0f - delay, kMinInterval));
+}
+
+// 落ちる量 fall のときの、落下による移動（画面の高さ単位。横に散りながら下へ落ちる）。
+float2 CutFallOffset(uint mask, float fall)
+{
+    float horizontal = (CutHash(mask ^ kSpreadSeed) * kSignedRange - 1.0f) * cutSpread;
+    return float2(horizontal * fall, shardSpeed * fall * fall);
 }
 
 // 斬線に沿う滑りと、切断面を開く移動に落下を重ねる。
@@ -387,53 +442,47 @@ float2 CutDisplacement(uint mask, float t)
     // 線が多い場合も、スライドの最大量を一定に保つ。
     slide /= max(length(slide), 1.0f);
     slide *= cutSlide * slideVariation * separateTime;
-    float fall = CutFallProgress(mask, t);
-    float horizontal = (CutHash(mask ^ kSpreadSeed) * kSignedRange - 1.0f) * cutSpread;
-    slide += float2(horizontal * fall, shardSpeed * fall * fall);
+    slide += CutFallOffset(mask, CutFallProgress(mask, t));
     return slide / float2(kCutAspect, 1.0f);
 }
 
-// 戻した位置の所属が一致した破片だけを描き、切れ目を透明にする。
-float4 DrawCutShards(float2 uv, float t)
+// 時刻 t にこのピクセルへ来ている斬線の破片を、元の位置へ戻して探す（見つからなければ false）。
+bool FindCutShard(float2 uv, float t, out uint mask, out float2 sampleUV)
 {
-    uint mask = CutMask(uv);
-    float2 sampleUV = uv;
+    mask = CutMask(uv);
     [unroll]
     for (uint iteration = 0u; iteration < kInverseIterations; ++iteration)
     {
-        sampleUV = uv - CutDisplacement(mask, t);
-        uint sourceMask = CutMask(sampleUV);
+        uint sourceMask = CutMask(uv - CutDisplacement(mask, t));
         if (sourceMask == mask)
         {
             break;
         }
         mask = sourceMask;
     }
-
     // 最終候補の移動量で逆写像し、画面外と未収束の候補を除く。
     sampleUV = uv - CutDisplacement(mask, t);
-    if (CutMask(sampleUV) != mask || any(sampleUV < 0.0f) || any(sampleUV > 1.0f))
+    return CutMask(sampleUV) == mask && all(sampleUV >= 0.0f) && all(sampleUV <= 1.0f);
+}
+
+// 戻した位置の所属が一致した破片だけを描き、切れ目を透明にする（割れ目は斬線だけなので、ひびも斬線の上にだけ光らせる）。
+float4 DrawCutShards(float2 uv, float t)
+{
+    uint mask;
+    float2 sampleUV;
+    if (!FindCutShard(uv, t, mask, sampleUV))
     {
         return 0.0f;
     }
 
     // 元の切断面からの距離で白い光を付け、分離とともに弱める。
-    float edge = kCutAspect;
-    [loop]
-    for (uint index = 0u; index < min(cutLineCount, kCutMaxLines); ++index)
-    {
-        float4 cutLine = cutLines[index];
-        float lineDistance = abs(dot((sampleUV - cutLine.xy) * float2(kCutAspect, 1.0f), cutLine.zw));
-        edge = min(edge, lineDistance);
-    }
+    float edge = CutEdgeDistance(sampleUV);
     float separate = saturate(t / max(cutSeparateEnd, kMinInterval));
     float glow = (1.0f - smoothstep(0.0f, max(cutGlowWidth, kMinInterval), edge)) * cutGlowStrength * (1.0f - separate);
-    // 斬線で分かれた大きな破片にも、放射状のひびを入れてガラスらしく見せる
-    float innerCrack = GlassCrack(sampleUV) * kCutInnerCrackStrength * separate;
     float fall = CutFallProgress(mask, t);
     float glint = ShardGlint(CutHash(mask ^ kSpreadSeed), fall);
     float4 scene = sceneTex.SampleLevel(linearClamp, sampleUV, 0.0f);
-    return float4(lerp(scene.rgb, 1.0f, saturate(glow + innerCrack + glint)), scene.a * (1.0f - fall));
+    return float4(lerp(scene.rgb, 1.0f, saturate(glow + glint)), scene.a * (1.0f - fall));
 }
 
 // 斬線があれば斬線で、無ければ放射状のガラスで割る。
@@ -443,65 +492,197 @@ float4 DrawBreak(float2 uv, float t)
 }
 
 // ---- 集まり直す ----
-// 破片が戻り始める時刻（割れ始めの点に近い破片から）。
-float AssembleDelay(float3 cell)
-{
-    float order = saturate(GlassCellPolar(cell).z / kImpactReach);
-    return lerp(hash1(cell.xy + kAssembleSeed), order, kImpactOrderWeight) * kAssembleMaxDelay;
-}
+// 割れて落ちた動きをそのまま巻き戻すので、戻ってくる破片は割れた時と同じ形になる。
 
-// 破片が戻る進み具合（0=まだ外、1=はまった）。
-float AssembleProgress(float3 cell, float t)
+// 巻き戻しで戻ってくる破片の見た目。飛んでいる間は縁の明るいガラスで、外にいるほど薄い。
+// はまった後は白を重ねる濃さだけ返し、残りは後ろの画面（はまった瞬間に白く光り、ひびは終わりにかけて消える）。
+// fall は落ちている量（0=はまった）、sinceLanding ははまってから巻き戻した量、rim と crack は縁・ひびの濃さ（0〜1）、t は集まる段階の時刻。
+float4 ShadeReassembling(float fall, float sinceLanding, float rim, float crack, float glintSeed, float t)
 {
-    return saturate((t - AssembleDelay(cell)) / kAssembleTravel);
-}
-
-// 戻ってくる途中の破片の、はまる位置からのずれ（外側から少し回り込みながら減速して入る）。
-float2 AssembleOffset(float3 cell, float t)
-{
-    float3 polar = GlassCellPolar(cell);
-    float remain = 1.0f - AssembleProgress(cell, t);
-    float swirl = (hash1(cell.xy) - kHalf) * kSignedRange * kAssembleSwirl * remain;
-    float2 direction = float2(polar.x * cos(swirl) - polar.y * sin(swirl), polar.x * sin(swirl) + polar.y * cos(swirl));
-    return direction * kAssembleDistance * remain * remain * remain / float2(kScreenAspect, 1.0f);
-}
-
-// 暗い空間へ破片が飛んで戻り、はまった所から後ろの画面を見せる。
-float4 DrawAssemble(float2 uv, float t)
-{
-    float3 cell = GlassCell(uv);
-    [unroll]
-    for (uint iteration = 0u; iteration < kInverseIterations; ++iteration)
+    if (fall > 0.0f)
     {
-        float3 source = GlassCell(uv - AssembleOffset(cell, t));
+        float shine = saturate(rim * kGlassRimStrength + ShardGlint(glintSeed, fall));
+        float3 glass = lerp(kGlassColor, 1.0f, shine);
+        float alpha = (kGlassAlpha + (1.0f - kGlassAlpha) * shine) * (1.0f - fall);
+        return float4(lerp(kVoidColor, glass, alpha), 1.0f);
+    }
+    float flash = (1.0f - saturate(sinceLanding / kLandFlashSpan)) * kLandFlashStrength;
+    float fade = crack * kAssembledCrack * (1.0f - smoothstep(kCrackFadeStart, 1.0f, t));
+    return float4(1.0f, 1.0f, 1.0f, saturate(flash + fade));
+}
+
+// 戻ってくる途中の回転角（seed は破片ごとの乱数。遠くにいるほど大きく回っていて、はまる時に0になる）。
+float ReassembleAngle(float seed, float fall)
+{
+    return (seed * kSignedRange - 1.0f) * kReassembleSpin * fall * fall;
+}
+
+// 画面の点 uv を、中心 pivot のまわりに angle 回して offset ずらした破片の、元の位置へ戻す
+// （位置はどれも UV。形が縦横比でゆがまないよう、回すのは画面の高さ単位の座標で行う）。
+float2 InverseRigid(float2 uv, float2 pivot, float angle, float2 offset)
+{
+    float2 aspect = float2(kScreenAspect, 1.0f);
+    float2 turned = (uv - offset - pivot) * aspect;
+    float c = cos(angle);
+    float s = sin(angle);
+    return pivot + float2(c * turned.x + s * turned.y, c * turned.y - s * turned.x) / aspect;
+}
+
+// 放射状の破片の中心（Voronoi の点の位置、UV）。
+float2 GlassCellCenter(float3 cell)
+{
+    float2 site = cell.xy + hash2(cell.xy);
+    float angle = (site.x - cell.z * kImpactSeedStride) / kGlassAngularCells * kTwoPi;
+    float radius = max(exp(site.y / kGlassRadialCells) - kGlassLogOffset, 0.0f);
+    return ImpactAt(uint(cell.z)) + float2(cos(angle), sin(angle)) * radius / float2(kScreenAspect, 1.0f);
+}
+
+// 放射状の破片 cell が回りながら戻ってくる途中で、画面の点 uv に見えている元の位置。
+float2 GlassTurningHome(float2 uv, float3 cell, float breakT)
+{
+    float angle = ReassembleAngle(hash1(cell.xy + kSpinSeed), GlassFallProgress(cell, breakT));
+    return InverseRigid(uv, GlassCellCenter(cell), angle, GlassFallOffset(cell, breakT));
+}
+
+// 元の位置 homeUV が、本当に破片 cell の中で画面の内側か。
+bool IsGlassHome(float3 cell, float2 homeUV)
+{
+    return all(GlassCell(homeUV) == cell) && all(homeUV >= 0.0f) && all(homeUV <= 1.0f);
+}
+
+// 回りながら戻ってくる放射状の破片を探す。反復で見つからなければ、最後の候補のまわりのセルも確かめる。
+bool FindGlassShardTurning(float2 uv, float breakT, out float3 cell, out float2 homeUV)
+{
+    cell = GlassCell(uv);
+    [loop]
+    for (uint iteration = 0u; iteration < kReassembleIterations; ++iteration)
+    {
+        homeUV = GlassTurningHome(uv, cell, breakT);
+        float3 source = GlassCell(homeUV);
         if (all(source == cell))
         {
-            break;
+            return IsGlassHome(cell, homeUV);
         }
         cell = source;
     }
-    float2 homeUV = uv - AssembleOffset(cell, t);
-    float progress = AssembleProgress(cell, t);
-    if (progress <= 0.0f || any(GlassCell(homeUV) != cell))
+    float3 last = cell;
+    [loop]
+    for (int dy = -kNeighborRadius; dy <= kNeighborRadius; ++dy)
+    {
+        [loop]
+        for (int dx = -kNeighborRadius; dx <= kNeighborRadius; ++dx)
+        {
+            cell = last + float3(dx, dy, 0.0f);
+            homeUV = GlassTurningHome(uv, cell, breakT);
+            if (IsGlassHome(cell, homeUV))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// index 番目の斬線の破片の識別と、中心（xy、UV）と半径（z、画面の高さ単位）。
+uint CutPieceMask(uint index)
+{
+    return cutPieceMasks[index / kMasksPerVector][index % kMasksPerVector];
+}
+
+// 点 uv が識別 mask の斬線の破片に入っているか（合わない斬線が見つかった所で打ち切る）。
+bool InCutShard(float2 uv, uint mask)
+{
+    float2 pixel = uv * float2(kCutAspect, 1.0f);
+    [loop]
+    for (uint index = 0u; index < min(cutLineCount, kCutMaxLines); ++index)
+    {
+        float4 cutLine = cutLines[index];
+        bool positive = dot(pixel - cutLine.xy * float2(kCutAspect, 1.0f), cutLine.zw) >= 0.0f;
+        if (positive != ((mask & (1u << index)) != 0u))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 回りながら戻ってくる斬線の破片を、中心の分かっている破片から総当たりで探す（重なったら先にはまる方を手前に）。
+// 中心の表に載らなかった小さな破片は、回さずに割れた時と同じ探し方で戻す。
+bool FindCutShardTurning(float2 uv, float breakT, out uint mask, out float2 homeUV)
+{
+    float2 aspect = float2(kCutAspect, 1.0f);
+    float bestFall = kFallNotFound;
+    bool found = false;
+    mask = 0u;
+    homeUV = uv;
+    [loop]
+    for (uint index = 0u; index < min(cutPieceCount, kMaxCutPieces); ++index)
+    {
+        uint pieceMask = CutPieceMask(index);
+        float fall = CutFallProgress(pieceMask, breakT);
+        float4 piece = cutPieceCenters[index];
+        // 回しても半径の外へは出ないので、落下で動いた中心から遠い破片は先に外す
+        float2 movedCenter = piece.xy * aspect + CutFallOffset(pieceMask, fall);
+        if (fall >= bestFall || length(uv * aspect - movedCenter) > piece.z + cutSlide)
+        {
+            continue;
+        }
+        float angle = ReassembleAngle(CutHash(pieceMask ^ kCutSpinSeed), fall);
+        float2 home = InverseRigid(uv, piece.xy, angle, CutDisplacement(pieceMask, breakT));
+        if (all(home >= 0.0f) && all(home <= 1.0f) && InCutShard(home, pieceMask))
+        {
+            found = true;
+            bestFall = fall;
+            mask = pieceMask;
+            homeUV = home;
+        }
+    }
+    // || は両辺とも実行されて見つけた結果を上書きしうるので、if で分ける
+    if (found)
+    {
+        return true;
+    }
+    return FindCutShard(uv, breakT, mask, homeUV);
+}
+
+// 放射状の破片を、割れた時刻 breakT の位置から回しながら戻す。
+float4 DrawGlassReassemble(float2 uv, float breakT, float t)
+{
+    float3 cell;
+    float2 homeUV;
+    if (!FindGlassShardTurning(uv, breakT, cell, homeUV))
     {
         return float4(kVoidColor, 1.0f);
     }
-
     float edge = VoronoiEdge(GlassSpace(homeUV, uint(cell.z)));
-    if (progress < 1.0f)
-    {
-        // 飛んでいる間は縁の明るいガラス
-        float rim = (1.0f - smoothstep(0.0f, kGlassRimWidth, edge)) * kGlassRimStrength;
-        float glint = ShardGlint(hash1(cell.xy), progress);
-        float3 glass = lerp(kGlassColor, 1.0f, saturate(rim + glint));
-        return float4(lerp(kVoidColor, glass, kGlassAlpha + (1.0f - kGlassAlpha) * saturate(rim + glint)), 1.0f);
-    }
+    float rim = 1.0f - smoothstep(0.0f, kGlassRimWidth, edge);
+    float crack = 1.0f - smoothstep(0.0f, kGlassCrackWidth, edge);
+    // 落ち始めた時刻まで巻き戻った所ではまる
+    float landing = kSeparateEnd + GlassFallDelay(cell) * (1.0f - kSeparateEnd);
+    return ShadeReassembling(GlassFallProgress(cell, breakT), landing - breakT, rim, crack, hash1(cell.xy), t);
+}
 
-    // はまった瞬間に白く光り、ひびは終わりにかけて消える（白を重ねる濃さだけ返し、残りは後ろの画面）
-    float landedFor = t - AssembleDelay(cell) - kAssembleTravel;
-    float flash = (1.0f - saturate(landedFor / kLandFlashSeconds)) * kLandFlashStrength;
-    float crack = (1.0f - smoothstep(0.0f, kGlassCrackWidth, edge)) * kAssembledCrack * (1.0f - smoothstep(kCrackFadeStart, 1.0f, t));
-    return float4(1.0f, 1.0f, 1.0f, saturate(flash + crack));
+// 斬線の破片を、割れた時刻 breakT の位置から戻す（縁とひびは斬線の上だけ）。
+float4 DrawCutReassemble(float2 uv, float breakT, float t)
+{
+    uint mask;
+    float2 homeUV;
+    if (!FindCutShardTurning(uv, breakT, mask, homeUV))
+    {
+        return float4(kVoidColor, 1.0f);
+    }
+    float edge = CutEdgeDistance(homeUV);
+    float rim = 1.0f - smoothstep(0.0f, kCutRimWidth, edge);
+    float crack = 1.0f - smoothstep(0.0f, kCutLandCrackWidth, edge);
+    float landing = cutSeparateEnd + CutFallDelay(mask) * (1.0f - cutSeparateEnd);
+    return ShadeReassembling(CutFallProgress(mask, breakT), landing - breakT, rim, crack, CutHash(mask ^ kSpreadSeed), t);
+}
+
+// 割れた動きを最後（落ち切った所）から最初（割れる前）まで巻き戻し、割れた時と同じ形の破片で集まり直す。
+float4 DrawReassemble(float2 uv, float t)
+{
+    float breakT = 1.0f - saturate(t / kRewindEnd);
+    return cutLineCount > 0u ? DrawCutReassemble(uv, breakT, t) : DrawGlassReassemble(uv, breakT, t);
 }
 
 // 割れるだけか、割れた後に集まり直すかで描き分ける。
@@ -517,5 +698,5 @@ float4 main(PSInput input) : SV_Target
         float4 shard = DrawBreak(input.uv, time / kBreakEnd);
         return float4(lerp(kVoidColor, shard.rgb, shard.a), 1.0f);
     }
-    return DrawAssemble(input.uv, saturate((time - kAssembleStart) / (1.0f - kAssembleStart)));
+    return DrawReassemble(input.uv, saturate((time - kAssembleStart) / (1.0f - kAssembleStart)));
 }
