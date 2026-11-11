@@ -43,6 +43,10 @@ public:
      * @param camera Update()/Draw() で view/projection 行列取得に使うカメラ
      */
     static void SetCommonCamera(Camera* camera);
+    /** @brief 全インスタンス共通で参照しているカメラを返す（一時的に差し替えて戻す時に使う） */
+    static Camera* GetCommonCamera() {
+        return sCommonCamera;
+    }
     /**
      * @brief 全インスタンス共通のライト視点ビュープロジェクション行列を設定する（シャドウ判定用）
      * @param lvp シャドウマップ生成時に使ったライト視点の VP 行列

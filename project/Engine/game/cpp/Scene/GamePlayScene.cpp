@@ -290,6 +290,7 @@ void GamePlayScene::Update() {
 
     // 一時停止中はHUDを出さないが、文字コマンドの破棄だけは毎フレーム行う
     // （破棄はふだんDrawStyleUI()が行うため、飛ばすとポーズ画面の文字が溜まり続けて上限を超えた分から消える）
+    pauseMenu_.SetPreviewActor(player_.get()); // コマンド表の技の見本はこのプレイヤーが演じる
     const bool paused = pauseMenu_.Update(input_, !WeaponManager::GetInstance()->HasPendingWeapon());
     // ポーズ中と開始演出の間は、配置物・敵の進行も止める（BaseScene が Update の後に配置物を更新するため）
     GetStageEditor().SetGameplayHeld(paused || stageIntro_.IsPlaying());

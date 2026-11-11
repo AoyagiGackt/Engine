@@ -1,77 +1,79 @@
 {
-  "_comment": "オプションのコマンド表の中身。input の {Attack} などは、最後に使った機器（キーボード/パッド）のボタン名に置き換わる",
+  "_comment": "オプションのコマンド表の中身。input の {Attack} などは、最後に使った機器（キーボード/パッド）のボタン名に置き換わる。preview は右の見本で順に再生する段のID（MeleeCombo.cpp の id、skill は固有技の連撃まるごと）。無い技は見本なし。preview_camera=見本のカメラ（distance はプレイヤーと的の真ん中までの奥行き）、preview_target=見本の的（distance=最初の距離 min_gap=これ以上近づかない max_distance=これ以上離れない air_height=空中の段で持ち上げる高さ）",
+  "preview_camera": { "distance": 9.0, "height": 0.5, "pitch": 0.06, "fov_y": 0.45 },
+  "preview_target": { "distance": 1.4, "min_gap": 0.7, "max_distance": 3.0, "gravity": 0.012, "drag_x": 0.84, "drag_y": 0.88, "air_height": 1.2 },
   "weapons": {
     "Sword": {
       "tagline": "居合で斬り込む、速さと手数の基準となる刀",
       "moves": [
-        { "category": "地上", "name": "居合・一閃", "input": "{Attack}", "detail": "左腰の鞘元から抜き放つ横一文字。出が速く、どこからでも差し込める。" },
-        { "category": "地上", "name": "返し刃", "input": "{Attack} > {Attack}", "detail": "振り抜いた刀を斜めに斬り戻す二の太刀。" },
-        { "category": "地上", "name": "刺突", "input": "{Attack} x3", "detail": "体を立てたまま一直線に貫く。踏み込みが長く、離れた敵にも届く。" },
-        { "category": "地上", "name": "円月", "input": "{Attack} x4", "detail": "大きく回る回し斬りで締める。敵を遠くまで弾き飛ばす。" },
-        { "category": "打ち上げ", "name": "昇閃", "input": "{Down} + {Attack}", "detail": "鞘元から真上へ斬り上げて敵を浮かせる。直後のジャンプが高くなり、空中で追い打ちできる。" },
-        { "category": "空中", "name": "空閃", "input": "空中で {Attack} x2", "detail": "浮かせた敵を空中で斬り刻む二連撃。" },
-        { "category": "固有技", "name": "剣舞", "input": "{Skill}", "detail": "回転を織り交ぜた十連撃を自動で出し切り、溜めた一太刀で打ち飛ばす。" }
+        { "category": "地上", "name": "居合・一閃", "input": "{Attack}", "detail": "左腰の鞘元から抜き放つ横一文字。出が速く、どこからでも差し込める。", "preview": ["swd1"] },
+        { "category": "地上", "name": "返し刃", "input": "{Attack} > {Attack}", "detail": "振り抜いた刀を斜めに斬り戻す二の太刀。", "preview": ["swd2"] },
+        { "category": "地上", "name": "刺突", "input": "{Attack} x3", "detail": "体を立てたまま一直線に貫く。踏み込みが長く、離れた敵にも届く。", "preview": ["swd3"] },
+        { "category": "地上", "name": "円月", "input": "{Attack} x4", "detail": "大きく回る回し斬りで締める。敵を遠くまで弾き飛ばす。", "preview": ["swd4"] },
+        { "category": "打ち上げ", "name": "昇閃", "input": "{Down} + {Attack}", "detail": "鞘元から真上へ斬り上げて敵を浮かせる。直後のジャンプが高くなり、空中で追い打ちできる。", "preview": ["swd_lau"] },
+        { "category": "空中", "name": "空閃", "input": "空中で {Attack} x2", "detail": "浮かせた敵を空中で斬り刻む二連撃。", "preview": ["swd_a1", "swd_a2"] },
+        { "category": "固有技", "name": "剣舞", "input": "{Skill}", "detail": "回転を織り交ぜた十連撃を自動で出し切り、溜めた一太刀で打ち飛ばす。", "preview": ["skill"] }
       ]
     },
     "Spear": {
       "tagline": "長いリーチで、間合いの外から刺し続ける槍",
       "moves": [
-        { "category": "地上", "name": "突き", "input": "{Attack}", "detail": "素早い踏み込み突き。リーチが長い。" },
-        { "category": "地上", "name": "二段突き", "input": "{Attack} > {Attack}", "detail": "さらに奥まで届く追い突き。" },
-        { "category": "地上", "name": "薙ぎ払い", "input": "{Attack} x3", "detail": "穂先を大きく振り回して締める。まとめて弾き飛ばす。" },
-        { "category": "打ち上げ", "name": "掬い上げ", "input": "{Down} + {Attack}", "detail": "穂先で下からすくい上げて敵を浮かせる。" },
-        { "category": "空中", "name": "空中突き", "input": "空中で {Attack} x2", "detail": "空中から連続で突き下ろす。" },
-        { "category": "固有技", "name": "百裂突き", "input": "{Skill}", "detail": "目にも止まらぬ連続突きから薙ぎ払いで回り、渾身の一突きで締める。" }
+        { "category": "地上", "name": "突き", "input": "{Attack}", "detail": "素早い踏み込み突き。リーチが長い。", "preview": ["spr1"] },
+        { "category": "地上", "name": "二段突き", "input": "{Attack} > {Attack}", "detail": "さらに奥まで届く追い突き。", "preview": ["spr2"] },
+        { "category": "地上", "name": "薙ぎ払い", "input": "{Attack} x3", "detail": "穂先を大きく振り回して締める。まとめて弾き飛ばす。", "preview": ["spr3"] },
+        { "category": "打ち上げ", "name": "掬い上げ", "input": "{Down} + {Attack}", "detail": "穂先で下からすくい上げて敵を浮かせる。", "preview": ["spr_lau"] },
+        { "category": "空中", "name": "空中突き", "input": "空中で {Attack} x2", "detail": "空中から連続で突き下ろす。", "preview": ["spr_a1", "spr_a2"] },
+        { "category": "固有技", "name": "百裂突き", "input": "{Skill}", "detail": "目にも止まらぬ連続突きから薙ぎ払いで回り、渾身の一突きで締める。", "preview": ["skill"] }
       ]
     },
     "Dagger": {
       "tagline": "一撃は軽いが、手数と速さで押し切る短剣",
       "moves": [
-        { "category": "地上", "name": "斬り払い", "input": "{Attack}", "detail": "最速の一振り。ここから五段まで繋がる。" },
-        { "category": "地上", "name": "連斬", "input": "{Attack} x2 - x4", "detail": "左右に刻む高速の連撃。前へ出ながら押し込む。" },
-        { "category": "地上", "name": "すれ違い斬り", "input": "{Attack} x5", "detail": "敵の脇を抜けながら斬り捨てる締めの一撃。" },
-        { "category": "打ち上げ", "name": "逆手斬り上げ", "input": "{Down} + {Attack}", "detail": "逆手で斬り上げて敵を浮かせる。" },
-        { "category": "空中", "name": "空中乱舞", "input": "空中で {Attack} x3", "detail": "空中で刻む三連撃。" },
-        { "category": "固有技", "name": "乱れ斬り / 空中ダッシュ", "input": "{Skill}", "detail": "地上では回転を挟んだ高速の斬撃を重ねて斬り上げで締める。空中では素早く空を駆ける。" }
+        { "category": "地上", "name": "斬り払い", "input": "{Attack}", "detail": "最速の一振り。ここから五段まで繋がる。", "preview": ["dag1"] },
+        { "category": "地上", "name": "連斬", "input": "{Attack} x2 - x4", "detail": "左右に刻む高速の連撃。前へ出ながら押し込む。", "preview": ["dag2", "dag3", "dag4"] },
+        { "category": "地上", "name": "すれ違い斬り", "input": "{Attack} x5", "detail": "敵の脇を抜けながら斬り捨てる締めの一撃。", "preview": ["dag5"] },
+        { "category": "打ち上げ", "name": "逆手斬り上げ", "input": "{Down} + {Attack}", "detail": "逆手で斬り上げて敵を浮かせる。", "preview": ["dag_lau"] },
+        { "category": "空中", "name": "空中乱舞", "input": "空中で {Attack} x3", "detail": "空中で刻む三連撃。", "preview": ["dag_a1", "dag_a2", "dag_a3"] },
+        { "category": "固有技", "name": "乱れ斬り / 空中ダッシュ", "input": "{Skill}", "detail": "地上では回転を挟んだ高速の斬撃を重ねて斬り上げで締める。空中では素早く空を駆ける。", "preview": ["skill"] }
       ]
     },
     "Hammer": {
       "tagline": "出は遅いが、吹き飛ばしが桁違いの大槌",
       "moves": [
-        { "category": "地上", "name": "振りかぶり打ち", "input": "{Attack}", "detail": "頭上から叩きつける重い一撃。" },
-        { "category": "地上", "name": "剛撃", "input": "{Attack} > {Attack}", "detail": "全身で振り抜く締め。敵を遠くまで吹き飛ばす。" },
-        { "category": "打ち上げ", "name": "ゴルフスイング", "input": "{Down} + {Attack}", "detail": "地面すれすれから振り上げて、敵を空高く打ち上げる。" },
-        { "category": "空中", "name": "叩き落とし", "input": "空中で {Attack}", "detail": "空中の敵を地面へ叩き落とす。" },
-        { "category": "固有技", "name": "大車輪", "input": "{Skill}", "detail": "体ごと回る重い振り回しを重ね、地面へ叩きつけて衝撃波で締める。" }
+        { "category": "地上", "name": "振りかぶり打ち", "input": "{Attack}", "detail": "頭上から叩きつける重い一撃。", "preview": ["ham1"] },
+        { "category": "地上", "name": "剛撃", "input": "{Attack} > {Attack}", "detail": "全身で振り抜く締め。敵を遠くまで吹き飛ばす。", "preview": ["ham2"] },
+        { "category": "打ち上げ", "name": "ゴルフスイング", "input": "{Down} + {Attack}", "detail": "地面すれすれから振り上げて、敵を空高く打ち上げる。", "preview": ["ham_lau"] },
+        { "category": "空中", "name": "叩き落とし", "input": "空中で {Attack}", "detail": "空中の敵を地面へ叩き落とす。", "preview": ["ham_a1"] },
+        { "category": "固有技", "name": "大車輪", "input": "{Skill}", "detail": "体ごと回る重い振り回しを重ね、地面へ叩きつけて衝撃波で締める。", "preview": ["skill"] }
       ]
     },
     "Greatsword": {
       "tagline": "全ての一撃が重い、超重量の大剣",
       "moves": [
-        { "category": "地上", "name": "剛剣", "input": "{Attack} x1 - x2", "detail": "長いヒットストップを伴う重い斬撃。" },
-        { "category": "地上", "name": "断ち割り", "input": "{Attack} x3", "detail": "特大の締め。まとめて叩き斬る。" },
-        { "category": "打ち上げ", "name": "斬り上げ", "input": "{Down} + {Attack}", "detail": "大剣ごと振り上げて敵を浮かせる。" },
-        { "category": "空中", "name": "落下斬り", "input": "空中で {Attack}", "detail": "落下の勢いを乗せて斬り下ろす。" },
+        { "category": "地上", "name": "剛剣", "input": "{Attack} x1 - x2", "detail": "長いヒットストップを伴う重い斬撃。", "preview": ["gsw1", "gsw2"] },
+        { "category": "地上", "name": "断ち割り", "input": "{Attack} x3", "detail": "特大の締め。まとめて叩き斬る。", "preview": ["gsw3"] },
+        { "category": "打ち上げ", "name": "斬り上げ", "input": "{Down} + {Attack}", "detail": "大剣ごと振り上げて敵を浮かせる。", "preview": ["gsw_lau"] },
+        { "category": "空中", "name": "落下斬り", "input": "空中で {Attack}", "detail": "落下の勢いを乗せて斬り下ろす。", "preview": ["gsw_a1"] },
         { "category": "固有技", "name": "投げ回転斬り", "input": "{Skill}", "detail": "大剣を投げて渦を作り、周りの敵を吸い込んで何度も斬る。もう一度押すか、しばらくすると手元へ戻る。" }
       ]
     },
     "Scythe": {
       "tagline": "広い間合いと、全武器で一番高い打ち上げを持つ鎌",
       "moves": [
-        { "category": "地上", "name": "刈り取り", "input": "{Attack} x1 - x2", "detail": "広い弧で前方をまとめて刈る。" },
-        { "category": "地上", "name": "大鎌返し", "input": "{Attack} x3", "detail": "大きく振り抜く締め。" },
-        { "category": "打ち上げ", "name": "魂刈り", "input": "{Down} + {Attack}", "detail": "全武器で最も高く敵を打ち上げる。空中コンボの起点。" },
-        { "category": "空中", "name": "空中刈り", "input": "空中で {Attack} x3", "detail": "空中で振り回す三連撃。" },
+        { "category": "地上", "name": "刈り取り", "input": "{Attack} x1 - x2", "detail": "広い弧で前方をまとめて刈る。", "preview": ["scy1", "scy2"] },
+        { "category": "地上", "name": "大鎌返し", "input": "{Attack} x3", "detail": "大きく振り抜く締め。", "preview": ["scy3"] },
+        { "category": "打ち上げ", "name": "魂刈り", "input": "{Down} + {Attack}", "detail": "全武器で最も高く敵を打ち上げる。空中コンボの起点。", "preview": ["scy_lau"] },
+        { "category": "空中", "name": "空中刈り", "input": "空中で {Attack} x3", "detail": "空中で振り回す三連撃。", "preview": ["scy_a1", "scy_a2", "scy_a3"] },
         { "category": "固有技", "name": "滞空ホバー", "input": "空中で {Skill}", "detail": "空中でしばらく留まり、浮かせた敵を斬り続けられる。" }
       ]
     },
     "Axe": {
       "tagline": "荒々しい連撃で押し潰す両刃斧",
       "moves": [
-        { "category": "地上", "name": "斧撃", "input": "{Attack} x1 - x2", "detail": "力任せの重い振り回し。" },
-        { "category": "地上", "name": "大車輪", "input": "{Attack} x3", "detail": "回転しながら振り抜く締め。周りの敵をまとめて吹き飛ばす。" },
-        { "category": "打ち上げ", "name": "かち上げ", "input": "{Down} + {Attack}", "detail": "斧を振り上げて敵を浮かせる。" },
-        { "category": "空中", "name": "空中斧撃", "input": "空中で {Attack} x2", "detail": "空中で叩きつける二連撃。" },
+        { "category": "地上", "name": "斧撃", "input": "{Attack} x1 - x2", "detail": "力任せの重い振り回し。", "preview": ["axe1", "axe2"] },
+        { "category": "地上", "name": "大車輪", "input": "{Attack} x3", "detail": "回転しながら振り抜く締め。周りの敵をまとめて吹き飛ばす。", "preview": ["axe3"] },
+        { "category": "打ち上げ", "name": "かち上げ", "input": "{Down} + {Attack}", "detail": "斧を振り上げて敵を浮かせる。", "preview": ["axe_lau"] },
+        { "category": "空中", "name": "空中斧撃", "input": "空中で {Attack} x2", "detail": "空中で叩きつける二連撃。", "preview": ["axe_a1", "axe_a2"] },
         { "category": "固有技", "name": "バーサーク突進", "input": "{Skill}", "detail": "前へ突進し、しばらくの間自分を強化する。" }
       ]
     }

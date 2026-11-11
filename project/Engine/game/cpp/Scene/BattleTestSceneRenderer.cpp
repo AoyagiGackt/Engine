@@ -115,6 +115,9 @@ void BattleTestSceneRenderer::Draw(BattleTestScene& scene) {
     if (paused) {
         scene.pauseMenu_.Draw(scene.input_);
         scene.fontRenderer_.Draw();
+        scene.pauseMenu_.DrawCommandPreview({ scene.dxCommon_, scene.modelCommon_.get(), scene.objectCommon_.get(),
+            scene.shadowManager_.get(), scene.srvManager_, scene.GetActiveRTVHandle() });
+        scene.spriteCommon_->CommonDrawSettings();
     } else if (scene.showHud_) {
         scene.GetStageEditor().DrawUIText(scene.fontRenderer_);
         scene.fontRenderer_.Draw();

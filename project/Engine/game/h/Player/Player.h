@@ -336,8 +336,24 @@ public:
      * @note Update() を呼ばずに見た目だけを評価する。ヒット・前進・入力は一切発生しない
      */
     void PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime);
+    /**
+     * @brief 指定した武器を持たせて、近接の段を指定時刻の姿勢で見せる（コマンド表の見本用）
+     * @param attack         見せる段（nullptrならプレビューを終える）
+     * @param normalizedTime 段の経過割合（0〜1）
+     * @param weapon         手に持たせて見せる武器（装備中の武器は変えない）
+     */
+    void PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime, WeaponType weapon);
     /** @brief プレビューを終えて攻撃していない状態へ戻す */
     void EndMeleePreview();
+    /** @brief 残像を除いて本体と持っている武器だけを描く（コマンド表の見本用） */
+    void DrawBodyAndWeapons();
+    /**
+     * @brief 見本のプレビュー中だけ、見た目の位置を本当の位置からずらす（踏み込み・空中の段を見せる）
+     * @note 当たり判定や本当の位置は変えない。EndMeleePreview() で0に戻る
+     */
+    void SetPreviewOffset(const Vector3& offset) {
+        previewOffset_ = offset;
+    }
     /** @brief 加算モーションの保存キー（今表示しているリグのモデルファイル名） */
     const char* GetMotionRigId() const {
         return rig_->motionRigId;
@@ -547,6 +563,9 @@ private:
     /** @brief 今の段と経過割合を加算モーションのレイヤーへ渡す（リグを評価する直前に呼ぶ） */
     void SyncMotionLayer();
     const engine::graphics::Animation* previewAnim_ = nullptr; ///< プレビュー中に設定済みのベースアニメ（毎フレームのクリップ複製を避ける）
+    bool previewWeaponActive_ = false; ///< プレビュー中に装備とは別の武器を持たせているか
+    WeaponType previewWeapon_ { }; ///< プレビュー中に持たせている武器
+    Vector3 previewOffset_ { }; ///< プレビュー中だけ見た目の位置に足すずれ
     // 射撃コンボ（銃種別の段・弾数・リコイルは GunCombo.cpp のテーブルが持つ）
     GunComboController gunCombo_;
     float launchFollowTimer_ = 0.0f; ///< 打ち上げ直後の追撃ジャンプ強化の残り秒数

@@ -225,6 +225,7 @@ void Player::RefreshVisualTransforms() {
     // アニメ状態は一切変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
     // （StageEditorのギズモ等、Update()を通さずpos_だけ直接書き換えられた場合に追従させるため）
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
+    modelPos = modelPos + previewOffset_; // 見本のプレビュー中だけずらす（ふだんは0）
     rig_->object->SetPosition(modelPos);
 
     // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
@@ -404,8 +405,21 @@ void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime
     RefreshVisualTransforms();
 }
 
+/** @brief 指定した武器を持たせて、近接の段を指定時刻の姿勢で見せる（コマンド表の見本用） */
+void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime, WeaponType weapon) {
+    if (attack == nullptr) {
+        EndMeleePreview();
+        return;
+    }
+    previewWeaponActive_ = true;
+    previewWeapon_ = weapon;
+    PreviewMeleePose(attack, normalizedTime);
+}
+
 /** @brief プレビューを終えて攻撃していない状態へ戻す */
 void Player::EndMeleePreview() {
+    previewWeaponActive_ = false;
+    previewOffset_ = { };
     meleeCombo_.Reset();
     if (previewAnim_ != nullptr) {
         // 攻撃の残り時間と速度を戻し、今の接地・構えの条件から移動系アニメへ入り直させる
@@ -429,8 +443,9 @@ void Player::AttachActiveWeapons() {
     // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
     // 共通の腕モーションでも武器ごとに違う軌道に見せる
     activeHeldIndex_ = -1;
-    if (wm->HasEquippedWeapon()) {
-        WeaponType meleeType = wm->GetCurrent().type;
+    if (previewWeaponActive_ || wm->HasEquippedWeapon()) {
+        // 見本のプレビュー中は、装備に関係なく見本の武器を持たせる
+        const WeaponType meleeType = previewWeaponActive_ ? previewWeapon_ : wm->GetCurrent().type;
         for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
             if (heldWeapons_[i].type == meleeType) {
                 activeHeldIndex_ = i;
@@ -540,7 +555,11 @@ void Player::Draw() {
     }
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
+    DrawBodyAndWeapons();
+}
 
+/** @brief 残像を除いて本体と持っている武器だけを描く（コマンド表の見本用） */
+void Player::DrawBodyAndWeapons() {
     // 黒縁アウトライン（本体・武器とも先に描いてから通常描画で上書きする）
     auto* outline = OutlineEffect::GetInstance();
     Vector4 outlineColor = SceneVisualTuning::Player().outlineColor;

@@ -20,6 +20,7 @@ namespace engine::game {
 
 class ComboTrial;
 class FontRenderer;
+class Player;
 
 /**
  * @brief Pauseキーで開閉する一時停止画面
@@ -67,6 +68,25 @@ public:
 
     /** @brief 一時停止中なら暗幕と今のページを積む（一時停止中でなければ何もしない） */
     void Draw(const engine::Input* input);
+
+    /**
+     * @brief コマンド表の技の見本を演じるプレイヤーを渡す（渡さなければ見本は出さない）
+     * @param actor シーンのプレイヤー（非所有。一時停止中はゲームの更新が止まっている前提）
+     */
+    void SetPreviewActor(Player* actor) {
+        commandList_.SetPreviewActor(actor);
+    }
+
+    /**
+     * @brief コマンド表の見本で技を受ける的を用意する（シーンの初期化で1回）
+     * @param modelCommon 的のモデルの描画に使う（シーンが持つもの）
+     */
+    void InitializeCommandPreview(engine::graphics::ModelCommon* modelCommon) {
+        commandList_.InitializePreview(modelCommon);
+    }
+
+    /** @brief コマンド表を開いていれば技の見本を3Dで描く（FontRenderer::Draw() の後に呼ぶ） */
+    void DrawCommandPreview(const CommandPreviewRenderer& renderer);
 
 private:
     class IPage;

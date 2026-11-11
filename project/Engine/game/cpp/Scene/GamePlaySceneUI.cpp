@@ -209,6 +209,11 @@ void GamePlayScene::DrawOverlaysAndUI() {
         GetStageEditor().DrawUIText(fontRenderer_);
     }
     fontRenderer_.Draw();
+    if (pauseMenu_.IsPaused()) {
+        pauseMenu_.DrawCommandPreview({ dxCommon_, modelCommon_.get(), objectCommon_.get(), shadowManager_.get(), srvManager_,
+            GetActiveRTVHandle() });
+        spriteCommon_->CommonDrawSettings();
+    }
 
     // クリアの決め演出: 暗幕・斬線・弾痕を重ね、割り始めるフレームでその画面を撮って破片を重ねる
     // （以降のフレームは DrawClearOverlayIfNeeded() が結果画面の上に破片を重ねる）
@@ -530,6 +535,7 @@ void GamePlayScene::SetupPauseMenu() {
              }
              SceneFlow::GetInstance()->Transition(kSceneName, "pause_quit", "MAP");
          } });
+    pauseMenu_.InitializeCommandPreview(modelCommon_.get());
 }
 /** @brief プレイヤーの進行位置に対応する操作目標を描画する */
 void GamePlayScene::DrawStageGuide() {

@@ -28,6 +28,7 @@ struct BattleTestTuning {
     float dummyGroundY = 0.4f;
     float dummyMinX = 3.0f;
     float dummyMaxX = 35.0f;
+    float comboTrialKnockScaleX = 0.3f; ///< コンボ練習中だけ水平ノックバックの移動量に掛ける倍率（重い武器でも次の段が届くようにする）
     // 判定の広さ
     float lockAssistReachMult = 1.2f; ///< ロックオン中に前方リーチへ掛ける補正
     float lockAssistRearMult = 0.5f; ///< ロックオン中の背面リーチ（前方リーチ比）
@@ -100,6 +101,7 @@ namespace battleTestTuningDetail {
         { "dummy", "dummyGroundY", &BattleTestTuning::dummyGroundY },
         { "dummy", "dummyMinX", &BattleTestTuning::dummyMinX },
         { "dummy", "dummyMaxX", &BattleTestTuning::dummyMaxX },
+        { "dummy", "comboTrialKnockScaleX", &BattleTestTuning::comboTrialKnockScaleX },
         { "reach", "lockAssistReachMult", &BattleTestTuning::lockAssistReachMult },
         { "reach", "lockAssistRearMult", &BattleTestTuning::lockAssistRearMult },
         { "reach", "slamRangeBelowY", &BattleTestTuning::slamRangeBelowY },

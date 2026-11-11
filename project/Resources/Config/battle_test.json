@@ -9,7 +9,8 @@
     "dummyGravity": 0.012,
     "dummyGroundY": 0.4,
     "dummyMinX": 3,
-    "dummyMaxX": 35
+    "dummyMaxX": 35,
+    "comboTrialKnockScaleX": 0.3
   },
   "reach": {
     "lockAssistReachMult": 1.2,

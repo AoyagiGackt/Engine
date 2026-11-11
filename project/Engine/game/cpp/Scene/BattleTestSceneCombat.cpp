@@ -463,10 +463,12 @@ void BattleTestScene::ApplyMeleeHitToDummy(Dummy& d, const MeleeAttackDef* atk, 
 
 /** @brief ダミー敵のノックバック物理と HP バー表示を更新する */
 void BattleTestScene::UpdateDummies() {
+    // コンボ練習中は横に飛ぶ距離だけを縮め、重い武器の吹き飛ばしでも次の段が届くようにする（打ち上げの高さは変えない）
+    const float knockScaleX = comboTrial_.IsActive() ? BattleTestTune().comboTrialKnockScaleX : 1.0f;
     for (auto& d : dummies_) {
         // ノックバック物理
         d.knockVelY -= BattleTestTune().dummyGravity;
-        d.pos.x += d.knockVelX;
+        d.pos.x += d.knockVelX * knockScaleX;
         d.pos.y += d.knockVelY;
 
         if (d.pos.y <= BattleTestTune().dummyGroundY) {
