@@ -122,6 +122,7 @@ void TrainingScene::InitializeHudAndEffects() {
                 SceneFlow::GetInstance()->Transition("TRAINING", "title", "TITLE");
             }
         });
+    pauseMenu_.InitializeCommandPreview(modelCommon_.get());
     InitializeWeaponSlotHud();
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
@@ -156,6 +157,7 @@ void TrainingScene::Update() {
     fontRenderer_.Reset();
 
     // 一時停止中はゲームを止める（HUDは描画側で隠す）。Backspaceもポーズを閉じるのに使うため先に判定する
+    pauseMenu_.SetPreviewActor(player_.get()); // コマンド表の技の見本はこのプレイヤーが演じる
     const bool paused = pauseMenu_.Update(input_);
     // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
     GetStageEditor().SetGameplayHeld(paused);
@@ -400,6 +402,11 @@ void TrainingScene::Draw() {
         GetStageEditor().DrawUIText(fontRenderer_);
     }
     fontRenderer_.Draw();
+    if (pauseMenu_.IsPaused()) {
+        pauseMenu_.DrawCommandPreview({ dxCommon_, modelCommon_.get(), objectCommon_.get(), shadowManager_.get(), srvManager_,
+            dxCommon_->GetCurrentBackBufferHandle() });
+        spriteCommon_->CommonDrawSettings();
+    }
 }
 
 /** @brief リソースを解放する */

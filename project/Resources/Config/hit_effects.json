@@ -135,6 +135,51 @@
       "hitStopFrames": 0,
       "shakeAmount": 0.14,
       "shakeSeconds": 0.14
+    },
+    "lastboss_forge": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.3,
+      "shakeSeconds": 0.3
+    },
+    "lastboss_draw": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.25,
+      "shakeSeconds": 0.2
+    },
+    "lastboss_rage": {
+      "hitStopFrames": 0,
+      "shakeAmount": 0.5,
+      "shakeSeconds": 0.4
+    },
+    "lastboss_defeat": {
+      "hitStopFrames": 6,
+      "shakeAmount": 0.6,
+      "shakeSeconds": 0.4
+    },
+    "lastboss_slash": {
+      "hitStopFrames": 2,
+      "shakeAmount": 0.2,
+      "shakeSeconds": 0.12
+    },
+    "lastboss_heavy": {
+      "hitStopFrames": 3,
+      "shakeAmount": 0.4,
+      "shakeSeconds": 0.22
+    },
+    "lastboss_iai": {
+      "hitStopFrames": 3,
+      "shakeAmount": 0.45,
+      "shakeSeconds": 0.25
+    },
+    "lastboss_space": {
+      "hitStopFrames": 2,
+      "shakeAmount": 0.35,
+      "shakeSeconds": 0.2
+    },
+    "lastboss_stagger": {
+      "hitStopFrames": 4,
+      "shakeAmount": 0.3,
+      "shakeSeconds": 0.18
     }
   },
   "rings": {
@@ -674,6 +719,123 @@
       "count": 10,
       "lifetime": 0.12,
       "size": 0.08
+    },
+    "lastboss_forge": {
+      "particle": "hit_ring",
+      "speed": 2.6,
+      "color": [
+        1,
+        0.95,
+        0.75,
+        0.9
+      ],
+      "count": 24,
+      "lifetime": 0.5,
+      "size": 0.22
+    },
+    "lastboss_rage": {
+      "particle": "hit_ring",
+      "speed": 2.2,
+      "color": [
+        1,
+        0.25,
+        0.2,
+        0.85
+      ],
+      "count": 28,
+      "lifetime": 0.6,
+      "size": 0.26
+    },
+    "lastboss_defeat": {
+      "particle": "hit_ring",
+      "speed": 3,
+      "color": [
+        0.75,
+        0.55,
+        1,
+        0.9
+      ],
+      "count": 32,
+      "lifetime": 0.7,
+      "size": 0.28
+    },
+    "lastboss_heavy": {
+      "particle": "hit_ring",
+      "speed": 2.4,
+      "color": [
+        0.65,
+        0.45,
+        1,
+        0.75
+      ],
+      "count": 20,
+      "lifetime": 0.4,
+      "size": 0.2
+    },
+    "lastboss_iai_glint": {
+      "particle": "hit_ring",
+      "speed": 1.6,
+      "color": [
+        1,
+        1,
+        1,
+        0.95
+      ],
+      "count": 12,
+      "lifetime": 0.35,
+      "size": 0.16
+    },
+    "lastboss_phantom": {
+      "particle": "hit_ring",
+      "speed": 0.9,
+      "color": [
+        0.6,
+        0.4,
+        1,
+        0.8
+      ],
+      "count": 8,
+      "lifetime": 0.3,
+      "size": 0.1
+    },
+    "lastboss_phantom_fire": {
+      "particle": "hit_ring",
+      "speed": 1.4,
+      "color": [
+        0.85,
+        0.7,
+        1,
+        0.8
+      ],
+      "count": 6,
+      "lifetime": 0.18,
+      "size": 0.08
+    },
+    "lastboss_space_warn": {
+      "particle": "hit_ring",
+      "speed": 1.2,
+      "color": [
+        1,
+        0.3,
+        0.4,
+        0.55
+      ],
+      "count": 14,
+      "lifetime": 0.3,
+      "size": 0.12
+    },
+    "lastboss_blink": {
+      "particle": "hit_ring",
+      "speed": 1.8,
+      "color": [
+        0.4,
+        0.25,
+        0.8,
+        0.85
+      ],
+      "count": 16,
+      "lifetime": 0.3,
+      "size": 0.14
     }
   },
   "sparks": {
@@ -908,6 +1070,22 @@
       ],
       "lifetime": 0.55,
       "size": 0.12
+    },
+    "lastboss_phantom_hit": {
+      "particle": "hit_spark",
+      "speedXMin": 1,
+      "speedXMax": 4,
+      "riseMin": 0.5,
+      "riseMax": 3,
+      "count": 8,
+      "color": [
+        0.8,
+        0.6,
+        1,
+        1
+      ],
+      "lifetime": 0.35,
+      "size": 0.08
     }
   },
   "slashes": {
@@ -1081,6 +1259,54 @@
         1
       ],
       "radius": 0.85
+    },
+    "lastboss_draw": {
+      "particle": "sword_slash",
+      "angleRight": -0.3,
+      "angleLeft": 3.44,
+      "color": [
+        0.85,
+        0.7,
+        1,
+        0.95
+      ],
+      "radius": 2.4
+    },
+    "lastboss_slash": {
+      "particle": "sword_slash",
+      "angleRight": -0.4,
+      "angleLeft": 3.54,
+      "color": [
+        0.75,
+        0.55,
+        1,
+        0.9
+      ],
+      "radius": 1.9
+    },
+    "lastboss_iai_cut": {
+      "particle": "sword_slash",
+      "angleRight": 0,
+      "angleLeft": 3.14159265,
+      "color": [
+        1,
+        0.95,
+        1,
+        0.95
+      ],
+      "radius": 1.6
+    },
+    "lastboss_space": {
+      "particle": "sword_slash",
+      "angleRight": 0,
+      "angleLeft": 3.14159265,
+      "color": [
+        1,
+        0.35,
+        0.45,
+        0.95
+      ],
+      "radius": 2.6
     }
   },
   "flashes": {

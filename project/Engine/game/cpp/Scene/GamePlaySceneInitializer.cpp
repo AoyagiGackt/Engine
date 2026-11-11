@@ -74,9 +74,14 @@ void GamePlayScene::OnEditorLevelLoaded() {
 
     SyncCombatEnemies();
 
+    // ラスボス戦はステージの開始演出の代わりに、武器が刀になる演出から始める
     if (!stageIntroStarted_) {
         stageIntroStarted_ = true;
-        StartStageIntro();
+        if (IsFinalBossMode()) {
+            finalBoss_.Start(enemy_);
+        } else {
+            StartStageIntro();
+        }
     }
 }
 

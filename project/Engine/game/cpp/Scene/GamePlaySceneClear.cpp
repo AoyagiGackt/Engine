@@ -65,11 +65,18 @@ bool GamePlayScene::UpdateClearState() {
         return true;
     }
     if (!runResult) {
+        rd->SetFinalBossPending(false);
         SceneFlow::GetInstance()->Transition(kSceneName, "sandbox_clear", "CLEAR");
     } else if (glassShatterDebugTest_) {
         SceneFlow::GetInstance()->Transition(kSceneName, "next", "MAP");
-    } else if (rd->GetFloor() >= rules.finalFloor) {
+    } else if (IsFinalBossMode()) {
+        // ラスボスを倒したらエンディングへ
+        rd->SetFinalBossPending(false);
         SceneFlow::GetInstance()->Transition(kSceneName, "clear", "CLEAR");
+    } else if (rd->GetFloor() >= rules.finalFloor) {
+        // 最後のステージをクリアしたら、続けてラスボス戦へ
+        rd->SetFinalBossPending(true);
+        SceneFlow::GetInstance()->Transition(kSceneName, "final_boss", "GAMEPLAY");
     } else {
         SceneFlow::GetInstance()->Transition(kSceneName, "next", "MAP");
     }
@@ -96,6 +103,12 @@ void GamePlayScene::RecordRunClear(bool apply) {
     }
     auto* rd = RunData::GetInstance();
     rd->AddScore(lastScore_);
+    // ラスボス戦はステージの戦績に数えず、進行度も進めない（スコアだけ足す）
+    if (IsFinalBossMode()) {
+        PlaytestLog::GetInstance()->RecordRunResult(true, rd->GetPlayFloor(), floorElapsedSeconds_,
+            peakStyle_, styleRankHud_.GetBestChain(), player_->GetPosition());
+        return;
+    }
     rd->RecordStage({ rd->GetPlayFloor(),
         static_cast<int32_t>(std::lround(peakStyle_ * RunData::kStylePermilleScale)),
         static_cast<int32_t>(std::lround(floorElapsedSeconds_)),

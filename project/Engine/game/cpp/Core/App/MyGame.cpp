@@ -9,6 +9,7 @@
 #include "CombatTuning.h"
 #include "EnemyTuning.h"
 #include "EnemyTypeLibrary.h"
+#include "FinalBossTuning.h"
 #include "GameRules.h"
 #include "GameSounds.h"
 #include "HitEffectLibrary.h"
@@ -85,6 +86,8 @@ void SetupConfigEditor() {
     editor->SetReloadCallback("stage_liberation.json", [] { game::StageLiberation::ReloadTuning(); });
     editor->SetReloadCallback("result_backdrop.json", [] { game::ResultBackdrop::ReloadTuning(); });
     editor->SetReloadCallback("clear_scene.json", [] { game::ClearScene::ReloadTuning(); });
+    // 撃ち出す剣の数は闘技場を開いた時に決まるが、呼ぶ本数は剣の数で止めるので読み直してもよい
+    editor->SetReloadCallback("final_boss.json", [] { game::FinalBossTuningStore::Reload(); });
     editor->SetReloadCallback("sounds.json", [] { game::gameSounds::Reload(); });
     editor->SetReloadCallback("bgm.json", [] { Audio::ReloadBGMConfig(); });
 }

@@ -82,21 +82,36 @@ bool FindAction(const std::string& key, ComboTrial::Action& action) {
     return false;
 }
 
+/**
+ * @brief このフレームに近接の段の判定が出たか（覚醒中の多段の2発目以降は1振りの中なので数えない）
+ * @param skill true=固有技の連撃の段だけ / false=固有技の連撃以外の段だけ
+ */
+bool SwingHit(const Player& player, bool skill) {
+    return player.JustComboHit() && !player.JustComboExtraHit() && player.IsSkillSequenceActive() == skill;
+}
+
+/** @brief このフレームの段が打ち上げ技か（下+攻撃。乱舞の打ち上げも含める） */
+bool LaunchHit(const Player& player) {
+    const MeleeAttackDef* attack = player.GetActiveMeleeAttack();
+    return player.JustLaunched() || (SwingHit(player, false) && attack != nullptr && attack->launcher);
+}
+
 /** @brief このフレームにプレイヤーがその行動をしたか */
 bool Performed(const Player& player, ComboTrial::Action action) {
     switch (action) {
     case ComboTrial::Action::kAttack:
-        return player.JustComboHit() && player.IsOnGround() && !player.JustLaunched();
+        return SwingHit(player, false) && player.IsOnGround() && !LaunchHit(player);
     case ComboTrial::Action::kLaunch:
-        return player.JustLaunched();
+        return LaunchHit(player);
     case ComboTrial::Action::kJump:
         return player.JustJumped();
     case ComboTrial::Action::kAirAttack:
-        return player.JustComboHit() && !player.IsOnGround();
+        return SwingHit(player, false) && !player.IsOnGround();
     case ComboTrial::Action::kShoot:
         return player.JustFired();
     case ComboTrial::Action::kSkill:
-        return player.JustWeaponSkillHit();
+        // 叩きつけ・回転などの固有技に加え、刀・槍・短剣・ハンマーの連撃の固有技も数える
+        return player.JustWeaponSkillHit() || SwingHit(player, true);
     case ComboTrial::Action::kDodge:
         return player.JustDodged();
     default:

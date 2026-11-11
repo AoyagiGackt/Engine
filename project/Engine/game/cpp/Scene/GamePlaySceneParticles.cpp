@@ -247,7 +247,7 @@ void GamePlayScene::EmitGunFireParticles(const Vector3& ppos) {
     }
 }
 
-/** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガーのスティンガー以外）発動時に技ごとの見た目を出す */
+/** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガー以外）発動時に技ごとの見た目を出す */
 void GamePlayScene::EmitWeaponSkillCastParticles(const Vector3& ppos) {
     const auto& visuals = HitEffectLibrary::GetInstance()->SceneParticles();
     // 固有技は発動モーションに合わせた見た目をここで技ごとに出す（命中時の共通バーストはApplyWeaponSkillStyleHit側）

@@ -225,6 +225,7 @@ void Player::RefreshVisualTransforms() {
     // アニメ状態は一切変えず、現在のpos_を使って見た目のトランスフォームだけ再計算する
     // （StageEditorのギズモ等、Update()を通さずpos_だけ直接書き換えられた場合に追従させるため）
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
+    modelPos = modelPos + previewOffset_; // 見本のプレビュー中だけずらす（ふだんは0）
     rig_->object->SetPosition(modelPos);
 
     // SkinnedObject3d::Update()はアニメ時刻も進めてしまうため、一時的に速度0にして完全静止させる
@@ -244,7 +245,7 @@ void Player::UpdateCinematicPose(bool airborne, const Vector3& bodyRotation, boo
     // 接地状態（物理の状態）は書き換えずに、宙にいるかだけを渡す
     UpdateAnimationState(moving, airborne);
 
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     const Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
     rig_->object->SetPosition(modelPos);
     rig_->object->SetRotation({ bodyRotation.x, yaw + bodyRotation.y, bodyRotation.z });
@@ -296,7 +297,7 @@ void Player::SetCinematicPoseLayer(const IPoseLayer* layer) {
 
 /** @brief 覚醒残像・アニメーション状態・プレイヤー色などUpdate()末尾の表示関連処理をまとめて更新する */
 void Player::UpdateVisualState(Input* input) {
-    float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    float yaw = FacingYaw();
 
     // ── 覚醒残像スポーン＆フェード ──
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
@@ -315,7 +316,7 @@ void Player::UpdateVisualState(Input* input) {
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushAction(Input::Action::kMoveLeft)
-        || input->PushAction(Input::Action::kMoveRight);
+        || input->PushAction(Input::Action::kMoveRight) || strafeMoving_;
     UpdateAnimationState(isMovingHoriz, !onGround_);
 
     // ── プレイヤー色（上の行ほど優先。どれにも当たらなければ白）──
@@ -398,14 +399,27 @@ void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime
     rig_->object->SetAnimTime(animTime);
 
     // 体の傾き・その場回転も同じ段時刻で評価する
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     const Vector3 bodyLean = meleeCombo_.GetBodyLeanOffset();
     rig_->object->SetRotation({ bodyLean.x, yaw + (gunCombo_.GetActive() != nullptr ? float{} : meleeCombo_.GetBodyTurnOffset()), bodyLean.z });
     RefreshVisualTransforms();
 }
 
+/** @brief 指定した武器を持たせて、近接の段を指定時刻の姿勢で見せる（コマンド表の見本用） */
+void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime, WeaponType weapon) {
+    if (attack == nullptr) {
+        EndMeleePreview();
+        return;
+    }
+    previewWeaponActive_ = true;
+    previewWeapon_ = weapon;
+    PreviewMeleePose(attack, normalizedTime);
+}
+
 /** @brief プレビューを終えて攻撃していない状態へ戻す */
 void Player::EndMeleePreview() {
+    previewWeaponActive_ = false;
+    previewOffset_ = { };
     meleeCombo_.Reset();
     if (previewAnim_ != nullptr) {
         // 攻撃の残り時間と速度を戻し、今の接地・構えの条件から移動系アニメへ入り直させる
@@ -416,7 +430,7 @@ void Player::EndMeleePreview() {
         UpdateAnimationState(false, !onGround_);
         previewAnim_ = nullptr;
     }
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     rig_->object->SetRotation({ 0.0f, yaw, 0.0f });
     RefreshVisualTransforms();
 }
@@ -429,8 +443,9 @@ void Player::AttachActiveWeapons() {
     // 攻撃中は段ごとのスイング回転（振りかぶり→振り抜き）をグリップ回転へ加算し、
     // 共通の腕モーションでも武器ごとに違う軌道に見せる
     activeHeldIndex_ = -1;
-    if (wm->HasEquippedWeapon()) {
-        WeaponType meleeType = wm->GetCurrent().type;
+    if (previewWeaponActive_ || wm->HasEquippedWeapon()) {
+        // 見本のプレビュー中は、装備に関係なく見本の武器を持たせる
+        const WeaponType meleeType = previewWeaponActive_ ? previewWeapon_ : wm->GetCurrent().type;
         for (int i = 0; i < static_cast<int>(heldWeapons_.size()); ++i) {
             if (heldWeapons_[i].type == meleeType) {
                 activeHeldIndex_ = i;
@@ -449,7 +464,7 @@ void Player::AttachActiveWeapons() {
     }
     if (activeHeldIndex_ >= 0 && !BehaviorFor(heldWeapons_[activeHeldIndex_].type).IsDisarmed()) {
         auto& slot = heldWeapons_[activeHeldIndex_];
-        Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
+        Vector3 rot = slot.gripRotate + heldGripOffset_ + meleeCombo_.GetSwingOffset();
         AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
     }
 
@@ -533,14 +548,18 @@ bool Player::GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) c
 void Player::Draw() {
     if (staticOverrideObject_) {
         staticOverrideObject_->SetPosition({ pos_.x, pos_.y - kBodyHalfExtent + groundVisualCorrection_ + staticOverrideFootOffset_, pos_.z });
-        staticOverrideObject_->SetRotation({ 0.0f, lastDirX_ >= 0.0f ? gameConstants::kHalfPi : -gameConstants::kHalfPi, 0.0f });
+        staticOverrideObject_->SetRotation({ 0.0f, FacingYaw(), 0.0f });
         staticOverrideObject_->Update();
         staticOverrideObject_->Draw();
         return;
     }
     // 残像（プレイヤーより先に描画して後ろに見えるようにする）
     afterImageRenderer_.Draw();
+    DrawBodyAndWeapons();
+}
 
+/** @brief 残像を除いて本体と持っている武器だけを描く（コマンド表の見本用） */
+void Player::DrawBodyAndWeapons() {
     // 黒縁アウトライン（本体・武器とも先に描いてから通常描画で上書きする）
     auto* outline = OutlineEffect::GetInstance();
     Vector4 outlineColor = SceneVisualTuning::Player().outlineColor;
@@ -563,7 +582,7 @@ void Player::Draw() {
         if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
             heldWeapons_[thrownWeaponIndex_].object->DrawOutline(outline);
         }
-        if (gunVisible_ && activeGunIndex_ >= 0) {
+        if (gunVisible_ && !gunHidden_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
         }
         rig_->object->DrawOutline(outline);
@@ -576,10 +595,25 @@ void Player::Draw() {
     if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
         heldWeapons_[thrownWeaponIndex_].object->Draw();
     }
-    if (gunVisible_ && activeGunIndex_ >= 0) {
+    if (gunVisible_ && !gunHidden_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();
     }
     rig_->object->Draw();
+}
+
+/** @brief 静的モデル（GetModel）を本体と同じ所に置く時の位置と倍率 */
+void Player::GetStaticModelPlacement(Vector3& outPosition, float& outScale) const {
+    outPosition = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
+    outScale = rig_->modelScale;
+}
+
+/** @brief 本体と持ち物の色とリムライトの色を決める（演出用の分身を黒く見せる時など。UpdateVisualState を通さない時だけ残る） */
+void Player::SetAppearanceTint(const Vector4& color, const Vector3& rimColor) {
+    rig_->object->SetColor(color);
+    rig_->object->SetRimColor(rimColor);
+    for (auto& slot : heldWeapons_) {
+        slot.object->SetRimColor(rimColor);
+    }
 }
 
 } // namespace engine::game

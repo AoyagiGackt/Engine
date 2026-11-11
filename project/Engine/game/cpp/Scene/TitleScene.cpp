@@ -76,6 +76,7 @@ void TitleScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* audio)
     menuPage_ = &MainMenu();
 
     InitializeDemo();
+    commandList_.InitializePreview(modelCommon_.get()); // 見本の的はデモの描画の土台ができてから用意する
     floatingTitle_.Initialize(dxCommon_, input_, modelCommon_.get(), shadowManager_.get());
     audio_->PlaySceneBGM(bgmKey::kTitle);
 }
@@ -153,9 +154,13 @@ const TitleScene::IMenuPage& TitleScene::CommandListMenu() {
 
 /** @brief シーンの更新処理 */
 void TitleScene::Update() {
+    // コマンド表の技の見本はデモのプレイヤーが演じる（開いている間はデモを止めて姿勢を見本に任せる）
+    commandList_.SetPreviewActor(player_.get());
     menuPage_->Update(*this);
 
-    UpdateDemo();
+    if (menuPage_ != &CommandListMenu()) {
+        UpdateDemo();
+    }
 
     floatingTitle_.Update(!GetStageEditor().IsVisible());
 }
@@ -253,6 +258,11 @@ void TitleScene::Draw() {
     menuPage_->Draw(*this);
     GetStageEditor().DrawUIText(fontRenderer_);
     fontRenderer_.Draw();
+    if (menuPage_ == &CommandListMenu()) {
+        commandList_.DrawPreview({ dxCommon_, modelCommon_.get(), objectCommon_.get(), shadowManager_.get(), SrvManager::GetInstance(),
+            dxCommon_->GetCurrentBackBufferHandle() });
+        spriteCommon_->CommonDrawSettings();
+    }
 }
 
 /** @brief 設定メニューの音量行の右側に現在の音量を百分率で描く */

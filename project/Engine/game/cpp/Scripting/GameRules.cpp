@@ -22,6 +22,7 @@ constexpr JsonField<GameRulesData> kFields[] = {
     { nullptr, "debugGameOverButton", &GameRulesData::debugGameOverButton },
     { nullptr, "debugClearButton", &GameRulesData::debugClearButton },
     { nullptr, "debugLiberationButton", &GameRulesData::debugLiberationButton },
+    { nullptr, "debugFinalBossButton", &GameRulesData::debugFinalBossButton },
     { nullptr, "resultDisplaySeconds", &GameRulesData::resultDisplaySeconds },
     { nullptr, "finalFloor", &GameRulesData::finalFloor },
     { "bossHp", "combat", &GameRulesData::bossHpCombat },

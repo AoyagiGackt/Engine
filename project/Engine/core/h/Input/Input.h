@@ -41,6 +41,11 @@ public: // メンバ関数
         kInteract,
         kLockOn,
         kPause,
+        kArenaForward, ///< 闘技場で奥（カメラの向き）へ進む
+        kArenaBack, ///< 闘技場で手前へ下がる
+        kArenaLeft, ///< 闘技場で左へ回り込む
+        kArenaRight, ///< 闘技場で右へ回り込む
+        kArenaJump, ///< 闘技場でのジャンプ（前進と同じキーにしない）
         kCount
     };
 

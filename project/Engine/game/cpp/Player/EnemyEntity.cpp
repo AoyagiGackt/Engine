@@ -222,6 +222,10 @@ void EnemyEntity::Update(float playerX) {
         return;
     }
     hitStopShakeFrame_ = 0;
+    if (IsScripted()) {
+        UpdateScripted();
+        return;
+    }
 
     // 各タイマーを1フレーム進める（減速とのけぞりは0で止める）
     const BasicEnemyTuning& tuning = EnemyTuning::GetInstance()->Basic();
@@ -469,8 +473,13 @@ void EnemyEntity::Draw() {
         monsterObject_->Draw();
         return;
     }
-    object_->Draw();
-    weaponObject_->Draw();
+    // 別の見た目を重ねている間も、落とした武器と撃破後に浮かべる武器は拾えるように描く
+    if (!bodyHidden_) {
+        object_->Draw();
+    }
+    if (!bodyHidden_ || weaponDropped_ || defeated_) {
+        weaponObject_->Draw();
+    }
 }
 /** @brief 見た目を騎士からモンスターのモデルに差し替える（動き・攻撃・被弾の挙動は騎士と同じものを使う） */
 void EnemyEntity::SetMonsterVisual(ModelCommon* modelCommon, const std::string& kind) {
@@ -493,7 +502,7 @@ void EnemyEntity::SetMonsterVisual(ModelCommon* modelCommon, const std::string& 
 /** @brief 地形に合わせて高さを変える（壁を登る・段差に乗る・足場から落ちる） */
 void EnemyEntity::UpdateTerrain(const std::vector<engine::AABB>& solids) {
     // 打ち上げや倒れた後の落下は別の処理が動かし、飛ぶ種類は地形に関係なく浮く
-    if (defeated_ || isLaunched_ || archetype_->Hovers()) {
+    if (defeated_ || isLaunched_ || archetype_->Hovers() || IsScripted()) {
         climbing_ = false;
         fallVelY_ = 0.0f;
         return;
@@ -613,6 +622,10 @@ void EnemyEntity::DropCorpseTo(float floorY) {
 }
 /** @brief 上方向の初速を与えて打ち上げる */
 void EnemyEntity::Launch(float velY) {
+    // 台本で動かしている間は、位置を台本だけが決める
+    if (IsScripted()) {
+        return;
+    }
     if (!isLaunched_) {
         launchOriginY_ = pos_.y; // 最初の打ち上げ時点の高さを着地目標として記録する（空中コンボ中は上書きしない）
     }
@@ -623,7 +636,7 @@ void EnemyEntity::Launch(float velY) {
 /** @brief 近接コンボのヒットに対する吹き飛び・打ち上げを与える */
 void EnemyEntity::ApplyComboReaction(float knockDirX, float knockY,
     bool switchPull, float playerX, bool finisher) {
-    if (defeated_) {
+    if (defeated_ || IsScripted()) {
         return;
     }
     if (switchPull) {

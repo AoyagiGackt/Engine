@@ -10,6 +10,7 @@
 #include "CombatTuning.h"
 #include "AudioBridge.h"
 #include "GameConstants.h"
+#include "FinalBossTuning.h"
 #include "GamePlaySceneInitializer.h"
 #include "GameRules.h"
 #include "SceneEffectBridge.h"
@@ -45,6 +46,8 @@ constexpr float kDebugGameOverButtonTop = 48.0f; ///< やられ演出のボタ�
 constexpr float kDebugClearButtonTop = 92.0f; ///< クリア演出のボタンは、やられ演出のボタンのすぐ下に置く
 constexpr Vector4 kDebugGameOverHoverColor = { 0.65f, 0.12f, 0.12f, 0.85f };
 constexpr Vector4 kDebugClearHoverColor = { 0.75f, 0.6f, 0.1f, 0.85f };
+constexpr float kDebugFinalBossButtonTop = 136.0f; ///< ラスボス戦のボタンは、クリア演出のボタンのすぐ下に置く
+constexpr Vector4 kDebugFinalBossHoverColor = { 0.45f, 0.25f, 0.75f, 0.85f };
 constexpr const char* kDefaultLevelPath = "Resources/Levels/level01.json";
 
 
@@ -52,6 +55,10 @@ constexpr const char* kDefaultLevelPath = "Resources/Levels/level01.json";
 
 /** @brief ステージエディタが読み書きするレベルファイルを返す */
 std::string GamePlayScene::GetEditorLevelPath() const {
+    // 最後のステージをクリアした後は、ラスボス戦の闘技場を開く
+    if (IsFinalBossMode()) {
+        return FinalBossTuningStore::Get().level;
+    }
     return GameRules::GetInstance()->LevelPathForFloor(RunData::GetInstance()->GetPlayFloor(), kDefaultLevelPath);
 }
 
@@ -66,6 +73,7 @@ void GamePlayScene::Initialize(DirectXCommon* dxCommon, Input* input, Audio* aud
     // 外部から受け取る共通依存だけを入口で保持し、所有資源の構築は下請けへ委譲する
     spriteCommon_ = InitializeCommonResources(dxCommon, input, audio, dxCommon_, input_, audio_);
     InitializeCoreSystems();
+    InitializeFinalBoss();
     audio_->PlaySceneBGM(bgmKey::kStage);
 }
 
@@ -125,6 +133,8 @@ void GamePlayScene::InitializeParticlesAndHud() {
         kDebugGameOverButtonTop, kDebugGameOverHoverColor, &GameRulesData::debugGameOverButton });
     debugClearButton_.Initialize(spriteCommon_.get(), { L"[F5] すぐクリアする（演出は2種類）", DIK_F5, "debug_clear",
         kDebugClearButtonTop, kDebugClearHoverColor, &GameRulesData::debugClearButton });
+    debugFinalBossButton_.Initialize(spriteCommon_.get(), { L"[F4] ラスボス戦を始める", DIK_F4, "debug_final_boss",
+        kDebugFinalBossButtonTop, kDebugFinalBossHoverColor, &GameRulesData::debugFinalBossButton });
     clearFinish_.Initialize(spriteCommon_.get());
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
 
@@ -279,6 +289,10 @@ void GamePlayScene::UpdateCameraSmoothing() {
 
 /** @brief ゲーム進行・戦闘・カメラ・演出を更新する（ポーズ中は止める） */
 void GamePlayScene::Update() {
+    // ラスボス戦の入力の差し替えは、プレイヤーを動かす間だけ使う
+    if (clearTriggered_ || playerDefeat_.IsActive()) {
+        finalBoss_.ReleaseInput();
+    }
     if (UpdateClearState()) {
         return;
     }
@@ -290,6 +304,7 @@ void GamePlayScene::Update() {
 
     // 一時停止中はHUDを出さないが、文字コマンドの破棄だけは毎フレーム行う
     // （破棄はふだんDrawStyleUI()が行うため、飛ばすとポーズ画面の文字が溜まり続けて上限を超えた分から消える）
+    pauseMenu_.SetPreviewActor(player_.get()); // コマンド表の技の見本はこのプレイヤーが演じる
     const bool paused = pauseMenu_.Update(input_, !WeaponManager::GetInstance()->HasPendingWeapon());
     // ポーズ中と開始演出の間は、配置物・敵の進行も止める（BaseScene が Update の後に配置物を更新するため）
     GetStageEditor().SetGameplayHeld(paused || stageIntro_.IsPlaying());
@@ -300,6 +315,14 @@ void GamePlayScene::Update() {
 
     if (stageIntro_.IsPlaying()) {
         UpdateStageIntro();
+        return;
+    }
+    // ステージの最初の操作説明を出している間は、閉じるまでゲームと敵を止める
+    if (stageGuide_.Update(*input_, true)) {
+        GetStageEditor().SetGameplayHeld(true);
+        fontRenderer_.Reset();
+        UpdateCamera();
+        player_->RefreshVisualTransforms();
         return;
     }
     // モーションエディタでプレビューしている間はゲームを止め、見た目だけ追従させる
@@ -321,6 +344,14 @@ void GamePlayScene::Update() {
         TriggerDebugClear();
         return;
     }
+    if (debugFinalBossButton_.Update(input_, dxCommon_)) {
+        StartDebugFinalBoss();
+        return;
+    }
+    // ラスボス戦の演出の間は、操作を止めて演出だけを進める
+    if (UpdateFinalBossCinematic()) {
+        return;
+    }
 
     UpdateWeaponExchange();
     if (WeaponManager::GetInstance()->HasPendingWeapon()) {
@@ -336,6 +367,10 @@ void GamePlayScene::Update() {
     floorElapsedSeconds_ += gameConstants::kFrameDeltaTime; // プレイログ用。ヒットストップの影響を受けない実時間換算
 
     UpdateCombat();
+    // ラスボス戦はプレイヤーの更新と攻撃の判定の後に、ボスの技と闘技場を進める
+    if (finalBoss_.IsActive()) {
+        finalBoss_.UpdateFight(dt);
+    }
     UpdateCamera();
     player_->RefreshVisualTransforms();
     sceneEditor_.Update(BuildEditContext(), input_);
@@ -408,6 +443,8 @@ void GamePlayScene::StartStageIntro() {
         }
     }
     stageIntro_.Start(setup, { player_.get(), pm_, &cameraShaker_, &rng_ });
+    // 決めたステージなら、開始演出が終わった後に操作説明を出す
+    stageGuide_.Arm(GetEditorLevelPath());
     GetStageEditor().SetGameplayHeld(stageIntro_.IsPlaying());
 }
 
@@ -560,6 +597,10 @@ void GamePlayScene::UpdateCombat() {
         UpdateTargetLock();
         std::vector<AABB> activeColliders = GetStageEditor().GetSolidColliders();
         ApplyScriptControlLock();
+        // 闘技場では前後左右の入力を、ボスへ向かう線の上の左右の操作と回り込みへ置き換える
+        if (finalBoss_.IsActive()) {
+            finalBoss_.PrepareInput();
+        }
         player_->Update(input_, enemy_ ? enemy_->GetPosition() : player_->GetPosition(), enemy_ && !enemy_->IsDefeated() && enemy_->IsVisible(), !activeColliders.empty());
         gameSounds::PlayPlayerActions(*player_);
         // ボスだけでなく道中の敵の手前でも止め、プレイヤーが歩いて敵を押しのけないようにする
@@ -594,4 +635,34 @@ void GamePlayScene::UpdateCombat() {
         UpdateComboFeel(false);
     }
 }
+/** @brief シーン固有の演出資源と登録済みコールバックを破棄する */
+void GamePlayScene::Finalize() {
+    motionEditor_.Close(*player_);
+    // ラスボス戦で刀だけにした武器と、闘技場の入力の差し替えを元へ戻す
+    finalBoss_.Finalize();
+    // enemy_/weaponEnemies_はStageEditor所有（非所有ポインタ）のため、EnemyRegistryへの
+    // 登録解除もStageEditor自身のReleaseLevelResources()が行う。ここでは何もしない
+    // デバッグパネルとカメラ揺れの受け口から、このシーンの登録を外す
+    ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
+    SceneEffectBridge::GetInstance()->SetCameraShakeHandler({ });
+    SceneEffectBridge::GetInstance()->SetMessageHandler({ });
+    SceneEffectBridge::GetInstance()->SetCameraFocusHandler({ });
+    SceneEffectBridge::GetInstance()->SetControlLockHandler({ });
+    // 操作を止めたままシーンを抜けても、次の画面に上書きを残さない
+    if (scriptControlLocked_) {
+        input_->ClearActionOverrides();
+        scriptControlLocked_ = false;
+    }
+    // 描画先と演出の資源を片付ける
+    renderTexture_->Finalize(srvManager_);
+    pm_->ClearAllGroups();
+    finisherEffects::FinalizeAll(glassShatter_, finisherShatter_, spaceWarp_, bladeFlash_);
+    comboFeel_.Finalize();
+    // 音を全部止める（BGM・SE どちらも）
+    if (audio_) {
+        audio_->StopBGM();
+        audio_->StopAllSE();
+    }
+}
+
 } // namespace engine::game

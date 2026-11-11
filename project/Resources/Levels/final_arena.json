@@ -1,0 +1,33 @@
+{
+ "_comment": "ラスボス戦の円形闘技場（3面クリアの後）。床や柱は FinalBossArena がコードで置くので、配置物はボスだけ。ボスの体力と技は Resources/Config/final_boss.json",
+ "playerSpawn": [
+  0,
+  0.4,
+  0
+ ],
+ "enemySpawn": [
+  8,
+  0.4,
+  0
+ ],
+ "graphPath": "",
+ "flagGraphs": [],
+ "checkpoints": [],
+ "triggers": [],
+ "objects": [
+  {
+   "name": "final_boss",
+   "type": "static",
+   "kind": "enemy_basic",
+   "position": [
+    8,
+    -0.33,
+    0
+   ],
+   "spawnType": "basic",
+   "weaponType": "Sword",
+   "isStageBoss": true,
+   "enemyGroup": "final_boss"
+  }
+ ]
+}

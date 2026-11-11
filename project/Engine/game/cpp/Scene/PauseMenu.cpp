@@ -217,6 +217,10 @@ bool PauseMenu::Update(Input* input, bool canOpen) {
         page_->Update(*this, input);
     }
     if (!controller_.IsPaused()) {
+        // コマンド表を開いたまま一時停止を解いた時も、見本の姿勢をやめてから再開する
+        if (page_ == &CommandList()) {
+            commandList_.Close();
+        }
         page_ = &Menu(); // 次に一時停止した時はメニューから始める
     }
     // 閉じたフレームも止める（閉じるのに使った戻るボタンがシーン側の操作にまで届かないようにする）
@@ -337,6 +341,13 @@ void PauseMenu::Draw(const Input* input) {
     overlay_->Update();
     overlay_->Draw();
     page_->Draw(*this, input);
+}
+
+/** @brief コマンド表を開いていれば技の見本を3Dで描く */
+void PauseMenu::DrawCommandPreview(const CommandPreviewRenderer& renderer) {
+    if (controller_.IsPaused() && page_ == &CommandList()) {
+        commandList_.DrawPreview(renderer);
+    }
 }
 
 /** @brief メニューページの描画（項目・現在値・見出し） */

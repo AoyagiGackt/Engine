@@ -52,6 +52,8 @@
 #include "SpaceDistortionEffect.h"
 #include "ClearFinish.h"
 #include "DebugButton.h"
+#include "FinalBossBattle.h"
+#include "GuidePanel.h"
 #include "PlayerDefeat.h"
 #include "StageIntro.h"
 #include "ResultBackdrop.h"
@@ -270,6 +272,19 @@ private:
     void StartStageIntro();
     /** @brief 開始演出の間の1フレーム（操作・HUD・敵を止め、カメラだけ演出に合わせて動かす） */
     void UpdateStageIntro();
+    // ── ラスボス戦（GamePlaySceneFinalBoss.cpp） ──
+    /** @brief ラスボス戦のレベルを開いているか（最後のステージをクリアしてからラスボスを倒すまで） */
+    bool IsFinalBossMode() const;
+    /** @brief ラスボス戦の進行役を用意する（Initialize の最後に、ラスボス戦の時だけ） */
+    void InitializeFinalBoss();
+    /** @brief 演出の途中でプレイヤーの操作を止めている間の1フレーム（止めていなければ false） */
+    bool UpdateFinalBossCinematic();
+    /** @brief 闘技場のカメラにする（やられ演出の間は使わない。使ったら true） */
+    bool UpdateArenaCamera();
+    /** @brief ラスボスの攻撃の判定をプレイヤーへ当てる（当たったら true。回避中・無敵中は当たらない） */
+    bool StrikePlayerFromBoss(const AABB& box, const Vector3& effectPosition, int damage);
+    /** @brief 確認用にラスボス戦を始める（今のシーンを、ラスボス戦のレベルで開き直す） */
+    void StartDebugFinalBoss();
     /** @brief プレイヤーのやられ演出を始める（ラン中にHPが尽きた時に1回） */
     void StartPlayerDefeat();
     /** @brief やられ演出の間の1フレーム（操作・HUD・敵を止め、カメラだけ演出に合わせて動かし、見せ終えたら選ばれた行き先（同じステージ／マップ）へ） */
@@ -426,7 +441,7 @@ private:
     void EmitEnemyTelegraphCue(const EnemyEntity* enemy);
     /** @brief UpdateStyleTechniqueParticles()の下請け 銃発射時の弾煙パーティクルを発生させる */
     void EmitGunFireParticles(const Vector3& ppos);
-    /** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガーのスティンガー以外）発動時に技ごとの見た目を出す */
+    /** @brief UpdateStyleTechniqueParticles()の下請け 武器固有技（ダガー以外）発動時に技ごとの見た目を出す */
     void EmitWeaponSkillCastParticles(const Vector3& ppos);
     /**
      * @brief 固有技が決まった瞬間の共通演出（閃光・停止・揺れ・刃の明滅・大きな弾け）を当たり外れに関係なく出す
@@ -617,10 +632,13 @@ private:
     /** @brief 右上のスタイリッシュランクHUD（採点はstyleMeter_側で行い、表示だけこれに委ねる） */
     StyleMeter styleRankHud_;
     StageIntro stageIntro_; ///< ステージ開始演出（Resources/Config/stage_intro.json）
+    StageControlsGuide stageGuide_; ///< 1面の最初に一度だけ出す操作説明（Resources/Config/controls_guide.json）
     bool stageIntroStarted_ = false; ///< エディタでレベルを読み直しても演出をやり直さないための印
     PlayerDefeat playerDefeat_; ///< プレイヤーのやられ演出（Resources/Config/player_defeat.json）
     DebugButton debugGameOverButton_; ///< やられ演出をすぐ見る確認用ボタン（game_rules.json の debugGameOverButton で出し入れ）
     DebugButton debugClearButton_; ///< クリアの決め演出をすぐ見る確認用ボタン（game_rules.json の debugClearButton で出し入れ）
+    DebugButton debugFinalBossButton_; ///< ラスボス戦をすぐ始める確認用ボタン（game_rules.json の debugFinalBossButton で出し入れ）
+    FinalBossBattle finalBoss_; ///< ラスボス戦の進行役（Resources/Config/final_boss.json）
     int lastTechniqueId_ = -1;
     int repeatedTechniqueCount_ = 0;
     /** @brief 武器ごとの疲労（0〜1）。添字は近接武器のWeaponManager::GetList()順、末尾が銃 */

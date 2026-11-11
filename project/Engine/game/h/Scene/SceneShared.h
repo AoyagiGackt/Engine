@@ -208,6 +208,12 @@ namespace sceneShared {
     void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel);
 
     /**
+     * @brief 右側の操作説明パネルを、見出しと1行ずつの説明で描画する（DrawControlsHud と同じ体裁）
+     * @param anchor 描画開始位置（スクリーンpx）
+     */
+    void DrawControlsPanel(FontRenderer& fontRenderer, const Vector2& anchor, const std::wstring& header, const std::vector<std::wstring>& rows);
+
+    /**
      * @brief マウスの位置を画面の論理座標（gameConstants::kScreenWidth x kScreenHeight）で返す
      * @note ウィンドウの大きさを変えても、黒帯を除いた描画領域に合わせて換算する
      */

@@ -67,6 +67,8 @@ public:
     void RefreshVisualTransformsForEditor() override;
 
 private:
+    static constexpr const char* kLayoutName = "map"; ///< 配置を保存する UILayout の名前（F2 で動かした値は Resources/Config/UI/map.json）
+
     /** @brief Initialize()の下請け 背景・ノード・地面のUIスプライトを初期化する */
     void InitializeUiSprites();
     /** @brief Initialize()の下請け 描画基盤(Common類・シャドウ・カメラ)とプレイヤーを初期化する */

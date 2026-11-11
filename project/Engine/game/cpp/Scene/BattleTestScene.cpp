@@ -161,6 +161,7 @@ void BattleTestScene::InitializeHud() {
                 SceneFlow::GetInstance()->Transition("BATTLETEST", "back", "TRAINING");
             }
         });
+    pauseMenu_.InitializeCommandPreview(modelCommon_.get());
     comboTrial_.Initialize(spriteCommon_.get());
     pauseMenu_.EnableComboTrial(&comboTrial_);
     SlashMark::GetInstance()->Initialize(spriteCommon_.get());
@@ -242,6 +243,7 @@ void BattleTestScene::Update() {
     }
 
     // 一時停止中はゲームを止め、文字コマンドの破棄だけ行う（HUDは描画側で隠す）
+    pauseMenu_.SetPreviewActor(player_.get()); // コマンド表の技の見本はこのプレイヤーが演じる
     const bool paused = pauseMenu_.Update(input_);
     // 配置物と敵は BaseScene が Update の後に更新するので、ポーズ中はそちらも止める
     GetStageEditor().SetGameplayHeld(paused);

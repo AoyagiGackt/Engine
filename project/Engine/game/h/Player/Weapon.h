@@ -56,7 +56,7 @@ struct WeaponCommand {
 };
 
 /**
- * @brief 覚醒（魔人化）中にその武器がどう強化されるかの倍率（weapons.jsonの"awakened"）
+ * @brief 覚醒中にその武器がどう強化されるかの倍率（weapons.jsonの"awakened"）
  * @note 覚醒中は武器ごとに手触りが変わる、というコンセプトの最小単位。数値だけで武器ごとの個性を出す
  */
 struct AwakenedWeaponMods {

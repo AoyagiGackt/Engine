@@ -324,6 +324,29 @@ public:
     bool IsVisible() const {
         return visible_;
     }
+    /**
+     * @brief 台本で動かすか（true の間は歩き・攻撃・吹き飛び・地形合わせを止め、位置と向きを外から決める）
+     * @note 撃破された後は通常どおり倒れて武器を浮かべる
+     */
+    void SetScripted(bool scripted) {
+        scripted_ = scripted;
+    }
+    /** @brief 台本で動かしているか（撃破後は false） */
+    bool IsScripted() const {
+        return scripted_ && !defeated_;
+    }
+    /** @brief 台本で動かす間の向き（+1=+X向き/-1=-X向き） */
+    void SetScriptedFacing(float sign) {
+        facingSign_ = sign >= 0.0f ? 1.0f : -1.0f;
+    }
+    /** @brief 被弾して白く光る残りの割合（1=当たった瞬間、0=光っていない） */
+    float GetHitFlashRatio() const {
+        return hitFlashTimer_ / kHitFlashDuration;
+    }
+    /** @brief 本体と手持ちの武器を描かないか（当たり判定・体力・落とした武器はそのまま。別の見た目を重ねる時に使う） */
+    void SetBodyHidden(bool hidden) {
+        bodyHidden_ = hidden;
+    }
 
     /** @brief 切断演出などが参照するモデルを返す */
     Model* GetModel() const {
@@ -491,6 +514,10 @@ private:
     float speedScale_ = 1.0f; ///< 近づく速さの倍率
     bool defeated_ = false;
     bool visible_ = true;
+    bool scripted_ = false; ///< 台本で動かしているか（SetScripted）
+    bool bodyHidden_ = false; ///< 本体と手持ちの武器を描かないか（SetBodyHidden）
+    /** @brief 台本で動かす間の1フレーム（位置・向き・武器の位置を見た目へ反映するだけで、AI と物理は進めない） */
+    void UpdateScripted();
     Vector4 baseColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
     float hitFlashTimer_ = 0.0f;
     float damageCarry_ = 0.0f; ///< TakeDamageScaled()で1に満たなかったダメージの持ち越し
