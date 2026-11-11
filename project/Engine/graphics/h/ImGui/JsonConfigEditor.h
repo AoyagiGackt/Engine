@@ -82,14 +82,40 @@ private:
      * @param path   名前の表を引くための "グループ.キー"（配列の番号は含めない）
      * @param key    この値のキー（配列の要素なら空）
      * @param depth  入れ子の深さ（0がファイルの直下）
+     * @param saved  保存時の同じ場所の値（無ければ nullptr。違えば変更した項目として目立たせる）
      * @return 値を変えたら true
      */
-    bool DrawValue(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth);
+    bool DrawValue(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth,
+        const nlohmann::json* saved);
+    /** @brief 数値を編集する（名前の表に範囲があればスライダー、無ければドラッグ。単位を数値の横に出す） */
     bool DrawNumber(nlohmann::json& value, const std::string& path, const std::string& key);
     bool DrawString(nlohmann::json& value);
-    bool DrawArray(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth);
-    /** @brief 項目名を左側に出し、続く編集部品を右側に置く準備をする */
-    void BeginRow(const std::string& label, const std::string& path);
+    bool DrawArray(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth,
+        const nlohmann::json* saved);
+
+    // ── 見た目の補助（JsonConfigEditorVisuals.cpp） ──
+    /**
+     * @brief 項目名を左側に出し、続く編集部品を右側に置く準備をする（1行おきに薄い背景、変更した項目は色と印と戻すボタン）
+     * @return 戻すボタンが押されたら true（呼び出し側で保存時の値に戻す）
+     */
+    bool BeginRow(const std::string& label, const std::string& path, const nlohmann::json& value, const nlohmann::json* saved);
+    /**
+     * @brief グループの見出しを色分けして描く（中の項目数と、保存時から変えた数を添える）
+     * @return 開いていれば true
+     */
+    bool DrawSectionHeader(const std::string& label, const std::string& path, const nlohmann::json& value,
+        const nlohmann::json* saved, int depth);
+    /** @brief 保存時から変えた値の数（入れ子の中まで数える。保存時に無かった値も1つと数える） */
+    static int CountChanges(const nlohmann::json& value, const nlohmann::json* saved);
+    /** @brief 入れ子の中まで数えた編集できる値の数 */
+    static int CountValues(const nlohmann::json& value);
+    /** @brief 左側のファイル一覧の1行（すぐ反映されるかの印・未保存の色） */
+    void DrawFileListRow(int index);
+
+    /** @brief 名前の表から単位を引く（無ければキーの終わり方から決める。例: ～Seconds は 秒） */
+    std::string UnitFor(const std::string& path, const std::string& key) const;
+    /** @brief 名前の表からスライダーの範囲を引く（無ければキーと値から 0〜1 の割合かを判断する） */
+    bool RangeFor(const std::string& path, const std::string& key, float value, float& outMin, float& outMax) const;
 
     /** @brief 項目自身の名前かキーが検索語に当てはまるか */
     bool OwnNameMatches(const std::string& path, const std::string& key) const;
@@ -117,6 +143,8 @@ private:
     int filterMatchedAncestors_ = 0; ///< 検索語に当てはまった親の数（親が当たれば中身はすべて表示する）
     std::string status_; ///< 保存に失敗した時などの表示
     bool open_ = false;
+    bool showChangedOnly_ = false; ///< 保存時から変えた項目だけを出すか
+    int rowIndex_ = 0; ///< 1行おきの背景のために数える、今のフレームで描いた行の数
 };
 
 } // namespace engine::graphics

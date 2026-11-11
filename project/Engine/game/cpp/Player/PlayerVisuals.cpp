@@ -245,7 +245,7 @@ void Player::UpdateCinematicPose(bool airborne, const Vector3& bodyRotation, boo
     // 接地状態（物理の状態）は書き換えずに、宙にいるかだけを渡す
     UpdateAnimationState(moving, airborne);
 
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     const Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
     rig_->object->SetPosition(modelPos);
     rig_->object->SetRotation({ bodyRotation.x, yaw + bodyRotation.y, bodyRotation.z });
@@ -297,7 +297,7 @@ void Player::SetCinematicPoseLayer(const IPoseLayer* layer) {
 
 /** @brief 覚醒残像・アニメーション状態・プレイヤー色などUpdate()末尾の表示関連処理をまとめて更新する */
 void Player::UpdateVisualState(Input* input) {
-    float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    float yaw = FacingYaw();
 
     // ── 覚醒残像スポーン＆フェード ──
     Vector3 modelPos = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
@@ -316,7 +316,7 @@ void Player::UpdateVisualState(Input* input) {
 
     // ── アニメーション状態（接地中の左右移動入力で Idle/Run、空中で Jump）──
     bool isMovingHoriz = input->PushAction(Input::Action::kMoveLeft)
-        || input->PushAction(Input::Action::kMoveRight);
+        || input->PushAction(Input::Action::kMoveRight) || strafeMoving_;
     UpdateAnimationState(isMovingHoriz, !onGround_);
 
     // ── プレイヤー色（上の行ほど優先。どれにも当たらなければ白）──
@@ -399,7 +399,7 @@ void Player::PreviewMeleePose(const MeleeAttackDef* attack, float normalizedTime
     rig_->object->SetAnimTime(animTime);
 
     // 体の傾き・その場回転も同じ段時刻で評価する
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     const Vector3 bodyLean = meleeCombo_.GetBodyLeanOffset();
     rig_->object->SetRotation({ bodyLean.x, yaw + (gunCombo_.GetActive() != nullptr ? float{} : meleeCombo_.GetBodyTurnOffset()), bodyLean.z });
     RefreshVisualTransforms();
@@ -430,7 +430,7 @@ void Player::EndMeleePreview() {
         UpdateAnimationState(false, !onGround_);
         previewAnim_ = nullptr;
     }
-    const float yaw = (lastDirX_ >= 0.0f) ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    const float yaw = FacingYaw();
     rig_->object->SetRotation({ 0.0f, yaw, 0.0f });
     RefreshVisualTransforms();
 }
@@ -464,7 +464,7 @@ void Player::AttachActiveWeapons() {
     }
     if (activeHeldIndex_ >= 0 && !BehaviorFor(heldWeapons_[activeHeldIndex_].type).IsDisarmed()) {
         auto& slot = heldWeapons_[activeHeldIndex_];
-        Vector3 rot = slot.gripRotate + meleeCombo_.GetSwingOffset();
+        Vector3 rot = slot.gripRotate + heldGripOffset_ + meleeCombo_.GetSwingOffset();
         AttachHeldWeapon(slot.object.get(), rig_->meleeBoneName, slot.gripScale, rot, slot.gripTranslate);
     }
 
@@ -548,7 +548,7 @@ bool Player::GetHeldWeaponTransform(WeaponType& outType, Matrix4x4& outMatrix) c
 void Player::Draw() {
     if (staticOverrideObject_) {
         staticOverrideObject_->SetPosition({ pos_.x, pos_.y - kBodyHalfExtent + groundVisualCorrection_ + staticOverrideFootOffset_, pos_.z });
-        staticOverrideObject_->SetRotation({ 0.0f, lastDirX_ >= 0.0f ? gameConstants::kHalfPi : -gameConstants::kHalfPi, 0.0f });
+        staticOverrideObject_->SetRotation({ 0.0f, FacingYaw(), 0.0f });
         staticOverrideObject_->Update();
         staticOverrideObject_->Draw();
         return;
@@ -582,7 +582,7 @@ void Player::DrawBodyAndWeapons() {
         if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
             heldWeapons_[thrownWeaponIndex_].object->DrawOutline(outline);
         }
-        if (gunVisible_ && activeGunIndex_ >= 0) {
+        if (gunVisible_ && !gunHidden_ && activeGunIndex_ >= 0) {
             guns_[activeGunIndex_].object->DrawOutline(outline);
         }
         rig_->object->DrawOutline(outline);
@@ -595,10 +595,25 @@ void Player::DrawBodyAndWeapons() {
     if (thrownWeaponIndex_ >= 0 && thrownWeaponIndex_ != activeHeldIndex_) {
         heldWeapons_[thrownWeaponIndex_].object->Draw();
     }
-    if (gunVisible_ && activeGunIndex_ >= 0) {
+    if (gunVisible_ && !gunHidden_ && activeGunIndex_ >= 0) {
         guns_[activeGunIndex_].object->Draw();
     }
     rig_->object->Draw();
+}
+
+/** @brief 静的モデル（GetModel）を本体と同じ所に置く時の位置と倍率 */
+void Player::GetStaticModelPlacement(Vector3& outPosition, float& outScale) const {
+    outPosition = { pos_.x, pos_.y + rig_->modelOffsetY + groundVisualCorrection_, pos_.z };
+    outScale = rig_->modelScale;
+}
+
+/** @brief 本体と持ち物の色とリムライトの色を決める（演出用の分身を黒く見せる時など。UpdateVisualState を通さない時だけ残る） */
+void Player::SetAppearanceTint(const Vector4& color, const Vector3& rimColor) {
+    rig_->object->SetColor(color);
+    rig_->object->SetRimColor(rimColor);
+    for (auto& slot : heldWeapons_) {
+        slot.object->SetRimColor(rimColor);
+    }
 }
 
 } // namespace engine::game

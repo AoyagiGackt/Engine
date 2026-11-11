@@ -1,0 +1,174 @@
+{
+  "_comment": "ラスボス戦（3面クリアの後に続く）の調整値。stage.level のレベルで戦う。秒・距離はシーンの座標と実時間。確認用は game_rules.json の debugFinalBossButton（ゲーム中に F4）",
+  "stage": {
+    "level": "Resources/Levels/final_arena.json",
+    "bossName": "黒き刃の影",
+    "introLine": "……その刀、返してもらう",
+    "rageLine": "まだだ……！",
+    "stealLine": "落とした刀に近づいて J で奪え",
+    "bossMaxHp": 90,
+    "rageHpRatio": 0.5,
+    "startDistance": 8,
+    "edgeMargin": 1.2,
+    "shadowBaseY": 0.4,
+    "shadowColor": [
+      0.06,
+      0.05,
+      0.09,
+      1
+    ],
+    "shadowRimColor": [
+      0.55,
+      0.3,
+      1
+    ],
+    "shadowRimColorRage": [
+      1,
+      0.2,
+      0.15
+    ],
+    "shadowFlashColor": [
+      0.9,
+      0.85,
+      1,
+      1
+    ],
+    "shadowKatanaGripRotate": [
+      3.14159265,
+      0,
+      0
+    ]
+  },
+  "guide": {
+    "title": "闘技場の操作",
+    "lines": "{ArenaMove}  移動（左右でボスの周りを回り込む）\n{ArenaJump}  ジャンプ\n{Attack}  攻撃（{ArenaBack}+{Attack} で打ち上げ）\n{Shoot}  射撃\n{Skill}  刀の固有技\n{Dodge}  回避（攻撃に合わせるとジャスト回避）\n{Awaken}  覚醒\n{Finisher}  フィニッシャー\n{Pause}  ポーズ・音量設定",
+    "confirm": "{Attack} / 決定キー で戦闘開始",
+    "minSeconds": 0.6,
+    "fadeSeconds": 0.3
+  },
+  "move": {
+    "strafeSpeed": 5.5,
+    "minOrbitRadius": 1.5,
+    "turnRate": 14
+  },
+  "camera": {
+    "back": 7,
+    "height": 3,
+    "side": 1.6,
+    "lookAhead": 0.4,
+    "lookHeight": 0.9,
+    "turnRate": 5,
+    "followRate": 9
+  },
+  "gather": {
+    "seconds": 2.4,
+    "radius": 1.8,
+    "height": 2.8,
+    "spin": 9,
+    "scale": 0.7,
+    "forgeSeconds": 0.7,
+    "descendSeconds": 0.7,
+    "veilSeconds": 0.8,
+    "flashColor": [
+      1,
+      0.96,
+      0.85,
+      0.9
+    ]
+  },
+  "intro": {
+    "seconds": 4.2,
+    "drawTime": 1.6,
+    "orbitRadius": 4,
+    "orbitSpeed": 0.35,
+    "cameraHeight": 1.4,
+    "letterboxSeconds": 0.4
+  },
+  "rage": {
+    "seconds": 2.2,
+    "speedMult": 1.35,
+    "thinkMult": 0.6
+  },
+  "fight": {
+    "thinkMin": 0.45,
+    "thinkMax": 1,
+    "staggerWindow": 1.6,
+    "staggerDamage": 9,
+    "staggerSeconds": 1.1,
+    "staggerLean": 0.45,
+    "hitHalfHeight": 1.1
+  },
+  "telegraph": {
+    "color": [
+      1,
+      0.15,
+      0.2,
+      0.55
+    ],
+    "pulseSpeed": 14,
+    "pulseDepth": 0.35,
+    "lineWidth": 1,
+    "aimRadius": 0.9
+  },
+  "measure": {
+    "seconds": 1.3,
+    "orbitSpeed": 0.7,
+    "distance": 4.5,
+    "walkSpeed": 2.4
+  },
+  "rush": {
+    "runSpeed": 10,
+    "runTimeout": 1.4,
+    "stopDistance": 1.7,
+    "slashes": 3,
+    "slashSeconds": 0.36,
+    "slashHitRatio": 0.45,
+    "slashReach": 2.3,
+    "slashLunge": 0.5,
+    "slashDamage": 3,
+    "leapSeconds": 0.75,
+    "leapHeight": 3,
+    "leapReach": 2.8,
+    "leapDamage": 5
+  },
+  "iai": {
+    "windup": 0.75,
+    "dashSeconds": 0.16,
+    "dashPast": 3.5,
+    "cutDelay": 0.4,
+    "recover": 0.6,
+    "damage": 6
+  },
+  "phantom": {
+    "count": 5,
+    "summonSeconds": 0.7,
+    "interval": 0.22,
+    "speed": 20,
+    "spread": 2.2,
+    "height": 2.4,
+    "halfSize": 0.35,
+    "lifetime": 1.6,
+    "scale": 0.55,
+    "damage": 2
+  },
+  "space": {
+    "telegraph": 0.95,
+    "radius": 2.4,
+    "spacing": 3.2,
+    "damage": 6,
+    "recover": 0.7
+  },
+  "blink": {
+    "seconds": 0.28,
+    "behindDistance": 2.2,
+    "awayDistance": 7
+  },
+  "defeat": {
+    "slowSeconds": 1.6,
+    "slowScale": 0.25,
+    "lieAngle": 1.35,
+    "lieLift": -0.35,
+    "fallSeconds": 0.9,
+    "cinematicSeconds": 2.4
+  }
+}

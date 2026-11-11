@@ -59,6 +59,7 @@ constexpr KeyName kKeyNames[] = {
     { "Q", DIK_Q, L"Q" },
     { "C", DIK_C, L"C" },
     { "P", DIK_P, L"P" },
+    { "U", DIK_U, L"U" },
     { "Left", DIK_LEFT, L"←" },
     { "Right", DIK_RIGHT, L"→" },
     { "Up", DIK_UP, L"↑" },
@@ -113,6 +114,11 @@ constexpr std::pair<const char*, Input::Action> kActionNames[] = {
     { "Interact", Input::Action::kInteract },
     { "LockOn", Input::Action::kLockOn },
     { "Pause", Input::Action::kPause },
+    { "ArenaForward", Input::Action::kArenaForward },
+    { "ArenaBack", Input::Action::kArenaBack },
+    { "ArenaLeft", Input::Action::kArenaLeft },
+    { "ArenaRight", Input::Action::kArenaRight },
+    { "ArenaJump", Input::Action::kArenaJump },
 };
 static_assert(std::size(kActionNames) == static_cast<size_t>(Input::Action::kCount), "操作名の表にActionの追加漏れがある");
 
@@ -203,6 +209,26 @@ constexpr StickAction kStickActions[] = {
             return y <= -kStickDownThreshold;
         }
     },
+    {
+        Input::Action::kArenaForward, L"左スティック↑", [](float, float y, float deadzone) {
+            return y >= deadzone;
+        }
+    },
+    {
+        Input::Action::kArenaBack, L"左スティック↓", [](float, float y, float deadzone) {
+            return y <= -deadzone;
+        }
+    },
+    {
+        Input::Action::kArenaLeft, L"左スティック←", [](float x, float, float deadzone) {
+            return x <= -deadzone;
+        }
+    },
+    {
+        Input::Action::kArenaRight, L"左スティック→", [](float x, float, float deadzone) {
+            return x >= deadzone;
+        }
+    },
 };
 
 /** @brief アクションに割り当てたスティックの方向を探す（割り当てが無ければ nullptr） */
@@ -287,6 +313,12 @@ void Input::LoadActionBindings() {
     actionBindings_[static_cast<size_t>(Action::kLockOn)] = { DIK_LSHIFT, 0, kGamepadRightTrigger };
     // ポーズ
     actionBindings_[static_cast<size_t>(Action::kPause)] = { DIK_P, 0, XINPUT_GAMEPAD_START };
+    // 闘技場の移動（前後左右はスティックでも動ける。ジャンプは前進のキーと分ける）
+    actionBindings_[static_cast<size_t>(Action::kArenaForward)] = { DIK_W, DIK_UP, 0 };
+    actionBindings_[static_cast<size_t>(Action::kArenaBack)] = { DIK_S, DIK_DOWN, 0 };
+    actionBindings_[static_cast<size_t>(Action::kArenaLeft)] = { DIK_A, DIK_LEFT, 0 };
+    actionBindings_[static_cast<size_t>(Action::kArenaRight)] = { DIK_D, DIK_RIGHT, 0 };
+    actionBindings_[static_cast<size_t>(Action::kArenaJump)] = { DIK_U, 0, XINPUT_GAMEPAD_A };
 
     // input_bindings.json に書かれたアクションだけ、キー名・ボタン名を読み取って上書きする
     const nlohmann::json root = JsonHelper::Load("Resources/Config/input_bindings.json");
@@ -518,6 +550,13 @@ std::wstring Input::ExpandPrompts(const std::wstring& text) const {
     auto resolve = [&](const std::wstring& name, std::wstring& out) {
         if (name == L"Move") {
             out = usingGamepad_ ? L"左スティック" : GetActionLabel(Action::kMoveLeft) + L" " + GetActionLabel(Action::kMoveRight);
+            return true;
+        }
+        // 闘技場の前後左右の移動もまとめて1つの表記にする
+        if (name == L"ArenaMove") {
+            out = usingGamepad_ ? L"左スティック"
+                                : GetActionLabel(Action::kArenaForward) + GetActionLabel(Action::kArenaLeft)
+                    + GetActionLabel(Action::kArenaBack) + GetActionLabel(Action::kArenaRight);
             return true;
         }
         for (const FixedPrompt& prompt : kFixedPrompts) {

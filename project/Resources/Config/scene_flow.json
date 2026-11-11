@@ -13,6 +13,7 @@
     "title": { "scene": "TITLE", "fadeOut": 0.3, "fadeIn": 0.3 },
     "combat": { "scene": "GAMEPLAY" },
     "all_cleared": { "scene": "CLEAR" },
+    "final_boss": { "scene": "GAMEPLAY", "fadeOut": 0.5, "fadeIn": 0.5 },
     "training": { "scene": "TRAINING" }
   },
   "GAMEPLAY": {
@@ -20,6 +21,7 @@
     "defeat_map": { "scene": "MAP" },
     "next": { "scene": "MAP" },
     "clear": { "scene": "CLEAR" },
+    "final_boss": { "scene": "GAMEPLAY", "fadeOut": 0.8, "fadeIn": 0.6 },
     "sandbox_clear": { "scene": "CLEAR" },
     "pause_quit": { "scene": "MAP", "fadeOut": 0.3, "fadeIn": 0.3 }
   },

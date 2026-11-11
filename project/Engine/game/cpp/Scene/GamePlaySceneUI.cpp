@@ -141,7 +141,8 @@ constexpr Vector4 kPickupCounterColor = { 0.3f, 0.9f, 1.0f, 1.0f };
 void GamePlayScene::DrawHudSprites() {
     // 敵頭上のHPバー（BattleTestSceneのダミーHPバーと同じ描画順序位置はUpdateEnemyHpBars()が
     // DrawStyleUI()内で毎フレーム更新している）
-    if (enemy_ && !enemy_->IsDefeated()) {
+    // ラスボスの体力は画面下のバーで見せるので、頭上には出さない
+    if (enemy_ && !enemy_->IsDefeated() && !finalBoss_.IsActive()) {
         bossHpBarBg_->Draw();
         bossHpBarFg_->Draw();
     }
@@ -169,11 +170,17 @@ void GamePlayScene::DrawHudSprites() {
 void GamePlayScene::DrawOverlaysAndUI() {
     spriteCommon_->CommonDrawSettings();
 
-    // 一時停止中と開始演出・やられ演出の間はHUDを隠す
-    if (hudReady_ && !pauseMenu_.IsPaused() && !stageIntro_.IsPlaying() && !playerDefeat_.IsActive() && !clearTriggered_) {
+    // 一時停止中と開始演出・やられ演出・最初の操作説明の間はHUDを隠す
+    if (hudReady_ && !pauseMenu_.IsPaused() && !stageIntro_.IsPlaying() && !playerDefeat_.IsActive() && !clearTriggered_
+        && !finalBoss_.BlocksGameplay() && !stageGuide_.IsShowing()) {
         DrawHudSprites();
         debugGameOverButton_.Draw();
         debugClearButton_.Draw();
+        debugFinalBossButton_.Draw();
+    }
+    // ラスボス戦の体力バー・黒帯・名乗り（演出の間も出す）
+    if (!pauseMenu_.IsPaused() && !playerDefeat_.IsActive() && !clearTriggered_) {
+        finalBoss_.DrawHud();
     }
     stageIntro_.Draw();
     playerDefeat_.Draw();
@@ -204,9 +211,13 @@ void GamePlayScene::DrawOverlaysAndUI() {
 
     if (pauseMenu_.IsPaused()) {
         pauseMenu_.Draw(input_);
-    } else if (!stageIntro_.IsPlaying() && !playerDefeat_.IsActive() && !clearTriggered_) {
+    } else if (!stageIntro_.IsPlaying() && !playerDefeat_.IsActive() && !clearTriggered_ && !stageGuide_.IsShowing()) {
         // ゲームプレイ UI テキスト（レベルJSONの案内文）
         GetStageEditor().DrawUIText(fontRenderer_);
+    }
+    // 1面の最初の操作説明（文字と同じく最後に積んで、HUD の上に出す）
+    if (!pauseMenu_.IsPaused()) {
+        stageGuide_.Draw(fontRenderer_, *input_);
     }
     fontRenderer_.Draw();
     if (pauseMenu_.IsPaused()) {
@@ -346,6 +357,8 @@ void GamePlayScene::DrawStyleUI() {
     debugGameOverButton_.QueueText(fontRenderer_);
     debugClearButton_.RefreshLayout();
     debugClearButton_.QueueText(fontRenderer_);
+    debugFinalBossButton_.RefreshLayout();
+    debugFinalBossButton_.QueueText(fontRenderer_);
     styleRankHud_.UpdateHud(fontRenderer_); // 右上のスタイリッシュランク（BattleTestSceneと同じ体裁）
 
     // 基本ルートは常時見せ、コンボ開始後は現在地点と次の入力へ表示を切り替える。
@@ -361,7 +374,7 @@ void GamePlayScene::DrawStyleUI() {
         if (!chainActive) {
             fontRenderer_.DrawStringW(L"推奨コンボルート",
                 guideX, guideY, guideTitleScale, guideTitleColor);
-            fontRenderer_.DrawStringW(input_->ExpandPrompts(L"[{Attack}] x2  >  [{Down}+{Attack}] 打ち上げ  >  [{Jump}] ジャンプ  >  [{Attack}] 空中追撃  >  [{Shoot}] 射撃"),
+            fontRenderer_.DrawStringW(finalBoss_.ExpandPrompts(L"[{Attack}] x2  >  [{Down}+{Attack}] 打ち上げ  >  [{Jump}] ジャンプ  >  [{Attack}] 空中追撃  >  [{Shoot}] 射撃"),
                 guideX, guideY + guideRouteOffsetY, guideRouteScale, guideRouteColor);
         } else {
             std::wstring progress = L"COMBO  ";
@@ -403,7 +416,7 @@ void GamePlayScene::DrawStyleUI() {
             const GuideState state = { !player_->IsOnGround(), step, maxStep };
             for (const NextHint& hint : kNextHints) {
                 if (hint.applies(state)) {
-                    fontRenderer_.DrawStringW(input_->ExpandPrompts(hint.text),
+                    fontRenderer_.DrawStringW(finalBoss_.ExpandPrompts(hint.text),
                         guideX, guideY + guideNextOffsetY, guideNextScale, hint.color);
                     break;
                 }
@@ -414,8 +427,14 @@ void GamePlayScene::DrawStyleUI() {
     DrawWeaponFatigueWarning();
     DrawScriptMessage();
     DrawWeaponListPanel();
-    sceneShared::DrawControlsHud(fontRenderer_,
-        layout.Pos("controls.pos", kGameplayControlsAnchor), L": ステージを進む");
+    // ラスボス戦の間は、戦闘の前の操作説明と同じ闘技場の操作を出す
+    if (finalBoss_.IsActive()) {
+        sceneShared::DrawControlsPanel(fontRenderer_, layout.Pos("controls.pos", kGameplayControlsAnchor),
+            L"-- " + finalBoss_.ControlsTitle() + L" --", finalBoss_.ControlsRows());
+    } else {
+        sceneShared::DrawControlsHud(fontRenderer_,
+            layout.Pos("controls.pos", kGameplayControlsAnchor), L": ステージを進む");
+    }
     hud_.QueueText(fontRenderer_);
     // 倒した敵の頭上に武器回収の操作を出す（死んだかどうか・奪えるかが遠目にも分かるように）
     constexpr float kWeaponStealPromptHeight = 2.0f; // ロックオンマーカー（y+1.6）と重ならない高さ
@@ -668,34 +687,6 @@ void GamePlayScene::ApplyScriptControlLock() {
         if (action != Input::Action::kPause) {
             input_->SetActionOverride(action, false);
         }
-    }
-}
-
-/** @brief シーン固有の演出資源と登録済みコールバックを破棄する */
-void GamePlayScene::Finalize() {
-    motionEditor_.Close(*player_);
-    // enemy_/weaponEnemies_はStageEditor所有（非所有ポインタ）のため、EnemyRegistryへの
-    // 登録解除もStageEditor自身のReleaseLevelResources()が行う。ここでは何もしない
-    // デバッグパネルとカメラ揺れの受け口から、このシーンの登録を外す
-    ImGuiControlPanel::RegisterGlassShatterTrigger(nullptr);
-    SceneEffectBridge::GetInstance()->SetCameraShakeHandler({ });
-    SceneEffectBridge::GetInstance()->SetMessageHandler({ });
-    SceneEffectBridge::GetInstance()->SetCameraFocusHandler({ });
-    SceneEffectBridge::GetInstance()->SetControlLockHandler({ });
-    // 操作を止めたままシーンを抜けても、次の画面に上書きを残さない
-    if (scriptControlLocked_) {
-        input_->ClearActionOverrides();
-        scriptControlLocked_ = false;
-    }
-    // 描画先と演出の資源を片付ける
-    renderTexture_->Finalize(srvManager_);
-    pm_->ClearAllGroups();
-    finisherEffects::FinalizeAll(glassShatter_, finisherShatter_, spaceWarp_, bladeFlash_);
-    comboFeel_.Finalize();
-    // 音を全部止める（BGM・SE どちらも）
-    if (audio_) {
-        audio_->StopBGM();
-        audio_->StopAllSE();
     }
 }
 } // namespace engine::game

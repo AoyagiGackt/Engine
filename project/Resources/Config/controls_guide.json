@@ -1,0 +1,11 @@
+{
+  "_comment": "ステージの最初に一度だけ出す操作説明（アプリを起動している間に一度だけ）。stage.level のレベルの開始演出の後に出て、攻撃か決定キーで閉じる。{操作名} はキーボード・パッドに合わせた表記になる。lines は改行で行を分ける。配置は UI/gameplay.json の guide.*（F2）",
+  "stage": {
+    "level": "Resources/Levels/level01.json",
+    "title": "操作説明",
+    "lines": "{Move}  移動\n{Jump}  ジャンプ\n{Attack}  攻撃（続けて押すとコンボ）\n{Down}+{Attack}  打ち上げ\n{Shoot}  射撃\n{Dodge}  回避（攻撃に合わせるとジャスト回避）\n{Skill}  武器の固有技\n{Steal}  倒した敵の武器を奪う\n{Awaken}  覚醒    {Finisher}  フィニッシャー\n{Pause}  ポーズ・音量設定",
+    "confirm": "{Attack} / 決定キー で始める",
+    "minSeconds": 0.6,
+    "fadeSeconds": 0.3
+  }
+}

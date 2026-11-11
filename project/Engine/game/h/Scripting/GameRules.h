@@ -23,6 +23,7 @@ struct GameRulesData {
     bool debugGameOverButton = false; ///< trueならゲーム中にやられ演出をすぐ見るボタン（F9かクリック）を出す（評価・確認用）
     bool debugClearButton = false; ///< trueならゲーム中にクリアの決め演出をすぐ見るボタン（F5かクリック。押すたびに剣と銃を交互に見せる）を出す（評価・確認用）
     bool debugLiberationButton = false; ///< trueならマップにステージの解放演出をすぐ見るボタン（F5かクリック。進行は変えない）を出す（評価・確認用）
+    bool debugFinalBossButton = false; ///< trueならゲーム中にラスボス戦をすぐ始めるボタン（F4かクリック）を出す（評価・確認用）
     float resultDisplaySeconds = 2.5f; ///< クリア結果表示の秒数
     int finalFloor = 6; ///< このフロア以上でクリア扱い（それ未満は次のフロアへ）
     int bossHpCombat = 20;

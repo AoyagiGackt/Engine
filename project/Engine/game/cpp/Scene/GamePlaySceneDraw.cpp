@@ -152,7 +152,13 @@ void GamePlayScene::UpdateFinisherSlash(float dt) {
 
     // ステージの主の敵に当たった時だけ、本体を切断破片に差し替える（演出が飛散に移るまで本体は非表示）
     if (mainEnemyHit) {
-        enemySlice_.Start(enemy_->GetModel(), epos, { 1.0f, 1.0f, 1.0f }, rng_());
+        // ラスボスは隠している騎士ではなく、見えている黒い分身のモデルで切る
+        FinalBossBattle::SliceSource shadow;
+        if (finalBoss_.GetSliceSource(shadow)) {
+            enemySlice_.Start(shadow.model, shadow.position, shadow.scale, rng_());
+        } else {
+            enemySlice_.Start(enemy_->GetModel(), epos, { 1.0f, 1.0f, 1.0f }, rng_());
+        }
         enemy_->SetVisible(false);
     }
 
@@ -373,6 +379,8 @@ void GamePlayScene::DrawWorldAndActors() {
     }
 
     player_->Draw();
+    // ラスボス戦の闘技場・黒い分身・撃ち出す剣
+    finalBoss_.Draw3D();
     // weaponEnemies_/enemy_の描画自体はStageEditor所有のためGetStageEditor().DrawObjects()
     // （このすぐ上で呼び済み）が担う。ここで二重に呼ぶとブロックが二重描画されてしまう
     enemySlice_.Draw();

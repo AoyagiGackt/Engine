@@ -100,4 +100,22 @@ void EnemyEntity::UpdateDuringHitStop() {
     weaponObject_->Update();
     SyncMonsterVisual(false);
 }
+
+/** @brief 台本で動かす間の1フレーム（位置・向き・武器の位置を見た目へ反映するだけで、AI と物理は進めない） */
+void EnemyEntity::UpdateScripted() {
+    // 攻撃の合図は台本の側が出すので、自前の攻撃は始めない
+    justLanded_ = false;
+    justFiredAttack_ = false;
+    justStartedTelegraph_ = false;
+    knockVelX_ = 0.0f;
+    hitFlashTimer_ = (std::max)(hitFlashTimer_ - gameConstants::kFrameDeltaTime, 0.0f);
+    // 向きと位置を反映して行列を更新する
+    const float facingYaw = facingSign_ >= 0.0f ? gameConstants::kHalfPi : -gameConstants::kHalfPi;
+    object_->SetRotation({ 0.0f, facingYaw, 0.0f });
+    weaponObject_->SetRotation({ 0.0f, facingYaw, kWeaponRestTilt });
+    object_->SetPosition(pos_);
+    PlaceWeapon(pos_);
+    object_->Update();
+    weaponObject_->Update();
+}
 } // namespace engine::game

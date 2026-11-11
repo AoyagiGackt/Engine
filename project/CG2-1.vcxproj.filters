@@ -674,6 +674,9 @@
     <ClCompile Include="Engine\game\cpp\UI\DebugButton.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI\部品</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\UI\GuidePanel.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\UI\部品</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp">
       <Filter>ソースファイル\Engine\game\cpp\UI\HUD</Filter>
     </ClCompile>
@@ -689,8 +692,38 @@
     <ClCompile Include="Engine\game\cpp\Scene\PlayerDefeat.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\PlayerDefeatTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\ClearFinish.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossArena.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossBody.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossBattle.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossTelegraph.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossHud.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossMoves.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossPhases.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossTuning.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneFinalBoss.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\ゲームプレイ</Filter>
     </ClCompile>
     <ClCompile Include="Engine\game\cpp\Scene\StageLiberation.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\演出</Filter>
@@ -780,6 +813,9 @@
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorLabels.cpp">
+      <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorVisuals.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp">
@@ -910,6 +946,9 @@
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp">
       <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\game\cpp\Scene\MapSceneUI.cpp">
+      <Filter>ソースファイル\Engine\game\cpp\Scene\画面</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp">
       <Filter>ソースファイル\Engine\graphics\cpp\Effect\ポストエフェクト</Filter>
     </ClCompile>
@@ -969,7 +1008,25 @@
     <ClInclude Include="Engine\game\h\Scene\PlayerDefeat.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\PlayerDefeatTuning.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\ClearFinish.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinalBossArena.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinalBossBattle.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinalBossTelegraph.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinalBossHud.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\FinalBossTuning.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene\演出</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\StageLiberation.h">
@@ -1239,6 +1296,9 @@
     <ClInclude Include="Engine\game\h\UI\DebugButton.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI\部品</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\game\h\UI\GuidePanel.h">
+      <Filter>ヘッダーファイル\Engine\game\h\UI\部品</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h">
       <Filter>ヘッダーファイル\Engine\game\h\UI\HUD</Filter>
     </ClInclude>
@@ -1463,6 +1523,9 @@
     <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditor.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditorShared.h">
+      <Filter>ヘッダーファイル\Engine\graphics\h\ImGui</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h">
       <Filter>ヘッダーファイル\Engine\graphics\h\Effect\ポストエフェクト</Filter>
     </ClInclude>
@@ -1491,6 +1554,9 @@
       <Filter>ヘッダーファイル\Engine\game\h\Player</Filter>
     </ClInclude>
     <ClInclude Include="Engine\game\h\Scene\MapScene.h">
+      <Filter>ヘッダーファイル\Engine\game\h\Scene\画面</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\game\h\Scene\MapNodeInfo.h">
       <Filter>ヘッダーファイル\Engine\game\h\Scene\画面</Filter>
     </ClInclude>
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h">
@@ -1778,6 +1844,15 @@
       <Filter>JSON\演出</Filter>
     </None>
     <None Include="Resources\Config\clear_finish.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\controls_guide.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\final_boss.json">
+      <Filter>JSON\演出</Filter>
+    </None>
+    <None Include="Resources\Config\final_boss_stage.json">
       <Filter>JSON\演出</Filter>
     </None>
     <None Include="Resources\Config\player_defeat.json">

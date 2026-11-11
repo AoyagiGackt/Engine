@@ -246,12 +246,23 @@
     <ClCompile Include="Engine\game\cpp\Scene\SceneShared.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ScoreManager.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\DebugButton.cpp" />
+    <ClCompile Include="Engine\game\cpp\UI\GuidePanel.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\StyleMeter.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\ResultBackdrop.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\OptionsScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\TitleScene.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\PlayerDefeat.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\PlayerDefeatTuning.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\ClearFinish.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossArena.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossBody.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossBattle.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossTelegraph.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossHud.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossMoves.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossPhases.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\FinalBossTuning.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\GamePlaySceneFinalBoss.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\StageLiberation.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\StageIntro.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\FinisherEffects.cpp" />
@@ -280,6 +291,7 @@
     <ClCompile Include="Engine\graphics\cpp\ImGui\EditorUI.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditor.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorLabels.cpp" />
+    <ClCompile Include="Engine\graphics\cpp\ImGui\JsonConfigEditorVisuals.cpp" />
     <ClCompile Include="Engine\graphics\cpp\ImGui\ImGuiControlPanel.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\LightManager.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Light\CascadedShadowMap.cpp" />
@@ -324,6 +336,7 @@
     <ClCompile Include="Engine\game\cpp\UI\UIMenu.cpp" />
     <ClCompile Include="Engine\game\cpp\UI\UILayout.cpp" />
     <ClCompile Include="Engine\game\cpp\Scene\MapScene.cpp" />
+    <ClCompile Include="Engine\game\cpp\Scene\MapSceneUI.cpp" />
     <ClCompile Include="Engine\graphics\cpp\Effect\SSAOEffect.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -749,7 +762,13 @@
     <ClInclude Include="Engine\game\h\Scene\BattleTestTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\TitleDemoTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\PlayerDefeat.h" />
+    <ClInclude Include="Engine\game\h\Scene\PlayerDefeatTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\ClearFinish.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinalBossArena.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinalBossBattle.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinalBossTelegraph.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinalBossHud.h" />
+    <ClInclude Include="Engine\game\h\Scene\FinalBossTuning.h" />
     <ClInclude Include="Engine\game\h\Scene\StageLiberation.h" />
     <ClInclude Include="Engine\game\h\Scene\StageIntro.h" />
     <ClInclude Include="Engine\game\h\Scene\FinisherEffects.h" />
@@ -807,6 +826,7 @@
     <ClInclude Include="Engine\game\h\Scene\SceneShared.h" />
     <ClInclude Include="Engine\game\h\UI\ScoreManager.h" />
     <ClInclude Include="Engine\game\h\UI\DebugButton.h" />
+    <ClInclude Include="Engine\game\h\UI\GuidePanel.h" />
     <ClInclude Include="Engine\game\h\UI\StyleMeter.h" />
     <ClInclude Include="Engine\game\h\UI\ResultBackdrop.h" />
     <ClInclude Include="Engine\game\h\Scene\OptionsScene.h" />
@@ -880,6 +900,7 @@
     <ClInclude Include="Engine\graphics\h\Offscreen\RenderTexture.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\EditorUI.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditor.h" />
+    <ClInclude Include="Engine\graphics\h\ImGui\JsonConfigEditorShared.h" />
     <ClInclude Include="Engine\graphics\h\ImGui\ImGuiControlPanel.h" />
     <ClInclude Include="Engine\graphics\h\Effect\BloomEffect.h" />
     <ClInclude Include="Engine\game\h\Util\AnimationStateMachine.h" />
@@ -922,6 +943,7 @@
     <ClInclude Include="Engine\game\h\UI\UILayout.h" />
     <ClInclude Include="Engine\game\h\Player\RunData.h" />
     <ClInclude Include="Engine\game\h\Scene\MapScene.h" />
+    <ClInclude Include="Engine\game\h\Scene\MapNodeInfo.h" />
     <ClInclude Include="Engine\graphics\h\Effect\SSAOEffect.h" />
     <ClInclude Include="Engine\graphics\h\Diagnostics\FrameProfiler.h" />
     <ClInclude Include="Engine\graphics\h\RenderPassGraph.h" />
@@ -946,6 +968,9 @@
     <None Include="Resources\Config\graphics_tuning.json" />
     <None Include="Resources\Config\stage_intro.json" />
     <None Include="Resources\Config\clear_finish.json" />
+    <None Include="Resources\Config\controls_guide.json" />
+    <None Include="Resources\Config\final_boss.json" />
+    <None Include="Resources\Config\final_boss_stage.json" />
     <None Include="Resources\Config\player_defeat.json" />
     <None Include="Resources\Config\stage_liberation.json" />
     <None Include="Resources\Config\scene_cameras.json" />

@@ -588,9 +588,12 @@ void GamePlayScene::UpdateParticles(float dt) {
 
     UpdateLandingAndJumpDustParticles();
     UpdateGhostTrail(dt);
-    UpdatePlayerEnemyContactHit(dt);
     UpdateEnemyAttackOnPlayer(dt);
-    UpdateBossSlamAttack(dt);
+    // ラスボスは体当たりと叩きつけの代わりに自分の技で攻める
+    if (!finalBoss_.IsActive()) {
+        UpdatePlayerEnemyContactHit(dt);
+        UpdateBossSlamAttack(dt);
+    }
     UpdateStyleTechniqueParticles(dt);
 
     auto emitDefeat = [this](const Vector3& pos) {

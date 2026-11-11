@@ -135,6 +135,15 @@ public:
         return pending;
     }
 
+    /** @brief ラスボス戦を残しているか（最後のステージをクリアしてから、ラスボスを倒すまで true） */
+    bool IsFinalBossPending() const {
+        return finalBossPending_;
+    }
+    /** @brief ラスボス戦を残しているかを決める（最後のステージのクリアで true、ラスボスの撃破で false） */
+    void SetFinalBossPending(bool pending) {
+        finalBossPending_ = pending;
+    }
+
     /**
      * @brief ボスから奪った技を習得済みにする（game_rules.jsonのbossTechnique名）
      * @note ボスの武器奪取と同時に呼ばれる。以降、該当する固有技が強化版になる
@@ -233,6 +242,7 @@ public:
         playFloor_ = 0;
         portalReturnPending_ = false;
         liberationPending_ = false;
+        finalBossPending_ = false;
         skills_.clear();
         bossTechniques_.clear();
         stageRecords_.clear();
@@ -258,6 +268,7 @@ public:
         playFloor_ = floor;
         portalReturnPending_ = false;
         liberationPending_ = false;
+        finalBossPending_ = false;
         currentNode_ = node;
         skills_ = skills;
         stageRecords_ = stageRecords;
@@ -346,6 +357,7 @@ private:
     int playFloor_ = 0; ///< 今遊んでいるステージ（クリア済みを遊び直す時は floor_ より小さい）
     bool portalReturnPending_ = false; ///< 入口から戻る演出の印
     bool liberationPending_ = false; ///< クリアしたステージの解放演出をマップでまだ見せていないか
+    bool finalBossPending_ = false; ///< ラスボス戦を残しているか
     NodeType currentNode_ = NodeType::kCombat; ///< 現在選択されているノード種別
 
     /** @brief 習得済みスキルのリスト */

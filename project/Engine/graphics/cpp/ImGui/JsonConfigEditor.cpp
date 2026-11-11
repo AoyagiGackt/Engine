@@ -4,6 +4,7 @@
  */
 #ifdef USE_IMGUI
 #include "JsonConfigEditor.h"
+#include "JsonConfigEditorShared.h"
 #include "EditorUI.h"
 #include "JsonHelper.h"
 #include <algorithm>
@@ -19,15 +20,19 @@ namespace {
 
 constexpr const char* kWindowTitle = "調整値エディタ";
 constexpr float kFileListWidth = 210.0f;
-constexpr float kLabelWidthRatio = 0.45f; // 項目名に使う横幅の割合
 constexpr double kAssetRescanSeconds = 3.0; // 素材フォルダを調べ直す間隔
 constexpr size_t kMaxUndoCount = 50; // 元に戻せる回数
 constexpr ImVec2 kInitialWindowSize = { 760.0f, 560.0f }; // 初めて開いた時のウィンドウの大きさ
 constexpr size_t kVector3Size = 3;
 constexpr size_t kColorSize = 4;
-constexpr ImVec4 kLiveColor = { 0.45f, 0.9f, 0.5f, 1.0f };
-constexpr ImVec4 kNextBootColor = { 0.75f, 0.75f, 0.75f, 1.0f };
+using jsonConfigEditorShared::kLiveColor;
+using jsonConfigEditorShared::kNextBootColor;
+using jsonConfigEditorShared::SavedChild;
+using jsonConfigEditorShared::SavedElement;
 constexpr const char* kNoFileLabel = "（なし）";
+constexpr const char* kNumberFormat = "%.4g"; ///< 小数の表示の書式（単位はこの後ろに付ける）
+constexpr ImGuiColorEditFlags kColorFlags = ImGuiColorEditFlags_Float | ImGuiColorEditFlags_AlphaBar
+    | ImGuiColorEditFlags_AlphaPreviewHalf; ///< 色の編集（0〜1の数値、不透明度の帯と市松模様の見本）
 
 /** @brief 拡張子ごとの素材の種類（プルダウンの候補を同じ種類に絞るのに使う） */
 struct AssetCategory {
@@ -86,9 +91,9 @@ bool IsNumberArray(const nlohmann::json& value, size_t size) {
     return std::all_of(value.begin(), value.end(), [](const nlohmann::json& v) { return v.is_number(); });
 }
 
-/** @brief 色として編集する配列か（キーに color を含む4つの数値） */
-bool IsColor(const nlohmann::json& value, const std::string& key) {
-    return IsNumberArray(value, kColorSize) && ToLower(key).find("color") != std::string::npos;
+/** @brief 色として編集する配列か（キーに color を含む4つの数値、または不透明度の無い3つの数値） */
+bool IsColor(const nlohmann::json& value, const std::string& key, size_t size) {
+    return IsNumberArray(value, size) && ToLower(key).find("color") != std::string::npos;
 }
 
 /** @brief 配列の要素の見出し（name / id / type のどれかがあればそれを添える） */
@@ -297,14 +302,7 @@ void JsonConfigEditor::DrawFileList() {
     editorUI::HelpMarker("フォルダに足したJSONや、名前の表（tuning_labels.json）の変更を読み込み直します");
     ImGui::Separator();
     for (int i = 0; i < static_cast<int>(files_.size()); ++i) {
-        const FileEntry& entry = files_[i];
-        const std::string caption = (entry.dirty ? "* " : "") + entry.title + "##" + entry.fileName;
-        if (ImGui::Selectable(caption.c_str(), selected_ == i)) {
-            selected_ = i;
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", entry.fileName.c_str());
-        }
+        DrawFileListRow(i);
     }
     ImGui::EndChild();
 }
@@ -367,6 +365,10 @@ void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
     DrawFileToolbar(entry);
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##filter", "項目を探す（日本語の名前かキー）", filter_, sizeof(filter_));
+    // 保存時から変えた数を添え、変えた項目だけに絞り込めるようにする
+    const std::string changedOnlyLabel = "変えた項目だけ出す（" + std::to_string(CountChanges(entry.data, &entry.saved)) + " 件）###changedOnly";
+    ImGui::Checkbox(changedOnlyLabel.c_str(), &showChangedOnly_);
+    ImGui::SameLine();
     ImGui::TextDisabled("数値は左右にドラッグ（Shiftで速く、Altで細かく）。ダブルクリックで直接入力");
 
     if (!entry.data.is_object()) {
@@ -382,7 +384,8 @@ void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
     }
     ImGui::Separator();
     ImGui::BeginChild("##tree");
-    if (DrawValue(entry.data, "", "", entry.title, 0)) {
+    rowIndex_ = 0;
+    if (DrawValue(entry.data, "", "", entry.title, 0, &entry.saved)) {
         entry.dirty = true;
         entry.pendingEdit = true;
     }
@@ -392,20 +395,23 @@ void JsonConfigEditor::DrawFileContents(FileEntry& entry) {
 }
 
 /** @brief JSONの1つの値を編集部品として描く */
-bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth) {
+bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth,
+    const nlohmann::json* saved) {
     if (!MatchesFilter(value, path, key)) {
+        return false;
+    }
+    // 変えた項目だけ出す時は、保存時と同じ値（入れ子なら中身が全部同じ）を飛ばす
+    if (showChangedOnly_ && depth > 0 && saved != nullptr && *saved == value) {
         return false;
     }
     bool changed = false;
     if (value.is_object()) {
-        // 検索中は畳まれていても中身が見えるように開く
-        if (depth > 0 && filter_[0] != '\0') {
+        // 検索中と変えた項目だけ出す時は、畳まれていても中身が見えるように開く
+        if (depth > 0 && (filter_[0] != '\0' || showChangedOnly_)) {
             ImGui::SetNextItemOpen(true);
         }
-        // 直下はそのまま並べ、入れ子は畳める見出しにする
-        const bool opened = depth == 0
-            || (depth == 1 ? ImGui::CollapsingHeader((label + "##" + path).c_str(), ImGuiTreeNodeFlags_DefaultOpen)
-                           : ImGui::TreeNode((label + "##" + path).c_str()));
+        // 直下はそのまま並べ、入れ子は色分けした畳める見出しにする
+        const bool opened = depth == 0 || DrawSectionHeader(label, path, value, saved, depth);
         if (!opened) {
             return false;
         }
@@ -419,7 +425,7 @@ bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path,
             }
             const std::string childPath = JoinPath(path, it.key());
             ImGui::PushID(it.key().c_str());
-            changed |= DrawValue(it.value(), childPath, it.key(), LabelFor(childPath, it.key()), depth + 1);
+            changed |= DrawValue(it.value(), childPath, it.key(), LabelFor(childPath, it.key()), depth + 1, SavedChild(saved, it.key()));
             ImGui::PopID();
         }
         filterMatchedAncestors_ -= ownMatch ? 1 : 0;
@@ -429,20 +435,27 @@ bool JsonConfigEditor::DrawValue(nlohmann::json& value, const std::string& path,
         return changed;
     }
     if (value.is_array()) {
-        return DrawArray(value, path, key, label, depth);
+        return DrawArray(value, path, key, label, depth, saved);
     }
 
-    BeginRow(label, path);
+    // 戻すボタンが押されたら保存時の値へ戻し、続けて戻した値で部品を描く
+    if (BeginRow(label, path, value, saved)) {
+        value = *saved;
+        changed = true;
+    }
     if (value.is_boolean()) {
+        // オン・オフが色で分かるよう、チェックの横に状態を書く
         bool flag = value.get<bool>();
         if (ImGui::Checkbox("##value", &flag)) {
             value = flag;
             changed = true;
         }
+        ImGui::SameLine();
+        ImGui::TextColored(flag ? kLiveColor : kNextBootColor, flag ? "オン" : "オフ");
     } else if (value.is_number()) {
-        changed = DrawNumber(value, path, key);
+        changed |= DrawNumber(value, path, key);
     } else if (value.is_string()) {
-        changed = DrawString(value);
+        changed |= DrawString(value);
     } else {
         ImGui::TextDisabled("(空)");
     }
@@ -462,12 +475,23 @@ bool JsonConfigEditor::DrawNumber(nlohmann::json& value, const std::string& path
         }
         return false;
     }
+    // 単位は数値の後ろに書く（%% は書式の中で % をそのまま出すための書き方）
     float number = value.get<float>();
-    if (editorUI::AutoDragFloat("##value", &number)) {
-        value = number;
-        return true;
+    std::string unit = UnitFor(path, key);
+    for (size_t at = unit.find('%'); at != std::string::npos; at = unit.find('%', at + 2)) {
+        unit.insert(at, "%");
     }
-    return false;
+    const std::string format = unit.empty() ? kNumberFormat : std::string(kNumberFormat) + " " + unit;
+    // 範囲が決まっている値は、どのくらいの位置かが見えるスライダーにする
+    float minValue = 0.0f;
+    float maxValue = 0.0f;
+    const bool changed = RangeFor(path, key, number, minValue, maxValue)
+        ? ImGui::SliderFloat("##value", &number, minValue, maxValue, format.c_str())
+        : editorUI::AutoDragFloat("##value", &number, 1, format.c_str());
+    if (changed) {
+        value = number;
+    }
+    return changed;
 }
 
 /** @brief 文字列を編集する（ファイルの場所なら、素材フォルダから自動で集めた候補のプルダウンにする） */
@@ -505,21 +529,39 @@ bool JsonConfigEditor::DrawString(nlohmann::json& value) {
 }
 
 /** @brief 配列を編集する（3つの数値=ベクトル、色=カラーピッカー、それ以外は要素の一覧と追加・削除） */
-bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth) {
-    if (IsColor(value, key)) {
-        BeginRow(label, path);
+bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path, const std::string& key, const std::string& label, int depth,
+    const nlohmann::json* saved) {
+    // 色・ベクトルは1行で編集する（戻すボタンが押されたら保存時の値に戻してから描く）
+    const bool rowValue = IsColor(value, key, kColorSize) || IsNumberArray(value, kVector3Size);
+    bool reverted = false;
+    if (rowValue && BeginRow(label, path, value, saved)) {
+        value = *saved;
+        reverted = true;
+    }
+    if (IsColor(value, key, kColorSize)) {
         float color[kColorSize];
         for (size_t i = 0; i < kColorSize; ++i) {
             color[i] = value[i].get<float>();
         }
-        if (ImGui::ColorEdit4("##value", color, ImGuiColorEditFlags_Float)) {
+        if (ImGui::ColorEdit4("##value", color, kColorFlags)) {
             value = nlohmann::json::array({ color[0], color[1], color[2], color[3] });
             return true;
         }
-        return false;
+        return reverted;
+    }
+    if (IsColor(value, key, kVector3Size)) {
+        // 不透明度の無い色（光の色など）も色の見本で選べるようにする
+        float color[kVector3Size];
+        for (size_t i = 0; i < kVector3Size; ++i) {
+            color[i] = value[i].get<float>();
+        }
+        if (ImGui::ColorEdit3("##value", color, kColorFlags)) {
+            value = nlohmann::json::array({ color[0], color[1], color[2] });
+            return true;
+        }
+        return reverted;
     }
     if (IsNumberArray(value, kVector3Size)) {
-        BeginRow(label, path);
         float vector[kVector3Size];
         for (size_t i = 0; i < kVector3Size; ++i) {
             vector[i] = value[i].get<float>();
@@ -528,7 +570,7 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
             value = nlohmann::json::array({ vector[0], vector[1], vector[2] });
             return true;
         }
-        return false;
+        return reverted;
     }
 
     const std::string caption = label + " (" + std::to_string(value.size()) + ")##" + path;
@@ -564,11 +606,12 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
                         continue;
                     }
                     ImGui::PushID(it.key().c_str());
-                    changed |= DrawValue(it.value(), JoinPath(path, it.key()), it.key(), LabelFor(JoinPath(path, it.key()), it.key()), depth + 2);
+                    changed |= DrawValue(it.value(), JoinPath(path, it.key()), it.key(), LabelFor(JoinPath(path, it.key()), it.key()), depth + 2,
+                        SavedChild(SavedElement(saved, i), it.key()));
                     ImGui::PopID();
                 }
                 if (element.is_array()) {
-                    changed |= DrawArray(element, path, key, ElementCaption(element, i), depth + 2);
+                    changed |= DrawArray(element, path, key, ElementCaption(element, i), depth + 2, SavedElement(saved, i));
                 }
                 if (ImGui::SmallButton("この要素を消す")) {
                     removeIndex = static_cast<int>(i);
@@ -581,7 +624,7 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
                 removeIndex = static_cast<int>(i);
             }
             ImGui::SameLine();
-            changed |= DrawValue(element, path, key, ElementCaption(element, i), depth + 1);
+            changed |= DrawValue(element, path, key, ElementCaption(element, i), depth + 1, SavedElement(saved, i));
         }
         ImGui::PopID();
     }
@@ -602,19 +645,6 @@ bool JsonConfigEditor::DrawArray(nlohmann::json& value, const std::string& path,
         ImGui::TreePop();
     }
     return changed;
-}
-
-/** @brief 項目名を左側に出し、続く編集部品を右側に置く準備をする */
-void JsonConfigEditor::BeginRow(const std::string& label, const std::string& path) {
-    const float labelWidth = ImGui::GetContentRegionAvail().x * kLabelWidthRatio;
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(label.c_str());
-    if (ImGui::IsItemHovered()) {
-        const std::string help = HelpFor(path);
-        ImGui::SetTooltip("%s%sキー: %s", help.c_str(), help.empty() ? "" : "\n", path.c_str());
-    }
-    ImGui::SameLine(labelWidth);
-    ImGui::SetNextItemWidth(-FLT_MIN);
 }
 
 /** @brief 項目自身の名前かキーが検索語に当てはまるか */

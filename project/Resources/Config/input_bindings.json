@@ -15,6 +15,11 @@
         "Steal":     { "primary": "J",     "secondary": "",      "gamepad": "LT" },
         "Interact":  { "primary": "Enter", "secondary": "",      "gamepad": "LT" },
         "LockOn":    { "primary": "LShift", "secondary": "",    "gamepad": "RT" },
-        "Pause":     { "primary": "P",     "secondary": "",      "gamepad": "Start" }
+        "Pause":     { "primary": "P",     "secondary": "",      "gamepad": "Start" },
+        "ArenaForward": { "primary": "W",  "secondary": "Up",    "gamepad": "" },
+        "ArenaBack":    { "primary": "S",  "secondary": "Down",  "gamepad": "" },
+        "ArenaLeft":    { "primary": "A",  "secondary": "Left",  "gamepad": "" },
+        "ArenaRight":   { "primary": "D",  "secondary": "Right", "gamepad": "" },
+        "ArenaJump":    { "primary": "U",  "secondary": "",      "gamepad": "A" }
     }
 }

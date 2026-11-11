@@ -77,6 +77,10 @@ void GamePlayScene::UpdateTargetLock() {
 
 /** @brief ステージ境界と開始演出に合わせて追従カメラを更新する */
 void GamePlayScene::UpdateCamera() {
+    // ラスボス戦の闘技場ではプレイヤーの後ろから映す
+    if (UpdateArenaCamera()) {
+        return;
+    }
     // カメラをプレイヤーに追従（境界ブロックが画面外に出ないよう clamp）。開始演出とやられ演出の間は演出が決めた位置と引きで映す
     Vector3 ppos = player_->GetPosition();
     // 引いた分だけ画面に映る範囲も広がる（透視投影なので距離に比例する）

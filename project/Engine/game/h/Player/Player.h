@@ -8,6 +8,7 @@
 #include "CollisionConfig.h"
 #include "GunCombo.h"
 #include "ComboMotion.h"
+#include "GameConstants.h"
 #include "MeleeCombo.h"
 #include "Model.h"
 #include "Object3d.h"
@@ -97,6 +98,24 @@ public:
     void SetCinematicAnimationSpeed(float speed);
     /** @brief 演出の間だけ、加算モーションの代わりに掛けるポーズレイヤー（nullptr で加算モーションへ戻す。レイヤーは呼び出し側が持ち続ける） */
     void SetCinematicPoseLayer(const engine::graphics::IPoseLayer* layer);
+    /** @brief 本体と持ち物の色とリムライトの色を決める（演出用の分身を黒く見せる時など。UpdateVisualState を通さない時だけ残る） */
+    void SetAppearanceTint(const Vector4& color, const Vector3& rimColor);
+    /** @brief 見た目の向きに足す縦軸回りの角度（ラジアン。闘技場で横へ回り込む時に進む方を向かせる。当たり判定の向きは変えない） */
+    void SetVisualYawOffset(float radians) {
+        visualYawOffset_ = radians;
+    }
+    /** @brief 左右の移動入力が無くても走りのアニメにするか（闘技場で横へ回り込んでいる間） */
+    void SetStrafeMoving(bool moving) {
+        strafeMoving_ = moving;
+    }
+    /** @brief 手に持つ近接武器の握りの回転に足す角度（ラジアン。演出用の分身の持ち方を直す時に使う） */
+    void SetHeldWeaponGripOffset(const Vector3& radians) {
+        heldGripOffset_ = radians;
+    }
+    /** @brief 銃を描かないようにする（演出用の分身は刀だけを持たせる） */
+    void SetGunHidden(bool hidden) {
+        gunHidden_ = hidden;
+    }
     /**
      * @brief 乱舞中でない時、渡した敵のどれとも一定距離以上重ならないようX座標を押し出す
      * @note プレイヤーが敵を押しのけず、敵の手前で止まるようにする（地形との判定 ResolveBlockCollision より前に呼ぶ）
@@ -145,6 +164,8 @@ public:
     void SetWaterLevel(float waterLevelY) {
         waterLevel_ = waterLevelY;
     }
+    /** @brief 静的モデル（GetModel）を本体と同じ所に置く時の位置と倍率（切断の破片を本体に重ねる時など） */
+    void GetStaticModelPlacement(Vector3& outPosition, float& outScale) const;
     /** @brief 残像・分身演出用の静的モデル（ボーンなし、現在のフォームの見た目）のポインタを返す */
     Model* GetModel() const {
         return rig_->staticModel;
@@ -542,6 +563,14 @@ private:
 
     // 向き（最後に入力した横方向+1=右 -1=左）
     float lastDirX_ = 1.0f;
+    float visualYawOffset_ = 0.0f; ///< 見た目の向きだけに足す角度（SetVisualYawOffset）
+    bool strafeMoving_ = false; ///< 横へ回り込んでいて走りのアニメにするか（SetStrafeMoving）
+    bool gunHidden_ = false; ///< 銃を描かないか（SetGunHidden）
+    Vector3 heldGripOffset_ { }; ///< 近接武器の握りの回転に足す角度（SetHeldWeaponGripOffset）
+    /** @brief 見た目の縦軸回りの向き（左右の向きに SetVisualYawOffset の角度を足したもの） */
+    float FacingYaw() const {
+        return (lastDirX_ >= 0.0f ? gameConstants::kHalfPi : -gameConstants::kHalfPi) + visualYawOffset_;
+    }
 
     // 覚醒ゲージ
     float awakenGauge_ = 0.0f;

@@ -360,8 +360,8 @@ float DrawHudHeader(FontRenderer& fontRenderer, const wchar_t* headerText, const
     return anchor.y + FontRenderer::kCharH * scale + kHudSectionGap;
 }
 
-/** @brief 右側の操作説明パネルを描画する */
-void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel) {
+/** @brief 右側の操作説明パネルを描画する（見出しと、1行ずつの説明。右端からはみ出さないよう左へ寄せる） */
+void DrawControlsPanel(FontRenderer& fontRenderer, const Vector2& anchor, const std::wstring& header, const std::vector<std::wstring>& rows) {
     // ── 操作説明（右パネル） ─────────────────────────────────────────
     // 明るいブロックの上に乗ると薄い色の文字が背景に埋もれるため、色自体を変えるだけでなく
     // 影を1枚後ろに敷いて、背景が明るくても暗くても文字の輪郭が必ず見えるようにする
@@ -383,7 +383,23 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
         fontRenderer.DrawStringW(text, x, y, scale, color);
     };
 
-    const std::wstring header = L"-- 操作説明 --";
+    // 入力機器ごとの表記と影を含めて右端に余白を確保する。
+    constexpr float kRightMargin = 16.0f;
+    float maxWidth = FontRenderer::MeasureStringW(header, scale).x;
+    for (const auto& text : rows) {
+        maxWidth = (std::max)(maxWidth, FontRenderer::MeasureStringW(text, scale).x);
+    }
+    x = (std::min)(x, gameConstants::kScreenWidth - kRightMargin - maxWidth - kShadowOffset);
+    drawShadowed(header, iy, headerColor);
+    iy += lineHeight + kHudSectionGap;
+    for (const auto& text : rows) {
+        drawShadowed(text, iy, textColor);
+        iy += lineHeight;
+    }
+}
+
+/** @brief 右側の操作説明パネルを、本編の操作の一覧で描画する */
+void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wchar_t* portalActionLabel) {
     std::vector<std::wstring> rows;
 
     // {操作名} は最後に使った機器（キーボード/パッド）のボタン名へ置き換わる
@@ -407,19 +423,7 @@ void DrawControlsHud(FontRenderer& fontRenderer, const Vector2& anchor, const wc
     row(L"{Finisher}", L": フィニッシャー");
     row(L"{Pause}", L": ポーズ・音量設定");
 
-    // 入力機器ごとの表記と影を含めて右端に余白を確保する。
-    constexpr float kRightMargin = 16.0f;
-    float maxWidth = FontRenderer::MeasureStringW(header, scale).x;
-    for (const auto& text : rows) {
-        maxWidth = (std::max)(maxWidth, FontRenderer::MeasureStringW(text, scale).x);
-    }
-    x = (std::min)(x, gameConstants::kScreenWidth - kRightMargin - maxWidth - kShadowOffset);
-    drawShadowed(header, iy, headerColor);
-    iy += lineHeight + kHudSectionGap;
-    for (const auto& text : rows) {
-        drawShadowed(text, iy, textColor);
-        iy += lineHeight;
-    }
+    DrawControlsPanel(fontRenderer, anchor, L"-- 操作説明 --", rows);
 }
 
 

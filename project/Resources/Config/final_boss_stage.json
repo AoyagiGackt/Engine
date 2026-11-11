@@ -1,0 +1,23 @@
+{
+  "radius": 12.0,
+  "floorY": -0.1,
+  "floorThickness": 0.6,
+  "floorSlices": 48,
+  "rimCount": 96,
+  "rimHeight": 0.12,
+  "rimWidth": 0.16,
+  "pillarCount": 8,
+  "pillarHeight": 7.0,
+  "pillarDistance": 15.0,
+  "pillarWidth": 0.85,
+  "pulseSpeed": 2.0,
+  "pulseDepth": 0.18,
+  "particleInterval": 0.16,
+  "particleHeight": 3.0,
+  "particleSpeed": 0.18,
+  "particleLife": 4.0,
+  "particleSize": 0.07,
+  "stoneColor": [0.12, 0.13, 0.18, 1.0],
+  "calmColor": [0.65, 0.75, 1.0, 1.0],
+  "rageColor": [1.0, 0.12, 0.2, 1.0]
+}
